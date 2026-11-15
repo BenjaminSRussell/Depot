@@ -24,7 +24,6 @@ const (
 	CodeStagedDenied        = "MIG-1581"
 	CodeStagedRefusedBatch  = "MIG-1582"
 	CodeNoStagedLoad        = "MIG-1583"
-	CodeStagedJournal       = "MIG-1584"
 )
 
 // StagedTarget is the opening-balance service the staged lines are loaded into; *target.Staged implements it for assets, production and payroll.

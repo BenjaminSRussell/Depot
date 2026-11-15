@@ -329,3 +329,50 @@ func TestStagedLoad_WIPOrdersGoToProductionAndTheJournalIsBooked(t *testing.T) {
 		t.Fatalf("no ledger: %d %s", rec.Code, rec.Body)
 	}
 }
+
+func payYTD(id, worker, tax, ded, net string) string {
+	return fmt.Sprintf(`{"legacyId":%q,"worker":%q,"taxYear":"2026","currency":"USD","gross":"1000","tax":%q,"deductions":%q,"net":%q}`, id, worker, tax, ded, net)
+}
+
+// A worker's year goes to payroll as four pay-element lines, the workers are found through the cross-reference or the request, nothing is
+// journalled, and the totals per element reconcile (#49).
+func TestStagedLoad_PayrollYearsGoToPayrollAsPayElements(t *testing.T) {
+	e := newStagedEnv(t)
+	run := e.startStaged(t, "payroll_ytd", `"E1","E2","E3"`, payYTD("PY-1", "E1", "100", "0", "900"), payYTD("PY-2", "E2", "200", "50", "750"), payYTD("PY-3", "E3", "0", "0", "1000"))
+	got := e.stagedLoad(t, run.RunID, fmt.Sprintf(`{"legalEntityId":%q}`, leA), http.StatusOK)
+	// E3 has no worker id in the cross-reference or the request: its year is held back, the others load.
+	if got.Status != "MISMATCH" || got.Loaded != 2 || got.Rejected != 1 {
+		t.Fatalf("load %+v", got)
+	}
+	rej := e.detail(t, run.RunID).Rejects
+	if len(rej) != 1 || rej[0].LegacyID != "PY-3" || rej[0].Code != "MIG-REF-UNRESOLVED" {
+		t.Fatalf("rejects %+v", rej)
+	}
+	keys := e.payroll.Batches()
+	if len(keys) != 1 || !strings.HasPrefix(keys[0], "mf-payrollytd-AX2012-") || len(e.payroll.JournalRequests()) != 0 {
+		t.Fatalf("payroll batches %v journal %v", keys, e.payroll.JournalRequests())
+	}
+	for _, c := range e.payroll.Calls() {
+		if len(c.Duties) != 1 || !strings.HasPrefix(c.Duties[0], "payroll.opening-ytd.") {
+			t.Fatalf("payroll token %+v", c)
+		}
+	}
+	// The request names E3's worker: the rest loads and every total reconciles (four lines per worker year, one total per element and currency).
+	ok := e.stagedLoad(t, run.RunID, fmt.Sprintf(`{"legalEntityId":%q,"workers":{"E3":%q}}`, leA, "cccccccc-cccc-4ccc-8ccc-cccccccccccc"), http.StatusOK)
+	if ok.Status != "RECONCILED" || !ok.Clean || ok.Loaded != 3 || len(e.payroll.Batches()) != 2 {
+		t.Fatalf("retry %+v", ok)
+	}
+	names := map[string]int{}
+	for _, c := range e.detail(t, run.RunID).Reconciliation {
+		names[c.Name]++
+		if c.Status != "MATCH" {
+			t.Fatalf("reconciliation %+v", c)
+		}
+	}
+	if names["target.payroll_ytd.line_count"] != 1 || names["target.payroll_ytd.gross"] != 1 || names["target.payroll_ytd.tax"] != 1 || names["target.payroll_ytd.deductions"] != 1 || names["target.payroll_ytd.net"] != 1 {
+		t.Fatalf("reconciliation names %v", names)
+	}
+	if n := e.scalar(t, `select count(*) from staged_load where run_id = $1 and pack = 'payroll_ytd' and status = 'RECONCILED'`, run.RunID); n != 1 {
+		t.Fatalf("staged_load rows %d", n)
+	}
+}

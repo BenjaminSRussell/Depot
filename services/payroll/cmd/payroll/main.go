@@ -66,7 +66,7 @@ func run(ctx context.Context, getenv func(string) string) error {
 	if ledger != nil {
 		l = ledger
 	}
-	a := api.New(pool).WithRuns(runs, l)
+	a := api.New(pool).WithRuns(runs, l).WithOpeningYTD(runs)
 	router := httpx.NewRouter()
 	a.Register(router)
 	admin := http.NewServeMux()

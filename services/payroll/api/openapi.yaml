@@ -195,6 +195,83 @@ paths:
       x-passage-duty: public
       responses:
         '200': { description: Process is alive. }
+  /v1/payroll/opening-ytd:
+    post:
+      operationId: importOpeningYTD
+      x-passage-duty: payroll.opening-ytd.import
+      description: >-
+        Cutover import of the year-to-date payroll balances of the legacy system, called by the migration factory with a service token. All or nothing, 1 to 1000 lines of one legal
+        entity, numbered from 1 in errors. A line is one pay element (GROSS, TAX, DEDUCTIONS or NET) of one worker's tax year, with a unique reference (the legacy id of the worker's
+        year and the element), the worker, the four-digit tax year, a currency and the amount in whole minor units (gross, tax and deductions are zero or more; net can be negative). When
+        a worker's year arrives with all four elements in the batch, net must equal gross less tax less deductions. A balance (worker, tax year and element) is held once: a second batch
+        cannot restate it. controlTotals declares gross.CUR, tax.CUR, deductions.CUR and net.CUR; the service recomputes them and a mismatch refuses the batch (PAY-OPB-003). A line error
+        is a 422 PAY-OPB-001 with errors keyed lines[row].field and rowErrors. The same batchKey with the same content is a 200 with Idempotent-Replayed true; with other content it is a
+        409 PAY-OPB-002; a reference or balance already in use is a 422 PAY-OPB-004. Nothing is posted to the ledger and nothing is announced; the pay run calculation does not read these
+        balances yet.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [legalEntityId, batchKey, controlTotals, lines]
+              properties:
+                legalEntityId: { type: string, format: uuid }
+                batchKey: { type: string, maxLength: 100 }
+                controlTotals: { type: object, additionalProperties: { type: string }, description: "gross.CUR, tax.CUR, deductions.CUR and net.CUR as decimal strings." }
+                lines:
+                  type: array
+                  minItems: 1
+                  maxItems: 1000
+                  items:
+                    type: object
+                    additionalProperties: false
+                    required: [reference, workerId, taxYear, element, currency, amount]
+                    properties:
+                      reference: { type: string, maxLength: 100 }
+                      workerId: { type: string, format: uuid }
+                      taxYear: { type: string, pattern: '^[0-9]{4}$' }
+                      element: { type: string, enum: [GROSS, TAX, DEDUCTIONS, NET] }
+                      currency: { type: string, pattern: '^[A-Z]{3}$' }
+                      amount: { type: string, description: "Decimal string in whole minor units of the currency, at most 2 decimal places." }
+      responses:
+        '200': { description: The batch was already imported with this content., headers: { Idempotent-Replayed: { schema: { type: string, enum: ['true'] } } }, content: { application/json: { schema: { $ref: '#/components/schemas/OpeningYTDBatch' } } } }
+        '201': { description: The batch was imported., content: { application/json: { schema: { $ref: '#/components/schemas/OpeningYTDBatch' } } } }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '500': { $ref: '#/components/responses/Problem' }
+    get:
+      operationId: listOpeningYTD
+      x-passage-duty: payroll.opening-ytd.read
+      description: >-
+        Imported opening batches of one legal entity (legal_entity), newest first, optionally one batch_key, with keyset paging (limit 1 to 200, default 50;
+        pass the previous nextCursor as cursor). lineCount and totals are read back from the stored lines, so the loader can verify what landed against what it sent.
+      parameters:
+        - { name: legal_entity, in: query, required: true, schema: { type: string, format: uuid } }
+        - { name: batch_key, in: query, schema: { type: string } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
+        - { name: cursor, in: query, schema: { type: string }, description: "The previous page's nextCursor." }
+      responses:
+        '200':
+          description: Batches.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, nextCursor, asOf]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/OpeningYTDBatch' } }
+                  nextCursor: { type: string, description: "Empty on the last page." }
+                  asOf: { type: string, format: date-time }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '500': { $ref: '#/components/responses/Problem' }
 components:
   responses:
     Problem:
@@ -203,6 +280,17 @@ components:
         application/problem+json:
           schema: { $ref: '#/components/schemas/Problem' }
   schemas:
+    OpeningYTDBatch:
+      type: object
+      required: [id, legalEntityId, batchKey, lineCount, totals, importedBy, importedAt]
+      properties:
+        id: { type: string, format: uuid }
+        legalEntityId: { type: string, format: uuid }
+        batchKey: { type: string }
+        lineCount: { type: integer }
+        totals: { type: object, additionalProperties: { type: string }, description: "gross.CUR, tax.CUR, deductions.CUR and net.CUR as decimal strings. Summed from the stored lines." }
+        importedBy: { type: string }
+        importedAt: { type: string, format: date-time }
     Problem:
       type: object
       required: [type, title, status]

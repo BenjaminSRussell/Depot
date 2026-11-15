@@ -272,6 +272,8 @@ var serviceGrants = map[string]map[string][]string{
 		"assets": {"assets.opening-asset.import", "assets.opening-asset.read", "assets.journal.post"},
 		// Open production orders and their WIP (#49) and the opening WIP journal through production's ledger posting.
 		"production": {"production.opening-wip.import", "production.opening-wip.read", "production.journal.post"},
+		// Payroll year-to-date balances at cutover (#49); no journal, the liabilities come with the migrated GL balances.
+		"payroll": {"payroll.opening-ytd.import", "payroll.opening-ytd.read"},
 		// Parallel-run replay and ROLLED_BACK compensating journals (#484).
 		"ledger": {"ledger.entry.post", "ledger.balance.read", "ledger.ledger.lookup"},
 		// Legacy customers of open items resolved through the party migration's cross-reference (H-S8-6).
