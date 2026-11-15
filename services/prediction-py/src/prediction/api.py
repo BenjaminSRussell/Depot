@@ -8,6 +8,7 @@ tenant is never taken from the body, so one tenant cannot read or train on anoth
 
 from __future__ import annotations
 
+import os
 import uuid
 from datetime import date
 from typing import Annotated
@@ -17,7 +18,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 
-from prediction.domain import MAE_MAX_DAYS_RANGE, MIN_ROWS_RANGE, Config, Model, OpenInvoice, PaidInvoice, Prediction, PredictionError, is_stale
+from prediction.domain import MAE_MAX_DAYS_RANGE, MIN_ROWS_RANGE, Model, OpenInvoice, PaidInvoice, Prediction, PredictionError, is_stale
 from prediction.logpseudo import install_logging
 from prediction.runtime import config_from_env, repository_from_env
 from prediction.service import PredictionService
