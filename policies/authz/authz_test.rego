@@ -3352,3 +3352,60 @@ test_iccharge_consumers_hold_only_their_flag_duty if {
 	not allowed("billing.iccharge.from-event", "POST", "/v1/billing/free-text-invoices")
 	not allowed("payables.iccharge.from-event", "POST", "/v1/payables/vendor-invoice-intake")
 }
+
+# #500 (round 4 g): lookup lists for the fields that took typed ids. Each is read with the duty of the screen that uses it and
+# opens nothing else; the masters have their own maintain duty or reuse the setup duty of their service.
+test_lookup_lists_open_only_their_reads if {
+	allowed("transport.rate-card.maintain", "GET", "/v1/transport/carrier-services")
+	allowed("transport.rate-card.maintain", "GET", "/v1/transport/carrier-services/c1")
+	not allowed("transport.rate-card.maintain", "POST", "/v1/transport/carrier-services")
+	allowed("transport.rate-card.approve", "POST", "/v1/transport/carrier-services")
+	allowed("transport.view", "GET", "/v1/transport/carrier-services")
+	not allowed("transport.view", "POST", "/v1/transport/carrier-services")
+	allowed("fulfillment.warehouse.view", "GET", "/v1/fulfillment/packing-slip-lines")
+	not allowed("fulfillment.warehouse.view", "POST", "/v1/fulfillment/packing-slip-lines")
+	allowed("sales.order.read", "GET", "/v1/sales/order-lines")
+	allowed("sales.order.lookup", "GET", "/v1/sales/order-lines")
+	not allowed("sales.order.write", "GET", "/v1/sales/order-lines")
+	allowed("procurement.purchase-order.inquire", "GET", "/v1/procurement/agreement-lines")
+	allowed("procurement.purchase-order.lookup", "GET", "/v1/procurement/agreement-lines")
+	not allowed("procurement.agreement.maintain", "GET", "/v1/procurement/agreement-lines")
+	allowed("budget.view", "GET", "/v1/budget/documents")
+	allowed("budget.view", "GET", "/v1/budget/documents/d1")
+	allowed("budget.view", "GET", "/v1/budget/document-lines")
+	allowed("budget.view", "GET", "/v1/budget/document-lines/l1")
+	not allowed("budget.view", "POST", "/v1/budget/documents")
+}
+
+test_quality_outcome_master_duties if {
+	allowed("quality.setup.maintain", "POST", "/v1/quality/outcomes")
+	allowed("quality.setup.maintain", "PATCH", "/v1/quality/outcomes/o1")
+	not allowed("quality.setup.maintain", "GET", "/v1/quality/outcomes")
+	allowed("quality.view", "GET", "/v1/quality/outcomes")
+	allowed("quality.view", "GET", "/v1/quality/outcomes/o1")
+	not allowed("quality.view", "POST", "/v1/quality/outcomes")
+	not allowed("quality.view", "PATCH", "/v1/quality/outcomes/o1")
+}
+
+test_compliance_audit_policy_master_duties if {
+	allowed("compliance.audit-policy.maintain", "POST", "/v1/compliance/audit-policies")
+	allowed("compliance.audit-policy.maintain", "PATCH", "/v1/compliance/audit-policies/p1")
+	allowed("compliance.audit-policy.maintain", "GET", "/v1/compliance/audit-policies")
+	not allowed("compliance.audit-policy.maintain", "POST", "/v1/compliance/audit-policies:evaluate")
+	allowed("compliance.audit-policy.run", "GET", "/v1/compliance/audit-policies")
+	allowed("compliance.audit-policy.run", "GET", "/v1/compliance/audit-policies/p1")
+	allowed("compliance.audit-policy.run", "POST", "/v1/compliance/audit-policies:evaluate")
+	not allowed("compliance.audit-policy.run", "POST", "/v1/compliance/audit-policies")
+	not allowed("compliance.audit-policy.run", "PATCH", "/v1/compliance/audit-policies/p1")
+}
+
+test_analytics_saved_queries_are_for_viewers_and_authors if {
+	every duty in ["analytics.view", "analytics.author"] {
+		allowed(duty, "GET", "/v1/analytics/saved-queries")
+		allowed(duty, "POST", "/v1/analytics/saved-queries")
+		allowed(duty, "GET", "/v1/analytics/saved-queries/q1")
+		allowed(duty, "DELETE", "/v1/analytics/saved-queries/q1")
+		not allowed(duty, "PUT", "/v1/analytics/saved-queries/q1")
+	}
+	not allowed("analytics.export", "GET", "/v1/analytics/saved-queries")
+}
