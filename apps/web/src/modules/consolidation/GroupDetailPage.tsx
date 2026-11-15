@@ -142,6 +142,7 @@ export function GroupDetailPage() {
     { key: "currency", header: "Currency", mono: true, render: (u) => u.currency },
     { key: "fiscalYear", header: "Fiscal year starts in month", align: "end", render: (u) => String(u.fiscalYearStartMonth ?? 1) },
     { key: "percent", header: "Held today (%)", align: "end", render: (u) => percent(u.currentPercent) },
+    { key: "terms", header: "Acquisition terms", render: (u) => <Link to={`/consolidation/groups/${group!.id}/units/${u.id}/terms`}>Terms</Link> },
     {
       key: "history",
       header: "Ownership history",
