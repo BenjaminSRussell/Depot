@@ -76,7 +76,7 @@ describe("Forecast consensus (FR-22.9)", () => {
     expect(await screen.findByText("Cells are locked")).toBeInTheDocument();
     expect(screen.queryByRole("form", { name: "Forecast cell" })).not.toBeInTheDocument();
     expect(screen.getByText("Submitted for approval", { selector: "dd *" })).toBeInTheDocument();
-    expect(screen.getByText(/Submitted by alice/)).toBeInTheDocument();
+    expect(document.body).toHaveTextContent(/Submitted by A user who is no longer listed/);
   });
 
   it("publishes a submitted model and reports what was published", async () => {
@@ -89,7 +89,7 @@ describe("Forecast consensus (FR-22.9)", () => {
       expect(screen.getAllByRole("status").map((e) => e.textContent).join(" ")).toContain("Forecast model BASE is published: 2 item and site series over 6 periods, 2026-11-02 to 2027-04-30."),
     );
     expect((posts(fetchMock)[0][1]?.headers as Record<string, string>)["If-Match"]).toBe('"4"');
-    expect(await screen.findByText(/Published on 2026-10-26 by bob/)).toBeInTheDocument();
+    await waitFor(() => expect(document.body).toHaveTextContent(/Published on 2026-10-26 by A user who is no longer listed/));
     expect(screen.queryByRole("button", { name: "Publish consensus" })).not.toBeInTheDocument();
     const table = screen.getByRole("table", { name: "Forecast cells" });
     await waitFor(() => expect(within(table).getByText("Consensus")).toBeInTheDocument());

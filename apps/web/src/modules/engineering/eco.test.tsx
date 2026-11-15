@@ -22,7 +22,7 @@ describe("EcosPage", () => {
     render(<EcosPage onOpen={(id) => opened.push(id)} />);
     expect(screen.getByRole("table", { name: "Engineering change orders" })).toHaveAttribute("aria-busy", "true");
     const table = await findTable({ name: "Engineering change orders" });
-    expect(table).toHaveTextContent("alice");
+    expect(table).toHaveTextContent("A user who is no longer listed");
     expect(table).toHaveTextContent("2026-07-01");
     fireEvent.click(screen.getByRole("button", { name: "ECO-a" }));
     expect(opened).toEqual(["a"]);

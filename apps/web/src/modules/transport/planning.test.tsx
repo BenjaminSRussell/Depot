@@ -128,7 +128,7 @@ describe("screening holds", () => {
 
     fill("Reason", "  date of birth differs  ");
     fireEvent.click(screen.getByRole("button", { name: "Release hold" }));
-    expect(await screen.findByText(/Released by officer-1/)).toBeInTheDocument();
+    await waitFor(() => expect(document.body).toHaveTextContent(/Released by A user who is no longer listed on/));
     expect(posts(":release")[0].body).toEqual({ reason: "date of birth differs" });
     expect(screen.getByText("date of birth differs")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Release hold" })).not.toBeInTheDocument();

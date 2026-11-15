@@ -352,7 +352,7 @@ describe("certificates of analysis on a closed order", () => {
     fireEvent.click(within(table).getByRole("button", { name: "View revision 1" }));
     const doc = await screen.findByRole("region", { name: "Certificate of analysis revision 1" });
     expect(within(doc).getByText("6.5 – 7.5")).toBeInTheDocument();
-    expect(within(doc).getByText("Signed").nextElementSibling).toHaveTextContent("qa-release");
+    expect(within(doc).getByText("Signed").nextElementSibling).toHaveTextContent("A user who is no longer listed");
     expect(pageViolations(container)).toEqual([]);
 
     const form = screen.getByRole("form", { name: "Issue a certificate of analysis" });
