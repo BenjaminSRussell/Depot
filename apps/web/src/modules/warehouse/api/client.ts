@@ -479,3 +479,118 @@ export function receivePallet(receipt: Pick<Receipt, "id" | "version">, lineNo: 
     body: JSON.stringify({ qty }),
   });
 }
+
+/* ---------- RFID rules and reads, automation orders (#32) ---------- */
+
+export const RFID_ACTIONS = ["RECEIVE_PALLET", "CONFIRM_PUTAWAY"] as const;
+export type RfidAction = (typeof RFID_ACTIONS)[number];
+
+/** What a read at a reader (or one antenna) does; a reader has one rule per antenna and action. */
+export interface RfidRule {
+  id: string;
+  readerId: string;
+  antenna?: number;
+  action: RfidAction;
+  warehouseId: string;
+  locationCode?: string;
+  /** The identity the reader's gateway posts its reads as; a read posted by anyone else runs no rule. */
+  postedBy: string;
+  createdBy: string;
+  createdAt: string;
+}
+
+export interface RfidRuleInput {
+  readerId: string;
+  antenna?: number;
+  action: RfidAction;
+  warehouseId: string;
+  locationCode?: string;
+  postedBy: string;
+}
+
+/** GET /v1/warehouse/rfid-rules (duty warehouse.setup.view). */
+export function listRfidRules(readerId?: string, signal?: AbortSignal) {
+  return send<Page<RfidRule>>(`/rfid-rules?${query({ readerId })}`, { signal });
+}
+
+/** POST /v1/warehouse/rfid-rules (duty warehouse.setup.maintain). */
+export function createRfidRule(input: RfidRuleInput) {
+  return send<RfidRule>("/rfid-rules", { method: "POST", body: JSON.stringify(input) });
+}
+
+/** PUT /v1/warehouse/rfid-rules/{id} (duty warehouse.setup.maintain): replaces the rule. */
+export function updateRfidRule(id: string, input: RfidRuleInput) {
+  return send<RfidRule>(`/rfid-rules/${encodeURIComponent(id)}`, { method: "PUT", body: JSON.stringify(input) });
+}
+
+export type RfidOutcome = "DONE" | "SKIPPED" | "REFUSED";
+
+/** A stored tag read and what a rule did with it. */
+export interface RfidRead {
+  id: string;
+  readerId: string;
+  antenna: number;
+  locationCode?: string;
+  epc: string;
+  scheme: string;
+  /** The GS1 key the tag identifies (an SSCC, a GTIN-14, ...). */
+  key: string;
+  serial?: string;
+  rssi?: number;
+  readAt: string;
+  action?: RfidAction;
+  actionOutcome?: RfidOutcome;
+  actionDetail?: string;
+  actionRef?: string;
+}
+
+/** GET /v1/warehouse/rfid-reads (duty warehouse.inquiry.view): newest first. */
+export function listRfidReads(p: { key?: string; readerId?: string; from?: string; to?: string; limit?: number }, signal?: AbortSignal) {
+  return send<Page<RfidRead>>(`/rfid-reads?${query(p)}`, { signal });
+}
+
+export const ORDER_STATUSES = ["PENDING", "SENT", "REFUSED", "ARRIVED", "DIVERTED", "FAULT", "CANCELLED"] as const;
+export type OrderStatus = (typeof ORDER_STATUSES)[number];
+
+/** One move the warehouse asked a PLC station to make. */
+export interface TransportOrder {
+  id: string;
+  workId: string;
+  lineNo: number;
+  station: string;
+  /** The pallet's SSCC. */
+  loadUnit: string;
+  fromLocation: string;
+  toLocation: string;
+  priority: number;
+  status: OrderStatus;
+  reason?: string;
+  confirmError?: string;
+  createdBy: string;
+  createdAt: string;
+  sentAt?: string;
+  doneAt?: string;
+}
+
+/** GET /v1/warehouse/automation/transport-orders (duty warehouse.inquiry.view): oldest first. */
+export function listTransportOrders(p: { station?: string; status?: string; limit?: number }, signal?: AbortSignal) {
+  return send<Page<TransportOrder>>(`/automation/transport-orders?${query(p)}`, { signal });
+}
+
+/** GET /v1/warehouse/automation/transport-orders/{id}. */
+export function getTransportOrder(id: string, signal?: AbortSignal) {
+  return send<TransportOrder>(`/automation/transport-orders/${encodeURIComponent(id)}`, { signal });
+}
+
+/**
+ * POST .../transport-orders/{id}:cancel (duty warehouse.work.supervise). An order the PLC may hold (PENDING or SENT) is
+ * cancelled only with plcCleared: a person has cleared the move on the PLC first.
+ */
+export function cancelTransportOrder(id: string, input: { reason: string; plcCleared: boolean }) {
+  return send<TransportOrder>(`/automation/transport-orders/${encodeURIComponent(id)}:cancel`, { method: "POST", body: JSON.stringify(input) });
+}
+
+/** POST /v1/warehouse/work/{id}:reassign (duty warehouse.work.supervise): hands a work a PLC station holds to a person. */
+export function reassignWork(work: Pick<Work, "id" | "version">, input: { toUser: string; reason: string }, key: string) {
+  return send<Work>(`/work/${encodeURIComponent(work.id)}:reassign`, { method: "POST", key, version: work.version, body: JSON.stringify(input) });
+}

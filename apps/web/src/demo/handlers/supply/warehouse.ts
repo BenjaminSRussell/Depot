@@ -155,3 +155,31 @@ route("GET", `${BASE}/locations`, ({ query }) => {
 });
 
 route("GET", `${BASE}/location-directives`, () => ({ items: [] }));
+
+// A put-away of two pallets the ASRS station started: the first is stored, then the PLC faulted at the infeed. The work
+// stays with the station (it confirmed a line), so a supervisor hands it to a person from its page.
+export const STATION_WORK_ID = uid(K_WORK, 90);
+works.insert({
+  ...work(WH_RAW, "PURCHASE_PUTAWAY", "IN_PROGRESS", 20, 0.4, [wline(1, "BRG-6206", "PUT", 60, 60), wline(2, "BRG-6206", "PUT", 60, 0)], "automation:ASRS"),
+  id: STATION_WORK_ID,
+});
+works.update(STATION_WORK_ID, (w) => {
+  w.lines[1].reason = "PLC fault: E12 jam at infeed";
+  return w;
+});
+
+route("POST", `${BASE}/work/{id}:reassign`, ({ params, body }) => {
+  const w = works.get(params.id);
+  if (!w) return reply.problem(404, "WMS-WORK-NOT-FOUND", "No work with that id");
+  const input = (body ?? {}) as { toUser?: string; reason?: string };
+  if (!(w.assignedUser ?? "").startsWith("automation:")) return reply.problem(409, "WMS-WORK-NOT-AUTOMATION", "The work is not held by an automation station.");
+  if (!input.toUser || !input.reason) return reply.problem(400, "COM-0001", "request failed validation");
+  return reply.ok(
+    works.update(w.id, (cur) => {
+      cur.assignedUser = input.toUser;
+      cur.version += 1;
+      for (const l of cur.lines) if (l.status === "OPEN") l.reason = `taken over from ${(w.assignedUser ?? "").slice("automation:".length)} by supervisor: ${input.reason}`;
+      return cur;
+    }),
+  );
+});
