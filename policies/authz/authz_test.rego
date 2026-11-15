@@ -771,7 +771,7 @@ test_billing_tax_report_operator_routes_split_view_and_post if {
 test_edi_source_read_duties_open_only_their_get_routes if {
 	data.service_grants.edi == {
 		"fulfillment": ["fulfillment.shipment.read"],
-		"billing": ["billing.invoice.read"],
+		"billing": ["billing.invoice.read", "billing.self-billed.post"],
 		"sales": ["sales.order.lookup", "sales.channel.intake"],
 		"purchasing": ["procurement.requisition.create", "procurement.purchase-order.lookup", "procurement.purchase-order.vendor-confirm"],
 		"receiving": ["receiving.asn.maintain"],
@@ -3383,4 +3383,28 @@ test_print_portal_documents_are_service_only_and_read_only if {
 test_print_statement_runner_reads_only if {
 	data.service_grants.print == {"receivables": ["receivables.view"], "party": ["party.read"]}
 	data.service_principals["print-statements"] == ["receivables.view", "party.read"]
+}
+
+# #35 (35-5): the matched self-billed document is posted by billing as the legal invoice through a service-only duty that opens one route.
+test_billing_self_billed_post_is_service_only_and_opens_one_route if {
+	data.duties["billing.self-billed.post"].service_only
+	allowed("billing.self-billed.post", "POST", "/v1/billing/self-billed-invoices")
+	not allowed("billing.self-billed.post", "GET", "/v1/billing/invoices/i1")
+	not allowed("billing.self-billed.post", "POST", "/v1/billing/invoices/i1:post")
+	not allowed("billing.self-billed.post", "POST", "/v1/billing/free-text-invoices")
+	not allowed("billing.invoice.post", "POST", "/v1/billing/self-billed-invoices")
+	not allowed("billing.invoice.maintain", "POST", "/v1/billing/self-billed-invoices")
+	data.service_principals["edi-selfbill"] == ["tax.tax.calculate", "billing.self-billed.post"]
+}
+
+# #35 (35-5): an AP clerk decides a received vendor invoice with its own duty; reading the worklist does not allow deciding.
+test_payables_vendor_invoice_review_opens_only_the_two_decisions if {
+	allowed("payables.vendor-invoice.review", "POST", "/v1/payables/vendor-invoice-intake/i1:resolve")
+	allowed("payables.vendor-invoice.review", "POST", "/v1/payables/vendor-invoice-intake/i1:reject")
+	not allowed("payables.vendor-invoice.review", "POST", "/v1/payables/vendor-invoice-intake")
+	not allowed("payables.vendor-invoice.review", "GET", "/v1/payables/vendor-invoice-intake")
+	not allowed("open-item.read", "POST", "/v1/payables/vendor-invoice-intake/i1:resolve")
+	not allowed("open-item.read", "POST", "/v1/payables/vendor-invoice-intake/i1:reject")
+	not allowed("payables.vendor-invoice.intake", "POST", "/v1/payables/vendor-invoice-intake/i1:resolve")
+	allowed("open-item.read", "GET", "/v1/payables/vendor-invoice-intake/i1")
 }

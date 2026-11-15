@@ -525,6 +525,7 @@
       {"resource": "/v1/billing/credit-reservations/*:release", "methods": ["POST"]}
     ]},
     "billing.invoice.read": {"service_only": true, "permissions": [{"resource": "/v1/billing/invoices/*", "methods": ["GET"]}]},
+    "billing.self-billed.post": {"service_only": true, "permissions": [{"resource": "/v1/billing/self-billed-invoices", "methods": ["POST"]}]},
     "billing.contract-modification.bill": {"service_only": true, "permissions": [{"resource": "/v1/billing/contract-modifications", "methods": ["POST"]}]},
     "sales.order.lookup": {"service_only": true, "permissions": [{"resource": "/v1/sales/orders/*", "methods": ["GET"]}]},
     "inventory.hold.apply": {"service_only": true, "permissions": [
@@ -877,6 +878,10 @@
       {"resource": "/v1/payables/employee-vendors/*", "methods": ["PUT"]}
     ]},
     "opening-item.import": {"service_only": true, "permissions": [{"resource": "/v1/payables/opening-batches", "methods": ["POST"]}]},
+    "payables.vendor-invoice.review": {"permissions": [
+      {"resource": "/v1/payables/vendor-invoice-intake/*:resolve", "methods": ["POST"]},
+      {"resource": "/v1/payables/vendor-invoice-intake/*:reject", "methods": ["POST"]}
+    ]},
     "payables.vendor-invoice.intake": {"service_only": true, "permissions": [{"resource": "/v1/payables/vendor-invoice-intake", "methods": ["POST"]}]},
     "opening-item.import.read": {"service_only": true, "permissions": [{"resource": "/v1/payables/opening-batches", "methods": ["GET"]}]},
     "vendor-block.manage": {"permissions": [
@@ -4183,7 +4188,7 @@
     },
     "edi": {
       "fulfillment": ["fulfillment.shipment.read"],
-      "billing": ["billing.invoice.read"],
+      "billing": ["billing.invoice.read", "billing.self-billed.post"],
       "sales": ["sales.order.lookup", "sales.channel.intake"],
       "purchasing": ["procurement.requisition.create", "procurement.purchase-order.lookup", "procurement.purchase-order.vendor-confirm"],
       "receiving": ["receiving.asn.maintain"],
@@ -4222,7 +4227,7 @@
   "service_principals": {
     "edi-cxml": ["procurement.purchase-order.lookup", "procurement.purchase-order.vendor-confirm", "receiving.asn.maintain", "payables.vendor-invoice.intake"],
     "edi-outbound": ["edi.outbound.from-event"],
-    "edi-selfbill": ["tax.tax.calculate"],
+    "edi-selfbill": ["tax.tax.calculate", "billing.self-billed.post"],
     "billing-iccharge": ["billing.iccharge.from-event"],
     "payables-iccharge": ["payables.iccharge.from-event"],
     "edi-sales": ["sales.channel.intake"],

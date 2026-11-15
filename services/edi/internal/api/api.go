@@ -83,6 +83,8 @@ type API struct {
 	Sender        domain.Party
 	EdifactSender domain.EdifactParty
 	Sources       Sources
+	// SelfBilledPoster has billing post a matched self-billed document as our legal invoice (35-5); nil leaves matched documents unposted.
+	SelfBilledPoster SelfBilledPoster
 	// Intake places inbound orders with sales (POST /messages/{id}:post); nil
 	// refuses the route with 503.
 	Intake Intake

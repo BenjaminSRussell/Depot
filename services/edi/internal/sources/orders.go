@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"github.com/BenjaminSRussell/passage/platform/tenant"
+	"github.com/BenjaminSRussell/passage/services/edi/internal/domain"
 )
 
 // The calls the cXML exchange makes on purchasing and receiving (#35, 35-4): read a purchase order to send it as an OrderRequest,
@@ -136,6 +137,21 @@ func (c *Client) ReceiveVendorInvoice(ctx context.Context, legalEntityID, key st
 	err := c.post(ctx, "payables", audPayables, DutyVendorInvoiceIntake, c.payables, legalEntityID, "/v1/payables/vendor-invoice-intake", key, nil, body, &out)
 	if err == nil && out.ID == "" {
 		return VendorInvoiceRef{}, errors.New("payables: response is not a vendor invoice")
+	}
+	return out, err
+}
+
+// DutySelfBilledPost is billing's service-only duty for posting a matched self-billed document as the legal invoice (#35, 35-5).
+const DutySelfBilledPost = "billing.self-billed.post"
+
+// PostSelfBilled has billing post a matched self-billed document as our legal customer invoice. The key (the document's id here) makes
+// a repeat return the invoice already posted; a refusal for a reason in the document or its customer (no SELF_BILLED rule in force,
+// another agreement, a number already taken) is a DownstreamRefusedError.
+func (c *Client) PostSelfBilled(ctx context.Context, legalEntityID, key string, body domain.SelfBilledInvoiceRequest) (domain.SelfBilledInvoiceRef, error) {
+	var out domain.SelfBilledInvoiceRef
+	err := c.post(ctx, "billing", audBilling, DutySelfBilledPost, c.billing, legalEntityID, "/v1/billing/self-billed-invoices", key, nil, body, &out)
+	if err == nil && out.ID == "" {
+		return domain.SelfBilledInvoiceRef{}, errors.New("billing: response is not an invoice")
 	}
 	return out, err
 }

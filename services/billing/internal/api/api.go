@@ -136,6 +136,7 @@ func (a *API) Register(r chi.Router) {
 	r.With(authz.RequireAnyDuty(dutyView, "billing.invoice.read")).Get("/v1/billing/invoices/{id}", a.getInvoice)
 	r.With(authz.RequireDuty(dutyView)).Get("/v1/billing/invoices/{id}/trace", a.invoiceTrace)
 	r.With(authz.RequireDuty(dutyPost)).Post("/v1/billing/invoices/{id}:post", a.postInvoice)
+	r.With(authz.RequireDuty(dutySelfBilledPost)).Post(pathSelfBilled, a.postSelfBilled)
 	r.With(authz.RequireDuty(dutyPost)).Post("/v1/billing/gl-postings", a.postGL)
 	r.With(authz.RequireDuty(dutyMaintain)).Post("/v1/billing/credit-notes", a.createCreditNote)
 	r.With(authz.RequireDuty(dutyModificationBill)).Post("/v1/billing/contract-modifications", a.billModification)
@@ -350,7 +351,7 @@ func toDTO(inv store.Invoice) invoiceDTO {
 func fixed(v decimal.Decimal, exp int32) string { return v.StringFixed(exp) }
 
 func invalidIdempotencyKey(key string) bool {
-	return key == "" || len(key) > 255 || strings.HasPrefix(key, subscriptionKeyPrefix) || strings.HasPrefix(key, store.ModificationKeyPrefix) || strings.HasPrefix(key, store.ICChargeKeyPrefix)
+	return key == "" || len(key) > 255 || strings.HasPrefix(key, subscriptionKeyPrefix) || strings.HasPrefix(key, store.ModificationKeyPrefix) || strings.HasPrefix(key, store.ICChargeKeyPrefix) || strings.HasPrefix(key, store.SelfBilledKeyPrefix)
 }
 
 func (a *API) createProposal(w http.ResponseWriter, r *http.Request) {
