@@ -7,11 +7,14 @@ import {
   describeProblem,
   DUTY_EDGE_CONFIGURE,
   getEdgeNode,
+  listEdgeCertificates,
   listEdgeConfigs,
   mintEdgeEnrollmentToken,
   newKey,
   publishEdgeConfig,
+  revokeEdgeCertificate,
   updateEdgeNode,
+  type EdgeCertificate,
   type EdgeConfigVersion,
   type EdgeEnrollmentToken,
   type EdgeNode,
@@ -23,6 +26,7 @@ import { dash, formatDateTime } from "./format";
 import styles from "./pages.module.css";
 import { useLoad } from "./useLoad";
 import { ProblemMessage } from "../../shell/errors";
+import { UserName } from "../../shell/lookup/UserName";
 
 /** Parses the document text; the service validates the content. */
 export function parseDocument(text: string): { document?: Record<string, unknown>; error?: string } {
@@ -61,6 +65,7 @@ export function EdgeNodeDetailPage() {
   const canConfigure = holdsDuty(usePrincipalDuties(), DUTY_EDGE_CONFIGURE);
   const node = useLoad((signal) => getEdgeNode(id, signal), id);
   const configs = useLoad((signal) => listEdgeConfigs(id, signal), `${id}:configs`);
+  const certs = useLoad((signal) => listEdgeCertificates(id, signal), `${id}:certs`);
   const [fresh, setFresh] = useState<EdgeNode | null>(null);
   const current = fresh && fresh.id === id ? fresh : node.data;
 
@@ -117,6 +122,16 @@ export function EdgeNodeDetailPage() {
           ) : (
             <p className={styles.note}>Changing the node and publishing its configuration needs the edge fleet duty ({DUTY_EDGE_CONFIGURE}).</p>
           )}
+          <CertificateHistory
+            nodeId={id}
+            state={certs}
+            canRevoke={canConfigure}
+            onRevoked={() => {
+              certs.reload();
+              node.reload();
+              setFresh(null);
+            }}
+          />
           {configs.error ? (
             <Alert tone="danger" title="Could not load configuration versions" live="alert" action={<Button size="sm" onClick={configs.reload}>Try again</Button>}>
               <ProblemMessage problem={configs.error} />
@@ -134,6 +149,142 @@ export function EdgeNodeDetailPage() {
         </>
       )}
     </div>
+  );
+}
+
+const CERT_STATUS = (c: EdgeCertificate, now = Date.now()): string => (c.revokedAt ? "Revoked" : Date.parse(c.notAfter) < now ? "Expired" : c.current ? "Current" : "Superseded");
+
+/** Every certificate issued to the node and which are revoked; a supervisor with the edge duty revokes one with a reason. */
+function CertificateHistory({
+  nodeId,
+  state,
+  canRevoke,
+  onRevoked,
+}: {
+  nodeId: string;
+  state: { data: EdgeCertificate[] | null; loading: boolean; error: Problem | null; reload(): void };
+  canRevoke: boolean;
+  onRevoked(): void;
+}) {
+  const [target, setTarget] = useState<EdgeCertificate | null>(null);
+  const [reason, setReason] = useState("");
+  const [reasonError, setReasonError] = useState<string | undefined>();
+  const [failure, setFailure] = useState<Problem | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function revoke(event: FormEvent) {
+    event.preventDefault();
+    if (!target) return;
+    const why = reason.trim();
+    if (why === "" || why.length > 500) {
+      setReasonError("Enter why the certificate is revoked, up to 500 characters.");
+      return;
+    }
+    setReasonError(undefined);
+    setFailure(null);
+    setBusy(true);
+    try {
+      await revokeEdgeCertificate(nodeId, target.serial, why);
+      setNotice(target.current ? "Certificate revoked. The node is unbound: its connector must enroll again with a new token." : "Certificate revoked.");
+      setTarget(null);
+      setReason("");
+      onRevoked();
+    } catch (error) {
+      setFailure(describeProblem(error));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const columns: DataTableColumn<EdgeCertificate>[] = [
+    { key: "serial", header: "Serial", mono: true, render: (c) => <span title={c.serial}>{c.serial.length > 16 ? `${c.serial.slice(0, 16)}…` : c.serial}</span> },
+    { key: "reason", header: "Issued for", render: (c) => (c.reason === "renew" ? "Renewal" : "Enrollment") },
+    { key: "issuedAt", header: "Issued", mono: true, render: (c) => formatDateTime(c.issuedAt) },
+    { key: "notAfter", header: "Valid until", mono: true, render: (c) => formatDateTime(c.notAfter) },
+    { key: "fingerprint", header: "Fingerprint", mono: true, render: (c) => (c.fingerprint ? <span title={c.fingerprint}>{c.fingerprint.slice(0, 12)}</span> : "Not kept") },
+    {
+      key: "status",
+      header: "Status",
+      render: (c) => (
+        <>
+          {CERT_STATUS(c)}
+          {c.revokedAt ? (
+            <div className={styles.note}>
+              {formatDateTime(c.revokedAt)}
+              {c.revokedBy ? (
+                <>
+                  {" by "}
+                  <UserName id={c.revokedBy} />
+                </>
+              ) : null}
+              {c.revokeReason ? `: ${c.revokeReason}` : ""}
+            </div>
+          ) : null}
+        </>
+      ),
+    },
+    {
+      key: "actions",
+      header: "Actions",
+      render: (c) =>
+        canRevoke && !c.revokedAt ? (
+          <Button size="sm" variant="danger" aria-label={`Revoke certificate ${c.serial.slice(0, 16)}`} onClick={() => { setTarget(c); setNotice(null); setFailure(null); }}>
+            Revoke
+          </Button>
+        ) : (
+          "—"
+        ),
+    },
+  ];
+
+  return (
+    <>
+      {state.error ? (
+        <Alert tone="danger" title="Could not load the certificates" live="alert" action={<Button size="sm" onClick={state.reload}>Try again</Button>}>
+          <ProblemMessage problem={state.error} />
+        </Alert>
+      ) : (
+        <DataTable
+          label="Certificates"
+          columns={columns}
+          rows={state.data ?? []}
+          getRowKey={(c) => c.serial}
+          loading={state.loading}
+          empty={{ title: "No certificate issued", description: "A certificate is issued when the connector redeems its enrollment token." }}
+        />
+      )}
+      {notice ? <Alert tone="success" title={notice} live="status" /> : null}
+      {target ? (
+        <Card title="Revoke the certificate">
+          <form className={styles.form} onSubmit={revoke} noValidate aria-label="Revoke the certificate">
+            <p className={styles.note}>
+              {target.current
+                ? "This is the node's current certificate. Revoking it unbinds the node: the connector has to enroll again with a new token."
+                : "The connector can no longer use this certificate."}
+            </p>
+            <FormField id="cert-revoke-reason" label="Reason" error={reasonError}>
+              {(control) => <Input {...control} maxLength={500} value={reason} onChange={(event) => setReason(event.target.value)} invalid={Boolean(reasonError)} />}
+            </FormField>
+            {failure ? (
+              <div className={styles.formActions}>
+                <Alert tone="danger" title="Could not revoke the certificate" live="alert">
+                  <ProblemMessage problem={failure} />
+                </Alert>
+              </div>
+            ) : null}
+            <div className={styles.formActions}>
+              <Button type="submit" variant="danger" loading={busy}>
+                Revoke certificate
+              </Button>
+              <Button variant="ghost" onClick={() => setTarget(null)}>
+                Keep it
+              </Button>
+            </div>
+          </form>
+        </Card>
+      ) : null}
+    </>
   );
 }
 

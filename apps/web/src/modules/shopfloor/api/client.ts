@@ -1543,3 +1543,71 @@ export function obsoletePISheet(id: string, rev: number): Promise<PISheet> {
 export function reportControlRecipe(id: string, input: { status: RecipeStatus; error?: string }): Promise<ControlRecipe> {
   return post<ControlRecipe>(`/control-recipes/${encodeURIComponent(id)}:report`, input);
 }
+
+/* ---------- Andon thresholds (FR-25.11) and edge certificate history (FR-25.19) ---------- */
+
+/** What decides when the andon alerts: minutes down before an alert, minutes clear before it closes, the scrap share. */
+export interface AndonThresholds {
+  downtimeMinutes: number;
+  clearMinutes: number;
+  scrapPercent: number;
+  scrapMinCount: number;
+}
+
+export interface AndonSiteSettings extends AndonThresholds {
+  siteId: string;
+  updatedBy: string;
+  updatedAt: string;
+}
+
+/** The tenant's thresholds, with the sites that have values of their own. `default` is true until the tenant sets its own. */
+export interface AndonSettings extends AndonThresholds {
+  default: boolean;
+  updatedBy?: string;
+  updatedAt?: string;
+  sites: AndonSiteSettings[];
+}
+
+export function getAndonSettings(signal?: AbortSignal): Promise<AndonSettings> {
+  return send<AndonSettings>("/andon-settings", {}, signal);
+}
+
+export function putAndonSettings(input: AndonThresholds): Promise<AndonSettings> {
+  return send<AndonSettings>("/andon-settings", { method: "PUT", body: JSON.stringify(input) });
+}
+
+export function putAndonSiteSettings(siteId: string, input: AndonThresholds): Promise<AndonSiteSettings> {
+  return send<AndonSiteSettings>(`/andon-settings/sites/${encodeURIComponent(siteId)}`, { method: "PUT", body: JSON.stringify(input) });
+}
+
+/** Removes a site's own thresholds; its machines follow the tenant's again. */
+export async function deleteAndonSiteSettings(siteId: string): Promise<void> {
+  const res = await apiFetch(`${base}/andon-settings/sites/${encodeURIComponent(siteId)}`, { method: "DELETE", headers: { Accept: "application/json" }, credentials: "same-origin" });
+  if (!res.ok) throw await toError(res);
+}
+
+/** One certificate issued to an edge node, at enrollment or renewal. */
+export interface EdgeCertificate {
+  serial: string;
+  subject: string;
+  reason: "enroll" | "renew";
+  notBefore: string;
+  notAfter: string;
+  issuedAt: string;
+  /** SHA-256 of the certificate, hex; absent for certificates issued before fingerprints were kept. */
+  fingerprint?: string;
+  /** The node's current certificate. */
+  current: boolean;
+  revokedAt?: string;
+  revokedBy?: string;
+  revokeReason?: string;
+}
+
+export function listEdgeCertificates(nodeId: string, signal?: AbortSignal): Promise<EdgeCertificate[]> {
+  return items<EdgeCertificate>(`/edge-nodes/${encodeURIComponent(nodeId)}/certificates`, signal);
+}
+
+/** Revokes one certificate. Revoking the current one unbinds the node: its connector has to enroll again. */
+export function revokeEdgeCertificate(nodeId: string, serial: string, reason: string): Promise<EdgeCertificate> {
+  return post<EdgeCertificate>(`/edge-nodes/${encodeURIComponent(nodeId)}/certificates/${encodeURIComponent(serial)}:revoke`, { reason });
+}
