@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/BenjaminSRussell/passage/platform/httpx"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -44,6 +45,8 @@ var ErrRowsRefused = errors.New("payables refused rows of the batch")
 type RowsRefused struct {
 	Code string
 	Rows map[int]string
+	// Errors is the target's structured answer (field, code, the batch that holds a reference), when it sends one.
+	Errors []httpx.RowError
 }
 
 func (e *RowsRefused) Error() string {

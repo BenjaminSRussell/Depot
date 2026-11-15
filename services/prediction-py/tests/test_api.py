@@ -22,8 +22,11 @@ def client():
     return TestClient(api.app)
 
 
-def h(tenant=TENANT_A, duties="agents.admin,collections.view"):
-    return {"x-passage-tenant": tenant, "x-passage-user": USER, "x-passage-duties": duties}
+def h(tenant=TENANT_A, duties="agents.admin,collections.view", entity=None):
+    out = {"x-passage-tenant": tenant, "x-passage-user": USER, "x-passage-duties": duties}
+    if entity is not None:
+        out["x-passage-legal-entity"] = entity
+    return out
 
 
 def paid_body(n):
@@ -141,15 +144,29 @@ def test_the_gateway_routes_are_the_same_handlers_under_v1(client):
 def test_the_dso_tile_reads_the_forecast_of_a_legal_entity(client):
     assert client.get(f"/v1/predictions/payment/dso?legalEntityId={LE}", headers=h(duties="agents.admin")).status_code == 403
     assert client.get("/v1/predictions/payment/dso", headers=h(duties="collections.view")).status_code == 400
-    assert client.get(f"/v1/predictions/payment/dso?legalEntityId={LE}", headers=h(duties="collections.view")).status_code == 404
+    assert client.get(f"/v1/predictions/payment/dso?legalEntityId={LE}", headers=h(duties="collections.view", entity=LE)).status_code == 404
     client.post("/v1/predictions/payment/retrain", json=paid_body(600), headers=h())
     invoices = synth.open_invoices(25)
     client.post("/v1/predictions/payment/score", json=open_body(25), headers=h())
     api.service.repo.save_invoice_facts(TENANT_A, LE, invoices)
-    got = client.get(f"/v1/predictions/payment/dso?legalEntityId={LE}", headers=h(duties="collections.view"))
+    got = client.get(f"/v1/predictions/payment/dso?legalEntityId={LE}", headers=h(duties="collections.view", entity=LE))
     assert got.status_code == 200, got.text
     body = got.json()
     assert body["legalEntityId"] == LE and body["openInvoices"] == 25 and isinstance(body["dsoDays"], float) and body["stale"] is False
     assert 0 <= float(body["avgPLate30d"]) <= 1
     # Another tenant sees nothing of it.
-    assert client.get(f"/v1/predictions/payment/dso?legalEntityId={LE}", headers=h(tenant=TENANT_B, duties="collections.view")).status_code == 404
+    assert client.get(f"/v1/predictions/payment/dso?legalEntityId={LE}", headers=h(tenant=TENANT_B, duties="collections.view", entity=LE)).status_code == 404
+
+
+def test_the_dso_of_another_legal_entity_is_not_there_for_a_scoped_caller(client):
+    other = "55555555-5555-4555-8555-555555555555"
+    client.post("/v1/predictions/payment/retrain", json=paid_body(600), headers=h())
+    client.post("/v1/predictions/payment/score", json=open_body(10), headers=h())
+    api.service.repo.save_invoice_facts(TENANT_A, LE, synth.open_invoices(10))
+    url = f"/v1/predictions/payment/dso?legalEntityId={LE}"
+    assert client.get(url, headers=h(duties="collections.view", entity=LE)).status_code == 200
+    assert client.get(url, headers=h(duties="collections.view", entity=other)).status_code == 404
+    assert client.get(url, headers=h(duties="collections.view", entity=f"{other},{LE}")).status_code == 200
+    # No scope claim: only a caller who holds the all-scope duty may name an entity.
+    assert client.get(url, headers=h(duties="collections.view")).status_code == 404
+    assert client.get(url, headers=h(duties="collections.view,org.switcher.all-scope")).status_code == 200

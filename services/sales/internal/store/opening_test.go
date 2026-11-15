@@ -16,7 +16,12 @@ func openingLines(customer string) []OpeningLine {
 		return OpeningLine{Reference: ref, OrderNumber: order, LineNo: no, CustomerID: customer, ProductID: product, SiteID: site, WarehouseID: wh, Unit: "EA", Currency: "USD",
 			OrderedQty: decimal.RequireFromString(ordered), DeliveredQty: decimal.RequireFromString(delivered), UnitPrice: decimal.RequireFromString(price), DeliveryDate: "2027-02-01"}
 	}
-	return []OpeningLine{mk("L1", "LEG-100", 1, "10", "4", "12.5"), mk("L2", "LEG-100", 2, "5", "0", "3"), mk("L3", "LEG-101", 1, "2", "0", "100")}
+	return []OpeningLine{withInvoiced(mk("L1", "LEG-100", 1, "10", "4", "12.5"), "3"), mk("L2", "LEG-100", 2, "5", "0", "3"), mk("L3", "LEG-101", 1, "2", "0", "100")}
+}
+
+func withInvoiced(l OpeningLine, q string) OpeningLine {
+	l.InvoicedQty = decimal.RequireFromString(q)
+	return l
 }
 
 func TestOpeningOrders_ImportIsIdempotentAndReadBack(t *testing.T) {
@@ -52,12 +57,12 @@ func TestOpeningOrders_ImportIsIdempotentAndReadBack(t *testing.T) {
 		t.Fatalf("list: %+v %v", list, err)
 	}
 	var status, lineStatus string
-	var delivered string
-	if err := pool.QueryRow(ctx, `select o.status, l.line_status, l.delivered_qty::text from sales_order o join sales_order_line l on l.order_id = o.id and l.tenant_id = o.tenant_id
-		where o.order_number = 'LEG-100' and l.line_no = 1`).Scan(&status, &lineStatus, &delivered); err != nil {
+	var delivered, invoiced string
+	if err := pool.QueryRow(ctx, `select o.status, l.line_status, l.delivered_qty::text, l.invoiced_qty::text from sales_order o join sales_order_line l on l.order_id = o.id and l.tenant_id = o.tenant_id
+		where o.order_number = 'LEG-100' and l.line_no = 1`).Scan(&status, &lineStatus, &delivered, &invoiced); err != nil {
 		t.Fatal(err)
 	}
-	if status != "PARTIALLY_SHIPPED" || lineStatus != "PICKED" || delivered != "4.000000" {
+	if status != "PARTIALLY_SHIPPED" || lineStatus != "PICKED" || delivered != "4.000000" || invoiced != "3.000000" {
 		t.Fatalf("stored order: %s %s %s", status, lineStatus, delivered)
 	}
 }

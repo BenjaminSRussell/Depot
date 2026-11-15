@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"github.com/BenjaminSRussell/passage/platform/money"
 	"sort"
 	"strings"
 	"time"
@@ -266,39 +267,97 @@ type AccountValue struct {
 	Products map[string]struct{}
 }
 
-// OnHandValueRounding is the rounding the on-hand value read-back allows: half a minor unit of the currency's usual two
-// decimals for each line the ledger valued, and at least one minor unit. The ledger posts each line's value at its currency's
-// precision while the factory sums quantity times a unit cost of six decimals, so a larger difference is a real one.
-func OnHandValueRounding(lines int) decimal.Decimal {
-	half := decimal.RequireFromString("0.005").Mul(decimal.NewFromInt(int64(lines))).RoundCeil(2)
-	return decimal.Max(half, decimal.RequireFromString("0.01"))
+// OnHandValueRounding is the rounding the on-hand value read-back allows for a currency: half a minor unit for each line the ledger
+// valued, and at least one minor unit. The ledger posts each line's value at the currency's own precision (two decimals for USD, none
+// for JPY, three for KWD) while the factory sums quantity times a unit cost of six decimals, so a larger difference is a real one.
+func OnHandValueRounding(currency string, lines int) decimal.Decimal {
+	unit := decimal.New(1, -int32(money.MinorUnits(currency)))
+	half := unit.Mul(decimal.RequireFromString("0.5")).Mul(decimal.NewFromInt(int64(lines))).RoundCeil(int32(money.MinorUnits(currency)))
+	return decimal.Max(half, unit)
 }
 
 // ReconcileOnHandValue is the value half of the on-hand read-back (#49, BR-49.3): per inventory account and currency, the
 // value the factory loaded against the posted value the inventory ledger reports for that account's products after the import.
-// It is MISMATCH when the two differ by more than OnHandValueRounding. Stock revalued, issued or received after the load shows
-// as a difference, like a quantity difference does.
+// The ledger reports value per product, not per account, so accounts that share a product are compared together (labelled
+// "1100+1200") instead of each being charged the whole product. It is MISMATCH when the two differ by more than OnHandValueRounding.
+// Stock revalued, issued or received after the load shows as a difference, like a quantity difference does.
 func ReconcileOnHandValue(legalEntityID string, expected []AccountValue, onHand map[string]OnHandStock) ([]ControlTotal, error) {
-	sorted := append([]AccountValue(nil), expected...)
-	sort.Slice(sorted, func(i, j int) bool {
-		if sorted[i].Account != sorted[j].Account {
-			return sorted[i].Account < sorted[j].Account
+	byCurrency := map[string][]AccountValue{}
+	var currencies []string
+	for _, a := range expected {
+		if _, ok := byCurrency[a.Currency]; !ok {
+			currencies = append(currencies, a.Currency)
 		}
-		return sorted[i].Currency < sorted[j].Currency
-	})
-	out := make([]ControlTotal, 0, len(sorted))
-	for _, a := range sorted {
-		actual := decimal.Zero
-		for p := range a.Products {
-			actual = actual.Add(onHand[p].Value[a.Currency])
-		}
-		t, err := NewControlTotal("target.onhand.onhand_value", map[string]string{"legalEntityId": legalEntityID, "account": a.Account, "currency": a.Currency},
-			a.Value, actual, Tolerance{Amount: OnHandValueRounding(a.Lines), Reason: "the ledger posts each stock line's value at the currency's precision"})
-		if err != nil {
-			return nil, err
-		}
-		out = append(out, t)
+		byCurrency[a.Currency] = append(byCurrency[a.Currency], a)
 	}
+	sort.Strings(currencies)
+	var out []ControlTotal
+	for _, cur := range currencies {
+		accounts := byCurrency[cur]
+		// Connected groups of accounts that share a product.
+		parent := make([]int, len(accounts))
+		for i := range parent {
+			parent[i] = i
+		}
+		var find func(int) int
+		find = func(i int) int {
+			for parent[i] != i {
+				parent[i] = parent[parent[i]]
+				i = parent[i]
+			}
+			return i
+		}
+		owner := map[string]int{}
+		for i, a := range accounts {
+			for p := range a.Products {
+				if j, ok := owner[p]; ok {
+					parent[find(i)] = find(j)
+				} else {
+					owner[p] = i
+				}
+			}
+		}
+		groups := map[int]*AccountValue{}
+		labels := map[int][]string{}
+		for i, a := range accounts {
+			r := find(i)
+			g := groups[r]
+			if g == nil {
+				g = &AccountValue{Currency: cur, Products: map[string]struct{}{}}
+				groups[r] = g
+			}
+			g.Value, g.Lines = g.Value.Add(a.Value), g.Lines+a.Lines
+			for p := range a.Products {
+				g.Products[p] = struct{}{}
+			}
+			labels[r] = append(labels[r], a.Account)
+		}
+		roots := make([]int, 0, len(groups))
+		for r := range groups {
+			sort.Strings(labels[r])
+			roots = append(roots, r)
+		}
+		sort.Slice(roots, func(i, j int) bool { return strings.Join(labels[roots[i]], "+") < strings.Join(labels[roots[j]], "+") })
+		for _, r := range roots {
+			g := groups[r]
+			actual := decimal.Zero
+			for p := range g.Products {
+				actual = actual.Add(onHand[p].Value[cur])
+			}
+			t, err := NewControlTotal("target.onhand.onhand_value", map[string]string{"legalEntityId": legalEntityID, "account": strings.Join(labels[r], "+"), "currency": cur},
+				g.Value, actual, Tolerance{Amount: OnHandValueRounding(cur, g.Lines), Reason: "the ledger posts each stock line's value at the currency's precision"})
+			if err != nil {
+				return nil, err
+			}
+			out = append(out, t)
+		}
+	}
+	sort.SliceStable(out, func(i, j int) bool {
+		if out[i].Key["account"] != out[j].Key["account"] {
+			return out[i].Key["account"] < out[j].Key["account"]
+		}
+		return out[i].Key["currency"] < out[j].Key["currency"]
+	})
 	return out, nil
 }
 

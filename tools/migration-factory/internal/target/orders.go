@@ -74,6 +74,7 @@ type orderLineWire struct {
 	Currency     string `json:"currency"`
 	OrderedQty   string `json:"orderedQty"`
 	DeliveredQty string `json:"deliveredQty,omitempty"`
+	InvoicedQty  string `json:"invoicedQty,omitempty"`
 	ReceivedQty  string `json:"receivedQty,omitempty"`
 	UnitPrice    string `json:"unitPrice"`
 	DeliveryDate string `json:"deliveryDate"`
@@ -110,7 +111,9 @@ func (o *Orders) LoadBatch(ctx context.Context, tenantID, legalEntityID, batchKe
 		if o.target == domain.TargetPurchasing {
 			w.VendorID, w.ReceivedQty = it.PartyID, it.DoneQty.String()
 		} else {
-			w.CustomerID, w.DeliveredQty = it.PartyID, it.DoneQty.String()
+			// What was delivered in the legacy system was invoiced there too (its open invoices are the AR opening items), so sales
+			// must not count it again as delivered and not invoiced.
+			w.CustomerID, w.DeliveredQty, w.InvoicedQty = it.PartyID, it.DoneQty.String(), it.DoneQty.String()
 		}
 		req.Lines[i] = w
 		totals[it.Currency] = totals[it.Currency].Add(it.OpenValue())
@@ -138,7 +141,7 @@ func (o *Orders) LoadBatch(ctx context.Context, tenantID, legalEntityID, batchKe
 		_ = json.Unmarshal(body, &pb)
 		if pb.Code == o.invalid || pb.Code == o.taken {
 			if rows := rowErrors(pb.Errors, len(items)); len(rows) > 0 {
-				return OpeningBatchResult{}, &RowsRefused{Code: pb.Code, Rows: rows}
+				return OpeningBatchResult{}, &RowsRefused{Code: pb.Code, Rows: rows, Errors: pb.RowErrors}
 			}
 		}
 	}

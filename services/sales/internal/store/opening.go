@@ -43,6 +43,9 @@ type OpeningLine struct {
 	Currency     string
 	OrderedQty   decimal.Decimal
 	DeliveredQty decimal.Decimal
+	// InvoicedQty is the part of the delivered quantity already invoiced in the legacy system (and so carried as an opening receivable),
+	// stored as the line's invoiced_qty so it is not counted again as delivered and not invoiced.
+	InvoicedQty  decimal.Decimal
 	UnitPrice    decimal.Decimal
 	DeliveryDate string
 }
@@ -188,10 +191,10 @@ func insertOpeningOrder(ctx context.Context, tx pgx.Tx, tenantID string, in Open
 		lineID := ids.New()
 		lineNet := l.OrderedQty.Mul(l.UnitPrice).Round(4)
 		if _, err := tx.Exec(ctx, `insert into sales_order_line (tenant_id, id, order_id, line_no, product_id, quantity, unit, site_id, warehouse_id,
-				unit_price, disc_pct, line_net, requested_ship_date, confirmed_ship_date, line_status, delivered_qty)
-			values ($1, $2, $3, $4, $5::uuid, $6::numeric, $7, $8::uuid, $9::uuid, $10::numeric, 0, $11::numeric, $12::date, $12::date, CASE WHEN $13::numeric > 0 THEN 'PICKED' ELSE 'OPEN' END, $13::numeric)`,
+				unit_price, disc_pct, line_net, requested_ship_date, confirmed_ship_date, line_status, delivered_qty, invoiced_qty)
+			values ($1, $2, $3, $4, $5::uuid, $6::numeric, $7, $8::uuid, $9::uuid, $10::numeric, 0, $11::numeric, $12::date, $12::date, CASE WHEN $13::numeric > 0 THEN 'PICKED' ELSE 'OPEN' END, $13::numeric, $14::numeric)`,
 			tenantID, lineID, o.id, l.LineNo, l.ProductID, l.OrderedQty.String(), l.Unit, l.SiteID, l.WarehouseID, l.UnitPrice.String(), lineNet.String(),
-			l.DeliveryDate, l.DeliveredQty.String()); err != nil {
+			l.DeliveryDate, l.DeliveredQty.String(), l.InvoicedQty.String()); err != nil {
 			return err
 		}
 		if _, err := tx.Exec(ctx, `insert into sales_opening_line (tenant_id, legal_entity_id, reference, batch_id, order_id, line_id, currency, ordered_qty, delivered_qty, open_qty, open_value)

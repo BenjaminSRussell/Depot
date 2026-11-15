@@ -13,6 +13,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/BenjaminSRussell/passage/platform/httpx"
 	"io"
 	"net/http"
 	"sort"
@@ -264,10 +265,11 @@ func (r *Receivables) ImportTotals(ctx context.Context, tenantID, legalEntityID,
 }
 
 type problemBody struct {
-	Code   string            `json:"code"`
-	Detail string            `json:"detail"`
-	Title  string            `json:"title"`
-	Errors map[string]string `json:"errors"`
+	Code      string            `json:"code"`
+	Detail    string            `json:"detail"`
+	Title     string            `json:"title"`
+	Errors    map[string]string `json:"errors"`
+	RowErrors []httpx.RowError  `json:"rowErrors"`
 }
 
 func answerError(status int, body []byte) error {

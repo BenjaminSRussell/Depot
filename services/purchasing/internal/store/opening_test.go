@@ -1,6 +1,7 @@
 package store_test
 
 import (
+	"context"
 	"errors"
 	"testing"
 	"time"
@@ -11,6 +12,8 @@ import (
 	"github.com/BenjaminSRussell/passage/platform/dbx"
 
 	"github.com/BenjaminSRussell/passage/platform/ids"
+	"github.com/BenjaminSRussell/passage/platform/tenant"
+	"github.com/BenjaminSRussell/passage/platform/testkit"
 	"github.com/BenjaminSRussell/passage/services/purchasing/internal/store"
 )
 
@@ -61,5 +64,14 @@ func TestOpeningOrders_ImportIsIdempotentAndReadBack(t *testing.T) {
 	}
 	if approval != "CONFIRMED" || doc != "RECEIVED_PARTIAL" || received != "4.000000" || version != "1" {
 		t.Fatalf("stored order: %s %s %s %s", approval, doc, received, version)
+	}
+
+	// A PO number is unique per tenant: another legal entity's order with the number is reported, not a bare failure.
+	otherLE := ids.New()
+	ctxB := tenant.With(context.Background(), tenant.Principal{TenantID: testkit.TenantID(77), LegalEntityID: otherLE, UserID: ids.New()})
+	clash := in
+	clash.LegalEntityID, clash.BatchKey, clash.ContentHash = otherLE, "b3", "h3"
+	if _, _, err := s.ImportOpeningOrders(ctxB, clash); !errors.As(err, &taken) || !taken.OrderNumbers["LEG-P1"] || len(taken.References) != 0 {
+		t.Fatalf("number used by another legal entity: %v", err)
 	}
 }

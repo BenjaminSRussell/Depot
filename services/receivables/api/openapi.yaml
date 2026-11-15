@@ -156,14 +156,14 @@ paths:
       summary: Customer invoices for payment prediction
       description: |
         The feed of the payment-prediction service (#47), read with a service token holding the one duty `receivables.prediction.read`:
-        INVOICE items in the caller's legal entities, `state=paid` for the settled ones (with `paidDate`, the day of their last settlement,
+        INVOICE items in the caller's legal entities, `state=reversed` for the invoices reversed after they were scored (so the forecast drops them), `state=paid` for the settled ones (with `paidDate`, the day of their last settlement,
         which the service trains on) or `state=open` for the ones still open (OPEN or PARTIALLY_SETTLED, which it scores). `disputes` counts
         the disputes ever raised on the invoice and `dunningLevel` is its current dunning level. Ordered by `updatedAt`, then id; every change to an
         invoice (a settlement, a dunning step, a dispute) moves `updatedAt`, so a caller that keeps the last `updatedAt` it read passes it as
         `updated_since` and sees every later change. Keyset paging by `cursor`. 503 AR-1590 when the feed is not configured.
       x-passage-duty: receivables.prediction.read
       parameters:
-        - { name: state, in: query, required: true, schema: { type: string, enum: [open, paid] } }
+        - { name: state, in: query, required: true, schema: { type: string, enum: [open, paid, reversed] } }
         - { name: updated_since, in: query, description: "Only invoices changed at or after this time.", schema: { type: string, format: date-time } }
         - { name: cursor, in: query, description: The nextCursor of the previous page., schema: { type: string } }
         - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 500, default: 500 } }

@@ -327,12 +327,14 @@ func (s *Postgres) FinishOrderLoad(ctx context.Context, runID string, fin OrderF
 	return load, totals, err
 }
 
-// expectedOrderTotals sums, per order type, the lines of the company the targets hold as the factory loaded them across every run:
-// the line count, the open quantity and the open value per currency.
+// expectedOrderTotals sums, per order type, every staged line of the company across all runs: the line count, the open quantity and
+// the open value per currency. A line that was rejected or held back is part of the open orders the targets should hold, so it shows
+// as a difference instead of dropping out of both sides.
 func expectedOrderTotals(ctx context.Context, tx pgx.Tx, system, company, legalEntityID string) (map[string]domain.OrderTotals, error) {
 	rows, err := tx.Query(ctx, `select o.order_type, o.currency, count(*), sum(o.ordered_qty - o.delivered_qty)::text, sum(round((o.ordered_qty - o.delivered_qty) * o.unit_price, 6))::text
-		from order_load_row l join open_order_opening_line o on o.tenant_id = l.tenant_id and o.line_id = l.line_id
-		where l.tenant_id = current_setting('passage.tenant_id', true)::uuid and l.status = 'LOADED' and l.legal_entity_id = $3 and o.source_system = $1 and o.source_company = $2
+		from open_order_opening_line o
+		where o.tenant_id = current_setting('passage.tenant_id', true)::uuid and o.source_system = $1 and o.source_company = $2
+		  and $3::uuid is not null
 		group by o.order_type, o.currency`, system, company, legalEntityID)
 	if err != nil {
 		return nil, err

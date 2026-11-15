@@ -3589,6 +3589,8 @@ paths:
                       currency: { type: string, pattern: '^[A-Z]{3}$' }
                       orderedQty: { type: string, description: "Decimal string, above zero." }
                       deliveredQty: { type: string, description: "Decimal string, zero or more and below orderedQty." }
+                      invoicedQty: { type: string, description: "Optional decimal string, zero or more and not above deliveredQty: what of the delivered quantity was already invoiced in the legacy system. Stored as the line's invoiced quantity so it is not counted again as delivered and not invoiced in the credit exposure. Default 0." }
+
                       unitPrice: { type: string, description: "Decimal string, zero or more." }
                       deliveryDate: { type: string, format: date }
       responses:

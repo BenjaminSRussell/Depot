@@ -235,19 +235,32 @@ func rejectTakenOpening(ctx context.Context, tx pgx.Tx, in OpeningImport) error 
 	if err := rows.Err(); err != nil {
 		return err
 	}
+	// A PO number is unique per tenant, so the check reads every legal entity's orders: the entity scope is widened for this one
+	// statement and put back.
+	var scope string
+	if err := tx.QueryRow(ctx, `select coalesce(current_setting('passage.legal_entity_scopes', true), '')`).Scan(&scope); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `select set_config('passage.legal_entity_scopes', '*', true)`); err != nil {
+		return err
+	}
 	rows, err = tx.Query(ctx, `select number from purchase_order where number = any($1)`, numbers)
 	if err != nil {
 		return err
 	}
-	defer rows.Close()
 	for rows.Next() {
 		var n string
 		if err := rows.Scan(&n); err != nil {
+			rows.Close()
 			return err
 		}
 		taken.OrderNumbers[n] = true
 	}
+	rows.Close()
 	if err := rows.Err(); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `select set_config('passage.legal_entity_scopes', $1, true)`, scope); err != nil {
 		return err
 	}
 	if len(taken.References) > 0 || len(taken.OrderNumbers) > 0 {

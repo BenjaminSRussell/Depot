@@ -48,7 +48,7 @@ func TestPredictionFeed_NeedsItsDutyAndAStateAndPages(t *testing.T) {
 		t.Fatalf("without a state: %d", rec.Code)
 	}
 	rec := feedRequest(a, "?state=paid&limit=2&updated_since=2027-01-01T00:00:00Z", dutyPredictionRead)
-	if rec.Code != http.StatusOK || !feed.got.Paid || feed.got.UpdatedSince.IsZero() || !strings.Contains(rec.Body.String(), `"nextCursor"`) {
+	if rec.Code != http.StatusOK || feed.got.State != "paid" || feed.got.UpdatedSince.IsZero() || !strings.Contains(rec.Body.String(), `"nextCursor"`) {
 		t.Fatalf("paged read: %d %s %+v", rec.Code, rec.Body, feed.got)
 	}
 	if rec := feedRequest(New(&fakeStore{}), "?state=open", dutyPredictionRead); rec.Code != http.StatusServiceUnavailable {

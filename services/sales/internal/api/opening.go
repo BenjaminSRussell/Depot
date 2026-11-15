@@ -85,6 +85,7 @@ type openingLineRequest struct {
 	Currency     string `json:"currency"`
 	OrderedQty   string `json:"orderedQty"`
 	DeliveredQty string `json:"deliveredQty"`
+	InvoicedQty  string `json:"invoicedQty,omitempty"`
 	UnitPrice    string `json:"unitPrice"`
 	DeliveryDate string `json:"deliveryDate"`
 }
@@ -143,7 +144,8 @@ func (a *API) importOpeningOrders(w http.ResponseWriter, r *http.Request) {
 	case errors.Is(err, store.ErrOpeningKeyConflict):
 		a.refuseOpening(w, r, http.StatusConflict, CodeOpeningKeyConflict, "batch key "+req.BatchKey+" was already imported with different content", nil)
 	case errors.As(err, &taken):
-		a.refuseOpening(w, r, http.StatusUnprocessableEntity, CodeOpeningReference, "line references or order numbers are already in use; nothing was stored", takenOpening(req.Lines, taken))
+		fields, rowErrs := takenOpening(req.Lines, taken)
+		a.refuseOpening(w, r, http.StatusUnprocessableEntity, CodeOpeningReference, "line references or order numbers are already in use; nothing was stored", fields, rowErrs...)
 	case err != nil:
 		a.fail(w, r, "opening order import", err)
 	case created:
@@ -158,10 +160,11 @@ func (a *API) importOpeningOrders(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (a *API) refuseOpening(w http.ResponseWriter, r *http.Request, status int, code, detail string, fields map[string]string) {
+func (a *API) refuseOpening(w http.ResponseWriter, r *http.Request, status int, code, detail string, fields map[string]string, rows ...httpx.RowError) {
 	a.opening.refused.Add(1)
 	p := httpx.NewProblem(status, code, detail)
 	p.Errors = fields
+	p.RowErrors = rows
 	httpx.Fail(w, r, p)
 }
 
@@ -219,6 +222,13 @@ func openingImport(user string, req openingOrdersRequest) (store.OpeningImport, 
 		ordered, e1 := decimal.NewFromString(l.OrderedQty)
 		delivered, e2 := decimal.NewFromString(l.DeliveredQty)
 		price, e3 := decimal.NewFromString(l.UnitPrice)
+		invoiced := decimal.Zero
+		if l.InvoicedQty != "" {
+			var e4 error
+			if invoiced, e4 = decimal.NewFromString(l.InvoicedQty); e4 != nil || invoiced.IsNegative() || invoiced.GreaterThan(delivered) {
+				bad[openingRow(i, "invoicedQty")] = "must be a decimal of zero or more and not above the delivered quantity"
+			}
+		}
 		switch {
 		case e1 != nil || !ordered.IsPositive():
 			bad[openingRow(i, "orderedQty")] = "must be a positive decimal"
@@ -235,7 +245,7 @@ func openingImport(user string, req openingOrdersRequest) (store.OpeningImport, 
 		}
 		in.Lines = append(in.Lines, store.OpeningLine{Reference: l.Reference, OrderNumber: l.OrderNumber, LineNo: l.LineNo,
 			CustomerID: strings.ToLower(l.CustomerID), ProductID: strings.ToLower(l.ProductID), SiteID: strings.ToLower(l.SiteID), WarehouseID: strings.ToLower(l.WarehouseID),
-			Unit: l.Unit, Currency: l.Currency, OrderedQty: ordered, DeliveredQty: delivered, UnitPrice: price, DeliveryDate: l.DeliveryDate})
+			Unit: l.Unit, Currency: l.Currency, OrderedQty: ordered, DeliveredQty: delivered, InvoicedQty: invoiced, UnitPrice: price, DeliveryDate: l.DeliveryDate})
 	}
 	in.ContentHash = openingHash(in)
 	return in, bad
@@ -273,17 +283,22 @@ func openingTotalMismatch(declared map[string]string, lines []store.OpeningLine)
 	return bad
 }
 
-func takenOpening(lines []openingLineRequest, taken *store.OpeningTakenError) map[string]string {
+func takenOpening(lines []openingLineRequest, taken *store.OpeningTakenError) (map[string]string, []httpx.RowError) {
 	bad := map[string]string{}
+	var rows []httpx.RowError
 	for i, l := range lines {
 		if key, ok := taken.References[l.Reference]; ok {
-			bad[openingRow(i, "reference")] = "already imported by batch " + key
+			msg := "already imported by batch " + key
+			bad[openingRow(i, "reference")] = msg
+			rows = append(rows, httpx.RowError{Row: i + 1, Field: "reference", Code: httpx.RowReferenceTaken, Detail: msg, TakenByBatch: key})
 		}
 		if taken.OrderNumbers[l.OrderNumber] {
-			bad[openingRow(i, "orderNumber")] = "order number " + l.OrderNumber + " is already used by an order of the legal entity"
+			msg := "order number " + l.OrderNumber + " is already used by an order"
+			bad[openingRow(i, "orderNumber")] = msg
+			rows = append(rows, httpx.RowError{Row: i + 1, Field: "orderNumber", Code: httpx.RowOrderNumberTaken, Detail: msg})
 		}
 	}
-	return bad
+	return bad, rows
 }
 
 func (a *API) listOpeningOrders(w http.ResponseWriter, r *http.Request) {

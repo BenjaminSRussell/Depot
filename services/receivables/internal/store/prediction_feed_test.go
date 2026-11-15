@@ -29,7 +29,7 @@ func TestListPredictionInvoices_OpenPaidAndDelta(t *testing.T) {
 	if err != nil || len(got) != 1 || got[0].ID != open.ID || got[0].Amount.String() != "100" || got[0].DueDate != "2027-03-01" || got[0].PaidDate != nil || got[0].Disputes != 0 {
 		t.Fatalf("open: %+v %v", got, err)
 	}
-	done, err := s.ListPredictionInvoices(ctx, PredictionFeedFilter{Paid: true}, 10)
+	done, err := s.ListPredictionInvoices(ctx, PredictionFeedFilter{State: "paid"}, 10)
 	if err != nil || len(done) != 1 || done[0].ID != paid.ID || done[0].PaidDate == nil || *done[0].PaidDate != time.Now().UTC().Format("2006-01-02") {
 		t.Fatalf("paid: %+v %v", done, err)
 	}
@@ -51,5 +51,19 @@ func TestListPredictionInvoices_OpenPaidAndDelta(t *testing.T) {
 	first, _ := s.ListPredictionInvoices(ctx, PredictionFeedFilter{}, 1)
 	if rest, err := s.ListPredictionInvoices(ctx, PredictionFeedFilter{AfterAt: first[0].UpdatedAt, AfterID: first[0].ID}, 10); err != nil || len(rest) != 0 {
 		t.Fatalf("after the only row: %+v %v", rest, err)
+	}
+	// A reversed invoice is in no other state; the feed lists it as reversed.
+	if err := dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
+		_, err := tx.Exec(ctx, `update open_item set status = 'REVERSED', open_amount = amount, updated_at = clock_timestamp() where id = $1`, open.ID)
+		return err
+	}); err == nil {
+		if rev, err := s.ListPredictionInvoices(ctx, PredictionFeedFilter{State: "reversed"}, 10); err != nil || len(rev) != 1 || rev[0].ID != open.ID {
+			t.Fatalf("reversed: %+v %v", rev, err)
+		}
+		if still, _ := s.ListPredictionInvoices(ctx, PredictionFeedFilter{State: "open"}, 10); len(still) != 0 {
+			t.Fatalf("a reversed invoice is not open: %+v", still)
+		}
+	} else {
+		t.Skipf("cannot reverse the fixture invoice: %v", err)
 	}
 }

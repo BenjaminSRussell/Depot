@@ -30,6 +30,7 @@ class SyncState:
 
     open_watermark: datetime | None = None
     paid_watermark: datetime | None = None
+    reversed_watermark: datetime | None = None
     last_retrain_at: datetime | None = None
 
 
@@ -62,6 +63,7 @@ class Repository(Protocol):
     def save_sync_state(self, tenant_id: str, legal_entity_id: str, state: SyncState) -> None: ...
     def save_invoice_facts(self, tenant_id: str, legal_entity_id: str, invoices: list[OpenInvoice]) -> None: ...
     def dso(self, tenant_id: str, legal_entity_id: str) -> Dso | None: ...
+    def mark_reversed(self, tenant_id: str, invoice_ids: list[str]) -> int: ...
 
 
 class InMemoryRepository:
@@ -73,6 +75,7 @@ class InMemoryRepository:
         self._sync: dict[tuple[str, str], SyncState] = {}
         # (tenant, invoice) -> (legal entity, invoice date, amount): what the DSO forecast is computed from.
         self._facts: dict[tuple[str, str], tuple[str, date, float]] = {}
+        self._reversed: set[tuple[str, str]] = set()
         # prediction.payment.scored events, as the Postgres repository writes them to the outbox.
         self.events: list[tuple[str, dict[str, object]]] = []
 
@@ -137,6 +140,11 @@ class InMemoryRepository:
         for inv in invoices:
             self._facts[(tenant_id, inv.invoice_id)] = (legal_entity_id, inv.invoice_date, inv.amount)
 
+    def mark_reversed(self, tenant_id: str, invoice_ids: list[str]) -> int:
+        known = [i for i in invoice_ids if i in self._predictions.get(tenant_id, {}) and (tenant_id, i) not in self._reversed]
+        self._reversed.update((tenant_id, i) for i in known)
+        return len(known)
+
     def dso(self, tenant_id: str, legal_entity_id: str) -> Dso | None:
         total = days = late = 0.0
         n = 0
@@ -144,7 +152,7 @@ class InMemoryRepository:
         paid = self._paid.get(tenant_id, {})
         for (tid, invoice_id), (le, invoice_date, amount) in self._facts.items():
             pred = self._predictions.get(tid, {}).get(invoice_id)
-            if tid != tenant_id or le != legal_entity_id or pred is None or invoice_id in paid:
+            if tid != tenant_id or le != legal_entity_id or pred is None or invoice_id in paid or (tid, invoice_id) in self._reversed:
                 continue
             total += amount
             days += amount * (pred.predicted_payment_date - invoice_date).days

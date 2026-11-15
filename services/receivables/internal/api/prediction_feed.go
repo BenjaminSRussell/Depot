@@ -42,11 +42,10 @@ func (a *API) listPredictionInvoices(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	f := store.PredictionFeedFilter{}
 	switch q.Get("state") {
-	case "open":
-	case "paid":
-		f.Paid = true
+	case "open", "paid", "reversed":
+		f.State = q.Get("state")
 	default:
-		badQuery(w, r, "state", "must be open or paid")
+		badQuery(w, r, "state", "must be open, paid or reversed")
 		return
 	}
 	if raw := q.Get("updated_since"); raw != "" {

@@ -155,18 +155,18 @@ class PgRepository:
     def sync_state(self, tenant_id: str, legal_entity_id: str) -> SyncState:
         with self._tenant(tenant_id) as c:
             r = c.execute(
-                "select open_watermark, paid_watermark, last_retrain_at from prediction_sync where legal_entity_id = %s", (legal_entity_id,)
+                "select open_watermark, paid_watermark, reversed_watermark, last_retrain_at from prediction_sync where legal_entity_id = %s", (legal_entity_id,)
             ).fetchone()
         return SyncState(*r) if r else SyncState()
 
     def save_sync_state(self, tenant_id: str, legal_entity_id: str, state: SyncState) -> None:
         with self._tenant(tenant_id) as c:
             c.execute(
-                """insert into prediction_sync (tenant_id, legal_entity_id, open_watermark, paid_watermark, last_retrain_at, last_scored_at)
-                   values (%s, %s, %s, %s, %s, now())
+                """insert into prediction_sync (tenant_id, legal_entity_id, open_watermark, paid_watermark, reversed_watermark, last_retrain_at, last_scored_at)
+                   values (%s, %s, %s, %s, %s, %s, now())
                    on conflict (tenant_id, legal_entity_id) do update set open_watermark = excluded.open_watermark,
-                     paid_watermark = excluded.paid_watermark, last_retrain_at = excluded.last_retrain_at, last_scored_at = excluded.last_scored_at""",
-                (tenant_id, legal_entity_id, state.open_watermark, state.paid_watermark, state.last_retrain_at),
+                     paid_watermark = excluded.paid_watermark, reversed_watermark = excluded.reversed_watermark, last_retrain_at = excluded.last_retrain_at, last_scored_at = excluded.last_scored_at""",
+                (tenant_id, legal_entity_id, state.open_watermark, state.paid_watermark, state.reversed_watermark, state.last_retrain_at),
             )
 
     def save_invoice_facts(self, tenant_id: str, legal_entity_id: str, invoices: list[OpenInvoice]) -> None:
@@ -187,9 +187,18 @@ class PgRepository:
                 """select sum(amount * (predicted_payment_date - invoice_date)) / nullif(sum(amount), 0), count(*), sum(amount),
                           sum(amount * p_late_30d) / nullif(sum(amount), 0), max(scored_at)
                      from payment_prediction
-                    where legal_entity_id = %s and actual_paid_date is null and invoice_date is not null and amount is not null""",
+                    where legal_entity_id = %s and actual_paid_date is null and reversed_at is null and invoice_date is not null and amount is not null""",
                 (legal_entity_id,),
             ).fetchone()
         if r is None or r[0] is None or not r[1]:
             return None
         return Dso(round(float(r[0]), 1), int(r[1]), f"{r[2]:.2f}", f"{r[3]:.4f}", r[4])
+
+    def mark_reversed(self, tenant_id: str, invoice_ids: list[str]) -> int:
+        """Takes reversed invoices out of the DSO forecast; their predictions stay for the record."""
+        if not invoice_ids:
+            return 0
+        with self._tenant(tenant_id) as c:
+            return c.execute(
+                "update payment_prediction set reversed_at = current_date where invoice_id = any(%s) and reversed_at is null", (invoice_ids,)
+            ).rowcount

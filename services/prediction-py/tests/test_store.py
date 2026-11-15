@@ -220,3 +220,17 @@ def test_sync_state_and_the_dso_forecast_are_per_tenant_and_legal_entity(make_re
     paid = PaidInvoice(**{**invoices[0].__dict__, "paid_date": preds[0].predicted_payment_date})
     make_repo().record_actuals(t, [paid])
     assert make_repo().dso(t, le).open_invoices == 39
+
+
+def test_a_reversed_invoice_leaves_the_dso_forecast_but_keeps_its_prediction(make_repo):
+    t, le = tenant(), str(uuid.uuid4())
+    s = svc(make_repo())
+    s.retrain(t, synth.paid_invoices(400))
+    invoices = synth.open_invoices(10)
+    s.score(t, invoices)
+    make_repo().save_invoice_facts(t, le, invoices)
+    assert make_repo().dso(t, le).open_invoices == 10
+    assert make_repo().mark_reversed(t, [invoices[0].invoice_id, "never-scored"]) == 1
+    assert make_repo().mark_reversed(t, [invoices[0].invoice_id]) == 0
+    assert make_repo().dso(t, le).open_invoices == 9
+    assert make_repo().prediction(t, invoices[0].invoice_id) is not None

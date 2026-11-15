@@ -141,42 +141,93 @@ func TestOrderLoad_SalesAndPurchaseLinesGoToTheirServicesAndReconcile(t *testing
 	}
 }
 
-// A line the factory cannot map, one the target refuses and a target whose answer was lost: the rest still loads, the rejects are
-// listed with their codes, and the lost batch is a replay on the next call, not a second batch.
-func TestOrderLoad_RejectsWhatItCannotMapOrTheTargetRefusesAndRecoversALostAnswer(t *testing.T) {
+// A line the factory cannot map holds back its whole order (sales stores an order under its number once, so a partial order could
+// never be completed), the other order still loads, and the held order loads whole once the mapping exists. A refusal of one line
+// by the target holds back its order the same way. The run is not reconciled while lines are missing.
+func TestOrderLoad_AnOrderIsSentWholeOrNotAtAll(t *testing.T) {
 	e := newOrderEnv(t)
 	e.xref.found["item"] = map[string]string{"USMF|BOLT": prodBlt} // NUT has no product id
 	run := e.startOrders(t, cleanOrders...)
-	e.sales.Refuse["SL-1"] = true
 	got := e.ordersLoad(t, run.RunID, orderLoadBody(""), http.StatusOK)
-	// SL-1 refused by sales, SL-2 (NUT) unmapped, PL-1 loaded.
-	if got.Loaded != 1 || got.Rejected != 2 || got.Clean || got.Status != "RECONCILED" {
+	// SO-1 has SL-1 (BOLT) and SL-2 (NUT, unmapped): neither goes out. PL-1 loads.
+	if got.Loaded != 1 || got.Rejected != 2 || got.Clean || got.Status != "MISMATCH" {
 		t.Fatalf("load %+v", got)
+	}
+	if k := e.sales.Batches(); len(k) != 0 {
+		t.Fatalf("a part of the order SO-1 was sent: %v", k)
 	}
 	detail := decode[orderLoadDetailDTO](t, e.do(t, "GET", "/api/v1/migration/runs/"+run.RunID+"/orders-load", ""))
 	codes := map[string]string{}
 	for _, r := range detail.Rejects {
 		codes[r.LegacyID] = r.Code
 	}
-	if codes["SL-1"] != "SLS-OPB-001" || codes["SL-2"] != "MIG-REF-UNRESOLVED" || len(codes) != 2 {
+	if codes["SL-1"] != CodeOrderHeld || codes["SL-2"] != "MIG-REF-UNRESOLVED" || len(codes) != 2 {
 		t.Fatalf("rejects %+v", detail.Rejects)
 	}
-	// The item is mapped and the target stops refusing, but sales is unreachable for a while.
-	delete(e.sales.Refuse, "SL-1")
+	// The sales target refuses one line of the order: the whole order stays out, and nothing is stored there.
 	e.xref.found["item"]["NUT"] = prodNut
-	e.sales.FailNext(503, 503, 503)
-	partial := e.ordersLoad(t, run.RunID, orderLoadBody(""), http.StatusOK)
-	if partial.Status != "PARTIAL" || partial.LastError == "" || partial.Clean {
-		t.Fatalf("lost answer %+v", partial)
+	e.sales.Refuse["SL-2"] = true
+	got = e.ordersLoad(t, run.RunID, orderLoadBody(""), http.StatusOK)
+	if got.Rejected != 2 || got.Status != "MISMATCH" || len(e.sales.Batches()) != 0 {
+		t.Fatalf("refused line %+v batches %v", got, e.sales.Batches())
 	}
-	// The target stores the batch and its answer is lost: the client's retry is the same key and content, so a replay.
-	e.sales.LoseNext(1)
+	detail = decode[orderLoadDetailDTO](t, e.do(t, "GET", "/api/v1/migration/runs/"+run.RunID+"/orders-load", ""))
+	codes = map[string]string{}
+	for _, r := range detail.Rejects {
+		codes[r.LegacyID] = r.Code
+	}
+	if codes["SL-2"] != "SLS-OPB-001" || codes["SL-1"] != CodeOrderHeld {
+		t.Fatalf("rejects %+v", detail.Rejects)
+	}
+	// The target stops refusing: the retry loads the order whole and the run reconciles.
+	delete(e.sales.Refuse, "SL-2")
 	done := e.ordersLoad(t, run.RunID, orderLoadBody(""), http.StatusOK)
-	if done.Status != "RECONCILED" || done.Loaded != 3 || !done.Clean {
+	if done.Status != "RECONCILED" || done.Loaded != 3 || !done.Clean || len(e.sales.Batches()) != 1 {
 		t.Fatalf("retry %+v", done)
 	}
-	if k := e.sales.Batches(); len(k) != 1 {
-		t.Fatalf("the lost batch is replayed under its key, not stored twice: %v", k)
+}
+
+// Batches are cut between orders, never inside one, and an order larger than a batch is refused with its reason.
+func TestOrderLoad_BatchesAreCutAtOrderBoundaries(t *testing.T) {
+	old := orderBatchLimit
+	orderBatchLimit = 2
+	defer func() { orderBatchLimit = old }()
+	e := newOrderEnv(t)
+	run := e.startOrders(t,
+		orderRec("SL-1", "SALES", "SO-1", "1", "BOLT", "C1", "10", "4", "2.5"), orderRec("SL-2", "SALES", "SO-1", "2", "NUT", "C1", "4", "0", "1.5"),
+		orderRec("SL-3", "SALES", "SO-2", "1", "BOLT", "C1", "5", "0", "2"), orderRec("SL-4", "SALES", "SO-3", "1", "BOLT", "C1", "1", "0", "2"),
+		orderRec("SL-5", "SALES", "SO-3", "2", "BOLT", "C1", "1", "0", "2"), orderRec("SL-6", "SALES", "SO-3", "3", "BOLT", "C1", "1", "0", "2"))
+	got := e.ordersLoad(t, run.RunID, orderLoadBody(""), http.StatusOK)
+	// SO-1 (2 lines) and SO-2 (1) cannot share a batch of 2 lines; SO-3 has 3 lines and is refused.
+	if got.Loaded != 3 || got.Rejected != 3 || got.Status != "MISMATCH" || len(e.sales.Batches()) != 2 {
+		t.Fatalf("load %+v batches %v", got, e.sales.Batches())
+	}
+	detail := decode[orderLoadDetailDTO](t, e.do(t, "GET", "/api/v1/migration/runs/"+run.RunID+"/orders-load", ""))
+	for _, r := range detail.Rejects {
+		if r.Code != CodeOrderTooLarge {
+			t.Fatalf("reject %+v", r)
+		}
+	}
+}
+
+// The target stored a batch and its answer never arrived. The next pass has other lines pending (a mapping was added), so it forms
+// another batch whose rows repeat the first one's: the target names the batch that holds each reference, with the order-number error
+// next to it, and the factory counts those orders as loaded instead of rejected.
+func TestOrderLoad_ALostAnswerIsRecognisedWhateverTheErrorsSayAndTheKeyChanged(t *testing.T) {
+	e := newOrderEnv(t)
+	e.xref.found["item"] = map[string]string{"USMF|BOLT": prodBlt}
+	run := e.startOrders(t, append([]string{orderRec("SL-9", "SALES", "SO-9", "1", "BOLT", "C1", "3", "0", "4")}, cleanOrders...)...)
+	e.sales.DropAnswers = 10
+	first := e.ordersLoad(t, run.RunID, orderLoadBody(""), http.StatusOK)
+	if first.Status != "PARTIAL" || len(e.sales.Batches()) != 1 {
+		t.Fatalf("lost answer %+v batches %v", first, e.sales.Batches())
+	}
+	// NUT gets its product: SO-1 becomes sendable, so the pending set (and the key) changes; SO-9 is already stored at the target.
+	e.sales.DropAnswers = 0
+	e.xref.found["item"]["NUT"] = prodNut
+	done := e.ordersLoad(t, run.RunID, orderLoadBody(""), http.StatusOK)
+	if done.Status != "RECONCILED" || done.Staged != 4 || done.Loaded != 4 || done.Rejected != 0 || !done.Clean || len(e.sales.Batches()) != 2 {
+		t.Fatalf("second pass %+v batches %v", done, e.sales.Batches())
 	}
 }
 

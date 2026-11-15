@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"sort"
 	"strings"
 	"time"
 
@@ -256,15 +255,27 @@ func (s *Server) runOrderLoad(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	maps := domain.OrderMaps{Products: req.Products, Customers: req.Customers, Vendors: req.Vendors, SiteID: req.SiteID, WarehouseID: req.WarehouseID}
-	var unmapped []store.OrderReject
-	chunks := map[string][]orderChunkLine{}
-	for _, pl := range pending {
-		item, code, why := domain.BuildOrderItem(pl.Line, maps)
-		if code != "" {
-			unmapped = append(unmapped, store.OrderReject{Line: pl, Code: code, Detail: why})
-			continue
+	// A target stores an order under its number once, so an order is sent whole in one batch or not at all: a line that cannot be
+	// built holds back every line of its order, and an order is never cut across two batches.
+	groups, held := groupOrders(pending, maps)
+	var unmapped []store.OrderReject = held
+	chunks := map[string][]orderGroup{}
+	for _, ot := range []string{domain.OrderSales, domain.OrderPurchase} {
+		var cur []orderGroup
+		n := 0
+		for _, g := range groups {
+			if g.orderType != ot {
+				continue
+			}
+			if n+len(g.lines) > orderBatchLimit && n > 0 {
+				chunks[ot] = append(chunks[ot], cur...)
+				cur, n = nil, 0
+				chunks[ot] = append(chunks[ot], orderGroup{cut: true})
+			}
+			cur = append(cur, g)
+			n += len(g.lines)
 		}
-		chunks[pl.Line.OrderType] = append(chunks[pl.Line.OrderType], orderChunkLine{pending: pl, item: item})
+		chunks[ot] = append(chunks[ot], cur...)
 	}
 	var fin store.OrderFinish
 	fatalCode := CodeOrdersDenied
@@ -276,9 +287,11 @@ func (s *Server) runOrderLoad(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	for _, ot := range []string{domain.OrderSales, domain.OrderPurchase} {
-		lines := chunks[ot]
-		for start := 0; start < len(lines) && fin.Fatal == "" && fin.Unavailable == ""; start += domain.MaxOrderBatchLines {
-			code, err := s.sendOrderChunk(ctx, p.TenantID, load, run, ot, lines[start:min(start+domain.MaxOrderBatchLines, len(lines))], &fin)
+		for _, batch := range splitBatches(chunks[ot]) {
+			if fin.Fatal != "" || fin.Unavailable != "" {
+				break
+			}
+			code, err := s.sendOrderChunk(ctx, p.TenantID, load, run, ot, batch, &fin)
 			if err != nil {
 				s.abandonOrders(ctx, id, err)
 				httpx.Fail(w, r, err)
@@ -327,30 +340,131 @@ type orderChunkLine struct {
 	item    domain.OrderItem
 }
 
+// orderGroup is every pending line of one order, built; cut marks a batch boundary between groups.
+type orderGroup struct {
+	orderType string
+	number    string
+	lines     []orderChunkLine
+	cut       bool
+}
+
+// orderBatchLimit is the most lines one batch holds; a variable only so a test can make it small.
+var orderBatchLimit = domain.MaxOrderBatchLines
+
+// Reject codes of the factory for lines it holds back because of their order.
+const (
+	CodeOrderHeld     = "MIG-LOAD-ORDER-HELD"
+	CodeOrderTooLarge = "MIG-LOAD-ORDER-TOO-LARGE"
+)
+
+// groupOrders groups the pending lines by order (they arrive sorted by order type and number), builds their items, and returns the
+// orders that can be sent whole and the rejects of the ones that cannot: an order with a line that has no mapping, or with more lines
+// than a batch takes, is held back entirely so a later pass can load it whole.
+func groupOrders(pending []store.PendingOrderLine, maps domain.OrderMaps) ([]orderGroup, []store.OrderReject) {
+	var groups []orderGroup
+	index := map[string]int{}
+	for _, pl := range pending {
+		k := pl.Line.OrderType + "\x1f" + pl.Line.OrderNumber
+		i, ok := index[k]
+		if !ok {
+			i = len(groups)
+			index[k] = i
+			groups = append(groups, orderGroup{orderType: pl.Line.OrderType, number: pl.Line.OrderNumber})
+		}
+		groups[i].lines = append(groups[i].lines, orderChunkLine{pending: pl})
+	}
+	var ok []orderGroup
+	var rejects []store.OrderReject
+	for _, g := range groups {
+		type fail struct{ code, why string }
+		fails := map[int]fail{}
+		var first string
+		for i := range g.lines {
+			item, code, why := domain.BuildOrderItem(g.lines[i].pending.Line, maps)
+			if code != "" {
+				fails[i] = fail{code, why}
+				if first == "" {
+					first = fmt.Sprintf("line %s: %s", g.lines[i].pending.Line.LineNumber, why)
+				}
+				continue
+			}
+			g.lines[i].item = item
+		}
+		switch {
+		case len(fails) > 0:
+			for i, l := range g.lines {
+				if f, bad := fails[i]; bad {
+					rejects = append(rejects, store.OrderReject{Line: l.pending, Code: f.code, Detail: f.why})
+				} else {
+					rejects = append(rejects, store.OrderReject{Line: l.pending, Code: CodeOrderHeld, Detail: "order " + g.number + " is held back whole because " + first})
+				}
+			}
+		case len(g.lines) > orderBatchLimit:
+			for _, l := range g.lines {
+				rejects = append(rejects, store.OrderReject{Line: l.pending, Code: CodeOrderTooLarge,
+					Detail: fmt.Sprintf("order %s has %d lines and a batch takes %d; the target stores an order whole, so it cannot be loaded in parts", g.number, len(g.lines), orderBatchLimit)})
+			}
+		default:
+			ok = append(ok, g)
+		}
+	}
+	return ok, rejects
+}
+
+// splitBatches cuts a group list at its cut markers.
+func splitBatches(in []orderGroup) [][]orderGroup {
+	var out [][]orderGroup
+	var cur []orderGroup
+	for _, g := range in {
+		if g.cut {
+			if len(cur) > 0 {
+				out = append(out, cur)
+			}
+			cur = nil
+			continue
+		}
+		cur = append(cur, g)
+	}
+	if len(cur) > 0 {
+		out = append(out, cur)
+	}
+	return out
+}
+
 func (s *Server) abandonOrders(ctx context.Context, runID string, cause error) {
 	_, _, _ = s.store.FinishOrderLoad(context.WithoutCancel(ctx), runID, store.OrderFinish{Unavailable: cause.Error(), ActualErr: cause.Error()})
 }
 
-// takenByOwnBatch reports whether a refusal reason for a reference says another batch of the factory's own imported it: that
-// batch was accepted by an earlier pass whose answer was lost, so the line is at the target already.
-func takenByOwnBatch(detail string, own func(key string) bool) bool {
-	const marker = "already imported by batch "
-	i := strings.Index(detail, marker)
-	return i >= 0 && own(strings.TrimSpace(detail[i+len(marker):]))
+// ownBatchTakes reports whether a refused row's structured errors say that a batch the factory wrote for these open orders already
+// holds its reference: that batch was accepted by an earlier pass whose answer was lost.
+func ownBatchTakes(errs []httpx.RowError, row int, own func(key string) bool) bool {
+	for _, e := range errs {
+		if e.Row == row && e.Code == httpx.RowReferenceTaken && own(e.TakenByBatch) {
+			return true
+		}
+	}
+	return false
 }
 
-// sendOrderChunk sends one chunk of one order type, resending it without the lines the target refuses. It records its outcome in
-// fin (Fatal or Unavailable stop the load) and returns the problem code to answer a fatal stop with. A non-nil error is unexpected
-// and abandons the load.
-func (s *Server) sendOrderChunk(ctx context.Context, tenantID string, load domain.OrderLoad, run store.OrderLoadRun, orderType string, chunk []orderChunkLine, fin *store.OrderFinish) (string, error) {
+// sendOrderChunk sends one batch of whole orders of one order type, resending it without the orders a target refuses. It records its
+// outcome in fin (Fatal or Unavailable stop the load) and returns the problem code to answer a fatal stop with. A non-nil error is
+// unexpected and abandons the load.
+func (s *Server) sendOrderChunk(ctx context.Context, tenantID string, load domain.OrderLoad, run store.OrderLoadRun, orderType string, groups []orderGroup, fin *store.OrderFinish) (string, error) {
 	targetName := domain.OrderTargetOf(orderType)
 	tgt := s.orderTarget(orderType)
 	own := func(key string) bool { return domain.IsOrderBatchKey(targetName, run.System, run.Company, key) }
-	lines := chunk
-	for round := 0; len(lines) > 0; round++ {
+	for round := 0; len(groups) > 0; round++ {
 		if round >= maxRefusalRounds {
-			fin.Fatal = fmt.Sprintf("the %s service kept refusing lines after %d attempts", targetName, maxRefusalRounds)
+			fin.Fatal = fmt.Sprintf("the %s service kept refusing orders after %d attempts", targetName, maxRefusalRounds)
 			return CodeOrdersRefusedBatch, nil
+		}
+		var lines []orderChunkLine
+		var owner []int
+		for gi, g := range groups {
+			for _, l := range g.lines {
+				lines = append(lines, l)
+				owner = append(owner, gi)
+			}
 		}
 		items := make([]domain.OrderItem, len(lines))
 		hashes := make([]string, len(lines))
@@ -358,7 +472,7 @@ func (s *Server) sendOrderChunk(ctx context.Context, tenantID string, load domai
 			items[i], hashes[i] = l.item, l.item.Hash(targetName)
 		}
 		key := domain.OrderBatchKey(targetName, run.System, run.Company, hashes)
-		res, err := tgt.LoadBatch(ctx, tenantID, load.LegalEntityID, key, items)
+		_, err := tgt.LoadBatch(ctx, tenantID, load.LegalEntityID, key, items)
 		var terr *target.Error
 		var refused *target.RowsRefused
 		switch {
@@ -367,39 +481,57 @@ func (s *Server) sendOrderChunk(ctx context.Context, tenantID string, load domai
 			for i, l := range lines {
 				pend[i] = l.pending
 			}
-			_ = res
 			return "", s.store.RecordOrderBatch(ctx, load.RunID, load.LegalEntityID, loadLease, key, pend)
 		case errors.As(err, &refused):
-			var bad []store.OrderReject
-			var held []store.PendingOrderLine
-			drop := map[int]bool{}
+			// Per order: loaded by an earlier pass (a reference is held by a batch of the factory's own), or refused.
+			loadedBefore := map[int]bool{}
+			reason := map[int]store.OrderReject{}
 			for row, why := range refused.Rows {
-				l := lines[row-1].pending
-				if takenByOwnBatch(why, own) {
-					held = append(held, l)
-				} else {
-					bad = append(bad, store.OrderReject{Line: l, Code: refused.Code, Detail: why})
+				gi := owner[row-1]
+				if ownBatchTakes(refused.Errors, row, own) {
+					loadedBefore[gi] = true
+					continue
 				}
-				drop[row-1] = true
+				if _, seen := reason[gi]; !seen {
+					reason[gi] = store.OrderReject{Line: lines[row-1].pending, Code: refused.Code, Detail: why}
+				}
 			}
-			sort.Slice(bad, func(i, j int) bool { return bad[i].Line.LineID < bad[j].Line.LineID })
-			if len(bad) > 0 {
-				if err := s.store.RejectOrderLines(ctx, load.RunID, load.LegalEntityID, loadLease, bad); err != nil {
+			var rejects []store.OrderReject
+			var done []store.PendingOrderLine
+			var kept []orderGroup
+			for gi, g := range groups {
+				switch r, bad := reason[gi]; {
+				case loadedBefore[gi] && !bad:
+					for _, l := range g.lines {
+						done = append(done, l.pending)
+					}
+				case bad:
+					for _, l := range g.lines {
+						if l.pending.LineID == r.Line.LineID {
+							rejects = append(rejects, r)
+						} else {
+							rejects = append(rejects, store.OrderReject{Line: l.pending, Code: CodeOrderHeld, Detail: "order " + g.number + " is held back whole because the target refused another line: " + r.Detail})
+						}
+					}
+				default:
+					kept = append(kept, g)
+				}
+			}
+			if len(rejects) == 0 && len(done) == 0 {
+				fin.Fatal = err.Error()
+				return CodeOrdersRefusedBatch, nil
+			}
+			if len(rejects) > 0 {
+				if err := s.store.RejectOrderLines(ctx, load.RunID, load.LegalEntityID, loadLease, rejects); err != nil {
 					return "", err
 				}
 			}
-			if len(held) > 0 {
-				if err := s.store.RecordOrderBatch(ctx, load.RunID, load.LegalEntityID, loadLease, "earlier-pass", held); err != nil {
+			if len(done) > 0 {
+				if err := s.store.RecordOrderBatch(ctx, load.RunID, load.LegalEntityID, loadLease, "earlier-pass", done); err != nil {
 					return "", err
 				}
 			}
-			kept := make([]orderChunkLine, 0, len(lines)-len(drop))
-			for i, l := range lines {
-				if !drop[i] {
-					kept = append(kept, l)
-				}
-			}
-			lines = kept
+			groups = kept
 		case errors.As(err, &terr) && (errors.Is(terr.Kind, target.ErrUnavailable) || errors.Is(terr.Kind, target.ErrBadAnswer)):
 			fin.Unavailable = err.Error()
 			return "", nil

@@ -18,7 +18,7 @@ from prediction.domain import Config, OpenInvoice, PaidInvoice
 from prediction.receivables import FeedError, ReceivablesFeed
 from prediction.service import InMemoryRepository, PredictionService
 from prediction.signer import GRANTS, HEADER, TOKEN_CONTEXT, ServiceSigner, SignerError
-from prediction.sync import delta, scopes_from_env, weekly
+from prediction.sync import OVERLAP, delta, scopes_from_env, weekly
 
 TENANT = "0190a5f2-7b1c-7d3e-8a4f-1234567890ab"
 LE = "0190a5f2-7b1c-7d3e-8a4f-1234567890ac"
@@ -77,7 +77,7 @@ class FakeReceivables:
     """GET /v1/receivables/prediction-invoices over invoices with a change time, paged by 2 or 500, as the service answers."""
 
     def __init__(self, page: int = 500) -> None:
-        self.rows: dict[str, list[tuple[datetime, dict]]] = {"open": [], "paid": []}
+        self.rows: dict[str, list[tuple[datetime, dict]]] = {"open": [], "paid": [], "reversed": []}
         self.calls: list[dict] = []
         self.fail: int | None = None
         self.page = page
@@ -114,9 +114,9 @@ def setup(page: int = 500, n_paid: int = 400, n_open: int = 30):
     service = PredictionService(repo, Config(min_rows=100, mae_max_days=30.0), clock=lambda: NOW)
     base = datetime(2026, 11, 1, tzinfo=timezone.utc)
     for i, inv in enumerate(synth.paid_invoices(n_paid)):
-        fake.add(LE, "paid", inv, base + timedelta(seconds=i))
+        fake.add(LE, "paid", inv, base + timedelta(hours=i))
     for i, inv in enumerate(synth.open_invoices(n_open)):
-        fake.add(LE, "open", inv, base + timedelta(seconds=i))
+        fake.add(LE, "open", inv, base + timedelta(hours=i))
     return fake, feed, service, repo
 
 
@@ -147,7 +147,7 @@ def test_the_delta_rescores_only_invoices_changed_since_the_watermark_and_stamps
     assert not nothing.errors and nothing.scored <= 1 and nothing.actuals == 0
     # An open invoice is disputed and another one paid after the last read.
     opened = synth.open_invoices(30)
-    later = NOW + timedelta(hours=1)
+    later = NOW + timedelta(days=60)
     changed = OpenInvoice(opened[3].invoice_id, opened[3].customer_id, opened[3].amount, opened[3].invoice_date, opened[3].due_date, 2, 1)
     fake.rows["open"] = [(at, r) for at, r in fake.rows["open"] if r["id"] != changed.invoice_id]
     fake.add(LE, "open", changed, later)
@@ -183,8 +183,45 @@ def test_a_legal_entity_without_a_model_yet_only_records_actuals():
     assert repo.sync_state(TENANT, LE).open_watermark is None
 
 
-def test_scopes_come_from_the_environment():
+def test_scopes_come_from_the_environment_and_a_malformed_one_is_skipped():
     assert scopes_from_env(json.dumps([{"tenantId": TENANT, "legalEntityIds": [LE, LE2]}])) == [(TENANT, [LE, LE2])]
     assert scopes_from_env("") == []
+    # Capitals are put in canonical form; a bad scope is skipped and the ones after it still run.
+    mixed = [{"tenantId": TENANT.upper(), "legalEntityIds": [LE.upper()]}, {"tenant": 1}, {"tenantId": "x", "legalEntityIds": [LE]}, {"tenantId": TENANT, "legalEntityIds": [LE2]}]
+    assert scopes_from_env(json.dumps(mixed)) == [(TENANT, [LE]), (TENANT, [LE2])]
     with pytest.raises(ValueError):
-        scopes_from_env('[{"tenant": 1}]')
+        scopes_from_env("not json")
+
+
+def test_a_signer_failure_for_one_legal_entity_is_reported_and_the_next_entity_still_runs():
+    fake, feed, service, repo = setup()
+    weekly(service, feed, TENANT, [LE])
+    rep = delta(service, feed, TENANT, ["not-a-uuid", LE])
+    assert len(rep.errors) == 1 and rep.errors[0].startswith("not-a-uuid")
+    assert repo.sync_state(TENANT, LE).open_watermark is not None
+
+
+def test_the_delta_reads_from_the_watermark_less_the_overlap_so_a_late_commit_is_not_skipped():
+    fake, feed, service, repo = setup()
+    weekly(service, feed, TENANT, [LE])
+    mark = repo.sync_state(TENANT, LE).open_watermark
+    fake.calls.clear()
+    delta(service, feed, TENANT, [LE])
+    since = [datetime.fromisoformat(c["query"]["updated_since"]) for c in fake.calls if c["query"]["state"] == "open"]
+    assert since == [mark - OVERLAP]
+    # A row that committed late with a change time before the stored watermark, inside the overlap, is rescored.
+    opened = synth.open_invoices(30)[7]
+    fake.rows["open"] = [(at, r) for at, r in fake.rows["open"] if r["id"] != opened.invoice_id]
+    fake.add(LE, "open", OpenInvoice(opened.invoice_id, opened.customer_id, opened.amount, opened.invoice_date, opened.due_date, 3, 0), mark - timedelta(minutes=3))
+    assert delta(service, feed, TENANT, [LE]).scored >= 1
+
+
+def test_a_reversed_invoice_leaves_the_forecast():
+    fake, feed, service, repo = setup()
+    weekly(service, feed, TENANT, [LE])
+    gone = synth.open_invoices(30)[2]
+    fake.rows["open"] = [(at, r) for at, r in fake.rows["open"] if r["id"] != gone.invoice_id]
+    fake.add(LE, "reversed", gone, NOW + timedelta(days=60))
+    assert repo.dso(TENANT, LE).open_invoices == 30
+    delta(service, feed, TENANT, [LE])
+    assert repo.dso(TENANT, LE).open_invoices == 29

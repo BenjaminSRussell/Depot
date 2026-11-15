@@ -644,7 +644,7 @@ paths:
         item, customer or vendor to its Passage id; the ones the party and product migrations loaded are found through the migration
         service's cross-reference (company|code, else the code), and an id that is already a UUID needs no entry. A line with no mapping is
         REJECTED (MIG-REF-UNRESOLVED), as is one whose line number is not an integer (MIG-LOAD-ORDER-LINE), until a later call can map it.
-        The batch key is derived from the system, company and lines (`mf-orders-<target>-<system>-<hash>-<hash>`), so the same lines are
+        An order is always sent whole: batches are cut between orders, an order with an unmapped line or a line the target refuses is held back entirely (its other lines are REJECTED MIG-LOAD-ORDER-HELD) and an order above 1000 lines is refused (MIG-LOAD-ORDER-TOO-LARGE). The batch key is derived from the system, company and lines (`mf-orders-<target>-<system>-<hash>-<hash>`), so the same lines are
         the same request on every try and a target answers a repeat as a replay. A refusal that names lines (422 SLS-OPB-001, PRC-OPB-001, or
         SLS-OPB-004 and PRC-OPB-004 for a reference another batch took) stores those lines as REJECTED with the target's reason and sends the rest
         again at once; a reference the factory's own earlier batch took counts as loaded. A 5xx, a 429 or a timeout is retried and then leaves the

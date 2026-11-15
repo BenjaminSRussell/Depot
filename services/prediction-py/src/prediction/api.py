@@ -63,10 +63,20 @@ async def _on_validation(request: Request, exc: RequestValidationError) -> JSONR
     return _problem(400, "PRD-0400", "the request is not valid: " + "; ".join(".".join(map(str, e["loc"][1:])) + " " + e["msg"] for e in exc.errors()[:5]), request.url.path)
 
 
+ALL_SCOPE_DUTY = "org.switcher.all-scope"  # platform/go/tenant DutyAllScope: a caller who may act in every legal entity
+
+
 class Caller(BaseModel):
     tenant_id: str
     user_id: str
     duties: frozenset[str]
+    legal_entities: frozenset[str] = frozenset()  # X-Passage-Legal-Entity: the entities the caller is scoped to
+
+    def may_see_entity(self, legal_entity_id: str) -> bool:
+        """A caller with a legal-entity scope sees those entities only; one with none must hold the all-scope duty."""
+        if self.legal_entities:
+            return legal_entity_id in self.legal_entities
+        return ALL_SCOPE_DUTY in self.duties
 
     def require(self, duty: str) -> None:
         if duty not in self.duties:
@@ -85,12 +95,14 @@ def caller(
     x_passage_tenant: Annotated[str | None, Header()] = None,
     x_passage_user: Annotated[str | None, Header()] = None,
     x_passage_duties: Annotated[str | None, Header()] = None,
+    x_passage_legal_entity: Annotated[str | None, Header()] = None,
 ) -> Caller:
     tenant, user = _uuid(x_passage_tenant), _uuid(x_passage_user)
     if tenant is None or user is None:
         raise Problem(401, "AGT-0401", "the edge did not identify a tenant and user")
     duties = frozenset(d.strip() for d in (x_passage_duties or "").split(",") if d.strip())
-    return Caller(tenant_id=tenant, user_id=user, duties=duties)
+    entities = frozenset(e for e in (_uuid(x) for x in (x_passage_legal_entity or "").split(",")) if e)
+    return Caller(tenant_id=tenant, user_id=user, duties=duties, legal_entities=entities)
 
 
 class InvoiceIn(BaseModel):
@@ -249,6 +261,9 @@ def get_dso(who: Annotated[Caller, Depends(caller)], legalEntityId: str | None =
     entity = _uuid(legalEntityId)
     if entity is None:
         raise Problem(400, "PRD-0400", "legalEntityId must be a legal entity UUID")
+    if not who.may_see_entity(entity):
+        # As the Go services answer an entity outside the caller's scope: it is not there for this caller.
+        raise Problem(404, "AGT-0404", "no open invoices of this legal entity have been scored yet")
     found = service.repo.dso(who.tenant_id, entity)
     if found is None:
         raise Problem(404, "AGT-0404", "no open invoices of this legal entity have been scored yet")

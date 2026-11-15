@@ -14,16 +14,21 @@ import json
 import logging
 import os
 import sys
+import uuid
+from datetime import timedelta
 from dataclasses import dataclass, field, replace
 from datetime import datetime
 
 from prediction.domain import OpenInvoice, PaidInvoice, PredictionError
 from prediction.receivables import FeedError, ReceivablesFeed
 from prediction.service import PredictionService, SyncState
-from prediction.signer import ServiceSigner
+from prediction.signer import ServiceSigner, SignerError
 
 log = logging.getLogger("prediction.sync")
 SCORE_BATCH = 5_000
+# A delta reads from its watermark less this much. updated_at is the time a receivables transaction began, so a long transaction can
+# commit rows older than a watermark stored meanwhile; reading them again is harmless (every write here is an idempotent upsert).
+OVERLAP = timedelta(minutes=10)
 MAX_TRAINING_ROWS = 50_000
 
 
@@ -47,12 +52,14 @@ def _score_all(service: PredictionService, tenant_id: str, legal_entity_id: str,
     return n
 
 
-def _read(feed: ReceivablesFeed, tenant_id: str, legal_entity_id: str, state: str, since: datetime | None) -> tuple[list[OpenInvoice], datetime | None]:
+def _read(feed: ReceivablesFeed, tenant_id: str, legal_entity_id: str, state: str, since: datetime | None, overlap: bool = False) -> tuple[list[OpenInvoice], datetime | None]:
+    """The invoices in `state` changed since `since` (less OVERLAP for a delta) and the change time to remember: the latest seen, never earlier than before."""
     out: list[OpenInvoice] = []
     last = since
-    for page in feed.read(tenant_id, legal_entity_id, state, since):
+    for page in feed.read(tenant_id, legal_entity_id, state, since - OVERLAP if overlap and since is not None else since):
         out.extend(page.invoices)
-        last = page.updated_at or last
+        if page.updated_at is not None and (last is None or page.updated_at > last):
+            last = page.updated_at
     return out, last
 
 
@@ -65,7 +72,7 @@ def weekly(service: PredictionService, feed: ReceivablesFeed, tenant_id: str, le
         for le in legal_entity_ids:
             invoices, paid_marks[le] = _read(feed, tenant_id, le, "paid", None)
             paid.extend(i for i in invoices if isinstance(i, PaidInvoice))
-    except FeedError as exc:
+    except (FeedError, SignerError, ValueError) as exc:
         rep.errors.append(str(exc))
         return rep
     # The most recent history, as the retrain route takes at most this many.
@@ -84,9 +91,11 @@ def weekly(service: PredictionService, feed: ReceivablesFeed, tenant_id: str, le
                 continue
             opened, open_mark = _read(feed, tenant_id, le, "open", None)
             rep.scored += _score_all(service, tenant_id, le, opened)
-            service.repo.save_sync_state(tenant_id, le, SyncState(open_mark, paid_marks.get(le), now))
-        except FeedError as exc:
-            rep.errors.append(str(exc))
+            reversed_, rev_mark = _read(feed, tenant_id, le, "reversed", None)
+            service.repo.mark_reversed(tenant_id, [i.invoice_id for i in reversed_])
+            service.repo.save_sync_state(tenant_id, le, SyncState(open_mark, paid_marks.get(le), rev_mark, now))
+        except (FeedError, SignerError, ValueError) as exc:
+            rep.errors.append(f"{le}: {exc}")
     return rep
 
 
@@ -96,26 +105,41 @@ def delta(service: PredictionService, feed: ReceivablesFeed, tenant_id: str, leg
     for le in legal_entity_ids:
         try:
             state = service.repo.sync_state(tenant_id, le)
-            paid, paid_mark = _read(feed, tenant_id, le, "paid", state.paid_watermark)
+            paid, paid_mark = _read(feed, tenant_id, le, "paid", state.paid_watermark, overlap=True)
             rep.actuals += service.repo.record_actuals(tenant_id, [p for p in paid if isinstance(p, PaidInvoice)])
+            reversed_, rev_mark = _read(feed, tenant_id, le, "reversed", state.reversed_watermark, overlap=True)
+            service.repo.mark_reversed(tenant_id, [i.invoice_id for i in reversed_])
             if service.active_model(tenant_id) is None:
                 rep.skipped = "no active model: the weekly retrain has not produced one yet"
-                service.repo.save_sync_state(tenant_id, le, replace(state, paid_watermark=paid_mark))
+                service.repo.save_sync_state(tenant_id, le, replace(state, paid_watermark=paid_mark, reversed_watermark=rev_mark))
                 continue
-            opened, open_mark = _read(feed, tenant_id, le, "open", state.open_watermark)
+            opened, open_mark = _read(feed, tenant_id, le, "open", state.open_watermark, overlap=True)
             rep.scored += _score_all(service, tenant_id, le, opened)
-            service.repo.save_sync_state(tenant_id, le, SyncState(open_mark, paid_mark, state.last_retrain_at))
-        except FeedError as exc:
-            rep.errors.append(str(exc))
+            service.repo.save_sync_state(tenant_id, le, SyncState(open_mark, paid_mark, rev_mark, state.last_retrain_at))
+        except (FeedError, SignerError, ValueError) as exc:
+            rep.errors.append(f"{le}: {exc}")
     return rep
 
 
 def scopes_from_env(raw: str) -> list[tuple[str, list[str]]]:
+    """The tenants and legal entities to read. A scope that is malformed (not a JSON object with UUIDs) is logged and skipped so the
+    others still run; UUIDs are put in canonical lower case. Text that is not a JSON list at all is an error."""
     try:
         data = json.loads(raw or "[]")
-        return [(str(s["tenantId"]), [str(x) for x in s["legalEntityIds"]]) for s in data]
-    except (ValueError, KeyError, TypeError) as exc:
+    except ValueError as exc:
         raise ValueError('PREDICTION_SYNC_SCOPES must be a JSON list of {"tenantId": ..., "legalEntityIds": [...]}') from exc
+    if not isinstance(data, list):
+        raise ValueError('PREDICTION_SYNC_SCOPES must be a JSON list of {"tenantId": ..., "legalEntityIds": [...]}')
+    out: list[tuple[str, list[str]]] = []
+    for i, scope in enumerate(data):
+        try:
+            tenant = str(uuid.UUID(str(scope["tenantId"])))
+            entities = [str(uuid.UUID(str(x))) for x in scope["legalEntityIds"]]
+        except (ValueError, KeyError, TypeError, AttributeError) as exc:
+            log.error("prediction sync scope %d is skipped: it needs a tenantId and legalEntityIds that are UUIDs (%s)", i, exc)
+            continue
+        out.append((tenant, entities))
+    return out
 
 
 def main(argv: list[str], getenv=os.environ.get) -> int:  # type: ignore[no-untyped-def]

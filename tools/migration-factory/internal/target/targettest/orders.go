@@ -22,6 +22,7 @@ type FakeOrders struct {
 	mu      sync.Mutex
 	batches map[string]*orderBatch
 	refs    map[string]string // reference -> batch key
+	numbers map[string]string // order number -> batch key
 	calls   []Call
 	// Refuse names line references the fake refuses as invalid lines.
 	Refuse map[string]bool
@@ -29,6 +30,8 @@ type FakeOrders struct {
 	ValueDrift decimal.Decimal
 	failNext   []int
 	loseNext   int
+	// DropAnswers makes the next n successful answers (stored or replayed) 503 after the work was done: a target whose answer never arrives.
+	DropAnswers int
 }
 
 type orderBatch struct {
@@ -45,7 +48,7 @@ func NewSalesOrders(t testing.TB) *FakeOrders { return newOrders(t, "sales") }
 func NewPurchasingOrders(t testing.TB) *FakeOrders { return newOrders(t, "purchasing") }
 
 func newOrders(t testing.TB, kind string) *FakeOrders {
-	f := &FakeOrders{kind: kind, batches: map[string]*orderBatch{}, refs: map[string]string{}, Refuse: map[string]bool{}}
+	f := &FakeOrders{kind: kind, batches: map[string]*orderBatch{}, refs: map[string]string{}, numbers: map[string]string{}, Refuse: map[string]bool{}}
 	path := "/v1/sales/opening-orders"
 	if kind == "purchasing" {
 		path = "/v1/procurement/opening-orders"
@@ -91,6 +94,16 @@ func (f *FakeOrders) Batches() []string {
 	return keys
 }
 
+func (f *FakeOrders) dropAnswer() bool {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.DropAnswers > 0 {
+		f.DropAnswers--
+		return true
+	}
+	return false
+}
+
 func (f *FakeOrders) record(r *http.Request, status int) {
 	c, ok := claims(r)
 	call := Call{Method: r.Method, Path: r.URL.Path, IdempotencyKey: r.Header.Get("Idempotency-Key"), Status: status}
@@ -132,10 +145,10 @@ func (f *FakeOrders) admit(w http.ResponseWriter, r *http.Request, duty string) 
 	return true
 }
 
-func (f *FakeOrders) refuse(w http.ResponseWriter, status int, code, detail string, fields map[string]string) {
+func (f *FakeOrders) refuse(w http.ResponseWriter, status int, code, detail string, fields map[string]string, rows ...map[string]any) {
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(map[string]any{"status": status, "code": code, "detail": detail, "title": http.StatusText(status), "errors": fields})
+	_ = json.NewEncoder(w).Encode(map[string]any{"status": status, "code": code, "detail": detail, "title": http.StatusText(status), "errors": fields, "rowErrors": rows})
 }
 
 func (f *FakeOrders) batchJSON(b *orderBatch, drift decimal.Decimal) map[string]any {
@@ -186,16 +199,24 @@ func (f *FakeOrders) post(w http.ResponseWriter, r *http.Request) {
 			f.refuse(w, http.StatusConflict, strings.Replace(invalid, "001", "002", 1), "batch key was already imported with different content", nil)
 			return
 		}
+		if f.dropAnswer() {
+			f.record(r, http.StatusServiceUnavailable)
+			problem(w, http.StatusServiceUnavailable, "COM-0500", "the answer was lost")
+			return
+		}
 		f.record(r, http.StatusOK)
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(f.batchJSON(held, decimal.Zero))
 		return
 	}
 	bad, takenRows := map[string]string{}, map[string]string{}
+	var structured []map[string]any
+	batchNumbers := map[string]bool{}
 	seen := map[string]bool{}
 	for i, rawLine := range req.Lines {
 		var l struct {
 			Reference    string `json:"reference"`
+			OrderNumber  string `json:"orderNumber"`
 			OrderedQty   string `json:"orderedQty"`
 			DeliveredQty string `json:"deliveredQty"`
 			ReceivedQty  string `json:"receivedQty"`
@@ -208,8 +229,21 @@ func (f *FakeOrders) post(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		seen[l.Reference] = true
+		taken := false
 		if other, ok := f.refs[l.Reference]; ok {
 			takenRows[field] = "already imported by batch " + other
+			structured = append(structured, map[string]any{"row": i + 1, "field": "reference", "code": "REFERENCE_TAKEN", "takenByBatch": other})
+			taken = true
+		}
+		// An order number a stored batch holds is used, as the real targets answer: the lines of a lost-answer batch get both errors.
+		if other, ok := f.numbers[l.OrderNumber]; ok && other != "" {
+			nf := "lines[" + strconv.Itoa(i+1) + "].orderNumber"
+			takenRows[nf] = "order number " + l.OrderNumber + " is already used by an order"
+			structured = append(structured, map[string]any{"row": i + 1, "field": "orderNumber", "code": "ORDER_NUMBER_TAKEN"})
+			taken = true
+		}
+		batchNumbers[l.OrderNumber] = true
+		if taken {
 			continue
 		}
 		if f.Refuse[l.Reference] {
@@ -233,7 +267,7 @@ func (f *FakeOrders) post(w http.ResponseWriter, r *http.Request) {
 		if len(bad) > 0 {
 			f.refuse(w, http.StatusUnprocessableEntity, invalid, "the batch has lines that cannot be imported; nothing was stored", bad)
 		} else {
-			f.refuse(w, http.StatusUnprocessableEntity, taken, "line references are already in use; nothing was stored", takenRows)
+			f.refuse(w, http.StatusUnprocessableEntity, taken, "line references are already in use; nothing was stored", takenRows, structured...)
 		}
 		return
 	}
@@ -241,11 +275,17 @@ func (f *FakeOrders) post(w http.ResponseWriter, r *http.Request) {
 	for ref := range seen {
 		f.refs[ref] = req.BatchKey
 	}
+	for n := range batchNumbers {
+		f.numbers[n] = req.BatchKey
+	}
 	lose := f.loseNext > 0
 	if lose {
 		f.loseNext--
 	}
 	f.mu.Unlock()
+	if !lose && f.dropAnswer() {
+		lose = true
+	}
 	if lose {
 		f.record(r, http.StatusServiceUnavailable)
 		problem(w, http.StatusServiceUnavailable, "COM-0500", "the batch was stored and the answer was lost")

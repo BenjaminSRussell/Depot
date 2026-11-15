@@ -28,14 +28,15 @@ type PredictionInvoice struct {
 
 // PredictionFeedFilter selects open or paid invoices changed at or after UpdatedSince, continuing after (AfterAt, AfterID).
 type PredictionFeedFilter struct {
-	Paid         bool
+	// State is "open", "paid" or "reversed" (an invoice reversed after it was scored leaves the forecast).
+	State        string
 	UpdatedSince time.Time
 	AfterAt      time.Time
 	AfterID      string
 }
 
 // ListPredictionInvoices returns INVOICE items in the caller's legal entities ordered by (updated_at, id): the open ones (OPEN or
-// PARTIALLY_SETTLED) or the settled ones with the day of their last settlement. A change to an item (a settlement, a dunning
+// PARTIALLY_SETTLED), the REVERSED ones, or the settled ones with the day of their last settlement. A change to an item (a settlement, a dunning
 // step, a dispute raised or resolved, which also touches the item) moves its updated_at, so a caller that remembers the last
 // updated_at it read sees every later change.
 func (s *Postgres) ListPredictionInvoices(ctx context.Context, f PredictionFeedFilter, limit int) ([]PredictionInvoice, error) {
@@ -55,10 +56,10 @@ func (s *Postgres) ListPredictionInvoices(ctx context.Context, f PredictionFeedF
 				o.updated_at
 			from open_item o
 			where o.source_type = 'INVOICE'
-			  and (case when $1::bool then o.status = 'SETTLED' else o.status in ('OPEN', 'PARTIALLY_SETTLED') end)
+			  and (case $1::text when 'paid' then o.status = 'SETTLED' when 'reversed' then o.status = 'REVERSED' else o.status in ('OPEN', 'PARTIALLY_SETTLED') end)
 			  and ($2::timestamptz is null or o.updated_at >= $2::timestamptz)
 			  and ($3::timestamptz is null or (o.updated_at, o.id) > ($3::timestamptz, $4::uuid))
-			order by o.updated_at, o.id limit $5`, f.Paid, since, after, afterID, limit)
+			order by o.updated_at, o.id limit $5`, f.State, since, after, afterID, limit)
 		if err != nil {
 			return err
 		}

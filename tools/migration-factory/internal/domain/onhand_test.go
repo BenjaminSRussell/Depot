@@ -257,7 +257,44 @@ func TestReconcileOnHandValue_PerAccountAndCurrencyWithinRounding(t *testing.T) 
 	if got[1].Key["account"] != "1200" || got[1].Status != StatusMismatch || !got[1].Delta.Equal(d("-1")) {
 		t.Fatalf("a real difference is a mismatch: %+v", got[1])
 	}
-	if !OnHandValueRounding(0).Equal(d("0.01")) || !OnHandValueRounding(5).Equal(d("0.03")) {
-		t.Fatalf("rounding allowance %s %s", OnHandValueRounding(0), OnHandValueRounding(5))
+	if !OnHandValueRounding("USD", 0).Equal(d("0.01")) || !OnHandValueRounding("USD", 5).Equal(d("0.03")) {
+		t.Fatalf("rounding allowance %s %s", OnHandValueRounding("USD", 0), OnHandValueRounding("USD", 5))
+	}
+}
+
+// The ledger rounds to the currency's own minor unit, so the allowance follows it (JPY none, KWD three decimals).
+func TestOnHandValueRounding_FollowsTheCurrencyPrecision(t *testing.T) {
+	d := decimal.RequireFromString
+	for _, c := range []struct {
+		cur   string
+		lines int
+		want  string
+	}{{"JPY", 1, "1"}, {"JPY", 5, "3"}, {"KWD", 1, "0.001"}, {"KWD", 3, "0.002"}, {"USD", 1, "0.01"}} {
+		if got := OnHandValueRounding(c.cur, c.lines); !got.Equal(d(c.want)) {
+			t.Errorf("%s x %d: %s, want %s", c.cur, c.lines, got, c.want)
+		}
+	}
+	jpy := []AccountValue{{Account: "1100", Currency: "JPY", Value: d("100"), Lines: 1, Products: map[string]struct{}{"p": {}}}}
+	got, _ := ReconcileOnHandValue("le", jpy, map[string]OnHandStock{"p": {Value: map[string]decimal.Decimal{"JPY": d("100.4")}}})
+	if got[0].Status != StatusWithinTolerance {
+		t.Fatalf("a yen of rounding is within tolerance: %+v", got[0])
+	}
+	kwd := []AccountValue{{Account: "1100", Currency: "KWD", Value: d("10"), Lines: 1, Products: map[string]struct{}{"p": {}}}}
+	got, _ = ReconcileOnHandValue("le", kwd, map[string]OnHandStock{"p": {Value: map[string]decimal.Decimal{"KWD": d("10.005")}}})
+	if got[0].Status != StatusMismatch {
+		t.Fatalf("five fils is not rounding for KWD: %+v", got[0])
+	}
+}
+
+// A product loaded under two inventory accounts is compared once, for both together, not charged in full to each.
+func TestReconcileOnHandValue_AccountsSharingAProductAreComparedTogether(t *testing.T) {
+	d := decimal.RequireFromString
+	exp := []AccountValue{
+		{Account: "1100", Currency: "USD", Value: d("60"), Lines: 1, Products: map[string]struct{}{"p": {}}},
+		{Account: "1200", Currency: "USD", Value: d("40"), Lines: 1, Products: map[string]struct{}{"p": {}, "q": {}}},
+	}
+	got, err := ReconcileOnHandValue("le", exp, map[string]OnHandStock{"p": {Value: map[string]decimal.Decimal{"USD": d("70")}}, "q": {Value: map[string]decimal.Decimal{"USD": d("30")}}})
+	if err != nil || len(got) != 1 || got[0].Key["account"] != "1100+1200" || got[0].Status != StatusMatch || !got[0].Target.Equal(d("100")) {
+		t.Fatalf("%+v %v", got, err)
 	}
 }
