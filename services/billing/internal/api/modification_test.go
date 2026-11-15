@@ -174,44 +174,15 @@ func TestBillModification_InvoicesIncreasesAndCreditsDecreases(t *testing.T) {
 	}
 }
 
-// An SSP-only revision (price change 0.00): the licence's allocation rises by 200.00 and the support's falls by 200.00. Billing
-// proposes an invoice for the licence's 200.00 and a credit note of the support's 200.00 on the order's invoice, once per modification.
-func TestBillModification_SSPOnlyRevisionInvoicesTheGainAndCreditsTheLoss(t *testing.T) {
+// An SSP-only revision (price change 0.00) is a revenue re-allocation: billing refuses the request and creates no document, since
+// invoicing the gains and crediting the losses would change what the customer owes (each product has its own tax).
+func TestBillModification_SSPOnlyRevisionBillsNothing(t *testing.T) {
 	f := newFakeStore()
 	postedOrderInvoice(f)
 	h := setup(t, f, &fakeTax{perLine: "19.00"})
-	const duty = "billing.contract-modification.bill"
-	body := modificationBody("0.00", `[{"productId":"`+uuid(81)+`","amount":"-200.00"},{"productId":"`+uuid(82)+`","amount":"200.00"}]`)
-	rec := doAs(h, http.MethodPost, "/v1/billing/contract-modifications", "", body, duty, nil)
-	if rec.Code != http.StatusCreated {
-		t.Fatalf("bill: %d %s", rec.Code, rec.Body.String())
-	}
-	var inv, cn store.Invoice
-	for _, d := range f.invoices {
-		if store.ModificationOfKey(d.IdempotencyKey) != uuid(90) {
-			continue
-		}
-		if d.Type == domain.TypeCreditNote {
-			cn = d
-		} else {
-			inv = d
-		}
-	}
-	if inv.Status != domain.StatusProposal || len(inv.Lines) != 1 || inv.Lines[0].Source.ProductID != uuid(82) || inv.Lines[0].Net.String() != "200" {
-		t.Fatalf("invoice %+v", inv)
-	}
-	if cn.OriginalInvoiceID != uuid(60) || len(cn.Lines) != 1 || cn.Lines[0].OriginalLineNo != 1 || cn.Lines[0].Net.String() != "200" {
-		t.Fatalf("credit note %+v", cn)
-	}
 	before := len(f.invoices)
-	if rec := doAs(h, http.MethodPost, "/v1/billing/contract-modifications", "", body, duty, nil); rec.Code != http.StatusOK || len(f.invoices) != before {
-		t.Fatalf("retry: %d, %d documents", rec.Code, len(f.invoices))
-	}
-	// Zero change with nothing moved, or lines that do not net to zero, are refused.
-	if rec := doAs(h, http.MethodPost, "/v1/billing/contract-modifications", "", modificationBody("0.00", `[{"productId":"`+uuid(81)+`","amount":"0.00"}]`), duty, nil); rec.Code != http.StatusBadRequest {
-		t.Fatalf("nothing moved: %d", rec.Code)
-	}
-	if rec := doAs(h, http.MethodPost, "/v1/billing/contract-modifications", "", modificationBody("0.00", `[{"productId":"`+uuid(81)+`","amount":"-200.00"},{"productId":"`+uuid(82)+`","amount":"150.00"}]`), duty, nil); rec.Code != http.StatusUnprocessableEntity {
-		t.Fatalf("lines that do not net to zero: %d", rec.Code)
+	body := modificationBody("0.00", `[{"productId":"`+uuid(81)+`","amount":"-200.00"},{"productId":"`+uuid(82)+`","amount":"200.00"}]`)
+	if rec := doAs(h, http.MethodPost, "/v1/billing/contract-modifications", "", body, "billing.contract-modification.bill", nil); rec.Code != http.StatusBadRequest || len(f.invoices) != before {
+		t.Fatalf("zero price change: %d %s, %d documents", rec.Code, rec.Body.String(), len(f.invoices)-before)
 	}
 }

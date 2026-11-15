@@ -326,8 +326,12 @@ type PostInput struct {
 
 // CustomsInfo is what the party and product masters say about a shipment's customer and products, for packingslip.posted.
 type CustomsInfo struct {
-	PartnerCountry string
-	PartnerVATID   string
+	// PartnerVATID is the customer's VAT id from the party master's tax registration; the partner country of the movement is not read
+	// from it but is the ship-to country of the post (PostInput.CountryCode), the member state the goods go to.
+	PartnerVATID string
+	// LookupFailed is set when the party or product read failed, so the event says its Intrastat data is incomplete rather than
+	// looking like a customer with no registration.
+	LookupFailed bool
 	// Products is keyed by lower-case product id.
 	Products map[string]CustomsProduct
 }
@@ -339,13 +343,14 @@ type CustomsProduct struct {
 	NetWeightKg   decimal.Decimal
 }
 
-// applyCustoms fills the Intrastat fields of a posted slip's event from the master data read before the post. A line's net weight is the
-// shipped weight (a catch-weight line) or quantity times the product's kilograms per unit, and its statistical value is its cost.
-func applyCustoms(posted *fulevents.PackingSlipPostedData, info *CustomsInfo) {
+// applyCustoms fills the Intrastat fields of a posted slip's event from the master data read before the post and the ship-to country of
+// the post. A line's net weight is its actual shipped weight when it has one (a catch-weight line), else quantity times the product's
+// kilograms per unit; its statistical value is its cost.
+func applyCustoms(posted *fulevents.PackingSlipPostedData, info *CustomsInfo, shipToCountry string) {
 	if info == nil {
 		return
 	}
-	posted.PartnerCountry, posted.PartnerVATID = info.PartnerCountry, info.PartnerVATID
+	posted.PartnerCountry, posted.PartnerVATID, posted.CustomsLookupFailed = strings.ToUpper(shipToCountry), info.PartnerVATID, info.LookupFailed
 	for i := range posted.Lines {
 		l := &posted.Lines[i]
 		l.StatisticalValue = l.CostAmount
@@ -354,9 +359,12 @@ func applyCustoms(posted *fulevents.PackingSlipPostedData, info *CustomsInfo) {
 			continue
 		}
 		l.CommodityCode, l.OriginCountry = prod.CommodityCode, prod.OriginCountry
+		if l.Weight != "" {
+			l.NetWeight = l.Weight
+			continue
+		}
 		if prod.NetWeightKg.IsPositive() {
-			qty, err := decimal.NewFromString(l.Qty)
-			if err == nil {
+			if qty, err := decimal.NewFromString(l.Qty); err == nil {
 				l.NetWeight = qty.Mul(prod.NetWeightKg).Round(6).String()
 			}
 		}
@@ -1397,7 +1405,7 @@ func (s *Postgres) PostPackingSlip(ctx context.Context, id string, version int, 
 				posted.Lines[i].ProductID = sh.Lines[lineIndex(sh, pl.ShipmentLineID)].ProductID
 				posted.Lines[i].Tracking = trackingEventEntries(tracked[pl.ShipmentLineID])
 			}
-			applyCustoms(&posted, in.Customs)
+			applyCustoms(&posted, in.Customs, in.CountryCode)
 			if err := enqueue(ctx, tx, sh.ID, fulevents.PackingSlipPosted, p.TenantID, posted); err != nil {
 				return PackingSlip{}, err
 			}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -21,7 +22,9 @@ const (
 	// portalPricingChannel is the sales channel the portal prices under: pricing's procedure assignment for it chooses the procedure.
 	portalPricingChannel = "PORTAL"
 	codePortalPricing    = "SAL-CUS-004"
-	maxListingsPerLine   = 500
+	// codePortalPricingRefused: pricing answered 401 or 403 to sales' service token (not retryable).
+	codePortalPricingRefused = "SAL-CUS-005"
+	maxListingsPerLine       = 500
 )
 
 // PortalPricer prices a customer's lines with pricing's customer price resolution (negotiated condition records, discounts and the
@@ -105,6 +108,12 @@ func (a *API) portalFirstOrderLines(r *http.Request, customer string, p tenant.P
 	if err != nil {
 		if errors.Is(err, upstream.ErrNotConfigured) {
 			return httpx.NewProblem(http.StatusServiceUnavailable, codePortalPricing, "prices cannot be read: the pricing service is not configured")
+		}
+		var se *upstream.StatusError
+		if errors.As(err, &se) && (se.Status == http.StatusUnauthorized || se.Status == http.StatusForbidden) {
+			// Pricing refuses sales' token: retrying cannot help, an operator has to fix the trust between the services.
+			slog.ErrorContext(ctx, "pricing refused the sales service token", "status", se.Status)
+			return httpx.NewProblem(http.StatusBadGateway, codePortalPricingRefused, "the order cannot be priced online; contact your sales contact")
 		}
 		return httpx.NewProblem(http.StatusServiceUnavailable, codePortalPricing, "the pricing service could not price the order; retry")
 	}

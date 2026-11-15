@@ -136,7 +136,7 @@ func MovementLines(flow, homeCountry string, month time.Time, movements []Moveme
 		if m.Flow != flow || m.MovementDate.Year() != month.Year() || m.MovementDate.Month() != month.Month() {
 			continue
 		}
-		if m.PartnerCountry == homeCountry || !IsEUMember(m.PartnerCountry) {
+		if m.PartnerCountry == homeCountry || !(IsEUMember(m.PartnerCountry) || m.PartnerCountry == "XI") {
 			ignored = append(ignored, m.ID)
 			continue
 		}

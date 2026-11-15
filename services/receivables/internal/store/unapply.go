@@ -186,6 +186,10 @@ func (s *Postgres) unapply(ctx context.Context, id string, version int, reason, 
 			if err != nil {
 				return err
 			}
+			// Back to the accounts and currency the application's own realized-FX journals used, not the entity's current setting.
+			if set, err = fxSettingAtPosting(ctx, tx, p.TenantID, pay.LegalEntityID, pay.ID, "fx:"+pay.ID+":", set); err != nil {
+				return err
+			}
 			var lines []journalLine
 			if gain.IsPositive() {
 				lines = append(lines, debit(set.GainAccount, gain, "Realized exchange gain reversed"), credit(domain.AccountReceivable, gain, "Realized exchange gain reversed"))

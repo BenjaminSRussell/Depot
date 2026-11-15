@@ -43,7 +43,7 @@ func TestPostPackingSlip_ReadsTheCustomsDataBeforeThePost(t *testing.T) {
 		t.Fatalf("post: %d %s", rec.Code, rec.Body)
 	}
 	c := fs.lastPost.Customs
-	if c == nil || c.PartnerCountry != "DE" || c.PartnerVATID != "DE1" || !c.Products[product].NetWeightKg.Equal(decimal.RequireFromString("12.5")) || c.Products[product].CommodityCode != "84137021" {
+	if c == nil || c.PartnerVATID != "DE1" || c.LookupFailed || !c.Products[product].NetWeightKg.Equal(decimal.RequireFromString("12.5")) || c.Products[product].CommodityCode != "84137021" {
 		t.Fatalf("customs handed to the store: %+v", c)
 	}
 	if src.gotLE != fs.shipment.LegalEntityID || src.gotCus != fs.shipment.CustomerID || len(src.gotPro) != 1 || src.gotPro[0] != product {
@@ -55,7 +55,7 @@ func TestPostPackingSlip_ReadsTheCustomsDataBeforeThePost(t *testing.T) {
 	if rec := do(t, r, http.MethodPost, path, body, withKey("c-2", map[string]string{"If-Match": `"3"`})); rec.Code != http.StatusCreated {
 		t.Fatalf("post with a failed lookup: %d %s", rec.Code, rec.Body)
 	}
-	if c := fs.lastPost.Customs; c == nil || c.PartnerCountry != "" || c.Products[product].CommodityCode != "84137021" {
+	if c := fs.lastPost.Customs; c == nil || !c.LookupFailed || c.PartnerVATID != "" || c.Products[product].CommodityCode != "84137021" {
 		t.Errorf("degraded customs: %+v", c)
 	}
 	// Without a source the post carries none.

@@ -1238,7 +1238,7 @@ export interface CreditSettlementReversal {
   creditStatus: string;
   total: string;
   realizedFx: string;
-  reopened: { openItemId: string; documentNumber: string; amount: string; openAfter: string; itemStatus: string }[];
+  reopened: { openItemId: string; documentNumber: string; amount: string; openAfter: string; itemStatus: string; itemCurrency?: string }[];
 }
 
 /** POST /credit-settlements/{batchId}:reverse - gives the credit and the debits back what the settlement took off them; realized FX reverses with it. */

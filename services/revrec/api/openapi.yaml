@@ -186,11 +186,11 @@ paths:
         15.88, ASC 606-10-32-43) taken out of revenue in proportion to the recognized revenue; both are `reversal`s posted Dr 4000 / Cr
         2400 by the journal postings. Only a price below what point-in-time and usage obligations were billed at is 422 REV-0402 (a
         credit note); a prospective change with nothing left is 422 REV-0404; a date before the contract date is 422 REV-0401. A
-        contract that credit notes touched is modified on its amounts net of them (REV-0405 is no longer returned). A price change, and a revision of
-        stand-alone selling prices (`newSsp`) that moved allocation between products with the price unchanged (`priceChange` 0), is
+        contract that credit notes touched is modified on its amounts net of them (REV-0405 is no longer returned). A price change is
         queued for billing (`billingStatus` PENDING), which invoices the products whose allocation rose and credits those whose
-        allocation fell (an SSP revision that moved no allocation queues nothing, `billingStatus` NONE); one request per modification,
-        keyed by the modification, so a repeat or `:retry-billing` never bills twice. Each modification stores each
+        allocation fell; one request per modification, keyed by the modification, so a repeat or `:retry-billing` never bills twice. A
+        revision of stand-alone selling prices with the price unchanged (`priceChange` 0) only re-allocates revenue: nothing is billed
+        (`billingStatus` NONE) because the customer owes the same. Each modification stores each
         obligation's allocation change on its effective date, and the roll-forward adds it in that period. Adding goods or services is
         `:allocate`. If-Match is required and must carry the contract version the caller reviewed. Emits
         dev.passage.revrec.contract.allocated.v1 again, and schedule.recognized for a milestone catch-up.
@@ -679,7 +679,7 @@ components:
                 priceAfter: { type: string }
                 catchUp: { type: string, description: Total cumulative catch-up revenue recognized on the effective date. }
                 reversal: { type: string, description: Recognized revenue taken back out on the effective date (Dr 4000 / Cr 2400). }
-                billingStatus: { type: string, enum: [PENDING, NONE], description: PENDING when the price change or the allocation an SSP revision moved was queued for billing. }
+                billingStatus: { type: string, enum: [PENDING, NONE], description: PENDING when the price change was queued for billing. }
                 obligations:
                   type: array
                   items:

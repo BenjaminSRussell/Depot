@@ -223,8 +223,9 @@ components:
         po_id: { type: string, format: uuid }
         legal_entity_id: { type: string, format: uuid }
         vendor_id: { type: string, format: uuid }
-        partner_country: { type: string, description: "Intrastat (#13): the country the vendor's VAT registration is in (party tax registration) when the receipt posted; absent when the vendor has none or party could not be read." }
-        partner_vat_id: { type: string, description: "The vendor's VAT id from the same registration; absent when none." }
+        partner_country: { type: string, description: "Intrastat (#13): the member state the goods were consigned from, the post's shipFromCountry, not the country of the vendor's VAT registration; absent when the post named none." }
+        partner_vat_id: { type: string, description: "The vendor's VAT id from the party master's tax registration; absent when it has none or party could not be read." }
+        customs_lookup_failed: { type: boolean, description: "True when the party or product read failed when the receipt posted, so the Intrastat data of this event is incomplete; the tax consumer parks such an event on its dead-letter topic." }
         posting_date: { type: string, format: date }
         currency: { type: string, pattern: "^[A-Z]{3}$" }
         ledger_entry_id: { type: string }

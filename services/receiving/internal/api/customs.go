@@ -13,7 +13,7 @@ import (
 // receiptCustoms reads the Intrastat data of a receipt's vendor and products from the party and product masters, before the post
 // transaction (#13): a failure leaves the optional fields of receipt.posted out and never holds the receipt up. It is nil without a source
 // or when the receipt cannot be read.
-func (a *API) receiptCustoms(ctx context.Context, receiptID string) *customsdata.Result {
+func (a *API) receiptCustoms(ctx context.Context, receiptID, shipFrom string) *receiptCustoms {
 	if a.ports.Customs == nil {
 		return nil
 	}
@@ -32,5 +32,19 @@ func (a *API) receiptCustoms(ctx context.Context, receiptID string) *customsdata
 	if err != nil {
 		slog.WarnContext(ctx, "customs data not fully read for receipt.posted", "err", err, "receiptId", receiptID, "correlationId", middleware.GetReqID(ctx))
 	}
-	return &res
+	return &receiptCustoms{res: res, shipFrom: shipFrom, failed: err != nil}
+}
+
+// receiptCustoms is the Intrastat input of receipt.posted: what the masters said, the consignment country the post named, and whether a
+// master read failed.
+type receiptCustoms struct {
+	res      customsdata.Result
+	shipFrom string
+	failed   bool
+}
+
+// postRequest is the optional body of POST /receipts/{id}:post.
+type postRequest struct {
+	// ShipFromCountry is the member state the goods were consigned from (ISO 3166 alpha-2), the Intrastat partner country of an arrival.
+	ShipFromCountry string `json:"shipFromCountry"`
 }

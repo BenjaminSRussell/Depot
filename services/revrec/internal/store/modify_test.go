@@ -324,9 +324,9 @@ func TestRollForward_ModificationCreditsArePerProductDecreases(t *testing.T) {
 
 // Worked example 9 (SSP-only revision): the licence's SSP is revised from 800.00 to 1,200.00 with the price unchanged at 2,000.00, so
 // the pool 2,000.00 over SSPs 1,200 : 1,200 gives 1,000.00 each: the licence's allocation rises by 200.00 and the support's falls by
-// 200.00. The modification has no price change yet queues its billing request, with a line per product that nets to zero (billing
-// invoices the licence's 200.00 and credits the support's 200.00).
-func TestModifyContract_SSPOnlyRevisionQueuesBillingForTheMovedAllocation(t *testing.T) {
+// 200.00. That is a revenue re-allocation only: the allocation deltas are stored (the roll-forward moves) but no billing request is
+// queued, because the customer owes what it owed.
+func TestModifyContract_SSPOnlyRevisionReallocatesRevenueAndBillsNothing(t *testing.T) {
 	s, pool := testStore(t)
 	ctx := tenantCtx(1, "")
 	le := ids.New()
@@ -334,41 +334,24 @@ func TestModifyContract_SSPOnlyRevisionQueuesBillingForTheMovedAllocation(t *tes
 	if err != nil {
 		t.Fatal(err)
 	}
-	lic, sup := c.Obligations[0], c.Obligations[1]
+	lic := c.Obligations[0]
 	if _, err := s.SatisfyMilestone(ctx, lic.ID, day(2027, time.January, 15), 0); err != nil {
 		t.Fatal(err)
 	}
 	recognizeThrough(t, s, ctx, le, 3)
-	_, mod, err := s.ModifyContract(ctx, c.ID, ModificationRequest{Type: domain.ModCatchUp, EffectiveDate: day(2027, time.March, 31),
+	got, mod, err := s.ModifyContract(ctx, c.ID, ModificationRequest{Type: domain.ModCatchUp, EffectiveDate: day(2027, time.March, 31),
 		NewSSP: map[string]decimal.Decimal{lic.ID: decimal.RequireFromString("1200")}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if mod.BillingID == "" {
-		t.Fatal("an SSP-only revision that moved allocation must queue billing")
+	if !got.Obligations[0].Allocated.Equal(decimal.RequireFromString("1000.00")) || !got.Obligations[1].Allocated.Equal(decimal.RequireFromString("1000.00")) {
+		t.Fatalf("allocation %s / %s", got.Obligations[0].Allocated, got.Obligations[1].Allocated)
 	}
-	var body string
-	if err := pool.QueryRow(context.Background(), `select body::text from modification_billing where modification_id = $1`, mod.ID).Scan(&body); err != nil {
-		t.Fatal(err)
-	}
-	var req struct {
-		PriceChange string
-		Lines       []struct{ ProductID, Amount string }
-	}
-	if err := json.Unmarshal([]byte(body), &req); err != nil {
-		t.Fatal(err)
-	}
-	got, net := map[string]string{}, decimal.Zero
-	for _, l := range req.Lines {
-		got[l.ProductID] = l.Amount
-		net = net.Add(decimal.RequireFromString(l.Amount))
-	}
-	if req.PriceChange != "0.00" || len(got) != 2 || got[lic.ProductID] != "200.00" || got[sup.ProductID] != "-200.00" || !net.IsZero() {
-		t.Errorf("billing request %s: want +200.00 licence, -200.00 support, netting 0.00", body)
-	}
-	var key string
-	if err := pool.QueryRow(context.Background(), `select idempotency_key from modification_billing where modification_id = $1`, mod.ID).Scan(&key); err != nil || key != ModificationBillingKeyPrefix+mod.ID {
-		t.Fatalf("one request per modification: %q %v", key, err)
+	var billing, deltas int
+	_ = pool.QueryRow(context.Background(), `select count(*) from modification_billing where modification_id = $1`, mod.ID).Scan(&billing)
+	_ = pool.QueryRow(context.Background(), `select count(*) from allocation_delta where modification_id = $1`, mod.ID).Scan(&deltas)
+	if mod.BillingID != "" || billing != 0 || deltas != 2 {
+		t.Fatalf("billing id %q rows %d, allocation deltas %d: want no billing and two deltas", mod.BillingID, billing, deltas)
 	}
 }
 

@@ -33,7 +33,13 @@ func TestTaxRegistration_SetReadAndScope(t *testing.T) {
 	if err != nil || len(read) != 1 || read[0].PartnerID != c.ID || read[0].Country != "FR" || read[0].VATID != "" {
 		t.Fatalf("read = %+v, %v", read, err)
 	}
-	for name, bad := range map[string]string{"lower case": "de", "three letters": "DEU", "digits": "12"} {
+	if got, err := s.SetTaxRegistration(ctx, c.ID, "el", "EL123456789"); err != nil || got.Country != "GR" {
+		t.Fatalf("EL is read as GR: %+v %v", got, err)
+	}
+	if got, err := s.SetTaxRegistration(ctx, c.ID, "XI", ""); err != nil || got.Country != "XI" {
+		t.Fatalf("XI: %+v %v", got, err)
+	}
+	for name, bad := range map[string]string{"unassigned": "ZZ", "three letters": "DEU", "digits": "12"} {
 		if _, err := s.SetTaxRegistration(ctx, c.ID, bad, ""); problemCode(t, err) != store.CodeTaxRegistrationInvalid {
 			t.Errorf("%s country: %v", name, err)
 		}

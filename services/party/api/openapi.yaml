@@ -373,7 +373,7 @@ paths:
       description: >
         The party master held no country for a customer or vendor role, so fulfillment and receiving could not say where a goods movement
         went or came from. `{id}` is a customer or vendor role id in the caller's legal entities (404 otherwise). `country` is the ISO 3166-1
-        alpha-2 code in capitals of the VAT registration (the partner country of its Intrastat movements); `vatId` is optional, letters and
+        alpha-2 code of the VAT registration (EL is read as GR, XI is accepted for Northern Ireland; any other unassigned code is 422; it identifies the partner, the Intrastat partner country of a movement is where the goods went or came from); `vatId` is optional, letters and
         digits, at most 20. Bad values are 422 PTY-TAXREG-001.
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }

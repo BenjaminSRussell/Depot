@@ -30,9 +30,9 @@ func (a *API) shipmentCustoms(r *http.Request, shipmentID string) *store.Customs
 	if err != nil {
 		slog.WarnContext(r.Context(), "customs data not fully read for packingslip.posted", "err", err, "shipmentId", shipmentID, "correlationId", middleware.GetReqID(r.Context()))
 	}
-	info := &store.CustomsInfo{Products: map[string]store.CustomsProduct{}}
+	info := &store.CustomsInfo{Products: map[string]store.CustomsProduct{}, LookupFailed: err != nil}
 	if res.Partner != nil {
-		info.PartnerCountry, info.PartnerVATID = res.Partner.Country, res.Partner.VATID
+		info.PartnerVATID = res.Partner.VATID
 	}
 	for id, p := range res.Products {
 		cp := store.CustomsProduct{CommodityCode: p.CommodityCode, OriginCountry: p.OriginCountry}

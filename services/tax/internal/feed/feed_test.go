@@ -181,7 +181,7 @@ func TestFeed_OnlyEUCrossBorderMovementsAreStaged(t *testing.T) {
 	for _, c := range []struct {
 		home, partner string
 		want          bool
-	}{{"DE", "FR", true}, {"FR", "DE", true}, {"DE", "DE", false}, {"DE", "US", false}, {"GB", "FR", false}, {"DE", "", false}, {"IE", "SE", true}} {
+	}{{"DE", "FR", true}, {"FR", "DE", true}, {"DE", "DE", false}, {"DE", "US", false}, {"GB", "FR", false}, {"DE", "", false}, {"IE", "SE", true}, {"DE", "EL", true}, {"DE", "XI", true}, {"DE", "GR", true}} {
 		if got := feed.CrossBorder(c.home, c.partner); got != c.want {
 			t.Errorf("CrossBorder(%q, %q) = %v", c.home, c.partner, got)
 		}
@@ -243,5 +243,46 @@ func TestFeed_RefusalsAreParked(t *testing.T) {
 	bare := setup(t, "")
 	if _, err := bare.deliver(t, ids.New(), feed.PackingSlipPostedType, "fulfillment", bare.slip("PS-1", "FR", "1", "1", nil)); !isPermanent(err) {
 		t.Errorf("no entity setting: %v", err)
+	}
+}
+
+// Reviewer examples (#13): the partner country is where the goods went, not the customer's VAT country. A DE declarant shipping to the
+// Austrian warehouse of a DE-registered customer ships to AT (event partner AT): staged. A FR-registered customer collecting in Germany
+// is a domestic delivery (event partner DE): not staged.
+func TestFeed_PartnerCountryIsTheShipToNotTheVATCountry(t *testing.T) {
+	f := setup(t, "DE")
+	if applied, err := f.deliver(t, ids.New(), feed.PackingSlipPostedType, "fulfillment", f.slip("PS-AT", "AT", "1", "10.00", map[string]any{"commodity_code": "84137021"})); err != nil || !applied {
+		t.Fatal(applied, err)
+	}
+	if applied, err := f.deliver(t, ids.New(), feed.PackingSlipPostedType, "fulfillment", f.slip("PS-DE", "DE", "1", "10.00", map[string]any{"commodity_code": "84137021"})); err != nil || !applied {
+		t.Fatal(applied, err)
+	}
+	staged := f.movements(t, "staged")
+	if len(staged) != 1 || staged[0].SourceRef != "FUL:PS-AT" || staged[0].PartnerCountry != "AT" {
+		t.Fatalf("staged %+v, want only the dispatch to Austria", staged)
+	}
+	if applied, err := f.deliver(t, ids.New(), feed.PackingSlipPostedType, "fulfillment", f.slip("PS-EL", "EL", "1", "10.00", nil)); err != nil || !applied {
+		t.Fatal(applied, err)
+	}
+	if got := f.movements(t, "staged"); len(got) != 2 || got[0].PartnerCountry+got[1].PartnerCountry != "ATGR" && got[0].PartnerCountry+got[1].PartnerCountry != "GRAT" {
+		t.Fatalf("EL is read as GR: %+v", got)
+	}
+}
+
+// An event posted while the party or product read failed is parked, not acknowledged as a partner without a registration.
+func TestFeed_LookupFailedEventsAreParked(t *testing.T) {
+	f := setup(t, "DE")
+	slip := f.slip("PS-F1", "AT", "1", "10.00", nil)
+	slip["customs_lookup_failed"] = true
+	if _, err := f.deliver(t, ids.New(), feed.PackingSlipPostedType, "fulfillment", slip); !isPermanent(err) {
+		t.Fatalf("slip: %v", err)
+	}
+	receipt := map[string]any{"receipt_number": "RCV-F1", "legal_entity_id": f.entity, "partner_country": "AT", "posting_date": "2026-03-05", "customs_lookup_failed": true,
+		"lines": []any{map[string]any{"product_id": pump, "qty": "1", "amount_acct": "1"}}}
+	if _, err := f.deliver(t, ids.New(), feed.ReceiptPostedType, "/passage/receiving/receiving", receipt); !isPermanent(err) {
+		t.Fatalf("receipt: %v", err)
+	}
+	if n := len(f.movements(t, "staged")); n != 0 {
+		t.Errorf("%d movements staged", n)
 	}
 }

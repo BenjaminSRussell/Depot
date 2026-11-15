@@ -1,7 +1,7 @@
 // Package feed is the tax service's first Kafka consumer (#13): it maps fulfillment's packingslip.posted and receiving's receipt.posted
 // into staged Intrastat movements (the store behind POST /v1/tax/intrastat/movements, same domain validation), so a shipment to or a
 // receipt from another EU member state reaches the Intrastat journal without anyone keying it. Only EU cross-border movements are staged:
-// the partner's VAT country must be an EU member state other than the declarant's own (the legal entity's Intrastat home country);
+// the partner country (the ship-to country of a dispatch, the consignment country of an arrival, not the VAT registration country) must be an EU member state other than the declarant's own (the legal entity's Intrastat home country);
 // anything else is acknowledged and skipped. Each event is staged in the same transaction that records it in consumer_inbox, so a
 // redelivery stages nothing twice (and the movement's source reference is unique per legal entity besides).
 package feed
@@ -128,8 +128,21 @@ func handle(ctx context.Context, tx pgx.Tx, evt events.Event, s Stager, source s
 // CrossBorder reports whether a movement between the declarant's country and the partner's is Intrastat business: both are EU member
 // states and they differ.
 func CrossBorder(home, partner string) bool {
-	return home != partner && domain.IsEUMember(home) && domain.IsEUMember(partner)
+	home, partner = normalizeCountry(home), normalizeCountry(partner)
+	return home != partner && intrastatMember(home) && intrastatMember(partner)
 }
+
+// normalizeCountry reads the Greek VAT prefix EL as the ISO code GR.
+func normalizeCountry(c string) string {
+	if c = strings.ToUpper(strings.TrimSpace(c)); c == "EL" {
+		return "GR"
+	}
+	return c
+}
+
+// intrastatMember reports whether a country is a member state for Intrastat: the EU member states plus XI, Northern Ireland, which the
+// EU rules treat as a member state for trade in goods.
+func intrastatMember(c string) bool { return domain.IsEUMember(c) || c == "XI" }
 
 type slipLine struct {
 	ProductID        string `json:"product_id"`
@@ -150,10 +163,14 @@ func fromPackingSlip(raw json.RawMessage) (domain.Movement, string, string, erro
 		LegalEntityID     string     `json:"legal_entity_id"`
 		PartnerCountry    string     `json:"partner_country"`
 		PostingDate       string     `json:"posting_date"`
+		LookupFailed      bool       `json:"customs_lookup_failed"`
 		Lines             []slipLine `json:"lines"`
 	}
 	if err := json.Unmarshal(raw, &d); err != nil {
 		return domain.Movement{}, "", "", fmt.Errorf("data: %w", err)
+	}
+	if d.LookupFailed {
+		return domain.Movement{}, d.LegalEntityID, "", errLookupFailed(d.PackingSlipNumber)
 	}
 	if d.PackingSlipNumber == "" {
 		return domain.Movement{}, d.LegalEntityID, "", errors.New("packing_slip_number is required")
@@ -184,10 +201,14 @@ func fromReceipt(raw json.RawMessage) (domain.Movement, string, string, error) {
 		LegalEntityID  string        `json:"legal_entity_id"`
 		PartnerCountry string        `json:"partner_country"`
 		PostingDate    string        `json:"posting_date"`
+		LookupFailed   bool          `json:"customs_lookup_failed"`
 		Lines          []receiptLine `json:"lines"`
 	}
 	if err := json.Unmarshal(raw, &d); err != nil {
 		return domain.Movement{}, "", "", fmt.Errorf("data: %w", err)
+	}
+	if d.LookupFailed {
+		return domain.Movement{}, d.LegalEntityID, "", errLookupFailed(d.ReceiptNumber)
 	}
 	if d.ReceiptNumber == "" {
 		return domain.Movement{}, d.LegalEntityID, "", errors.New("receipt_number is required")
@@ -198,6 +219,12 @@ func fromReceipt(raw json.RawMessage) (domain.Movement, string, string, error) {
 			OriginCountry: l.OriginCountry, NetWeight: l.NetWeight}
 	}
 	return movement(domain.FlowArrival, "RCV:"+d.ReceiptNumber, d.PostingDate, d.PartnerCountry, d.LegalEntityID, lines)
+}
+
+// errLookupFailed parks an event whose producer could not read the party or product master when the document posted: its Intrastat data is
+// incomplete, so it must not be mistaken for a partner without a registration. The dead-letter record keeps it for a person to stage.
+func errLookupFailed(document string) error {
+	return fmt.Errorf("document %s was posted while the party or product master could not be read (customs_lookup_failed); stage its movement by hand with POST /v1/tax/intrastat/movements", document)
 }
 
 type rawLine struct{ ProductID, Qty, Value, CommodityCode, OriginCountry, NetWeight string }
@@ -218,7 +245,7 @@ func movement(flow, ref, postingDate, partner, legalEntityID string, lines []raw
 	if err != nil {
 		return domain.Movement{}, legalEntityID, "", fmt.Errorf("posting_date %q is not a date", postingDate)
 	}
-	m := domain.Movement{Flow: flow, SourceRef: ref, MovementDate: domain.Date{Time: date}, PartnerCountry: strings.ToUpper(partner)}
+	m := domain.Movement{Flow: flow, SourceRef: ref, MovementDate: domain.Date{Time: date}, PartnerCountry: normalizeCountry(partner)}
 	for i, l := range lines {
 		qty, err := decimal.NewFromString(l.Qty)
 		if err != nil {

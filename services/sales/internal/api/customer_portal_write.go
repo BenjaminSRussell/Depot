@@ -3,6 +3,7 @@ package api
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -129,8 +130,9 @@ func (a *API) portalListProducts(w http.ResponseWriter, r *http.Request, custome
 			skip[strings.ToLower(id)] = true
 		}
 		if listed, err = a.portalListedProducts(r.Context(), p.LegalEntityID, customer, skip, maxPortalListed); err != nil {
-			a.fail(w, r, "list customer portal listed products", err)
-			return
+			// The reorder list does not depend on party or on listings: only the offer of new products is left out.
+			slog.WarnContext(r.Context(), "listed products left out of the portal product list", "err", err)
+			listed = []string{}
 		}
 		want = append(want, listed...)
 	}

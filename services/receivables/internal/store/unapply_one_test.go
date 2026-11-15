@@ -174,8 +174,7 @@ func TestReverseCreditSettlement_CrossCurrencyMirrorsTheRealizedGain(t *testing.
 	}
 	var mirrored bool
 	for _, j := range fx {
-		if j.Lines[0].Account == "7100" && j.Lines[0].Side == "D" && j.Lines[0].Amount.Equal(amt("2.00")) &&
-			j.Lines[1].Account == "1200" && j.Lines[1].Side == "C" && j.Lines[1].Amount.Equal(amt("2.00")) {
+		if hasLine(j.Lines, "7100", "D", "2.00") && hasLine(j.Lines, "1200", "C", "2.00") {
 			mirrored = true
 		}
 	}
@@ -198,4 +197,56 @@ func TestReverseCreditSettlement_CrossCurrencyMirrorsTheRealizedGain(t *testing.
 	if !found {
 		t.Fatalf("statement after the reversal %+v", secs)
 	}
+}
+
+// The reversal books back to the accounts and currency the original realized-FX journal used, even when the entity's setting moved
+// between the settlement and its reversal: the 2.00 gain posted Cr 7100 is reversed Dr 7100, not on the new gain account 7150.
+func TestReverseCreditSettlement_FlipsTheOriginalFXJournalAfterTheSettingChanged(t *testing.T) {
+	s := setup(t)
+	ctx := tenantCtx(1)
+	item := seedInvoice(t, s, ctx)
+	credit, err := s.CreateOpenItem(ctx, OpenItem{LegalEntityID: legalEntity, CustomerID: item.CustomerID, SourceType: "CREDIT_NOTE",
+		DocumentNumber: "CN-30002", DocumentDate: "2027-02-01", DueDate: "2027-02-01", Currency: "EUR", Amount: amt("-100.00"), OpenAmount: amt("-100.00")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.PutFXSetting(ctx, FXSetting{LegalEntityID: legalEntity, CrossCurrencyEnabled: true, FunctionalCurrency: "USD"}); err != nil {
+		t.Fatal(err)
+	}
+	s.WithRates(fakeRates{"EUR>USD@2027-02-01": "1.10", "EUR>USD@" + today(): "1.08"})
+	res, err := s.SettleCredit(ctx, CreditSettlementRequest{LegalEntityID: legalEntity, CreditItemID: credit.ID, Debits: []CreditDebit{{OpenItemID: item.ID, Amount: amt("100.00")}}}, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.PutFXSetting(ctx, FXSetting{LegalEntityID: legalEntity, CrossCurrencyEnabled: true, FunctionalCurrency: "CAD", GainAccount: "7150", LossAccount: "7250"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.ReverseCreditSettlement(ctx, res.BatchID, ""); err != nil {
+		t.Fatal(err)
+	}
+	fx, err := s.ListGLJournals(ctx, GLJournalFilter{SourceType: JournalRealizedFX})
+	if err != nil || len(fx) != 2 {
+		t.Fatalf("fx journals %+v %v", fx, err)
+	}
+	var ok bool
+	for _, j := range fx {
+		if j.Currency == "USD" && hasLine(j.Lines, "7100", "D", "2.00") && hasLine(j.Lines, "1200", "C", "2.00") {
+			ok = true
+		}
+		if j.Currency == "CAD" || hasLine(j.Lines, "7150", "D", "2.00") {
+			t.Errorf("the reversal used the new setting: %+v", j)
+		}
+	}
+	if !ok {
+		t.Fatalf("the original journal was not flipped: %+v", fx)
+	}
+}
+
+func hasLine(lines []GLJournalLine, account, side, amount string) bool {
+	for _, l := range lines {
+		if l.Account == account && l.Side == side && l.Amount.Equal(amt(amount)) {
+			return true
+		}
+	}
+	return false
 }

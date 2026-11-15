@@ -2,6 +2,8 @@ package store
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 
@@ -172,19 +174,40 @@ func (s *Postgres) ReverseCreditSettlement(ctx context.Context, batchID, reason 
 		}
 		out.RealizedFX = gain.Sub(loss)
 		if gain.IsPositive() || loss.IsPositive() {
-			set, err := loadFXSetting(ctx, tx, legalEntity)
-			if err != nil {
+			// The original journal is flipped line by line (as ReversePayment does), in its own currency and on its own accounts: the entity's
+			// FX setting may have changed since the settlement.
+			var raw []byte
+			var currency string
+			err := tx.QueryRow(ctx, `select currency::text, lines from gl_journal where tenant_id = $1 and legal_entity_id = $2 and source_key = $3`,
+				p.TenantID, legalEntity, "credit-fx:"+batchID).Scan(&currency, &raw)
+			if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 				return err
 			}
 			var lines []journalLine
-			if gain.IsPositive() {
-				lines = append(lines, debit(set.GainAccount, gain, "Realized exchange gain reversed"), credit(domain.AccountReceivable, gain, "Realized exchange gain reversed"))
+			if err == nil {
+				if err := json.Unmarshal(raw, &lines); err != nil {
+					return err
+				}
+				for i := range lines {
+					lines[i].Credit = !lines[i].Credit
+					lines[i].Text = "Reversal: " + lines[i].Text
+				}
+			} else {
+				// The settlement's journal is gone (it predates the postings): book the difference on the current setting.
+				set, err := loadFXSetting(ctx, tx, legalEntity)
+				if err != nil {
+					return err
+				}
+				currency = set.FunctionalCurrency
+				if gain.IsPositive() {
+					lines = append(lines, debit(set.GainAccount, gain, "Realized exchange gain reversed"), credit(domain.AccountReceivable, gain, "Realized exchange gain reversed"))
+				}
+				if loss.IsPositive() {
+					lines = append(lines, debit(domain.AccountReceivable, loss, "Realized exchange loss reversed"), credit(set.LossAccount, loss, "Realized exchange loss reversed"))
+				}
 			}
-			if loss.IsPositive() {
-				lines = append(lines, debit(domain.AccountReceivable, loss, "Realized exchange loss reversed"), credit(set.LossAccount, loss, "Realized exchange loss reversed"))
-			}
-			if err := enqueueJournal(ctx, tx, p.TenantID, journalSpec{LegalEntityID: legalEntity, SourceType: JournalRealizedFX, SourceID: creditItem.ID,
-				SourceKey: "credit-fx-reversal:" + batchID, DocumentID: "CS-" + batchID + "-REVERSAL", PostingDate: today(), Currency: set.FunctionalCurrency, Lines: lines}); err != nil {
+			if err := insertJournal(ctx, tx, p.TenantID, journalSpec{LegalEntityID: legalEntity, SourceType: JournalRealizedFX, SourceID: creditItem.ID,
+				SourceKey: "credit-fx-reversal:" + batchID, DocumentID: "CS-" + batchID + "-REVERSAL", PostingDate: today(), Currency: currency}, lines); err != nil {
 				return err
 			}
 		}

@@ -628,7 +628,7 @@ paths:
                 orderId: { type: string, format: uuid }
                 customerId: { type: string, format: uuid }
                 currency: { type: string, pattern: "^[A-Z]{3}$" }
-                priceChange: { type: string, description: "Signed. Zero for an SSP-only revision that moved allocation between products: the lines then net to zero and at least one is non-zero (400 otherwise), the gains are invoiced and the losses credited." }
+                priceChange: { type: string, description: "Signed, non-zero. A zero change (an SSP-only revision, which only re-allocates revenue) is 400 and creates no document." }
                 effectiveDate: { type: string, format: date }
                 reason: { type: string }
                 lines:

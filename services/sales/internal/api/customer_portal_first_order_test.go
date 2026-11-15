@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strings"
 	"testing"
@@ -212,5 +213,39 @@ func TestCustomerPortal_ProductListOffersListedProducts(t *testing.T) {
 	}
 	if len(out.Items) != 1 || !got[prodNew] || !got[prodUnpriced] || got[prodDenied] || got[prodOnlyB] || got[prodPump] || len(got) != 2 {
 		t.Fatalf("items %+v listed %+v", out.Items, out.Listed)
+	}
+}
+
+type failingGroups struct{}
+
+func (failingGroups) CustomerGroup(context.Context, string, string) (string, error) {
+	return "", errors.New("party is down")
+}
+
+// If party is down the product list still answers with the reorder history; only the listed products are left out.
+func TestCustomerPortal_ProductListSurvivesAPartyOutage(t *testing.T) {
+	s := firstOrderStore()
+	c := newCustomerHarness(t, s)
+	r := chi.NewRouter()
+	r.Use(tenant.Middleware)
+	New(s).WithCustomerGroups(failingGroups{}).WithPortalPricer(&negotiatedPricer{}).Register(r)
+	w := &writeHarness{h: r, signer: c.signer, s: s.portalWriteStore}
+	rec := w.get(t, custA, customerPortal+"/products")
+	var out struct {
+		Items  []portalProduct       `json:"items"`
+		Listed []portalListedProduct `json:"listed"`
+	}
+	if rec.Code != http.StatusOK || json.Unmarshal(rec.Body.Bytes(), &out) != nil || len(out.Items) != 1 || len(out.Listed) != 0 {
+		t.Fatalf("%d %s", rec.Code, rec.Body)
+	}
+}
+
+// Pricing refusing sales' token is not retryable: 502 SAL-CUS-005, not the retry advice of 503.
+func TestCustomerPortal_PricingAuthRefusalIsNotRetryable(t *testing.T) {
+	s := firstOrderStore()
+	w := newFirstOrderHarness(t, s, &negotiatedPricer{err: &upstream.StatusError{Audience: "pricing", Status: 401}})
+	rec := w.post(t, custA, customerPortal+"/orders", "submit-0009", firstOrderBody(line(prodNew, "EA", "1")))
+	if rec.Code != http.StatusBadGateway || !strings.Contains(rec.Body.String(), "SAL-CUS-005") {
+		t.Fatalf("%d %s", rec.Code, rec.Body)
 	}
 }

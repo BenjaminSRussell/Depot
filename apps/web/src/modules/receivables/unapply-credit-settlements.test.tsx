@@ -109,7 +109,7 @@ describe("credit settlements page", () => {
           creditStatus: "OPEN",
           total: "100.00",
           realizedFx: "2.00",
-          reopened: [{ openItemId: ITEM1, documentNumber: "INV-30001", amount: "100.00", openAfter: "1000.00", itemStatus: "OPEN" }],
+          reopened: [{ openItemId: ITEM1, documentNumber: "INV-30001", amount: "100.00", openAfter: "1000.00", itemStatus: "OPEN", itemCurrency: "USD" }],
         });
       }
       if (url.pathname.endsWith("/credit-settlements")) return json(200, { items: [{ ...batch, reversed }] });
@@ -125,6 +125,8 @@ describe("credit settlements page", () => {
     expect(server.calls.some((c) => c.url.pathname.endsWith(":reverse"))).toBe(false);
     fireEvent.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Reverse settlement" }));
     expect(await screen.findByText(/Credit settlement reversed/)).toBeInTheDocument();
+    // The invoice's reopened balance is in the invoice's own currency (USD), not the credit's (EUR).
+    expect(screen.getByText(/INV-30001 open 1,?000\.00 USD/)).toBeInTheDocument();
     const call = server.calls.find((c) => c.url.pathname.endsWith(":reverse"))!;
     expect(call.body).toEqual({ reason: "Wrong invoice" });
     await waitFor(() => expect(screen.getByText("Reversed")).toBeInTheDocument());

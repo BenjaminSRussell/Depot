@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"net/http"
 	"strings"
 	"testing"
 
@@ -58,9 +59,9 @@ func postedCustoms(t *testing.T, rg *rig) (partner, vat string, line customsLine
 func TestPost_ReceiptPostedCarriesTheIntrastatData(t *testing.T) {
 	src := &fakeCustoms{partner: &customsdata.Partner{Country: "FR", VATID: "FR123"}}
 	rg := newRigPorts(memstore.New(), domain.PeriodOpen, func(p *api.Ports) { p.Customs = src })
-	rec := rg.posted(t, "PS-C1", 10, 4)
+	rec := rg.postedFrom(t, "PS-C1", 10, 4, "AT")
 	partner, vat, line := postedCustoms(t, rg)
-	if partner != "FR" || vat != "FR123" || line.CommodityCode != "84137021" || line.OriginCountry != "IT" || line.NetWeight != "10" || line.Qty != "4" ||
+	if partner != "AT" || vat != "FR123" || line.CommodityCode != "84137021" || line.OriginCountry != "IT" || line.NetWeight != "10" || line.Qty != "4" ||
 		line.StatisticalValue != line.AmountAcct || line.StatisticalValue == "" {
 		t.Fatalf("partner %q %q line %+v", partner, vat, line)
 	}
@@ -70,9 +71,9 @@ func TestPost_ReceiptPostedCarriesTheIntrastatData(t *testing.T) {
 
 	failing := &fakeCustoms{err: errors.New("party answered 503")}
 	down := newRigPorts(memstore.New(), domain.PeriodOpen, func(p *api.Ports) { p.Customs = failing })
-	down.posted(t, "PS-C2", 10, 4)
+	down.postedFrom(t, "PS-C2", 10, 4, "")
 	partner, _, line = postedCustoms(t, down)
-	if partner != "" || line.CommodityCode != "84137021" {
+	if !down.lastCustomsFailed(t) || partner != "" || line.CommodityCode != "84137021" {
 		t.Errorf("degraded: partner %q line %+v", partner, line)
 	}
 
@@ -81,5 +82,35 @@ func TestPost_ReceiptPostedCarriesTheIntrastatData(t *testing.T) {
 	partner, _, line = postedCustoms(t, plain)
 	if partner != "" || line.CommodityCode != "" || line.NetWeight != "" || line.StatisticalValue != "" {
 		t.Errorf("no source: partner %q line %+v", partner, line)
+	}
+}
+
+// postedFrom posts a receipt whose post names the consignment country (none when empty).
+func (rg *rig) postedFrom(t *testing.T, slip string, ordered, qty int, shipFrom string) receiptJSON {
+	t.Helper()
+	r := rg.direct(t, slip, ordered, qty)
+	body := ""
+	if shipFrom != "" {
+		body = `{"shipFromCountry":"` + shipFrom + `"}`
+	}
+	return decode[receiptJSON](t, rg.call(http.MethodPost, receiptsPath+"/"+r.ID+":post", body, rg.poster(r.Version)), http.StatusOK)
+}
+
+func (rg *rig) lastCustomsFailed(t *testing.T) bool {
+	t.Helper()
+	var d struct {
+		Failed bool `json:"customs_lookup_failed"`
+	}
+	_ = json.Unmarshal(rg.receiptPostedEvent(t).Data, &d)
+	return d.Failed
+}
+
+// The partner country of an arrival is the consignment country the post names, whatever country the vendor is VAT registered in; a bad
+// code is refused.
+func TestPost_ShipFromCountryIsValidated(t *testing.T) {
+	rg := newRig(domain.PeriodOpen)
+	r := rg.direct(t, "PS-C9", 10, 4)
+	if rec := rg.call(http.MethodPost, receiptsPath+"/"+r.ID+":post", `{"shipFromCountry":"AUT"}`, rg.poster(r.Version)); rec.Code != http.StatusBadRequest {
+		t.Fatalf("a 3-letter country: %d", rec.Code)
 	}
 }

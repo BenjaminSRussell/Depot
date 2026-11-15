@@ -95,7 +95,7 @@ export function CreditSettlementsPage() {
       {done ? (
         <Alert tone="success" title="Credit settlement reversed" live="status">
           {money(done.result.total, done.batch.currency)} is back on {done.batch.creditDocument} ({done.result.creditStatus.toLowerCase().replace("_", " ")});{" "}
-          {done.result.reopened.map((r) => `${r.documentNumber} open ${money(r.openAfter, done.batch.currency)}`).join(", ")}.
+          {done.result.reopened.map((r) => `${r.documentNumber} open ${money(r.openAfter, r.itemCurrency ?? done.batch.currency)}`).join(", ")}.
         </Alert>
       ) : null}
       {failure ? (

@@ -292,9 +292,7 @@ standalone price is a separate contract: `:allocate`.
   An outage backs off (30 s doubling, at most an hour), a refusal parks the request (`POST /v1/revrec/modifications/{id}:retry-billing`,
   `revrec.post`, puts it back). billing's `creditnote.booked` for such a credit note carries `contract_modification_id` and the
   credit-note consumer skips it. The GL reconciliation adds what billing credits for modifications (the per-product allocation decreases, `modificationCredits`) to the 2400
-  debits it expects. Round 4: an SSP revision with no price change that moved allocation between products is billed too (the request
-  carries `priceChange` 0.00 and per-product lines that net to zero: billing invoices the products that gained and credits those that
-  lost); one that moved nothing queues nothing. One request per modification, keyed by the modification id, so a repeat never bills twice.
+  debits it expects. Round 4 decision: an SSP-only revision (price change 0) is revenue-only by design: revrec re-allocates and stores the allocation deltas (the roll-forward moves) but queues no billing request, because the customer owes what it owed and each product carries its own tax. Billing refuses a zero-price-change request and creates no document.
 - **USAGE obligations in a catch-up** (round 4): `obligations[].usageToDate` with `expectedUsage` (the units the allocation covers)
   makes a USAGE obligation part of the re-allocation. Its reallocated rate is the new allocation over `expectedUsage`; its revenue to
   date is `usageToDate` times that rate, capped at the allocation (consumption beyond it is variable consideration the usage invoices

@@ -35,8 +35,7 @@ type modificationLineDTO struct {
 }
 
 // modificationRequest is POST /v1/billing/contract-modifications: revrec's request to bill the price change of a contract
-// modification, or the allocation it moved between products when only stand-alone selling prices were revised (priceChange 0).
-// Lines are the allocation change of each product (signed); they add up to priceChange.
+// modification. Lines are the allocation change of each product (signed); they add up to priceChange.
 type modificationRequest struct {
 	ModificationID string                `json:"modificationId"`
 	ContractID     string                `json:"contractId"`
@@ -111,17 +110,10 @@ func (a *API) billModification(w http.ResponseWriter, r *http.Request) {
 		amounts[strings.ToLower(l.ProductID)] = amounts[strings.ToLower(l.ProductID)].Add(amt)
 		total = total.Add(amt)
 	}
-	if change.IsZero() && fields["priceChange"] == "" {
-		// A revision of stand-alone selling prices keeps the transaction price and moves allocation between products: the lines
-		// net to zero, and billing still invoices the products that gained and credits those that lost. A zero change with
-		// no moved line is nothing to bill.
-		moved := false
-		for _, amt := range amounts {
-			moved = moved || !amt.IsZero()
-		}
-		if !moved {
-			fields["priceChange"] = "must be non-zero, or the lines must move allocation between products"
-		}
+	if err == nil && change.IsZero() {
+		// An SSP-only revision re-allocates revenue and changes nothing the customer owes (each product has its own tax, so invoicing the
+		// gains and crediting the losses would). Revrec does not ask; a request that does is refused and creates no document.
+		fields["priceChange"] = "must be non-zero: a revision of selling prices alone is a revenue re-allocation and bills nothing"
 	}
 	if len(fields) > 0 {
 		writeFields(w, r, fields)

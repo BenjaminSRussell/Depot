@@ -227,10 +227,10 @@ func (s *Postgres) ModifyContract(ctx context.Context, contractID string, req Mo
 			res.TransactionPriceAfter.String(), res.CatchUp.String(), req.Reason, p.UserID, res.Reversal.String(), scopeJSON); err != nil {
 			return err
 		}
-		// A price change is billed, and so is a revision of stand-alone selling prices (NewSSP) whose allocation moved between products
-		// even though the transaction price did not: the products that gained are invoiced and those that lost are credited (billing nets
-		// the lines to the price change, zero here). Without a moved allocation there is nothing to bill.
-		if !req.PriceChange.IsZero() || len(req.NewSSP) > 0 {
+		// Only a price change is billed. A revision of stand-alone selling prices with the price unchanged re-allocates revenue between
+		// obligations and nothing else: the customer owes what it owed (taxes differ per product, so invoicing the gains and crediting the
+		// losses would change what it owes), so no billing request is queued.
+		if !req.PriceChange.IsZero() {
 			products := map[string]string{}
 			for _, o := range c.Obligations {
 				products[o.ID] = o.ProductID
@@ -250,8 +250,7 @@ func (s *Postgres) ModifyContract(ctx context.Context, contractID string, req Mo
 					lines = append(lines, billingLine{ProductID: pid, Amount: fixed(deltas[pid], c.Currency)})
 				}
 			}
-			// An SSP revision that moved no allocation has nothing to invoice or credit.
-			if !req.PriceChange.IsZero() || len(lines) > 0 {
+			{
 				body, err := json.Marshal(billingBody{Lines: lines, ModificationID: mod.ID, ContractID: contractID, LegalEntityID: c.LegalEntityID, OrderID: c.OrderID,
 					CustomerID: c.CustomerID, Currency: c.Currency, PriceChange: fixed(req.PriceChange, c.Currency), EffectiveDate: req.EffectiveDate.Format(dateLayout),
 					Reason: req.Reason})

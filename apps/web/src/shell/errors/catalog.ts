@@ -204,6 +204,7 @@ const receiving: Record<string, ProblemCatalogEntry> = {
   "SAL-CUS-002": { message: "Some of these products can't be ordered online yet.", action: "Order only products listed for you, or ask your sales contact to add the others." },
   "SAL-CUS-003": { message: "That isn't one of your invoices that can be returned.", action: "Choose the invoice from your invoice list." },
   "SAL-CUS-004": { message: "We can't price your order right now.", action: "Try again in a few minutes." },
+  "SAL-CUS-005": { message: "This order can't be priced online.", action: "Contact your sales contact to place it." },
   "PTY-TAXREG-001": { message: "The country or VAT id isn't valid.", action: "Use a 2-letter country code in capitals and a VAT id of letters and digits only." },
   "PTY-CUS-001": { message: "This account isn't a customer account.", action: "Sign in with a customer account." },
   "IDN-CONTACT-NOT-FOUND": { message: "We couldn't find that portal contact.", action: "Go back to the list and open it again." },

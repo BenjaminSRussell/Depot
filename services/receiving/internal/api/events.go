@@ -6,7 +6,6 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/customsdata"
 	"github.com/BenjaminSRussell/passage/platform/events"
 	"github.com/BenjaminSRussell/passage/services/receiving/internal/domain"
 	"github.com/BenjaminSRussell/passage/services/receiving/internal/store"
@@ -59,14 +58,17 @@ type receiptPostedData struct {
 	POID          string `json:"po_id"`
 	LegalEntityID string `json:"legal_entity_id"`
 	VendorID      string `json:"vendor_id"`
-	// PartnerCountry and PartnerVATID are the country the vendor's VAT registration is in and its VAT id, read from the party master when
-	// the receipt posted (#13); absent when the vendor has none or party could not be read.
-	PartnerCountry string           `json:"partner_country,omitempty"`
-	PartnerVATID   string           `json:"partner_vat_id,omitempty"`
-	PostingDate    string           `json:"posting_date"`
-	Currency       string           `json:"currency"`
-	LedgerEntryID  string           `json:"ledger_entry_id"`
-	Lines          []postedLineData `json:"lines"`
+	// PartnerCountry is the Intrastat partner country: the member state the goods were consigned from, named by the post (shipFromCountry,
+	// #13), not the country of the vendor's VAT registration; absent when the post named none. PartnerVATID is the vendor's VAT id from
+	// the party master's tax registration. CustomsLookupFailed is true when the party or product read failed, so the Intrastat data of this
+	// event is incomplete.
+	PartnerCountry      string           `json:"partner_country,omitempty"`
+	PartnerVATID        string           `json:"partner_vat_id,omitempty"`
+	CustomsLookupFailed bool             `json:"customs_lookup_failed,omitempty"`
+	PostingDate         string           `json:"posting_date"`
+	Currency            string           `json:"currency"`
+	LedgerEntryID       string           `json:"ledger_entry_id"`
+	Lines               []postedLineData `json:"lines"`
 }
 
 type correctedLineData struct {
@@ -214,7 +216,7 @@ func newEvent(context, entity, verb, subject, tenantID string, data any) (events
 
 func acct(v, rate decimal.Decimal) decimal.Decimal { return v.Mul(rate).RoundBank(acctRounding) }
 
-func receiptPostedEvent(tenantID string, r store.Receipt, amounts []store.LineAmount, ledgerEntryID string, customs *customsdata.Result) (events.Event, error) {
+func receiptPostedEvent(tenantID string, r store.Receipt, amounts []store.LineAmount, ledgerEntryID string, customs *receiptCustoms) (events.Event, error) {
 	data := receiptPostedData{
 		ReceiptID: r.ID, ReceiptNumber: r.Number, POID: r.PurchaseOrderID, LegalEntityID: r.LegalEntityID, VendorID: r.VendorID,
 		PostingDate: r.Date.Format(dateLayout), Currency: r.Currency, LedgerEntryID: ledgerEntryID, Lines: make([]postedLineData, 0, len(r.Lines)),
@@ -240,20 +242,23 @@ func receiptPostedEvent(tenantID string, r store.Receipt, amounts []store.LineAm
 		applyLineCustoms(&line, customs)
 		data.Lines = append(data.Lines, line)
 	}
-	if customs != nil && customs.Partner != nil {
-		data.PartnerCountry, data.PartnerVATID = customs.Partner.Country, customs.Partner.VATID
+	if customs != nil {
+		data.PartnerCountry, data.CustomsLookupFailed = customs.shipFrom, customs.failed
+		if customs.res.Partner != nil {
+			data.PartnerVATID = customs.res.Partner.VATID
+		}
 	}
 	return newEvent("receiving", "receipt", "posted", r.ID, tenantID, data)
 }
 
 // applyLineCustoms fills the Intrastat fields of a posted line from the master data read before the post: the net weight is the received
 // quantity times the product's kilograms per unit and the statistical value the line's amount in the accounting currency.
-func applyLineCustoms(line *postedLineData, customs *customsdata.Result) {
+func applyLineCustoms(line *postedLineData, customs *receiptCustoms) {
 	if customs == nil {
 		return
 	}
 	line.StatisticalValue = line.AmountAcct
-	prod, ok := customs.Products[strings.ToLower(line.ProductID)]
+	prod, ok := customs.res.Products[strings.ToLower(line.ProductID)]
 	if !ok {
 		return
 	}

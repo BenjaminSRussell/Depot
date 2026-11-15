@@ -45,9 +45,10 @@ func (s *Postgres) SetTaxRegistration(ctx context.Context, partnerID, country, v
 	if err != nil {
 		return TaxRegistration{}, ErrNotFound
 	}
-	if !countryPattern.MatchString(country) || !vatIDPattern.MatchString(vatID) {
+	country = normalizeCountry(country)
+	if !countryPattern.MatchString(country) || !iso3166Alpha2[country] || !vatIDPattern.MatchString(vatID) {
 		return TaxRegistration{}, httpx.NewProblem(http.StatusUnprocessableEntity, CodeTaxRegistrationInvalid,
-			"country must be a 2-letter ISO 3166 code in capitals and the VAT id at most 20 letters and digits")
+			"country must be an ISO 3166-1 alpha-2 code (EL is read as GR, XI is accepted for Northern Ireland) and the VAT id at most 20 letters and digits")
 	}
 	out := TaxRegistration{PartnerID: id, Country: country, VATID: vatID}
 	err = dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
