@@ -5,6 +5,7 @@ import type { CarrierAdapter } from "./adapter.ts";
 import { Gateway } from "./gateway.ts";
 import { SandboxCarrier } from "./sandbox.ts";
 import { createHttpServer } from "./server.ts";
+import { jsonLine } from "./logging/pseudonymize.ts";
 import { createVerifier, parsePublicKeys } from "./serviceToken.ts";
 
 export function adaptersFromEnv(raw: string | undefined): CarrierAdapter[] {
@@ -26,12 +27,14 @@ function listenAddress(raw: string | undefined): { host?: string; port: number }
 }
 
 function main(): void {
+  const log = jsonLine(process.env, (line) => void process.stderr.write(line));
+  const info = jsonLine(process.env);
   const keys = parsePublicKeys(process.env["PASSAGE_SERVICE_PUBLIC_KEYS"] ?? "");
-  if (keys.size === 0) console.warn(JSON.stringify({ msg: "PASSAGE_SERVICE_PUBLIC_KEYS is empty: every /v1 request is refused" }));
+  if (keys.size === 0) log({ msg: "PASSAGE_SERVICE_PUBLIC_KEYS is empty: every /v1 request is refused" });
   const gateway = new Gateway(adaptersFromEnv(process.env["CARRIER_ADAPTERS"]));
   const server = createHttpServer({ gateway, verifier: createVerifier({ keys }) });
   const { host, port } = listenAddress(process.env["HTTP_ADDR"]);
-  server.listen(port, host, () => console.log(JSON.stringify({ msg: "carrier-gateway listening", host: host ?? "", port })));
+  server.listen(port, host, () => info({ msg: "carrier-gateway listening", host: host ?? "", port }));
   const stop = (): void => {
     server.close(() => process.exit(0));
   };

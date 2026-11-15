@@ -15,9 +15,11 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/shopspring/decimal"
 
 	"github.com/BenjaminSRussell/passage/platform/eventing"
 	"github.com/BenjaminSRussell/passage/platform/events"
@@ -103,7 +105,13 @@ type shippedData struct {
 	CarrierCode   string `json:"carrier_code"`
 	ShippedAt     string `json:"shipped_at"`
 	Containers    []struct {
-		SSCC string `json:"sscc"`
+		SSCC       string `json:"sscc"`
+		ParentSSCC string `json:"parent_sscc"`
+		GrossKg    string `json:"gross_kg"`
+		Lines      []struct {
+			ShipmentLineID string `json:"shipment_line_id"`
+			Qty            string `json:"qty"`
+		} `json:"lines"`
 	} `json:"containers"`
 }
 
@@ -114,9 +122,26 @@ func (d shippedData) ship() (domain.WarehouseShip, error) {
 	}
 	ws := domain.WarehouseShip{ShippedAt: at, CarrierCode: d.CarrierCode}
 	for _, c := range d.Containers {
-		if c.SSCC != "" {
-			ws.SSCCs = append(ws.SSCCs, c.SSCC)
+		if c.SSCC == "" {
+			continue
 		}
+		ws.SSCCs = append(ws.SSCCs, c.SSCC)
+		wc := domain.WarehouseContainer{SSCC: c.SSCC, ParentSSCC: c.ParentSSCC}
+		if c.GrossKg != "" {
+			kg, err := decimal.NewFromString(c.GrossKg)
+			if err != nil || kg.IsNegative() {
+				return domain.WarehouseShip{}, fmt.Errorf("shipment.shipped container %s has no usable gross_kg %q", c.SSCC, c.GrossKg)
+			}
+			wc.GrossKg = kg
+		}
+		for _, l := range c.Lines {
+			qty, err := decimal.NewFromString(l.Qty)
+			if err != nil {
+				return domain.WarehouseShip{}, fmt.Errorf("shipment.shipped container %s has no usable qty %q", c.SSCC, l.Qty)
+			}
+			wc.Lines = append(wc.Lines, domain.SourceContainerLine{ShipmentLineID: strings.ToLower(l.ShipmentLineID), Qty: qty})
+		}
+		ws.Containers = append(ws.Containers, wc)
 	}
 	return ws, nil
 }

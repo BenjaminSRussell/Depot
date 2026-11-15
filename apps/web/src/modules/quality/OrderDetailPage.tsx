@@ -13,6 +13,7 @@ import { useLoad } from "./useLoad";
 import { ProblemMessage } from "../../shell/errors";
 import { EntityName } from "../../shell/lookup/EntityName";
 import { SourceDocument } from "../mfg-shared/orders";
+import { UserName } from "../../shell/lookup/UserName";
 
 interface Detail {
   order: OrderView;
@@ -175,7 +176,7 @@ export function OrderDetailPage() {
             </div>
             <div className={styles.entry}>
               <dt className={styles.term}>Decided</dt>
-              <dd className={styles.value}>{`${order.decision.decidedBy || dash}, ${formatDateTime(order.decision.decidedAt)}`}</dd>
+              <dd className={styles.value}><UserName id={order.decision.decidedBy} />, {formatDateTime(order.decision.decidedAt)}</dd>
             </div>
           </dl>
           <ul className={styles.plainList} aria-label="Decision lines">

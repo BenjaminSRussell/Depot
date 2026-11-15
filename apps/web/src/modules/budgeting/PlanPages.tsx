@@ -53,6 +53,7 @@ import styles from "./pages.module.css";
 import { Detail, LoadError } from "./parts";
 import { PlanGenerateCard } from "./PlanGenerateCard";
 import { useLoad } from "./useLoad";
+import { UserName } from "../../shell/lookup/UserName";
 
 const key = () => crypto.randomUUID();
 
@@ -61,7 +62,7 @@ const planColumns: DataTableColumn<Plan>[] = [
   { key: "fiscalYear", header: "Fiscal year", mono: true },
   { key: "status", header: "Status", render: (p) => <StatusPill status={p.status} /> },
   { key: "currency", header: "Currency", mono: true },
-  { key: "createdBy", header: "Created by" },
+  { key: "createdBy", header: "Created by", render: (r) => <UserName id={r.createdBy} /> },
 ];
 
 /** Budget plans (FR-38.2): one planning process per legal entity and fiscal year, each with its scenarios. */
@@ -287,7 +288,7 @@ export function PlanDetailPage() {
           </Detail>
           <Detail term="Budget control rule">{rule.data ? `${rule.data.code} version ${rule.data.version}` : "Loading"}</Detail>
           <Detail term="Currency">{p.currency}</Detail>
-          <Detail term="Submitted by">{p.submittedBy ?? "Not submitted"}</Detail>
+          <Detail term="Submitted by"><UserName id={p.submittedBy} empty="Not submitted" /></Detail>
         </dl>
         {draft ? (
           <div className={styles.actions}>
@@ -491,7 +492,7 @@ function OwnersCard({
     { key: "stage", header: "Stage" },
     { key: "orgUnitId", header: "Org unit", render: (o) => unitName(o.orgUnitId) },
     { key: "owner", header: "Owner" },
-    { key: "signedBy", header: "Signed", render: (o) => (o.signedBy ? `${o.signedBy}` : "Not yet") },
+    { key: "signedBy", header: "Signed", render: (o) => (o.signedBy ? <UserName id={o.signedBy} /> : "Not yet") },
   ];
   if (!editable) {
     return (

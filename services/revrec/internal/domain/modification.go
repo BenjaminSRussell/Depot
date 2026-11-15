@@ -31,6 +31,8 @@ const (
 	CodeModBelowRecognized = "REV-0402"
 	// CodeModNothingLeft: a prospective modification needs an obligation with performance left.
 	CodeModNothingLeft = "REV-0404"
+	// CodeModUsage: usage to date is given for an obligation a modification cannot measure by usage.
+	CodeModUsage = "REV-0406"
 )
 
 // ValidModificationType reports whether t is PROSPECTIVE or CATCH_UP.
@@ -68,6 +70,16 @@ func earnedBy(l ModLine, effective time.Time) bool {
 	return l.Date != nil && !dateOnly(*l.Date).After(dateOnly(effective))
 }
 
+// UsageMeasure is how far a USAGE obligation is performed at the effective date: the units consumed to date and the units its
+// allocation covers over the contract. Revrec holds no usage records (billing's subscriptions do), so a cumulative catch-up is given
+// both. The obligation's reallocated rate is its new allocation over Expected, and its revenue to date is ToDate times that rate, so
+// its progress is ToDate / Expected, capped at 1: consumption beyond the quantity the allocation covers is variable consideration the
+// usage invoices carry, not part of the allocation.
+type UsageMeasure struct {
+	ToDate   decimal.Decimal
+	Expected decimal.Decimal
+}
+
 // ModObligation is a performance obligation with its schedule, before the modification.
 type ModObligation struct {
 	ID        string
@@ -78,6 +90,22 @@ type ModObligation struct {
 	// Reversed is the recognized revenue credit notes already reversed on the obligation (it is netted off the recognized lines).
 	Reversed decimal.Decimal
 	Lines    []ModLine
+	// Usage is set on a USAGE obligation a CATCH_UP modification re-allocates; a USAGE obligation without it is left as it is.
+	Usage *UsageMeasure
+}
+
+// usageProgress is the share of a USAGE obligation performed: units to date over the units its allocation covers, at most 1.
+func usageProgress(u UsageMeasure) decimal.Decimal {
+	if !u.Expected.IsPositive() || !u.ToDate.IsPositive() {
+		return decimal.Zero
+	}
+	return decimal.Min(u.ToDate.DivRound(u.Expected, 18), decimal.NewFromInt(1))
+}
+
+// fixedAtModification reports whether a modification leaves the obligation as it is: point-in-time revenue was booked by the invoice, and
+// USAGE revenue arrives with usage unless a catch-up is given the usage to date.
+func fixedAtModification(o ModObligation) bool {
+	return o.Method == MethodPointInTime || (o.Method == MethodUsage && o.Usage == nil)
 }
 
 // ModificationInput is what a modification works on. PriceChange is signed. NewSSP revises the stand-alone selling price of the named
@@ -188,6 +216,11 @@ func liveTotal(o ModObligation) decimal.Decimal {
 // recognized or dated on or before the date over the amount of all its lines; for a milestone 1 once satisfied, else 0.
 func Progress(o ModObligation, effective time.Time) decimal.Decimal {
 	switch o.Method {
+	case MethodUsage:
+		if o.Usage != nil {
+			return usageProgress(*o.Usage)
+		}
+		return decimal.Zero
 	case MethodMilestone:
 		for _, l := range o.Lines {
 			if l.Status == ScheduleRecognized {
@@ -259,7 +292,9 @@ func distribute(total decimal.Decimal, lines []ModLine, currency string) []LineC
 }
 
 // Modify re-allocates a contract's obligations after a change of price or of stand-alone selling price (see the type constants).
-// POINT_IN_TIME and USAGE obligations are left as they are: their revenue was booked by the invoice or arrives with usage.
+// POINT_IN_TIME obligations are left as they are (their revenue was booked by the invoice), and so are USAGE obligations unless a
+// CATCH_UP modification is given their usage to date (ModObligation.Usage): their revenue to date is then usage to date times the
+// reallocated rate, recognized as a catch-up like a satisfied milestone's.
 func Modify(in ModificationInput) (ModificationResult, error) {
 	if !ValidModificationType(in.Type) {
 		return ModificationResult{}, modErr("COM-0001", "modification type must be PROSPECTIVE or CATCH_UP")
@@ -271,6 +306,22 @@ func Modify(in ModificationInput) (ModificationResult, error) {
 	for id, sc := range in.Scope {
 		if sc.IsNegative() || sc.GreaterThan(decimal.NewFromInt(1)) {
 			return ModificationResult{}, modErr("COM-0001", "the remaining scope of obligation "+id+" must be between 0 and 1")
+		}
+	}
+	for _, o := range in.Obligations {
+		if o.Usage == nil {
+			continue
+		}
+		switch {
+		case o.Method != MethodUsage:
+			return ModificationResult{}, modErr(CodeModUsage, "usage to date is only taken for a USAGE obligation, not "+o.ID)
+		case in.Type != ModCatchUp:
+			return ModificationResult{}, modErr(CodeModUsage, "usage to date is taken by a CATCH_UP modification only; a prospective modification leaves USAGE obligations as they are")
+		case !o.Usage.Expected.IsPositive() || o.Usage.ToDate.IsNegative():
+			return ModificationResult{}, modErr(CodeModUsage, "the expected usage of obligation "+o.ID+" must be greater than 0 and the usage to date not negative")
+		}
+		if _, ok := in.Scope[o.ID]; ok {
+			return ModificationResult{}, modErr(CodeModUsage, "the remaining scope of a USAGE obligation is its expected usage; revise that instead (obligation "+o.ID+")")
 		}
 	}
 	price := in.TransactionPrice.Add(in.PriceChange)
@@ -318,6 +369,9 @@ func scoped(in ModificationInput, o ModObligation) (progress, ssp decimal.Decima
 	sc, base := scopeOf(in, o), sspOf(in, o)
 	_, explicit := in.NewSSP[o.ID]
 	one := decimal.NewFromInt(1)
+	if o.Method == MethodUsage && o.Usage != nil {
+		return usageProgress(*o.Usage), base
+	}
 	if o.Method == MethodMilestone {
 		if Progress(o, in.EffectiveDate).Equal(one) {
 			return one, base
@@ -354,7 +408,7 @@ func modifyCatchUp(in ModificationInput, price decimal.Decimal, rule string) (Mo
 	pool := price
 	var live []ModObligation
 	for _, o := range in.Obligations {
-		if o.Method == MethodPointInTime || o.Method == MethodUsage {
+		if fixedAtModification(o) {
 			pool = pool.Sub(o.Allocated)
 			continue
 		}
@@ -362,7 +416,7 @@ func modifyCatchUp(in ModificationInput, price decimal.Decimal, rule string) (Mo
 	}
 	res := ModificationResult{TransactionPriceAfter: price}
 	if len(live) == 0 {
-		return res, modErr(CodeModNothingLeft, "the contract has no ratable or milestone obligation to re-allocate")
+		return res, modErr(CodeModNothingLeft, "the contract has no ratable, milestone or usage-measured obligation to re-allocate")
 	}
 	if !pool.IsPositive() {
 		return res, modErr(CodeModBelowRecognized, "the new transaction price does not cover what the point-in-time and usage obligations were billed at; credit the invoice instead")
@@ -401,6 +455,10 @@ func modifyCatchUp(in ModificationInput, price decimal.Decimal, rule string) (Mo
 			sspAfter[i] = o.SSP
 		}
 		target := after[i].Mul(pl.progress).Round(exp)
+		if o.Method == MethodUsage && o.Usage != nil {
+			// Usage to date times the reallocated rate (the new allocation over the usage it covers), capped at the allocation.
+			target = decimal.Min(after[i], after[i].Mul(o.Usage.ToDate).DivRound(o.Usage.Expected, 18)).Round(exp)
+		}
 		catch := target.Sub(recognizedOf(o))
 		ch := ObligationChange{ID: o.ID, AllocatedBefore: o.Allocated, AllocatedAfter: after[i], SSPBefore: o.SSP, SSPAfter: sspAfter[i],
 			Progress: pl.progress, Removed: scopeOf(in, o).IsZero()}
@@ -414,10 +472,15 @@ func modifyCatchUp(in ModificationInput, price decimal.Decimal, rule string) (Mo
 		} else {
 			ch.Lines = append(ch.Lines, distribute(catch, earned, in.Currency)...)
 			if len(earned) == 0 && catch.IsPositive() {
-				ch.NewLine = &NewLine{Date: dateOnly(in.EffectiveDate), Amount: catch, Recognized: o.Method == MethodMilestone}
+				// A milestone already satisfied and a USAGE obligation (its usage is already consumed) recognize the catch-up at once.
+				ch.NewLine = &NewLine{Date: dateOnly(in.EffectiveDate), Amount: catch, Recognized: o.Method == MethodMilestone || o.Method == MethodUsage}
 			}
 		}
 		left := after[i].Sub(target)
+		if o.Method == MethodUsage {
+			// What the allocation still holds is recognized as usage posts (usage recognition is a later slice); no line carries it.
+			left = decimal.Zero
+		}
 		if len(future) == 0 && left.IsPositive() {
 			return res, modErr(CodeModNothingLeft, "an obligation has revenue left to schedule but no schedule line to carry it")
 		}

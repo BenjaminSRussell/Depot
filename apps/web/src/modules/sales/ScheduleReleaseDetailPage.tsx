@@ -6,6 +6,7 @@ import { formatDateTime } from "./format";
 import styles from "./pages.module.css";
 import { useLoad } from "./useLoad";
 import { ProblemMessage } from "../../shell/errors";
+import { UserName } from "../../shell/lookup/UserName";
 
 const bucketColumns: DataTableColumn<ReleaseBucket>[] = [
   { key: "date", header: "Date", mono: true },
@@ -87,8 +88,8 @@ export function ScheduleReleaseDetailPage() {
     ["Tolerance", release.tolerance],
     ["Difference", release.difference],
     ["Open quantity", release.openQuantity],
-    ["Received", `${formatDateTime(release.receivedAt)} by ${release.receivedBy}`],
-    ...(release.resolvedAt ? ([["Resolved", `${formatDateTime(release.resolvedAt)} by ${release.resolvedBy ?? ""}: ${release.resolutionReason ?? ""}`]] as [string, ReactNode][]) : []),
+    ["Received", <>{formatDateTime(release.receivedAt)} by <UserName id={release.receivedBy} /></>],
+    ...(release.resolvedAt ? ([["Resolved", <>{formatDateTime(release.resolvedAt)} by <UserName id={release.resolvedBy} />: {release.resolutionReason ?? ""}</>]] as [string, ReactNode][]) : []),
   ];
   const openLines = (release.lines ?? []).filter((l) => l.status === "OPEN");
 

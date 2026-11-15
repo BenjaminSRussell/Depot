@@ -521,6 +521,34 @@ class ArgoApplicationsTest(unittest.TestCase):
                                                     ("group", group): {"Read", "Describe"}})
         self.assertIn(dlq, topics)
 
+    def test_tax_intrastat_consumer_acls(self):
+        # The tax Intrastat feed consumer (#13): its KafkaUser reads exactly fulfillment's packing slip channel and receiving's
+        # receipt channel, the ones their AsyncAPI documents declare for packingslip.posted and receipt.posted, and the group the
+        # code uses, and writes the dead-letter topic it parks on.
+        code = (REPO / "services/tax/internal/feed/feed.go").read_text()
+        (group,) = re.findall(r'ConsumerName\s+=\s+"([^"]+)"', code)
+        (slip_topic,) = re.findall(r'PackingSlipTopic\s+=\s+"([^"]+)"', code)
+        (receipt_topic,) = re.findall(r'ReceiptTopic\s+=\s+"([^"]+)"', code)
+        (dlq,) = re.findall(r'DeadLetterTopic\s+=\s+"([^"]+)"', code)
+        (slip_type,) = re.findall(r'PackingSlipPostedType\s+=\s+"([^"]+)"', code)
+        (receipt_type,) = re.findall(r'ReceiptPostedType\s+=\s+"([^"]+)"', code)
+        for path, event_type, topic in (("services/fulfillment/events/asyncapi.yaml", slip_type, slip_topic),
+                                        ("services/receiving/events/asyncapi.yaml", receipt_type, receipt_topic)):
+            spec = yaml.safe_load((REPO / path).read_text())
+            channels = {ch["address"] for ch in spec["channels"].values()
+                        for ref in ch["messages"].values()
+                        if spec["components"]["messages"][ref["$ref"].rsplit("/", 1)[1]].get("name") == event_type}
+            self.assertEqual(channels, {topic}, event_type)
+        values = yaml.safe_load((REPO / "services/tax/charts/tax/values.yaml").read_text())
+        kafka = values["consumer"]["kafka"]
+        self.assertFalse(values["consumer"]["enabled"], "the tax consumer is off by default, like the other consumers")
+        users, topics = self.synced_kafka_resources()
+        self.assertEqual((kafka["group"], kafka["dlqTopic"]), (group, dlq))
+        self.assertIn(kafka["username"], users, "deploy/kafka/tax-consumer.yaml")
+        self.assertEqual(users[kafka["username"]], {("topic", slip_topic): {"Read", "Describe"}, ("topic", receipt_topic): {"Read", "Describe"},
+                                                    ("topic", dlq): {"Write", "Describe"}, ("group", group): {"Read", "Describe"}})
+        self.assertIn(dlq, topics)
+
     def test_edi_outbound_consumer_acls(self):
         # The edi outbound consumer (#35, 35-1): its KafkaUser reads exactly fulfillment's asn channel, the warehouse's shipment
         # channel and billing's invoice channel, the ones the AsyncAPI documents declare for asn.issued, shipment.shipped and
@@ -702,6 +730,42 @@ class ArgoApplicationsTest(unittest.TestCase):
         (role,) = [d for f in manifests(DEPLOY / "envs/dev/kafka-secrets") for d in load_docs(f)
                    if d["kind"] == "Role" and d["metadata"]["name"] == "passage-connect-read-debezium-cdc"]
         self.assertIn("debezium-cdc-billing", role["rules"][0]["resourceNames"])
+
+    def test_outbox_ops_relays_exactly_the_ops_channels_the_debezium_user_may_write(self):
+        # Ops routes by aggregate type (failover, tenant, slo, license), each the suffix of one channel of its AsyncAPI.
+        docs = load_docs(DEPLOY / "kafka/connect.yaml")
+        (debezium,) = [d for d in docs if d["kind"] == "KafkaUser" and d["metadata"]["name"] == "debezium"]
+        writable = {a["resource"]["name"] for a in debezium["spec"]["authorization"]["acls"]
+                    if a["resource"]["type"] == "topic" and a["resource"].get("patternType") == "literal"
+                    and "Write" in a["operations"]}
+        (cfg,) = [d["spec"]["config"] for d in docs if d["kind"] == "KafkaConnector" and d["metadata"]["name"] == "outbox-ops"]
+        self.assertEqual("aggregate_type", cfg["transforms.outbox.route.by.field"])
+        self.assertEqual("passage.ops", cfg["topic.prefix"])
+        self.assertEqual("passage.ops.${routedByValue}", cfg["transforms.outbox.route.topic.replacement"])
+        self.assertEqual("public.outbox", cfg["table.include.list"])
+        self.assertEqual("passage_outbox_ops", cfg["publication.name"])
+        self.assertEqual("no_data", cfg["snapshot.mode"])
+        chain = cfg["transforms"].split(",")
+        self.assertEqual(("outbox", "enrich"), (chain[0], chain[-1]))
+        aggregates = set()
+        for f in (REPO / "services/ops/internal/store").glob("*.go"):
+            if not f.name.endswith("_test.go"):
+                aggregates |= set(re.findall(r'enqueue\(ctx, tx, "([^"]+)"', f.read_text()))
+        self.assertEqual({"failover", "tenant", "slo", "license"}, aggregates,
+                         "a new ops aggregate type needs a channel, an ACL and a Filter in outbox-ops")
+        spec = yaml.safe_load((REPO / "services/ops/events/asyncapi.yaml").read_text())
+        channels = {c["address"] for c in spec["channels"].values()}
+        routed = {cfg["transforms.outbox.route.topic.replacement"].replace("${routedByValue}", a) for a in aggregates}
+        self.assertEqual(channels, routed)
+        self.assertEqual(routed, {t for t in writable if t.startswith("passage.ops.")})
+        secrets = {d["metadata"]["name"] for f in manifests(DEPLOY / "envs/dev/kafka-secrets") for d in load_docs(f)
+                   if d["kind"] == "ExternalSecret"}
+        self.assertIn("debezium-cdc-ops", secrets)
+        (role,) = [d for f in manifests(DEPLOY / "envs/dev/kafka-secrets") for d in load_docs(f)
+                   if d["kind"] == "Role" and d["metadata"]["name"] == "passage-connect-read-debezium-cdc"]
+        self.assertIn("debezium-cdc-ops", role["rules"][0]["resourceNames"])
+        for migration in ("0007_cdc_publication.sql", "0008_cdc_role_grants.sql"):
+            self.assertTrue((REPO / "services/ops/migrations" / migration).exists(), migration)
 
     @unittest.skipUnless(shutil.which("helm"), "helm not on PATH")
     def test_temporal_values_match_its_database(self):

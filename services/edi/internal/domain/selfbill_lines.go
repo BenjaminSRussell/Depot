@@ -75,3 +75,32 @@ func SelfBillingLinesForSlip(p TradeProfile, sh SourceShipment, o SourceOrder, s
 	}
 	return out, nil
 }
+
+// SelfBilledInvoiceLine and SelfBilledInvoiceRequest are the body of billing's POST /v1/billing/self-billed-invoices (#35, 35-5): the
+// matched document as the legal customer invoice, under the document's own number and with the tax it carries.
+type SelfBilledInvoiceLine struct {
+	Description    string `json:"description"`
+	Qty            string `json:"qty"`
+	UnitPrice      string `json:"unitPrice"`
+	Tax            string `json:"tax"`
+	RevenueAccount string `json:"revenueAccount"`
+	TaxCode        string `json:"taxCode"`
+}
+
+type SelfBilledInvoiceRequest struct {
+	LegalEntityID   string                  `json:"legalEntityId"`
+	CustomerID      string                  `json:"customerId"`
+	SourceRef       string                  `json:"sourceRef"`
+	DocumentNumber  string                  `json:"documentNumber"`
+	DocumentDate    string                  `json:"documentDate"`
+	Currency        string                  `json:"currency"`
+	PaymentTermDays int                     `json:"paymentTermDays"`
+	Lines           []SelfBilledInvoiceLine `json:"lines"`
+}
+
+// SelfBilledInvoiceRef is the invoice billing posted.
+type SelfBilledInvoiceRef struct {
+	ID     string `json:"id"`
+	Number string `json:"number"`
+	Status string `json:"status"`
+}

@@ -80,7 +80,23 @@ func (s *Store) DecideReport(ctx context.Context, id string, approve bool, decid
 			return err
 		}
 		out, err = loadReport(ctx, tx, p.TenantID, id)
-		return err
+		if err != nil || !payNow {
+			return err
+		}
+		// A report with nothing to reimburse goes straight to PAID and is never booked as a liability, but the lines another entity
+		// bears are still charged across (#40): the event goes out now with a zero amount, which payables ignores.
+		charged, err := chargedLines(ctx, tx, p.TenantID, id, out.LegalEntityID, out.Currency)
+		if err != nil || len(charged) == 0 {
+			return err
+		}
+		evt, err := kevents.New(reimbursement.ReportApprovedType, events.Source, id, p.TenantID, reimbursement.ReportApproved{
+			ReportID: id, LegalEntityID: out.LegalEntityID, WorkerID: out.WorkerID, Currency: out.Currency,
+			Amount: decimal.Zero.StringFixed(money.MinorUnits(out.Currency)), ApprovedOn: decidedOn.Format(time.DateOnly), ChargedLines: charged, Revision: out.Version,
+		})
+		if err != nil {
+			return err
+		}
+		return outbox.Enqueue(ctx, tx, outboxAggregate, id, evt)
 	})
 	if err != nil {
 		return Report{}, false, err
@@ -226,10 +242,11 @@ func (s *Store) MarkGLBooked(ctx context.Context, id, entryID string) (bool, err
 	booked := false
 	err = dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
 		var le, worker, currency, status, amount, approvedOn string
+		var revision int
 		err := tx.QueryRow(ctx, `update expense_report set gl_entry_id=$3, gl_posted_at=now(), updated_at=now()
 			where tenant_id=$1 and id=$2 and gl_entry_id is null and approved_on is not null
-			returning legal_entity_id::text, worker_id::text, currency::text, status, reimbursable_amount::text, approved_on::text`, p.TenantID, id, entryID).
-			Scan(&le, &worker, &currency, &status, &amount, &approvedOn)
+			returning legal_entity_id::text, worker_id::text, currency::text, status, reimbursable_amount::text, approved_on::text, version`, p.TenantID, id, entryID).
+			Scan(&le, &worker, &currency, &status, &amount, &approvedOn, &revision)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil
 		}
@@ -237,16 +254,25 @@ func (s *Store) MarkGLBooked(ctx context.Context, id, entryID string) (bool, err
 			return err
 		}
 		booked = true
-		if status != string(domain.ReportApproved) {
-			return nil
-		}
 		reimbursable, err := decimal.NewFromString(amount)
 		if err != nil {
 			return err
 		}
+		charged, err := chargedLines(ctx, tx, p.TenantID, id, le, currency)
+		if err != nil {
+			return err
+		}
+		if status != string(domain.ReportApproved) {
+			// A report that went straight to PAID has nothing to reimburse, but the lines another entity bears are still charged
+			// across (#40): the event goes out with a zero amount, which payables ignores.
+			if len(charged) == 0 {
+				return nil
+			}
+			reimbursable = decimal.Zero
+		}
 		evt, err := kevents.New(reimbursement.ReportApprovedType, events.Source, id, p.TenantID, reimbursement.ReportApproved{
 			ReportID: id, LegalEntityID: le, WorkerID: worker, Currency: currency,
-			Amount: reimbursable.StringFixed(money.MinorUnits(currency)), ApprovedOn: approvedOn,
+			Amount: reimbursable.StringFixed(money.MinorUnits(currency)), ApprovedOn: approvedOn, ChargedLines: charged, Revision: revision,
 		})
 		if err != nil {
 			return err
@@ -254,4 +280,30 @@ func (s *Store) MarkGLBooked(ctx context.Context, id, entryID string) (bool, err
 		return outbox.Enqueue(ctx, tx, outboxAggregate, id, evt)
 	})
 	return booked, err
+}
+
+// chargedLines reads the lines of a report whose cost another legal entity bears, in line order, for the approved-report event.
+func chargedLines(ctx context.Context, tx pgx.Tx, tenantID, reportID, reportEntity, currency string) ([]reimbursement.ChargedLine, error) {
+	rows, err := tx.Query(ctx, `select id::text, line_no, category, amount::text, txn_date::text, charge_to_legal_entity_id::text from expense_line
+		where tenant_id = $1 and report_id = $2 and charge_to_legal_entity_id is not null and charge_to_legal_entity_id <> $3::uuid and amount > 0 order by line_no`,
+		tenantID, reportID, reportEntity)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []reimbursement.ChargedLine
+	for rows.Next() {
+		var l reimbursement.ChargedLine
+		var amount string
+		if err := rows.Scan(&l.LineID, &l.LineNo, &l.Category, &amount, &l.TransactionDate, &l.ChargeToLegalEntityID); err != nil {
+			return nil, err
+		}
+		value, err := decimal.NewFromString(amount)
+		if err != nil {
+			return nil, err
+		}
+		l.Amount, l.Currency = value.StringFixed(money.MinorUnits(currency)), currency
+		out = append(out, l)
+	}
+	return out, rows.Err()
 }

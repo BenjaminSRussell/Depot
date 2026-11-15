@@ -23,24 +23,25 @@ import (
 
 // fakeStore answers from the err and result fields and records the last call.
 type fakeStore struct {
-	err      error
-	replayed bool
-	work     domain.Work
-	idem     store.Idem
-	plan     store.PlanInput
-	confirm  store.ConfirmInput
-	except   store.ExceptionInput
-	wfilter  store.WorkFilter
-	lfilter  store.LocationFilter
-	calls    int
-	door     domain.DockDoor
-	appt     domain.Appointment
-	afilter  store.AppointmentFilter
-	receipt  domain.Receipt
-	rfilter  store.ReceiptFilter
-	ship     store.ShipConfirmation
-	receive  store.ReceiveInput
-	received store.Received
+	err        error
+	replayed   bool
+	work       domain.Work
+	idem       store.Idem
+	plan       store.PlanInput
+	confirm    store.ConfirmInput
+	except     store.ExceptionInput
+	reassigned *store.ReassignInput
+	wfilter    store.WorkFilter
+	lfilter    store.LocationFilter
+	calls      int
+	door       domain.DockDoor
+	appt       domain.Appointment
+	afilter    store.AppointmentFilter
+	receipt    domain.Receipt
+	rfilter    store.ReceiptFilter
+	ship       store.ShipConfirmation
+	receive    store.ReceiveInput
+	received   store.Received
 }
 
 func (f *fakeStore) CreateLocations(_ context.Context, idem store.Idem, _ string, locs []domain.Location) ([]domain.Location, bool, error) {

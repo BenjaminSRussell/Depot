@@ -101,6 +101,15 @@ func (f *fakeStore) ProductNames(_ context.Context, productIDs []string) ([]doma
 	}
 	return out, nil
 }
+func (f *fakeStore) ProductCustoms(_ context.Context, productIDs []string) ([]domain.ProductCustoms, error) {
+	out := []domain.ProductCustoms{}
+	for _, id := range productIDs {
+		if _, ok := f.products[id]; ok {
+			out = append(out, domain.ProductCustoms{ID: id, CommodityCode: "84137021", OriginCountry: "DE", NetWeightKg: "12.5"})
+		}
+	}
+	return out, nil
+}
 func (f *fakeStore) UpdateProduct(_ context.Context, id string, patch domain.ProductPatch, version int) (domain.Product, error) {
 	p, ok := f.products[id]
 	if !ok {
@@ -733,5 +742,27 @@ func TestProductNamesRoute(t *testing.T) {
 		if rec := do(r, http.MethodGet, "/v1/product/products:names"+q, "", "product.names.read"); rec.Code != http.StatusBadRequest {
 			t.Errorf("query %q: %d", q, rec.Code)
 		}
+	}
+}
+
+func TestProductCustoms_ServiceDutyReadsOnlyTheCustomsAttributes(t *testing.T) {
+	f := newFake()
+	r := newRouter(f)
+	id := "0195f0a0-0000-7000-8000-0000000000e1"
+	f.products[id] = domain.Product{ID: id, ProductNumber: "PUMP-1", Name: "Centrifugal pump", Description: "internal", Version: 3}
+	for _, duty := range []string{"product.customs.read", "product.read"} {
+		rec := do(r, http.MethodGet, "/v1/product/products:customs?ids="+id+",0195f0a0-0000-7000-8000-0000000000ff", "", duty)
+		if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"commodityCode":"84137021"`) || !strings.Contains(rec.Body.String(), `"netWeightKg":"12.5"`) {
+			t.Fatalf("%s: %d %s", duty, rec.Code, rec.Body)
+		}
+		if strings.Contains(rec.Body.String(), "internal") {
+			t.Errorf("%s: the answer carries product fields: %s", duty, rec.Body)
+		}
+	}
+	if rec := do(r, http.MethodGet, "/v1/product/products:customs?ids="+id, "", "product.names.read"); rec.Code != http.StatusForbidden {
+		t.Errorf("the names duty may not read customs data: %d", rec.Code)
+	}
+	if rec := do(r, http.MethodGet, "/v1/product/products:customs?ids=not-an-id", "", "product.customs.read"); rec.Code != http.StatusBadRequest {
+		t.Errorf("bad id: %d", rec.Code)
 	}
 }

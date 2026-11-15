@@ -10,6 +10,7 @@ import { newKey } from "./api/postings";
 import { amount, dash, isCurrency, isDecimal } from "./format";
 import styles from "./pages.module.css";
 import { useLoad } from "./useLoad";
+import { UserName } from "../../shell/lookup/UserName";
 
 const ACCOUNT = /^[A-Za-z0-9._:-]{1,64}$/;
 const ENTITY = /^[A-Za-z0-9._-]{1,32}$/;
@@ -337,7 +338,7 @@ const priceColumns: DataTableColumn<StoredTransferPrice>[] = [
   { key: "method", header: "Price", render: priceText },
   { key: "currency", header: "Currency", mono: true },
   { key: "effectiveFrom", header: "Effective from", mono: true },
-  { key: "createdBy", header: "Added by", render: (p) => p.createdBy ?? dash },
+  { key: "createdBy", header: "Added by", render: (p) => <UserName id={p.createdBy} /> },
 ];
 
 const priceFilters: ListFilterDef[] = [

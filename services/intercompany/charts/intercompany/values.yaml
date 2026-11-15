@@ -17,6 +17,9 @@ fxRateType: closing
 orgUrl: ""
 # The tax service that prices a cross-border charge (TAX_URL) when the tenant has cross-border tax on.
 taxUrl: ""
+# The party service that confirms a pairing's customer and vendor accounts exist (PARTY_URL, needs the signing key). Empty means the
+# accounts are checked for form only; set it so a bad pairing is refused when saved (IC-0862, IC-0863) instead of dead-lettering its charges.
+partyUrl: ""
 # CronJob running `intercompany reconcile <tenant-id>...`: reads every pair of the stored accounting matrix from the ledgers for
 # the last and the current period and stores the runs (needs ledgerUrl and the signing key; tenants that have not set a
 # reconciliation currency are skipped). Tenants are listed because the app role cannot enumerate them.
@@ -24,6 +27,25 @@ reconcile:
   enabled: false
   schedule: "17 3 * * *"
   tenantIds: []
+# The charge feed (#40, args [consume]): raises an intercompany charge for each expense line and project hour another legal entity bears,
+# from expense's report.approved and projects' transaction.posted. Off by default until those two services' outbox connectors relay to
+# Kafka (deploy/kafka/connect.yaml has none for them yet). Needs ledgerUrl and the signing key. accounts are what a Journal-mode charge posts to.
+consumer:
+  enabled: false
+  replicaCount: 1
+  kafka:
+    brokers: ""
+    group: intercompany-charges
+    username: intercompany-consumer
+    dlqTopic: passage.intercompany.charges.dlq
+    secret: ""
+  accounts:
+    cost: ""
+    recovery: ""
+    margin: ""
+  resources:
+    requests: { cpu: 50m, memory: 64Mi }
+    limits: { cpu: 250m, memory: 128Mi }
 # Ed25519 seed (base64) in this secret signs the service-to-service tokens sent to the ledger.
 serviceIdentity:
   signingKeySecret: ""

@@ -718,3 +718,19 @@ Catalog codes EDI-0104, EDI-0106 to EDI-0109, EINV-0112 and HUB-0113 to HUB-0116
 defined in PRD §6.35.18 and not raised yet. EDI-0139 is raised by the PLM precedence in
 `integration-hub-ts`. EINV-0110 is used for required-element failures before schematron
 exists; the PRD text names it for schematron failures.
+
+
+## Slice 12: warehouse pack data, self-billed invoices posted, vendor 810 (#35, round 4)
+
+- **Pack hierarchy from the warehouse.** `dev.passage.wms.shipment.shipped.v1` may carry, per container, `parent_sscc`, `gross_kg` and `lines`
+  (`shipment_line_id`, `qty`). When any container has lines the 856 or DESADV of the shipment is built from the warehouse's containers (pallets and
+  cartons as the warehouse recorded them) and not from fulfillment's; a confirmation that names only SSCCs uses fulfillment's containers as before.
+- **Self-billed documents posted.** A self-billed INVOIC 389 or X12 810 that matched in full is posted by billing as the legal customer invoice
+  (`POST /v1/billing/self-billed-invoices`), under the document's own number, with the tax the document states (or the recomputed tax of the match),
+  as `service:edi-selfbill`. The partner's self-billing settings (`PUT /partners/{id}/self-billing`) name the `revenueAccount`, `taxCode` and
+  `paymentTermDays` of that invoice. A post that fails (billing down, a setting missing, the customer on no SELF_BILLED rule) is kept with the document
+  (`postError`) and `POST /self-billing:sweep` and the scheduled sweep try it again (`posted` in the answer).
+- **Vendor 810.** `PUT /partners/{id}/vendor-profile` says a partner is one of our vendors (vendor and legal entity). `POST /inbound/x12/vendor` takes
+  its interchanges; its 810s are mapped as vendor invoices (`vendor: true`, never self-billed) and put into payables' vendor-invoice intake as source
+  `X12_810` for an AP clerk (web screen `/ap-invoices/intake`). An invoice that cannot be taken is parked (EDI-0038, EDI-0039) and posts again with
+  `POST /messages/{id}:post`. `EDI_PAYABLES_URL` turns it on.

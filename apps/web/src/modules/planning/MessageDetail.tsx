@@ -39,6 +39,7 @@ import {
 import styles from "./pages.module.css";
 import { ProblemMessage } from "../../shell/errors";
 import { EntityName } from "../../shell/lookup/EntityName";
+import { UserName } from "../../shell/lookup/UserName";
 
 export const MAX_NOTE = 500;
 
@@ -125,7 +126,7 @@ function DecisionCard({
         live="off"
       >
         {message.decidedBy
-          ? `By ${message.decidedBy}${message.decidedAt ? ` on ${message.decidedAt.slice(0, 10)}` : ""}. `
+          ? <>By <UserName id={message.decidedBy} />{message.decidedAt ? ` on ${message.decidedAt.slice(0, 10)}` : ""}. </>
           : ""}
         {message.decisionNote ? `${message.decisionNote} ` : ""}
         {message.status === "applied"

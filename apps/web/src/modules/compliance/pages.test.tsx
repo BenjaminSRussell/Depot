@@ -132,7 +132,7 @@ describe("SoD conflicts page", () => {
     handler = (url) => (url.pathname.endsWith(CONFLICT) ? { status: 200, etag: '"1"', body: conflict() } : { status: 200, body: { items: [conflict()] } });
     const { container } = renderAt("/compliance/sod/conflicts");
     const table = await findTable({ name: "SoD conflicts" });
-    expect(within(table).getByText("11111111")).toBeInTheDocument();
+    expect(within(table).getAllByText("A user who is no longer listed").length).toBeGreaterThan(0);
     expect(within(table).getByText("High")).toBeInTheDocument();
     expect(within(table).getByText("VendorMaint, VendorPay")).toBeInTheDocument();
     expect(calls[0].url.pathname).toBe("/api/v1/sod/conflicts");

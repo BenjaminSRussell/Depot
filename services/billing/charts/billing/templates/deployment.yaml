@@ -51,6 +51,10 @@ spec:
               value: {{ .Values.maxLines | quote }}
             - name: BILLING_TAX_RATES
               value: {{ .Values.taxRates | quote }}
+            {{- if .Values.closeUrl }}
+            - name: BILLING_CLOSE_URL
+              value: {{ .Values.closeUrl | quote }}
+            {{- end }}
             {{- if .Values.ledgerUrl }}
             {{- if not .Values.revrecUrl }}
             {{- fail "revrecUrl is required when ledgerUrl is set: order invoices book the revrec allocation" }}

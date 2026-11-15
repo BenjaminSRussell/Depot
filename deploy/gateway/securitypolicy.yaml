@@ -31,6 +31,8 @@ spec:
             header: X-Passage-Duties
           - claim: tier
             header: X-Passage-Tier
+          - claim: auth_time
+            header: X-Passage-Auth-Time
   authorization:
     defaultAction: Allow
     rules:

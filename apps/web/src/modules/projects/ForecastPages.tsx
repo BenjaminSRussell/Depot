@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   Alert,
@@ -35,6 +35,7 @@ import plan from "./plans.module.css";
 import styles from "./pages.module.css";
 import { useLoad } from "./useLoad";
 import { ProblemMessage } from "../../shell/errors";
+import { UserName } from "../../shell/lookup/UserName";
 
 /** One editable forecast line; amounts stay strings (decimal on the service, never float here). */
 export interface ForecastRowValues {
@@ -463,13 +464,13 @@ export function ForecastDetailPage() {
     { key: "actualSales", header: "Actual sales", align: "end", mono: true },
     { key: "salesVariance", header: "Sales variance", align: "end", mono: true, render: (r) => varianceText(r.salesVariance) },
   ];
-  const facts: [string, string][] = [
+  const facts: [string, ReactNode][] = [
     ["Currency", model.currency],
     ["Lines", String(model.lineCount)],
     ["Forecast cost", `${model.totalCost} ${model.currency}`],
     ["Forecast sales", `${model.totalSales} ${model.currency}`],
     ["Version", String(model.version)],
-    ["Created by", model.createdBy],
+    ["Created by", <UserName id={model.createdBy} />],
   ];
 
   return (

@@ -171,3 +171,39 @@ func TestRunPlan_StoresIncrease(t *testing.T) {
 		t.Fatalf("increase messages = %+v; want PO-1 by 10 for SO-1", msgs)
 	}
 }
+
+// The forecast model list is tenant-scoped, ordered by code, narrowed by a legal entity (its own models and the shared ones)
+// and by a code search.
+func TestListForecastModels(t *testing.T) {
+	st, _, _ := setup(t)
+	alice := asUser(1, "alice")
+	item, site := ids.New(), ids.New()
+	for _, code := range []string{"FC-2027", "BASE"} {
+		if _, err := st.UpsertForecastLines(alice, code, "", 0, nil, []store.ForecastCellInput{cellIn(item, site, "2026-11-02", "2026-11-08", "10", "0")}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	got, err := st.ListForecastModels(alice, "", "", "", 50)
+	if err != nil || len(got) != 2 || got[0].Code != "BASE" || got[1].Code != "FC-2027" || got[0].Status != "draft" {
+		t.Fatalf("list = %+v, %v", got, err)
+	}
+	if got, err := st.ListForecastModels(alice, "", "fc-", "", 50); err != nil || len(got) != 1 || got[0].Code != "FC-2027" {
+		t.Fatalf("search = %+v, %v", got, err)
+	}
+	if got, err := st.ListForecastModels(alice, ids.New(), "", "", 50); err != nil || len(got) != 0 {
+		t.Fatalf("another legal entity sees only models it owns or nobody does: %+v, %v", got, err)
+	}
+	if got, err := st.ListForecastModels(asUser(2, "bob"), "", "", "", 50); err != nil || len(got) != 0 {
+		t.Fatalf("another tenant sees %+v, %v", got, err)
+	}
+	// % and _ are plain characters, and an exact code matches only that model.
+	if got, err := st.ListForecastModels(alice, "", "%", "", 50); err != nil || len(got) != 0 {
+		t.Fatalf("a wildcard matches nothing: %+v, %v", got, err)
+	}
+	if got, err := st.ListForecastModels(alice, "", "", "FC-2027", 50); err != nil || len(got) != 1 || got[0].Code != "FC-2027" {
+		t.Fatalf("exact = %+v, %v", got, err)
+	}
+	if got, err := st.ListForecastModels(alice, "", "", "", 1); err != nil || len(got) != 1 {
+		t.Fatalf("limit = %+v, %v", got, err)
+	}
+}

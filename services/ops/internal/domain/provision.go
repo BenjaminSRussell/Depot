@@ -55,6 +55,25 @@ func ValidStep(a string) bool {
 // ValidateProvision normalizes and checks a request against the deployed regions: the region must be one the platform runs
 // (OPS-1705, "residency region is deployed") and must lie inside the residency (platform/go/residency, OPS-1705).
 func ValidateProvision(req ProvisionRequest, deployed []Region) (ProvisionRequest, error) {
+	return ValidateProvisionUnder(req, deployed, ProvisionPolicy{})
+}
+
+// ProvisionPolicy is the deployment's cloud profile as it bears on placement (#605). DefaultResidency is the residency of a
+// request that names none (empty means the platform default). BoundaryResidency, when set, is the residency whose regions every
+// tenant must be placed in whatever residency it asks for: the eu-data-boundary overlay sets EU, so no tenant of that
+// deployment lands outside the EU/EFTA regions of platform/go/residency (its Azure names and the legacy ids alike).
+type ProvisionPolicy struct {
+	DefaultResidency  string
+	BoundaryResidency string
+}
+
+// ValidateProvisionUnder is ValidateProvision under a cloud profile: under the eu-data-boundary overlay a request without a
+// residency is EU, and a region outside the EU/EFTA regions is refused with the residency code before anything is recorded,
+// as identity refuses it for a tenant created directly.
+func ValidateProvisionUnder(req ProvisionRequest, deployed []Region, policy ProvisionPolicy) (ProvisionRequest, error) {
+	if strings.TrimSpace(req.Residency) == "" && policy.DefaultResidency != "" {
+		req.Residency = policy.DefaultResidency
+	}
 	req.Name = strings.TrimSpace(req.Name)
 	req.Residency = residency.NormalizeCode(req.Residency)
 	req.Region = residency.NormalizeRegion(req.Region)
@@ -82,6 +101,9 @@ func ValidateProvision(req ProvisionRequest, deployed []Region) (ProvisionReques
 	}
 	if !known {
 		return req, fail(CodeResidency, "region %s is not deployed on this platform; tenant not provisioned", req.Region)
+	}
+	if policy.BoundaryResidency != "" && !residency.Allows(policy.BoundaryResidency, req.Region) {
+		return req, fail(CodeResidency, "region %s is outside the %s boundary of this deployment's cloud profile; tenant not provisioned", req.Region, policy.BoundaryResidency)
 	}
 	if err := residency.Check(req.Residency, req.Region); err != nil {
 		var refused *residency.Error

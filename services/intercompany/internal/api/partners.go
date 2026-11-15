@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -14,6 +15,7 @@ import (
 	"github.com/BenjaminSRussell/passage/platform/ids"
 	"github.com/BenjaminSRussell/passage/platform/money"
 	"github.com/BenjaminSRussell/passage/services/intercompany/internal/domain"
+	"github.com/BenjaminSRussell/passage/services/intercompany/internal/partyclient"
 	"github.com/BenjaminSRussell/passage/services/intercompany/internal/store"
 )
 
@@ -131,6 +133,55 @@ func (f fieldParser) pricing(raw string) domain.PricingPolicy {
 	return p
 }
 
+// entityLegalEntity is the legal entity the registry holds for an entity code, or "" (the lookup is then made without one).
+func (a *API) entityLegalEntity(r *http.Request, code string) string {
+	if a.registry == nil {
+		return ""
+	}
+	list, err := a.registry.ListEntities(r.Context())
+	if err != nil {
+		return ""
+	}
+	for _, e := range list {
+		if e.Entity == code {
+			return e.LegalEntityID
+		}
+	}
+	return ""
+}
+
+// checkAccounts refuses, before anything is stored, a customer or vendor account the billing and payables consumers could not use:
+// the account must be a customer (vendor) id the party master holds (IC-0862, IC-0863); a party service that does not answer is
+// IC-0864 and saves nothing. It is a no-op when the service has no party client (PARTY_URL unset). The account is looked up in the
+// legal entity of the seller (customer) or buyer (vendor) registry entity when the registry has one.
+func (a *API) checkAccounts(w http.ResponseWriter, r *http.Request, seller, buyer string, customer, vendor *string) bool {
+	if a.party == nil {
+		return true
+	}
+	check := func(account, entity, noun, code string, look func(ctx context.Context, le, id string) error) bool {
+		if !ids.Valid(account) {
+			httpx.Fail(w, r, httpx.NewProblem(http.StatusUnprocessableEntity, code, fmt.Sprintf("the %s account %q is not a %s id: invoice documents are raised for party ids", noun, account, noun)))
+			return false
+		}
+		switch err := look(r.Context(), a.entityLegalEntity(r, entity), account); {
+		case err == nil:
+			return true
+		case errors.Is(err, partyclient.ErrNotFound):
+			httpx.Fail(w, r, httpx.NewProblem(http.StatusUnprocessableEntity, code, fmt.Sprintf("no %s with id %s exists in the party master", noun, account)))
+		default:
+			httpx.Fail(w, r, httpx.NewProblem(http.StatusServiceUnavailable, domain.CodePartyUnavailable, "the party service could not confirm the "+noun+" account; the pairing was not saved"))
+		}
+		return false
+	}
+	if customer != nil && !check(*customer, seller, "customer", domain.CodeNoCustomerAccount, a.party.CustomerExists) {
+		return false
+	}
+	if vendor != nil && !check(*vendor, buyer, "vendor", domain.CodeNoVendorAccount, a.party.VendorExists) {
+		return false
+	}
+	return true
+}
+
 func setETag(w http.ResponseWriter, version int) {
 	w.Header().Set("ETag", fmt.Sprintf("%q", strconv.Itoa(version)))
 }
@@ -197,6 +248,9 @@ func (a *API) createPartner(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if !validation(w, r, f) {
+		return
+	}
+	if !a.checkAccounts(w, r, p.SellerEntity, p.BuyerEntity, &p.CustomerAccount, &p.VendorAccount) {
 		return
 	}
 	rec, replayed, err := a.partners.CreatePartner(r.Context(), p, key)
@@ -343,6 +397,16 @@ func (a *API) updatePartner(w http.ResponseWriter, r *http.Request) {
 	}
 	if !validation(w, r, f) {
 		return
+	}
+	if patch.CustomerAccount != nil || patch.VendorAccount != nil {
+		current, err := a.partners.GetPartner(r.Context(), id)
+		if err != nil {
+			httpx.Fail(w, r, problemFrom(err))
+			return
+		}
+		if !a.checkAccounts(w, r, current.SellerEntity, current.BuyerEntity, patch.CustomerAccount, patch.VendorAccount) {
+			return
+		}
 	}
 	rec, err := a.partners.UpdatePartner(r.Context(), id, version, patch)
 	if err != nil {

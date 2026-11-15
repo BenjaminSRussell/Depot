@@ -79,9 +79,12 @@ var serviceGrants = map[string]map[string][]string{
 		"fx":     {"fx.rate.lookup"},
 		"org":    {"org.read"},
 		"tax":    {"tax.tax.calculate", "tax.transaction.record"},
+		"party":  {"party.customer.lookup", "party.vendor.lookup"},
 	},
 	"finreport": {"ledger": {"ledger.entry.lookup", "ledger.balance.read"}},
 	"billing": {
+		// A self-billed invoice is posted only into an open receivables period (#35, 35-5).
+		"close":  {"period.check"},
 		"ledger": {"ledger.entry.post", "ledger.ledger.lookup"},
 		"revrec": {"revrec.allocation.read"},
 		"sales":  {"sales.order.record-invoice", "sales.order.record-delivery"},
@@ -91,6 +94,8 @@ var serviceGrants = map[string]map[string][]string{
 	// fulfillment reports posted packing slips to sales' :record-progress (#496) and may report nothing else there.
 	"fulfillment": {
 		"sales":           {"sales.order.record-delivery"},
+		"product":         {"product.customs.read"},
+		"party":           {"party.tax-registration.read"},
 		"inventory":       {"inventory.issue.claim"},
 		"carrier-gateway": {"carrier.rate.quote", "carrier.label.create", "carrier.tracking.read"},
 	},
@@ -114,7 +119,8 @@ var serviceGrants = map[string]map[string][]string{
 		"close":      {"period.check"},
 		"purchasing": {"procurement.invoicing-plan.settle", "procurement.purchase-order.lookup"},
 		"inventory":  {"inventory.ownership-change.read"},
-		"party":      {"party.read"},
+		"party":      {"party.read", "party.tax-registration.read"},
+		"product":    {"product.customs.read"},
 		"org":        {"org.read"},
 		"tax":        {"tax.tax.calculate", "tax.transaction.record"},
 		"compliance": {"compliance.legal-hold.check"},
@@ -200,6 +206,7 @@ var serviceGrants = map[string]map[string][]string{
 		"inventory":   {"inventory.read", "inventory.return-receipt.post"},
 		"receivables": {"ar.rmacredit.post", "ar.rmacredit.backfill"},
 		"party":       {"party.read"},
+		"pricing":     {"pricing.price.resolve"},
 	},
 	"receivables": {
 		"ledger":  {"ledger.entry.post", "ledger.ledger.lookup"},
@@ -249,12 +256,19 @@ var serviceGrants = map[string]map[string][]string{
 		"receivables": {"receivables.import.write", "receivables.import.read"},
 		"engineering": {"engineering.import.write", "engineering.import.read"},
 	},
+	// The payment-prediction service reads the paid and open customer invoices it trains on and scores (#47).
+	"prediction": {
+		"receivables": {"receivables.prediction.read"},
+	},
 	"migration-factory": {
 		"receivables": {"receivables.import.write", "receivables.view"},
 		"payables":    {"opening-item.import", "opening-item.import.read"},
 		// inventory.read: the on-hand read-back after the opening load (H-S9-2).
 		"inventory": {"inventory.import.write", "inventory.import.read", "inventory.read"},
 		"treasury":  {"treasury.import.write", "treasury.import.read"},
+		// Open orders at cutover (#49): the opening-order imports of sales and purchasing and their read-backs.
+		"sales":      {"sales.opening-order.import", "sales.opening-order.read"},
+		"purchasing": {"procurement.opening-order.import", "procurement.opening-order.read"},
 		// Parallel-run replay and ROLLED_BACK compensating journals (#484).
 		"ledger": {"ledger.entry.post", "ledger.balance.read", "ledger.ledger.lookup"},
 		// Legacy customers of open items resolved through the party migration's cross-reference (H-S8-6).
@@ -265,8 +279,9 @@ var serviceGrants = map[string]map[string][]string{
 	},
 	"edi": {
 		"fulfillment": {"fulfillment.shipment.read"},
-		"billing":     {"billing.invoice.read"},
-		"sales":       {"sales.order.lookup", "sales.channel.intake"},
+		// The matched self-billed document of a customer is posted as our legal invoice (#35, 35-5).
+		"billing": {"billing.invoice.read", "billing.self-billed.post"},
+		"sales":   {"sales.order.lookup", "sales.channel.intake"},
 		// A returned punchout cart becomes a requisition of the requester (#35, 35-3): the token carries the requester as act.
 		"purchasing": {"procurement.requisition.create", "procurement.purchase-order.lookup", "procurement.purchase-order.vendor-confirm"},
 		// An inbound ship notice of a cXML network becomes the receiving ASN of the purchase order it names (#35, 35-4).
@@ -308,7 +323,19 @@ var serviceGrants = map[string]map[string][]string{
 		"identity":    {"identity.customer-portal.read"},
 		// The invoice and statement PDFs: the BFF reads the document from billing or receivables (customer-scoped) and has print
 		// render the data it sends; print stores nothing and reads no business data, so the grant reaches no other customer's.
-		"print": {"print.customer-portal.render"},
+		"print": {"print.customer-portal.render", "print.customer-portal.documents"},
+	},
+	// The scheduled customer statements (#46): print reads each customer's open items from receivables and the customer's name
+	// from party, as service:print-statements, with only these two read duties.
+	"print": {
+		"receivables": {"receivables.view"},
+		"party":       {"party.read"},
+	},
+	// The ops control plane (#50): the statement PDFs through print (nothing stored; the caller is the operator tenant), and a
+	// tenant's status and active user count from identity (the licence user-count reporter, the decommission guard).
+	"ops": {
+		"identity": {"identity.ops.tenant-read"},
+		"print":    {"print.ops.render"},
 	},
 }
 
@@ -334,11 +361,14 @@ func serviceGrant(iss, aud string) []string { return serviceGrants[iss][aud] }
 // audit.read-log.write records that the end user read protected health information (#606). The read log is
 // per tenant and the read may have been made with any scope, including ALL-scope and tenant-administrator callers
 // who have no legal-entity claim, so the token names no entity.
-var tenantLevelDuties = map[string]struct{}{"party.merge.execute": {}, "identity.feature.view": {}, "identity.tenant-registry.read": {}, "audit.read-log.write": {}}
+//
+// identity.ops.tenant-read and print.ops.render are the ops control plane's (#50): it reads platform-wide tenant state and renders a
+// statement of the operator's own, so no single legal entity is involved; service:ops-reporter carries them.
+var tenantLevelDuties = map[string]struct{}{"party.merge.execute": {}, "identity.feature.view": {}, "identity.tenant-registry.read": {}, "audit.read-log.write": {}, "identity.ops.tenant-read": {}, "print.ops.render": {}}
 
 // tenantReadDuties are tenant-level duties any signed-in user's service call may carry: they read tenant settings, or
 // (audit.read-log.write) record the user's own access; the rest of tenantLevelDuties need a tenant administrator.
-var tenantReadDuties = map[string]struct{}{"identity.feature.view": {}, "identity.tenant-registry.read": {}, "audit.read-log.write": {}}
+var tenantReadDuties = map[string]struct{}{"identity.feature.view": {}, "identity.tenant-registry.read": {}, "audit.read-log.write": {}, "identity.ops.tenant-read": {}, "print.ops.render": {}}
 
 func tenantLevelToken(duties []string) (tenantLevel, mixed bool) {
 	n := 0

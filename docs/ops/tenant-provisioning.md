@@ -55,11 +55,19 @@ Regions the values do not state (the database and, without `objectStore.region`,
 are derived from `region.id` and marked `derived`. Violation kinds: `outside-residency` (an EU tenant whose backup is in a US region),
 `placement`, `unplaced`, `no-region-values`, `unknown-residency`. See the tool's docstring for the exact rules.
 
-## Decommission: `DELETE /api/v1/ops/tenants/{id}` (platform.global.admin plus second approver)
+## Decommission: `POST /api/v1/ops/tenants/{id}:decommission` (suspended tenants only)
 1. Export all tenant data encrypted, retained for the longest applicable record-class minimum from the
    tenant's country packs (DE/FR: 10 years) unless the customer takes custody and signs a release (BR-50.9).
 2. Revoke the realm and ACLs; drop tenant schemas only after the export is verified.
 3. Record the decommission in the audit chain.
+
+What is built (#50): `POST /v1/ops/tenants/{id}:decommission` (`ops.tenant.decommission`, body `{"reason": "..."}`) opens it only when identity reports the
+tenant `suspended` (409 `OPS-1731` otherwise, 503 `OPS-1730` when identity cannot be asked) and the tenant has a provision; the request, each step and the
+completion go to the ops audit trail (`GET /v1/ops/tenants/{id}/decommission` returns it). The steps run in reverse order, lakehouse, Kafka ACLs, databases, realm,
+and a step is DONE only when the one before it is (`OPS-1733`); `passage-ops tenant decommission --tenant <id> --reason "..."` runs them with the executors of the
+machine (`--dry-run` asks each adapter what it would do and changes nothing), and a rerun resumes at the first step that is not DONE. The last DONE step writes
+`tenant.decommissioned.v1`. Steps 1 (the verified export, BR-50.9) and the second approver are not built: until they are, the export is a manual step before the command.
+The adapters shipped log what would change (their step detail says "logged only"); a real adapter for each system implements the interfaces in `services/ops/internal/provision`.
 
 ## Sandboxes
 Sandboxes are re-created from masked production through the same provisioning path with

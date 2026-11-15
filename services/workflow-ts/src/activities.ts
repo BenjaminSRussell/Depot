@@ -2,6 +2,7 @@ import { ApplicationFailure, Context } from "@temporalio/activity";
 import { mintOrReject } from "./serviceCall.js";
 import type { ServiceTokenSigner } from "./serviceToken.js";
 import type { PartyChangeRef } from "./workflows.js";
+import { jsonLine } from "./logging/pseudonymize.js";
 
 export interface PartyDecision extends PartyChangeRef {
   decision: "approved" | "rejected";
@@ -25,8 +26,10 @@ const CODE_CHANGE_STALE = "PTY-PENDING-STALE";
 const CODE_CHANGE_DECIDED = "PTY-CHANGE-DECIDED";
 export const STALE_REJECT_REASON = "stale: limit changed since request";
 
+// Under the eu-data-boundary overlay (or LOG_PSEUDONYMIZE=true) person values and email addresses are pseudonymized (#605).
+let line: ReturnType<typeof jsonLine> | undefined;
 const stdoutLog: Log = (message, attributes) => {
-  process.stdout.write(`${JSON.stringify({ level: "warn", message, ...attributes })}\n`);
+  (line ??= jsonLine(process.env))({ level: "warn", message, ...attributes });
 };
 
 export function createActivities(party: PartyClient): PartyDecisionActivities {

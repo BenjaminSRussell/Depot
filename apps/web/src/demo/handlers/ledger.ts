@@ -4,6 +4,7 @@ import type { BatchLine, BatchStatus, JournalBatch } from "../../modules/ledger/
 import { LEGAL_ENTITY, USER } from "../company";
 import { reply, route } from "../backend";
 import { at, day, dec, table, uid } from "../store";
+import { userIdOf } from "./directory";
 
 const KIND_BATCH = 470;
 const LEDGER_ID = "ledger-crp";
@@ -31,7 +32,7 @@ function batch(n: number, status: BatchStatus, description: string, amount: numb
     selfApprovalAllowed: false,
     submittedBy: status === "draft" ? undefined : USER.id,
     decidedBy: decided ? "controller" : undefined,
-    postedBy: status === "posted" ? "controller" : undefined,
+    postedBy: status === "posted" ? userIdOf("controller") : undefined,
     postedAt: status === "posted" ? at(-ageDays) : undefined,
     totalDebit: dec(amount),
     totalCredit: dec(amount),

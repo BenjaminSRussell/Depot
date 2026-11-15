@@ -90,8 +90,10 @@ type API struct {
 	production LinePlanner
 	groups     CustomerGroupSource
 	names      ProductNamer
+	pricer     PortalPricer
 
 	portalWindowDays int
+	opening          *openingDeps
 }
 
 // New returns the API over s.
@@ -117,6 +119,7 @@ func requireAny(duties ...string) func(http.Handler) http.Handler {
 // Register mounts every route on r.
 func (a *API) Register(r chi.Router) {
 	r.Get("/readyz", a.ready)
+	a.registerOpening(r)
 	r.With(requireAny(dutyWrite, dutyIntake)).Post(orders, a.createOrder)
 	r.With(authz.RequireDuty(dutyRead)).Get(orders, a.listOrders)
 	r.With(authz.RequireAnyDuty(dutyRead, "sales.order.lookup")).Get("/v1/sales/order-lines", a.listOrderLines)
@@ -213,6 +216,7 @@ func (a *API) Register(r chi.Router) {
 func (a *API) Metrics() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "text/plain; version=0.0.4")
+		a.writeOpeningMetrics(w)
 		fmt.Fprintf(w, "# HELP sales_orders_created_total Sales orders stored; idempotent replays are not counted.\n# TYPE sales_orders_created_total counter\nsales_orders_created_total %d\n", a.created.Load())
 		fmt.Fprintf(w, "# HELP sales_orders_confirm_requests_total Confirm requests that passed validation.\n# TYPE sales_orders_confirm_requests_total counter\nsales_orders_confirm_requests_total %d\n", a.confirms.Load())
 		fmt.Fprintf(w, "# HELP sales_credit_holds_applied_total CREDIT holds placed by the credit check.\n# TYPE sales_credit_holds_applied_total counter\nsales_credit_holds_applied_total %d\n", a.held.Load())

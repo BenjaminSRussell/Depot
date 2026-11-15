@@ -53,7 +53,7 @@ length, height or weight are listed in `unplaced`.
 
 `uvicorn tms_optimizer.api:app --port 8080`. JSON is camelCase. 422 for invalid input,
 503 when the solver finds no solution within the time limit. The transport service is the
-only caller (`TMS_OPTIMIZER_URL`).
+only caller (`ROUTING_PY_URL`).
 
 ## Run tests
 

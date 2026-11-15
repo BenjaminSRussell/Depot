@@ -44,6 +44,7 @@ import plan from "./plans.module.css";
 import styles from "./pages.module.css";
 import { useLoad } from "./useLoad";
 import { ProblemMessage } from "../../shell/errors";
+import { UserName } from "../../shell/lookup/UserName";
 
 const projectPath = (id: string) => `/projects/${encodeURIComponent(id)}`;
 const changeOrdersPath = (id: string) => `${projectPath(id)}/change-orders`;
@@ -643,8 +644,8 @@ export function ChangeOrderDetailPage() {
     ["Revenue impact", current.revenueImpact, true],
     ["Customer approval", current.customerApprovalRef ?? dash],
     ["Vendor", current.vendorPartyId ?? dash, true],
-    ["Created by", current.createdBy, true],
-    ["Decided by", current.decidedBy ?? dash, true],
+    ["Created by", <UserName id={current.createdBy} />],
+    ["Decided by", <UserName id={current.decidedBy} />],
     ["Applied", current.appliedAt ? `${current.appliedAt.slice(0, 10)} by ${current.appliedBy ?? dash}` : dash],
     ["Version", current.version],
   ];

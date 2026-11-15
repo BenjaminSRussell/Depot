@@ -12,11 +12,15 @@ default 422 body.
 
 from __future__ import annotations
 
+import os
 from typing import Any
 
 from pydantic import BaseModel, Field
 
 from scheduler_opt import campaign, jobshop
+from scheduler_opt.logpseudo import install_logging
+
+install_logging(os.environ)  # eu-data-boundary overlay or LOG_PSEUDONYMIZE=true: person values and emails in log lines are pseudonymized (#605)
 
 SERVICE_NAME = "scheduler-opt"
 

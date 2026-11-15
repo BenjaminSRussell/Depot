@@ -336,3 +336,32 @@ func TestPageAfterASourceDroppedOutIsRefusedNotSilentlySkipped(t *testing.T) {
 		t.Fatalf("same sources again: %v", err)
 	}
 }
+
+func TestPageForOneSourceAsksOnlyThatSourceAndPagesIt(t *testing.T) {
+	a := &fakeSource{name: "a", duty: "a.duty", items: items("a", 5, 3, 1)}
+	b := &fakeSource{name: "b", duty: "b.duty", items: items("b", 5, 4, 2)}
+	agg := &inbox.Aggregator{Sources: []inbox.Source{a, b}}
+	p := principal("a.duty", "b.duty")
+
+	if !agg.IsSource("a") || agg.IsSource("nope") {
+		t.Fatal("IsSource must know exactly the configured source names")
+	}
+	var seen []string
+	cursor := ""
+	for pages := 0; pages < 10; pages++ {
+		page, err := agg.PageFor(context.Background(), p, entityID, 2, cursor, "b")
+		if err != nil {
+			t.Fatal(err)
+		}
+		seen = append(seen, ids(page)...)
+		if cursor = page.NextCursor; cursor == "" {
+			break
+		}
+	}
+	if fmt.Sprint(seen) != fmt.Sprint([]string{"b-5", "b-4", "b-2"}) {
+		t.Fatalf("filtered paged order %v", seen)
+	}
+	if a.calls.Load() != 0 {
+		t.Fatalf("the filtered-out source was called %d times", a.calls.Load())
+	}
+}

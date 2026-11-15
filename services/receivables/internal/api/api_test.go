@@ -22,6 +22,7 @@ import (
 // fakeStore answers the Store port without a database. It records the last
 // apply call so tests can assert what the handler forwarded.
 type fakeStore struct {
+	lastSettlement     string
 	lastVersion        int
 	lastPlan           store.ApplyRequest
 	lastKey            string

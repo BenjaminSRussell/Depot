@@ -82,6 +82,8 @@ func TestOpenAPIDocumentsEveryOperation(t *testing.T) {
 		"/v1/shopfloor/andon:sweep post":                                           DutyOEERollup,
 		"/v1/shopfloor/andon-settings get":                                         DutyView,
 		"/v1/shopfloor/andon-settings put":                                         DutySetup,
+		"/v1/shopfloor/andon-settings/sites/{siteId} put":                          DutySetup,
+		"/v1/shopfloor/andon-settings/sites/{siteId} delete":                       DutySetup,
 		"/v1/shopfloor/edge-nodes/{id}/certificates get":                           DutyView,
 		"/v1/shopfloor/edge-nodes/{id}/certificates/{serial}:revoke post":          DutyEdgeConfigure,
 		"/v1/shopfloor/andon/{id}:clear post":                                      DutyCheckOverride,

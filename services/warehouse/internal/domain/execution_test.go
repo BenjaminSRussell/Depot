@@ -349,3 +349,37 @@ func TestProperty_CapacityNeverExceeded(t *testing.T) {
 		}
 	})
 }
+
+func TestWorkReassign_KeepsStatusAndConfirmedLines(t *testing.T) {
+	at := time.Date(2026, 11, 2, 9, 0, 0, 0, time.UTC)
+	inProgress := func() *Work {
+		return &Work{Status: WorkInProgress, AssignedUser: "automation:PLC", Lines: []WorkLine{{LineNo: 1, Status: LineCompleted}, {LineNo: 2, Status: LineOpen}}}
+	}
+	w := inProgress()
+	if err := w.Reassign("automation:PLC", "mia.ortiz", "PLC fault", at); err != nil {
+		t.Fatal(err)
+	}
+	if w.Status != WorkInProgress || w.AssignedUser != "mia.ortiz" || w.AssignedAt == nil || !w.AssignedAt.Equal(at) || w.Lines[0].Status != LineCompleted {
+		t.Fatalf("after: %+v", w)
+	}
+	for name, c := range map[string]struct {
+		w               *Work
+		from, to, why   string
+		wantNotAssignee bool
+	}{
+		"reason":         {inProgress(), "automation:PLC", "mia.ortiz", " ", false},
+		"not the holder": {inProgress(), "automation:OTHER", "mia.ortiz", "x", true},
+		"same holder":    {inProgress(), "automation:PLC", "automation:PLC", "x", false},
+		"nobody":         {inProgress(), "automation:PLC", "", "x", false},
+		"terminal":       {&Work{Status: WorkCompleted, AssignedUser: "automation:PLC"}, "automation:PLC", "mia.ortiz", "x", false},
+		"open":           {&Work{Status: WorkOpen}, "", "mia.ortiz", "x", false},
+	} {
+		err := c.w.Reassign(c.from, c.to, c.why, at)
+		if err == nil || (c.wantNotAssignee && !errors.Is(err, ErrNotAssignee)) {
+			t.Errorf("%s: %v", name, err)
+		}
+		if c.w.AssignedUser == "mia.ortiz" {
+			t.Errorf("%s: the work was handed over", name)
+		}
+	}
+}

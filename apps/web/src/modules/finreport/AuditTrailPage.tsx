@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { Alert, Button, Card, DataTable, FormField, Input, PageHeader, Select, type DataTableColumn } from "../../shell/ui";
 import {
   AUDIT_KINDS,
@@ -17,6 +17,7 @@ import { UUID } from "./format";
 import styles from "./pages.module.css";
 import { useLoad } from "./useLoad";
 import { ProblemMessage } from "../../shell/errors";
+import { UserName } from "../../shell/lookup/UserName";
 
 export const AUDIT_KIND_LABELS: Record<AuditKind, string> = {
   posted: "Journal posted",
@@ -142,7 +143,7 @@ function TraceLink({ entry }: { entry: AuditEntry }) {
 const columns: DataTableColumn<AuditEntry>[] = [
   { key: "occurredAt", header: "Occurred at", mono: true, render: (e) => <time dateTime={e.occurredAt}>{e.occurredAt}</time> },
   { key: "kind", header: "Kind", render: (e) => AUDIT_KIND_LABELS[e.kind] ?? e.kind },
-  { key: "actorId", header: "Actor", mono: true },
+  { key: "actorId", header: "Actor", render: (r) => <UserName id={r.actorId} /> },
   { key: "objectRef", header: "Object", mono: true },
   { key: "period", header: "Period", mono: true, render: (e) => e.period ?? "" },
   { key: "details", header: "Details", render: (e) => formatDetails(e.details) },
@@ -326,13 +327,13 @@ export function AuditTrailPage() {
           }
         >
           <dl className={styles.details}>
-            {[
+            {([
               ["Entry", selected.id],
-              ["Actor", selected.actorId],
+              ["Actor", <UserName id={selected.actorId} />],
               ["Object", selected.objectRef],
               ["Ledger", selected.ledgerId ?? "None"],
               ["Period", selected.period ?? "None"],
-            ].map(([term, value]) => (
+            ] as [string, ReactNode][]).map(([term, value]) => (
               <div key={term} className={styles.entry}>
                 <dt className={styles.term}>{term}</dt>
                 <dd className={styles.value}>{value}</dd>

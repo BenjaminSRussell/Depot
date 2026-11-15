@@ -150,6 +150,41 @@ paths:
                   sections: { type: array, items: { type: object } }
         "400": { $ref: "#/components/responses/Problem" }
         "403": { $ref: "#/components/responses/Problem" }
+  /v1/receivables/prediction-invoices:
+    get:
+      operationId: listPredictionInvoices
+      summary: Customer invoices for payment prediction
+      description: |
+        The feed of the payment-prediction service (#47), read with a service token holding the one duty `receivables.prediction.read`:
+        INVOICE items in the caller's legal entities, `state=reversed` for the invoices reversed after they were scored (so the forecast drops them), `state=paid` for the settled ones (with `paidDate`, the day of their last settlement,
+        which the service trains on) or `state=open` for the ones still open (OPEN or PARTIALLY_SETTLED, which it scores). `disputes` counts
+        the disputes ever raised on the invoice and `dunningLevel` is its current dunning level. Ordered by `updatedAt`, then id; every change to an
+        invoice (a settlement, a dunning step, a dispute) moves `updatedAt`, so a caller that keeps the last `updatedAt` it read passes it as
+        `updated_since` and sees every later change. Keyset paging by `cursor`. 503 AR-1590 when the feed is not configured.
+      x-passage-duty: receivables.prediction.read
+      parameters:
+        - { name: state, in: query, required: true, schema: { type: string, enum: [open, paid, reversed] } }
+        - { name: updated_since, in: query, description: "Only invoices changed at or after this time.", schema: { type: string, format: date-time } }
+        - { name: cursor, in: query, description: The nextCursor of the previous page., schema: { type: string } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 500, default: 500 } }
+      responses:
+        "200":
+          description: One page of invoices; nextCursor is present when more follow.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, asOf]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/PredictionInvoice" }
+                  nextCursor: { type: string }
+                  asOf: { type: string, format: date-time }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Problem" }
   /v1/receivables/aging:
     get:
       operationId: agingSnapshot
@@ -337,6 +372,14 @@ paths:
               additionalProperties: false
               properties:
                 reason: { type: string, maxLength: 500 }
+                settlementId:
+                  type: string
+                  format: uuid
+                  description: |
+                    Reverse only this settlement of the payment (an id from `GET /payments/{id}/settlements`); its item is reopened
+                    by what it took off, its journals are mirrored alone, and the payment's other applications stand (status
+                    ON_ACCOUNT, RECEIVED once none stands). A settlement of another payment is 404 AR-SETTLEMENT-NOT-FOUND, one
+                    already reversed 409 AR-PAYMENT-STATE.
       responses:
         "200":
           description: Applications reversed
@@ -556,6 +599,7 @@ paths:
         - { name: legalEntityId, in: query, required: true, schema: { type: string, format: uuid } }
         - { name: asOf, in: query, schema: { type: string, format: date } }
         - { name: customer, in: query, schema: { type: string, format: uuid } }
+        - { name: offset, in: query, schema: { type: integer, minimum: 0, maximum: 1000000, default: 0 }, description: "Rows to skip in the stable order (riskiest first, then customer and currency), to page past the limit." }
         - { $ref: "#/components/parameters/Limit" }
       responses:
         "200":
@@ -1695,7 +1739,156 @@ paths:
                   autoApply: { $ref: "#/components/schemas/AutoApplyResult" }
         "400": { $ref: "#/components/responses/Problem" }
         "403": { $ref: "#/components/responses/Problem" }
+  /v1/receivables/payments/{id}/settlements:
+    get:
+      operationId: listPaymentSettlements
+      summary: The applications of a payment
+      description: |
+        #30. Every settlement the payment made, oldest first, with its id, the item, the amounts, the realized exchange difference
+        of a cross-currency one and whether it was reversed since. `reversed: false` ones can be unapplied one by one.
+      x-passage-duty: receivables.view
+      parameters:
+        - { $ref: "#/components/parameters/PaymentId" }
+      responses:
+        "200":
+          description: The settlements
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      required: [id, openItemId, documentNumber, amount, cashDiscount, writeOff, settledAt, reversed]
+                      properties:
+                        id: { type: string, format: uuid }
+                        openItemId: { type: string, format: uuid }
+                        documentNumber: { type: string }
+                        amount: { $ref: "#/components/schemas/Money" }
+                        cashDiscount: { $ref: "#/components/schemas/Money" }
+                        writeOff: { $ref: "#/components/schemas/Money" }
+                        itemCurrency: { type: string }
+                        itemAmount: { $ref: "#/components/schemas/Money" }
+                        realizedFx: { $ref: "#/components/schemas/Money" }
+                        settledAt: { type: string, format: date-time }
+                        reversed: { type: boolean }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+  /v1/receivables/credit-settlements/{id}:reverse:
+    post:
+      operationId: reverseCreditSettlement
+      summary: Reverse a credit settlement (every row of the batch)
+      description: |
+        #30. Undoes what `POST /credit-settlements` did for one `batchId`: each debit is open again by what the settlement took off it
+        (in its own currency for a cross-currency settlement), the credit holds what it had (status OPEN again when it was
+        used up by this settlement alone), and each row gets a reversal row with its amounts negated, so statements and
+        balance confirmations dated before the reversal still show the items settled. A cross-currency settlement's realized
+        exchange difference is reversed with it as its own functional-currency journal (a gain: Dr the gain account / Cr 1200,
+        a loss: Dr 1200 / Cr the loss account); a same-currency one posted nothing and reverses nothing in the ledger. A settlement
+        already reversed is 409 AR-CREDIT-SETTLEMENT-REVERSED, an unknown batch 404 AR-CREDIT-SETTLEMENT-NOT-FOUND. Publishes
+        dev.passage.receivables.creditsettlement.reversed.v1.
+      x-passage-duty: receivables.payment.reverse
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The batchId of the credit settlement.
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                reason: { type: string, maxLength: 500 }
+      responses:
+        "200":
+          description: Reversed
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [batchId, reversalBatchId, creditItemId, creditOpenAfter, creditStatus, total, realizedFx, reopened]
+                properties:
+                  batchId: { type: string, format: uuid }
+                  reversalBatchId: { type: string, format: uuid }
+                  creditItemId: { type: string, format: uuid }
+                  creditOpenAfter: { $ref: "#/components/schemas/Money" }
+                  creditStatus: { type: string, enum: [OPEN, PARTIALLY_SETTLED, SETTLED] }
+                  total: { $ref: "#/components/schemas/Money" }
+                  realizedFx: { $ref: "#/components/schemas/Money", description: "The realized difference reversed, functional currency, positive a gain." }
+                  reopened:
+                    type: array
+                    items:
+                      type: object
+                      required: [openItemId, documentNumber, amount, openAfter, itemStatus]
+                      properties:
+                        openItemId: { type: string, format: uuid }
+                        documentNumber: { type: string }
+                        amount: { $ref: "#/components/schemas/Money" }
+                        openAfter: { $ref: "#/components/schemas/Money" }
+                        itemStatus: { type: string }
+                        itemCurrency: { type: string }
+                        itemAmount: { $ref: "#/components/schemas/Money" }
+                        realizedFx: { $ref: "#/components/schemas/Money" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
   /v1/receivables/credit-settlements:
+    get:
+      operationId: listCreditSettlements
+      summary: Credit settlements with their debits
+      description: |
+        #30. The settlements `POST /credit-settlements` made, newest first, filtered by `customerId`, `creditItemId` or `openItemId`
+        (the credit or a debit), each with whether it was reversed, so a clerk can find the `batchId` to reverse.
+      x-passage-duty: receivables.view
+      parameters:
+        - { name: customerId, in: query, schema: { type: string, format: uuid } }
+        - { name: creditItemId, in: query, schema: { type: string, format: uuid } }
+        - { name: openItemId, in: query, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: The settlements
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      required: [batchId, legalEntityId, customerId, currency, creditItemId, creditDocument, total, settledAt, reversed, debits]
+                      properties:
+                        batchId: { type: string, format: uuid }
+                        legalEntityId: { type: string, format: uuid }
+                        customerId: { type: string, format: uuid }
+                        currency: { type: string }
+                        creditItemId: { type: string, format: uuid }
+                        creditDocument: { type: string }
+                        total: { $ref: "#/components/schemas/Money" }
+                        settledAt: { type: string, format: date-time }
+                        reversed: { type: boolean }
+                        debits:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              openItemId: { type: string, format: uuid }
+                              documentNumber: { type: string }
+                              amount: { $ref: "#/components/schemas/Money" }
+                              itemCurrency: { type: string }
+                              itemAmount: { $ref: "#/components/schemas/Money" }
+                              realizedFx: { $ref: "#/components/schemas/Money" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
     post:
       operationId: settleCredit
       summary: Settle a credit item against debit items (30-3)
@@ -2600,6 +2793,21 @@ components:
         side: { type: string, enum: [DEBIT, CREDIT], description: "CREDIT items (credit notes, unapplied payments) carry negative amounts" }
         importSource: { type: string, description: the legacy system that loaded the item }
         legacyKey: { type: string, description: the item's key in the legacy system }
+    PredictionInvoice:
+      type: object
+      required: [id, legalEntityId, customerId, currency, amount, documentDate, dueDate, dunningLevel, disputes, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        legalEntityId: { type: string, format: uuid }
+        customerId: { type: string, format: uuid }
+        currency: { type: string }
+        amount: { $ref: "#/components/schemas/Money" }
+        documentDate: { type: string, format: date }
+        dueDate: { type: string, format: date }
+        dunningLevel: { type: integer }
+        disputes: { type: integer }
+        paidDate: { type: string, format: date, description: "Only for state=paid: the day of the invoice's last settlement." }
+        updatedAt: { type: string, format: date-time }
     OpeningImportRequest:
       type: object
       required: [legalEntityId, importSource, items]

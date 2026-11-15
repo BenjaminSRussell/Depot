@@ -130,6 +130,7 @@ components:
           borrowerLegalEntityId: { type: string, format: uuid, description: "The borrower's legal entity: payables takes in the vendor invoice there" }
           customerAccount: { type: string, description: "The borrower as customer of the lender, from the active pairing" }
           vendorAccount: { type: string, description: "The lender as vendor of the borrower, from the active pairing" }
+          autoPostInvoice: { type: boolean, description: "The active pairing's autoPostInvoice flag. True: billing posts the lender's proposal and payables posts the borrower's vendor invoice without review; false (default) leaves both for a person" }
     ReconciliationFlagged:
       name: dev.passage.interco.reconciliation.flagged.v1
       title: A reconciliation run left Timing or Mismatch items (FR-40.6)

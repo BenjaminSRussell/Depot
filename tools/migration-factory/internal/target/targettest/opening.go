@@ -31,8 +31,10 @@ type FakeOpening struct {
 	Drift int64
 	// OnHandDrift is added to the on-hand quantity GET /v1/inventory/onhand reports for a product id (stock moved after the load).
 	OnHandDrift map[string]decimal.Decimal
-	failNext    []int
-	loseNext    int
+	// OnHandValueDrift is added to the posted value GET /v1/inventory/onhand reports for a product id (a revaluation after the load).
+	OnHandValueDrift map[string]decimal.Decimal
+	failNext         []int
+	loseNext         int
 }
 
 type openingBatch struct {
@@ -42,6 +44,8 @@ type openingBatch struct {
 	Minor                              map[string]int64
 	// ByProduct is the quantity of each product id of an inventory batch, which its posted journal put on hand.
 	ByProduct map[string]decimal.Decimal
+	// ValueByProduct is the posted value of each product id of an inventory batch (quantity times cost price).
+	ValueByProduct map[string]decimal.Decimal
 }
 
 // NewInventoryOpening starts the fake inventory service; it closes with the test.
@@ -51,7 +55,7 @@ func NewInventoryOpening(t testing.TB) *FakeOpening { return newOpening(t, "inve
 func NewTreasuryOpening(t testing.TB) *FakeOpening { return newOpening(t, "treasury") }
 
 func newOpening(t testing.TB, kind string) *FakeOpening {
-	f := &FakeOpening{kind: kind, batches: map[string]*openingBatch{}, Refuse: map[string]bool{}, OnHandDrift: map[string]decimal.Decimal{}}
+	f := &FakeOpening{kind: kind, batches: map[string]*openingBatch{}, Refuse: map[string]bool{}, OnHandDrift: map[string]decimal.Decimal{}, OnHandValueDrift: map[string]decimal.Decimal{}}
 	path := "/v1/inventory/opening-batches"
 	if kind == "treasury" {
 		path = "/v1/treasury/opening-balances"
@@ -190,7 +194,7 @@ func (f *FakeOpening) post(w http.ResponseWriter, r *http.Request) {
 		problem(w, http.StatusBadRequest, "COM-0001", "request failed validation")
 		return
 	}
-	b := &openingBatch{LegalEntityID: strings.ToLower(req.LegalEntityID), Key: req.BatchKey, Currency: req.Currency, Count: len(req.Items), Minor: map[string]int64{}, ByProduct: map[string]decimal.Decimal{}}
+	b := &openingBatch{LegalEntityID: strings.ToLower(req.LegalEntityID), Key: req.BatchKey, Currency: req.Currency, Count: len(req.Items), Minor: map[string]int64{}, ByProduct: map[string]decimal.Decimal{}, ValueByProduct: map[string]decimal.Decimal{}}
 	bad := map[string]string{}
 	seen := map[string]bool{}
 	for i, rawItem := range req.Items {
@@ -220,6 +224,7 @@ func (f *FakeOpening) post(w http.ResponseWriter, r *http.Request) {
 			}
 			b.Qty, b.Value = b.Qty.Add(q), b.Value.Add(q.Mul(c))
 			b.ByProduct[strings.ToLower(it.ProductID)] = b.ByProduct[strings.ToLower(it.ProductID)].Add(q)
+			b.ValueByProduct[strings.ToLower(it.ProductID)] = b.ValueByProduct[strings.ToLower(it.ProductID)].Add(q.Mul(c))
 		} else {
 			b.Minor[it.Currency] += it.BalanceMinor
 		}
@@ -268,18 +273,27 @@ func (f *FakeOpening) onHand(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	product := strings.ToLower(r.URL.Query().Get("product"))
+	type stock struct {
+		qty, value decimal.Decimal
+		currency   string
+	}
 	f.mu.Lock()
-	byLE := map[string]decimal.Decimal{}
+	byLE := map[string]*stock{}
 	for _, b := range f.batches {
 		if q, ok := b.ByProduct[product]; ok {
-			byLE[b.LegalEntityID] = byLE[b.LegalEntityID].Add(q)
+			st := byLE[b.LegalEntityID]
+			if st == nil {
+				st = &stock{currency: b.Currency}
+				byLE[b.LegalEntityID] = st
+			}
+			st.qty, st.value = st.qty.Add(q), st.value.Add(b.ValueByProduct[product])
 		}
 	}
-	drift := f.OnHandDrift[product]
+	drift, valueDrift := f.OnHandDrift[product], f.OnHandValueDrift[product]
 	f.mu.Unlock()
 	items := []map[string]any{}
-	for le, q := range byLE {
-		items = append(items, map[string]any{"group": map[string]string{"legal_entity": le}, "physicalInvent": q.Add(drift).String(), "postedValue": "0", "blocked": "0", "currency": "", "negative": false})
+	for le, st := range byLE {
+		items = append(items, map[string]any{"group": map[string]string{"legal_entity": le}, "physicalInvent": st.qty.Add(drift).String(), "postedValue": st.value.Add(valueDrift).String(), "blocked": "0", "currency": st.currency, "negative": false})
 	}
 	f.finish(call, http.StatusOK)
 	w.Header().Set("Content-Type", "application/json")

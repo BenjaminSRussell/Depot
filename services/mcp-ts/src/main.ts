@@ -8,6 +8,7 @@ import { startServer } from "./server.js";
 import { createRateLimiter } from "./ratelimit.js";
 import { Metrics, startAdminServer } from "./metrics.js";
 import { isObject, type JsonObject } from "./tool.js";
+import { jsonLine, pseudonymizeRecord } from "./logging/pseudonymize.js";
 
 export interface Config {
   apiUrl: string;
@@ -42,11 +43,15 @@ export function loadConfig(env: NodeJS.ProcessEnv): Config {
 }
 
 /** Structured JSON line per audit entry; no tokens or argument values are logged. */
-export const stdoutAudit: AuditSink = {
-  async record(entry: AuditEntry): Promise<void> {
-    process.stdout.write(`${JSON.stringify({ level: "info", message: "mcp.tool_call", service: "mcp-ts", ...entry })}\n`);
-  },
-};
+export function stdoutAuditSink(env: Record<string, string | undefined> = process.env, write?: (line: string) => void): AuditSink {
+  // Under the eu-data-boundary overlay (or LOG_PSEUDONYMIZE=true) userId is pseudonymized under the tenant's key (#605).
+  const line = jsonLine(env, write);
+  return {
+    async record(entry: AuditEntry): Promise<void> {
+      line({ level: "info", message: "mcp.tool_call", service: "mcp-ts", ...entry });
+    },
+  };
+}
 
 async function main(): Promise<void> {
   const cfg = loadConfig(process.env);
@@ -56,7 +61,7 @@ async function main(): Promise<void> {
   const deps: GatewayDeps = {
     catalog,
     upstream: createFetchUpstream(cfg.apiUrl),
-    audit: stdoutAudit,
+    audit: stdoutAuditSink(process.env),
     now: () => new Date(),
     sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
   };
@@ -72,7 +77,7 @@ async function main(): Promise<void> {
     },
     { host: cfg.host, port: cfg.port },
   );
-  process.stdout.write(`${JSON.stringify({ level: "info", message: "mcp listening", service: "mcp-ts", tools: catalog.tools.length })}\n`);
+  jsonLine(process.env)({ level: "info", message: "mcp listening", service: "mcp-ts", tools: catalog.tools.length });
   // Kubernetes sends SIGTERM on rollout: stop accepting, let in-flight calls finish.
   process.once("SIGTERM", () => {
     admin.close();
@@ -83,7 +88,7 @@ async function main(): Promise<void> {
 // Only the entrypoint starts the server; importing this module (tests) has no side effects.
 if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) {
   main().catch((err: unknown) => {
-    process.stderr.write(`${JSON.stringify({ level: "error", message: "mcp failed to start", service: "mcp-ts", error: String(err) })}\n`);
+    process.stderr.write(`${JSON.stringify(pseudonymizeRecord({ level: "error", message: "mcp failed to start", service: "mcp-ts", error: String(err) }, null))}\n`);
     process.exit(1);
   });
 }

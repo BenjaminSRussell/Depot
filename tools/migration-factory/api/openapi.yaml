@@ -565,7 +565,7 @@ paths:
         resume). A refusal of the whole request stops the load as FAILED with 502 MIG-1562 and the rows stay pending; a refused
         service token is 502 MIG-1561. Once no row is pending, the target's batches for the legal entity (every page) are summed for the
         factory's keys of the pack and company and compared with what the factory loaded: item count and, per currency, the quantity
-        and value (`target.onhand.*`) or the balance in minor units (`target.bank_balances.*`), exactly. A difference is MISMATCH;
+        and value (`target.onhand.*`) or the balance in minor units (`target.bank_balances.*`), exactly. For onhand the inventory ledger's own on-hand inquiry is read back too: per product the quantity (`target.onhand.onhand_quantity`, exact) and per inventory account (the one the onhand run named, else "(none named)") and currency the posted value (`target.onhand.onhand_value`), which is MISMATCH when it differs by more than the ledger's rounding to the currency's minor unit (half a cent per line, at least one cent). A difference is MISMATCH;
         totals that cannot be read are UNRECONCILED. A RECONCILED load with no row rejected counts the pack as posted in the go/no-go.
         Without INVENTORY_URL or TREASURY_URL and a service signing key the answer is 503 MIG-1560. A run that is not an onhand or
         bank_balances run, or not RECONCILED, is 409 MIG-1564; one load runs at a time per pack and company (409 MIG-1522).
@@ -623,6 +623,92 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/OpeningLoadDetail"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "409":
+          $ref: "#/components/responses/Problem"
+  /api/v1/migration/runs/{id}/orders-load:
+    post:
+      operationId: loadPackRunOrders
+      summary: Load a LOADED or RECONCILED open_orders run into sales and purchasing, and reconcile
+      description: |
+        Sends the run's staged SALES lines to sales, POST /v1/sales/opening-orders, and its PURCHASE lines to purchasing,
+        POST /v1/procurement/opening-orders, as opening batches of at most 1000 lines (all or nothing at the target). Each line
+        carries its remaining quantity (ordered less delivered or received), its price and its delivery date, and its legacy id as the
+        line reference, so a target stores a line once however often it is sent. The extract carries no site or warehouse, so `siteId`
+        and `warehouseId` name where sales ships from and purchasing receives to. `products`, `customers` and `vendors` map a legacy
+        item, customer or vendor to its Passage id; the ones the party and product migrations loaded are found through the migration
+        service's cross-reference (company|code, else the code), and an id that is already a UUID needs no entry. A line with no mapping is
+        REJECTED (MIG-REF-UNRESOLVED), as is one whose line number is not an integer (MIG-LOAD-ORDER-LINE), until a later call can map it.
+        An order is always sent whole: batches are cut between orders, an order with an unmapped line or a line the target refuses is held back entirely (its other lines are REJECTED MIG-LOAD-ORDER-HELD) and an order above 1000 lines is refused (MIG-LOAD-ORDER-TOO-LARGE). The batch key is derived from the system, company and lines (`mf-orders-<target>-<system>-<hash>-<hash>`), so the same lines are
+        the same request on every try and a target answers a repeat as a replay. A refusal that names lines (422 SLS-OPB-001, PRC-OPB-001, or
+        SLS-OPB-004 and PRC-OPB-004 for a reference another batch took) stores those lines as REJECTED with the target's reason and sends the rest
+        again at once; a reference the factory's own earlier batch took counts as loaded. A 5xx, a 429 or a timeout is retried and then leaves the
+        lines pending (PARTIAL; call again to resume). A refusal of the whole request stops the load as FAILED with 502 MIG-1572; a refused service token is
+        502 MIG-1571. Once no line is pending, each target's batches for the legal entity (every page) are summed for the factory's keys of the
+        company and compared with what the factory loaded: per order type the line count, the open quantity and, per currency, the open value
+        (`target.open_orders.*`), exactly. A difference is MISMATCH; totals that cannot be read are UNRECONCILED. Orders are stored confirmed
+        with nothing announced: no confirmation event, approval, credit or budget check. Without SALES_URL or PURCHASING_URL (for the order types
+        in the run) and a service signing key the answer is 503 MIG-1570. A run that is not an open_orders run, or is neither LOADED nor RECONCILED,
+        is 409 MIG-1564; one load runs at a time per company (409 MIG-1522).
+      x-passage-duty: migration.factory.run
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [legalEntityId, siteId, warehouseId]
+              properties:
+                legalEntityId: {type: string, format: uuid}
+                siteId: {type: string, format: uuid}
+                warehouseId: {type: string, format: uuid}
+                products: {type: object, additionalProperties: {type: string, format: uuid}}
+                customers: {type: object, additionalProperties: {type: string, format: uuid}}
+                vendors: {type: object, additionalProperties: {type: string, format: uuid}}
+      responses:
+        "200":
+          description: The load after this pass.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrderLoad"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "409":
+          $ref: "#/components/responses/Problem"
+        "422":
+          $ref: "#/components/responses/Problem"
+        "502":
+          $ref: "#/components/responses/Problem"
+        "503":
+          $ref: "#/components/responses/Problem"
+    get:
+      operationId: getPackRunOrdersLoad
+      summary: Status, reconciliation lines and first rejects of a run's orders load
+      description: |
+        `reconciliation` holds the run's `target.open_orders.*` control totals (factory side as source, the target as target).
+        `rejects` lists up to 50 REJECTED lines with their legacy id and order type. 409 MIG-1573 before the first load.
+      x-passage-duty: migration.factory.view
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: The orders load.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrderLoadDetail"
         "401":
           $ref: "#/components/responses/Problem"
         "403":
@@ -1988,7 +2074,7 @@ components:
         vendorId:
           type: string
           format: uuid
-          description: Passage vendor id of an AP record. Defaults to load.payables.vendorIds[party], then to the party when that is a UUID; a record with none is rejected MIG-REF-UNRESOLVED.
+          description: Passage vendor id of an AP record. Defaults to load.payables.vendorIds[party], then to the vendor the party migration loaded (found through the migration service's cross-reference as entity vendor, company|party else party), then to the party when that is a UUID; a record with none is rejected MIG-REF-UNRESOLVED.
         documentNumber:
           type: string
           description: Defaults to the legacy id.
@@ -2050,7 +2136,7 @@ components:
           properties:
             vendorIds:
               type: object
-              description: Legacy vendor id to Passage vendor id. A record may carry `vendorId` instead; a vendor that is itself a UUID needs no entry.
+              description: Legacy vendor id to Passage vendor id. A record may carry `vendorId` instead; a vendor that is itself a UUID needs no entry, and one the party migration loaded is resolved through the migration service's cross-reference when MIGRATION_URL is set.
               additionalProperties:
                 type: string
                 format: uuid
@@ -2634,6 +2720,45 @@ components:
                 required: [legacyId, code, detail]
                 properties:
                   legacyId: {type: string}
+                  code: {type: string}
+                  detail: {type: string}
+    OrderLoad:
+      type: object
+      required: [runId, legalEntityId, status, clean, staged, loaded, rejected, pending, attempts, version]
+      properties:
+        runId: {type: string, format: uuid}
+        legalEntityId: {type: string, format: uuid}
+        status:
+          type: string
+          enum: [STAGED, LOADING, PARTIAL, UNRECONCILED, MISMATCH, RECONCILED, FAILED]
+        clean: {type: boolean, description: RECONCILED with no line pending or rejected.}
+        staged: {type: integer}
+        loaded: {type: integer}
+        rejected: {type: integer}
+        pending: {type: integer}
+        attempts: {type: integer}
+        lastError: {type: string}
+        startedAt: {type: string, format: date-time}
+        finishedAt: {type: string, format: date-time}
+        version: {type: integer}
+    OrderLoadDetail:
+      allOf:
+        - $ref: "#/components/schemas/OrderLoad"
+        - type: object
+          required: [reconciliation, rejects]
+          properties:
+            reconciliation:
+              type: array
+              items:
+                $ref: "#/components/schemas/ControlTotal"
+            rejects:
+              type: array
+              items:
+                type: object
+                required: [legacyId, orderType, code, detail]
+                properties:
+                  legacyId: {type: string}
+                  orderType: {type: string, enum: [SALES, PURCHASE]}
                   code: {type: string}
                   detail: {type: string}
     PayablesLoadDetail:

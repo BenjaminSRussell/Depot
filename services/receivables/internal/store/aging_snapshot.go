@@ -44,6 +44,8 @@ type SnapshotFilter struct {
 	LegalEntityID string
 	AsOf          string
 	CustomerID    string
+	// Offset skips that many rows of the (stable) ordering, so a caller can page through more rows than one page holds.
+	Offset int
 }
 
 // sameBalance reports whether two snapshots carry the same balance, overdue
@@ -202,7 +204,7 @@ func (s *Postgres) ListBalanceSnapshots(ctx context.Context, f SnapshotFilter, l
 			and as_of = coalesce(nullif($2, '')::date, (select max(as_of) from customer_balance_snapshot where legal_entity_id = $1))
 			and ($3 = '' or customer_id::text = $3)
 			order by risk_score desc, total_open desc, customer_id, currency
-			limit $4`, f.LegalEntityID, f.AsOf, f.CustomerID, limit)
+			limit $4 offset $5`, f.LegalEntityID, f.AsOf, f.CustomerID, limit, f.Offset)
 		if err != nil {
 			return err
 		}

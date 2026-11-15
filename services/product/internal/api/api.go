@@ -49,6 +49,9 @@ const (
 	dutyReleasedRead = "product.released.read"
 	// dutyNamesRead is the service-only duty of the product-name read: sales labels the lines of the customer portal with it and reads nothing else.
 	dutyNamesRead = "product.names.read"
+	// dutyCustomsRead is the service-only duty of the customs-attribute read: fulfillment and receiving report a shipment's and a receipt's
+	// commodity codes, origins and weights with it (#13).
+	dutyCustomsRead = "product.customs.read"
 
 	dutyConfigurationRead = "product.configuration.read"
 	// dutyUOMConvert is the service-only duty of the unit conversion alone: the
@@ -108,6 +111,7 @@ func (a *API) Register(r chi.Router) {
 	r.With(authz.RequireDuty(dutyView)).Get("/v1/product/products", a.listProducts)
 	r.With(authz.RequireDuty(dutyView)).Get("/v1/product/products:search", a.search)
 	r.With(authz.RequireAnyDuty(dutyView, dutyNamesRead)).Get("/v1/product/products:names", a.productNames)
+	r.With(authz.RequireAnyDuty(dutyView, dutyCustomsRead)).Get("/v1/product/products:customs", a.productCustoms)
 	r.With(authz.RequireAnyDuty(dutyView, dutyImportRead)).Get("/v1/product/products/{id}", a.getProduct)
 	r.With(authz.RequireAnyDuty(dutyMaintain, dutyImport)).Patch("/v1/product/products/{id}", a.updateProduct)
 	r.With(authz.RequireAnyDuty(dutyMaintain, dutyExplode)).Post("/v1/product/products/{id}/variants:explode", a.explode)
@@ -980,4 +984,33 @@ func orgProblem(r *http.Request, err error) *httpx.Problem {
 	}
 	slog.Warn("org membership check unavailable", "err", err, "correlationId", middleware.GetReqID(r.Context()))
 	return httpx.NewProblem(http.StatusServiceUnavailable, codeOrgUnavailable, "org service is unavailable")
+}
+
+// productCustoms answers the customs attributes of up to 200 products (INTRASTAT_COMMODITY_CODE, INTRASTAT_ORIGIN_COUNTRY and
+// INTRASTAT_NET_WEIGHT_KG), empty where the product has none; unknown ids are left out.
+func (a *API) productCustoms(w http.ResponseWriter, r *http.Request) {
+	if !validTenant(w, r) {
+		return
+	}
+	var wanted []string
+	for _, id := range strings.Split(r.URL.Query().Get("ids"), ",") {
+		if id = strings.TrimSpace(id); id == "" {
+			continue
+		}
+		if !ids.Valid(id) {
+			httpx.Fail(w, r, httpx.NewProblem(http.StatusBadRequest, "COM-0001", "ids must be a comma-separated list of product ids"))
+			return
+		}
+		wanted = append(wanted, id)
+	}
+	if len(wanted) == 0 || len(wanted) > maxProductNames {
+		httpx.Fail(w, r, httpx.NewProblem(http.StatusBadRequest, "COM-0001", fmt.Sprintf("name 1 to %d product ids", maxProductNames)))
+		return
+	}
+	items, err := a.store.ProductCustoms(r.Context(), wanted)
+	if err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, map[string]any{"items": items})
 }

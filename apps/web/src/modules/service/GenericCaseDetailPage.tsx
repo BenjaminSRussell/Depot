@@ -29,12 +29,13 @@ import { dash, formatDateTime, sentence, shortId, UUID } from "./format";
 import styles from "./pages.module.css";
 import { useLoad } from "./useLoad";
 import { ProblemMessage } from "../../shell/errors";
+import { UserName } from "../../shell/lookup/UserName";
 
 const logColumns: DataTableColumn<CaseLogEntry & { id: string }>[] = [
   { key: "at", header: "When", mono: true, render: (row) => formatDateTime(row.at) },
   { key: "kind", header: "Kind", render: (row) => sentence(row.kind) },
   { key: "text", header: "Entry" },
-  { key: "actor", header: "By", mono: true, render: (row) => (row.actor ? shortId(row.actor) : dash) },
+  { key: "actor", header: "By", mono: true, render: (row) => <UserName id={row.actor} /> },
 ];
 
 type Mode = "back" | "resolve" | "reopen" | null;
@@ -386,7 +387,7 @@ export function GenericCaseDetailPage() {
             ["Category", `${c.categoryCode} (${sentence(c.categoryType)})`],
             ["Stage", c.stageCode || dash, true],
             ["Priority", <PriorityBadge key="p" priority={c.priority} />],
-            ["Owner", c.ownerId || dash, true],
+            ["Owner", <UserName id={c.ownerId} />, false],
             ["Legal entity", c.legalEntityId, true],
             ["Customer", c.customerPartyId ?? dash, true],
             ["Opened", formatDateTime(c.openedAt), true],

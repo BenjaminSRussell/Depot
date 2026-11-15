@@ -38,6 +38,7 @@ import styles from "./pages.module.css";
 import { useLoad } from "./useLoad";
 import { ProblemMessage } from "../../shell/errors";
 import { EntityName } from "../../shell/lookup/EntityName";
+import { UserName } from "../../shell/lookup/UserName";
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -120,7 +121,7 @@ export function ProductListingsPage() {
     { key: "scopeKey", header: "Customer or group", render: (r) => (r.scopeType === "CUSTOMER" ? <EntityName entity="customer" id={r.scopeKey} fallback={r.scopeKey} /> : <span className={styles.mono}>{r.scopeKey}</span>) },
     { key: "validity", header: "Valid", render: validity },
     { key: "legalEntityId", header: "Legal entity", render: (r) => <EntityName entity="legalEntity" id={r.legalEntityId} /> },
-    { key: "createdAt", header: "Added", render: (r) => `${formatDateTime(r.createdAt)} by ${r.createdBy}` },
+    { key: "createdAt", header: "Added", render: (r) => <>{formatDateTime(r.createdAt)} by <UserName id={r.createdBy} /></> },
     {
       key: "actions",
       header: "Action",

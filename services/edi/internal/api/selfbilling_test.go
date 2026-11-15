@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"net/http"
 	"os"
 	"strings"
@@ -60,11 +61,15 @@ func disputes(t *testing.T, h http.Handler, status string) []store.SelfBillDispu
 	return out.Items
 }
 
+// lastPool is the database of the last selfBillSetup, for tests that move the clock of a retry.
+var lastPool *pgxpool.Pool
+
 func selfBillSetup(t *testing.T) (*fakeSources, *API, http.Handler, string) {
 	t.Helper()
 	f := newFake()
 	f.order.Lines[0].UnitPrice = decimal.NewFromInt(8)
-	a, h, _, partner, _ := autoSetupWith(t, f, edifactDistributor)
+	a, h, pool, partner, _ := autoSetupWith(t, f, edifactDistributor)
+	lastPool = pool
 	if rec := do(t, h, http.MethodPut, "/edi/v1/partners/"+partner+"/self-billing", `{"taxRatePct":"8.5","waitDays":30}`, "edi.admin", srcScope); rec.Code != http.StatusOK {
 		t.Fatalf("config: %d %s", rec.Code, rec.Body.String())
 	}

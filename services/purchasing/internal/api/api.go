@@ -92,6 +92,7 @@ type API struct {
 	now         func() time.Time
 	// budget is the port to budget control; nil when BUDGETING_URL is not set (requisitions are then approved unchecked).
 	budget      budget.Port
+	opening     *openingDeps
 	budgetQueue budget.Queue
 
 	requisitionsCreated       atomic.Int64
@@ -167,6 +168,7 @@ func (a *API) WithMemberships(m Memberships) *API {
 // a /readyz that pings the database.
 func (a *API) Register(r chi.Router) {
 	r.Get("/readyz", a.ready)
+	a.registerOpening(r)
 	r.Route("/v1/procurement", func(r chi.Router) {
 		create := r.With(authz.RequireDuty(dutyRequisitionCreate))
 		create.Post("/requisitions", a.createRequisition)
@@ -319,6 +321,7 @@ func (a *API) Metrics() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "text/plain; version=0.0.4")
 		tenant.WriteReplayMetrics(w)
+		a.writeOpeningMetrics(w)
 		for _, c := range []struct {
 			name, help string
 			value      int64

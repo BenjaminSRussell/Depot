@@ -1,4 +1,4 @@
-import { useRef, useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent, type ReactNode } from "react";
 import { Alert, Badge, Button, Card, DataTable, FormField, Input, Textarea, type DataTableColumn } from "../../shell/ui";
 import { describeProblem, generateCoA, listCoAs, newKey, type CoA, type CoALine, type NewCoA, type OrderView, type Problem } from "./api/client";
 import { dash, formatDateTime, pickFields, qty, shortId, UUID } from "./format";
@@ -6,6 +6,7 @@ import styles from "./pages.module.css";
 import { useLoad } from "./useLoad";
 import { ProblemMessage } from "../../shell/errors";
 import { EntityName } from "../../shell/lookup/EntityName";
+import { UserName } from "../../shell/lookup/UserName";
 
 /** True when the order's decision released quantity, so a CoA can be issued (FR-33.9). */
 export function coaReleasable(order: OrderView): boolean {
@@ -59,7 +60,7 @@ const revisionColumns = (onView: (doc: CoA) => void, selected?: string): DataTab
   { key: "customerId", header: "Customer", render: (row) => (row.customerId ? <EntityName entity="customer" id={row.customerId} fallback={row.customerId} /> : dash) },
   { key: "supersedes", header: "Supersedes", mono: true, render: (row) => (row.supersedes ? shortId(row.supersedes) : dash) },
   { key: "reason", header: "Reason", render: (row) => row.reason || dash },
-  { key: "signedBy", header: "Signed by", render: (row) => row.signedBy || dash },
+  { key: "signedBy", header: "Signed by", render: (row) => <UserName id={row.signedBy} /> },
   { key: "issuedAt", header: "Issued", render: (row) => `${row.issuedBy || dash}, ${formatDateTime(row.issuedAt)}` },
   {
     key: "view",
@@ -84,7 +85,7 @@ const lineColumns: DataTableColumn<CoALine>[] = [
 
 /** The CoA as issued: header, the decision's signature block and one line per test and sample. */
 export function CoADocument({ doc }: { doc: CoA }) {
-  const entry = (term: string, value: string, mono = false) => (
+  const entry = (term: string, value: ReactNode, mono = false) => (
     <div className={styles.entry}>
       <dt className={styles.term}>{term}</dt>
       <dd className={mono ? `${styles.value} ${styles.mono}` : styles.value}>{value}</dd>
@@ -100,7 +101,7 @@ export function CoADocument({ doc }: { doc: CoA }) {
         {entry("Accepted with deviation", `${qty(doc.deviationQty)} ${doc.uom}${doc.deviations.length ? ` (${doc.deviations.join("; ")})` : ""}`)}
         {entry("Specification", `${doc.testGroupCode} v${doc.testGroupVersion}, ${doc.specificationSet === "DEFAULT" ? "default limits" : doc.specificationSet}`)}
         {entry("Revision", doc.supersedes ? `${doc.revision}, supersedes ${shortId(doc.supersedes)}` : String(doc.revision))}
-        {entry("Signed", `${doc.signedBy || dash}, ${formatDateTime(doc.signedAt)} (usage decision)`)}
+        {entry("Signed", <><UserName id={doc.signedBy} />, {formatDateTime(doc.signedAt)} (usage decision)</>)}
       </dl>
       <DataTable label={`Results on revision ${doc.revision}`} columns={lineColumns} rows={doc.lines} getRowKey={(row) => `${row.testId}|${row.sampleNo}`} empty={{ title: "No results on this certificate" }} />
     </section>

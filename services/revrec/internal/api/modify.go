@@ -24,6 +24,10 @@ type modifyObligationDTO struct {
 	ObligationID   string `json:"obligationId"`
 	SSP            string `json:"ssp,omitempty"`
 	RemainingScope string `json:"remainingScope,omitempty"`
+	// UsageToDate and ExpectedUsage give a USAGE obligation's consumption to the effective date and the quantity its allocation covers,
+	// for a CATCH_UP: its revenue to date is UsageToDate times the reallocated rate (new allocation over ExpectedUsage).
+	UsageToDate   string `json:"usageToDate,omitempty"`
+	ExpectedUsage string `json:"expectedUsage,omitempty"`
 }
 
 var scopeText = regexp.MustCompile(`^(0(\.[0-9]{1,6})?|1(\.0{1,6})?)$`)
@@ -110,6 +114,7 @@ func (a *API) modifyContract(w http.ResponseWriter, r *http.Request) {
 	}
 	ssps := map[string]decimal.Decimal{}
 	scopes := map[string]decimal.Decimal{}
+	usages := map[string]domain.UsageMeasure{}
 	seen := map[string]bool{}
 	for i, o := range req.Obligations {
 		prefix := "obligations[" + strconv.Itoa(i) + "]."
@@ -122,8 +127,19 @@ func (a *API) modifyContract(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		seen[o.ObligationID] = true
-		if o.SSP == "" && o.RemainingScope == "" {
-			fields[prefix+"ssp"] = "give a standalone selling price, a remaining scope or both"
+		if (o.UsageToDate == "") != (o.ExpectedUsage == "") {
+			fields[prefix+"usageToDate"] = "give the usage to date and the expected usage together"
+			continue
+		}
+		if o.UsageToDate != "" {
+			if !decimalText.MatchString(o.UsageToDate) || !decimalText.MatchString(o.ExpectedUsage) || !decimal.RequireFromString(o.ExpectedUsage).IsPositive() {
+				fields[prefix+"usageToDate"] = "usage to date must be a decimal and the expected usage a positive decimal, at most 6 fraction digits"
+				continue
+			}
+			usages[o.ObligationID] = domain.UsageMeasure{ToDate: decimal.RequireFromString(o.UsageToDate), Expected: decimal.RequireFromString(o.ExpectedUsage)}
+		}
+		if o.SSP == "" && o.RemainingScope == "" && o.UsageToDate == "" {
+			fields[prefix+"ssp"] = "give a standalone selling price, a remaining scope, the usage to date or a combination"
 			continue
 		}
 		if o.SSP != "" {
@@ -144,7 +160,7 @@ func (a *API) modifyContract(w http.ResponseWriter, r *http.Request) {
 	if len(req.Reason) > 500 {
 		fields["reason"] = "must be at most 500 characters"
 	}
-	if change.IsZero() && len(ssps) == 0 && len(scopes) == 0 && len(fields) == 0 {
+	if change.IsZero() && len(ssps) == 0 && len(scopes) == 0 && len(usages) == 0 && len(fields) == 0 {
 		fields["transactionPriceChange"] = "change the price, revise a standalone selling price or reduce an obligation"
 	}
 	if len(fields) > 0 {
@@ -161,9 +177,9 @@ func (a *API) modifyContract(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	c, mod, err := a.store.ModifyContract(r.Context(), id, store.ModificationRequest{Type: req.Type, EffectiveDate: effective, PriceChange: change,
-		NewSSP: ssps, Scope: scopes, Reason: strings.TrimSpace(req.Reason), ExpectedVersion: expected})
+		NewSSP: ssps, Scope: scopes, Usage: usages, Reason: strings.TrimSpace(req.Reason), ExpectedVersion: expected})
 	if err != nil {
-		httpx.Fail(w, r, err)
+		httpx.Fail(w, r, problemFrom(err))
 		return
 	}
 	a.contractsModified.Add(1)

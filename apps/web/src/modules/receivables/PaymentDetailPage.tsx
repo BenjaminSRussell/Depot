@@ -7,6 +7,7 @@ import {
   describeProblem,
   getPayment,
   listOpenItems,
+  listPaymentSettlements,
   matchPayment,
   newKey,
   ReceivablesApiError,
@@ -15,6 +16,7 @@ import {
   type MatchResult,
   type OpenItem,
   type Payment,
+  type PaymentSettlement,
   type Problem,
   type SettlementInput,
   type UnapplyResult,
@@ -39,6 +41,7 @@ type Plan = Record<string, Line>;
 interface Loaded {
   payment: Payment;
   items: OpenItem[];
+  settlements: PaymentSettlement[];
 }
 
 const emptyLine: Line = { amount: "", cashDiscount: "", writeOff: "" };
@@ -97,8 +100,11 @@ export function PaymentDetailPage() {
     const items = await listOpenItems({ customer: payment.customerId ?? "", status: "open" }, signal);
     // A payment applies to debits only: credit-side items (credit notes, unapplied
     // payments) are refused by the service (AR-CREDIT-ITEM).
+    // The applications are only read for a payment that has some; a failure to read them leaves the all-or-nothing undo.
+    const settlements = hasApplications(payment) ? await listPaymentSettlements(payment.id, signal).catch(() => []) : [];
     return {
       payment,
+      settlements,
       items: items.filter((i) => i.side !== "CREDIT" && i.currency === payment.currency && i.legalEntityId === payment.legalEntityId),
     };
   }, id);
@@ -129,7 +135,7 @@ export function PaymentDetailPage() {
       </div>
     );
   }
-  const { payment, items } = state.data;
+  const { payment, items, settlements } = state.data;
   const appliable = APPLIABLE.has(payment.status) && compareDecimals(payment.unappliedAmount, "0") > 0;
   const built = buildApply(plan, payment.unappliedAmount);
   // An ON_ACCOUNT payment is already on account; applying it again needs items.
@@ -318,6 +324,17 @@ export function PaymentDetailPage() {
       ) : (
         <p className={styles.note}>This payment is {STATUS_LABELS[payment.status]?.toLowerCase() ?? payment.status} with nothing left to apply.</p>
       )}
+      {hasApplications(payment) && settlements.length > 0 ? (
+        <ApplicationsCard
+          payment={payment}
+          settlements={settlements}
+          onDone={(out) => {
+            setResult(null);
+            setUnapplied(out);
+            state.reload();
+          }}
+        />
+      ) : null}
       {hasApplications(payment) ? (
         <UnapplyCard
           payment={payment}
@@ -393,6 +410,72 @@ function UnapplyCard({ payment, onDone }: { payment: Payment; onDone(result: Una
           cancelLabel="Keep the applications"
           onConfirm={() => void unapply()}
           onCancel={() => setAsking(false)}
+        />
+      ) : null}
+    </Card>
+  );
+}
+
+/**
+ * The applications of the payment, one row each (duty receivables.payment.reverse): undo a single one and only that settlement's item is
+ * opened again and its journal mirrored; the payment's other applications stand.
+ */
+function ApplicationsCard({ payment, settlements, onDone }: { payment: Payment; settlements: PaymentSettlement[]; onDone(result: UnapplyResult): void }) {
+  const [asking, setAsking] = useState<PaymentSettlement | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [failure, setFailure] = useState<{ title: string; problem: Problem } | null>(null);
+
+  async function unapplyOne(target: PaymentSettlement) {
+    setAsking(null);
+    setBusy(target.id);
+    setFailure(null);
+    try {
+      onDone(await unapplyPayment(payment.id, payment.version, "", target.id));
+    } catch (error) {
+      const stale = error instanceof ReceivablesApiError && error.status === 412;
+      setFailure({ title: stale ? "The payment changed since you opened it. Reload it and try again." : "Could not unapply the settlement", problem: describeProblem(error) });
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  const columns: DataTableColumn<PaymentSettlement>[] = [
+    { key: "documentNumber", header: "Document", mono: true },
+    { key: "amount", header: "Applied", mono: true, align: "end", render: (row) => money(row.amount, payment.currency) },
+    { key: "discount", header: "Discount and write-off", mono: true, align: "end", render: (row) => money(sumDecimals([row.cashDiscount, row.writeOff]), payment.currency) },
+    { key: "settledAt", header: "Applied on", mono: true, render: (row) => row.settledAt.slice(0, 10) },
+    { key: "state", header: "State", render: (row) => (row.reversed ? <Badge tone="neutral">Unapplied</Badge> : <Badge tone="success">Applied</Badge>) },
+    {
+      key: "action",
+      header: "Action",
+      render: (row) =>
+        row.reversed ? null : (
+          <Button size="sm" variant="danger" loading={busy === row.id} onClick={() => setAsking(row)} aria-label={`Unapply the settlement of ${row.documentNumber}`}>
+            Unapply
+          </Button>
+        ),
+    },
+  ];
+
+  return (
+    <Card title="Applications" headingLevel={3}>
+      <div className={styles.stack}>
+        <p className={styles.note}>Unapply one settlement to open only its item again and put its cash back to unapplied; the other applications stay.</p>
+        <DataTable label="Applications of this payment" columns={columns} rows={settlements} getRowKey={(row) => row.id} empty={{ title: "No applications", description: "This payment has not been applied." }} />
+        {failure ? (
+          <Alert tone="danger" title={failure.title} live="alert">
+            <ProblemMessage problem={failure.problem} />
+          </Alert>
+        ) : null}
+      </div>
+      {asking ? (
+        <ConfirmDialog
+          title={`Unapply the settlement of ${asking.documentNumber}?`}
+          description={`${money(asking.amount, payment.currency)} goes back to unapplied and ${asking.documentNumber} is open again by what it took off. The payment's other applications stay.`}
+          confirmLabel="Unapply settlement"
+          cancelLabel="Keep it"
+          onConfirm={() => void unapplyOne(asking)}
+          onCancel={() => setAsking(null)}
         />
       ) : null}
     </Card>

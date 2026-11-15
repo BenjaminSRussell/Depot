@@ -18,6 +18,7 @@ import (
 	"github.com/shopspring/decimal"
 
 	"github.com/BenjaminSRussell/passage/platform/authz"
+	"github.com/BenjaminSRussell/passage/platform/customsdata"
 	"github.com/BenjaminSRussell/passage/platform/fieldcrypt"
 	"github.com/BenjaminSRussell/passage/platform/httpx"
 	"github.com/BenjaminSRussell/passage/platform/ids"
@@ -61,6 +62,9 @@ type Ports struct {
 	Tax                domain.TaxCalculator
 	TaxRecorder        domain.TaxRecorder
 	SelfBillParties    domain.SelfBillPartySource
+	// Customs reads the vendor's VAT country and the products' customs attributes when a receipt posts, for receipt.posted (#13); nil
+	// leaves the event without them.
+	Customs customsdata.Source
 
 	ResolveMinAge time.Duration
 	ResolveLease  time.Duration

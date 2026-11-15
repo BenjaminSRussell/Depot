@@ -9,7 +9,7 @@ import type { Session } from "./oidc";
 const session: Session = { accessToken: "t", refreshToken: undefined, idToken: undefined, expiresAt: 0, subject: "u-1", tenantId: "t-1", duties: [], name: "Ada Lovelace" };
 
 function setup() {
-  const auth: Auth = { ensureSession: vi.fn(), accessToken: vi.fn(), login: vi.fn().mockResolvedValue(undefined), logout: vi.fn() };
+  const auth: Auth = { ensureSession: vi.fn(), accessToken: vi.fn(), login: vi.fn().mockResolvedValue(undefined), logout: vi.fn(), reauthenticate: vi.fn() };
   render(
     <AccountProvider auth={auth} session={session}>
       <UserMenu />

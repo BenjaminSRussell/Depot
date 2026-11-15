@@ -112,6 +112,12 @@ func run() error {
 	if signer != nil && fulfillmentURL != "" && billingURL != "" && salesURL != "" {
 		src := sources.New(signer, fulfillmentURL, billingURL, salesURL, nil)
 		a.Sources, a.Intake = src, src
+		// A matched self-billed document is posted as our legal invoice through billing (35-5), and a vendor's X12 810 goes into payables'
+		// intake when its URL is set.
+		a.SelfBilledPoster = src
+		if payablesURL := os.Getenv("EDI_PAYABLES_URL"); payablesURL != "" {
+			a.VendorInvoices = src.WithPayables(payablesURL)
+		}
 		// A returned punchout cart becomes a requisition in purchasing when its URL is set (35-3).
 		purchasingURL, receivingURL := os.Getenv("EDI_PURCHASING_URL"), os.Getenv("EDI_RECEIVING_URL")
 		if purchasingURL != "" {

@@ -857,6 +857,7 @@ components:
         hasReceipt: { type: boolean }
         justification: { type: string, maxLength: 500 }
         paidBy: { type: string, enum: [EMPLOYEE, COMPANY_CARD] }
+        chargeToLegalEntityId: { type: string, format: uuid }
     EvaluationRequest:
       type: object
       required: [submitDate, lines]
@@ -1183,6 +1184,7 @@ components:
         hasReceipt: { type: boolean }
         justification: { type: string, maxLength: 500 }
         paidBy: { type: string, enum: [EMPLOYEE, COMPANY_CARD], default: EMPLOYEE }
+        chargeToLegalEntityId: { type: string, format: uuid, description: "The legal entity that bears the line's cost when it is not the entity paying the report. Carried on report.approved so intercompany charges the cost across (#40)." }
     ReportLine:
       type: object
       required: [id, lineNo, category, txnDate, amount, merchant, attendees, hasReceipt, justification, paidBy, policyResults]
@@ -1197,6 +1199,7 @@ components:
         hasReceipt: { type: boolean }
         justification: { type: string }
         paidBy: { type: string, enum: [EMPLOYEE, COMPANY_CARD] }
+        chargeToLegalEntityId: { type: string, format: uuid }
         policyResults: { type: array, items: { $ref: '#/components/schemas/PolicyResult' }, description: Results of the line's last evaluation (commit, delete or submit). }
     ExpenseReport:
       type: object

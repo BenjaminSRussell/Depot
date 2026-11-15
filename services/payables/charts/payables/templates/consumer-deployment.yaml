@@ -31,6 +31,16 @@ spec:
           secret:
             secretName: {{ required "consumer.kafka.secret is required" .Values.consumer.kafka.secret }}
             defaultMode: 0440
+{{- if .Values.consumer.autoPost.enabled }}
+        - name: service-identity
+          secret:
+            secretName: {{ required "serviceIdentity.signingKeySecret is required for consumer.autoPost: the ledger refuses an unsigned journal" .Values.serviceIdentity.signingKeySecret }}
+            defaultMode: 0440
+        - name: posting-profiles
+          secret:
+            secretName: {{ required "postingProfilesSecret is required for consumer.autoPost" .Values.postingProfilesSecret }}
+            defaultMode: 0440
+{{- end }}
       containers:
         - name: payables-consumer
           image: {{ include "payables.image" . | quote }}
@@ -63,8 +73,27 @@ spec:
               value: /var/run/passage/kafka/password
             - name: KAFKA_TLS_CA_FILE
               value: /var/run/passage/kafka/ca.crt
+{{- if .Values.consumer.autoPost.enabled }}
+            # A pairing that opted in (autoPostInvoice) has its vendor invoice posted here: the ledger entry, the AP item, the intake row.
+            # Each borrower legal entity's ledger and accounts come from the posting profiles (icChargeExpenseAccount, icChargeInputTaxAccount).
+            - { name: LEDGER_URL, value: {{ required "ledgerUrl is required for consumer.autoPost" .Values.ledgerUrl | quote }} }
+            - { name: PAYABLES_POSTING_PROFILES_FILE, value: /var/run/passage/posting-profiles/profiles.json }
+            - { name: PAYABLES_IC_PAYMENT_TERM_DAYS, value: {{ .Values.consumer.autoPost.paymentTermDays | quote }} }
+            - name: PASSAGE_SERVICE_NAME
+              value: payables
+            - name: PASSAGE_SERVICE_SIGNING_KEY_FILE
+              value: /var/run/passage/service-identity/signing-key
+{{- if .Values.serviceIdentity.keyId }}
+            - name: PASSAGE_SERVICE_KEY_ID
+              value: {{ .Values.serviceIdentity.keyId | quote }}
+{{- end }}
+{{- end }}
           volumeMounts:
             - { name: kafka, mountPath: /var/run/passage/kafka, readOnly: true }
+{{- if .Values.consumer.autoPost.enabled }}
+            - { name: service-identity, mountPath: /var/run/passage/service-identity, readOnly: true }
+            - { name: posting-profiles, mountPath: /var/run/passage/posting-profiles, readOnly: true }
+{{- end }}
           livenessProbe:
             httpGet: { path: /healthz, port: admin }
             initialDelaySeconds: 5

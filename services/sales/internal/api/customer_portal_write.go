@@ -3,6 +3,7 @@ package api
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -100,6 +101,15 @@ type portalProduct struct {
 	LastOrderedAt time.Time       `json:"lastOrderedAt"`
 }
 
+// portalListedProduct is a product the customer's listings allow but it has not bought: it is priced when ordered, in a unit it names.
+type portalListedProduct struct {
+	ProductID   string `json:"productId"`
+	ProductName string `json:"productName,omitempty"`
+}
+
+// maxPortalListed bounds the listed products one answer offers.
+const maxPortalListed = 100
+
 // portalListProducts answers what the customer can order: the products of its own earlier orders, with the price it paid last.
 func (a *API) portalListProducts(w http.ResponseWriter, r *http.Request, customer string) {
 	rows, _, err := a.portalHistory(r, customer, nil)
@@ -111,13 +121,32 @@ func (a *API) portalListProducts(w http.ResponseWriter, r *http.Request, custome
 	for _, h := range rows {
 		want = append(want, h.ProductID)
 	}
+	listed := []string{}
+	if a.pricer != nil {
+		// Products the customer's listings name but it has not bought are offered too, without a price: the order prices them.
+		p, _ := tenant.FromContext(r.Context())
+		skip := make(map[string]bool, len(want))
+		for _, id := range want {
+			skip[strings.ToLower(id)] = true
+		}
+		if listed, err = a.portalListedProducts(r.Context(), p.LegalEntityID, customer, skip, maxPortalListed); err != nil {
+			// The reorder list does not depend on party or on listings: only the offer of new products is left out.
+			slog.WarnContext(r.Context(), "listed products left out of the portal product list", "err", err)
+			listed = []string{}
+		}
+		want = append(want, listed...)
+	}
 	names := a.productNames(r.Context(), want)
 	out := make([]portalProduct, 0, len(rows))
 	for _, h := range rows {
 		price := h.UnitPrice.Mul(decimal.NewFromInt(100).Sub(h.DiscPct)).Div(decimal.NewFromInt(100)).Round(6)
 		out = append(out, portalProduct{ProductID: h.ProductID, ProductName: names[strings.ToLower(h.ProductID)], Unit: h.Unit, UnitPrice: price, Currency: h.Currency, LastOrderedAt: h.LastOrderedAt})
 	}
-	httpx.JSON(w, http.StatusOK, map[string]any{"items": out})
+	others := make([]portalListedProduct, 0, len(listed))
+	for _, id := range listed {
+		others = append(others, portalListedProduct{ProductID: id, ProductName: names[strings.ToLower(id)]})
+	}
+	httpx.JSON(w, http.StatusOK, map[string]any{"items": out, "listed": others})
 }
 
 func (a *API) portalPlaceOrder(w http.ResponseWriter, r *http.Request, customer string) {
@@ -159,6 +188,8 @@ func (a *API) portalPlaceOrder(w http.ResponseWriter, r *http.Request, customer 
 	}
 	in := createOrderRequest{LegalEntityID: p.LegalEntityID, CustomerID: customer, OrderType: "ORDER", RequestedShipDate: req.RequestedShipDate,
 		Channel: portalChannel + portalNamespace(customer), ExternalRef: req.ExternalRef}
+	slots := make([]*orderLineRequest, len(req.Lines))
+	var fresh []int // lines of products the customer has not bought before: listed and priced below when pricing is wired
 	for i, l := range req.Lines {
 		h, found, mismatch := pickHistory(history, l.ProductID, l.Unit)
 		if mismatch {
@@ -166,7 +197,11 @@ func (a *API) portalPlaceOrder(w http.ResponseWriter, r *http.Request, customer 
 			continue
 		}
 		if !found {
-			fields[fmt.Sprintf("lines[%d].productId", i)] = "is not a product you have had approved and ordered recently; ask your sales contact to add it"
+			if a.pricer == nil {
+				fields[fmt.Sprintf("lines[%d].productId", i)] = "is not a product you have had approved and ordered recently; ask your sales contact to add it"
+				continue
+			}
+			fresh = append(fresh, i)
 			continue
 		}
 		if in.Currency == "" {
@@ -176,8 +211,19 @@ func (a *API) portalPlaceOrder(w http.ResponseWriter, r *http.Request, customer 
 			continue
 		}
 		disc := h.DiscPct.String()
-		in.Lines = append(in.Lines, orderLineRequest{ProductID: h.ProductID, Quantity: l.Quantity, Unit: h.Unit, SiteID: h.SiteID, WarehouseID: h.WarehouseID,
-			UnitPrice: h.UnitPrice.String(), DiscPct: &disc, RequestedShipDate: req.RequestedShipDate})
+		slots[i] = &orderLineRequest{ProductID: h.ProductID, Quantity: l.Quantity, Unit: h.Unit, SiteID: h.SiteID, WarehouseID: h.WarehouseID,
+			UnitPrice: h.UnitPrice.String(), DiscPct: &disc, RequestedShipDate: req.RequestedShipDate}
+	}
+	if len(fresh) > 0 && len(fields) == 0 {
+		if err := a.portalFirstOrderLines(r, customer, p, &req, &in, slots, fresh, fields); err != nil {
+			a.fail(w, r, "price customer portal order", err)
+			return
+		}
+	}
+	for _, sl := range slots {
+		if sl != nil {
+			in.Lines = append(in.Lines, *sl)
+		}
 	}
 	if len(fields) > 0 {
 		pb := httpx.NewProblem(http.StatusUnprocessableEntity, codePortalProduct, "some lines cannot be ordered from the portal")

@@ -59,7 +59,7 @@ export function idToken(key: KeyObject, claims: Record<string, unknown>, kid = "
   return `${h}.${p}.${sign("RSA-SHA256", Buffer.from(`${h}.${p}`), key).toString("base64url")}`;
 }
 
-export async function startRig(opts: { limit?: number; sessions?: SessionStore } = {}): Promise<Rig> {
+export async function startRig(opts: { limit?: number; sessions?: SessionStore; defaultLog?: boolean } = {}): Promise<Rig> {
   const { privateKey, publicKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
   const jwk = { ...publicKey.export({ format: "jwk" }), kid: "k1", use: "sig" };
   const seedBase64 = randomBytes(32).toString("base64");
@@ -109,7 +109,7 @@ export async function startRig(opts: { limit?: number; sessions?: SessionStore }
     cookieSecure: true,
     limiter: new RateLimiter(opts.limit ?? 1000, 60_000),
     now: () => now.ms,
-    log: () => {},
+    ...(opts.defaultLog ? {} : { log: () => {} }),
   });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   rig.server = server;

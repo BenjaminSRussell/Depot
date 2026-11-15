@@ -144,3 +144,38 @@ describe("PDF downloads", () => {
     expect((await api(rig, undefined, "GET", "/api/v1/statement/pdf")).status).toBe(401);
   });
 });
+
+describe("Documents delivered to the portal", () => {
+  const DOC = "33333333-3333-4333-8333-333333333333";
+
+  it("lists the customer's delivered documents from print with only the documents duty", async () => {
+    rig = await startRig();
+    rig.on("http://print.test", () => Response.json({ items: [{ id: DOC, documentType: "PERIODIC_STATEMENT", number: "Statement 2026-11-15", pages: 1, createdAt: "2026-11-15T01:00:00Z" }] }));
+    const s = await signIn(rig);
+    const res = await api(rig, s, "GET", "/api/v1/delivered-documents?limit=10&accountId=" + CUSTOMER_B);
+    expect(res.status).toBe(200);
+    expect(((await res.json()) as { items: unknown[] }).items).toHaveLength(1);
+    const call = rig.calls.find((c) => c.url.startsWith("http://print.test"))!;
+    expect(call.url).toBe("http://print.test/print/v1/customer-portal/documents?limit=10");
+    expect(tokenClaims(call.headers.get("x-passage-service-token")!)).toMatchObject({ aud: "print", cus: CUSTOMER_A, duties: ["print.customer-portal.documents"] });
+  });
+
+  it("streams the PDF of one delivered document and passes a refusal on", async () => {
+    rig = await startRig();
+    rig.on("http://print.test", (c) => (c.url.endsWith(`${DOC}/pdf`) ? new Response(PDF, { headers: { "content-type": "application/pdf" } }) : Response.json({ code: "PRN-0020" }, { status: 404 })));
+    const s = await signIn(rig);
+    const ok = await api(rig, s, "GET", `/api/v1/delivered-documents/${DOC}/pdf`);
+    expect(ok.status).toBe(200);
+    expect(ok.headers.get("content-type")).toBe("application/pdf");
+    expect(Buffer.from(await ok.arrayBuffer()).equals(PDF)).toBe(true);
+    const call = rig.calls.find((c) => c.url.startsWith("http://print.test"))!;
+    expect(call.url).toBe(`http://print.test/print/v1/customer-portal/documents/${DOC}/pdf`);
+    expect(tokenClaims(call.headers.get("x-passage-service-token")!)).toMatchObject({ aud: "print", cus: CUSTOMER_A, duties: ["print.customer-portal.documents"] });
+    const other = await api(rig, s, "GET", "/api/v1/delivered-documents/44444444-4444-4444-8444-444444444444/other");
+    expect(other.status).toBe(404);
+    const refused = await api(rig, s, "GET", `/api/v1/delivered-documents/${DOC.replace("3333", "5555")}/pdf`);
+    expect(refused.status).toBe(404);
+    expect(((await refused.json()) as { code: string }).code).toBe("PRN-0020");
+    expect((await api(rig, s, "GET", "/api/v1/delivered-documents/not-an-id/pdf")).status).toBe(404);
+  });
+});

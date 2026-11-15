@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { EntityName } from "../../shell/lookup/EntityName";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   Alert,
@@ -491,6 +492,9 @@ export function ReportDetailPage() {
     { key: "category", header: "Category" },
     { key: "merchant", header: "Merchant" },
     { key: "paidBy", header: "Paid by", render: (l) => (l.paidBy === "COMPANY_CARD" ? "Company card" : "Employee") },
+    ...(report.lines.some((l) => l.chargeToLegalEntityId)
+      ? [{ key: "chargeTo", header: "Cost charged to", render: (l: ReportLine) => (l.chargeToLegalEntityId ? <EntityName entity="legalEntity" id={l.chargeToLegalEntityId} /> : "Not charged across") }]
+      : []),
     { key: "amount", header: "Amount", align: "end", mono: true, render: (l) => money(report.currency, l.amount) },
     { key: "policy", header: "Policy", render: (l) => <PolicyBadges line={l} /> },
   ];

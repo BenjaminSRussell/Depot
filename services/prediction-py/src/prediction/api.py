@@ -18,8 +18,12 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 
-from prediction.domain import MAE_MAX_DAYS_RANGE, MIN_ROWS_RANGE, Config, Model, OpenInvoice, PaidInvoice, Prediction, PredictionError
-from prediction.service import InMemoryRepository, PredictionService, Repository
+from prediction.domain import MAE_MAX_DAYS_RANGE, MIN_ROWS_RANGE, Model, OpenInvoice, PaidInvoice, Prediction, PredictionError, is_stale
+from prediction.logpseudo import install_logging
+from prediction.runtime import config_from_env, repository_from_env
+from prediction.service import PredictionService
+
+install_logging(os.environ)  # eu-data-boundary overlay or LOG_PSEUDONYMIZE=true: person values and emails in log lines are pseudonymized (#605)
 
 NIL = uuid.UUID(int=0)
 DUTY_ADMIN = "agents.admin"  # retrain and score (seeded in policies/authz/data.json)
@@ -29,26 +33,7 @@ MAX_PAID = 50_000
 MAX_OPEN = 5_000
 
 
-def _config_from_env() -> Config:
-    return Config(
-        min_rows=int(os.environ.get("PREDICTION_MIN_ROWS", "500")),
-        mae_max_days=float(os.environ.get("PREDICTION_MAE_MAX_DAYS", "6")),
-    )
-
-
-def _repository() -> Repository:
-    """Postgres when DATABASE_URL is set (the chart always sets it); in memory otherwise (tests, local runs)."""
-    url = os.environ.get("DATABASE_URL", "")
-    if not url:
-        return InMemoryRepository()
-    from prediction.store import PgRepository, migrate
-
-    if os.environ.get("MIGRATE_ON_START") == "true":
-        migrate(url)
-    return PgRepository(url)
-
-
-service = PredictionService(_repository(), _config_from_env())
+service = PredictionService(repository_from_env(), config_from_env())
 app = FastAPI(title="Passage payment prediction", version="0.1.0")
 
 
@@ -82,10 +67,20 @@ async def _on_validation(request: Request, exc: RequestValidationError) -> JSONR
     return _problem(400, "PRD-0400", "the request is not valid: " + "; ".join(".".join(map(str, e["loc"][1:])) + " " + e["msg"] for e in exc.errors()[:5]), request.url.path)
 
 
+ALL_SCOPE_DUTY = "org.switcher.all-scope"  # platform/go/tenant DutyAllScope: a caller who may act in every legal entity
+
+
 class Caller(BaseModel):
     tenant_id: str
     user_id: str
     duties: frozenset[str]
+    legal_entities: frozenset[str] = frozenset()  # X-Passage-Legal-Entity: the entities the caller is scoped to
+
+    def may_see_entity(self, legal_entity_id: str) -> bool:
+        """A caller with a legal-entity scope sees those entities only; one with none must hold the all-scope duty."""
+        if self.legal_entities:
+            return legal_entity_id in self.legal_entities
+        return ALL_SCOPE_DUTY in self.duties
 
     def require(self, duty: str) -> None:
         if duty not in self.duties:
@@ -104,12 +99,14 @@ def caller(
     x_passage_tenant: Annotated[str | None, Header()] = None,
     x_passage_user: Annotated[str | None, Header()] = None,
     x_passage_duties: Annotated[str | None, Header()] = None,
+    x_passage_legal_entity: Annotated[str | None, Header()] = None,
 ) -> Caller:
     tenant, user = _uuid(x_passage_tenant), _uuid(x_passage_user)
     if tenant is None or user is None:
         raise Problem(401, "AGT-0401", "the edge did not identify a tenant and user")
     duties = frozenset(d.strip() for d in (x_passage_duties or "").split(",") if d.strip())
-    return Caller(tenant_id=tenant, user_id=user, duties=duties)
+    entities = frozenset(e for e in (_uuid(x) for x in (x_passage_legal_entity or "").split(",")) if e)
+    return Caller(tenant_id=tenant, user_id=user, duties=duties, legal_entities=entities)
 
 
 class InvoiceIn(BaseModel):
@@ -190,7 +187,8 @@ def readyz() -> JSONResponse:
     return JSONResponse({"status": "ready"})
 
 
-@app.post("/api/v1/predictions/payment/retrain")
+@app.post("/api/v1/predictions/payment/retrain", include_in_schema=False)
+@app.post("/v1/predictions/payment/retrain")
 def retrain(body: RetrainRequest, who: Annotated[Caller, Depends(caller)]) -> JSONResponse:
     """Trains on the paid invoices sent (the weekly job sends the tenant's receivables history).
     Fewer than min_rows is 422 AGT-0213. The model is ACTIVE when its held-out MAE is within the
@@ -206,14 +204,16 @@ def retrain(body: RetrainRequest, who: Annotated[Caller, Depends(caller)]) -> JS
     return JSONResponse(_model_json(model), status_code=201)
 
 
-@app.post("/api/v1/predictions/payment/score")
+@app.post("/api/v1/predictions/payment/score", include_in_schema=False)
+@app.post("/v1/predictions/payment/score")
 def score(body: ScoreRequest, who: Annotated[Caller, Depends(caller)]) -> JSONResponse:
     who.require(DUTY_ADMIN)
     preds = service.score(who.tenant_id, [_open(i) for i in body.openInvoices])
     return JSONResponse({"items": [_prediction_json(p) for p in preds]})
 
 
-@app.get("/api/v1/ar/invoices/{invoice_id}/prediction")
+@app.get("/api/v1/ar/invoices/{invoice_id}/prediction", include_in_schema=False)
+@app.get("/v1/ar/invoices/{invoice_id}/prediction")
 def get_prediction(invoice_id: str, who: Annotated[Caller, Depends(caller)]) -> JSONResponse:
     who.require(DUTY_VIEW)
     found = service.prediction(who.tenant_id, invoice_id)
@@ -229,14 +229,16 @@ def _settings_json(tenant_id: str) -> dict[str, object]:
     return {"minRows": cfg.min_rows, "maeMaxDays": cfg.mae_max_days, "tenantOverride": service.repo.settings(tenant_id) is not None}
 
 
-@app.get("/api/v1/predictions/payment/settings")
+@app.get("/api/v1/predictions/payment/settings", include_in_schema=False)
+@app.get("/v1/predictions/payment/settings")
 def get_settings(who: Annotated[Caller, Depends(caller)]) -> JSONResponse:
     """The tenant's prediction.payment.min_rows and mae_max_days (9.47.20), or the service defaults."""
     who.require(DUTY_ADMIN)
     return JSONResponse(_settings_json(who.tenant_id))
 
 
-@app.put("/api/v1/predictions/payment/settings")
+@app.put("/api/v1/predictions/payment/settings", include_in_schema=False)
+@app.put("/v1/predictions/payment/settings")
 def put_settings(body: SettingsRequest, who: Annotated[Caller, Depends(caller)]) -> JSONResponse:
     """Sets the tenant's parameters; a field left out keeps its current value. The next retrain uses them."""
     who.require(DUTY_ADMIN)
@@ -244,9 +246,30 @@ def put_settings(body: SettingsRequest, who: Annotated[Caller, Depends(caller)])
     return JSONResponse(_settings_json(who.tenant_id))
 
 
-@app.get("/api/v1/predictions/payment/accuracy")
+@app.get("/api/v1/predictions/payment/accuracy", include_in_schema=False)
+@app.get("/v1/predictions/payment/accuracy")
 def get_accuracy(who: Annotated[Caller, Depends(caller)]) -> JSONResponse:
     """The prediction accuracy report: predictions whose invoices have since been paid, MAE, share within 7 days
     and p_late_30d calibration, overall and per model version."""
     who.require(DUTY_ADMIN)
     return JSONResponse(service.accuracy(who.tenant_id))
+
+
+@app.get("/api/v1/predictions/payment/dso", include_in_schema=False)
+@app.get("/v1/predictions/payment/dso")
+def get_dso(who: Annotated[Caller, Depends(caller)], legalEntityId: str | None = None) -> JSONResponse:
+    """The forecast days to pay (DSO) of a legal entity's open invoices from their stored predictions: the amount-weighted mean of
+    predicted payment date less invoice date, the amount-weighted p_late_30d, and how many invoices it covers. 404 AGT-0404 until
+    the entity's open invoices have been scored (the receivables feed has run)."""
+    who.require(DUTY_VIEW)
+    entity = _uuid(legalEntityId)
+    if entity is None:
+        raise Problem(400, "PRD-0400", "legalEntityId must be a legal entity UUID")
+    if not who.may_see_entity(entity):
+        # As the Go services answer an entity outside the caller's scope: it is not there for this caller.
+        raise Problem(404, "AGT-0404", "no open invoices of this legal entity have been scored yet")
+    found = service.repo.dso(who.tenant_id, entity)
+    if found is None:
+        raise Problem(404, "AGT-0404", "no open invoices of this legal entity have been scored yet")
+    return JSONResponse({"legalEntityId": entity, "dsoDays": found.dso_days, "openInvoices": found.open_invoices, "openAmount": found.open_amount,
+                         "avgPLate30d": found.avg_p_late_30d, "scoredAt": found.scored_at.isoformat(), "stale": is_stale(found.scored_at, service.clock())})

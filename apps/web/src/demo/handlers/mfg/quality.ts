@@ -5,6 +5,7 @@ import type { Decision, DecisionLine, Instrument, NewOrder, Order, OrderView, Ou
 import { reply, route } from "../../backend";
 import { USER, PLANT, WH_FG, WH_RAW, itemByNumber } from "../../company";
 import { at, dec, table, uid } from "../../store";
+import { userIdOf } from "../directory";
 
 const BASE = "/api/v1/quality";
 
@@ -138,7 +139,7 @@ function decisionFor(s: Spec, view: OrderView): Decision | undefined {
     orderId: `QO-${s.n}`,
     lines,
     split: { acceptQty: dec(lot - rejected), rejectQty: dec(0), deviationQty: dec(0) },
-    decidedBy: USER.name,
+    decidedBy: userIdOf(USER.name),
     decidedAt: at(-s.ageDays + 0.5),
     nonconformanceId: rejected > 0 ? "NCR-1042" : undefined,
   };
@@ -298,7 +299,7 @@ route("POST", `${BASE}/quality-orders/{id}:usage-decision`, (req) => {
     orderId: v.id,
     lines,
     split: { acceptQty: dec(sum(["ACCEPT"])), rejectQty: dec(sum(["REJECT", "SCRAP", "RETURN_TO_VENDOR", "REWORK"])), deviationQty: dec(sum(["ACCEPT_WITH_DEVIATION"])) },
-    decidedBy: USER.name,
+    decidedBy: userIdOf(USER.name),
     decidedAt: at(0),
   };
   const order = views.update(v.id, { status: "CLOSED", closedAt: at(0), decision, version: v.version + 1 }) as OrderView;

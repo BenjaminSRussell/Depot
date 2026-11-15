@@ -33,6 +33,7 @@ import styles from "./pages.module.css";
 import { ProblemMessage } from "../../shell/errors";
 import { EntityName } from "../../shell/lookup/EntityName";
 import { EntityLookup } from "../../shell/lookup/EntityLookup";
+import { UserName } from "../../shell/lookup/UserName";
 
 export const DEFAULT_FORECAST_MODEL = "BASE";
 /** Rows the forecast endpoint returns at most (MaxPageSize in the service). */
@@ -301,8 +302,8 @@ function ConsensusCard({ model, onDone }: { model: ForecastModel; onDone: (step:
           {model.status === "draft"
             ? "Submit the forecast when it is ready. Its cells lock while a supply chain manager reviews it."
             : model.status === "submitted"
-              ? `Submitted by ${model.submittedBy ?? "an unknown user"}. A supply chain manager who did not submit or edit it publishes it or returns it to draft.`
-              : `Published${model.publishedAt ? ` on ${model.publishedAt.slice(0, 10)}` : ""}${model.decidedBy ? ` by ${model.decidedBy}` : ""}. The forecast is final and its cells stay locked.`}
+              ? <>Submitted by <UserName id={model.submittedBy} />. A supply chain manager who did not submit or edit it publishes it or returns it to draft.</>
+              : <>{`Published${model.publishedAt ? ` on ${model.publishedAt.slice(0, 10)}` : ""}`}{model.decidedBy ? <> by <UserName id={model.decidedBy} /></> : null}. The forecast is final and its cells stay locked.</>}
         </p>
         <Alert tone="danger" title={failureTitle} live="alert">
           {failure ? <ProblemMessage problem={failure} /> : null}

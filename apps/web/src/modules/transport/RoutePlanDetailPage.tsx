@@ -7,6 +7,7 @@ import styles from "./pages.module.css";
 import { km } from "./RoutePlansPage";
 import { useLoad } from "./useLoad";
 import { ProblemMessage } from "../../shell/errors";
+import { UserName } from "../../shell/lookup/UserName";
 
 /** One vehicle's route in stop order, with arrival and lateness per stop. */
 function RouteCard({ plan, index }: { plan: RoutePlan; index: number }) {
@@ -92,7 +93,7 @@ export function RoutePlanDetailPage() {
             { term: "Vehicles used", value: `${plan.routeCount} of ${plan.vehicleCount}` },
             { term: "Total distance", value: km(plan.totalDistanceKm) },
             { term: "Solver time", value: `${plan.timeLimitS} s` },
-            { term: "Planned by", value: plan.createdBy },
+            { term: "Planned by", value: <UserName id={plan.createdBy} /> },
             { term: "Planned", value: formatDateTime(plan.createdAt) },
             { term: "Request hash", value: plan.requestHash, mono: true },
           ]}

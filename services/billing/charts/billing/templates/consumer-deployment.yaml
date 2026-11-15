@@ -28,6 +28,12 @@ spec:
           secret:
             secretName: {{ required "consumer.kafka.secret is required" .Values.consumer.kafka.secret }}
             defaultMode: 0440
+        {{- if and .Values.closeUrl .Values.glProfiles .Values.serviceIdentity.signingKeySecret }}
+        - name: service-identity
+          secret:
+            secretName: {{ .Values.serviceIdentity.signingKeySecret }}
+            defaultMode: 0440
+        {{- end }}
       containers:
         - name: billing-consumer
           {{- if .Values.image.digest }}
@@ -59,6 +65,20 @@ spec:
               value: {{ .Values.consumer.icCharge.taxCode | quote }}
             - name: BILLING_IC_PAYMENT_TERM_DAYS
               value: {{ .Values.consumer.icCharge.paymentTermDays | quote }}
+            {{- if and .Values.closeUrl .Values.glProfiles }}
+            # Auto-posting an opted-in charge asks close for an open receivables period and reads the lender's ledger from the profiles.
+            {{- if not .Values.serviceIdentity.signingKeySecret }}
+            {{- fail "closeUrl and glProfiles on the consumer need serviceIdentity.signingKeySecret: the consumer signs its close calls" }}
+            {{- end }}
+            - name: BILLING_CLOSE_URL
+              value: {{ .Values.closeUrl | quote }}
+            - name: BILLING_GL_PROFILES
+              value: {{ .Values.glProfiles | toJson | quote }}
+            - name: PASSAGE_SERVICE_NAME
+              value: billing
+            - name: PASSAGE_SERVICE_SIGNING_KEY_FILE
+              value: /var/run/passage/service-identity/signing-key
+            {{- end }}
             - name: KAFKA_BROKERS
               value: {{ required "consumer.kafka.brokers is required" .Values.consumer.kafka.brokers | quote }}
             - name: KAFKA_GROUP
@@ -71,6 +91,9 @@ spec:
               value: /var/run/passage/kafka/ca.crt
           volumeMounts:
             - { name: kafka, mountPath: /var/run/passage/kafka, readOnly: true }
+            {{- if and .Values.closeUrl .Values.glProfiles .Values.serviceIdentity.signingKeySecret }}
+            - { name: service-identity, mountPath: /var/run/passage/service-identity, readOnly: true }
+            {{- end }}
           livenessProbe:
             httpGet: { path: /healthz, port: admin }
             initialDelaySeconds: 5

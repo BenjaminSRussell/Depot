@@ -1,4 +1,5 @@
 import { useRef, useState, type FormEvent } from "react";
+import { UserName } from "../../shell/lookup/UserName";
 import { useNavigate } from "react-router-dom";
 import { Alert, Button, Card, DataTable, FormField, Input, PageHeader, type DataTableColumn } from "../../shell/ui";
 import { describeProblem, exportPay, listPayExports, MAX_EXPORT_RANGE_DAYS, newKey, type PayExport, type Problem } from "./api/client";
@@ -11,7 +12,7 @@ const columns: DataTableColumn<PayExport>[] = [
   { key: "batchId", header: "Batch", mono: true, render: (row) => row.batchId.slice(0, 8) },
   { key: "range", header: "Work dates", render: (row) => `${row.fromDate} to ${row.toDate}` },
   { key: "lineCount", header: "Pay lines", align: "end" },
-  { key: "createdBy", header: "Exported by" },
+  { key: "createdBy", header: "Exported by", render: (row) => <UserName id={row.createdBy} /> },
   { key: "createdAt", header: "Exported", render: (row) => formatDateTime(row.createdAt) },
 ];
 

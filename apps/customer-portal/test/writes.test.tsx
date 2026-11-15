@@ -104,6 +104,27 @@ describe("placing an order", () => {
     expect(sent.body).not.toMatch(/customer|price|warehouse|site/i);
   });
 
+  it("orders a listed product it has not bought before, naming the unit and sending no price", async () => {
+    routes["GET /api/v1/products"] = { items: [], listed: [{ productId: VALVE, productName: "Gate valve" }] };
+    routes["POST /api/v1/orders"] = () => new Response(JSON.stringify(placed), { status: 201 });
+    routes["GET /api/v1/orders/" + ORDER_ID] = placed;
+    orderApp("/orders/new");
+    await screen.findByLabelText("Quantity 1");
+    expect(screen.getByRole("option", { name: "Gate valve" })).toBeInTheDocument();
+    await userEvent.type(screen.getByLabelText("Ship on"), "2099-01-02");
+    await userEvent.clear(screen.getByLabelText("Quantity 1"));
+    await userEvent.type(screen.getByLabelText("Quantity 1"), "5");
+    await userEvent.clear(screen.getByLabelText("Unit 1"));
+    await userEvent.click(screen.getByRole("button", { name: "Place the order" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Enter the unit");
+    await userEvent.type(screen.getByLabelText("Unit 1"), "ea");
+    await userEvent.click(screen.getByRole("button", { name: "Place the order" }));
+    await screen.findByText(/Your order SO-0000042 has been placed/);
+    const sent = calls.find((c) => c.method === "POST")!;
+    expect(JSON.parse(sent.body as string)).toEqual({ requestedShipDate: "2099-01-02", lines: [{ productId: VALVE, unit: "ea", quantity: "5" }] });
+    expect(sent.body).not.toMatch(/price|customer|warehouse|site/i);
+  });
+
   it("checks the date and the quantities before anything is sent", async () => {
     routes["GET /api/v1/products"] = products;
     orderApp("/orders/new");

@@ -6,6 +6,7 @@
 //	passage-ops break-glass open --reason <code> --ticket <ref> [--minutes N]
 //	passage-ops break-glass list|revoke|review ...
 //	passage-ops lag-report --region <name> [--once]
+//	passage-ops tenant provision|decommission --tenant <id> [--reason <text>] [--dry-run]
 //
 // A failover first asks the ops API to record it (fence and promote in the region table, OPS-1701/1702), then runs the
 // ordered infrastructure steps with the credentials of the machine it runs on and reports each step back. A rerun with the
@@ -33,7 +34,7 @@ func main() {
 
 func run(ctx context.Context, args []string, out io.Writer, getenv func(string) string, d deps) error {
 	if len(args) == 0 {
-		return errors.New("usage: passage-ops failover|break-glass|lag-report ... (see --help of each)")
+		return errors.New("usage: passage-ops failover|break-glass|lag-report|tenant ... (see --help of each)")
 	}
 	switch args[0] {
 	case "failover":
@@ -42,6 +43,8 @@ func run(ctx context.Context, args []string, out io.Writer, getenv func(string) 
 		return runBreakGlass(ctx, args[1:], out, getenv, d)
 	case "lag-report":
 		return runLagReport(ctx, args[1:], out, getenv, d)
+	case "tenant":
+		return runTenant(ctx, args[1:], out, getenv, d)
 	}
 	return fmt.Errorf("unknown command %q", args[0])
 }

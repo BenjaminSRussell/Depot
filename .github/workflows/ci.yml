@@ -458,6 +458,7 @@ jobs:
       - run: bash services/identity/charts/identity/test-networkpolicy.sh
       - run: bash services/batch/charts/batch/test-notify.sh
       - run: bash services/edi/charts/edi/test-as2.sh
+      - run: bash services/production/charts/production/test-image.sh
 
   # Cloud profile (#599 #600 #601): the profile table and its generated copies, every chart rendered under every
   # profile against the egress allowlist, the region pairs, the AKS module (providers mocked, no subscription), and the

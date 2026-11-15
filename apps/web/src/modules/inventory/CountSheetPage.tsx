@@ -20,6 +20,7 @@ import { Named } from "../purchasing/Named";
 import styles from "./pages.module.css";
 import { useLoad } from "./useLoad";
 import { ProblemMessage } from "../../shell/errors";
+import { UserName } from "../../shell/lookup/UserName";
 
 /** Inline count entry for one line; saves at the sheet version the screen holds. */
 function CountEntry({ sheet, line, onSaved, onError }: { sheet: CountSheet; line: CountLine; onSaved(next: CountSheet): void; onError(p: Problem): void }) {
@@ -318,11 +319,11 @@ export function CountSheetPage() {
           </Detail>
           <Detail term="Generated">{formatDateTime(sheet.createdAt)}</Detail>
           <Detail term="Posted">{formatDateTime(sheet.postedAt)}</Detail>
-          <Detail term="Submitted by" mono>
-            {sheet.submittedBy || dash}
+          <Detail term="Submitted by">
+            <UserName id={sheet.submittedBy} />
           </Detail>
-          <Detail term="Approved by" mono>
-            {sheet.approvedBy || dash}
+          <Detail term="Approved by">
+            <UserName id={sheet.approvedBy} />
           </Detail>
           <Detail term="Count journal" mono>
             {sheet.journalId || dash}

@@ -40,6 +40,11 @@ spec:
             {{- include "passage.cloudEnv" $ | nindent 12 }}
             - name: SERVICE_NAME
               value: pricing
+            - name: PASSAGE_SERVICE_NAME
+              value: pricing
+            {{- if .Values.serviceIdentity.publicKeys }}
+            - { name: PASSAGE_SERVICE_PUBLIC_KEYS, value: {{ .Values.serviceIdentity.publicKeys | quote }} }
+            {{- end }}
             - name: HTTP_ADDR
               value: ":{{ .Values.service.port }}"
             - name: ADMIN_ADDR

@@ -9,6 +9,7 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"path"
+	"strconv"
 	"strings"
 
 	"github.com/BenjaminSRussell/passage/platform/httpx"
@@ -28,6 +29,8 @@ type tokenClaims struct {
 	LegalEntity string `json:"le"`
 	Duties      string `json:"duties"`
 	Tier        string `json:"tier"`
+	// AuthTime is the Unix second the person last authenticated at (OIDC auth_time); a step-up reads it as X-Passage-Auth-Time.
+	AuthTime int64 `json:"auth_time"`
 }
 
 type selectionKey struct{}
@@ -43,14 +46,17 @@ type HealthFunc func() (ready bool, statuses []Status)
 // NewGateway builds the handler. web may be nil (API only). secret, when not empty, is added to every proxied request as
 // tenant.HeaderGatewaySecret; the children started with the same PASSAGE_GATEWAY_SECRET refuse identity headers without it, so only this
 // gateway can speak for a user on the loopback ports. features are the optional MSI features (node, python); the web app reads them
-// from /installation.json and hides the screens of a feature that is off.
-func NewGateway(guard Guard, upstreams map[string]*url.URL, web fs.FS, health HealthFunc, secret string, features map[string]bool) http.Handler {
+// from /installation.json and hides the screens of a feature that is off. forwardAuth names the routes whose service verifies the
+// bearer token itself (agents-ts): only those receive Authorization, and only after the guard has accepted it; for every other
+// route the header is removed.
+func NewGateway(guard Guard, upstreams map[string]*url.URL, web fs.FS, health HealthFunc, secret string, features map[string]bool, forwardAuth map[string]bool) http.Handler {
 	proxy := &httputil.ReverseProxy{
 		Rewrite: func(pr *httputil.ProxyRequest) {
-			target := upstreams[serviceOf(pr.In.URL.Path)]
+			route := serviceOf(pr.In.URL.Path)
+			target := upstreams[route]
 			pr.SetURL(target)
 			pr.Out.Host = target.Host
-			setIdentity(pr, secret)
+			setIdentity(pr, secret, forwardAuth[route])
 		},
 		ErrorHandler: func(w http.ResponseWriter, r *http.Request, _ error) {
 			httpx.Fail(w, r, httpx.NewProblem(http.StatusBadGateway, "GW-0502", "upstream service is unavailable"))
@@ -189,9 +195,11 @@ func stripIdentity(h http.Header) {
 
 // setIdentity runs inside Rewrite, after ReverseProxy has removed the hop-by-hop headers, so a client's Connection
 // header cannot name an identity header and have it dropped on the way to the service.
-func setIdentity(pr *httputil.ProxyRequest, secret string) {
+func setIdentity(pr *httputil.ProxyRequest, secret string, forwardAuth bool) {
 	stripIdentity(pr.Out.Header)
-	pr.Out.Header.Del("Authorization")
+	if !forwardAuth {
+		pr.Out.Header.Del("Authorization")
+	}
 	if secret != "" {
 		pr.Out.Header.Set(tenant.HeaderGatewaySecret, secret)
 	}
@@ -205,6 +213,9 @@ func setIdentity(pr *httputil.ProxyRequest, secret string) {
 	pr.Out.Header.Set(tenant.HeaderLegalEntity, claims.LegalEntity)
 	pr.Out.Header.Set(tenant.HeaderDuties, claims.Duties)
 	pr.Out.Header.Set(headerTier, claims.Tier)
+	if claims.AuthTime > 0 {
+		pr.Out.Header.Set(tenant.HeaderAuthTime, strconv.FormatInt(claims.AuthTime, 10))
+	}
 	selected, _ := pr.In.Context().Value(selectionKey{}).(selection)
 	if selected.legalEntity != "" {
 		pr.Out.Header.Set(tenant.HeaderWebLegalEntity, selected.legalEntity)

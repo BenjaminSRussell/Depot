@@ -94,10 +94,11 @@ describe("Edit worker", () => {
     fill("Name", " Ana Lee ");
     fill("Badge", "");
     fill("Cost rate per hour", "22.5");
+    fill("Time zone", "America/Chicago");
     fireEvent.click(screen.getByRole("button", { name: "Save worker" }));
     expect(await screen.findByText("Worker saved")).toBeInTheDocument();
     const [put] = sent("PUT", `/workers/${ANA}`);
-    expect(put.body).toEqual({ name: "Ana Lee", badgeId: null, userId: "ana@plant", costRate: "22.5", currency: "USD" });
+    expect(put.body).toEqual({ name: "Ana Lee", badgeId: null, userId: "ana@plant", costRate: "22.5", currency: "USD", timeZone: "America/Chicago" });
     expect(header(put, "If-Match")).toBe('"3"');
     expect(header(put, "Idempotency-Key")).toMatch(/^[0-9a-f-]{36}$/);
   });

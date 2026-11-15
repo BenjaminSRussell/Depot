@@ -2,8 +2,12 @@ package api
 
 import (
 	"net/http"
+	"strings"
+
+	"github.com/go-chi/chi/v5"
 
 	"github.com/BenjaminSRussell/passage/platform/httpx"
+	"github.com/BenjaminSRussell/passage/platform/ids"
 	"github.com/BenjaminSRussell/passage/services/shopfloor/internal/domain"
 	"github.com/BenjaminSRussell/passage/services/shopfloor/internal/store"
 )
@@ -46,6 +50,55 @@ func (a *API) putAndonSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.JSON(w, http.StatusOK, out)
+}
+
+// putAndonSiteSettings sets one site's own andon thresholds (#25): the machines of the site use them instead of the
+// tenant's, from the next machine event ingest and andon sweep.
+func (a *API) putAndonSiteSettings(w http.ResponseWriter, r *http.Request) {
+	if !validTenant(w, r) {
+		return
+	}
+	user, ok := authenticatedUser(w, r, "setting the andon thresholds of a site")
+	if !ok {
+		return
+	}
+	site := strings.ToLower(chi.URLParam(r, "siteId"))
+	if !ids.Valid(site) {
+		validationFailed(w, r, map[string]string{"siteId": "must be a UUID"})
+		return
+	}
+	var req domain.AndonSettings
+	if err := httpx.Decode(r, &req); err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+	if f := req.FieldErrors(); len(f) > 0 {
+		validationFailed(w, r, f)
+		return
+	}
+	out, err := a.store.PutAndonSiteSettings(r.Context(), site, req, user)
+	if err != nil {
+		a.fail(w, r, "put andon site settings", err)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, out)
+}
+
+// deleteAndonSiteSettings removes a site's own thresholds: its machines follow the tenant's again.
+func (a *API) deleteAndonSiteSettings(w http.ResponseWriter, r *http.Request) {
+	if !validTenant(w, r) {
+		return
+	}
+	site := strings.ToLower(chi.URLParam(r, "siteId"))
+	if !ids.Valid(site) {
+		validationFailed(w, r, map[string]string{"siteId": "must be a UUID"})
+		return
+	}
+	if err := a.store.DeleteAndonSiteSettings(r.Context(), site); err != nil {
+		a.fail(w, r, "delete andon site settings", err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 type andonClearRequest struct {

@@ -8,6 +8,7 @@ import styles from "./pages.module.css";
 import { useLoad } from "./useLoad";
 import { ProblemMessage } from "../../shell/errors";
 import { EntityName } from "../../shell/lookup/EntityName";
+import { UserName } from "../../shell/lookup/UserName";
 
 /** "kept", "gains 20", "loses 20": what the run does to a line's promised quantity. */
 export function lineEffect(line: BackorderRunLine): string {
@@ -86,8 +87,8 @@ export function BackorderRunDetailPage() {
     ["Promised after the run", run.allocated],
     ["Lines changed", `${run.changedCount} of ${lines.length}`],
     ["Lines deconfirmed", String(run.deconfirmedCount)],
-    ["Planned", `${formatDateTime(run.createdAt)} by ${run.createdBy}`],
-    ["Committed", run.committedAt ? `${formatDateTime(run.committedAt)} by ${run.committedBy ?? ""}` : dash],
+    ["Planned", <>{formatDateTime(run.createdAt)} by <UserName id={run.createdBy} /></>],
+    ["Committed", run.committedAt ? <>{formatDateTime(run.committedAt)} by <UserName id={run.committedBy} /></> : dash],
   ];
   const mono = new Set(["Product", "Site", "Warehouse"]);
   const stale = failure?.code === "SLS-0042";

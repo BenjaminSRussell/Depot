@@ -18,6 +18,7 @@ import { reply, route } from "../../backend";
 import { at, day, dec, filterBy, matchesQ, uid } from "../../store";
 import { setBackorderCount } from "./quotations";
 import { K, SALES_ACTOR, balanceOf, creditProfiles, customerById, evaluateCredit, exposureOf, itemById, orderNumber, orderSeq, orders, progress, r2, recordVersion, scheduleLines, versions } from "./model";
+import { userIdOf } from "../directory";
 
 const BASE = "/api/v1/sales";
 
@@ -187,7 +188,7 @@ route("POST", `${BASE}/orders/{id}/holds/{holdId}:release`, ({ params, headers }
   if (v !== undefined && v !== o.version) return stale();
   const hold = o.holds.find((h) => h.id === params.holdId && h.status === "ACTIVE");
   if (!hold) return reply.problem(404, "SLS-0404", "That hold is not active.");
-  const released: Hold = { ...hold, status: "RELEASED", releasedBy: SALES_ACTOR, releasedUntil: at(7) };
+  const released: Hold = { ...hold, status: "RELEASED", releasedBy: userIdOf(SALES_ACTOR), releasedUntil: at(7) };
   let next: Order = { ...o, holds: o.holds.map((h) => (h.id === hold.id ? released : h)), version: o.version + 1, updatedAt: at(0) };
   const blocked = next.holds.some((h) => h.status === "ACTIVE" && (h.holdType === "CREDIT" || h.holdType === "FRAUD"));
   const confirm = hold.holdType === "CREDIT" && (o.status === "DRAFT" || o.status === "OPEN") && !blocked;
@@ -207,7 +208,7 @@ route("POST", `${BASE}/orders/{id}/holds/{holdId}:reject`, ({ params, headers, b
     ...o,
     status: "CANCELLED",
     lines: o.lines.map((l) => ({ ...l, lineStatus: "CANCELLED" })),
-    holds: o.holds.map((h) => (h.id === params.holdId ? { ...h, status: "REJECTED", rejectedBy: SALES_ACTOR, rejectedAt: at(0), rejectionComment: comment } : h)),
+    holds: o.holds.map((h) => (h.id === params.holdId ? { ...h, status: "REJECTED", rejectedBy: userIdOf(SALES_ACTOR), rejectedAt: at(0), rejectionComment: comment } : h)),
     version: o.version + 1,
     updatedAt: at(0),
   };

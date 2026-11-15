@@ -171,6 +171,15 @@ spec:
         operations: [Create, Describe, Write, DescribeConfigs]
       - resource: {type: topic, name: passage.interco.reconciliation, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
+      # ops: one literal per AsyncAPI channel of services/ops/events/asyncapi.yaml (outbox-ops routes by aggregate type: failover, tenant, slo, license).
+      - resource: {type: topic, name: passage.ops.failover, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: passage.ops.tenant, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: passage.ops.slo, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: passage.ops.license, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
       - resource: {type: topic, name: passage-connect-, patternType: prefix}
         operations: [Create, Describe, Read, Write, DescribeConfigs]
       - resource: {type: group, name: passage-connect, patternType: literal}
@@ -859,6 +868,59 @@ spec:
     transforms.outbox.route.by.field: type
     transforms.outbox.route.topic.regex: 'dev\.passage\.(?<routedByValue>service\.workorder\.completed(?=\.v[0-9]+)|(?!service\.workorder\.completed\.v)(?:service|knowledge|case)\.[a-z][a-z0-9]*(?=\.[a-z][a-z0-9]*\.v[0-9]+))(?:\.[a-z][a-z0-9]*)?\.v[0-9]+'
     transforms.outbox.route.topic.replacement: passage.${routedByValue}
+    transforms.outbox.table.expand.json.payload: true
+    transforms.outbox.table.fields.additional.placement: tenant_id:header:tenantid
+    transforms.enrich.type: dev.passage.connect.cloudevents.CloudEventsEnricher
+    transforms.enrich.source.default: passage
+    transforms.enrich.dataschema.template: https://schemas.passage.dev/{type}.json
+    key.converter: org.apache.kafka.connect.storage.StringConverter
+    value.converter: org.apache.kafka.connect.json.JsonConverter
+    value.converter.schemas.enable: false
+    producer.override.acks: all
+    producer.override.enable.idempotence: true
+---
+# Ops' outbox carries four aggregate types that are its four channels in services/ops/events/asyncapi.yaml: failover
+# (failover.completed), tenant (tenant.provisioned), slo (slo.breached) and license (license.changed). They route by aggregate type to
+# passage.ops.<aggregate>, so no Filter SMT is needed; a fifth aggregate type needs its channel, its literal ACL on the debezium user
+# and a Filter SMT in front of enrich, as in outbox-budgeting (deploy/scripts/test_argocd_apps.py checks this).
+# snapshot.mode no_data: pgoutput streaming ignores RLS, so the CDC role needs neither BYPASSRLS nor a snapshot read of the forced-RLS outbox.
+# debezium_cdc_ops has REPLICATION; the ops database and that role are provisioned with the service's database. The outbox rows carry the
+# tenant they describe (the operator tenant for platform-wide events) as the tenantid header.
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaConnector
+metadata:
+  name: outbox-ops
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: passage-connect
+spec:
+  class: io.debezium.connector.postgresql.PostgresConnector
+  tasksMax: 1
+  config:
+    plugin.name: pgoutput
+    database.hostname: postgres.hello-ledger.svc
+    database.port: 5432
+    database.user: ${secrets:kafka/debezium-cdc-ops:username}
+    database.password: ${secrets:kafka/debezium-cdc-ops:password}
+    database.dbname: passage_ops
+    topic.prefix: passage.ops
+    slot.name: passage_outbox_ops
+    publication.name: passage_outbox_ops
+    publication.autocreate.mode: disabled
+    table.include.list: public.outbox
+    snapshot.mode: no_data
+    tombstones.on.delete: false
+    topic.creation.default.replication.factor: 3
+    topic.creation.default.partitions: 12
+    topic.creation.default.cleanup.policy: delete
+    topic.creation.default.retention.ms: 604800000
+    transforms: outbox,enrich
+    transforms.outbox.type: io.debezium.transforms.outbox.EventRouter
+    transforms.outbox.table.field.event.id: id
+    transforms.outbox.table.field.event.key: aggregate_id
+    transforms.outbox.table.field.event.payload: payload
+    transforms.outbox.route.by.field: aggregate_type
+    transforms.outbox.route.topic.replacement: passage.ops.${routedByValue}
     transforms.outbox.table.expand.json.payload: true
     transforms.outbox.table.fields.additional.placement: tenant_id:header:tenantid
     transforms.enrich.type: dev.passage.connect.cloudevents.CloudEventsEnricher

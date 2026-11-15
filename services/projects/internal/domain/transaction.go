@@ -126,26 +126,28 @@ func CheckCategory(found bool, category TxnType, t Transaction) error {
 // WBSNodeID when the transaction is recorded (node ids change when a working
 // plan's WBS is replaced; the code does not).
 type Transaction struct {
-	ID            string  `json:"id"`
-	ProjectID     string  `json:"projectId"`
-	WBSNodeID     *string `json:"wbsNodeId,omitempty"`
-	WBSCode       *string `json:"wbsCode,omitempty"`
-	TxnType       TxnType `json:"txnType"`
-	CategoryID    string  `json:"categoryId"`
-	LineProperty  string  `json:"lineProperty"`
-	TxnDate       string  `json:"txnDate"`
-	Quantity      string  `json:"quantity"`
-	CostPrice     string  `json:"costPrice"`
-	SalesPrice    string  `json:"salesPrice"`
-	Currency      string  `json:"currency"`
-	CostAmount    string  `json:"costAmount"`
-	SalesAmount   string  `json:"salesAmount"`
-	WorkerID      *string `json:"workerId,omitempty"`
-	ItemID        *string `json:"itemId,omitempty"`
-	VendorPartyID *string `json:"vendorPartyId,omitempty"`
-	SourceDocType string  `json:"sourceDocType"`
-	SourceDocID   *string `json:"sourceDocId,omitempty"`
-	Description   string  `json:"description"`
+	ID           string  `json:"id"`
+	ProjectID    string  `json:"projectId"`
+	WBSNodeID    *string `json:"wbsNodeId,omitempty"`
+	WBSCode      *string `json:"wbsCode,omitempty"`
+	TxnType      TxnType `json:"txnType"`
+	CategoryID   string  `json:"categoryId"`
+	LineProperty string  `json:"lineProperty"`
+	TxnDate      string  `json:"txnDate"`
+	Quantity     string  `json:"quantity"`
+	CostPrice    string  `json:"costPrice"`
+	SalesPrice   string  `json:"salesPrice"`
+	Currency     string  `json:"currency"`
+	CostAmount   string  `json:"costAmount"`
+	SalesAmount  string  `json:"salesAmount"`
+	WorkerID     *string `json:"workerId,omitempty"`
+	// WorkerLegalEntityID is the legal entity that employs the worker of an HOUR transaction, when the source knows it (#40).
+	WorkerLegalEntityID *string `json:"workerLegalEntityId,omitempty"`
+	ItemID              *string `json:"itemId,omitempty"`
+	VendorPartyID       *string `json:"vendorPartyId,omitempty"`
+	SourceDocType       string  `json:"sourceDocType"`
+	SourceDocID         *string `json:"sourceDocId,omitempty"`
+	Description         string  `json:"description"`
 	// JournalID is the ledger entry that holds the line's cost once POST /gl-postings has booked it (D2b).
 	JournalID  *string   `json:"journalId,omitempty"`
 	ProposalID *string   `json:"proposalId,omitempty"`
@@ -198,6 +200,9 @@ func ValidateTransaction(t Transaction) map[string]string {
 	checkPrice("salesPrice", t.SalesPrice, t.TxnType == TxnOnAccount)
 	if t.TxnType == TxnHour && t.WorkerID == nil {
 		f["workerId"] = "is required for an HOUR transaction"
+	}
+	if t.WorkerLegalEntityID != nil && t.TxnType != TxnHour {
+		f["workerLegalEntityId"] = "applies to an HOUR transaction only"
 	}
 	if t.TxnType == TxnItem && t.ItemID == nil {
 		f["itemId"] = "is required for an ITEM transaction"

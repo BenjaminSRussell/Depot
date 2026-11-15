@@ -56,6 +56,8 @@ upstream:
   productUrl: "http://product:8080"
   productionUrl: "http://production:8080"
   partyUrl: "http://party:8080"
+  # Prices a portal order for a product the customer has not bought before (pricing.price.resolve); empty keeps the reorder-only rule.
+  pricingUrl: "http://pricing:8080"
   billingUrl: "http://billing:8080"
   fulfillmentUrl: "http://fulfillment:8080"
   inventoryUrl: "http://inventory:8080"

@@ -49,6 +49,7 @@ import { billingReasonLabel, dash, linePropertyLabel, proposalStatusLabel, propo
 import styles from "./pages.module.css";
 import { useLoad, useMore, type MoreState } from "./useLoad";
 import { ProblemMessage } from "../../shell/errors";
+import { UserName } from "../../shell/lookup/UserName";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -664,7 +665,7 @@ export function ProposalsPage() {
     { key: "lineCount", header: "Lines", align: "end" },
     { key: "totalCost", header: "Cost", align: "end", mono: true },
     { key: "totalSales", header: "Sales", align: "end", mono: true, render: (p) => `${p.totalSales} ${p.currency}` },
-    { key: "createdBy", header: "Built by", mono: true },
+    { key: "createdBy", header: "Built by", render: (r) => <UserName id={r.createdBy} /> },
   ];
 
   return (
@@ -845,8 +846,8 @@ export function ProposalDetailPage() {
     ["Total cost", `${current.totalCost} ${current.currency}`, true],
     ["Total sales", `${current.totalSales} ${current.currency}`, true],
     ["Customer", current.customerPartyId ?? dash, true],
-    ["Built by", current.createdBy, true],
-    ["Approved by", current.approvedBy ?? dash, true],
+    ["Built by", <UserName id={current.createdBy} />],
+    ["Approved by", <UserName id={current.approvedBy} />],
     ["Version", current.version],
   ];
   const lineColumns: DataTableColumn<ProposalLine>[] = [

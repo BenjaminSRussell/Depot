@@ -628,7 +628,7 @@ paths:
                 orderId: { type: string, format: uuid }
                 customerId: { type: string, format: uuid }
                 currency: { type: string, pattern: "^[A-Z]{3}$" }
-                priceChange: { type: string, description: Signed, non-zero. }
+                priceChange: { type: string, description: "Signed, non-zero. A zero change (an SSP-only revision, which only re-allocates revenue) is 400 and creates no document." }
                 effectiveDate: { type: string, format: date }
                 reason: { type: string }
                 lines:
@@ -1123,6 +1123,62 @@ paths:
         "400": { $ref: "#/components/responses/Problem" }
         "401": { $ref: "#/components/responses/Problem" }
         "403": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Problem" }
+  /v1/billing/self-billed-invoices:
+    post:
+      operationId: postSelfBilledInvoice
+      summary: Post a matched self-billed document as the legal customer invoice (service only, #35 35-5)
+      x-passage-duty: billing.self-billed.post
+      description: >
+        Called by the EDI engine once a self-billing customer's document (an INVOIC 389 or X12 810) matched in full against the shipments we
+        notified. The customer must have a SELF_BILLED rule in force on `documentDate` (409 BIL-0152) and, when the document names an
+        agreement, that one (409 BIL-0153). The invoice is posted at once, as a SHIPMENT invoice of the customer, under the document's own
+        number (`documentNumber`, which the customer's agreement says is the invoice number) and not one drawn from billing's sequence, with the
+        tax each line states (the customer is the issuer, so the tax engine is not asked). The invoice number is `SB-<tail of the customer id>-<documentNumber>`, the customer's own number kept as `customerDocumentNumber`, so two customers' numbers never collide (409 BIL-0155 for a second document of one customer with the same number). The invoice date is the document date; the posting date is too when close says its receivables period is open, else today, the first open date, with `postingNote` saying so (409 BIL-0157 when both are closed, 503 BIL-0157 when close cannot be asked); a document dated after today is 422 BIL-0156. The due
+        date is `paymentTermDays` later. `invoice.posted` is enqueued in the same transaction, so receivables, the ledger and the tax report see it as
+        any posted invoice. `sourceRef` (the EDI document) is the idempotency key: the same document with the same content returns the posted
+        invoice (200, Idempotent-Replayed); with other content it is 409 BIL-0154. An invoice number already taken in the legal entity is refused.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [legalEntityId, customerId, sourceRef, documentNumber, documentDate, currency, lines]
+              properties:
+                legalEntityId: { type: string, format: uuid }
+                customerId: { type: string, format: uuid }
+                sourceRef: { type: string, maxLength: 200 }
+                documentNumber: { type: string, maxLength: 100 }
+                documentDate: { type: string, format: date }
+                agreementRef: { type: string }
+                currency: { type: string, pattern: '^[A-Z]{3}$' }
+                paymentTermDays: { type: integer, minimum: 0, maximum: 365 }
+                lines:
+                  type: array
+                  minItems: 1
+                  items:
+                    type: object
+                    additionalProperties: false
+                    required: [description, qty, unitPrice, tax, revenueAccount, taxCode]
+                    properties:
+                      description: { type: string, maxLength: 200 }
+                      qty: { type: string }
+                      unitPrice: { type: string }
+                      discountPct: { type: string }
+                      tax: { type: string, description: The tax amount the document states for the line. }
+                      revenueAccount: { type: string }
+                      taxCode: { type: string }
+                      orderId: { type: string, format: uuid }
+                      orderLineId: { type: string, format: uuid }
+                      productId: { type: string, format: uuid }
+      responses:
+        "200": { description: The document was posted before with this content., headers: { Idempotent-Replayed: { schema: { type: string, enum: ["true"] } }, ETag: { schema: { type: string } } }, content: { application/json: { schema: { $ref: "#/components/schemas/Invoice" } } } }
+        "201": { description: Posted., headers: { ETag: { schema: { type: string } } }, content: { application/json: { schema: { $ref: "#/components/schemas/Invoice" } } } }
+        "400": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
         "503": { $ref: "#/components/responses/Problem" }
   /v1/billing/customers/{customerId}/billing-rule:
     put:

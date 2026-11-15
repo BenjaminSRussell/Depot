@@ -8,6 +8,7 @@ import { adjustFx, type FxAdjustment } from "./api/registry";
 import { amount, isNonZero } from "./format";
 import { usePagedRows } from "./usePagedRows";
 import styles from "./pages.module.css";
+import { UserName } from "../../shell/lookup/UserName";
 
 const statusTone: Record<ReconStatus, BadgeTone> = { Matched: "success", Timing: "warning", Mismatch: "danger" };
 
@@ -138,7 +139,7 @@ export function ReconRunPage() {
           </span>
         ) : i.resolution === "resolved" ? (
           <span>
-            Resolved by {i.resolvedBy}: {i.note}
+            Resolved by <UserName id={i.resolvedBy} />: {i.note}
           </span>
         ) : (
           "Nothing to do"

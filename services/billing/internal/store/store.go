@@ -116,22 +116,26 @@ type Installment struct {
 
 // Invoice is a stored proposal or posted invoice.
 type Invoice struct {
-	ID               string
-	LegalEntityID    string
-	CustomerID       string
-	InvoiceAccountID string
-	Type             string
-	Status           string
-	Currency         string
-	Number           string
-	FiscalYear       int
-	InvoiceDate      time.Time
-	DueDate          time.Time
-	PostingDate      time.Time
-	PaymentTermDays  int
-	Totals           domain.Totals
-	Lines            []Line
-	Installments     []Installment
+	// CustomerDocumentNumber is the number the customer gave a self-billed document; PostingNote says why such an invoice was posted on
+	// another date than the customer's. They are set on the result of PostSelfBilled only.
+	CustomerDocumentNumber string
+	PostingNote            string
+	ID                     string
+	LegalEntityID          string
+	CustomerID             string
+	InvoiceAccountID       string
+	Type                   string
+	Status                 string
+	Currency               string
+	Number                 string
+	FiscalYear             int
+	InvoiceDate            time.Time
+	DueDate                time.Time
+	PostingDate            time.Time
+	PaymentTermDays        int
+	Totals                 domain.Totals
+	Lines                  []Line
+	Installments           []Installment
 	// OriginalInvoiceID, OriginalNumber and Reason are set on a credit note.
 	OriginalInvoiceID string
 	OriginalNumber    string

@@ -253,6 +253,13 @@ func TestPalletFromReceiptToPLCArrival(t *testing.T) {
 		t.Fatalf("orders after the arrival: %s", rec.Body)
 	}
 }
+func (f *fakeStore) ReassignWork(_ context.Context, _ store.Idem, in store.ReassignInput) (domain.Work, bool, error) {
+	f.reassigned = &in
+	return domain.Work{ID: in.WorkID, AssignedUser: in.ToUser, Status: domain.WorkInProgress}, false, f.err
+}
+func (f *fakeStore) GetAutomationOrder(_ context.Context, id string) (store.AutomationOrder, error) {
+	return store.AutomationOrder{ID: id, Status: store.OrderSent}, f.err
+}
 func (f *fakeStore) CancelAutomationOrder(context.Context, store.CancelInput) (store.AutomationOrder, error) {
 	return store.AutomationOrder{}, f.err
 }
@@ -261,6 +268,9 @@ func (f *fakeStore) CreateRFIDRule(_ context.Context, r store.RFIDRule) (store.R
 }
 func (f *fakeStore) ListRFIDRules(context.Context, string) ([]store.RFIDRule, error) {
 	return nil, f.err
+}
+func (f *fakeStore) UpdateRFIDRule(_ context.Context, _ string, r store.RFIDRule, _ int) (store.RFIDRule, error) {
+	return r, f.err
 }
 func (f *fakeStore) DeleteRFIDRule(context.Context, string) error { return f.err }
 
@@ -284,6 +294,13 @@ func TestRFIDRuleAndCancelRoutes_DutiesAndValidation(t *testing.T) {
 		"a rule needs its poster":          {req{method: "POST", path: "/v1/warehouse/rfid-rules", duties: dutySetupMaintain, body: `{"readerId":"dock-1","warehouseId":"` + id + `","action":"RECEIVE_PALLET"}`}, 400, "postedBy"},
 		"a put-away rule needs a location": {req{method: "POST", path: "/v1/warehouse/rfid-rules", duties: dutySetupMaintain, body: `{"readerId":"dock-1","warehouseId":"` + id + `","action":"CONFIRM_PUTAWAY","postedBy":"gw"}`}, 400, "locationCode"},
 		"a rule is created":                {req{method: "POST", path: "/v1/warehouse/rfid-rules", duties: dutySetupMaintain, body: `{"readerId":"dock-1","antenna":2,"warehouseId":"` + id + `","action":"CONFIRM_PUTAWAY","locationCode":"A-01","postedBy":"gw"}`}, 201, ""},
+		"an order is read":                 {req{method: "GET", path: "/v1/warehouse/automation/transport-orders/" + id, duties: dutyInquiry}, 200, ""},
+		"an order read needs a duty":       {req{method: "GET", path: "/v1/warehouse/automation/transport-orders/" + id, duties: dutySetupView}, 403, ""},
+		"an order with a bad id":           {req{method: "GET", path: "/v1/warehouse/automation/transport-orders/x", duties: dutyInquiry}, 404, ""},
+		"a rule is edited":                 {req{method: "PUT", path: "/v1/warehouse/rfid-rules/" + id, duties: dutySetupMaintain, body: `{"readerId":"dock-1","warehouseId":"` + id + `","action":"RECEIVE_PALLET","postedBy":"gw"}`}, 200, ""},
+		"editing needs setup maintain":     {req{method: "PUT", path: "/v1/warehouse/rfid-rules/" + id, duties: dutySetupView, body: `{"readerId":"dock-1","warehouseId":"` + id + `","action":"RECEIVE_PALLET","postedBy":"gw"}`}, 403, ""},
+		"an edit is validated":             {req{method: "PUT", path: "/v1/warehouse/rfid-rules/" + id, duties: dutySetupMaintain, body: `{"readerId":"dock-1","action":"SHIP"}`}, 400, "action"},
+		"editing a bad id is not found":    {req{method: "PUT", path: "/v1/warehouse/rfid-rules/x", duties: dutySetupMaintain, body: `{}`}, 404, ""},
 		"a rule is deleted":                {req{method: "DELETE", path: "/v1/warehouse/rfid-rules/" + id, duties: dutySetupMaintain}, 204, ""},
 		"deleting needs setup maintain":    {req{method: "DELETE", path: "/v1/warehouse/rfid-rules/" + id, duties: dutySetupView}, 403, ""},
 		"a bad rule id is not found":       {req{method: "DELETE", path: "/v1/warehouse/rfid-rules/x", duties: dutySetupMaintain}, 404, ""},
@@ -630,5 +647,193 @@ func TestRFIDPutawayHeldByAPersonAndRefusedConfirmation(t *testing.T) {
 	rec = call(h, req{method: "GET", path: "/v1/warehouse/rfid-reads?key=" + b.Key, duties: all})
 	if !strings.Contains(rec.Body.String(), `"actionOutcome":"REFUSED"`) {
 		t.Fatalf("the refused read is kept with its outcome: %s", rec.Body)
+	}
+}
+
+func TestReassignRoute_DutyAndValidation(t *testing.T) {
+	workID := ids.New()
+	path := "/v1/warehouse/work/" + workID + ":reassign"
+	body := `{"toUser":"mia.ortiz","reason":"PLC fault at infeed"}`
+	cases := []struct {
+		name   string
+		req    req
+		status int
+		field  string
+	}{
+		{"needs the supervise duty", req{method: "POST", path: path, duties: dutyWorkExecute, key: "k", body: body, user: "sup"}, 403, ""},
+		{"needs the idempotency key", req{method: "POST", path: path, duties: dutyWorkSupervise, body: body, user: "sup"}, 400, headerKey},
+		{"needs a person", req{method: "POST", path: path, duties: dutyWorkSupervise, key: "k", body: `{"toUser":"","reason":"x"}`, user: "sup"}, 400, "toUser"},
+		{"not a station", req{method: "POST", path: path, duties: dutyWorkSupervise, key: "k", body: `{"toUser":"automation:PLC","reason":"x"}`, user: "sup"}, 400, "toUser"},
+		{"not a reader", req{method: "POST", path: path, duties: dutyWorkSupervise, key: "k", body: `{"toUser":"rfid:DOCK","reason":"x"}`, user: "sup"}, 400, "toUser"},
+		{"needs a reason", req{method: "POST", path: path, duties: dutyWorkSupervise, key: "k", body: `{"toUser":"mia.ortiz","reason":" "}`, user: "sup"}, 400, "reason"},
+		{"id is a uuid", req{method: "POST", path: "/v1/warehouse/work/nope:reassign", duties: dutyWorkSupervise, key: "k", body: body, user: "sup"}, 400, "id"},
+		{"needs the calling user", req{method: "POST", path: path, duties: dutyWorkSupervise, key: "k", body: body, user: "-"}, 400, "X-Passage-User"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			rec := call(persistedRouter(&fakeStore{}), c.req)
+			if rec.Code != c.status || (c.field != "" && !strings.Contains(rec.Body.String(), c.field)) {
+				t.Fatalf("%d %s", rec.Code, rec.Body)
+			}
+		})
+	}
+	fake := &fakeStore{}
+	rec := call(persistedRouter(fake), req{method: "POST", path: path, duties: dutyWorkSupervise, key: "k", body: body, user: "sup"})
+	if rec.Code != 200 || fake.reassigned == nil || fake.reassigned.ToUser != "mia.ortiz" || fake.reassigned.By != "sup" || fake.reassigned.Reason != "PLC fault at infeed" {
+		t.Fatalf("reassign: %d %s %+v", rec.Code, rec.Body, fake.reassigned)
+	}
+	fake = &fakeStore{err: &domain.Error{Code: store.CodeNotAutomationWork, Detail: "not held by a station"}}
+	if rec := call(persistedRouter(fake), req{method: "POST", path: path, duties: dutyWorkSupervise, key: "k", body: body, user: "sup"}); rec.Code != 409 || problemOf(t, rec).Code != store.CodeNotAutomationWork {
+		t.Fatalf("a work no station holds: %d %s", rec.Code, rec.Body)
+	}
+}
+
+// After a fault a work a station already confirmed a line of is IN_PROGRESS and stays with the station (BR-31.3); a
+// supervisor hands it to a person, who then confirms the rest.
+func TestReassignWorkAfterAnAutomationFault(t *testing.T) {
+	pool := testkit.DB(t)
+	if err := dbx.Migrate(context.Background(), pool, migrations.FS); err != nil {
+		t.Fatal(err)
+	}
+	h := persistedRouter(store.New(pool))
+	wh := ids.New()
+	all := strings.Join([]string{dutySetupMaintain, dutySetupView, dutyReceive, dutyInquiry, dutyWorkSupervise, dutyWorkExecute, dutyAutomation}, ",")
+	post := func(path, key, body, user string) *httptest.ResponseRecorder {
+		return call(h, req{method: "POST", path: path, duties: all, key: key, body: body, user: user})
+	}
+	if rec := post("/v1/warehouse/locations:bulk", "l1", `{"warehouseId":"`+wh+`","locations":[{"name":"ASRS-01","zone":"A","capacity":{"allowMixedItems":true}}]}`, ""); rec.Code != 201 {
+		t.Fatalf("locations: %d %s", rec.Code, rec.Body)
+	}
+	if rec := post("/v1/warehouse/location-directives", "d1", `{"warehouseId":"`+wh+`","sequence":10,"workType":"PURCHASE_PUTAWAY","direction":"PUT","lines":[{"seq":1,"fromQty":"0","actions":[{"seq":1,"strategy":"consolidate","zone":"A"}]}]}`, ""); rec.Code != 201 {
+		t.Fatalf("directive: %d %s", rec.Code, rec.Body)
+	}
+	tag, _ := domain.EncodeEPC96(0x31, 3, "0614141", "1000000099", nil)
+	pallet, _ := domain.DecodeEPC(tag)
+	rec := post("/v1/warehouse/work", "w1", `{"warehouseId":"`+wh+`","workType":"PURCHASE_PUTAWAY","lines":[{"itemId":"PUMP","direction":"PUT","qty":"1"},{"itemId":"PUMP","direction":"PUT","qty":"1"}]}`, "")
+	var planned store.Planned
+	if err := json.Unmarshal(rec.Body.Bytes(), &planned); err != nil || rec.Code != 201 || len(planned.Work.Lines) != 2 {
+		t.Fatalf("work: %d %s", rec.Code, rec.Body)
+	}
+	workID := planned.Work.ID
+	orderPath := "/v1/warehouse/automation/transport-orders"
+	order := func(line int) store.AutomationOrder {
+		t.Helper()
+		rec := post(orderPath, "", fmt.Sprintf(`{"workId":%q,"lineNo":%d,"station":"PLC","fromLocation":"INFEED-1","loadUnit":%q}`, workID, line, pallet.Key), "")
+		var o store.AutomationOrder
+		if err := json.Unmarshal(rec.Body.Bytes(), &o); err != nil || rec.Code != 201 {
+			t.Fatalf("order: %d %s", rec.Code, rec.Body)
+		}
+		return o
+	}
+	getWork := func() domain.Work {
+		t.Helper()
+		var w domain.Work
+		rec := call(h, req{method: "GET", path: "/v1/warehouse/work/" + workID, duties: all})
+		_ = json.Unmarshal(rec.Body.Bytes(), &w)
+		return w
+	}
+	reassign := func(key, body string) *httptest.ResponseRecorder {
+		return post("/v1/warehouse/work/"+workID+":reassign", key, body, "super")
+	}
+	body := `{"toUser":"mia.ortiz","reason":"PLC fault at infeed"}`
+
+	// A work still OPEN is held by nobody: nothing to take over.
+	if rec := reassign("r0", body); rec.Code != 409 || problemOf(t, rec).Code != store.CodeNotAutomationWork {
+		t.Fatalf("an unheld work: %d %s", rec.Code, rec.Body)
+	}
+	// Line 1 arrives: the station confirms it and the work is IN_PROGRESS with line 2 open.
+	first := order(1)
+	if rec := call(h, req{method: "POST", path: orderPath + "/" + first.ID + ":report", duties: all, body: `{"status":"SENT"}`}); rec.Code != 200 {
+		t.Fatalf("report: %d %s", rec.Code, rec.Body)
+	}
+	ev := `{"station":"PLC","events":[{"kind":"arrived","session":"s1","seq":1,"loadUnit":"` + pallet.Key + `","location":"` + first.ToLocation + `","at":"2026-10-27T10:00:00Z"}]}`
+	if rec := call(h, req{method: "POST", path: "/v1/warehouse/automation/events", duties: all, body: ev}); rec.Code != 200 {
+		t.Fatalf("arrival: %d %s", rec.Code, rec.Body)
+	}
+	if w := getWork(); w.Status != domain.WorkInProgress || w.AssignedUser != "automation:PLC" || w.Lines[1].Status != domain.LineOpen {
+		t.Fatalf("work after line 1: %s %s %+v", w.Status, w.AssignedUser, w.Lines)
+	}
+	// Line 2 is given to the PLC; while that order is with the PLC the work cannot go to a person.
+	second := order(2)
+	if rec := reassign("r1", body); rec.Code != 409 || problemOf(t, rec).Code != store.CodeAutoOrderState {
+		t.Fatalf("reassign with a live order: %d %s", rec.Code, rec.Body)
+	}
+	if rec := post(orderPath+"/"+second.ID+":cancel", "", `{"reason":"jam at infeed","plcCleared":true}`, "super"); rec.Code != 200 {
+		t.Fatalf("cancel: %d %s", rec.Code, rec.Body)
+	}
+	var got store.AutomationOrder
+	if rec := call(h, req{method: "GET", path: orderPath + "/" + second.ID, duties: dutyInquiry}); rec.Code != 200 || json.Unmarshal(rec.Body.Bytes(), &got) != nil || got.Status != store.OrderCancelled || got.ID != second.ID {
+		t.Fatalf("read the order: %d %s", rec.Code, rec.Body)
+	}
+	if rec := call(h, req{method: "GET", path: orderPath + "/" + ids.New(), duties: dutyInquiry}); rec.Code != 404 {
+		t.Fatalf("read an unknown order: %d %s", rec.Code, rec.Body)
+	}
+	before := getWork()
+	if rec := call(h, req{method: "POST", path: "/v1/warehouse/work/" + workID + ":reassign", duties: all, key: "r2", body: body, user: "super", ifMatch: "999"}); rec.Code != 409 || problemOf(t, rec).Code != codeVersionConflict {
+		t.Fatalf("stale If-Match: %d %s", rec.Code, rec.Body)
+	}
+	rec = reassign("r3", body)
+	var w domain.Work
+	if err := json.Unmarshal(rec.Body.Bytes(), &w); err != nil || rec.Code != 200 {
+		t.Fatalf("reassign: %d %s", rec.Code, rec.Body)
+	}
+	if w.Status != domain.WorkInProgress || w.AssignedUser != "mia.ortiz" || w.Version <= before.Version || w.Lines[0].Status != domain.LineCompleted ||
+		!strings.Contains(w.Lines[1].Reason, "taken over from PLC by super: PLC fault at infeed") {
+		t.Fatalf("after the reassign: %s %q v%d %+v", w.Status, w.AssignedUser, w.Version, w.Lines)
+	}
+	// The same key replays; the person now holds the work and confirms line 2; the station no longer does.
+	if rec := reassign("r3", body); rec.Code != 200 || rec.Header().Get("Idempotent-Replayed") != "true" {
+		t.Fatalf("replay: %d %s", rec.Code, rec.Body)
+	}
+	if rec := reassign("r4", body); rec.Code != 409 || problemOf(t, rec).Code != store.CodeNotAutomationWork {
+		t.Fatalf("a work a person holds: %d %s", rec.Code, rec.Body)
+	}
+	if rec := call(h, req{method: "POST", path: "/v1/warehouse/work/" + workID + "/lines/2:confirm", duties: all, key: "c1", body: `{"qty":"1"}`, user: "mia.ortiz"}); rec.Code != 200 {
+		t.Fatalf("the person confirms line 2: %d %s", rec.Code, rec.Body)
+	}
+	if w := getWork(); w.Status != domain.WorkCompleted {
+		t.Fatalf("work after the person finished it: %s", w.Status)
+	}
+}
+
+// An RFID rule is edited in place: another rule on the same reader, antenna and action is a conflict, a rule that does
+// not exist is 404, and the edit keeps who created the rule.
+func TestRFIDRuleEdit(t *testing.T) {
+	pool := testkit.DB(t)
+	if err := dbx.Migrate(context.Background(), pool, migrations.FS); err != nil {
+		t.Fatal(err)
+	}
+	h := persistedRouter(store.New(pool))
+	wh := ids.New()
+	rule := func(reader, action, loc string) string {
+		return `{"readerId":"` + reader + `","warehouseId":"` + wh + `","action":"` + action + `","locationCode":"` + loc + `","postedBy":"gw"}`
+	}
+	create := func(body string) store.RFIDRule {
+		t.Helper()
+		rec := call(h, req{method: "POST", path: "/v1/warehouse/rfid-rules", duties: dutySetupMaintain, body: body, user: "admin"})
+		var r store.RFIDRule
+		if err := json.Unmarshal(rec.Body.Bytes(), &r); err != nil || rec.Code != 201 {
+			t.Fatalf("create: %d %s", rec.Code, rec.Body)
+		}
+		return r
+	}
+	a := create(rule("dock-1", "RECEIVE_PALLET", ""))
+	b := create(rule("dock-2", "RECEIVE_PALLET", ""))
+	rec := call(h, req{method: "PUT", path: "/v1/warehouse/rfid-rules/" + a.ID, duties: dutySetupMaintain, body: rule("dock-1", "CONFIRM_PUTAWAY", "A-01"), user: "editor", ifMatch: "1"})
+	var got store.RFIDRule
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil || rec.Code != 200 || got.Action != "CONFIRM_PUTAWAY" || got.LocationCode != "A-01" || got.CreatedBy != "admin" || got.ID != a.ID {
+		t.Fatalf("edit: %d %s", rec.Code, rec.Body)
+	}
+	if rec := call(h, req{method: "PUT", path: "/v1/warehouse/rfid-rules/" + a.ID, duties: dutySetupMaintain, body: rule("dock-1", "CONFIRM_PUTAWAY", "A-02"), user: "other", ifMatch: "1"}); rec.Code != 409 || problemOf(t, rec).Code != codeVersionConflict {
+		t.Fatalf("a stale edit: %d %s", rec.Code, rec.Body)
+	}
+	if got.Version != 2 || got.UpdatedBy != "editor" || got.UpdatedAt == nil {
+		t.Fatalf("version and editor: %+v", got)
+	}
+	if rec := call(h, req{method: "PUT", path: "/v1/warehouse/rfid-rules/" + b.ID, duties: dutySetupMaintain, body: rule("dock-1", "CONFIRM_PUTAWAY", "A-01"), user: "editor"}); rec.Code != 409 || problemOf(t, rec).Code != store.CodeRFIDRuleExists {
+		t.Fatalf("a second rule for the reader and action: %d %s", rec.Code, rec.Body)
+	}
+	if rec := call(h, req{method: "PUT", path: "/v1/warehouse/rfid-rules/" + ids.New(), duties: dutySetupMaintain, body: rule("dock-3", "RECEIVE_PALLET", ""), user: "editor"}); rec.Code != 404 {
+		t.Fatalf("an unknown rule: %d %s", rec.Code, rec.Body)
 	}
 }

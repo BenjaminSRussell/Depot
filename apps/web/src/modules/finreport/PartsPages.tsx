@@ -4,12 +4,13 @@ import { listColumnSets, listColumnTemplates, listRowSets, listTrees, type Colum
 import styles from "./pages.module.css";
 import { useLoad } from "./useLoad";
 import { ProblemMessage } from "../../shell/errors";
+import { UserName } from "../../shell/lookup/UserName";
 
 const rowSetColumns: DataTableColumn<RowSet>[] = [
   { key: "code", header: "Code", mono: true },
   { key: "name", header: "Name" },
   { key: "rows", header: "Rows", mono: true, align: "end", render: (s) => String(s.rows.length) },
-  { key: "updatedBy", header: "Last edited by", mono: true, render: (s) => s.updatedBy ?? "—" },
+  { key: "updatedBy", header: "Last edited by", render: (s) => <UserName id={s.updatedBy} /> },
 ];
 
 const columnSetColumns: DataTableColumn<ColumnSet>[] = [
@@ -24,7 +25,7 @@ const treeColumns: DataTableColumn<Tree>[] = [
   { key: "name", header: "Name" },
   { key: "attribute", header: "Dimension", mono: true },
   { key: "units", header: "Units", mono: true, align: "end", render: (t) => String(t.units.length) },
-  { key: "updatedBy", header: "Last edited by", mono: true, render: (t) => t.updatedBy ?? "—" },
+  { key: "updatedBy", header: "Last edited by", render: (t) => <UserName id={t.updatedBy} /> },
 ];
 
 /** Reporting trees (FR-15.4): reporting units with roll-up that a statement run can be limited to. */

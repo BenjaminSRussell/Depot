@@ -33,7 +33,9 @@ const (
 	dutyImportRead = "party.import.read"
 	// dutyVendorLookup is the one read a vendor-checking service (payables) needs: a vendor role by id, nothing else.
 	dutyVendorLookup = "party.vendor.lookup"
-	codeInvalid      = "PTY-0001"
+	// dutyCustomerLookup is the customer counterpart: intercompany checks that a pairing's customer account exists.
+	dutyCustomerLookup = "party.customer.lookup"
+	codeInvalid        = "PTY-0001"
 )
 
 var reportedStatuses = []domain.Status{domain.StatusValid, domain.StatusInvalid, domain.StatusUnverified, domain.StatusFormatOnly}
@@ -54,6 +56,7 @@ type API struct {
 	portal    store.PortalStore
 	setup     store.SetupStore
 	merges    MergeStore
+	taxRegs   store.TaxRegistrationStore
 	search    store.SearchStore
 	sequence  Sequencer
 
@@ -131,6 +134,9 @@ func (a *API) Register(r chi.Router) {
 	}
 	if a.merges != nil {
 		a.registerMerge(r)
+	}
+	if a.taxRegs != nil {
+		a.registerTaxRegistrations(r)
 	}
 	if a.search != nil {
 		a.registerSearch(r)

@@ -67,7 +67,6 @@ func TestHandleExpenseReportApproved_OneOpenItemPerReportFromTheEventAmount(t *t
 func TestHandleExpenseReportApproved_RejectsInvalidEvents(t *testing.T) {
 	s := setup(t)
 	cases := map[string]func(*reimbursement.ReportApproved){
-		"zero amount":     func(d *reimbursement.ReportApproved) { d.Amount = "0" },
 		"negative amount": func(d *reimbursement.ReportApproved) { d.Amount = "-5" },
 		"bad amount":      func(d *reimbursement.ReportApproved) { d.Amount = "abc" },
 		"bad date":        func(d *reimbursement.ReportApproved) { d.ApprovedOn = "03/10/2027" },
@@ -82,6 +81,14 @@ func TestHandleExpenseReportApproved_RejectsInvalidEvents(t *testing.T) {
 	wrong, _ := events.New(InvoicePostedType, "x", reportID, testkit.TenantID(1), map[string]string{})
 	if err := HandleExpenseReportApproved(context.Background(), s, wrong); !errors.Is(err, ErrInvalidEvent) {
 		t.Errorf("wrong type: err = %v", err)
+	}
+}
+
+// A report with nothing to reimburse that only carries charged lines (#40) is for intercompany: payables ignores it and opens no item.
+func TestHandleExpenseReportApproved_IgnoresAZeroAmountReport(t *testing.T) {
+	s := setup(t)
+	if err := HandleExpenseReportApproved(context.Background(), s, approvedEvent(t, func(d *reimbursement.ReportApproved) { d.Amount = "0.00" })); err != nil {
+		t.Fatalf("zero amount = %v; want it ignored", err)
 	}
 }
 

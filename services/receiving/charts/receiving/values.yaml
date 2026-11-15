@@ -12,6 +12,7 @@ serviceUrls:
   purchasing: ""
   inventory: ""
   party: ""
+  product: ""   # with party, receipt.posted carries Intrastat data (#13); the product service must list receiving's public key
   org: ""
   tax: ""
   compliance: ""

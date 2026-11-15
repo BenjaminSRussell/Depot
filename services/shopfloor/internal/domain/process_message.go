@@ -111,6 +111,10 @@ type NewMessage struct {
 	PhasePath       string
 	OccurredAt      time.Time
 	Values          []Characteristic
+	// SignerUser and SignerAuthTime are set by the service, never by the client: the signed-in person behind a signature and
+	// the time that person authenticated at (the token's auth_time).
+	SignerUser     string
+	SignerAuthTime *time.Time
 }
 
 // FieldErrors checks the shape of a message. Keys are JSON field names.

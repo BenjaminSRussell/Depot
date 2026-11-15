@@ -1,6 +1,7 @@
 // Shop floor time and attendance (/api/v1/shopfloor) for the demo: workers, registrations, worker-days and their
 // approval, supervisor corrections, auto clock-outs, who is clocked in and the payroll export. The workers are the
 // hourly staff of hr/people.ts, so the HR screens and the time screens name the same people.
+import { byUsername, ME } from "../finance/people";
 import type {
   AbsenceCode,
   ApprovedDay,
@@ -24,6 +25,7 @@ import { resourceByCode } from "../../company";
 import { at, day, dec, table, uid } from "../../store";
 import { FLOOR, displayName, partyIdOf, personById, type Person } from "../hr/people";
 import { jobs } from "./shopfloor";
+import { userIdOf } from "../directory";
 
 const BASE = "/api/v1/shopfloor";
 const KIND_REG = 234;
@@ -34,26 +36,27 @@ const KIND_AGREEMENT = 238;
 const KIND_ABSENCE_CODE = 239;
 const HOUR = 3_600_000;
 const SUPERVISOR = "Tom Brennan";
-const PAYROLL = "Rachel Osei";
+// Created by user ids: the pages resolve them to names through the user lookup.
+const PAYROLL = byUsername("rita.alvarez").id;
 
 // --- Setup: time profiles, pay agreements, absence codes ---
 
 const weekday = (start: string, end: string) => ({ dayType: "weekday" as const, shiftStart: start, shiftEnd: end, breaks: [{ from: start === "06:00" ? "10:00" : "18:00", to: start === "06:00" ? "10:30" : "18:30" }], roundingMinutes: 6, toleranceBeforeMin: 10, toleranceAfterMin: 10, flexAllowed: false });
 const weekend = (dayType: "saturday" | "sunday") => ({ dayType, shiftStart: null, shiftEnd: null, breaks: [], roundingMinutes: 6, toleranceBeforeMin: 0, toleranceAfterMin: 0, flexAllowed: false });
 const profiles: TimeProfile[] = [
-  { id: uid(KIND_PROFILE, 1), code: "DAY-1", name: "First shift, 06:00 to 14:30", active: true, version: 2, days: [weekday("06:00", "14:30"), weekend("saturday"), weekend("sunday")], createdBy: PAYROLL, createdAt: at(-420), updatedAt: at(-90) },
-  { id: uid(KIND_PROFILE, 2), code: "SWING", name: "Second shift, 14:00 to 22:30", active: true, version: 1, days: [weekday("14:00", "22:30"), weekend("saturday"), weekend("sunday")], createdBy: PAYROLL, createdAt: at(-420), updatedAt: at(-420) },
-  { id: uid(KIND_PROFILE, 3), code: "PART-AM", name: "Part time mornings, 06:00 to 11:00", active: true, version: 1, days: [{ ...weekday("06:00", "11:00"), breaks: [] }, weekend("saturday"), weekend("sunday")], createdBy: PAYROLL, createdAt: at(-230), updatedAt: at(-230) },
+  { id: uid(KIND_PROFILE, 1), code: "DAY-1", name: "First shift, 06:00 to 14:30", active: true, version: 2, days: [weekday("06:00", "14:30"), weekend("saturday"), weekend("sunday")], createdBy: userIdOf(PAYROLL), createdAt: at(-420), updatedAt: at(-90) },
+  { id: uid(KIND_PROFILE, 2), code: "SWING", name: "Second shift, 14:00 to 22:30", active: true, version: 1, days: [weekday("14:00", "22:30"), weekend("saturday"), weekend("sunday")], createdBy: userIdOf(PAYROLL), createdAt: at(-420), updatedAt: at(-420) },
+  { id: uid(KIND_PROFILE, 3), code: "PART-AM", name: "Part time mornings, 06:00 to 11:00", active: true, version: 1, days: [{ ...weekday("06:00", "11:00"), breaks: [] }, weekend("saturday"), weekend("sunday")], createdBy: userIdOf(PAYROLL), createdAt: at(-230), updatedAt: at(-230) },
 ];
 const agreements: PayAgreement[] = [
-  { id: uid(KIND_AGREEMENT, 1), code: "HOURLY-IA", name: "Iowa hourly production staff", dailyThreshold: "8.00", weeklyThreshold: "40.00", overtimeMultiplier: "1.50", sundayMultiplier: "2.00", weekStart: 1, shiftPremiums: [{ name: "Second shift", from: "18:00", to: "22:30", premium: "0.10" }], active: true, version: 3, createdBy: PAYROLL, createdAt: at(-700), updatedAt: at(-60) },
-  { id: uid(KIND_AGREEMENT, 2), code: "MAINT-IA", name: "Maintenance on call", dailyThreshold: "8.00", weeklyThreshold: "40.00", overtimeMultiplier: "1.50", sundayMultiplier: "2.00", weekStart: 1, shiftPremiums: [{ name: "Night call-out", from: "22:00", to: "06:00", premium: "0.25" }], active: true, version: 1, createdBy: PAYROLL, createdAt: at(-700), updatedAt: at(-700) },
+  { id: uid(KIND_AGREEMENT, 1), code: "HOURLY-IA", name: "Iowa hourly production staff", dailyThreshold: "8.00", weeklyThreshold: "40.00", overtimeMultiplier: "1.50", sundayMultiplier: "2.00", weekStart: 1, shiftPremiums: [{ name: "Second shift", from: "18:00", to: "22:30", premium: "0.10" }], active: true, version: 3, createdBy: userIdOf(PAYROLL), createdAt: at(-700), updatedAt: at(-60) },
+  { id: uid(KIND_AGREEMENT, 2), code: "MAINT-IA", name: "Maintenance on call", dailyThreshold: "8.00", weeklyThreshold: "40.00", overtimeMultiplier: "1.50", sundayMultiplier: "2.00", weekStart: 1, shiftPremiums: [{ name: "Night call-out", from: "22:00", to: "06:00", premium: "0.25" }], active: true, version: 1, createdBy: userIdOf(PAYROLL), createdAt: at(-700), updatedAt: at(-700) },
 ];
 const absenceCodes: AbsenceCode[] = [
-  { id: uid(KIND_ABSENCE_CODE, 1), code: "SICK", name: "Sick leave", paid: true, payMultiplier: "1", active: true, version: 1, createdBy: PAYROLL, createdAt: at(-700), updatedAt: at(-700) },
-  { id: uid(KIND_ABSENCE_CODE, 2), code: "VAC", name: "Vacation", paid: true, payMultiplier: "1", active: true, version: 1, createdBy: PAYROLL, createdAt: at(-700), updatedAt: at(-700) },
-  { id: uid(KIND_ABSENCE_CODE, 3), code: "TRAIN", name: "Training", paid: true, payMultiplier: "1", active: true, version: 1, createdBy: PAYROLL, createdAt: at(-400), updatedAt: at(-400) },
-  { id: uid(KIND_ABSENCE_CODE, 4), code: "UNPAID", name: "Unpaid leave", paid: false, payMultiplier: "0", active: true, version: 1, createdBy: PAYROLL, createdAt: at(-700), updatedAt: at(-700) },
+  { id: uid(KIND_ABSENCE_CODE, 1), code: "SICK", name: "Sick leave", paid: true, payMultiplier: "1", active: true, version: 1, createdBy: userIdOf(PAYROLL), createdAt: at(-700), updatedAt: at(-700) },
+  { id: uid(KIND_ABSENCE_CODE, 2), code: "VAC", name: "Vacation", paid: true, payMultiplier: "1", active: true, version: 1, createdBy: userIdOf(PAYROLL), createdAt: at(-700), updatedAt: at(-700) },
+  { id: uid(KIND_ABSENCE_CODE, 3), code: "TRAIN", name: "Training", paid: true, payMultiplier: "1", active: true, version: 1, createdBy: userIdOf(PAYROLL), createdAt: at(-400), updatedAt: at(-400) },
+  { id: uid(KIND_ABSENCE_CODE, 4), code: "UNPAID", name: "Unpaid leave", paid: false, payMultiplier: "0", active: true, version: 1, createdBy: userIdOf(PAYROLL), createdAt: at(-700), updatedAt: at(-700) },
 ];
 route("GET", `${BASE}/time-profiles`, () => ({ items: profiles }));
 route("GET", `${BASE}/pay-agreements`, () => ({ items: agreements }));
@@ -78,6 +81,7 @@ const workers = table<Worker>(
     profileId: profileOf(p).id,
     payAgreementId: p.jobCode === "MAINT-TECH" ? agreements[1].id : agreements[0].id,
     defaultResourceId: p.resource ? resourceByCode(p.resource).id : null,
+    timeZone: "America/Chicago",
   })),
 );
 
@@ -92,8 +96,8 @@ route("GET", `${BASE}/workers/{id}/cost-rates`, (req) => {
   const year = new Date().getUTCFullYear();
   const now = Number(w.costRate);
   const items: CostRate[] = [
-    { id: uid(KIND_RATE, workers.all().findIndex((x) => x.id === w.id) * 2 + 1), workerId: w.id, effectiveFrom: `${year}-01-01`, costRate: dec(now * 1.32), note: "Annual review: rate plus burden", createdBy: PAYROLL, createdAt: `${year - 1}-12-18T15:00:00Z` },
-    { id: uid(KIND_RATE, workers.all().findIndex((x) => x.id === w.id) * 2 + 2), workerId: w.id, effectiveFrom: `${year - 1}-01-01`, costRate: dec(now * 1.27), note: null, createdBy: PAYROLL, createdAt: `${year - 2}-12-15T15:00:00Z` },
+    { id: uid(KIND_RATE, workers.all().findIndex((x) => x.id === w.id) * 2 + 1), workerId: w.id, effectiveFrom: `${year}-01-01`, costRate: dec(now * 1.32), note: "Annual review: rate plus burden", createdBy: userIdOf(PAYROLL), createdAt: `${year - 1}-12-18T15:00:00Z` },
+    { id: uid(KIND_RATE, workers.all().findIndex((x) => x.id === w.id) * 2 + 2), workerId: w.id, effectiveFrom: `${year - 1}-01-01`, costRate: dec(now * 1.27), note: null, createdBy: userIdOf(PAYROLL), createdAt: `${year - 2}-12-15T15:00:00Z` },
   ];
   return { items };
 });
@@ -101,7 +105,19 @@ route("POST", `${BASE}/workers/{id}/cost-rates`, (req) => {
   const w = workers.get(req.params.id);
   if (!w) return reply.problem(404, "SF-0404", "Worker not found.");
   const body = req.body as { effectiveFrom: string; costRate: string; note: string | null };
-  return reply.created({ id: crypto.randomUUID(), workerId: w.id, effectiveFrom: body.effectiveFrom, costRate: body.costRate, note: body.note, createdBy: "Jordan Avery", createdAt: at(0) } satisfies CostRate);
+  return reply.created({ id: crypto.randomUUID(), workerId: w.id, effectiveFrom: body.effectiveFrom, costRate: body.costRate, note: body.note, createdBy: userIdOf("Jordan Avery"), createdAt: at(0) } satisfies CostRate);
+});
+route("POST", `${BASE}/workers`, (req) => {
+  const b = (req.body ?? {}) as Partial<Worker> & { name: string; partyId: string };
+  return reply.created(
+    workers.insert({ id: crypto.randomUUID(), partyId: b.partyId, name: b.name, badgeId: b.badgeId ?? null, userId: b.userId ?? null, costRate: b.costRate ?? "0", currency: b.currency ?? "USD", active: true, version: 1, createdAt: at(0), profileId: null, payAgreementId: null, defaultResourceId: null, timeZone: b.timeZone ?? "UTC" }),
+  );
+});
+route("PUT", `${BASE}/workers/{id}`, (req) => {
+  const w = workers.get(req.params.id);
+  if (!w) return reply.problem(404, "SF-0404", "Worker not found.");
+  const b = (req.body ?? {}) as Partial<Worker>;
+  return reply.ok(workers.update(w.id, { name: b.name ?? w.name, badgeId: b.badgeId ?? null, userId: b.userId ?? null, costRate: b.costRate ?? w.costRate, currency: b.currency ?? w.currency, timeZone: b.timeZone ?? w.timeZone, version: w.version + 1 }));
 });
 route("GET", `${BASE}/workers/{id}`, (req) => workers.get(req.params.id) ?? reply.problem(404, "SF-0404", "Worker not found."));
 for (const command of ["assign-setup", "assign-resource", "deactivate", "reactivate"]) {
@@ -472,7 +488,7 @@ function exportRange(from: string, to: string, by: string, when: string): (PayEx
   batchSeq += 1 + (batchSeq % 5);
   const batchId = `PX-${batchSeq}`;
   for (const d of rows) days.update(d.id, { exported: batchId });
-  return exportsTable.insert({ id: batchId, batchId, fromDate: from, toDate: to, lineCount: rows.reduce((n, d) => n + d.payLines.length, 0), createdBy: by, createdAt: when, csv: csvOf(rows) });
+  return exportsTable.insert({ id: batchId, batchId, fromDate: from, toDate: to, lineCount: rows.reduce((n, d) => n + d.payLines.length, 0), createdBy: userIdOf(by), createdAt: when, csv: csvOf(rows) });
 }
 // The two weeks before last were exported on the Monday after; last week is approved and waiting for its export.
 for (const weeksBack of [3, 2]) {
@@ -492,7 +508,7 @@ route("GET", `${BASE}/pay-exports/{id}`, (req) => {
 });
 route("POST", `${BASE}/pay:export`, (req) => {
   const { from = day(-6), to = day(0) } = rangeOf(req.body);
-  const batch = exportRange(from, to, "Jordan Avery", at(0));
+  const batch = exportRange(from, to, ME.id, at(0));
   if (!batch) return reply.problem(409, "SF-0140", "No approved pay lines in the range are waiting for export.");
   const { id: _id, ...out } = batch;
   return reply.created((void _id, out));

@@ -79,6 +79,9 @@ type SBLineResult struct {
 	Outcome     string         `json:"outcome"`
 	ShipmentID  string         `json:"shipmentId,omitempty"`
 	Differences []SBDifference `json:"differences,omitempty"`
+	// Tax is the tax the legal invoice of the line carries: the amount the customer's document states, or, when it states none on the
+	// line, the tax recomputed at the shipment's rate on the quantity and price the customer billed.
+	Tax decimal.Decimal `json:"tax"`
 }
 
 // SBResult is the full self-billing reconciliation for one document.
@@ -135,7 +138,11 @@ func MatchSelfBilling(lines []SBLine, shipments []SBShipment, tol SBTolerance, a
 		if !line.NoTax && line.Tax.Sub(ourTax).Abs().GreaterThan(taxTolerance) {
 			diffs = append(diffs, SBDifference{Field: "tax", Theirs: line.Tax.StringFixed(2), Ours: ourTax.StringFixed(2)})
 		}
-		lr := SBLineResult{Line: line.Line, Outcome: SelfBillMatched, ShipmentID: s.ID, Differences: diffs}
+		invoiceTax := ourTax
+		if !line.NoTax {
+			invoiceTax = line.Tax
+		}
+		lr := SBLineResult{Line: line.Line, Outcome: SelfBillMatched, ShipmentID: s.ID, Differences: diffs, Tax: invoiceTax}
 		if len(diffs) > 0 {
 			lr.Outcome = SelfBillDifference
 			for _, d := range diffs {

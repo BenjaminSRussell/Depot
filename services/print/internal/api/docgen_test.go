@@ -456,3 +456,48 @@ func TestTemplates_SaveChecksItsTextBlocks(t *testing.T) {
 		t.Fatalf("render with the default template and no values: %d %s", rec.Code, rec.Body)
 	}
 }
+
+func TestTemplates_RestoreAnEarlierVersionAsANewOne(t *testing.T) {
+	h := docRouter()
+	restore := func(v, ifMatch string) *httptest.ResponseRecorder {
+		req := httptest.NewRequest(http.MethodPost, "/print/v1/document-templates/INV-STD/versions/"+v+":restore", nil)
+		req.Header.Set("X-Passage-Tenant", testkit.TenantID(1))
+		req.Header.Set("X-Passage-User", "designer-2")
+		req.Header.Set("X-Passage-Duties", "print.admin")
+		if ifMatch != "" {
+			req.Header.Set("If-Match", ifMatch)
+		}
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, req)
+		return rec
+	}
+	call(t, h, http.MethodPut, "/print/v1/document-templates/INV-STD", `{"name":"Standard","documentType":"CUSTOMER_INVOICE","default":true,"config":{"title":"Tax invoice"}}`, "print.admin", "")
+	req := func(ifMatch, title string) {
+		r := httptest.NewRequest(http.MethodPut, "/print/v1/document-templates/INV-STD", strings.NewReader(`{"name":"Standard","documentType":"CUSTOMER_INVOICE","default":true,"config":{"title":"`+title+`"}}`))
+		r.Header.Set("X-Passage-Tenant", testkit.TenantID(1))
+		r.Header.Set("X-Passage-Duties", "print.admin")
+		r.Header.Set("If-Match", ifMatch)
+		h.ServeHTTP(httptest.NewRecorder(), r)
+	}
+	req(`"1"`, "Invoice")
+	if rec := restore("1", ""); rec.Code != http.StatusPreconditionRequired || !strings.Contains(rec.Body.String(), domain.CodeTemplateIfMatch) {
+		t.Fatalf("restore without If-Match: %d %s", rec.Code, rec.Body)
+	}
+	if rec := restore("1", `"1"`); rec.Code != http.StatusPreconditionFailed || !strings.Contains(rec.Body.String(), domain.CodeTemplateStale) {
+		t.Fatalf("restore on a stale version: %d %s", rec.Code, rec.Body)
+	}
+	if rec := restore("9", `"2"`); rec.Code != http.StatusNotFound {
+		t.Fatalf("restore of a version that never existed: %d %s", rec.Code, rec.Body)
+	}
+	rec := restore("1", `"2"`)
+	if rec.Code != http.StatusOK || rec.Header().Get("ETag") != `"3"` || !strings.Contains(rec.Body.String(), `"title":"Tax invoice"`) || !strings.Contains(rec.Body.String(), `"version":3`) {
+		t.Fatalf("restore: %d %v %s", rec.Code, rec.Header(), rec.Body)
+	}
+	hist := call(t, h, http.MethodGet, "/print/v1/document-templates/INV-STD/versions", "", "print.job.submit", "")
+	if strings.Count(hist.Body.String(), `"savedBy"`) < 1 || !strings.Contains(hist.Body.String(), `"version":3`) || !strings.Contains(hist.Body.String(), `"version":1`) {
+		t.Fatalf("history after restore: %s", hist.Body)
+	}
+	if rec := call(t, h, http.MethodPost, "/print/v1/document-templates/INV-STD/versions/1:restore", "", "print.job.submit", ""); rec.Code != http.StatusForbidden {
+		t.Fatalf("restore without print.admin: %d", rec.Code)
+	}
+}

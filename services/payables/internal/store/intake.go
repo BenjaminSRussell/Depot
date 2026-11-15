@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/shopspring/decimal"
 
 	"github.com/BenjaminSRussell/passage/platform/dbx"
@@ -19,6 +20,13 @@ var (
 	ErrIntakeReplayConflict = errors.New("the document was already received with different content")
 	// ErrIntakeDuplicateInvoice is a vendor invoice number the legal entity already received from another document.
 	ErrIntakeDuplicateInvoice = errors.New("the vendor's invoice number was already received")
+	// ErrIntakeDecided is a received invoice that was already decided otherwise (posted against another invoice, or rejected).
+	ErrIntakeDecided = errors.New("the received invoice was already decided")
+	// ErrIntakeInvoiceUnknown is a vendor invoice that is not one of the vendor's open items in the legal entity (it is not posted yet,
+	// or it is another vendor's).
+	ErrIntakeInvoiceUnknown = errors.New("the vendor invoice is not posted for this vendor")
+	// ErrIntakeInvoiceTaken is a vendor invoice already recorded against another received invoice.
+	ErrIntakeInvoiceTaken = errors.New("the vendor invoice already closes another received invoice")
 )
 
 // IntakeLine is one line of a received vendor invoice as the vendor sent it.
@@ -51,7 +59,16 @@ type VendorInvoiceIntake struct {
 	Status              string          `json:"status"`
 	ReceivedBy          string          `json:"receivedBy"`
 	ReceivedAt          time.Time       `json:"receivedAt"`
-	contentHash         string
+	// The decision of an AP clerk: POSTED with the vendor invoice posted from it, or REJECTED with the reason.
+	DecidedAt       *time.Time `json:"decidedAt,omitempty"`
+	DecidedBy       string     `json:"decidedBy,omitempty"`
+	DecisionNote    string     `json:"decisionNote,omitempty"`
+	VendorInvoiceID string     `json:"vendorInvoiceId,omitempty"`
+	// LedgerEntryID is the ledger entry that posted the invoice when an intercompany charge was auto-posted (#40); AutoPostNote is why
+	// an auto-post was refused and the row left for a clerk.
+	LedgerEntryID string `json:"ledgerEntryId,omitempty"`
+	AutoPostNote  string `json:"autoPostNote,omitempty"`
+	contentHash   string
 }
 
 // WithContentHash sets the hash of the sender's document the replay check compares.
@@ -61,14 +78,16 @@ func (v VendorInvoiceIntake) WithContentHash(h string) VendorInvoiceIntake {
 }
 
 const intakeColumns = `id::text, legal_entity_id::text, source, source_ref, content_hash, vendor_id::text, invoice_number, invoice_date::text, purpose,
-	coalesce(purchase_order_id::text, ''), purchase_order_number, currency, net::text, gross::text, lines, status, received_by, received_at`
+	coalesce(purchase_order_id::text, ''), purchase_order_number, currency, net::text, gross::text, lines, status, received_by, received_at,
+	decided_at, decided_by, decision_note, coalesce(vendor_invoice_id::text, ''), ledger_entry_id, auto_post_note`
 
 func scanIntake(row pgx.Row) (VendorInvoiceIntake, error) {
 	var v VendorInvoiceIntake
 	var net, gross string
 	var lines []byte
 	if err := row.Scan(&v.ID, &v.LegalEntityID, &v.Source, &v.SourceRef, &v.contentHash, &v.VendorID, &v.InvoiceNumber, &v.InvoiceDate, &v.Purpose,
-		&v.PurchaseOrderID, &v.PurchaseOrderNumber, &v.Currency, &net, &gross, &lines, &v.Status, &v.ReceivedBy, &v.ReceivedAt); err != nil {
+		&v.PurchaseOrderID, &v.PurchaseOrderNumber, &v.Currency, &net, &gross, &lines, &v.Status, &v.ReceivedBy, &v.ReceivedAt,
+		&v.DecidedAt, &v.DecidedBy, &v.DecisionNote, &v.VendorInvoiceID, &v.LedgerEntryID, &v.AutoPostNote); err != nil {
 		return v, err
 	}
 	v.Net, v.Gross = decimal.RequireFromString(net), decimal.RequireFromString(gross)
@@ -123,10 +142,48 @@ func (s *Postgres) ReceiveVendorInvoice(ctx context.Context, in VendorInvoiceInt
 	return out, created, err
 }
 
-// IntakeFilter selects received vendor invoices of a legal entity, newest first, after the cursor (receivedAt, id).
+// MarkIntakePosted records that an intake row was auto-posted to the ledger as the entry entryID: its status becomes POSTED, decided by
+// the consumer. Only a row that is still RECEIVED changes; a row already POSTED (a redelivery, or a clerk's posting) is returned as
+// it is. The caller checks the status first and never auto-posts a row a clerk touched.
+func (s *Postgres) MarkIntakePosted(ctx context.Context, id, entryID, actor string) (VendorInvoiceIntake, error) {
+	var out VendorInvoiceIntake
+	err := dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
+		if _, err := tx.Exec(ctx, `update ap_vendor_invoice_intake set status = 'POSTED', ledger_entry_id = $2, decided_at = now(), decided_by = $3, auto_post_note = ''
+			where id = $1 and status = 'RECEIVED'`, id, entryID, actor); err != nil {
+			return err
+		}
+		var err error
+		out, err = scanIntake(tx.QueryRow(ctx, `select `+intakeColumns+` from ap_vendor_invoice_intake where id = $1`, id))
+		return err
+	})
+	return out, err
+}
+
+// IntakePostedBefore reports whether an earlier version of an intercompany charge has a POSTED intake row (auto-posted or posted by a
+// clerk): a later version is then never auto-posted.
+func (s *Postgres) IntakePostedBefore(ctx context.Context, chargeID string, version int) (bool, error) {
+	var found bool
+	err := dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
+		return tx.QueryRow(ctx, `select exists(select 1 from ap_vendor_invoice_intake where source = 'INTERCOMPANY' and status = 'POSTED'
+			and source_ref like $1 || ':%' and split_part(source_ref, ':', 2)::int < $2)`, chargeID, version).Scan(&found)
+	})
+	return found, err
+}
+
+// ParkIntakeAutoPost records why an auto-post was refused on a RECEIVED row, so a clerk sees it on the worklist and posts it by hand.
+func (s *Postgres) ParkIntakeAutoPost(ctx context.Context, id, reason string) error {
+	return dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
+		_, err := tx.Exec(ctx, `update ap_vendor_invoice_intake set auto_post_note = $2 where id = $1 and status = 'RECEIVED'`, id, reason)
+		return err
+	})
+}
+
+// IntakeFilter selects received vendor invoices of a legal entity, newest first, after the cursor (receivedAt, id). Status, when set,
+// keeps only that status.
 type IntakeFilter struct {
 	LegalEntityID string
 	VendorID      string
+	Status        string
 	AfterAt       time.Time
 	AfterID       string
 }
@@ -140,7 +197,8 @@ func (s *Postgres) ListVendorInvoiceIntake(ctx context.Context, f IntakeFilter, 
 		}
 		rows, err := tx.Query(ctx, `select `+intakeColumns+` from ap_vendor_invoice_intake
 			where legal_entity_id = $1::uuid and ($2 = '' or vendor_id::text = $2) and ($3::timestamptz is null or (received_at, id) < ($3::timestamptz, $4::uuid))
-			order by received_at desc, id desc limit $5`, f.LegalEntityID, f.VendorID, cursorAt, nullable(f.AfterID), min(max(limit, 1), maxLimit+1))
+			and ($6 = '' or status = $6)
+			order by received_at desc, id desc limit $5`, f.LegalEntityID, f.VendorID, cursorAt, nullable(f.AfterID), min(max(limit, 1), maxLimit+1), f.Status)
 		if err != nil {
 			return err
 		}
@@ -168,4 +226,66 @@ func (s *Postgres) GetVendorInvoiceIntake(ctx context.Context, id string) (Vendo
 		return out, ErrNotFound
 	}
 	return out, err
+}
+
+// IntakeDecision is a clerk's decision on a received invoice: POSTED with the vendor invoice posted from it, or REJECTED with a reason.
+type IntakeDecision struct {
+	Status          string
+	VendorInvoiceID string
+	Note            string
+	By              string
+}
+
+// DecideVendorInvoiceIntake records the decision on a received invoice that waits (status RECEIVED). Deciding the same way again returns the
+// stored row with changed false, so a retried call is harmless; deciding otherwise is ErrIntakeDecided. A POSTED decision names a vendor
+// invoice that must be an open item of the same vendor in the same legal entity (ErrIntakeInvoiceUnknown) and may close one received
+// invoice only (ErrIntakeInvoiceTaken).
+func (s *Postgres) DecideVendorInvoiceIntake(ctx context.Context, id string, d IntakeDecision) (VendorInvoiceIntake, bool, error) {
+	var (
+		out     VendorInvoiceIntake
+		changed bool
+	)
+	err := dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
+		cur, err := scanIntake(tx.QueryRow(ctx, `select `+intakeColumns+` from ap_vendor_invoice_intake where id = $1::uuid for update`, id))
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrNotFound
+		}
+		if err != nil {
+			return err
+		}
+		if cur.Status != "RECEIVED" {
+			if cur.Status == d.Status && cur.VendorInvoiceID == d.VendorInvoiceID && (d.Status != "REJECTED" || cur.DecisionNote == d.Note) {
+				out = cur
+				return nil
+			}
+			return ErrIntakeDecided
+		}
+		if d.Status == "POSTED" {
+			var known bool
+			if err := tx.QueryRow(ctx, `select exists(select 1 from ap_open_item where source_invoice_id = $1::uuid and vendor_id = $2::uuid and legal_entity_id = $3::uuid)`,
+				d.VendorInvoiceID, cur.VendorID, cur.LegalEntityID).Scan(&known); err != nil {
+				return err
+			}
+			if !known {
+				return ErrIntakeInvoiceUnknown
+			}
+			var taken bool
+			if err := tx.QueryRow(ctx, `select exists(select 1 from ap_vendor_invoice_intake where vendor_invoice_id = $1::uuid)`, d.VendorInvoiceID).Scan(&taken); err != nil {
+				return err
+			}
+			if taken {
+				return ErrIntakeInvoiceTaken
+			}
+		}
+		out, err = scanIntake(tx.QueryRow(ctx, `update ap_vendor_invoice_intake set status = $2, decided_at = now(), decided_by = $3, decision_note = $4, vendor_invoice_id = $5::uuid
+			where id = $1::uuid returning `+intakeColumns, id, d.Status, d.By, d.Note, nullable(d.VendorInvoiceID)))
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" && pgErr.ConstraintName == "ap_vendor_invoice_intake_invoice" {
+			// Two clerks closed two received invoices with the same vendor invoice at once.
+			return ErrIntakeInvoiceTaken
+		}
+		changed = err == nil
+		return err
+	})
+	return out, changed, err
 }

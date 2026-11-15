@@ -387,3 +387,20 @@ func TestDecideReportNeedsTheApproveDutyAndAValidDecision(t *testing.T) {
 		t.Fatalf("approve = %d %s ifMatch=%d date=%v; want 200 APPROVED at version 4 on the UTC day", rec.Code, rec.Body.String(), fake.lastIfMatch, fake.lastDate)
 	}
 }
+
+// M4 (#40): a line can only name a cost-bearing entity the submitter may act in; the entity is kept on the line.
+func TestAddLineChargeToEntityMustBeInTheSubmittersScope(t *testing.T) {
+	fake := newFakeReports()
+	h := reportRouter(fake)
+	path := "/v1/expense/reports/" + ids.New() + "/lines"
+	mine, other := ids.New(), ids.New()
+	scoped := header{name: tenant.HeaderLegalEntity, value: mine + "," + ids.New()}
+	body := map[string]any{"category": "TRAVEL", "txnDate": "2025-03-03", "amount": "300.00", "merchant": "Hotel", "paidBy": "COMPANY_CARD", "chargeToLegalEntityId": other}
+	if rec := send(t, h, http.MethodPost, path, "line-out", body, scoped); rec.Code != http.StatusForbidden {
+		t.Fatalf("a bearing entity outside the scope = %d %s; want 403", rec.Code, rec.Body.String())
+	}
+	body["chargeToLegalEntityId"] = mine
+	if rec := send(t, h, http.MethodPost, path, "line-in", body, scoped); rec.Code != http.StatusCreated || fake.lastLine.ChargeToLegalEntityID != mine {
+		t.Fatalf("a bearing entity in scope = %d %s, stored %q", rec.Code, rec.Body.String(), fake.lastLine.ChargeToLegalEntityID)
+	}
+}

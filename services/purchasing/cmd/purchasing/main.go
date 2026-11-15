@@ -97,7 +97,7 @@ func run(ctx context.Context, getenv func(string) string) error {
 	} else {
 		slog.Warn("BUDGETING_URL is empty: requisition pre-encumbrances are not converted when a purchase order line is created")
 	}
-	a := api.New(st).WithVendorPrincipal(api.PortalVendorPrincipal{})
+	a := api.New(st).WithVendorPrincipal(api.PortalVendorPrincipal{}).WithOpeningOrders(st)
 	if budgetPort != nil {
 		a.WithBudget(budgetPort, st)
 	}

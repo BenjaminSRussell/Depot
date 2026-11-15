@@ -35,6 +35,9 @@ func HandleExpenseReportApproved(ctx context.Context, items *store.Postgres, evt
 		return fmt.Errorf("%w: currency %q", ErrInvalidEvent, d.Currency)
 	}
 	amount, err := decimal.NewFromString(d.Amount)
+	if err == nil && amount.IsZero() {
+		return nil // nothing to reimburse: the report only carries lines another entity bears (#40), for intercompany
+	}
 	if err != nil || !amount.IsPositive() || !amount.Equal(amount.Round(amountScale)) {
 		return fmt.Errorf("%w: amount %q", ErrInvalidEvent, d.Amount)
 	}

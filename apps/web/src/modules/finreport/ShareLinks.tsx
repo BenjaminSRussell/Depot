@@ -15,6 +15,7 @@ import {
 import styles from "./pages.module.css";
 import { useLoad } from "./useLoad";
 import { ProblemMessage } from "../../shell/errors";
+import { UserName } from "../../shell/lookup/UserName";
 
 /** The lifetime field as the service would read it: whole days from 1 to 90. */
 export function validateShareDays(raw: string): { days?: number; error?: string } {
@@ -79,7 +80,7 @@ export function ShareLinks({ libraryId }: { libraryId: string }) {
   const columns: DataTableColumn<ShareLink>[] = [
     { key: "status", header: "Status", render: (l) => <Badge tone={STATUS_TONE[l.status]}>{l.status[0]!.toUpperCase() + l.status.slice(1)}</Badge> },
     { key: "createdAt", header: "Created", mono: true, render: (l) => <time dateTime={l.createdAt}>{l.createdAt}</time> },
-    { key: "createdBy", header: "Created by", mono: true },
+    { key: "createdBy", header: "Created by", render: (r) => <UserName id={r.createdBy} /> },
     { key: "expiresAt", header: "Expires", mono: true, render: (l) => <time dateTime={l.expiresAt}>{l.expiresAt}</time> },
     { key: "downloadCount", header: "Downloads", mono: true, align: "end" },
     {

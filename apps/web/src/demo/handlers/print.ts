@@ -3,6 +3,7 @@
 import type { PrintJob, Printer, PrinterStatus, RoutingRule } from "../../modules/mobile-flows/api/print";
 import { reply, route } from "../backend";
 import { at, newId, table, uid } from "../store";
+import { userIdOf } from "./directory";
 
 const BASE = "/api/v1/print";
 const K_PRINTER = 380;
@@ -23,8 +24,8 @@ const rules = table<RoutingRule>([
 ]);
 
 const jobs = table<PrintJob>([
-  { id: uid(K_JOB, 1), templateCode: "LP_LABEL", queueCode: "DOCK", format: "ZPL", printerId: uid(K_PRINTER, 1), printerCode: "DOCK-1", status: "PRINTED", attempts: 1, createdBy: "Dana Whitfield", createdAt: at(-0.02), updatedAt: at(-0.02) },
-  { id: uid(K_JOB, 2), templateCode: "ITEM_LABEL", queueCode: "PACK", format: "ZPL", printerId: uid(K_PRINTER, 3), printerCode: "PACK-1", status: "PRINTED", attempts: 1, createdBy: "Marcus Bell", createdAt: at(-0.1), updatedAt: at(-0.1) },
+  { id: uid(K_JOB, 1), templateCode: "LP_LABEL", queueCode: "DOCK", format: "ZPL", printerId: uid(K_PRINTER, 1), printerCode: "DOCK-1", status: "PRINTED", attempts: 1, createdBy: userIdOf("Dana Whitfield"), createdAt: at(-0.02), updatedAt: at(-0.02) },
+  { id: uid(K_JOB, 2), templateCode: "ITEM_LABEL", queueCode: "PACK", format: "ZPL", printerId: uid(K_PRINTER, 3), printerCode: "PACK-1", status: "PRINTED", attempts: 1, createdBy: userIdOf("Marcus Bell"), createdAt: at(-0.1), updatedAt: at(-0.1) },
 ]);
 
 const active = () => printers.all().filter((p) => p.retiredAt === undefined);
