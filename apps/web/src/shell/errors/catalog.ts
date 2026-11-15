@@ -275,6 +275,7 @@ const payables: Record<string, ProblemCatalogEntry> = {
   "PRC-OPB-002": { message: "This open purchase order batch was already loaded with different content.", action: "Use a new batch name, or send exactly what was loaded before." },
   "PRC-OPB-003": { message: "The open purchase order lines don't add up to the total you gave for the batch.", action: "Check the lines and the total for each currency, then send the batch again." },
   "PRC-OPB-004": { message: "Some of these open purchase order lines, or their order numbers, were already loaded.", action: "Remove the lines listed, then send the batch again." },
+  "AR-1590": { message: "The payment prediction feed is not set up for receivables.", action: "Ask your administrator to turn on the prediction feed." },
   "MIG-1570": { message: "The sales or purchasing service for this open orders load is not set up.", action: "Ask your administrator to configure the sales and purchasing addresses for the migration factory." },
   "MIG-1571": { message: "The sales or purchasing service refused the migration factory.", action: "Ask your administrator to check the factory's service access." },
   "MIG-1572": { message: "The sales or purchasing service refused the batch, so the order lines stay pending.", action: "Read the message, fix what it names, then load again." },

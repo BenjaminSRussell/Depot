@@ -124,3 +124,32 @@ def test_accuracy_report_reads_predictions_whose_invoices_were_paid(client):
     assert report["count"] == 1 and report["maeDays"] == "0.00" and report["withinShare"] == "1.0000"
     assert client.get("/api/v1/predictions/payment/accuracy", headers=h(TENANT_B)).json()["count"] == 0
     assert client.get("/api/v1/predictions/payment/accuracy", headers=h(duties="collections.view")).status_code == 403
+
+
+LE = "44444444-4444-4444-4444-444444444444"
+
+
+def test_the_gateway_routes_are_the_same_handlers_under_v1(client):
+    """The gateway rewrites /api/v1/predictions to /v1/predictions (deploy/gateway), so both prefixes answer."""
+    assert client.post("/v1/predictions/payment/retrain", json=paid_body(600), headers=h()).status_code == 201
+    scored = client.post("/v1/predictions/payment/score", json=open_body(2), headers=h()).json()["items"][0]
+    g = client.get(f"/v1/ar/invoices/{scored['invoiceId']}/prediction", headers=h(duties="collections.view"))
+    assert g.status_code == 200 and g.json()["invoiceId"] == scored["invoiceId"]
+    assert client.get("/v1/predictions/payment/accuracy", headers=h()).status_code == 200
+
+
+def test_the_dso_tile_reads_the_forecast_of_a_legal_entity(client):
+    assert client.get(f"/v1/predictions/payment/dso?legalEntityId={LE}", headers=h(duties="agents.admin")).status_code == 403
+    assert client.get("/v1/predictions/payment/dso", headers=h(duties="collections.view")).status_code == 400
+    assert client.get(f"/v1/predictions/payment/dso?legalEntityId={LE}", headers=h(duties="collections.view")).status_code == 404
+    client.post("/v1/predictions/payment/retrain", json=paid_body(600), headers=h())
+    invoices = synth.open_invoices(25)
+    client.post("/v1/predictions/payment/score", json=open_body(25), headers=h())
+    api.service.repo.save_invoice_facts(TENANT_A, LE, invoices)
+    got = client.get(f"/v1/predictions/payment/dso?legalEntityId={LE}", headers=h(duties="collections.view"))
+    assert got.status_code == 200, got.text
+    body = got.json()
+    assert body["legalEntityId"] == LE and body["openInvoices"] == 25 and isinstance(body["dsoDays"], float) and body["stale"] is False
+    assert 0 <= float(body["avgPLate30d"]) <= 1
+    # Another tenant sees nothing of it.
+    assert client.get(f"/v1/predictions/payment/dso?legalEntityId={LE}", headers=h(tenant=TENANT_B, duties="collections.view")).status_code == 404

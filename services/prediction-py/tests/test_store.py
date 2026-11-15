@@ -192,3 +192,31 @@ def test_events_in_memory_mirror_the_outbox():
     preds = s.score(T1, synth.open_invoices(2))
     assert [(t, e["invoice_id"]) for t, e in repo.events] == [(T1, p.invoice_id) for p in preds]
     assert date.fromisoformat(repo.events[0][1]["predicted_payment_date"]) == preds[0].predicted_payment_date
+
+
+def test_sync_state_and_the_dso_forecast_are_per_tenant_and_legal_entity(make_repo):
+    from prediction.service import SyncState
+
+    t, other, le, le2 = tenant(), tenant(), str(uuid.uuid4()), str(uuid.uuid4())
+    s = svc(make_repo())
+    s.retrain(t, synth.paid_invoices(400))
+    assert make_repo().sync_state(t, le) == SyncState()
+    mark = datetime(2026, 11, 12, 8, 0, 5, tzinfo=timezone.utc)
+    make_repo().save_sync_state(t, le, SyncState(mark, mark, NOW))
+    assert make_repo().sync_state(t, le) == SyncState(mark, mark, NOW)
+    assert make_repo().sync_state(t, le2) == SyncState() and make_repo().sync_state(other, le) == SyncState()
+    assert make_repo().dso(t, le) is None
+    invoices = synth.open_invoices(40)
+    preds = s.score(t, invoices)
+    make_repo().save_invoice_facts(t, le, invoices)
+    dso = make_repo().dso(t, le)
+    assert dso is not None and dso.open_invoices == 40
+    total = sum(i.amount for i in invoices)
+    expected = sum(i.amount * (p.predicted_payment_date - i.invoice_date).days for i, p in zip(invoices, preds)) / total
+    assert abs(dso.dso_days - round(expected, 1)) < 0.06 and abs(float(dso.open_amount) - total) < 0.05 * len(invoices)
+    assert 0 <= float(dso.avg_p_late_30d) <= 1
+    assert make_repo().dso(t, le2) is None and make_repo().dso(other, le) is None
+    # An invoice that was paid leaves the forecast.
+    paid = PaidInvoice(**{**invoices[0].__dict__, "paid_date": preds[0].predicted_payment_date})
+    make_repo().record_actuals(t, [paid])
+    assert make_repo().dso(t, le).open_invoices == 39

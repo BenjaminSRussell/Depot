@@ -249,6 +249,10 @@ var serviceGrants = map[string]map[string][]string{
 		"receivables": {"receivables.import.write", "receivables.import.read"},
 		"engineering": {"engineering.import.write", "engineering.import.read"},
 	},
+	// The payment-prediction service reads the paid and open customer invoices it trains on and scores (#47).
+	"prediction": {
+		"receivables": {"receivables.prediction.read"},
+	},
 	"migration-factory": {
 		"receivables": {"receivables.import.write", "receivables.view"},
 		"payables":    {"opening-item.import", "opening-item.import.read"},

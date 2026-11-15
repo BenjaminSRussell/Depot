@@ -69,6 +69,7 @@ paths:
       summary: The stored payment prediction of one invoice
       description: The latest prediction, with `stale` true when it is older than 7 days (BR-47.12). 404 AGT-0404 when the invoice was never scored.
       x-passage-duty: collections.view
+      x-passage-tool: passage.ar.invoice.prediction.get
       parameters:
         - {name: invoice_id, in: path, required: true, schema: {type: string, minLength: 1, maxLength: 64}}
       responses:
@@ -83,6 +84,38 @@ paths:
                     required: [stale]
                     properties:
                       stale: {type: boolean}
+        "401": {$ref: "#/components/responses/Problem"}
+        "403": {$ref: "#/components/responses/Problem"}
+        "404": {$ref: "#/components/responses/Problem"}
+  /api/v1/predictions/payment/dso:
+    get:
+      operationId: getPaymentDso
+      summary: The forecast days to pay (DSO) of a legal entity
+      description: |
+        The amount-weighted mean of predicted payment date less invoice date over the legal entity's open invoices, from their stored
+        predictions, with the amount-weighted `pLate30d`, the number of invoices and their sum (`openAmount` mixes currencies when the
+        entity bills in several, so read it per entity), and `stale` when the latest scoring is older than 7 days. The receivables feed
+        (`python -m prediction.sync`) keeps it current. 404 AGT-0404 until the entity's open invoices have been scored. Also served under /v1.
+      x-passage-duty: collections.view
+      parameters:
+        - {name: legalEntityId, in: query, required: true, schema: {type: string, format: uuid}}
+      responses:
+        "200":
+          description: The forecast.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [legalEntityId, dsoDays, openInvoices, openAmount, avgPLate30d, scoredAt, stale]
+                properties:
+                  legalEntityId: {type: string, format: uuid}
+                  dsoDays: {type: number}
+                  openInvoices: {type: integer}
+                  openAmount: {type: string}
+                  avgPLate30d: {type: string}
+                  scoredAt: {type: string, format: date-time}
+                  stale: {type: boolean}
+        "400": {$ref: "#/components/responses/Problem"}
         "401": {$ref: "#/components/responses/Problem"}
         "403": {$ref: "#/components/responses/Problem"}
         "404": {$ref: "#/components/responses/Problem"}

@@ -68,8 +68,9 @@ def quantity_bytes(q):
 CLIENT_SUPPLIED = {"X-Passage-LegalEntity-Scope"}
 
 
-# A route is named after its public prefix; these two prefixes are served by a Service of another name.
-BACKEND_OF_ROUTE = {"inbox": "batch", "data": "metadata", "controlling": "costacct"}
+# A route is named after its public prefix; these prefixes are served by a Service of another name (the payment prediction service
+# serves /predictions and the invoice prediction under /ar/invoices, #47).
+BACKEND_OF_ROUTE = {"inbox": "batch", "data": "metadata", "controlling": "costacct", "predictions": "prediction", "ar": "prediction"}
 
 class GatewayManifests(unittest.TestCase):
     @classmethod

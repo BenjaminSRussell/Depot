@@ -49,11 +49,13 @@ var servicePrincipals = map[string][]string{
 	"pricing-cache":            {"pricing.cache.invalidate"},
 	"search-index":             {"search.index.write"},
 	"migration-loader":         {"party.import.write", "party.import.read", "product.import.write", "product.import.read", "receivables.import.write", "receivables.import.read", "engineering.import.write", "engineering.import.read"},
-	"production-planning":      {"production.planned.intake"},
-	"production-shopfloor":     {"production.jobcard.shopfloor"},
-	"receiving-erasure":        {"compliance.legal-hold.check"},
-	"receivables-billing":      {"receivables.openitem.from-billing"},
-	"revrec-creditnotes":       {"revrec.creditnote.reverse", "revrec.contract.from-invoice"},
+	// The payment-prediction sync jobs (#47): they read the paid and open invoices of a legal entity from receivables with this one duty.
+	"prediction-sync":      {"receivables.prediction.read"},
+	"production-planning":  {"production.planned.intake"},
+	"production-shopfloor": {"production.jobcard.shopfloor"},
+	"receiving-erasure":    {"compliance.legal-hold.check"},
+	"receivables-billing":  {"receivables.openitem.from-billing"},
+	"revrec-creditnotes":   {"revrec.creditnote.reverse", "revrec.contract.from-invoice"},
 	// The reporter of contract modification price changes to billing (#29): it signs POST /v1/billing/contract-modifications only.
 	"revrec-billing": {"billing.contract-modification.bill"},
 	// The reporter of the tax payment runs withheld (#13): it signs POST /v1/tax/withholding/entries only.
@@ -88,6 +90,7 @@ var servicePrincipalIssuers = map[string][]string{
 	// party forwards the loader as act on the one onward call a party create makes: the party number from numbering.
 	// Its token holds only party's own grant (numbering.sequence.allocate), so nothing is borrowed (#475).
 	"migration-loader":        {"migration", "migration-factory", "party"},
+	"prediction-sync":         {"prediction"},
 	"production-planning":     {"production"},
 	"production-shopfloor":    {"production"},
 	"receivables-billing":     {"receivables"},

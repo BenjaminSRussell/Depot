@@ -548,6 +548,7 @@
       {"resource": "/v1/inventory/consignment-orders/*:cancel", "methods": ["POST"]}
     ]},
     "inventory.import.write": {"service_only": true, "permissions": [{"resource": "/v1/inventory/opening-batches", "methods": ["POST"]}]},
+    "receivables.prediction.read": {"service_only": true, "permissions": [{"resource": "/v1/receivables/prediction-invoices", "methods": ["GET"]}]},
     "inventory.import.read": {"service_only": true, "permissions": [{"resource": "/v1/inventory/opening-batches", "methods": ["GET"]}]},
     "sales.opening-order.import": {"service_only": true, "permissions": [{"resource": "/v1/sales/opening-orders", "methods": ["POST"]}]},
     "sales.opening-order.import.read": {"service_only": true, "permissions": [{"resource": "/v1/sales/opening-orders", "methods": ["GET"]}]},
@@ -1136,9 +1137,18 @@
       {"resource": "/api/v1/predictions/payment/accuracy", "methods": ["GET"]},
       {"resource": "/api/v1/predictions/payment/retrain", "methods": ["POST"]},
       {"resource": "/api/v1/predictions/payment/score", "methods": ["POST"]},
-      {"resource": "/api/v1/predictions/payment/settings", "methods": ["GET", "PUT"]}
+      {"resource": "/api/v1/predictions/payment/settings", "methods": ["GET", "PUT"]},
+      {"resource": "/v1/predictions/payment/accuracy", "methods": ["GET"]},
+      {"resource": "/v1/predictions/payment/retrain", "methods": ["POST"]},
+      {"resource": "/v1/predictions/payment/score", "methods": ["POST"]},
+      {"resource": "/v1/predictions/payment/settings", "methods": ["GET", "PUT"]}
     ]},
-    "collections.view": {"permissions": [{"resource": "/api/v1/ar/invoices/*/prediction", "methods": ["GET"]}]},
+    "collections.view": {"permissions": [
+      {"resource": "/api/v1/ar/invoices/*/prediction", "methods": ["GET"]},
+      {"resource": "/v1/ar/invoices/*/prediction", "methods": ["GET"]},
+      {"resource": "/api/v1/predictions/payment/dso", "methods": ["GET"]},
+      {"resource": "/v1/predictions/payment/dso", "methods": ["GET"]}
+    ]},
     "analytics.author": {"permissions": [
       {"resource": "/v1/analytics/dashboards/*", "methods": ["PUT"]},
       {"resource": "/v1/analytics/schedules", "methods": ["GET", "POST"]},
@@ -4163,6 +4173,9 @@
       "receivables": ["receivables.import.write", "receivables.import.read"],
       "engineering": ["engineering.import.write", "engineering.import.read"]
     },
+    "prediction": {
+      "receivables": ["receivables.prediction.read"]
+    },
     "migration-factory": {
       "receivables": ["receivables.import.write", "receivables.view"],
       "payables": ["opening-item.import", "opening-item.import.read"],
@@ -4228,6 +4241,7 @@
     "integration-hub": ["migration.outbound.render", "migration.xref.record"],
     "inventory-postings": ["inventory.transaction.apply"],
     "migration-loader": ["party.import.write", "party.import.read", "product.import.write", "product.import.read", "receivables.import.write", "receivables.import.read", "engineering.import.write", "engineering.import.read"],
+    "prediction-sync": ["receivables.prediction.read"],
     "production-planning": ["production.planned.intake"],
     "production-shopfloor": ["production.jobcard.shopfloor"],
     "receiving-erasure": ["compliance.legal-hold.check"],

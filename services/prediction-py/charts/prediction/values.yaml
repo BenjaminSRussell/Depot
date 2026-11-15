@@ -13,3 +13,20 @@ resources:
   requests: { cpu: 250m, memory: 256Mi }
   limits: { cpu: "1", memory: 1Gi }
 serviceMonitor: { enabled: false }
+# The feed from receivables (#47, BR-47.12): a weekly retrain on the paid invoices, then a rescore of the open ones, and a delta
+# every few minutes that rescores the open invoices that changed (a settlement, a dunning step, a dispute) and stamps the paid date on
+# the ones that were paid. Off by default: it needs the receivables address, the service signing key and the scope below.
+sync:
+  enabled: false
+  receivablesUrl: ""
+  # JSON list of {"tenantId": "<uuid>", "legalEntityIds": ["<uuid>", ...]}: the tenants and legal entities the jobs read.
+  scopes: ""
+  # Secret with the key `signing-key` (the base64 32-byte Ed25519 seed of the service `prediction`); receivables lists its public key as
+  # `prediction=<key>` in serviceIdentity.publicKeys.
+  signingKeySecret: ""
+  keyId: ""
+  weeklySchedule: "17 3 * * 0"
+  deltaSchedule: "*/15 * * * *"
+  resources:
+    requests: { cpu: 250m, memory: 512Mi }
+    limits: { cpu: "1", memory: 1Gi }

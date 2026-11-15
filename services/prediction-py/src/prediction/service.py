@@ -3,8 +3,8 @@ in-memory one below serves tests and a process started without DATABASE_URL."""
 
 from __future__ import annotations
 
-from dataclasses import replace
-from datetime import datetime
+from dataclasses import dataclass, replace
+from datetime import date, datetime
 from typing import Callable, Protocol
 
 from prediction.domain import (
@@ -24,6 +24,27 @@ from prediction.domain import (
 )
 
 
+@dataclass(frozen=True)
+class SyncState:
+    """Where the delta reads from receivables left off for one legal entity: the updated_at of the last open and paid invoice read."""
+
+    open_watermark: datetime | None = None
+    paid_watermark: datetime | None = None
+    last_retrain_at: datetime | None = None
+
+
+@dataclass(frozen=True)
+class Dso:
+    """The forecast days to pay of a legal entity's open invoices: the amount-weighted mean of (predicted payment date - invoice
+    date), the amount-weighted mean p_late_30d, how many invoices and what they sum to, and when the latest of them was scored."""
+
+    dso_days: float
+    open_invoices: int
+    open_amount: str
+    avg_p_late_30d: str
+    scored_at: datetime
+
+
 class Repository(Protocol):
     """Every call carries the tenant; an implementation must never answer across tenants."""
 
@@ -37,6 +58,10 @@ class Repository(Protocol):
     def save_settings(self, tenant_id: str, config: Config, user_id: str) -> None: ...
     def record_actuals(self, tenant_id: str, paid: list[PaidInvoice]) -> int: ...
     def outcomes(self, tenant_id: str) -> list[Outcome]: ...
+    def sync_state(self, tenant_id: str, legal_entity_id: str) -> SyncState: ...
+    def save_sync_state(self, tenant_id: str, legal_entity_id: str, state: SyncState) -> None: ...
+    def save_invoice_facts(self, tenant_id: str, legal_entity_id: str, invoices: list[OpenInvoice]) -> None: ...
+    def dso(self, tenant_id: str, legal_entity_id: str) -> Dso | None: ...
 
 
 class InMemoryRepository:
@@ -45,6 +70,9 @@ class InMemoryRepository:
         self._predictions: dict[str, dict[str, Prediction]] = {}
         self._settings: dict[str, Config] = {}
         self._paid: dict[str, dict[str, PaidInvoice]] = {}
+        self._sync: dict[tuple[str, str], SyncState] = {}
+        # (tenant, invoice) -> (legal entity, invoice date, amount): what the DSO forecast is computed from.
+        self._facts: dict[tuple[str, str], tuple[str, date, float]] = {}
         # prediction.payment.scored events, as the Postgres repository writes them to the outbox.
         self.events: list[tuple[str, dict[str, object]]] = []
 
@@ -98,6 +126,34 @@ class InMemoryRepository:
             p = stored[invoice_id]
             out.append(Outcome(p.model_version, p.predicted_payment_date, p.p_late_30d, p.due_date or inv.due_date, inv.paid_date))
         return out
+
+    def sync_state(self, tenant_id: str, legal_entity_id: str) -> SyncState:
+        return self._sync.get((tenant_id, legal_entity_id), SyncState())
+
+    def save_sync_state(self, tenant_id: str, legal_entity_id: str, state: SyncState) -> None:
+        self._sync[(tenant_id, legal_entity_id)] = state
+
+    def save_invoice_facts(self, tenant_id: str, legal_entity_id: str, invoices: list[OpenInvoice]) -> None:
+        for inv in invoices:
+            self._facts[(tenant_id, inv.invoice_id)] = (legal_entity_id, inv.invoice_date, inv.amount)
+
+    def dso(self, tenant_id: str, legal_entity_id: str) -> Dso | None:
+        total = days = late = 0.0
+        n = 0
+        scored: datetime | None = None
+        paid = self._paid.get(tenant_id, {})
+        for (tid, invoice_id), (le, invoice_date, amount) in self._facts.items():
+            pred = self._predictions.get(tid, {}).get(invoice_id)
+            if tid != tenant_id or le != legal_entity_id or pred is None or invoice_id in paid:
+                continue
+            total += amount
+            days += amount * (pred.predicted_payment_date - invoice_date).days
+            late += amount * float(pred.p_late_30d)
+            n += 1
+            scored = pred.scored_at if scored is None or pred.scored_at > scored else scored
+        if n == 0 or total <= 0 or scored is None:
+            return None
+        return Dso(round(days / total, 1), n, f"{total:.2f}", f"{late / total:.4f}", scored)
 
 
 SCORED_EVENT = "dev.passage.prediction.payment.scored.v1"

@@ -1,0 +1,12 @@
+{
+  "note": "minted by services/prediction-py/src/prediction/signer.py; the Go verifier must accept it and the Python test must reproduce it byte for byte",
+  "seedBase64": "AQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyA=",
+  "publicKeyBase64": "ebVWLo/mVPlAeLES6KmLp5AfhTrmlb7X4OORC60ElmQ=",
+  "keyId": "k1",
+  "iat": 1793275200,
+  "jti": "00112233445566778899aabbccddeeff",
+  "tenantId": "0190a5f2-7b1c-7d3e-8a4f-1234567890ab",
+  "legalEntityId": "0190a5f2-7b1c-7d3e-8a4f-1234567890ac",
+  "actor": "service:prediction-sync",
+  "token": "eyJpc3MiOiJwcmVkaWN0aW9uIiwiYXVkIjoicmVjZWl2YWJsZXMiLCJ0aWQiOiIwMTkwYTVmMi03YjFjLTdkM2UtOGE0Zi0xMjM0NTY3ODkwYWIiLCJsZSI6IjAxOTBhNWYyLTdiMWMtN2QzZS04YTRmLTEyMzQ1Njc4OTBhYyIsImFjdCI6InNlcnZpY2U6cHJlZGljdGlvbi1zeW5jIiwiZHV0aWVzIjpbInJlY2VpdmFibGVzLnByZWRpY3Rpb24ucmVhZCJdLCJpYXQiOjE3OTMyNzUyMDAsImV4cCI6MTc5MzI3NTI2MCwianRpIjoiMDAxMTIyMzM0NDU1NjY3Nzg4OTlhYWJiY2NkZGVlZmYiLCJraWQiOiJrMSJ9.64t7vo5yyX7-fJLnkWVqycdL-07aedPMVGTzouoAZnV3TeEMnD20ewbaG9JFg25BcW3EA3_eaBtmFxlN9gYTDQ"
+}

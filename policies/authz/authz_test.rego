@@ -3376,3 +3376,22 @@ test_opening_order_import_duties_are_service_only_and_cover_only_their_route if 
 	not allowed("procurement.opening-order.import.read", "POST", "/v1/procurement/opening-orders")
 	not allowed("procurement.opening-order.import", "POST", "/v1/procurement/purchase-orders")
 }
+
+test_prediction_feed_duty_is_service_only_and_the_prediction_service_holds_only_it if {
+	data.service_grants.prediction == {"receivables": ["receivables.prediction.read"]}
+	data.duties["receivables.prediction.read"].service_only
+	allowed("receivables.prediction.read", "GET", "/v1/receivables/prediction-invoices")
+	not allowed("receivables.prediction.read", "POST", "/v1/receivables/prediction-invoices")
+	not allowed("receivables.prediction.read", "GET", "/v1/receivables/open-items")
+}
+
+test_payment_prediction_routes_answer_under_the_gateway_prefix_and_the_dso_tile_is_a_collections_read if {
+	allowed("collections.view", "GET", "/api/v1/ar/invoices/i1/prediction")
+	allowed("collections.view", "GET", "/v1/ar/invoices/i1/prediction")
+	allowed("collections.view", "GET", "/api/v1/predictions/payment/dso")
+	allowed("collections.view", "GET", "/v1/predictions/payment/dso")
+	not allowed("collections.view", "POST", "/v1/predictions/payment/score")
+	allowed("agents.admin", "POST", "/v1/predictions/payment/retrain")
+	allowed("agents.admin", "PUT", "/v1/predictions/payment/settings")
+	not allowed("agents.admin", "GET", "/v1/predictions/payment/dso")
+}

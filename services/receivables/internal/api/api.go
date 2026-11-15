@@ -58,6 +58,7 @@ type API struct {
 	applied  atomic.Int64
 	matched  atomic.Int64
 	failed   atomic.Int64
+	feed     PredictionFeed
 }
 
 // New returns an API over s.
@@ -78,6 +79,7 @@ func (a *API) Register(r chi.Router) {
 		// match a literal ':' after a path parameter; paymentAction dispatches.
 		r.Post("/payments/{ref}", a.paymentAction)
 		a.collectionsRoutes(r)
+		a.predictionFeedRoutes(r)
 		a.dunningRoutes(r)
 		a.interestRoutes(r)
 		a.caseRoutes(r)

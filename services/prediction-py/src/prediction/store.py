@@ -13,8 +13,8 @@ from typing import Iterator
 import psycopg
 from psycopg.types.json import Jsonb
 
-from prediction.domain import Config, Model, Outcome, PaidInvoice, Prediction, PredictionError, model_artifact, model_from_artifact
-from prediction.service import SCORED_EVENT, scored_event
+from prediction.domain import Config, Model, OpenInvoice, Outcome, PaidInvoice, Prediction, PredictionError, model_artifact, model_from_artifact
+from prediction.service import SCORED_EVENT, Dso, SyncState, scored_event
 
 # The image copies the migrations to /app/migrations (Dockerfile); a checkout reads them from the service directory.
 MIGRATIONS_DIR = Path(os.environ.get("PREDICTION_MIGRATIONS_DIR") or Path(__file__).resolve().parents[2] / "migrations")
@@ -151,3 +151,45 @@ class PgRepository:
             ).fetchall()
         return [Outcome(r[0], r[1], f"{r[2]:.4f}", r[3], r[4]) for r in rows]
 
+
+    def sync_state(self, tenant_id: str, legal_entity_id: str) -> SyncState:
+        with self._tenant(tenant_id) as c:
+            r = c.execute(
+                "select open_watermark, paid_watermark, last_retrain_at from prediction_sync where legal_entity_id = %s", (legal_entity_id,)
+            ).fetchone()
+        return SyncState(*r) if r else SyncState()
+
+    def save_sync_state(self, tenant_id: str, legal_entity_id: str, state: SyncState) -> None:
+        with self._tenant(tenant_id) as c:
+            c.execute(
+                """insert into prediction_sync (tenant_id, legal_entity_id, open_watermark, paid_watermark, last_retrain_at, last_scored_at)
+                   values (%s, %s, %s, %s, %s, now())
+                   on conflict (tenant_id, legal_entity_id) do update set open_watermark = excluded.open_watermark,
+                     paid_watermark = excluded.paid_watermark, last_retrain_at = excluded.last_retrain_at, last_scored_at = excluded.last_scored_at""",
+                (tenant_id, legal_entity_id, state.open_watermark, state.paid_watermark, state.last_retrain_at),
+            )
+
+    def save_invoice_facts(self, tenant_id: str, legal_entity_id: str, invoices: list[OpenInvoice]) -> None:
+        """Stores the legal entity, invoice date and amount on the invoices' predictions, which the DSO forecast reads."""
+        if not invoices:
+            return
+        with self._tenant(tenant_id) as c:
+            c.execute(
+                """update payment_prediction p set legal_entity_id = %s, invoice_date = v.invoice_date, amount = v.amount
+                     from (select * from unnest(%s::text[], %s::date[], %s::numeric[]) as t(invoice_id, invoice_date, amount)) v
+                    where p.invoice_id = v.invoice_id""",
+                (legal_entity_id, [i.invoice_id for i in invoices], [i.invoice_date for i in invoices], [Decimal(str(i.amount)) for i in invoices]),
+            )
+
+    def dso(self, tenant_id: str, legal_entity_id: str) -> Dso | None:
+        with self._tenant(tenant_id) as c:
+            r = c.execute(
+                """select sum(amount * (predicted_payment_date - invoice_date)) / nullif(sum(amount), 0), count(*), sum(amount),
+                          sum(amount * p_late_30d) / nullif(sum(amount), 0), max(scored_at)
+                     from payment_prediction
+                    where legal_entity_id = %s and actual_paid_date is null and invoice_date is not null and amount is not null""",
+                (legal_entity_id,),
+            ).fetchone()
+        if r is None or r[0] is None or not r[1]:
+            return None
+        return Dso(round(float(r[0]), 1), int(r[1]), f"{r[2]:.2f}", f"{r[3]:.4f}", r[4])

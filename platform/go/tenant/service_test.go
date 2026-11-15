@@ -757,3 +757,42 @@ func TestTenantLevelMergeTokenNamesNoLegalEntityAndTravelsAlone(t *testing.T) {
 		}
 	}
 }
+
+func TestPythonMintedPredictionTokenVerifies(t *testing.T) {
+	raw, err := os.ReadFile("testdata/prediction_py_token_vector.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var v struct {
+		PublicKeyBase64 string `json:"publicKeyBase64"`
+		KeyID           string `json:"keyId"`
+		Iat             int64  `json:"iat"`
+		TenantID        string `json:"tenantId"`
+		LegalEntityID   string `json:"legalEntityId"`
+		Actor           string `json:"actor"`
+		Token           string `json:"token"`
+	}
+	if err := json.Unmarshal(raw, &v); err != nil {
+		t.Fatal(err)
+	}
+	pub, err := base64.StdEncoding.DecodeString(v.PublicKeyBase64)
+	if err != nil {
+		t.Fatal(err)
+	}
+	at := func(sec int64) func() time.Time { return func() time.Time { return time.Unix(sec, 0) } }
+	verifier := tenant.NewServiceVerifierKids("receivables", map[string]map[string]ed25519.PublicKey{"prediction": {v.KeyID: pub}}).WithClock(at(v.Iat + 1))
+	claims, err := verifier.Verify(v.Token)
+	if err != nil {
+		t.Fatalf("the Go verifier rejected the Python token: %v", err)
+	}
+	if claims.Iss != "prediction" || claims.Aud != "receivables" || claims.Tid != v.TenantID || claims.Le != v.LegalEntityID || claims.Act != v.Actor ||
+		!reflect.DeepEqual(claims.Duties, []string{"receivables.prediction.read"}) || claims.Exp-claims.Iat != 60 {
+		t.Fatalf("claims %+v", claims)
+	}
+	if _, err := verifier.Verify(v.Token); err == nil {
+		t.Fatal("a replayed token verified")
+	}
+	if _, err := verifier.WithClock(at(v.Iat + 61)).Verify(v.Token); err == nil {
+		t.Fatal("an expired token verified")
+	}
+}
