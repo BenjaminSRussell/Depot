@@ -1004,6 +1004,13 @@ export const routeHelp: readonly RouteHelp[] = [
     guide: "ar-clerk.md#look-at-what-is-owed",
   },
   {
+    patterns: ["/receivables/credit-settlements"],
+    title: "Credit settlements",
+    purpose: "Credit notes and other credits applied to invoices. Reversing one opens the invoice and the credit again.",
+    howTo: ["Choose a customer to narrow the list.", "Enter a reason, then select Reverse next to the settlement.", "Confirm to give the credit and the invoice back what it took off."],
+    guide: "ar-clerk.md#look-at-what-is-owed",
+  },
+  {
     patterns: ["/receivables/statements", "/receivables/balance-snapshots"],
     title: "Customer statement",
     purpose: "A customer's open documents at a date, by currency, with a running balance, and the balance snapshots behind it.",

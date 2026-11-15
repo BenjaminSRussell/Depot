@@ -3290,6 +3290,18 @@ test_revrec_modification_billing_retry_is_a_posting_duty if {
 	not allowed("revrec.maintain", "POST", "/v1/revrec/modifications/m1:retry-billing")
 }
 
+test_receivables_settlement_lists_are_view_only if {
+	allowed("receivables.view", "GET", "/v1/receivables/payments/p1/settlements")
+	allowed("receivables.view", "GET", "/v1/receivables/credit-settlements")
+	not allowed("receivables.payment.post", "GET", "/v1/receivables/credit-settlements")
+}
+
+test_receivables_credit_settlement_reversal_is_the_reversal_duty if {
+	allowed("receivables.payment.reverse", "POST", "/v1/receivables/credit-settlements/b1:reverse")
+	not allowed("receivables.payment.settle", "POST", "/v1/receivables/credit-settlements/b1:reverse")
+	not allowed("receivables.view", "POST", "/v1/receivables/credit-settlements/b1:reverse")
+}
+
 test_receivables_unapply_is_the_reversal_duty if {
 	allowed("receivables.payment.reverse", "POST", "/v1/receivables/payments/p1:unapply")
 	not allowed("receivables.payment.post", "POST", "/v1/receivables/payments/p1:unapply")
@@ -3359,4 +3371,27 @@ test_iccharge_consumers_hold_only_their_flag_duty if {
 	data.duties["payables.iccharge.from-event"].flag
 	not allowed("billing.iccharge.from-event", "POST", "/v1/billing/free-text-invoices")
 	not allowed("payables.iccharge.from-event", "POST", "/v1/payables/vendor-invoice-intake")
+}
+
+test_pricing_price_resolve_is_service_only_and_resolve_only if {
+	allowed("pricing.price.resolve", "POST", "/v1/pricing/resolve")
+	not allowed("pricing.price.resolve", "GET", "/v1/pricing/condition-records")
+	not allowed("pricing.price.resolve", "POST", "/v1/pricing/condition-records")
+	not allowed("pricing.price.resolve", "POST", "/v1/pricing/simulate")
+}
+
+test_party_tax_registration_routes if {
+	allowed("party.write", "PUT", "/v1/party/partners/c1/tax-registration")
+	not allowed("party.read", "PUT", "/v1/party/partners/c1/tax-registration")
+	allowed("party.read", "GET", "/v1/party/partners:tax-registrations")
+	allowed("party.tax-registration.read", "GET", "/v1/party/partners:tax-registrations")
+	not allowed("party.tax-registration.read", "PUT", "/v1/party/partners/c1/tax-registration")
+	not allowed("party.tax-registration.read", "GET", "/v1/party/parties/p1")
+}
+
+test_product_customs_read_is_service_scoped if {
+	allowed("product.customs.read", "GET", "/v1/product/products:customs")
+	allowed("product.read", "GET", "/v1/product/products:customs")
+	not allowed("product.customs.read", "GET", "/v1/product/products/p1")
+	not allowed("product.names.read", "GET", "/v1/product/products:customs")
 }

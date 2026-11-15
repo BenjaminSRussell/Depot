@@ -363,6 +363,13 @@ type SlipLine struct {
 	// (BR-28.10). Tracking is empty for an untracked line and for reversals.
 	ProductID string          `json:"product_id,omitempty"`
 	Tracking  []TrackingEntry `json:"tracking,omitempty"`
+	// CommodityCode, OriginCountry and NetWeight are the Intrastat data of the line, read from the product master when the slip posted
+	// (#13): the CN8 code, the country of origin and the net weight of the shipped quantity in kilograms. StatisticalValue is the line's
+	// value in the slip's currency (its cost; fulfillment holds no invoice value). Each is absent when the master had nothing.
+	CommodityCode    string `json:"commodity_code,omitempty"`
+	OriginCountry    string `json:"origin_country,omitempty"`
+	NetWeight        string `json:"net_weight,omitempty"`
+	StatisticalValue string `json:"statistical_value,omitempty"`
 }
 
 // TrackingEntry is one batch or serial taken from one location.
@@ -434,13 +441,20 @@ type PackingSlipPostedData struct {
 	OrderID           string `json:"order_id"`
 	CustomerID        string `json:"customer_id"`
 	// LegalEntityID is the shipment's legal entity; the search index scopes the slip by it (#506).
-	LegalEntityID string         `json:"legal_entity_id,omitempty"`
-	PostingDate   string         `json:"posting_date"`
-	Currency      string         `json:"currency"`
-	TotalCost     string         `json:"total_cost"`
-	Lines         []SlipLine     `json:"lines"`
-	Journal       []JournalEntry `json:"journal"`
-	PackagingFees []PackagingFee `json:"packaging_fees"`
+	LegalEntityID string `json:"legal_entity_id,omitempty"`
+	// PartnerCountry is the Intrastat partner country: the ship-to country the goods were dispatched to (the post's countryCode, #13), not the
+	// country of the customer's VAT registration; absent when the post named none. PartnerVATID is the customer's VAT id from the party
+	// master's tax registration, absent when it has none. CustomsLookupFailed is true when the party or product read failed, so the
+	// Intrastat data of this event is incomplete.
+	PartnerCountry      string         `json:"partner_country,omitempty"`
+	PartnerVATID        string         `json:"partner_vat_id,omitempty"`
+	CustomsLookupFailed bool           `json:"customs_lookup_failed,omitempty"`
+	PostingDate         string         `json:"posting_date"`
+	Currency            string         `json:"currency"`
+	TotalCost           string         `json:"total_cost"`
+	Lines               []SlipLine     `json:"lines"`
+	Journal             []JournalEntry `json:"journal"`
+	PackagingFees       []PackagingFee `json:"packaging_fees"`
 	// PackagingFeeBillable is the legal entity's packaging_fee_billable when the
 	// slip posted: billing charges the fee lines when true (BR-28.12).
 	PackagingFeeBillable bool             `json:"packaging_fee_billable"`

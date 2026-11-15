@@ -103,3 +103,36 @@ func TestValidateMovementAndProduct(t *testing.T) {
 		}
 	}
 }
+
+// A line that carries the product's customs data from the event needs no mapping: the commodity code, origin and net mass of the line
+// win, and the mapping is only the fallback for what the line leaves out (here the supplementary unit and, for line 2, the origin).
+func TestMovementLines_TakesTheCustomsDataTheLineCarries(t *testing.T) {
+	products := map[string]domain.IntrastatProduct{
+		pumpID: {ProductID: pumpID, CommodityCode: "84137030", OriginCountry: "US", NetMassPerUnit: domain.D("12.5"), SupplementaryPerUnit: domain.D("1")},
+	}
+	mass := domain.D("50.1234")
+	carried := mline(1, valveID, "4", "2000")
+	carried.CommodityCode, carried.OriginCountry, carried.NetMass = "84818099", "IT", &mass
+	partly := mline(2, pumpID, "2", "100")
+	partly.CommodityCode = "84137021"
+	m := movement("SHIP-9", "dispatch", "2026-03-04", "FR", carried, partly, mline(3, valveID, "1", "5"))
+	lines, unmapped, complete, _ := domain.MovementLines("dispatch", "DE", domain.Day("2026-03-01").Time, []domain.Movement{m}, products, domain.MovementDefaults{})
+	if len(lines) != 2 || len(unmapped) != 1 || unmapped[0].LineNo != 3 || len(complete) != 0 {
+		t.Fatalf("lines %+v unmapped %+v complete %v", lines, unmapped, complete)
+	}
+	if l := lines[0]; l.CommodityCode != "84818099" || l.OriginCountry != "IT" || l.NetMass.String() != "50.123" || l.StatisticalValue.String() != "2000" {
+		t.Errorf("carried line %+v", l)
+	}
+	if l := lines[1]; l.CommodityCode != "84137021" || l.OriginCountry != "US" || l.NetMass.String() != "25" || l.SupplementaryQty.String() != "2" {
+		t.Errorf("partly carried line %+v", l)
+	}
+	bad := mline(1, pumpID, "1", "1")
+	bad.CommodityCode = "12"
+	if err := domain.ValidateMovement(movement("X", "dispatch", "2026-03-04", "FR", bad)); err == nil {
+		t.Error("a short commodity code must be refused")
+	}
+	bad.CommodityCode, bad.OriginCountry = "84137021", "it"
+	if err := domain.ValidateMovement(movement("X", "dispatch", "2026-03-04", "FR", bad)); err == nil {
+		t.Error("a lower-case origin must be refused")
+	}
+}

@@ -13,6 +13,7 @@ import (
 
 	"github.com/BenjaminSRussell/passage/platform/dbx"
 	"github.com/BenjaminSRussell/passage/platform/httpx"
+	"github.com/BenjaminSRussell/passage/platform/tenant"
 	"github.com/BenjaminSRussell/passage/services/pricing/internal/api"
 	"github.com/BenjaminSRussell/passage/services/pricing/internal/store"
 	"github.com/BenjaminSRussell/passage/services/pricing/migrations"
@@ -43,6 +44,10 @@ func newLogger(w io.Writer) *slog.Logger {
 }
 
 func run(ctx context.Context, getenv func(string) string) error {
+	// Sales calls /v1/pricing/resolve with a signed service token (pricing.price.resolve, #30): without the verifier every one is refused.
+	if err := tenant.ConfigureServiceVerifier(getenv); err != nil {
+		return err
+	}
 	databaseURL := getenv("DATABASE_URL")
 	if databaseURL == "" {
 		return errors.New("DATABASE_URL is required")

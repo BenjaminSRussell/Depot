@@ -65,3 +65,8 @@ containerSecurityContext:
   readOnlyRootFilesystem: true
   capabilities:
     drop: ["ALL"]
+
+# Callers present a signed service token verified against these keys, name=base64-public-key comma separated. List sales' key as
+# sales=<base64 Ed25519 key>: sales prices customer portal order lines with POST /v1/pricing/resolve (pricing.price.resolve, #30).
+serviceIdentity:
+  publicKeys: ""

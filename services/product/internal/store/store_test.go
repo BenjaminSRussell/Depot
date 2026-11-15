@@ -509,3 +509,38 @@ func TestPostgres_ProductNames(t *testing.T) {
 		t.Fatalf("no ids: %+v %v", none, err)
 	}
 }
+
+// ProductCustoms reads the customs attributes of the tenant's own products; an unset attribute is empty and another tenant's product is
+// left out.
+func TestPostgres_ProductCustoms(t *testing.T) {
+	s, _ := appStore(t)
+	one := tenant.With(context.Background(), principal(1))
+	two := tenant.With(context.Background(), principal(2))
+	mk := func(ctx context.Context, id, number string) {
+		t.Helper()
+		if _, err := s.CreateProduct(ctx, domain.Product{ID: id, ProductNumber: number, Subtype: domain.SubtypeProduct, ProductType: domain.TypeItem, Name: number, BaseUOM: "EA"}, ""); err != nil {
+			t.Fatal(err)
+		}
+	}
+	a, b, c := testkit.TenantID(81), testkit.TenantID(82), testkit.TenantID(83)
+	mk(one, a, "CUS-1")
+	mk(one, b, "CUS-2")
+	mk(two, c, "CUS-3")
+	if err := s.SetAttributes(one, a, map[string]string{store.AttrCommodityCode: "84137021", store.AttrOriginCountry: "DE", store.AttrNetWeightKg: "12.5"}); err != nil {
+		t.Fatal(err)
+	}
+	got, err := s.ProductCustoms(one, []string{a, b, c})
+	if err != nil || len(got) != 2 {
+		t.Fatalf("customs: %+v %v", got, err)
+	}
+	by := map[string]domain.ProductCustoms{got[0].ID: got[0], got[1].ID: got[1]}
+	if x := by[a]; x.CommodityCode != "84137021" || x.OriginCountry != "DE" || x.NetWeightKg != "12.5" {
+		t.Errorf("product a: %+v", x)
+	}
+	if x := by[b]; x.CommodityCode != "" || x.OriginCountry != "" || x.NetWeightKg != "" {
+		t.Errorf("product b has no customs attributes: %+v", x)
+	}
+	if none, err := s.ProductCustoms(one, nil); err != nil || len(none) != 0 {
+		t.Fatalf("no ids: %+v %v", none, err)
+	}
+}

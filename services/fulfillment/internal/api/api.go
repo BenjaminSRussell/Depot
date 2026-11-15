@@ -9,6 +9,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"github.com/BenjaminSRussell/passage/platform/customsdata"
 	"io"
 	"net/http"
 	"regexp"
@@ -57,9 +58,17 @@ type Options struct {
 
 // API holds the store and the release parameters.
 type API struct {
-	store store.Store
-	opts  Options
-	now   func() time.Time
+	store   store.Store
+	opts    Options
+	now     func() time.Time
+	customs customsdata.Source
+}
+
+// WithCustoms sets the source of the Intrastat data (partner country, commodity code, origin, weight) packingslip.posted carries (#13);
+// without it the event has none of it.
+func (a *API) WithCustoms(c customsdata.Source) *API {
+	a.customs = c
+	return a
 }
 
 // New returns the API over s.
@@ -502,6 +511,7 @@ func (a *API) postPackingSlip(w http.ResponseWriter, r *http.Request) {
 		CountryCode: req.CountryCode, Costs: costs, EmitASN: req.AsnEnabled != nil && *req.AsnEnabled,
 		CogsFromSetting: req.CogsAtShipment == nil, AsnFromSetting: req.AsnEnabled == nil,
 		ShippedAt: a.now(), HasPostingDate: req.PostingDate != ""}
+	in.Customs = a.shipmentCustoms(r, id)
 	slip, err := a.store.PostPackingSlip(r.Context(), id, version, in, idem)
 	if err != nil {
 		httpx.Fail(w, r, err)

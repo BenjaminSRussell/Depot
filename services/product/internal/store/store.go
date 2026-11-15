@@ -37,6 +37,9 @@ type Store interface {
 	GetProduct(ctx context.Context, id string) (domain.Product, error)
 	// ProductNames returns the number and name of each product that exists in the caller's tenant (unknown ids are left out).
 	ProductNames(ctx context.Context, ids []string) ([]domain.ProductName, error)
+	// ProductCustoms returns the customs attributes (INTRASTAT_COMMODITY_CODE, INTRASTAT_ORIGIN_COUNTRY, INTRASTAT_NET_WEIGHT_KG) of each
+	// product that exists in the caller's tenant; an attribute not set is empty, unknown ids are left out (#13).
+	ProductCustoms(ctx context.Context, ids []string) ([]domain.ProductCustoms, error)
 	UpdateProduct(ctx context.Context, id string, patch domain.ProductPatch, version int) (domain.Product, error)
 	GetSavedConfiguration(ctx context.Context, id, productID string) (domain.ConfigurationRef, error)
 	ListProducts(ctx context.Context, q, after string, limit int) ([]domain.Product, error)
@@ -1116,6 +1119,47 @@ func (s *Postgres) ProductNames(ctx context.Context, productIDs []string) ([]dom
 				return err
 			}
 			out = append(out, n)
+		}
+		return rows.Err()
+	})
+	return out, err
+}
+
+// Attribute codes that hold a product's customs data (#13). The attribute definitions are the tenant's own; these codes are only read.
+const (
+	AttrCommodityCode = "INTRASTAT_COMMODITY_CODE"
+	AttrOriginCountry = "INTRASTAT_ORIGIN_COUNTRY"
+	AttrNetWeightKg   = "INTRASTAT_NET_WEIGHT_KG"
+)
+
+// ProductCustoms answers the customs attributes of each id, for the shipment and receipt events fulfillment and receiving publish: the
+// commodity code (CN8), the country of origin and the net weight in kilograms per base unit, as stored on the product.
+func (s *Postgres) ProductCustoms(ctx context.Context, productIDs []string) ([]domain.ProductCustoms, error) {
+	p, err := principal(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := []domain.ProductCustoms{}
+	if len(productIDs) == 0 {
+		return out, nil
+	}
+	err = dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
+		rows, err := tx.Query(ctx, `select p.id::text,
+				coalesce(max(a.value) filter (where a.attribute_code = $3), ''),
+				coalesce(max(a.value) filter (where a.attribute_code = $4), ''),
+				coalesce(max(a.value) filter (where a.attribute_code = $5), '')
+			from product p left join product_attribute_value a on a.tenant_id = p.tenant_id and a.product_id = p.id
+			where p.tenant_id = $1 and p.id = any($2::uuid[]) group by p.id order by p.id`, p.TenantID, productIDs, AttrCommodityCode, AttrOriginCountry, AttrNetWeightKg)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var c domain.ProductCustoms
+			if err := rows.Scan(&c.ID, &c.CommodityCode, &c.OriginCountry, &c.NetWeightKg); err != nil {
+				return err
+			}
+			out = append(out, c)
 		}
 		return rows.Err()
 	})

@@ -126,7 +126,24 @@ var (
 	DownPaymentReleased = events.Type(Context, "downpayment", "released", 1)
 	// CreditSettled is a credit item (credit note, adjustment, unapplied payment) offset against debit items (30-3).
 	CreditSettled = events.Type(Context, "creditsettlement", "applied", 1)
+	// CreditSettlementReversed is a credit settlement undone: the debits are open again by what it took off them (#30).
+	CreditSettlementReversed = events.Type(Context, "creditsettlement", "reversed", 1)
 )
+
+// CreditSettlementReversedData is the payload of dev.passage.receivables.creditsettlement.reversed.v1. Amounts are positive
+// magnitudes, as in CreditSettledData; realized_fx is the functional-currency difference that was reversed (positive a gain).
+type CreditSettlementReversedData struct {
+	BatchID         string               `json:"batch_id"`
+	ReversalBatchID string               `json:"reversal_batch_id"`
+	LegalEntityID   string               `json:"legal_entity_id"`
+	CustomerID      string               `json:"customer_id"`
+	Currency        string               `json:"currency"`
+	CreditItemID    string               `json:"credit_item_id"`
+	Total           decimal.Decimal      `json:"total"`
+	RealizedFX      decimal.Decimal      `json:"realized_fx"`
+	Reason          string               `json:"reason,omitempty"`
+	Debits          []CreditSettledDebit `json:"debits"`
+}
 
 // CreditSettledData is the payload of dev.passage.receivables.creditsettlement.applied.v1. Amounts are positive
 // magnitudes; nothing moves in the ledger, both sides stay in 1200.

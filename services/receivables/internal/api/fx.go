@@ -73,6 +73,8 @@ func (a *API) putFXSetting(w http.ResponseWriter, r *http.Request) {
 
 type unapplyRequest struct {
 	Reason string `json:"reason"`
+	// SettlementID limits the reversal to one settlement of the payment; omitted, every live application is reversed.
+	SettlementID string `json:"settlementId"`
 }
 
 // unapplyPayment reverses every live application of a payment (#30): the items it settled are open again by what it took off them
@@ -97,7 +99,16 @@ func (a *API) unapplyPayment(w http.ResponseWriter, r *http.Request, id string) 
 		writeFields(w, r, map[string]string{"reason": "must be at most 500 characters"})
 		return
 	}
-	out, err := a.store.UnapplyPayment(r.Context(), id, version, in.Reason)
+	var out store.UnapplyResult
+	if in.SettlementID != "" {
+		if !ids.Valid(in.SettlementID) {
+			writeFields(w, r, map[string]string{"settlementId": "must be a UUID"})
+			return
+		}
+		out, err = a.store.UnapplySettlement(r.Context(), id, in.SettlementID, version, in.Reason)
+	} else {
+		out, err = a.store.UnapplyPayment(r.Context(), id, version, in.Reason)
+	}
 	if err != nil {
 		a.fail("unapply payment", w, r, err)
 		return
