@@ -13,11 +13,16 @@ adapter is a later slice. Errors use HTTP status codes: 422 for invalid input,
 
 from __future__ import annotations
 
+import os
+
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from pydantic.alias_generators import to_camel
 
 from tms_optimizer import stacking, vrp
+from tms_optimizer.logpseudo import install_logging
+
+install_logging(os.environ)  # eu-data-boundary overlay or LOG_PSEUDONYMIZE=true: person values and emails in log lines are pseudonymized (#605)
 
 app = FastAPI(title="passage-tms-optimizer", version="0.1.0")
 

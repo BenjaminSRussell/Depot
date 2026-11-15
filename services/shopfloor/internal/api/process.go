@@ -427,19 +427,43 @@ func (a *API) retryDueProcessMessages(w http.ResponseWriter, r *http.Request) {
 // signature-request step of a recipe of its order. The meaning is the step's (performed by default): a message
 // without one gets it, one with another meaning is refused (SF-0186, 422). It reports whether to go on.
 func (a *API) checkSignature(w http.ResponseWriter, r *http.Request, in *domain.NewMessage) bool {
-	meaningAt := -1
+	meaningAt, signedAt := -1, -1
 	signed := false
 	for i, v := range in.Values {
 		switch v.Name {
 		case "signature-meaning":
 			meaningAt = i
 		case "signed-by":
-			signed = true
+			signed, signedAt = true, i
 		}
 	}
 	if !signed && meaningAt < 0 {
 		return true
 	}
+	// A retry of a signature already stored is answered from the store, whatever the age of the sign-in now (the person is
+	// not sent through a login for a signature that was recorded).
+	if a.replayStoredMessage(w, r, *in) {
+		return false
+	}
+	// 21 CFR 11.200: a signature is made by a person who has just authenticated. The gateway forwards the token's auth_time
+	// for a person's request; a service-token caller can never sign.
+	p, _ := tenant.FromContext(r.Context())
+	reauth := func(detail string) bool {
+		httpx.Fail(w, r, httpx.NewProblem(http.StatusForbidden, domain.CodeSignatureReauth, detail))
+		return false
+	}
+	if p.Service != "" || p.UserID == "" {
+		return reauth("a signature must be made by a signed-in person")
+	}
+	authAt, ok := tenant.AuthTime(r)
+	age, fresh := tenant.AuthAge(r, a.now())
+	switch {
+	case !ok:
+		return reauth("your sign-in carries no authentication time (auth_time), so the service cannot tell how recently you signed in: the identity provider must put auth_time in access tokens; sign in again and send the signature once more")
+	case !fresh || age > a.signatureAge:
+		return reauth(fmt.Sprintf("you signed in %d minutes ago; a signature needs a sign-in within the last %d minutes: sign in again, then send it once more", int(age/time.Minute), int(a.signatureAge/time.Minute)))
+	}
+	in.SignerUser, in.SignerAuthTime = p.UserID, &authAt
 	refuse := func(detail string) bool {
 		httpx.Fail(w, r, httpx.NewProblem(http.StatusUnprocessableEntity, domain.CodeSignatureStep, detail))
 		return false
@@ -465,6 +489,14 @@ func (a *API) checkSignature(w http.ResponseWriter, r *http.Request, in *domain.
 	step, ok := doc.SignatureStep(key)
 	if !ok || step.Category != domain.InstSignature || !strings.EqualFold(rc.OrderID, in.OrderID) {
 		return refuse("the message does not name a signature step of a recipe of its order")
+	}
+	// The signer is the caller: signed-by is their user id, filled in when the client left it out.
+	if signedAt >= 0 && in.Values[signedAt].Value != p.UserID {
+		httpx.Fail(w, r, httpx.NewProblem(http.StatusUnprocessableEntity, domain.CodeSignatureSigner, "signed-by must be the signed-in user: a signature is the caller's own"))
+		return false
+	}
+	if signedAt < 0 {
+		in.Values = append(in.Values, domain.Characteristic{Name: "signed-by", Type: "text", Value: p.UserID})
 	}
 	want := domain.MeaningOf(step)
 	if meaningAt < 0 {

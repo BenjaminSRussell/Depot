@@ -281,6 +281,27 @@ func (w *Work) Release(user string) error {
 	return nil
 }
 
+// Reassign hands a work that is ASSIGNED or IN_PROGRESS to another holder, as a supervisor does after an automation fault:
+// a work a station already confirmed a line of cannot go back to OPEN (BR-31.3), so its remaining lines go to a person
+// as they are, keeping the status and the confirmed lines. from must be the current holder, to a different one.
+func (w *Work) Reassign(from, to, reason string, at time.Time) error {
+	if strings.TrimSpace(reason) == "" {
+		return ErrReasonRequired
+	}
+	if w.Status != WorkAssigned && w.Status != WorkInProgress {
+		return errorf(CodeIllegalTransition, "a %s work cannot be reassigned; only a work that is ASSIGNED or IN_PROGRESS can", w.Status)
+	}
+	if w.AssignedUser != from {
+		return ErrNotAssignee
+	}
+	if to == "" || to == from {
+		return errorf(CodeIllegalTransition, "the work must go to a different holder")
+	}
+	w.AssignedUser = to
+	w.AssignedAt = &at
+	return nil
+}
+
 // NoteLine records why an open line is waiting (a PLC fault, a divert, a cancelled automation order), for the person who
 // picks the work up. A settled line keeps its reason.
 func (w *Work) NoteLine(n int, reason string) error {

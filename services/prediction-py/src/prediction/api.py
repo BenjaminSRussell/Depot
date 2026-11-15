@@ -19,7 +19,10 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 
 from prediction.domain import MAE_MAX_DAYS_RANGE, MIN_ROWS_RANGE, Config, Model, OpenInvoice, PaidInvoice, Prediction, PredictionError
+from prediction.logpseudo import install_logging
 from prediction.service import InMemoryRepository, PredictionService, Repository
+
+install_logging(os.environ)  # eu-data-boundary overlay or LOG_PSEUDONYMIZE=true: person values and emails in log lines are pseudonymized (#605)
 
 NIL = uuid.UUID(int=0)
 DUTY_ADMIN = "agents.admin"  # retrain and score (seeded in policies/authz/data.json)

@@ -452,5 +452,49 @@ class CLITests(unittest.TestCase):
         self.assertIn("error:", err.getvalue())
 
 
+class ThirdPartyImageTests(unittest.TestCase):
+    """#603: the operator images of the third-party charts are in the bundle plan, each with a provenance entry."""
+
+    def test_every_extra_image_has_a_usable_provenance_entry(self) -> None:
+        prov = ob.load_provenance()
+        manifest = {"images": [{"ref": r} for r in ob.extra_images()], "thirdPartyCharts": []}
+        self.assertEqual(ob.missing_provenance(manifest, prov), [])
+
+    def test_the_operator_images_follow_the_pinned_chart_versions(self) -> None:
+        refs = set(ob.extra_images())
+        charts = {c["chart"]: c["version"] for c in ob.third_party_charts()}
+        self.assertIn(f"quay.io/strimzi/operator:{charts['strimzi-kafka-operator']}", refs)
+        kafka = re.search(r"^\s*version:\s*(\S+)", (ob.DEPLOY / "kafka" / "kafka.yaml").read_text(encoding="utf-8").split("kafka:", 1)[1], re.M)
+        self.assertIsNotNone(kafka)
+        self.assertIn(f"quay.io/strimzi/kafka:{charts['strimzi-kafka-operator']}-kafka-{kafka.group(1)}", refs)
+        for part in ("controller", "webhook", "cainjector", "acmesolver", "startupapicheck"):
+            self.assertIn(f"quay.io/jetstack/cert-manager-{part}:{charts['cert-manager']}", refs, part)
+
+    def test_the_plan_lists_the_operator_images(self) -> None:
+        planned = {i["ref"] for i in ob.plan(FakeRunner())["images"]}
+        self.assertTrue({"quay.io/strimzi/operator", "quay.io/jetstack/cert-manager-controller"} <= {ob.repository(r) for r in planned})
+
+    def test_chart_images_renders_each_chart_with_the_repositorys_values(self) -> None:
+        runner = FakeRunner()
+        found = ob.chart_images(runner, Path(tempfile.mkdtemp()))
+        self.assertEqual(set(found), {"kyverno", "temporal", "strimzi-kafka-operator", "cert-manager", "argo-cd"})
+        self.assertIn("docker.io/library/postgres:17", found["kyverno"])
+        renders = runner.ran("helm", "template")
+        self.assertEqual(len(renders), 5)
+        for c in renders:
+            self.assertEqual("-f" in c, "temporal" in c[3], c)
+
+    def test_chart_images_flag_images_are_found_and_write_is_idempotent(self) -> None:
+        self.assertEqual({m.group(1) for m in ob.IMAGE_FLAG.finditer('args:\n- --acme-http01-solver-image=quay.io/jetstack/x:v1\n- "--other-image=a.io/b:1"')}, {"quay.io/jetstack/x:v1", "a.io/b:1"})
+        path = Path(tempfile.mkdtemp()) / "extra-images.txt"
+        path.write_text("# header\nquay.io/keycloak/keycloak:26.0.8\n", encoding="utf-8")
+        images = {"kyverno": ["reg.kyverno.io/kyverno/kyverno:v1.1.0", "quay.io/keycloak/keycloak:26.0.8"]}
+        self.assertEqual(ob.write_chart_images(images, path), ["reg.kyverno.io/kyverno/kyverno:v1.1.0"])
+        self.assertEqual(ob.write_chart_images(images, path), [])
+        text = path.read_text(encoding="utf-8")
+        self.assertEqual(text.count("reg.kyverno.io/kyverno/kyverno:v1.1.0"), 1)
+        self.assertEqual(text.count(ob.GENERATED_MARK), 1)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -236,10 +236,8 @@ export function messageFor(recipeId: string, step: RunStep, entry: StepEntry | u
     return {
       ...base,
       categoryCode: "process-data",
-      values: [
-        { name: "signed-by", type: "text", value: entry.value.trim() },
-        { name: "signature-meaning", type: "text", value: ins.meaning ?? "performed" },
-      ],
+      // The service records the signed-in user as the signer (signed-by); the typed name only confirms it is the person.
+      values: [{ name: "signature-meaning", type: "text", value: ins.meaning ?? "performed" }],
     };
   }
   return null;

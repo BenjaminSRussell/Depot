@@ -1,6 +1,7 @@
 // Shop floor time and attendance (/api/v1/shopfloor) for the demo: workers, registrations, worker-days and their
 // approval, supervisor corrections, auto clock-outs, who is clocked in and the payroll export. The workers are the
 // hourly staff of hr/people.ts, so the HR screens and the time screens name the same people.
+import { byUsername, ME } from "../finance/people";
 import type {
   AbsenceCode,
   ApprovedDay,
@@ -34,7 +35,8 @@ const KIND_AGREEMENT = 238;
 const KIND_ABSENCE_CODE = 239;
 const HOUR = 3_600_000;
 const SUPERVISOR = "Tom Brennan";
-const PAYROLL = "Rachel Osei";
+// Created by user ids: the pages resolve them to names through the user lookup.
+const PAYROLL = byUsername("rita.alvarez").id;
 
 // --- Setup: time profiles, pay agreements, absence codes ---
 
@@ -78,6 +80,7 @@ const workers = table<Worker>(
     profileId: profileOf(p).id,
     payAgreementId: p.jobCode === "MAINT-TECH" ? agreements[1].id : agreements[0].id,
     defaultResourceId: p.resource ? resourceByCode(p.resource).id : null,
+    timeZone: "America/Chicago",
   })),
 );
 
@@ -101,7 +104,19 @@ route("POST", `${BASE}/workers/{id}/cost-rates`, (req) => {
   const w = workers.get(req.params.id);
   if (!w) return reply.problem(404, "SF-0404", "Worker not found.");
   const body = req.body as { effectiveFrom: string; costRate: string; note: string | null };
-  return reply.created({ id: crypto.randomUUID(), workerId: w.id, effectiveFrom: body.effectiveFrom, costRate: body.costRate, note: body.note, createdBy: "Jordan Avery", createdAt: at(0) } satisfies CostRate);
+  return reply.created({ id: crypto.randomUUID(), workerId: w.id, effectiveFrom: body.effectiveFrom, costRate: body.costRate, note: body.note, createdBy: ME.id, createdAt: at(0) } satisfies CostRate);
+});
+route("POST", `${BASE}/workers`, (req) => {
+  const b = (req.body ?? {}) as Partial<Worker> & { name: string; partyId: string };
+  return reply.created(
+    workers.insert({ id: crypto.randomUUID(), partyId: b.partyId, name: b.name, badgeId: b.badgeId ?? null, userId: b.userId ?? null, costRate: b.costRate ?? "0", currency: b.currency ?? "USD", active: true, version: 1, createdAt: at(0), profileId: null, payAgreementId: null, defaultResourceId: null, timeZone: b.timeZone ?? "UTC" }),
+  );
+});
+route("PUT", `${BASE}/workers/{id}`, (req) => {
+  const w = workers.get(req.params.id);
+  if (!w) return reply.problem(404, "SF-0404", "Worker not found.");
+  const b = (req.body ?? {}) as Partial<Worker>;
+  return reply.ok(workers.update(w.id, { name: b.name ?? w.name, badgeId: b.badgeId ?? null, userId: b.userId ?? null, costRate: b.costRate ?? w.costRate, currency: b.currency ?? w.currency, timeZone: b.timeZone ?? w.timeZone, version: w.version + 1 }));
 });
 route("GET", `${BASE}/workers/{id}`, (req) => workers.get(req.params.id) ?? reply.problem(404, "SF-0404", "Worker not found."));
 for (const command of ["assign-setup", "assign-resource", "deactivate", "reactivate"]) {
@@ -492,7 +507,7 @@ route("GET", `${BASE}/pay-exports/{id}`, (req) => {
 });
 route("POST", `${BASE}/pay:export`, (req) => {
   const { from = day(-6), to = day(0) } = rangeOf(req.body);
-  const batch = exportRange(from, to, "Jordan Avery", at(0));
+  const batch = exportRange(from, to, ME.id, at(0));
   if (!batch) return reply.problem(409, "SF-0140", "No approved pay lines in the range are waiting for export.");
   const { id: _id, ...out } = batch;
   return reply.created((void _id, out));

@@ -23,6 +23,7 @@ import {
 import { validateFilter, MAX_EXPRESSION_LENGTH } from "./cesql.ts";
 import { SOURCE_SYSTEMS, type CoexistenceStore, type SourceSystem } from "./coexistence.ts";
 import { parseEvent } from "./consumer.ts";
+import { jsonLine } from "./logging/pseudonymize.ts";
 import {
   CATALOG_KINDS,
   CatalogStateError,
@@ -55,6 +56,12 @@ import {
 import { parseRestInput, parseRestPatch, REST_FIELDS, RestConfigError, sampleUrl, type RestConfig, type RestPusher } from "./restPush.ts";
 import { UnsafeWebhookUrlError, validateWebhookUrl, type GuardOptions } from "./ssrf.ts";
 
+
+let errorLine: ((record: Record<string, unknown>) => void) | undefined;
+/** Error lines go to stderr, pseudonymized under the eu-data-boundary overlay (#605). */
+function logError(record: Record<string, unknown>): void {
+  (errorLine ??= jsonLine(process.env, (line) => void process.stderr.write(line)))(record);
+}
 export const DUTY_SUBSCRIPTION_WRITE = "hub.subscription.write";
 export const DUTY_DELIVERY_READ = "hub.delivery.read";
 /** Register, change and revoke API clients (new duty; enforced here, seeded by the main session). */
@@ -977,7 +984,7 @@ export function createHubHandler(deps: HubApiDeps): (req: IncomingMessage, res: 
         apiErr = new ApiError(400, "HUB-0400", err.message);
       } else {
         apiErr = new ApiError(500, "HUB-0500", "unexpected error");
-        console.error(JSON.stringify({ level: "error", msg: "unhandled error", path: url.pathname, error: (err as Error).message }));
+        logError({ level: "error", msg: "unhandled error", path: url.pathname, error: (err as Error).message });
       }
       status = apiErr.status;
       problem(res, apiErr, url.pathname);

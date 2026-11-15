@@ -85,7 +85,7 @@ func (a *API) optimizeRoutes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if a.optimizer == nil {
-		httpx.Fail(w, r, optimizerUnavailable("the route optimizer is not configured (TMS_OPTIMIZER_URL)"))
+		httpx.Fail(w, r, optimizerUnavailable("the route optimizer is not configured (ROUTING_PY_URL)"))
 		return
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), time.Duration(req.TimeLimitS)*time.Second+solveOverhead)
@@ -171,7 +171,7 @@ func (a *API) stackLoadPlan(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if a.optimizer == nil {
-		httpx.Fail(w, r, optimizerUnavailable("the load planner is not configured (TMS_OPTIMIZER_URL)"))
+		httpx.Fail(w, r, optimizerUnavailable("the load planner is not configured (ROUTING_PY_URL)"))
 		return
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), stackTimeout)

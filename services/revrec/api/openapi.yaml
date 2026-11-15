@@ -188,7 +188,9 @@ paths:
         credit note); a prospective change with nothing left is 422 REV-0404; a date before the contract date is 422 REV-0401. A
         contract that credit notes touched is modified on its amounts net of them (REV-0405 is no longer returned). A price change is
         queued for billing (`billingStatus` PENDING), which invoices the products whose allocation rose and credits those whose
-        allocation fell. Each modification stores each
+        allocation fell; one request per modification, keyed by the modification, so a repeat or `:retry-billing` never bills twice. A
+        revision of stand-alone selling prices with the price unchanged (`priceChange` 0) only re-allocates revenue: nothing is billed
+        (`billingStatus` NONE) because the customer owes the same. Each modification stores each
         obligation's allocation change on its effective date, and the roll-forward adds it in that period. Adding goods or services is
         `:allocate`. If-Match is required and must carry the contract version the caller reviewed. Emits
         dev.passage.revrec.contract.allocated.v1 again, and schedule.recognized for a milestone catch-up.
@@ -648,7 +650,7 @@ components:
         transactionPriceChange: { type: string, pattern: "^-?[0-9]{1,14}(\\.[0-9]{1,6})?$", description: "Signed change of the transaction price; 0 when only SSPs are revised." }
         obligations:
           type: array
-          description: Obligations whose standalone selling price is revised, or whose remaining performance is reduced or removed, at the modification date; each needs ssp, remainingScope or both.
+          description: Obligations whose standalone selling price is revised, or whose remaining performance is reduced or removed, at the modification date; each needs ssp, remainingScope, the usage pair or a combination.
           items:
             type: object
             required: [obligationId]
@@ -657,6 +659,8 @@ components:
               obligationId: { type: string, format: uuid }
               ssp: { type: string, pattern: "^[0-9]{1,14}(\\.[0-9]{1,6})?$" }
               remainingScope: { type: string, pattern: "^(0(\\.[0-9]{1,6})?|1(\\.0{1,6})?)$", description: "Share of the remaining, not yet transferred performance still promised: 0 removes the obligation, 1 leaves it unchanged. Without ssp the SSP scales to what stays promised." }
+              usageToDate: { type: string, pattern: "^[0-9]{1,14}(\\.[0-9]{1,6})?$", description: "CATCH_UP only, for a USAGE obligation, together with expectedUsage: the units consumed to the effective date. The obligation is then re-allocated like the others and its revenue to date is usageToDate times the reallocated rate (new allocation over expectedUsage), capped at the allocation; the catch-up against what is recognized is recognized at once (or taken back, a reversal). A USAGE obligation without it keeps its allocation. REV-0406 for an obligation that is not USAGE, a prospective modification, a remainingScope on the same obligation or a zero expectedUsage." }
+              expectedUsage: { type: string, pattern: "^[0-9]{1,14}(\\.[0-9]{1,6})?$", description: "The units the obligation's allocation covers over the contract (greater than 0); the rate is allocation / expectedUsage." }
         reason: { type: string, maxLength: 500 }
     ModifyResponse:
       allOf:

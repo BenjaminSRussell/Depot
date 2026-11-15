@@ -6,12 +6,13 @@ import { addDays, daysBetween, formatDateTime, today } from "./format";
 import styles from "./pages.module.css";
 import { useLoad } from "./useLoad";
 import { ProblemMessage } from "../../shell/errors";
+import { UserName } from "../../shell/lookup/UserName";
 
 const columns: DataTableColumn<PayExport>[] = [
   { key: "batchId", header: "Batch", mono: true, render: (row) => row.batchId.slice(0, 8) },
   { key: "range", header: "Work dates", render: (row) => `${row.fromDate} to ${row.toDate}` },
   { key: "lineCount", header: "Pay lines", align: "end" },
-  { key: "createdBy", header: "Exported by" },
+  { key: "createdBy", header: "Exported by", render: (row) => <UserName id={row.createdBy} /> },
   { key: "createdAt", header: "Exported", render: (row) => formatDateTime(row.createdAt) },
 ];
 

@@ -5,6 +5,7 @@ import { dash, fixed, formatDateTime, today } from "./format";
 import styles from "./pages.module.css";
 import { useLoad } from "./useLoad";
 import { ProblemMessage } from "../../shell/errors";
+import { UserName } from "../../shell/lookup/UserName";
 
 const NOTE_MAX = 500;
 const RATE_PATTERN = /^\d{1,14}(\.\d{1,6})?$/;
@@ -79,7 +80,7 @@ export function WorkerCostRates({ worker }: { worker: Worker }) {
     { key: "effectiveFrom", header: "From", mono: true },
     { key: "costRate", header: `Rate per hour (${worker.currency})`, align: "end", render: (row) => fixed(row.costRate, 2) },
     { key: "note", header: "Note", render: (row) => row.note ?? dash },
-    { key: "createdBy", header: "Set by", render: (row) => `${row.createdBy}, ${formatDateTime(row.createdAt)}` },
+    { key: "createdBy", header: "Set by", render: (row) => <><UserName id={row.createdBy} />, {formatDateTime(row.createdAt)}</> },
   ];
 
   return (

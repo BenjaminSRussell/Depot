@@ -88,6 +88,7 @@ func TestOpenAPI_MatchesRoutes(t *testing.T) {
 		"PATCH /v1/planning/planned-orders/{id}":              dutyMaintainOrders,
 		"DELETE /v1/planning/planned-orders/{id}":             dutyMaintainOrders,
 		"POST /v1/planning/planned-orders:firm":               dutyFirmOrders,
+		"GET /v1/planning/forecasts":                          dutyRead,
 		"GET /v1/planning/forecasts/{modelCode}/lines":        dutyRead,
 		"PUT /v1/planning/forecasts/{modelCode}/lines":        dutyMaintainForecast,
 		"POST /v1/planning/forecasts/{modelCode}:submit":      dutyMaintainForecast,

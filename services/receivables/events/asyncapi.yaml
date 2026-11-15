@@ -55,6 +55,8 @@ channels:
     messages:
       creditSettled:
         $ref: "#/components/messages/CreditSettled"
+      creditSettlementReversed:
+        $ref: "#/components/messages/CreditSettlementReversed"
   deductionEvents:
     address: passage.receivables.deduction
     messages:
@@ -144,6 +146,11 @@ operations:
     channel: { $ref: "#/channels/creditSettlementEvents" }
     messages:
       - { $ref: "#/channels/creditSettlementEvents/messages/creditSettled" }
+  publishCreditSettlementReversed:
+    action: send
+    channel: { $ref: "#/channels/creditSettlementEvents" }
+    messages:
+      - { $ref: "#/channels/creditSettlementEvents/messages/creditSettlementReversed" }
   publishDownPaymentReleased:
     action: send
     channel: { $ref: "#/channels/downPaymentEvents" }
@@ -256,6 +263,14 @@ components:
       contentType: application/cloudevents+json
       payload:
         $ref: "#/components/schemas/CreditSettledData"
+    CreditSettlementReversed:
+      name: dev.passage.receivables.creditsettlement.reversed.v1
+      summary: >-
+        A credit settlement was reversed (#30): the debits are open again by what it took off them and the credit holds what it
+        had. A cross-currency settlement's realized exchange difference was reversed with it, in the functional currency.
+      contentType: application/cloudevents+json
+      payload:
+        $ref: "#/components/schemas/CreditSettlementReversedData"
     DeductionOpened:
       name: dev.passage.receivables.deduction.opened.v1
       summary: >-
@@ -431,6 +446,29 @@ components:
               amount: { type: string, description: "What came off the credit, in its currency." }
               item_currency: { type: string, pattern: "^[A-Z]{3}$", description: "Set for a cross-currency settlement: the debit's currency." }
               item_amount: { type: string, description: "Set for a cross-currency settlement: what came off the debit, in item_currency." }
+    CreditSettlementReversedData:
+      type: object
+      required: [batch_id, reversal_batch_id, legal_entity_id, customer_id, currency, credit_item_id, total, realized_fx, debits]
+      properties:
+        batch_id: { type: string, format: uuid, description: "The settlement that was reversed." }
+        reversal_batch_id: { type: string, format: uuid }
+        legal_entity_id: { type: string, format: uuid }
+        customer_id: { type: string, format: uuid }
+        currency: { type: string }
+        credit_item_id: { type: string, format: uuid }
+        total: { type: string, description: "Decimal string; the credit given back." }
+        realized_fx: { type: string, description: "Decimal string; the realized difference reversed, functional currency, positive a gain." }
+        reason: { type: string }
+        debits:
+          type: array
+          items:
+            type: object
+            required: [open_item_id, amount]
+            properties:
+              open_item_id: { type: string, format: uuid }
+              amount: { type: string }
+              item_currency: { type: string, pattern: "^[A-Z]{3}$" }
+              item_amount: { type: string }
     DownPaymentData:
       type: object
       required: [downpayment_id, legal_entity_id, customer_id, sales_order_id, kind, amount, currency, remaining, open_item_id, postings]

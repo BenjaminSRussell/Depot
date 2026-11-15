@@ -349,3 +349,43 @@ func (s *Postgres) ForecastDemand(ctx context.Context, modelCode, siteID string,
 	})
 	return out, err
 }
+
+// ForecastModelSummary is one row of the forecast model list: enough to pick a model by its code and see where it stands.
+type ForecastModelSummary struct {
+	Code               string  `json:"code"`
+	Version            int     `json:"version"`
+	Status             string  `json:"status"`
+	ReductionPrinciple string  `json:"reductionPrinciple"`
+	LegalEntityID      *string `json:"legalEntityId"`
+	PublishedAt        *string `json:"publishedAt"`
+}
+
+// ListForecastModels lists the tenant's forecast models by code (version 0 models, created by a write that never completed,
+// are included: they are the ones a first write names). A legal entity narrows the list to the models that entity owns and
+// the models no entity owns.
+func (s *Postgres) ListForecastModels(ctx context.Context, legalEntityID, q, code string, limit int) ([]ForecastModelSummary, error) {
+	p, _ := tenant.FromContext(ctx)
+	out := []ForecastModelSummary{}
+	err := dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
+		rows, err := tx.Query(ctx, `select code, version, status, reduction_principle, legal_entity_id::text,
+				to_char(published_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"')
+			from forecast_model
+			where tenant_id = $1 and ($2 = '' or legal_entity_id is null or legal_entity_id = nullif($2, '')::uuid)
+			  and ($3 = '' or position(upper($3) in code) > 0)
+			  and ($4 = '' or code = $4)
+			order by code limit $5`, p.TenantID, legalEntityID, q, code, limit)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var m ForecastModelSummary
+			if err := rows.Scan(&m.Code, &m.Version, &m.Status, &m.ReductionPrinciple, &m.LegalEntityID, &m.PublishedAt); err != nil {
+				return err
+			}
+			out = append(out, m)
+		}
+		return rows.Err()
+	})
+	return out, err
+}

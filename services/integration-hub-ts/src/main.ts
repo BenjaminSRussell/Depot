@@ -18,8 +18,11 @@ import { createAdminServer, createHubHandler } from "./server.ts";
 import { httpExchange, RestPusher } from "./restPush.ts";
 import { serviceTokenSignerFromEnv } from "./serviceToken.ts";
 import { allowHttpFromEnv, egressPolicyFromEnv } from "./ssrf.ts";
+import { jsonLine } from "./logging/pseudonymize.ts";
 
 const env = process.env;
+// Under the eu-data-boundary overlay (or LOG_PSEUDONYMIZE=true) person values and email addresses are pseudonymized before a line is written (#605).
+const logLine = jsonLine(env, (line) => void process.stderr.write(line));
 const databaseUrl = env["DATABASE_URL"];
 if (databaseUrl === undefined || databaseUrl === "") {
   console.error("DATABASE_URL is required");
@@ -33,7 +36,7 @@ if (env["MIGRATE_ON_START"] === "true") {
 // Signing secrets are sealed at rest; without keys, creating a subscription answers 501 and the poller cannot sign.
 const keys = FieldKeys.fromEnv(env);
 if (keys === null) {
-  console.warn(JSON.stringify({ level: "warn", msg: "FIELDCRYPT_KEYS is empty: webhook subscriptions cannot be created or delivered until it is set" }));
+  logLine({ level: "warn", msg: "FIELDCRYPT_KEYS is empty: webhook subscriptions cannot be created or delivered until it is set" });
 }
 const store = new HubStore(pool, keys);
 const metrics = new Metrics();
@@ -51,7 +54,7 @@ const rest =
     ? new RestPusher({ migration: httpMigrationClient({ baseUrl: migrationUrl, signer }), exchange: httpExchange(guard) })
     : undefined;
 if (rest === undefined) {
-  console.warn(JSON.stringify({ level: "warn", msg: "rest-push is off: set MIGRATION_URL and PASSAGE_SERVICE_SIGNING_KEY(_FILE)" }));
+  logLine({ level: "warn", msg: "rest-push is off: set MIGRATION_URL and PASSAGE_SERVICE_SIGNING_KEY(_FILE)" });
 }
 
 const coexistenceStore = new CoexistenceStore(pool);
@@ -65,7 +68,7 @@ const poller = new Poller({
   metrics,
   transport: httpTransport(guard),
   ...(rest === undefined ? {} : { rest }),
-  onError: (err) => console.error(JSON.stringify({ level: "error", msg: "poller", error: (err as Error).message })),
+  onError: (err) => logLine({ level: "error", msg: "poller", error: (err as Error).message }),
 });
 poller.start(Number(env["HUB_POLL_INTERVAL_MS"] ?? 2000));
 
@@ -74,7 +77,7 @@ const maintenance = new Maintenance({
   store,
   metrics,
   usageRetentionDays: usageRetentionDaysFromEnv(env),
-  onError: (err) => console.error(JSON.stringify({ level: "error", msg: "maintenance", error: (err as Error).message })),
+  onError: (err) => logLine({ level: "error", msg: "maintenance", error: (err as Error).message }),
 });
 maintenance.start(Number(env["HUB_MAINTENANCE_INTERVAL_MS"] ?? 300_000));
 
@@ -85,7 +88,7 @@ const coexistence = new CoexistenceSweeper({
   store: coexistenceStore,
   adapters: [],
   metrics,
-  onError: (err) => console.error(JSON.stringify({ level: "error", msg: "coexistence", error: (err as Error).message })),
+  onError: (err) => logLine({ level: "error", msg: "coexistence", error: (err as Error).message }),
 });
 coexistence.start(Number(env["HUB_COEXISTENCE_INTERVAL_MS"] ?? 15_000));
 

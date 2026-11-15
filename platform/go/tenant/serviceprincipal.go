@@ -53,7 +53,10 @@ var servicePrincipals = map[string][]string{
 	"production-shopfloor":     {"production.jobcard.shopfloor"},
 	"receiving-erasure":        {"compliance.legal-hold.check"},
 	"receivables-billing":      {"receivables.openitem.from-billing"},
-	"revrec-creditnotes":       {"revrec.creditnote.reverse", "revrec.contract.from-invoice"},
+	// The Intrastat feed consumer of the tax service (#13): it stages the EU cross-border movements of fulfillment's packingslip.posted and
+	// receiving's receipt.posted and reaches no route.
+	"tax-intrastat":      {"tax.intrastat.feed"},
+	"revrec-creditnotes": {"revrec.creditnote.reverse", "revrec.contract.from-invoice"},
 	// The reporter of contract modification price changes to billing (#29): it signs POST /v1/billing/contract-modifications only.
 	"revrec-billing": {"billing.contract-modification.bill"},
 	// The reporter of the tax payment runs withheld (#13): it signs POST /v1/tax/withholding/entries only.
@@ -62,6 +65,8 @@ var servicePrincipals = map[string][]string{
 	"scheduling-downtime":     {"scheduling.downtime.apply"},
 	"scheduling-order-import": {"scheduling.order.import"},
 	"shopfloor-production":    {"shopfloor.job.sync"},
+	// The ops control plane's own reads and statement rendering (#50); it acts as this principal, in the operator tenant.
+	"ops-reporter": {"identity.ops.tenant-read", "print.ops.render"},
 }
 
 // servicePrincipalIssuers names the services whose signing key may present each
@@ -91,6 +96,7 @@ var servicePrincipalIssuers = map[string][]string{
 	"production-planning":     {"production"},
 	"production-shopfloor":    {"production"},
 	"receivables-billing":     {"receivables"},
+	"tax-intrastat":           {"tax"},
 	"receiving-erasure":       {"receiving"},
 	"receiving-ers":           {"receiving"},
 	"revrec-creditnotes":      {"revrec"},
@@ -99,6 +105,7 @@ var servicePrincipalIssuers = map[string][]string{
 	"scheduling-downtime":     {"scheduling"},
 	"scheduling-order-import": {"scheduling"},
 	"shopfloor-production":    {"shopfloor"},
+	"ops-reporter":            {"ops"},
 }
 
 func ServicePrincipalTable() map[string][]string {

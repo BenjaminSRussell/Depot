@@ -94,3 +94,25 @@ func TestRenderDocument_NeedsItsOwnDuty(t *testing.T) {
 		t.Fatalf("status %d, want 403", rec.Code)
 	}
 }
+
+// The ops control plane's tenant cost statement (#50), as services/ops sends it with its own service-only duty.
+const opsStatementDoc = `{"documentType":"PERIODIC_STATEMENT","number":"Cost statement 2026-10","legalEntity":{"name":"Passage Cloud"},` +
+	`"fields":[{"label":"Tenant","value":"0190a5f2-7b1c-7d3e-8a4f-0000000000aa"},{"label":"Month","value":"2026-10"},{"label":"Model version","value":"promql-v1"}],` +
+	`"body":"Metered use of the platform for the month, priced at the published unit rates.",` +
+	`"columns":[{"header":"Dimension"},{"header":"Quantity","align":"R"},{"header":"Cost USD","align":"R"}],` +
+	`"lines":[["cpu_core_hours","1000","40.00"],["ai_tokens","5000000","10.00"]],` +
+	`"totals":[{"label":"Total USD","value":"137.65"},{"label":"Total EUR (at 1.08 USD per EUR, ECB_MONTH_AVG)","value":"126.86"}]}`
+
+func TestRenderDocument_RendersTheOpsCostStatementForItsServiceDutyOnly(t *testing.T) {
+	h := router(newMemStore(), &fakeSender{})
+	rec := call(t, h, http.MethodPost, "/print/v1/documents:render", opsStatementDoc, "print.ops.render", "")
+	if rec.Code != http.StatusOK || !strings.HasPrefix(rec.Body.String(), "%PDF-") {
+		t.Fatalf("got %d %s", rec.Code, rec.Body.String()[:min(200, rec.Body.Len())])
+	}
+	if rec := call(t, h, http.MethodPost, "/print/v1/documents:render", opsStatementDoc, "print.customer-portal.render", ""); rec.Code != http.StatusOK {
+		t.Fatalf("the portal's duty still renders: %d", rec.Code)
+	}
+	if rec := call(t, h, http.MethodPost, "/print/v1/documents:render", opsStatementDoc, "print.job.read", ""); rec.Code != http.StatusForbidden {
+		t.Fatalf("an unrelated duty = %d", rec.Code)
+	}
+}

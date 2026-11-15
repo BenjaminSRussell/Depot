@@ -337,6 +337,14 @@ paths:
               additionalProperties: false
               properties:
                 reason: { type: string, maxLength: 500 }
+                settlementId:
+                  type: string
+                  format: uuid
+                  description: |
+                    Reverse only this settlement of the payment (an id from `GET /payments/{id}/settlements`); its item is reopened
+                    by what it took off, its journals are mirrored alone, and the payment's other applications stand (status
+                    ON_ACCOUNT, RECEIVED once none stands). A settlement of another payment is 404 AR-SETTLEMENT-NOT-FOUND, one
+                    already reversed 409 AR-PAYMENT-STATE.
       responses:
         "200":
           description: Applications reversed
@@ -1695,7 +1703,156 @@ paths:
                   autoApply: { $ref: "#/components/schemas/AutoApplyResult" }
         "400": { $ref: "#/components/responses/Problem" }
         "403": { $ref: "#/components/responses/Problem" }
+  /v1/receivables/payments/{id}/settlements:
+    get:
+      operationId: listPaymentSettlements
+      summary: The applications of a payment
+      description: |
+        #30. Every settlement the payment made, oldest first, with its id, the item, the amounts, the realized exchange difference
+        of a cross-currency one and whether it was reversed since. `reversed: false` ones can be unapplied one by one.
+      x-passage-duty: receivables.view
+      parameters:
+        - { $ref: "#/components/parameters/PaymentId" }
+      responses:
+        "200":
+          description: The settlements
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      required: [id, openItemId, documentNumber, amount, cashDiscount, writeOff, settledAt, reversed]
+                      properties:
+                        id: { type: string, format: uuid }
+                        openItemId: { type: string, format: uuid }
+                        documentNumber: { type: string }
+                        amount: { $ref: "#/components/schemas/Money" }
+                        cashDiscount: { $ref: "#/components/schemas/Money" }
+                        writeOff: { $ref: "#/components/schemas/Money" }
+                        itemCurrency: { type: string }
+                        itemAmount: { $ref: "#/components/schemas/Money" }
+                        realizedFx: { $ref: "#/components/schemas/Money" }
+                        settledAt: { type: string, format: date-time }
+                        reversed: { type: boolean }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+  /v1/receivables/credit-settlements/{id}:reverse:
+    post:
+      operationId: reverseCreditSettlement
+      summary: Reverse a credit settlement (every row of the batch)
+      description: |
+        #30. Undoes what `POST /credit-settlements` did for one `batchId`: each debit is open again by what the settlement took off it
+        (in its own currency for a cross-currency settlement), the credit holds what it had (status OPEN again when it was
+        used up by this settlement alone), and each row gets a reversal row with its amounts negated, so statements and
+        balance confirmations dated before the reversal still show the items settled. A cross-currency settlement's realized
+        exchange difference is reversed with it as its own functional-currency journal (a gain: Dr the gain account / Cr 1200,
+        a loss: Dr 1200 / Cr the loss account); a same-currency one posted nothing and reverses nothing in the ledger. A settlement
+        already reversed is 409 AR-CREDIT-SETTLEMENT-REVERSED, an unknown batch 404 AR-CREDIT-SETTLEMENT-NOT-FOUND. Publishes
+        dev.passage.receivables.creditsettlement.reversed.v1.
+      x-passage-duty: receivables.payment.reverse
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The batchId of the credit settlement.
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                reason: { type: string, maxLength: 500 }
+      responses:
+        "200":
+          description: Reversed
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [batchId, reversalBatchId, creditItemId, creditOpenAfter, creditStatus, total, realizedFx, reopened]
+                properties:
+                  batchId: { type: string, format: uuid }
+                  reversalBatchId: { type: string, format: uuid }
+                  creditItemId: { type: string, format: uuid }
+                  creditOpenAfter: { $ref: "#/components/schemas/Money" }
+                  creditStatus: { type: string, enum: [OPEN, PARTIALLY_SETTLED, SETTLED] }
+                  total: { $ref: "#/components/schemas/Money" }
+                  realizedFx: { $ref: "#/components/schemas/Money", description: "The realized difference reversed, functional currency, positive a gain." }
+                  reopened:
+                    type: array
+                    items:
+                      type: object
+                      required: [openItemId, documentNumber, amount, openAfter, itemStatus]
+                      properties:
+                        openItemId: { type: string, format: uuid }
+                        documentNumber: { type: string }
+                        amount: { $ref: "#/components/schemas/Money" }
+                        openAfter: { $ref: "#/components/schemas/Money" }
+                        itemStatus: { type: string }
+                        itemCurrency: { type: string }
+                        itemAmount: { $ref: "#/components/schemas/Money" }
+                        realizedFx: { $ref: "#/components/schemas/Money" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
   /v1/receivables/credit-settlements:
+    get:
+      operationId: listCreditSettlements
+      summary: Credit settlements with their debits
+      description: |
+        #30. The settlements `POST /credit-settlements` made, newest first, filtered by `customerId`, `creditItemId` or `openItemId`
+        (the credit or a debit), each with whether it was reversed, so a clerk can find the `batchId` to reverse.
+      x-passage-duty: receivables.view
+      parameters:
+        - { name: customerId, in: query, schema: { type: string, format: uuid } }
+        - { name: creditItemId, in: query, schema: { type: string, format: uuid } }
+        - { name: openItemId, in: query, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: The settlements
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      required: [batchId, legalEntityId, customerId, currency, creditItemId, creditDocument, total, settledAt, reversed, debits]
+                      properties:
+                        batchId: { type: string, format: uuid }
+                        legalEntityId: { type: string, format: uuid }
+                        customerId: { type: string, format: uuid }
+                        currency: { type: string }
+                        creditItemId: { type: string, format: uuid }
+                        creditDocument: { type: string }
+                        total: { $ref: "#/components/schemas/Money" }
+                        settledAt: { type: string, format: date-time }
+                        reversed: { type: boolean }
+                        debits:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              openItemId: { type: string, format: uuid }
+                              documentNumber: { type: string }
+                              amount: { $ref: "#/components/schemas/Money" }
+                              itemCurrency: { type: string }
+                              itemAmount: { $ref: "#/components/schemas/Money" }
+                              realizedFx: { $ref: "#/components/schemas/Money" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
     post:
       operationId: settleCredit
       summary: Settle a credit item against debit items (30-3)

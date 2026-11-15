@@ -47,14 +47,22 @@ type RFIDRule struct {
 	PostedBy     string    `json:"postedBy"`
 	CreatedBy    string    `json:"createdBy"`
 	CreatedAt    time.Time `json:"createdAt"`
+	// Version is the If-Match of an edit; UpdatedBy and UpdatedAt say who last edited the rule and when (empty until it is edited).
+	Version   int        `json:"version"`
+	UpdatedBy string     `json:"updatedBy,omitempty"`
+	UpdatedAt *time.Time `json:"updatedAt,omitempty"`
 }
 
-const ruleCols = `id::text, reader_id, antenna, action, warehouse_id::text, location_code, posted_by, created_by, created_at`
+const ruleCols = `id::text, reader_id, antenna, action, warehouse_id::text, location_code, posted_by, created_by, created_at, version, coalesce(updated_by, ''), updated_at`
 
 func scanRule(row pgx.Row) (RFIDRule, error) {
 	var r RFIDRule
-	err := row.Scan(&r.ID, &r.ReaderID, &r.Antenna, &r.Action, &r.WarehouseID, &r.LocationCode, &r.PostedBy, &r.CreatedBy, &r.CreatedAt)
+	err := row.Scan(&r.ID, &r.ReaderID, &r.Antenna, &r.Action, &r.WarehouseID, &r.LocationCode, &r.PostedBy, &r.CreatedBy, &r.CreatedAt, &r.Version, &r.UpdatedBy, &r.UpdatedAt)
 	r.CreatedAt = r.CreatedAt.UTC()
+	if r.UpdatedAt != nil {
+		u := r.UpdatedAt.UTC()
+		r.UpdatedAt = &u
+	}
 	return r, err
 }
 
@@ -65,6 +73,30 @@ func (s *Store) CreateRFIDRule(ctx context.Context, r RFIDRule) (RFIDRule, error
 		var err error
 		out, err = scanRule(tx.QueryRow(ctx, `insert into rfid_rule (tenant_id, id, reader_id, antenna, action, warehouse_id, location_code, posted_by, created_by)
 			values ($1,$2,$3,$4,$5,$6,$7,$8,$9) returning `+ruleCols, tenantID(ctx), ids.New(), r.ReaderID, r.Antenna, r.Action, r.WarehouseID, r.LocationCode, r.PostedBy, r.CreatedBy))
+		if err != nil && mapErr(err) == ErrConflict {
+			return &domain.Error{Code: CodeRFIDRuleExists, Detail: fmt.Sprintf("reader %s has a %s rule for that antenna already", r.ReaderID, r.Action)}
+		}
+		return err
+	})
+	return out, err
+}
+
+// UpdateRFIDRule replaces what a rule does and where it acts; who created it and when stay, and who edited it last is kept. A
+// non-zero ifMatch must be the rule's current version (ErrVersionConflict otherwise).
+func (s *Store) UpdateRFIDRule(ctx context.Context, id string, r RFIDRule, ifMatch int) (RFIDRule, error) {
+	var out RFIDRule
+	err := s.inTx(ctx, func(tx pgx.Tx) error {
+		var err error
+		out, err = scanRule(tx.QueryRow(ctx, `update rfid_rule set reader_id = $2, antenna = $3, action = $4, warehouse_id = $5, location_code = $6, posted_by = $7,
+				version = version + 1, updated_by = $8, updated_at = now()
+			where id = $1 and ($9 = 0 or version = $9) returning `+ruleCols, id, r.ReaderID, r.Antenna, r.Action, r.WarehouseID, r.LocationCode, r.PostedBy, r.CreatedBy, ifMatch))
+		if errors.Is(err, pgx.ErrNoRows) {
+			var current int
+			if e := tx.QueryRow(ctx, `select version from rfid_rule where id = $1`, id).Scan(&current); e == nil {
+				return fmt.Errorf("%w: current version is %d", ErrVersionConflict, current)
+			}
+			return &domain.Error{Code: CodeRFIDRuleNotFound, Detail: "RFID rule not found"}
+		}
 		if err != nil && mapErr(err) == ErrConflict {
 			return &domain.Error{Code: CodeRFIDRuleExists, Detail: fmt.Sprintf("reader %s has a %s rule for that antenna already", r.ReaderID, r.Action)}
 		}

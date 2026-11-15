@@ -70,6 +70,7 @@ export const FLOW_ROUTES: readonly string[] = [
   "/receivables/balance-snapshots",
   "/receivables/bank-statements",
   "/receivables/cases",
+  "/receivables/credit-settlements",
   "/receivables/deductions",
   "/receivables/disputes",
   "/receivables/down-payments",

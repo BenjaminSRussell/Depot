@@ -274,6 +274,35 @@ paths:
       responses:
         '200': { description: 'items: id, productNumber and name of each product found.' }
         default: { $ref: '#/components/responses/Problem' }
+  /v1/product/products:customs:
+    get:
+      operationId: productCustoms
+      summary: Customs attributes of products (#13)
+      description: 'The commodity code, country of origin and net weight (kg per base unit) of up to 200 products, read from the product attributes INTRASTAT_COMMODITY_CODE, INTRASTAT_ORIGIN_COUNTRY and INTRASTAT_NET_WEIGHT_KG (the tenant defines and sets them with POST /products/{id}/attributes); an attribute not set is an empty string, unknown ids are left out. Also accepted with the service-only duty product.customs.read, which fulfillment and receiving hold to report the lines of a shipment or a receipt for Intrastat.'
+      x-passage-duty: product.read
+      x-passage-duty-alternatives: [product.customs.read]
+      parameters:
+        - { name: ids, in: query, required: true, description: Comma-separated product ids, at most 200., schema: { type: string } }
+      responses:
+        '200':
+          description: The customs attributes.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      required: [id, commodityCode, originCountry, netWeightKg]
+                      properties:
+                        id: { type: string, format: uuid }
+                        commodityCode: { type: string }
+                        originCountry: { type: string }
+                        netWeightKg: { type: string, description: Decimal string, kilograms per base unit. }
+        default: { $ref: '#/components/responses/Problem' }
   /v1/product/products/{id}/attributes:
     post:
       operationId: setProductAttributes

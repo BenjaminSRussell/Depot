@@ -21,7 +21,7 @@ import { BUCKETS } from "../../../modules/receivables/api/client";
 import { CUSTOMERS, LEGAL_ENTITY } from "../../company";
 import { reply, route } from "../../backend";
 import { at, dec, day, matchesQ, uid } from "../../store";
-import { IMPORT_SOURCE, KR, importedAt, openAtImport, r2 } from "./arLedger";
+import { COASTAL, IMPORT_SOURCE, KR, SUMMIT, importedAt, openAtImport, r2 } from "./arLedger";
 import {
   allItems,
   batchPayments,
@@ -206,7 +206,8 @@ route("POST", `${BASE}/payments/{id}:match`, ({ params }) => {
 const APPLIABLE = new Set(["RECEIVED", "SUGGESTED", "ON_ACCOUNT"]);
 
 /** The live applications of each payment applied in this session, so :unapply can give them back. */
-const applications = new Map<string, { openItemId: string; amount: number; total: number }[]>();
+const applications = new Map<string, { id: string; openItemId: string; amount: number; total: number; at: string }[]>();
+let applicationSeq = 0;
 
 route("POST", `${BASE}/payments/{id}:apply`, ({ params, headers, body }) => {
   const p = payments.get(params.id);
@@ -232,7 +233,7 @@ route("POST", `${BASE}/payments/{id}:apply`, ({ params, headers, body }) => {
   const records: SettlementRecord[] = lines.map((l) => {
     const total = r2(Number(l.amount) + Number(l.cashDiscount ?? 0) + Number(l.writeOff ?? 0));
     const after = settleItem(l.openItemId, total, day(0));
-    applications.set(p.id, [...(applications.get(p.id) ?? []), { openItemId: l.openItemId, amount: Number(l.amount), total }]);
+    applications.set(p.id, [...(applications.get(p.id) ?? []), { id: uid(KR.payment, 800 + applicationSeq++), openItemId: l.openItemId, amount: Number(l.amount), total, at: at(0) }]);
     return { openItemId: l.openItemId, amount: dec(Number(l.amount)), cashDiscount: dec(Number(l.cashDiscount ?? 0)), writeOff: dec(Number(l.writeOff ?? 0)), openAfter: after?.openAmount ?? "0.00", itemStatus: after?.status ?? "CLEARED" };
   });
   const next = payments.update(p.id, {
@@ -245,21 +246,94 @@ route("POST", `${BASE}/payments/{id}:apply`, ({ params, headers, body }) => {
   return reply.ok({ payment: next, settlements: records }, { ETag: `"${next.version}"` });
 });
 
-route("POST", `${BASE}/payments/{id}:unapply`, ({ params, headers }) => {
+route("GET", `${BASE}/payments/{id}/settlements`, ({ params }) => {
+  const p = payments.get(params.id);
+  if (!p) return notFound("Payment");
+  return {
+    items: (applications.get(p.id) ?? []).map((a) => ({
+      id: a.id,
+      openItemId: a.openItemId,
+      documentNumber: findItem(a.openItemId)?.documentNumber ?? a.openItemId,
+      amount: dec(a.amount),
+      cashDiscount: dec(r2(a.total - a.amount)),
+      writeOff: "0.00",
+      settledAt: a.at,
+      reversed: false,
+    })),
+  };
+});
+
+route("POST", `${BASE}/payments/{id}:unapply`, ({ params, headers, body }) => {
   const p = payments.get(params.id);
   if (!p) return notFound("Payment");
   const v = ifMatch(headers);
   if (v !== undefined && v !== p.version) return stale("payment");
-  const live = applications.get(p.id) ?? [];
+  const all = applications.get(p.id) ?? [];
+  const only = (body as { settlementId?: string } | null)?.settlementId;
+  const live = only ? all.filter((a) => a.id === only) : all;
   if (live.length === 0) return reply.problem(409, "AR-0010", `The payment has no application to reverse (status ${p.status}).`);
-  const reversed = live.map((a, i) => {
+  const reversed = live.map((a) => {
     const after = unsettleItem(a.openItemId, a.total, day(0));
-    return { settlementId: uid(KR.payment, 900 + i), openItemId: a.openItemId, amount: dec(a.amount), itemAmount: dec(a.total), openAfter: after?.openAmount ?? dec(a.total), itemStatus: after?.status ?? "OPEN" };
+    return { settlementId: a.id, openItemId: a.openItemId, amount: dec(a.amount), itemAmount: dec(a.total), openAfter: after?.openAmount ?? dec(a.total), itemStatus: after?.status ?? "OPEN" };
   });
-  applications.delete(p.id);
+  const rest = all.filter((a) => !live.includes(a));
+  if (rest.length > 0) applications.set(p.id, rest);
+  else applications.delete(p.id);
   const back = r2(live.reduce((sum, a) => sum + a.amount, 0));
-  const next = payments.update(p.id, { unappliedAmount: dec(r2(Number(p.unappliedAmount) + back)), status: "RECEIVED", version: p.version + 1 })!;
+  const next = payments.update(p.id, { unappliedAmount: dec(r2(Number(p.unappliedAmount) + back)), status: rest.length > 0 ? "ON_ACCOUNT" : "RECEIVED", version: p.version + 1 })!;
   return reply.ok({ payment: next, reversed }, { ETag: `"${next.version}"` });
+});
+
+// ---- Credit settlements (a credit note applied to invoices) ----
+
+interface DemoCreditSettlement {
+  batchId: string;
+  customerId: string;
+  creditDocument: string;
+  debits: { documentNumber: string; amount: string }[];
+  currency: string;
+  settledAt: string;
+  reversed: boolean;
+}
+
+const creditSettlements: DemoCreditSettlement[] = [
+  { batchId: uid(KR.batch, 901), customerId: COASTAL.id, creditDocument: "CN-2027-0041", debits: [{ documentNumber: "INV-L48735", amount: "1250.00" }], currency: "USD", settledAt: at(-9), reversed: false },
+  { batchId: uid(KR.batch, 902), customerId: SUMMIT.id, creditDocument: "CN-2027-0038", debits: [{ documentNumber: "INV-L48702", amount: "480.00" }, { documentNumber: "INV-L48711", amount: "120.00" }], currency: "USD", settledAt: at(-21), reversed: true },
+];
+
+route("GET", `${BASE}/credit-settlements`, ({ query }) => ({
+  items: creditSettlements
+    .filter((c) => !query.get("customerId") || c.customerId === query.get("customerId"))
+    .map((c) => ({
+      batchId: c.batchId,
+      legalEntityId: LEGAL_ENTITY.id,
+      customerId: c.customerId,
+      currency: c.currency,
+      creditItemId: uid(KR.extra, 950 + creditSettlements.indexOf(c)),
+      creditDocument: c.creditDocument,
+      total: dec(c.debits.reduce((sum, d) => sum + Number(d.amount), 0)),
+      settledAt: c.settledAt,
+      reversed: c.reversed,
+      debits: c.debits.map((d, i) => ({ openItemId: uid(KR.extra, 960 + i), documentNumber: d.documentNumber, amount: d.amount })),
+    })),
+}));
+
+route("POST", `${BASE}/credit-settlements/{id}:reverse`, ({ params }) => {
+  const c = creditSettlements.find((x) => x.batchId === params.id);
+  if (!c) return reply.problem(404, "AR-CREDIT-SETTLEMENT-NOT-FOUND", "credit settlement not found");
+  if (c.reversed) return reply.problem(409, "AR-CREDIT-SETTLEMENT-REVERSED", "the credit settlement is already reversed");
+  c.reversed = true;
+  const total = c.debits.reduce((sum, d) => sum + Number(d.amount), 0);
+  return {
+    batchId: c.batchId,
+    reversalBatchId: uid(KR.batch, 950),
+    creditItemId: uid(KR.extra, 950),
+    creditOpenAfter: dec(-total),
+    creditStatus: "OPEN",
+    total: dec(total),
+    realizedFx: "0.00",
+    reopened: c.debits.map((d, i) => ({ openItemId: uid(KR.extra, 960 + i), documentNumber: d.documentNumber, amount: d.amount, openAfter: d.amount, itemStatus: "OPEN" })),
+  };
 });
 
 // ---- Lockbox (BAI2) and bank statements (camt.053) ----

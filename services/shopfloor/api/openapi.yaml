@@ -946,6 +946,59 @@ paths:
           $ref: "#/components/responses/Problem"
         "403":
           $ref: "#/components/responses/Problem"
+  /v1/shopfloor/andon-settings/sites/{siteId}:
+    put:
+      operationId: putAndonSiteSettings
+      summary: Set one site's own andon thresholds (FR-25.11)
+      description: |
+        The same four values as the tenant's, for one site. The machines of the site use them instead of the tenant's
+        (or the defaults) from the next machine event ingest and andon sweep; every other machine is unchanged.
+      x-passage-duty: shopfloor.setup.maintain
+      parameters:
+        - { name: siteId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [downtimeMinutes, clearMinutes, scrapPercent, scrapMinCount]
+              properties:
+                downtimeMinutes: { type: integer, minimum: 1, maximum: 240 }
+                clearMinutes: { type: integer, minimum: 0, maximum: 120 }
+                scrapPercent: { type: integer, minimum: 1, maximum: 100 }
+                scrapMinCount: { type: integer, minimum: 1, maximum: 100000 }
+      responses:
+        "200":
+          description: The site's thresholds as set.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AndonSiteSettings"
+        "400":
+          $ref: "#/components/responses/Problem"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+    delete:
+      operationId: deleteAndonSiteSettings
+      summary: Remove a site's own andon thresholds
+      description: The site's machines follow the tenant's thresholds again. A site with none of its own is SF-0187 (404).
+      x-passage-duty: shopfloor.setup.maintain
+      parameters:
+        - { name: siteId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "204":
+          description: Removed.
+        "400":
+          $ref: "#/components/responses/Problem"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
   /v1/shopfloor/andon/{id}:clear:
     post:
       operationId: clearAndon
@@ -1280,6 +1333,11 @@ paths:
       summary: Record a process message (FR-25.17, BR-25.13)
       description: |
         From a kiosk PI sheet, the edge connector or manual entry. A message that carries a signature (a
+        A signature is the caller's own and needs a recent sign-in (21 CFR 11.200): only a person (never a service token) whose
+        token's `auth_time`, forwarded by the gateway as `X-Passage-Auth-Time`, is within `SHOPFLOOR_SIGNATURE_MAX_AUTH_AGE_SECONDS`
+        (default 300) may sign, otherwise 403 SF-0188 (the client signs in again with `prompt=login` and retries); `signed-by`
+        must be the caller's user id (422 SF-0189; it is filled in when left out), and the user id and auth time are stored with
+        the message. A retry of a signature already stored is answered 200 duplicate whatever the sign-in age.
         `signed-by` or `signature-meaning` value) must name the step it signs in its sourceMessageId
         (`<control recipe id>:<unit procedure>/<operation>/<phase>/<seq>`), a signature-request step of a recipe
         of the message's order: the meaning is that step's (performed by default) and is added when missing; another
@@ -3865,6 +3923,21 @@ components:
         scrapPercent: { type: integer }
         scrapMinCount: { type: integer }
         default: { type: boolean }
+        updatedBy: { type: string }
+        updatedAt: { type: string, format: date-time }
+        sites:
+          type: array
+          description: The sites with thresholds of their own; a machine of such a site uses them instead of these.
+          items: { $ref: "#/components/schemas/AndonSiteSettings" }
+    AndonSiteSettings:
+      type: object
+      required: [siteId, downtimeMinutes, clearMinutes, scrapPercent, scrapMinCount, updatedBy, updatedAt]
+      properties:
+        siteId: { type: string, format: uuid }
+        downtimeMinutes: { type: integer }
+        clearMinutes: { type: integer }
+        scrapPercent: { type: integer }
+        scrapMinCount: { type: integer }
         updatedBy: { type: string }
         updatedAt: { type: string, format: date-time }
     EdgeCertificateRecord:

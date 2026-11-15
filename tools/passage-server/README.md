@@ -33,3 +33,8 @@ Without `-tags webdist` the gateway serves the API only (the build and tests nee
 (`service_windows.go`, `policy_windows.go`, `job_windows.go`) sits behind build tags, so Linux builds and tests run without
 `golang.org/x/sys/windows`. Tests use fakes for the process runner, Postgres, HTTP and network dials;
 `TestPgInspectorAgainstPostgres` uses `PASSAGE_TEST_DATABASE_URL` when set.
+
+
+## Identity provider requirements
+
+Electronic signatures on the shop floor (PI steps, #25) need the access token to carry `auth_time`; the built-in gateway forwards it as `X-Passage-Auth-Time`. Keycloak issues it by default and honours `prompt=login&max_age=0` for the kiosk's "Sign in again". An IdP whose access tokens have no `auth_time` can sign in and use everything else, but every signature is refused (SF-0188) until it does. See `services/shopfloor/README.md`.

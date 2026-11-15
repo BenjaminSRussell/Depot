@@ -5,6 +5,7 @@
 import { randomUUID } from "node:crypto";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { clientAddress, NO_TRUSTED_PROXIES, rateKey, type TrustedProxies } from "./clientAddress.ts";
+import { jsonLine } from "./logging/pseudonymize.ts";
 import { authorizationUrl, endSessionUrl, exchangeCode, LoginRefused, pkcePair, randomToken, verifyIdToken, verifyLogoutToken, type Fetch, type Jwks, type OidcConfig } from "./oidc.ts";
 import { PendingProvisioner, type UserProvisioner } from "./provision.ts";
 import { matchRoute, QUERY_ALLOWLIST, STRIPPED_BODY_KEYS, type Route } from "./routes.ts";
@@ -80,7 +81,9 @@ async function readBody(req: IncomingMessage, max: number): Promise<Buffer | "to
 
 export function createHttpServer(deps: ServerDeps): Server {
   const now = deps.now ?? Date.now;
-  const log = deps.log ?? ((entry) => console.log(JSON.stringify(entry)));
+  // Under the eu-data-boundary overlay (or LOG_PSEUDONYMIZE=true) person values are pseudonymized before the line is written (#605).
+  const stdout = deps.log === undefined ? jsonLine(process.env) : undefined;
+  const log = deps.log ?? ((entry) => stdout?.(entry));
   const scanPolicy: ScanPolicy = deps.scan ?? { allowUnscanned: false };
   const provisioner = deps.provisioner ?? new PendingProvisioner(log);
   const publicLimiter = deps.publicLimiter ?? new RateLimiter(10, 3_600_000);
@@ -106,7 +109,7 @@ export function createHttpServer(deps: ServerDeps): Server {
       const idToken = await exchangeCode(deps.oidc, code, pending.verifier, deps.fetcher);
       const identity = await verifyIdToken(idToken, deps.oidc, deps.jwks, pending.nonce, now());
       const session = await deps.sessions.create(identity, idToken, now());
-      log({ msg: "sign-in", userId: identity.userId, vendorId: identity.vendorId });
+      log({ msg: "sign-in", tenantId: identity.tenantId, userId: identity.userId, vendorId: identity.vendorId });
       res.writeHead(302, { location: "/", "set-cookie": setSession(session.id, 8 * 3600), "cache-control": "no-store" });
       res.end();
     } catch (err) {
@@ -197,7 +200,7 @@ export function createHttpServer(deps: ServerDeps): Server {
       log({ msg: "upstream unreachable", audience: route.audience, path: route.path, err: String(err) });
       return problem(res, 502, "SUP-BFF-502", "the service did not answer");
     }
-    log({ msg: "api", userId: session.identity.userId, vendorId: session.identity.vendorId, method: route.method, route: route.path, status: upstream.status, ms: now() - started });
+    log({ msg: "api", tenantId: session.identity.tenantId, userId: session.identity.userId, vendorId: session.identity.vendorId, method: route.method, route: route.path, status: upstream.status, ms: now() - started });
     // A rejected service token is this service's fault, never the user's: do not tell the browser to sign in again.
     const status = upstream.status === 401 ? 502 : upstream.status;
     if (route.binary && upstream.ok) {
@@ -318,14 +321,14 @@ export function createHttpServer(deps: ServerDeps): Server {
       const result = await provisioner.createUser({ email: details.email, displayName: given || details.displayName, tenantId: invite.tenantId, legalEntityId: invite.legalEntityId, vendorId: invite.vendorId, role: "supplier-user" });
       provisioned = result.created;
     } catch (err) {
-      log({ msg: "creating the invited user failed", vendorId: invite.vendorId, err: String(err) });
+      log({ msg: "creating the invited user failed", tenantId: invite.tenantId, vendorId: invite.vendorId, err: String(err) });
       return problem(res, 502, "SUP-BFF-502", "the account could not be created; the invitation is still valid, try again later");
     }
     const accepted = await inviteCall(invite, "accept");
     if (!accepted) return problem(res, 502, "SUP-BFF-502", "the service did not answer");
     if (accepted.status === 404) return invalid();
     if (!accepted.ok) return problem(res, 502, "SUP-BFF-502", "the service could not record the invitation");
-    log({ msg: "invitation accepted", vendorId: invite.vendorId, provisioned });
+    log({ msg: "invitation accepted", tenantId: invite.tenantId, vendorId: invite.vendorId, provisioned });
     send(res, 200, { status: "ACCEPTED", provisioned, email: details.email });
   }
 

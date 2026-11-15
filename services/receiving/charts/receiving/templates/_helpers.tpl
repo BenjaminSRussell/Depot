@@ -47,6 +47,8 @@
   value: {{ .Values.serviceUrls.inventory | default (printf "http://inventory.%s.svc:8080" .Release.Namespace) | quote }}
 - name: PARTY_URL
   value: {{ .Values.serviceUrls.party | default (printf "http://party.%s.svc:8080" .Release.Namespace) | quote }}
+- name: PRODUCT_URL
+  value: {{ .Values.serviceUrls.product | default (printf "http://product.%s.svc:8080" .Release.Namespace) | quote }}
 - name: ORG_URL
   value: {{ .Values.serviceUrls.org | default (printf "http://org.%s.svc:8080" .Release.Namespace) | quote }}
 - name: TAX_URL

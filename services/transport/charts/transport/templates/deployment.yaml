@@ -42,7 +42,7 @@ spec:
               value: {{ $value | quote }}
             {{- end }}
             {{- with .Values.optimizer.url }}
-            - name: TMS_OPTIMIZER_URL
+            - name: ROUTING_PY_URL
               value: {{ . | quote }}
             {{- end }}
             - name: TMS_FEATURE_ENABLED

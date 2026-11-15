@@ -2,6 +2,7 @@ package api
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/shopspring/decimal"
@@ -14,6 +15,8 @@ import (
 
 func (a *API) creditSettlementRoutes(r chi.Router) {
 	r.With(authz.RequireDuty(dutySettle)).Post("/credit-settlements", a.settleCredit)
+	r.Post("/credit-settlements/{ref}", a.creditSettlementAction)
+	r.With(authz.RequireDuty(dutyView)).Get("/credit-settlements", a.listCreditSettlements)
 }
 
 type creditDebitRequest struct {
@@ -81,4 +84,87 @@ func (a *API) settleCredit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.JSON(w, http.StatusOK, out)
+}
+
+type reverseCreditRequest struct {
+	Reason string `json:"reason"`
+}
+
+// creditSettlementAction handles POST /credit-settlements/{batchId}:reverse.
+func (a *API) creditSettlementAction(w http.ResponseWriter, r *http.Request) {
+	if !validTenant(w, r) {
+		return
+	}
+	id, action, found := strings.Cut(chi.URLParam(r, "ref"), ":")
+	if !found || !ids.Valid(id) {
+		httpx.Fail(w, r, httpx.NewProblem(http.StatusNotFound, store.CodeCreditSettlementNotFound, "credit settlement not found"))
+		return
+	}
+	if action != "reverse" {
+		httpx.Fail(w, r, httpx.NewProblem(http.StatusNotFound, store.CodeCreditSettlementNotFound, "unknown credit settlement action "+action))
+		return
+	}
+	if !require(w, r, dutyPaymentReverse) {
+		return
+	}
+	var in reverseCreditRequest
+	if r.ContentLength != 0 {
+		if err := httpx.Decode(r, &in); err != nil {
+			httpx.Fail(w, r, err)
+			return
+		}
+	}
+	if len(in.Reason) > 500 {
+		writeFields(w, r, map[string]string{"reason": "must be at most 500 characters"})
+		return
+	}
+	out, err := a.store.ReverseCreditSettlement(r.Context(), id, in.Reason)
+	if err != nil {
+		a.fail("reverse credit settlement", w, r, err)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, out)
+}
+
+// listPaymentSettlements lists the applications of a payment with their ids, so one of them can be unapplied.
+func (a *API) listPaymentSettlements(w http.ResponseWriter, r *http.Request) {
+	if !validTenant(w, r) {
+		return
+	}
+	id := chi.URLParam(r, "ref")
+	if !ids.Valid(id) {
+		httpx.Fail(w, r, httpx.NewProblem(http.StatusNotFound, store.CodePaymentNotFound, "payment not found"))
+		return
+	}
+	out, err := a.store.ListPaymentSettlements(r.Context(), id)
+	if err != nil {
+		a.fail("list payment settlements", w, r, err)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, map[string]any{"items": out})
+}
+
+// listCreditSettlements lists credit settlements, filtered by customer, credit item or any item they touch.
+func (a *API) listCreditSettlements(w http.ResponseWriter, r *http.Request) {
+	if !validTenant(w, r) {
+		return
+	}
+	q := r.URL.Query()
+	f := store.CreditSettlementFilter{CustomerID: q.Get("customerId"), CreditItemID: q.Get("creditItemId"), OpenItemID: q.Get("openItemId")}
+	fields := map[string]string{}
+	for name, v := range map[string]string{"customerId": f.CustomerID, "creditItemId": f.CreditItemID, "openItemId": f.OpenItemID} {
+		if v != "" && !ids.Valid(v) {
+			fields[name] = "must be a UUID"
+		}
+	}
+	if len(fields) > 0 {
+		writeFields(w, r, fields)
+		return
+	}
+	out, err := a.store.ListCreditSettlements(r.Context(), f, 50)
+	if err != nil {
+		a.fail("list credit settlements", w, r, err)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, map[string]any{"items": out})
 }

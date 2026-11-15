@@ -90,6 +90,7 @@ type API struct {
 	production LinePlanner
 	groups     CustomerGroupSource
 	names      ProductNamer
+	pricer     PortalPricer
 
 	portalWindowDays int
 }

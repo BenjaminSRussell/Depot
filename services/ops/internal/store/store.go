@@ -96,6 +96,18 @@ type Store interface {
 	CheckLicenses(ctx context.Context, now time.Time) (int, error)
 	RecordSLO(ctx context.Context, rep *domain.SLOReport) (int, error)
 	SLOStates(ctx context.Context) (map[string]time.Time, error)
+	// Part 4: tenant decommission with its audit trail, and masked-clone schedules.
+	OpenDecommission(ctx context.Context, tenantID, reason, user string) (Decommission, bool, error)
+	Decommission(ctx context.Context, tenantID string) (Decommission, error)
+	RecordDecommissionStep(ctx context.Context, tenantID, action, status, detail, user string) (Decommission, error)
+	Audit(ctx context.Context, subject string) ([]AuditEntry, error)
+	CreateCloneSchedule(ctx context.Context, c domain.CloneSchedule, user string, now time.Time) (domain.CloneSchedule, error)
+	CloneSchedules(ctx context.Context) ([]domain.CloneSchedule, error)
+	SetCloneScheduleEnabled(ctx context.Context, id string, enabled bool, now time.Time, user string) (domain.CloneSchedule, error)
+	DeleteCloneSchedule(ctx context.Context, id, user string) error
+	ClaimDueClones(ctx context.Context, now time.Time, lease time.Duration) ([]domain.CloneSchedule, error)
+	RecordCloneRun(ctx context.Context, scheduleID string, started, finished time.Time, status, detail string) error
+	CloneRuns(ctx context.Context, scheduleID string) ([]CloneRun, error)
 }
 
 // Postgres implements Store.
@@ -126,12 +138,14 @@ func Problem(err error) error {
 	}
 	status := http.StatusConflict
 	switch rule.Code {
-	case domain.CodeRegionUnknown, domain.CodeRequestUnknown, domain.CodeBreakGlassUnknown, CodeLicenseNone, domain.CodeProvisionUnknown, domain.CodeCostUnknown:
+	case domain.CodeRegionUnknown, domain.CodeRequestUnknown, domain.CodeBreakGlassUnknown, CodeLicenseNone, domain.CodeProvisionUnknown, domain.CodeCostUnknown,
+		domain.CodeDecommissionUnknown, domain.CodeScheduleUnknown:
 		status = http.StatusNotFound
 	case domain.CodeBreakGlassInvalid, domain.CodeBreakGlassReview, domain.CodeLicenseSignature, domain.CodeLicenseInvalid,
-		domain.CodeProvisionInvalid, domain.CodeProvisionLicense, domain.CodeResidency, domain.CodeCostInvalid, domain.CodeSLOInvalid:
+		domain.CodeProvisionInvalid, domain.CodeProvisionLicense, domain.CodeResidency, domain.CodeCostInvalid, domain.CodeSLOInvalid,
+		domain.CodeDecommissionInvalid, domain.CodeScheduleInvalid:
 		status = http.StatusUnprocessableEntity
-	case domain.CodeCostUnavailable, domain.CodeSLOUnavailable:
+	case domain.CodeCostUnavailable, domain.CodeSLOUnavailable, domain.CodeDecommissionUnavailable:
 		status = http.StatusServiceUnavailable
 	case domain.CodeLicenseStale:
 		status = http.StatusPreconditionFailed

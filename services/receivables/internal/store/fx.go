@@ -371,3 +371,38 @@ func (s *Postgres) ReversePayment(ctx context.Context, id string, version int) (
 	})
 	return out, mapWriteErr(err)
 }
+
+// fxSettingAtPosting is the FX setting with the gain and loss accounts and the functional currency of the realized-FX journals already
+// posted for sourceID under keyPrefix, so a reversal books back to the accounts the original used even when the entity's setting changed
+// since. A journal's gain is Cr gain account / Dr 1200 and its loss Dr loss account / Cr 1200. What no journal names keeps the current
+// setting.
+func fxSettingAtPosting(ctx context.Context, tx pgx.Tx, tenantID, legalEntityID, sourceID, keyPrefix string, current FXSetting) (FXSetting, error) {
+	rows, err := tx.Query(ctx, `select currency::text, lines from gl_journal where tenant_id = $1 and legal_entity_id = $2 and source_type = $3 and source_id = $4
+		and source_key like $5 order by created_at, id`, tenantID, legalEntityID, JournalRealizedFX, sourceID, keyPrefix+"%")
+	if err != nil {
+		return current, err
+	}
+	defer rows.Close()
+	out := current
+	for rows.Next() {
+		var currency string
+		var raw []byte
+		if err := rows.Scan(&currency, &raw); err != nil {
+			return current, err
+		}
+		var lines []journalLine
+		if err := json.Unmarshal(raw, &lines); err != nil {
+			return current, err
+		}
+		out.FunctionalCurrency = currency
+		for _, l := range lines {
+			switch {
+			case l.Credit && l.Account != domain.AccountReceivable:
+				out.GainAccount = l.Account
+			case !l.Credit && l.Account != domain.AccountReceivable:
+				out.LossAccount = l.Account
+			}
+		}
+	}
+	return out, rows.Err()
+}

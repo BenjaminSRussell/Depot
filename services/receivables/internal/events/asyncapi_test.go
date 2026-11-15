@@ -14,7 +14,7 @@ func TestAsyncAPINamesEveryEventType(t *testing.T) {
 	}
 	published := []string{PaymentReceived, PaymentApplied, PaymentUnapplied, DisputeOpened, DisputeResolved, DunningLetterIssued,
 		CaseOpened, CaseClosed, ConfirmationReplied, DownPaymentReceived, DownPaymentCleared, DownPaymentReleased,
-		CreditSettled, DeductionOpened, DeductionResolved, CustomerBalanceChanged, OpenItemsImported, CreditNotePosted}
+		CreditSettled, CreditSettlementReversed, DeductionOpened, DeductionResolved, CustomerBalanceChanged, OpenItemsImported, CreditNotePosted}
 	known := map[string]bool{}
 	for _, eventType := range published {
 		known[eventType] = true

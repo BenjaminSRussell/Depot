@@ -10,6 +10,7 @@ import (
 
 	"github.com/BenjaminSRussell/passage/platform/dbx"
 	"github.com/BenjaminSRussell/passage/platform/ids"
+	"github.com/BenjaminSRussell/passage/platform/tenant"
 	"github.com/BenjaminSRussell/passage/services/tax/internal/domain"
 )
 
@@ -92,35 +93,62 @@ func (s *Store) StageMovements(ctx context.Context, movements []domain.Movement)
 	}
 	staged := 0
 	err = dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
-		for _, m := range movements {
-			raw, err := json.Marshal(m.Lines)
-			if err != nil {
-				return err
-			}
-			tag, err := tx.Exec(ctx, `insert into tax_intrastat_movement (tenant_id, legal_entity_id, id, flow, source_ref, movement_date, partner_country, transaction_code,
-					transport_mode, delivery_terms, port, lines)
-				values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) on conflict (tenant_id, legal_entity_id, source_ref) do nothing`,
-				p.TenantID, p.LegalEntityID, ids.New(), m.Flow, m.SourceRef, m.MovementDate.Time, m.PartnerCountry, m.TransactionCode, m.TransportMode, m.DeliveryTerms, m.Port, raw)
-			if err != nil {
-				return fmt.Errorf("stage movement %s: %w", m.SourceRef, err)
-			}
-			if tag.RowsAffected() == 1 {
-				staged++
-				continue
-			}
-			var same bool
-			if err := tx.QueryRow(ctx, `select exists (select 1 from tax_intrastat_movement where tenant_id = $1 and legal_entity_id = $2 and source_ref = $3 and flow = $4
-				and movement_date = $5 and partner_country = $6 and transaction_code = $7 and transport_mode = $8 and delivery_terms = $9 and port = $10 and lines = $11::jsonb)`,
-				p.TenantID, p.LegalEntityID, m.SourceRef, m.Flow, m.MovementDate.Time, m.PartnerCountry, m.TransactionCode, m.TransportMode, m.DeliveryTerms, m.Port, raw).Scan(&same); err != nil {
-				return fmt.Errorf("compare movement %s: %w", m.SourceRef, err)
-			}
-			if !same {
-				return &domain.Error{Code: domain.CodeValidation, Field: "movements", Detail: fmt.Sprintf("movement %s was already staged with different content", m.SourceRef)}
-			}
-		}
-		return nil
+		staged, err = stageMovements(ctx, tx, p, movements)
+		return err
 	})
 	return staged, err
+}
+
+// StageMovementsTx stages movements inside the caller's transaction (the Intrastat feed consumer stages a movement and records its event
+// in the consumer inbox together), under the principal in ctx, which names the legal entity.
+func (s *Store) StageMovementsTx(ctx context.Context, tx pgx.Tx, movements []domain.Movement) (int, error) {
+	p, err := scope(ctx)
+	if err != nil {
+		return 0, err
+	}
+	return stageMovements(ctx, tx, p, movements)
+}
+
+// HomeCountry is the declarant country of the legal entity in ctx (its Intrastat entity setting), read in the caller's transaction;
+// ErrNoEntitySettings when the entity has none.
+func (s *Store) HomeCountry(ctx context.Context, tx pgx.Tx) (string, error) {
+	p, err := scope(ctx)
+	if err != nil {
+		return "", err
+	}
+	setting, err := loadEntitySetting(ctx, tx, p)
+	return setting.HomeCountry, err
+}
+
+func stageMovements(ctx context.Context, tx pgx.Tx, p tenant.Principal, movements []domain.Movement) (int, error) {
+	staged := 0
+	for _, m := range movements {
+		raw, err := json.Marshal(m.Lines)
+		if err != nil {
+			return 0, err
+		}
+		tag, err := tx.Exec(ctx, `insert into tax_intrastat_movement (tenant_id, legal_entity_id, id, flow, source_ref, movement_date, partner_country, transaction_code,
+				transport_mode, delivery_terms, port, lines)
+			values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) on conflict (tenant_id, legal_entity_id, source_ref) do nothing`,
+			p.TenantID, p.LegalEntityID, ids.New(), m.Flow, m.SourceRef, m.MovementDate.Time, m.PartnerCountry, m.TransactionCode, m.TransportMode, m.DeliveryTerms, m.Port, raw)
+		if err != nil {
+			return 0, fmt.Errorf("stage movement %s: %w", m.SourceRef, err)
+		}
+		if tag.RowsAffected() == 1 {
+			staged++
+			continue
+		}
+		var same bool
+		if err := tx.QueryRow(ctx, `select exists (select 1 from tax_intrastat_movement where tenant_id = $1 and legal_entity_id = $2 and source_ref = $3 and flow = $4
+			and movement_date = $5 and partner_country = $6 and transaction_code = $7 and transport_mode = $8 and delivery_terms = $9 and port = $10 and lines = $11::jsonb)`,
+			p.TenantID, p.LegalEntityID, m.SourceRef, m.Flow, m.MovementDate.Time, m.PartnerCountry, m.TransactionCode, m.TransportMode, m.DeliveryTerms, m.Port, raw).Scan(&same); err != nil {
+			return 0, fmt.Errorf("compare movement %s: %w", m.SourceRef, err)
+		}
+		if !same {
+			return 0, &domain.Error{Code: domain.CodeValidation, Field: "movements", Detail: fmt.Sprintf("movement %s was already staged with different content", m.SourceRef)}
+		}
+	}
+	return staged, nil
 }
 
 // ListMovements lists the staged movements of the legal entity, newest first; status filters when not empty.

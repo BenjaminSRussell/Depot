@@ -9,6 +9,7 @@ import (
 
 	"github.com/shopspring/decimal"
 
+	"github.com/BenjaminSRussell/passage/platform/customsdata"
 	"github.com/BenjaminSRussell/passage/platform/ids"
 	"github.com/BenjaminSRussell/passage/platform/tenant"
 	"github.com/BenjaminSRussell/passage/services/receiving/internal/api"
@@ -78,6 +79,16 @@ func buildPorts(getenv func(string) string) (api.Ports, error) {
 		ports.VendorGroups = domain.FakeVendorGroups{}
 	default:
 		slog.Warn("PARTY_URL is empty: invoice.posted carries no vendor_group_id")
+	}
+	if getenv("PARTY_URL") != "" && getenv("PRODUCT_URL") != "" && signer != nil {
+		// receipt.posted carries the vendor's VAT country and the products' customs data for the tax service's Intrastat feed (#13).
+		customs, err := customsdata.New(getenv("PARTY_URL"), getenv("PRODUCT_URL"), signer)
+		if err != nil {
+			return api.Ports{}, err
+		}
+		ports.Customs = customs
+	} else {
+		slog.Warn("PRODUCT_URL, PARTY_URL or the service signing key is unset: receipt.posted carries no Intrastat data (partner country, commodity code, origin, weight)")
 	}
 	switch url := getenv("COMPLIANCE_URL"); {
 	case url != "":

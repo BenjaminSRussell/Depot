@@ -296,7 +296,7 @@ func (a *API) acceptServiceSheet(w http.ResponseWriter, r *http.Request) {
 		postedEvent := func(number string) (events.Event, error) {
 			numbered := rec
 			numbered.Number = number
-			return receiptPostedEvent(p.TenantID, numbered, amounts, entry.LedgerEntryID)
+			return receiptPostedEvent(p.TenantID, numbered, amounts, entry.LedgerEntryID, nil)
 		}
 		return store.SheetAcceptOutcome{Receipt: rec, Amounts: amounts, LedgerEntryID: entry.LedgerEntryID, Events: []events.Event{decidedEvt}, PostedEvent: postedEvent}, nil
 	})

@@ -86,11 +86,24 @@ type outcome struct {
 }
 
 func (a *Aggregator) Page(ctx context.Context, p tenant.Principal, legalEntity string, limit int, cursor string) (Page, error) {
+	return a.PageFor(ctx, p, legalEntity, limit, cursor, "")
+}
+
+// IsSource reports whether name is one of the aggregator's source names, so a filter can be refused when it names none.
+func (a *Aggregator) IsSource(name string) bool {
+	return slices.ContainsFunc(a.Sources, func(s Source) bool { return s.Name() == name })
+}
+
+// PageFor is Page restricted to one source (the My work "type of work" filter, applied before paging so the filter covers
+// everything waiting and not only the pages loaded so far). An empty source reads every source the caller is entitled to.
+func (a *Aggregator) PageFor(ctx context.Context, p tenant.Principal, legalEntity string, limit int, cursor, source string) (Page, error) {
 	after, err := decodeCursor(cursor)
 	if err != nil {
 		return Page{}, err
 	}
-	entitled := slices.DeleteFunc(slices.Clone(a.Sources), func(s Source) bool { return !p.HasDuty(s.Duty()) })
+	entitled := slices.DeleteFunc(slices.Clone(a.Sources), func(s Source) bool {
+		return !p.HasDuty(s.Duty()) || (source != "" && s.Name() != source)
+	})
 	outcomes := make([]outcome, len(entitled))
 	slots := make(chan struct{}, max(a.Concurrency, 1))
 	var wg sync.WaitGroup

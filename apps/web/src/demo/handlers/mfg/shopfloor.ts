@@ -1,9 +1,10 @@
 // Shop floor service (/api/v1/shopfloor) for the demo: machines, the andon board and OEE.
 // Resources and sites carry the real ids of company.ts; the screens show their names.
-import type { Andon, ControlRecipeDetail, Downtime, Job, Machine, OeeBucket, OeeTile, PISheet, RecipeDocument } from "../../../modules/shopfloor/api/client";
+import type { Andon, AndonSettings, AndonSiteSettings, AndonThresholds, ControlRecipeDetail, Downtime, EdgeCertificate, EdgeConfigVersion, EdgeNode, Job, Machine, OeeBucket, OeeTile, PISheet, RecipeDocument } from "../../../modules/shopfloor/api/client";
 import { reply, route } from "../../backend";
-import { PLANT, resourceByCode } from "../../company";
+import { DC, PLANT, resourceByCode } from "../../company";
 import { at, table, uid } from "../../store";
+import { ME, byUsername } from "../finance/people";
 import { orders } from "./production";
 
 const BASE = "/api/v1/shopfloor";
@@ -411,4 +412,85 @@ route("POST", `${BASE}/pi-sheets/{id}:obsolete`, (req) => {
   if (row.status !== "released") return reply.problem(409, "SF-0181", "Only a released sheet can be made obsolete.");
   if (body.rev !== row.rev) return reply.problem(409, "SF-0182", "The PI sheet changed since you read it.");
   return reply.ok(piSheets.update(row.id, { status: "obsolete", rev: row.rev + 1, updatedAt: new Date().toISOString() }));
+});
+
+
+// ---- Andon thresholds: the tenant's, and the Dallas site's own -----------------------------------------------------
+
+let tenantAndon: AndonThresholds & { updatedBy?: string; updatedAt?: string } = { downtimeMinutes: 10, clearMinutes: 5, scrapPercent: 5, scrapMinCount: 10, updatedBy: ME.id, updatedAt: at(-40) };
+const andonSites = table<AndonSiteSettings & { id: string }>([
+  { id: DC.id, siteId: DC.id, downtimeMinutes: 20, clearMinutes: 10, scrapPercent: 8, scrapMinCount: 25, updatedBy: byUsername("omar.siddiqui").id, updatedAt: at(-12) },
+]);
+const andonSettingsView = (): AndonSettings => ({
+  ...tenantAndon,
+  default: false,
+  sites: andonSites.all().map(({ id: _id, ...site }) => site),
+});
+route("GET", `${BASE}/andon-settings`, () => andonSettingsView());
+route("PUT", `${BASE}/andon-settings`, ({ body }) => {
+  const b = (body ?? {}) as Partial<AndonThresholds>;
+  if (!b.downtimeMinutes || b.downtimeMinutes < 1 || b.downtimeMinutes > 240) return reply.problem(400, "COM-0001", "request failed validation", { downtimeMinutes: "must be 1 to 240" });
+  tenantAndon = { downtimeMinutes: b.downtimeMinutes, clearMinutes: b.clearMinutes ?? 5, scrapPercent: b.scrapPercent ?? 5, scrapMinCount: b.scrapMinCount ?? 10, updatedBy: ME.id, updatedAt: at(0) };
+  return reply.ok(andonSettingsView());
+});
+route("PUT", `${BASE}/andon-settings/sites/{siteId}`, ({ params, body }) => {
+  const b = (body ?? {}) as Partial<AndonThresholds>;
+  const row = { id: params.siteId, siteId: params.siteId, downtimeMinutes: b.downtimeMinutes ?? 10, clearMinutes: b.clearMinutes ?? 5, scrapPercent: b.scrapPercent ?? 5, scrapMinCount: b.scrapMinCount ?? 10, updatedBy: ME.id, updatedAt: at(0) };
+  andonSites.insert(row);
+  const { id: _id, ...out } = row;
+  return reply.ok(out);
+});
+route("DELETE", `${BASE}/andon-settings/sites/{siteId}`, ({ params }) => (andonSites.remove(params.siteId) ? reply.noContent() : reply.problem(404, "SF-0187", "the site has no thresholds of its own")));
+
+// ---- Edge fleet: the nodes, their configuration versions and certificate history -----------------------------------------
+
+const K_EDGE = 233;
+const K_CERT = 234;
+const edgeNodes = table<EdgeNode>([
+  {
+    id: uid(K_EDGE, 1), siteId: PLANT.id, name: "Machining line gateway", platform: "k3s", ring: "all", connectorSubject: "edge-machining-line", status: "online", connectorVersion: "1.4.2",
+    certSerial: "6F3A91C20B7D4E58", certExpiresAt: at(70), lastHeartbeatAt: at(-0.001), bufferFillPct: "4.00", machines: [{ machineCode: "M-101", state: "RUNNING" }, { machineCode: "M-102", state: "DOWN" }],
+    appliedConfigVersion: 2, latestConfigVersion: 2, active: true, version: 3, createdBy: ME.id, createdAt: at(-200), updatedAt: at(-5),
+  },
+  {
+    id: uid(K_EDGE, 2), siteId: PLANT.id, name: "Paint and test gateway", platform: "windows", ring: "canary", connectorSubject: "edge-paint-test", status: "online", connectorVersion: "1.5.0-rc1",
+    certSerial: "2B8C40D91E6F7A03", certExpiresAt: at(20), lastHeartbeatAt: at(-0.002), bufferFillPct: "11.50", machines: [{ machineCode: "M-104", state: "RUNNING" }, { machineCode: "M-105", state: "IDLE" }],
+    appliedConfigVersion: 1, latestConfigVersion: 2, active: true, version: 2, createdBy: ME.id, createdAt: at(-90), updatedAt: at(-3),
+  },
+] as EdgeNode[]);
+route("GET", `${BASE}/edge-nodes`, () => ({ items: edgeNodes.all() }));
+route("GET", `${BASE}/edge-nodes/{id}`, ({ params }) => edgeNodes.get(params.id) ?? reply.problem(404, "SF-0150", "No edge node with that id."));
+route("GET", `${BASE}/edge-nodes/{id}/config-versions`, ({ params }) => {
+  const sha = (n: number) => `${n}`.repeat(64).slice(0, 64);
+  const row = (version: number, applied: boolean): EdgeConfigVersion => ({
+    id: uid(K_EDGE, 100 + version), edgeId: params.id, version, document: { version, writeRules: [{ node: "ns=2;s=Press.Setpoint", min: 0, max: 90 }] }, documentSha256: sha(version),
+    publishedBy: ME.id, publishedAt: at(-30 + version), appliedAt: applied ? at(-29 + version) : null,
+  });
+  return { items: [row(2, params.id === uid(K_EDGE, 1)), row(1, true)] };
+});
+
+const certs = table<EdgeCertificate & { id: string; edgeId: string }>(
+  [1, 2].flatMap((n) => {
+    const edgeId = uid(K_EDGE, n);
+    const subject = n === 1 ? "edge-machining-line" : "edge-paint-test";
+    return [
+      { id: uid(K_CERT, n * 10 + 1), edgeId, serial: n === 1 ? "6F3A91C20B7D4E58" : "2B8C40D91E6F7A03", subject, reason: "renew" as const, notBefore: at(-20), notAfter: at(n === 1 ? 70 : 20), issuedAt: at(-20), fingerprint: (n === 1 ? "a1" : "b2").repeat(32), current: true },
+      { id: uid(K_CERT, n * 10 + 2), edgeId, serial: n === 1 ? "11C0FFEE5A5A0001" : "22D0DEED5B5B0002", subject, reason: "enroll" as const, notBefore: at(-110), notAfter: at(-20 + 90), issuedAt: at(-110), fingerprint: (n === 1 ? "c3" : "d4").repeat(32), current: false, revokedAt: at(-20), revokedBy: ME.id, revokeReason: "Replaced when the certificate was renewed" },
+    ];
+  }),
+);
+route("GET", `${BASE}/edge-nodes/{id}/certificates`, ({ params }) => ({
+  items: certs.all().filter((c) => c.edgeId === params.id).sort((a, b) => b.issuedAt.localeCompare(a.issuedAt)).map(({ id: _id, edgeId: _edge, ...c }) => c),
+}));
+route("POST", `${BASE}/edge-nodes/{id}/certificates/{serial}:revoke`, ({ params, body }) => {
+  const row = certs.all().find((c) => c.edgeId === params.id && c.serial === params.serial);
+  if (!row) return reply.problem(404, "SF-0185", "No certificate with that serial.");
+  const reason = String((body as { reason?: string } | undefined)?.reason ?? "").trim();
+  if (!reason) return reply.problem(400, "COM-0001", "request failed validation", { reason: "is required" });
+  if (!row.revokedAt) {
+    certs.update(row.id, { revokedAt: at(0), revokedBy: ME.id, revokeReason: reason });
+    if (row.current) edgeNodes.update(params.id, { connectorSubject: null, certSerial: null, certExpiresAt: null });
+  }
+  const { id: _id, edgeId: _edge, ...out } = certs.get(row.id)!;
+  return reply.ok(out);
 });

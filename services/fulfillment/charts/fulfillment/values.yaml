@@ -36,6 +36,13 @@ carrierGatewayUrl: ""
 salesUrl: ""
 salesReportInterval: "30s"      # SALES_REPORT_INTERVAL, how often due reports are looked for
 
+# Intrastat data for packingslip.posted (#13): with both set, a post reads the customer's VAT country from party
+# (party.tax-registration.read) and each product's commodity code, origin and weight from product (product.customs.read)
+# and puts them on the event. Needs serviceIdentity.signingKeySecret; party and product must list fulfillment's public key.
+# A failed read posts the slip without them. Empty leaves the event without Intrastat data.
+partyUrl: ""
+productUrl: ""
+
 # Callers (edi reads shipments) present a signed service token verified against these
 # keys, formatted name=base64-public-key and comma separated. signingKeySecret is
 # required with inventoryUrl, carrierGatewayUrl or salesUrl (fulfillment signs those calls).

@@ -417,18 +417,142 @@ paths:
     get:
       operationId: getTenantCost
       summary: Read a tenant's cost statement
-      description: JSON, or the CSV statement with format=csv (or Accept text/csv). 404 COST-1903 when the month is not recorded.
+      description: >
+        JSON, the CSV statement with format=csv (or Accept text/csv), or the PDF statement with format=pdf (or Accept application/pdf), rendered through
+        print's POST /print/v1/documents:render as service:ops-reporter (503 COST-1904 without PRINT_URL). 404 COST-1903 when the month is not recorded.
       x-passage-duty: ops.region.view
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - { name: month, in: path, required: true, schema: { type: string, pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' } }
-        - { name: format, in: query, required: false, schema: { type: string, enum: [json, csv] } }
+        - { name: format, in: query, required: false, schema: { type: string, enum: [json, csv, pdf] } }
       responses:
         '200':
           description: The statement.
           content:
             application/json: { schema: { $ref: '#/components/schemas/CostStatement' } }
             text/csv: { schema: { type: string } }
+            application/pdf: { schema: { type: string, format: binary } }
+        default: { $ref: '#/components/responses/Problem' }
+  /v1/ops/tenants/{id}:decommission:
+    post:
+      operationId: decommissionTenant
+      summary: Open a tenant's decommission
+      description: >
+        Only for a tenant that identity reports as suspended (409 OPS-1731; 503 OPS-1730 when identity cannot be asked) and that has a provision
+        (404 OPS-1721). Records the reason and the plan (lakehouse, kafka-acls, databases, realm: the provision in reverse) and writes the request to
+        the audit trail. A repeat returns the first record with 200. `passage-ops tenant decommission` then performs the steps and reports each.
+      x-passage-duty: ops.tenant.decommission
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, required: [reason], properties: { reason: { type: string, maxLength: 500 } } } } }
+      responses:
+        '201':
+          description: The decommission was opened.
+          content: { application/json: { schema: { $ref: '#/components/schemas/Decommission' } } }
+        '200':
+          description: The decommission was already open; the first record.
+          content: { application/json: { schema: { $ref: '#/components/schemas/Decommission' } } }
+        default: { $ref: '#/components/responses/Problem' }
+  /v1/ops/tenants/{id}/decommission:
+    get:
+      operationId: getTenantDecommission
+      summary: Read a tenant's decommission with its audit trail
+      x-passage-duty: ops.region.view
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: The decommission and every audit entry about the tenant.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  decommission: { $ref: '#/components/schemas/Decommission' }
+                  audit: { type: array, items: { type: object } }
+        default: { $ref: '#/components/responses/Problem' }
+  /v1/ops/tenants/{id}/decommission-steps/{action}:
+    put:
+      operationId: recordTenantDecommissionStep
+      summary: Report one decommission step
+      description: >
+        Steps run in reverse order: a step is DONE only when the one before it (lakehouse, kafka-acls, databases, realm) is (409 OPS-1733). DONE is
+        kept; FAILED marks the decommission FAILED until a retry is DONE. Each report is audited, and the last DONE step writes tenant.decommissioned.
+      x-passage-duty: ops.tenant.decommission
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: action, in: path, required: true, schema: { type: string, enum: [lakehouse, kafka-acls, databases, realm] } }
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/ProvisionStepReport' } } }
+      responses:
+        '200':
+          description: The decommission after the step.
+          content: { application/json: { schema: { $ref: '#/components/schemas/Decommission' } } }
+        default: { $ref: '#/components/responses/Problem' }
+  /v1/ops/clone-schedules:
+    get:
+      operationId: listCloneSchedules
+      summary: List the masked-clone schedules
+      x-passage-duty: ops.region.view
+      responses:
+        '200':
+          description: The schedules with their next and last run.
+          content: { application/json: { schema: { type: object, properties: { items: { type: array, items: { $ref: '#/components/schemas/CloneSchedule' } } } } } }
+        default: { $ref: '#/components/responses/Problem' }
+    post:
+      operationId: createCloneSchedule
+      summary: Schedule a recurring masked clone
+      description: >
+        One tenant's schema is copied into the non-production database with the mask configuration, every `intervalHours`, by the job in this service
+        (tools/tenant-restore `clone --apply`, needs OPS_CLONE_ENABLED=true). The first run is due now. 409 OPS-1737 for a second schedule of the same name.
+      x-passage-duty: ops.clone.schedule
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/CloneScheduleRequest' } } }
+      responses:
+        '201':
+          description: The schedule.
+          content: { application/json: { schema: { $ref: '#/components/schemas/CloneSchedule' } } }
+        default: { $ref: '#/components/responses/Problem' }
+  /v1/ops/clone-schedules/{id}:
+    put:
+      operationId: setCloneScheduleEnabled
+      summary: Turn a schedule on or off
+      description: Turning a schedule on makes it due now.
+      x-passage-duty: ops.clone.schedule
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, required: [enabled], properties: { enabled: { type: boolean } } } } }
+      responses:
+        '200':
+          description: The schedule.
+          content: { application/json: { schema: { $ref: '#/components/schemas/CloneSchedule' } } }
+        default: { $ref: '#/components/responses/Problem' }
+    delete:
+      operationId: deleteCloneSchedule
+      summary: Delete a schedule and its runs
+      x-passage-duty: ops.clone.schedule
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '204': { description: Deleted. }
+        default: { $ref: '#/components/responses/Problem' }
+  /v1/ops/clone-schedules/{id}/runs:
+    get:
+      operationId: listCloneRuns
+      summary: The latest runs of a schedule
+      x-passage-duty: ops.region.view
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: At most 50 runs, newest first.
+          content: { application/json: { schema: { type: object, properties: { items: { type: array, items: { type: object } } } } } }
         default: { $ref: '#/components/responses/Problem' }
   /v1/ops/costs:
     get:
@@ -745,6 +869,28 @@ components:
         generatedAt: { type: string, format: date-time }
         breached: { type: integer }
         services: { type: array, items: { $ref: '#/components/schemas/SloLine' } }
+        operations:
+          type: array
+          description: >
+            The per-operation objectives of SLO_OPERATIONS (one route of one service, with its own availability and p95 targets), over the same
+            window. Absent when none is configured. They do not feed the hourly breach check or slo.breached.
+          items: { $ref: '#/components/schemas/SloOperationLine' }
+    SloOperationLine:
+      type: object
+      properties:
+        name: { type: string }
+        service: { type: string, description: The Prometheus job. }
+        route: { type: string, description: 'The router pattern, the route label of http_requests_total.' }
+        requests: { type: number }
+        availability: { type: number, nullable: true }
+        availabilityTarget: { type: number }
+        latencyP95Ms: { type: number, nullable: true }
+        latencyTargetMs: { type: number }
+        errorBudgetRemaining: { type: number, nullable: true }
+        availabilityBreached: { type: boolean }
+        latencyBreached: { type: boolean }
+        breached: { type: boolean }
+        noTraffic: { type: boolean }
     ProvisionRequest:
       type: object
       required: [tenantId, name, residency, region]
@@ -820,6 +966,38 @@ components:
         month: { type: string }
         clusterCostUsd: { type: string }
         items: { type: array, items: { $ref: '#/components/schemas/CostStatement' } }
+    Decommission:
+      type: object
+      properties:
+        tenantId: { type: string, format: uuid }
+        reason: { type: string }
+        status: { type: string, enum: [DECOMMISSIONING, DECOMMISSIONED, FAILED] }
+        plan: { type: array, items: { type: string } }
+        steps: { type: array, items: { type: object } }
+        requestedBy: { type: string }
+        createdAt: { type: string, format: date-time }
+        completedAt: { type: string, format: date-time }
+    CloneScheduleRequest:
+      type: object
+      required: [name, sourceTenant, schema, masksFile, intervalHours]
+      properties:
+        name: { type: string, maxLength: 100 }
+        sourceTenant: { type: string, format: uuid }
+        schema: { type: string, description: The Postgres schema to clone., pattern: '^[a-z_][a-z0-9_]{0,62}$' }
+        masksFile: { type: string, description: The mask configuration file the clone job reads (tenant-restore --masks). }
+        intervalHours: { type: integer, minimum: 1, maximum: 8760 }
+    CloneSchedule:
+      allOf:
+        - $ref: '#/components/schemas/CloneScheduleRequest'
+        - type: object
+          properties:
+            id: { type: string, format: uuid }
+            enabled: { type: boolean }
+            nextRunAt: { type: string, format: date-time }
+            lastRunAt: { type: string, format: date-time }
+            lastStatus: { type: string, enum: [OK, FAILED] }
+            createdBy: { type: string }
+            createdAt: { type: string, format: date-time }
   responses:
     Problem:
       description: RFC 9457 problem details.

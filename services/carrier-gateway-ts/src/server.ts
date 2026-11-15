@@ -4,6 +4,7 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { Gateway, GatewayError } from "./gateway.ts";
 import { DUTY_LABEL, DUTY_RATE, DUTY_TRACK, HEADER, ServiceTokenError, type ServiceClaims, type ServiceTokenVerifier } from "./serviceToken.ts";
+import { jsonLine } from "./logging/pseudonymize.ts";
 import { code, codes, shipment, type FieldErrors } from "./validate.ts";
 
 const MAX_BODY = 256 * 1024;
@@ -85,7 +86,9 @@ export interface ServerOptions {
 
 export function createApp(options: ServerOptions): (req: IncomingMessage, res: ServerResponse) => Promise<void> {
   const { gateway, verifier } = options;
-  const log = options.log ?? ((msg, fields) => console.log(JSON.stringify({ msg, ...fields })));
+  // Under the eu-data-boundary overlay (or LOG_PSEUDONYMIZE=true) person values are pseudonymized before the line is written (#605).
+  const out = options.log === undefined ? jsonLine(process.env) : undefined;
+  const log = options.log ?? ((msg: string, fields: Record<string, unknown>) => out?.({ msg, ...fields }));
 
   function authorize(req: IncomingMessage, duty: string): ServiceClaims {
     const token = req.headers[HEADER];

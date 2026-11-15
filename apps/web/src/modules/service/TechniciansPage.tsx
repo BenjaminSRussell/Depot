@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { holdsDuty } from "../../shell/dutyGate";
 import { EntityLookup } from "../../shell/lookup/EntityLookup";
 import { usePrincipalDuties } from "../../shell/principal";
-import { Alert, Badge, Button, buttonClassName, Card, FormField, Input, PageHeader, Select, Skeleton, Textarea, type DataTableColumn } from "../../shell/ui";
+import { Alert, Badge, Button, buttonClassName, Card, FormField, Input, PageHeader, Select, TimeZoneSelect, isTimeZone, Skeleton, Textarea, type DataTableColumn } from "../../shell/ui";
 import {
   createTechnician,
   describeProblem,
@@ -177,7 +177,7 @@ export function validateTechnician(values: TechnicianValues, creating: boolean):
   const skills = [...new Set(list(values.skills).map((s) => s.toUpperCase()))];
   if (skills.length > 40) errors.skills = "Use at most 40 skills.";
   else if (skills.some((s) => !SKILL.test(s))) errors.skills = "A skill is 1 to 40 characters of A–Z, 0–9, _, . or -.";
-  if (!values.timeZone.trim() || values.timeZone.trim() === "Local") errors.timeZone = "Enter an IANA time zone, such as America/Chicago.";
+  if (!isTimeZone(values.timeZone.trim())) errors.timeZone = "Enter an IANA time zone, such as America/Chicago.";
   if (values.days.length === 0) errors.shiftDays = "Pick at least one working day.";
   const start = minuteOf(values.shiftStart);
   const end = minuteOf(values.shiftEnd);
@@ -283,7 +283,9 @@ function TechnicianForm({ creating, initial, submitLabel, onSubmit, failure, fie
           </FormField>
         </div>
         {text("skills", "Skills", "Codes such as HVAC, ELECTRICAL; separated by commas.", { optional: true })}
-        {text("timeZone", "Time zone", "IANA zone the shift is read in.")}
+        <FormField id="tech-timeZone" label="Time zone" hint="IANA zone the shift is read in." error={shown.timeZone}>
+          {(control) => <TimeZoneSelect {...control} value={values.timeZone} onChange={(e) => update({ timeZone: e.target.value })} invalid={Boolean(shown.timeZone)} />}
+        </FormField>
         {text("shiftStart", "Shift starts", undefined, { type: "time", errorKey: "shiftStartMinute" })}
         {text("shiftEnd", "Shift ends", undefined, { type: "time", errorKey: "shiftStartMinute" })}
         {text("maxDailyMinutes", "Daily maximum minutes", "Work plus buffers per local day.")}

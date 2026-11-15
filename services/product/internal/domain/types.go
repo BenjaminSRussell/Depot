@@ -35,6 +35,15 @@ type ProductName struct {
 	Name          string `json:"name"`
 }
 
+// ProductCustoms is a product's customs data as the tenant keeps it in the product's attributes (#13): the commodity code, the country of
+// origin and the net weight in kilograms per base unit. An attribute that is not set is empty.
+type ProductCustoms struct {
+	ID            string `json:"id"`
+	CommodityCode string `json:"commodityCode"`
+	OriginCountry string `json:"originCountry"`
+	NetWeightKg   string `json:"netWeightKg"`
+}
+
 type Product struct {
 	ID                       string             `json:"id"`
 	ProductNumber            string             `json:"productNumber"`

@@ -30,6 +30,7 @@ import { addDays, browserZone, dash, daysBetween, fixed, formatDateTime, formatH
 import styles from "./pages.module.css";
 import { useLoad } from "./useLoad";
 import { dayColumns } from "./dayColumns";
+import { UserName } from "../../shell/lookup/UserName";
 import { WorkerCostRates } from "./WorkerCostRates";
 import { WorkerHomeResource } from "./WorkerHomeResource";
 import { WorkerMaintenance } from "./WorkerMaintenance";
@@ -181,8 +182,12 @@ export function WorkerDetailPage() {
             <dd className={styles.value}>{`${fixed(worker.costRate, 2)} ${worker.currency} per hour`}</dd>
           </div>
           <div className={styles.entry}>
+            <dt className={styles.term}>Time zone</dt>
+            <dd className={styles.value}>{worker.timeZone ?? "UTC"}</dd>
+          </div>
+          <div className={styles.entry}>
             <dt className={styles.term}>Sign-in user</dt>
-            <dd className={styles.value}>{worker.userId ?? dash}</dd>
+            <dd className={styles.value}>{worker.userId ? <UserName id={worker.userId} /> : dash}</dd>
           </div>
           <div className={styles.entry}>
             <dt className={styles.term}>Party id</dt>

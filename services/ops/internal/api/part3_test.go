@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/BenjaminSRussell/passage/platform/cloudprofile"
 	"github.com/BenjaminSRussell/passage/platform/dbx"
 	"github.com/BenjaminSRussell/passage/platform/httpx"
 	"github.com/BenjaminSRussell/passage/platform/ids"
@@ -331,5 +332,29 @@ func TestFailoverCompletedEventAfterTheLastStep(t *testing.T) {
 	}
 	if got := e.outbox(t, "evt-9"); len(got) != 1 || got[0] != store.EventFailoverComplete {
 		t.Fatalf("events = %v", got)
+	}
+}
+
+func TestProvisionUnderTheEUDataBoundaryOverlay(t *testing.T) {
+	profile, err := cloudprofile.FromEnv(func(k string) string {
+		if k == "PASSAGE_CLOUD_PROFILE" {
+			return "commercial+eu-data-boundary"
+		}
+		return ""
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	e := newEnv3(t, time.Now().UTC(), func(c *Config) { c.CloudProfile = profile })
+	tid := ids.New()
+	// Outside the boundary, whatever residency the request names (GLOBAL here), the tenant is refused before anything is recorded.
+	rec := e.do("POST", "/v1/ops/tenants", "alice", DutyProvision, "k1", `{"tenantId":"`+tid+`","name":"Cedar Ridge Pumps","residency":"GLOBAL","region":"us-east"}`)
+	if rec.Code != http.StatusUnprocessableEntity || !strings.Contains(rec.Body.String(), "OPS-1705") {
+		t.Fatalf("GLOBAL into us-east under the overlay = %d %s", rec.Code, rec.Body)
+	}
+	// A request with no residency in an EU region is an EU tenant.
+	rec = e.do("POST", "/v1/ops/tenants", "alice", DutyProvision, "k2", `{"tenantId":"`+tid+`","name":"Cedar Ridge Pumps","region":"eu-west"}`)
+	if rec.Code != http.StatusCreated || !strings.Contains(rec.Body.String(), `"residency":"EU"`) {
+		t.Fatalf("default residency under the overlay = %d %s", rec.Code, rec.Body)
 	}
 }

@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/BenjaminSRussell/passage/platform/customsdata"
 	"github.com/BenjaminSRussell/passage/platform/dbx"
 	"github.com/BenjaminSRussell/passage/platform/httpx"
 	"github.com/BenjaminSRussell/passage/platform/issueclaim"
@@ -111,7 +112,17 @@ func run() error {
 		return err
 	}
 	r := httpx.NewRouter()
-	api.New(s, api.Options{ReleaseHorizonDays: horizon, RequireFullATP: fullATP, Carrier: carriers}).Routes(r)
+	a := api.New(s, api.Options{ReleaseHorizonDays: horizon, RequireFullATP: fullATP, Carrier: carriers})
+	customs, err := customsdata.FromEnv(os.Getenv)
+	if err != nil {
+		return fmt.Errorf("customs data client: %w", err)
+	}
+	if customs != nil {
+		a = a.WithCustoms(customs)
+	} else {
+		slog.Warn("PARTY_URL, PRODUCT_URL or the service signing key is unset: packingslip.posted carries no Intrastat data (partner country, commodity code, origin, weight)")
+	}
+	a.Routes(r)
 
 	addr := os.Getenv("HTTP_ADDR")
 	if addr == "" {

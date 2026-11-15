@@ -163,7 +163,16 @@ paths:
     post:
       operationId: postReceipt
       x-passage-duty: receiving.receipt.post
-      description: Posts a REGISTERED receipt (Dr inventory, Cr GR/IR through the ledger, idempotency key = receipt id), opens one GR/IR item per line and writes dev.passage.receiving.receipt.posted.v1 to the outbox in the same transaction. No body.
+      description: 'Posts a REGISTERED receipt (Dr inventory, Cr GR/IR through the ledger, idempotency key = receipt id), opens one GR/IR item per line and writes dev.passage.receiving.receipt.posted.v1 to the outbox in the same transaction. The body is optional: `shipFromCountry` (ISO 3166 alpha-2) names the member state the goods were consigned from, the Intrastat partner country of an arrival that receipt.posted carries (#13).'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                shipFromCountry: { type: string, pattern: '^[A-Za-z]{2}$' }
       parameters:
         - $ref: '#/components/parameters/ReceiptId'
         - $ref: '#/components/parameters/IdempotencyKey'

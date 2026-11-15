@@ -1,0 +1,78 @@
+{{- if .Values.consumer.enabled }}
+# The Intrastat feed consumer (#13, args [consume]): stages the EU cross-border movements of fulfillment's packingslip.posted and
+# receiving's receipt.posted (the movements POST /v1/tax/intrastat/movements stages) and parks what it cannot map on
+# passage.tax.intrastat.dlq. It starts only while service:tax-intrastat is seeded in the service principal table and needs no signing
+# key. Kafka user, ACLs and dead-letter topic: deploy/kafka/tax-consumer.yaml. Its labels differ from the API's so the Service never
+# routes to it.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-consumer
+  labels:
+    app.kubernetes.io/name: tax-consumer
+spec:
+  replicas: {{ .Values.consumer.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: tax-consumer
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: tax-consumer
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      volumes:
+        - name: kafka
+          secret:
+            secretName: {{ required "consumer.kafka.secret is required" .Values.consumer.kafka.secret }}
+            defaultMode: 0440
+      containers:
+        - name: tax-consumer
+          image: {{ include "tax.image" . | quote }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args: [consume]
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          ports:
+            - name: admin
+              containerPort: 9090
+          env:
+            {{- include "passage.cloudEnv" $ | nindent 12 }}
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.databaseSecret }}
+                  key: DATABASE_URL
+            - name: PASSAGE_SERVICE_NAME
+              value: tax
+            - name: ADMIN_ADDR
+              value: ":9090"
+            - name: KAFKA_BROKERS
+              value: {{ required "consumer.kafka.brokers is required" .Values.consumer.kafka.brokers | quote }}
+            - name: KAFKA_GROUP
+              value: {{ .Values.consumer.kafka.group | quote }}
+            - name: KAFKA_USERNAME
+              value: {{ .Values.consumer.kafka.username | quote }}
+            - name: KAFKA_PASSWORD_FILE
+              value: /var/run/passage/kafka/password
+            - name: KAFKA_TLS_CA_FILE
+              value: /var/run/passage/kafka/ca.crt
+          volumeMounts:
+            - { name: kafka, mountPath: /var/run/passage/kafka, readOnly: true }
+          livenessProbe:
+            httpGet: { path: /healthz, port: admin }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            httpGet: { path: /readyz, port: admin }
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          resources:
+            {{- toYaml .Values.consumer.resources | nindent 12 }}
+{{- end }}

@@ -3,6 +3,7 @@ package api
 import (
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -260,4 +261,41 @@ func consensusRequest(w http.ResponseWriter, r *http.Request) (string, int, bool
 		return "", 0, false
 	}
 	return code, expected, true
+}
+
+// listForecastModels lists the forecast models by code, for the pickers that name a model (budget plan sources, plan runs).
+func (a *API) listForecastModels(w http.ResponseWriter, r *http.Request) {
+	if !validTenant(w, r) {
+		return
+	}
+	limit, ok := limitParam(w, r)
+	if !ok {
+		return
+	}
+	q := r.URL.Query()
+	entity := q.Get("legalEntityId")
+	if entity != "" {
+		canonical, valid := ids.Canonical(entity)
+		if !valid {
+			validationFailed(w, r, map[string]string{"legalEntityId": "must be a UUID"})
+			return
+		}
+		entity = canonical
+	}
+	search := strings.TrimSpace(q.Get("q"))
+	if len(search) > 64 {
+		validationFailed(w, r, map[string]string{"q": "must be at most 64 characters"})
+		return
+	}
+	code := strings.TrimSpace(q.Get("code"))
+	if len(code) > 20 {
+		validationFailed(w, r, map[string]string{"code": "must be at most 20 characters"})
+		return
+	}
+	items, err := a.store.ListForecastModels(r.Context(), entity, search, code, limit)
+	if err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, map[string]any{"items": items})
 }

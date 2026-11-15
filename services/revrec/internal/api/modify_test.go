@@ -95,6 +95,23 @@ func TestModifyContract_ValidatesAndForwards(t *testing.T) {
 	if sc, ok := f.got.Scope[support]; !ok || !sc.IsZero() || len(f.got.NewSSP) != 0 {
 		t.Errorf("removal forwarded %+v", f.got)
 	}
+	usage := `{"type":"CATCH_UP","effectiveDate":"2027-06-30","transactionPriceChange":"400.00","obligations":[{"obligationId":"` + support + `","usageToDate":"2000","expectedUsage":"8000"}]}`
+	if rec := callAs(t, h, http.MethodPost, path, usage, allDuties, entityID, map[string]string{"If-Match": `"1"`}); rec.Code != http.StatusOK {
+		t.Fatalf("usage catch-up: %d %s", rec.Code, rec.Body.String())
+	}
+	if u, ok := f.got.Usage[support]; !ok || u.ToDate.String() != "2000" || u.Expected.String() != "8000" {
+		t.Errorf("usage forwarded %+v", f.got.Usage)
+	}
+	for name, ob := range map[string]string{
+		"usage without expected": `{"obligationId":"` + support + `","usageToDate":"5"}`,
+		"zero expected usage":    `{"obligationId":"` + support + `","usageToDate":"5","expectedUsage":"0"}`,
+		"negative usage":         `{"obligationId":"` + support + `","usageToDate":"-1","expectedUsage":"10"}`,
+	} {
+		body := `{"type":"CATCH_UP","effectiveDate":"2027-06-30","transactionPriceChange":"1","obligations":[` + ob + `]}`
+		if rec := callAs(t, h, http.MethodPost, path, body, allDuties, entityID, map[string]string{"If-Match": `"1"`}); rec.Code != http.StatusBadRequest {
+			t.Errorf("%s: status %d, want 400 (%s)", name, rec.Code, rec.Body.String())
+		}
+	}
 	if rec := callAs(t, h, http.MethodPost, "/v1/revrec/contracts/nope:modify", good, allDuties, entityID, map[string]string{"If-Match": `"1"`}); rec.Code != http.StatusNotFound {
 		t.Errorf("unknown contract: %d", rec.Code)
 	}

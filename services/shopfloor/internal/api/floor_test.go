@@ -54,6 +54,10 @@ func (f *fakeStore) GetAndonSettings(context.Context) (store.AndonSettingsView, 
 func (f *fakeStore) PutAndonSettings(_ context.Context, set domain.AndonSettings, by string) (store.AndonSettingsView, error) {
 	return store.AndonSettingsView{AndonSettings: set, UpdatedBy: by}, nil
 }
+func (f *fakeStore) PutAndonSiteSettings(_ context.Context, site string, set domain.AndonSettings, by string) (store.AndonSiteSettings, error) {
+	return store.AndonSiteSettings{SiteID: site, AndonSettings: set, UpdatedBy: by}, nil
+}
+func (f *fakeStore) DeleteAndonSiteSettings(context.Context, string) error { return nil }
 func (f *fakeStore) SweepAndon(context.Context, time.Time) (store.AndonSweepResult, error) {
 	return store.AndonSweepResult{}, nil
 }
