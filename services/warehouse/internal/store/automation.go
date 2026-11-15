@@ -392,6 +392,20 @@ func (s *Store) ListAutomationOrders(ctx context.Context, f OrderFilter) ([]Auto
 	return out, err
 }
 
+// GetAutomationOrder returns one order.
+func (s *Store) GetAutomationOrder(ctx context.Context, id string) (AutomationOrder, error) {
+	var out AutomationOrder
+	err := s.inTx(ctx, func(tx pgx.Tx) error {
+		var err error
+		out, err = scanOrder(tx.QueryRow(ctx, `select `+orderCols+` from automation_order where id = $1`, id))
+		if errors.Is(err, pgx.ErrNoRows) {
+			return &domain.Error{Code: CodeAutoOrderNotFound, Detail: "automation order not found"}
+		}
+		return err
+	})
+	return out, err
+}
+
 // ReportAutomationOrder records what the connector did with a PENDING order: sent as a MOVE telegram, or refused (with
 // the PLC's reason). Reporting the status it already has changes nothing.
 func (s *Store) ReportAutomationOrder(ctx context.Context, id, status, reason string, now time.Time) (AutomationOrder, error) {

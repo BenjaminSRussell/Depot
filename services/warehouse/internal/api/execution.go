@@ -90,6 +90,7 @@ type Store interface {
 	IngestRFID(ctx context.Context, reads []store.RFIDRead) (store.RFIDIngest, error)
 	ListRFIDReads(ctx context.Context, f store.RFIDFilter) ([]store.RFIDReadRow, error)
 	CreateAutomationOrder(ctx context.Context, in store.OrderInput) (store.AutomationOrder, error)
+	GetAutomationOrder(ctx context.Context, id string) (store.AutomationOrder, error)
 	ListAutomationOrders(ctx context.Context, f store.OrderFilter) ([]store.AutomationOrder, error)
 	ReportAutomationOrder(ctx context.Context, id, status, reason string, now time.Time) (store.AutomationOrder, error)
 	IngestAutomationEvents(ctx context.Context, station string, events []store.AutomationEvent, now time.Time) (store.AutomationIngest, error)

@@ -41,6 +41,7 @@ func (a *API) registerAutomation(r chi.Router) {
 	r.With(authz.RequireDuty(dutyInquiry)).Get("/v1/warehouse/rfid-reads", a.listRFID)
 	r.With(authz.RequireDuty(dutyWorkSupervise)).Post("/v1/warehouse/automation/transport-orders", a.createTransportOrder)
 	r.With(authz.Require(anyDuty{dutyInquiry, dutyAutomation}, dutyInquiry+" or "+dutyAutomation, "")).Get("/v1/warehouse/automation/transport-orders", a.listTransportOrders)
+	r.With(authz.Require(anyDuty{dutyInquiry, dutyAutomation}, dutyInquiry+" or "+dutyAutomation, "")).Get("/v1/warehouse/automation/transport-orders/{id}", a.getTransportOrder)
 	r.With(authz.RequireDuty(dutyAutomation)).Post("/v1/warehouse/automation/transport-orders/{id}:report", a.reportTransportOrder)
 	r.With(authz.RequireDuty(dutyAutomation)).Post("/v1/warehouse/automation/events", a.ingestAutomationEvents)
 	r.With(authz.RequireDuty(dutyWorkSupervise)).Post("/v1/warehouse/automation/transport-orders/{id}:cancel", a.cancelTransportOrder)
@@ -213,6 +214,21 @@ func (a *API) listTransportOrders(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.JSON(w, http.StatusOK, page[store.AutomationOrder]{Items: out})
+}
+
+// getTransportOrder reads one automation order.
+func (a *API) getTransportOrder(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	if !ids.Valid(id) {
+		httpx.Fail(w, r, httpx.NewProblem(http.StatusNotFound, store.CodeAutoOrderNotFound, "automation order not found"))
+		return
+	}
+	out, err := a.st.GetAutomationOrder(r.Context(), strings.ToLower(id))
+	if err != nil {
+		automationFail(w, r, err)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, out)
 }
 
 type orderReportInput struct {

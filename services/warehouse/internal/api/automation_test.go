@@ -257,6 +257,9 @@ func (f *fakeStore) ReassignWork(_ context.Context, _ store.Idem, in store.Reass
 	f.reassigned = &in
 	return domain.Work{ID: in.WorkID, AssignedUser: in.ToUser, Status: domain.WorkInProgress}, false, f.err
 }
+func (f *fakeStore) GetAutomationOrder(_ context.Context, id string) (store.AutomationOrder, error) {
+	return store.AutomationOrder{ID: id, Status: store.OrderSent}, f.err
+}
 func (f *fakeStore) CancelAutomationOrder(context.Context, store.CancelInput) (store.AutomationOrder, error) {
 	return store.AutomationOrder{}, f.err
 }
@@ -291,6 +294,9 @@ func TestRFIDRuleAndCancelRoutes_DutiesAndValidation(t *testing.T) {
 		"a rule needs its poster":          {req{method: "POST", path: "/v1/warehouse/rfid-rules", duties: dutySetupMaintain, body: `{"readerId":"dock-1","warehouseId":"` + id + `","action":"RECEIVE_PALLET"}`}, 400, "postedBy"},
 		"a put-away rule needs a location": {req{method: "POST", path: "/v1/warehouse/rfid-rules", duties: dutySetupMaintain, body: `{"readerId":"dock-1","warehouseId":"` + id + `","action":"CONFIRM_PUTAWAY","postedBy":"gw"}`}, 400, "locationCode"},
 		"a rule is created":                {req{method: "POST", path: "/v1/warehouse/rfid-rules", duties: dutySetupMaintain, body: `{"readerId":"dock-1","antenna":2,"warehouseId":"` + id + `","action":"CONFIRM_PUTAWAY","locationCode":"A-01","postedBy":"gw"}`}, 201, ""},
+		"an order is read":                 {req{method: "GET", path: "/v1/warehouse/automation/transport-orders/" + id, duties: dutyInquiry}, 200, ""},
+		"an order read needs a duty":       {req{method: "GET", path: "/v1/warehouse/automation/transport-orders/" + id, duties: dutySetupView}, 403, ""},
+		"an order with a bad id":           {req{method: "GET", path: "/v1/warehouse/automation/transport-orders/x", duties: dutyInquiry}, 404, ""},
 		"a rule is edited":                 {req{method: "PUT", path: "/v1/warehouse/rfid-rules/" + id, duties: dutySetupMaintain, body: `{"readerId":"dock-1","warehouseId":"` + id + `","action":"RECEIVE_PALLET","postedBy":"gw"}`}, 200, ""},
 		"editing needs setup maintain":     {req{method: "PUT", path: "/v1/warehouse/rfid-rules/" + id, duties: dutySetupView, body: `{"readerId":"dock-1","warehouseId":"` + id + `","action":"RECEIVE_PALLET","postedBy":"gw"}`}, 403, ""},
 		"an edit is validated":             {req{method: "PUT", path: "/v1/warehouse/rfid-rules/" + id, duties: dutySetupMaintain, body: `{"readerId":"dock-1","action":"SHIP"}`}, 400, "action"},
@@ -754,6 +760,13 @@ func TestReassignWorkAfterAnAutomationFault(t *testing.T) {
 	}
 	if rec := post(orderPath+"/"+second.ID+":cancel", "", `{"reason":"jam at infeed","plcCleared":true}`, "super"); rec.Code != 200 {
 		t.Fatalf("cancel: %d %s", rec.Code, rec.Body)
+	}
+	var got store.AutomationOrder
+	if rec := call(h, req{method: "GET", path: orderPath + "/" + second.ID, duties: dutyInquiry}); rec.Code != 200 || json.Unmarshal(rec.Body.Bytes(), &got) != nil || got.Status != store.OrderCancelled || got.ID != second.ID {
+		t.Fatalf("read the order: %d %s", rec.Code, rec.Body)
+	}
+	if rec := call(h, req{method: "GET", path: orderPath + "/" + ids.New(), duties: dutyInquiry}); rec.Code != 404 {
+		t.Fatalf("read an unknown order: %d %s", rec.Code, rec.Body)
 	}
 	before := getWork()
 	if rec := call(h, req{method: "POST", path: "/v1/warehouse/work/" + workID + ":reassign", duties: all, key: "r2", body: body, user: "super", ifMatch: "999"}); rec.Code != 409 || problemOf(t, rec).Code != codeVersionConflict {

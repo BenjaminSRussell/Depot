@@ -982,6 +982,19 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { description: WMS-AUTO-ORDER-NOT-FOUND }
         "409": { description: WMS-AUTO-ORDER-STATE }
+  /v1/warehouse/automation/transport-orders/{id}:
+    get:
+      operationId: getTransportOrder
+      summary: Read one automation order
+      x-passage-duty: warehouse.inquiry.view or warehouse.automation.execute
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: The order.
+          content: { application/json: { schema: { $ref: "#/components/schemas/AutomationOrder" } } }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { description: WMS-AUTO-ORDER-NOT-FOUND }
   /v1/warehouse/automation/transport-orders/{id}:cancel:
     post:
       operationId: cancelTransportOrder
