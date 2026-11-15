@@ -126,11 +126,11 @@ func openingAnswer(status int, body []byte, key string, n int, rowCodes ...strin
 // OnHand reads back what GET /v1/inventory/onhand reports on hand in the legal entity for each product (H-S9-2): one inquiry per
 // product grouped by legal entity, the physical inventory of the entity's group. A truncated or unreadable answer is an error, so a
 // partial read never passes for a total.
-func (i *Inventory) OnHand(ctx context.Context, tenantID, legalEntityID string, products []string) (map[string]decimal.Decimal, error) {
+func (i *Inventory) OnHand(ctx context.Context, tenantID, legalEntityID string, products []string) (map[string]domain.OnHandStock, error) {
 	if !i.Configured() {
 		return nil, ErrNotConfigured
 	}
-	out := make(map[string]decimal.Decimal, len(products))
+	out := make(map[string]domain.OnHandStock, len(products))
 	for _, p := range products {
 		q := url.Values{"product": {p}, "groupBy": {"legal_entity"}}
 		status, body, err := i.c.do(ctx, http.MethodGet, pathInventoryOnHand+"?"+q.Encode(), tenantID, legalEntityID, dutyInventoryRead, "", nil)
@@ -144,13 +144,15 @@ func (i *Inventory) OnHand(ctx context.Context, tenantID, legalEntityID string, 
 			Items []struct {
 				Group          map[string]string `json:"group"`
 				PhysicalInvent string            `json:"physicalInvent"`
+				PostedValue    string            `json:"postedValue"`
+				Currency       string            `json:"currency"`
 			} `json:"items"`
 			Truncated bool `json:"truncated"`
 		}
 		if json.Unmarshal(body, &res) != nil || res.Truncated {
 			return nil, &Error{Kind: ErrBadAnswer, Status: status, Detail: "the on-hand inquiry of product " + p + " is not readable"}
 		}
-		sum := decimal.Zero
+		sum := domain.OnHandStock{Value: map[string]decimal.Decimal{}}
 		for _, it := range res.Items {
 			if !strings.EqualFold(it.Group["legal_entity"], legalEntityID) {
 				continue
@@ -159,7 +161,15 @@ func (i *Inventory) OnHand(ctx context.Context, tenantID, legalEntityID string, 
 			if err != nil {
 				return nil, &Error{Kind: ErrBadAnswer, Status: status, Detail: "the on-hand quantity of product " + p + " is not a number"}
 			}
-			sum = sum.Add(v)
+			sum.Qty = sum.Qty.Add(v)
+			// The posted value is per currency: a group row is one currency, and a row with no currency holds no value.
+			if it.Currency != "" {
+				val, err := decimal.NewFromString(it.PostedValue)
+				if err != nil {
+					return nil, &Error{Kind: ErrBadAnswer, Status: status, Detail: "the posted value of product " + p + " is not a number"}
+				}
+				sum.Value[it.Currency] = sum.Value[it.Currency].Add(val)
+			}
 		}
 		out[p] = sum
 	}

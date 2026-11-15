@@ -235,3 +235,29 @@ func TestEvaluateChecklist_StagedOnhandIsNotLoadedStock(t *testing.T) {
 		t.Fatalf("a GO must be refused while stock is only staged: %v", err)
 	}
 }
+
+func TestReconcileOnHandValue_PerAccountAndCurrencyWithinRounding(t *testing.T) {
+	d := decimal.RequireFromString
+	pump, bolt := "p1", "p2"
+	expected := []AccountValue{
+		{Account: "1100", Currency: "USD", Value: d("100.00"), Lines: 2, Products: map[string]struct{}{pump: {}}},
+		{Account: "1200", Currency: "USD", Value: d("50.00"), Lines: 1, Products: map[string]struct{}{bolt: {}}},
+	}
+	onHand := map[string]OnHandStock{
+		pump: {Qty: d("1"), Value: map[string]decimal.Decimal{"USD": d("100.004")}},
+		bolt: {Qty: d("1"), Value: map[string]decimal.Decimal{"USD": d("49.00")}},
+	}
+	got, err := ReconcileOnHandValue("le", expected, onHand)
+	if err != nil || len(got) != 2 {
+		t.Fatalf("%v %v", got, err)
+	}
+	if got[0].Key["account"] != "1100" || got[0].Status != StatusWithinTolerance {
+		t.Fatalf("a difference of a rounding is within tolerance: %+v", got[0])
+	}
+	if got[1].Key["account"] != "1200" || got[1].Status != StatusMismatch || !got[1].Delta.Equal(d("-1")) {
+		t.Fatalf("a real difference is a mismatch: %+v", got[1])
+	}
+	if !OnHandValueRounding(0).Equal(d("0.01")) || !OnHandValueRounding(5).Equal(d("0.03")) {
+		t.Fatalf("rounding allowance %s %s", OnHandValueRounding(0), OnHandValueRounding(5))
+	}
+}

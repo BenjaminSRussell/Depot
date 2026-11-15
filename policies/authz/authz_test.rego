@@ -1713,7 +1713,7 @@ test_integration_hub_reaches_only_render_and_xref_record if {
 }
 
 test_migration_factory_grant_reaches_only_the_receivables_import if {
-	data.service_grants["migration-factory"] == {"receivables": ["receivables.import.write", "receivables.view"], "payables": ["opening-item.import", "opening-item.import.read"], "inventory": ["inventory.import.write", "inventory.import.read", "inventory.read"], "treasury": ["treasury.import.write", "treasury.import.read"], "ledger": ["ledger.entry.post", "ledger.balance.read", "ledger.ledger.lookup"], "migration": ["migration.xref.read"]}
+	data.service_grants["migration-factory"] == {"receivables": ["receivables.import.write", "receivables.view"], "payables": ["opening-item.import", "opening-item.import.read"], "inventory": ["inventory.import.write", "inventory.import.read", "inventory.read"], "sales": ["sales.opening-order.import", "sales.opening-order.import.read"], "purchasing": ["procurement.opening-order.import", "procurement.opening-order.import.read"], "treasury": ["treasury.import.write", "treasury.import.read"], "ledger": ["ledger.entry.post", "ledger.balance.read", "ledger.ledger.lookup"], "migration": ["migration.xref.read"]}
 	allowed("receivables.import.write", "POST", "/v1/receivables/open-items:batch")
 	allowed("receivables.view", "GET", "/v1/receivables/open-item-imports")
 	not allowed("receivables.view", "POST", "/v1/receivables/open-items:batch")
@@ -3093,6 +3093,13 @@ test_migration_opening_load_routes_need_run_and_view_duties if {
 	not allowed("migration.factory.view", "POST", "/api/v1/migration/runs/r1/opening-load")
 }
 
+test_migration_orders_load_routes_need_run_and_view_duties if {
+	allowed("migration.factory.run", "POST", "/api/v1/migration/runs/r1/orders-load")
+	not allowed("migration.factory.run", "GET", "/api/v1/migration/runs/r1/orders-load")
+	allowed("migration.factory.view", "GET", "/api/v1/migration/runs/r1/orders-load")
+	not allowed("migration.factory.view", "POST", "/api/v1/migration/runs/r1/orders-load")
+}
+
 test_party_setup_lists_are_read_with_party_read if {
 	allowed("party.read", "GET", "/v1/party/payment-terms")
 	allowed("party.read", "GET", "/v1/party/payment-terms/t1")
@@ -3351,4 +3358,21 @@ test_iccharge_consumers_hold_only_their_flag_duty if {
 	data.duties["payables.iccharge.from-event"].flag
 	not allowed("billing.iccharge.from-event", "POST", "/v1/billing/free-text-invoices")
 	not allowed("payables.iccharge.from-event", "POST", "/v1/payables/vendor-invoice-intake")
+}
+
+test_opening_order_import_duties_are_service_only_and_cover_only_their_route if {
+	data.duties["sales.opening-order.import"].service_only
+	data.duties["sales.opening-order.import.read"].service_only
+	data.duties["procurement.opening-order.import"].service_only
+	data.duties["procurement.opening-order.import.read"].service_only
+	allowed("sales.opening-order.import", "POST", "/v1/sales/opening-orders")
+	not allowed("sales.opening-order.import", "GET", "/v1/sales/opening-orders")
+	allowed("sales.opening-order.import.read", "GET", "/v1/sales/opening-orders")
+	not allowed("sales.opening-order.import.read", "POST", "/v1/sales/opening-orders")
+	not allowed("sales.opening-order.import", "POST", "/v1/sales/orders")
+	allowed("procurement.opening-order.import", "POST", "/v1/procurement/opening-orders")
+	not allowed("procurement.opening-order.import", "GET", "/v1/procurement/opening-orders")
+	allowed("procurement.opening-order.import.read", "GET", "/v1/procurement/opening-orders")
+	not allowed("procurement.opening-order.import.read", "POST", "/v1/procurement/opening-orders")
+	not allowed("procurement.opening-order.import", "POST", "/v1/procurement/purchase-orders")
 }

@@ -1,0 +1,14 @@
+{
+  "pack": "project_wip",
+  "expectations": [
+    {"type": "expect_column_values_to_not_be_null", "check": "legacy_id_present", "column": "legacyId"},
+    {"type": "expect_column_values_to_be_unique", "check": "legacy_id_unique", "column": "legacyId", "skip_blank": true},
+    {"type": "expect_column_values_to_not_be_null", "check": "project_present", "column": "projectId"},
+    {"type": "expect_column_values_to_be_in_set", "check": "currency_iso4217", "column": "currency", "set": "iso4217"},
+    {"type": "expect_column_values_to_match_strftime_format", "check": "transaction_date_present_and_iso", "column": "transactionDate", "strftime_format": "%Y-%m-%d"},
+    {"type": "expect_column_values_to_be_between", "check": "transaction_date_not_after_cutoff", "column": "daysAfterCutoff", "max": "0"},
+    {"type": "expect_column_values_to_be_in_set_chosen_by_column", "check": "on_account_is_billed", "column": "billingStatus", "by": "category",
+      "sets": {"HOUR": "billing_any", "EXPENSE": "billing_any", "ITEM": "billing_any", "FEE": "billing_any", "ON_ACCOUNT": "billing_billed"}},
+    {"type": "expect_column_values_to_be_between", "check": "non_chargeable_has_no_wip_sales", "column": "wipSalesOfNonChargeable", "min": "0", "max": "0"}
+  ]
+}

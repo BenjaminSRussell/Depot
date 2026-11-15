@@ -123,6 +123,11 @@ func runOnhand(ctx context.Context, tx pgx.Tx, in OnhandRun) (domain.PackRun, er
 	if err := storeNewRun(ctx, tx, &run, in.StartedBy); err != nil {
 		return domain.PackRun{}, err
 	}
+	if in.Account != "" {
+		if _, err := tx.Exec(ctx, `update pack_run set inventory_account = $2 where tenant_id = current_setting('passage.tenant_id', true)::uuid and run_id = $1`, run.RunID, in.Account); err != nil {
+			return domain.PackRun{}, fmt.Errorf("store the inventory account: %w", err)
+		}
+	}
 	batch := &pgx.Batch{}
 	for _, o := range toLoad {
 		xrefID, balanceID := ids.New(), ids.New()

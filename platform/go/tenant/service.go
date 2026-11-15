@@ -255,6 +255,9 @@ var serviceGrants = map[string]map[string][]string{
 		// inventory.read: the on-hand read-back after the opening load (H-S9-2).
 		"inventory": {"inventory.import.write", "inventory.import.read", "inventory.read"},
 		"treasury":  {"treasury.import.write", "treasury.import.read"},
+		// Open orders at cutover (#49): the opening-order imports of sales and purchasing and their read-backs.
+		"sales":      {"sales.opening-order.import", "sales.opening-order.import.read"},
+		"purchasing": {"procurement.opening-order.import", "procurement.opening-order.import.read"},
 		// Parallel-run replay and ROLLED_BACK compensating journals (#484).
 		"ledger": {"ledger.entry.post", "ledger.balance.read", "ledger.ledger.lookup"},
 		// Legacy customers of open items resolved through the party migration's cross-reference (H-S8-6).

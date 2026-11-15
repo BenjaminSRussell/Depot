@@ -103,8 +103,26 @@ func treasuryTarget(getenv func(string) string) (*target.Treasury, error) {
 	return target.NewTreasury(cfg), nil
 }
 
-// xrefTarget reads MIGRATION_URL (see targetConfig): the migration service whose cross-reference resolves the legacy customers of
-// an open-items run (H-S8-6). Without it a customer must be on the record or in load.customerIds.
+// salesTarget reads SALES_URL (see targetConfig); without it the SALES lines of an open_orders load answer 503 MIG-1570.
+func salesTarget(getenv func(string) string) (*target.Orders, error) {
+	cfg, err := targetConfig(getenv, "SALES_URL")
+	if err != nil {
+		return nil, err
+	}
+	return target.NewSales(cfg), nil
+}
+
+// purchasingTarget reads PURCHASING_URL (see targetConfig); without it the PURCHASE lines of an open_orders load answer 503 MIG-1570.
+func purchasingTarget(getenv func(string) string) (*target.Orders, error) {
+	cfg, err := targetConfig(getenv, "PURCHASING_URL")
+	if err != nil {
+		return nil, err
+	}
+	return target.NewPurchasing(cfg), nil
+}
+
+// xrefTarget reads MIGRATION_URL (see targetConfig): the migration service whose cross-reference resolves the legacy customers and
+// vendors of an open-items run (H-S8-6, #49) and the items, customers and vendors of an open-orders load. Without it a customer must be on the record or in load.customerIds.
 func xrefTarget(getenv func(string) string) (*target.Xref, error) {
 	cfg, err := targetConfig(getenv, "MIGRATION_URL")
 	if err != nil {
@@ -134,6 +152,14 @@ func run(ctx context.Context, getenv func(string) string) error {
 	if err != nil {
 		return err
 	}
+	sales, err := salesTarget(getenv)
+	if err != nil {
+		return err
+	}
+	purchasing, err := purchasingTarget(getenv)
+	if err != nil {
+		return err
+	}
 	xref, err := xrefTarget(getenv)
 	if err != nil {
 		return err
@@ -158,7 +184,7 @@ func run(ctx context.Context, getenv func(string) string) error {
 	if addr == "" {
 		addr = ":8080"
 	}
-	srv := api.New(store.New(pool)).WithTarget(receivables).WithPayables(payables).WithInventory(inventory).WithTreasury(treasury).WithXref(xref)
+	srv := api.New(store.New(pool)).WithTarget(receivables).WithPayables(payables).WithInventory(inventory).WithTreasury(treasury).WithSales(sales).WithPurchasing(purchasing).WithXref(xref)
 	if ledger != nil {
 		srv = srv.WithLedger(ledger)
 	}

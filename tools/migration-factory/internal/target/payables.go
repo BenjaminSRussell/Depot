@@ -134,7 +134,7 @@ func (p *Payables) LoadBatch(ctx context.Context, tenantID, legalEntityID, batch
 	return BatchResult{}, answerError(status, body)
 }
 
-var rowKey = regexp.MustCompile(`^items\[(\d+)\]\.(.+)$`)
+var rowKey = regexp.MustCompile(`^(?:items|lines)\[(\d+)\]\.(.+)$`)
 
 // rowErrors reads the errors of a refused batch keyed items[row].field into row numbers (1-based, within n) and one
 // reason per row. An error not keyed by a row of the batch returns nothing: the refusal is not about rows.

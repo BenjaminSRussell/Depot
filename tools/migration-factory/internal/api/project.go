@@ -13,6 +13,7 @@ import (
 	"github.com/BenjaminSRussell/passage/platform/ids"
 
 	"github.com/BenjaminSRussell/passage/tools/migration-factory/internal/domain"
+	"github.com/BenjaminSRussell/passage/tools/migration-factory/internal/dq"
 	"github.com/BenjaminSRussell/passage/tools/migration-factory/internal/store"
 )
 
@@ -187,6 +188,11 @@ func (s *Server) startProjectRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	accepted, issues := domain.ValidateOpeningLines(all, req.CutoffTS)
+	accepted, issues, err = gateProjectSuite(all, req.CutoffTS, accepted, issues)
+	if err != nil {
+		fail(w, r, err)
+		return
+	}
 	if err := domain.QuarantineShareExceeded(len(issues), len(all), maxPct); err != nil {
 		fail(w, r, err)
 		return
@@ -264,4 +270,23 @@ func (s *Server) projectOpening(w http.ResponseWriter, r *http.Request) {
 			BillingStatus: string(l.BillingStatus), WIPCost: l.WIPCost.StringFixed(6), WIPSales: l.WIPSales.StringFixed(6)}})
 	}
 	httpx.JSON(w, http.StatusOK, out)
+}
+
+// gateProjectSuite runs the project_wip data-quality suite over the extract (FR-49.11) and holds back every accepted line it flags,
+// with the checks that flagged it, as a quarantined line of the run.
+func gateProjectSuite(all []domain.OpeningLine, cutoff time.Time, accepted []domain.OpeningLine, issues []domain.LineIssue) ([]domain.OpeningLine, []domain.LineIssue, error) {
+	kept, held, err := gateSuite(domain.PackProjectWIP, all, dq.ProjectWIPRows(all, cutoff), map[string]map[string]bool{
+		"iso4217": dq.ISO4217(), "billing_any": {string(domain.BillingChargeableUnbilled): true, string(domain.BillingBilled): true, string(domain.BillingNonChargeable): true},
+		"billing_billed": {string(domain.BillingBilled): true}},
+		func(l domain.OpeningLine) string { return l.LegacyID }, func(l domain.OpeningLine) string { return l.LegacyID }, accepted, nil,
+		func(l domain.OpeningLine, why string) domain.Quarantined {
+			return domain.Quarantined{Rule: domain.RuleDomain, Reason: why, Line: l}
+		})
+	if err != nil {
+		return nil, nil, err
+	}
+	for _, q := range held {
+		issues = append(issues, domain.LineIssue{Line: q.Line.(domain.OpeningLine), Rule: q.Rule, Reason: q.Reason})
+	}
+	return kept, issues, nil
 }
