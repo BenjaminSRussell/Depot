@@ -531,6 +531,7 @@
       {"resource": "/v1/billing/credit-reservations/*:release", "methods": ["POST"]}
     ]},
     "billing.invoice.read": {"service_only": true, "permissions": [{"resource": "/v1/billing/invoices/*", "methods": ["GET"]}]},
+    "billing.self-billed.post": {"service_only": true, "permissions": [{"resource": "/v1/billing/self-billed-invoices", "methods": ["POST"]}]},
     "billing.contract-modification.bill": {"service_only": true, "permissions": [{"resource": "/v1/billing/contract-modifications", "methods": ["POST"]}]},
     "sales.order.lookup": {"service_only": true, "permissions": [{"resource": "/v1/sales/orders/*", "methods": ["GET"]}]},
     "inventory.hold.apply": {"service_only": true, "permissions": [
@@ -554,7 +555,12 @@
       {"resource": "/v1/inventory/consignment-orders/*:cancel", "methods": ["POST"]}
     ]},
     "inventory.import.write": {"service_only": true, "permissions": [{"resource": "/v1/inventory/opening-batches", "methods": ["POST"]}]},
+    "receivables.prediction.read": {"service_only": true, "permissions": [{"resource": "/v1/receivables/prediction-invoices", "methods": ["GET"]}]},
     "inventory.import.read": {"service_only": true, "permissions": [{"resource": "/v1/inventory/opening-batches", "methods": ["GET"]}]},
+    "sales.opening-order.import": {"service_only": true, "permissions": [{"resource": "/v1/sales/opening-orders", "methods": ["POST"]}]},
+    "sales.opening-order.read": {"service_only": true, "permissions": [{"resource": "/v1/sales/opening-orders", "methods": ["GET"]}]},
+    "procurement.opening-order.import": {"service_only": true, "permissions": [{"resource": "/v1/procurement/opening-orders", "methods": ["POST"]}]},
+    "procurement.opening-order.read": {"service_only": true, "permissions": [{"resource": "/v1/procurement/opening-orders", "methods": ["GET"]}]},
     "inventory.truck-stock.write": {"permissions": [{"resource": "/v1/inventory/truck-stock-levels", "methods": ["PUT"]}]},
     "inventory.transfer.write": {"permissions": [
       {"resource": "/v1/inventory/transfer-orders", "methods": ["POST"]},
@@ -883,6 +889,10 @@
       {"resource": "/v1/payables/employee-vendors/*", "methods": ["PUT"]}
     ]},
     "opening-item.import": {"service_only": true, "permissions": [{"resource": "/v1/payables/opening-batches", "methods": ["POST"]}]},
+    "payables.vendor-invoice.review": {"permissions": [
+      {"resource": "/v1/payables/vendor-invoice-intake/*:resolve", "methods": ["POST"]},
+      {"resource": "/v1/payables/vendor-invoice-intake/*:reject", "methods": ["POST"]}
+    ]},
     "payables.vendor-invoice.intake": {"service_only": true, "permissions": [{"resource": "/v1/payables/vendor-invoice-intake", "methods": ["POST"]}]},
     "opening-item.import.read": {"service_only": true, "permissions": [{"resource": "/v1/payables/opening-batches", "methods": ["GET"]}]},
     "vendor-block.manage": {"permissions": [
@@ -1148,9 +1158,18 @@
       {"resource": "/api/v1/predictions/payment/accuracy", "methods": ["GET"]},
       {"resource": "/api/v1/predictions/payment/retrain", "methods": ["POST"]},
       {"resource": "/api/v1/predictions/payment/score", "methods": ["POST"]},
-      {"resource": "/api/v1/predictions/payment/settings", "methods": ["GET", "PUT"]}
+      {"resource": "/api/v1/predictions/payment/settings", "methods": ["GET", "PUT"]},
+      {"resource": "/v1/predictions/payment/accuracy", "methods": ["GET"]},
+      {"resource": "/v1/predictions/payment/retrain", "methods": ["POST"]},
+      {"resource": "/v1/predictions/payment/score", "methods": ["POST"]},
+      {"resource": "/v1/predictions/payment/settings", "methods": ["GET", "PUT"]}
     ]},
-    "collections.view": {"permissions": [{"resource": "/api/v1/ar/invoices/*/prediction", "methods": ["GET"]}]},
+    "collections.view": {"permissions": [
+      {"resource": "/api/v1/ar/invoices/*/prediction", "methods": ["GET"]},
+      {"resource": "/v1/ar/invoices/*/prediction", "methods": ["GET"]},
+      {"resource": "/api/v1/predictions/payment/dso", "methods": ["GET"]},
+      {"resource": "/v1/predictions/payment/dso", "methods": ["GET"]}
+    ]},
     "analytics.author": {"permissions": [
       {"resource": "/v1/analytics/dashboards/*", "methods": ["PUT"]},
       {"resource": "/v1/analytics/schedules", "methods": ["GET", "POST"]},
@@ -1436,11 +1455,13 @@
       {"resource": "/edi/v1/partners/*/self-billing", "methods": ["GET", "PUT"]},
       {"resource": "/edi/v1/partners/*/punchout", "methods": ["GET", "PUT"]},
       {"resource": "/edi/v1/partners/*/cxml", "methods": ["GET", "PUT"]},
+      {"resource": "/edi/v1/partners/*/vendor-profile", "methods": ["GET", "PUT"]},
       {"resource": "/edi/v1/partners/*/cxml/outbound", "methods": ["GET", "PUT"]}
     ]},
     "edi.operate": {"permissions": [
       {"resource": "/edi/v1/inbound/edifact", "methods": ["POST"]},
       {"resource": "/edi/v1/inbound/x12", "methods": ["POST"]},
+      {"resource": "/edi/v1/inbound/x12/vendor", "methods": ["POST"]},
       {"resource": "/edi/v1/interchanges", "methods": ["GET"]},
       {"resource": "/edi/v1/interchanges/*", "methods": ["GET"]},
       {"resource": "/edi/v1/interchanges/*/payload", "methods": ["GET"]},
@@ -1823,6 +1844,7 @@
       {"resource": "/api/v1/migration/runs/*/load", "methods": ["POST"]},
       {"resource": "/api/v1/migration/runs/*/load-payables", "methods": ["POST"]},
       {"resource": "/api/v1/migration/runs/*/opening-load", "methods": ["POST"]},
+      {"resource": "/api/v1/migration/runs/*/orders-load", "methods": ["POST"]},
       {"resource": "/api/v1/migration/runs/*/opening-journal", "methods": ["POST"]},
       {"resource": "/api/v1/migration/runs/*/quarantine/*/release", "methods": ["POST"]}
     ]},
@@ -1838,6 +1860,7 @@
       {"resource": "/api/v1/migration/runs/*/target-load", "methods": ["GET"]},
       {"resource": "/api/v1/migration/runs/*/payables-load", "methods": ["GET"]},
       {"resource": "/api/v1/migration/runs/*/opening-load", "methods": ["GET"]},
+      {"resource": "/api/v1/migration/runs/*/orders-load", "methods": ["GET"]},
       {"resource": "/api/v1/migration/runs/*/target-rows", "methods": ["GET"]},
       {"resource": "/api/v1/migration/runs/*/projects/*/opening", "methods": ["GET"]},
       {"resource": "/api/v1/migration/tolerances", "methods": ["GET"]}
@@ -2225,7 +2248,16 @@
       {"resource": "/print/v1/document-templates/*/versions", "methods": ["GET"]},
       {"resource": "/print/v1/text-blocks", "methods": ["GET"]},
       {"resource": "/print/v1/output-rules", "methods": ["GET"]},
-      {"resource": "/print/v1/output-plan", "methods": ["GET"]}
+      {"resource": "/print/v1/output-plan", "methods": ["GET"]},
+      {"resource": "/print/v1/statement-schedules", "methods": ["GET"]},
+      {"resource": "/print/v1/statement-schedules/*/runs", "methods": ["GET"]}
+    ]},
+    "print.document.deliver": {"permissions": [
+      {"resource": "/print/v1/documents:deliver", "methods": ["POST"]}
+    ]},
+    "print.customer-portal.documents": {"service_only": true, "permissions": [
+      {"resource": "/print/v1/customer-portal/documents", "methods": ["GET"]},
+      {"resource": "/print/v1/customer-portal/documents/*/pdf", "methods": ["GET"]}
     ]},
     "print.document.render": {"permissions": [
       {"resource": "/print/v1/documents:render", "methods": ["POST"]}
@@ -2245,9 +2277,13 @@
       {"resource": "/print/v1/routing-rules/*", "methods": ["PUT", "DELETE"]},
       {"resource": "/print/v1/jobs:sweep", "methods": ["POST"]},
       {"resource": "/print/v1/document-templates/*", "methods": ["PUT"]},
+      {"resource": "/print/v1/document-templates/*/versions/*:restore", "methods": ["POST"]},
       {"resource": "/print/v1/text-blocks/*/*", "methods": ["PUT"]},
       {"resource": "/print/v1/output-rules", "methods": ["POST"]},
-      {"resource": "/print/v1/output-rules/*", "methods": ["DELETE"]}
+      {"resource": "/print/v1/output-rules/*", "methods": ["DELETE"]},
+      {"resource": "/print/v1/statement-schedules", "methods": ["POST"]},
+      {"resource": "/print/v1/statement-schedules/*", "methods": ["PATCH", "DELETE"]},
+      {"resource": "/print/v1/statement-schedules/*:run", "methods": ["POST"]}
     ]},
     "warehouse.offline-conflict.resolve": {"permissions": [
       {"resource": "/api/v1/mobile/offline/conflicts", "methods": ["GET"]},
@@ -4022,6 +4058,7 @@
     },
     "finreport": {"ledger": ["ledger.entry.lookup", "ledger.balance.read"]},
     "billing": {
+      "close": ["period.check"],
       "ledger": ["ledger.entry.post", "ledger.ledger.lookup"],
       "revrec": ["revrec.allocation.read"],
       "sales": ["sales.order.record-invoice", "sales.order.record-delivery"],
@@ -4181,10 +4218,15 @@
       "receivables": ["receivables.import.write", "receivables.import.read"],
       "engineering": ["engineering.import.write", "engineering.import.read"]
     },
+    "prediction": {
+      "receivables": ["receivables.prediction.read"]
+    },
     "migration-factory": {
       "receivables": ["receivables.import.write", "receivables.view"],
       "payables": ["opening-item.import", "opening-item.import.read"],
       "inventory": ["inventory.import.write", "inventory.import.read", "inventory.read"],
+      "sales": ["sales.opening-order.import", "sales.opening-order.read"],
+      "purchasing": ["procurement.opening-order.import", "procurement.opening-order.read"],
       "treasury": ["treasury.import.write", "treasury.import.read"],
       "ledger": ["ledger.entry.post", "ledger.balance.read", "ledger.ledger.lookup"],
       "migration": ["migration.xref.read"]
@@ -4194,7 +4236,7 @@
     },
     "edi": {
       "fulfillment": ["fulfillment.shipment.read"],
-      "billing": ["billing.invoice.read"],
+      "billing": ["billing.invoice.read", "billing.self-billed.post"],
       "sales": ["sales.order.lookup", "sales.channel.intake"],
       "purchasing": ["procurement.requisition.create", "procurement.purchase-order.lookup", "procurement.purchase-order.vendor-confirm"],
       "receiving": ["receiving.asn.maintain"],
@@ -4223,18 +4265,22 @@
       "sales": ["sales.customer-portal.read", "sales.customer-portal.order", "sales.customer-portal.return"],
       "party": ["party.customer-portal.read"],
       "identity": ["identity.customer-portal.read"],
-      "print": ["print.customer-portal.render"]
+      "print": ["print.customer-portal.render", "print.customer-portal.documents"]
     },
     "ops": {
       "identity": ["identity.ops.tenant-read"],
       "print": ["print.ops.render"]
+    },
+    "print": {
+      "receivables": ["receivables.view"],
+      "party": ["party.read"]
     }
   },
   "service_principals": {
     "ops-reporter": ["identity.ops.tenant-read", "print.ops.render"],
     "edi-cxml": ["procurement.purchase-order.lookup", "procurement.purchase-order.vendor-confirm", "receiving.asn.maintain", "payables.vendor-invoice.intake"],
     "edi-outbound": ["edi.outbound.from-event"],
-    "edi-selfbill": ["tax.tax.calculate"],
+    "edi-selfbill": ["tax.tax.calculate", "billing.self-billed.post"],
     "billing-iccharge": ["billing.iccharge.from-event"],
     "payables-iccharge": ["payables.iccharge.from-event"],
     "edi-sales": ["sales.channel.intake"],
@@ -4249,6 +4295,7 @@
     "integration-hub": ["migration.outbound.render", "migration.xref.record"],
     "inventory-postings": ["inventory.transaction.apply"],
     "migration-loader": ["party.import.write", "party.import.read", "product.import.write", "product.import.read", "receivables.import.write", "receivables.import.read", "engineering.import.write", "engineering.import.read"],
+    "prediction-sync": ["receivables.prediction.read"],
     "production-planning": ["production.planned.intake"],
     "production-shopfloor": ["production.jobcard.shopfloor"],
     "receiving-erasure": ["compliance.legal-hold.check"],
@@ -4257,6 +4304,7 @@
     "revrec-creditnotes": ["revrec.creditnote.reverse", "revrec.contract.from-invoice"],
     "revrec-billing": ["billing.contract-modification.bill"],
     "payables-withholding": ["tax.withholding.record"],
+    "print-statements": ["receivables.view", "party.read"],
     "receiving-ers": ["receiving.vendor-invoice.post"],
     "scheduling-downtime": ["scheduling.downtime.apply"],
     "scheduling-order-import": ["scheduling.order.import"],

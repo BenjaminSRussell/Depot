@@ -48,6 +48,10 @@ export const ROUTES: readonly Route[] = [
   { method: "POST", path: "/api/v1/orders", audience: "sales", duty: "sales.customer-portal.order", upstream: `${SALES}/orders` },
   { method: "POST", path: "/api/v1/returns", audience: "sales", duty: "sales.customer-portal.return", upstream: `${SALES}/returns` },
 
+  // The documents print delivered to this customer's portal destination (an output rule with the PORTAL channel, #46): the list is a
+  // plain read; the PDF of one is streamed by server.ts. The customer is the token's, so the list holds only this account's.
+  { method: "GET", path: "/api/v1/delivered-documents", audience: "print", duty: "print.customer-portal.documents", upstream: "/print/v1/customer-portal/documents" },
+
   { method: "GET", path: "/api/v1/accounts", audience: "party", duty: "party.customer-portal.read", upstream: `${PARTY}/accounts`, homeOnly: true },
 ];
 

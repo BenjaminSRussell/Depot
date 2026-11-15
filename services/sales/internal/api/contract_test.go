@@ -53,7 +53,7 @@ func specOperations(t *testing.T) []string {
 // the API registers is documented and every documented operation is served.
 func TestOpenAPIMatchesRoutes(t *testing.T) {
 	r := chi.NewRouter()
-	New(nil).Register(r)
+	New(nil).WithOpeningOrders(nil).Register(r)
 	var served []string
 	if err := chi.Walk(r, func(method, route string, _ http.Handler, _ ...func(http.Handler) http.Handler) error {
 		served = append(served, method+" "+route)

@@ -297,6 +297,20 @@ export const routeHelp: readonly RouteHelp[] = [
     guide: "ap-clerk.md#enter-a-vendor-invoice",
   },
   {
+    patterns: ["/ap-invoices/intake"],
+    title: "Invoices received electronically",
+    purpose: "Invoices vendors sent through a procurement network or as an X12 810, waiting for you to match them to the goods received.",
+    howTo: ["Filter by vendor, status or how the invoice arrived.", "Open one that is waiting for review."],
+    guide: "ap-clerk.md#enter-a-vendor-invoice",
+  },
+  {
+    patterns: ["/ap-invoices/intake/:id"],
+    title: "Received invoice",
+    purpose: "One invoice a vendor sent electronically, with its lines.",
+    howTo: ["Choose the receipt line each invoice line is for, and read what differs.", "Select Post as vendor invoice; the form opens filled in.", "After posting, record the posted invoice, or reject the received invoice with a reason."],
+    guide: "ap-clerk.md#enter-a-vendor-invoice",
+  },
+  {
     patterns: ["/ap-invoices/:id"],
     title: "Vendor invoice",
     purpose: "One posted vendor invoice, with links to its receipt and purchase order.",

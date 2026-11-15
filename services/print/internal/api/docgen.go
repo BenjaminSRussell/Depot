@@ -78,6 +78,7 @@ func (a *API) registerDocgen(r chi.Router) {
 	r.With(read).Get("/document-templates", a.listTemplates)
 	r.With(read).Get("/document-templates/{code}", a.getTemplate)
 	r.With(read).Get("/document-templates/{code}/versions", a.listTemplateVersions)
+	r.With(admin).Post("/document-templates/{code}/versions/{version}:restore", a.restoreTemplateVersion)
 	r.With(admin).Put("/text-blocks/{code}/{language}", a.putTextBlock)
 	r.With(read).Get("/text-blocks", a.listTextBlocks)
 	r.With(admin).Post("/output-rules", a.createOutputRule)
@@ -183,6 +184,66 @@ func (a *API) listTemplateVersions(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, http.StatusOK, struct {
 		Items []domain.TemplateVersion `json:"items"`
 	}{Items: items})
+}
+
+// restoreTemplateVersion makes an earlier version the current one by saving its name and layout as a new version
+// (the history is never rewritten). If-Match names the version the editor saw, as for any save: 428 PRN-0018 without
+// it, 412 PRN-0017 when the template moved on. The default flag stays as it is now.
+func (a *API) restoreTemplateVersion(w http.ResponseWriter, r *http.Request) {
+	ctx, ok := a.docgenStore(w, r)
+	if !ok {
+		return
+	}
+	match, ok := templateIfMatch(r)
+	if !ok {
+		validationFailed(w, r, map[string]string{"If-Match": `must be the template version as an entity tag, for example "3"`})
+		return
+	}
+	n, err := strconv.Atoi(chi.URLParam(r, "version"))
+	if err != nil || n < 1 {
+		validationFailed(w, r, map[string]string{"version": "must be a version number"})
+		return
+	}
+	code := chi.URLParam(r, "code")
+	versions, err := a.docs.ListTemplateVersions(ctx, code)
+	if err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+	var from *domain.TemplateVersion
+	for i := range versions {
+		if versions[i].Version == n {
+			from = &versions[i]
+		}
+	}
+	if from == nil {
+		httpx.Fail(w, r, httpx.NewProblem(http.StatusNotFound, domain.CodeTemplateNotFound, "that version of the document template does not exist"))
+		return
+	}
+	current, err := a.docs.GetTemplate(ctx, code)
+	if err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+	in := domain.DocumentTemplate{Code: code, Name: from.Name, DocumentType: from.DocumentType, Default: current.Default, Config: from.Config}
+	blocks := func(c string) ([]domain.TextBlock, error) { return a.docs.TextBlockVersions(ctx, c) }
+	problems, err := domain.CheckTemplateBlocks(in, blocks)
+	if err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+	if len(problems) > 0 {
+		validationFailed(w, r, problems)
+		return
+	}
+	p, _ := tenant.FromContext(ctx)
+	out, err := a.docs.PutTemplate(ctx, in, match, p.UserID)
+	if err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+	w.Header().Set("ETag", templateETag(out.Version))
+	httpx.JSON(w, http.StatusOK, out)
 }
 
 func (a *API) getTemplate(w http.ResponseWriter, r *http.Request) {

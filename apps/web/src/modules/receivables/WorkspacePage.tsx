@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Alert, Button, buttonClassName, Card, DataTable, FormField, Input, PageHeader, StatGroup, StatTile, type DataTableColumn } from "../../shell/ui";
 import { BUCKETS, fetchAging, listDisputes, listPayments, type AgingResponse, type Bucket } from "./api/client";
+import { DsoTile } from "./DsoTile";
 import { DAY, sumDecimals, today } from "./format";
 import styles from "./pages.module.css";
 import { useLoad } from "./useLoad";
@@ -108,6 +109,7 @@ export function WorkspacePage() {
             <StatTile label="Payments on account" value={state.data ? count(state.data.onAccount) : "…"} tone="warning" />
             <StatTile label="Currencies with overdue items" value={state.data ? overdue : "…"} tone="danger" />
             <StatTile label="Active disputes" value={state.data ? count(state.data.disputes) : "…"} tone="warning" />
+            <DsoTile />
           </StatGroup>
           <Card title="Aging" headingLevel={3}>
             <div className={styles.stack}>

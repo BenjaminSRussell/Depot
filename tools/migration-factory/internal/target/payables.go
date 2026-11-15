@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/BenjaminSRussell/passage/platform/httpx"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -44,6 +45,8 @@ var ErrRowsRefused = errors.New("payables refused rows of the batch")
 type RowsRefused struct {
 	Code string
 	Rows map[int]string
+	// Errors is the target's structured answer (field, code, the batch that holds a reference), when it sends one.
+	Errors []httpx.RowError
 }
 
 func (e *RowsRefused) Error() string {
@@ -134,7 +137,7 @@ func (p *Payables) LoadBatch(ctx context.Context, tenantID, legalEntityID, batch
 	return BatchResult{}, answerError(status, body)
 }
 
-var rowKey = regexp.MustCompile(`^items\[(\d+)\]\.(.+)$`)
+var rowKey = regexp.MustCompile(`^(?:items|lines)\[(\d+)\]\.(.+)$`)
 
 // rowErrors reads the errors of a refused batch keyed items[row].field into row numbers (1-based, within n) and one
 // reason per row. An error not keyed by a row of the batch returns nothing: the refusal is not about rows.

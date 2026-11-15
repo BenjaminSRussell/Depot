@@ -180,6 +180,8 @@ export function createHttpServer(deps: ServerDeps): Server {
     if (method === "GET" && url.pathname === "/api/v1/companies") return companies(res, session);
     const invoicePdf = method === "GET" ? /^\/api\/v1\/invoices\/([^/]+)\/pdf$/.exec(url.pathname) : null;
     if (invoicePdf || (method === "GET" && url.pathname === "/api/v1/statement/pdf")) return pdf(req, res, url, session, invoicePdf?.[1]);
+    const delivered = method === "GET" ? /^\/api\/v1\/delivered-documents\/([^/]+)\/pdf$/.exec(url.pathname) : null;
+    if (delivered) return deliveredPdf(req, res, session, delivered[1] as string);
     const matched = matchRoute(method, url.pathname);
     if (!matched) return problem(res, 404, "CUS-BFF-404", "no such route");
     const { route, upstreamPath } = matched;
@@ -263,6 +265,44 @@ export function createHttpServer(deps: ServerDeps): Server {
     if (!(await deps.limiter.allow(session.id, now()))) return problem(res, 429, "CUS-BFF-429", "too many requests");
     const items = await Promise.all(session.identity.legalEntityIds.map(async (le) => ({ legalEntityId: le, name: await entityName(session, le) })));
     send(res, 200, { items });
+  }
+
+  /**
+   * The PDF of a document print delivered to this customer (#46, the PORTAL destination of an output rule). Print holds the bytes
+   * and answers only for the customer in the signed token, so another customer's document is a 404 whatever the id.
+   */
+  async function deliveredPdf(req: IncomingMessage, res: ServerResponse, session: Session, id: string): Promise<void> {
+    const le = legalEntity(session, req);
+    if (!le) return problem(res, 400, "CUS-BFF-401", "name one of your legal entities in X-Legal-Entity");
+    if (!(await deps.limiter.allow(session.id, now()))) return problem(res, 429, "CUS-BFF-429", "too many requests");
+    if (!UUID.test(id)) return problem(res, 404, "CUS-BFF-404", "no such document");
+    const chosen = await customerFor(session, req, le);
+    if ("refused" in chosen) return problem(res, 403, "CUS-BFF-407", chosen.refused);
+    let upstream: Response;
+    try {
+      const target = new URL(`/print/v1/customer-portal/documents/${id.toLowerCase()}/pdf`, deps.upstreams.print);
+      upstream = await call(mint(session, "print", "print.customer-portal.documents", le, chosen.customerId), "GET", target, { accept: "application/pdf" });
+    } catch (err) {
+      log({ msg: "upstream unreachable", audience: "print", err: String(err) });
+      return problem(res, 502, "CUS-BFF-502", "the document could not be read; try again");
+    }
+    if (upstream.status === 401) return problem(res, 502, "CUS-BFF-502", "the service refused this portal");
+    if (!upstream.ok) {
+      const type = upstream.headers.get("content-type") ?? "";
+      res.writeHead(upstream.status, { "content-type": type.includes("json") ? type : "application/json", "cache-control": "no-store", "x-content-type-options": "nosniff" });
+      res.end(await upstream.text());
+      return;
+    }
+    const bytes = Buffer.from(await upstream.arrayBuffer());
+    if (bytes.length > MAX_PDF_BYTES) return problem(res, 502, "CUS-BFF-409", "the document could not be read; try again later");
+    res.writeHead(200, {
+      "content-type": "application/pdf",
+      "content-disposition": 'attachment; filename="document.pdf"',
+      "cache-control": "no-store",
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "no-referrer",
+    });
+    res.end(bytes);
   }
 
   /**

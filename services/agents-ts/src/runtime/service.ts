@@ -19,6 +19,7 @@ import {
   type RunResult,
 } from "./engine.js";
 import type { McpConnector } from "./mcp.js";
+import { createFactRisk } from "./risk.js";
 
 /** What the run service reads from the database beyond the engine's audit and budget ports. */
 export interface RunStore extends AuditPort, BudgetPort {
@@ -128,9 +129,9 @@ export function createRunService(deps: RunServiceDeps) {
           ...(cfg.approvalPollMs !== undefined ? { pollMs: cfg.approvalPollMs } : {}),
           ...(deps.sleep !== undefined ? { sleep: deps.sleep } : {}),
         }),
-        // System-side risk facts come from the owning domains once they expose them; until then
-        // every proposal goes to a human (suggest mode), so the neutral default cannot auto-commit.
-        risk: { assess: () => ({ vendorHighRisk: false, sodConflict: false }) },
+        // System-side risk facts (amount against the limits, counterparty, segregation of duties and the payment prediction) are read
+        // from the owning domains through the run's own tool session; every proposal still goes to a human (suggest mode).
+        risk: createFactRisk({ tools: session, invokerUserId: caller.userId, selfApprovalLimit: cfg.selfApprovalLimit }),
         killSwitch: deps.killSwitch,
         now: nowIso,
         nowMs,

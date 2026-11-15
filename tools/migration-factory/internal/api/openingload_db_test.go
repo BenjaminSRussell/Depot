@@ -95,6 +95,19 @@ func TestOpeningLoad_StockGoesToTheInventoryLedgerAndReconciles(t *testing.T) {
 	if readBack != 2 {
 		t.Fatalf("read-back lines %d, want one per product (2): %+v", readBack, detail.Reconciliation)
 	}
+	// #49: and the value per inventory account and currency; a run that named no account is loaded under "(none named)".
+	byValue := 0
+	for _, c := range detail.Reconciliation {
+		if c.Name == "target.onhand.onhand_value" {
+			byValue++
+			if c.Status != "MATCH" || c.Key["account"] != "(none named)" || c.Key["currency"] != "USD" {
+				t.Fatalf("on-hand value read-back %+v", c)
+			}
+		}
+	}
+	if byValue != 1 {
+		t.Fatalf("value read-back lines %d, want one per account and currency (1): %+v", byValue, detail.Reconciliation)
+	}
 	for _, c := range e.inv.Calls() {
 		if len(c.Duties) != 1 || (c.Duties[0] != "inventory.import.write" && c.Duties[0] != "inventory.import.read" && c.Duties[0] != "inventory.read") {
 			t.Fatalf("each token carries one duty of the grant: %+v", c)
@@ -263,5 +276,36 @@ func TestOpeningLoad_TreasuryAmbiguousOutcomeThenAMappingChangeRecovers(t *testi
 	got := e.openingLoad(t, run.RunID, body("99999999-9999-4999-8999-999999999994"), http.StatusOK)
 	if got.Status != "RECONCILED" || got.Loaded != 3 || !got.Clean || len(e.trs.Batches()) != 1 {
 		t.Fatalf("rerun: %+v batches %v", got, e.trs.Batches())
+	}
+}
+
+// A revaluation after the load shows as a mismatch of the value read-back of the inventory account the run named (#49), while the
+// quantity read-back still matches.
+func TestOpeningLoad_OnHandValueReadBackIsPerInventoryAccount(t *testing.T) {
+	e := newOpenEnv(t, 3)
+	run := e.startPack(t, onhandPath, onhandBody("USMF", "", cleanOnhand...))
+	if _, err := e.admin.Exec(context.Background(), `update pack_run set inventory_account = '1100' where run_id = $1`, run.RunID); err != nil {
+		t.Fatal(err)
+	}
+	e.inv.OnHandValueDrift[prodPump] = decimal.NewFromInt(7)
+	got := e.openingLoad(t, run.RunID, stockLoadBody(""), http.StatusOK)
+	if got.Status != "MISMATCH" {
+		t.Fatalf("load %+v, want MISMATCH", got)
+	}
+	detail := decode[openingLoadDetailDTO](t, e.do(t, "GET", "/api/v1/migration/runs/"+run.RunID+"/opening-load", ""))
+	found := false
+	for _, c := range detail.Reconciliation {
+		switch {
+		case c.Name == "target.onhand.onhand_value":
+			found = true
+			if c.Key["account"] != "1100" || c.Status != "MISMATCH" {
+				t.Fatalf("value read-back %+v", c)
+			}
+		case c.Name == "target.onhand.onhand_quantity" && c.Status != "MATCH":
+			t.Fatalf("quantity read-back %+v", c)
+		}
+	}
+	if !found {
+		t.Fatalf("no value read-back: %+v", detail.Reconciliation)
 	}
 }

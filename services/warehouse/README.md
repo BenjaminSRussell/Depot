@@ -239,6 +239,11 @@ dock without a packing slip posted for it, and enqueues `dev.passage.wms.shipmen
 same transaction. The EDI engine's outbound consumer sends the whole shipment's 856 or DESADV from it, as it does from fulfillment's
 `asn.issued` for a slip. A shipment is confirmed once (migration 0009); a second confirmation is 409 `WMS-SHIPMENT-SHIPPED`, so a split load ships by packing slips in fulfillment. `GET /v1/warehouse/shipments/{id}/shipped` reads it back.
 
+The confirmation can instead carry `containers`, the pack hierarchy of the load: each container's SSCC, the pallet it sits on (`parentSscc`, one level),
+its `grossKg` and what it holds (`lines` of `shipmentLineId` and `qty`; a container that is not a pallet holds at least one line). Migration 0013 keeps
+it with the confirmation and the event carries it (`parent_sscc`, `gross_kg`, `lines`), so the EDI engine builds the 856 or DESADV from the warehouse's
+containers; `ssccs` and `containers` are alternatives.
+
 ## Error codes
 
 | Code | Status | Meaning |

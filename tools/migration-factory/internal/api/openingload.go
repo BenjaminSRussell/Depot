@@ -10,8 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/shopspring/decimal"
-
 	"github.com/BenjaminSRussell/passage/platform/httpx"
 	"github.com/BenjaminSRussell/passage/platform/ids"
 	"github.com/BenjaminSRussell/passage/platform/tenant"
@@ -35,7 +33,7 @@ type StockTarget interface {
 	Configured() bool
 	LoadBatch(ctx context.Context, tenantID, legalEntityID, batchKey, postingDate, currency string, items []domain.StockItem) (target.OpeningBatchResult, error)
 	BatchTotals(ctx context.Context, tenantID, legalEntityID string, keep func(key string) bool) (domain.OpeningTotals, error)
-	OnHand(ctx context.Context, tenantID, legalEntityID string, products []string) (map[string]decimal.Decimal, error)
+	OnHand(ctx context.Context, tenantID, legalEntityID string, products []string) (map[string]domain.OnHandStock, error)
 }
 
 // BankTarget is treasury, where the staged opening bank balances are loaded; *target.Treasury implements it.
@@ -331,7 +329,7 @@ func (s *Server) abandonOpening(ctx context.Context, runID string, cause error) 
 	_, _, _ = s.store.FinishOpeningLoad(context.WithoutCancel(ctx), runID, store.OpeningFinish{Unavailable: cause.Error(), ActualErr: cause.Error()})
 }
 
-func (s *Server) onHandReadBack(ctx context.Context, tenantID, legalEntityID string) (map[string]decimal.Decimal, error) {
+func (s *Server) onHandReadBack(ctx context.Context, tenantID, legalEntityID string) (map[string]domain.OnHandStock, error) {
 	loaded, err := s.store.OpeningOnHandExpected(ctx, legalEntityID)
 	if err != nil {
 		return nil, err

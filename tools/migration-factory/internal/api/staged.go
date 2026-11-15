@@ -115,6 +115,11 @@ func stagedLines(pack domain.Pack, recs []stagedRecordDTO, master map[string]str
 			all = append(all, a.Staged())
 		}
 		accepted, quarantined = domain.ValidateFixedAssets(in, master)
+		var err error
+		if accepted, quarantined, err = gateSuite(pack, in, dq.FixedAssetRows(in), map[string]map[string]bool{"books": dq.SetOf(master), "iso4217": dq.ISO4217()},
+			func(a domain.FixedAssetLine) string { return a.LegacyID }, stagedKey, accepted, quarantined, holdStaged); err != nil {
+			return nil, nil, nil, err
+		}
 	case domain.PackPayrollYTD:
 		in := make([]domain.PayrollYTDLine, 0, len(recs))
 		for _, rec := range recs {

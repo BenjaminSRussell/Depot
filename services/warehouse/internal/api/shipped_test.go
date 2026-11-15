@@ -12,6 +12,7 @@ import (
 	"github.com/BenjaminSRussell/passage/platform/ids"
 	"github.com/BenjaminSRussell/passage/platform/tenant"
 	"github.com/BenjaminSRussell/passage/platform/testkit"
+	"github.com/BenjaminSRussell/passage/services/warehouse/internal/domain"
 	"github.com/BenjaminSRussell/passage/services/warehouse/internal/store"
 )
 
@@ -105,5 +106,69 @@ func TestConfirmShipped_SecondConfirmationIsRefusedWithItsOwnCode(t *testing.T) 
 	rec := ship(httptest.NewRecorder(), NewWithStore(fs, time.Minute), "/v1/warehouse/shipments/"+ids.New()+":ship", dutyShipConfirm, shipLE, `{"warehouseId":"`+ids.New()+`"}`)
 	if rec.Code != 409 || !strings.Contains(rec.Body.String(), codeShipmentShipped) {
 		t.Fatalf("status %d: %s", rec.Code, rec.Body)
+	}
+}
+
+const (
+	pallet = "376104250000000017"
+	carton = "376104250000000024"
+	line1  = "0190a5f2-7b1c-7d3e-8a4f-000000000a01"
+)
+
+func TestConfirmShipped_RecordsThePackHierarchyTheWarehouseSaw(t *testing.T) {
+	if !domain.ValidSSCC(pallet) || !domain.ValidSSCC(carton) {
+		t.Fatalf("the fixture SSCCs %s and %s have no valid check digit", pallet, carton)
+	}
+	fs := &fakeStore{}
+	sh, wh := ids.New(), ids.New()
+	body := `{"warehouseId":"` + wh + `","containers":[
+		{"sscc":"` + pallet + `","grossKg":"412.5"},
+		{"sscc":"` + carton + `","parentSscc":"` + pallet + `","grossKg":"12.25","lines":[{"shipmentLineId":"` + strings.ToUpper(line1) + `","qty":"6"}]}]}`
+	rec := ship(httptest.NewRecorder(), NewWithStore(fs, time.Minute), "/v1/warehouse/shipments/"+sh+":ship", dutyShipConfirm, shipLE, body)
+	if rec.Code != 201 {
+		t.Fatalf("status %d: %s", rec.Code, rec.Body)
+	}
+	if len(fs.ship.SSCCs) != 2 || fs.ship.SSCCs[0] != pallet || fs.ship.SSCCs[1] != carton || len(fs.ship.Containers) != 2 {
+		t.Fatalf("store got %+v", fs.ship)
+	}
+	c := fs.ship.Containers[1]
+	if c.ParentSSCC != pallet || c.GrossKg != "12.25" || len(c.Lines) != 1 || c.Lines[0].ShipmentLineID != line1 || c.Lines[0].Qty != "6" {
+		t.Fatalf("carton %+v", c)
+	}
+}
+
+func TestConfirmShipped_PackRefusals(t *testing.T) {
+	sh, wh := ids.New(), ids.New()
+	path := "/v1/warehouse/shipments/" + sh + ":ship"
+	box := func(extra string) string {
+		return `{"sscc":"` + carton + `","lines":[{"shipmentLineId":"` + line1 + `","qty":"1"}]` + extra + `}`
+	}
+	cases := []struct{ name, containers, field string }{
+		{"ssccs and containers together", `[` + box("") + `],"ssccs":["` + pallet + `"]`, "containers"},
+		{"a bad check digit", `[{"sscc":"376104250000000016","lines":[{"shipmentLineId":"` + line1 + `","qty":"1"}]}]`, "containers[0].sscc"},
+		{"the same SSCC twice", `[` + box("") + `,` + box("") + `]`, "containers[1].sscc"},
+		{"a carton on a container that is not in the confirmation", `[` + box(`,"parentSscc":"`+pallet+`"`) + `]`, "containers[0].parentSscc"},
+		{"a container on itself", `[` + box(`,"parentSscc":"`+carton+`"`) + `]`, "containers[0].parentSscc"},
+		{"a leaf container with no lines", `[{"sscc":"` + carton + `"}]`, "containers[0].lines"},
+		{"a quantity of zero", `[{"sscc":"` + carton + `","lines":[{"shipmentLineId":"` + line1 + `","qty":"0.00"}]}]`, "containers[0].lines[0].qty"},
+		{"a line that is not an id", `[{"sscc":"` + carton + `","lines":[{"shipmentLineId":"x","qty":"1"}]}]`, "containers[0].lines[0].shipmentLineId"},
+		{"a weight that is not a number", `[` + box(`,"grossKg":"heavy"`) + `]`, "containers[0].grossKg"},
+		{"a pallet on a pallet", `[{"sscc":"` + pallet + `","parentSscc":"` + carton + `","lines":[{"shipmentLineId":"` + line1 + `","qty":"1"}]},` + box(`,"parentSscc":"`+pallet+`"`) + `]`, "containers[1].parentSscc"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			fs := &fakeStore{}
+			rec := ship(httptest.NewRecorder(), NewWithStore(fs, time.Minute), path, dutyShipConfirm, shipLE, `{"warehouseId":"`+wh+`","containers":`+c.containers+`}`)
+			if rec.Code != 400 || fs.calls != 0 {
+				t.Fatalf("status %d calls %d: %s", rec.Code, fs.calls, rec.Body)
+			}
+			var p struct {
+				Errors map[string]string `json:"errors"`
+			}
+			_ = json.Unmarshal(rec.Body.Bytes(), &p)
+			if _, ok := p.Errors[c.field]; !ok {
+				t.Fatalf("no error for %s: %s", c.field, rec.Body)
+			}
+		})
 	}
 }

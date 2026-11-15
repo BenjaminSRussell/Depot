@@ -5,6 +5,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/shopspring/decimal"
 
@@ -323,6 +324,107 @@ func TestPayrollYTDSuiteFlagsWhatTheGoValidatorQuarantines(t *testing.T) {
 	assertRowParity(t, "payroll_ytd", rows, rep, ds, len(quarantined), suite, failed)
 }
 
+func TestFixedAssetsSuiteFlagsWhatTheGoValidatorQuarantines(t *testing.T) {
+	// A straight-line asset: cost 1200, accumulated 200, salvage 0, 10 months left: next depreciation (1200-200)/10 = 100.
+	line := func(id, asset, book, currency, method string, useful, remaining int, cost, acc, salvage, next string) domain.FixedAssetLine {
+		return domain.FixedAssetLine{LegacyID: id, Asset: asset, Book: book, Currency: currency, Method: method, UsefulLifeMonths: useful, RemainingLifeMonths: remaining,
+			AcquisitionCost: dec(cost), AccumulatedDepreciation: dec(acc), SalvageValue: dec(salvage), NextDepreciation: dec(next)}
+	}
+	lines := []domain.FixedAssetLine{line("A-0", "FA-1", "TAX", "USD", "SL", 60, 10, "1200", "200", "0", "100")}
+	defects := []struct {
+		check string
+		a     domain.FixedAssetLine
+	}{
+		{"legacy_id_present", line("", "FA-2", "TAX", "USD", "SL", 60, 10, "1200", "200", "0", "100")},
+		{"legacy_id_unique", line("A-0", "FA-3", "TAX", "USD", "SL", 60, 10, "1200", "200", "0", "100")},
+		{"asset_book_unique", line("A-4", "FA-1", "TAX", "USD", "SL", 60, 10, "1200", "200", "0", "100")},
+		{"currency_iso4217", line("A-5", "FA-5", "TAX", "ZZZ", "SL", 60, 10, "1200", "200", "0", "100")},
+		{"measures_at_most_6_places", line("A-6", "FA-6", "TAX", "USD", "SL", 60, 10, "1200.1234567", "200", "0", "100.012346")},
+		{"asset_required", line("A-7", "", "TAX", "USD", "SL", 60, 10, "1200", "200", "0", "100")},
+		{"book_in_list", line("A-8", "FA-8", "NOPE", "USD", "SL", 60, 10, "1200", "200", "0", "100")},
+		{"method_sl_or_db", line("A-9", "FA-9", "TAX", "USD", "XX", 60, 10, "1200", "200", "0", "100")},
+		{"useful_life_positive", line("A-10", "FA-10", "TAX", "USD", "DB", 0, 0, "1200", "200", "0", "0")},
+		{"remaining_life_within_useful_life", line("A-11", "FA-11", "TAX", "USD", "SL", 12, 13, "1200", "200", "0", "76.92")},
+		{"accumulated_between_zero_and_cost", line("A-12", "FA-12", "TAX", "USD", "SL", 60, 10, "1200", "1300", "0", "0")},
+		{"nbv_not_below_salvage", line("A-13", "FA-13", "TAX", "USD", "SL", 60, 10, "1200", "200", "1100", "0")},
+		{"next_depreciation_within_0_01_of_projection", line("A-14", "FA-14", "TAX", "USD", "SL", 60, 10, "1200", "200", "0", "99.5")},
+	}
+	for _, d := range defects {
+		lines = append(lines, d.a)
+	}
+	rows := dq.FixedAssetRows(lines)
+	var ds []defect
+	failed := map[int]bool{}
+	for i, d := range defects {
+		ds = append(ds, defect{check: d.check, row: rows[1+i]})
+		failed[1+i] = true
+	}
+	suite, err := dq.Load("fixed_assets")
+	if err != nil {
+		t.Fatal(err)
+	}
+	rep, err := suite.Run(rows, map[string]map[string]bool{"books": {"TAX": true, "BOOK": true}, "iso4217": isoSet()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, quarantined := domain.ValidateFixedAssets(lines, map[string]struct{}{"TAX": {}, "BOOK": {}})
+	assertRowParity(t, "fixed_assets", rows, rep, ds, len(quarantined), suite, failed)
+}
+
+func TestProjectWIPSuiteFlagsWhatTheGoValidatorQuarantines(t *testing.T) {
+	cutoff := time.Date(2026, 12, 31, 0, 0, 0, 0, time.UTC)
+	day := func(s string) time.Time {
+		if s == "" {
+			return time.Time{}
+		}
+		d, err := time.Parse(time.DateOnly, s)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return d
+	}
+	line := func(id, project string, cat domain.Category, bill domain.BillingStatus, currency, date, wipSales string) domain.OpeningLine {
+		return domain.OpeningLine{LegacyID: id, ProjectID: project, Category: cat, BillingStatus: bill, Currency: currency, TransactionDate: day(date), WIPSales: dec(wipSales)}
+	}
+	lines := []domain.OpeningLine{line("L-0", "P1", domain.CategoryHour, domain.BillingChargeableUnbilled, "USD", "2026-12-31", "10")}
+	defects := []struct {
+		check string
+		l     domain.OpeningLine
+	}{
+		{"legacy_id_present", line("", "P1", domain.CategoryHour, domain.BillingChargeableUnbilled, "USD", "2026-12-30", "10")},
+		{"legacy_id_unique", line("L-0", "P1", domain.CategoryHour, domain.BillingChargeableUnbilled, "USD", "2026-12-30", "10")},
+		{"project_present", line("L-3", "", domain.CategoryHour, domain.BillingChargeableUnbilled, "USD", "2026-12-30", "10")},
+		{"currency_iso4217", line("L-4", "P1", domain.CategoryHour, domain.BillingChargeableUnbilled, "ZZZ", "2026-12-30", "10")},
+		{"transaction_date_present_and_iso", line("L-5", "P1", domain.CategoryHour, domain.BillingChargeableUnbilled, "USD", "", "10")},
+		{"transaction_date_not_after_cutoff", line("L-6", "P1", domain.CategoryHour, domain.BillingChargeableUnbilled, "USD", "2027-01-02", "10")},
+		{"on_account_is_billed", line("L-7", "P1", domain.CategoryOnAccount, domain.BillingChargeableUnbilled, "USD", "2026-12-30", "10")},
+		{"non_chargeable_has_no_wip_sales", line("L-8", "P1", domain.CategoryExpense, domain.BillingNonChargeable, "USD", "2026-12-30", "10")},
+	}
+	for _, d := range defects {
+		lines = append(lines, d.l)
+	}
+	rows := dq.ProjectWIPRows(lines, cutoff)
+	var ds []defect
+	failed := map[int]bool{}
+	for i, d := range defects {
+		ds = append(ds, defect{check: d.check, row: rows[1+i]})
+		failed[1+i] = true
+	}
+	suite, err := dq.Load("project_wip")
+	if err != nil {
+		t.Fatal(err)
+	}
+	sets := map[string]map[string]bool{"iso4217": isoSet(),
+		"billing_any":    {"CHARGEABLE_UNBILLED": true, "BILLED": true, "NON_CHARGEABLE": true},
+		"billing_billed": {"BILLED": true}}
+	rep, err := suite.Run(rows, sets)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, issues := domain.ValidateOpeningLines(lines, cutoff)
+	assertRowParity(t, "project_wip", rows, rep, ds, len(issues), suite, failed)
+}
+
 // assertRowParity is assertParity for the packs whose fixtures say which rows the validator quarantines: the suite must flag
 // exactly those rows, the validator must quarantine as many, each defect must be caught by its own check, every expectation
 // must be exercised and coverage must be at least 95 %.
@@ -485,7 +587,7 @@ func TestRunnerExpectations(t *testing.T) {
 	if _, err := dq.Load("nope"); err == nil {
 		t.Fatal("a pack without a suite")
 	}
-	if got := dq.Packs(); !slices.Equal(got, []string{"bank_balances", "gl_balances", "onhand", "open_items", "open_orders", "payroll_ytd", "wip_prod"}) {
+	if got := dq.Packs(); !slices.Equal(got, []string{"bank_balances", "fixed_assets", "gl_balances", "onhand", "open_items", "open_orders", "payroll_ytd", "project_wip", "wip_prod"}) {
 		t.Fatalf("packs %v", got)
 	}
 }

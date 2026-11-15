@@ -501,9 +501,9 @@ func upsertTargetTotals(ctx context.Context, tx pgx.Tx, runID string, totals []d
 		if err != nil {
 			return err
 		}
-		tag, err := tx.Exec(ctx, `update control_total set source_value = $4, target_value = $5, delta = $6, status = $7, computed_at = now()
+		tag, err := tx.Exec(ctx, `update control_total set source_value = $4, target_value = $5, delta = $6, status = $7, tolerance = $8, tolerance_reason = $9, computed_at = now()
 			where tenant_id = current_setting('passage.tenant_id', true)::uuid and run_id = $1 and name = $2 and key_json = $3::jsonb`,
-			runID, t.Name, key, t.Source.String(), t.Target.String(), t.Delta.String(), string(t.Status))
+			runID, t.Name, key, t.Source.String(), t.Target.String(), t.Delta.String(), string(t.Status), t.Tolerance.Amount.String(), t.Tolerance.Reason)
 		if err != nil {
 			return fmt.Errorf("update control_total: %w", err)
 		}
@@ -512,8 +512,8 @@ func upsertTargetTotals(ctx context.Context, tx pgx.Tx, runID string, totals []d
 		}
 		maxSeq++
 		if _, err := tx.Exec(ctx, `insert into control_total (tenant_id, total_id, run_id, seq, name, key_json, source_value, target_value, delta, tolerance, tolerance_reason, status)
-			values (current_setting('passage.tenant_id', true)::uuid, $1, $2, $3, $4, $5, $6, $7, $8, 0, '', $9)`,
-			ids.New(), runID, maxSeq, t.Name, key, t.Source.String(), t.Target.String(), t.Delta.String(), string(t.Status)); err != nil {
+			values (current_setting('passage.tenant_id', true)::uuid, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+			ids.New(), runID, maxSeq, t.Name, key, t.Source.String(), t.Target.String(), t.Delta.String(), t.Tolerance.Amount.String(), t.Tolerance.Reason, string(t.Status)); err != nil {
 			return fmt.Errorf("insert control_total: %w", err)
 		}
 	}
