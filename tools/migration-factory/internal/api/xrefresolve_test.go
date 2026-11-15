@@ -12,6 +12,7 @@ import (
 type fakeXref struct {
 	asked  []string
 	system string
+	entity string
 	le     string
 	found  map[string]string
 	err    error
@@ -20,7 +21,8 @@ type fakeXref struct {
 func (f *fakeXref) Configured() bool { return true }
 func (f *fakeXref) Resolve(_ context.Context, _, le, system, entity string, keys []string) (map[string]string, error) {
 	f.asked, f.system, f.le = append([]string(nil), keys...), system, le
-	if entity != "customer" {
+	f.entity = entity
+	if entity != "customer" && entity != "vendor" {
 		return nil, errors.New("entity " + entity)
 	}
 	return f.found, f.err
@@ -49,6 +51,36 @@ func TestResolveCustomers_FillsTheMapFromTheCrossReference(t *testing.T) {
 	x.err = errors.New("down")
 	cfg.Customers = map[string]string{}
 	if err := s.resolveCustomers(context.Background(), "t1", cfg, records, map[string]domain.TargetExtra{}, domain.SourceAX2012, "USMF"); err == nil {
+		t.Fatal("an unreachable cross-reference let the run start")
+	}
+}
+
+// A legacy vendor of an AP line with no Passage vendor on the record or in load.payables.vendorIds is resolved through the same
+// cross-reference as a customer, as entity vendor (#49); AR lines, UUID parties and mapped vendors are not asked about.
+func TestResolveVendors_FillsTheMapFromTheCrossReference(t *testing.T) {
+	const v1, v2, mapped = "0195f0a0-0000-7000-8000-0000000000d1", "0195f0a0-0000-7000-8000-0000000000d2", "0195f0a0-0000-7000-8000-0000000000d3"
+	x := &fakeXref{found: map[string]string{"USMF|VEND-1": v1, "VEND-2": v2}}
+	s := (&Server{}).WithXref(x)
+	cfg := &domain.TargetConfig{LegalEntityID: "le-1", Payables: &domain.PayablesConfig{Vendors: map[string]string{"VEND-9": mapped}}}
+	ap := func(id, party string) domain.Record {
+		return domain.Record{LegacyID: id, Party: party, Ledger: domain.LedgerAP}
+	}
+	records := []domain.Record{ap("1", "VEND-1"), ap("2", "VEND-2"), ap("3", "VEND-9"), ap("4", v2), {LegacyID: "5", Party: "CUST-1"}, ap("6", "VEND-3"), ap("7", "VEND-1")}
+	if err := s.resolveVendors(context.Background(), "t1", cfg, records, map[string]domain.TargetExtra{}, domain.SourceAX2012, "USMF"); err != nil {
+		t.Fatal(err)
+	}
+	if x.entity != "vendor" || x.system != "ax2012" || !slices.Equal(x.asked, []string{"USMF|VEND-1", "VEND-1", "USMF|VEND-2", "VEND-2", "USMF|VEND-3", "VEND-3"}) {
+		t.Fatalf("asked %s %s %v", x.entity, x.system, x.asked)
+	}
+	if v := cfg.Payables.Vendors; v["VEND-1"] != v1 || v["VEND-2"] != v2 || v["VEND-9"] != mapped || v["VEND-3"] != "" {
+		t.Fatalf("vendors %v", v)
+	}
+	x.asked = nil
+	if err := s.resolveVendors(context.Background(), "t1", &domain.TargetConfig{LegalEntityID: "le-1"}, records, nil, domain.SourceAX2012, "USMF"); err != nil || x.asked != nil {
+		t.Fatalf("a run without load.payables asked the cross-reference: %v %v", err, x.asked)
+	}
+	x.err = errors.New("down")
+	if err := s.resolveVendors(context.Background(), "t1", &domain.TargetConfig{LegalEntityID: "le-1", Payables: &domain.PayablesConfig{Vendors: map[string]string{}}}, records, map[string]domain.TargetExtra{}, domain.SourceAX2012, "USMF"); err == nil {
 		t.Fatal("an unreachable cross-reference let the run start")
 	}
 }

@@ -1721,7 +1721,7 @@ test_integration_hub_reaches_only_render_and_xref_record if {
 }
 
 test_migration_factory_grant_reaches_only_the_receivables_import if {
-	data.service_grants["migration-factory"] == {"receivables": ["receivables.import.write", "receivables.view"], "payables": ["opening-item.import", "opening-item.import.read"], "inventory": ["inventory.import.write", "inventory.import.read", "inventory.read"], "treasury": ["treasury.import.write", "treasury.import.read"], "ledger": ["ledger.entry.post", "ledger.balance.read", "ledger.ledger.lookup"], "migration": ["migration.xref.read"]}
+	data.service_grants["migration-factory"] == {"receivables": ["receivables.import.write", "receivables.view"], "payables": ["opening-item.import", "opening-item.import.read"], "inventory": ["inventory.import.write", "inventory.import.read", "inventory.read"], "sales": ["sales.opening-order.import", "sales.opening-order.import.read"], "purchasing": ["procurement.opening-order.import", "procurement.opening-order.import.read"], "treasury": ["treasury.import.write", "treasury.import.read"], "ledger": ["ledger.entry.post", "ledger.balance.read", "ledger.ledger.lookup"], "migration": ["migration.xref.read"]}
 	allowed("receivables.import.write", "POST", "/v1/receivables/open-items:batch")
 	allowed("receivables.view", "GET", "/v1/receivables/open-item-imports")
 	not allowed("receivables.view", "POST", "/v1/receivables/open-items:batch")
@@ -3101,6 +3101,13 @@ test_migration_opening_load_routes_need_run_and_view_duties if {
 	not allowed("migration.factory.view", "POST", "/api/v1/migration/runs/r1/opening-load")
 }
 
+test_migration_orders_load_routes_need_run_and_view_duties if {
+	allowed("migration.factory.run", "POST", "/api/v1/migration/runs/r1/orders-load")
+	not allowed("migration.factory.run", "GET", "/api/v1/migration/runs/r1/orders-load")
+	allowed("migration.factory.view", "GET", "/api/v1/migration/runs/r1/orders-load")
+	not allowed("migration.factory.view", "POST", "/api/v1/migration/runs/r1/orders-load")
+}
+
 test_party_setup_lists_are_read_with_party_read if {
 	allowed("party.read", "GET", "/v1/party/payment-terms")
 	allowed("party.read", "GET", "/v1/party/payment-terms/t1")
@@ -3459,4 +3466,40 @@ test_edi_vendor_810_route_and_profile if {
 	allowed("edi.admin", "PUT", "/edi/v1/partners/p1/vendor-profile")
 	allowed("edi.admin", "GET", "/edi/v1/partners/p1/vendor-profile")
 	not allowed("edi.admin", "POST", "/edi/v1/inbound/x12/vendor")
+}
+
+test_opening_order_import_duties_are_service_only_and_cover_only_their_route if {
+	data.duties["sales.opening-order.import"].service_only
+	data.duties["sales.opening-order.import.read"].service_only
+	data.duties["procurement.opening-order.import"].service_only
+	data.duties["procurement.opening-order.import.read"].service_only
+	allowed("sales.opening-order.import", "POST", "/v1/sales/opening-orders")
+	not allowed("sales.opening-order.import", "GET", "/v1/sales/opening-orders")
+	allowed("sales.opening-order.import.read", "GET", "/v1/sales/opening-orders")
+	not allowed("sales.opening-order.import.read", "POST", "/v1/sales/opening-orders")
+	not allowed("sales.opening-order.import", "POST", "/v1/sales/orders")
+	allowed("procurement.opening-order.import", "POST", "/v1/procurement/opening-orders")
+	not allowed("procurement.opening-order.import", "GET", "/v1/procurement/opening-orders")
+	allowed("procurement.opening-order.import.read", "GET", "/v1/procurement/opening-orders")
+	not allowed("procurement.opening-order.import.read", "POST", "/v1/procurement/opening-orders")
+	not allowed("procurement.opening-order.import", "POST", "/v1/procurement/purchase-orders")
+}
+
+test_prediction_feed_duty_is_service_only_and_the_prediction_service_holds_only_it if {
+	data.service_grants.prediction == {"receivables": ["receivables.prediction.read"]}
+	data.duties["receivables.prediction.read"].service_only
+	allowed("receivables.prediction.read", "GET", "/v1/receivables/prediction-invoices")
+	not allowed("receivables.prediction.read", "POST", "/v1/receivables/prediction-invoices")
+	not allowed("receivables.prediction.read", "GET", "/v1/receivables/open-items")
+}
+
+test_payment_prediction_routes_answer_under_the_gateway_prefix_and_the_dso_tile_is_a_collections_read if {
+	allowed("collections.view", "GET", "/api/v1/ar/invoices/i1/prediction")
+	allowed("collections.view", "GET", "/v1/ar/invoices/i1/prediction")
+	allowed("collections.view", "GET", "/api/v1/predictions/payment/dso")
+	allowed("collections.view", "GET", "/v1/predictions/payment/dso")
+	not allowed("collections.view", "POST", "/v1/predictions/payment/score")
+	allowed("agents.admin", "POST", "/v1/predictions/payment/retrain")
+	allowed("agents.admin", "PUT", "/v1/predictions/payment/settings")
+	not allowed("agents.admin", "GET", "/v1/predictions/payment/dso")
 }

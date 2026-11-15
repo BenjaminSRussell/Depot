@@ -67,7 +67,7 @@ var customMethods = map[string][]string{
 
 func TestOpenAPI_MatchesRegisteredRoutes(t *testing.T) {
 	r := chi.NewRouter()
-	New(newFake()).Register(r)
+	New(newFake()).WithOpeningOrders(nil).Register(r)
 	routes := map[string]bool{}
 	_ = chi.Walk(r, func(method, route string, _ http.Handler, _ ...func(http.Handler) http.Handler) error {
 		if route == "/readyz" {

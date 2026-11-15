@@ -88,7 +88,7 @@ func run(ctx context.Context, getenv func(string) string) error {
 		slog.Warn("FIELDCRYPT_KEYS is unset: one-time customer orders are refused (SLS-0054)")
 	}
 	st := wireReturns(store.New(pool).WithFieldCrypt(keys), up, signer != nil, getenv)
-	a := api.New(st).WithConfigurations(up).WithProduction(up).WithCustomerGroups(up).WithProductNames(up).WithPortalPriceWindow(envInt(getenv("SALES_PORTAL_PRICE_WINDOW_DAYS")))
+	a := api.New(st).WithConfigurations(up).WithProduction(up).WithCustomerGroups(up).WithProductNames(up).WithPortalPriceWindow(envInt(getenv("SALES_PORTAL_PRICE_WINDOW_DAYS"))).WithOpeningOrders(st)
 	if signer != nil && getenv("PRICING_URL") != "" {
 		a = a.WithPortalPricer(up)
 	} else {

@@ -49,6 +49,7 @@ var servicePrincipals = map[string][]string{
 	"pricing-cache":            {"pricing.cache.invalidate"},
 	"search-index":             {"search.index.write"},
 	"migration-loader":         {"party.import.write", "party.import.read", "product.import.write", "product.import.read", "receivables.import.write", "receivables.import.read", "engineering.import.write", "engineering.import.read"},
+	"prediction-sync":          {"receivables.prediction.read"},
 	"production-planning":      {"production.planned.intake"},
 	"production-shopfloor":     {"production.jobcard.shopfloor"},
 	"receiving-erasure":        {"compliance.legal-hold.check"},
@@ -95,6 +96,7 @@ var servicePrincipalIssuers = map[string][]string{
 	// party forwards the loader as act on the one onward call a party create makes: the party number from numbering.
 	// Its token holds only party's own grant (numbering.sequence.allocate), so nothing is borrowed (#475).
 	"migration-loader":        {"migration", "migration-factory", "party"},
+	"prediction-sync":         {"prediction"},
 	"production-planning":     {"production"},
 	"production-shopfloor":    {"production"},
 	"receivables-billing":     {"receivables"},

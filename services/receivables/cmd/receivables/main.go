@@ -151,7 +151,7 @@ func run() error {
 	} else if fc != nil {
 		s.WithRates(fc)
 	}
-	h := api.New(s)
+	h := api.New(s).WithPredictionFeed(s)
 	r := httpx.NewRouter()
 	h.Register(r)
 	admin := http.NewServeMux()

@@ -1,0 +1,25 @@
+{
+  "pack": "fixed_assets",
+  "expectations": [
+    {"type": "expect_column_values_to_not_be_null", "check": "legacy_id_present", "column": "legacyId"},
+    {"type": "expect_column_values_to_be_unique", "check": "legacy_id_unique", "column": "legacyId", "skip_blank": true},
+    {"type": "expect_compound_columns_to_be_unique", "check": "asset_book_unique", "columns": ["asset", "book"]},
+    {"type": "expect_column_values_to_be_in_set", "check": "currency_iso4217", "column": "currency", "set": "iso4217"},
+    {"type": "expect_column_values_to_have_max_decimal_places", "check": "measures_at_most_6_places", "column": "acquisitionCost", "places": 6},
+    {"type": "expect_column_values_to_have_max_decimal_places", "check": "measures_at_most_6_places", "column": "accumulatedDepreciation", "places": 6},
+    {"type": "expect_column_values_to_have_max_decimal_places", "check": "measures_at_most_6_places", "column": "salvageValue", "places": 6},
+    {"type": "expect_column_values_to_have_max_decimal_places", "check": "measures_at_most_6_places", "column": "nextDepreciation", "places": 6},
+    {"type": "expect_column_values_to_not_be_null", "check": "asset_required", "column": "asset"},
+    {"type": "expect_column_values_to_be_in_set", "check": "book_in_list", "column": "book", "set": "books"},
+    {"type": "expect_column_values_to_match_regex", "check": "method_sl_or_db", "column": "method", "regex": "^(SL|DB)$"},
+    {"type": "expect_column_values_to_be_between", "check": "useful_life_positive", "column": "usefulLifeMonths", "min": "0", "strict_min": true},
+    {"type": "expect_column_values_to_be_between", "check": "remaining_life_within_useful_life", "column": "remainingLifeMonths", "min": "0"},
+    {"type": "expect_column_pair_values_A_to_be_greater_than_B", "check": "remaining_life_within_useful_life", "column_A": "usefulLifeMonths", "column_B": "remainingLifeMonths", "or_equal": true},
+    {"type": "expect_column_values_to_be_between", "check": "accumulated_between_zero_and_cost", "column": "acquisitionCost", "min": "0"},
+    {"type": "expect_column_values_to_be_between", "check": "accumulated_between_zero_and_cost", "column": "accumulatedDepreciation", "min": "0"},
+    {"type": "expect_column_pair_values_A_to_be_greater_than_B", "check": "accumulated_between_zero_and_cost", "column_A": "acquisitionCost", "column_B": "accumulatedDepreciation", "or_equal": true},
+    {"type": "expect_column_values_to_be_between", "check": "nbv_not_below_salvage", "column": "salvageValue", "min": "0"},
+    {"type": "expect_column_pair_values_A_to_be_greater_than_B", "check": "nbv_not_below_salvage", "column_A": "nbv", "column_B": "salvageValue", "or_equal": true},
+    {"type": "expect_column_values_to_be_between", "check": "next_depreciation_within_0_01_of_projection", "column": "nextDepreciationDifference", "min": "0", "max": "0.01"}
+  ]
+}

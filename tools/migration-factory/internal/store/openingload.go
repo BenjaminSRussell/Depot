@@ -395,7 +395,7 @@ type OpeningFinish struct {
 	Actual      domain.OpeningTotals
 	// OnHand is what the inventory ledger's on-hand inquiry reports per product after an onhand load (H-S9-2); nil skips the
 	// read-back.
-	OnHand map[string]decimal.Decimal
+	OnHand map[string]domain.OnHandStock
 }
 
 // FinishOpeningLoad ends a pass: it recounts the rows, compares the batches the target holds with what the factory loaded
@@ -445,6 +445,16 @@ func (s *Postgres) FinishOpeningLoad(ctx context.Context, runID string, fin Open
 					var readBack []domain.ControlTotal
 					if readBack, err = domain.ReconcileOnHand(load.LegalEntityID, loaded, fin.OnHand); err == nil {
 						totals = append(totals, readBack...)
+					}
+					if err == nil {
+						var accounts []domain.AccountValue
+						if accounts, err = openingOnHandValueExpected(ctx, tx, load.LegalEntityID); err != nil {
+							return err
+						}
+						var byAccount []domain.ControlTotal
+						if byAccount, err = domain.ReconcileOnHandValue(load.LegalEntityID, accounts, fin.OnHand); err == nil {
+							totals = append(totals, byAccount...)
+						}
 					}
 				}
 			} else {
@@ -518,6 +528,63 @@ func openingOnHandExpected(ctx context.Context, tx pgx.Tx, legalEntityID string)
 		}
 	}
 	return out, rows.Err()
+}
+
+// openingOnHandValueExpected is the value per inventory account and currency that the factory's accepted onhand batches put in the
+// legal entity: quantity times unit cost of every item, under the account the run of the batch named, with the products of each.
+func openingOnHandValueExpected(ctx context.Context, tx pgx.Tx, legalEntityID string) ([]domain.AccountValue, error) {
+	rows, err := tx.Query(ctx, `select coalesce(r.inventory_account, ''), b.currency, b.payload from opening_load_batch b
+		join pack_run r on r.tenant_id = b.tenant_id and r.run_id = b.run_id
+		where b.tenant_id = current_setting('passage.tenant_id', true)::uuid and b.legal_entity_id = $1 and b.status = 'ACCEPTED' and r.pack = $2 and b.payload is not null`,
+		legalEntityID, string(domain.PackOnhand))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	byKey := map[string]*domain.AccountValue{}
+	var order []string
+	for rows.Next() {
+		var account, currency string
+		var raw []byte
+		if err := rows.Scan(&account, &currency, &raw); err != nil {
+			return nil, err
+		}
+		if account == "" {
+			account = domain.NoInventoryAccount
+		}
+		var items []domain.StockItem
+		if err := json.Unmarshal(raw, &items); err != nil {
+			return nil, fmt.Errorf("opening batch payload: %w", err)
+		}
+		key := account + "\x1f" + currency
+		av := byKey[key]
+		if av == nil {
+			av = &domain.AccountValue{Account: account, Currency: currency, Products: map[string]struct{}{}}
+			byKey[key] = av
+			order = append(order, key)
+		}
+		for _, it := range items {
+			q, err := decimal.NewFromString(it.Qty)
+			if err != nil {
+				return nil, fmt.Errorf("opening batch item %s: %w", it.Reference, err)
+			}
+			c, err := decimal.NewFromString(it.CostPrice)
+			if err != nil {
+				return nil, fmt.Errorf("opening batch item %s: %w", it.Reference, err)
+			}
+			av.Value = av.Value.Add(q.Mul(c))
+			av.Lines++
+			av.Products[strings.ToLower(it.ProductID)] = struct{}{}
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	out := make([]domain.AccountValue, 0, len(order))
+	for _, k := range order {
+		out = append(out, *byKey[k])
+	}
+	return out, nil
 }
 
 // expectedOpeningTotals sums the balances of the company that the target holds as the factory loaded them, across every

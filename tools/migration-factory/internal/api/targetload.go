@@ -439,3 +439,39 @@ func (s *Server) resolveCustomers(ctx context.Context, tenantID string, cfg *dom
 	}
 	return nil
 }
+
+// resolveVendors fills load.payables.vendorIds for the AP records whose legacy party has no Passage vendor yet (not on the record as
+// vendorId, not in the map, not a UUID) from the vendors the party migration loaded into the run's legal entity, keyed like a
+// customer: the legacy company and the party (company|party), else the party alone (#49). A run with no load.payables has no AP
+// target, so nothing is asked.
+func (s *Server) resolveVendors(ctx context.Context, tenantID string, cfg *domain.TargetConfig, records []domain.Record, extras map[string]domain.TargetExtra, sys domain.SourceSystem, company string) error {
+	if s.xref == nil || !s.xref.Configured() || cfg == nil || cfg.Payables == nil {
+		return nil
+	}
+	seen := map[string]bool{}
+	var keys []string
+	for _, rec := range records {
+		x := extras[domain.OpenItemKey(rec.Side(), strings.TrimSpace(rec.LegacyID))]
+		party := strings.TrimSpace(rec.Party)
+		if rec.Side() != domain.LedgerAP || party == "" || x.CustomerID != "" || cfg.Payables.Vendors[party] != "" || ids.Valid(party) || seen[party] {
+			continue
+		}
+		seen[party] = true
+		keys = append(keys, company+"|"+party, party)
+	}
+	if len(keys) == 0 {
+		return nil
+	}
+	found, err := s.xref.Resolve(ctx, tenantID, cfg.LegalEntityID, target.MigrationSystem(string(sys)), "vendor", keys)
+	if err != nil {
+		return httpx.NewProblem(http.StatusBadGateway, CodeXrefUnavailable, "the party migration's cross-reference could not be read to resolve the legacy vendors: "+err.Error())
+	}
+	for party := range seen {
+		if id := found[company+"|"+party]; ids.Valid(id) {
+			cfg.Payables.Vendors[party] = id
+		} else if id := found[party]; ids.Valid(id) {
+			cfg.Payables.Vendors[party] = id
+		}
+	}
+	return nil
+}

@@ -1,6 +1,11 @@
 package dq
 
 import (
+	"strconv"
+	"time"
+
+	"github.com/shopspring/decimal"
+
 	"github.com/BenjaminSRussell/passage/tools/migration-factory/internal/domain"
 )
 
@@ -71,6 +76,50 @@ func PayrollYTDRows(in []domain.PayrollYTDLine) []Row {
 	for i, p := range in {
 		out[i] = Row{"legacyId": p.LegacyID, "worker": p.Worker, "taxYear": p.TaxYear, "currency": p.Currency,
 			"gross": p.Gross.String(), "tax": p.Tax.String(), "deductions": p.Deductions.String(), "net": p.Net.String()}
+	}
+	return out
+}
+
+// FixedAssetRows returns the asset books as suite rows. Two columns are derived from the line, as the Go validator derives them:
+// nbv (acquisition cost less accumulated depreciation) and nextDepreciationDifference, the distance between the legacy
+// projection of the next period's depreciation and the one recomputed from the loaded values (BR-49.6); it is 0 for a line whose
+// method or life makes no projection possible, which the other checks flag.
+func FixedAssetRows(in []domain.FixedAssetLine) []Row {
+	out := make([]Row, len(in))
+	for i, a := range in {
+		diff := decimal.Zero
+		if (a.Method == domain.DepStraightLine || a.Method == domain.DepDecliningBalance) && a.UsefulLifeMonths > 0 {
+			diff = a.ProjectNextDepreciation().Sub(a.NextDepreciation).Abs()
+		}
+		out[i] = Row{"legacyId": a.LegacyID, "asset": a.Asset, "book": a.Book, "currency": a.Currency, "method": a.Method,
+			"usefulLifeMonths": strconv.Itoa(a.UsefulLifeMonths), "remainingLifeMonths": strconv.Itoa(a.RemainingLifeMonths),
+			"acquisitionCost": a.AcquisitionCost.String(), "accumulatedDepreciation": a.AccumulatedDepreciation.String(), "salvageValue": a.SalvageValue.String(),
+			"nextDepreciation": a.NextDepreciation.String(), "nbv": a.NBV().String(), "nextDepreciationDifference": diff.String()}
+	}
+	return out
+}
+
+// ProjectWIPRows returns the project opening lines as suite rows. Two columns are derived from the line against the extract's
+// cutoff: daysAfterCutoff (whole days the transaction date is after the cutoff date, zero or less when it is not, 0 for a missing
+// date, which the date check flags) and wipSalesOfNonChargeable (the WIP sales value of a non-chargeable line, else 0).
+func ProjectWIPRows(in []domain.OpeningLine, cutoff time.Time) []Row {
+	out := make([]Row, len(in))
+	cutDay := cutoff.UTC().Truncate(24 * time.Hour)
+	for i, l := range in {
+		date, days := "", 0
+		if !l.TransactionDate.IsZero() {
+			date = l.TransactionDate.Format(time.DateOnly)
+			days = int(l.TransactionDate.UTC().Truncate(24*time.Hour).Sub(cutDay).Hours() / 24)
+			if l.TransactionDate.After(cutoff) && days <= 0 {
+				days = 1
+			}
+		}
+		nonChargeable := decimal.Zero
+		if l.BillingStatus == domain.BillingNonChargeable {
+			nonChargeable = l.WIPSales
+		}
+		out[i] = Row{"legacyId": l.LegacyID, "projectId": l.ProjectID, "category": string(l.Category), "billingStatus": string(l.BillingStatus),
+			"currency": l.Currency, "transactionDate": date, "daysAfterCutoff": strconv.Itoa(days), "wipSalesOfNonChargeable": nonChargeable.String()}
 	}
 	return out
 }

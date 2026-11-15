@@ -463,3 +463,28 @@ func (u unreachableStore) FinishPayablesLoad(context.Context, string, store.Paya
 	u.fail()
 	return domain.PayablesLoad{}, nil, nil
 }
+
+func (u unreachableStore) GetOrderLoad(context.Context, string) (domain.OrderLoad, error) {
+	u.fail()
+	return domain.OrderLoad{}, nil
+}
+func (u unreachableStore) ClaimOrderLoad(context.Context, string, string, string, time.Duration) (domain.OrderLoad, store.OrderLoadRun, []store.PendingOrderLine, error) {
+	u.fail()
+	return domain.OrderLoad{}, store.OrderLoadRun{}, nil, nil
+}
+func (u unreachableStore) RecordOrderBatch(context.Context, string, string, time.Duration, string, []store.PendingOrderLine) error {
+	u.fail()
+	return nil
+}
+func (u unreachableStore) RejectOrderLines(context.Context, string, string, time.Duration, []store.OrderReject) error {
+	u.fail()
+	return nil
+}
+func (u unreachableStore) ListOrderRejects(context.Context, string, int) ([]store.OrderRejectRow, error) {
+	u.fail()
+	return nil, nil
+}
+func (u unreachableStore) FinishOrderLoad(context.Context, string, store.OrderFinish) (domain.OrderLoad, []domain.ControlTotal, error) {
+	u.fail()
+	return domain.OrderLoad{}, nil, nil
+}

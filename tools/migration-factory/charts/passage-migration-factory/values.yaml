@@ -36,7 +36,14 @@ inventory:
   url: ""
 treasury:
   url: ""
-# The migration service, whose cross-reference resolves the legacy customers of an open-items run (H-S8-6).
+# sales.url and purchasing.url are the service base addresses the staged open order lines (open_orders pack) are loaded into
+# (POST /v1/sales/opening-orders, POST /v1/procurement/opening-orders); empty and the orders load answers 503 MIG-1570.
+# They use the same signing key.
+sales:
+  url: ""
+purchasing:
+  url: ""
+# The migration service, whose cross-reference resolves the legacy customers and vendors of an open-items run (H-S8-6, #49) and the items, customers and vendors of an open-orders load.
 migration:
   url: ""
 signing:

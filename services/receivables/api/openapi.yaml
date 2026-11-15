@@ -150,6 +150,41 @@ paths:
                   sections: { type: array, items: { type: object } }
         "400": { $ref: "#/components/responses/Problem" }
         "403": { $ref: "#/components/responses/Problem" }
+  /v1/receivables/prediction-invoices:
+    get:
+      operationId: listPredictionInvoices
+      summary: Customer invoices for payment prediction
+      description: |
+        The feed of the payment-prediction service (#47), read with a service token holding the one duty `receivables.prediction.read`:
+        INVOICE items in the caller's legal entities, `state=reversed` for the invoices reversed after they were scored (so the forecast drops them), `state=paid` for the settled ones (with `paidDate`, the day of their last settlement,
+        which the service trains on) or `state=open` for the ones still open (OPEN or PARTIALLY_SETTLED, which it scores). `disputes` counts
+        the disputes ever raised on the invoice and `dunningLevel` is its current dunning level. Ordered by `updatedAt`, then id; every change to an
+        invoice (a settlement, a dunning step, a dispute) moves `updatedAt`, so a caller that keeps the last `updatedAt` it read passes it as
+        `updated_since` and sees every later change. Keyset paging by `cursor`. 503 AR-1590 when the feed is not configured.
+      x-passage-duty: receivables.prediction.read
+      parameters:
+        - { name: state, in: query, required: true, schema: { type: string, enum: [open, paid, reversed] } }
+        - { name: updated_since, in: query, description: "Only invoices changed at or after this time.", schema: { type: string, format: date-time } }
+        - { name: cursor, in: query, description: The nextCursor of the previous page., schema: { type: string } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 500, default: 500 } }
+      responses:
+        "200":
+          description: One page of invoices; nextCursor is present when more follow.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, asOf]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/PredictionInvoice" }
+                  nextCursor: { type: string }
+                  asOf: { type: string, format: date-time }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Problem" }
   /v1/receivables/aging:
     get:
       operationId: agingSnapshot
@@ -2758,6 +2793,21 @@ components:
         side: { type: string, enum: [DEBIT, CREDIT], description: "CREDIT items (credit notes, unapplied payments) carry negative amounts" }
         importSource: { type: string, description: the legacy system that loaded the item }
         legacyKey: { type: string, description: the item's key in the legacy system }
+    PredictionInvoice:
+      type: object
+      required: [id, legalEntityId, customerId, currency, amount, documentDate, dueDate, dunningLevel, disputes, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        legalEntityId: { type: string, format: uuid }
+        customerId: { type: string, format: uuid }
+        currency: { type: string }
+        amount: { $ref: "#/components/schemas/Money" }
+        documentDate: { type: string, format: date }
+        dueDate: { type: string, format: date }
+        dunningLevel: { type: integer }
+        disputes: { type: integer }
+        paidDate: { type: string, format: date, description: "Only for state=paid: the day of the invoice's last settlement." }
+        updatedAt: { type: string, format: date-time }
     OpeningImportRequest:
       type: object
       required: [legalEntityId, importSource, items]
