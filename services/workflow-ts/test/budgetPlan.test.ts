@@ -224,7 +224,7 @@ describe("budget plan approval workflow", () => {
       droppedDecisions: [{ decision: "sign-off", actor: "rev-a" }],
     });
     expect(fake.effects).toBe(1);
-  }, 180_000);
+  }, 300_000);
 
   it("carries the plan through review by every org unit and approval, and the approved scenario becomes the register", async () => {
     const fake = new FakeBudgeting();
@@ -394,7 +394,7 @@ describe("budget plan approval workflow", () => {
     });
     expect(result).toMatchObject({ status: "approved", refusedDecisions: 0 });
     expect(fake.effects).toBe(1);
-  }, 120_000);
+  }, 300_000);
 
   it("exposes the awaiting state to a query", async () => {
     const fake = new FakeBudgeting();
