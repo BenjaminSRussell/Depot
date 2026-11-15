@@ -4,6 +4,7 @@
 import type { ChargePreviewRequest, JournalPreviewRequest, ReconStatus } from "../../modules/intercompany/api/client";
 import type { ChargeRecord, EntityTarget, PostedEntry, PostedJournal, ReconRun, StoredReconItem } from "../../modules/intercompany/api/postings";
 import type { MatrixRow } from "../../modules/intercompany/api/client";
+import type { Partner } from "../../modules/intercompany/api/partners";
 import type { FxAdjustment, IcSettings, RegistryEntity, StoredTransferPrice } from "../../modules/intercompany/api/registry";
 import { LEGAL_ENTITY, LEGAL_ENTITY_DE, LEGAL_ENTITY_ES } from "../company";
 import { reply, route } from "../backend";
@@ -364,3 +365,17 @@ route("POST", `${BASE}/reconciliations/items/{id}/fx-adjust`, ({ params }) => {
   }
   return reply.problem(404, "IC-0851", "No reconciliation item with that id");
 });
+
+// Trading-partner pairings between the US and German entities (FR-40.1): the customer and vendor accounts are party ids in the real
+// service; the demo shows the entity codes the pages name. The German pairing is inactive since its accounts were re-keyed.
+const PAIRING_ACTIONS = { autoCreate: true, autoConfirm: false, autoPostPackingSlip: false, autoPostInvoice: false };
+const partners: Partner[] = [
+  { id: uid(414, 1), version: 3, sellerEntity: "CRP-US", buyerEntity: "CRP-DE", customerAccount: "IC-CRP-DE", vendorAccount: "IC-CRP-US", active: true, actions: PAIRING_ACTIONS, pricing: "CostPlus", markupPct: "8", tolerance: { pricePct: "0.5", dateDays: 2 }, createdAt: at(-90), updatedAt: at(-12) },
+  { id: uid(414, 2), version: 1, sellerEntity: "CRP-DE", buyerEntity: "CRP-US", customerAccount: "IC-CRP-US", vendorAccount: "IC-CRP-DE", active: false, actions: PAIRING_ACTIONS, pricing: "PriceList", markupPct: "0", tolerance: { pricePct: "0.5", dateDays: 2 }, createdAt: at(-90), updatedAt: at(-90) },
+];
+route("GET", `${BASE}/partners`, ({ query }) => {
+  const entity = query.get("entity");
+  const active = query.get("active");
+  return { items: partners.filter((p) => (!entity || p.sellerEntity === entity || p.buyerEntity === entity) && (active === null || String(p.active) === active)) };
+});
+route("GET", `${BASE}/partners/{id}`, ({ params }) => partners.find((p) => p.id === params.id) ?? reply.problem(404, "IC-0842", "No pairing with that id"));

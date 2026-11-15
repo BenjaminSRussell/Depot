@@ -217,7 +217,7 @@ export function OrderDetailPage() {
     { key: "productId", header: "Product", render: (row) => <EntityName entity="product" id={row.productId} /> },
     { key: "decision", header: "Listing decision", render: (o) => sentence(o.decision) },
     { key: "reason", header: "Reason" },
-    { key: "actor", header: "Accepted by" },
+    { key: "actor", header: "Accepted by", render: (row) => <UserName id={row.actor} /> },
   ];
 
   const ruleColumns: DataTableColumn<CreditRule>[] = [

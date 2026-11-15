@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { UserName } from "../../shell/lookup/UserName";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { EntityName } from "../../shell/lookup/EntityName";
 import { ListPage, type ListColumn, type ListData } from "../../shell/ui";
@@ -11,7 +12,7 @@ const columns: ListColumn<PendingChange>[] = [
   { key: "legalEntityId", header: "Legal entity", render: (c) => <EntityName entity="legalEntity" id={c.legalEntityId} />, sortValue: () => "", defaultHidden: true },
   { key: "currentValue", header: "Current limit", align: "end", render: (c) => c.currentValue ?? "None", csv: (c) => c.currentValue ?? "" },
   { key: "requestedValue", header: "Requested limit", align: "end" },
-  { key: "requestedBy", header: "Requested by" },
+  { key: "requestedBy", header: "Requested by", render: (c) => <UserName id={c.requestedBy} />, sortValue: () => "" },
   { key: "requestedAt", header: "Requested", render: (c) => formatDateTime(c.requestedAt), csv: (c) => c.requestedAt },
 ];
 

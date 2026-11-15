@@ -52,7 +52,7 @@ const releaseColumns = (a: Agreement): DataTableColumn<AgreementRelease>[] => {
     { key: "drawnQty", header: "Drawn later", align: "end", render: (r) => figure(r.drawnQty ?? "0") },
     { key: "returnedQty", header: "Returned", align: "end", render: (r) => figure(r.returnedQty ?? "0") },
     { key: "orderNumber", header: "Order", mono: true, render: (r) => <Link to={`/sales/orders/${r.salesOrderId}`}>{r.orderNumber}</Link> },
-    { key: "actor", header: "By" },
+    { key: "actor", header: "By", render: (row) => <UserName id={row.actor} /> },
     { key: "returnedAt", header: "Last returned", render: (r) => (r.returnedAt ? formatDateTime(r.returnedAt) : "—") },
   ];
 };
