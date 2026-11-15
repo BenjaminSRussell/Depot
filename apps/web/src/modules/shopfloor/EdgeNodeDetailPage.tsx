@@ -42,7 +42,7 @@ export function parseDocument(text: string): { document?: Record<string, unknown
 const versionColumns: DataTableColumn<EdgeConfigVersion>[] = [
   { key: "version", header: "Version", align: "end", mono: true },
   { key: "publishedAt", header: "Published", mono: true, render: (row) => formatDateTime(row.publishedAt) },
-  { key: "publishedBy", header: "By" },
+  { key: "publishedBy", header: "By", render: (row) => <UserName id={row.publishedBy} /> },
   { key: "appliedAt", header: "First applied", mono: true, render: (row) => (row.appliedAt ? formatDateTime(row.appliedAt) : "Not yet") },
   { key: "documentSha256", header: "SHA-256", mono: true, render: (row) => <span title={row.documentSha256}>{row.documentSha256.slice(0, 12)}</span> },
   {

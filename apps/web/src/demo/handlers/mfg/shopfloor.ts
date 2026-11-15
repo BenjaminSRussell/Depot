@@ -448,12 +448,12 @@ const K_EDGE = 233;
 const K_CERT = 234;
 const edgeNodes = table<EdgeNode>([
   {
-    id: uid(K_EDGE, 1), siteId: PLANT.id, name: "Machining line gateway", platform: "k3s", ring: "all", connectorSubject: `edge:${uid(K_EDGE, 1)}`, status: "online", connectorVersion: "1.4.2",
+    id: uid(K_EDGE, 1), siteId: PLANT.id, name: "Machining line gateway", platform: "k3s", ring: "all", connectorSubject: "edge-machining-line", status: "online", connectorVersion: "1.4.2",
     certSerial: "6F3A91C20B7D4E58", certExpiresAt: at(70), lastHeartbeatAt: at(-0.001), bufferFillPct: "4.00", machines: [{ machineCode: "M-101", state: "RUNNING" }, { machineCode: "M-102", state: "DOWN" }],
     appliedConfigVersion: 2, latestConfigVersion: 2, active: true, version: 3, createdBy: ME.id, createdAt: at(-200), updatedAt: at(-5),
   },
   {
-    id: uid(K_EDGE, 2), siteId: PLANT.id, name: "Paint and test gateway", platform: "windows", ring: "canary", connectorSubject: `edge:${uid(K_EDGE, 2)}`, status: "online", connectorVersion: "1.5.0-rc1",
+    id: uid(K_EDGE, 2), siteId: PLANT.id, name: "Paint and test gateway", platform: "windows", ring: "canary", connectorSubject: "edge-paint-test", status: "online", connectorVersion: "1.5.0-rc1",
     certSerial: "2B8C40D91E6F7A03", certExpiresAt: at(20), lastHeartbeatAt: at(-0.002), bufferFillPct: "11.50", machines: [{ machineCode: "M-104", state: "RUNNING" }, { machineCode: "M-105", state: "IDLE" }],
     appliedConfigVersion: 1, latestConfigVersion: 2, active: true, version: 2, createdBy: ME.id, createdAt: at(-90), updatedAt: at(-3),
   },
@@ -472,7 +472,7 @@ route("GET", `${BASE}/edge-nodes/{id}/config-versions`, ({ params }) => {
 const certs = table<EdgeCertificate & { id: string; edgeId: string }>(
   [1, 2].flatMap((n) => {
     const edgeId = uid(K_EDGE, n);
-    const subject = `edge:${edgeId}`;
+    const subject = n === 1 ? "edge-machining-line" : "edge-paint-test";
     return [
       { id: uid(K_CERT, n * 10 + 1), edgeId, serial: n === 1 ? "6F3A91C20B7D4E58" : "2B8C40D91E6F7A03", subject, reason: "renew" as const, notBefore: at(-20), notAfter: at(n === 1 ? 70 : 20), issuedAt: at(-20), fingerprint: (n === 1 ? "a1" : "b2").repeat(32), current: true },
       { id: uid(K_CERT, n * 10 + 2), edgeId, serial: n === 1 ? "11C0FFEE5A5A0001" : "22D0DEED5B5B0002", subject, reason: "enroll" as const, notBefore: at(-110), notAfter: at(-20 + 90), issuedAt: at(-110), fingerprint: (n === 1 ? "c3" : "d4").repeat(32), current: false, revokedAt: at(-20), revokedBy: ME.id, revokeReason: "Replaced when the certificate was renewed" },
