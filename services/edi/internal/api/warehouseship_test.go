@@ -206,3 +206,116 @@ func TestAutoOutbound_SlipAfterWarehouseShippedSendsOnlyNewContainers(t *testing
 		t.Fatalf("856s = %d after a slip of already notified containers", n)
 	}
 }
+
+// #35 (35-1): when the warehouse recorded how the load was packed, the pack hierarchy of the notice is the warehouse's, whatever
+// fulfillment holds; a confirmation that named only SSCCs falls back to fulfillment's containers (the tests above).
+func TestShippedByWarehouse_BuildsThePackHierarchyFromTheWarehouseContainers(t *testing.T) {
+	p := domain.TradeProfile{LegalEntityID: srcLE, CustomerID: srcCustomer}
+	at := time.Date(2026, 11, 10, 8, 30, 0, 0, time.UTC)
+	f := newFake()
+	packedShipment(f)
+	sh := f.shipment // fulfillment still holds its own container 003456789012340019 for the 10 units
+	wc := func(sscc, parent string, kg int64, lines ...domain.SourceContainerLine) domain.WarehouseContainer {
+		return domain.WarehouseContainer{SSCC: sscc, ParentSSCC: parent, GrossKg: decimal.NewFromInt(kg), Lines: lines}
+	}
+	line := func(q int64) domain.SourceContainerLine {
+		return domain.SourceContainerLine{ShipmentLineID: "sl-1", Qty: decimal.NewFromInt(q)}
+	}
+	pallet, a, b := "003456789012340040", "003456789012340057", "003456789012340064"
+	ws := domain.WarehouseShip{ShippedAt: at, CarrierCode: "UPSN", SSCCs: []string{pallet, a, b},
+		Containers: []domain.WarehouseContainer{wc(pallet, "", 150), wc(a, pallet, 60, line(6)), wc(b, pallet, 40, line(4))}}
+	got, err := domain.ShippedByWarehouse(p, sh, ws)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Status != "SHIPPED" || !got.ActualShipDate.Equal(at) || got.CarrierCode == nil || *got.CarrierCode != "UPSN" || len(got.Containers) != 3 {
+		t.Fatalf("shipment %+v", got)
+	}
+	for _, c := range got.Containers {
+		if c.SSCC == "003456789012340019" || c.Status != "SHIPPED" {
+			t.Fatalf("container %+v: fulfillment's container must not be used", c)
+		}
+	}
+	if got.Containers[1].ParentContainerID == nil || *got.Containers[1].ParentContainerID != pallet || got.Containers[0].ParentContainerID != nil {
+		t.Fatalf("the cartons sit on the warehouse's pallet: %+v", got.Containers)
+	}
+	asn, err := domain.ASNFromSlip(p, got, newFake().order, nil)
+	var packs []domain.ASNPack
+	for _, o := range asn.Orders {
+		packs = append(packs, o.Packs...)
+	}
+	if err != nil || len(packs) != 2 || packs[0].SSCC != a || packs[1].SSCC != b || asn.GrossWeight.IntPart() != 150 {
+		t.Fatalf("asn packs %+v gross %s %v", packs, asn.GrossWeight, err)
+	}
+	// SSCC-only confirmations still use fulfillment's containers.
+	only := domain.WarehouseShip{ShippedAt: at, SSCCs: []string{"003456789012340019"}, Containers: []domain.WarehouseContainer{{SSCC: "003456789012340019"}}}
+	if got, err = domain.ShippedByWarehouse(p, sh, only); err != nil || len(got.Containers) != 1 || got.Containers[0].SSCC != "003456789012340019" || len(got.Containers[0].Lines) != 1 {
+		t.Fatalf("fallback to fulfillment's containers: %+v %v", got.Containers, err)
+	}
+	refuse := map[string]func(*domain.WarehouseShip){
+		"a line the shipment does not hold": func(w *domain.WarehouseShip) {
+			w.Containers[1].Lines = []domain.SourceContainerLine{{ShipmentLineID: "sl-9", Qty: decimal.NewFromInt(1)}}
+		},
+		"a quantity of zero":       func(w *domain.WarehouseShip) { w.Containers[1].Lines[0].Qty = decimal.Zero },
+		"a parent it did not list": func(w *domain.WarehouseShip) { w.Containers[1].ParentSSCC = "003456789012340071" },
+		"the same SSCC twice":      func(w *domain.WarehouseShip) { w.Containers[2].SSCC = a },
+		"a container without SSCC": func(w *domain.WarehouseShip) { w.Containers[0].SSCC = "" },
+	}
+	for name, mutate := range refuse {
+		t.Run(name, func(t *testing.T) {
+			w := ws
+			w.Containers = append([]domain.WarehouseContainer(nil), ws.Containers...)
+			w.Containers[1].Lines = append([]domain.SourceContainerLine(nil), ws.Containers[1].Lines...)
+			mutate(&w)
+			if _, err := domain.ShippedByWarehouse(p, sh, w); err == nil {
+				t.Fatal("accepted")
+			}
+		})
+	}
+	// A warehouse container that fulfillment put on a packing slip is refused: the slip's notice lists it.
+	slip := "slip-1"
+	onSlip := sh
+	onSlip.Containers = []domain.SourceContainer{{ID: "x", SSCC: a, Status: "CLOSED", PackingSlipID: &slip}}
+	if _, err := domain.ShippedByWarehouse(p, onSlip, ws); err == nil {
+		t.Fatal("a container on a packing slip was notified twice")
+	}
+}
+
+func TestAutoOutbound_WarehouseShippedSendsThePackHierarchyOfTheWarehouse(t *testing.T) {
+	f := newFake()
+	packedShipment(f)
+	_, h, pool, partner, handlers := autoSetup(t, f)
+	do(t, h, http.MethodPut, "/edi/v1/partners/"+partner+"/auto-outbound", `{"transactionSets":["856"]}`, "edi.admin", srcScope)
+	evt := event(t, autosend.ShipmentShippedType, autosend.WarehouseSource, map[string]any{"shipment_id": srcShipment, "legal_entity_id": srcLE,
+		"carrier_code": "UPSN", "shipped_at": "2026-11-10T08:30:00Z", "containers": []map[string]any{
+			{"sscc": "003456789012340040", "gross_kg": "150"},
+			{"sscc": "003456789012340057", "parent_sscc": "003456789012340040", "gross_kg": "60", "lines": []map[string]string{{"shipment_line_id": "sl-1", "qty": "6"}}},
+			{"sscc": "003456789012340064", "parent_sscc": "003456789012340040", "gross_kg": "40", "lines": []map[string]string{{"shipment_line_id": "sl-1", "qty": "4"}}},
+		}})
+	if err := handlers[autosend.ShipmentShippedType](consumerCtx(t), evt); err != nil {
+		t.Fatal(err)
+	}
+	var raw string
+	if err := pool.QueryRow(context.Background(), `select raw_payload from interchange where direction = 'OUT'`).Scan(&raw); err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"003456789012340057", "003456789012340064", "UPSN"} {
+		if !strings.Contains(raw, want) {
+			t.Errorf("the 856 lacks %s: %s", want, raw)
+		}
+	}
+	if strings.Contains(raw, "003456789012340019") {
+		t.Errorf("the 856 lists fulfillment's container although the warehouse packed the load: %s", raw)
+	}
+	var registered int
+	if err := pool.QueryRow(context.Background(), `select count(*) from self_billing_shipment`).Scan(&registered); err != nil || registered == 0 {
+		t.Fatalf("self-billing shipments: %d %v", registered, err)
+	}
+	// A confirmation whose pack data names a line the shipment does not hold is not sent and not retried forever: the notice fails.
+	bad := event(t, autosend.ShipmentShippedType, autosend.WarehouseSource, map[string]any{"shipment_id": srcShipment, "legal_entity_id": srcLE,
+		"shipped_at": "2026-11-10T08:30:00Z", "containers": []map[string]any{{"sscc": "003456789012340057", "gross_kg": "x", "lines": []map[string]string{{"shipment_line_id": "sl-1", "qty": "6"}}}}})
+	bad.ID = "evt-bad-pack"
+	if err := handlers[autosend.ShipmentShippedType](consumerCtx(t), bad); err == nil {
+		t.Fatal("an unreadable weight is a permanent failure")
+	}
+}

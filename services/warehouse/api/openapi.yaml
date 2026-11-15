@@ -594,6 +594,32 @@ paths:
                   type: array
                   maxItems: 500
                   items: { type: string, pattern: "^[0-9]{18}$" }
+                containers:
+                  type: array
+                  maxItems: 500
+                  description: >
+                    The pack hierarchy of the load, instead of ssccs (give one of the two): each container that left with the
+                    pallet it sits on, its gross weight and what it holds. The EDI engine builds the pack hierarchy of the 856
+                    or DESADV from these containers when any holds lines, and from fulfillment's containers otherwise. A carton
+                    sits on a pallet of this confirmation (one level); a container that is not a pallet holds at least one line.
+                  items:
+                    type: object
+                    additionalProperties: false
+                    required: [sscc]
+                    properties:
+                      sscc: { type: string, pattern: "^[0-9]{18}$" }
+                      parentSscc: { type: string, pattern: "^[0-9]{18}$" }
+                      grossKg: { $ref: "#/components/schemas/Decimal" }
+                      lines:
+                        type: array
+                        maxItems: 200
+                        items:
+                          type: object
+                          additionalProperties: false
+                          required: [shipmentLineId, qty]
+                          properties:
+                            shipmentLineId: { type: string, format: uuid, description: A line of the fulfillment shipment. }
+                            qty: { $ref: "#/components/schemas/Decimal" }
       responses:
         "201":
           description: Confirmed (or replayed).
@@ -1183,6 +1209,17 @@ components:
         carrierCode: { type: string }
         shippedAt: { type: string, format: date-time }
         ssccs: { type: array, items: { type: string } }
+        containers:
+          type: array
+          description: The pack hierarchy, empty when the confirmation named only SSCCs.
+          items:
+            type: object
+            required: [sscc]
+            properties:
+              sscc: { type: string }
+              parentSscc: { type: string }
+              grossKg: { type: string }
+              lines: { type: array, items: { type: object, required: [shipmentLineId, qty], properties: { shipmentLineId: { type: string, format: uuid }, qty: { type: string } } } }
         confirmedBy: { type: string }
         createdAt: { type: string, format: date-time }
     GS1Settings:
