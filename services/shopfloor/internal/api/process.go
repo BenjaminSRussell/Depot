@@ -440,6 +440,16 @@ func (a *API) checkSignature(w http.ResponseWriter, r *http.Request, in *domain.
 	if !signed && meaningAt < 0 {
 		return true
 	}
+	// 21 CFR 11.200: a signature is made by someone who has just authenticated. The gateway forwards the token's auth_time;
+	// a token older than the maximum age, or without one, is refused until the person signs in again (step-up).
+	if age, ok := tenant.AuthAge(r, a.now()); !ok || age > a.signatureAge {
+		detail := "signing needs a fresh sign-in: sign in again, then send the signature once more"
+		if ok {
+			detail = fmt.Sprintf("you signed in %d minutes ago; a signature needs a sign-in within the last %d minutes: sign in again, then send it once more", int(age/time.Minute), int(a.signatureAge/time.Minute))
+		}
+		httpx.Fail(w, r, httpx.NewProblem(http.StatusUnauthorized, domain.CodeSignatureReauth, detail))
+		return false
+	}
 	refuse := func(detail string) bool {
 		httpx.Fail(w, r, httpx.NewProblem(http.StatusUnprocessableEntity, domain.CodeSignatureStep, detail))
 		return false

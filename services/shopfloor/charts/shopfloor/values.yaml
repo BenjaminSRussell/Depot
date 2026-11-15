@@ -16,6 +16,9 @@ config:
   httpAddr: ":8080"
   adminAddr: ":9090"
   serviceName: shopfloor
+  # How recently (seconds, 30 to 3600) a signer must have authenticated for an electronic signature on a PI step to be
+  # accepted (21 CFR 11.200). The gateway forwards the token's auth_time as X-Passage-Auth-Time; an older one is SF-0188.
+  signatureMaxAuthAgeSeconds: 300
 
 service:
   type: ClusterIP

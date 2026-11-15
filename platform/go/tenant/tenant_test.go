@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/BenjaminSRussell/passage/platform/tenant"
 	"github.com/go-chi/chi/v5/middleware"
@@ -360,5 +361,27 @@ func TestForwardGatewaySecret(t *testing.T) {
 	peer.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK || !called {
 		t.Fatalf("peer answered %d called=%v", rec.Code, called)
+	}
+}
+
+func TestAuthAge(t *testing.T) {
+	now := time.Unix(1_800_000_000, 0)
+	at := func(v string) *http.Request {
+		r := httptest.NewRequest(http.MethodPost, "/", nil)
+		if v != "" {
+			r.Header.Set(tenant.HeaderAuthTime, v)
+		}
+		return r
+	}
+	if age, ok := tenant.AuthAge(at("1799999940"), now); !ok || age != time.Minute {
+		t.Fatalf("a minute ago: %v %v", age, ok)
+	}
+	if age, ok := tenant.AuthAge(at("1800000030"), now); !ok || age != 0 {
+		t.Fatalf("thirty seconds of clock skew reads as now: %v %v", age, ok)
+	}
+	for _, bad := range []string{"", "soon", "0", "-5", "1800000300"} {
+		if _, ok := tenant.AuthAge(at(bad), now); ok {
+			t.Errorf("%q must read as not fresh", bad)
+		}
 	}
 }

@@ -7,7 +7,7 @@ import { configuredIdleMinutes, IdleSignOut } from "./idle";
 import type { Session } from "./oidc";
 
 const session: Session = { accessToken: "t", refreshToken: undefined, idToken: undefined, expiresAt: 0, subject: "u-1", tenantId: "t-1", duties: [] };
-const auth = (): Auth => ({ ensureSession: vi.fn(), accessToken: vi.fn(), login: vi.fn(), logout: vi.fn() });
+const auth = (): Auth => ({ ensureSession: vi.fn(), accessToken: vi.fn(), login: vi.fn(), logout: vi.fn(), reauthenticate: vi.fn() });
 
 describe("idle sign-out (#606)", () => {
   beforeEach(() => {

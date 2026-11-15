@@ -14,7 +14,9 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/BenjaminSRussell/passage/platform/ids"
 	"github.com/go-chi/chi/v5/middleware"
@@ -103,11 +105,30 @@ const (
 	HeaderLegalEntity = "X-Passage-Legal-Entity"
 	HeaderUser        = "X-Passage-User"
 	HeaderDuties      = "X-Passage-Duties"
+	// HeaderAuthTime is the `auth_time` claim of the caller's token: the Unix second the person last authenticated at the
+	// identity provider (OIDC core 2.). The gateway sets it from the verified token and strips any value a client sends. A
+	// step-up (a 21 CFR Part 11 signature) checks it against a maximum age with AuthAge.
+	HeaderAuthTime = "X-Passage-Auth-Time"
 
 	HeaderWebLegalEntity      = "X-Passage-LegalEntity"
 	HeaderLegalEntityScopeAll = "X-Passage-LegalEntity-Scope"
 	LegalEntityScopeAll       = "ALL"
 )
+
+// AuthAge is how long ago the caller last authenticated, from the gateway's HeaderAuthTime. ok is false when the header is
+// missing or is not a positive Unix time, which a step-up check treats as not fresh (fail closed). A time in the future
+// (clock skew of up to a minute is allowed) reads as zero.
+func AuthAge(r *http.Request, now time.Time) (age time.Duration, ok bool) {
+	secs, err := strconv.ParseInt(strings.TrimSpace(r.Header.Get(HeaderAuthTime)), 10, 64)
+	if err != nil || secs <= 0 {
+		return 0, false
+	}
+	age = now.Sub(time.Unix(secs, 0))
+	if age < -time.Minute {
+		return 0, false
+	}
+	return max(age, 0), true
+}
 
 // GatewaySecretEnv names an optional shared secret between the gateway and the services behind it. When it is set, Middleware accepts the
 // user-header identity only on a request that carries the same value in HeaderGatewaySecret, so a process that can reach a service's

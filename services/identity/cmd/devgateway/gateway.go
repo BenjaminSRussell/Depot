@@ -8,6 +8,7 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"path"
+	"strconv"
 	"strings"
 
 	"github.com/BenjaminSRussell/passage/platform/httpx"
@@ -24,6 +25,8 @@ type tokenClaims struct {
 	LegalEntity string `json:"le"`
 	Duties      string `json:"duties"`
 	Tier        string `json:"tier"`
+	// AuthTime is the Unix second the person last authenticated at (OIDC auth_time); a step-up reads it as X-Passage-Auth-Time.
+	AuthTime int64 `json:"auth_time"`
 }
 
 type selectionKey struct{}
@@ -116,6 +119,9 @@ func setIdentity(pr *httputil.ProxyRequest) {
 	pr.Out.Header.Set(tenant.HeaderLegalEntity, claims.LegalEntity)
 	pr.Out.Header.Set(tenant.HeaderDuties, claims.Duties)
 	pr.Out.Header.Set(headerTier, claims.Tier)
+	if claims.AuthTime > 0 {
+		pr.Out.Header.Set(tenant.HeaderAuthTime, strconv.FormatInt(claims.AuthTime, 10))
+	}
 	selected, _ := pr.In.Context().Value(selectionKey{}).(selection)
 	if selected.legalEntity != "" {
 		pr.Out.Header.Set(tenant.HeaderWebLegalEntity, selected.legalEntity)

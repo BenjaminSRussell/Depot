@@ -1,9 +1,35 @@
 import { useMemo, useRef, useState } from "react";
+import { useAccount } from "../../shell/auth/account";
 import { EntityName } from "../../shell/lookup/EntityName";
 import { Alert, Button, Card, FormField, Input, Select, Textarea } from "../../shell/ui";
-import type { Instruction, RecipeDocument } from "./api/client";
+import { ShopfloorApiError, type Instruction, type RecipeDocument } from "./api/client";
 import { CATEGORY_LABEL, checkEntry, collectsValue, flattenSteps, limitsText, MEANING_LABEL, meaningStatement, messageFor, type ProcessMessageDraft, type StepEntry } from "./piSheet";
 import styles from "./pages.module.css";
+
+/** SF-0188: the service wants a sign-in from the last few minutes before it accepts a signature (21 CFR 11.200). */
+export const CODE_SIGNATURE_REAUTH = "SF-0188";
+
+const resumeKey = (recipeId: string) => `passage.pi.resume.${recipeId}`;
+
+/** The step a person was on when they left to sign in again, once; reading it forgets it. */
+function takeResume(recipeId: string, count: number): number {
+  try {
+    const raw = sessionStorage.getItem(resumeKey(recipeId));
+    sessionStorage.removeItem(resumeKey(recipeId));
+    const n = raw === null ? 0 : Number(raw);
+    return Number.isInteger(n) && n >= 0 && n < count ? n : 0;
+  } catch {
+    return 0;
+  }
+}
+
+function keepResume(recipeId: string, index: number) {
+  try {
+    sessionStorage.setItem(resumeKey(recipeId), String(index));
+  } catch {
+    // Without storage the person starts the sheet again from its first step; recorded steps are not recorded twice.
+  }
+}
 
 /**
  * Renders a PI sheet on the kiosk (FR-25.16): one step at a time, in order, with the phase it belongs to. Setpoints are
@@ -23,7 +49,9 @@ export function PiSheetRunner({
   onComplete?(): Promise<void> | void;
 }) {
   const steps = useMemo(() => flattenSteps(doc), [doc]);
-  const [index, setIndex] = useState(0);
+  const account = useAccount();
+  const [index, setIndex] = useState(() => takeResume(recipeId, flattenSteps(doc).length));
+  const [needsSignIn, setNeedsSignIn] = useState(false);
   const [entry, setEntry] = useState<StepEntry>({ value: "", comment: "" });
   const [problem, setProblem] = useState<string | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
@@ -52,6 +80,7 @@ export function PiSheetRunner({
     }
     setProblem(null);
     setFailure(null);
+    setNeedsSignIn(false);
     setBusy(true);
     try {
       const message = messageFor(recipeId, step, entry);
@@ -67,7 +96,8 @@ export function PiSheetRunner({
         setEntry({ value: "", comment: "" });
       }
     } catch (error) {
-      setFailure(error instanceof Error ? error.message : "The step could not be saved.");
+      if (error instanceof ShopfloorApiError && error.code === CODE_SIGNATURE_REAUTH) setNeedsSignIn(true);
+      else setFailure(error instanceof Error ? error.message : "The step could not be saved.");
     } finally {
       setBusy(false);
     }
@@ -85,6 +115,28 @@ export function PiSheetRunner({
         <p className={styles.note}>{CATEGORY_LABEL[ins.category]}</p>
         <StepBody ins={ins} />
         {collectsValue(ins) ? <StepInput ins={ins} entry={entry} onChange={(e) => { setEntry(e); setProblem(null); }} outOfLimit={outOfLimit} problem={problem} /> : null}
+        {needsSignIn ? (
+          <Alert
+            tone="warning"
+            title="Sign in again to sign this step"
+            live="alert"
+            action={
+              account ? (
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    keepResume(recipeId, index);
+                    account.reauthenticate();
+                  }}
+                >
+                  Sign in again
+                </Button>
+              ) : undefined
+            }
+          >
+            A signature needs you to have signed in within the last few minutes. {account ? "You come back to this step after signing in." : "Sign in again, then press the button once more."}
+          </Alert>
+        ) : null}
         {failure ? <Alert tone="danger" title="The step was not saved" live="alert">{failure} Press the button again to retry.</Alert> : null}
         <Button className={styles.kioskButton} variant="primary" loading={busy} onClick={() => void next()}>
           {last ? "Finish" : ins.category === "process-parameter-setpoint" ? "Done, next step" : "Next step"}

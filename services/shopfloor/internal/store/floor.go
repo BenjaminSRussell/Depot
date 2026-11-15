@@ -330,10 +330,11 @@ func ingestMachine(ctx context.Context, tx pgx.Tx, tenantID string, now time.Tim
 			return IngestResult{}, err
 		}
 	}
-	set, err := andonSettings(ctx, tx, tenantID)
+	book, err := loadAndonBook(ctx, tx, tenantID)
 	if err != nil {
 		return IngestResult{}, err
 	}
+	set := book.forSite(m.siteID)
 	if open != nil {
 		res.DowntimesOpen = 1
 		if set.Due(open.start, now) {
@@ -371,11 +372,36 @@ func raiseAndon(ctx context.Context, tx pgx.Tx, tenantID string, m machineRow, d
 // (BR-25.10). It runs on the next ingest for the machine and in the andon sweep.
 // An empty resourceID covers every resource. It returns how many alerts it closed.
 func clearAndon(ctx context.Context, tx pgx.Tx, tenantID, resourceID string, now time.Time, set domain.AndonSettings) (int, error) {
+	return clearAndonWhere(ctx, tx, tenantID, resourceID, now, set, nil, nil)
+}
+
+// clearAndonSites is clearAndon over every resource with the thresholds of each site: a site with its own row clears by
+// its own clear time, every other alert (a site without a row, or none) by the tenant's.
+func clearAndonSites(ctx context.Context, tx pgx.Tx, tenantID string, now time.Time, book andonBook) (int, error) {
+	total := 0
+	overridden := []string{}
+	for site, set := range book.sites {
+		overridden = append(overridden, site)
+		n, err := clearAndonWhere(ctx, tx, tenantID, "", now, set, []string{site}, nil)
+		if err != nil {
+			return total, err
+		}
+		total += n
+	}
+	n, err := clearAndonWhere(ctx, tx, tenantID, "", now, book.base, nil, overridden)
+	return total + n, err
+}
+
+// clearAndonWhere closes the downtime alerts of one resource (or all, when resourceID is empty) that are clear long enough.
+// only, when set, restricts it to alerts of those sites; except leaves out the alerts of those sites.
+func clearAndonWhere(ctx context.Context, tx pgx.Tx, tenantID, resourceID string, now time.Time, set domain.AndonSettings, only, except []string) (int, error) {
 	tag, err := tx.Exec(ctx, `update andon_alert a set cleared_at = greatest($3, a.started_at)
 		where a.tenant_id = $1 and ($2 = '' or a.resource_id::text = $2) and a.kind = 'downtime' and a.cleared_at is null
+		and ($5::text[] is null or a.site_id::text = any($5))
+		and ($6::text[] is null or a.site_id is null or a.site_id::text <> all($6))
 		and not exists (select 1 from downtime_record o where o.tenant_id = $1 and o.resource_id = a.resource_id and o.ended_at is null)
 		and exists (select 1 from downtime_record d where d.tenant_id = $1 and d.id = a.downtime_id and d.ended_at <= $4)`,
-		tenantID, resourceID, now, now.Add(-set.ClearAfter()))
+		tenantID, resourceID, now, now.Add(-set.ClearAfter()), only, except)
 	return int(tag.RowsAffected()), err
 }
 

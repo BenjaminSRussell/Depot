@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"math/big"
 	"net/http"
+	"strconv"
 	"net/http/httptest"
 	"net/url"
 	"strings"
@@ -339,5 +340,27 @@ func TestDevGuardsRefuseNonLoopbackUnlessOverridden(t *testing.T) {
 		if loopback(addr) != want {
 			t.Errorf("loopback(%q) = %v, want %v", addr, !want, want)
 		}
+	}
+}
+
+// A step-up check (a 21 CFR 11 signature) needs the time the person authenticated at: the gateway forwards the verified
+// token's auth_time and never a value the client sent.
+func TestGatewayForwardsTheAuthTimeOfTheToken(t *testing.T) {
+	f := newFixture(t)
+	at := time.Now().Add(-2 * time.Minute).Unix()
+	resp := f.get(t, "/api/v1/numbering/sequences", f.token(t, adminUser, func(c map[string]any) { c["auth_time"] = at }), map[string]string{"X-Passage-Auth-Time": "1"})
+	if resp.StatusCode != http.StatusNoContent {
+		t.Fatalf("status %d, want 204", resp.StatusCode)
+	}
+	if got := (<-f.seen).Get("X-Passage-Auth-Time"); got != strconv.FormatInt(at, 10) {
+		t.Fatalf("X-Passage-Auth-Time = %q, want %d", got, at)
+	}
+	// A token without auth_time forwards none, and a client's own value is dropped.
+	resp = f.get(t, "/api/v1/numbering/sequences", f.token(t, adminUser, nil), map[string]string{"X-Passage-Auth-Time": "9999999999"})
+	if resp.StatusCode != http.StatusNoContent {
+		t.Fatalf("status %d, want 204", resp.StatusCode)
+	}
+	if got := (<-f.seen).Get("X-Passage-Auth-Time"); got != "" {
+		t.Fatalf("X-Passage-Auth-Time = %q, want none", got)
 	}
 }
