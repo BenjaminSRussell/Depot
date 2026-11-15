@@ -34,6 +34,8 @@ export interface Worker {
   deactivatedAt?: string | null;
   deactivatedBy?: string | null;
   deactivationReason?: string | null;
+  /** IANA zone the worker's work days are reckoned in, normally the zone of their site (#543). */
+  timeZone?: string;
 }
 
 export interface NewWorker {
@@ -43,6 +45,8 @@ export interface NewWorker {
   userId?: string | null;
   costRate: string;
   currency: string;
+  /** IANA time zone; omitted keeps the service default (UTC on create, the current zone on edit). */
+  timeZone?: string;
 }
 
 export interface RegistrationInput {

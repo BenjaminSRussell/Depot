@@ -80,6 +80,7 @@ const workers = table<Worker>(
     profileId: profileOf(p).id,
     payAgreementId: p.jobCode === "MAINT-TECH" ? agreements[1].id : agreements[0].id,
     defaultResourceId: p.resource ? resourceByCode(p.resource).id : null,
+    timeZone: "America/Chicago",
   })),
 );
 
@@ -104,6 +105,18 @@ route("POST", `${BASE}/workers/{id}/cost-rates`, (req) => {
   if (!w) return reply.problem(404, "SF-0404", "Worker not found.");
   const body = req.body as { effectiveFrom: string; costRate: string; note: string | null };
   return reply.created({ id: crypto.randomUUID(), workerId: w.id, effectiveFrom: body.effectiveFrom, costRate: body.costRate, note: body.note, createdBy: ME.id, createdAt: at(0) } satisfies CostRate);
+});
+route("POST", `${BASE}/workers`, (req) => {
+  const b = (req.body ?? {}) as Partial<Worker> & { name: string; partyId: string };
+  return reply.created(
+    workers.insert({ id: crypto.randomUUID(), partyId: b.partyId, name: b.name, badgeId: b.badgeId ?? null, userId: b.userId ?? null, costRate: b.costRate ?? "0", currency: b.currency ?? "USD", active: true, version: 1, createdAt: at(0), profileId: null, payAgreementId: null, defaultResourceId: null, timeZone: b.timeZone ?? "UTC" }),
+  );
+});
+route("PUT", `${BASE}/workers/{id}`, (req) => {
+  const w = workers.get(req.params.id);
+  if (!w) return reply.problem(404, "SF-0404", "Worker not found.");
+  const b = (req.body ?? {}) as Partial<Worker>;
+  return reply.ok(workers.update(w.id, { name: b.name ?? w.name, badgeId: b.badgeId ?? null, userId: b.userId ?? null, costRate: b.costRate ?? w.costRate, currency: b.currency ?? w.currency, timeZone: b.timeZone ?? w.timeZone, version: w.version + 1 }));
 });
 route("GET", `${BASE}/workers/{id}`, (req) => workers.get(req.params.id) ?? reply.problem(404, "SF-0404", "Worker not found."));
 for (const command of ["assign-setup", "assign-resource", "deactivate", "reactivate"]) {
