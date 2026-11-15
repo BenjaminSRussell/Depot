@@ -34,6 +34,9 @@ const sourceNames: Record<string, string> = {
   payables: "payment holds",
 };
 
+/** The sources My work can be narrowed to (the server filters before paging). */
+export const INBOX_SOURCES = Object.keys(sourceNames);
+
 export function sourceName(source: string): string {
   return sourceNames[source] ?? "other work";
 }
@@ -43,13 +46,14 @@ export function sourceList(sources: string[]): string {
 }
 
 export function fetchInbox(
-  query: { legalEntityId: string; cursor?: string; limit?: number },
+  query: { legalEntityId: string; cursor?: string; limit?: number; source?: string },
   signal?: AbortSignal,
   fetchImpl: FetchLike = defaultFetch,
 ): Promise<InboxPage> {
   const params = new URLSearchParams({ limit: String(query.limit ?? INBOX_PAGE_SIZE) });
   if (query.legalEntityId !== "") params.set("legalEntityId", query.legalEntityId);
   if (query.cursor) params.set("cursor", query.cursor);
+  if (query.source) params.set("source", query.source);
   return requestUrl("GET", `/api/v1/inbox?${params.toString()}`, inboxPage, fetchImpl, {}, undefined, signal);
 }
 
