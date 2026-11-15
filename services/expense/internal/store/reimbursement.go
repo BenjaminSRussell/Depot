@@ -244,9 +244,13 @@ func (s *Store) MarkGLBooked(ctx context.Context, id, entryID string) (bool, err
 		if err != nil {
 			return err
 		}
+		charged, err := chargedLines(ctx, tx, p.TenantID, id, le, currency)
+		if err != nil {
+			return err
+		}
 		evt, err := kevents.New(reimbursement.ReportApprovedType, events.Source, id, p.TenantID, reimbursement.ReportApproved{
 			ReportID: id, LegalEntityID: le, WorkerID: worker, Currency: currency,
-			Amount: reimbursable.StringFixed(money.MinorUnits(currency)), ApprovedOn: approvedOn,
+			Amount: reimbursable.StringFixed(money.MinorUnits(currency)), ApprovedOn: approvedOn, ChargedLines: charged,
 		})
 		if err != nil {
 			return err
@@ -254,4 +258,30 @@ func (s *Store) MarkGLBooked(ctx context.Context, id, entryID string) (bool, err
 		return outbox.Enqueue(ctx, tx, outboxAggregate, id, evt)
 	})
 	return booked, err
+}
+
+// chargedLines reads the lines of a report whose cost another legal entity bears, in line order, for the approved-report event.
+func chargedLines(ctx context.Context, tx pgx.Tx, tenantID, reportID, reportEntity, currency string) ([]reimbursement.ChargedLine, error) {
+	rows, err := tx.Query(ctx, `select id::text, line_no, category, amount::text, txn_date::text, charge_to_legal_entity_id::text from expense_line
+		where tenant_id = $1 and report_id = $2 and charge_to_legal_entity_id is not null and charge_to_legal_entity_id <> $3::uuid and amount > 0 order by line_no`,
+		tenantID, reportID, reportEntity)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []reimbursement.ChargedLine
+	for rows.Next() {
+		var l reimbursement.ChargedLine
+		var amount string
+		if err := rows.Scan(&l.LineID, &l.LineNo, &l.Category, &amount, &l.TransactionDate, &l.ChargeToLegalEntityID); err != nil {
+			return nil, err
+		}
+		value, err := decimal.NewFromString(amount)
+		if err != nil {
+			return nil, err
+		}
+		l.Amount, l.Currency = value.StringFixed(money.MinorUnits(currency)), currency
+		out = append(out, l)
+	}
+	return out, rows.Err()
 }

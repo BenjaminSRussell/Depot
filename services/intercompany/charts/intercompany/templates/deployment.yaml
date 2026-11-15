@@ -51,6 +51,9 @@ spec:
 {{- if .Values.taxUrl }}
             - { name: TAX_URL, value: {{ .Values.taxUrl | quote }} }
 {{- end }}
+{{- if .Values.partyUrl }}
+            - { name: PARTY_URL, value: {{ .Values.partyUrl | quote }} }
+{{- end }}
 {{- if .Values.serviceIdentity.signingKeySecret }}
             - name: PASSAGE_SERVICE_SIGNING_KEY_FILE
               value: /var/run/passage/service-identity/signing-key

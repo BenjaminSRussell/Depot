@@ -102,7 +102,7 @@ test_all_seeded_duties_allow_their_declared_permissions if {
 }
 
 test_flag_duties_grant_no_routes if {
-	flag_duties := {"receivables.write-off.approve", "purchasing.inbound.apply", "edi.pii.view", "edi.outbound.from-event", "tax.code.maintain", "fulfillment.order.sync", "budget.override", "inventory.blocking.scrap", "ledger.journal.postdirect", "ledger.journal.postledger", "ledger.period.postclosed", "org.hierarchy.backdate", "party.merge", "pii.read", "pricing.cache.invalidate", "production.batch.consume-expired", "production.journal.over-consume", "production.order.bom-after-release", "production.order.rework", "production.planned.intake", "receivables.openitem.from-billing", "billing.iccharge.from-event", "payables.iccharge.from-event", "revrec.creditnote.reverse", "revrec.contract.from-invoice", "production.order.zero-output", "production.jobcard.shopfloor", "scheduling.constraints.override", "scheduling.order.import", "search.index.write", "shopfloor.job.sync", "tenant.administer", "treasury.facility.override"}
+	flag_duties := {"receivables.write-off.approve", "purchasing.inbound.apply", "edi.pii.view", "edi.outbound.from-event", "tax.code.maintain", "fulfillment.order.sync", "budget.override", "inventory.blocking.scrap", "ledger.journal.postdirect", "ledger.journal.postledger", "ledger.period.postclosed", "org.hierarchy.backdate", "party.merge", "pii.read", "pricing.cache.invalidate", "production.batch.consume-expired", "production.journal.over-consume", "production.order.bom-after-release", "production.order.rework", "production.planned.intake", "receivables.openitem.from-billing", "billing.iccharge.from-event", "payables.iccharge.from-event", "intercompany.charge.from-event", "revrec.creditnote.reverse", "revrec.contract.from-invoice", "production.order.zero-output", "production.jobcard.shopfloor", "scheduling.constraints.override", "scheduling.order.import", "search.index.write", "shopfloor.job.sync", "tenant.administer", "treasury.facility.override"}
 	{d | some d, spec in data.duties; spec.flag == true} == flag_duties
 	every duty in flag_duties {
 		count(data.duties[duty].permissions) == 0
@@ -3351,4 +3351,29 @@ test_iccharge_consumers_hold_only_their_flag_duty if {
 	data.duties["payables.iccharge.from-event"].flag
 	not allowed("billing.iccharge.from-event", "POST", "/v1/billing/free-text-invoices")
 	not allowed("payables.iccharge.from-event", "POST", "/v1/payables/vendor-invoice-intake")
+}
+
+# #40: the intercompany charge feed (expense lines and project hours another entity bears) holds one flag duty and opens no route.
+test_intercompany_charge_feed_holds_only_its_flag_duty if {
+	data.service_principals["intercompany-charges"] == ["intercompany.charge.from-event"]
+	data.duties["intercompany.charge.from-event"].flag
+	not allowed("intercompany.charge.from-event", "POST", "/v1/interco/charges")
+	not allowed("intercompany.charge.from-event", "POST", "/v1/interco/journals")
+}
+
+# #40: intercompany checks a pairing's customer and vendor accounts against the party master with two lookup duties that read one
+# role by id and nothing wider.
+test_intercompany_party_lookup_reads_one_role_by_id if {
+	data.service_grants.intercompany.party == ["party.customer.lookup", "party.vendor.lookup"]
+	every duty in data.service_grants.intercompany.party {
+		data.duties[duty].service_only
+	}
+	allowed("party.customer.lookup", "GET", "/v1/party/customers/c1")
+	not allowed("party.customer.lookup", "GET", "/v1/party/vendors/v1")
+	not allowed("party.customer.lookup", "GET", "/v1/party/customers:search")
+	not allowed("party.customer.lookup", "POST", "/v1/party/customers/c1/credit-limit")
+	not allowed("party.customer.lookup", "GET", "/v1/party/parties/p1")
+	allowed("party.vendor.lookup", "GET", "/v1/party/vendors/v1")
+	not allowed("party.vendor.lookup", "GET", "/v1/party/customers/c1")
+	not allowed("party.vendor.lookup", "GET", "/v1/party/vendors/v1/bank-accounts:reveal")
 }

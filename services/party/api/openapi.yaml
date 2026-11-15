@@ -358,7 +358,7 @@ paths:
     get:
       operationId: getCustomer
       x-passage-duty: party.read
-      x-passage-duty-alternatives: [party.import.read]
+      x-passage-duty-alternatives: [party.import.read, party.customer.lookup]
       description: The customer role in the caller's legal entities, with its version as the ETag. The migration loader reads the roles it loaded through this route (service duty party.import.read) to reconcile a run.
       responses:
         '200': { description: The customer role., headers: { ETag: { schema: { type: string } } }, content: { application/json: { schema: { $ref: '#/components/schemas/Customer' } } } }

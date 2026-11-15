@@ -12,6 +12,7 @@ import (
 	"github.com/BenjaminSRussell/passage/platform/dbx"
 	"github.com/BenjaminSRussell/passage/platform/httpx"
 	"github.com/BenjaminSRussell/passage/services/intercompany/internal/api"
+	"github.com/BenjaminSRussell/passage/services/intercompany/internal/partyclient"
 	"github.com/BenjaminSRussell/passage/services/intercompany/internal/store"
 	"github.com/BenjaminSRussell/passage/services/intercompany/internal/taxclient"
 	"github.com/BenjaminSRussell/passage/services/intercompany/migrations"
@@ -27,6 +28,13 @@ func main() {
 	if len(os.Args) > 1 && os.Args[1] == reconcileCommand {
 		if err := reconcileJob(context.Background(), os.Getenv, os.Args[2:]); err != nil {
 			slog.Error("intercompany reconcile stopped", "err", err)
+			os.Exit(1)
+		}
+		return
+	}
+	if len(os.Args) > 1 && os.Args[1] == consumeCommand {
+		if err := consume(context.Background(), os.Getenv); err != nil {
+			slog.Error("intercompany consume stopped", "err", err)
 			os.Exit(1)
 		}
 		return
@@ -54,7 +62,7 @@ func newLogger(w io.Writer) *slog.Logger {
 // signing key, turns on posting of journals and charges to the ledgers and the
 // reconciliation that reads them. FX_URL (rate type FX_RATE_TYPE, default
 // closing) converts pairs in two currencies, ORG_URL finds the first open period
-// after a closed one by the fiscal calendar and TAX_URL prices cross-border charges.
+// after a closed one by the fiscal calendar, TAX_URL prices cross-border charges and PARTY_URL checks a pairing's customer and vendor accounts.
 func run(ctx context.Context, getenv func(string) string) error {
 	databaseURL := getenv("DATABASE_URL")
 	if databaseURL == "" {
@@ -86,6 +94,13 @@ func run(ctx context.Context, getenv func(string) string) error {
 	}
 	if taxes != nil {
 		a.WithTax(taxes)
+	}
+	parties, err := partyclient.FromEnv(getenv)
+	if err != nil {
+		return fmt.Errorf("party client: %w", err)
+	}
+	if parties != nil {
+		a.WithParty(parties)
 	}
 	router := httpx.NewRouter()
 	a.Register(router)

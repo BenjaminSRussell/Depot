@@ -36,11 +36,14 @@ var servicePrincipals = map[string][]string{
 	"billing-tax-report": {"tax.transaction.record"},
 	// The consumers of intercompany's chargeinvoice.requested (#40): billing raises the lender's invoice proposal and payables takes
 	// the borrower's vendor invoice into its intake. Each holds one flag duty and reaches no route.
-	"billing-iccharge":   {"billing.iccharge.from-event"},
-	"payables-iccharge":  {"payables.iccharge.from-event"},
-	"finreport-ledger":   {"ledger.entry.lookup"},
-	"purchasing-inbound": {"purchasing.inbound.apply"},
-	"fulfillment-order":  {"fulfillment.order.sync"},
+	"billing-iccharge":  {"billing.iccharge.from-event"},
+	"payables-iccharge": {"payables.iccharge.from-event"},
+	// The consumer of expense report.approved and projects transaction.posted (#40): it raises the intercompany charge of a line or
+	// hours another legal entity bears, in-process, through the same code as POST /v1/interco/charges. One flag duty, no route.
+	"intercompany-charges": {"intercompany.charge.from-event"},
+	"finreport-ledger":     {"ledger.entry.lookup"},
+	"purchasing-inbound":   {"purchasing.inbound.apply"},
+	"fulfillment-order":    {"fulfillment.order.sync"},
 	// The reporter of posted packing slips to sales (#496): it signs :record-progress calls, and its token holds only
 	// fulfillment's grant on sales (sales.order.record-delivery).
 	"fulfillment-sales-report": {"sales.order.record-delivery"},
@@ -73,6 +76,7 @@ var servicePrincipalIssuers = map[string][]string{
 	"billing-tax-report":       {"billing"},
 	"billing-iccharge":         {"billing"},
 	"payables-iccharge":        {"payables"},
+	"intercompany-charges":     {"intercompany"},
 	"edi-cxml":                 {"edi"},
 	"edi-outbound":             {"edi"},
 	"edi-selfbill":             {"edi"},

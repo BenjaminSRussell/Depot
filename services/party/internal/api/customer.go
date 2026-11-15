@@ -21,7 +21,7 @@ func (a *API) WithCustomers(customers store.CustomerStore) *API {
 
 func (a *API) registerCustomers(r chi.Router) {
 	r.With(authz.RequireAnyDuty(dutyWrite, dutyImport)).Post("/v1/party/parties/{id}/customer", a.createCustomer)
-	r.With(authz.RequireAnyDuty(dutyRead, dutyImportRead)).Get("/v1/party/customers/{id}", a.getCustomer)
+	r.With(authz.RequireAnyDuty(dutyRead, dutyImportRead, dutyCustomerLookup)).Get("/v1/party/customers/{id}", a.getCustomer)
 	r.With(authz.RequireDuty(dutyWrite)).Put("/v1/party/customers/{id}/portal-access", a.setPortalAccess)
 	r.With(authz.RequireDuty(dutyPortalAccountsRead)).Get("/v1/party/customer-portal/accounts", a.portalAccounts)
 }

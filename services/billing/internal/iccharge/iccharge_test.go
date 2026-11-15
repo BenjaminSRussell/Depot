@@ -96,3 +96,44 @@ func TestHandle_RefusesWhatCannotBeInvoiced(t *testing.T) {
 		t.Error("no principal is refused")
 	}
 }
+
+// #40: a pairing that opted in has the proposal posted by the consumer: worked example, 550.00 + 104.50 tax = 654.50 gross in
+// USD, one invoice number drawn once, and the same posted invoice on a redelivery.
+func TestHandle_AutoPostsOnlyWhenThePairingOptedIn(t *testing.T) {
+	admin, pool := testkit.DBWithApp(t)
+	if err := dbx.Migrate(context.Background(), admin, migrations.FS); err != nil {
+		t.Fatal(err)
+	}
+	s := store.New(pool)
+	cfg := iccharge.Config{RevenueAccount: "4900", TaxCode: "STD", PaymentTermDays: 30}
+	le, customer := ids.New(), ids.New()
+
+	review := charge(le, customer)
+	kept, err := iccharge.Handle(consumerCtx(t), s, cfg, published(t, review))
+	if err != nil || kept.Status != "PROPOSAL" {
+		t.Fatalf("manual review is the default: %s, %v", kept.Status, err)
+	}
+
+	auto := charge(le, customer)
+	auto["sourceId"] = "TS-3"
+	auto["autoPostInvoice"] = true
+	first, err := iccharge.Handle(consumerCtx(t), s, cfg, published(t, auto))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first.Status != "POSTED" || first.Number == "" || first.Totals.Net.String() != "550" || first.Totals.Tax.String() != "104.5" || first.Totals.Gross.String() != "654.5" ||
+		first.Currency != "USD" || first.InvoiceDate.Format("2006-01-02") != "2026-11-05" {
+		t.Fatalf("posted invoice %+v", first)
+	}
+	again, err := iccharge.Handle(consumerCtx(t), s, cfg, published(t, auto))
+	if err != nil || again.ID != first.ID || again.Number != first.Number || again.Status != "POSTED" {
+		t.Fatalf("redelivery = %+v, %v; want the same posted invoice %s", again, err, first.ID)
+	}
+
+	// A review proposal that is redelivered with the opt-in now on is posted (the pairing changed its mind), still once.
+	review["autoPostInvoice"] = true
+	late, err := iccharge.Handle(consumerCtx(t), s, cfg, published(t, review))
+	if err != nil || late.ID != kept.ID || late.Status != "POSTED" {
+		t.Fatalf("late opt-in = %+v, %v", late, err)
+	}
+}

@@ -857,7 +857,8 @@ components:
         currency: { type: string }
         net: { type: string }
         gross: { type: string }
-        status: { type: string, enum: [RECEIVED] }
+        status: { type: string, enum: [RECEIVED, POSTED], description: "RECEIVED waits for an AP clerk; POSTED is an intercompany charge whose pairing opted in to auto-post (#40): the consumer booked the ledger entry and opened the AP item" }
+        ledgerEntryId: { type: string, description: "The ledger entry that posted the invoice; only when POSTED" }
         receivedBy: { type: string }
         receivedAt: { type: string, format: date-time }
         lines:

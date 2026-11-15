@@ -43,6 +43,17 @@ consumer:
     username: payables-consumer
     dlqTopic: passage.payables.iccharge.dlq
     secret: ""
+  # Posting without review for the pairings that opted in (autoPostInvoice on the intercompany pairing). Off: every charge waits in the
+  # intake for an AP clerk, and a charge whose pairing opted in is taken in and then refused. On, it needs ledgerUrl and
+  # serviceIdentity.signingKeySecret, the ledger id, the cost account of the intercompany charge and the input tax account (when
+  # charges carry tax); the credit goes to controlAccount unless set here.
+  autoPost:
+    enabled: false
+    ledgerId: ""
+    expenseAccount: ""
+    controlAccount: ""
+    inputTaxAccount: ""
+    paymentTermDays: 30
   resources:
     requests: { cpu: 50m, memory: 64Mi }
     limits: { cpu: 250m, memory: 128Mi }

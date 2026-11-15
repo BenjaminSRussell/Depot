@@ -13,6 +13,7 @@ import (
 	"github.com/BenjaminSRussell/passage/platform/ids"
 	"github.com/BenjaminSRussell/passage/platform/tenant"
 	"github.com/BenjaminSRussell/passage/services/projects/internal/domain"
+	projevents "github.com/BenjaminSRussell/passage/services/projects/internal/events"
 )
 
 // Default names of the UNIQUE (tenant_id, idempotency_key) constraints.
@@ -130,7 +131,7 @@ func (s *Postgres) ListCategories(ctx context.Context) ([]domain.Category, error
 
 const txnColumns = `t.id::text, t.project_id, t.wbs_node_id::text, t.wbs_code, t.txn_type, t.category_id, t.line_property,
 	t.txn_date::text, t.quantity::text, t.cost_price::text, t.sales_price::text, t.currency, t.cost_amount::text, t.sales_amount::text,
-	t.worker_id::text, t.item_id::text, t.vendor_party_id::text, t.source_doc_type, t.source_doc_id::text, t.description,
+	t.worker_id::text, coalesce(t.worker_legal_entity_id::text, ''), t.item_id::text, t.vendor_party_id::text, t.source_doc_type, t.source_doc_id::text, t.description,
 	t.journal_id::text, t.proposal_id::text, t.created_by, t.created_at`
 
 func scanTxn(row pgx.Row) (domain.Transaction, error) { return scanTxnWith(row) }
@@ -138,16 +139,19 @@ func scanTxn(row pgx.Row) (domain.Transaction, error) { return scanTxnWith(row) 
 // scanTxnWith scans txnColumns followed by extra destinations.
 func scanTxnWith(row pgx.Row, extra ...any) (domain.Transaction, error) {
 	var t domain.Transaction
-	var txnType string
+	var txnType, workerEntity string
 	dest := []any{&t.ID, &t.ProjectID, &t.WBSNodeID, &t.WBSCode, &txnType, &t.CategoryID, &t.LineProperty,
 		&t.TxnDate, &t.Quantity, &t.CostPrice, &t.SalesPrice, &t.Currency, &t.CostAmount, &t.SalesAmount,
-		&t.WorkerID, &t.ItemID, &t.VendorPartyID, &t.SourceDocType, &t.SourceDocID, &t.Description,
+		&t.WorkerID, &workerEntity, &t.ItemID, &t.VendorPartyID, &t.SourceDocType, &t.SourceDocID, &t.Description,
 		&t.JournalID, &t.ProposalID, &t.CreatedBy, &t.CreatedAt}
 	err := row.Scan(append(dest, extra...)...)
 	if err != nil {
 		return t, err
 	}
 	t.TxnType = domain.TxnType(txnType)
+	if workerEntity != "" {
+		t.WorkerLegalEntityID = &workerEntity
+	}
 	if t.CostAmount, err = amount(t.CostAmount, t.Currency); err != nil {
 		return t, err
 	}
@@ -162,7 +166,7 @@ func SameTransaction(stored, in domain.Transaction) bool {
 	return stored.ProjectID == in.ProjectID && stored.TxnType == in.TxnType && stored.CategoryID == in.CategoryID &&
 		stored.LineProperty == in.LineProperty && stored.TxnDate == in.TxnDate && stored.Currency == in.Currency &&
 		stored.Quantity == in.Quantity && stored.CostPrice == in.CostPrice && stored.SalesPrice == in.SalesPrice &&
-		eqPtr(stored.WBSNodeID, in.WBSNodeID) && eqPtr(stored.WorkerID, in.WorkerID) && eqPtr(stored.ItemID, in.ItemID) &&
+		eqPtr(stored.WBSNodeID, in.WBSNodeID) && eqPtr(stored.WorkerID, in.WorkerID) && eqPtr(stored.WorkerLegalEntityID, in.WorkerLegalEntityID) && eqPtr(stored.ItemID, in.ItemID) &&
 		eqPtr(stored.VendorPartyID, in.VendorPartyID) && stored.SourceDocType == in.SourceDocType &&
 		eqPtr(stored.SourceDocID, in.SourceDocID) && stored.Description == in.Description
 }
@@ -180,8 +184,8 @@ func (s *Postgres) CreateTransaction(ctx context.Context, in domain.Transaction,
 	var out domain.Transaction
 	created := false
 	err := dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
-		var stage, currency string
-		err := tx.QueryRow(ctx, `select stage, currency from project where tenant_id = $1 and id = $2 for update`, p.TenantID, in.ProjectID).Scan(&stage, &currency)
+		var stage, currency, projectEntity string
+		err := tx.QueryRow(ctx, `select stage, currency, legal_entity_id::text from project where tenant_id = $1 and id = $2 for update`, p.TenantID, in.ProjectID).Scan(&stage, &currency, &projectEntity)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return notFound("project")
 		}
@@ -226,17 +230,24 @@ func (s *Postgres) CreateTransaction(ctx context.Context, in domain.Transaction,
 		}
 		out, err = scanTxn(tx.QueryRow(ctx, `insert into project_transaction as t (tenant_id, id, project_id, wbs_node_id, wbs_code,
 				txn_type, category_id, line_property, txn_date, quantity, cost_price, sales_price, currency, cost_amount, sales_amount,
-				worker_id, item_id, vendor_party_id, source_doc_type, source_doc_id, description, created_by, idempotency_key)
+				worker_id, item_id, vendor_party_id, source_doc_type, source_doc_id, description, created_by, idempotency_key, worker_legal_entity_id)
 			values ($1, $2, $3, $4::text::uuid, $5, $6, $7, $8, $9::text::date, $10::text::numeric, $11::text::numeric, $12::text::numeric,
-				$13, $14::text::numeric, $15::text::numeric, $16::text::uuid, $17::text::uuid, $18::text::uuid, $19, $20::text::uuid, $21, $22, $23)
+				$13, $14::text::numeric, $15::text::numeric, $16::text::uuid, $17::text::uuid, $18::text::uuid, $19, $20::text::uuid, $21, $22, $23, $24::text::uuid)
 			returning `+txnColumns,
 			p.TenantID, ids.New(), in.ProjectID, in.WBSNodeID, in.WBSCode, string(in.TxnType), in.CategoryID, in.LineProperty,
 			in.TxnDate, in.Quantity, in.CostPrice, in.SalesPrice, in.Currency, in.CostAmount, in.SalesAmount,
-			in.WorkerID, in.ItemID, in.VendorPartyID, in.SourceDocType, in.SourceDocID, in.Description, p.UserID, idempotencyKey))
+			in.WorkerID, in.ItemID, in.VendorPartyID, in.SourceDocType, in.SourceDocID, in.Description, p.UserID, idempotencyKey, in.WorkerLegalEntityID))
 		if err != nil {
 			return err
 		}
 		created = true
+		if out.TxnType == domain.TxnHour && out.WorkerID != nil {
+			return enqueueFor(ctx, tx, p, "transaction", out.ID, projevents.TransactionPosted, projevents.TransactionPostedData{
+				TransactionID: out.ID, Version: 1, ProjectID: out.ProjectID, ProjectLegalEntityID: projectEntity, WorkerID: *out.WorkerID,
+				WorkerLegalEntityID: out.WorkerLegalEntityID, CategoryID: out.CategoryID, SourceDocType: out.SourceDocType, TransactionDate: out.TxnDate,
+				Quantity: out.Quantity, CostPrice: out.CostPrice, Currency: out.Currency,
+			})
+		}
 		return nil
 	})
 	var pgErr *pgconn.PgError

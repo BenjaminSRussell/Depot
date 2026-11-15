@@ -1,10 +1,12 @@
 package api
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"log/slog"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"time"
 
@@ -355,4 +357,19 @@ func (a *API) getCharge(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.JSON(w, http.StatusOK, toChargeResponse(c))
+}
+
+// SubmitCharge runs POST /v1/interco/charges for an in-process caller, the event consumer that raises charges from expense reports
+// and project hours (#40). body is the JSON of the request and the caller's principal (its legal-entity scope must cover both
+// entities) travels in ctx; the status and body are what the route would answer, so the consumer reads the same outcomes as an API
+// client: 201 with the stored or replayed charge, 202 for a charge parked on suspense, a problem otherwise.
+func (a *API) SubmitCharge(ctx context.Context, body []byte) (int, []byte) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, "/v1/interco/charges", bytes.NewReader(body))
+	if err != nil {
+		return http.StatusInternalServerError, []byte(err.Error())
+	}
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	a.postCharge(rec, req)
+	return rec.Code, rec.Body.Bytes()
 }

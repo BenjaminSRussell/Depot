@@ -49,6 +49,7 @@ const (
 type Store interface {
 	FindByIdempotencyKey(ctx context.Context, key string) (store.Invoice, bool, error)
 	CreateProposal(ctx context.Context, inv store.Invoice) (store.Invoice, error)
+	PostProposal(ctx context.Context, id string, postingDate time.Time, expectedVersion int) (store.Invoice, error)
 }
 
 // Config is what an intercompany invoice is booked with: the revenue account of the line, the tax code when the charge names none,
@@ -74,6 +75,8 @@ type Data struct {
 	TaxCode             string `json:"taxCode"`
 	LenderLegalEntityID string `json:"lenderLegalEntityId"`
 	CustomerAccount     string `json:"customerAccount"`
+	// AutoPostInvoice is the pairing's opt-in to post the proposal without review.
+	AutoPostInvoice bool `json:"autoPostInvoice"`
 }
 
 // Key is the Idempotency-Key of the proposal of a charge version.
@@ -158,6 +161,9 @@ func Handle(ctx context.Context, s Store, cfg Config, evt events.Event) (store.I
 	}
 	ctx = tenant.With(ctx, scoped)
 	if existing, found, err := s.FindByIdempotencyKey(ctx, inv.IdempotencyKey); err != nil || found {
+		if err == nil && d.AutoPostInvoice {
+			return autoPost(ctx, s, d, existing)
+		}
 		return existing, err
 	}
 	nets, totals, err := domain.Compute(inv.Currency, []domain.Line{line}, []decimal.Decimal{tax}, decimal.Zero)
@@ -171,5 +177,45 @@ func Handle(ctx context.Context, s Store, cfg Config, evt events.Event) (store.I
 		return store.Invoice{}, err
 	}
 	slog.InfoContext(ctx, "intercompany invoice proposal raised", "charge", d.ID, "version", d.Version, "invoice", created.ID, "legalEntity", d.LenderLegalEntityID)
+	if d.AutoPostInvoice {
+		return autoPost(ctx, s, d, created)
+	}
 	return created, nil
+}
+
+// autoPost posts the proposal of a charge whose pairing opted in. The proposal must be exactly the charge: the currency, and a
+// gross of price plus tax; anything else is left as a proposal for review and reported as a permanent failure. An invoice that is
+// already posted (a redelivery) is returned as it is.
+func autoPost(ctx context.Context, s Store, d Data, inv store.Invoice) (store.Invoice, error) {
+	if inv.Status == domain.StatusPosted {
+		return inv, nil
+	}
+	if inv.Status != domain.StatusProposal {
+		return inv, eventing.Permanent(fmt.Errorf("the invoice of charge %s is %s and cannot be auto-posted", d.ID, inv.Status))
+	}
+	price, err := decimal.NewFromString(d.Price)
+	if err != nil {
+		return inv, eventing.Permanent(errors.New("the charge has no price"))
+	}
+	tax := decimal.Zero
+	if d.Tax != "" {
+		if tax, err = decimal.NewFromString(d.Tax); err != nil {
+			return inv, eventing.Permanent(errors.New("the charge's tax is not an amount"))
+		}
+	}
+	places := money.MinorUnits(d.Currency)
+	want := price.Round(places).Add(tax.RoundBank(places))
+	if inv.Currency != d.Currency || !inv.Totals.Gross.Equal(want) {
+		return inv, eventing.Permanent(fmt.Errorf("the proposal %s totals %s %s, not the charge's %s %s: left for review", inv.ID, inv.Totals.Gross, inv.Currency, want, d.Currency))
+	}
+	date, err := time.Parse(time.DateOnly, d.Date)
+	if err != nil {
+		return inv, eventing.Permanent(errors.New("the charge has no transaction date"))
+	}
+	posted, err := s.PostProposal(ctx, inv.ID, date, inv.Version)
+	if err != nil {
+		return inv, err
+	}
+	slog.InfoContext(ctx, "intercompany invoice posted", "charge", d.ID, "version", d.Version, "invoice", posted.ID, "legalEntity", d.LenderLegalEntityID)
+	return posted, nil
 }

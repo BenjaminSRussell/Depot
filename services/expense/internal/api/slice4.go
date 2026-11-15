@@ -363,7 +363,7 @@ func toReportDTO(rep store.Report) reportDTO {
 			lineDTO: lineDTO{
 				ID: l.ID, Category: l.Category, TxnDate: l.TxnDate.Format(dateLayout), Amount: l.Amount.StringFixed(2),
 				Merchant: l.Merchant, Attendees: l.Attendees, HasReceipt: l.HasReceipt,
-				Justification: l.Justification, PaidBy: l.PaidBy,
+				Justification: l.Justification, PaidBy: l.PaidBy, ChargeToLegalEntityID: l.ChargeToLegalEntityID,
 			},
 			LineNo:        l.LineNo,
 			PolicyResults: nonNil(l.Results),

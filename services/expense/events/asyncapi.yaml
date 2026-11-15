@@ -99,3 +99,18 @@ components:
           currency: { type: string, pattern: '^[A-Z]{3}$' }
           amount: { type: string, description: The stored reimbursable amount of the report (decimal string), example: '420.50' }
           approvedOn: { type: string, format: date }
+          chargedLines:
+            type: array
+            description: "The report's lines another legal entity bears (#40), in line order; absent when every line is the paying entity's own cost. Intercompany raises one charge from the paying entity (legalEntityId) to the bearing entity per line, keyed by the line id. Payables ignores it."
+            items:
+              type: object
+              required: [lineId, lineNo, category, amount, currency, transactionDate, chargeToLegalEntityId]
+              additionalProperties: false
+              properties:
+                lineId: { type: string, format: uuid }
+                lineNo: { type: integer, minimum: 1 }
+                category: { type: string, description: The expense category, example: TRAVEL }
+                amount: { type: string, description: The line amount in the report currency (decimal string), example: '300.00' }
+                currency: { type: string, pattern: '^[A-Z]{3}$' }
+                transactionDate: { type: string, format: date }
+                chargeToLegalEntityId: { type: string, format: uuid, description: The cost-bearing entity; never the report's own legalEntityId }

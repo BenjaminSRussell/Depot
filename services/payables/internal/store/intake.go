@@ -49,9 +49,11 @@ type VendorInvoiceIntake struct {
 	Gross               decimal.Decimal `json:"gross"`
 	Lines               []IntakeLine    `json:"lines"`
 	Status              string          `json:"status"`
-	ReceivedBy          string          `json:"receivedBy"`
-	ReceivedAt          time.Time       `json:"receivedAt"`
-	contentHash         string
+	// LedgerEntryID is the ledger entry that posted the invoice when Status is POSTED (an intercompany charge auto-posted).
+	LedgerEntryID string    `json:"ledgerEntryId,omitempty"`
+	ReceivedBy    string    `json:"receivedBy"`
+	ReceivedAt    time.Time `json:"receivedAt"`
+	contentHash   string
 }
 
 // WithContentHash sets the hash of the sender's document the replay check compares.
@@ -61,14 +63,14 @@ func (v VendorInvoiceIntake) WithContentHash(h string) VendorInvoiceIntake {
 }
 
 const intakeColumns = `id::text, legal_entity_id::text, source, source_ref, content_hash, vendor_id::text, invoice_number, invoice_date::text, purpose,
-	coalesce(purchase_order_id::text, ''), purchase_order_number, currency, net::text, gross::text, lines, status, received_by, received_at`
+	coalesce(purchase_order_id::text, ''), purchase_order_number, currency, net::text, gross::text, lines, status, ledger_entry_id, received_by, received_at`
 
 func scanIntake(row pgx.Row) (VendorInvoiceIntake, error) {
 	var v VendorInvoiceIntake
 	var net, gross string
 	var lines []byte
 	if err := row.Scan(&v.ID, &v.LegalEntityID, &v.Source, &v.SourceRef, &v.contentHash, &v.VendorID, &v.InvoiceNumber, &v.InvoiceDate, &v.Purpose,
-		&v.PurchaseOrderID, &v.PurchaseOrderNumber, &v.Currency, &net, &gross, &lines, &v.Status, &v.ReceivedBy, &v.ReceivedAt); err != nil {
+		&v.PurchaseOrderID, &v.PurchaseOrderNumber, &v.Currency, &net, &gross, &lines, &v.Status, &v.LedgerEntryID, &v.ReceivedBy, &v.ReceivedAt); err != nil {
 		return v, err
 	}
 	v.Net, v.Gross = decimal.RequireFromString(net), decimal.RequireFromString(gross)
@@ -121,6 +123,21 @@ func (s *Postgres) ReceiveVendorInvoice(ctx context.Context, in VendorInvoiceInt
 		return err
 	})
 	return out, created, err
+}
+
+// MarkIntakePosted records that an intake row was posted to the ledger as the entry entryID: its status becomes POSTED. A row that
+// is already POSTED is returned as it is (a redelivery), whatever entry id it holds.
+func (s *Postgres) MarkIntakePosted(ctx context.Context, id, entryID string) (VendorInvoiceIntake, error) {
+	var out VendorInvoiceIntake
+	err := dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
+		if _, err := tx.Exec(ctx, `update ap_vendor_invoice_intake set status = 'POSTED', ledger_entry_id = $2, posted_at = now() where id = $1 and status = 'RECEIVED'`, id, entryID); err != nil {
+			return err
+		}
+		var err error
+		out, err = scanIntake(tx.QueryRow(ctx, `select `+intakeColumns+` from ap_vendor_invoice_intake where id = $1`, id))
+		return err
+	})
+	return out, err
 }
 
 // IntakeFilter selects received vendor invoices of a legal entity, newest first, after the cursor (receivedAt, id).
