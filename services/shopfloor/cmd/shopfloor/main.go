@@ -11,6 +11,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -83,6 +84,13 @@ func run(ctx context.Context, getenv func(string) string, args []string) error {
 		return runSweeper(ctx, getenv, st)
 	}
 	a := api.New(st)
+	if raw := getenv("SHOPFLOOR_SIGNATURE_MAX_AUTH_AGE_SECONDS"); raw != "" {
+		secs, err := strconv.Atoi(raw)
+		if err != nil || secs < 30 || secs > 3600 {
+			return fmt.Errorf("SHOPFLOOR_SIGNATURE_MAX_AUTH_AGE_SECONDS must be 30 to 3600 seconds, got %q", raw)
+		}
+		a.WithSignatureMaxAge(time.Duration(secs) * time.Second)
+	}
 	issuer, err := edgeIssuer(getenv)
 	if err != nil {
 		return err

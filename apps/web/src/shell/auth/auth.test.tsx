@@ -65,6 +65,26 @@ describe("PKCE", () => {
   });
 });
 
+describe("step-up", () => {
+  it("asks the identity provider for the credentials again only when told to", async () => {
+    const plain = new URL(await authorizeUrl(config, origin, "s", "v"));
+    expect(plain.searchParams.has("prompt")).toBe(false);
+    expect(plain.searchParams.has("max_age")).toBe(false);
+    const fresh = new URL(await authorizeUrl(config, origin, "s", "v", true));
+    expect(fresh.searchParams.get("prompt")).toBe("login");
+    expect(fresh.searchParams.get("max_age")).toBe("0");
+  });
+
+  it("reauthenticate sends the browser back to the identity provider with a fresh-login request and remembers the page", async () => {
+    const { env, assign, store } = envAt("/shopfloor/kiosk/pi/abc", "");
+    await createAuth(config, env).reauthenticate();
+    const url = new URL(assign.mock.calls[0][0]);
+    expect(url.searchParams.get("prompt")).toBe("login");
+    expect(url.searchParams.get("max_age")).toBe("0");
+    expect(JSON.parse(store.get("passage.oidc.pending") ?? "{}").returnTo).toBe("/shopfloor/kiosk/pi/abc");
+  });
+});
+
 describe("session", () => {
   it("reads subject, tenant and duties from the access token", () => {
     const session = sessionFrom({ access_token: tokenFor("user-1", ADMIN_DUTIES), expires_in: 300 }, 1000);
@@ -225,7 +245,7 @@ describe("admin navigation follows the token's duties", () => {
 describe("AuthGate", () => {
   it("shows nothing of the app until a session exists, then hands over the session", async () => {
     const session = sessionFrom({ access_token: tokenFor("clerk", CLERK_DUTIES), expires_in: 300 }, 0);
-    const auth = { ensureSession: async () => session, accessToken: async () => "t", login: vi.fn(), logout: vi.fn() };
+    const auth = { ensureSession: async () => session, accessToken: async () => "t", login: vi.fn(), logout: vi.fn(), reauthenticate: vi.fn() };
     render(<AuthGate auth={auth}>{(s) => <p>signed in with {s.duties.length} duties</p>}</AuthGate>);
     expect(screen.getByRole("status")).toBeInTheDocument();
     expect(await screen.findByText("signed in with 2 duties")).toBeInTheDocument();
@@ -233,14 +253,14 @@ describe("AuthGate", () => {
 
   it("starts a login when there is no session", async () => {
     const login = vi.fn(async () => undefined);
-    render(<AuthGate auth={{ ensureSession: async () => null, accessToken: async () => null, login, logout: vi.fn() }}>{() => <p>app</p>}</AuthGate>);
+    render(<AuthGate auth={{ ensureSession: async () => null, accessToken: async () => null, login, logout: vi.fn(), reauthenticate: vi.fn() }}>{() => <p>app</p>}</AuthGate>);
     await waitFor(() => expect(login).toHaveBeenCalledOnce());
     expect(screen.queryByText("app")).not.toBeInTheDocument();
   });
 
   it("starts the login once when StrictMode mounts the gate twice", async () => {
     const login = vi.fn(async () => undefined);
-    const auth = { ensureSession: async () => null, accessToken: async () => null, login, logout: vi.fn() };
+    const auth = { ensureSession: async () => null, accessToken: async () => null, login, logout: vi.fn(), reauthenticate: vi.fn() };
     render(
       <StrictMode>
         <AuthGate auth={auth}>{() => <p>app</p>}</AuthGate>
@@ -252,7 +272,7 @@ describe("AuthGate", () => {
   });
 
   it("reports a failed sign-in instead of rendering the app", async () => {
-    const auth = { ensureSession: async () => Promise.reject(new Error("state mismatch")), accessToken: async () => null, login: vi.fn(), logout: vi.fn() };
+    const auth = { ensureSession: async () => Promise.reject(new Error("state mismatch")), accessToken: async () => null, login: vi.fn(), logout: vi.fn(), reauthenticate: vi.fn() };
     render(<AuthGate auth={auth}>{() => <p>app</p>}</AuthGate>);
     expect(await screen.findByRole("alert")).toHaveTextContent("state mismatch");
     expect(screen.queryByText("app")).not.toBeInTheDocument();
@@ -260,7 +280,7 @@ describe("AuthGate", () => {
 
   it("shows the error with a retry when starting the login rejects", async () => {
     const login = vi.fn().mockRejectedValueOnce(new Error("discovery unreachable")).mockResolvedValue(undefined);
-    render(<AuthGate auth={{ ensureSession: async () => null, accessToken: async () => null, login, logout: vi.fn() }}>{() => <p>app</p>}</AuthGate>);
+    render(<AuthGate auth={{ ensureSession: async () => null, accessToken: async () => null, login, logout: vi.fn(), reauthenticate: vi.fn() }}>{() => <p>app</p>}</AuthGate>);
     expect(await screen.findByRole("alert")).toHaveTextContent("discovery unreachable");
     fireEvent.click(screen.getByRole("button", { name: "Try again" }));
     await waitFor(() => expect(login).toHaveBeenCalledTimes(2));

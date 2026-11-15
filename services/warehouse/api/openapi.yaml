@@ -314,6 +314,42 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/Conflict" }
         "422": { $ref: "#/components/responses/Unprocessable" }
+  /v1/warehouse/work/{id}:reassign:
+    post:
+      operationId: reassignWork
+      summary: Hand a work an automation station holds to a person after a fault
+      description: >
+        A work whose line a PLC station confirmed is IN_PROGRESS and cannot go back to OPEN (BR-31.3), so after a fault
+        or a divert it stays with the station. A supervisor gives it to a person with this command: the status and the
+        confirmed lines are kept, the holder becomes `toUser`, and the open lines note who took the work over and why.
+        Only a work held by an automation station can be reassigned (409 WMS-WORK-NOT-AUTOMATION), and only while no
+        order of the work is PENDING or SENT (409 WMS-AUTO-ORDER-STATE: cancel the order first, with `plcCleared`).
+        A work that is not ASSIGNED or IN_PROGRESS is 409 WMS-0110. The person then confirms the lines like any assigned work.
+      x-passage-duty: warehouse.work.supervise
+      parameters:
+        - $ref: "#/components/parameters/WorkId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [toUser, reason]
+              properties:
+                toUser: { type: string, minLength: 1, maxLength: 200, description: The person who takes the work; not a station or a reader. }
+                reason: { type: string, minLength: 1, maxLength: 150 }
+      responses:
+        "200":
+          description: The reassigned work.
+          headers: { Idempotent-Replayed: { $ref: "#/components/headers/IdempotentReplayed" } }
+          content: { application/json: { schema: { $ref: "#/components/schemas/Work" } } }
+        "400": { $ref: "#/components/responses/Validation" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { description: WMS-WORK-NOT-FOUND }
+        "409": { description: WMS-WORK-NOT-AUTOMATION, WMS-AUTO-ORDER-STATE, WMS-0110 or WMS-VERSION-CONFLICT }
   /v1/warehouse/work/{id}:exception:
     post:
       operationId: workException
@@ -946,6 +982,19 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { description: WMS-AUTO-ORDER-NOT-FOUND }
         "409": { description: WMS-AUTO-ORDER-STATE }
+  /v1/warehouse/automation/transport-orders/{id}:
+    get:
+      operationId: getTransportOrder
+      summary: Read one automation order
+      x-passage-duty: warehouse.inquiry.view or warehouse.automation.execute
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: The order.
+          content: { application/json: { schema: { $ref: "#/components/schemas/AutomationOrder" } } }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { description: WMS-AUTO-ORDER-NOT-FOUND }
   /v1/warehouse/automation/transport-orders/{id}:cancel:
     post:
       operationId: cancelTransportOrder
@@ -1008,17 +1057,7 @@ paths:
         required: true
         content:
           application/json:
-            schema:
-              type: object
-              additionalProperties: false
-              required: [readerId, action, warehouseId, postedBy]
-              properties:
-                readerId: { type: string, minLength: 1, maxLength: 64 }
-                antenna: { type: integer, minimum: 0, maximum: 255, description: Left out for every antenna of the reader. }
-                action: { type: string, enum: [RECEIVE_PALLET, CONFIRM_PUTAWAY] }
-                warehouseId: { type: string, format: uuid }
-                locationCode: { type: string, maxLength: 60, description: Required for CONFIRM_PUTAWAY. }
-                postedBy: { type: string, minLength: 1, maxLength: 200, description: The user the reader's gateway posts its reads as. }
+            schema: { $ref: "#/components/schemas/RFIDRuleInput" }
       responses:
         "201":
           description: The rule.
@@ -1027,6 +1066,27 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "409": { description: WMS-RFID-RULE-EXISTS }
   /v1/warehouse/rfid-rules/{id}:
+    put:
+      operationId: updateRFIDRule
+      summary: Edit an RFID rule (reader, antenna, action, warehouse, location, posting identity)
+      description: Takes the same body as creating a rule and replaces all of it; who created the rule and when stay, and `version`, `updatedBy` and `updatedAt` record the edit. `If-Match` (the rule's `version`) is checked when sent; a stale one is 409 WMS-VERSION-CONFLICT.
+      x-passage-duty: warehouse.setup.maintain
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: If-Match, in: header, required: false, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RFIDRuleInput" }
+      responses:
+        "200":
+          description: The edited rule.
+          content: { application/json: { schema: { $ref: "#/components/schemas/RFIDRule" } } }
+        "400": { $ref: "#/components/responses/Validation" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { description: WMS-RFID-RULE-NOT-FOUND }
+        "409": { description: WMS-RFID-RULE-EXISTS }
     delete:
       operationId: deleteRFIDRule
       summary: Remove an RFID rule; reads already acted on keep what was done
@@ -1235,6 +1295,17 @@ components:
                     receiptId: { type: string, format: uuid }
                     lineNo: { type: integer }
                     workId: { type: string, format: uuid }
+    RFIDRuleInput:
+      type: object
+      additionalProperties: false
+      required: [readerId, action, warehouseId, postedBy]
+      properties:
+        readerId: { type: string, minLength: 1, maxLength: 64 }
+        antenna: { type: integer, minimum: 0, maximum: 255, description: Left out for every antenna of the reader. }
+        action: { type: string, enum: [RECEIVE_PALLET, CONFIRM_PUTAWAY] }
+        warehouseId: { type: string, format: uuid }
+        locationCode: { type: string, maxLength: 60, description: Required for CONFIRM_PUTAWAY. }
+        postedBy: { type: string, minLength: 1, maxLength: 200, description: The user the reader's gateway posts its reads as. }
     RFIDRule:
       type: object
       required: [id, readerId, action, warehouseId, postedBy, createdBy, createdAt]
@@ -1248,6 +1319,9 @@ components:
         locationCode: { type: string }
         createdBy: { type: string }
         createdAt: { type: string, format: date-time }
+        version: { type: integer, minimum: 1 }
+        updatedBy: { type: string }
+        updatedAt: { type: string, format: date-time }
     AutomationOrder:
       type: object
       required: [id, workId, lineNo, station, loadUnit, fromLocation, toLocation, priority, status, createdBy, createdAt]

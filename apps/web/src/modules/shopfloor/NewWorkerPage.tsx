@@ -1,6 +1,6 @@
 import { useRef, useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Alert, Button, buttonClassName, Card, FormField, Input, PageHeader } from "../../shell/ui";
+import { Alert, Button, buttonClassName, Card, FormField, Input, isTimeZone, PageHeader, TimeZoneSelect } from "../../shell/ui";
 import { createWorker, describeProblem, newKey, type NewWorker, type Problem } from "./api/client";
 import { UUID } from "./format";
 import styles from "./pages.module.css";
@@ -14,6 +14,7 @@ interface Values {
   userId: string;
   costRate: string;
   currency: string;
+  timeZone: string;
 }
 
 type Field = keyof Values;
@@ -32,6 +33,7 @@ export function validateWorker(values: Values): { errors: Errors; input?: NewWor
   if (values.userId.trim().length > 200) errors.userId = "Use at most 200 characters.";
   if (!RATE.test(values.costRate.trim())) errors.costRate = "Enter an hourly rate such as 21.50.";
   if (!CURRENCY.test(values.currency)) errors.currency = "Enter a three-letter currency code such as USD.";
+  if (!isTimeZone(values.timeZone)) errors.timeZone = "Choose an IANA time zone such as America/Chicago.";
   if (Object.keys(errors).length > 0) return { errors };
   return {
     errors,
@@ -42,6 +44,7 @@ export function validateWorker(values: Values): { errors: Errors; input?: NewWor
       userId: values.userId.trim() || null,
       costRate: values.costRate.trim(),
       currency: values.currency,
+      timeZone: values.timeZone,
     },
   };
 }
@@ -49,7 +52,7 @@ export function validateWorker(values: Values): { errors: Errors; input?: NewWor
 /** Register a worker so they can clock in and have their pay calculated. */
 export function NewWorkerPage() {
   const navigate = useNavigate();
-  const [values, setValues] = useState<Values>({ name: "", partyId: "", badgeId: "", userId: "", costRate: "", currency: "USD" });
+  const [values, setValues] = useState<Values>({ name: "", partyId: "", badgeId: "", userId: "", costRate: "", currency: "USD", timeZone: "UTC" });
   const [errors, setErrors] = useState<Errors>({});
   const [failure, setFailure] = useState<Problem | null>(null);
   const [busy, setBusy] = useState(false);
@@ -73,7 +76,7 @@ export function NewWorkerPage() {
     } catch (error) {
       const problem = describeProblem(error);
       const fieldErrors: Errors = {};
-      for (const name of ["name", "partyId", "badgeId", "userId", "costRate", "currency"] as const) {
+      for (const name of ["name", "partyId", "badgeId", "userId", "costRate", "currency", "timeZone"] as const) {
         if (problem.fields[name]) fieldErrors[name] = problem.fields[name];
       }
       if (problem.code === "SF-0105") fieldErrors.badgeId = "This badge is already assigned to another worker.";
@@ -88,7 +91,9 @@ export function NewWorkerPage() {
   const field = (id: Field, label: string, hint?: string, optional?: boolean, extra?: Record<string, unknown>) => (
     <FormField id={`worker-${id}`} label={label} hint={hint} optional={optional} error={errors[id]}>
       {(control) =>
-        id === "partyId" ? (
+        id === "timeZone" ? (
+          <TimeZoneSelect {...control} value={values.timeZone} onChange={(e) => update({ timeZone: e.target.value })} invalid={Boolean(errors.timeZone)} />
+        ) : id === "partyId" ? (
           <EntityLookup {...control} entity="party" value={values.partyId} onChange={(e) => update({ partyId: e.target.value })} />
         ) : (
         <Input
@@ -114,6 +119,7 @@ export function NewWorkerPage() {
           {field("userId", "Sign-in user", "This user can't approve their own time.", true, { maxLength: 200 })}
           {field("costRate", "Cost rate per hour", "For example 21.50.", false, { inputMode: "decimal" })}
           {field("currency", "Currency", undefined, false, { maxLength: 3 })}
+          {field("timeZone", "Time zone", "The zone of the site the worker works at. Work days, and so the dated cost rate of a job, follow the local day in this zone.")}
           {failure ? (
             <div className={styles.formActions}>
               <Alert tone="danger" title="Could not create the worker" live="alert">

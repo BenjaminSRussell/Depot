@@ -33,6 +33,8 @@ export interface Auth {
   ensureSession(): Promise<Session | null>;
   accessToken(): Promise<string | null>;
   login(): Promise<void>;
+  /** Sends the person through the identity provider again for their credentials (a step-up), then back to this page. */
+  reauthenticate(): Promise<void>;
   logout(): void;
 }
 
@@ -51,14 +53,14 @@ export function createAuth(config: OidcConfig, env: AuthEnv): Auth {
     return sessionFrom((await res.json()) as TokenResponse, env.now());
   }
 
-  async function login() {
+  async function login(fresh = false) {
     const pending: Pending = {
       state: randomToken(),
       verifier: randomToken(48),
       returnTo: env.location.pathname === CALLBACK_PATH || env.location.pathname === LOGOUT_PATH ? "/" : env.location.pathname + env.location.search,
     };
     env.storage.setItem(PENDING_KEY, JSON.stringify(pending));
-    env.assign(await authorizeUrl(config, env.location.origin, pending.state, pending.verifier));
+    env.assign(await authorizeUrl(config, env.location.origin, pending.state, pending.verifier, fresh));
   }
 
   function takePending(): Pending | null {
@@ -127,7 +129,7 @@ export function createAuth(config: OidcConfig, env: AuthEnv): Auth {
   let starting: Promise<Session | null> | null = null;
   const ensureSession = () => (starting ??= start());
 
-  return { ensureSession, accessToken, login, logout };
+  return { ensureSession, accessToken, login: () => login(), reauthenticate: () => login(true), logout };
 }
 
 const BEARER_INSTALLED = Symbol.for("passage.bearerFetch");

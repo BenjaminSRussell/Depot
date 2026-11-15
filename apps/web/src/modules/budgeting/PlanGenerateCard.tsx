@@ -79,8 +79,8 @@ export function PlanGenerateCard({ form, onChange, errors, busy, legalEntityId, 
           </FormField>
         ) : null}
         {form.source === "demand" ? (
-          <FormField id="gn-model" label="Planning forecast" hint="The code of the demand forecast in planning, such as FC-2027." error={errors.modelCode}>
-            {(c) => <Input {...c} className={styles.mono} value={form.modelCode} onChange={(e) => set({ modelCode: e.target.value })} invalid={Boolean(errors.modelCode)} />}
+          <FormField id="gn-model" label="Planning forecast" hint="The demand forecast in planning this source reads, such as FC-2027." error={errors.modelCode}>
+            {(c) => <EntityLookup {...c} entity="forecastModel" value={form.modelCode} onChange={(e) => set({ modelCode: e.target.value })} invalid={Boolean(errors.modelCode)} />}
           </FormField>
         ) : null}
         {usesWeights(form.source) ? (

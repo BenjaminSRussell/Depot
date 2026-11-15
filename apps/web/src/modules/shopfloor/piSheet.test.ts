@@ -77,7 +77,6 @@ describe("running a sheet on the kiosk", () => {
     expect(messageFor("rec-1", set, undefined)?.values[0]).toEqual({ name: "Jacket", type: "numeric", value: "72", min: "60", max: "90", unit: "degC" });
     const sign = flattenSteps(doc([{ seq: 1, category: "signature-request", text: "Sign" }]))[0]!;
     expect(messageFor("rec-1", sign, { value: " Ana ", comment: "confirmed" })?.values).toEqual([
-      { name: "signed-by", type: "text", value: "Ana" },
       { name: "signature-meaning", type: "text", value: "performed" },
     ]);
     expect(checkEntry({ seq: 1, category: "signature-request", text: "Sign.", meaning: "approved" }, { value: "Ana", comment: "" })).toEqual({

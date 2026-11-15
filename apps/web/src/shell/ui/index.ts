@@ -21,3 +21,4 @@ export { Badge, StatusPill, type BadgeProps, type BadgeTone, type StatusPillProp
 export { Textarea, type TextareaProps } from "./Textarea";
 export { standardLabel, standardStatuses, statusLabel as statusCodeLabel, statusTone } from "./status";
 export { InsideControl, useInsideControl } from "./insideControl";
+export { TimeZoneSelect, isTimeZone, timeZoneNames, type TimeZoneSelectProps } from "./TimeZoneSelect";

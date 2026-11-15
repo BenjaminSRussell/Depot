@@ -1,6 +1,7 @@
 import { createElement } from "react";
 import type { PassageModule } from "../registry";
 import { AbsenceCodesPage } from "./AbsenceCodesPage";
+import { AndonSettingsPage } from "./AndonSettingsPage";
 import { AndonPage } from "./AndonPage";
 import { AutoClockOutsPage } from "./AutoClockOutsPage";
 import { BundleDetailPage } from "./BundleDetailPage";
@@ -81,6 +82,7 @@ const shopfloor: PassageModule = {
     { path: "/shopfloor/process-categories/new", element: createElement(NewProcessCategoryPage), handle: { title: "New process category", duty: "shopfloor.setup.maintain" } },
     { path: "/shopfloor/process-categories/:id", element: createElement(ProcessCategoryDetailPage), handle: { title: "Process category", duty: "shopfloor.view" } },
     { path: "/shopfloor/andon", element: createElement(AndonPage), handle: { title: "Andon board" } },
+    { path: "/shopfloor/andon-settings", element: createElement(AndonSettingsPage), handle: { title: "Andon settings", duty: "shopfloor.view" } },
     { path: "/shopfloor/oee", element: createElement(OeePage), handle: { title: "OEE" } },
     { path: "/shopfloor/edge-nodes", element: createElement(EdgeNodesPage), handle: { title: "Edge fleet", duty: "shopfloor.view" } },
     { path: "/shopfloor/edge-nodes/new", element: createElement(NewEdgeNodePage), handle: { title: "Register edge node", duty: "shopfloor.view" } },
@@ -111,6 +113,7 @@ const shopfloor: PassageModule = {
     { label: "Downtimes", to: "/shopfloor/downtimes", duty: "shopfloor.view" },
     { label: "Downtime reasons", to: "/shopfloor/downtime-reasons", duty: "shopfloor.view" },
     { label: "Andon board", to: "/shopfloor/andon", duty: "shopfloor.view" },
+    { label: "Andon settings", to: "/shopfloor/andon-settings", duty: "shopfloor.view" },
     { label: "OEE", to: "/shopfloor/oee", duty: "shopfloor.view" },
     { label: "Edge fleet", to: "/shopfloor/edge-nodes", duty: "shopfloor.view" },
     { label: "Control recipes", to: "/shopfloor/control-recipes", duty: "shopfloor.view" },

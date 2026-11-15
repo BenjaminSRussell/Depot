@@ -87,6 +87,7 @@ spec:
         - X-Passage-User
         - X-Passage-Duties
         - X-Passage-Tier
+        - X-Passage-Auth-Time
         - X-Passage-LegalEntity
         - X-Passage-LegalEntity-Scope
         - X-Passage-Service-Token

@@ -42,7 +42,12 @@ func (a *API) inboxPage(w http.ResponseWriter, r *http.Request) {
 		httpx.Fail(w, r, httpx.NewProblem(http.StatusForbidden, "AUTH-0003", "legal entity is outside your scope"))
 		return
 	}
-	page, err := a.aggregator.Page(r.Context(), p, legalEntity, limit, q.Get("cursor"))
+	source := q.Get("source")
+	if source != "" && !a.aggregator.IsSource(source) {
+		httpx.Fail(w, r, httpx.NewProblem(http.StatusBadRequest, domain.CodeInvalid, "source must be one of purchasing, party, ledger or payables"))
+		return
+	}
+	page, err := a.aggregator.PageFor(r.Context(), p, legalEntity, limit, q.Get("cursor"), source)
 	if errors.Is(err, inbox.ErrSourcesChanged) {
 		httpx.Fail(w, r, httpx.NewProblem(http.StatusConflict, domain.CodeInboxSourcesChanged, "Some of your work could not be loaded the same way as on the first page. Reload My work from the start."))
 		return

@@ -77,6 +77,7 @@ type Store interface {
 	AssignNext(ctx context.Context, idem store.Idem, warehouseID, user string, timeout time.Duration, now time.Time) (store.Assigned, bool, error)
 	ConfirmLine(ctx context.Context, idem store.Idem, in store.ConfirmInput) (domain.Work, bool, error)
 	ExceptWork(ctx context.Context, idem store.Idem, in store.ExceptionInput) (store.Excepted, bool, error)
+	ReassignWork(ctx context.Context, idem store.Idem, in store.ReassignInput) (domain.Work, bool, error)
 	CreateDoor(ctx context.Context, idem store.Idem, d domain.DockDoor) (domain.DockDoor, bool, error)
 	ListDoors(ctx context.Context, warehouseID string) ([]domain.DockDoor, error)
 	CreateAppointment(ctx context.Context, idem store.Idem, a domain.Appointment) (domain.Appointment, bool, error)
@@ -89,12 +90,14 @@ type Store interface {
 	IngestRFID(ctx context.Context, reads []store.RFIDRead) (store.RFIDIngest, error)
 	ListRFIDReads(ctx context.Context, f store.RFIDFilter) ([]store.RFIDReadRow, error)
 	CreateAutomationOrder(ctx context.Context, in store.OrderInput) (store.AutomationOrder, error)
+	GetAutomationOrder(ctx context.Context, id string) (store.AutomationOrder, error)
 	ListAutomationOrders(ctx context.Context, f store.OrderFilter) ([]store.AutomationOrder, error)
 	ReportAutomationOrder(ctx context.Context, id, status, reason string, now time.Time) (store.AutomationOrder, error)
 	IngestAutomationEvents(ctx context.Context, station string, events []store.AutomationEvent, now time.Time) (store.AutomationIngest, error)
 	CancelAutomationOrder(ctx context.Context, in store.CancelInput) (store.AutomationOrder, error)
 	CreateRFIDRule(ctx context.Context, r store.RFIDRule) (store.RFIDRule, error)
 	ListRFIDRules(ctx context.Context, readerID string) ([]store.RFIDRule, error)
+	UpdateRFIDRule(ctx context.Context, id string, r store.RFIDRule, ifMatch int) (store.RFIDRule, error)
 	DeleteRFIDRule(ctx context.Context, id string) error
 	GetGS1Company(ctx context.Context) (store.GS1Company, error)
 	GetPalletLabel(ctx context.Context, sscc string) (store.PalletLabel, error)
@@ -119,6 +122,7 @@ func (a *API) registerPersisted(r chi.Router) {
 		r.With(authz.RequireDuty(dutyWorkExecute)).Post("/v1/warehouse/work:assign", a.assignWork)
 		r.With(authz.RequireDuty(dutyWorkExecute)).Post("/v1/warehouse/work/{id}/lines/{n}:confirm", a.confirmLine)
 		r.With(authz.RequireDuty(dutyWorkExecute)).Post("/v1/warehouse/work/{id}:exception", a.exceptWork)
+		r.With(authz.RequireDuty(dutyWorkSupervise)).Post("/v1/warehouse/work/{id}:reassign", a.reassignWork)
 		a.registerReceiving(r)
 		a.registerShipped(r)
 	})
@@ -143,7 +147,7 @@ func fail(w http.ResponseWriter, r *http.Request, err error, notFound string) {
 	case errors.As(err, &de):
 		status := http.StatusUnprocessableEntity
 		switch de.Code {
-		case domain.CodeLineConfirmed, domain.CodeIllegalTransition, domain.CodeDoorOverlap, domain.CodeLineReceived, domain.CodeGS1Locked, domain.CodeGS1Exhausted:
+		case store.CodeNotAutomationWork, store.CodeAutoOrderState, domain.CodeLineConfirmed, domain.CodeIllegalTransition, domain.CodeDoorOverlap, domain.CodeLineReceived, domain.CodeGS1Locked, domain.CodeGS1Exhausted:
 			status = http.StatusConflict
 		}
 		httpx.Fail(w, r, httpx.NewProblem(status, de.Code, de.Detail))

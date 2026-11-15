@@ -1085,6 +1085,14 @@ const shared: Record<string, ProblemCatalogEntry> = {
   "SF-0184": { message: "A control recipe can only be made from a released PI sheet whose steps fit where the recipe goes.", action: "Release the sheet, or give each setpoint the node it is written to when the recipe goes to a process control system." },
   "SF-0185": { message: "That certificate wasn't issued to this edge node.", action: "Reload the node's certificate history and pick a certificate from it." },
   "SF-0186": { message: "This signature doesn't match the step it signs: the step asks for a different signature meaning, or it isn't a signature step of this batch.", action: "Reload the PI sheet on the kiosk and sign the step again." },
+  "SF-0187": { message: "This site has no andon thresholds of its own, so there is nothing to remove.", action: "Reload the page to see which sites have their own values." },
+  "SF-0188": { message: "A signature needs you to have signed in within the last few minutes.", action: "Sign in again, then sign the step once more." },
+  "SF-0189": { message: "A signature is made by the person who is signed in, so it can't carry someone else's name.", action: "Sign in as the person who signs, then sign the step again." },
+  "WMS-WORK-NOT-AUTOMATION": { message: "This work isn't held by an automated station, so it can't be handed over from here.", action: "Reload the work to see who holds it now." },
+  "WMS-AUTO-ORDER-STATE": { message: "The order isn't in a state where this can be done. The PLC may still hold the move, or the order may already be finished.", action: "Clear the move on the PLC if it is still there, then reload the page and try again." },
+  "WMS-RFID-RULE-EXISTS": { message: "This reader already has a rule for that antenna and action.", action: "Edit the existing rule instead." },
+  "WMS-RFID-RULE-NOT-FOUND": { message: "This RFID rule no longer exists.", action: "Go back to the list of rules." },
+  "WMS-AUTO-ORDER-NOT-FOUND": { message: "This automation order no longer exists.", action: "Go back to the list of orders." },
 };
 
 const companySetup: Record<string, ProblemCatalogEntry> = {

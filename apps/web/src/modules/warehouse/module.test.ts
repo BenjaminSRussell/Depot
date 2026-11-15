@@ -17,6 +17,12 @@ describe("warehouse module", () => {
       "/warehouse/receipts",
       "/warehouse/receipts/new",
       "/warehouse/receipts/:id",
+      "/warehouse/rfid-rules",
+      "/warehouse/rfid-rules/new",
+      "/warehouse/rfid-rules/:id",
+      "/warehouse/rfid-reads",
+      "/warehouse/automation-orders",
+      "/warehouse/automation-orders/:id",
       "/warehouse/docks",
       "/warehouse/docks/new",
     ]);
@@ -31,6 +37,9 @@ describe("warehouse module", () => {
       { label: "Work", to: "/warehouse/work", duty: "warehouse.inquiry.view" },
       { label: "Receiving", to: "/warehouse/receipts", duty: "warehouse.inquiry.view" },
       { label: "Dock schedule", to: "/warehouse/docks", duty: "warehouse.inquiry.view" },
+      { label: "RFID rules", to: "/warehouse/rfid-rules", duty: "warehouse.setup.view" },
+      { label: "RFID reads", to: "/warehouse/rfid-reads", duty: "warehouse.inquiry.view" },
+      { label: "Automation orders", to: "/warehouse/automation-orders", duty: "warehouse.inquiry.view" },
     ]);
   });
 
