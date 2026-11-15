@@ -119,6 +119,9 @@ func (d *Deliverer) send(ctx context.Context, doc Document, rule domain.OutputRu
 		if !doc.AccountVerified {
 			return store.DeliverySkipped, "the customer could not be checked against the legal entity"
 		}
+		if doc.LegalEntityID == "" {
+			return store.DeliverySkipped, "the document names no legal entity"
+		}
 		if _, err := d.Log.SavePortalDocument(ctx, store.PortalDocument{SourceKey: doc.key(), AccountID: doc.AccountID, LegalEntityID: doc.LegalEntityID,
 			DocumentType: doc.Type, Number: doc.Number, Pages: doc.Pages, PDF: doc.PDF}); err != nil {
 			return store.DeliveryFailed, err.Error()

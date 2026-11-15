@@ -31,7 +31,7 @@ CREATE TABLE IF NOT EXISTS print_portal_document (
   id uuid NOT NULL,
   source_key text NOT NULL,
   account_id uuid NOT NULL,
-  legal_entity_id uuid,
+  legal_entity_id uuid NOT NULL,
   document_type text NOT NULL,
   number text NOT NULL,
   pages integer NOT NULL CHECK (pages >= 1),
@@ -46,6 +46,9 @@ ALTER TABLE print_portal_document FORCE ROW LEVEL SECURITY;
 CREATE POLICY print_portal_document_tenant_access ON print_portal_document AS PERMISSIVE
   USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
   WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+CREATE POLICY print_portal_document_legal_entity_scope ON print_portal_document AS RESTRICTIVE
+  USING (current_setting('passage.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
 
 -- Scheduled statements: every cadence run renders the statement of every customer of one legal entity that has open
 -- items and delivers it by the PERIODIC_STATEMENT output rules. claimed_until is a lease: a replica claims the due
@@ -79,6 +82,9 @@ ALTER TABLE print_statement_schedule FORCE ROW LEVEL SECURITY;
 CREATE POLICY print_statement_schedule_tenant_access ON print_statement_schedule AS PERMISSIVE
   USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
   WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+CREATE POLICY print_statement_schedule_legal_entity_scope ON print_statement_schedule AS RESTRICTIVE
+  USING (current_setting('passage.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
 
 -- One row per customer statement of one run date: a run that stops half way, or two replicas that both reach the same
 -- customer, produce each statement once.

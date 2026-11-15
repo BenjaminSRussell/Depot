@@ -21,7 +21,7 @@ import (
 )
 
 func tenantCtx(n int) context.Context {
-	return tenant.With(context.Background(), tenant.Principal{TenantID: testkit.TenantID(n), UserID: "worker-7"})
+	return tenant.With(context.Background(), tenant.Principal{TenantID: testkit.TenantID(n), UserID: "worker-7", Duties: testkit.ScopeDuties("")})
 }
 
 func migrated(t *testing.T) (*store.Postgres, *pgxpool.Pool) {

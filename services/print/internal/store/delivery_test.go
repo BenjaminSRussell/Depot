@@ -80,11 +80,11 @@ func TestPortalDocuments_AreScopedToTheCustomerAndTheTenant(t *testing.T) {
 	if err != nil || a.ID == "" || a.AccountID != custA {
 		t.Fatalf("save: %+v %v", a, err)
 	}
-	again, err := s.SavePortalDocument(ctx, store.PortalDocument{SourceKey: "k1", AccountID: custA, DocumentType: "PERIODIC_STATEMENT", Number: "Statement 2026-11-15", Pages: 1, PDF: pdf})
+	again, err := s.SavePortalDocument(ctx, store.PortalDocument{SourceKey: "k1", AccountID: custA, LegalEntityID: leID, DocumentType: "PERIODIC_STATEMENT", Number: "Statement 2026-11-15", Pages: 1, PDF: pdf})
 	if err != nil || again.ID != a.ID {
 		t.Fatalf("the same source key saved a second document: %+v %v", again, err)
 	}
-	if _, err := s.SavePortalDocument(ctx, store.PortalDocument{SourceKey: "k2", AccountID: custB, DocumentType: "CUSTOMER_INVOICE", Number: "INV-9", Pages: 2, PDF: pdf}); err != nil {
+	if _, err := s.SavePortalDocument(ctx, store.PortalDocument{SourceKey: "k2", AccountID: custB, LegalEntityID: leID, DocumentType: "CUSTOMER_INVOICE", Number: "INV-9", Pages: 2, PDF: pdf}); err != nil {
 		t.Fatal(err)
 	}
 	list, err := s.ListPortalDocuments(ctx, custA, 0)

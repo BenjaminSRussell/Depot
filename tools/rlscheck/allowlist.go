@@ -50,6 +50,12 @@ var allowlist = map[string]string{
 	"ops.ops_clone_schedule:" + problemNoTenantID:           "permanent: platform control-plane state, not tenant data; keyed by source_tenant, reached only by the ops.* operator duties (0009_ops_part4, #50)",
 	"ops.ops_clone_run:" + problemNotForced:                 "permanent: platform control-plane state, not tenant data; no tenant column, reached only by the ops.* operator duties (0009_ops_part4, #50)",
 	"ops.ops_clone_run:" + problemNoTenantID:                "permanent: platform control-plane state, not tenant data; no tenant column, reached only by the ops.* operator duties (0009_ops_part4, #50)",
+	// prediction-py (#47) sets only passage.tenant_id: the sync jobs run as the prediction-sync principal one legal entity at a time
+	// (each receivables read is signed for that entity), and the only user read by legal entity, GET /v1/predictions/payment/dso,
+	// checks X-Passage-Legal-Entity against the asked entity and answers 404 outside it. A restrictive policy needs the Python
+	// repository to set passage.legal_entity_scopes from the caller first.
+	"prediction-py.payment_prediction:" + problemNoEntityPol: "until prediction-py sets passage.legal_entity_scopes: legal-entity scope is checked in the service (sync per entity, DSO route 404 outside the caller's scope) (0002_sync_dso, #47)",
+	"prediction-py.prediction_sync:" + problemNoEntityPol:    "until prediction-py sets passage.legal_entity_scopes: sync watermarks per entity, written and read only by the prediction-sync jobs (0002_sync_dso, #47)",
 	// A consolidation group spans legal entities by design: the group's units, ownership chain and consolidated trial balance are read
 	// whole by the consolidation duties, and hiding a unit outside the caller's scope would give a wrong consolidated result, not a smaller one.
 	"consolidation.consolidation_unit:" + problemNoEntityPol: "permanent: group-level master data; a consolidation group spans legal entities and is read whole by the consolidation duties (0003_groups, #40)",

@@ -88,7 +88,7 @@ func (f *fixture) runner(owner string) *statements.Runner {
 func setup(t *testing.T, rules ...domain.OutputRule) *fixture {
 	t.Helper()
 	admin, app := testkit.DBWithApp(t)
-	ctx := tenant.With(context.Background(), tenant.Principal{TenantID: testkit.TenantID(1), UserID: "admin-1"})
+	ctx := tenant.With(context.Background(), tenant.Principal{TenantID: testkit.TenantID(1), UserID: "admin-1", Duties: testkit.ScopeDuties("")})
 	if err := dbx.Migrate(ctx, admin, migrations.FS); err != nil {
 		t.Fatal(err)
 	}

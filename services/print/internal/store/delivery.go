@@ -347,7 +347,12 @@ func (s *Postgres) DeleteSchedule(ctx context.Context, id string) error {
 func (s *Postgres) ClaimDueSchedules(ctx context.Context, today time.Time, owner string, lease time.Duration, limit int) ([]domain.StatementSchedule, error) {
 	p, _ := tenant.FromContext(ctx)
 	out := []domain.StatementSchedule{}
-	err := dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
+	// The runner claims due schedules across every legal entity of the tenant (each run then acts within its schedule's
+	// legal entity), so this one statement reads past the legal-entity policy.
+	err := pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
+		if _, err := tx.Exec(ctx, `select set_config('passage.tenant_id', $1, true), set_config('passage.legal_entity_scopes', '*', true)`, p.TenantID); err != nil {
+			return err
+		}
 		rows, err := tx.Query(ctx, `update print_statement_schedule set claimed_by = $3, claimed_until = now() + $4::interval
 			where tenant_id = $1 and id in (
 			  select id from print_statement_schedule
