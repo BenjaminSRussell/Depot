@@ -1,8 +1,9 @@
 // Command transport serves the wave-34 transportation API: rate cards, rate
 // shopping, freight bills, carrier invoices, tenders, tracking, landed-cost voyages,
 // loads, the gate, screening holds, route optimization and load plans.
-// TMS_OPTIMIZER_URL points at services/routing-py; TMS_RATING_CACHE_MIN sets the
-// rate-shop cache window.
+// ROUTING_PY_URL points at services/routing-py (the peer-URL name passage-server sets;
+// TMS_OPTIMIZER_URL is the deprecated older name and is still read); TMS_RATING_CACHE_MIN
+// sets the rate-shop cache window.
 package main
 
 import (
@@ -73,7 +74,7 @@ func run(ctx context.Context, getenv func(string) string) error {
 		return err
 	}
 	a := api.New(store.New(pool))
-	if u := getenv("TMS_OPTIMIZER_URL"); u != "" {
+	if u := optimizerURL(getenv, slog.Default()); u != "" {
 		a.WithOptimizer(optimizer.New(u, nil))
 	}
 	if v := getenv("TMS_RATING_CACHE_MIN"); v != "" {
@@ -101,4 +102,17 @@ func addr(getenv func(string) string, key, fallback string) string {
 		return v
 	}
 	return fallback
+}
+
+// optimizerURL is the routing-py base URL: ROUTING_PY_URL, the name every deployment style uses for a peer service, else the
+// deprecated TMS_OPTIMIZER_URL (logged as deprecated). ROUTING_PY_URL wins when both are set.
+func optimizerURL(getenv func(string) string, log *slog.Logger) string {
+	if u := getenv("ROUTING_PY_URL"); u != "" {
+		return u
+	}
+	if u := getenv("TMS_OPTIMIZER_URL"); u != "" {
+		log.Warn("TMS_OPTIMIZER_URL is deprecated; set ROUTING_PY_URL instead", "variable", "TMS_OPTIMIZER_URL")
+		return u
+	}
+	return ""
 }

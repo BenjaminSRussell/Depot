@@ -22,6 +22,8 @@ type Process struct {
 	AdminPort int
 	// ReadyPath is the readiness path probed on AdminPort; empty means /readyz.
 	ReadyPath string
+	// ForwardAuthorization: the gateway passes the caller's verified bearer token to this service.
+	ForwardAuthorization bool
 }
 
 // Handle is a running child.
