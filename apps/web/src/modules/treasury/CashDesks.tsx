@@ -1,7 +1,7 @@
 import { useRef, useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { EntityLookup } from "../../shell/lookup/EntityLookup";
-import { EntityName } from "../../shell/lookup/EntityName";
+import { UserName } from "../../shell/lookup/UserName";
 import { Alert, Button, buttonClassName, Card, DataTable, EmptyState, FormField, Input, PageHeader, Select, Skeleton, StatusPill, type DataTableColumn } from "../../shell/ui";
 import {
   addCashDeskEntry,
@@ -32,11 +32,6 @@ import { CURRENCY, DAY, money, SIGNED_DECIMAL, today, UUID } from "./format";
 import { CommandFailure, Detail, keepKeyAfter, LoadFailure } from "./parts";
 import styles from "./pages.module.css";
 import { useLoad } from "./useLoad";
-
-/** A user id shown as the user's name (the shell user lookup), never as the id. */
-function UserName({ id }: { id: string }) {
-  return <EntityName entity="user" id={id} fallback="A user who is no longer listed" />;
-}
 
 type Errors = Record<string, string>;
 

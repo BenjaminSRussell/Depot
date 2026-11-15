@@ -1,6 +1,7 @@
 // Shop floor time and attendance (/api/v1/shopfloor) for the demo: workers, registrations, worker-days and their
 // approval, supervisor corrections, auto clock-outs, who is clocked in and the payroll export. The workers are the
 // hourly staff of hr/people.ts, so the HR screens and the time screens name the same people.
+import { byUsername, ME } from "../finance/people";
 import type {
   AbsenceCode,
   ApprovedDay,
@@ -34,7 +35,8 @@ const KIND_AGREEMENT = 238;
 const KIND_ABSENCE_CODE = 239;
 const HOUR = 3_600_000;
 const SUPERVISOR = "Tom Brennan";
-const PAYROLL = "Rachel Osei";
+// Created by user ids: the pages resolve them to names through the user lookup.
+const PAYROLL = byUsername("rita.alvarez").id;
 
 // --- Setup: time profiles, pay agreements, absence codes ---
 
@@ -101,7 +103,7 @@ route("POST", `${BASE}/workers/{id}/cost-rates`, (req) => {
   const w = workers.get(req.params.id);
   if (!w) return reply.problem(404, "SF-0404", "Worker not found.");
   const body = req.body as { effectiveFrom: string; costRate: string; note: string | null };
-  return reply.created({ id: crypto.randomUUID(), workerId: w.id, effectiveFrom: body.effectiveFrom, costRate: body.costRate, note: body.note, createdBy: "Jordan Avery", createdAt: at(0) } satisfies CostRate);
+  return reply.created({ id: crypto.randomUUID(), workerId: w.id, effectiveFrom: body.effectiveFrom, costRate: body.costRate, note: body.note, createdBy: ME.id, createdAt: at(0) } satisfies CostRate);
 });
 route("GET", `${BASE}/workers/{id}`, (req) => workers.get(req.params.id) ?? reply.problem(404, "SF-0404", "Worker not found."));
 for (const command of ["assign-setup", "assign-resource", "deactivate", "reactivate"]) {
@@ -492,7 +494,7 @@ route("GET", `${BASE}/pay-exports/{id}`, (req) => {
 });
 route("POST", `${BASE}/pay:export`, (req) => {
   const { from = day(-6), to = day(0) } = rangeOf(req.body);
-  const batch = exportRange(from, to, "Jordan Avery", at(0));
+  const batch = exportRange(from, to, ME.id, at(0));
   if (!batch) return reply.problem(409, "SF-0140", "No approved pay lines in the range are waiting for export.");
   const { id: _id, ...out } = batch;
   return reply.created((void _id, out));
