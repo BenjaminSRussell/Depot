@@ -76,6 +76,7 @@ func (a *API) Register(r chi.Router) {
 		r.With(authz.RequireDuty(dutyView)).Get("/payments/{ref}", a.getPayment)
 		// Custom methods (:apply, :match) share one route because chi does not
 		// match a literal ':' after a path parameter; paymentAction dispatches.
+		r.With(authz.RequireDuty(dutyView)).Get("/payments/{ref}/settlements", a.listPaymentSettlements)
 		r.Post("/payments/{ref}", a.paymentAction)
 		a.collectionsRoutes(r)
 		a.dunningRoutes(r)

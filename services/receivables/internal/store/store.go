@@ -252,6 +252,10 @@ type Store interface {
 	ReversePayment(ctx context.Context, id string, version int) (Payment, error)
 	// UnapplyPayment reverses every live application of a payment (#30).
 	UnapplyPayment(ctx context.Context, id string, version int, reason string) (UnapplyResult, error)
+	UnapplySettlement(ctx context.Context, paymentID, settlementID string, version int, reason string) (UnapplyResult, error)
+	ReverseCreditSettlement(ctx context.Context, batchID, reason string) (CreditReversalResult, error)
+	ListPaymentSettlements(ctx context.Context, paymentID string) ([]PaymentSettlement, error)
+	ListCreditSettlements(ctx context.Context, f CreditSettlementFilter, limit int) ([]CreditSettlementBatch, error)
 	Ping(ctx context.Context) error
 }
 

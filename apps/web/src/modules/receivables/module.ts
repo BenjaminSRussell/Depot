@@ -3,6 +3,7 @@ import type { PassageModule } from "../registry";
 import { BankStatementImportPage, BankStatementsPage } from "./BankStatements";
 import { CaseDetailPage, CasesPage, NewCasePage } from "./Cases";
 import { ConfirmationRunDetailPage, ConfirmationRunsPage, NewConfirmationRunPage } from "./Confirmations";
+import { CreditSettlementsPage } from "./CreditSettlements";
 import { DeductionDetailPage, DeductionsPage, NewDeductionPage } from "./Deductions";
 import { DisputeDetailPage, DisputesPage, NewDisputePage } from "./Disputes";
 import { DownPaymentDetailPage, DownPaymentsPage, NewDownPaymentPage } from "./DownPayments";
@@ -64,6 +65,7 @@ const receivables: PassageModule = {
     { path: "/receivables/deductions", element: createElement(DeductionsPage), handle: { title: "Deductions" } },
     { path: "/receivables/deductions/new", element: createElement(NewDeductionPage), handle: { title: "Record deduction" } },
     { path: "/receivables/deductions/:id", element: createElement(DeductionDetailPage), handle: { title: "Deduction" } },
+    { path: "/receivables/credit-settlements", element: createElement(CreditSettlementsPage), handle: { title: "Credit settlements" } },
     { path: "/receivables/statements", element: createElement(StatementPage), handle: { title: "Customer statement" } },
     { path: "/receivables/balance-snapshots", element: createElement(BalanceSnapshotsPage), handle: { title: "Balance snapshots" } },
   ],
@@ -85,6 +87,7 @@ const receivables: PassageModule = {
     { label: "Balance confirmations", to: "/receivables/balance-confirmations", duty: "receivables.view" },
     { label: "Down payments", to: "/receivables/down-payments", duty: "receivables.view" },
     { label: "Deductions", to: "/receivables/deductions", duty: "receivables.view" },
+    { label: "Credit settlements", to: "/receivables/credit-settlements", duty: "receivables.view" },
     { label: "Customer statements", to: "/receivables/statements", duty: "receivables.view" },
     { label: "Balance snapshots", to: "/receivables/balance-snapshots", duty: "receivables.view" },
     { label: "Ledger journals", to: "/receivables/gl-journals", duty: "receivables.view" },

@@ -1176,9 +1176,74 @@ export interface UnapplyResult {
   reversed: UnappliedSettlement[];
 }
 
-/** POST /payments/{id}:unapply - reverses every live application of a payment: its items open again by what it took off them. */
-export function unapplyPayment(id: string, version: number, reason: string): Promise<UnapplyResult> {
-  return send<UnapplyResult>(`/payments/${id}:unapply`, { method: "POST", headers: { "If-Match": `"${version}"` }, body: JSON.stringify(reason ? { reason } : {}) });
+/** POST /payments/{id}:unapply - reverses every live application of a payment (or only `settlementId`): its items open again by what it took off them. */
+export function unapplyPayment(id: string, version: number, reason: string, settlementId?: string): Promise<UnapplyResult> {
+  const body: { reason?: string; settlementId?: string } = {};
+  if (reason) body.reason = reason;
+  if (settlementId) body.settlementId = settlementId;
+  return send<UnapplyResult>(`/payments/${id}:unapply`, { method: "POST", headers: { "If-Match": `"${version}"` }, body: JSON.stringify(body) });
+}
+
+export interface PaymentSettlement {
+  id: string;
+  openItemId: string;
+  documentNumber: string;
+  amount: string;
+  cashDiscount: string;
+  writeOff: string;
+  itemCurrency?: string;
+  itemAmount?: string;
+  realizedFx?: string;
+  settledAt: string;
+  reversed: boolean;
+}
+
+/** GET /payments/{id}/settlements - the applications of a payment, with the ids a single unapply names. */
+export function listPaymentSettlements(id: string, signal?: AbortSignal): Promise<PaymentSettlement[]> {
+  return items<PaymentSettlement>(`/payments/${id}/settlements`, signal);
+}
+
+export interface CreditSettlementDebit {
+  openItemId: string;
+  documentNumber: string;
+  amount: string;
+  itemCurrency?: string;
+  itemAmount?: string;
+  realizedFx?: string;
+}
+
+export interface CreditSettlementBatch {
+  batchId: string;
+  legalEntityId: string;
+  customerId: string;
+  currency: string;
+  creditItemId: string;
+  creditDocument: string;
+  total: string;
+  settledAt: string;
+  reversed: boolean;
+  debits: CreditSettlementDebit[];
+}
+
+/** GET /credit-settlements - credit notes and other credits applied to invoices, newest first. */
+export function listCreditSettlements(filter: { customer?: string } = {}, signal?: AbortSignal): Promise<CreditSettlementBatch[]> {
+  return items<CreditSettlementBatch>(`/credit-settlements${query({ customerId: filter.customer })}`, signal);
+}
+
+export interface CreditSettlementReversal {
+  batchId: string;
+  reversalBatchId: string;
+  creditItemId: string;
+  creditOpenAfter: string;
+  creditStatus: string;
+  total: string;
+  realizedFx: string;
+  reopened: { openItemId: string; documentNumber: string; amount: string; openAfter: string; itemStatus: string }[];
+}
+
+/** POST /credit-settlements/{batchId}:reverse - gives the credit and the debits back what the settlement took off them; realized FX reverses with it. */
+export function reverseCreditSettlement(batchId: string, reason: string): Promise<CreditSettlementReversal> {
+  return send<CreditSettlementReversal>(`/credit-settlements/${batchId}:reverse`, { method: "POST", body: JSON.stringify(reason ? { reason } : {}) });
 }
 
 /** POST /payments/{id}:reverse - undoes the cash receipt of a payment that was never applied. */

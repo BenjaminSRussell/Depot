@@ -89,6 +89,9 @@
       {"resource": "/v1/fx/rates{,/**}", "methods": ["GET", "POST"]}
     ]},
     "fx.rate.administer": {"permissions": [{"resource": "/v1/fx/providers/*:import", "methods": ["POST"]}]},
+    "pricing.price.resolve": {"service_only": true, "permissions": [
+      {"resource": "/v1/pricing/resolve", "methods": ["POST"]}
+    ]},
     "pricing.contract.accrue": {"service_only": true, "permissions": [
       {"resource": "/v1/pricing/broker-contracts/*/accruals", "methods": ["POST"]},
       {"resource": "/v1/pricing/royalty-agreements/*/accruals", "methods": ["POST"]}
@@ -1058,7 +1061,7 @@
     "receivables.aging.run": {"permissions": [{"resource": "/v1/receivables/aging-snapshots", "methods": ["POST"]}]},
     "receivables.bankaccount.manage": {"permissions": [{"resource": "/v1/receivables/bank-accounts", "methods": ["PUT", "DELETE"]}]},
     "receivables.fxsetting.manage": {"permissions": [{"resource": "/v1/receivables/fx-settings", "methods": ["PUT"]}]},
-    "receivables.payment.reverse": {"permissions": [{"resource": "/v1/receivables/payments/*:reverse", "methods": ["POST"]}, {"resource": "/v1/receivables/payments/*:unapply", "methods": ["POST"]}]},
+    "receivables.payment.reverse": {"permissions": [{"resource": "/v1/receivables/payments/*:reverse", "methods": ["POST"]}, {"resource": "/v1/receivables/payments/*:unapply", "methods": ["POST"]}, {"resource": "/v1/receivables/credit-settlements/*:reverse", "methods": ["POST"]}]},
     "receivables.payment-file.import": {"permissions": [
       {"resource": "/v1/receivables/bank-statements/imports", "methods": ["POST"]},
       {"resource": "/v1/receivables/lockbox/imports", "methods": ["POST"]}
@@ -1109,6 +1112,8 @@
       {"resource": "/v1/receivables/open-items", "methods": ["GET"]},
       {"resource": "/v1/receivables/payments", "methods": ["GET"]},
       {"resource": "/v1/receivables/payments/*", "methods": ["GET"]},
+      {"resource": "/v1/receivables/payments/*/settlements", "methods": ["GET"]},
+      {"resource": "/v1/receivables/credit-settlements", "methods": ["GET"]},
       {"resource": "/v1/receivables/promises", "methods": ["GET"]},
       {"resource": "/v1/receivables/rma-credits", "methods": ["GET"]},
       {"resource": "/v1/receivables/gl-journals", "methods": ["GET"]},
@@ -4099,7 +4104,8 @@
       "fulfillment": ["fulfillment.packing-slip.read"],
       "inventory": ["inventory.read", "inventory.return-receipt.post"],
       "receivables": ["ar.rmacredit.post", "ar.rmacredit.backfill"],
-      "party": ["party.read"]
+      "party": ["party.read"],
+      "pricing": ["pricing.price.resolve"]
     },
     "receivables": {
       "ledger": ["ledger.entry.post", "ledger.ledger.lookup"],

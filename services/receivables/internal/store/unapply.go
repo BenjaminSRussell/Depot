@@ -50,6 +50,21 @@ type liveSettlement struct {
 // in the functional currency. An item that was settled by something else since (another payment, a credit) is reopened only by this
 // payment's part. payment.unapplied.v1 is published. The cash receipt itself stays; POST :reverse undoes it afterwards.
 func (s *Postgres) UnapplyPayment(ctx context.Context, id string, version int, reason string) (UnapplyResult, error) {
+	return s.unapply(ctx, id, version, reason, "")
+}
+
+// UnapplySettlement reverses one settlement of a payment and leaves the payment's other applications standing (#30): the same reversal
+// row, item reopening, journals and event as UnapplyPayment, for that settlement alone. The payment keeps ON_ACCOUNT while another
+// application stands and goes back to RECEIVED when none does. A settlement already reversed, or one that belongs to another
+// payment, is refused (409 AR-PAYMENT-STATE, 404 AR-SETTLEMENT-NOT-FOUND).
+func (s *Postgres) UnapplySettlement(ctx context.Context, paymentID, settlementID string, version int, reason string) (UnapplyResult, error) {
+	return s.unapply(ctx, paymentID, version, reason, settlementID)
+}
+
+// CodeSettlementNotFound: the payment has no such settlement.
+const CodeSettlementNotFound = "AR-SETTLEMENT-NOT-FOUND"
+
+func (s *Postgres) unapply(ctx context.Context, id string, version int, reason, onlySettlement string) (UnapplyResult, error) {
 	p, _ := tenant.FromContext(ctx)
 	var out UnapplyResult
 	err := dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
@@ -64,8 +79,9 @@ func (s *Postgres) UnapplyPayment(ctx context.Context, id string, version int, r
 				s.item_currency::text, coalesce(s.item_amount, s.settled_amount + s.cash_discount_taken + s.write_off_amount)::text, s.fx_gain_loss::text,
 				s.item_amount is not null
 			from settlement s where s.tenant_id = $1 and s.payment_id = $2 and s.reversal_of_id is null
+			  and ($3::text = '' or s.id::text = $3::text)
 			  and not exists (select 1 from settlement r where r.tenant_id = s.tenant_id and r.reversal_of_id = s.id)
-			order by s.settled_at, s.id`, p.TenantID, pay.ID)
+			order by s.settled_at, s.id`, p.TenantID, pay.ID, onlySettlement)
 		if err != nil {
 			return err
 		}
@@ -84,6 +100,15 @@ func (s *Postgres) UnapplyPayment(ctx context.Context, id string, version int, r
 		rows.Close()
 		if err := rows.Err(); err != nil {
 			return err
+		}
+		if len(live) == 0 && onlySettlement != "" {
+			var known, reversed bool
+			if err := tx.QueryRow(ctx, `select true, exists (select 1 from settlement r where r.tenant_id = $1 and r.reversal_of_id = s.id)
+				from settlement s where s.tenant_id = $1 and s.payment_id = $2 and s.id::text = $3 and s.reversal_of_id is null`,
+				p.TenantID, pay.ID, onlySettlement).Scan(&known, &reversed); err != nil || !known {
+				return httpx.NewProblem(http.StatusNotFound, CodeSettlementNotFound, "settlement not found on this payment")
+			}
+			return httpx.NewProblem(http.StatusConflict, CodePaymentState, "the settlement is already reversed")
 		}
 		if len(live) == 0 {
 			return httpx.NewProblem(http.StatusConflict, CodePaymentState, "the payment has no application to reverse (status "+pay.Status+")")
@@ -133,8 +158,17 @@ func (s *Postgres) UnapplyPayment(ctx context.Context, id string, version int, r
 			}
 			settled = append(settled, sd)
 		}
-		pay, err = scanPayment(tx.QueryRow(ctx, `update payment set unapplied_amount = unapplied_amount + $3::numeric, status = 'RECEIVED', version = version + 1
-			where tenant_id = $1 and id = $2 returning `+paymentColumns, p.TenantID, pay.ID, cash.String()))
+		var standing int
+		if err := tx.QueryRow(ctx, `select count(*) from settlement s where s.tenant_id = $1 and s.payment_id = $2 and s.reversal_of_id is null
+			and not exists (select 1 from settlement r where r.tenant_id = s.tenant_id and r.reversal_of_id = s.id)`, p.TenantID, pay.ID).Scan(&standing); err != nil {
+			return err
+		}
+		status := "RECEIVED"
+		if standing > 0 {
+			status = "ON_ACCOUNT"
+		}
+		pay, err = scanPayment(tx.QueryRow(ctx, `update payment set unapplied_amount = unapplied_amount + $3::numeric, status = $4, version = version + 1
+			where tenant_id = $1 and id = $2 returning `+paymentColumns, p.TenantID, pay.ID, cash.String(), status))
 		if err != nil {
 			return err
 		}

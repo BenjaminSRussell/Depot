@@ -29,15 +29,17 @@ const (
 	dutyView = "pricing.view"
 	// dutySalesOrderWrite is sales' order entry duty; it resolves a line's price to prefill the order form.
 	dutySalesOrderWrite = "sales.order.write"
-	dutyMaintain        = "pricing.maintain"
-	resolvePath         = "/v1/pricing/resolve"
-	simulatePath        = "/v1/pricing/simulate"
-	comparePath         = "/v1/pricing/compare"
-	recordsPath         = "/v1/pricing/condition-records"
-	recordsExportPath   = "/v1/pricing/condition-records:export"
-	idempotencyKey      = "Idempotency-Key"
-	dateLayout          = "2006-01-02"
-	validationDetail    = "request is invalid"
+	// dutyPriceResolve is the service-only duty sales holds on pricing to price a customer-portal order line (#30).
+	dutyPriceResolve  = "pricing.price.resolve"
+	dutyMaintain      = "pricing.maintain"
+	resolvePath       = "/v1/pricing/resolve"
+	simulatePath      = "/v1/pricing/simulate"
+	comparePath       = "/v1/pricing/compare"
+	recordsPath       = "/v1/pricing/condition-records"
+	recordsExportPath = "/v1/pricing/condition-records:export"
+	idempotencyKey    = "Idempotency-Key"
+	dateLayout        = "2006-01-02"
+	validationDetail  = "request is invalid"
 	// DefaultMaxLines and DefaultExplainMaxBytes match PRICING_MAX_LINES and PRICING_EXPLAIN_MAX_BYTES.
 	DefaultMaxLines        = 500
 	DefaultExplainMaxBytes = 65536
@@ -89,7 +91,7 @@ func New(s store.Store, cfg Config) *API {
 func (a *API) Register(r chi.Router) {
 	r.Get("/readyz", a.ready)
 	// Sales order entry prefills each line's unit price from resolve, so the order clerk's duty prices too.
-	r.With(authz.RequireAnyDuty(dutyView, dutySalesOrderWrite)).Post(resolvePath, a.resolve)
+	r.With(authz.RequireAnyDuty(dutyView, dutySalesOrderWrite, dutyPriceResolve)).Post(resolvePath, a.resolve)
 	r.With(authz.RequireDuty(dutyView)).Post(simulatePath, a.simulate)
 	r.With(authz.RequireDuty(dutyView)).Post(comparePath, a.compare)
 	r.With(authz.RequireDuty(dutyView)).Get(priceListPath, a.priceList)

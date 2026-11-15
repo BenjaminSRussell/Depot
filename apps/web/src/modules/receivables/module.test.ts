@@ -58,6 +58,7 @@ describe("receivables module", () => {
       "/receivables/deductions",
       "/receivables/deductions/new",
       "/receivables/deductions/:id",
+      "/receivables/credit-settlements",
       "/receivables/statements",
       "/receivables/balance-snapshots",
     ]);
