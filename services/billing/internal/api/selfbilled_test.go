@@ -191,3 +191,27 @@ func TestSelfBilledNumber_IsInTheCustomersOwnNamespace(t *testing.T) {
 		t.Fatalf("%s %s", a, b)
 	}
 }
+
+// #35: a line that names its sales order and order line keeps them on the invoice line, so the invoice.posted event and the report to sales
+// tell sales which order line was invoiced; a malformed id is refused.
+func TestSelfBilled_LinesKeepTheirSalesOrderReferences(t *testing.T) {
+	s := newFakeStore()
+	h := selfBilledAPI(t, s, &fakePeriods{})
+	selfBilledAgreement(t, h)
+	const orderID, lineID, productID = "0190a5f2-7b1c-7d3e-8a4f-0000000000a1", "0190a5f2-7b1c-7d3e-8a4f-0000000000a2", "0190a5f2-7b1c-7d3e-8a4f-0000000000a3"
+	body := strings.Replace(selfBilledBody("SB-2027-0009", "15.20"), `"taxCode":"VAT19"}`, `"taxCode":"VAT19","orderId":"`+orderID+`","orderLineId":"`+lineID+`","productId":"`+productID+`"}`, 1)
+	rec := doAs(h, http.MethodPost, pathSelfBilled, "", body, selfBilledDuty, nil)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("post: %d %s", rec.Code, rec.Body)
+	}
+	var out invoiceDTO
+	decode(t, rec, &out)
+	src := s.invoices[out.ID].Lines[0].Source
+	if src.OrderID != orderID || src.OrderLineID != lineID || src.ProductID != productID {
+		t.Fatalf("line source %+v", src)
+	}
+	bad := strings.Replace(selfBilledBody("SB-2027-0010", "15.20"), `"taxCode":"VAT19"}`, `"taxCode":"VAT19","orderLineId":"ol-1"}`, 1)
+	if rec := doAs(h, http.MethodPost, pathSelfBilled, "", bad, selfBilledDuty, nil); rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "orderLineId") {
+		t.Fatalf("malformed id: %d %s", rec.Code, rec.Body)
+	}
+}

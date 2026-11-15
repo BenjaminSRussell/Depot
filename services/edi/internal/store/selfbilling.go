@@ -103,11 +103,11 @@ func (s *Store) RegisterSelfBillShipments(ctx context.Context, partnerID, legalE
 		}
 		for _, l := range lines {
 			if _, err := tx.Exec(ctx, `insert into self_billing_shipment (tenant_id, id, partner_id, legal_entity_id, delivery_note, po_line, item,
-				quantity, unit_price, tax_rate_pct, shipped_on, source_shipment_id)
-				values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, nullif($12, '')::uuid)
+				quantity, unit_price, tax_rate_pct, shipped_on, source_shipment_id, order_id, order_line_id)
+				values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, nullif($12, '')::uuid, nullif($13, ''), nullif($14, ''))
 				on conflict (tenant_id, partner_id, delivery_note, po_line, item) do nothing`,
 				tid, ids.New(), partnerID, legalEntityID, l.DeliveryNote, l.POLine, l.Item, l.Quantity, l.UnitPrice, cfg.TaxRatePct,
-				l.ShippedOn.Format("2006-01-02"), l.ShipmentID); err != nil {
+				l.ShippedOn.Format("2006-01-02"), l.ShipmentID, l.OrderID, l.OrderLineID); err != nil {
 				return err
 			}
 		}
@@ -549,13 +549,18 @@ type SelfBillPostLine struct {
 	Quantity     decimal.Decimal
 	UnitPrice    decimal.Decimal
 	Tax          decimal.Decimal
+	// OrderID and OrderLineID are the sales order and order line of the shipment the line matched (empty for a shipment registered before
+	// they were kept, or a line that matched none).
+	OrderID     string
+	OrderLineID string
 }
 
-// PendingSelfBillPosts lists the documents that matched in full and have no legal invoice yet, oldest first, at most limit.
+// PendingSelfBillPosts lists the documents that have no legal invoice yet and are ready for one, oldest first, at most limit: the ones that
+// matched in full, and the ones a dispute held until every dispute of them was decided (RESOLVED).
 func (s *Store) PendingSelfBillPosts(ctx context.Context, limit int) ([]string, error) {
 	var out []string
 	err := dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
-		rows, err := tx.Query(ctx, `select id::text from self_billing_document where status = 'MATCHED' and billed_at is null and post_parked_at is null and (next_post_at is null or next_post_at <= now())
+		rows, err := tx.Query(ctx, `select id::text from self_billing_document where status in ('MATCHED', 'RESOLVED') and billed_at is null and post_parked_at is null and (next_post_at is null or next_post_at <= now())
 			order by next_post_at nulls first, created_at, id limit $1`, limit)
 		if err != nil {
 			return err
@@ -573,14 +578,16 @@ func (s *Store) PendingSelfBillPosts(ctx context.Context, limit int) ([]string, 
 	return out, err
 }
 
-// GetSelfBillPost reads a matched, unposted document for posting; ErrNotFound when it is not that (already posted, disputed, unknown).
+// GetSelfBillPost reads a matched or resolved, unposted document for posting; ErrNotFound when it is not that (already posted, still disputed,
+// unknown). A resolved document lists the lines that matched and the lines whose dispute was ACCEPTED (the customer's figures stand); a line whose
+// dispute was REJECTED keeps our figures and is left out, the correction being the customer's to send as a new document.
 func (s *Store) GetSelfBillPost(ctx context.Context, documentID string) (SelfBillPost, error) {
 	var p SelfBillPost
 	err := dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
 		var currency *string
 		err := tx.QueryRow(ctx, `select d.id::text, d.partner_id::text, d.legal_entity_id::text, p.customer_id::text, d.number, d.document_date, d.currency
 			from self_billing_document d join partner_trade_profile p on p.tenant_id = d.tenant_id and p.partner_id = d.partner_id
-			where d.id = $1 and d.status = 'MATCHED' and d.billed_at is null`, documentID).
+			where d.id = $1 and d.status in ('MATCHED', 'RESOLVED') and d.billed_at is null`, documentID).
 			Scan(&p.DocumentID, &p.PartnerID, &p.LegalEntityID, &p.CustomerID, &p.Number, &p.DocumentDate, &currency)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrNotFound
@@ -591,14 +598,18 @@ func (s *Store) GetSelfBillPost(ctx context.Context, documentID string) (SelfBil
 		if currency != nil {
 			p.Currency = *currency
 		}
-		rows, err := tx.Query(ctx, `select line, delivery_note, item, quantity, unit_price, coalesce(tax, 0) from self_billing_line where document_id = $1 order by line`, documentID)
+		rows, err := tx.Query(ctx, `select l.line, l.delivery_note, l.item, l.quantity, l.unit_price, coalesce(l.tax, 0), coalesce(sh.order_id, ''), coalesce(sh.order_line_id, '')
+			from self_billing_line l left join self_billing_shipment sh on sh.tenant_id = l.tenant_id and sh.id = l.shipment_id
+			where l.document_id = $1 and (l.outcome = 'MATCHED' or exists (select 1 from self_billing_dispute x where x.tenant_id = l.tenant_id and x.document_id = l.document_id
+				and x.line = l.line and x.status = 'ACCEPTED'))
+			order by l.line`, documentID)
 		if err != nil {
 			return err
 		}
 		defer rows.Close()
 		for rows.Next() {
 			var l SelfBillPostLine
-			if err := rows.Scan(&l.Line, &l.DeliveryNote, &l.Item, &l.Quantity, &l.UnitPrice, &l.Tax); err != nil {
+			if err := rows.Scan(&l.Line, &l.DeliveryNote, &l.Item, &l.Quantity, &l.UnitPrice, &l.Tax, &l.OrderID, &l.OrderLineID); err != nil {
 				return err
 			}
 			p.Lines = append(p.Lines, l)
@@ -660,7 +671,7 @@ func (s *Store) MarkSelfBillPostFailed(ctx context.Context, documentID, reason s
 func (s *Store) ResetSelfBillPosts(ctx context.Context, partnerID string) error {
 	return dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
 		_, err := tx.Exec(ctx, `update self_billing_document set post_attempts = 0, next_post_at = null, post_parked_at = null
-			where partner_id = $1 and status = 'MATCHED' and billed_at is null`, partnerID)
+			where partner_id = $1 and status in ('MATCHED', 'RESOLVED') and billed_at is null`, partnerID)
 		return err
 	})
 }
