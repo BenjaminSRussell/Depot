@@ -16,6 +16,9 @@ spec:
     spec:
       securityContext:
         runAsNonRoot: true
+        {{- if .Values.serviceIdentity.signingKeySecret }}
+        fsGroup: 65532
+        {{- end }}
         seccompProfile:
           type: RuntimeDefault
       containers:
@@ -42,6 +45,35 @@ spec:
               value: {{ .Values.jobRetentionDays | quote }}
             - name: PRINT_PURGE_TENANT_IDS
               value: {{ join "," .Values.purgeTenantIds | quote }}
+            {{- if .Values.serviceIdentity.signingKeySecret }}
+            - name: PASSAGE_SERVICE_NAME
+              value: print
+            - name: PASSAGE_SERVICE_SIGNING_KEY_FILE
+              value: /var/run/passage/service-identity/signing-key
+            {{- if .Values.serviceIdentity.keyId }}
+            - name: PASSAGE_SERVICE_KEY_ID
+              value: {{ .Values.serviceIdentity.keyId | quote }}
+            {{- end }}
+            - name: PRINT_RECEIVABLES_URL
+              value: {{ required "sources.receivablesUrl is required with serviceIdentity.signingKeySecret" .Values.sources.receivablesUrl | quote }}
+            - name: PRINT_PARTY_URL
+              value: {{ required "sources.partyUrl is required with serviceIdentity.signingKeySecret" .Values.sources.partyUrl | quote }}
+            {{- end }}
+            {{- if .Values.smtp.addr }}
+            - name: PRINT_SMTP_ADDR
+              value: {{ .Values.smtp.addr | quote }}
+            - name: PRINT_SMTP_FROM
+              value: {{ required "smtp.from is required with smtp.addr" .Values.smtp.from | quote }}
+            - name: PRINT_SMTP_USERNAME
+              value: {{ .Values.smtp.username | quote }}
+            {{- if .Values.smtp.passwordSecret }}
+            - name: PRINT_SMTP_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.smtp.passwordSecret }}
+                  key: PRINT_SMTP_PASSWORD
+            {{- end }}
+            {{- end }}
           ports:
             - { name: http, containerPort: 8080 }
             - { name: admin, containerPort: 9090 }
@@ -55,3 +87,14 @@ spec:
             httpGet: { path: /readyz, port: http }
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
+          {{- if .Values.serviceIdentity.signingKeySecret }}
+          volumeMounts:
+            - { name: service-identity, mountPath: /var/run/passage/service-identity, readOnly: true }
+          {{- end }}
+      {{- if .Values.serviceIdentity.signingKeySecret }}
+      volumes:
+        - name: service-identity
+          secret:
+            secretName: {{ .Values.serviceIdentity.signingKeySecret }}
+            defaultMode: 0440
+      {{- end }}

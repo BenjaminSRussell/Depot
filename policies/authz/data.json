@@ -2209,7 +2209,16 @@
       {"resource": "/print/v1/document-templates/*/versions", "methods": ["GET"]},
       {"resource": "/print/v1/text-blocks", "methods": ["GET"]},
       {"resource": "/print/v1/output-rules", "methods": ["GET"]},
-      {"resource": "/print/v1/output-plan", "methods": ["GET"]}
+      {"resource": "/print/v1/output-plan", "methods": ["GET"]},
+      {"resource": "/print/v1/statement-schedules", "methods": ["GET"]},
+      {"resource": "/print/v1/statement-schedules/*/runs", "methods": ["GET"]}
+    ]},
+    "print.document.deliver": {"permissions": [
+      {"resource": "/print/v1/documents:deliver", "methods": ["POST"]}
+    ]},
+    "print.customer-portal.documents": {"service_only": true, "permissions": [
+      {"resource": "/print/v1/customer-portal/documents", "methods": ["GET"]},
+      {"resource": "/print/v1/customer-portal/documents/*/pdf", "methods": ["GET"]}
     ]},
     "print.document.render": {"permissions": [
       {"resource": "/print/v1/documents:render", "methods": ["POST"]}
@@ -2226,9 +2235,13 @@
       {"resource": "/print/v1/routing-rules/*", "methods": ["PUT", "DELETE"]},
       {"resource": "/print/v1/jobs:sweep", "methods": ["POST"]},
       {"resource": "/print/v1/document-templates/*", "methods": ["PUT"]},
+      {"resource": "/print/v1/document-templates/*/versions/*:restore", "methods": ["POST"]},
       {"resource": "/print/v1/text-blocks/*/*", "methods": ["PUT"]},
       {"resource": "/print/v1/output-rules", "methods": ["POST"]},
-      {"resource": "/print/v1/output-rules/*", "methods": ["DELETE"]}
+      {"resource": "/print/v1/output-rules/*", "methods": ["DELETE"]},
+      {"resource": "/print/v1/statement-schedules", "methods": ["POST"]},
+      {"resource": "/print/v1/statement-schedules/*", "methods": ["PATCH", "DELETE"]},
+      {"resource": "/print/v1/statement-schedules/*:run", "methods": ["POST"]}
     ]},
     "warehouse.offline-conflict.resolve": {"permissions": [
       {"resource": "/api/v1/mobile/offline/conflicts", "methods": ["GET"]},
@@ -4199,7 +4212,11 @@
       "sales": ["sales.customer-portal.read", "sales.customer-portal.order", "sales.customer-portal.return"],
       "party": ["party.customer-portal.read"],
       "identity": ["identity.customer-portal.read"],
-      "print": ["print.customer-portal.render"]
+      "print": ["print.customer-portal.render", "print.customer-portal.documents"]
+    },
+    "print": {
+      "receivables": ["receivables.view"],
+      "party": ["party.read"]
     }
   },
   "service_principals": {
@@ -4227,6 +4244,7 @@
     "revrec-creditnotes": ["revrec.creditnote.reverse", "revrec.contract.from-invoice"],
     "revrec-billing": ["billing.contract-modification.bill"],
     "payables-withholding": ["tax.withholding.record"],
+    "print-statements": ["receivables.view", "party.read"],
     "receiving-ers": ["receiving.vendor-invoice.post"],
     "scheduling-downtime": ["scheduling.downtime.apply"],
     "scheduling-order-import": ["scheduling.order.import"],

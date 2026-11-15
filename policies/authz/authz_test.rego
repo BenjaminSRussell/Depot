@@ -3352,3 +3352,35 @@ test_iccharge_consumers_hold_only_their_flag_duty if {
 	not allowed("billing.iccharge.from-event", "POST", "/v1/billing/free-text-invoices")
 	not allowed("payables.iccharge.from-event", "POST", "/v1/payables/vendor-invoice-intake")
 }
+
+# #46: restoring a template version is a save, so it needs print.admin; delivery, statement schedules and the portal's document reads.
+test_print_restore_and_delivery_duties if {
+	allowed("print.admin", "POST", "/print/v1/document-templates/INV-STD/versions/2:restore")
+	not allowed("print.job.submit", "POST", "/print/v1/document-templates/INV-STD/versions/2:restore")
+	allowed("print.document.deliver", "POST", "/print/v1/documents:deliver")
+	not allowed("print.document.render", "POST", "/print/v1/documents:deliver")
+	not allowed("print.document.deliver", "POST", "/print/v1/documents:render")
+	allowed("print.admin", "POST", "/print/v1/statement-schedules")
+	allowed("print.admin", "PATCH", "/print/v1/statement-schedules/s1")
+	allowed("print.admin", "DELETE", "/print/v1/statement-schedules/s1")
+	allowed("print.admin", "POST", "/print/v1/statement-schedules/s1:run")
+	allowed("print.job.submit", "GET", "/print/v1/statement-schedules")
+	allowed("print.job.submit", "GET", "/print/v1/statement-schedules/s1/runs")
+	not allowed("print.job.submit", "POST", "/print/v1/statement-schedules")
+	not allowed("print.job.submit", "DELETE", "/print/v1/statement-schedules/s1")
+}
+
+test_print_portal_documents_are_service_only_and_read_only if {
+	data.duties["print.customer-portal.documents"].service_only
+	data.service_grants["customer-portal"].print == ["print.customer-portal.render", "print.customer-portal.documents"]
+	allowed("print.customer-portal.documents", "GET", "/print/v1/customer-portal/documents")
+	allowed("print.customer-portal.documents", "GET", "/print/v1/customer-portal/documents/d1/pdf")
+	not allowed("print.customer-portal.documents", "POST", "/print/v1/customer-portal/documents")
+	not allowed("print.customer-portal.documents", "GET", "/print/v1/statement-schedules")
+	not allowed("print.customer-portal.render", "GET", "/print/v1/customer-portal/documents")
+}
+
+test_print_statement_runner_reads_only if {
+	data.service_grants.print == {"receivables": ["receivables.view"], "party": ["party.read"]}
+	data.service_principals["print-statements"] == ["receivables.view", "party.read"]
+}

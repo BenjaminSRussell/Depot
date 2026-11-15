@@ -308,7 +308,13 @@ var serviceGrants = map[string]map[string][]string{
 		"identity":    {"identity.customer-portal.read"},
 		// The invoice and statement PDFs: the BFF reads the document from billing or receivables (customer-scoped) and has print
 		// render the data it sends; print stores nothing and reads no business data, so the grant reaches no other customer's.
-		"print": {"print.customer-portal.render"},
+		"print": {"print.customer-portal.render", "print.customer-portal.documents"},
+	},
+	// The scheduled customer statements (#46): print reads each customer's open items from receivables and the customer's name
+	// from party, as service:print-statements, with only these two read duties.
+	"print": {
+		"receivables": {"receivables.view"},
+		"party":       {"party.read"},
 	},
 }
 

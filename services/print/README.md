@@ -158,6 +158,9 @@ export ADMIN_ADDR=:9090          # default, serves /metrics
 export PRINT_RETRY=1             # retries per printer before failover, 0-10 (default 1)
 export PRINT_JOB_RETENTION_DAYS=30  # job log retention, 1-365 (default 30)
 export PRINT_PURGE_TENANT_IDS=   # comma-separated tenant UUIDs for the daily purge (empty: off)
+export PRINT_SMTP_ADDR=          # host:port of a mail relay; empty keeps the log adapter, which sends nothing
+export PRINT_SMTP_FROM=          # sender address (required with PRINT_SMTP_ADDR); PRINT_SMTP_USERNAME / PRINT_SMTP_PASSWORD optional
+export PRINT_RECEIVABLES_URL=    # with PRINT_PARTY_URL and the service signing key: runs the scheduled statements
 go run ./cmd/print
 ```
 
@@ -231,3 +234,20 @@ The Go fonts are by Bigelow & Holmes and are distributed under a BSD-style 3-cla
 the same terms as the Go project's software. The licence text is in
 `third_party/go-fonts-LICENSE` and is copied into the container image at `/licenses`, because
 the binary and every PDF it renders contain (subsets of) the fonts.
+
+
+## Delivery and scheduled statements (#46)
+
+- `POST /print/v1/documents:deliver` renders a document (with its template and text blocks) and sends the PDF to the
+  destinations of its output plan: e-mail through the mail port (`LogMailer` by default, `SMTPMailer` when `PRINT_SMTP_ADDR` is
+  set), the customer portal (`print_portal_document`, read by the portal's BFF with the service-only
+  `print.customer-portal.documents` duty for the customer in its token) and printer queues (a PDF job). ARCHIVE and EINVOICE are
+  reported as SKIPPED with the reason. Every destination is claimed in `print_delivery` before it is tried, so the same
+  `sourceKey` never sends twice; a failed destination is tried again on the next call.
+- `/print/v1/statement-schedules` keep weekly or monthly statement runs. Each run reads the customers with a balance from
+  receivables, renders each statement with the default `PERIODIC_STATEMENT` template (or the schedule's) and delivers it by the
+  output rules, the account being the customer. The loop (`internal/statements`, every 10 minutes, tenants from
+  `PRINT_PURGE_TENANT_IDS`) leases a due schedule (`FOR UPDATE SKIP LOCKED`, 15 minutes) and claims each customer's statement
+  of a date once in `print_statement_run`, so several replicas never produce one twice.
+- `POST /print/v1/document-templates/{code}/versions/{version}:restore` saves an old version's name and layout as a new version
+  (If-Match required).

@@ -10,6 +10,15 @@ jobRetentionDays: 30
 # PRINT_PURGE_TENANT_IDS: tenants whose job log is purged daily at 01:00 UTC. Empty
 # disables the schedule; POST /print/v1/jobs:purge still works on demand.
 purgeTenantIds: []
+# Scheduled statements (#46): the runner reads open items from receivables and customer names from party under a signed service
+# grant (print -> receivables receivables.view, print -> party party.read; both charts must list print's public key). Without
+# the signing key secret and both URLs the schedules are stored but nothing runs. The runner acts only for the tenants in
+# purgeTenantIds, which is the tenant list the other scheduled jobs use.
+serviceIdentity: { signingKeySecret: "", keyId: "" }
+sources: { receivablesUrl: "", partyUrl: "" }
+# E-mail destinations of the output plan (#46). Without smtp.addr the log adapter records each message and sends nothing.
+# smtp.passwordSecret is a Secret with the key PRINT_SMTP_PASSWORD; the user name and sender address are not secret.
+smtp: { addr: "", from: "", username: "", passwordSecret: "" }
 resources:
   requests: { cpu: 50m, memory: 64Mi }
   limits: { cpu: 250m, memory: 128Mi }

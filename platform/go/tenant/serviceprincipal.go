@@ -57,7 +57,9 @@ var servicePrincipals = map[string][]string{
 	// The reporter of contract modification price changes to billing (#29): it signs POST /v1/billing/contract-modifications only.
 	"revrec-billing": {"billing.contract-modification.bill"},
 	// The reporter of the tax payment runs withheld (#13): it signs POST /v1/tax/withholding/entries only.
-	"payables-withholding":    {"tax.withholding.record"},
+	"payables-withholding": {"tax.withholding.record"},
+	// The runner of scheduled customer statements (#46): it reads open items from receivables and the customer's name from party.
+	"print-statements":        {"receivables.view", "party.read"},
 	"receiving-ers":           {"receiving.vendor-invoice.post"},
 	"scheduling-downtime":     {"scheduling.downtime.apply"},
 	"scheduling-order-import": {"scheduling.order.import"},
@@ -96,6 +98,7 @@ var servicePrincipalIssuers = map[string][]string{
 	"revrec-creditnotes":      {"revrec"},
 	"revrec-billing":          {"revrec"},
 	"payables-withholding":    {"payables"},
+	"print-statements":        {"print"},
 	"scheduling-downtime":     {"scheduling"},
 	"scheduling-order-import": {"scheduling"},
 	"shopfloor-production":    {"shopfloor"},
