@@ -19,6 +19,7 @@
     {"to": "/receivables/balance-confirmations", "module": "receivables", "label": "Balance confirmations", "area": "finance", "decision": "keep", "taskLabel": "Confirm balances with customers"},
     {"to": "/receivables/down-payments", "module": "receivables", "label": "Down payments", "area": "finance", "decision": "keep", "taskLabel": "Customer down payments"},
     {"to": "/receivables/deductions", "module": "receivables", "label": "Deductions", "area": "finance", "decision": "keep", "taskLabel": "Customer deductions"},
+    {"to": "/receivables/credit-settlements", "module": "receivables", "label": "Credit settlements", "area": "finance", "decision": "advanced"},
     {"to": "/receivables/statements", "module": "receivables", "label": "Customer statements", "area": "finance", "decision": "keep", "taskLabel": "Send customer statements"},
     {"to": "/receivables/balance-snapshots", "module": "receivables", "label": "Balance snapshots", "area": "finance", "decision": "advanced"},
     {"to": "/receivables/gl-journals", "module": "receivables", "label": "Ledger journals", "area": "finance", "decision": "keep", "taskLabel": "Check journals posted to the ledger"},
