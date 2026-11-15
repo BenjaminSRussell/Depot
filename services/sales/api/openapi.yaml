@@ -3178,7 +3178,7 @@ paths:
                         lastOrderedAt: { type: string, format: date-time }
                   listed:
                     type: array
-                    description: With `PRICING_URL` set, the products the customer's or its group's listings allow that it has not bought (no price: the order prices them, in a unit the customer names), at most 100.
+                    description: 'With `PRICING_URL` set, the products the customer''s or its group''s listings allow that it has not bought (no price: the order prices them, in a unit the customer names), at most 100.'
                     items:
                       type: object
                       properties:
