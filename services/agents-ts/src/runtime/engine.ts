@@ -93,11 +93,23 @@ export interface RiskAssessment {
    * under a limit (9.47.12 prompt-injection risk).
    */
   amount?: Money;
+  /** 0 to 1: the payment prediction's chance (p_late_30d) that the counterparty pays more than 30 days late; the highest of the invoices. */
+  paymentLateProbability?: number;
+  /** 0 to 1: the document's amount as a share of the self-approval limit, so a figure near the limit scores higher. */
+  limitUtilisation?: number;
+  /** Facts the system could not read: each makes the proposal high-risk (`vendorHighRisk` is then true), never neutral. */
+  unverified?: string[];
 }
 
 /** System-side facts about a proposal. Never derived from model output. */
 export interface RiskPort {
-  assess(tool: string, args: Record<string, unknown>): RiskAssessment;
+  assess(tool: string, args: Record<string, unknown>): RiskAssessment | Promise<RiskAssessment>;
+}
+
+/** The score shown to the approver: 1 for a high-risk counterparty, a segregation-of-duties conflict or an unreadable fact, else the highest of how unsure the model is, how likely a late payment is and how close the amount is to the limit. */
+export function riskScoreOf(risk: RiskAssessment, confidence: number): number {
+  if (risk.vendorHighRisk || risk.sodConflict || (risk.unverified?.length ?? 0) > 0) return 1;
+  return Math.min(1, Math.max(0, 1 - confidence, risk.paymentLateProbability ?? 0, risk.limitUtilisation ?? 0));
 }
 
 export interface ApprovalRequest {
@@ -575,7 +587,7 @@ async function executeRun(
       string,
       unknown
     >;
-    const risk = deps.risk.assess(p.tool, args);
+    const risk = await deps.risk.assess(p.tool, args);
     const amount = risk.amount ?? p.amount;
     // approve_before_commit always goes to a human: v1 has no autonomous posting
     // (9.47.1 out of scope, FR-47.8). AUTO applies only to suggest-mode tools.
@@ -600,7 +612,7 @@ async function executeRun(
         tool: p.tool,
         args,
         confidence: p.confidence,
-        riskScore: risk.vendorHighRisk || risk.sodConflict ? 1 : Math.min(1, Math.max(0, 1 - p.confidence)),
+        riskScore: riskScoreOf(risk, p.confidence),
         amount,
         rationale: displayText,
       });
