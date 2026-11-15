@@ -3403,6 +3403,8 @@ test_intercompany_party_lookup_reads_one_role_by_id if {
 	allowed("party.vendor.lookup", "GET", "/v1/party/vendors/v1")
 	not allowed("party.vendor.lookup", "GET", "/v1/party/customers/c1")
 	not allowed("party.vendor.lookup", "GET", "/v1/party/vendors/v1/bank-accounts:reveal")
+}
+
 test_pricing_price_resolve_is_service_only_and_resolve_only if {
 	allowed("pricing.price.resolve", "POST", "/v1/pricing/resolve")
 	not allowed("pricing.price.resolve", "GET", "/v1/pricing/condition-records")
