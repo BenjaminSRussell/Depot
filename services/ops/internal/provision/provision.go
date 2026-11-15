@@ -176,6 +176,11 @@ func (r *Runner) run(ctx context.Context, t Tenant, order []string, do stepFn, d
 			continue
 		}
 		detail, err := do(ctx, action, t, r.DryRun)
+		if err != nil {
+			r.log().Warn("provision step failed", "tenant", t.ID, "step", action, "dryRun", r.DryRun, "err", err)
+		} else {
+			r.log().Info("provision step", "tenant", t.ID, "step", action, "dryRun", r.DryRun)
+		}
 		switch {
 		case err != nil:
 			res.Steps = append(res.Steps, StepResult{Action: action, Status: "FAILED", Detail: err.Error()})
