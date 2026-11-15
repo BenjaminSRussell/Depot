@@ -12,9 +12,12 @@ import (
 
 	"github.com/BenjaminSRussell/passage/platform/dbx"
 	"github.com/BenjaminSRussell/passage/platform/httpx"
+	"github.com/BenjaminSRussell/passage/platform/tenant"
 	"github.com/BenjaminSRussell/passage/services/print/internal/api"
 	"github.com/BenjaminSRussell/passage/services/print/internal/config"
+	"github.com/BenjaminSRussell/passage/services/print/internal/delivery"
 	"github.com/BenjaminSRussell/passage/services/print/internal/jobs"
+	"github.com/BenjaminSRussell/passage/services/print/internal/statements"
 	"github.com/BenjaminSRussell/passage/services/print/internal/store"
 	"github.com/BenjaminSRussell/passage/services/print/internal/transport"
 	"github.com/BenjaminSRussell/passage/services/print/migrations"
@@ -65,7 +68,30 @@ func run(ctx context.Context, getenv func(string) string) error {
 	}
 	st := store.New(pool)
 	sender := transport.Router{TCP: transport.TCP{Timeout: 2 * time.Second}, IPP: transport.IPP{Timeout: 2 * time.Second}}
-	a := api.New(st, sender, api.WithAttemptsPerDevice(cfg.AttemptsPerDevice()), api.WithRetentionDays(cfg.RetentionDays))
+	var mailer delivery.Mailer = delivery.LogMailer{Log: slog.Default()}
+	if cfg.SMTPAddr != "" {
+		mailer = delivery.SMTPMailer{Addr: cfg.SMTPAddr, From: cfg.SMTPFrom, Username: cfg.SMTPUsername, Password: cfg.SMTPPassword, RequireTLS: cfg.SMTPRequireTLS}
+	}
+	signer, err := tenant.ServiceSignerFromEnv(getenv)
+	if err != nil {
+		return err
+	}
+	opts := []api.Option{api.WithAttemptsPerDevice(cfg.AttemptsPerDevice()), api.WithRetentionDays(cfg.RetentionDays), api.WithMailer(mailer), api.WithStatementTenants(cfg.StatementTenantIDs)}
+	var source statements.Source
+	if cfg.ReceivablesURL != "" && signer != nil {
+		if source, err = statements.NewHTTPSource(cfg.ReceivablesURL, cfg.PartyURL, signer, nil); err != nil {
+			return err
+		}
+	}
+	if hs, ok := source.(*statements.HTTPSource); ok {
+		opts = append(opts, api.WithAccountChecker(hs))
+	}
+	a := api.New(st, sender, opts...)
+	var runner *statements.Runner
+	if source != nil {
+		runner = &statements.Runner{Schedules: st, Docs: st, Source: source, Deliver: a.Deliverer()}
+		a.SetStatementRunner(runner)
+	}
 	router := httpx.NewRouter()
 	a.Register(router)
 	admin := http.NewServeMux()
@@ -91,6 +117,18 @@ func run(ctx context.Context, getenv func(string) string) error {
 		})
 	} else {
 		slog.Info("scheduled job-log purge disabled", "reason", "PRINT_PURGE_TENANT_IDS is empty")
+	}
+	if runner != nil && len(cfg.StatementTenantIDs) > 0 {
+		go statements.RunLoop(ctx, runner, cfg.StatementTenantIDs, statements.Interval, func(sums []statements.Summary, err error) {
+			if err != nil {
+				slog.Error("scheduled statements failed", "err", err)
+			}
+			for _, s := range sums {
+				slog.Info("scheduled statements", "schedule", s.ScheduleID, "asOf", s.AsOf, "delivered", s.Delivered, "skipped", s.Skipped, "failed", s.Failed, "retry", s.Retry)
+			}
+		})
+	} else if runner != nil {
+		slog.Warn("scheduled statements are not running: PRINT_STATEMENT_TENANT_IDS is empty; schedules are stored but only run now runs them")
 	}
 	errs := make(chan error, 2)
 	go func() { errs <- httpx.Serve(ctx, addr(getenv, "HTTP_ADDR", defaultHTTPAddr), router) }()

@@ -6,6 +6,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jackc/pgx/v5/pgconn"
+
 	"github.com/BenjaminSRussell/passage/platform/dbx"
 	"github.com/BenjaminSRussell/passage/platform/httpx"
 	"github.com/BenjaminSRussell/passage/platform/testkit"
@@ -84,3 +86,75 @@ func TestVendorInvoiceIntake_Validation(t *testing.T) {
 		})
 	}
 }
+
+// openItemFor posts the vendor invoice the clerk makes in receiving: its invoice.posted opens the AP item payables knows it by.
+func openItemFor(t *testing.T, admin interface {
+	Exec(context.Context, string, ...any) (pgconn.CommandTag, error)
+}, invoiceID, vendor, entity string) {
+	t.Helper()
+	if _, err := admin.Exec(context.Background(), `insert into ap_open_item (tenant_id, id, legal_entity_id, vendor_id, source_invoice_id, invoice_number, invoice_date, due_date, currency, amount, open_amount, status)
+		values ($1, gen_random_uuid(), $2, $3, $4, 'INV-77', '2026-11-09', '2026-12-09', 'USD', 54.33, 54.33, 'OPEN')`, testkit.TenantID(1), entity, vendor, invoiceID); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// #35 (35-5): the clerk decides a received invoice. Posting records the vendor invoice made from it (which must be an open item of the
+// same vendor), a rejection keeps the reason; a decision is final, and the same one again replays.
+func TestVendorInvoiceIntake_ClerkRecordsThePostedInvoiceOrRejects(t *testing.T) {
+	admin, app := testkit.DBWithApp(t)
+	if err := dbx.Migrate(context.Background(), admin, migrations.FS); err != nil {
+		t.Fatal(err)
+	}
+	r := httpx.NewRouter()
+	api.New(fakeDB{}, fakeValidator{}, fixedNow).WithVendorPayments(store.New(app)).Register(r)
+	edi := caller{duties: "payables.vendor-invoice.intake", user: "edi-cxml", entity: entityA}
+	first := decode(t, edi.send(r, http.MethodPost, "/v1/payables/vendor-invoice-intake", intakeBody("msg-1", "INV-77", "54.33")))["id"].(string)
+	second := decode(t, edi.send(r, http.MethodPost, "/v1/payables/vendor-invoice-intake", strings.Replace(intakeBody("msg-2", "INV-78", "10"), `"source":"CXML"`, `"source":"X12_810"`, 1)))["id"].(string)
+	clerk := caller{duties: "payables.vendor-invoice.review", user: "ap-clerk", entity: entityA}
+	reader := caller{duties: "open-item.read", user: "ap-clerk", entity: entityA}
+	posted := "0c1d2e3f-0000-4000-8000-0000000000aa"
+
+	wantProblem(t, reader.send(r, http.MethodPost, "/v1/payables/vendor-invoice-intake/"+first+":resolve", `{"vendorInvoiceId":"`+posted+`"}`), http.StatusForbidden, "AUTH-0003")
+	wantProblem(t, clerk.send(r, http.MethodPost, "/v1/payables/vendor-invoice-intake/"+first+":resolve", `{"vendorInvoiceId":"nope"}`), http.StatusBadRequest, "COM-0001")
+	// The vendor invoice has to be posted first, and be the vendor's.
+	wantProblem(t, clerk.send(r, http.MethodPost, "/v1/payables/vendor-invoice-intake/"+first+":resolve", `{"vendorInvoiceId":"`+posted+`"}`), http.StatusUnprocessableEntity, api.CodeIntakeInvoiceUnknown)
+	others := "0c1d2e3f-0000-4000-8000-0000000000ab"
+	openItemFor(t, admin, others, "0b1c2d3e-0000-4000-8000-0000000000dd", entityA)
+	wantProblem(t, clerk.send(r, http.MethodPost, "/v1/payables/vendor-invoice-intake/"+first+":resolve", `{"vendorInvoiceId":"`+others+`"}`), http.StatusUnprocessableEntity, api.CodeIntakeInvoiceUnknown)
+	openItemFor(t, admin, posted, intakeVendor, entityA)
+	rec := clerk.send(r, http.MethodPost, "/v1/payables/vendor-invoice-intake/"+first+":resolve", `{"vendorInvoiceId":"`+posted+`"}`)
+	got := decode(t, rec)
+	if rec.Code != http.StatusOK || got["status"] != "POSTED" || got["vendorInvoiceId"] != posted || got["decidedBy"] != "ap-clerk" || got["decidedAt"] == nil {
+		t.Fatalf("resolve: %d %v", rec.Code, got)
+	}
+	if rec := clerk.send(r, http.MethodPost, "/v1/payables/vendor-invoice-intake/"+first+":resolve", `{"vendorInvoiceId":"`+posted+`"}`); rec.Code != http.StatusOK || rec.Header().Get("Idempotent-Replayed") != "true" {
+		t.Fatalf("repeat: %d %s", rec.Code, rec.Body)
+	}
+	// One vendor invoice closes one received invoice, and a decided one cannot be decided otherwise.
+	wantProblem(t, clerk.send(r, http.MethodPost, "/v1/payables/vendor-invoice-intake/"+second+":resolve", `{"vendorInvoiceId":"`+posted+`"}`), http.StatusConflict, api.CodeIntakeInvoiceTaken)
+	wantProblem(t, clerk.send(r, http.MethodPost, "/v1/payables/vendor-invoice-intake/"+first+":reject", `{"reason":"duplicate"}`), http.StatusConflict, api.CodeIntakeDecided)
+
+	wantProblem(t, clerk.send(r, http.MethodPost, "/v1/payables/vendor-invoice-intake/"+second+":reject", `{"reason":"  "}`), http.StatusBadRequest, "COM-0001")
+	rej := clerk.send(r, http.MethodPost, "/v1/payables/vendor-invoice-intake/"+second+":reject", `{"reason":"The quantities do not match the goods received."}`)
+	got = decode(t, rej)
+	if rej.Code != http.StatusOK || got["status"] != "REJECTED" || got["decisionNote"] != "The quantities do not match the goods received." || got["vendorInvoiceId"] != nil {
+		t.Fatalf("reject: %d %v", rej.Code, got)
+	}
+	wantProblem(t, clerk.send(r, http.MethodPost, "/v1/payables/vendor-invoice-intake/"+second+":resolve", `{"vendorInvoiceId":"`+posted+`"}`), http.StatusConflict, api.CodeIntakeDecided)
+	wantProblem(t, clerk.send(r, http.MethodPost, "/v1/payables/vendor-invoice-intake/"+ids0+":reject", `{"reason":"x"}`), http.StatusNotFound, "COM-0404")
+
+	// The worklist keeps the received ones apart.
+	waiting := reader.send(r, http.MethodGet, "/v1/payables/vendor-invoice-intake?status=RECEIVED", "")
+	if waiting.Code != http.StatusOK || strings.Count(waiting.Body.String(), `"invoiceNumber"`) != 0 {
+		t.Fatalf("waiting: %d %s", waiting.Code, waiting.Body)
+	}
+	if all := reader.send(r, http.MethodGet, "/v1/payables/vendor-invoice-intake", ""); strings.Count(all.Body.String(), `"invoiceNumber"`) != 2 {
+		t.Fatalf("all: %s", all.Body)
+	}
+	if rejected := reader.send(r, http.MethodGet, "/v1/payables/vendor-invoice-intake?status=REJECTED", ""); strings.Count(rejected.Body.String(), `"invoiceNumber"`) != 1 {
+		t.Fatalf("rejected: %s", rejected.Body)
+	}
+	wantProblem(t, reader.send(r, http.MethodGet, "/v1/payables/vendor-invoice-intake?status=WAITING", ""), http.StatusBadRequest, "COM-0001")
+}
+
+const ids0 = "0c1d2e3f-0000-4000-8000-0000000000ff"

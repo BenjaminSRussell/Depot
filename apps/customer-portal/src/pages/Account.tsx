@@ -112,3 +112,37 @@ export function Statement() {
     </Page>
   );
 }
+
+interface DeliveredDocument { id: string; documentType: string; number: string; pages: number; createdAt: string }
+
+const DOCUMENT_KINDS: Record<string, string> = {
+  PERIODIC_STATEMENT: "Statement of account", CUSTOMER_INVOICE: "Invoice", PACKING_SLIP: "Packing slip", PAYMENT_NOTICE: "Payment notice", BALANCE_CONFIRMATION: "Balance confirmation",
+  PURCHASE_ORDER: "Purchase order", REMITTANCE_ADVICE: "Remittance advice",
+};
+
+/** The documents your supplier sent to this portal on its own, such as the monthly statement. */
+export function Documents() {
+  const load = useLoad(() => get<{ items: DeliveredDocument[] }>("/api/v1/delivered-documents?limit=100"), []);
+  return (
+    <Page title="Documents">
+      <State load={load} empty={(d) => d.items.length === 0}>
+        {(d) => (
+          <table>
+            <caption className="sr-only">Documents sent to you</caption>
+            <thead><tr><th scope="col">Document</th><th scope="col">Kind</th><th scope="col">Sent</th><th scope="col">PDF</th></tr></thead>
+            <tbody>
+              {d.items.map((doc) => (
+                <tr key={doc.id}>
+                  <th scope="row">{doc.number}</th>
+                  <td>{DOCUMENT_KINDS[doc.documentType] ?? "Document"}</td>
+                  <td>{day(doc.createdAt.slice(0, 10))}</td>
+                  <td><DownloadButton path={`/api/v1/delivered-documents/${doc.id}/pdf`} fileName={`${doc.number.replace(/[^A-Za-z0-9._-]/g, "_")}.pdf`} label={`Download ${doc.number}`} /></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </State>
+    </Page>
+  );
+}

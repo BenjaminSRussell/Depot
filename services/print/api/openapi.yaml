@@ -233,6 +233,26 @@ paths:
         '409': { $ref: '#/components/responses/Problem' }
         '412': { $ref: '#/components/responses/Problem' }
         '428': { $ref: '#/components/responses/Problem' }
+  /print/v1/document-templates/{code}/versions/{version}:restore:
+    post:
+      operationId: restoreDocumentTemplateVersion
+      summary: Make an earlier version of a document template the current one (46-1)
+      description: |
+        Saves the name and layout of the given version as a new version; the history keeps every version and is not
+        rewritten. The default flag stays as it is now. Needs the version you looked at as If-Match, as any save does:
+        without it 428 PRN-0018, and 412 PRN-0017 when the template was saved after that. The text blocks the old
+        layout names must still exist (400 otherwise).
+      x-passage-duty: print.admin
+      parameters:
+        - { name: code, in: path, required: true, schema: { type: string } }
+        - { name: version, in: path, required: true, schema: { type: integer, minimum: 1 } }
+        - { name: If-Match, in: header, required: true, schema: { type: string }, description: 'The current template version as an entity tag, for example "3".' }
+      responses:
+        '200': { description: Restored as a new version; the ETag header is its version., content: { application/json: { schema: { $ref: '#/components/schemas/DocumentTemplate' } } } }
+        '400': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '412': { $ref: '#/components/responses/Problem' }
+        '428': { $ref: '#/components/responses/Problem' }
   /print/v1/document-templates/{code}/versions:
     get:
       operationId: listDocumentTemplateVersions
@@ -347,6 +367,169 @@ paths:
             application/json:
               schema: { type: object, required: [items], properties: { items: { type: array, items: { $ref: '#/components/schemas/OutputRule' } } } }
         '400': { $ref: '#/components/responses/Problem' }
+  /print/v1/documents:deliver:
+    post:
+      operationId: deliverBusinessDocument
+      summary: Render a document and send it to the destinations of its output plan (46-2)
+      description: |
+        Renders the document like `documents:render` (with its template and text blocks) and sends the PDF to every
+        destination the output plan names for its type, legal entity and account, the original first. E-mail goes through
+        the e-mail port (the log adapter records the message when no relay is configured), PORTAL makes the PDF available
+        to the customer portal for `accountId`, and PRINTER sends a PDF job to the queue. EINVOICE and ARCHIVE are
+        reported as SKIPPED with the reason: the e-invoice network is reached through the e-invoice service, and the
+        archive waits on the document-store decision. `sourceKey` names the document (an invoice or payment id); delivering
+        it again sends nothing to a destination that already took it, and tries a failed destination again. A destination
+        that fails does not fail the call: its result says FAILED with the reason.
+      x-passage-duty: print.document.deliver
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/DocumentRequest'
+                - type: object
+                  required: [sourceKey]
+                  properties:
+                    sourceKey: { type: string, minLength: 1, maxLength: 200 }
+                    legalEntityId: { type: string, format: uuid, description: "Required (the caller's own entity when it has exactly one). Must be in the caller's scope." }
+                    accountId: { type: string, format: uuid, description: The customer (or vendor) the output rules match on, and the customer the portal shows the document to. }
+      responses:
+        '200':
+          description: One result per destination
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DeliveryResults' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /print/v1/statement-schedules:
+    get:
+      operationId: listStatementSchedules
+      summary: Scheduled customer statements (46-4)
+      x-passage-duty: print.job.submit
+      responses:
+        '200':
+          description: The schedules by name
+          content:
+            application/json:
+              schema: { type: object, required: [items], properties: { items: { type: array, items: { $ref: '#/components/schemas/StatementSchedule' } } } }
+    post:
+      operationId: createStatementSchedule
+      summary: Add a schedule that renders every customer's statement of one legal entity (46-4)
+      description: |
+        On each run date (weekly on a weekday, or monthly on a day from 1 to 28) the service reads the customers with a
+        balance from receivables, renders each customer's statement of account as of that day with the tenant's default
+        statement template (or `templateCode`) and delivers it by the PERIODIC_STATEMENT output rules, the account being
+        the customer. Several replicas may run: a schedule is leased while one runs it and each customer's statement of
+        a date is produced once. The first run is the first matching day after today. Idempotency-Key is required.
+      x-passage-duty: print.admin
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/StatementScheduleRequest' }
+      responses:
+        '200': { description: The key was used before; the stored schedule, content: { application/json: { schema: { $ref: '#/components/schemas/StatementSchedule' } } } }
+        '201': { description: Schedule created, content: { application/json: { schema: { $ref: '#/components/schemas/StatementSchedule' } } } }
+        '400': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /print/v1/statement-schedules/{id}:
+    patch:
+      operationId: updateStatementSchedule
+      summary: Pause or resume a statement schedule
+      description: Resuming moves a run date in the past to the next matching day, so a schedule paused for months does not run for each missed date.
+      x-passage-duty: print.admin
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, required: [enabled], properties: { enabled: { type: boolean } } }
+      responses:
+        '200': { description: The schedule, content: { application/json: { schema: { $ref: '#/components/schemas/StatementSchedule' } } } }
+        '400': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+    delete:
+      operationId: deleteStatementSchedule
+      summary: Delete a statement schedule and its run records
+      x-passage-duty: print.admin
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '204': { description: Schedule deleted }
+        '404': { $ref: '#/components/responses/Problem' }
+  /print/v1/statement-schedules/{id}:run:
+    post:
+      operationId: runStatementSchedule
+      summary: Run a statement schedule for today now
+      description: A statement already delivered for today is not sent again; one that failed is tried again. The schedule's own run date does not move. 503 when the receivables and party addresses are not configured; 502 PRN-0021 when receivables cannot be read.
+      x-passage-duty: print.admin
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: What the run did
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StatementRunSummary' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '502': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /print/v1/statement-schedules/{id}/runs:
+    get:
+      operationId: listStatementRuns
+      summary: The newest statements of a schedule, one per customer and run date
+      x-passage-duty: print.job.submit
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 500, default: 100 } }
+      responses:
+        '200':
+          description: Newest first
+          content:
+            application/json:
+              schema: { type: object, required: [items], properties: { items: { type: array, items: { $ref: '#/components/schemas/StatementRun' } } } }
+        '404': { $ref: '#/components/responses/Problem' }
+  /print/v1/customer-portal/documents:
+    get:
+      operationId: listPortalDocuments
+      summary: The documents delivered to the customer portal for one customer (service only)
+      description: Called by the customer portal; the customer is the one in its signed service token (403 for any other caller). The duty is the portal's own and no user holds it.
+      x-passage-duty: print.customer-portal.documents
+      parameters:
+        - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 200, default: 100 } }
+      responses:
+        '200':
+          description: Newest first, without the PDF bytes
+          content:
+            application/json:
+              schema: { type: object, required: [items], properties: { items: { type: array, items: { $ref: '#/components/schemas/PortalDocument' } } } }
+        '403': { $ref: '#/components/responses/Problem' }
+  /print/v1/customer-portal/documents/{id}/pdf:
+    get:
+      operationId: getPortalDocumentPdf
+      summary: The PDF of one document delivered to the portal (service only)
+      description: A document of another customer, or another tenant, is 404 PRN-0020.
+      x-passage-duty: print.customer-portal.documents
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: The PDF
+          headers:
+            X-Passage-Document-Pages: { schema: { type: integer } }
+          content:
+            application/pdf: { schema: { type: string, format: binary } }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
   /print/v1/jobs:purge:
     post:
       operationId: purgePrintJobs
@@ -697,6 +880,77 @@ components:
         warehouseId: { type: string }
         data: { type: object, additionalProperties: { type: string } }
         reprintOf: { type: string, format: uuid }
+    DeliveryResults:
+      type: object
+      required: [pages, results]
+      properties:
+        pages: { type: integer }
+        results:
+          type: array
+          items:
+            type: object
+            required: [ruleId, copyKind, channel, status]
+            properties:
+              ruleId: { type: string, format: uuid }
+              copyKind: { type: string, enum: [ORIGINAL, COPY] }
+              channel: { type: string, enum: [PRINTER, EMAIL, EINVOICE, ARCHIVE, PORTAL] }
+              destination: { type: string }
+              status: { type: string, enum: [PENDING, SENT, SKIPPED, FAILED], description: 'PENDING when another replica is still sending it.' }
+              detail: { type: string }
+    StatementScheduleRequest:
+      type: object
+      additionalProperties: false
+      required: [name, legalEntityId, senderName, cadence, runDay]
+      properties:
+        name: { type: string, maxLength: 100 }
+        legalEntityId: { type: string, format: uuid }
+        senderName: { type: string, maxLength: 200, description: The name printed in the letterhead. }
+        cadence: { type: string, enum: [WEEKLY, MONTHLY] }
+        runDay: { type: integer, minimum: 1, maximum: 28, description: 'The day of the month, or for WEEKLY the weekday from 1 (Monday) to 7 (Sunday).' }
+        language: { type: string, default: en }
+        templateCode: { type: string, description: A template of statements of account; the default template of the type when empty. }
+    StatementSchedule:
+      allOf:
+        - $ref: '#/components/schemas/StatementScheduleRequest'
+        - type: object
+          required: [id, enabled, nextRunOn]
+          properties:
+            id: { type: string, format: uuid }
+            enabled: { type: boolean }
+            nextRunOn: { type: string, format: date }
+            lastRunOn: { type: string, format: date }
+            runAsOf: { type: string, format: date, description: "The date of a run that has not finished because a customer's statement failed; later passes retry that date, up to 5 passes." }
+            attempts: { type: integer }
+            runsEnabled: { type: boolean, description: "False when the runner is not enabled for this tenant (PRINT_STATEMENT_TENANT_IDS): the schedule is stored but never runs by itself." }
+    StatementRunSummary:
+      type: object
+      required: [scheduleId, asOf, delivered, skipped, failed]
+      properties:
+        scheduleId: { type: string, format: uuid }
+        asOf: { type: string, format: date }
+        delivered: { type: integer }
+        skipped: { type: integer, description: 'Nothing open, no destination this service delivers, or already done today.' }
+        failed: { type: integer }
+    StatementRun:
+      type: object
+      required: [scheduleId, asOf, customerId, status]
+      properties:
+        scheduleId: { type: string, format: uuid }
+        asOf: { type: string, format: date }
+        customerId: { type: string, format: uuid }
+        status: { type: string, enum: [PENDING, DONE, FAILED] }
+        detail: { type: string }
+    PortalDocument:
+      type: object
+      required: [id, accountId, documentType, number, pages, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        accountId: { type: string, format: uuid }
+        legalEntityId: { type: string, format: uuid }
+        documentType: { $ref: '#/components/schemas/DocumentType' }
+        number: { type: string }
+        pages: { type: integer }
+        createdAt: { type: string, format: date-time }
     DocumentType:
       type: string
       enum: [LP_LABEL, LOCATION_LABEL, ITEM_LABEL, GS1_CARTON_LABEL, PICK_LIST, COUNT_SHEET, COA, BOL]

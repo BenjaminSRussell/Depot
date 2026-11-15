@@ -50,6 +50,7 @@
     {"to": "/ap-invoices", "module": "ap-invoices", "label": "Vendor invoices", "area": "finance", "decision": "keep", "taskLabel": "Find a vendor invoice"},
     {"to": "/ap-invoices/grir", "module": "ap-invoices", "label": "GR/IR open items", "area": "finance", "decision": "keep", "taskLabel": "Match receipts to invoices"},
     {"to": "/ap-invoices/submissions", "module": "ap-invoices", "label": "Invoice submissions", "area": "finance", "decision": "keep"},
+    {"to": "/ap-invoices/intake", "module": "ap-invoices", "label": "Invoices received electronically", "area": "finance", "decision": "keep"},
     {"to": "/ap-invoices/post", "module": "ap-invoices", "label": "Post vendor invoice", "area": "finance", "decision": "keep", "taskLabel": "Enter a vendor invoice"},
     {"to": "/eam", "module": "eam", "label": "Overview", "area": "projects-service", "decision": "keep"},
     {"to": "/eam/locations", "module": "eam", "label": "Plant structure", "area": "projects-service", "decision": "advanced"},

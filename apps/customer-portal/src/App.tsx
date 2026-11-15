@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { NavLink, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { configureApi, get, signOut, type Me } from "./api";
-import { balances, OpenItems, Payments, Statement, type OpenItem } from "./pages/Account";
+import { balances, Documents, OpenItems, Payments, Statement, type OpenItem } from "./pages/Account";
 import { InvoiceDetail, Invoices } from "./pages/Invoices";
 import { NewOrder } from "./pages/NewOrder";
 import { NewReturn } from "./pages/NewReturn";
@@ -33,7 +33,7 @@ function Home() {
   );
 }
 
-const NAV: Array<[string, string]> = [["/", "Home"], ["/orders", "Orders"], ["/invoices", "Invoices"], ["/open-items", "Open items"], ["/payments", "Payments"], ["/statement", "Statement"], ["/returns", "Returns"]];
+const NAV: Array<[string, string]> = [["/", "Home"], ["/orders", "Orders"], ["/invoices", "Invoices"], ["/open-items", "Open items"], ["/payments", "Payments"], ["/statement", "Statement"], ["/documents", "Documents"], ["/returns", "Returns"]];
 
 interface Company { legalEntityId: string; name: string | null }
 interface Account { id: string; accountNumber: string; name: string; relation: "self" | "bill-to" | "ship-to" }
@@ -91,6 +91,7 @@ export function App() {
               <Route path="/open-items" element={<OpenItems />} />
               <Route path="/payments" element={<Payments />} />
               <Route path="/statement" element={<Statement />} />
+              <Route path="/documents" element={<Documents />} />
               <Route path="/returns" element={<Returns />} />
               <Route path="/returns/new" element={<NewReturn />} />
               <Route path="/returns/:id" element={<ReturnDetail />} />

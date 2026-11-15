@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"regexp"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -18,6 +19,7 @@ import (
 	"github.com/BenjaminSRussell/passage/platform/tenant"
 
 	"github.com/BenjaminSRussell/passage/services/edi/internal/domain"
+	"github.com/BenjaminSRussell/passage/services/edi/internal/sources"
 	"github.com/BenjaminSRussell/passage/services/edi/internal/store"
 	"github.com/BenjaminSRussell/passage/services/edi/internal/taxrate"
 )
@@ -37,6 +39,12 @@ const (
 	CodeDisputeResolved   = "EDI-0026"
 )
 
+// SelfBilledPoster posts a matched self-billed document as the legal customer invoice (35-5); sources.Client implements it. A
+// refusal for a reason in the document (*sources.DownstreamRefusedError) is recorded with the document; anything else is tried again.
+type SelfBilledPoster interface {
+	PostSelfBilled(ctx context.Context, legalEntityID, key string, body domain.SelfBilledInvoiceRequest) (domain.SelfBilledInvoiceRef, error)
+}
+
 type selfBillConfigBody struct {
 	QuantityTolerance string `json:"quantityTolerance"`
 	PriceTolerance    string `json:"priceTolerance"`
@@ -45,6 +53,9 @@ type selfBillConfigBody struct {
 	TaxCountry        string `json:"taxCountry"`
 	TaxGroup          string `json:"taxGroup"`
 	ItemTaxGroup      string `json:"itemTaxGroup"`
+	RevenueAccount    string `json:"revenueAccount"`
+	TaxCode           string `json:"taxCode"`
+	PaymentTermDays   *int   `json:"paymentTermDays"`
 }
 
 // SelfBillTax determines the VAT rate of a self-billing customer's deliveries; taxrate.Client implements it. Nil leaves the rate a
@@ -79,6 +90,19 @@ func (a *API) putSelfBillConfig(w http.ResponseWriter, r *http.Request) {
 		cfg.WaitDays = body.WaitDays
 	}
 	cfg.TaxCountry, cfg.TaxGroup, cfg.ItemTaxGroup = body.TaxCountry, body.TaxGroup, body.ItemTaxGroup
+	cfg.RevenueAccount, cfg.TaxCode = body.RevenueAccount, body.TaxCode
+	if body.PaymentTermDays != nil {
+		cfg.PaymentTermDays = *body.PaymentTermDays
+	}
+	if len(cfg.RevenueAccount) > 20 || strings.ContainsAny(cfg.RevenueAccount, " \t") {
+		fields["revenueAccount"] = "must be a ledger account of at most 20 characters with no spaces"
+	}
+	if len(cfg.TaxCode) > 20 || strings.ContainsAny(cfg.TaxCode, " \t") {
+		fields["taxCode"] = "must be a tax code of at most 20 characters with no spaces"
+	}
+	if cfg.PaymentTermDays < 0 || cfg.PaymentTermDays > 365 {
+		fields["paymentTermDays"] = "must be between 0 and 365"
+	}
 	if cfg.TaxCountry != "" && !countryCode.MatchString(cfg.TaxCountry) {
 		fields["taxCountry"] = "must be an ISO 3166 alpha-2 country code"
 	}
@@ -101,7 +125,19 @@ func (a *API) putSelfBillConfig(w http.ResponseWriter, r *http.Request) {
 		httpx.Fail(w, r, validation(fields))
 		return
 	}
-	if err := a.store.PutSelfBillConfig(r.Context(), id, cfg); errors.Is(err, store.ErrNotFound) {
+	if _, verr := a.store.GetVendorProfile(a.tenantWide(r.Context()), id); verr == nil {
+		httpx.Fail(w, r, httpx.NewProblem(http.StatusConflict, CodeVendorOrSelfBilling, "the partner is one of our vendors, so its 810s are vendor invoices; a partner is a customer or a vendor for its 810s, not both"))
+		return
+	} else if !errors.Is(verr, store.ErrNotFound) {
+		httpx.Fail(w, r, verr)
+		return
+	}
+	if err := a.store.PutSelfBillConfig(r.Context(), id, cfg); err == nil {
+		// New settings give parked documents a fresh start.
+		if rerr := a.store.ResetSelfBillPosts(r.Context(), id); rerr != nil {
+			slog.WarnContext(r.Context(), "self-billed posts not reset", "partner", id, "err", rerr)
+		}
+	} else if errors.Is(err, store.ErrNotFound) {
 		httpx.Fail(w, r, httpx.NewProblem(http.StatusConflict, CodeNoTradeProfile, "partner has no trade profile; PUT /partners/{id}/trade-profile first"))
 		return
 	} else if err != nil {
@@ -200,10 +236,15 @@ func (a *API) reconcilePending(ctx context.Context, pending []store.PendingSelfB
 			continue
 		}
 		in.TaxRatePct = rate
-		_, err = a.store.ReconcileSelfBill(ctx, p.PartnerID, in)
+		doc, err := a.store.ReconcileSelfBill(ctx, p.PartnerID, in)
 		switch {
 		case err == nil:
 			done++
+			// A document that matched in full is our legal invoice: billing posts it under the customer's number. A failure here
+			// leaves the document matched and unposted for the next sweep; it never undoes the match.
+			if doc.Status == "MATCHED" {
+				a.postMatched(ctx, doc.ID)
+			}
 		case errors.Is(err, store.ErrSelfBillReconciled):
 			// Another run matched this message between the listing and now.
 		case errors.Is(err, store.ErrDuplicate):
@@ -269,13 +310,20 @@ func (a *API) selfBillTaxRate(ctx context.Context, partnerID string, in store.Se
 }
 
 type sweepResult struct {
-	Reconciled int                     `json:"reconciled"`
-	Unbilled   []store.SelfBillDispute `json:"unbilled"`
+	Reconciled int `json:"reconciled"`
+	// Posted counts the matched documents billing posted as legal invoices in this run.
+	Posted   int                     `json:"posted"`
+	Unbilled []store.SelfBillDispute `json:"unbilled"`
 }
 
 // selfBillSweep matches pending self-billed messages and opens the unbilled disputes (EDI-0138) of shipments past their wait.
 func (a *API) selfBillSweep(w http.ResponseWriter, r *http.Request) {
 	done, err := a.ReconcileSelfBilled(r.Context(), 200)
+	if err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+	posted, err := a.PostMatchedSelfBilled(r.Context(), 200)
 	if err != nil {
 		httpx.Fail(w, r, err)
 		return
@@ -288,7 +336,7 @@ func (a *API) selfBillSweep(w http.ResponseWriter, r *http.Request) {
 	if opened == nil {
 		opened = []store.SelfBillDispute{}
 	}
-	httpx.JSON(w, http.StatusOK, sweepResult{Reconciled: done, Unbilled: opened})
+	httpx.JSON(w, http.StatusOK, sweepResult{Reconciled: done, Posted: posted, Unbilled: opened})
 }
 
 func listLimit(r *http.Request) int {
@@ -392,11 +440,15 @@ func (a *API) RunSelfBillSweep(ctx context.Context) (int, error) {
 		if err != nil {
 			failed = append(failed, fmt.Errorf("tenant %s: %w", tid, err))
 		}
+		posted, err := a.PostMatchedSelfBilled(sys, 200)
+		if err != nil {
+			failed = append(failed, fmt.Errorf("tenant %s: %w", tid, err))
+		}
 		opened, err := a.store.SweepUnbilled(sys, a.now().UTC())
 		if err != nil {
 			failed = append(failed, fmt.Errorf("tenant %s: %w", tid, err))
 		}
-		total += done + len(opened)
+		total += done + posted + len(opened)
 	}
 	return total, errors.Join(failed...)
 }
@@ -410,4 +462,90 @@ func mappedMessages(messages []store.Message, set string) []string {
 		}
 	}
 	return out
+}
+
+// postMatched has billing post a document that matched in full as the legal customer invoice (35-5). It never fails the caller: the
+// reason a post did not happen is kept with the document (postError) and the sweep tries it again. The call is made as the service
+// principal edi-selfbill in the legal entity of the partner, with only billing's self-billed duty.
+func (a *API) postMatched(ctx context.Context, documentID string) (posted bool) {
+	if a.SelfBilledPoster == nil {
+		return false
+	}
+	doc, err := a.store.GetSelfBillPost(ctx, documentID)
+	if errors.Is(err, store.ErrNotFound) {
+		return false
+	}
+	if err != nil {
+		slog.WarnContext(ctx, "self-billed document unreadable for posting", "document", documentID, "err", err)
+		return false
+	}
+	fail := func(reason string, park ...bool) bool {
+		if err := a.store.MarkSelfBillPostFailed(ctx, documentID, reason, len(park) > 0 && park[0]); err != nil {
+			slog.WarnContext(ctx, "self-billed post state not recorded", "document", documentID, "err", err)
+		}
+		return false
+	}
+	cfg := doc.Config
+	switch {
+	case cfg.RevenueAccount == "" || cfg.TaxCode == "":
+		return fail("the partner's self-billing settings name no revenue account or tax code for its invoice")
+	case doc.Currency == "":
+		return fail("the document names no currency")
+	}
+	body := domain.SelfBilledInvoiceRequest{LegalEntityID: doc.LegalEntityID, CustomerID: doc.CustomerID, SourceRef: doc.DocumentID, DocumentNumber: doc.Number,
+		DocumentDate: formatDocumentDate(doc.DocumentDate), Currency: doc.Currency, PaymentTermDays: cfg.PaymentTermDays}
+	for _, l := range doc.Lines {
+		desc := "Item " + l.Item
+		if l.DeliveryNote != "" {
+			desc += ", delivery note " + l.DeliveryNote
+		}
+		body.Lines = append(body.Lines, domain.SelfBilledInvoiceLine{Description: desc, Qty: l.Quantity.String(), UnitPrice: l.UnitPrice.String(), Tax: l.Tax.String(),
+			RevenueAccount: cfg.RevenueAccount, TaxCode: cfg.TaxCode})
+	}
+	actor, ok := tenant.FromContext(ctx)
+	if !ok {
+		return fail("no tenant in context")
+	}
+	sp, err := tenant.ServicePrincipal(SelfBillPrincipal, actor.TenantID, doc.LegalEntityID)
+	if err != nil {
+		return fail(err.Error())
+	}
+	ref, err := a.SelfBilledPoster.PostSelfBilled(tenant.With(ctx, sp), doc.LegalEntityID, "self-billed:"+doc.DocumentID, body)
+	if err != nil {
+		slog.WarnContext(ctx, "self-billed document not posted", "document", documentID, "err", err)
+		var refused *sources.DownstreamRefusedError
+		if errors.As(err, &refused) && refused.Code == "BIL-0154" {
+			return fail("billing already holds an invoice for this document with other content (BIL-0154); compare it with the document and the partner's self-billing settings", true)
+		}
+		return fail(err.Error())
+	}
+	if err := a.store.MarkSelfBillPosted(ctx, documentID, ref.ID, ref.Number); err != nil {
+		slog.WarnContext(ctx, "self-billed post not recorded", "document", documentID, "err", err)
+		return false
+	}
+	return true
+}
+
+// formatDocumentDate turns the document's CCYYMMDD date (X12 and EDIFACT) into YYYY-MM-DD; any other text is passed on for billing to refuse.
+func formatDocumentDate(d string) string {
+	if t, err := time.Parse("20060102", d); err == nil {
+		return t.Format("2006-01-02")
+	}
+	return d
+}
+
+// PostMatchedSelfBilled posts the documents that matched in full and have no legal invoice yet, at most limit, and returns how many
+// it posted. The sweep calls it after matching, so a post that failed (billing down, a setting missing) is tried again.
+func (a *API) PostMatchedSelfBilled(ctx context.Context, limit int) (int, error) {
+	ids, err := a.store.PendingSelfBillPosts(ctx, limit)
+	if err != nil {
+		return 0, err
+	}
+	n := 0
+	for _, id := range ids {
+		if a.postMatched(ctx, id) {
+			n++
+		}
+	}
+	return n, nil
 }

@@ -98,9 +98,20 @@ type ReceiptRegisteredData struct {
 	User        string    `json:"user"`
 }
 
-// ShippedContainer is one container (pallet or carton) that left on the truck, by its SSCC.
+// ShippedLine is what one container holds of one line of the fulfillment shipment.
+type ShippedLine struct {
+	ShipmentLineID string `json:"shipment_line_id"`
+	Qty            string `json:"qty"`
+}
+
+// ShippedContainer is one container (pallet or carton) that left on the truck, by its SSCC. When the warehouse recorded how the
+// load was packed, ParentSSCC names the pallet a carton sits on, GrossKg is its weight and Lines what it holds; the EDI engine
+// then builds the pack hierarchy of the 856 or DESADV from these and not from fulfillment's containers.
 type ShippedContainer struct {
-	SSCC string `json:"sscc"`
+	SSCC       string        `json:"sscc"`
+	ParentSSCC string        `json:"parent_sscc,omitempty"`
+	GrossKg    string        `json:"gross_kg,omitempty"`
+	Lines      []ShippedLine `json:"lines,omitempty"`
 }
 
 // ShipmentShippedData is the payload of dev.passage.wms.shipment.shipped.v1, emitted when the warehouse confirms that an

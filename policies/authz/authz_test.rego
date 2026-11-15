@@ -779,7 +779,7 @@ test_billing_tax_report_operator_routes_split_view_and_post if {
 test_edi_source_read_duties_open_only_their_get_routes if {
 	data.service_grants.edi == {
 		"fulfillment": ["fulfillment.shipment.read"],
-		"billing": ["billing.invoice.read"],
+		"billing": ["billing.invoice.read", "billing.self-billed.post"],
 		"sales": ["sales.order.lookup", "sales.channel.intake"],
 		"purchasing": ["procurement.requisition.create", "procurement.purchase-order.lookup", "procurement.purchase-order.vendor-confirm"],
 		"receiving": ["receiving.asn.maintain"],
@@ -1128,7 +1128,7 @@ test_customer_portal_holds_only_service_only_customer_duties if {
 	data.service_grants["customer-portal"].sales == ["sales.customer-portal.read", "sales.customer-portal.order", "sales.customer-portal.return"]
 	data.service_grants["customer-portal"].party == ["party.customer-portal.read"]
 	data.service_grants["customer-portal"].identity == ["identity.customer-portal.read"]
-	data.service_grants["customer-portal"].print == ["print.customer-portal.render"]
+	data.service_grants["customer-portal"].print == ["print.customer-portal.render", "print.customer-portal.documents"]
 }
 
 test_customer_portal_render_duty_opens_only_the_renderer if {
@@ -3347,7 +3347,7 @@ test_payables_vendor_invoice_intake if {
 # #35 (35-5): the self-billing match asks the tax service for the VAT rate as edi-selfbill, with only the calculate duty.
 test_edi_selfbill_tax_grant if {
 	data.service_grants.edi.tax == ["tax.tax.calculate"]
-	data.service_principals["edi-selfbill"] == ["tax.tax.calculate"]
+	data.service_principals["edi-selfbill"] == ["tax.tax.calculate", "billing.self-billed.post"]
 }
 
 # #35 (35-5): billing's SELF_BILLED rule is set with the invoice maintain duty and read with the view duty.
@@ -3394,4 +3394,69 @@ test_product_customs_read_is_service_scoped if {
 	allowed("product.read", "GET", "/v1/product/products:customs")
 	not allowed("product.customs.read", "GET", "/v1/product/products/p1")
 	not allowed("product.names.read", "GET", "/v1/product/products:customs")
+}
+
+# #46: restoring a template version is a save, so it needs print.admin; delivery, statement schedules and the portal's document reads.
+test_print_restore_and_delivery_duties if {
+	allowed("print.admin", "POST", "/print/v1/document-templates/INV-STD/versions/2:restore")
+	not allowed("print.job.submit", "POST", "/print/v1/document-templates/INV-STD/versions/2:restore")
+	allowed("print.document.deliver", "POST", "/print/v1/documents:deliver")
+	not allowed("print.document.render", "POST", "/print/v1/documents:deliver")
+	not allowed("print.document.deliver", "POST", "/print/v1/documents:render")
+	allowed("print.admin", "POST", "/print/v1/statement-schedules")
+	allowed("print.admin", "PATCH", "/print/v1/statement-schedules/s1")
+	allowed("print.admin", "DELETE", "/print/v1/statement-schedules/s1")
+	allowed("print.admin", "POST", "/print/v1/statement-schedules/s1:run")
+	allowed("print.job.submit", "GET", "/print/v1/statement-schedules")
+	allowed("print.job.submit", "GET", "/print/v1/statement-schedules/s1/runs")
+	not allowed("print.job.submit", "POST", "/print/v1/statement-schedules")
+	not allowed("print.job.submit", "DELETE", "/print/v1/statement-schedules/s1")
+}
+
+test_print_portal_documents_are_service_only_and_read_only if {
+	data.duties["print.customer-portal.documents"].service_only
+	data.service_grants["customer-portal"].print == ["print.customer-portal.render", "print.customer-portal.documents"]
+	allowed("print.customer-portal.documents", "GET", "/print/v1/customer-portal/documents")
+	allowed("print.customer-portal.documents", "GET", "/print/v1/customer-portal/documents/d1/pdf")
+	not allowed("print.customer-portal.documents", "POST", "/print/v1/customer-portal/documents")
+	not allowed("print.customer-portal.documents", "GET", "/print/v1/statement-schedules")
+	not allowed("print.customer-portal.render", "GET", "/print/v1/customer-portal/documents")
+}
+
+test_print_statement_runner_reads_only if {
+	data.service_grants.print == {"receivables": ["receivables.view"], "party": ["party.read"]}
+	data.service_principals["print-statements"] == ["receivables.view", "party.read"]
+}
+
+# #35 (35-5): the matched self-billed document is posted by billing as the legal invoice through a service-only duty that opens one route.
+test_billing_self_billed_post_is_service_only_and_opens_one_route if {
+	data.duties["billing.self-billed.post"].service_only
+	allowed("billing.self-billed.post", "POST", "/v1/billing/self-billed-invoices")
+	not allowed("billing.self-billed.post", "GET", "/v1/billing/invoices/i1")
+	not allowed("billing.self-billed.post", "POST", "/v1/billing/invoices/i1:post")
+	not allowed("billing.self-billed.post", "POST", "/v1/billing/free-text-invoices")
+	not allowed("billing.invoice.post", "POST", "/v1/billing/self-billed-invoices")
+	not allowed("billing.invoice.maintain", "POST", "/v1/billing/self-billed-invoices")
+	data.service_principals["edi-selfbill"] == ["tax.tax.calculate", "billing.self-billed.post"]
+}
+
+# #35 (35-5): an AP clerk decides a received vendor invoice with its own duty; reading the worklist does not allow deciding.
+test_payables_vendor_invoice_review_opens_only_the_two_decisions if {
+	allowed("payables.vendor-invoice.review", "POST", "/v1/payables/vendor-invoice-intake/i1:resolve")
+	allowed("payables.vendor-invoice.review", "POST", "/v1/payables/vendor-invoice-intake/i1:reject")
+	not allowed("payables.vendor-invoice.review", "POST", "/v1/payables/vendor-invoice-intake")
+	not allowed("payables.vendor-invoice.review", "GET", "/v1/payables/vendor-invoice-intake")
+	not allowed("open-item.read", "POST", "/v1/payables/vendor-invoice-intake/i1:resolve")
+	not allowed("open-item.read", "POST", "/v1/payables/vendor-invoice-intake/i1:reject")
+	not allowed("payables.vendor-invoice.intake", "POST", "/v1/payables/vendor-invoice-intake/i1:resolve")
+	allowed("open-item.read", "GET", "/v1/payables/vendor-invoice-intake/i1")
+}
+
+# #35 (35-5): the vendor 810 has its own inbound route (operators) and its partner a vendor profile (administrators).
+test_edi_vendor_810_route_and_profile if {
+	allowed("edi.operate", "POST", "/edi/v1/inbound/x12/vendor")
+	not allowed("edi.operate", "PUT", "/edi/v1/partners/p1/vendor-profile")
+	allowed("edi.admin", "PUT", "/edi/v1/partners/p1/vendor-profile")
+	allowed("edi.admin", "GET", "/edi/v1/partners/p1/vendor-profile")
+	not allowed("edi.admin", "POST", "/edi/v1/inbound/x12/vendor")
 }

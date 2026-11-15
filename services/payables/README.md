@@ -57,6 +57,12 @@ vendor (from the purchase order the invoice names), invoice number and date, pur
 whose `invoice.posted` opens the item. The same document again replays (200); changed content is 409 `AP-VII-001`; the vendor's
 invoice number received from another document is 409 `AP-VII-002`. Migration 0019.
 
+The clerk decides each received invoice (migration 0021, duty `payables.vendor-invoice.review`): `POST .../vendor-invoice-intake/{id}:resolve`
+records the vendor invoice posted from it (it must already be an open item of the same vendor in the same legal entity, 422 `AP-VII-004`,
+and closes one received invoice only, 409 `AP-VII-005`) and the received invoice becomes `POSTED`; `:reject` closes it as `REJECTED` with a
+reason. A decision is final (409 `AP-VII-003`), the same call again replays. `GET` takes `status` (`RECEIVED` is the worklist). The web
+screen is `/ap-invoices/intake`. A vendor's X12 810 arrives as source `X12_810` through edi's vendor route.
+
 `payables consume` (chart `consumer.*`, off by default, #40) reads intercompany's `chargeinvoice.requested` (topic
 `passage.interco.chargeinvoice`, KafkaUser `deploy/kafka/payables-consumer.yaml`, dead-letter topic `passage.payables.iccharge.dlq`)
 and takes the borrower's vendor invoice into the same intake (source `INTERCOMPANY`): the borrower's legal entity, the pairing's

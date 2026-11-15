@@ -152,3 +152,73 @@ route("POST", `${BASE}/invoice-submissions/{id}:resolve`, ({ params, body }) => 
   if (submissions.some((s) => s.id !== params.id && s.invoiceId === invoiceId)) return reply.problem(422, "SUP-INV-006", "the invoice already closes another submission");
   return decide(params.id, { status: "POSTED", invoiceId });
 });
+
+// Invoices that arrived electronically (#35): a cXML invoice and a vendor's X12 810 waiting for the AP clerk, one rejected with a reason and
+// one already posted as invoice PBC-55120. They name the purchase orders of the receipts above, so the clerk can match them to those receipts.
+const PAYABLES = "/api/v1/payables/vendor-invoice-intake";
+const K_INTAKE = 393;
+
+type IntakeRow = import("../../../modules/ap-invoices/api/intake").Intake;
+
+function intake(n: number, receipt: number, s: { number: string; qty: number; unitPrice: number; ago: number; source: IntakeRow["source"]; status: IntakeRow["status"]; extra?: Partial<IntakeRow> }): IntakeRow {
+  const r = RECEIPTS[receipt];
+  const po = purchaseOrders.get(uid(302, r.po));
+  const amount = r2(s.qty * s.unitPrice);
+  return {
+    id: uid(K_INTAKE, n),
+    legalEntityId: LEGAL_ENTITY.id,
+    source: s.source,
+    sourceRef: uid(394, n),
+    vendorId: vendorOf(receipt),
+    invoiceNumber: s.number,
+    invoiceDate: day(-s.ago),
+    purpose: "standard",
+    purchaseOrderId: uid(302, r.po),
+    purchaseOrderNumber: po?.number ?? "",
+    currency: "USD",
+    net: dec(amount),
+    gross: dec(amount),
+    status: s.status,
+    receivedBy: s.source === "CXML" ? "edi-cxml" : "edi",
+    receivedAt: at(Math.min(-0.1, -s.ago + 0.2)),
+    lines: [{ lineNo: "1", item: r.item, quantity: dec(s.qty, 0), unit: "EA", unitPrice: dec(s.unitPrice), amount: dec(amount) }],
+    ...s.extra,
+  };
+}
+
+const intakes: IntakeRow[] = [
+  intake(1, 4, { number: "PBC-55207", qty: 250, unitPrice: 7.4, ago: 0, source: "CXML", status: "RECEIVED" }),
+  intake(2, 5, { number: "VMW-121140", qty: 4, unitPrice: 410, ago: 1, source: "X12_810", status: "RECEIVED" }),
+  intake(3, 3, { number: "KSG-40412", qty: 180, unitPrice: 55, ago: 5, source: "CXML", status: "REJECTED", extra: { decidedAt: at(-4), decidedBy: "marcus.lee", decisionNote: "Unit price does not match the purchase order. Asked the vendor for a corrected invoice." } }),
+  intake(4, 4, { number: "PBC-55120", qty: 1000, unitPrice: 7.4, ago: 3, source: "X12_810", status: "POSTED", extra: { decidedAt: at(-2.5), decidedBy: "ana.ortiz", vendorInvoiceId: uid(K_INVOICE, 2) } }),
+];
+
+route("GET", PAYABLES, ({ query }) => {
+  const vendor = query.get("vendorId");
+  const status = query.get("status");
+  return { items: intakes.filter((i) => (!vendor || i.vendorId === vendor) && (!status || i.status === status)).sort((a, b) => b.receivedAt.localeCompare(a.receivedAt)), nextCursor: "" };
+});
+
+route("GET", `${PAYABLES}/{id}`, ({ params }) => intakes.find((i) => i.id === params.id) ?? reply.problem(404, "COM-0404", "vendor invoice not found"));
+
+function decideIntake(id: string, patch: Partial<IntakeRow>) {
+  const at0 = intakes.findIndex((i) => i.id === id);
+  if (at0 < 0) return reply.problem(404, "COM-0404", "vendor invoice not found");
+  if (intakes[at0].status !== "RECEIVED") return reply.problem(409, "AP-VII-003", "the received invoice was already decided otherwise");
+  intakes[at0] = { ...intakes[at0], ...patch, decidedAt: at(0), decidedBy: "dev" };
+  return intakes[at0];
+}
+
+route("POST", `${PAYABLES}/{id}:reject`, ({ params, body }) => {
+  const reason = String((body as { reason?: unknown } | undefined)?.reason ?? "").trim();
+  if (reason === "") return reply.problem(400, "COM-0001", "request failed validation", { reason: "is required, at most 1000 characters" });
+  return decideIntake(params.id, { status: "REJECTED", decisionNote: reason });
+});
+
+route("POST", `${PAYABLES}/{id}:resolve`, ({ params, body }) => {
+  const invoiceId = String((body as { vendorInvoiceId?: unknown } | undefined)?.vendorInvoiceId ?? "");
+  const chosen = invoices.find((i) => i.id === invoiceId);
+  if (!chosen) return reply.problem(422, "AP-VII-004", "the vendor invoice is not posted for this vendor in this legal entity; post it in receiving first");
+  if (intakes.some((i) => i.id !== params.id && i.vendorInvoiceId === invoiceId)) return reply.problem(409, "AP-VII-005", "that vendor invoice already closes another received invoice");
+  return decideIntake(params.id, { status: "POSTED", vendorInvoiceId: invoiceId });
+});

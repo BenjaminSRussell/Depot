@@ -564,6 +564,7 @@ paths:
         - { name: legalEntityId, in: query, required: true, schema: { type: string, format: uuid } }
         - { name: asOf, in: query, schema: { type: string, format: date } }
         - { name: customer, in: query, schema: { type: string, format: uuid } }
+        - { name: offset, in: query, schema: { type: integer, minimum: 0, maximum: 1000000, default: 0 }, description: "Rows to skip in the stable order (riskiest first, then customer and currency), to page past the limit." }
         - { $ref: "#/components/parameters/Limit" }
       responses:
         "200":

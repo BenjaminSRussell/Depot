@@ -2,6 +2,7 @@ package api
 
 import (
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -144,6 +145,13 @@ func (a *API) listAgingSnapshots(w http.ResponseWriter, r *http.Request) {
 	}
 	if f.CustomerID != "" && !ids.Valid(f.CustomerID) {
 		fields["customer"] = "must be a UUID"
+	}
+	if raw := q.Get("offset"); raw != "" {
+		n, err := strconv.Atoi(raw)
+		if err != nil || n < 0 || n > 1_000_000 {
+			fields["offset"] = "must be a whole number from 0 to 1000000"
+		}
+		f.Offset = n
 	}
 	if len(fields) > 0 {
 		writeFields(w, r, fields)
