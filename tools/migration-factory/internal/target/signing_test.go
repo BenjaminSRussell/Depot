@@ -89,10 +89,10 @@ func TestServiceGrantForTheFactoryIsSeeded(t *testing.T) {
 	if trs := tenant.ServiceGrantTable()[target.ServiceName]["treasury"]; !slices.Equal(slices.Sorted(slices.Values(trs)), []string{"treasury.import.read", "treasury.import.write"}) {
 		t.Errorf("the grant for migration-factory -> treasury must hold exactly the opening balance import duties, got %v", trs)
 	}
-	if sales := tenant.ServiceGrantTable()[target.ServiceName]["sales"]; !slices.Equal(slices.Sorted(slices.Values(sales)), []string{"sales.opening-order.import", "sales.opening-order.import.read"}) {
+	if sales := tenant.ServiceGrantTable()[target.ServiceName]["sales"]; !slices.Equal(slices.Sorted(slices.Values(sales)), []string{"sales.opening-order.import", "sales.opening-order.read"}) {
 		t.Errorf("the grant for migration-factory -> sales must hold exactly the opening order import duties (#49), got %v", sales)
 	}
-	if prc := tenant.ServiceGrantTable()[target.ServiceName]["purchasing"]; !slices.Equal(slices.Sorted(slices.Values(prc)), []string{"procurement.opening-order.import", "procurement.opening-order.import.read"}) {
+	if prc := tenant.ServiceGrantTable()[target.ServiceName]["purchasing"]; !slices.Equal(slices.Sorted(slices.Values(prc)), []string{"procurement.opening-order.import", "procurement.opening-order.read"}) {
 		t.Errorf("the grant for migration-factory -> purchasing must hold exactly the opening order import duties (#49), got %v", prc)
 	}
 	if other := tenant.ServiceGrantTable()[target.ServiceName]; len(other) != 8 {

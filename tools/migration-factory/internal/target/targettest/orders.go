@@ -298,9 +298,9 @@ func (f *FakeOrders) post(w http.ResponseWriter, r *http.Request) {
 }
 
 func (f *FakeOrders) list(w http.ResponseWriter, r *http.Request) {
-	duty := "sales.opening-order.import.read"
+	duty := "sales.opening-order.read"
 	if f.kind == "purchasing" {
-		duty = "procurement.opening-order.import.read"
+		duty = "procurement.opening-order.read"
 	}
 	if !f.admit(w, r, duty) {
 		return

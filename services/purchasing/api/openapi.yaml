@@ -2458,7 +2458,7 @@ paths:
         '500': { $ref: '#/components/responses/Problem' }
     get:
       operationId: listOpeningPurchaseOrders
-      x-passage-duty: procurement.opening-order.import.read
+      x-passage-duty: procurement.opening-order.read
       description: >-
         Imported opening batches of one legal entity (legal_entity), newest first, optionally one batch_key, with keyset paging (limit 1 to 200, default 50;
         pass the previous nextCursor as cursor). orderCount, lineCount, openQty and openValue are read back from the stored lines, so the loader can verify what landed

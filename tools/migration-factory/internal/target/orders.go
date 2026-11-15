@@ -19,9 +19,9 @@ const (
 	audPurchasing = "purchasing"
 
 	dutySalesImport          = "sales.opening-order.import"
-	dutySalesImportRead      = "sales.opening-order.import.read"
+	dutySalesImportRead      = "sales.opening-order.read"
 	dutyPurchasingImport     = "procurement.opening-order.import"
-	dutyPurchasingImportRead = "procurement.opening-order.import.read"
+	dutyPurchasingImportRead = "procurement.opening-order.read"
 
 	pathSalesOrders      = "/v1/sales/opening-orders"
 	pathPurchasingOrders = "/v1/procurement/opening-orders"

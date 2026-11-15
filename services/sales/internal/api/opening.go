@@ -32,7 +32,7 @@ import (
 // legacy system with their remaining quantities, prices and dates, and reads the stored batches back to reconcile.
 const (
 	dutyOpeningImport = "sales.opening-order.import"
-	dutyOpeningRead   = "sales.opening-order.import.read"
+	dutyOpeningRead   = "sales.opening-order.read"
 	pathOpeningOrders = "/v1/sales/opening-orders"
 
 	CodeOpeningInvalid      = "SLS-OPB-001"

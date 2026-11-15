@@ -33,7 +33,7 @@ import (
 const (
 	dayLayout         = "2006-01-02"
 	dutyOpeningImport = "procurement.opening-order.import"
-	dutyOpeningRead   = "procurement.opening-order.import.read"
+	dutyOpeningRead   = "procurement.opening-order.read"
 	pathOpeningOrders = "/v1/procurement/opening-orders"
 
 	CodeOpeningInvalid      = "PRC-OPB-001"
