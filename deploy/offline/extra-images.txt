@@ -6,3 +6,24 @@
 # images a chart's own values select here when you upgrade that chart: render it (`helm template`) and copy the image
 # lines. quay.io/keycloak and postgres are named by the in-repo charts and kustomize overlays and are found by the plan.
 quay.io/keycloak/keycloak:26.0.8
+
+# strimzi-kafka-operator 0.46.0 (deploy/envs/*/apps/event-backbone.yaml). The cluster operator, and the Topic and User
+# Operators and the init container, which run the operator image; the Kafka image for the version deploy/kafka/kafka.yaml
+# names (4.0.0; the chart's STRIMZI_KAFKA_IMAGES lists that one and the 3.9.x images, which this repository does not run).
+# Derived from the chart's defaults for 0.46.0 (the build environment could not render the chart): re-check with
+# `offline_bundle.py chart-images` when the chart version changes.
+quay.io/strimzi/operator:0.46.0
+quay.io/strimzi/kafka:0.46.0-kafka-4.0.0
+
+# cert-manager v1.21.3 (deploy/tofu/cluster/variables.tf). Every cert-manager image carries the chart version as its tag. The
+# solver image is passed to the controller as --acme-http01-solver-image, not as an `image:` line, so a render does not show it.
+quay.io/jetstack/cert-manager-controller:v1.21.3
+quay.io/jetstack/cert-manager-webhook:v1.21.3
+quay.io/jetstack/cert-manager-cainjector:v1.21.3
+quay.io/jetstack/cert-manager-acmesolver:v1.21.3
+quay.io/jetstack/cert-manager-startupapicheck:v1.21.3
+
+# kyverno 3.9.2, temporal 0.74.0 and argo-cd 10.11.1: their images are the chart's appVersion-tagged defaults, which could not be
+# read here (the chart repositories were unreachable). On the connected build machine run
+# `python3 deploy/offline/offline_bundle.py chart-images --write` to add them; provenance.json already has the publisher entries
+# (reg.kyverno.io, ghcr.io/kyverno, docker.io/temporalio, quay.io/argoproj, ghcr.io/dexidp, the Redis image).
