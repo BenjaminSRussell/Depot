@@ -365,6 +365,59 @@ paths:
         '401': { $ref: '#/components/responses/Problem' }
         '403': { $ref: '#/components/responses/Problem' }
         '404': { description: 'PTY-CUSTOMER-NOT-FOUND (unknown id, another tenant or legal entity).', content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } } }
+  /v1/party/partners/{id}/tax-registration:
+    put:
+      operationId: setPartnerTaxRegistration
+      x-passage-duty: party.write
+      summary: Set the country a customer or vendor is VAT registered in (#13)
+      description: >
+        The party master held no country for a customer or vendor role, so fulfillment and receiving could not say where a goods movement
+        went or came from. `{id}` is a customer or vendor role id in the caller's legal entities (404 otherwise). `country` is the ISO 3166-1
+        alpha-2 code in capitals of the VAT registration (the partner country of its Intrastat movements); `vatId` is optional, letters and
+        digits, at most 20. Bad values are 422 PTY-TAXREG-001.
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [country]
+              properties:
+                country: { type: string, pattern: '^[A-Za-z]{2}$' }
+                vatId: { type: string, maxLength: 24 }
+      responses:
+        '200':
+          description: The registration.
+          content: { application/json: { schema: { $ref: '#/components/schemas/PartnerTaxRegistration' } } }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/party/partners:tax-registrations:
+    get:
+      operationId: listPartnerTaxRegistrations
+      x-passage-duty: party.read
+      x-passage-duty-alternatives: [party.tax-registration.read]
+      summary: Tax registrations of customer and vendor roles (#13)
+      description: The registrations of up to 200 roles named in `ids`; a role with none is left out. The service-only duty party.tax-registration.read is what fulfillment and receiving hold to report the partner country of a shipment or receipt.
+      parameters:
+        - { name: ids, in: query, required: true, description: Comma-separated customer or vendor ids., schema: { type: string } }
+      responses:
+        '200':
+          description: The registrations.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/PartnerTaxRegistration' } }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
   /v1/party/customers/{id}/portal-access:
     put:
       operationId: setCustomerPortalAccess
@@ -1909,6 +1962,14 @@ components:
             updatedAt: { type: string, format: date-time }
             requestedId: { type: string, description: Present with redirected when a merged party was requested. }
             redirected: { type: boolean }
+    PartnerTaxRegistration:
+      type: object
+      required: [partnerId, kind, country, vatId]
+      properties:
+        partnerId: { type: string, format: uuid }
+        kind: { type: string, enum: [CUSTOMER, VENDOR] }
+        country: { type: string, pattern: '^[A-Z]{2}$' }
+        vatId: { type: string }
     SetCreditLimit:
       type: object
       additionalProperties: false

@@ -521,6 +521,34 @@ class ArgoApplicationsTest(unittest.TestCase):
                                                     ("group", group): {"Read", "Describe"}})
         self.assertIn(dlq, topics)
 
+    def test_tax_intrastat_consumer_acls(self):
+        # The tax Intrastat feed consumer (#13): its KafkaUser reads exactly fulfillment's packing slip channel and receiving's
+        # receipt channel, the ones their AsyncAPI documents declare for packingslip.posted and receipt.posted, and the group the
+        # code uses, and writes the dead-letter topic it parks on.
+        code = (REPO / "services/tax/internal/feed/feed.go").read_text()
+        (group,) = re.findall(r'ConsumerName\s+=\s+"([^"]+)"', code)
+        (slip_topic,) = re.findall(r'PackingSlipTopic\s+=\s+"([^"]+)"', code)
+        (receipt_topic,) = re.findall(r'ReceiptTopic\s+=\s+"([^"]+)"', code)
+        (dlq,) = re.findall(r'DeadLetterTopic\s+=\s+"([^"]+)"', code)
+        (slip_type,) = re.findall(r'PackingSlipPostedType\s+=\s+"([^"]+)"', code)
+        (receipt_type,) = re.findall(r'ReceiptPostedType\s+=\s+"([^"]+)"', code)
+        for path, event_type, topic in (("services/fulfillment/events/asyncapi.yaml", slip_type, slip_topic),
+                                        ("services/receiving/events/asyncapi.yaml", receipt_type, receipt_topic)):
+            spec = yaml.safe_load((REPO / path).read_text())
+            channels = {ch["address"] for ch in spec["channels"].values()
+                        for ref in ch["messages"].values()
+                        if spec["components"]["messages"][ref["$ref"].rsplit("/", 1)[1]].get("name") == event_type}
+            self.assertEqual(channels, {topic}, event_type)
+        values = yaml.safe_load((REPO / "services/tax/charts/tax/values.yaml").read_text())
+        kafka = values["consumer"]["kafka"]
+        self.assertFalse(values["consumer"]["enabled"], "the tax consumer is off by default, like the other consumers")
+        users, topics = self.synced_kafka_resources()
+        self.assertEqual((kafka["group"], kafka["dlqTopic"]), (group, dlq))
+        self.assertIn(kafka["username"], users, "deploy/kafka/tax-consumer.yaml")
+        self.assertEqual(users[kafka["username"]], {("topic", slip_topic): {"Read", "Describe"}, ("topic", receipt_topic): {"Read", "Describe"},
+                                                    ("topic", dlq): {"Write", "Describe"}, ("group", group): {"Read", "Describe"}})
+        self.assertIn(dlq, topics)
+
     def test_edi_outbound_consumer_acls(self):
         # The edi outbound consumer (#35, 35-1): its KafkaUser reads exactly fulfillment's asn channel, the warehouse's shipment
         # channel and billing's invoice channel, the ones the AsyncAPI documents declare for asn.issued, shipment.shipped and

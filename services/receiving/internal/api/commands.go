@@ -383,6 +383,7 @@ func (a *API) postReceipt(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ctx := r.Context()
+	customs := a.receiptCustoms(ctx, cmd.id)
 	posted, err := a.store.Post(ctx, cmd.id, func(rec store.Receipt) (store.PostOutcome, error) {
 		if err := checkVersion(rec.Version, cmd.version); err != nil {
 			return store.PostOutcome{}, err
@@ -395,7 +396,7 @@ func (a *API) postReceipt(w http.ResponseWriter, r *http.Request) {
 		for i, item := range items {
 			amounts[i] = store.LineAmount{LineNo: item.LineNo, Amount: item.ReceivedAmount.Value, AmountAcct: acct(item.ReceivedAmount.Value, rec.ExchangeRate)}
 		}
-		evt, err := receiptPostedEvent(cmd.principal.TenantID, rec, amounts, next.LedgerEntryID)
+		evt, err := receiptPostedEvent(cmd.principal.TenantID, rec, amounts, next.LedgerEntryID, customs)
 		return store.PostOutcome{PostingDate: rec.Date, LedgerEntryID: next.LedgerEntryID, Amounts: amounts, Event: evt}, err
 	})
 	if err != nil {

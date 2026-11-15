@@ -902,6 +902,7 @@
     ]},
     "party.write": {"permissions": [
       {"resource": "/v1/party/tax-registrations:validate", "methods": ["POST"]},
+      {"resource": "/v1/party/partners/*/tax-registration", "methods": ["PUT"]},
       {"resource": "/v1/party/parties", "methods": ["POST"]},
       {"resource": "/v1/party/parties/*", "methods": ["PATCH"]},
       {"resource": "/v1/party/customers/*/credit-limit", "methods": ["POST"]},
@@ -934,8 +935,12 @@
       {"resource": "/v1/party/customers/*", "methods": ["GET"]},
       {"resource": "/v1/party/vendors/*", "methods": ["GET"]}
     ]},
+    "party.tax-registration.read": {"service_only": true, "permissions": [
+      {"resource": "/v1/party/partners:tax-registrations", "methods": ["GET"]}
+    ]},
     "party.read": {"permissions": [
       {"resource": "/v1/search", "methods": ["GET"]},
+      {"resource": "/v1/party/partners:tax-registrations", "methods": ["GET"]},
       {"resource": "/v1/party/parties/*", "methods": ["GET"]},
       {"resource": "/v1/party/pending-changes", "methods": ["GET"]},
       {"resource": "/v1/party/pending-changes/*", "methods": ["GET"]},
@@ -1022,6 +1027,9 @@
     ]},
     "identity.customer-portal.read": {"service_only": true, "permissions": [
       {"resource": "/v1/identity/customer-portal/legal-entity", "methods": ["GET"]}
+    ]},
+    "product.customs.read": {"service_only": true, "permissions": [
+      {"resource": "/v1/product/products:customs", "methods": ["GET"]}
     ]},
     "product.names.read": {"service_only": true, "permissions": [
       {"resource": "/v1/product/products:names", "methods": ["GET"]}
@@ -3189,6 +3197,7 @@
     "product.configure": {"permissions":[{"resource": "/v1/product/configuration-models/*:solve", "methods": ["POST"]}]},
     "product.gtin.allocate": {"permissions": [{"resource": "/v1/product/gtins", "methods": ["POST"]}]},
     "product.read": {"permissions": [
+      {"resource": "/v1/product/products:customs", "methods": ["GET"]},
       {"resource": "/v1/search", "methods": ["GET"]},
       {"resource": "/v1/product/barcodes/*", "methods": ["GET"]},
       {"resource": "/v1/product/gtins/*", "methods": ["GET"]},
@@ -4014,6 +4023,8 @@
     },
     "fulfillment": {
       "sales": ["sales.order.record-delivery"],
+      "product": ["product.customs.read"],
+      "party": ["party.tax-registration.read"],
       "inventory": ["inventory.issue.claim"],
       "carrier-gateway": ["carrier.rate.quote", "carrier.label.create", "carrier.tracking.read"]
     },
@@ -4035,7 +4046,8 @@
       "close": ["period.check"],
       "purchasing": ["procurement.invoicing-plan.settle", "procurement.purchase-order.lookup"],
       "inventory": ["inventory.ownership-change.read"],
-      "party": ["party.read"],
+      "party": ["party.read", "party.tax-registration.read"],
+      "product": ["product.customs.read"],
       "org": ["org.read"],
       "tax": ["tax.tax.calculate", "tax.transaction.record"],
       "compliance": ["compliance.legal-hold.check"]
@@ -4230,6 +4242,7 @@
     "production-shopfloor": ["production.jobcard.shopfloor"],
     "receiving-erasure": ["compliance.legal-hold.check"],
     "receivables-billing": ["receivables.openitem.from-billing"],
+    "tax-intrastat": ["tax.intrastat.feed"],
     "revrec-creditnotes": ["revrec.creditnote.reverse", "revrec.contract.from-invoice"],
     "revrec-billing": ["billing.contract-modification.bill"],
     "payables-withholding": ["tax.withholding.record"],

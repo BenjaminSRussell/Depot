@@ -53,7 +53,10 @@ var servicePrincipals = map[string][]string{
 	"production-shopfloor":     {"production.jobcard.shopfloor"},
 	"receiving-erasure":        {"compliance.legal-hold.check"},
 	"receivables-billing":      {"receivables.openitem.from-billing"},
-	"revrec-creditnotes":       {"revrec.creditnote.reverse", "revrec.contract.from-invoice"},
+	// The Intrastat feed consumer of the tax service (#13): it stages the EU cross-border movements of fulfillment's packingslip.posted and
+	// receiving's receipt.posted and reaches no route.
+	"tax-intrastat":      {"tax.intrastat.feed"},
+	"revrec-creditnotes": {"revrec.creditnote.reverse", "revrec.contract.from-invoice"},
 	// The reporter of contract modification price changes to billing (#29): it signs POST /v1/billing/contract-modifications only.
 	"revrec-billing": {"billing.contract-modification.bill"},
 	// The reporter of the tax payment runs withheld (#13): it signs POST /v1/tax/withholding/entries only.
@@ -91,6 +94,7 @@ var servicePrincipalIssuers = map[string][]string{
 	"production-planning":     {"production"},
 	"production-shopfloor":    {"production"},
 	"receivables-billing":     {"receivables"},
+	"tax-intrastat":           {"tax"},
 	"receiving-erasure":       {"receiving"},
 	"receiving-ers":           {"receiving"},
 	"revrec-creditnotes":      {"revrec"},

@@ -41,6 +41,12 @@ type MovementLine struct {
 	ProductID string `json:"product_id"`
 	Qty       Dec    `json:"qty"`
 	Value     Dec    `json:"value"`
+	// CommodityCode, OriginCountry and NetMass are what the shipment or receipt event carried of the product at the time of the movement
+	// (#13): when the commodity code is given the line needs no Intrastat product mapping and takes its origin and net mass (kilograms of
+	// the whole line) from here, falling back to the mapping for what it leaves out.
+	CommodityCode string `json:"commodity_code,omitempty"`
+	OriginCountry string `json:"origin_country,omitempty"`
+	NetMass       *Dec   `json:"net_mass,omitempty"`
 }
 
 // Movement is a shipment (flow dispatch) or a receipt (flow arrival) staged for the Intrastat journal. The partner country, the
@@ -87,6 +93,12 @@ func ValidateMovement(m Movement) error {
 			return invalid(field+".qty", "qty must be positive")
 		case l.Value.IsNegative():
 			return invalid(field+".value", "value must not be negative")
+		case l.CommodityCode != "" && !masterCodePatterns[MasterCommodity].MatchString(l.CommodityCode):
+			return invalid(field+".commodity_code", "a commodity code is %s", masterCodeHints[MasterCommodity])
+		case l.OriginCountry != "" && !ValidCountry(l.OriginCountry):
+			return invalid(field+".origin_country", "origin_country must be a 2-letter ISO 3166 code in capitals")
+		case l.NetMass != nil && (l.NetMass.IsNegative() || l.NetMass.Exponent() < -maxScale):
+			return invalid(field+".net_mass", "net_mass must not be negative, with at most %d decimal places", maxScale)
 		}
 		seen[l.LineNo] = true
 	}
@@ -131,17 +143,28 @@ func MovementLines(flow, homeCountry string, month time.Time, movements []Moveme
 		whole := true
 		for _, l := range m.Lines {
 			p, ok := products[l.ProductID]
+			if l.CommodityCode != "" {
+				// The event carried the product's customs data: it needs no mapping.
+				p.CommodityCode, ok = l.CommodityCode, true
+				if l.OriginCountry != "" {
+					p.OriginCountry = l.OriginCountry
+				}
+			}
 			if !ok {
 				unmapped = append(unmapped, UnmappedLine{SourceRef: m.SourceRef, LineNo: l.LineNo, ProductID: l.ProductID})
 				whole = false
 				continue
 			}
 			value := l.Value
+			netMass := l.Qty.Mul(p.NetMassPerUnit.Decimal)
+			if l.NetMass != nil {
+				netMass = l.NetMass.Decimal
+			}
 			lines = append(lines, IntrastatLine{
 				SourceRef: fmt.Sprintf("%s:%d", m.SourceRef, l.LineNo), PartnerCountry: m.PartnerCountry, CommodityCode: p.CommodityCode,
 				TransactionCode: firstOf(m.TransactionCode, d.TransactionCode), TransportMode: firstOf(m.TransportMode, d.TransportMode),
 				DeliveryTerms: firstOf(m.DeliveryTerms, d.DeliveryTerms), Port: firstOf(m.Port, d.Port), OriginCountry: p.OriginCountry,
-				NetMass: Dec{l.Qty.Mul(p.NetMassPerUnit.Decimal).Round(3)}, SupplementaryQty: Dec{l.Qty.Mul(p.SupplementaryPerUnit.Decimal).Round(3)},
+				NetMass: Dec{netMass.Round(3)}, SupplementaryQty: Dec{l.Qty.Mul(p.SupplementaryPerUnit.Decimal).Round(3)},
 				InvoiceValue: Dec{value.Decimal.Round(2)}, StatisticalValue: Dec{value.Decimal.Round(2)},
 			})
 		}

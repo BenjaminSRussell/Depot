@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -318,6 +319,48 @@ type PostInput struct {
 	// the date the request named; HasPostingDate false means it named none.
 	ShippedAt      time.Time
 	HasPostingDate bool
+	// Customs is the Intrastat data of the customer and the products, read from the party and product masters before the post (#13); nil
+	// when they were not read. It only fills the optional fields of packingslip.posted.
+	Customs *CustomsInfo
+}
+
+// CustomsInfo is what the party and product masters say about a shipment's customer and products, for packingslip.posted.
+type CustomsInfo struct {
+	PartnerCountry string
+	PartnerVATID   string
+	// Products is keyed by lower-case product id.
+	Products map[string]CustomsProduct
+}
+
+// CustomsProduct is a product's customs attributes: the net weight is kilograms per unit shipped.
+type CustomsProduct struct {
+	CommodityCode string
+	OriginCountry string
+	NetWeightKg   decimal.Decimal
+}
+
+// applyCustoms fills the Intrastat fields of a posted slip's event from the master data read before the post. A line's net weight is the
+// shipped weight (a catch-weight line) or quantity times the product's kilograms per unit, and its statistical value is its cost.
+func applyCustoms(posted *fulevents.PackingSlipPostedData, info *CustomsInfo) {
+	if info == nil {
+		return
+	}
+	posted.PartnerCountry, posted.PartnerVATID = info.PartnerCountry, info.PartnerVATID
+	for i := range posted.Lines {
+		l := &posted.Lines[i]
+		l.StatisticalValue = l.CostAmount
+		prod, ok := info.Products[strings.ToLower(l.ProductID)]
+		if !ok {
+			continue
+		}
+		l.CommodityCode, l.OriginCountry = prod.CommodityCode, prod.OriginCountry
+		if prod.NetWeightKg.IsPositive() {
+			qty, err := decimal.NewFromString(l.Qty)
+			if err == nil {
+				l.NetWeight = qty.Mul(prod.NetWeightKg).Round(6).String()
+			}
+		}
+	}
 }
 
 // Idem is the Idempotency-Key and the hash of the request body.
@@ -1354,6 +1397,7 @@ func (s *Postgres) PostPackingSlip(ctx context.Context, id string, version int, 
 				posted.Lines[i].ProductID = sh.Lines[lineIndex(sh, pl.ShipmentLineID)].ProductID
 				posted.Lines[i].Tracking = trackingEventEntries(tracked[pl.ShipmentLineID])
 			}
+			applyCustoms(&posted, in.Customs)
 			if err := enqueue(ctx, tx, sh.ID, fulevents.PackingSlipPosted, p.TenantID, posted); err != nil {
 				return PackingSlip{}, err
 			}

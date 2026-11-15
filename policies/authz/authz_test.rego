@@ -3371,3 +3371,19 @@ test_pricing_price_resolve_is_service_only_and_resolve_only if {
 	not allowed("pricing.price.resolve", "POST", "/v1/pricing/condition-records")
 	not allowed("pricing.price.resolve", "POST", "/v1/pricing/simulate")
 }
+
+test_party_tax_registration_routes if {
+	allowed("party.write", "PUT", "/v1/party/partners/c1/tax-registration")
+	not allowed("party.read", "PUT", "/v1/party/partners/c1/tax-registration")
+	allowed("party.read", "GET", "/v1/party/partners:tax-registrations")
+	allowed("party.tax-registration.read", "GET", "/v1/party/partners:tax-registrations")
+	not allowed("party.tax-registration.read", "PUT", "/v1/party/partners/c1/tax-registration")
+	not allowed("party.tax-registration.read", "GET", "/v1/party/parties/p1")
+}
+
+test_product_customs_read_is_service_scoped if {
+	allowed("product.customs.read", "GET", "/v1/product/products:customs")
+	allowed("product.read", "GET", "/v1/product/products:customs")
+	not allowed("product.customs.read", "GET", "/v1/product/products/p1")
+	not allowed("product.names.read", "GET", "/v1/product/products:customs")
+}

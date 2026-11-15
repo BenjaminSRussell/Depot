@@ -911,3 +911,10 @@ Handoffs and gaps from slice 27:
 | Voided or re-bought labels | gap (#482) | There is no label void on main: carrier-gateway has no void operation and the tracking statuses have no voided kind. A parcel is (shipment, provider, tracking number), so the same label reported twice is one parcel, but a label bought again with a new tracking number for the same box is a second parcel until a void exists; then the candidate query must leave voided labels out. |
 | 30-day window for unmanifested parcels | deviation (decision for Ben) | The PRD names no window. Labels older than 30 days are neither listed nor manifested, so a label bought and never shipped for a month drops off the report; the warehouse cutoff alert (not built) would read the same window. |
 | `GET /manifest-candidates` is limited to `limit` rows (web asks for 500), with no cursor | deviation | The close itself takes every ready parcel, not only the listed ones; the web says when the list is cut. |
+
+## Intrastat data on packingslip.posted (#13)
+
+| Item | Status | Reason |
+|---|---|---|
+| `partner_country`, `partner_vat_id`, and per line `commodity_code`, `origin_country`, `net_weight`, `statistical_value` on `packingslip.posted` | built | read when the slip posts, before the transaction, from party (`party.tax-registration.read`) and product (`product.customs.read`) with the signed service token (`PARTY_URL`, `PRODUCT_URL`, chart `partyUrl`, `productUrl`, both needed); a read that fails or finds nothing leaves its fields out and never holds the post up. The tax service's Intrastat consumer stages EU cross-border dispatches from it. The net weight is the shipped weight (or quantity times the product's kg per unit); the statistical value is the line's cost in the slip's currency (fulfillment holds no invoice value) |
+| Reversing a staged dispatch when a slip is cancelled | not built | `packingslip.cancelled` carries no Intrastat data; a correction is made in the Intrastat journal |

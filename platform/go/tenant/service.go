@@ -91,6 +91,8 @@ var serviceGrants = map[string]map[string][]string{
 	// fulfillment reports posted packing slips to sales' :record-progress (#496) and may report nothing else there.
 	"fulfillment": {
 		"sales":           {"sales.order.record-delivery"},
+		"product":         {"product.customs.read"},
+		"party":           {"party.tax-registration.read"},
 		"inventory":       {"inventory.issue.claim"},
 		"carrier-gateway": {"carrier.rate.quote", "carrier.label.create", "carrier.tracking.read"},
 	},
@@ -114,7 +116,8 @@ var serviceGrants = map[string]map[string][]string{
 		"close":      {"period.check"},
 		"purchasing": {"procurement.invoicing-plan.settle", "procurement.purchase-order.lookup"},
 		"inventory":  {"inventory.ownership-change.read"},
-		"party":      {"party.read"},
+		"party":      {"party.read", "party.tax-registration.read"},
+		"product":    {"product.customs.read"},
 		"org":        {"org.read"},
 		"tax":        {"tax.tax.calculate", "tax.transaction.record"},
 		"compliance": {"compliance.legal-hold.check"},

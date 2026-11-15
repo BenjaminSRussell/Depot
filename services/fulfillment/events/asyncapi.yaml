@@ -455,6 +455,8 @@ components:
           order_id: { type: string, format: uuid }
           packaging_fee_billable: { type: boolean, description: "The legal entity packaging_fee_billable when the slip posted; billing (wave 29) charges the packaging_fees when true (BR-28.12)." }
           customer_id: { type: string, format: uuid }
+          partner_country: { type: string, description: "Intrastat (#13): the country the customer's VAT registration is in (party tax registration), when the slip posted; absent when the customer has none or party could not be read." }
+          partner_vat_id: { type: string, description: "The customer's VAT id from the same registration; absent when none." }
           posting_date: { type: string, format: date }
           currency: { type: string }
           total_cost: { type: string }
@@ -1113,6 +1115,10 @@ components:
         cost_snapshot_id: { type: string }
         weight: { type: string, description: "catch-weight lines only (#480): the shipped weight cost_amount is taken on (negated on a reversal); qty stays the cases" }
         product_id: { type: string, format: uuid, description: Set on a posted slip line. }
+        commodity_code: { type: string, description: "Intrastat (#13): the product's CN8 commodity code from the product master (attribute INTRASTAT_COMMODITY_CODE) when the slip posted; absent when none is set or the product service could not be read." }
+        origin_country: { type: string, description: "Intrastat: the product's country of origin (ISO 3166 alpha-2, product attribute INTRASTAT_ORIGIN_COUNTRY); absent when none." }
+        net_weight: { type: string, description: "Intrastat: the net weight of the shipped quantity in kilograms (the shipped weight, or qty times the product attribute INTRASTAT_NET_WEIGHT_KG per unit); absent when the product has no weight." }
+        statistical_value: { type: string, description: "Intrastat: the line's value in the slip's currency, its cost_amount (fulfillment holds no invoice value). Present with the customs data." }
         tracking:
           type: array
           description: Batches and serials shipping on this line (BR-28.10); absent for an untracked line and for a reversal.
