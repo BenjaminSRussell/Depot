@@ -34,6 +34,7 @@ type fakeStore struct {
 	warehouse       string
 	storeSkips      []domain.Skip
 	slipLineFilter  store.PackingSlipLineFilter
+	knownSlipLine   string
 	shipmentFilter  store.ShipmentFilter
 	slipFilter      store.PackingSlipFilter
 	picks           []store.PickInput
@@ -81,6 +82,9 @@ func (f *fakeStore) ListPackingSlips(_ context.Context, filter store.PackingSlip
 
 func (f *fakeStore) ListPackingSlipLines(_ context.Context, filter store.PackingSlipLineFilter) ([]store.PackingSlipLineSummary, error) {
 	f.slipLineFilter = filter
+	if filter.ID != "" && f.knownSlipLine == filter.ID {
+		return []store.PackingSlipLineSummary{{ID: filter.ID, PackingSlipNumber: "PS-1", LineNo: 1}}, nil
+	}
 	return []store.PackingSlipLineSummary{}, nil
 }
 
@@ -424,6 +428,19 @@ func TestPackingSlipLines_ListAndShipmentSearch(t *testing.T) {
 	}
 	if rec := do(t, h, http.MethodGet, "/v1/fulfillment/shipments?q=+sh-1+&number=SH-0000001", "", nil); rec.Code != http.StatusOK || fs.shipmentFilter.Q != "sh-1" || fs.shipmentFilter.Number != "SH-0000001" {
 		t.Fatalf("status = %d filter = %+v", rec.Code, fs.shipmentFilter)
+	}
+}
+
+func TestPackingSlipLine_GetByShipmentLineOr404(t *testing.T) {
+	line := ids.New()
+	h := newServer(t, &fakeStore{knownSlipLine: line})
+	if rec := do(t, h, http.MethodGet, "/v1/fulfillment/packing-slip-lines/"+line, "", nil); rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "PS-1") {
+		t.Fatalf("known line: %d %s", rec.Code, rec.Body)
+	}
+	for _, id := range []string{ids.New(), "nope"} {
+		if rec := do(t, h, http.MethodGet, "/v1/fulfillment/packing-slip-lines/"+id, "", nil); rec.Code != http.StatusNotFound {
+			t.Fatalf("%s: %d", id, rec.Code)
+		}
 	}
 }
 

@@ -358,3 +358,22 @@ func (a *API) listAgreementLines(w http.ResponseWriter, r *http.Request) {
 	}
 	writePage(w, page)
 }
+
+// getAgreementLine is GET /agreement-lines/{id}: one line by id (the line lookup's resolve).
+func (a *API) getAgreementLine(w http.ResponseWriter, r *http.Request) {
+	id, err := pathID(r)
+	if err != nil {
+		fail(w, r, httpx.NewProblem(http.StatusNotFound, store.CodeAgreementNotFound, "agreement line not found"))
+		return
+	}
+	page, err := a.store.ListAgreementLines(r.Context(), store.AgreementLineFilter{ID: id}, "", 1)
+	if err != nil {
+		fail(w, r, err)
+		return
+	}
+	if len(page.Items) == 0 {
+		fail(w, r, httpx.NewProblem(http.StatusNotFound, store.CodeAgreementNotFound, "agreement line not found"))
+		return
+	}
+	httpx.JSON(w, http.StatusOK, page.Items[0])
+}

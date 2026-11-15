@@ -16,6 +16,7 @@ import { LoadTrackingPage } from "./LoadTrackingPage";
 import { NewCarrierInvoicePage } from "./NewCarrierInvoicePage";
 import { NewFreightBillPage } from "./NewFreightBillPage";
 import { NewGoodsInTransitPage } from "./NewGoodsInTransitPage";
+import { CarrierServicesPage, NewCarrierServicePage } from "./CarrierServicesPage";
 import { NewRateCardPage } from "./NewRateCardPage";
 import { NewRoutePlanPage } from "./NewRoutePlanPage";
 import { NewTenderPage } from "./NewTenderPage";
@@ -47,6 +48,8 @@ const transport: PassageModule = {
     { path: "/transport/rate-shop", element: createElement(RateShopPage), handle: { title: "Rate shop" } },
     { path: "/transport/rate-cards", element: createElement(RateCardsPage), handle: { title: "Rate cards" } },
     { path: "/transport/rate-cards/new", element: createElement(NewRateCardPage), handle: { title: "New rate card" } },
+    { path: "/transport/carrier-services", element: createElement(CarrierServicesPage), handle: { title: "Carrier services" } },
+    { path: "/transport/carrier-services/new", element: createElement(NewCarrierServicePage), handle: { title: "New carrier service" } },
     { path: "/transport/freight-bills", element: createElement(FreightBillsPage), handle: { title: "Freight bills" } },
     { path: "/transport/freight-bills/new", element: createElement(NewFreightBillPage), handle: { title: "New freight bill" } },
     { path: "/transport/freight-bills/:id", element: createElement(FreightBillDetailPage), handle: { title: "Freight bill" } },
@@ -79,6 +82,7 @@ const transport: PassageModule = {
     { label: "Loads", to: "/transport/loads", duty: "transport.view" },
     { label: "Rate shop", to: "/transport/rate-shop", duty: "transport.rate-card.maintain" },
     { label: "Rate cards", to: "/transport/rate-cards", duty: "transport.rate-card.maintain" },
+    { label: "Carrier services", to: "/transport/carrier-services", duty: "transport.view" },
     { label: "Freight bills", to: "/transport/freight-bills", duty: "transport.view" },
     { label: "Carrier invoices", to: "/transport/carrier-invoices", duty: "transport.freight-bill.reconcile" },
     { label: "Tenders", to: "/transport/tenders", duty: "transport.load.tender" },

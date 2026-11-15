@@ -312,6 +312,38 @@ export function calibrateInstrument(id: string, calibratedAt: string): Promise<I
   return post<Instrument>(`/instruments/${encodeURIComponent(id)}:calibrate`, { calibratedAt });
 }
 
+/** An attribute outcome of the master: test groups list it as passing and results record it, by id; people use its code. */
+export interface Outcome {
+  id: string;
+  code: string;
+  name: string;
+  active: boolean;
+  version: number;
+}
+
+export interface NewOutcome {
+  code: string;
+  name: string;
+}
+
+/** Outcomes by code; activeOnly leaves retired ones out (quality.view). */
+export function listOutcomes(options: { activeOnly?: boolean; q?: string } = {}, signal?: AbortSignal): Promise<Outcome[]> {
+  return items<Outcome>(`/outcomes${query({ active: options.activeOnly ? "true" : undefined, q: options.q, limit: "500" })}`, signal);
+}
+
+export function getOutcome(id: string, signal?: AbortSignal): Promise<Outcome> {
+  return send<Outcome>(`/outcomes/${encodeURIComponent(id)}`, {}, signal);
+}
+
+export function createOutcome(input: NewOutcome, key: string = newKey()): Promise<Outcome> {
+  return post<Outcome>("/outcomes", input, { "Idempotency-Key": key });
+}
+
+/** Renames or retires an outcome; version is the ETag from its last read. */
+export function updateOutcome(id: string, version: number, patch: { name?: string; active?: boolean }): Promise<Outcome> {
+  return send<Outcome>(`/outcomes/${encodeURIComponent(id)}`, { method: "PATCH", headers: { "If-Match": `"${version}"` }, body: JSON.stringify(patch) });
+}
+
 export function listAssociations(signal?: AbortSignal): Promise<Association[]> {
   return items<Association>("/associations", signal);
 }

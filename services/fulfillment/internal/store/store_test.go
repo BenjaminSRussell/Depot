@@ -259,6 +259,9 @@ func TestPostAndCancelPackingSlip_AC28_1_AC28_2(t *testing.T) {
 	if err != nil || len(lines) == 0 || lines[0].LineNo != 1 || lines[0].PackingSlipNumber != number || lines[0].ID != f.shipment.Lines[0].ID || lines[0].OrderLineID == "" {
 		t.Fatalf("slip lines = %+v, %v", lines, err)
 	}
+	if one, err := s.ListPackingSlipLines(ctx, store.PackingSlipLineFilter{ID: lines[0].ID, Limit: 1}); err != nil || len(one) != 1 || one[0].PackingSlipID != lines[0].PackingSlipID {
+		t.Fatalf("slip line by id = %+v, %v", one, err)
+	}
 	if found, err := s.ListPackingSlipLines(ctx, store.PackingSlipLineFilter{Q: strings.ToLower(number), Limit: 50}); err != nil || len(found) != len(lines) {
 		t.Fatalf("slip lines matching %q = %d, %v", number, len(found), err)
 	}

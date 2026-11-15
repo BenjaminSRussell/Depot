@@ -1,6 +1,7 @@
 import { createElement } from "react";
 import type { PassageModule } from "../registry";
 import { AuditCasesPage } from "./AuditCasesPage";
+import { AuditPoliciesPage, AuditPolicyEditPage, NewAuditPolicyPage } from "./AuditPoliciesPage";
 import { AuditRunPage } from "./AuditRunPage";
 import { BreachClocksPage } from "./BreachClocksPage";
 import { BreakGlassPage } from "./BreakGlassPage";
@@ -26,7 +27,7 @@ import { TdsPage } from "./TdsPage";
 const compliance: PassageModule = {
   id: "compliance",
   title: "Compliance",
-  description: "Segregation-of-duties conflicts and mitigations, role assignment checks, SoD rules, audit rule runs and audit cases, break-glass access, breach notification clocks, sanctions screening hits and checks, export license checks, privacy requests, certification campaigns, incident steps, export policy, country packs and the India TDS calculator.",
+  description: "Segregation-of-duties conflicts and mitigations, role assignment checks, SoD rules, audit policies, audit rule runs and audit cases, break-glass access, breach notification clocks, sanctions screening hits and checks, export license checks, privacy requests, certification campaigns, incident steps, export policy, country packs and the India TDS calculator.",
   routes: [
     { path: "/compliance", element: createElement(ComplianceHome) },
     { path: "/compliance/sod/conflicts", element: createElement(ConflictsPage) },
@@ -36,6 +37,9 @@ const compliance: PassageModule = {
     { path: "/compliance/packs", element: createElement(PacksPage) },
     { path: "/compliance/packs/:code", element: createElement(PackDetailPage), handle: { title: "Country pack" } },
     { path: "/compliance/audit/run", element: createElement(AuditRunPage) },
+    { path: "/compliance/audit/policies", element: createElement(AuditPoliciesPage), handle: { title: "Audit policies" } },
+    { path: "/compliance/audit/policies/new", element: createElement(NewAuditPolicyPage), handle: { title: "New audit policy" } },
+    { path: "/compliance/audit/policies/:id", element: createElement(AuditPolicyEditPage), handle: { title: "Audit policy" } },
     { path: "/compliance/audit/cases", element: createElement(AuditCasesPage) },
     { path: "/compliance/break-glass", element: createElement(BreakGlassPage) },
     { path: "/compliance/incidents/breach-clocks", element: createElement(BreachClocksPage) },
@@ -56,6 +60,7 @@ const compliance: PassageModule = {
     { label: "SoD conflicts", to: "/compliance/sod/conflicts", duty: "compliance.sod.review" },
     { label: "Role assignment check", to: "/compliance/sod/check", duty: "compliance.security.admin" },
     { label: "SoD rules", to: "/compliance/sod/rules", duty: "compliance.sod.review" },
+    { label: "Audit policies", to: "/compliance/audit/policies", duty: "compliance.audit-policy.maintain" },
     { label: "Audit rule run", to: "/compliance/audit/run", duty: "compliance.audit-policy.run" },
     { label: "Audit cases", to: "/compliance/audit/cases", duty: "compliance.audit-case.manage" },
     { label: "Break-glass access", to: "/compliance/break-glass", duty: "compliance.break-glass.request" },

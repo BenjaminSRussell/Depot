@@ -1,6 +1,8 @@
 import { useRef, useState, type FormEvent } from "react";
 import { Alert, Button, Card, FormField, Input, Select } from "../../shell/ui";
-import { describeProblem, newKey, recordResults, type Instrument, type OrderView, type Problem, type ResultInput, type TestLine } from "./api/client";
+import { EntityLookup } from "../../shell/lookup/EntityLookup";
+import { describeProblem, listOutcomes, newKey, recordResults, type Instrument, type OrderView, type Problem, type ResultInput, type TestLine } from "./api/client";
+import { useLoad } from "./useLoad";
 import { CALIBRATION_LABELS, SIGNED_DECIMAL, shortId } from "./format";
 import styles from "./pages.module.css";
 import { ProblemMessage } from "../../shell/errors";
@@ -34,6 +36,11 @@ function limits(test: TestLine): string {
  */
 export function ResultsEntry({ order, instruments, onRecorded }: { order: OrderView; instruments: Instrument[]; onRecorded(): void }) {
   const tests = order.testGroup.tests;
+  const outcomes = useLoad((signal) => listOutcomes({}, signal), "outcomes");
+  const outcomeName = (id: string) => {
+    const found = outcomes.data?.find((o) => o.id === id);
+    return found ? `${found.name} (${found.code})` : "Passing outcome";
+  };
   const samples = Math.max(1, Math.ceil(Number(order.sampleQty)));
   const [sampleNo, setSampleNo] = useState("1");
   const [retestNo, setRetestNo] = useState("0");
@@ -79,7 +86,7 @@ export function ResultsEntry({ order, instruments, onRecorded }: { order: OrderV
         const outcome = r.outcome === OTHER ? r.otherOutcome.trim() : r.outcome;
         if (outcome === "") continue;
         if (!/^[0-9a-f-]{36}$/i.test(outcome)) {
-          found[test.testId] = "Enter the outcome id (a UUID).";
+          found[test.testId] = "Choose the outcome.";
           continue;
         }
         batch.push({ testId: test.testId, sampleNo: sample, retestNo: retest, outcomeId: outcome, instrumentId: instrumentId || undefined });
@@ -155,15 +162,15 @@ export function ResultsEntry({ order, instruments, onRecorded }: { order: OrderV
                   <Select {...control} value={r.outcome} invalid={Boolean(errors[test.testId])} onChange={(event) => update(test.testId, { outcome: event.target.value })}>
                     <option value="">No result</option>
                     {(test.passingOutcomeIds ?? []).map((o) => (
-                      <option key={o} value={o}>{`Passing outcome ${shortId(o)}`}</option>
+                      <option key={o} value={o}>{outcomeName(o)}</option>
                     ))}
                     <option value={OTHER}>Another outcome (fails)</option>
                   </Select>
                 )}
               </FormField>
               {r.outcome === OTHER ? (
-                <FormField id={`results-${test.testId}-other`} label="Outcome id">
-                  {(control) => <Input {...control} value={r.otherOutcome} onChange={(event) => update(test.testId, { otherOutcome: event.target.value })} />}
+                <FormField id={`results-${test.testId}-other`} label="Outcome" hint="Pick the outcome the inspector recorded; it fails the test.">
+                  {(control) => <EntityLookup {...control} entity="qualityOutcome" value={r.otherOutcome} onChange={(event) => update(test.testId, { otherOutcome: event.target.value })} />}
                 </FormField>
               ) : null}
             </div>

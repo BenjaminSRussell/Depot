@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/shopspring/decimal"
@@ -187,6 +188,20 @@ func TestListAgreementLines_FiltersAndLookupDuty(t *testing.T) {
 	}
 	if rec := h.do(call{method: "GET", path: "/v1/procurement/agreement-lines", duties: []string{dutyAgreementMaintain}}); rec.Code != http.StatusForbidden {
 		t.Fatalf("agreement maintainers alone: %d", rec.Code)
+	}
+}
+
+func TestGetAgreementLine_ByIdOr404(t *testing.T) {
+	h := newHarness(t)
+	line := ids.New()
+	h.fake.knownAgrLine = line
+	if rec := h.do(call{method: "GET", path: "/v1/procurement/agreement-lines/" + line, duties: []string{dutyPurchaseOrderLookup}}); rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "PA-1") {
+		t.Fatalf("known line: %d %s", rec.Code, rec.Body)
+	}
+	for _, id := range []string{ids.New(), "nope"} {
+		if rec := h.do(call{method: "GET", path: "/v1/procurement/agreement-lines/" + id, duties: []string{dutyPurchaseOrderInquire}}); rec.Code != http.StatusNotFound {
+			t.Fatalf("%s: %d %s", id, rec.Code, rec.Body)
+		}
 	}
 }
 

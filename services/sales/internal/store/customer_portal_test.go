@@ -64,6 +64,9 @@ func TestPostgres_ListOrdersForOneCustomer(t *testing.T) {
 	if lines, err := s.ListOrderLines(ctx, OrderLineFilter{OrderID: a2.ID, Limit: 10}); err != nil || len(lines) != 1 || lines[0].ID != a2.Lines[0].ID || lines[0].OrderNumber != a2.OrderNumber || lines[0].LineNo != 1 {
 		t.Fatalf("order lines of a2 = %+v err %v", lines, err)
 	}
+	if one, err := s.ListOrderLines(ctx, OrderLineFilter{ID: a2.Lines[0].ID, Limit: 1}); err != nil || len(one) != 1 || one[0].OrderID != a2.ID {
+		t.Fatalf("order line by id = %+v err %v", one, err)
+	}
 	if lines, err := s.ListOrderLines(ctx, OrderLineFilter{Q: strings.ToLower(b1.OrderNumber), Limit: 10}); err != nil || len(lines) != 1 || lines[0].OrderID != b1.ID {
 		t.Fatalf("order lines matching %q = %+v err %v", b1.OrderNumber, lines, err)
 	}

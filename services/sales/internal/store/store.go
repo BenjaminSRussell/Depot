@@ -251,6 +251,8 @@ type OrderFilter struct {
 
 // OrderLineFilter narrows the order-line list that line pickers read. Empty fields do not filter.
 type OrderLineFilter struct {
+	// ID is one line by its id (the line lookup's resolve).
+	ID      string
 	OrderID string
 	// Q keeps the lines of orders whose number contains it, ignoring case.
 	Q     string
@@ -1418,8 +1420,9 @@ func (s *Postgres) ListOrderLines(ctx context.Context, f OrderLineFilter) ([]Ord
 			where l.tenant_id = $1
 				and ($2 = '' or o.id::text = $2)
 				and ($3 = '' or strpos(lower(o.order_number), lower($3)) > 0)
+				and ($5 = '' or l.id::text = $5)
 			order by o.created_at desc, o.id desc, l.line_no
-			limit $4`, p.TenantID, f.OrderID, f.Q, f.Limit)
+			limit $4`, p.TenantID, f.OrderID, f.Q, f.Limit, f.ID)
 		if err != nil {
 			return err
 		}

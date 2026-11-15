@@ -33,7 +33,7 @@ import styles from "./pages.module.css";
 import { ProblemMessage } from "../../shell/errors";
 import { LookupFormField } from "../../shell/lookup/LookupFormField";
 import { EntityLookup } from "../../shell/lookup/EntityLookup";
-import type { LookupEntityKey } from "../../shell/lookup/entities";
+import type { LookupEntityKey, LookupScope } from "../../shell/lookup/entities";
 
 type Errors = Record<string, string>;
 
@@ -126,10 +126,10 @@ export function validateShipment(v: ShipmentValues): Errors {
     s.lines.forEach((l, j) => {
       const ln = (f: string) => `slips[${i}].lines[${j}].${f}`;
       const lineId = l.id.trim().toLowerCase();
-      if (!UUID.test(lineId)) errors[ln("id")] = "Enter the packing slip line id (a UUID).";
+      if (!UUID.test(lineId)) errors[ln("id")] = "Choose the packing slip line.";
       else if (lineIds.has(lineId)) errors[ln("id")] = "A packing slip line is invoiced once; this one is already listed.";
       lineIds.add(lineId);
-      if (!UUID.test(l.orderLineId.trim())) errors[ln("orderLineId")] = "Enter the order line id (a UUID).";
+      if (!UUID.test(l.orderLineId.trim())) errors[ln("orderLineId")] = "Choose the order line.";
       if (!UUID.test(l.productId.trim())) errors[ln("productId")] = "Choose a product.";
       if (l.description.trim() === "" || l.description.trim().length > 200) errors[ln("description")] = "Enter a description of up to 200 characters.";
       if (!DECIMAL.test(l.qty.trim()) || Number(l.qty) <= 0) errors[ln("qty")] = "Enter the shipped quantity, above zero.";
@@ -202,7 +202,7 @@ const createdColumns: DataTableColumn<Invoice>[] = [
 
 type HeaderField = "legalEntityId" | "customerId" | "invoiceAccountId" | "currency" | "invoiceDate" | "paymentTermDays";
 type SlipField = Exclude<keyof SlipValues, "lines">;
-type FieldOpts = { hint?: string; optional?: boolean; mono?: boolean; decimal?: boolean; type?: string; lookup?: LookupEntityKey };
+type FieldOpts = { hint?: string; optional?: boolean; mono?: boolean; decimal?: boolean; type?: string; lookup?: LookupEntityKey; scope?: LookupScope };
 
 const NEW_SHIPMENT_PROPOSAL_FIELDS: Record<string, FormFieldTarget> = {
   legalEntityId: { id: "sp-legal-entity", label: "Legal entity" },
@@ -215,8 +215,8 @@ const NEW_SHIPMENT_PROPOSAL_FIELDS: Record<string, FormFieldTarget> = {
 
 const SLIP_LABELS: Record<string, string> = { id: "packing slip", orderId: "sales order", date: "slip date", chargeAmount: "slip charge" };
 const SLIP_LINE_LABELS: Record<string, string> = {
-  id: "slip line id",
-  orderLineId: "order line id",
+  id: "slip line",
+  orderLineId: "order line",
   productId: "product",
   description: "description",
   qty: "shipped quantity",
@@ -298,7 +298,7 @@ export function NewShipmentProposalPage() {
       <FormField id={id} label={label} hint={opts.hint} optional={opts.optional} error={errors[name]}>
         {(c) =>
           opts.lookup ? (
-            <EntityLookup {...c} entity={opts.lookup} value={value} onChange={(e) => onChange(e.target.value)} invalid={Boolean(errors[name])} />
+            <EntityLookup {...c} entity={opts.lookup} scope={opts.scope} value={value} onChange={(e) => onChange(e.target.value)} invalid={Boolean(errors[name])} />
           ) : (
           <Input
             {...c}
@@ -395,8 +395,8 @@ export function NewShipmentProposalPage() {
               {s.lines.map((_, j) => (
                 <fieldset key={j} className={styles.lineSet}>
                   <legend className={styles.groupsLegend}>{`Slip ${i + 1}, line ${j + 1}`}</legend>
-                  {line(i, j, "id", "Slip line id", { mono: true })}
-                  {line(i, j, "orderLineId", "Order line id", { mono: true })}
+                  {line(i, j, "id", "Slip line", { lookup: "slipLine", scope: { slipId: values.slips[i].id || undefined }, hint: "A line of the packing slip above." })}
+                  {line(i, j, "orderLineId", "Order line", { lookup: "orderLine", scope: { orderId: values.slips[i].orderId || undefined }, hint: "The line of the sales order above that the slip line shipped." })}
                   <LookupFormField
                     id={`sp-line-${i}-${j}-productId`}
                     label="Product"

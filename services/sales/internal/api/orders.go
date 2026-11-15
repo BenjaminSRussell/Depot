@@ -469,6 +469,28 @@ func (a *API) listOrderLines(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, http.StatusOK, map[string]any{"items": lines})
 }
 
+// getOrderLine reads one order line by id (the line lookup's resolve).
+func (a *API) getOrderLine(w http.ResponseWriter, r *http.Request) {
+	if !validTenant(w, r) {
+		return
+	}
+	id := chi.URLParam(r, "id")
+	if !ids.Valid(id) {
+		httpx.Fail(w, r, httpx.NewProblem(http.StatusNotFound, store.CodeOrderNotFound, "order line not found"))
+		return
+	}
+	lines, err := a.store.ListOrderLines(r.Context(), store.OrderLineFilter{ID: id, Limit: 1})
+	if err != nil {
+		a.fail(w, r, "get order line", err)
+		return
+	}
+	if len(lines) == 0 {
+		httpx.Fail(w, r, httpx.NewProblem(http.StatusNotFound, store.CodeOrderNotFound, "order line not found"))
+		return
+	}
+	httpx.JSON(w, http.StatusOK, lines[0])
+}
+
 var (
 	orderStatuses = map[string]bool{"DRAFT": true, "OPEN": true, "CONFIRMED": true, "PARTIALLY_SHIPPED": true, "SHIPPED": true,
 		"INVOICED": true, "CLOSED": true, "CANCELLED": true}

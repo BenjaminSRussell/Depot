@@ -377,6 +377,45 @@ export async function createSchedule(input: ScheduleInput, idempotencyKey: strin
   return scheduleSchema.parse(reply.body);
 }
 
+// --- Saved explorer queries (private to their user) ----------------------------
+
+const savedQuerySchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  measures: z.array(z.string()),
+  dimensions: z.array(z.string()),
+  lookbackDays: z.number().int(),
+  createdAt: z.string(),
+});
+
+export type SavedQuery = z.infer<typeof savedQuerySchema>;
+
+export interface SavedQueryInput {
+  name: string;
+  measures: string[];
+  dimensions: string[];
+  /** The range is the last N days up to today. */
+  lookbackDays: number;
+}
+
+/** The longest look-back a saved query keeps: the explorer's five-year limit. */
+export const MAX_LOOKBACK_DAYS = 1826;
+
+export async function listSavedQueries(fetchImpl: Fetch = defaultFetch, signal?: AbortSignal): Promise<SavedQuery[]> {
+  return items(savedQuerySchema).parse(await call(fetchImpl, "/saved-queries?limit=500", {}, signal)).items;
+}
+
+/** Saves a query under a name; keep one idempotency key per form so a retry returns the query saved the first time. */
+export async function createSavedQuery(input: SavedQueryInput, idempotencyKey: string, fetchImpl: Fetch = defaultFetch): Promise<SavedQuery> {
+  const reply = await send(fetchImpl, `${base}/saved-queries`, { method: "POST", headers: { "Idempotency-Key": idempotencyKey }, body: JSON.stringify(input) });
+  return savedQuerySchema.parse(reply.body);
+}
+
+export async function deleteSavedQuery(id: string, fetchImpl: Fetch = defaultFetch): Promise<void> {
+  const res = await fetchImpl(`${base}/saved-queries/${encodeURIComponent(id)}`, { method: "DELETE", credentials: "same-origin", headers: { Accept: "application/json" } });
+  if (!res.ok) throw await toError(res);
+}
+
 // --- Slice 4: dashboards, exports, schedule deliveries, lineage ---------------
 
 export const TILE_PERIODS = ["MTD", "QTD", "YTD", "TRAILING_12M"] as const;

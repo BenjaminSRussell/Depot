@@ -65,6 +65,8 @@ type AgreementFilter struct {
 
 // AgreementLineFilter narrows the agreement-line list that line pickers read. Empty fields do not filter.
 type AgreementLineFilter struct {
+	// ID is one line by its id (the line lookup's resolve).
+	ID          string
 	AgreementID string
 	VendorID    string
 	ProductID   string
@@ -105,8 +107,8 @@ func (s *Postgres) ListAgreementLines(ctx context.Context, f AgreementLineFilter
 			where l.tenant_id = $1
 			and ($2 = '' or a.id::text = $2) and ($3 = '' or a.vendor_id::text = $3) and ($4 = '' or l.product_id::text = $4)
 			and ($5 = '' or a.status = $5) and ($6 = '' or strpos(lower(a.number), lower($6)) > 0) and ($7 = '' or a.number = $7)
-			and ($8::uuid is null or l.id < $8::uuid)
-			order by l.id desc limit $9`, p.TenantID, f.AgreementID, f.VendorID, f.ProductID, f.Status, f.Q, f.Number, nullable(after), limit+1)
+			and ($8::uuid is null or l.id < $8::uuid) and ($10 = '' or l.id::text = $10)
+			order by l.id desc limit $9`, p.TenantID, f.AgreementID, f.VendorID, f.ProductID, f.Status, f.Q, f.Number, nullable(after), limit+1, f.ID)
 		if err != nil {
 			return err
 		}

@@ -132,6 +132,8 @@ type ShipmentFilter struct {
 
 // PackingSlipLineFilter narrows the packing slip line list. Empty fields do not filter.
 type PackingSlipLineFilter struct {
+	// ID is one line by the shipment line it covers (the line lookup's resolve).
+	ID     string
 	SlipID string
 	// Q keeps the lines whose slip number contains it, ignoring case.
 	Q     string
@@ -869,8 +871,9 @@ func (s *Postgres) ListPackingSlipLines(ctx context.Context, f PackingSlipLineFi
 			join shipment_line sl on sl.tenant_id = l.tenant_id and sl.id = l.shipment_line_id
 			where ($1 = '' or ps.id::text = $1)
 			  and ($3 = '' or strpos(lower(ps.packing_slip_number), lower($3)) > 0)
+			  and ($4 = '' or l.shipment_line_id::text = $4)
 			order by ps.created_at desc, ps.packing_slip_number desc, l.line_no
-			limit $2`, f.SlipID, f.Limit, f.Q)
+			limit $2`, f.SlipID, f.Limit, f.Q, f.ID)
 		if err != nil {
 			return err
 		}

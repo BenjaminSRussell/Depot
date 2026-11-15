@@ -1179,29 +1179,30 @@ components:
         releases: { type: array, items: { $ref: '#/components/schemas/AgreementRelease' } }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
+    AgreementLine:
+      type: object
+      required: [id, agreementId, agreementNumber, lineNo, vendorId, status, commitmentType, currency, committedQty, committedAmount]
+      properties:
+        id: { type: string, format: uuid }
+        agreementId: { type: string, format: uuid }
+        agreementNumber: { type: string }
+        lineNo: { type: integer }
+        vendorId: { type: string, format: uuid }
+        status: { type: string, enum: [DRAFT, EFFECTIVE, ON_HOLD, CLOSED] }
+        commitmentType: { type: string, enum: [QUANTITY, VALUE, CATEGORY_VALUE, TOTAL_VALUE] }
+        productId: { type: string, format: uuid }
+        category: { type: string }
+        unit: { type: string }
+        currency: { type: string }
+        committedQty: { type: string }
+        committedAmount: { type: string }
     AgreementLinePage:
       type: object
       required: [items]
       properties:
         items:
           type: array
-          items:
-            type: object
-            required: [id, agreementId, agreementNumber, lineNo, vendorId, status, commitmentType, currency, committedQty, committedAmount]
-            properties:
-              id: { type: string, format: uuid }
-              agreementId: { type: string, format: uuid }
-              agreementNumber: { type: string }
-              lineNo: { type: integer }
-              vendorId: { type: string, format: uuid }
-              status: { type: string, enum: [DRAFT, EFFECTIVE, ON_HOLD, CLOSED] }
-              commitmentType: { type: string, enum: [QUANTITY, VALUE, CATEGORY_VALUE, TOTAL_VALUE] }
-              productId: { type: string, format: uuid }
-              category: { type: string }
-              unit: { type: string }
-              currency: { type: string }
-              committedQty: { type: string }
-              committedAmount: { type: string }
+          items: { $ref: '#/components/schemas/AgreementLine' }
         nextCursor: { type: string, format: uuid }
     PurchaseAgreementSummary:
       type: object
@@ -3825,6 +3826,20 @@ paths:
               schema: { $ref: '#/components/schemas/AgreementLinePage' }
         '403': { $ref: '#/components/responses/Problem' }
         '422': { $ref: '#/components/responses/Problem' }
+  /v1/procurement/agreement-lines/{id}:
+    get:
+      operationId: getAgreementLine
+      x-passage-duty: procurement.purchase-order.inquire or procurement.purchase-order.lookup
+      summary: One agreement line by id (the line lookup's resolve)
+      parameters: [{ $ref: '#/components/parameters/Id' }]
+      responses:
+        '200':
+          description: The line
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AgreementLine' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
   /v1/procurement/agreements/{id}:
     get:
       operationId: getPurchaseAgreement

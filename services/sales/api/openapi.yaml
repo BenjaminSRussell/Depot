@@ -1307,6 +1307,21 @@ paths:
                     items: {$ref: "#/components/schemas/OrderLineSummary"}
         "400": {$ref: "#/components/responses/Problem"}
         "403": {$ref: "#/components/responses/Problem"}
+  /v1/sales/order-lines/{id}:
+    get:
+      summary: One order line by id (the line lookup's resolve)
+      operationId: getOrderLine
+      x-passage-duty: sales.order.read
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+      responses:
+        "200":
+          description: the order line
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/OrderLineSummary"}
+        "403": {$ref: "#/components/responses/Problem"}
+        "404": {$ref: "#/components/responses/Problem"}
   /v1/sales/orders:auto-close:
     post:
       summary: Close the INVOICED orders that nothing has changed for a grace period (the nightly auto-close, PRD 5.27.16)

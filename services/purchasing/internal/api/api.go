@@ -233,6 +233,7 @@ func (a *API) Register(r chi.Router) {
 		// Purchase agreements (FR-17.5); custom methods (":activate", ":hold",
 		// ":close") arrive as one path segment, see purchaseAgreementAction.
 		lookup.Get("/agreement-lines", a.listAgreementLines)
+		lookup.Get("/agreement-lines/{id}", a.getAgreementLine)
 		pa := r.With(authz.RequireDuty(dutyAgreementMaintain))
 		pa.Post("/agreements", a.createPurchaseAgreement)
 		pa.Get("/agreements", a.listPurchaseAgreements)

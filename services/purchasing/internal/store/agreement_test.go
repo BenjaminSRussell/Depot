@@ -81,6 +81,9 @@ func TestPurchaseAgreement_CreateListAndLifecycle(t *testing.T) {
 	if err != nil || len(lines.Items) != 2 || lines.Items[0].AgreementNumber != a.Number || lines.Items[0].VendorID != vendor || lines.Items[0].Currency == "" {
 		t.Fatalf("agreement lines = %+v, %v", lines.Items, err)
 	}
+	if byID, err := s.ListAgreementLines(ctx, store.AgreementLineFilter{ID: lines.Items[0].ID}, "", 1); err != nil || len(byID.Items) != 1 || byID.Items[0].AgreementID != a.ID {
+		t.Fatalf("line by id = %+v, %v", byID.Items, err)
+	}
 	if one, err := s.ListAgreementLines(ctx, store.AgreementLineFilter{Number: a.Number, ProductID: product}, "", 1); err != nil || len(one.Items) == 0 || one.Items[0].AgreementID != a.ID {
 		t.Fatalf("by number and product = %+v, %v", one.Items, err)
 	}

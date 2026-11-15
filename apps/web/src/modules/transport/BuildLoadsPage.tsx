@@ -16,7 +16,7 @@ export interface BuildValues {
 }
 
 const shipmentFields: RowField[] = [
-  { key: "id", label: "Shipment id", mono: true, hint: "Sales, transfer or inbound shipment (UUID)." },
+  { key: "id", label: "Shipment", lookup: "shipment", hint: "A shipment released by fulfillment." },
   { key: "shipFromSiteId", label: "Ship-from site", lookup: "site" },
   { key: "shipToRegion", label: "Ship-to region", upper: true, hint: "Such as US-SE." },
   { key: "mode", label: "Mode", options: LOAD_MODES },
@@ -42,7 +42,7 @@ export function validateBuild(v: BuildValues): { errors: Record<string, string>;
     const row = `shipments[${i}]`;
     const id = s.id.trim();
     const region = s.shipToRegion.trim().toUpperCase();
-    if (!UUID.test(id)) errors[row] = "Enter the shipment id as a lower-case UUID.";
+    if (!UUID.test(id)) errors[row] = "Choose the shipment.";
     else if (seen.has(id)) errors[row] = "List each shipment once.";
     else if (!UUID.test(s.shipFromSiteId.trim())) errors[row] = "Choose the ship-from site.";
     else if (region.length < 1 || region.length > 20) errors[row] = "Enter a ship-to region of 1 to 20 characters.";

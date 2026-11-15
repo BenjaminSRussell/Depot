@@ -526,7 +526,7 @@
     ]},
     "billing.invoice.read": {"service_only": true, "permissions": [{"resource": "/v1/billing/invoices/*", "methods": ["GET"]}]},
     "billing.contract-modification.bill": {"service_only": true, "permissions": [{"resource": "/v1/billing/contract-modifications", "methods": ["POST"]}]},
-    "sales.order.lookup": {"service_only": true, "permissions": [{"resource": "/v1/sales/orders/*", "methods": ["GET"]}, {"resource": "/v1/sales/order-lines", "methods": ["GET"]}]},
+    "sales.order.lookup": {"service_only": true, "permissions": [{"resource": "/v1/sales/orders/*", "methods": ["GET"]}, {"resource": "/v1/sales/order-lines", "methods": ["GET"]}, {"resource": "/v1/sales/order-lines/*", "methods": ["GET"]}]},
     "inventory.hold.apply": {"service_only": true, "permissions": [
       {"resource": "/v1/inventory/holds", "methods": ["POST"]},
       {"resource": "/v1/inventory/holds:release-source", "methods": ["POST"]}
@@ -623,7 +623,8 @@
       {"resource": "/v1/procurement/purchase-orders/*/service-lines", "methods": ["GET"]},
       {"resource": "/v1/procurement/purchase-orders/*/lines/*/service", "methods": ["GET"]},
       {"resource": "/v1/procurement/purchase-orders/*/lines/*/service/limit-check", "methods": ["GET"]},
-      {"resource": "/v1/procurement/agreement-lines", "methods": ["GET"]}
+      {"resource": "/v1/procurement/agreement-lines", "methods": ["GET"]},
+      {"resource": "/v1/procurement/agreement-lines/*", "methods": ["GET"]}
     ]},
     "procurement.purchase-order.inquire": {"permissions": [
       {"resource": "/v1/search", "methods": ["GET"]},
@@ -675,7 +676,8 @@
       {"resource": "/v1/procurement/acknowledgements", "methods": ["GET"]},
       {"resource": "/v1/procurement/acknowledgements/awaiting", "methods": ["GET"]},
       {"resource": "/v1/procurement/purchase-orders/*/acknowledgements", "methods": ["GET"]},
-      {"resource": "/v1/procurement/agreement-lines", "methods": ["GET"]}
+      {"resource": "/v1/procurement/agreement-lines", "methods": ["GET"]},
+      {"resource": "/v1/procurement/agreement-lines/*", "methods": ["GET"]}
     ]},
     "procurement.vendor-portal.read": {"service_only": true, "permissions": [
       {"resource": "/v1/procurement/vendor/purchase-orders", "methods": ["GET"]},
@@ -2329,7 +2331,8 @@
       {"resource": "/v1/fulfillment/manifest-candidates", "methods": ["GET"]},
       {"resource": "/v1/fulfillment/manifests", "methods": ["GET"]},
       {"resource": "/v1/fulfillment/manifests/*", "methods": ["GET"]},
-      {"resource": "/v1/fulfillment/packing-slip-lines", "methods": ["GET"]}
+      {"resource": "/v1/fulfillment/packing-slip-lines", "methods": ["GET"]},
+      {"resource": "/v1/fulfillment/packing-slip-lines/*", "methods": ["GET"]}
     ]},
     "fulfillment.returnable-packaging.maintain": {"permissions": [{"resource": "/v1/fulfillment/returnable-packaging:adjust", "methods": ["POST"]}]},
     "audit.read": {"permissions": [
@@ -3569,7 +3572,8 @@
       {"resource": "/v1/sales/delivery-tolerances", "methods": ["GET"]},
       {"resource": "/v1/sales/delivery-tolerances/*", "methods": ["GET"]},
       {"resource": "/v1/sales/delivery-tolerances:resolve", "methods": ["GET"]},
-      {"resource": "/v1/sales/order-lines", "methods": ["GET"]}
+      {"resource": "/v1/sales/order-lines", "methods": ["GET"]},
+      {"resource": "/v1/sales/order-lines/*", "methods": ["GET"]}
     ]},
     "sales.order.write": {"permissions": [
       {"resource": "/v1/sales/orders", "methods": ["POST"]},

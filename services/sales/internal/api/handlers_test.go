@@ -26,6 +26,7 @@ type fakeStore struct {
 	released     bool
 	filter       store.OrderFilter
 	lineFilter   store.OrderLineFilter
+	knownLine    string
 	profileLE    string
 	profile      store.CreditProfile
 	listedLE     *string
@@ -57,6 +58,9 @@ func (f *fakeStore) ListOrders(_ context.Context, filter store.OrderFilter) (sto
 
 func (f *fakeStore) ListOrderLines(_ context.Context, filter store.OrderLineFilter) ([]store.OrderLineSummary, error) {
 	f.lineFilter = filter
+	if filter.ID != "" && f.knownLine == filter.ID {
+		return []store.OrderLineSummary{{ID: filter.ID, OrderNumber: "SO-1", LineNo: 1}}, nil
+	}
 	return []store.OrderLineSummary{}, nil
 }
 
@@ -267,5 +271,18 @@ func TestListOrderLines_PassesFiltersAndAcceptsTheLookupDuty(t *testing.T) {
 	}
 	if rec := serve(t, fs, http.MethodGet, "/v1/sales/order-lines", principal("sales.other"), nil); rec.Code != http.StatusForbidden {
 		t.Fatalf("status = %d, want 403", rec.Code)
+	}
+}
+
+func TestGetOrderLine_ByIdOr404(t *testing.T) {
+	line := ids.New()
+	fs := &fakeStore{knownLine: line}
+	if rec := serve(t, fs, http.MethodGet, "/v1/sales/order-lines/"+line, principal("sales.order.lookup"), nil); rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "SO-1") {
+		t.Fatalf("known line: %d %s", rec.Code, rec.Body)
+	}
+	for _, path := range []string{"/v1/sales/order-lines/" + ids.New(), "/v1/sales/order-lines/nope"} {
+		if rec := serve(t, fs, http.MethodGet, path, principal(dutyRead), nil); rec.Code != http.StatusNotFound {
+			t.Fatalf("%s: %d", path, rec.Code)
+		}
 	}
 }

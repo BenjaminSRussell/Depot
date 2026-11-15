@@ -54,7 +54,7 @@ const emptyRow = (): RowValues => ({ origin: "*", destination: "*", breakFrom: "
 export function validateCard(v: CardValues): { errors: Errors; input?: NewRateCard } {
   const errors: Errors = {};
   if (!UUID.test(v.carrierId.trim())) errors.carrierId = "Choose the carrier.";
-  if (!UUID.test(v.serviceId.trim())) errors.serviceId = "Enter the carrier service id as a lower-case UUID.";
+  if (!UUID.test(v.serviceId.trim())) errors.serviceId = "Choose the carrier service.";
   if (!CURRENCY.test(v.currency)) errors.currency = "Enter a three-letter currency code such as USD.";
   if (!DATE.test(v.validFrom)) errors.validFrom = "Enter the first day the card applies.";
   if (v.validTo !== "" && (!DATE.test(v.validTo) || v.validTo < v.validFrom)) errors.validTo = "Enter a last day on or after the first day, or leave it empty.";
@@ -175,7 +175,7 @@ export function NewRateCardPage() {
       <Card>
         <form className={styles.form} onSubmit={submit} noValidate>
           <LookupFormField id="card-carrierId" label="Carrier" entity="vendor" hint="The carrier party." value={values.carrierId} error={errors.carrierId} onChange={(carrierId) => update({ carrierId })} />
-          {text("serviceId", "Service id", "The carrier service (UUID).", false, { className: styles.mono })}
+          <LookupFormField id="card-serviceId" label="Carrier service" entity="carrierService" hint="One of the carrier's services." allowCreate scope={{ carrierId: values.carrierId || undefined }} value={values.serviceId} error={errors.serviceId} onChange={(serviceId) => update({ serviceId })} />
           <FormField id="card-basis" label="Basis" error={errors.basis}>
             {(control) => (
               <Select {...control} value={values.basis} onChange={(e) => update({ basis: e.target.value as Basis })}>
