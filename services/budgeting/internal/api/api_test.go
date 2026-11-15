@@ -26,8 +26,28 @@ type fakeStore struct {
 	// rule is what ActiveRule answers; ruleFound false means the legal entity has none.
 	rule        store.Rule
 	ruleFound   bool
+	docFilter   store.DocumentFilter
+	lineFilter  store.DocumentLineFilter
 	checkIn     store.CheckRequest
 	releaseLine string
+}
+
+func (f *fakeStore) ListDocuments(_ context.Context, filter store.DocumentFilter) ([]store.Document, error) {
+	f.docFilter = filter
+	return []store.Document{}, nil
+}
+
+func (f *fakeStore) GetDocument(context.Context, string) (store.Document, error) {
+	return store.Document{}, httpx.NewProblem(http.StatusNotFound, store.CodeDocumentNotFound, "budget document not found")
+}
+
+func (f *fakeStore) ListDocumentLines(_ context.Context, filter store.DocumentLineFilter) ([]store.DocumentLine, error) {
+	f.lineFilter = filter
+	return []store.DocumentLine{}, nil
+}
+
+func (f *fakeStore) GetDocumentLine(context.Context, string) (store.DocumentLine, error) {
+	return store.DocumentLine{}, httpx.NewProblem(http.StatusNotFound, store.CodeDocumentNotFound, "budget document line not found")
 }
 
 func (f *fakeStore) ActiveRule(context.Context, string, string) (store.Rule, bool, error) {
@@ -325,5 +345,31 @@ func TestReads_RejectBadFiltersAndIDs(t *testing.T) {
 	}
 	if st.calls != 1 {
 		t.Fatalf("store calls = %d, want 1 (only the well-formed unknown id reaches the store)", st.calls)
+	}
+}
+
+func TestDocumentLookups_ViewDutyAndFilters(t *testing.T) {
+	f := &fakeStore{}
+	if rec := serve(t, f, http.MethodGet, "/v1/budget/documents?type=PurchaseOrder&q=+bd-1+&number=BD-000001&limit=5", ``, "budget.view", ""); rec.Code != http.StatusOK {
+		t.Fatalf("status = %d: %s", rec.Code, rec.Body)
+	}
+	if f.docFilter.Type != "PurchaseOrder" || f.docFilter.Q != "bd-1" || f.docFilter.Number != "BD-000001" || f.docFilter.Limit != 5 {
+		t.Fatalf("filter = %+v", f.docFilter)
+	}
+	if rec := serve(t, f, http.MethodGet, "/v1/budget/document-lines?documentId="+docID+"&q=2", ``, "budget.view", ""); rec.Code != http.StatusOK || f.lineFilter.DocumentID != docID || f.lineFilter.Q != "2" {
+		t.Fatalf("lines: %d %+v", rec.Code, f.lineFilter)
+	}
+	for _, path := range []string{"/v1/budget/documents?type=Memo", "/v1/budget/documents?limit=0", "/v1/budget/document-lines?documentId=x"} {
+		if rec := serve(t, f, http.MethodGet, path, ``, "budget.view", ""); rec.Code != http.StatusBadRequest {
+			t.Fatalf("%s: status = %d", path, rec.Code)
+		}
+	}
+	for _, path := range []string{"/v1/budget/documents/" + docID, "/v1/budget/document-lines/" + lineID, "/v1/budget/documents/nope"} {
+		if rec := serve(t, f, http.MethodGet, path, ``, "budget.view", ""); rec.Code != http.StatusNotFound || problemCode(t, rec) != store.CodeDocumentNotFound {
+			t.Fatalf("%s: status = %d", path, rec.Code)
+		}
+	}
+	if rec := serve(t, f, http.MethodGet, "/v1/budget/documents", ``, "budget.other", ""); rec.Code != http.StatusForbidden {
+		t.Fatalf("status = %d, want 403", rec.Code)
 	}
 }

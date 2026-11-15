@@ -33,6 +33,7 @@ const (
 	CodeEncumbranceNotFound   = "BUD-0002"
 	CodeLineMoved             = "BUD-0003"
 	CodeCheckNotFound         = "BUD-0004"
+	CodeDocumentNotFound      = "BUD-0005"
 	CodeNothingToRelease      = "BUD-0010"
 	CodeLineReleased          = "BUD-0011"
 	CodeIdempotencyReuse      = "idempotency_key_reuse"
@@ -522,11 +523,33 @@ func recordCheck(ctx context.Context, tx pgx.Tx, tenantID string, rule Rule, res
 		tenantID, resp.ID, rule.LegalEntityID, rule.ID, resp.DocumentID, resp.DocumentType, string(resp.Result), resp.Overridden, string(lines), resp.CheckedAt); err != nil {
 		return err
 	}
+	if err := registerDocument(ctx, tx, tenantID, rule.LegalEntityID, resp); err != nil {
+		return err
+	}
 	data := budgetevents.CheckCompletedData{CheckID: resp.ID, SourceDocumentID: resp.DocumentID, Result: string(resp.Result)}
 	for _, l := range resp.Lines {
 		data.LineResults = append(data.LineResults, budgetevents.CheckLineData{LineID: l.LineID, Result: string(l.Result), Available: l.Available.String(), Amount: l.Amount.String()})
 	}
 	return enqueue(ctx, tx, "budgetcheck", resp.DocumentID, budgetevents.CheckCompleted, tenantID, data)
+}
+
+// registerDocument keeps the document register current: the first check of a document gives it its number, every check
+// refreshes its lines (a revised document keeps its line ids).
+func registerDocument(ctx context.Context, tx pgx.Tx, tenantID, legalEntityID string, resp CheckResponse) error {
+	if _, err := tx.Exec(ctx, `insert into budget_document (tenant_id, id, legal_entity_id, document_type) values ($1, $2, $3, $4)
+		on conflict (tenant_id, id) do update set updated_at = now()`, tenantID, resp.DocumentID, legalEntityID, resp.DocumentType); err != nil {
+		return err
+	}
+	for i, l := range resp.Lines {
+		if _, err := tx.Exec(ctx, `insert into budget_document_line (tenant_id, id, document_id, legal_entity_id, line_no, dimension_key, span_key, amount)
+			values ($1, $2, $3, $4, $5, $6, $7, $8)
+			on conflict (tenant_id, id) do update set line_no = excluded.line_no, dimension_key = excluded.dimension_key, span_key = excluded.span_key, amount = excluded.amount
+			where budget_document_line.document_id = excluded.document_id`,
+			tenantID, l.LineID, resp.DocumentID, legalEntityID, i+1, l.DimensionKey, l.SpanKey, l.Amount); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // RelieveEncumbrance applies relief = min(matched share, remaining reservation)
