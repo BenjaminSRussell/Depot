@@ -117,6 +117,22 @@ paths:
         "400": { $ref: "#/components/responses/Validation" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+  /v1/warehouse/locations/{id}:
+    get:
+      operationId: getLocation
+      summary: One location with its stock (the location lookup's resolve)
+      x-passage-duty: warehouse.setup.view
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: The location.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Location" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
   /v1/warehouse/location-directives:
     post:
       operationId: createLocationDirective

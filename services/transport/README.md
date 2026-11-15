@@ -54,9 +54,11 @@ charts/transport/       Helm chart (image, DATABASE_URL from a secret, probes, S
 |---|---|---|---|
 | POST | /v1/transport/rate-cards | transport.rate-card.approve | Effective-dated card; overlap per carrier, service and basis is TMS-0102; `Idempotency-Key` optional |
 | GET | /v1/transport/rate-cards | transport.rate-card.maintain | Filter by `carrierId`, `serviceId` |
+| POST | /v1/transport/carrier-services | transport.rate-card.approve | A service a carrier sells (`code` unique per carrier, TMS-0140; `mode`); `Idempotency-Key` optional (migration 0013) |
+| GET | /v1/transport/carrier-services, /{id} | transport.rate-card.maintain, transport.rate-card.approve or transport.view | The lookup of the rate card and rate shop forms: `q` (code or name), `code`, `carrierId`, `active=true`, `limit` |
 | POST | /v1/transport/shipments/{id}:rate | transport.rate-card.maintain | One quote per carrier service with the card valid on the ship date, ranked, with explain trace; not cached yet |
 | POST | /v1/transport/freight-bills | transport.freight-bill.reconcile | Expected charges for a load; `Idempotency-Key` optional |
-| GET | /v1/transport/freight-bills | transport.view | Newest first, at most 500; filter by `matchStatus`, `carrierId` |
+| GET | /v1/transport/freight-bills | transport.view | Newest first, at most 500; filter by `matchStatus`, `carrierId`, `loadId`, `q` (part of the bill number), `number` (exact, such as FB-000042), `limit`. A bill's number comes from a sequence shared by all tenants, so one tenant sees gaps |
 | GET | /v1/transport/freight-bills/{id} | transport.view | The bill, its carrier invoice and the per-charge comparison once matched |
 | POST | /v1/transport/carrier-invoices | transport.freight-bill.reconcile | Matched to the named bill in the same transaction; no bill makes it UNEXPECTED_INVOICE |
 | GET | /v1/transport/carrier-invoices | transport.freight-bill.reconcile | Newest first, at most 500; `matchStatus=UNEXPECTED_INVOICE` is the exception queue |

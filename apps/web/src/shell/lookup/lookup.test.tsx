@@ -354,6 +354,19 @@ describe("lookup adapters", () => {
     expect(calls).toContain("/api/v1/budget/documents?q=bd&limit=20&type=PurchaseOrder");
   });
 
+  it("reads locations of one warehouse and transactions by reference", async () => {
+    handler = (url) => {
+      if (url.pathname === "/api/v1/warehouse/locations") return json({ items: [{ id: "lo-1", name: "RM-A-01", zone: "Motors" }, { id: "lo-2", name: "RM-B-02", zone: "Seals" }] });
+      if (url.pathname === "/api/v1/inventory/transactions") return json({ items: [{ id: "tx-1", reference: "PO-1042", sourceType: "PURCHASE_LINE", physicalDate: "2026-11-02", productId: "pr-1", enteredQty: "5", enteredUnit: "EA", receiptStatus: "REGISTERED" }, { id: "tx-2", sourceType: "SALES_LINE", physicalDate: "2026-11-03", qty: "2" }] });
+      if (url.pathname === "/api/v1/product/products/pr-1") return json({ id: "pr-1", name: "Seal kit", productNumber: "SEAL-MK-125" });
+      return json({ items: [] });
+    };
+    expect(await lookupDefs.location.search("", {})).toEqual([]);
+    expect((await lookupDefs.location.search("b-02", { warehouseId: "wh-1" })).map(formatOption)).toEqual(["RM-B-02 (zone Seals)"]);
+    expect(calls).toContain("/api/v1/warehouse/locations?warehouseId=wh-1&limit=200");
+    expect((await lookupDefs.inventoryTransaction.search("", {})).map(formatOption)).toEqual(["PO-1042 (Seal kit x 5 EA · registered)", "sales line of 2026-11-03 (x 2)"]);
+  });
+
   it("filters currencies by name or code", async () => {
     handler = () => json({ items: [{ code: "USD", name: "US Dollar" }, { code: "EUR", name: "Euro" }] });
     expect((await lookupDefs.currency.search("eur", {})).map((c) => c.id)).toEqual(["EUR"]);

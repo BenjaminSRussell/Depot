@@ -63,7 +63,9 @@ export type LookupEntityKey =
   | "budgetDocumentLine"
   | "qualityOutcome"
   | "auditPolicy"
-  | "savedQuery";
+  | "savedQuery"
+  | "inventoryTransaction"
+  | "location";
 
 export interface LookupOption {
   id: string;
@@ -84,6 +86,8 @@ export interface LookupScope {
   siteId?: string;
   /** The worker whose records are listed (employments). */
   workerId?: string;
+  /** The warehouse whose locations are listed. */
+  warehouseId?: string;
   /** The carrier whose services or freight bills are listed. */
   carrierId?: string;
   /** The load whose freight bills are listed. */
@@ -778,7 +782,48 @@ function scheduleOption(row: Raw): LookupOption | null {
   return { id, name, number: [window, lower(text(row, "status"))].filter(Boolean).join(" · ") || undefined };
 }
 
+/**
+ * An inventory transaction reads by its reference, or by its source and date when it has none, with what it moved:
+ * "PO-1042 (Seal kit x 5 EA · registered)". Transactions are listed newest first without a text search, so the typed
+ * text narrows what the first pages hold.
+ */
+const inventoryTransactionDef: LookupDef = {
+  noun: "inventory transaction",
+  search: async (q, _scope, signal) => {
+    const rows = items(await getJson(`/api/v1/inventory/transactions${query({ limit: "100" })}`, signal));
+    return narrow(present(await Promise.all(rows.map(inventoryTransactionOption))), q);
+  },
+  resolve: async (id, signal) => inventoryTransactionOption(await getOne("/api/v1/inventory/transactions", id, signal)),
+};
+
+async function inventoryTransactionOption(row: Raw): Promise<LookupOption | null> {
+  const id = text(row, "id");
+  if (!id) return null;
+  const source = lower(text(row, "sourceType")) ?? "transaction";
+  const name = text(row, "reference") ?? `${source} of ${text(row, "physicalDate") ?? "unknown date"}`;
+  const status = lower(text(row, "issueStatus", "receiptStatus"));
+  const what = lineWhat(await productNameOf(row), text(row, "enteredQty", "qty"), text(row, "enteredUnit"));
+  return { id, name, number: [what, status].filter(Boolean).join(" · ") || undefined };
+}
+
+/** A warehouse location reads "RM-A-01 (Motors)"; locations are listed per warehouse, so with none in scope there is nothing to pick. */
+const locationDef: LookupDef = {
+  noun: "location",
+  search: async (q, scope, signal) =>
+    scope.warehouseId
+      ? narrow(present((await listRows("/api/v1/warehouse/locations", { warehouseId: scope.warehouseId, limit: "200" }, signal)).map(locationOption)), q)
+      : [],
+  resolve: async (id, signal) => locationOption(await getOne("/api/v1/warehouse/locations", id, signal)),
+};
+
+function locationOption(row: Raw): LookupOption | null {
+  const hit = option(row, ["name"], ["zone"]);
+  return hit ? { ...hit, number: hit.number ? `zone ${hit.number}` : undefined } : null;
+}
+
 export const lookupDefs: Record<LookupEntityKey, LookupDef> = {
+  location: locationDef,
+  inventoryTransaction: inventoryTransactionDef,
   carrierService: serverSearch(
     "carrier service",
     "/api/v1/transport/carrier-services",

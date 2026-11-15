@@ -53,6 +53,13 @@ func (f *fakeStore) ListLocations(_ context.Context, lf store.LocationFilter) ([
 	f.lfilter = lf
 	return nil, f.err
 }
+func (f *fakeStore) GetLocation(_ context.Context, id string) (domain.Location, error) {
+	f.calls++
+	if f.err != nil {
+		return domain.Location{}, f.err
+	}
+	return domain.Location{ID: id, Name: "RM-A-01", Zone: "Motors"}, nil
+}
 func (f *fakeStore) CreateDirective(_ context.Context, idem store.Idem, d domain.Directive) (domain.Directive, bool, error) {
 	f.calls++
 	f.idem = idem
@@ -368,6 +375,25 @@ func TestPersistedRoutes_PassTheCommand(t *testing.T) {
 	rec = call(h, req{method: "GET", path: "/v1/warehouse/locations?warehouseId=" + wh + "&zone=A", duties: dutySetupView})
 	if rec.Code != 200 || !strings.Contains(rec.Body.String(), `"items":[]`) || fake.lfilter.Zone != "A" {
 		t.Fatalf("empty location list must be an array: %s", rec.Body)
+	}
+}
+
+func TestGetLocation_ByIdOr404AndDuty(t *testing.T) {
+	fake := &fakeStore{}
+	h := persistedRouter(fake)
+	id := ids.New()
+	if rec := call(h, req{method: "GET", path: "/v1/warehouse/locations/" + id, duties: dutySetupView}); rec.Code != 200 || !strings.Contains(rec.Body.String(), "RM-A-01") {
+		t.Fatalf("known location: %d %s", rec.Code, rec.Body)
+	}
+	if rec := call(h, req{method: "GET", path: "/v1/warehouse/locations/nope", duties: dutySetupView}); rec.Code != 404 {
+		t.Fatalf("a malformed id: %d", rec.Code)
+	}
+	if rec := call(h, req{method: "GET", path: "/v1/warehouse/locations/" + id, duties: dutyInquiry}); rec.Code != 403 {
+		t.Fatalf("the inquiry duty must not read setup: %d", rec.Code)
+	}
+	fake.err = store.ErrNotFound
+	if rec := call(h, req{method: "GET", path: "/v1/warehouse/locations/" + id, duties: dutySetupView}); rec.Code != 404 || !strings.Contains(rec.Body.String(), "WMS-LOCATION-NOT-FOUND") {
+		t.Fatalf("unknown location: %d %s", rec.Code, rec.Body)
 	}
 }
 

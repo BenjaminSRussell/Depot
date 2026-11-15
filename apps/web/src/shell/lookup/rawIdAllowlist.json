@@ -1,28 +1,10 @@
 {
   "entries": {
-    "modules/compliance/ScreeningCheckPage.tsx": {
-      "labels": [
-        "Document id"
-      ],
-      "reason": "Structural: a DOCUMENT subject is a sales order, delivery, purchase order or payment owned by four services, and no single list spans them. A PARTY subject is a party lookup."
-    },
     "modules/integration/NewClientPage.tsx": {
       "labels": [
         "Sandbox tenant id"
       ],
       "reason": "A sandbox tenant is another tenant; there is no tenant directory to look it up in."
-    },
-    "modules/inventory/StatusChangesPage.tsx": {
-      "labels": [
-        "Transaction id"
-      ],
-      "reason": "Inventory transactions carry no document number to search by, so there is nothing readable to pick from."
-    },
-    "modules/lean/FlowPages.tsx": {
-      "labels": [
-        "Output location id"
-      ],
-      "reason": "Warehouse locations are listed per warehouse, and a flow activity names no warehouse to scope a location lookup to; the output location stays a typed id (the value stream is an operating unit lookup)."
     },
     "modules/pricing/NewPromotionPage.tsx": {
       "labels": [

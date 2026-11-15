@@ -69,6 +69,7 @@ const (
 type Store interface {
 	CreateLocations(ctx context.Context, idem store.Idem, warehouseID string, locs []domain.Location) ([]domain.Location, bool, error)
 	ListLocations(ctx context.Context, f store.LocationFilter) ([]domain.Location, error)
+	GetLocation(ctx context.Context, id string) (domain.Location, error)
 	CreateDirective(ctx context.Context, idem store.Idem, d domain.Directive) (domain.Directive, bool, error)
 	ListDirectives(ctx context.Context, warehouseID, workType, direction string) ([]domain.Directive, error)
 	PlanWork(ctx context.Context, idem store.Idem, in store.PlanInput) (store.Planned, bool, error)
@@ -110,6 +111,7 @@ func (a *API) registerPersisted(r chi.Router) {
 		r.Use(requireTenant)
 		r.With(authz.RequireDuty(dutySetupMaintain)).Post("/v1/warehouse/locations:bulk", a.createLocations)
 		r.With(authz.RequireDuty(dutySetupView)).Get("/v1/warehouse/locations", a.listLocations)
+		r.With(authz.RequireDuty(dutySetupView)).Get("/v1/warehouse/locations/{id}", a.getLocation)
 		r.With(authz.RequireDuty(dutySetupMaintain)).Post("/v1/warehouse/location-directives", a.createDirective)
 		r.With(authz.RequireDuty(dutySetupView)).Get("/v1/warehouse/location-directives", a.listDirectives)
 		r.With(authz.RequireDuty(dutyWorkSupervise)).Post("/v1/warehouse/work", a.createWork)
@@ -355,6 +357,21 @@ func (a *API) listLocations(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.JSON(w, http.StatusOK, newPage(out, limit, func(l domain.Location) string { return l.Name }))
+}
+
+// getLocation reads one location by id (the location lookup's resolve).
+func (a *API) getLocation(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	if !ids.Valid(id) {
+		httpx.Fail(w, r, httpx.NewProblem(http.StatusNotFound, codeLocationNotFound, "not found"))
+		return
+	}
+	loc, err := a.st.GetLocation(r.Context(), id)
+	if err != nil {
+		fail(w, r, err, codeLocationNotFound)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, loc)
 }
 
 // directiveInput is a directive to create; the server assigns the id.

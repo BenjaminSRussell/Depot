@@ -128,6 +128,7 @@ Health: `GET /healthz`, `GET /readyz` (provided by `httpx.NewRouter`).
 | GET | `/v1/budget/checks?rule=&documentId=`, `/v1/budget/checks/{id}` | `budget.view` |
 | GET | `/v1/budget/encumbrances?rule=&status=`, `/v1/budget/encumbrances/{id}` | `budget.view` |
 | POST | `/v1/budget/encumbrances/{id}:relieve`, `/v1/budget/encumbrances/{id}:release` | `budget.check` |
+| GET | `/v1/budget/documents`, `/{id}`, `/v1/budget/document-lines`, `/{id}` | `budget.view` (the documents budget checks have seen, numbered `BD-000042`, with their lines; `q`, `number`, `type`, `documentId`, `limit`; migration 0012; `BUD-0005` when unknown) |
 | POST | `/v1/budget/reservations` | `budget.reserve` (`budget.override` turns fail into warn) |
 | POST | `/v1/budget/reservations/{id}:close`, `/v1/budget/reservations:expire` | `budget.reserve` |
 | POST | `/v1/budget/reservations/{id}:consume` | `budget.check` |

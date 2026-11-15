@@ -3382,6 +3382,13 @@ test_lookup_lists_open_only_their_reads if {
 	not allowed("budget.view", "POST", "/v1/budget/documents")
 }
 
+test_warehouse_location_lookup_reads_with_the_setup_view_duty if {
+	allowed("warehouse.setup.view", "GET", "/v1/warehouse/locations")
+	allowed("warehouse.setup.view", "GET", "/v1/warehouse/locations/l1")
+	not allowed("warehouse.setup.view", "POST", "/v1/warehouse/locations/l1")
+	not allowed("warehouse.inquiry.view", "GET", "/v1/warehouse/locations/l1")
+}
+
 test_quality_outcome_master_duties if {
 	allowed("quality.setup.maintain", "POST", "/v1/quality/outcomes")
 	allowed("quality.setup.maintain", "PATCH", "/v1/quality/outcomes/o1")

@@ -142,7 +142,7 @@ export function EntityLookup({
   }, [scope?.legalEntityId]);
 
   // A line picked under one order, slip, carrier, vendor or document does not follow the form to another.
-  const parentKey = [scope?.orderId, scope?.slipId, scope?.carrierId, scope?.vendorId, scope?.documentId, scope?.documentType].join("|");
+  const parentKey = [scope?.orderId, scope?.slipId, scope?.carrierId, scope?.vendorId, scope?.documentId, scope?.documentType, scope?.warehouseId].join("|");
   const lastParent = useRef(parentKey);
   useEffect(() => {
     const before = lastParent.current;

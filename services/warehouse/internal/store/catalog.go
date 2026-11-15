@@ -75,6 +75,23 @@ func (s *Store) ListLocations(ctx context.Context, f LocationFilter) ([]domain.L
 	return out, err
 }
 
+// GetLocation returns one location with its stock, or ErrNotFound (the location lookup's resolve, for a stored id).
+func (s *Store) GetLocation(ctx context.Context, id string) (domain.Location, error) {
+	var out []domain.Location
+	err := s.inTx(ctx, func(tx pgx.Tx) error {
+		var err error
+		out, err = queryLocations(ctx, tx, `where id = $1::uuid`, id)
+		return err
+	})
+	if err != nil {
+		return domain.Location{}, err
+	}
+	if len(out) == 0 {
+		return domain.Location{}, ErrNotFound
+	}
+	return out[0], nil
+}
+
 const locationColumns = `id::text, name, zone, pick_sequence, status, max_weight::text, max_volume::text, max_lps, max_items,
 	allow_mixed_items, used_weight::text, used_volume::text, used_lps, fire_section, rack_group, allowed_storage_classes, version`
 

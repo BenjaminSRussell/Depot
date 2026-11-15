@@ -3952,7 +3952,8 @@
       {"resource": "/v1/warehouse/location-directives", "methods": ["GET"]},
       {"resource": "/v1/warehouse/location-directives:simulate", "methods": ["POST"]},
       {"resource": "/v1/warehouse/locations", "methods": ["GET"]},
-      {"resource": "/v1/warehouse/rfid-rules", "methods": ["GET"]}
+      {"resource": "/v1/warehouse/rfid-rules", "methods": ["GET"]},
+      {"resource": "/v1/warehouse/locations/*", "methods": ["GET"]}
     ]},
     "warehouse.shipment.confirm": {"permissions": [
       {"resource": "/v1/warehouse/dock-appointments", "methods": ["POST"]},

@@ -157,6 +157,12 @@ func TestStore_SetupConflictsAndIdempotency(t *testing.T) {
 	if err != nil || len(page1) != 1 || page1[0].Name != "A-01" {
 		t.Fatalf("page 1 = %+v err=%v", page1, err)
 	}
+	if one, err := st.GetLocation(ctx, page1[0].ID); err != nil || one.Name != page1[0].Name || one.ID != page1[0].ID {
+		t.Fatalf("GetLocation = %+v, %v", one, err)
+	}
+	if _, err := st.GetLocation(ctx, ids.New()); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("an unknown location must be ErrNotFound, got %v", err)
+	}
 	page2, err := st.ListLocations(ctx, LocationFilter{WarehouseID: wh, AfterName: page1[0].Name, Limit: 1})
 	if err != nil || len(page2) != 1 || page2[0].Name != "A-02" {
 		t.Fatalf("page 2 = %+v err=%v", page2, err)

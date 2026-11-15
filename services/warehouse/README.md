@@ -100,6 +100,7 @@ A pallet that never arrives stays EXPECTED and is not a discrepancy.
 |---|---|
 | `POST /v1/warehouse/locations:bulk` | `warehouse.setup.maintain` (WMS_SETUP_MAINTAIN) |
 | `GET /v1/warehouse/locations?warehouseId=&zone=&limit=&cursor=` | `warehouse.setup.view` (WMS_SETUP_VIEW) |
+| `GET /v1/warehouse/locations/{id}` | `warehouse.setup.view` (the location lookup's resolve; `WMS-LOCATION-NOT-FOUND`) |
 | `POST /v1/warehouse/location-directives` | `warehouse.setup.maintain` |
 | `GET /v1/warehouse/location-directives?warehouseId=&workType=&direction=` | `warehouse.setup.view` |
 | `POST /v1/warehouse/work` (CreateWorkFromOrderLines) | `warehouse.work.supervise` (WMS_WORK_SUPERVISE) |

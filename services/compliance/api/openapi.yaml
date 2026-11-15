@@ -333,6 +333,7 @@ paths:
     get:
       operationId: getAuditPolicy
       x-passage-duty: compliance.audit-policy.run
+      description: One stored audit policy with its rule and version; the ETag is the version a PATCH sends as If-Match.
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
