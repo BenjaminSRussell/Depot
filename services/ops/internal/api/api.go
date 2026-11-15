@@ -17,6 +17,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 
 	"github.com/BenjaminSRussell/passage/platform/authz"
+	"github.com/BenjaminSRussell/passage/platform/cloudprofile"
 	"github.com/BenjaminSRussell/passage/platform/httpx"
 	"github.com/BenjaminSRussell/passage/platform/ids"
 	"github.com/BenjaminSRussell/passage/platform/tenant"
@@ -62,6 +63,9 @@ type Config struct {
 	SLOTargets domain.SLOTargets
 	// CostRates are the unit rates of the cost statements (OPS_COST_RATES); nil refuses to record a statement (COST-1904).
 	CostRates *domain.CostRates
+	// CloudProfile is PASSAGE_CLOUD_PROFILE (#605): tenant placement follows its allowedRegions, and under the eu-data-boundary
+	// overlay a provision requested without a residency is EU. Nil means no profile restriction.
+	CloudProfile *cloudprofile.Profile
 }
 
 // API is the ops HTTP surface.

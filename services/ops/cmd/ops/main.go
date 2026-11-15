@@ -15,6 +15,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/BenjaminSRussell/passage/platform/cloudprofile"
 	"github.com/BenjaminSRussell/passage/platform/dbx"
 	"github.com/BenjaminSRussell/passage/platform/httpx"
 	"github.com/BenjaminSRussell/passage/platform/ids"
@@ -61,6 +62,11 @@ func run(ctx context.Context, getenv func(string) string) error {
 		return errors.New("OPS_OPERATOR_TENANT_ID must be the platform operator's tenant id (a UUID): the ops routes serve that tenant only")
 	}
 	cfg.OperatorTenantID = operator
+	profile, err := cloudprofile.FromEnv(getenv)
+	if err != nil {
+		return err
+	}
+	cfg.CloudProfile = profile
 	if v := getenv("FAILOVER_MAX_LAG_S"); v != "" {
 		n, err := strconv.Atoi(v)
 		if err != nil || n <= 0 {

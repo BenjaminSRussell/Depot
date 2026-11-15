@@ -4,6 +4,7 @@
 // routes.ts, with a CSRF token, an Origin check and an Idempotency-Key. The browser never sees a token.
 
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
+import { jsonLine } from "./logging/pseudonymize.ts";
 import { authorizationUrl, endSessionUrl, exchangeCode, LoginRefused, pkcePair, randomToken, verifyIdToken, verifyLogoutToken, type Fetch, type Jwks, type OidcConfig } from "./oidc.ts";
 import { invoiceDocument, statementDocument, type DocumentRequest, type PortalInvoice, type PortalStatement } from "./documents.ts";
 import { FORBIDDEN_BODY_FIELDS, IDEMPOTENCY_KEY, matchRoute, QUERY_ALLOWLIST, type Route } from "./routes.ts";
@@ -88,7 +89,9 @@ function bounded<V>(cache: Map<string, V>): void {
 
 export function createHttpServer(deps: ServerDeps): Server {
   const now = deps.now ?? Date.now;
-  const log = deps.log ?? ((entry) => console.log(JSON.stringify(entry)));
+  // Under the eu-data-boundary overlay (or LOG_PSEUDONYMIZE=true) person values are pseudonymized before the line is written (#605).
+  const stdout = deps.log === undefined ? jsonLine(process.env) : undefined;
+  const log = deps.log ?? ((entry) => stdout?.(entry));
   const cookieAttrs = `Path=/; HttpOnly; SameSite=Lax${deps.cookieSecure ? "; Secure" : ""}`;
   const setSession = (id: string, maxAgeSeconds: number): string => `${SESSION_COOKIE}=${id}; ${cookieAttrs}; Max-Age=${maxAgeSeconds}`;
   /** The accounts a contact may act for, per session and legal entity, kept for a minute; derived data, so a pod's own copy is enough. */
@@ -114,7 +117,7 @@ export function createHttpServer(deps: ServerDeps): Server {
       const idToken = await exchangeCode(deps.oidc, code, pending.verifier, deps.fetcher);
       const identity = await verifyIdToken(idToken, deps.oidc, deps.jwks, pending.nonce, now());
       const session = await deps.sessions.create(identity, idToken, now());
-      log({ msg: "sign-in", userId: identity.userId, customerId: identity.customerId });
+      log({ msg: "sign-in", tenantId: identity.tenantId, userId: identity.userId, customerId: identity.customerId });
       res.writeHead(302, { location: "/", "set-cookie": setSession(session.id, 8 * 3600), "cache-control": "no-store" });
       res.end();
     } catch (err) {
@@ -220,7 +223,7 @@ export function createHttpServer(deps: ServerDeps): Server {
       log({ msg: "upstream unreachable", audience: route.audience, path: route.path, err: String(err) });
       return problem(res, 502, "CUS-BFF-502", "the service did not answer");
     }
-    log({ msg: "api", userId: session.identity.userId, customerId, method: route.method, route: route.path, status: upstream.status, ms: now() - started });
+    log({ msg: "api", tenantId: session.identity.tenantId, userId: session.identity.userId, customerId, method: route.method, route: route.path, status: upstream.status, ms: now() - started });
     // A rejected service token is this service's fault, never the user's: do not tell the browser to sign in again.
     const status = upstream.status === 401 ? 502 : upstream.status;
     const text = await upstream.text();
@@ -317,7 +320,7 @@ export function createHttpServer(deps: ServerDeps): Server {
       log({ msg: "upstream unreachable", audience: "print", err: String(err) });
       return problem(res, 502, "CUS-BFF-502", "the document could not be rendered; try again");
     }
-    log({ msg: "pdf", userId: session.identity.userId, customerId: chosen.customerId, kind: invoiceId !== undefined ? "invoice" : "statement", status: rendered.status });
+    log({ msg: "pdf", tenantId: session.identity.tenantId, userId: session.identity.userId, customerId: chosen.customerId, kind: invoiceId !== undefined ? "invoice" : "statement", status: rendered.status });
     if (!rendered.ok) return problem(res, 502, "CUS-BFF-409", "the document could not be rendered; try again later");
     const bytes = Buffer.from(await rendered.arrayBuffer());
     if (bytes.length > MAX_PDF_BYTES) return problem(res, 502, "CUS-BFF-409", "the document could not be rendered; try again later");

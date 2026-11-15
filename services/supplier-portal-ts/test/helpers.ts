@@ -62,6 +62,8 @@ export function idToken(key: KeyObject, claims: Record<string, unknown>, kid = "
 
 export interface RigOptions {
   limit?: number;
+  /** Leave the server on its default (stdout) logger. */
+  defaultLog?: boolean;
   scan?: ScanPolicy;
   provisioner?: UserProvisioner;
   registration?: { tenantId: string; legalEntityId: string };
@@ -116,7 +118,7 @@ export async function startRig(opts: RigOptions = {}): Promise<Rig> {
     publicLimiter: new RateLimiter(opts.publicLimit ?? 1000, 3_600_000),
     ...(opts.trustedProxies !== undefined ? { trustedProxies: parseTrustedProxies(opts.trustedProxies) } : {}),
     now: () => now.ms,
-    log: () => {},
+    ...(opts.defaultLog ? {} : { log: () => {} }),
   });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   rig.server = server;

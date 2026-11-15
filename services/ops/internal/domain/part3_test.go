@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"errors"
 	"testing"
 	"time"
 )
@@ -75,5 +76,32 @@ func TestEvaluateSLOTargetsAndOverrides(t *testing.T) {
 	}
 	if left := *rep.Services[0].ErrorBudgetLeft; left > -0.99 || left < -1.01 {
 		t.Fatalf("a burned twice its budget: %v", left)
+	}
+}
+
+func TestProvisionUnderTheEUDataBoundary(t *testing.T) {
+	deployed := []Region{{Name: "eu-west"}, {Name: "westeurope"}, {Name: "us-east"}}
+	policy := ProvisionPolicy{DefaultResidency: "EU", BoundaryResidency: "EU"}
+	// No residency means EU, and the EU regions pass under both their legacy and Azure names.
+	for _, region := range []string{"eu-west", "westeurope"} {
+		got, err := ValidateProvisionUnder(ProvisionRequest{Name: "A", Region: region}, deployed, policy)
+		if err != nil || got.Residency != "EU" {
+			t.Fatalf("%s: %+v err=%v", region, got, err)
+		}
+	}
+	// A tenant may not be placed outside the boundary, whatever residency it asks for, including GLOBAL.
+	for _, residency := range []string{"", "EU", "GLOBAL", "US"} {
+		_, err := ValidateProvisionUnder(ProvisionRequest{Name: "A", Residency: residency, Region: "us-east"}, deployed, policy)
+		var rule *Error
+		if !errors.As(err, &rule) || rule.Code != CodeResidency {
+			t.Fatalf("residency %q into us-east: %v", residency, err)
+		}
+	}
+	// Without the overlay the same GLOBAL tenant in us-east is fine, and an empty residency is still refused.
+	if _, err := ValidateProvisionUnder(ProvisionRequest{Name: "A", Residency: "GLOBAL", Region: "us-east"}, deployed, ProvisionPolicy{}); err != nil {
+		t.Fatalf("no overlay: %v", err)
+	}
+	if got, err := ValidateProvisionUnder(ProvisionRequest{Name: "A", Region: "eu-west"}, deployed, ProvisionPolicy{}); err != nil || got.Residency != "GLOBAL" {
+		t.Fatalf("empty residency without the overlay = %+v err=%v", got, err)
 	}
 }

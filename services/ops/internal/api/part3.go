@@ -139,7 +139,7 @@ func (a *API) provision(w http.ResponseWriter, r *http.Request) {
 		httpx.Fail(w, r, err)
 		return
 	}
-	req, err := domain.ValidateProvision(domain.ProvisionRequest{TenantID: id, Name: body.Name, Residency: body.Residency, Region: body.Region, Tier: body.Tier}, regions)
+	req, err := domain.ValidateProvisionUnder(domain.ProvisionRequest{TenantID: id, Name: body.Name, Residency: body.Residency, Region: body.Region, Tier: body.Tier}, regions, a.provisionPolicy())
 	if err != nil {
 		httpx.Fail(w, r, store.Problem(err))
 		return
@@ -503,4 +503,18 @@ func (p PromSource) query(ctx context.Context, q string) (map[string]float64, er
 		out[job] = v
 	}
 	return out, nil
+}
+
+// provisionPolicy is the cloud profile's placement rules (#605); the zero policy when no profile is configured.
+func (a *API) provisionPolicy() domain.ProvisionPolicy {
+	p := a.cfg.CloudProfile
+	if p == nil {
+		return domain.ProvisionPolicy{}
+	}
+	// Only the eu-data-boundary overlay narrows placement here: the regions ops tracks are the platform's own names, which the
+	// base profiles' allowed-region lists do not describe.
+	if !p.HasOverlay("eu-data-boundary") {
+		return domain.ProvisionPolicy{}
+	}
+	return domain.ProvisionPolicy{DefaultResidency: "EU", BoundaryResidency: "EU"}
 }
