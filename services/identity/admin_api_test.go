@@ -1014,3 +1014,38 @@ func TestTenantRegistryReadDutyListsActiveTenantsOnly(t *testing.T) {
 		t.Errorf("non-operator tenant: status %d, want 403", rec.Code)
 	}
 }
+
+// The ops control plane reads a tenant's status and active named users with its own service-only duty, from the operator tenant (#50).
+func TestOpsDutyReadsTenantStatusAndActiveUserCounts(t *testing.T) {
+	f := newAdminFixture(t)
+	ctx := context.Background()
+	user := func(id, status string) {
+		if _, err := f.admin.Exec(ctx, `insert into identity_users (tenant_id, user_id, idp_subject, status) values ($1, $2, $3, $4)`, f.tenantA, id, "sub-"+id, status); err != nil {
+			t.Fatal(err)
+		}
+	}
+	user("00000000-0000-4000-8000-0000000000a1", "active")
+	user("00000000-0000-4000-8000-0000000000a2", "active")
+	user("00000000-0000-4000-8000-0000000000a3", "deprovisioned")
+	if _, err := f.admin.Exec(ctx, `update identity_tenants set status = 'suspended' where tenant_id = $1`, f.tenantA); err != nil {
+		t.Fatal(err)
+	}
+	ops := caller{tenantID: f.operator, user: "service:ops", duties: []string{"identity.ops.tenant-read"}}
+	got := decode[struct {
+		TenantID    string `json:"tenantId"`
+		Status      string `json:"status"`
+		ActiveUsers int    `json:"activeUsers"`
+	}](t, f.do(ops, http.MethodGet, "/v1/tenants/"+f.tenantA+"/user-counts", nil), http.StatusOK)
+	if got.TenantID != f.tenantA || got.Status != "suspended" || got.ActiveUsers != 2 {
+		t.Fatalf("counts = %+v", got)
+	}
+	wantProblem(t, f.do(ops, http.MethodGet, "/v1/tenants/00000000-0000-4000-8000-0000000000ff/user-counts", nil), http.StatusNotFound, "IDN-TENANT-NOT-FOUND")
+	// The duty reads nothing else, and another tenant's caller with it is refused.
+	if rec := f.do(ops, http.MethodGet, "/v1/tenants/"+f.tenantA, nil); rec.Code != http.StatusForbidden {
+		t.Errorf("tenant get with the ops duty: %d", rec.Code)
+	}
+	other := caller{tenantID: f.tenantB, user: "service:ops", duties: []string{"identity.ops.tenant-read"}}
+	if rec := f.do(other, http.MethodGet, "/v1/tenants/"+f.tenantA+"/user-counts", nil); rec.Code != http.StatusForbidden {
+		t.Errorf("non-operator tenant: %d", rec.Code)
+	}
+}

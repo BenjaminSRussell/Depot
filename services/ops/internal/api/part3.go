@@ -7,11 +7,13 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/shopspring/decimal"
 
 	"github.com/BenjaminSRussell/passage/platform/authz"
 	"github.com/BenjaminSRussell/passage/platform/httpx"
@@ -36,7 +38,13 @@ type SLOSource interface {
 	Samples(ctx context.Context, window time.Duration) ([]domain.SLOSample, error)
 }
 
+// OperationSource is the optional second half of an SLOSource: the figures of individual routes. PromSource implements it.
+type OperationSource interface {
+	OperationSamples(ctx context.Context, window time.Duration, ops []domain.OperationSLO) ([]domain.OperationSample, error)
+}
+
 func (a *API) registerPart3(g chi.Router) {
+	a.registerPart4(g)
 	g.With(authz.RequireDuty(DutyView)).Get("/v1/ops/slo", a.sloReport)
 	g.With(authz.RequireDuty(DutyView)).Get("/v1/ops/tenants", a.listProvisions)
 	g.With(authz.RequireDuty(DutyProvision)).Post("/v1/ops/tenants", a.provision)
@@ -76,7 +84,18 @@ func (a *API) buildSLO(ctx context.Context, window string) (domain.SLOReport, er
 		slog.Error("slo source", "err", err)
 		return domain.SLOReport{}, &domain.Error{Code: domain.CodeSLOUnavailable, Detail: "Prometheus did not answer the SLO queries; try again"}
 	}
-	return domain.EvaluateSLO(window, samples, a.sloTargets(), a.now()), nil
+	rep := domain.EvaluateSLO(window, samples, a.sloTargets(), a.now())
+	if ops := a.cfg.SLOTargets.Operations; len(ops) > 0 {
+		if src, ok := a.cfg.SLOSource.(OperationSource); ok {
+			opSamples, err := src.OperationSamples(ctx, d, ops)
+			if err != nil {
+				slog.Error("slo source (operations)", "err", err)
+				return domain.SLOReport{}, &domain.Error{Code: domain.CodeSLOUnavailable, Detail: "Prometheus did not answer the SLO queries; try again"}
+			}
+			rep.Operations = domain.EvaluateOperations(opSamples, a.sloTargets())
+		}
+	}
+	return rep, nil
 }
 
 // sloReport is GET /v1/ops/slo: availability and p95 latency per service over the window (default 24h), against the targets,
@@ -283,6 +302,10 @@ func (a *API) getCost(w http.ResponseWriter, r *http.Request) {
 		httpx.Fail(w, r, err)
 		return
 	}
+	if r.URL.Query().Get("format") == "pdf" || strings.Contains(r.Header.Get("Accept"), "application/pdf") {
+		a.costPDF(w, r, rec)
+		return
+	}
 	if r.URL.Query().Get("format") == "csv" || strings.Contains(r.Header.Get("Accept"), "text/csv") {
 		w.Header().Set("Content-Type", "text/csv; charset=utf-8")
 		w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="cost-%s-%s.csv"`, id, month))
@@ -394,6 +417,16 @@ func (a *API) RunChecks(ctx context.Context, interval time.Duration) {
 
 // CheckOnce is one round of the hourly checks.
 func (a *API) CheckOnce(ctx context.Context) {
+	// The jobs of part 4 run first: they need no SLO source.
+	if n := a.ReportUsersOnce(ctx); n > 0 {
+		slog.Info("licence user counts reported", "tenants", n)
+	}
+	if n := a.MeterOnce(ctx, a.now()); n > 0 {
+		slog.Info("cost statements produced", "count", n)
+	}
+	if n := a.CloneOnce(ctx); n > 0 {
+		slog.Info("masked clones run", "count", n)
+	}
 	if n, err := a.store.CheckLicenses(ctx, a.now()); err != nil {
 		slog.Error("licence check", "err", err)
 	} else if n > 0 {
@@ -460,6 +493,35 @@ func (p PromSource) Samples(ctx context.Context, window time.Duration) ([]domain
 	return out, nil
 }
 
+// OperationSamples runs the three queries of the window grouped by scrape job and route, and picks each configured operation's figures.
+// The route label is the router's pattern (http_requests_total{route}); an operation whose route never appears has no traffic.
+func (p PromSource) OperationSamples(ctx context.Context, window time.Duration, ops []domain.OperationSLO) ([]domain.OperationSample, error) {
+	w := promRange(window)
+	requests, err := p.queryBy(ctx, `sum by (job, route) (increase(http_requests_total[`+w+`]))`, "job", "route")
+	if err != nil {
+		return nil, err
+	}
+	failed, err := p.queryBy(ctx, `sum by (job, route) (increase(http_requests_total{status=~"5.."}[`+w+`]))`, "job", "route")
+	if err != nil {
+		return nil, err
+	}
+	p95, err := p.queryBy(ctx, `histogram_quantile(0.95, sum by (job, route, le) (rate(http_request_duration_seconds_bucket[`+w+`])))`, "job", "route")
+	if err != nil {
+		return nil, err
+	}
+	out := make([]domain.OperationSample, 0, len(ops))
+	for _, o := range ops {
+		key := o.Service + "|" + o.Route
+		s := domain.OperationSample{Operation: o, Requests: requests[key], Failed: failed[key]}
+		if v, ok := p95[key]; ok {
+			v := v
+			s.P95 = &v
+		}
+		out = append(out, s)
+	}
+	return out, nil
+}
+
 type promResponse struct {
 	Status string `json:"status"`
 	Data   struct {
@@ -472,6 +534,11 @@ type promResponse struct {
 }
 
 func (p PromSource) query(ctx context.Context, q string) (map[string]float64, error) {
+	return p.queryBy(ctx, q, "job")
+}
+
+// queryBy runs an instant query and keys each sample by its labels joined with "|" (a missing label makes the sample skipped).
+func (p PromSource) queryBy(ctx context.Context, q string, labels ...string) (map[string]float64, error) {
 	client := p.Client
 	if client == nil {
 		client = &http.Client{Timeout: 15 * time.Second}
@@ -494,10 +561,14 @@ func (p PromSource) query(ctx context.Context, q string) (map[string]float64, er
 	}
 	out := map[string]float64{}
 	for _, r := range body.Data.Result {
-		job := r.Metric["job"]
+		parts := make([]string, len(labels))
+		for i, l := range labels {
+			parts[i] = r.Metric[l]
+		}
+		job := strings.Join(parts, "|")
 		raw, _ := r.Value[1].(string)
 		v, err := strconv.ParseFloat(raw, 64)
-		if job == "" || err != nil || v != v { // NaN: no observation in the window
+		if slices.Contains(parts, "") || err != nil || v != v { // NaN: no observation in the window
 			continue
 		}
 		out[job] = v
@@ -517,4 +588,37 @@ func (a *API) provisionPolicy() domain.ProvisionPolicy {
 		return domain.ProvisionPolicy{}
 	}
 	return domain.ProvisionPolicy{DefaultResidency: "EU", BoundaryResidency: "EU"}
+}
+
+// scalar runs an instant query at a time and returns its first sample as a decimal (0 when the query has no sample).
+func (p PromSource) scalar(ctx context.Context, q string, at time.Time) (decimal.Decimal, error) {
+	client := p.Client
+	if client == nil {
+		client = &http.Client{Timeout: 30 * time.Second}
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, strings.TrimRight(p.URL, "/")+"/api/v1/query?query="+url.QueryEscape(q)+"&time="+strconv.FormatInt(at.Unix(), 10), nil)
+	if err != nil {
+		return decimal.Zero, err
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		return decimal.Zero, err
+	}
+	defer func() { _ = resp.Body.Close() }()
+	var body promResponse
+	if err := json.NewDecoder(http.MaxBytesReader(nil, resp.Body, 8<<20)).Decode(&body); err != nil {
+		return decimal.Zero, fmt.Errorf("prometheus answered %d: %w", resp.StatusCode, err)
+	}
+	if resp.StatusCode != http.StatusOK || body.Status != "success" {
+		return decimal.Zero, fmt.Errorf("prometheus answered %d: %s", resp.StatusCode, body.Error)
+	}
+	if len(body.Data.Result) == 0 {
+		return decimal.Zero, nil
+	}
+	raw, _ := body.Data.Result[0].Value[1].(string)
+	v, err := decimal.NewFromString(raw)
+	if err != nil {
+		return decimal.Zero, nil // NaN: no observation
+	}
+	return v, nil
 }

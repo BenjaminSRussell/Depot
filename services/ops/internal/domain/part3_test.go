@@ -105,3 +105,30 @@ func TestProvisionUnderTheEUDataBoundary(t *testing.T) {
 		t.Fatalf("empty residency without the overlay = %+v err=%v", got, err)
 	}
 }
+
+func TestOperationSLOsUseTheirOwnTargetsAndFallBackToTheServiceDefaults(t *testing.T) {
+	ops, err := ParseOperationSLOs(`[{"name":"post-entry","service":"ledger","route":"/v1/ledger/journal-entries","availability":0.9995,"latencyP95Ms":500},{"name":"list-vendors","service":"party","route":"/v1/party/vendors"}]`)
+	if err != nil || len(ops) != 2 {
+		t.Fatalf("ops = %+v err=%v", ops, err)
+	}
+	fast, slow := 0.4, 0.9
+	lines := EvaluateOperations([]OperationSample{
+		{Operation: ops[0], Requests: 10000, Failed: 10, P95: &fast}, // 99.9 % is below the operation's 99.95 %
+		{Operation: ops[1], Requests: 1000, Failed: 0, P95: &slow},   // 900 ms is inside the 2 s default
+	}, SLOTargets{Availability: 0.999, LatencyP95: 2 * time.Second})
+	if lines[0].Name != "list-vendors" || lines[0].Breached || lines[0].LatencyTargetMs != 2000 || lines[0].AvailabilityTarget != 0.999 {
+		t.Fatalf("default targets: %+v", lines[0])
+	}
+	if !lines[1].AvailabilityBreach || lines[1].LatencyBreach || lines[1].LatencyTargetMs != 500 || !lines[1].Breached {
+		t.Fatalf("own targets: %+v", lines[1])
+	}
+	quiet := EvaluateOperations([]OperationSample{{Operation: ops[0]}}, SLOTargets{Availability: 0.999, LatencyP95: time.Second})
+	if !quiet[0].NoTraffic || quiet[0].Breached || quiet[0].Availability != nil {
+		t.Fatalf("no traffic: %+v", quiet[0])
+	}
+	for _, bad := range []string{`{}`, `[{"name":"a","service":"s","route":"x"}]`, `[{"name":"a","service":"s","route":"/x","availability":1}]`, `[{"name":"a","service":"s","route":"/x"},{"name":"a","service":"s","route":"/y"}]`} {
+		if _, err := ParseOperationSLOs(bad); err == nil {
+			t.Errorf("%s accepted", bad)
+		}
+	}
+}

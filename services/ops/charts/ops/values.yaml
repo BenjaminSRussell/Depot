@@ -20,9 +20,30 @@ slo:
   latencyP95Ms: 2000
   # Per-service p95 targets in milliseconds, by Prometheus scrape job: { ledger: 500 }
   latencyP95ByService: {}
+  # Per-operation objectives (one route of one service), evaluated from the shared HTTP series and shown in GET /v1/ops/slo:
+  # [{ name: post-journal-entry, service: ledger, route: /v1/ledger/journal-entries, availability: 0.9995, latencyP95Ms: 500 }]
+  operations: []
 # USD unit rates of the tenant cost statements (docs/ops/cost-model.md), as decimal strings; empty refuses to record (COST-1904):
 # { cpu_core_hours: "0.04", memory_gb_hours: "0.005", storage_gb: "0.10", kafka_gb: "0.02", lakehouse_gb: "0.023", ai_tokens: "0.000002", overhead: "0.12" }
 costRates: {}
+# Tenant cost statements as PDF (print) and the decommission guard and licence user-count reporter (identity) are reached with the
+# service signing key (serviceIdentity.signingKeySecret) as service:ops-reporter; each is off while its URL is empty.
+identityUrl: ""
+printUrl: ""
+# The operator's name on the statement PDF.
+sellerName: ""
+# The monthly metering job: one PromQL query per dimension (cpu_core_hours, memory_gb_hours, storage_gb, kafka_gb, lakehouse_gb,
+# ai_tokens) with {tenant} and {range} placeholders, the name of the query set (recorded on every statement) and the ECB month-average
+# USD per EUR. Needs prometheusUrl and costRates; empty turns the job off.
+metering:
+  queries: {}
+  modelVersion: ""
+  usdPerEur: ""
+# The masked-clone job runs tools/tenant-restore (it must be in the image or a sidecar, with PASSAGE_CLONE_SOURCE_URL and
+# PASSAGE_CLONE_TARGET_URL in its environment) for the schedules created through POST /v1/ops/clone-schedules.
+clone:
+  enabled: false
+  command: tenant-restore
 # How often the licence check and the SLO check run.
 checkInterval: 1h
 # The platform operator's tenant (identity's IDENTITY_OPERATOR_TENANT_ID). The ops routes serve this tenant only; the
@@ -36,6 +57,9 @@ serviceMonitor: { enabled: false }
 
 serviceIdentity:
   publicKeys: ""
+  # Secret holding this service's Ed25519 seed under the key signing-key, for the calls to identity and print.
+  signingKeySecret: ""
+  keyId: ""
 
 # The lag reporter (passage-ops lag-report): reads the real replication state of this region's Postgres and reports it to the
 # ops API every interval. Run it where the standby is (mode standby, region = this region) or next to the primary (mode primary,

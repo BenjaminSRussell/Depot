@@ -27,6 +27,8 @@ type SLOTargets struct {
 	LatencyP95   time.Duration
 	// LatencyP95By overrides LatencyP95 for one service (scrape job).
 	LatencyP95By map[string]time.Duration
+	// Operations are the per-operation objectives (SLO_OPERATIONS).
+	Operations []OperationSLO
 }
 
 // LatencyFor is the p95 target of service.
@@ -68,6 +70,9 @@ type SLOReport struct {
 	GeneratedAt time.Time `json:"generatedAt"`
 	Services    []SLOLine `json:"services"`
 	Breached    int       `json:"breached"`
+	// Operations are the per-operation objectives (SLO_OPERATIONS), evaluated over the same window; absent when none is configured.
+	// They do not feed the hourly breach check or its slo.breached event, which stay per service.
+	Operations []OperationLine `json:"operations,omitempty"`
 }
 
 // EvaluateSLO turns samples into report lines, sorted by service. A service with no request in the window is reported with

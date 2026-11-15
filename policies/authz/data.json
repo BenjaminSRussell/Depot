@@ -48,7 +48,7 @@
     "io.data.export": {"permissions": [{"resource": "/v1/exports{,/**}", "methods": ["GET", "POST"]}]},
     "platform.release.maintain": {"permissions": [{"resource": "/v1/platform/releases{,/**}", "methods": ["GET", "POST", "PUT", "DELETE"]}]},
     "platform.release.view": {"permissions": [{"resource": "/v1/platform/releases{,/**}", "methods": ["GET"]}]},
-    "ops.region.view": {"operator_only": true, "permissions": [{"resource": "/v1/ops/regions", "methods": ["GET"]}, {"resource": "/v1/ops/capacity/estimate", "methods": ["GET"]}, {"resource": "/v1/ops/failover-requests/*", "methods": ["GET"]}, {"resource": "/v1/ops/failovers/*", "methods": ["GET"]}, {"resource": "/v1/ops/break-glass", "methods": ["GET"]}, {"resource": "/v1/ops/failovers/*/scorecard", "methods": ["GET"]}, {"resource": "/v1/ops/tenants/*/license", "methods": ["GET"]}, {"resource": "/v1/ops/slo", "methods": ["GET"]}, {"resource": "/v1/ops/tenants", "methods": ["GET"]}, {"resource": "/v1/ops/tenants/*", "methods": ["GET"]}, {"resource": "/v1/ops/tenants/*/costs/*", "methods": ["GET"]}, {"resource": "/v1/ops/costs", "methods": ["GET"]}, {"resource": "/v1/ops/licenses", "methods": ["GET"]}]},
+    "ops.region.view": {"operator_only": true, "permissions": [{"resource": "/v1/ops/regions", "methods": ["GET"]}, {"resource": "/v1/ops/capacity/estimate", "methods": ["GET"]}, {"resource": "/v1/ops/failover-requests/*", "methods": ["GET"]}, {"resource": "/v1/ops/failovers/*", "methods": ["GET"]}, {"resource": "/v1/ops/break-glass", "methods": ["GET"]}, {"resource": "/v1/ops/failovers/*/scorecard", "methods": ["GET"]}, {"resource": "/v1/ops/tenants/*/license", "methods": ["GET"]}, {"resource": "/v1/ops/slo", "methods": ["GET"]}, {"resource": "/v1/ops/tenants", "methods": ["GET"]}, {"resource": "/v1/ops/tenants/*", "methods": ["GET"]}, {"resource": "/v1/ops/tenants/*/costs/*", "methods": ["GET"]}, {"resource": "/v1/ops/costs", "methods": ["GET"]}, {"resource": "/v1/ops/licenses", "methods": ["GET"]}, {"resource": "/v1/ops/tenants/*/decommission", "methods": ["GET"]}, {"resource": "/v1/ops/clone-schedules", "methods": ["GET"]}, {"resource": "/v1/ops/clone-schedules/*/runs", "methods": ["GET"]}]},
     "ops.region.report": {"operator_only": true, "permissions": [{"resource": "/v1/ops/regions/*/lag", "methods": ["PUT"]}]},
     "ops.failover.execute": {"operator_only": true, "permissions": [{"resource": "/v1/ops/failover", "methods": ["POST"]}, {"resource": "/v1/ops/regions/*:rejoin", "methods": ["POST"]}, {"resource": "/v1/ops/failover-requests/*:approve", "methods": ["POST"]}, {"resource": "/v1/ops/failovers/*/steps/*", "methods": ["PUT"]}]},
     "ops.breakglass.request": {"operator_only": true, "permissions": [{"resource": "/v1/ops/break-glass", "methods": ["POST"]}, {"resource": "/v1/ops/break-glass/*:revoke", "methods": ["POST"]}]},
@@ -56,10 +56,13 @@
     "ops.breakglass.review": {"operator_only": true, "permissions": [{"resource": "/v1/ops/break-glass/*:review", "methods": ["POST"]}]},
     "ops.tenant.provision": {"operator_only": true, "permissions": [{"resource": "/v1/ops/tenants", "methods": ["POST"]}, {"resource": "/v1/ops/tenants/*/provision-steps/*", "methods": ["PUT"]}]},
     "ops.cost.record": {"operator_only": true, "permissions": [{"resource": "/v1/ops/tenants/*/costs/*", "methods": ["PUT"]}]},
+    "ops.tenant.decommission": {"operator_only": true, "permissions": [{"resource": "/v1/ops/tenants/*:decommission", "methods": ["POST"]}, {"resource": "/v1/ops/tenants/*/decommission-steps/*", "methods": ["PUT"]}]},
+    "ops.clone.schedule": {"operator_only": true, "permissions": [{"resource": "/v1/ops/clone-schedules", "methods": ["POST"]}, {"resource": "/v1/ops/clone-schedules/*", "methods": ["PUT", "DELETE"]}]},
     "ops.license.report": {"operator_only": true, "permissions": [{"resource": "/v1/ops/tenants/*/license/usage", "methods": ["PUT"]}]},
     "platform.promotion.approve": {"permissions": [{"resource": "/v1/platform/releases{,/**}", "methods": ["POST"]}]},
     "platform.environment.rollback": {"permissions": [{"resource": "/v1/platform/releases{,/**}", "methods": ["POST"]}]},
     "identity.tenant.maintain": {"permissions": [{"resource": "/v1/tenants{,/**}", "methods": ["GET", "POST", "PATCH"]}]},
+    "identity.ops.tenant-read": {"service_only": true, "permissions": [{"resource": "/v1/tenants/*/user-counts", "methods": ["GET"]}]},
     "identity.tenant-registry.read": {"permissions": [{"resource": "/v1/tenants", "methods": ["GET"]}]},
     "identity.legal-entity.maintain": {"permissions": [{"resource": "/v1/legal-entities{,/**}", "methods": ["GET", "POST", "PATCH"]}]},
     "identity.feature.view": {"permissions": [{"resource": "/v1/tenant/features", "methods": ["GET"]}]},
@@ -2214,6 +2217,9 @@
     "print.document.render": {"permissions": [
       {"resource": "/print/v1/documents:render", "methods": ["POST"]}
     ]},
+    "print.ops.render": {"service_only": true, "permissions": [
+      {"resource": "/print/v1/documents:render", "methods": ["POST"]}
+    ]},
     "print.customer-portal.render": {"service_only": true, "permissions": [
       {"resource": "/print/v1/documents:render", "methods": ["POST"]}
     ]},
@@ -4200,9 +4206,14 @@
       "party": ["party.customer-portal.read"],
       "identity": ["identity.customer-portal.read"],
       "print": ["print.customer-portal.render"]
+    },
+    "ops": {
+      "identity": ["identity.ops.tenant-read"],
+      "print": ["print.ops.render"]
     }
   },
   "service_principals": {
+    "ops-reporter": ["identity.ops.tenant-read", "print.ops.render"],
     "edi-cxml": ["procurement.purchase-order.lookup", "procurement.purchase-order.vendor-confirm", "receiving.asn.maintain", "payables.vendor-invoice.intake"],
     "edi-outbound": ["edi.outbound.from-event"],
     "edi-selfbill": ["tax.tax.calculate"],

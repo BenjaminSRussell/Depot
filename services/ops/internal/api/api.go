@@ -66,6 +66,16 @@ type Config struct {
 	// CloudProfile is PASSAGE_CLOUD_PROFILE (#605): tenant placement follows its allowedRegions, and under the eu-data-boundary
 	// overlay a provision requested without a residency is EU. Nil means no profile restriction.
 	CloudProfile *cloudprofile.Profile
+	// Directory is identity as ops sees it (IDENTITY_URL): the decommission guard and the licence user-count reporter.
+	Directory TenantDirectory
+	// Printer renders the PDF cost statements through print (PRINT_URL); Seller names the operator on them (OPS_SELLER_NAME).
+	Printer StatementPrinter
+	Seller  string
+	// Meter, FX and CostRates produce the monthly cost statements (OPS_METER_QUERIES, OPS_USD_PER_EUR, OPS_COST_RATES).
+	Meter MeterSource
+	FX    FXSource
+	// Cloner runs the scheduled masked clones (tools/tenant-restore); nil leaves the schedules stored and never run.
+	Cloner CloneRunner
 }
 
 // API is the ops HTTP surface.
