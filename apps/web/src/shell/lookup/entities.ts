@@ -28,6 +28,7 @@ export type LookupEntityKey =
   | "packingSlip"
   | "batch"
   | "formula"
+  | "forecastModel"
   | "ecr"
   | "purchaseOrder"
   | "receipt"
@@ -196,6 +197,11 @@ function narrow(all: LookupOption[], q: string): LookupOption[] {
         (entry.number ?? "").toLowerCase().includes(needle),
     )
     .slice(0, PAGE_SIZE);
+}
+
+function forecastModelOption(row: Raw): LookupOption | null {
+  const code = text(row, "code");
+  return code ? { id: code, name: code, number: text(row, "status") } : null;
 }
 
 /** An operating unit reads "Assembly (ASM · cost center)": departments, cost centers and the rest share one list. */
@@ -859,6 +865,16 @@ export const lookupDefs: Record<LookupEntityKey, LookupDef> = {
       return hit ? { ...hit, number: number || undefined } : null;
     },
   ),
+  // A planning forecast model is named by its code; its status is the number, so a draft is told from a published one.
+  forecastModel: {
+    noun: "forecast",
+    search: async (q, scope, signal) =>
+      present(
+        items(await getJson(`/api/v1/planning/forecasts${query({ legalEntityId: scope.legalEntityId, q: q.trim() || undefined, limit: String(PAGE_SIZE) })}`, signal)).map(forecastModelOption),
+      ),
+    resolve: async (id, signal) =>
+      present(items(await getJson(`/api/v1/planning/forecasts${query({ q: id, limit: "50" })}`, signal)).map(forecastModelOption)).find((o) => o.id === id) ?? null,
+  },
   formula: listedEntity("formula", "/api/v1/production/formulas", codeAndName, () => ({ limit: "100" })),
   ecr: listedEntity(
     "engineering change request",

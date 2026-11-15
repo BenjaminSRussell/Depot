@@ -637,6 +637,33 @@ paths:
                     type: array
                     items: {$ref: '#/components/schemas/NetRequirement'}
         '400': {$ref: '#/components/responses/Problem'}
+  /v1/planning/forecasts:
+    get:
+      operationId: listForecastModels
+      summary: List forecast models by code (for pickers that name a model)
+      description: The tenant's forecast models ordered by code. A legal entity narrows the list to the models it owns and the models no entity owns; q matches part of the code.
+      x-passage-duty: planning.read
+      parameters:
+        - name: legalEntityId
+          in: query
+          schema: {type: string, format: uuid}
+        - name: q
+          in: query
+          schema: {type: string, maxLength: 64}
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Models by code
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: {$ref: '#/components/schemas/ForecastModelSummary'}
+        '422': {$ref: '#/components/responses/Problem'}
   /v1/planning/forecasts/{modelCode}/lines:
     get:
       operationId: getForecastLines
@@ -2878,6 +2905,16 @@ components:
         status: {type: string, enum: [draft, submitted, published], description: 'FR-22.9 consensus status; only a draft accepts cell writes'}
         submittedBy: {type: [string, 'null'], description: User who submitted the model; null in draft}
         decidedBy: {type: [string, 'null'], description: User who last published or rejected the model}
+        publishedAt: {type: [string, 'null'], format: date-time}
+    ForecastModelSummary:
+      type: object
+      required: [code, version, status, reductionPrinciple, legalEntityId, publishedAt]
+      properties:
+        code: {type: string}
+        version: {type: integer, minimum: 0}
+        status: {type: string, enum: [draft, submitted, published]}
+        reductionPrinciple: {type: string, enum: [none, percent, transactions, transactions-dynamic]}
+        legalEntityId: {type: [string, 'null'], format: uuid}
         publishedAt: {type: [string, 'null'], format: date-time}
     ConsensusResult:
       type: object

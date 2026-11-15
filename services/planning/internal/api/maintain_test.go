@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -90,6 +91,20 @@ func (f *fakeStore) ListForecastLines(_ context.Context, code, _, _ string, _ in
 		return store.ForecastModel{}, nil, httpx.NewProblem(http.StatusNotFound, store.CodeForecastNotFound, "forecast model not found")
 	}
 	return m, []store.ForecastLine{}, nil
+}
+
+func (f *fakeStore) ListForecastModels(_ context.Context, _, q string, limit int) ([]store.ForecastModelSummary, error) {
+	out := []store.ForecastModelSummary{}
+	for code, m := range f.models {
+		if q == "" || strings.Contains(code, q) {
+			out = append(out, store.ForecastModelSummary{Code: code, Version: m.Version, Status: m.Status, ReductionPrinciple: m.ReductionPrinciple})
+		}
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Code < out[j].Code })
+	if len(out) > limit {
+		out = out[:limit]
+	}
+	return out, nil
 }
 
 func (f *fakeStore) ForecastDemand(_ context.Context, code, _ string, from time.Time) ([]store.ForecastDemandLine, error) {
@@ -391,5 +406,28 @@ func TestRun_FreezeFenceReachesTheEngine(t *testing.T) {
 	}
 	if !shortSO {
 		t.Fatalf("no shortage for SO-1: %+v", st.last.Result.Messages)
+	}
+}
+
+func TestListForecastModelsNeedsTheReadDutyAndValidatesItsFilters(t *testing.T) {
+	st := &fakeStore{models: map[string]store.ForecastModel{"FC-2027": {Code: "FC-2027", Status: "published"}, "BASE": {Code: "BASE", Status: "draft"}}}
+	if rec := do(t, st, http.MethodGet, "/v1/planning/forecasts", "", "", true, ""); rec.Code != http.StatusForbidden {
+		t.Fatalf("without a duty: %d", rec.Code)
+	}
+	rec := do(t, st, http.MethodGet, "/v1/planning/forecasts", "", "planning.read", true, "")
+	var body struct{ Items []store.ForecastModelSummary }
+	if rec.Code != http.StatusOK || json.Unmarshal(rec.Body.Bytes(), &body) != nil || len(body.Items) != 2 || body.Items[0].Code != "BASE" || body.Items[1].Status != "published" {
+		t.Fatalf("list: %d %s", rec.Code, rec.Body)
+	}
+	if rec := do(t, st, http.MethodGet, "/v1/planning/forecasts?q=FC", "", "planning.read", true, ""); !strings.Contains(rec.Body.String(), "FC-2027") || strings.Contains(rec.Body.String(), "BASE") {
+		t.Fatalf("search: %s", rec.Body)
+	}
+	for _, bad := range []string{"?legalEntityId=nope", "?limit=0", "?q=" + strings.Repeat("x", 65)} {
+		if rec := do(t, st, http.MethodGet, "/v1/planning/forecasts"+bad, "", "planning.read", true, ""); rec.Code != http.StatusUnprocessableEntity && rec.Code != http.StatusBadRequest {
+			t.Fatalf("%s: %d", bad, rec.Code)
+		}
+	}
+	if rec := do(t, st, http.MethodGet, "/v1/planning/forecasts", "", "planning.read", false, ""); rec.Code < 400 {
+		t.Fatalf("without a tenant: %d", rec.Code)
 	}
 }
