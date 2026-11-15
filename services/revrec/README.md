@@ -292,7 +292,18 @@ standalone price is a separate contract: `:allocate`.
   An outage backs off (30 s doubling, at most an hour), a refusal parks the request (`POST /v1/revrec/modifications/{id}:retry-billing`,
   `revrec.post`, puts it back). billing's `creditnote.booked` for such a credit note carries `contract_modification_id` and the
   credit-note consumer skips it. The GL reconciliation adds what billing credits for modifications (the per-product allocation decreases, `modificationCredits`) to the 2400
-  debits it expects. A pure SSP revision (no price change) is not billed.
+  debits it expects. Round 4: an SSP revision with no price change that moved allocation between products is billed too (the request
+  carries `priceChange` 0.00 and per-product lines that net to zero: billing invoices the products that gained and credits those that
+  lost); one that moved nothing queues nothing. One request per modification, keyed by the modification id, so a repeat never bills twice.
+- **USAGE obligations in a catch-up** (round 4): `obligations[].usageToDate` with `expectedUsage` (the units the allocation covers)
+  makes a USAGE obligation part of the re-allocation. Its reallocated rate is the new allocation over `expectedUsage`; its revenue to
+  date is `usageToDate` times that rate, capped at the allocation (consumption beyond it is variable consideration the usage invoices
+  carry); the difference to what is recognized is the catch-up, recognized at once on a new line dated the effective date (published as
+  `schedule.recognized`) or, when negative, taken back as a `modification_reversal`. What the allocation still holds has no schedule line
+  (it is recognized as usage posts, a later slice). A USAGE obligation without the pair keeps its allocation, as before; the pair is
+  refused (REV-0406) for a prospective modification, for an obligation that is not USAGE and beside a `remainingScope`. Worked
+  examples 10 to 12 in `domain/modification_test.go` (and 10 through Postgres): a 1,200.00 platform plan and an API-calls obligation of
+  800.00 over 8,000 calls with 2,000 consumed, price +400.00: 960.00 / 0.12 a call, 240.00 to date against 200.00 recognized, +40.00.
 - Each modification stores a `contract_modification` row and an `allocation_delta` per obligation, dated at the effective date. The
   deferred revenue roll-forward adds the delta in the period of the effective date, not in the contract's, so the roll-forward closes
   at zero when the new price is recognized.

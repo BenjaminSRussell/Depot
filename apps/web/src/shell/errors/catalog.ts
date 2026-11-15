@@ -972,6 +972,7 @@ const p2pMore: Record<string, ProblemCatalogEntry> = {
   "REV-0401": { message: "The change can't start before the contract does.", action: "Choose an effective date on or after the contract date." },
   "REV-0402": { message: "The new price is lower than what the delivered goods were already billed at.", action: "Credit the invoice for those goods, or choose a smaller price cut." },
   "REV-0404": { message: "There is no performance left on this contract to change from now on.", action: "Choose the catch-up option, or issue a new contract for the new goods or services." },
+  "REV-0406": { message: "The usage figures can't be used for this change.", action: "Give the usage to date for a usage-based item in a catch-up change only, with the quantity its price covers." },
   "REV-0405": { message: "Credit notes have already changed this contract's revenue schedule, so it can't be re-allocated.", action: "Handle the change with another credit note or a new contract." },
   "AR-FX-TOLERANCE": { message: "The amount taken off the invoice doesn't match what this payment is worth in the invoice's currency.", action: "Check the invoice amount and the payment, then enter the amount that the payment really covers." },
   "AP-RUN-019": { message: "The payment run was paid, but the tax service refused the withheld tax entries.", action: "Ask an administrator to check the withholding setup, then post the run's journal again." },

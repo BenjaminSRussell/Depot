@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"encoding/json"
 	"strings"
 	"testing"
 	"time"
@@ -318,5 +319,158 @@ func TestRollForward_ModificationCreditsArePerProductDecreases(t *testing.T) {
 	year, err := s.RollForward(ctx, le, "USD", day(2027, time.January, 1), day(2027, time.December, 31))
 	if err != nil || !year.ModificationCredits.Equal(decimal.RequireFromString("300.00")) {
 		t.Fatalf("modification credits %s (%v)", year.ModificationCredits, err)
+	}
+}
+
+// Worked example 9 (SSP-only revision): the licence's SSP is revised from 800.00 to 1,200.00 with the price unchanged at 2,000.00, so
+// the pool 2,000.00 over SSPs 1,200 : 1,200 gives 1,000.00 each: the licence's allocation rises by 200.00 and the support's falls by
+// 200.00. The modification has no price change yet queues its billing request, with a line per product that nets to zero (billing
+// invoices the licence's 200.00 and credits the support's 200.00).
+func TestModifyContract_SSPOnlyRevisionQueuesBillingForTheMovedAllocation(t *testing.T) {
+	s, pool := testStore(t)
+	ctx := tenantCtx(1, "")
+	le := ids.New()
+	c, err := s.CreateContract(ctx, supportAndLicence(t, le))
+	if err != nil {
+		t.Fatal(err)
+	}
+	lic, sup := c.Obligations[0], c.Obligations[1]
+	if _, err := s.SatisfyMilestone(ctx, lic.ID, day(2027, time.January, 15), 0); err != nil {
+		t.Fatal(err)
+	}
+	recognizeThrough(t, s, ctx, le, 3)
+	_, mod, err := s.ModifyContract(ctx, c.ID, ModificationRequest{Type: domain.ModCatchUp, EffectiveDate: day(2027, time.March, 31),
+		NewSSP: map[string]decimal.Decimal{lic.ID: decimal.RequireFromString("1200")}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if mod.BillingID == "" {
+		t.Fatal("an SSP-only revision that moved allocation must queue billing")
+	}
+	var body string
+	if err := pool.QueryRow(context.Background(), `select body::text from modification_billing where modification_id = $1`, mod.ID).Scan(&body); err != nil {
+		t.Fatal(err)
+	}
+	var req struct {
+		PriceChange string
+		Lines       []struct{ ProductID, Amount string }
+	}
+	if err := json.Unmarshal([]byte(body), &req); err != nil {
+		t.Fatal(err)
+	}
+	got, net := map[string]string{}, decimal.Zero
+	for _, l := range req.Lines {
+		got[l.ProductID] = l.Amount
+		net = net.Add(decimal.RequireFromString(l.Amount))
+	}
+	if req.PriceChange != "0.00" || len(got) != 2 || got[lic.ProductID] != "200.00" || got[sup.ProductID] != "-200.00" || !net.IsZero() {
+		t.Errorf("billing request %s: want +200.00 licence, -200.00 support, netting 0.00", body)
+	}
+	var key string
+	if err := pool.QueryRow(context.Background(), `select idempotency_key from modification_billing where modification_id = $1`, mod.ID).Scan(&key); err != nil || key != ModificationBillingKeyPrefix+mod.ID {
+		t.Fatalf("one request per modification: %q %v", key, err)
+	}
+}
+
+// An SSP revision that leaves every allocation where it was (the licence's SSP restated at its current 800.00) bills nothing.
+func TestModifyContract_SSPRevisionWithoutMovedAllocationQueuesNoBilling(t *testing.T) {
+	s, pool := testStore(t)
+	ctx := tenantCtx(1, "")
+	c, err := s.CreateContract(ctx, supportAndLicence(t, ids.New()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, mod, err := s.ModifyContract(ctx, c.ID, ModificationRequest{Type: domain.ModProspective, EffectiveDate: day(2027, time.March, 31),
+		NewSSP: map[string]decimal.Decimal{c.Obligations[0].ID: decimal.RequireFromString("800")}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var n int
+	if err := pool.QueryRow(context.Background(), `select count(*) from modification_billing where modification_id = $1`, mod.ID).Scan(&n); err != nil || n != 0 || mod.BillingID != "" {
+		t.Fatalf("billing rows %d billing id %q (%v)", n, mod.BillingID, err)
+	}
+}
+
+// platformAndUsage is a 2,000.00 contract of 2027-01-01: a 12-month platform subscription (RATABLE, SSP 1,200.00) and an API-calls
+// obligation (USAGE, SSP 800.00), which has no schedule line until usage posts.
+func platformAndUsage(t *testing.T, legalEntityID string) Contract {
+	t.Helper()
+	c := supportAndLicence(t, legalEntityID)
+	api := &c.Obligations[0]
+	api.Method = domain.MethodUsage
+	api.Schedule = nil
+	return c
+}
+
+// Worked example 10 through Postgres: price +400.00 on 2027-03-31 with the API calls' 2,000 of 8,000 calls consumed. The pool 2,400.00
+// over SSPs 800 : 1,200 gives 960.00 to the API calls (rate 0.12) and 1,440.00 to the platform. Nothing was recognized on the USAGE
+// obligation yet, so the 240.00 revenue to date is recognized at once on a new line and published; the platform catches up 60.00 on the
+// next run. Billing is asked for +160.00 for the API calls and +240.00 for the platform. A repeat is refused (412), as the price change
+// is relative.
+func TestModifyContract_CatchUpRecognizesUsageToDateAtTheReallocatedRate(t *testing.T) {
+	s, pool := testStore(t)
+	ctx := tenantCtx(1, "")
+	le := ids.New()
+	c, err := s.CreateContract(ctx, platformAndUsage(t, le))
+	if err != nil {
+		t.Fatal(err)
+	}
+	api, plat := c.Obligations[0], c.Obligations[1]
+	recognizeThrough(t, s, ctx, le, 3)
+	current, err := s.GetContract(ctx, c.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req := ModificationRequest{Type: domain.ModCatchUp, EffectiveDate: day(2027, time.March, 31), PriceChange: decimal.RequireFromString("400.00"),
+		ExpectedVersion: current.Version, Usage: map[string]domain.UsageMeasure{api.ID: {ToDate: decimal.RequireFromString("2000"), Expected: decimal.RequireFromString("8000")}}}
+	got, mod, err := s.ModifyContract(ctx, c.ID, req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !mod.CatchUp.Equal(decimal.RequireFromString("300.00")) || !got.TransactionPrice.Equal(decimal.RequireFromString("2400.00")) || got.Status != domain.ContractOpen {
+		t.Fatalf("catch-up %s price %s status %s", mod.CatchUp, got.TransactionPrice, got.Status)
+	}
+	ga, gp := got.Obligations[0], got.Obligations[1]
+	if !ga.Allocated.Equal(decimal.RequireFromString("960.00")) || !gp.Allocated.Equal(decimal.RequireFromString("1440.00")) {
+		t.Fatalf("allocation %s / %s", ga.Allocated, gp.Allocated)
+	}
+	if len(ga.Schedule) != 1 || ga.Schedule[0].Status != domain.ScheduleRecognized || !ga.Schedule[0].Amount.Equal(decimal.RequireFromString("240.00")) {
+		t.Fatalf("usage obligation schedule %+v", ga.Schedule)
+	}
+	var events int
+	_ = pool.QueryRow(context.Background(), `select count(*) from outbox where type = $1 and payload->'data'->>'amount' = '240.00'`, rev.ScheduleRecognized).Scan(&events)
+	if events != 1 {
+		t.Errorf("the usage catch-up was published %d times", events)
+	}
+	if n := len(gp.Schedule); n != 13 || gp.Schedule[3].Amount.String() != "120" {
+		t.Errorf("platform schedule has %d lines, month 4 %s", n, gp.Schedule[3].Amount)
+	}
+	var body string
+	if err := pool.QueryRow(context.Background(), `select body::text from modification_billing where modification_id = $1`, mod.ID).Scan(&body); err != nil {
+		t.Fatal(err)
+	}
+	var billed struct {
+		PriceChange string
+		Lines       []struct{ ProductID, Amount string }
+	}
+	if err := json.Unmarshal([]byte(body), &billed); err != nil {
+		t.Fatal(err)
+	}
+	amounts := map[string]string{}
+	for _, l := range billed.Lines {
+		amounts[l.ProductID] = l.Amount
+	}
+	if billed.PriceChange != "400.00" || amounts[api.ProductID] != "160.00" || amounts[plat.ProductID] != "240.00" {
+		t.Errorf("billing request %s", body)
+	}
+	if _, _, err := s.ModifyContract(ctx, c.ID, req); problemCode(err) != CodeVersion {
+		t.Fatalf("a repeat: %v, want %s", err, CodeVersion)
+	}
+	// Usage given for an obligation that is not on the contract, or for a prospective modification, is refused.
+	bad := req
+	bad.ExpectedVersion = got.Version
+	bad.Usage = map[string]domain.UsageMeasure{ids.New(): {ToDate: decimal.RequireFromString("1"), Expected: decimal.RequireFromString("2")}}
+	if _, _, err := s.ModifyContract(ctx, c.ID, bad); err == nil {
+		t.Error("usage for an unknown obligation must be refused")
 	}
 }
