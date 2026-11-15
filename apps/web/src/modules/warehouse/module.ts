@@ -1,5 +1,6 @@
 import { createElement } from "react";
 import type { PassageModule } from "../registry";
+import { NewRfidRulePage, RfidReadsPage, RfidRuleDetailPage, RfidRulesPage, TransportOrderDetailPage, TransportOrdersPage } from "./AutomationPages";
 import { DockSchedulePage, NewAppointmentPage } from "./DockPages";
 import { DirectiveSimulatorPage } from "./pages";
 import { NewReceiptPage, ReceiptDetailPage, ReceiptsPage } from "./ReceivingPages";
@@ -10,7 +11,7 @@ const warehouse: PassageModule = {
   id: "warehouse",
   title: "Warehouse management",
   description:
-    "Locations, location directives and directed work: create, assign, confirm and short pick, with a simulator that explains every rule; ASN receiving and the dock schedule.",
+    "Locations, location directives and directed work: create, assign, confirm and short pick, with a simulator that explains every rule; ASN receiving and the dock schedule; RFID rules and reads and the orders given to automated stations.",
   routes: [
     { path: "/warehouse", element: createElement(DirectiveSimulatorPage), handle: { title: "Location directive simulator" } },
     { path: "/warehouse/locations", element: createElement(LocationsPage), handle: { title: "Locations" } },
@@ -23,6 +24,12 @@ const warehouse: PassageModule = {
     { path: "/warehouse/receipts", element: createElement(ReceiptsPage), handle: { title: "Receiving" } },
     { path: "/warehouse/receipts/new", element: createElement(NewReceiptPage), handle: { title: "Register ASN" } },
     { path: "/warehouse/receipts/:id", element: createElement(ReceiptDetailPage), handle: { title: "Receipt" } },
+    { path: "/warehouse/rfid-rules", element: createElement(RfidRulesPage), handle: { title: "RFID rules" } },
+    { path: "/warehouse/rfid-rules/new", element: createElement(NewRfidRulePage), handle: { title: "New RFID rule" } },
+    { path: "/warehouse/rfid-rules/:id", element: createElement(RfidRuleDetailPage), handle: { title: "RFID rule" } },
+    { path: "/warehouse/rfid-reads", element: createElement(RfidReadsPage), handle: { title: "RFID reads" } },
+    { path: "/warehouse/automation-orders", element: createElement(TransportOrdersPage), handle: { title: "Automation orders" } },
+    { path: "/warehouse/automation-orders/:id", element: createElement(TransportOrderDetailPage), handle: { title: "Automation order" } },
     { path: "/warehouse/docks", element: createElement(DockSchedulePage), handle: { title: "Dock schedule" } },
     { path: "/warehouse/docks/new", element: createElement(NewAppointmentPage), handle: { title: "Book a dock appointment" } },
   ],
@@ -33,6 +40,9 @@ const warehouse: PassageModule = {
     { label: "Work", to: "/warehouse/work", duty: "warehouse.inquiry.view" },
     { label: "Receiving", to: "/warehouse/receipts", duty: "warehouse.inquiry.view" },
     { label: "Dock schedule", to: "/warehouse/docks", duty: "warehouse.inquiry.view" },
+    { label: "RFID rules", to: "/warehouse/rfid-rules", duty: "warehouse.setup.view" },
+    { label: "RFID reads", to: "/warehouse/rfid-reads", duty: "warehouse.inquiry.view" },
+    { label: "Automation orders", to: "/warehouse/automation-orders", duty: "warehouse.inquiry.view" },
   ],
 };
 

@@ -12,3 +12,4 @@ import "./procurement";
 import "./docks";
 import "./quality";
 import "./vendorPortal";
+import "./automation";

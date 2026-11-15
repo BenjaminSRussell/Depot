@@ -15,6 +15,7 @@ import (
 	"github.com/BenjaminSRussell/passage/platform/ledgerclient"
 	"github.com/BenjaminSRussell/passage/platform/tenant"
 	"github.com/BenjaminSRussell/passage/services/billing/internal/api"
+	"github.com/BenjaminSRussell/passage/services/billing/internal/periods"
 	"github.com/BenjaminSRussell/passage/services/billing/internal/revrec"
 	"github.com/BenjaminSRussell/passage/services/billing/internal/salesreport"
 	"github.com/BenjaminSRussell/passage/services/billing/internal/store"
@@ -98,6 +99,18 @@ func run(ctx context.Context, getenv func(string) string) error {
 		}
 		a.WithLedger(ledger, st, profiles)
 		glProfiles = profiles
+	}
+	// A self-billed invoice is never posted into a closed period: close is asked, and without it nothing is posted (35-5).
+	if closeURL := getenv("BILLING_CLOSE_URL"); closeURL != "" {
+		signer, err := tenant.ServiceSignerFromEnv(getenv)
+		if err != nil {
+			return err
+		}
+		pc, err := periods.New(closeURL, signer, nil)
+		if err != nil {
+			return err
+		}
+		a.WithPeriods(pc)
 	}
 	allocations, err := revrec.FromEnv(getenv)
 	if err != nil {

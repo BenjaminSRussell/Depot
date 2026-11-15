@@ -35,7 +35,10 @@ type ModificationRequest struct {
 	// NewSSP revises the standalone selling price of obligations, by obligation id.
 	NewSSP map[string]decimal.Decimal
 	// Scope reduces (0 < scope < 1) or removes (0) obligations, by obligation id: the share of the remaining performance still promised.
-	Scope           map[string]decimal.Decimal
+	Scope map[string]decimal.Decimal
+	// Usage gives a USAGE obligation's consumption to date, by obligation id, for a CATCH_UP: its revenue to date is usage to date times the
+	// reallocated rate. A USAGE obligation without it keeps its allocation.
+	Usage           map[string]domain.UsageMeasure
 	Reason          string
 	ExpectedVersion int
 }
@@ -176,12 +179,20 @@ func (s *Postgres) ModifyContract(ctx context.Context, contractID string, req Mo
 			ct := credits[o.ID]
 			mo := domain.ModObligation{ID: o.ID, Method: o.Method, SSP: o.SSP, SSPSource: o.SSPSource,
 				Allocated: o.Allocated.Sub(ct.reduced).Sub(ct.reversed), Reversed: ct.reversed.Add(modReversed[o.ID])}
+			if u, ok := req.Usage[o.ID]; ok {
+				mo.Usage = &domain.UsageMeasure{ToDate: u.ToDate, Expected: u.Expected}
+			}
 			for _, sc := range o.Schedule {
 				mo.Lines = append(mo.Lines, domain.ModLine{ID: sc.ID, Date: sc.Date, Amount: sc.Amount, Status: sc.Status, Credited: sc.Credited})
 			}
 			in.Obligations = append(in.Obligations, mo)
 		}
 		for id := range req.NewSSP {
+			if !known[id] {
+				return httpx.NewProblem(http.StatusUnprocessableEntity, "REV-0001", "obligation "+id+" is not on this contract")
+			}
+		}
+		for id := range req.Usage {
 			if !known[id] {
 				return httpx.NewProblem(http.StatusUnprocessableEntity, "REV-0001", "obligation "+id+" is not on this contract")
 			}
@@ -216,6 +227,9 @@ func (s *Postgres) ModifyContract(ctx context.Context, contractID string, req Mo
 			res.TransactionPriceAfter.String(), res.CatchUp.String(), req.Reason, p.UserID, res.Reversal.String(), scopeJSON); err != nil {
 			return err
 		}
+		// Only a price change is billed. A revision of stand-alone selling prices with the price unchanged re-allocates revenue between
+		// obligations and nothing else: the customer owes what it owed (taxes differ per product, so invoicing the gains and crediting the
+		// losses would change what it owes), so no billing request is queued.
 		if !req.PriceChange.IsZero() {
 			products := map[string]string{}
 			for _, o := range c.Obligations {
@@ -236,16 +250,18 @@ func (s *Postgres) ModifyContract(ctx context.Context, contractID string, req Mo
 					lines = append(lines, billingLine{ProductID: pid, Amount: fixed(deltas[pid], c.Currency)})
 				}
 			}
-			body, err := json.Marshal(billingBody{Lines: lines, ModificationID: mod.ID, ContractID: contractID, LegalEntityID: c.LegalEntityID, OrderID: c.OrderID,
-				CustomerID: c.CustomerID, Currency: c.Currency, PriceChange: fixed(req.PriceChange, c.Currency), EffectiveDate: req.EffectiveDate.Format(dateLayout),
-				Reason: req.Reason})
-			if err != nil {
-				return err
-			}
-			mod.BillingID = ids.New()
-			if _, err := tx.Exec(ctx, `insert into modification_billing (tenant_id, id, legal_entity_id, modification_id, contract_id, idempotency_key, body)
-				values ($1,$2,$3,$4,$5,$6,$7)`, p.TenantID, mod.BillingID, c.LegalEntityID, mod.ID, contractID, ModificationBillingKeyPrefix+mod.ID, body); err != nil {
-				return err
+			{
+				body, err := json.Marshal(billingBody{Lines: lines, ModificationID: mod.ID, ContractID: contractID, LegalEntityID: c.LegalEntityID, OrderID: c.OrderID,
+					CustomerID: c.CustomerID, Currency: c.Currency, PriceChange: fixed(req.PriceChange, c.Currency), EffectiveDate: req.EffectiveDate.Format(dateLayout),
+					Reason: req.Reason})
+				if err != nil {
+					return err
+				}
+				mod.BillingID = ids.New()
+				if _, err := tx.Exec(ctx, `insert into modification_billing (tenant_id, id, legal_entity_id, modification_id, contract_id, idempotency_key, body)
+					values ($1,$2,$3,$4,$5,$6,$7)`, p.TenantID, mod.BillingID, c.LegalEntityID, mod.ID, contractID, ModificationBillingKeyPrefix+mod.ID, body); err != nil {
+					return err
+				}
 			}
 		}
 		methods := map[string]string{}

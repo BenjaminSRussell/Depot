@@ -2,12 +2,16 @@
 
 from __future__ import annotations
 
+import os
 from typing import Annotated, Literal
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
 from forecast import batches, models
+from forecast.logpseudo import install_logging
+
+install_logging(os.environ)  # eu-data-boundary overlay or LOG_PSEUDONYMIZE=true: person values and emails in log lines are pseudonymized (#605)
 
 app = FastAPI(title="Passage forecast", version="0.4.0")
 

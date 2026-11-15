@@ -74,6 +74,15 @@ spec:
             - name: CARRIER_GATEWAY_URL
               value: {{ .Values.carrierGatewayUrl | quote }}
             {{- end }}
+            {{- if and .Values.partyUrl .Values.productUrl }}
+            {{- if not .Values.serviceIdentity.signingKeySecret }}
+            {{- fail "partyUrl and productUrl need serviceIdentity.signingKeySecret: fulfillment signs its Intrastat data reads" }}
+            {{- end }}
+            - name: PARTY_URL
+              value: {{ .Values.partyUrl | quote }}
+            - name: PRODUCT_URL
+              value: {{ .Values.productUrl | quote }}
+            {{- end }}
             {{- if .Values.salesUrl }}
             {{- if not .Values.serviceIdentity.signingKeySecret }}
             {{- fail "salesUrl needs serviceIdentity.signingKeySecret: fulfillment signs its :record-progress calls" }}

@@ -173,3 +173,16 @@ func TestBillModification_InvoicesIncreasesAndCreditsDecreases(t *testing.T) {
 		t.Fatalf("a person's key with the modification prefix: %d", rec.Code)
 	}
 }
+
+// An SSP-only revision (price change 0.00) is a revenue re-allocation: billing refuses the request and creates no document, since
+// invoicing the gains and crediting the losses would change what the customer owes (each product has its own tax).
+func TestBillModification_SSPOnlyRevisionBillsNothing(t *testing.T) {
+	f := newFakeStore()
+	postedOrderInvoice(f)
+	h := setup(t, f, &fakeTax{perLine: "19.00"})
+	before := len(f.invoices)
+	body := modificationBody("0.00", `[{"productId":"`+uuid(81)+`","amount":"-200.00"},{"productId":"`+uuid(82)+`","amount":"200.00"}]`)
+	if rec := doAs(h, http.MethodPost, "/v1/billing/contract-modifications", "", body, "billing.contract-modification.bill", nil); rec.Code != http.StatusBadRequest || len(f.invoices) != before {
+		t.Fatalf("zero price change: %d %s, %d documents", rec.Code, rec.Body.String(), len(f.invoices)-before)
+	}
+}

@@ -17,6 +17,8 @@ channels:
     messages:
       provisioned:
         $ref: '#/components/messages/tenantProvisioned'
+      decommissioned:
+        $ref: '#/components/messages/tenantDecommissioned'
   passage.ops.slo:
     address: passage.ops.slo
     messages:
@@ -40,6 +42,12 @@ operations:
     channel: { $ref: '#/channels/passage.ops.tenant' }
     messages:
       - $ref: '#/channels/passage.ops.tenant/messages/provisioned'
+  onTenantDecommissioned:
+    action: send
+    summary: The last decommission step of a tenant is DONE (the realm is gone).
+    channel: { $ref: '#/channels/passage.ops.tenant' }
+    messages:
+      - $ref: '#/channels/passage.ops.tenant/messages/decommissioned'
   onSloBreached:
     action: send
     summary: The hourly SLO check found a service newly breached (once per breach, again only after it recovered).
@@ -69,6 +77,17 @@ components:
           lagSeconds: { type: integer }
           steps: { type: integer }
           completedAt: { type: string, format: date-time }
+    tenantDecommissioned:
+      name: dev.passage.ops.tenant.decommissioned.v1
+      title: Tenant decommissioned
+      summary: Every decommission step (lakehouse, kafka-acls, databases, realm) is DONE. Subject and tenantid are the tenant.
+      payload:
+        type: object
+        required: [tenantId, reason, decommissionedAt]
+        properties:
+          tenantId: { type: string, format: uuid }
+          reason: { type: string }
+          decommissionedAt: { type: string, format: date-time }
     tenantProvisioned:
       name: dev.passage.ops.tenant.provisioned.v1
       title: Tenant provisioned

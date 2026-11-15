@@ -121,7 +121,7 @@ func TestCustomerPortalGrantIsCustomerScoped(t *testing.T) {
 		"sales":       {"sales.customer-portal.read", "sales.customer-portal.order", "sales.customer-portal.return"},
 		"party":       {"party.customer-portal.read"},
 		"identity":    {"identity.customer-portal.read"},
-		"print":       {"print.customer-portal.render"},
+		"print":       {"print.customer-portal.render", "print.customer-portal.documents"},
 	}
 	if len(grants) != len(want) {
 		t.Fatalf("grants %v", grants)

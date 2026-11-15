@@ -31,10 +31,14 @@ spec:
           secret:
             secretName: {{ required "consumer.kafka.secret is required" .Values.consumer.kafka.secret }}
             defaultMode: 0440
-{{- if and .Values.consumer.autoPost.enabled .Values.serviceIdentity.signingKeySecret }}
+{{- if .Values.consumer.autoPost.enabled }}
         - name: service-identity
           secret:
-            secretName: {{ .Values.serviceIdentity.signingKeySecret }}
+            secretName: {{ required "serviceIdentity.signingKeySecret is required for consumer.autoPost: the ledger refuses an unsigned journal" .Values.serviceIdentity.signingKeySecret }}
+            defaultMode: 0440
+        - name: posting-profiles
+          secret:
+            secretName: {{ required "postingProfilesSecret is required for consumer.autoPost" .Values.postingProfilesSecret }}
             defaultMode: 0440
 {{- end }}
       containers:
@@ -71,15 +75,12 @@ spec:
               value: /var/run/passage/kafka/ca.crt
 {{- if .Values.consumer.autoPost.enabled }}
             # A pairing that opted in (autoPostInvoice) has its vendor invoice posted here: the ledger entry, the AP item, the intake row.
+            # Each borrower legal entity's ledger and accounts come from the posting profiles (icChargeExpenseAccount, icChargeInputTaxAccount).
             - { name: LEDGER_URL, value: {{ required "ledgerUrl is required for consumer.autoPost" .Values.ledgerUrl | quote }} }
-            - { name: PAYABLES_IC_LEDGER_ID, value: {{ required "consumer.autoPost.ledgerId is required" .Values.consumer.autoPost.ledgerId | quote }} }
-            - { name: PAYABLES_IC_EXPENSE_ACCOUNT, value: {{ required "consumer.autoPost.expenseAccount is required" .Values.consumer.autoPost.expenseAccount | quote }} }
-            - { name: PAYABLES_IC_CONTROL_ACCOUNT, value: {{ default .Values.controlAccount .Values.consumer.autoPost.controlAccount | quote }} }
-            - { name: PAYABLES_IC_INPUT_TAX_ACCOUNT, value: {{ .Values.consumer.autoPost.inputTaxAccount | quote }} }
+            - { name: PAYABLES_POSTING_PROFILES_FILE, value: /var/run/passage/posting-profiles/profiles.json }
             - { name: PAYABLES_IC_PAYMENT_TERM_DAYS, value: {{ .Values.consumer.autoPost.paymentTermDays | quote }} }
             - name: PASSAGE_SERVICE_NAME
               value: payables
-{{- if .Values.serviceIdentity.signingKeySecret }}
             - name: PASSAGE_SERVICE_SIGNING_KEY_FILE
               value: /var/run/passage/service-identity/signing-key
 {{- if .Values.serviceIdentity.keyId }}
@@ -87,11 +88,11 @@ spec:
               value: {{ .Values.serviceIdentity.keyId | quote }}
 {{- end }}
 {{- end }}
-{{- end }}
           volumeMounts:
             - { name: kafka, mountPath: /var/run/passage/kafka, readOnly: true }
-{{- if and .Values.consumer.autoPost.enabled .Values.serviceIdentity.signingKeySecret }}
+{{- if .Values.consumer.autoPost.enabled }}
             - { name: service-identity, mountPath: /var/run/passage/service-identity, readOnly: true }
+            - { name: posting-profiles, mountPath: /var/run/passage/posting-profiles, readOnly: true }
 {{- end }}
           livenessProbe:
             httpGet: { path: /healthz, port: admin }

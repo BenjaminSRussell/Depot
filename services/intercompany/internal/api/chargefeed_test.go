@@ -8,6 +8,7 @@ import (
 
 	"github.com/shopspring/decimal"
 
+	"github.com/BenjaminSRussell/passage/platform/eventing"
 	"github.com/BenjaminSRussell/passage/platform/events"
 	"github.com/BenjaminSRussell/passage/platform/ids"
 	"github.com/BenjaminSRussell/passage/platform/reimbursement"
@@ -143,5 +144,51 @@ func TestChargeFeed_RefusesWhatIsNotAnEventOfTheProducer(t *testing.T) {
 	}
 	if err := f.HandleHours(context.Background(), feedEvent(t, chargefeed.TransactionPostedType, chargefeed.ProjectsSource, d)); err == nil {
 		t.Error("no principal is refused")
+	}
+}
+
+// L2: changing the configured accounts does not turn a redelivered event into an idempotency-key reuse, and a revised expense report
+// is the charge's next version.
+func TestChargeFeed_AccountSettingsAreNotPartOfTheReplayHash(t *testing.T) {
+	e := newRegistryEnv(t)
+	e.setup(t, true)
+	e.put(t, http.MethodPost, "/v1/interco/transfer-prices", `{"lendingEntity":"A","borrowingEntity":"B","category":"Expense","method":"Cost","currency":"USD","effectiveFrom":"2026-01-01"}`, http.StatusCreated)
+	f := feedFor(e)
+	line := ids.New()
+	approved := func(revision int, amount string) events.Event {
+		raw, _ := json.Marshal(reimbursement.ReportApproved{ReportID: ids.New(), LegalEntityID: leA, WorkerID: ids.New(), Currency: "USD", Amount: "0.00", ApprovedOn: "2026-11-06", Revision: revision,
+			ChargedLines: []reimbursement.ChargedLine{{LineID: line, LineNo: 1, Category: "TRAVEL", Amount: amount, Currency: "USD", TransactionDate: "2026-11-05", ChargeToLegalEntityID: leB}}})
+		var data map[string]any
+		_ = json.Unmarshal(raw, &data)
+		return feedEvent(t, reimbursement.ReportApprovedType, chargefeed.ExpenseSource, data)
+	}
+	if err := f.HandleExpense(feedCtx(t), approved(1, "300.00")); err != nil {
+		t.Fatal(err)
+	}
+	f.Config.CostAccount = "6300-OTHER-COST"
+	if err := f.HandleExpense(feedCtx(t), approved(1, "300.00")); err != nil {
+		t.Fatalf("redelivery after an account setting changed: %v", err)
+	}
+	if n := chargeCount(t, e, "expense:"+line); n != 1 {
+		t.Fatalf("charges = %d, want 1", n)
+	}
+	if err := f.HandleExpense(feedCtx(t), approved(2, "280.00")); err != nil {
+		t.Fatalf("revision 2: %v", err)
+	}
+	if n := chargeCount(t, e, "expense:"+line); n != 2 {
+		t.Fatalf("charges after a revision = %d, want 2 (one per version)", n)
+	}
+}
+
+// M4: an entity the registry does not know is dead-lettered, not skipped.
+func TestChargeFeed_AnUnknownEntityIsDeadLettered(t *testing.T) {
+	e := newRegistryEnv(t)
+	e.setup(t, true)
+	f := feedFor(e)
+	hours := map[string]any{"transactionId": ids.New(), "version": 1, "projectId": "P-1", "projectLegalEntityId": leB, "workerId": ids.New(), "workerLegalEntityId": ids.New(),
+		"categoryId": "LABOR", "sourceDocType": "TIMESHEET", "transactionDate": "2026-11-05", "quantity": "8.000", "costPrice": "60.000000", "currency": "USD"}
+	err := f.HandleHours(feedCtx(t), feedEvent(t, chargefeed.TransactionPostedType, chargefeed.ProjectsSource, hours))
+	if err == nil || !eventing.IsPermanent(err) {
+		t.Fatalf("unknown employing entity = %v; want a permanent failure", err)
 	}
 }

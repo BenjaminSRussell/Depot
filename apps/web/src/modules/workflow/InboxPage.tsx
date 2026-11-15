@@ -5,7 +5,7 @@ import { holdsDuty } from "../../shell/dutyGate";
 import { ApiError } from "../../shell/api/http";
 import { ProblemMessage } from "../../shell/errors";
 import { formatAge, formatDate, isPastDate } from "../../shell/format";
-import { decideInboxItem, decisionDuty, sourceList, type InboxDecision, type InboxItem } from "../../shell/inbox/inbox";
+import { decideInboxItem, decisionDuty, INBOX_SOURCES, SOURCE_DUTIES, sourceList, sourceName, type InboxDecision, type InboxItem } from "../../shell/inbox/inbox";
 import { useInbox } from "../../shell/inbox/useInbox";
 import { useWorkContext } from "../../shell/lookup/workContextState";
 import { usePrincipalDuties } from "../../shell/principal";
@@ -25,8 +25,9 @@ function canDecide(item: InboxItem, duties: readonly string[]): boolean {
 export function InboxPage() {
   const { legalEntityId } = useWorkContext();
   const duties = usePrincipalDuties();
-  const inbox = useInbox(legalEntityId, true);
   const [kind, setKind] = useState(ALL_KINDS);
+  // The type of work is a source filter the server applies before paging, so it covers everything waiting.
+  const inbox = useInbox(legalEntityId, true, kind);
   const [confirming, setConfirming] = useState<{ item: InboxItem; action: Decision } | null>(null);
   const [busy, setBusy] = useState("");
   const [outcome, setOutcome] = useState<Outcome | null>(null);
@@ -36,9 +37,9 @@ export function InboxPage() {
     if (outcome) statusRef.current?.focus();
   }, [outcome]);
 
-  const kinds = useMemo(() => [...new Set(inbox.items.map((i) => i.kind))].sort(), [inbox.items]);
-  const activeKind = kinds.includes(kind) ? kind : ALL_KINDS;
-  const rows = activeKind === ALL_KINDS ? inbox.items : inbox.items.filter((i) => i.kind === activeKind);
+  const activeKind = kind;
+  const rows = inbox.items;
+  const filterable = useMemo(() => INBOX_SOURCES.filter((s) => s === kind || (holdsDuty(duties, SOURCE_DUTIES[s]) && !inbox.unavailable.includes(s))), [inbox.unavailable, kind, duties]);
 
   async function decide(item: InboxItem, action: Decision) {
     setOutcome(null);
@@ -46,6 +47,7 @@ export function InboxPage() {
     try {
       await decideInboxItem(item, action);
       inbox.remove(item);
+      if (activeKind !== ALL_KINDS && rows.length === 1 && !inbox.hasMore) setKind(ALL_KINDS);
       setOutcome({ tone: "success", text: `${action === "approve" ? "Approved" : "Rejected"}: ${item.number}.` });
     } catch (failure) {
       if (failure instanceof ApiError && failure.status === 409 && failure.code === "PTY-CHANGE-DECIDED") {
@@ -161,15 +163,15 @@ export function InboxPage() {
           <ProblemMessage problem={inbox.problem} />
         </Alert>
       ) : null}
-      {kinds.length > 1 || activeKind !== ALL_KINDS ? (
+      {inbox.status !== "off" ? (
         <div className={styles.filter}>
           <FormField id="inbox-kind" label="Type of work">
             {(control) => (
               <Select {...control} value={activeKind} onChange={(event) => setKind(event.target.value)}>
                 <option value={ALL_KINDS}>All types</option>
-                {kinds.map((k) => (
+                {filterable.map((k) => (
                   <option key={k} value={k}>
-                    {k}
+                    {sourceName(k).charAt(0).toUpperCase() + sourceName(k).slice(1)}
                   </option>
                 ))}
               </Select>
@@ -192,7 +194,6 @@ export function InboxPage() {
       )}
       {inbox.status === "ready" && inbox.hasMore ? (
         <div>
-          {activeKind !== ALL_KINDS ? <p role="status">The filter only covers what is loaded so far. More items may match.</p> : null}
           <Button loading={inbox.loadingMore} onClick={inbox.loadMore}>
             {copy.myWork.loadMore}
           </Button>

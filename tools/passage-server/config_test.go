@@ -234,6 +234,12 @@ func TestShippedFeatureFilesResolve(t *testing.T) {
 	if ag.Args[0] != dir+"/runtime/node/apps/agents-ts/dist/main.js" || ag.Env["DATABASE_URL"] == "" || ag.AdminPort == ag.Port {
 		t.Fatalf("agents-ts = %+v", ag)
 	}
+	if !ag.ForwardAuthorization || !forwardAuthOf(procs)["agents-ts"] || forwardAuthOf(procs)["workflow-ts"] {
+		t.Fatalf("only agents-ts forwards the bearer token: %v", forwardAuthOf(procs))
+	}
+	if ag.Env["AGENTS_JWT_ISSUER"] == "" && cfg.OIDCIssuer != "" {
+		t.Fatalf("agents-ts has no JWT issuer: %v", ag.Env)
+	}
 	for _, name := range []string{"routing-py", "scheduler-py"} {
 		p := byName[name]
 		if p.Exe != dir+"/runtime/python/python.exe" || p.ReadyPath != "/healthz" || p.AdminPort != p.Port {
@@ -263,5 +269,16 @@ func TestArm64NodeFeatureFileHasNoTemporalWorker(t *testing.T) {
 	}
 	if len(file.Services) != 1 || file.Services[0].Name != "agents-ts" || file.Services[0].Feature != "node" {
 		t.Fatalf("arm64 node services = %+v", file.Services)
+	}
+}
+
+func TestAgentsTSGetsTheSignInSettingsFromTheServerConfig(t *testing.T) {
+	cfg := Config{OIDCIssuer: "https://kc.example/realms/passage", OIDCAudience: "passage-api", MCPURL: "http://127.0.0.1:9000"}
+	if got := cfg.expand("{oidcIssuer}|{oidcAudience}|{oidcJwksUrl}|{mcpUrl}"); got != "https://kc.example/realms/passage|passage-api|https://kc.example/realms/passage/protocol/openid-connect/certs|http://127.0.0.1:9000" {
+		t.Fatalf("expand = %q", got)
+	}
+	cfg.OIDCJWKSURL = "https://kc.example/certs"
+	if got := cfg.expand("{oidcJwksUrl}"); got != "https://kc.example/certs" {
+		t.Fatalf("explicit jwks = %q", got)
 	}
 }

@@ -13,6 +13,8 @@ const (
 	// dutyRenderPortal is the customer portal's own, service-only duty for the same renderer (#30): it renders the invoice or
 	// statement the portal already read for its customer. Rendering reads nothing, so it reaches no other data.
 	dutyRenderPortal = "print.customer-portal.render"
+	// dutyRenderOps is the ops control plane's service-only duty for the same renderer (#50): the tenant cost statement PDF.
+	dutyRenderOps = "print.ops.render"
 )
 
 // renderDocument serves POST /print/v1/documents:render (issue #530). The caller sends a

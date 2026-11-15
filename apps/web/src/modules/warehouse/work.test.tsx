@@ -40,7 +40,7 @@ describe("WorkListPage", () => {
     const table = await findTable({ name: "Work" });
     await waitFor(() => expect(table).toHaveTextContent("Sales pick"));
     expect(table).toHaveTextContent("Assigned");
-    expect(table).toHaveTextContent("picker");
+    expect(table).toHaveTextContent("A user who is no longer listed");
     expect(pageViolations(container)).toEqual([]);
     fireEvent.click(within(table).getByRole("button", { name: /Product BOLT/ }));
     expect(await screen.findByRole("heading", { name: "Sales pick work" })).toBeInTheDocument();
@@ -156,7 +156,7 @@ describe("WorkDetailPage", () => {
     expect(screen.getByText("Loading the work…")).toBeInTheDocument();
     const lines = await findTable({ name: "Work lines" });
     expect(lines).toHaveTextContent("BOLT");
-    expect(screen.getByText("picker")).toBeInTheDocument();
+    expect(screen.getByText("A user who is no longer listed")).toBeInTheDocument();
     expect(pageViolations(container)).toEqual([]);
   });
 

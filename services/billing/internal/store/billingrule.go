@@ -6,9 +6,14 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 
 	"github.com/BenjaminSRussell/passage/platform/dbx"
+	"github.com/BenjaminSRussell/passage/platform/events"
+	"github.com/BenjaminSRussell/passage/platform/outbox"
 	"github.com/BenjaminSRussell/passage/platform/tenant"
+	"github.com/BenjaminSRussell/passage/services/billing/internal/domain"
+	billingevents "github.com/BenjaminSRussell/passage/services/billing/internal/events"
 )
 
 // Billing rules of a customer (#35, 35-5).
@@ -89,4 +94,71 @@ func (s *Postgres) GetBillingRule(ctx context.Context, legalEntityID, customerID
 		return err
 	})
 	return out, found, err
+}
+
+// SelfBilledKeyPrefix starts the Idempotency-Key of the legal invoice billing posts from a self-billed document the customer sent
+// (#35, 35-5): the key is the sender's document (the EDI message), so the same document posts once.
+const SelfBilledKeyPrefix = "self-billed:"
+
+// ErrSelfBilledKeyReuse is a self-billed document received again with different content.
+var ErrSelfBilledKeyReuse = errors.New("the self-billed document was already posted with different content")
+
+// ErrSelfBilledNumberTaken is a customer document number already used by another document of the same customer, or an invoice number
+// already taken in the legal entity.
+var ErrSelfBilledNumberTaken = errors.New("a self-billed document with that number was already posted for this customer")
+
+// PostSelfBilled stores inv and posts it in one transaction as the legal invoice of the customer's own document: its number is the
+// document's number (the customer's, under the self-billing agreement), not one drawn from billing's sequence. The same
+// IdempotencyKey with the same RequestHash returns the posted invoice with created false; with another hash it is
+// ErrSelfBilledKeyReuse. inv carries the lines with their nets and taxes, the totals and its PostingDate; invoice.posted is enqueued
+// in the same transaction, so receivables and the ledger see it like any other posted invoice.
+func (s *Postgres) PostSelfBilled(ctx context.Context, inv Invoice, number, documentNumber string) (Invoice, bool, error) {
+	p, _ := tenant.FromContext(ctx)
+	var out Invoice
+	created := false
+	err := dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
+		if _, err := tx.Exec(ctx, `select pg_advisory_xact_lock(hashtextextended($1, 0))`, "billing:self-billed:"+p.TenantID+":"+inv.IdempotencyKey); err != nil {
+			return err
+		}
+		prev, err := loadInvoice(ctx, tx, `where idempotency_key = $1`, inv.IdempotencyKey)
+		switch {
+		case err == nil:
+			if prev.RequestHash != inv.RequestHash {
+				return ErrSelfBilledKeyReuse
+			}
+			out = prev
+			_ = tx.QueryRow(ctx, `select coalesce(customer_document_number, ''), coalesce(posting_note, '') from invoice where id = $1`, prev.ID).Scan(&out.CustomerDocumentNumber, &out.PostingNote)
+			return nil
+		case !errors.Is(err, pgx.ErrNoRows):
+			return err
+		}
+		if err := writeProposal(ctx, tx, inv); err != nil {
+			return writeProblem(err)
+		}
+		inv.Number, inv.FiscalYear, inv.Status = number, inv.PostingDate.Year(), domain.StatusPosted
+		if _, err := tx.Exec(ctx, `update invoice set status = 'POSTED', invoice_number = $2, fiscal_year = $3, posting_date = $4, version = version + 1,
+			customer_document_number = $5, posting_note = nullif($6, '') where id = $1`,
+			inv.ID, number, inv.FiscalYear, inv.PostingDate.Format(dateLayout), documentNumber, inv.PostingNote); err != nil {
+			var pgErr *pgconn.PgError
+			if errors.As(err, &pgErr) && pgErr.Code == uniqueViolation {
+				return ErrSelfBilledNumberTaken
+			}
+			return err
+		}
+		inv.CustomerDocumentNumber = documentNumber
+		inv.Version = 2
+		evt, err := events.New(billingevents.InvoicePosted, eventSource, inv.ID, p.TenantID, postedData(inv))
+		if err != nil {
+			return err
+		}
+		if err := outbox.Enqueue(ctx, tx, "invoice", inv.ID, evt); err != nil {
+			return err
+		}
+		if err := queueSalesReports(ctx, tx, p.TenantID, inv); err != nil {
+			return err
+		}
+		out, created = inv, true
+		return nil
+	})
+	return out, created, err
 }

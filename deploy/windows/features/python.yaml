@@ -3,7 +3,7 @@
 # deploy/windows/scripts/Build-ServiceBundles.ps1, and Test-ServiceBundles.ps1 starts each command below and waits for /healthz.
 # uvicorn reads no HTTP_ADDR: the port comes from {port}, and the service answers /healthz on that same port.
 services:
-  # The transport route optimizer (OR-Tools VRP); transport reaches it through TMS_OPTIMIZER_URL.
+  # The transport route optimizer (OR-Tools VRP); transport reaches it through ROUTING_PY_URL, which passage-server sets from the service name.
   - name: routing-py
     exe: "{install}/runtime/python/python.exe"
     args: ["-m", "uvicorn", "tms_optimizer.api:app", "--host", "127.0.0.1", "--port", "{port}"]

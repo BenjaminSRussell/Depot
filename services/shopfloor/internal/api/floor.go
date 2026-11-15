@@ -99,6 +99,8 @@ func (a *API) registerFloor(r chi.Router) {
 	r.With(authz.RequireDuty(DutyCheckOverride)).Post("/v1/shopfloor/andon/{id}:clear", a.clearAndon)
 	r.With(authz.RequireDuty(DutyView)).Get("/v1/shopfloor/andon-settings", a.getAndonSettings)
 	r.With(authz.RequireDuty(DutySetup)).Put("/v1/shopfloor/andon-settings", a.putAndonSettings)
+	r.With(authz.RequireDuty(DutySetup)).Put("/v1/shopfloor/andon-settings/sites/{siteId}", a.putAndonSiteSettings)
+	r.With(authz.RequireDuty(DutySetup)).Delete("/v1/shopfloor/andon-settings/sites/{siteId}", a.deleteAndonSiteSettings)
 	r.With(authz.RequireDuty(DutyView)).Get("/v1/shopfloor/oee", a.oee)
 	r.With(authz.RequireDuty(DutyView)).Get("/v1/shopfloor/oee/stream", a.oeeStream)
 	r.With(authz.RequireDuty(DutyOEERollup)).Post("/v1/shopfloor/oee:rollup", a.rollupOEE)

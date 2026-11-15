@@ -1,6 +1,7 @@
 package api
 
 import (
+	"strings"
 	"time"
 
 	"github.com/shopspring/decimal"
@@ -42,18 +43,32 @@ type postedLineData struct {
 	CWNominal string `json:"cw_nominal,omitempty"`
 	CWMin     string `json:"cw_min,omitempty"`
 	CWMax     string `json:"cw_max,omitempty"`
+	// CommodityCode, OriginCountry and NetWeight are the Intrastat data of the line from the product master when the receipt posted (#13):
+	// the CN8 code, the country of origin and the net weight of the received quantity in kilograms. StatisticalValue is the line's value
+	// in the accounting currency (amount_acct). Each is absent when the master had nothing.
+	CommodityCode    string `json:"commodity_code,omitempty"`
+	OriginCountry    string `json:"origin_country,omitempty"`
+	NetWeight        string `json:"net_weight,omitempty"`
+	StatisticalValue string `json:"statistical_value,omitempty"`
 }
 
 type receiptPostedData struct {
-	ReceiptID     string           `json:"receipt_id"`
-	ReceiptNumber string           `json:"receipt_number"`
-	POID          string           `json:"po_id"`
-	LegalEntityID string           `json:"legal_entity_id"`
-	VendorID      string           `json:"vendor_id"`
-	PostingDate   string           `json:"posting_date"`
-	Currency      string           `json:"currency"`
-	LedgerEntryID string           `json:"ledger_entry_id"`
-	Lines         []postedLineData `json:"lines"`
+	ReceiptID     string `json:"receipt_id"`
+	ReceiptNumber string `json:"receipt_number"`
+	POID          string `json:"po_id"`
+	LegalEntityID string `json:"legal_entity_id"`
+	VendorID      string `json:"vendor_id"`
+	// PartnerCountry is the Intrastat partner country: the member state the goods were consigned from, named by the post (shipFromCountry,
+	// #13), not the country of the vendor's VAT registration; absent when the post named none. PartnerVATID is the vendor's VAT id from
+	// the party master's tax registration. CustomsLookupFailed is true when the party or product read failed, so the Intrastat data of this
+	// event is incomplete.
+	PartnerCountry      string           `json:"partner_country,omitempty"`
+	PartnerVATID        string           `json:"partner_vat_id,omitempty"`
+	CustomsLookupFailed bool             `json:"customs_lookup_failed,omitempty"`
+	PostingDate         string           `json:"posting_date"`
+	Currency            string           `json:"currency"`
+	LedgerEntryID       string           `json:"ledger_entry_id"`
+	Lines               []postedLineData `json:"lines"`
 }
 
 type correctedLineData struct {
@@ -201,7 +216,7 @@ func newEvent(context, entity, verb, subject, tenantID string, data any) (events
 
 func acct(v, rate decimal.Decimal) decimal.Decimal { return v.Mul(rate).RoundBank(acctRounding) }
 
-func receiptPostedEvent(tenantID string, r store.Receipt, amounts []store.LineAmount, ledgerEntryID string) (events.Event, error) {
+func receiptPostedEvent(tenantID string, r store.Receipt, amounts []store.LineAmount, ledgerEntryID string, customs *receiptCustoms) (events.Event, error) {
 	data := receiptPostedData{
 		ReceiptID: r.ID, ReceiptNumber: r.Number, POID: r.PurchaseOrderID, LegalEntityID: r.LegalEntityID, VendorID: r.VendorID,
 		PostingDate: r.Date.Format(dateLayout), Currency: r.Currency, LedgerEntryID: ledgerEntryID, Lines: make([]postedLineData, 0, len(r.Lines)),
@@ -224,9 +239,35 @@ func receiptPostedEvent(tenantID string, r store.Receipt, amounts []store.LineAm
 		if l.CWQty > 0 {
 			line.CWQty, line.CWNominal, line.CWMin, line.CWMax = l.CWQty, l.CWNominal.String(), l.CWMin.String(), l.CWMax.String()
 		}
+		applyLineCustoms(&line, customs)
 		data.Lines = append(data.Lines, line)
 	}
+	if customs != nil {
+		data.PartnerCountry, data.CustomsLookupFailed = customs.shipFrom, customs.failed
+		if customs.res.Partner != nil {
+			data.PartnerVATID = customs.res.Partner.VATID
+		}
+	}
 	return newEvent("receiving", "receipt", "posted", r.ID, tenantID, data)
+}
+
+// applyLineCustoms fills the Intrastat fields of a posted line from the master data read before the post: the net weight is the received
+// quantity times the product's kilograms per unit and the statistical value the line's amount in the accounting currency.
+func applyLineCustoms(line *postedLineData, customs *receiptCustoms) {
+	if customs == nil {
+		return
+	}
+	line.StatisticalValue = line.AmountAcct
+	prod, ok := customs.res.Products[strings.ToLower(line.ProductID)]
+	if !ok {
+		return
+	}
+	line.CommodityCode, line.OriginCountry = prod.CommodityCode, prod.OriginCountry
+	if kg, err := decimal.NewFromString(prod.NetWeightKg); err == nil && kg.IsPositive() {
+		if qty, err := decimal.NewFromString(line.Qty); err == nil {
+			line.NetWeight = qty.Mul(kg).Round(6).String()
+		}
+	}
 }
 
 // receiptCorrectedEvent announces a correction or cancellation posted on

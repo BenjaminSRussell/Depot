@@ -108,6 +108,7 @@ func (a *API) Register(r chi.Router) {
 	r.With(authz.RequireDuty(dutyMaintainOrders)).Post("/v1/planning/messages/{id}:apply", a.applyMessage)
 	r.With(authz.RequireDuty(dutyMaintainOrders)).Post("/v1/planning/messages/{id}:dismiss", a.dismissMessage)
 	r.With(authz.RequireDuty(dutyRead)).Get("/v1/planning/net-requirements", a.listNetRequirements)
+	r.With(authz.RequireDuty(dutyRead)).Get("/v1/planning/forecasts", a.listForecastModels)
 	r.With(authz.RequireDuty(dutyRead)).Get("/v1/planning/forecasts/{modelCode}/lines", a.getForecastLines)
 	r.With(authz.RequireDuty(dutyMaintainForecast)).Put("/v1/planning/forecasts/{modelCode}/lines", a.putForecastLines)
 	r.With(authz.RequireDuty(dutyMaintainForecast)).Post("/v1/planning/forecasts/{modelCode}:submit", a.submitForecast)

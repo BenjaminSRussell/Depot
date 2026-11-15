@@ -275,7 +275,7 @@ describe("route plans", () => {
     expect(sent.stops[0]).toMatchObject({ id: "S1", point: { x: 5, y: 0 } });
     expect(sent.latenessPerMin).toBe(50);
 
-    handler = () => problem(503, "TMS-0123", "the route optimizer is not configured (TMS_OPTIMIZER_URL)");
+    handler = () => problem(503, "TMS-0123", "the route optimizer is not configured (ROUTING_PY_URL)");
     renderAt("/transport/routes/new");
     fill("Stop 1 stop reference", "S1");
     fill("Stop 1 x km", "5");
@@ -359,7 +359,7 @@ describe("load plan", () => {
   });
 
   it("explains an unavailable planner", async () => {
-    handler = () => problem(503, "TMS-0123", "the load planner is not configured (TMS_OPTIMIZER_URL)");
+    handler = () => problem(503, "TMS-0123", "the load planner is not configured (ROUTING_PY_URL)");
     renderAt("/transport/load-plans");
     fill("Pallet 1 pallet reference", "P1");
     fill("Pallet 1 height mm", "900");

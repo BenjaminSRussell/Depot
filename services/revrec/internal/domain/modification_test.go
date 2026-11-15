@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"errors"
 	"fmt"
 	"testing"
 	"time"
@@ -385,4 +386,140 @@ func TestModify_ProspectiveWeightsACreditedObligationByItsMeasure(t *testing.T) 
 	if !a.AllocatedAfter.Equal(dec("1200.00")) || !b.AllocatedAfter.Equal(dec("1200.00")) {
 		t.Fatalf("allocation %s / %s", a.AllocatedAfter, b.AllocatedAfter)
 	}
+}
+
+// usageBundle is the contract of worked examples 10 to 12: a 12-month platform subscription (RATABLE, SSP 1,200.00, 100.00 a month, three
+// months recognized) and an API-calls obligation (USAGE, SSP 800.00, allocation 800.00 over 8,000 calls, a rate of 0.10 a call) of which
+// 2,000 calls were consumed by the effective date and 200.00 recognized at the old rate. The price is 2,000.00.
+func usageBundle() []ModObligation {
+	api := ModObligation{ID: "api", Method: MethodUsage, SSP: dec("800.00"), SSPSource: "EXPLICIT", Allocated: dec("800.00"),
+		Lines: []ModLine{{ID: "api-1", Date: day("2027-03-31"), Amount: dec("200.00"), Status: ScheduleRecognized}},
+		Usage: &UsageMeasure{ToDate: dec("2000"), Expected: dec("8000")}}
+	return []ModObligation{ratable12("plat", 3), api}
+}
+
+// Worked example 10 (ASC 606-10-25-13(b), USAGE catch-up): the price rises by 400.00 to 2,400.00 on 2027-03-31. The pool 2,400.00 over
+// SSPs 1,200 : 800 gives 1,440.00 to the platform and 960.00 to the API calls. The platform is 25% transferred: 360.00 to date against
+// 300.00 recognized, a catch-up of 60.00, and 1,080.00 over nine months (120.00 each). The API calls' reallocated rate is 960.00 / 8,000 =
+// 0.12 a call, so 2,000 calls are worth 240.00 against the 200.00 recognized at the old rate: a catch-up of 40.00, recognized at once,
+// and no schedule line for the 720.00 the allocation still holds (it is recognized as usage posts).
+func TestModify_CatchUpRecognizesUsageToDateAtTheReallocatedRate(t *testing.T) {
+	res, err := Modify(ModificationInput{Type: ModCatchUp, EffectiveDate: *day("2027-03-31"), Currency: "USD", TransactionPrice: dec("2000.00"),
+		PriceChange: dec("400.00"), Obligations: usageBundle()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	plat, api := res.Obligations[0], res.Obligations[1]
+	if !plat.AllocatedAfter.Equal(dec("1440.00")) || !api.AllocatedAfter.Equal(dec("960.00")) {
+		t.Fatalf("allocation = %s / %s", plat.AllocatedAfter, api.AllocatedAfter)
+	}
+	if got := amounts(plat); !plat.CatchUp.Equal(dec("60.00")) || len(got) != 9 || got["plat-04"] != "120.00" || got["plat-12"] != "120.00" {
+		t.Fatalf("platform catch-up %s lines %v", plat.CatchUp, got)
+	}
+	if !api.Progress.Equal(dec("0.25")) || !api.CatchUp.Equal(dec("40.00")) || api.Reversal.IsPositive() || len(api.Lines) != 0 {
+		t.Fatalf("api = %+v", api)
+	}
+	if api.NewLine == nil || !api.NewLine.Recognized || !api.NewLine.Amount.Equal(dec("40.00")) || !api.NewLine.Date.Equal(*day("2027-03-31")) {
+		t.Fatalf("api new line = %+v", api.NewLine)
+	}
+	if !res.CatchUp.Equal(dec("100.00")) || !res.Reversal.IsZero() {
+		t.Fatalf("catch-up %s reversal %s", res.CatchUp, res.Reversal)
+	}
+	// Recognized to date: platform 300.00 + 60.00, API calls 200.00 + 40.00 = 600.00 = 360.00 + 240.00.
+	if got := dec("300.00").Add(plat.CatchUp).Add(dec("200.00")).Add(api.CatchUp); !got.Equal(dec("600.00")) {
+		t.Errorf("revenue to date = %s", got)
+	}
+}
+
+// Worked example 11 (USAGE catch-up, negative): the price falls by 400.00 to 1,600.00. The pool 1,600.00 over SSPs 1,200 : 800 gives
+// 960.00 and 640.00. The platform's 240.00 to date is below the 300.00 recognized: 60.00 comes back out of revenue. The API calls'
+// rate falls to 640.00 / 8,000 = 0.08, so 2,000 calls are worth 160.00 against 200.00 recognized: 40.00 comes back out, Dr 4000 / Cr 2400.
+func TestModify_CatchUpTakesBackUsageRevenueWhenTheRateFalls(t *testing.T) {
+	res, err := Modify(ModificationInput{Type: ModCatchUp, EffectiveDate: *day("2027-03-31"), Currency: "USD", TransactionPrice: dec("2000.00"),
+		PriceChange: dec("-400.00"), Obligations: usageBundle()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	plat, api := res.Obligations[0], res.Obligations[1]
+	if !api.AllocatedAfter.Equal(dec("640.00")) || !api.CatchUp.Equal(dec("-40.00")) || !api.Reversal.Equal(dec("40.00")) || api.NewLine != nil {
+		t.Fatalf("api = %+v", api)
+	}
+	if !plat.Reversal.Equal(dec("60.00")) || !res.Reversal.Equal(dec("100.00")) {
+		t.Fatalf("platform reversal %s total %s", plat.Reversal, res.Reversal)
+	}
+}
+
+// Worked example 12 (USAGE catch-up, SSP revision and the cap): the price stays 2,000.00 and the API calls' SSP is revised to 1,200.00:
+// the pool 2,000.00 over SSPs 1,200 : 1,200 gives 1,000.00 each, a rate of 0.125 a call, so 2,000 calls are worth 250.00 (catch-up
+// 50.00). Had 9,000 calls been consumed against the 8,000 the allocation covers, the revenue to date is capped at the allocation 1,000.00,
+// a catch-up of 800.00; the overage belongs to the usage invoices.
+func TestModify_CatchUpSSPRevisionOfAUsageObligationAndTheCap(t *testing.T) {
+	in := ModificationInput{Type: ModCatchUp, EffectiveDate: *day("2027-03-31"), Currency: "USD", TransactionPrice: dec("2000.00"),
+		NewSSP: map[string]decimal.Decimal{"api": dec("1200.00")}, Obligations: usageBundle()}
+	res, err := Modify(in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if api := res.Obligations[1]; !api.AllocatedAfter.Equal(dec("1000.00")) || !api.CatchUp.Equal(dec("50.00")) || !api.SSPAfter.Equal(dec("1200.00")) {
+		t.Fatalf("api = %+v", api)
+	}
+	if plat := res.Obligations[0]; !plat.AllocatedAfter.Equal(dec("1000.00")) {
+		t.Fatalf("platform = %+v", plat)
+	}
+	in.Obligations = usageBundle()
+	in.Obligations[1].Usage = &UsageMeasure{ToDate: dec("9000"), Expected: dec("8000")}
+	res, err = Modify(in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if api := res.Obligations[1]; !api.Progress.Equal(dec("1")) || !api.CatchUp.Equal(dec("800.00")) {
+		t.Fatalf("capped api = %+v", api)
+	}
+}
+
+// Usage rules: a USAGE obligation without usage to date keeps its allocation (the pool is what is left of the price), usage is refused
+// for a prospective modification and for an obligation that is not USAGE, and the expected usage must be positive.
+func TestModify_UsageToDateRules(t *testing.T) {
+	base := ModificationInput{Type: ModCatchUp, EffectiveDate: *day("2027-03-31"), Currency: "USD", TransactionPrice: dec("2000.00"), PriceChange: dec("400.00")}
+	// Without usage to date the API calls keep 800.00: the platform takes the whole 1,600.00 and 1,200.00 + 400.00 is its catch-up base.
+	fixed := usageBundle()
+	fixed[1].Usage = nil
+	in := base
+	in.Obligations = fixed
+	res, err := Modify(in)
+	if err != nil || len(res.Obligations) != 1 || !res.Obligations[0].AllocatedAfter.Equal(dec("1600.00")) {
+		t.Fatalf("usage left as it is: %+v %v", res, err)
+	}
+	prospective := base
+	prospective.Type = ModProspective
+	prospective.Obligations = usageBundle()
+	if _, err := Modify(prospective); errCode(err) != CodeModUsage {
+		t.Fatalf("prospective with usage: %v", err)
+	}
+	wrong := base
+	wrong.Obligations = usageBundle()
+	wrong.Obligations[0].Usage = &UsageMeasure{ToDate: dec("1"), Expected: dec("2")}
+	if _, err := Modify(wrong); errCode(err) != CodeModUsage {
+		t.Fatalf("usage on a ratable obligation: %v", err)
+	}
+	zero := base
+	zero.Obligations = usageBundle()
+	zero.Obligations[1].Usage = &UsageMeasure{ToDate: dec("1"), Expected: dec("0")}
+	if _, err := Modify(zero); errCode(err) != CodeModUsage {
+		t.Fatalf("zero expected usage: %v", err)
+	}
+	scoped := base
+	scoped.Obligations = usageBundle()
+	scoped.Scope = map[string]decimal.Decimal{"api": dec("0.5")}
+	if _, err := Modify(scoped); errCode(err) != CodeModUsage {
+		t.Fatalf("scope on a usage obligation: %v", err)
+	}
+}
+
+func errCode(err error) string {
+	var e *Error
+	if errors.As(err, &e) {
+		return e.Code
+	}
+	return ""
 }

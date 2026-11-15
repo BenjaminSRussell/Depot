@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"slices"
 	"strings"
 	"time"
@@ -391,6 +392,20 @@ func (s *Store) ListAutomationOrders(ctx context.Context, f OrderFilter) ([]Auto
 	return out, err
 }
 
+// GetAutomationOrder returns one order.
+func (s *Store) GetAutomationOrder(ctx context.Context, id string) (AutomationOrder, error) {
+	var out AutomationOrder
+	err := s.inTx(ctx, func(tx pgx.Tx) error {
+		var err error
+		out, err = scanOrder(tx.QueryRow(ctx, `select `+orderCols+` from automation_order where id = $1`, id))
+		if errors.Is(err, pgx.ErrNoRows) {
+			return &domain.Error{Code: CodeAutoOrderNotFound, Detail: "automation order not found"}
+		}
+		return err
+	})
+	return out, err
+}
+
 // ReportAutomationOrder records what the connector did with a PENDING order: sent as a MOVE telegram, or refused (with
 // the PLC's reason). Reporting the status it already has changes nothing.
 func (s *Store) ReportAutomationOrder(ctx context.Context, id, status, reason string, now time.Time) (AutomationOrder, error) {
@@ -580,6 +595,69 @@ func releaseFromStation(ctx context.Context, tx pgx.Tx, station, workID string, 
 		}
 	}
 	return updateWork(ctx, tx, &w)
+}
+
+// Codes of the reassign command.
+const (
+	CodeNotAutomationWork = "WMS-WORK-NOT-AUTOMATION" // 409: the work is not held by an automation station
+)
+
+// ReassignInput hands a work held by a PLC station to a person.
+type ReassignInput struct {
+	WorkID  string
+	ToUser  string
+	Reason  string
+	By      string
+	IfMatch int
+	Now     time.Time
+}
+
+// ReassignWork gives a work held by an automation station to a person after a fault or a divert (#32): the work may be
+// IN_PROGRESS, because the station already confirmed a line of it, which BR-31.3 keeps from going back to OPEN. It is
+// refused while an order of the work is still with the PLC (PENDING or SENT): the PLC could move the pallet the person
+// is about to move, so the order is cancelled first, with plcCleared. The open lines note who took the work over and
+// why; the person then confirms them like any assigned work.
+func (s *Store) ReassignWork(ctx context.Context, idem Idem, in ReassignInput) (domain.Work, bool, error) {
+	var (
+		out      domain.Work
+		replayed bool
+	)
+	err := s.inTx(ctx, func(tx pgx.Tx) error {
+		var err error
+		out, replayed, err = once(ctx, tx, idem, http.StatusOK, func() (domain.Work, error) {
+			w, err := lockWork(ctx, tx, in.WorkID, in.IfMatch)
+			if err != nil {
+				return w, err
+			}
+			from := w.AssignedUser
+			if !strings.HasPrefix(from, "automation:") {
+				return w, &domain.Error{Code: CodeNotAutomationWork, Detail: "the work is not held by an automation station; only work an automation station holds can be reassigned"}
+			}
+			var live bool
+			if err := tx.QueryRow(ctx, `select exists (select 1 from automation_order where work_id = $1 and status in ('PENDING', 'SENT'))`, w.ID).Scan(&live); err != nil {
+				return w, err
+			}
+			if live {
+				return w, &domain.Error{Code: CodeAutoOrderState, Detail: "an automation order of the work is still with the PLC: cancel it (clear the move on the PLC first) before the work goes to a person"}
+			}
+			if err := w.Reassign(from, in.ToUser, in.Reason, in.Now); err != nil {
+				return w, err
+			}
+			for _, l := range w.Lines {
+				if l.Status == domain.LineOpen {
+					if err := w.NoteLine(l.LineNo, "taken over from "+strings.TrimPrefix(from, "automation:")+" by "+in.By+": "+in.Reason); err != nil {
+						return w, err
+					}
+				}
+			}
+			if err := updateWork(ctx, tx, &w); err != nil {
+				return w, err
+			}
+			return w, nil
+		})
+		return err
+	})
+	return out, replayed, err
 }
 
 // CancelInput cancels an automation order. PLCCleared says a person has made sure the PLC no longer holds the move:

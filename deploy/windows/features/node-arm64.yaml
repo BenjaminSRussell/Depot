@@ -5,5 +5,11 @@ services:
   - name: agents-ts
     exe: "{install}/runtime/node/node.exe"
     args: ["{install}/runtime/node/apps/agents-ts/dist/main.js"]
+    forwardAuthorization: true
+    env:
+      AGENTS_JWT_ISSUER: "{oidcIssuer}"
+      AGENTS_JWT_AUDIENCE: "{oidcAudience}"
+      AGENTS_JWKS_URL: "{oidcJwksUrl}"
+      MCP_URL: "{mcpUrl}"
     feature: node
     optional: true

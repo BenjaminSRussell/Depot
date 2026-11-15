@@ -30,13 +30,13 @@ import { addDays, browserZone, dash, daysBetween, fixed, formatDateTime, formatH
 import styles from "./pages.module.css";
 import { useLoad } from "./useLoad";
 import { dayColumns } from "./dayColumns";
+import { UserName } from "../../shell/lookup/UserName";
 import { WorkerCostRates } from "./WorkerCostRates";
 import { WorkerHomeResource } from "./WorkerHomeResource";
 import { WorkerMaintenance } from "./WorkerMaintenance";
 import { WorkerPaySetup } from "./WorkerPaySetup";
 import { ProblemMessage } from "../../shell/errors";
 import { EntityName } from "../../shell/lookup/EntityName";
-import { UserName } from "../../shell/lookup/UserName";
 
 /** Longest range GET registrations accepts, in days. */
 const MAX_LIST_DAYS = 31;
@@ -180,6 +180,10 @@ export function WorkerDetailPage() {
           <div className={styles.entry}>
             <dt className={styles.term}>Cost rate</dt>
             <dd className={styles.value}>{`${fixed(worker.costRate, 2)} ${worker.currency} per hour`}</dd>
+          </div>
+          <div className={styles.entry}>
+            <dt className={styles.term}>Time zone</dt>
+            <dd className={styles.value}>{worker.timeZone ?? "UTC"}</dd>
           </div>
           <div className={styles.entry}>
             <dt className={styles.term}>Sign-in user</dt>

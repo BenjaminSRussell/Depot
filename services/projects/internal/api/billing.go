@@ -9,6 +9,7 @@ import (
 	"github.com/BenjaminSRussell/passage/platform/authz"
 	"github.com/BenjaminSRussell/passage/platform/httpx"
 	"github.com/BenjaminSRussell/passage/platform/ids"
+	"github.com/BenjaminSRussell/passage/platform/tenant"
 	"github.com/BenjaminSRussell/passage/services/projects/internal/domain"
 	"github.com/BenjaminSRussell/passage/services/projects/internal/store"
 )
@@ -188,6 +189,11 @@ func (a *API) createTransaction(w http.ResponseWriter, r *http.Request) {
 	}
 	if len(fields) > 0 {
 		httpx.Fail(w, r, validation(fields))
+		return
+	}
+	// The employing entity charges the hours to the project's entity (#40): the submitter must be able to act in it.
+	if in.WorkerLegalEntityID != nil && !tenant.InLegalEntityScope(p, *in.WorkerLegalEntityID) {
+		httpx.Fail(w, r, httpx.NewProblem(http.StatusForbidden, "AUTH-0003", "the legal entity that employs the worker is outside your legal-entity scope"))
 		return
 	}
 	if err := domain.PriceLine(&in); err != nil {

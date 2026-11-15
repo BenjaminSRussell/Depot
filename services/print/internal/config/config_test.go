@@ -85,3 +85,24 @@ func TestLoad_RejectsBadPurgeTenants(t *testing.T) {
 		}
 	}
 }
+
+func TestLoad_MailAndStatementSources(t *testing.T) {
+	cfg, err := Load(env(map[string]string{"PRINT_SMTP_ADDR": "relay.example:587", "PRINT_SMTP_FROM": "billing@cedar.example", "PRINT_SMTP_USERNAME": "u", "PRINT_SMTP_PASSWORD": "p",
+		"PRINT_RECEIVABLES_URL": "http://receivables", "PRINT_PARTY_URL": "http://party"}))
+	if err != nil || cfg.SMTPAddr != "relay.example:587" || cfg.SMTPFrom != "billing@cedar.example" || cfg.SMTPPassword != "p" || cfg.ReceivablesURL != "http://receivables" {
+		t.Fatalf("config: %+v %v", cfg, err)
+	}
+	if cfg, err = Load(env(nil)); err != nil || cfg.SMTPAddr != "" || cfg.ReceivablesURL != "" {
+		t.Fatalf("defaults: %+v %v", cfg, err)
+	}
+	for name, m := range map[string]map[string]string{
+		"no port":          {"PRINT_SMTP_ADDR": "relay.example", "PRINT_SMTP_FROM": "a@b.example"},
+		"no sender":        {"PRINT_SMTP_ADDR": "relay.example:25"},
+		"one source":       {"PRINT_RECEIVABLES_URL": "http://receivables"},
+		"the other source": {"PRINT_PARTY_URL": "http://party"},
+	} {
+		if _, err := Load(env(m)); err == nil {
+			t.Errorf("%s was accepted", name)
+		}
+	}
+}

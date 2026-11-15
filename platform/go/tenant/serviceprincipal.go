@@ -26,9 +26,9 @@ var servicePrincipals = map[string][]string{
 	// The consumer of fulfillment's asn.issued and billing's invoice.posted (#35, 35-1): it sends the 856, DESADV, 810 or
 	// INVOIC the partners of the legal entity asked for, through the same from-source path the route uses.
 	"edi-outbound": {"edi.outbound.from-event"},
-	// The self-billing match (#35, 35-5): it asks the tax service for the VAT rate of a customer's self-billed document, as the
-	// legal entity of the partner, with only the calculate duty.
-	"edi-selfbill": {"tax.tax.calculate"},
+	// The self-billing match (#35, 35-5): it asks the tax service for the VAT rate of a customer's self-billed document and has
+	// billing post the matched document as our legal invoice, as the legal entity of the partner, with only these two duties.
+	"edi-selfbill": {"tax.tax.calculate", "billing.self-billed.post"},
 	// The reporter of posted invoices to sales (#29): it signs :record-progress calls, and its token holds only the one duty of
 	// billing's grant on sales that reports invoices (sales.order.record-invoice).
 	"billing-sales-report": {"sales.order.record-invoice"},
@@ -52,19 +52,27 @@ var servicePrincipals = map[string][]string{
 	"pricing-cache":            {"pricing.cache.invalidate"},
 	"search-index":             {"search.index.write"},
 	"migration-loader":         {"party.import.write", "party.import.read", "product.import.write", "product.import.read", "receivables.import.write", "receivables.import.read", "engineering.import.write", "engineering.import.read"},
+	"prediction-sync":          {"receivables.prediction.read"},
 	"production-planning":      {"production.planned.intake"},
 	"production-shopfloor":     {"production.jobcard.shopfloor"},
 	"receiving-erasure":        {"compliance.legal-hold.check"},
 	"receivables-billing":      {"receivables.openitem.from-billing"},
-	"revrec-creditnotes":       {"revrec.creditnote.reverse", "revrec.contract.from-invoice"},
+	// The Intrastat feed consumer of the tax service (#13): it stages the EU cross-border movements of fulfillment's packingslip.posted and
+	// receiving's receipt.posted and reaches no route.
+	"tax-intrastat":      {"tax.intrastat.feed"},
+	"revrec-creditnotes": {"revrec.creditnote.reverse", "revrec.contract.from-invoice"},
 	// The reporter of contract modification price changes to billing (#29): it signs POST /v1/billing/contract-modifications only.
 	"revrec-billing": {"billing.contract-modification.bill"},
 	// The reporter of the tax payment runs withheld (#13): it signs POST /v1/tax/withholding/entries only.
-	"payables-withholding":    {"tax.withholding.record"},
+	"payables-withholding": {"tax.withholding.record"},
+	// The runner of scheduled customer statements (#46): it reads open items from receivables and the customer's name from party.
+	"print-statements":        {"receivables.view", "party.read"},
 	"receiving-ers":           {"receiving.vendor-invoice.post"},
 	"scheduling-downtime":     {"scheduling.downtime.apply"},
 	"scheduling-order-import": {"scheduling.order.import"},
 	"shopfloor-production":    {"shopfloor.job.sync"},
+	// The ops control plane's own reads and statement rendering (#50); it acts as this principal, in the operator tenant.
+	"ops-reporter": {"identity.ops.tenant-read", "print.ops.render"},
 }
 
 // servicePrincipalIssuers names the services whose signing key may present each
@@ -92,17 +100,21 @@ var servicePrincipalIssuers = map[string][]string{
 	// party forwards the loader as act on the one onward call a party create makes: the party number from numbering.
 	// Its token holds only party's own grant (numbering.sequence.allocate), so nothing is borrowed (#475).
 	"migration-loader":        {"migration", "migration-factory", "party"},
+	"prediction-sync":         {"prediction"},
 	"production-planning":     {"production"},
 	"production-shopfloor":    {"production"},
 	"receivables-billing":     {"receivables"},
+	"tax-intrastat":           {"tax"},
 	"receiving-erasure":       {"receiving"},
 	"receiving-ers":           {"receiving"},
 	"revrec-creditnotes":      {"revrec"},
 	"revrec-billing":          {"revrec"},
 	"payables-withholding":    {"payables"},
+	"print-statements":        {"print"},
 	"scheduling-downtime":     {"scheduling"},
 	"scheduling-order-import": {"scheduling"},
 	"shopfloor-production":    {"shopfloor"},
+	"ops-reporter":            {"ops"},
 }
 
 func ServicePrincipalTable() map[string][]string {

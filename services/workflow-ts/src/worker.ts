@@ -5,12 +5,15 @@ import { Client, Connection } from "@temporalio/client";
 import { NativeConnection, Worker } from "@temporalio/worker";
 import { createDecisionHandler } from "./decisionApi.js";
 import { buildActivities } from "./activityRegistry.js";
+import { jsonLine } from "./logging/pseudonymize.js";
 import { eventConsumerConfigFromEnv, startEventConsumer, type RunningEventConsumer } from "./eventConsumer.js";
 
 const address = process.env.TEMPORAL_ADDRESS ?? "temporal-frontend.temporal.svc:7233";
 const taskQueue = process.env.TEMPORAL_TASK_QUEUE ?? "passage-approvals";
+// Under the eu-data-boundary overlay (or LOG_PSEUDONYMIZE=true) person values and email addresses are pseudonymized (#605).
+const line = jsonLine(process.env);
 const warn = (message: string, attributes: Record<string, string>): void => {
-  process.stdout.write(`${JSON.stringify({ level: "warn", message, ...attributes })}\n`);
+  line({ level: "warn", message, ...attributes });
 };
 const connection = await NativeConnection.connect({ address });
 const worker = await Worker.create({

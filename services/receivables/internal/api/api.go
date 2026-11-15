@@ -58,6 +58,7 @@ type API struct {
 	applied  atomic.Int64
 	matched  atomic.Int64
 	failed   atomic.Int64
+	feed     PredictionFeed
 }
 
 // New returns an API over s.
@@ -76,8 +77,10 @@ func (a *API) Register(r chi.Router) {
 		r.With(authz.RequireDuty(dutyView)).Get("/payments/{ref}", a.getPayment)
 		// Custom methods (:apply, :match) share one route because chi does not
 		// match a literal ':' after a path parameter; paymentAction dispatches.
+		r.With(authz.RequireDuty(dutyView)).Get("/payments/{ref}/settlements", a.listPaymentSettlements)
 		r.Post("/payments/{ref}", a.paymentAction)
 		a.collectionsRoutes(r)
+		a.predictionFeedRoutes(r)
 		a.dunningRoutes(r)
 		a.interestRoutes(r)
 		a.caseRoutes(r)

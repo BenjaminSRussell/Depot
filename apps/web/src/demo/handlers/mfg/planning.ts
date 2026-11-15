@@ -248,6 +248,16 @@ const forecastModel = {
   decidedBy: userIdOf(USER.name) as string | null,
   publishedAt: at(-31) as string | null,
 };
+// The forecast model list the planning forecast pickers read (budget plan demand sources).
+route("GET", `${BASE}/forecasts`, ({ query }) => {
+  const q = (query.get("q") ?? "").toLowerCase();
+  const exact = query.get("code");
+  const rows = [
+    { code: forecastModel.code, version: forecastModel.version, status: forecastModel.status, reductionPrinciple: forecastModel.reductionPrinciple, legalEntityId: null, publishedAt: forecastModel.publishedAt },
+    { code: "FC-2027", version: 3, status: "published", reductionPrinciple: "percent", legalEntityId: null, publishedAt: at(-12) },
+  ];
+  return { items: rows.filter((r) => (q === "" || r.code.toLowerCase().includes(q)) && (!exact || r.code === exact)).sort((a, b) => a.code.localeCompare(b.code)) };
+});
 const MONTHLY: Record<string, number[]> = {
   "CP-200": [118, 124, 96, 132, 140, 151],
   "CP-400": [34, 38, 30, 41, 44, 46],

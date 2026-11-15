@@ -15,6 +15,7 @@ describe("Document design", () => {
       if (url.pathname.endsWith("/document-templates")) return json(200, { items: [template] });
       if (url.pathname.endsWith("/text-blocks")) return json(200, { items: [block] });
       if (url.pathname.endsWith("/output-rules")) return json(200, { items: [rule] });
+      if (url.pathname.endsWith("/statement-schedules")) return json(200, { items: [] });
       return undefined;
     };
     const { container } = renderRoutes(documentDesign.routes, "/document-design");
@@ -27,6 +28,9 @@ describe("Document design", () => {
     const rules = await screen.findByRole("table", { name: "Output rules" });
     expect(within(rules).getByText("Archive")).toBeInTheDocument();
     expect(within(rules).getByText("Every legal entity and account")).toBeInTheDocument();
+    expect(await screen.findByText("No statement schedules yet")).toBeInTheDocument();
+    expect(within(templates).getByRole("link", { name: "Standard invoice" })).toHaveAttribute("href", "/document-design/templates/INV-STD");
+    expect(within(templates).getByRole("link", { name: "Version history of Standard invoice" })).toHaveAttribute("href", "/document-design/templates/INV-STD/versions");
     expect(pageViolations(container)).toEqual([]);
   });
 

@@ -1,12 +1,12 @@
 import { ProblemMessage } from "../../shell/errors";
 import { useRef, useState, type FormEvent } from "react";
-import { Alert, Button, Card, FormField, Input, Textarea } from "../../shell/ui";
+import { Alert, Button, Card, FormField, Input, Textarea, TimeZoneSelect } from "../../shell/ui";
 import { deactivateWorker, describeProblem, newKey, reactivateWorker, updateWorker, type Problem, type Worker } from "./api/client";
 import { dash, formatDateTime } from "./format";
 import { validateWorker } from "./NewWorkerPage";
 import styles from "./pages.module.css";
 
-type Field = "name" | "badgeId" | "userId" | "costRate" | "currency";
+type Field = "name" | "badgeId" | "userId" | "costRate" | "currency" | "timeZone";
 type Errors = Partial<Record<Field, string>>;
 
 const REASON_MAX = 500;
@@ -42,6 +42,7 @@ export function WorkerMaintenance({ worker, onSaved }: { worker: Worker; onSaved
     userId: worker.userId ?? "",
     costRate: worker.costRate,
     currency: worker.currency,
+    timeZone: worker.timeZone ?? "UTC",
   });
   const [errors, setErrors] = useState<Errors>({});
   const [failure, setFailure] = useState<Problem | null>(null);
@@ -80,7 +81,7 @@ export function WorkerMaintenance({ worker, onSaved }: { worker: Worker; onSaved
     } catch (error) {
       const problem = describeProblem(error);
       const fieldErrors: Errors = {};
-      for (const name of ["name", "badgeId", "userId", "costRate", "currency"] as const) {
+      for (const name of ["name", "badgeId", "userId", "costRate", "currency", "timeZone"] as const) {
         if (problem.fields[name]) fieldErrors[name] = problem.fields[name];
       }
       if (problem.code === "SF-0105") fieldErrors.badgeId = "This badge is already assigned to another worker.";
@@ -125,6 +126,9 @@ export function WorkerMaintenance({ worker, onSaved }: { worker: Worker; onSaved
   const field = (id: Field, label: string, hint?: string, optional?: boolean, extra?: Record<string, unknown>) => (
     <FormField id={`worker-edit-${id}`} label={label} hint={hint} optional={optional} error={errors[id]}>
       {(control) => (
+        id === "timeZone" ? (
+          <TimeZoneSelect {...control} value={values.timeZone} onChange={(event) => update({ timeZone: event.target.value })} invalid={Boolean(errors.timeZone)} />
+        ) : (
         <Input
           {...control}
           {...extra}
@@ -132,6 +136,7 @@ export function WorkerMaintenance({ worker, onSaved }: { worker: Worker; onSaved
           onChange={(event) => update({ [id]: id === "currency" ? event.target.value.toUpperCase() : event.target.value } as Partial<typeof values>)}
           invalid={Boolean(errors[id])}
         />
+        )
       )}
     </FormField>
   );
@@ -145,6 +150,7 @@ export function WorkerMaintenance({ worker, onSaved }: { worker: Worker; onSaved
           {field("userId", "Sign-in user", "This user can't approve their own time.", true, { maxLength: 200 })}
           {field("costRate", "Cost rate per hour", "The base rate, for days before the first dated rate in the cost rate history (all days when there is none). Approved days keep their pay; days already calculated keep their lines until recalculated.", false, { inputMode: "decimal" })}
           {field("currency", "Currency", undefined, false, { maxLength: 3 })}
+          {field("timeZone", "Time zone", "The zone the worker's work days are reckoned in. A job's dated cost rate is the rate in effect on the local day the work started; days already calculated keep their lines until recalculated.")}
           {failure ? (
             <div className={styles.formActions}>
               <Alert tone="danger" title="Could not save the worker" live="alert">

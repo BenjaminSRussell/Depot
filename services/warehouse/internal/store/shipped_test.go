@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -48,5 +49,52 @@ func TestStore_ConfirmShippedPublishesShipmentShippedOnce(t *testing.T) {
 	got, err := st.GetShipConfirmation(ctx, sh)
 	if err != nil || got.WarehouseID != wh || !got.ShippedAt.Equal(at) {
 		t.Fatalf("GetShipConfirmation = %+v, %v", got, err)
+	}
+}
+
+func TestStore_ConfirmShippedCarriesThePackHierarchyInTheEvent(t *testing.T) {
+	st, ctx, wh := setup(t)
+	le := "00000000-0000-0000-0000-0000000000e1"
+	sh := ids.New()
+	line := ids.New()
+	at := time.Date(2026, 11, 10, 8, 30, 0, 0, time.UTC)
+	c := ShipConfirmation{ShipmentID: sh, LegalEntityID: le, WarehouseID: wh, ShippedAt: at, ConfirmedBy: "u1",
+		SSCCs: []string{"376104250000000017", "376104250000000024"},
+		Containers: []ShipContainer{
+			{SSCC: "376104250000000017", GrossKg: "412.5"},
+			{SSCC: "376104250000000024", ParentSSCC: "376104250000000017", GrossKg: "12.25", Lines: []ShipLine{{ShipmentLineID: line, Qty: "6"}}},
+		}}
+	if _, _, err := st.ConfirmShipped(ctx, key("pack-"+sh), c); err != nil {
+		t.Fatal(err)
+	}
+	var raw []byte
+	if err := adminOf(st).QueryRow(context.Background(), `select payload::text from outbox where type = $1 and aggregate_id = $2`, evts.ShipmentShipped, sh).Scan(&raw); err != nil {
+		t.Fatal(err)
+	}
+	var env struct {
+		Data evts.ShipmentShippedData `json:"data"`
+	}
+	if err := json.Unmarshal(raw, &env); err != nil {
+		t.Fatal(err)
+	}
+	got := env.Data.Containers
+	if len(got) != 2 || got[0].ParentSSCC != "" || got[0].GrossKg != "412.5" || len(got[0].Lines) != 0 ||
+		got[1].ParentSSCC != "376104250000000017" || got[1].GrossKg != "12.25" || len(got[1].Lines) != 1 || got[1].Lines[0].ShipmentLineID != line || got[1].Lines[0].Qty != "6" {
+		t.Fatalf("event containers %+v", got)
+	}
+	read, err := st.GetShipConfirmation(ctx, sh)
+	if err != nil || len(read.Containers) != 2 || read.Containers[1].Lines[0].Qty != "6" {
+		t.Fatalf("read back %+v %v", read, err)
+	}
+	// A confirmation that names only SSCCs keeps its old event shape: no pack data.
+	other := ids.New()
+	if _, _, err := st.ConfirmShipped(ctx, key("plain-"+other), ShipConfirmation{ShipmentID: other, LegalEntityID: le, WarehouseID: wh, ShippedAt: at, ConfirmedBy: "u1", SSCCs: []string{"376104250000000017"}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := adminOf(st).QueryRow(context.Background(), `select payload::text from outbox where type = $1 and aggregate_id = $2`, evts.ShipmentShipped, other).Scan(&raw); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(raw), "parent_sscc") || strings.Contains(string(raw), "gross_kg") || strings.Contains(string(raw), `"lines"`) {
+		t.Fatalf("a plain confirmation carries pack data: %s", raw)
 	}
 }

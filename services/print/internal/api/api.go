@@ -22,7 +22,9 @@ import (
 	"github.com/BenjaminSRussell/passage/platform/httpx"
 	"github.com/BenjaminSRussell/passage/platform/ids"
 	"github.com/BenjaminSRussell/passage/platform/tenant"
+	"github.com/BenjaminSRussell/passage/services/print/internal/delivery"
 	"github.com/BenjaminSRussell/passage/services/print/internal/domain"
+	"github.com/BenjaminSRussell/passage/services/print/internal/statements"
 	"github.com/BenjaminSRussell/passage/services/print/internal/store"
 )
 
@@ -46,6 +48,10 @@ type Sender interface {
 type API struct {
 	store         store.Store
 	docs          store.DocStore // templates, text blocks, output rules; nil without one
+	mailer        delivery.Mailer
+	runner        *statements.Runner
+	accounts      AccountChecker
+	stmtTenants   map[string]bool
 	sender        Sender
 	attempts      int // sends per device before failover (PRINT_RETRY + 1)
 	retentionDays int // PRINT_JOB_RETENTION_DAYS
@@ -114,8 +120,9 @@ func (a *API) Register(r chi.Router) {
 		r.With(authz.RequireDuty(dutyPrintAdmin)).Post("/jobs:purge", a.purgeJobs)
 		r.With(authz.RequireDuty(dutyPrintAdmin)).Post("/jobs:sweep", a.sweepJobs)
 		r.With(authz.RequireDuty(dutyPrint)).Get("/jobs/{id}", a.getJob)
-		r.With(authz.RequireAnyDuty(dutyRenderDocument, dutyRenderPortal)).Post("/documents:render", a.renderDocument)
+		r.With(authz.RequireAnyDuty(dutyRenderDocument, dutyRenderPortal, dutyRenderOps)).Post("/documents:render", a.renderDocument)
 		a.registerDocgen(r)
+		a.registerDelivery(r)
 	})
 }
 

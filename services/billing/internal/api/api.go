@@ -106,6 +106,7 @@ type API struct {
 	glBooks       GLBooks
 	glBatch       int
 	profiles      map[string]store.GLProfile
+	periods       PeriodChecker
 	allocations   revrec.Reader
 
 	proposalsCreated   atomic.Int64
@@ -136,6 +137,7 @@ func (a *API) Register(r chi.Router) {
 	r.With(authz.RequireAnyDuty(dutyView, "billing.invoice.read")).Get("/v1/billing/invoices/{id}", a.getInvoice)
 	r.With(authz.RequireDuty(dutyView)).Get("/v1/billing/invoices/{id}/trace", a.invoiceTrace)
 	r.With(authz.RequireDuty(dutyPost)).Post("/v1/billing/invoices/{id}:post", a.postInvoice)
+	r.With(authz.RequireDuty(dutySelfBilledPost)).Post(pathSelfBilled, a.postSelfBilled)
 	r.With(authz.RequireDuty(dutyPost)).Post("/v1/billing/gl-postings", a.postGL)
 	r.With(authz.RequireDuty(dutyMaintain)).Post("/v1/billing/credit-notes", a.createCreditNote)
 	r.With(authz.RequireDuty(dutyModificationBill)).Post("/v1/billing/contract-modifications", a.billModification)
@@ -292,10 +294,13 @@ type summaryDTO struct {
 
 type invoiceDTO struct {
 	summaryDTO
-	Reason       string              `json:"reason,omitempty"`
-	Lines        []lineOutDTO        `json:"lines"`
-	Installments []installmentOutDTO `json:"installments"`
-	Credited     *creditedDTO        `json:"credited,omitempty"`
+	// CustomerDocumentNumber and PostingNote are set on an invoice posted from a customer's self-billed document.
+	CustomerDocumentNumber string              `json:"customerDocumentNumber,omitempty"`
+	PostingNote            string              `json:"postingNote,omitempty"`
+	Reason                 string              `json:"reason,omitempty"`
+	Lines                  []lineOutDTO        `json:"lines"`
+	Installments           []installmentOutDTO `json:"installments"`
+	Credited               *creditedDTO        `json:"credited,omitempty"`
 }
 
 type listDTO struct {
@@ -318,7 +323,7 @@ func toSummary(inv store.Invoice) summaryDTO {
 
 func toDTO(inv store.Invoice) invoiceDTO {
 	exp := money.MinorUnits(inv.Currency)
-	out := invoiceDTO{summaryDTO: toSummary(inv), Reason: inv.Reason, Lines: []lineOutDTO{}, Installments: []installmentOutDTO{}}
+	out := invoiceDTO{summaryDTO: toSummary(inv), Reason: inv.Reason, CustomerDocumentNumber: inv.CustomerDocumentNumber, PostingNote: inv.PostingNote, Lines: []lineOutDTO{}, Installments: []installmentOutDTO{}}
 	creditable := inv.Type != domain.TypeCreditNote && domain.CanBeCredited(inv.Status, inv.Type) == nil
 	for _, l := range inv.Lines {
 		line := lineOutDTO{LineNo: l.No, Description: l.Description, Qty: l.Qty.String(), UnitPrice: l.UnitPrice.String(),
@@ -350,7 +355,7 @@ func toDTO(inv store.Invoice) invoiceDTO {
 func fixed(v decimal.Decimal, exp int32) string { return v.StringFixed(exp) }
 
 func invalidIdempotencyKey(key string) bool {
-	return key == "" || len(key) > 255 || strings.HasPrefix(key, subscriptionKeyPrefix) || strings.HasPrefix(key, store.ModificationKeyPrefix) || strings.HasPrefix(key, store.ICChargeKeyPrefix)
+	return key == "" || len(key) > 255 || strings.HasPrefix(key, subscriptionKeyPrefix) || strings.HasPrefix(key, store.ModificationKeyPrefix) || strings.HasPrefix(key, store.ICChargeKeyPrefix) || strings.HasPrefix(key, store.SelfBilledKeyPrefix)
 }
 
 func (a *API) createProposal(w http.ResponseWriter, r *http.Request) {

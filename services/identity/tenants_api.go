@@ -81,6 +81,12 @@ func (a *TenantsAPI) operatorReadable(next http.Handler) http.Handler {
 	return a.operatorCheck(requireAnyDuty(dutyMaintainTenants, dutyReadTenantRegistry), next)
 }
 
+// operatorOps is operatorOnly for the ops control plane's own reads (service:ops holds only identity.ops.tenant-read): a tenant's
+// status for the decommission guard and its active user count for the licence user-count reporter.
+func (a *TenantsAPI) operatorOps(next http.Handler) http.Handler {
+	return a.operatorCheck(requireAnyDuty(dutyMaintainTenants, dutyOpsTenantRead), next)
+}
+
 func (a *TenantsAPI) operatorCheck(dutyGate func(http.Handler) http.Handler, next http.Handler) http.Handler {
 	return dutyGate(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		p, _ := tenant.FromContext(r.Context())
@@ -101,6 +107,7 @@ func (a *TenantsAPI) Register(r chi.Router) {
 	r.With(a.operatorReadable).Get("/v1/tenants", a.list)
 	r.With(a.operatorOnly).Get("/v1/tenants/{id}", a.get)
 	r.With(a.operatorOnly).Post("/v1/tenants/{id}/admins", a.grantAdmin)
+	r.With(a.operatorOps).Get("/v1/tenants/{id}/user-counts", a.userCounts)
 }
 
 type tenantResource struct {
@@ -409,4 +416,45 @@ func (a *TenantsAPI) get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.JSON(w, http.StatusOK, found)
+}
+
+type userCounts struct {
+	TenantID string `json:"tenantId"`
+	Status   string `json:"status"`
+	// ActiveUsers is the number of named users of the tenant with status active (not deprovisioned). Identity holds no licence
+	// class on a user yet, so the ops reporter counts every one of them as a full user.
+	ActiveUsers int `json:"activeUsers"`
+}
+
+// userCounts answers the tenant's status and its active named users, for ops (the licence user-count reporter and the decommission guard).
+func (a *TenantsAPI) userCounts(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	if !validUUID(id) {
+		invalidFields(w, r, "tenant id must be a UUID", map[string]string{"id": "must be a UUID"})
+		return
+	}
+	out := userCounts{TenantID: id}
+	err := dbx.WithTenantTx(r.Context(), a.pool, func(tx pgx.Tx) error {
+		if err := tx.QueryRow(r.Context(), `select status from identity_tenants where tenant_id = $1`, id).Scan(&out.Status); err != nil {
+			return err
+		}
+		return nil
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		httpx.Fail(w, r, httpx.NewProblem(http.StatusNotFound, codeTenantNotFound, "tenant not found"))
+		return
+	}
+	if err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+	// The users are the tenant's own rows (RLS): count them in a transaction scoped to that tenant.
+	scoped := tenant.With(r.Context(), tenant.Principal{TenantID: id})
+	if err := dbx.WithTenantTx(scoped, a.pool, func(tx pgx.Tx) error {
+		return tx.QueryRow(scoped, `select count(*) from identity_users where tenant_id = $1 and status = 'active'`, id).Scan(&out.ActiveUsers)
+	}); err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, out)
 }

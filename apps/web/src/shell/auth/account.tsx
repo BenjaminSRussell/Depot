@@ -10,6 +10,8 @@ import { configuredIdleMinutes, IdleSignOut } from "./idle";
 interface Account {
   name: string;
   signOut(): void;
+  /** Asks for the credentials again before a signature (step-up); the page returns here signed in afresh. */
+  reauthenticate(): void;
 }
 
 const AccountContext = createContext<Account | null>(null);
@@ -26,7 +28,7 @@ export function AccountProvider({ auth, session, children, idleMinutes = configu
     window.addEventListener(SESSION_EXPIRED_EVENT, onExpired);
     return () => window.removeEventListener(SESSION_EXPIRED_EVENT, onExpired);
   }, []);
-  const account = useMemo<Account>(() => ({ name: session.name ?? session.subject, signOut: () => auth.logout() }), [auth, session]);
+  const account = useMemo<Account>(() => ({ name: session.name ?? session.subject, signOut: () => auth.logout(), reauthenticate: () => void auth.reauthenticate() }), [auth, session]);
   return (
     <AccountContext.Provider value={account}>
       {expired ? (

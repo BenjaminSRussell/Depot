@@ -149,6 +149,8 @@ type Store interface {
 	SweepAndon(ctx context.Context, now time.Time) (store.AndonSweepResult, error)
 	GetAndonSettings(ctx context.Context) (store.AndonSettingsView, error)
 	PutAndonSettings(ctx context.Context, set domain.AndonSettings, user string) (store.AndonSettingsView, error)
+	PutAndonSiteSettings(ctx context.Context, siteID string, set domain.AndonSettings, user string) (store.AndonSiteSettings, error)
+	DeleteAndonSiteSettings(ctx context.Context, siteID string) error
 	ClearAndon(ctx context.Context, id, reason, clearedBy string, now time.Time, idem store.Idem) (store.Andon, error)
 	LoadOEEStreams(ctx context.Context, resourceIDs []string, from, to time.Time) (map[string]domain.OEEStream, error)
 	ExportPay(ctx context.Context, fromDate, toDate, createdBy string, idem store.Idem) (store.PayExport, error)
@@ -186,6 +188,7 @@ type Store interface {
 type API struct {
 	store          Store
 	now            func() time.Time
+	signatureAge   time.Duration
 	registrations  atomic.Int64
 	duplicates     atomic.Int64
 	calculations   atomic.Int64
@@ -232,7 +235,19 @@ type API struct {
 }
 
 // New returns the API over s.
-func New(s Store) *API { return &API{store: s, now: time.Now} }
+// DefaultSignatureMaxAge is how recently the signer must have authenticated for a signature to be accepted.
+const DefaultSignatureMaxAge = 5 * time.Minute
+
+func New(s Store) *API { return &API{store: s, now: time.Now, signatureAge: DefaultSignatureMaxAge} }
+
+// WithSignatureMaxAge sets how recently a signer must have authenticated (the token's auth_time, which the gateway forwards as
+// X-Passage-Auth-Time) for the service to accept an electronic signature. 30 seconds to an hour; anything else keeps the default.
+func (a *API) WithSignatureMaxAge(d time.Duration) *API {
+	if d >= 30*time.Second && d <= time.Hour {
+		a.signatureAge = d
+	}
+	return a
+}
 
 type registrationItem struct {
 	ID            string           `json:"id"`

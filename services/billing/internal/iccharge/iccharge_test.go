@@ -2,7 +2,9 @@ package iccharge_test
 
 import (
 	"context"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/BenjaminSRussell/passage/platform/dbx"
 	"github.com/BenjaminSRussell/passage/platform/events"
@@ -97,6 +99,19 @@ func TestHandle_RefusesWhatCannotBeInvoiced(t *testing.T) {
 	}
 }
 
+// closedThrough is a fake close service: every date up to and including it is in a closed period.
+type closedThrough struct{ through time.Time }
+
+func (c closedThrough) Open(_ context.Context, _, _ string, date time.Time) (bool, error) {
+	return date.After(c.through), nil
+}
+
+func autoCfg(le string, closed string) iccharge.Config {
+	through, _ := time.Parse(time.DateOnly, closed)
+	return iccharge.Config{RevenueAccount: "4900", TaxCode: "STD", PaymentTermDays: 30, Periods: closedThrough{through}, Ledgers: map[string]string{le: ids.New()},
+		Now: func() time.Time { return time.Date(2026, 11, 15, 10, 0, 0, 0, time.UTC) }}
+}
+
 // #40: a pairing that opted in has the proposal posted by the consumer: worked example, 550.00 + 104.50 tax = 654.50 gross in
 // USD, one invoice number drawn once, and the same posted invoice on a redelivery.
 func TestHandle_AutoPostsOnlyWhenThePairingOptedIn(t *testing.T) {
@@ -105,8 +120,8 @@ func TestHandle_AutoPostsOnlyWhenThePairingOptedIn(t *testing.T) {
 		t.Fatal(err)
 	}
 	s := store.New(pool)
-	cfg := iccharge.Config{RevenueAccount: "4900", TaxCode: "STD", PaymentTermDays: 30}
 	le, customer := ids.New(), ids.New()
+	cfg := autoCfg(le, "2026-09-30")
 
 	review := charge(le, customer)
 	kept, err := iccharge.Handle(consumerCtx(t), s, cfg, published(t, review))
@@ -122,7 +137,7 @@ func TestHandle_AutoPostsOnlyWhenThePairingOptedIn(t *testing.T) {
 		t.Fatal(err)
 	}
 	if first.Status != "POSTED" || first.Number == "" || first.Totals.Net.String() != "550" || first.Totals.Tax.String() != "104.5" || first.Totals.Gross.String() != "654.5" ||
-		first.Currency != "USD" || first.InvoiceDate.Format("2006-01-02") != "2026-11-05" {
+		first.Currency != "USD" || first.InvoiceDate.Format("2006-01-02") != "2026-11-05" || first.PostingDate.Format("2006-01-02") != "2026-11-05" {
 		t.Fatalf("posted invoice %+v", first)
 	}
 	again, err := iccharge.Handle(consumerCtx(t), s, cfg, published(t, auto))
@@ -135,5 +150,70 @@ func TestHandle_AutoPostsOnlyWhenThePairingOptedIn(t *testing.T) {
 	late, err := iccharge.Handle(consumerCtx(t), s, cfg, published(t, review))
 	if err != nil || late.ID != kept.ID || late.Status != "POSTED" {
 		t.Fatalf("late opt-in = %+v, %v", late, err)
+	}
+}
+
+// M1: a charge dated in a closed period is posted on the first open date (today), the charge date staying the invoice date; with
+// both periods closed, or close not configured, the proposal stays for review.
+func TestHandle_AutoPostMovesPastAClosedPeriodOrWaitsForReview(t *testing.T) {
+	admin, pool := testkit.DBWithApp(t)
+	if err := dbx.Migrate(context.Background(), admin, migrations.FS); err != nil {
+		t.Fatal(err)
+	}
+	s := store.New(pool)
+	le, customer := ids.New(), ids.New()
+
+	late := charge(le, customer)
+	late["sourceId"], late["autoPostInvoice"], late["transactionDate"] = "TS-LATE", true, "2026-10-30"
+	posted, err := iccharge.Handle(consumerCtx(t), s, autoCfg(le, "2026-10-31"), published(t, late))
+	if err != nil || posted.Status != "POSTED" || posted.InvoiceDate.Format("2006-01-02") != "2026-10-30" || posted.PostingDate.Format("2006-01-02") != "2026-11-15" {
+		t.Fatalf("closed October = %+v, %v; want posted on 2026-11-15 with invoice date 2026-10-30", posted, err)
+	}
+
+	allClosed := charge(le, customer)
+	allClosed["sourceId"], allClosed["autoPostInvoice"] = "TS-CLOSED", true
+	kept, err := iccharge.Handle(consumerCtx(t), s, autoCfg(le, "2026-12-31"), published(t, allClosed))
+	if err != nil || kept.Status != "PROPOSAL" {
+		t.Fatalf("every period closed = %+v, %v; want a proposal for review", kept, err)
+	}
+
+	noClose := charge(le, customer)
+	noClose["sourceId"], noClose["autoPostInvoice"] = "TS-NOCLOSE", true
+	kept, err = iccharge.Handle(consumerCtx(t), s, iccharge.Config{RevenueAccount: "4900", TaxCode: "STD", PaymentTermDays: 30}, published(t, noClose))
+	if err != nil || kept.Status != "PROPOSAL" {
+		t.Fatalf("no close service = %+v, %v; want a proposal for review", kept, err)
+	}
+}
+
+// H1: a second version of a charge whose first version is posted is never auto-posted, so the borrower is not billed twice; it waits
+// for review with the reason on its line. A first version that is only a proposal does not block the next.
+func TestHandle_AVersionAfterAPostedOneGoesToReview(t *testing.T) {
+	admin, pool := testkit.DBWithApp(t)
+	if err := dbx.Migrate(context.Background(), admin, migrations.FS); err != nil {
+		t.Fatal(err)
+	}
+	s := store.New(pool)
+	le, customer := ids.New(), ids.New()
+	cfg := autoCfg(le, "2026-09-30")
+
+	v1 := charge(le, customer)
+	v1["autoPostInvoice"] = true
+	first, err := iccharge.Handle(consumerCtx(t), s, cfg, published(t, v1))
+	if err != nil || first.Status != "POSTED" {
+		t.Fatalf("version 1 = %+v, %v", first, err)
+	}
+	v2 := map[string]any{}
+	for k, v := range v1 {
+		v2[k] = v
+	}
+	v2["version"], v2["price"], v2["tax"] = 2, "500.00", "95.00"
+	second, err := iccharge.Handle(consumerCtx(t), s, cfg, published(t, v2))
+	if err != nil || second.ID == first.ID || second.Status != "PROPOSAL" || second.Totals.Gross.String() != "595" ||
+		!strings.Contains(second.Lines[0].Description, "an earlier version of this charge is already posted") {
+		t.Fatalf("version 2 = %+v, %v; want a proposal for review naming why", second, err)
+	}
+	again, err := iccharge.Handle(consumerCtx(t), s, cfg, published(t, v2))
+	if err != nil || again.ID != second.ID || again.Status != "PROPOSAL" {
+		t.Fatalf("redelivery of version 2 = %+v, %v", again, err)
 	}
 }

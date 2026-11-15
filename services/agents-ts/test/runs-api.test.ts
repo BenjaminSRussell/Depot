@@ -82,7 +82,11 @@ describe("POST /api/v1/agents/{agent_id}/runs", () => {
     expect(done.pendingApprovals).toEqual([]);
     const actions = (await (await fetch(`${s.srv.base}/api/v1/agents/runs/${started.runId}/actions`, { headers: headers("agents.run.read") })).json()) as { items: Array<{ toolName: string; decision: string; approverUserId: string; committedEntityRef: string }> };
     expect(actions.items).toEqual([expect.objectContaining({ toolName: PROPOSE, decision: "APPROVED", approverUserId: OTHER, committedEntityRef: "coding-1" })]);
-    expect(s.mcp.calls).toEqual([{ name: PROPOSE, args: { invoiceId: "INV-7" } }]);
+    // The system reads the invoice before the approval request (the risk facts: amount, vendor, creator), then commits the proposal.
+    expect(s.mcp.calls).toEqual([
+      { name: "passage.ap.invoice.get", args: { invoiceId: "INV-7" } },
+      { name: PROPOSE, args: { invoiceId: "INV-7" } },
+    ]);
   });
 
   it("refuses before any state exists: unknown agent, missing duties, kill switch, no passing eval, exhausted budget, bad body, no token", async () => {

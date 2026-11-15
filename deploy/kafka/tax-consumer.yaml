@@ -1,0 +1,40 @@
+# The tax Intrastat feed consumer (#13, `tax consume`, group tax-intrastat) stages the EU cross-border movements of fulfillment's
+# packingslip.posted and receiving's receipt.posted and parks what it cannot map or stage on passage.tax.intrastat.dlq. The chart's
+# consumer.kafka.username names this user. Literal ACLs: the user reads only its two source topics and writes only its dead-letter
+# topic. The source topics are created by the outbox-fulfillment and outbox-receiving connectors (deploy/kafka/connect.yaml); the
+# consumer stays off in dev until it is enabled in the tax chart.
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaUser
+metadata:
+  name: tax-consumer
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: passage
+spec:
+  authentication:
+    type: scram-sha-512
+  authorization:
+    type: simple
+    acls:
+      - resource: {type: topic, name: passage.fulfillment.packingslip, patternType: literal}
+        operations: [Read, Describe]
+      - resource: {type: topic, name: passage.receiving.receipt, patternType: literal}
+        operations: [Read, Describe]
+      - resource: {type: topic, name: passage.tax.intrastat.dlq, patternType: literal}
+        operations: [Write, Describe]
+      - resource: {type: group, name: tax-intrastat, patternType: literal}
+        operations: [Read, Describe]
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  name: passage-tax-intrastat-dlq
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: passage
+spec:
+  topicName: passage.tax.intrastat.dlq
+  partitions: 3
+  replicas: 3
+  config:
+    retention.ms: 2592000000

@@ -383,6 +383,14 @@ describe("lookup adapters", () => {
     expect(await lookupDefs.user.resolve("u-2")).toBeNull();
   });
 
+  it("lists planning forecasts by code with their status and resolves one by code", async () => {
+    handler = () => json({ items: [{ code: "FC-2027", status: "published" }, { code: "BASE", status: "draft" }] });
+    expect((await lookupDefs.forecastModel.search("fc", { legalEntityId: "le-1" })).map(formatOption)).toEqual(["FC-2027 (published)", "BASE (draft)"]);
+    expect(calls).toContain("/api/v1/planning/forecasts?legalEntityId=le-1&q=fc&limit=20");
+    expect(await lookupDefs.forecastModel.resolve("BASE")).toEqual({ id: "BASE", name: "BASE", number: "draft" });
+    expect(await lookupDefs.forecastModel.resolve("OTHER")).toBeNull();
+  });
+
   it("resolves a customer through its party for the display name", async () => {
     handler = (url) =>
       url.pathname.endsWith("/customers/c-1") ? json({ id: "c-1", partyId: "p1", accountNumber: "C-9" }) : json({ id: "p1", name: "Contoso Ltd", partyNumber: "P-1" });

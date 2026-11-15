@@ -93,8 +93,8 @@ func (a *API) billModification(w http.ResponseWriter, r *http.Request) {
 		fields["effectiveDate"] = "must be a YYYY-MM-DD date"
 	}
 	change, err := decimal.NewFromString(req.PriceChange)
-	if err != nil || change.IsZero() {
-		fields["priceChange"] = "must be a non-zero decimal"
+	if err != nil {
+		fields["priceChange"] = "must be a decimal"
 	}
 	if len(req.Lines) == 0 || len(req.Lines) > a.maxLines {
 		fields["lines"] = "must hold the allocation change of each product"
@@ -109,6 +109,11 @@ func (a *API) billModification(w http.ResponseWriter, r *http.Request) {
 		}
 		amounts[strings.ToLower(l.ProductID)] = amounts[strings.ToLower(l.ProductID)].Add(amt)
 		total = total.Add(amt)
+	}
+	if err == nil && change.IsZero() {
+		// An SSP-only revision re-allocates revenue and changes nothing the customer owes (each product has its own tax, so invoicing the
+		// gains and crediting the losses would). Revrec does not ask; a request that does is refused and creates no document.
+		fields["priceChange"] = "must be non-zero: a revision of selling prices alone is a revenue re-allocation and bills nothing"
 	}
 	if len(fields) > 0 {
 		writeFields(w, r, fields)

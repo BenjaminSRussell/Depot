@@ -16,6 +16,7 @@ import (
 
 	"github.com/BenjaminSRussell/passage/services/ops/internal/domain"
 	"github.com/BenjaminSRussell/passage/services/ops/internal/failover"
+	"github.com/BenjaminSRussell/passage/services/ops/internal/provision"
 	"github.com/BenjaminSRussell/passage/services/ops/internal/store"
 )
 
@@ -25,6 +26,8 @@ type deps struct {
 	executors  func(getenv func(string) string) (failover.Executors, error)
 	lagSource  func(ctx context.Context, getenv func(string) string) (LagSource, error)
 	sleep      func(ctx context.Context, d time.Duration) error
+	// provisioners builds the systems a tenant provision or decommission changes; nil logs what would change (provision.LogExecutors).
+	provisioners func(getenv func(string) string) (provision.Executors, error)
 }
 
 func defaultDeps() deps {

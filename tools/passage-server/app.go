@@ -78,7 +78,7 @@ func runServe(ctx context.Context, getenv func(string) string, log *slog.Logger)
 	if err != nil {
 		return err
 	}
-	handler := NewGateway(guard, upstreamsOf(procs), webFS(), sup.Health, secret, cfg.Features)
+	handler := NewGateway(guard, upstreamsOf(procs), webFS(), sup.Health, secret, cfg.Features, forwardAuthOf(procs))
 	server := &http.Server{Addr: cfg.Listen, Handler: handler, ReadHeaderTimeout: 10 * time.Second, IdleTimeout: 2 * time.Minute, MaxHeaderBytes: 1 << 20}
 	// No WriteTimeout: the copilot answers over a long-lived stream.
 	if cfg.TLS.CertFile != "" {
@@ -207,6 +207,17 @@ func upstreamsOf(procs []Process) map[string]*url.URL {
 	for _, p := range procs {
 		u, _ := url.Parse(fmt.Sprintf("http://127.0.0.1:%d", p.Port))
 		out[p.Route] = u
+	}
+	return out
+}
+
+// forwardAuthOf is the set of gateway routes whose service receives the caller's bearer token.
+func forwardAuthOf(procs []Process) map[string]bool {
+	out := map[string]bool{}
+	for _, p := range procs {
+		if p.ForwardAuthorization {
+			out[p.Route] = true
+		}
 	}
 	return out
 }

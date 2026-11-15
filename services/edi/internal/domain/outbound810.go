@@ -57,6 +57,8 @@ type Invoice struct {
 	CreditNote bool   `json:"creditNote,omitempty"`
 	// SelfBilled marks an INVOIC 389 (or 390), or an inbound 810, the customer issued for our deliveries.
 	SelfBilled bool `json:"selfBilled,omitempty"`
+	// Vendor marks an inbound 810 a vendor sent us (#35, 35-5): it is a vendor invoice for payables, never matched as self-billed.
+	Vendor bool `json:"vendor,omitempty"`
 	// Currency is read from a self-billed document (EDIFACT CUX, X12 CUR); the builders never write it.
 	Currency string          `json:"currency,omitempty"`
 	ShipDate string          `json:"shipDate,omitempty"`

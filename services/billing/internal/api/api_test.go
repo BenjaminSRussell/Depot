@@ -44,6 +44,7 @@ type fakeStore struct {
 	batchCreates  int
 	reservations  map[string]store.CreditReservation
 	rules         map[string]store.BillingRule
+	selfPosts     int
 }
 
 func newFakeStore() *fakeStore {

@@ -301,3 +301,14 @@ describe("expense report detail", () => {
     ]);
   });
 });
+
+describe("expense report detail: cost charged to another entity", () => {
+  it("shows which entity bears a line's cost, only when a line is charged across", async () => {
+    const charged = line({ chargeToLegalEntityId: "00000000-0000-0000-0000-0000000000e2" });
+    stubFetch([200, report({ status: "SUBMITTED", lines: [charged, line({ id: "l2", lineNo: 2 })] })]);
+    renderAt(`/expense/reports/${REPORT_ID}`);
+    const table = await loadedTable("Lines");
+    expect(within(table).getByRole("columnheader", { name: "Cost charged to" })).toBeInTheDocument();
+    expect(within(table).getByText("Not charged across")).toBeInTheDocument();
+  });
+});

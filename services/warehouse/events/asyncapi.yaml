@@ -58,7 +58,8 @@ components:
         without a packing slip posted for it (POST
         /v1/warehouse/shipments/{id}:ship). Subject and Kafka key are the
         shipment id. Consumer: the EDI engine (edi-outbound), which sends the
-        whole shipment's 856 or DESADV (#35, 35-1).
+        whole shipment's 856 or DESADV (#35, 35-1), with the pack hierarchy the
+        warehouse recorded when the confirmation carries it.
       payload: { $ref: "#/components/schemas/ShipmentShipped" }
     workCreated:
       name: dev.passage.wms.work.created.v1
@@ -113,6 +114,20 @@ components:
             required: [sscc]
             properties:
               sscc: { type: string, pattern: "^[0-9]{18}$" }
+              parent_sscc: { type: string, pattern: "^[0-9]{18}$", description: The pallet this carton sits on; another container of this event. }
+              gross_kg: { type: string, description: The container's gross weight in kilograms, a decimal string. }
+              lines:
+                type: array
+                description: >
+                  What the container holds, when the warehouse recorded how the load was packed. The EDI engine builds the
+                  pack hierarchy of the 856 or DESADV from these containers when any has lines, and from fulfillment's
+                  containers otherwise.
+                items:
+                  type: object
+                  required: [shipment_line_id, qty]
+                  properties:
+                    shipment_line_id: { type: string, format: uuid, description: A line of the fulfillment shipment. }
+                    qty: { type: string, description: A decimal string, above zero. }
         user: { type: string }
     Decimal:
       type: string

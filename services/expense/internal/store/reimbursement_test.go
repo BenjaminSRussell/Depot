@@ -117,7 +117,7 @@ func TestDecideReport_ApprovalPublishesTheStoredReimbursableAmountOnceTheLiabili
 		t.Fatalf("report = %+v; want APPROVED with the journal entry", got)
 	}
 	got := approvedEvents(t, ctx, pool)
-	want := reimbursement.ReportApproved{ReportID: rep.ID, LegalEntityID: le, WorkerID: rep.WorkerID, Currency: "USD", Amount: "80.00", ApprovedOn: "2025-03-04"}
+	want := reimbursement.ReportApproved{ReportID: rep.ID, LegalEntityID: le, WorkerID: rep.WorkerID, Currency: "USD", Amount: "80.00", ApprovedOn: "2025-03-04", Revision: done.Version}
 	if len(got) != 1 || !reflect.DeepEqual(got[0], want) {
 		t.Fatalf("published = %+v; want exactly %+v", got, want)
 	}
@@ -305,5 +305,24 @@ func TestMarkGLBooked_CarriesTheLinesAnotherEntityBears(t *testing.T) {
 	want := []reimbursement.ChargedLine{{LineID: hotel.ID, LineNo: 1, Category: "TRAVEL", Amount: "300.00", Currency: "USD", TransactionDate: businessDay.Format("2006-01-02"), ChargeToLegalEntityID: bearer}}
 	if !reflect.DeepEqual(got[0].ChargedLines, want) {
 		t.Fatalf("chargedLines = %+v; want %+v", got[0].ChargedLines, want)
+	}
+}
+
+// M5 (#40): a report that holds only a company-card line goes straight to PAID with nothing to reimburse, and the 300.00 line another
+// entity bears is still charged across: the approval publishes the event with a zero amount, the line and the report revision.
+func TestDecideReport_ChargedLinesOfAReportWithNothingToReimburseStillTravel(t *testing.T) {
+	s, ctx, le, pool := setup(t, 24)
+	sam, dana := asUser(ctx, "sam"), asUser(ctx, "dana")
+	bearer := ids.New()
+	card := line("TRAVEL", "Hotel", 300)
+	card.HasReceipt, card.PaidBy, card.ChargeToLegalEntityID = true, domain.PaidByCompanyCard, bearer
+	rep := submittedReport(t, s, sam, le, card)
+	done, _, err := s.DecideReport(dana, rep.ID, true, commitDay, store.Command{Key: "approve-card", Hash: "ha", ExpectedVersion: rep.Version})
+	if err != nil || done.Status != "PAID" {
+		t.Fatalf("approve = %+v, %v; want PAID", done, err)
+	}
+	got := approvedEvents(t, ctx, pool)
+	if len(got) != 1 || got[0].Amount != "0.00" || got[0].Revision != done.Version || len(got[0].ChargedLines) != 1 || got[0].ChargedLines[0].Amount != "300.00" || got[0].ChargedLines[0].ChargeToLegalEntityID != bearer {
+		t.Fatalf("published = %+v; want one zero-amount event carrying the 300.00 line", got)
 	}
 }

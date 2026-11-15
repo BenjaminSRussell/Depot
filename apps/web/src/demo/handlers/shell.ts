@@ -111,7 +111,10 @@ const inbox: InboxPage = {
   unavailable: [],
   truncated: [],
 };
-route("GET", "/api/v1/inbox", () => inbox);
+route("GET", "/api/v1/inbox", ({ query }) => {
+  const source = query.get("source");
+  return source ? { ...inbox, items: inbox.items.filter((i) => i.source === source) } : inbox;
+});
 
 // Tenant settings the shell reads on every page: every feature on, onboarding finished, no workspace override.
 // The Features page can still toggle them for the length of the visit.

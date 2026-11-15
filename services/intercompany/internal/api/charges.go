@@ -123,7 +123,11 @@ func (a *API) postCharge(w http.ResponseWriter, r *http.Request) {
 	if !targetsInScope(w, r, targets) {
 		return
 	}
-	hash, err := store.HashOf("charge", req)
+	// The replay hash covers the charge's business content only, never the configured ledger accounts, so changing an account setting
+	// does not turn a redelivered event into an idempotency-key reuse (#40).
+	content := req
+	content.CostAccount, content.RecoveryAccount, content.MarginAccount, content.PostingDate = "", "", "", ""
+	hash, err := store.HashOf("charge", content)
 	if err != nil {
 		httpx.Fail(w, r, err)
 		return

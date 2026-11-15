@@ -15,6 +15,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/BenjaminSRussell/passage/platform/cloudprofile"
 	"github.com/BenjaminSRussell/passage/platform/dbx"
 	"github.com/BenjaminSRussell/passage/platform/httpx"
 	"github.com/BenjaminSRussell/passage/platform/ids"
@@ -61,6 +62,11 @@ func run(ctx context.Context, getenv func(string) string) error {
 		return errors.New("OPS_OPERATOR_TENANT_ID must be the platform operator's tenant id (a UUID): the ops routes serve that tenant only")
 	}
 	cfg.OperatorTenantID = operator
+	profile, err := cloudprofile.FromEnv(getenv)
+	if err != nil {
+		return err
+	}
+	cfg.CloudProfile = profile
 	if v := getenv("FAILOVER_MAX_LAG_S"); v != "" {
 		n, err := strconv.Atoi(v)
 		if err != nil || n <= 0 {
@@ -192,12 +198,75 @@ func part3Config(getenv func(string) string, cfg *api.Config) error {
 			cfg.SLOTargets.LatencyP95By[svc] = time.Duration(ms) * time.Millisecond
 		}
 	}
+	if err := part4Config(getenv, cfg); err != nil {
+		return err
+	}
+	if v := getenv("SLO_OPERATIONS"); v != "" {
+		ops, err := domain.ParseOperationSLOs(v)
+		if err != nil {
+			return fmt.Errorf("SLO_OPERATIONS: %w", err)
+		}
+		cfg.SLOTargets.Operations = ops
+	}
 	if v := getenv("OPS_COST_RATES"); v != "" {
 		rates, err := domain.ParseCostRates(v)
 		if err != nil {
 			return fmt.Errorf("OPS_COST_RATES: %w", err)
 		}
 		cfg.CostRates = &rates
+	}
+	return nil
+}
+
+// part4Config reads the settings of the decommission guard, the licence user-count reporter, the statement PDFs, the monthly
+// metering job and the masked-clone job. Each is off until its settings are given; identity and print are reached with the service
+// signing key (PASSAGE_SERVICE_NAME=ops, PASSAGE_SERVICE_SIGNING_KEY or _FILE).
+func part4Config(getenv func(string) string, cfg *api.Config) error {
+	signer, err := tenant.ServiceSignerFromEnv(getenv)
+	if err != nil {
+		return err
+	}
+	caller := api.ServiceCaller{Signer: signer, Operator: cfg.OperatorTenantID}
+	for _, u := range []struct{ env string }{{"IDENTITY_URL"}, {"PRINT_URL"}} {
+		if v := getenv(u.env); v != "" {
+			parsed, err := url.Parse(v)
+			if err != nil || parsed.Host == "" || (parsed.Scheme != "http" && parsed.Scheme != "https") {
+				return fmt.Errorf("%s must be an http(s) URL, got %q", u.env, v)
+			}
+		}
+	}
+	if v := getenv("IDENTITY_URL"); v != "" && signer != nil {
+		cfg.Directory = api.IdentityDirectory{BaseURL: v, Caller: caller}
+	}
+	if v := getenv("PRINT_URL"); v != "" && signer != nil {
+		cfg.Printer = api.PrintClient{BaseURL: v, Caller: caller}
+	}
+	cfg.Seller = getenv("OPS_SELLER_NAME")
+	if v := getenv("OPS_METER_QUERIES"); v != "" {
+		queries, err := api.ParseMeterQueries(v)
+		if err != nil {
+			return fmt.Errorf("OPS_METER_QUERIES: %w", err)
+		}
+		src, ok := cfg.SLOSource.(api.PromSource)
+		if !ok {
+			return errors.New("OPS_METER_QUERIES needs PROMETHEUS_URL")
+		}
+		version := getenv("OPS_METER_MODEL_VERSION")
+		if version == "" {
+			return errors.New("OPS_METER_MODEL_VERSION is required with OPS_METER_QUERIES: it names the query set on every statement")
+		}
+		cfg.Meter = api.PromMeter{Prom: src, Queries: queries, ModelVersion: version}
+		cfg.FX = api.StaticFX(getenv("OPS_USD_PER_EUR"))
+	}
+	if getenv("OPS_CLONE_ENABLED") == "true" {
+		cfg.Cloner = api.CommandCloner{Command: getenv("OPS_CLONE_COMMAND")}
+		if v := getenv("OPS_CLONE_LEASE"); v != "" {
+			d, err := time.ParseDuration(v)
+			if err != nil || d < 10*time.Minute {
+				return fmt.Errorf("OPS_CLONE_LEASE must be a duration of at least 10m, got %q", v)
+			}
+			cfg.CloneLease = d
+		}
 	}
 	return nil
 }

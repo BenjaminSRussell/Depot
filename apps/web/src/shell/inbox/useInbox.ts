@@ -29,7 +29,7 @@ interface Data {
 const empty: Data = { items: [], unavailable: [], truncated: [] };
 const union = (a: string[], b: string[]) => [...new Set([...a, ...b])];
 
-export function useInbox(legalEntityId: string, enabled: boolean): InboxState {
+export function useInbox(legalEntityId: string, enabled: boolean, source = ""): InboxState {
   const [data, setData] = useState<Data>(empty);
   const [status, setStatus] = useState<InboxStatus>(enabled ? "loading" : "off");
   const [problem, setProblem] = useState<ApiError | null>(null);
@@ -52,7 +52,7 @@ export function useInbox(legalEntityId: string, enabled: boolean): InboxState {
     setProblem(null);
     setSourcesChanged(false);
     setLoadingMore(false);
-    fetchInbox({ legalEntityId }, controller.signal).then(
+    fetchInbox({ legalEntityId, source }, controller.signal).then(
       (page) => {
         if (token !== latest.current) return;
         setData({
@@ -74,7 +74,7 @@ export function useInbox(legalEntityId: string, enabled: boolean): InboxState {
       controller.abort();
       moreController.current?.abort();
     };
-  }, [legalEntityId, enabled, attempt]);
+  }, [legalEntityId, enabled, attempt, source]);
 
   const loadMore = useCallback(() => {
     const next = cursor.current;
@@ -84,7 +84,7 @@ export function useInbox(legalEntityId: string, enabled: boolean): InboxState {
     moreController.current = controller;
     setLoadingMore(true);
     setProblem(null);
-    fetchInbox({ legalEntityId, cursor: next }, controller.signal).then(
+    fetchInbox({ legalEntityId, cursor: next, source }, controller.signal).then(
       (page) => {
         if (token !== latest.current || controller.signal.aborted) return;
         setData((prev) => ({
@@ -102,7 +102,7 @@ export function useInbox(legalEntityId: string, enabled: boolean): InboxState {
         else setProblem(failure instanceof ApiError ? failure : new ApiError(0, "COM-0500", "The request failed"));
       },
     );
-  }, [legalEntityId]);
+  }, [legalEntityId, source]);
 
   const reload = useCallback(() => setAttempt((n) => n + 1), []);
   const remove = useCallback(

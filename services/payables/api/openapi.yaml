@@ -332,7 +332,7 @@ paths:
               required: [source, sourceRef, vendorId, invoiceNumber, invoiceDate, currency, lines]
               properties:
                 legalEntityId: { type: string, format: uuid }
-                source: { type: string, enum: [CXML] }
+                source: { type: string, enum: [CXML, X12_810] }
                 sourceRef: { type: string, maxLength: 200, description: "The sender document's id at the caller (the EDI message id)." }
                 vendorId: { type: string, format: uuid }
                 invoiceNumber: { type: string, maxLength: 100 }
@@ -371,6 +371,7 @@ paths:
       parameters:
         - { name: legalEntityId, in: query, schema: { type: string, format: uuid } }
         - { name: vendorId, in: query, schema: { type: string, format: uuid } }
+        - { name: status, in: query, schema: { type: string, enum: [RECEIVED, POSTED, REJECTED] }, description: "RECEIVED is the clerk's worklist." }
         - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
         - { name: cursor, in: query, schema: { type: string }, description: "The previous page's nextCursor." }
       responses:
@@ -399,6 +400,55 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/Problem' }
+  /v1/payables/vendor-invoice-intake/{id}:resolve:
+    post:
+      operationId: resolveVendorInvoiceIntake
+      x-passage-duty: payables.vendor-invoice.review
+      description: "Records the vendor invoice an AP clerk posted from a received invoice (in receiving, against the receipt lines): the received invoice becomes POSTED and leaves the worklist. The vendor invoice has to be an open item of the received invoice's vendor in its legal entity (422 AP-VII-004: post it first), and closes one received invoice only (409 AP-VII-005). The same call again replays (Idempotent-Replayed); another decision after one is 409 AP-VII-003."
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [vendorInvoiceId]
+              properties:
+                vendorInvoiceId: { type: string, format: uuid }
+      responses:
+        '200': { description: The decided received invoice., content: { application/json: { schema: { $ref: '#/components/schemas/VendorInvoiceIntake' } } } }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /v1/payables/vendor-invoice-intake/{id}:reject:
+    post:
+      operationId: rejectVendorInvoiceIntake
+      x-passage-duty: payables.vendor-invoice.review
+      description: "Rejects a received invoice with a reason (at most 1000 characters): it becomes REJECTED and leaves the worklist. The same rejection again replays; another decision after one is 409 AP-VII-003."
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [reason]
+              properties:
+                reason: { type: string, maxLength: 1000 }
+      responses:
+        '200': { description: The decided received invoice., content: { application/json: { schema: { $ref: '#/components/schemas/VendorInvoiceIntake' } } } }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
   /v1/payables/opening-batches:
     post:
       operationId: importOpeningBatch
@@ -846,7 +896,7 @@ components:
       properties:
         id: { type: string, format: uuid }
         legalEntityId: { type: string, format: uuid }
-        source: { type: string, enum: [CXML, INTERCOMPANY], description: "CXML from the EDI engine; INTERCOMPANY from the intercompany charge consumer (#40)" }
+        source: { type: string, enum: [CXML, INTERCOMPANY, X12_810], description: "CXML and X12_810 (a vendor's 810 on edi's vendor route) from the EDI engine; INTERCOMPANY from the intercompany charge consumer (#40)" }
         sourceRef: { type: string }
         vendorId: { type: string, format: uuid }
         invoiceNumber: { type: string }
@@ -857,10 +907,15 @@ components:
         currency: { type: string }
         net: { type: string }
         gross: { type: string }
-        status: { type: string, enum: [RECEIVED, POSTED], description: "RECEIVED waits for an AP clerk; POSTED is an intercompany charge whose pairing opted in to auto-post (#40): the consumer booked the ledger entry and opened the AP item" }
-        ledgerEntryId: { type: string, description: "The ledger entry that posted the invoice; only when POSTED" }
+        status: { type: string, enum: [RECEIVED, POSTED, REJECTED], description: "RECEIVED waits for an AP clerk; POSTED once the clerk recorded the vendor invoice posted from it; REJECTED with decisionNote." }
+        ledgerEntryId: { type: string, description: "The ledger entry that auto-posted an intercompany charge (#40); only then" }
+        autoPostNote: { type: string, description: "Why an auto-post was refused and the row left for a clerk (#40)" }
         receivedBy: { type: string }
         receivedAt: { type: string, format: date-time }
+        decidedAt: { type: string, format: date-time }
+        decidedBy: { type: string }
+        decisionNote: { type: string, description: The reason of a rejection. }
+        vendorInvoiceId: { type: string, format: uuid, description: The vendor invoice posted from this received invoice (status POSTED). }
         lines:
           type: array
           items:

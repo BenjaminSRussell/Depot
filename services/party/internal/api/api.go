@@ -56,6 +56,7 @@ type API struct {
 	portal    store.PortalStore
 	setup     store.SetupStore
 	merges    MergeStore
+	taxRegs   store.TaxRegistrationStore
 	search    store.SearchStore
 	sequence  Sequencer
 
@@ -133,6 +134,9 @@ func (a *API) Register(r chi.Router) {
 	}
 	if a.merges != nil {
 		a.registerMerge(r)
+	}
+	if a.taxRegs != nil {
+		a.registerTaxRegistrations(r)
 	}
 	if a.search != nil {
 		a.registerSearch(r)

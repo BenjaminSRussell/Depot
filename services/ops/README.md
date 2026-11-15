@@ -22,6 +22,9 @@ the tables have no `tenant_id` and no RLS (allowlisted in `tools/rlscheck`), and
 | `PUT /v1/ops/tenants/{id}/provision-steps/{action}` | `ops.tenant.provision` | the provisioning runner reports realm, databases, kafka-acls, lakehouse or license as DONE or FAILED |
 | `PUT /v1/ops/tenants/{id}/costs/{month}`, `GET` the same, `GET /v1/ops/costs?month=` | `ops.cost.record`, `ops.region.view`, `ops.region.view` | record a tenant's metered month (the statement is computed here), read it as JSON or CSV, list a month with the cluster total |
 | `PUT /v1/ops/tenants/{id}/license/usage`, `GET /v1/ops/licenses` | `ops.license.report`, `ops.region.view` | the user-count reporter's active users; every licence with its state and counts |
+| `POST /v1/ops/tenants/{id}:decommission`, `GET /v1/ops/tenants/{id}/decommission`, `PUT .../decommission-steps/{action}` | `ops.tenant.decommission`, `ops.region.view`, `ops.tenant.decommission` | decommission a tenant: only when identity reports it suspended (OPS-1731), audited, steps in reverse order (lakehouse, kafka-acls, databases, realm); the read includes the audit trail |
+| `GET /v1/ops/tenants/{id}/costs/{month}?format=pdf` | `ops.region.view` | the cost statement as a PDF, rendered by print as `service:ops-reporter` |
+| `POST /v1/ops/clone-schedules`, `GET` the same, `PUT`/`DELETE .../{id}`, `GET .../{id}/runs` | `ops.clone.schedule`, `ops.region.view` | recurring masked clones (`tenant-restore clone`), run by the job in this service |
 | `GET /healthz/region` | public | 200 while this region is PRIMARY, else 503 `Retry-After: 30`; DNS health checks read it |
 
 ## Rules
@@ -102,6 +105,21 @@ Events (outbox, migration 0006, `events/asyncapi.yaml`): `dev.passage.ops.failov
 `tenant.provisioned.v1`, `slo.breached.v1` and `license.changed.v1`. The platform-wide ones carry the operator tenant; the others the tenant they describe.
 
 Web: the operations console (`apps/web/src/modules/ops`) shows failover status, break-glass windows, service levels and licences.
+
+## Part 4: provisioning runners, decommission, metering, reporters, clone schedules
+`passage-ops tenant provision|decommission --tenant <id> [--reason <text>] [--dry-run]` runs the steps with `internal/provision`: four interfaces
+(Keycloak realm, databases and RLS schemas, Kafka ACLs and topics, lakehouse namespace), each call idempotent, `--dry-run` asks each adapter what it
+would do and reports nothing, and a rerun resumes at the first step the API does not have as DONE. Only the `LogAdapter` exists (it logs and says
+so in the step detail). Decommission opens the record first (the API checks with identity that the tenant is suspended and audits the request),
+then removes in reverse order; the API refuses a step whose predecessor is not DONE.
+
+The hourly tick (`OPS_CHECK_INTERVAL`) also runs: the licence user-count reporter (identity's `GET /v1/tenants/{id}/user-counts`, every active user counted as
+full), the monthly metering job (last month's statement for every PROVISIONED tenant without one, from `OPS_METER_QUERIES`, `OPS_METER_MODEL_VERSION`, `OPS_USD_PER_EUR`,
+`OPS_COST_RATES`) and the clone job (`OPS_CLONE_ENABLED=true`, `OPS_CLONE_COMMAND`). Identity and print are reached with `PASSAGE_SERVICE_SIGNING_KEY(_FILE)` as the
+service principal `ops-reporter` in the operator tenant (grants `ops` -> `identity.ops.tenant-read` and `print.ops.render`; add ops's public key to those services'
+`PASSAGE_SERVICE_PUBLIC_KEYS`). `IDENTITY_URL`, `PRINT_URL`, `OPS_SELLER_NAME`. Per-operation SLOs: `SLO_OPERATIONS` (JSON array, chart `slo.operations`; per route across its methods, since the shared series have no method label, and a `method` field is refused), shown under
+`operations` in `GET /v1/ops/slo`. Migrations: `0007_cdc_publication`, `0008_cdc_role_grants` (the `outbox-ops` connector), `0009_ops_part4`, `0010_clone_lease` (clone leases, soft delete). A real `passage-ops tenant` run is refused until real adapters are wired in (the logging adapter fails a non-dry run, so nothing is reported DONE); clone runs execute in the background with a lease (`OPS_CLONE_LEASE`) and every schedule change and run is audited. New event:
+`tenant.decommissioned.v1`.
 
 ## Configuration
 `DATABASE_URL`, `MIGRATE_ON_START`, `REGION_NAME` (the region this replica runs in), `OPS_REGIONS` (`us-east=PRIMARY,eu-west=PASSIVE`, read

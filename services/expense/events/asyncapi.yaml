@@ -97,8 +97,9 @@ components:
           legalEntityId: { type: string, format: uuid }
           workerId: { type: string, format: uuid, description: The employee payee; the AP vendor id. }
           currency: { type: string, pattern: '^[A-Z]{3}$' }
-          amount: { type: string, description: The stored reimbursable amount of the report (decimal string), example: '420.50' }
+          amount: { type: string, description: "The stored reimbursable amount of the report (decimal string), example 420.50. 0.00 when a report that went straight to PAID carries lines another entity bears (#40); payables ignores it" }
           approvedOn: { type: string, format: date }
+          revision: { type: integer, minimum: 1, description: "The report's version when it was approved; intercompany versions the charges of its lines by it (#40)." }
           chargedLines:
             type: array
             description: "The report's lines another legal entity bears (#40), in line order; absent when every line is the paying entity's own cost. Intercompany raises one charge from the paying entity (legalEntityId) to the bearing entity per line, keyed by the line id. Payables ignores it."

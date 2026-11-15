@@ -223,6 +223,9 @@ components:
         po_id: { type: string, format: uuid }
         legal_entity_id: { type: string, format: uuid }
         vendor_id: { type: string, format: uuid }
+        partner_country: { type: string, description: "Intrastat (#13): the member state the goods were consigned from, the post's shipFromCountry, not the country of the vendor's VAT registration; absent when the post named none." }
+        partner_vat_id: { type: string, description: "The vendor's VAT id from the party master's tax registration; absent when it has none or party could not be read." }
+        customs_lookup_failed: { type: boolean, description: "True when the party or product read failed when the receipt posted, so the Intrastat data of this event is incomplete; the tax consumer parks such an event on its dead-letter topic." }
         posting_date: { type: string, format: date }
         currency: { type: string, pattern: "^[A-Z]{3}$" }
         ledger_entry_id: { type: string }
@@ -247,6 +250,10 @@ components:
               unit_price: { type: string, description: "decimal string, receipt currency: the line's net unit price per unit (per weight unit on a catch-weight line)" }
               site_id: { type: string, format: uuid, description: "the line's delivery site (#480): the PO line's, or the one keyed on a line without a PO line; absent when neither is known" }
               warehouse_id: { type: string, format: uuid, description: "the line's delivery warehouse (#480), from the PO line or keyed on a line without one; absent when none is known" }
+              commodity_code: { type: string, description: "Intrastat (#13): the product's CN8 commodity code from the product master (attribute INTRASTAT_COMMODITY_CODE) when the receipt posted; absent when none is set or the product service could not be read." }
+              origin_country: { type: string, description: "Intrastat: the product's country of origin (ISO 3166 alpha-2, attribute INTRASTAT_ORIGIN_COUNTRY); absent when none." }
+              net_weight: { type: string, description: "Intrastat: the net weight of the received quantity in kilograms (qty times the product attribute INTRASTAT_NET_WEIGHT_KG per unit); absent when the product has no weight." }
+              statistical_value: { type: string, description: "Intrastat: the line's value in the accounting currency, its amount_acct. Present with the customs data." }
               cw_qty: { type: integer, minimum: 1, description: "catch-weight lines only (FR-24.7): the case count; qty is then the actual weight in unit" }
               cw_nominal: { type: string, description: "catch-weight lines only: nominal weight per case, decimal string in unit" }
               cw_min: { type: string, description: "catch-weight lines only: minimum weight per case, decimal string in unit" }

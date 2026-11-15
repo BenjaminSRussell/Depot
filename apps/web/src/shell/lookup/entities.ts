@@ -28,6 +28,7 @@ export type LookupEntityKey =
   | "packingSlip"
   | "batch"
   | "formula"
+  | "forecastModel"
   | "ecr"
   | "purchaseOrder"
   | "receipt"
@@ -196,6 +197,11 @@ function narrow(all: LookupOption[], q: string): LookupOption[] {
         (entry.number ?? "").toLowerCase().includes(needle),
     )
     .slice(0, PAGE_SIZE);
+}
+
+function forecastModelOption(row: Raw): LookupOption | null {
+  const code = text(row, "code");
+  return code ? { id: code, name: code, number: text(row, "status") } : null;
 }
 
 /** An operating unit reads "Assembly (ASM · cost center)": departments, cost centers and the rest share one list. */
@@ -859,6 +865,16 @@ export const lookupDefs: Record<LookupEntityKey, LookupDef> = {
       return hit ? { ...hit, number: number || undefined } : null;
     },
   ),
+  // A planning forecast model is named by its code; its status is the number, so a draft is told from a published one.
+  forecastModel: {
+    noun: "forecast",
+    search: async (q, scope, signal) =>
+      present(
+        items(await getJson(`/api/v1/planning/forecasts${query({ legalEntityId: scope.legalEntityId, q: q.trim() || undefined, limit: String(PAGE_SIZE) })}`, signal)).map(forecastModelOption),
+      ),
+    resolve: async (id, signal) =>
+      present(items(await getJson(`/api/v1/planning/forecasts${query({ code: id, limit: "1" })}`, signal)).map(forecastModelOption)).find((o) => o.id === id) ?? null,
+  },
   formula: listedEntity("formula", "/api/v1/production/formulas", codeAndName, () => ({ limit: "100" })),
   ecr: listedEntity(
     "engineering change request",
@@ -950,10 +966,7 @@ export const lookupDefs: Record<LookupEntityKey, LookupDef> = {
         ).map(userOption),
       ),
     // user-names needs only the read-a-name duty every role can hold; the full user record is for administrators.
-    resolve: async (id, signal) => {
-      const found = items(await getJson(`/api/v1/identity/user-names${query({ ids: id })}`, signal))[0];
-      return found ? userOption(found) : null;
-    },
+    resolve: (id) => resolveUserName(id),
   },
   operatingUnit: operatingUnitDef,
   itemGroup: itemGroupDef,
@@ -1076,9 +1089,54 @@ export const lookupDefs: Record<LookupEntityKey, LookupDef> = {
   ),
 };
 
+// A page shows many user names at once (a createdBy column, an approver): the ids asked for in one tick go out as one request to the
+// name-only route, which takes a comma list, instead of one request per user.
+const MAX_NAMES_PER_REQUEST = 50;
+interface UserBatch {
+  ids: Map<string, { ok(entry: LookupOption | null): void; fail(error: unknown): void }[]>;
+}
+let userBatch: UserBatch | null = null;
+
+async function flushUserNames(batch: UserBatch): Promise<void> {
+  const all = [...batch.ids.keys()];
+  for (let i = 0; i < all.length; i += MAX_NAMES_PER_REQUEST) {
+    const chunk = all.slice(i, i + MAX_NAMES_PER_REQUEST);
+    try {
+      const rows = items(await getJson(`/api/v1/identity/user-names${query({ ids: chunk.join(",") })}`));
+      const found = new Map<string, LookupOption>();
+      for (const row of rows) {
+        const entry = userOption(row);
+        if (entry) found.set(entry.id, entry);
+      }
+      for (const id of chunk) for (const waiter of batch.ids.get(id) ?? []) waiter.ok(found.get(id) ?? null);
+    } catch (error) {
+      for (const id of chunk) for (const waiter of batch.ids.get(id) ?? []) waiter.fail(error);
+    }
+  }
+}
+
+function resolveUserName(id: string): Promise<LookupOption | null> {
+  return new Promise((ok, fail) => {
+    if (!userBatch) {
+      const batch: UserBatch = { ids: new Map() };
+      userBatch = batch;
+      queueMicrotask(() => {
+        userBatch = null;
+        void flushUserNames(batch);
+      });
+    }
+    const waiters = userBatch.ids.get(id) ?? [];
+    waiters.push({ ok, fail });
+    userBatch.ids.set(id, waiters);
+  });
+}
+
 export function formatOption(entry: LookupOption): string {
   return entry.number ? `${entry.name} (${entry.number})` : entry.name;
 }
+
+/** How long a lookup that found nothing, or failed, is remembered before it is asked again. */
+const FAILED_LOOKUP_TTL_MS = 5000;
 
 const resolved = new Map<string, Promise<LookupOption | null>>();
 /** Lookups the server answered with 403: the caller may not read them, so asking again can only fail again. */
@@ -1110,9 +1168,12 @@ export function resolveOption(
     );
     resolved.set(key, pending);
     void pending.then((entry) => {
-      // A denied lookup stays cached, so a list of hits does not ask again for every row of a legal entity it cannot read.
+      // A denied lookup stays cached, so a list of hits does not ask again for every row of a legal entity it cannot read. Another
+      // failure is cached briefly, so remounting the same page does not ask again at once, then forgotten so a later try can succeed.
       if (entry === null && !denied.has(key)) {
-        resolved.delete(key);
+        setTimeout(() => {
+          if (resolved.get(key) === pending) resolved.delete(key);
+        }, FAILED_LOOKUP_TTL_MS);
       }
     });
   }

@@ -135,10 +135,12 @@ describe("New worker", () => {
   const fill = (label: string, value: string) => fireEvent.change(screen.getByLabelText(label), { target: { value } });
 
   it("validates the fields the service checks", () => {
-    const base = { name: "Ana", partyId: PARTY, badgeId: "", userId: "", costRate: "21.50", currency: "USD" };
-    expect(validateWorker(base).input).toEqual({ name: "Ana", partyId: PARTY, badgeId: null, userId: null, costRate: "21.50", currency: "USD" });
+    const base = { name: "Ana", partyId: PARTY, badgeId: "", userId: "", costRate: "21.50", currency: "USD", timeZone: "America/Chicago" };
+    expect(validateWorker(base).input).toEqual({ name: "Ana", partyId: PARTY, badgeId: null, userId: null, costRate: "21.50", currency: "USD", timeZone: "America/Chicago" });
     const { errors } = validateWorker({ ...base, name: " ", partyId: "x", costRate: "-1", currency: "usd" });
     expect(Object.keys(errors).sort()).toEqual(["costRate", "currency", "name", "partyId"]);
+    expect(validateWorker({ ...base, timeZone: "Local" }).errors.timeZone).toMatch(/IANA/);
+    expect(validateWorker({ ...base, timeZone: "Mars/Olympus" }).errors.timeZone).toMatch(/IANA/);
   });
 
   it("creates the worker with an Idempotency-Key and opens it", async () => {
@@ -154,10 +156,11 @@ describe("New worker", () => {
     fill("Employee", PARTY);
     fill("Badge", "B-1");
     fill("Cost rate per hour", "20");
+    fill("Time zone", "America/Chicago");
     fireEvent.click(screen.getByRole("button", { name: "Create worker" }));
     expect(await screen.findByRole("heading", { name: "Ana Silva" })).toBeInTheDocument();
     const [create] = posts("/workers");
-    expect(create.body).toEqual({ name: "Ana Silva", partyId: PARTY, badgeId: "B-1", userId: null, costRate: "20", currency: "USD" });
+    expect(create.body).toEqual({ name: "Ana Silva", partyId: PARTY, badgeId: "B-1", userId: null, costRate: "20", currency: "USD", timeZone: "America/Chicago" });
     expect(header(create, "Idempotency-Key")).toMatch(/^[0-9a-f-]{36}$/);
   });
 

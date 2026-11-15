@@ -35,7 +35,26 @@ type Problem struct {
 	Code     string            `json:"code,omitempty"`
 	TraceID  string            `json:"traceId,omitempty"`
 	Errors   map[string]string `json:"errors,omitempty"`
+	// RowErrors is the structured form of Errors for batch imports: which row, which field and why, so a caller never parses text.
+	RowErrors []RowError `json:"rowErrors,omitempty"`
 }
+
+// RowError is one refused row of a batch (1-based). Code is a stable constant of the refusing service; TakenByBatch names the batch that
+// already holds the row's reference or number, when that is the reason.
+type RowError struct {
+	Row          int    `json:"row"`
+	Field        string `json:"field"`
+	Code         string `json:"code"`
+	Detail       string `json:"detail,omitempty"`
+	TakenByBatch string `json:"takenByBatch,omitempty"`
+}
+
+// Row error codes of the opening-order imports.
+const (
+	RowReferenceTaken   = "REFERENCE_TAKEN"
+	RowOrderNumberTaken = "ORDER_NUMBER_TAKEN"
+	RowInvalid          = "INVALID"
+)
 
 func (p *Problem) Error() string { return fmt.Sprintf("%s (%d): %s", p.Code, p.Status, p.Detail) }
 

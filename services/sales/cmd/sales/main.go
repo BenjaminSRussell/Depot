@@ -79,7 +79,7 @@ func run(ctx context.Context, getenv func(string) string) error {
 	if signer == nil || getenv("PARTY_URL") == "" {
 		slog.Warn("PARTY_URL or the service signing key is unset: order and quotation creation is refused (SLS-0152) because the customer group cannot be read")
 	}
-	up := upstream.New(getenv("PRODUCT_URL"), getenv("PRODUCTION_URL"), signer).WithParty(getenv("PARTY_URL"))
+	up := upstream.New(getenv("PRODUCT_URL"), getenv("PRODUCTION_URL"), signer).WithParty(getenv("PARTY_URL")).WithPricing(getenv("PRICING_URL"))
 	keys, err := fieldcrypt.FromEnv(getenv)
 	if err != nil {
 		return fmt.Errorf("field encryption keys: %w", err)
@@ -88,7 +88,12 @@ func run(ctx context.Context, getenv func(string) string) error {
 		slog.Warn("FIELDCRYPT_KEYS is unset: one-time customer orders are refused (SLS-0054)")
 	}
 	st := wireReturns(store.New(pool).WithFieldCrypt(keys), up, signer != nil, getenv)
-	a := api.New(st).WithConfigurations(up).WithProduction(up).WithCustomerGroups(up).WithProductNames(up).WithPortalPriceWindow(envInt(getenv("SALES_PORTAL_PRICE_WINDOW_DAYS")))
+	a := api.New(st).WithConfigurations(up).WithProduction(up).WithCustomerGroups(up).WithProductNames(up).WithPortalPriceWindow(envInt(getenv("SALES_PORTAL_PRICE_WINDOW_DAYS"))).WithOpeningOrders(st)
+	if signer != nil && getenv("PRICING_URL") != "" {
+		a = a.WithPortalPricer(up)
+	} else {
+		slog.Warn("PRICING_URL or the service signing key is unset: a portal order for a product the customer has not bought before is refused (SAL-CUS-002)")
+	}
 	router := httpx.NewRouter()
 	a.Register(router)
 	admin := http.NewServeMux()

@@ -50,6 +50,12 @@ spec:
     - group: gateway.networking.k8s.io
       kind: HTTPRoute
       name: ops
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      name: predictions
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      name: ar
   rateLimit:
     type: Global
     global:

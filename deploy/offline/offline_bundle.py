@@ -53,6 +53,9 @@ REPO = DEPLOY.parent
 
 GIT_URL = "https://github.com/BenjaminSRussell/Passage.git"
 IMAGE_LINE = re.compile(r"^\s*-?\s*image:\s*[\"']?([^\s\"']+)", re.M)
+IMAGE_FLAG = re.compile(r"--[a-z0-9-]*image=[\"']?([^\s\"',]+)")
+# The repository's values file for a third-party chart, passed to `helm template` so the render matches the install.
+CHART_VALUES = {"temporal": "deploy/temporal/values.yaml"}
 REPO_URL_LINE = re.compile(r"^(\s*-?\s*)repoURL:\s*(\S+)\s*$", re.M)
 DIGEST = re.compile(r"@sha256:[0-9a-f]{64}$")
 ENCLAVE_MARKER = "REGISTRY_HOST"
@@ -134,6 +137,48 @@ def extra_images() -> list[str]:
 def images_in(manifest: str) -> set[str]:
     body = "\n".join(l for l in manifest.splitlines() if not l.lstrip().startswith("#"))
     return {m.group(1) for m in IMAGE_LINE.finditer(body)}
+
+
+def chart_images(runner: Runner = run, work: Path | None = None) -> dict[str, list[str]]:
+    """On the connected build machine: render every third-party chart (`helm pull`, then `helm template` with the values this
+    repository gives it) and return its images, chart name to sorted references. The `image:` lines and `--*image=` flags are
+    found; an image a chart names only inside an environment variable value (Strimzi's STRIMZI_KAFKA_IMAGES) must be added to
+    extra-images.txt by hand."""
+    work = work or Path(tempfile.mkdtemp())
+    out: dict[str, list[str]] = {}
+    for c in third_party_charts():
+        archive = pull_chart(c, {}, work, runner)
+        cmd = ["helm", "template", "offline", str(archive)]
+        values = CHART_VALUES.get(c["chart"])
+        if values:
+            cmd += ["-f", str(REPO / values)]
+        rendered = runner(cmd)
+        body = "\n".join(l for l in rendered.splitlines() if not l.lstrip().startswith("#"))
+        found = {m.group(1) for m in IMAGE_LINE.finditer(body)} | {m.group(1) for m in IMAGE_FLAG.finditer(body)}
+        out[c["chart"]] = sorted(found)
+    return out
+
+
+GENERATED_MARK = "# --- written by `offline_bundle.py chart-images --write`; do not edit below ---"
+
+
+def write_chart_images(images: dict[str, list[str]], path: Path = EXTRA_IMAGES) -> list[str]:
+    """Append the images of every chart that extra-images.txt does not name yet, under a generated marker; returns the added."""
+    text = path.read_text(encoding="utf-8")
+    have = {l.strip() for l in text.splitlines() if l.strip() and not l.lstrip().startswith("#")}
+    added = []
+    lines = []
+    for chart, refs in sorted(images.items()):
+        new = [r for r in refs if r not in have]
+        if new:
+            lines.append(f"# {chart}")
+            lines.extend(new)
+            added.extend(new)
+    if lines:
+        if GENERATED_MARK not in text:
+            text = text.rstrip("\n") + "\n" + GENERATED_MARK + "\n"
+        path.write_text(text + "\n".join(lines) + "\n", encoding="utf-8")
+    return added
 
 
 def collect_images(runner: Runner = run) -> list[str]:
@@ -473,6 +518,8 @@ def main(argv: list[str] | None = None) -> int:
     b.add_argument("--key", required=True, help="cosign private key (cosign.key, or a KMS/HSM URI)")
     b.add_argument("--staging-registry", default="localhost:5000", help="throwaway registry the images are signed in")
     b.add_argument("--staging-insecure", action="store_true", help="the staging registry speaks plain http")
+    ci = sub.add_parser("chart-images", help="render the third-party charts and print their images; --write adds the missing ones to extra-images.txt (needs helm and network)")
+    ci.add_argument("--write", action="store_true")
     sub.add_parser("pin-charts", help="pin the sha256 of every unverified third-party chart in provenance.json (needs helm and network)")
     v = sub.add_parser("verify", help="verify signature and hashes, offline")
     v.add_argument("archive", type=Path)
@@ -497,6 +544,13 @@ def main(argv: list[str] | None = None) -> int:
         elif args.cmd == "build":
             args.out.mkdir(parents=True, exist_ok=True)
             print(build(args.out, args.key, staging=args.staging_registry, staging_insecure=args.staging_insecure))
+        elif args.cmd == "chart-images":
+            found = chart_images()
+            for chart, refs in found.items():
+                print(f"# {chart}")
+                print("\n".join(refs))
+            if args.write:
+                print(f"added {len(write_chart_images(found))} image(s) to {EXTRA_IMAGES.relative_to(REPO)}", file=sys.stderr)
         elif args.cmd == "pin-charts":
             for name in pin_charts():
                 print(f"pinned {name}")

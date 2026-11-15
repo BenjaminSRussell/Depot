@@ -39,6 +39,8 @@ spec:
               value: {{ .Values.config.httpAddr | quote }}
             - name: ADMIN_ADDR
               value: {{ .Values.config.adminAddr | quote }}
+            - name: SHOPFLOOR_SIGNATURE_MAX_AUTH_AGE_SECONDS
+              value: {{ .Values.config.signatureMaxAuthAgeSeconds | quote }}
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:

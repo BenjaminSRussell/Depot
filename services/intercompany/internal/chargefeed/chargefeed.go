@@ -9,7 +9,7 @@
 //     hours at the hourly cost, keyed projects:<transactionId> version 1.
 //
 // The transfer price is the pair's price for the category with no resource role (Expense or Hour); a pair with none parks the charge
-// on suspense (202, IC-0821) until one is set and the next version reprices it. Both go through the same POST /v1/interco/charges logic as a person's request (transfer price in force, tax, settlement mode), so a
+// on suspense (202, IC-0821) until one is set and the next version reprices it. A charge parked on suspense (202) or compensated is not repriced by the same version again: the next source version (an expense report revision) does it, and a compensated one is dead-lettered. Both go through the same POST /v1/interco/charges logic as a person's request (transfer price in force, tax, settlement mode), so a
 // charge is stored once per sourceId and version: a redelivered event replays the stored charge and posts nothing again, and a line
 // or transaction is never charged twice. An event whose entities are not in the registry, or that is already the paying entity's own
 // cost, is skipped with a log line. The consumer runs as service:intercompany-charges (one flag duty) scoped to the two entities.
@@ -134,7 +134,8 @@ func (f *Feed) HandleExpense(ctx context.Context, evt events.Event) error {
 		if strings.EqualFold(d.LegalEntityID, l.ChargeToLegalEntityID) {
 			continue
 		}
-		req := Request{SourceID: "expense:" + l.LineID, Version: 1, Category: "Expense", TransactionDate: l.TransactionDate,
+		// The report's revision is the charge's version: a revised report reprices the line with the next version.
+		req := Request{SourceID: "expense:" + l.LineID, Version: max(d.Revision, 1), Category: "Expense", TransactionDate: l.TransactionDate,
 			Quantity: "1", UnitCost: amount.String(), Currency: l.Currency}
 		if err := f.charge(ctx, evt.TenantID, d.LegalEntityID, l.ChargeToLegalEntityID, req); err != nil {
 			return err
@@ -215,8 +216,9 @@ func (f *Feed) charge(ctx context.Context, tenantID, lenderLE, borrowerLE string
 		}
 	}
 	if req.LendingEntity == "" || req.BorrowingEntity == "" {
-		slog.WarnContext(ctx, "intercompany charge skipped: a legal entity is not in the intercompany registry", "source", req.SourceID, "lender", lenderLE, "borrower", borrowerLE)
-		return nil
+		// Nothing is charged for an entity the registry does not know: the event is dead-lettered, so the cost is not silently left with
+		// the payer; once the entity is registered the event is replayed.
+		return eventing.Permanent(fmt.Errorf("charge %s: legal entity %s or %s is not in the intercompany registry", req.SourceID, lenderLE, borrowerLE))
 	}
 	req.PostingDate = req.TransactionDate
 	req.CostAccount, req.RecoveryAccount, req.MarginAccount = f.Config.CostAccount, f.Config.RecoveryAccount, f.Config.MarginAccount
@@ -227,6 +229,14 @@ func (f *Feed) charge(ctx context.Context, tenantID, lenderLE, borrowerLE string
 	status, resp := f.Submit.SubmitCharge(ctx, body)
 	switch {
 	case status == http.StatusCreated:
+		var out struct {
+			Status string `json:"status"`
+		}
+		if json.Unmarshal(resp, &out) == nil && out.Status == "compensated" {
+			// Both sides were reversed: the charge is not done. A replay of the same version answers the same, so a person re-drives it
+			// with the next version (a revised report or a new source version).
+			return eventing.Permanent(fmt.Errorf("charge %s was compensated: its postings were reversed", req.SourceID))
+		}
 		return nil
 	case status == http.StatusAccepted:
 		slog.WarnContext(ctx, "intercompany charge parked on suspense: no transfer price in force", "source", req.SourceID, "lender", req.LendingEntity, "borrower", req.BorrowingEntity)

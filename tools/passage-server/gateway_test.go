@@ -22,7 +22,7 @@ func testGateway(t *testing.T, ready bool) (http.Handler, *[]http.Header) {
 	u, _ := url.Parse(up.URL)
 	web := fstest.MapFS{"index.html": {Data: []byte("<html>app</html>")}, "assets/app.js": {Data: []byte("js")}}
 	passThrough := func(next http.Handler) http.Handler { return next }
-	return NewGateway(passThrough, map[string]*url.URL{"party": u}, web, func() (bool, []Status) { return ready, nil }, "gw-secret", map[string]bool{"node": true}), &seen
+	return NewGateway(passThrough, map[string]*url.URL{"party": u, "agents-ts": u}, web, func() (bool, []Status) { return ready, nil }, "gw-secret", map[string]bool{"node": true}, map[string]bool{"agents-ts": true}), &seen
 }
 
 func do(h http.Handler, method, target string, hdr map[string]string) *httptest.ResponseRecorder {
@@ -118,5 +118,30 @@ func TestReadyProbeUsesTheSpecReadyPath(t *testing.T) {
 	}
 	if err := probe(context.Background(), Process{AdminPort: port}); err == nil || !strings.Contains(err.Error(), "/readyz returned 404") {
 		t.Fatalf("default probe = %v", err)
+	}
+}
+
+func TestGatewayForwardsTheBearerTokenOnlyToServicesThatAskForIt(t *testing.T) {
+	g, seen := testGateway(t, true)
+	hdr := map[string]string{"Authorization": "Bearer abc.def.ghi"}
+	if rec := do(g, "GET", "/api/v1/party/vendors", hdr); rec.Code != 200 {
+		t.Fatalf("party = %d", rec.Code)
+	}
+	if rec := do(g, "GET", "/api/v1/agents-ts/runs", hdr); rec.Code != 200 {
+		t.Fatalf("agents-ts = %d", rec.Code)
+	}
+	if len(*seen) != 2 {
+		t.Fatalf("upstream saw %d requests", len(*seen))
+	}
+	if got := (*seen)[0].Get("Authorization"); got != "" {
+		t.Fatalf("Authorization reached a service that did not opt in: %q", got)
+	}
+	if got := (*seen)[1].Get("Authorization"); got != "Bearer abc.def.ghi" {
+		t.Fatalf("Authorization not forwarded to agents-ts: %q", got)
+	}
+	// Identity headers from the client are still removed on the forwarding route.
+	do(g, "GET", "/api/v1/agents-ts/runs", map[string]string{"Authorization": "Bearer a.b.c", "X-Passage-User": "forged"})
+	if got := (*seen)[2].Get("X-Passage-User"); got != "" {
+		t.Fatalf("forged identity header reached agents-ts: %q", got)
 	}
 }

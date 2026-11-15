@@ -53,7 +53,7 @@ export function PayExportDetailPage() {
               </div>
               <div className={styles.entry}>
                 <dt className={styles.term}>Exported</dt>
-                <dd className={styles.value}>{<>{formatDateTime(batch.createdAt)} by <UserName id={batch.createdBy} /></>}</dd>
+                <dd className={styles.value}><>{formatDateTime(batch.createdAt)} by <UserName id={batch.createdBy} /></></dd>
               </div>
             </dl>
           </Card>

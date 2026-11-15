@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"errors"
 	"testing"
 	"time"
 )
@@ -75,5 +76,59 @@ func TestEvaluateSLOTargetsAndOverrides(t *testing.T) {
 	}
 	if left := *rep.Services[0].ErrorBudgetLeft; left > -0.99 || left < -1.01 {
 		t.Fatalf("a burned twice its budget: %v", left)
+	}
+}
+
+func TestProvisionUnderTheEUDataBoundary(t *testing.T) {
+	deployed := []Region{{Name: "eu-west"}, {Name: "westeurope"}, {Name: "us-east"}}
+	policy := ProvisionPolicy{DefaultResidency: "EU", BoundaryResidency: "EU"}
+	// No residency means EU, and the EU regions pass under both their legacy and Azure names.
+	for _, region := range []string{"eu-west", "westeurope"} {
+		got, err := ValidateProvisionUnder(ProvisionRequest{Name: "A", Region: region}, deployed, policy)
+		if err != nil || got.Residency != "EU" {
+			t.Fatalf("%s: %+v err=%v", region, got, err)
+		}
+	}
+	// A tenant may not be placed outside the boundary, whatever residency it asks for, including GLOBAL.
+	for _, residency := range []string{"", "EU", "GLOBAL", "US"} {
+		_, err := ValidateProvisionUnder(ProvisionRequest{Name: "A", Residency: residency, Region: "us-east"}, deployed, policy)
+		var rule *Error
+		if !errors.As(err, &rule) || rule.Code != CodeResidency {
+			t.Fatalf("residency %q into us-east: %v", residency, err)
+		}
+	}
+	// Without the overlay the same GLOBAL tenant in us-east is fine, and an empty residency is still refused.
+	if _, err := ValidateProvisionUnder(ProvisionRequest{Name: "A", Residency: "GLOBAL", Region: "us-east"}, deployed, ProvisionPolicy{}); err != nil {
+		t.Fatalf("no overlay: %v", err)
+	}
+	if got, err := ValidateProvisionUnder(ProvisionRequest{Name: "A", Region: "eu-west"}, deployed, ProvisionPolicy{}); err != nil || got.Residency != "GLOBAL" {
+		t.Fatalf("empty residency without the overlay = %+v err=%v", got, err)
+	}
+}
+
+func TestOperationSLOsUseTheirOwnTargetsAndFallBackToTheServiceDefaults(t *testing.T) {
+	ops, err := ParseOperationSLOs(`[{"name":"post-entry","service":"ledger","route":"/v1/ledger/journal-entries","availability":0.9995,"latencyP95Ms":500},{"name":"list-vendors","service":"party","route":"/v1/party/vendors"}]`)
+	if err != nil || len(ops) != 2 {
+		t.Fatalf("ops = %+v err=%v", ops, err)
+	}
+	fast, slow := 0.4, 0.9
+	lines := EvaluateOperations([]OperationSample{
+		{Operation: ops[0], Requests: 10000, Failed: 10, P95: &fast}, // 99.9 % is below the operation's 99.95 %
+		{Operation: ops[1], Requests: 1000, Failed: 0, P95: &slow},   // 900 ms is inside the 2 s default
+	}, SLOTargets{Availability: 0.999, LatencyP95: 2 * time.Second})
+	if lines[0].Name != "list-vendors" || lines[0].Breached || lines[0].LatencyTargetMs != 2000 || lines[0].AvailabilityTarget != 0.999 {
+		t.Fatalf("default targets: %+v", lines[0])
+	}
+	if !lines[1].AvailabilityBreach || lines[1].LatencyBreach || lines[1].LatencyTargetMs != 500 || !lines[1].Breached {
+		t.Fatalf("own targets: %+v", lines[1])
+	}
+	quiet := EvaluateOperations([]OperationSample{{Operation: ops[0]}}, SLOTargets{Availability: 0.999, LatencyP95: time.Second})
+	if !quiet[0].NoTraffic || quiet[0].Breached || quiet[0].Availability != nil {
+		t.Fatalf("no traffic: %+v", quiet[0])
+	}
+	for _, bad := range []string{`{}`, `[{"name":"a","service":"s","route":"x"}]`, `[{"name":"a","service":"s","route":"/x","availability":1}]`, `[{"name":"a","service":"s","route":"/x"},{"name":"a","service":"s","route":"/y"}]`} {
+		if _, err := ParseOperationSLOs(bad); err == nil {
+			t.Errorf("%s accepted", bad)
+		}
 	}
 }

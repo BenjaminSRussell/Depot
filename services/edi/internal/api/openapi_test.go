@@ -75,7 +75,7 @@ func TestOpenAPIDocumentsEveryOperation(t *testing.T) {
 			t.Errorf("documented but not served: %s", op)
 		}
 	}
-	if len(served) != 68 {
+	if len(served) != 71 {
 		t.Fatalf("router walk yielded %d operations: %v", len(served), served)
 	}
 }

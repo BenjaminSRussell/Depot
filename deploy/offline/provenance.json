@@ -10,6 +10,38 @@
     {
       "match": "quay.io/keycloak/keycloak",
       "unsignedUpstream": "no cosign identity for the Keycloak images has been confirmed; the image is pinned by digest, its SBOM generated here, and signed with the offline key"
+    },
+    {
+      "match": "quay.io/strimzi/*",
+      "unsignedUpstream": "Strimzi's cosign identity has not been confirmed (this repository's build environment cannot reach the registry to check); the image is pinned by digest, its SBOM generated here, and signed with the offline key. Confirm the publisher's signature identity on the connected build machine and replace this with certificateIdentityRegexp and certificateOidcIssuer"
+    },
+    {
+      "match": "quay.io/jetstack/*",
+      "unsignedUpstream": "cert-manager (Jetstack)'s cosign identity has not been confirmed (this repository's build environment cannot reach the registry to check); the image is pinned by digest, its SBOM generated here, and signed with the offline key. Confirm the publisher's signature identity on the connected build machine and replace this with certificateIdentityRegexp and certificateOidcIssuer"
+    },
+    {
+      "match": "reg.kyverno.io/kyverno/*",
+      "unsignedUpstream": "Kyverno's cosign identity has not been confirmed (this repository's build environment cannot reach the registry to check); the image is pinned by digest, its SBOM generated here, and signed with the offline key. Confirm the publisher's signature identity on the connected build machine and replace this with certificateIdentityRegexp and certificateOidcIssuer"
+    },
+    {
+      "match": "ghcr.io/kyverno/*",
+      "unsignedUpstream": "Kyverno's cosign identity has not been confirmed (this repository's build environment cannot reach the registry to check); the image is pinned by digest, its SBOM generated here, and signed with the offline key. Confirm the publisher's signature identity on the connected build machine and replace this with certificateIdentityRegexp and certificateOidcIssuer"
+    },
+    {
+      "match": "docker.io/temporalio/*",
+      "unsignedUpstream": "Temporal's cosign identity has not been confirmed (this repository's build environment cannot reach the registry to check); the image is pinned by digest, its SBOM generated here, and signed with the offline key. Confirm the publisher's signature identity on the connected build machine and replace this with certificateIdentityRegexp and certificateOidcIssuer"
+    },
+    {
+      "match": "quay.io/argoproj/*",
+      "unsignedUpstream": "Argo CD's cosign identity has not been confirmed (this repository's build environment cannot reach the registry to check); the image is pinned by digest, its SBOM generated here, and signed with the offline key. Confirm the publisher's signature identity on the connected build machine and replace this with certificateIdentityRegexp and certificateOidcIssuer"
+    },
+    {
+      "match": "ghcr.io/dexidp/*",
+      "unsignedUpstream": "the Dex project's cosign identity has not been confirmed (this repository's build environment cannot reach the registry to check); the image is pinned by digest, its SBOM generated here, and signed with the offline key. Confirm the publisher's signature identity on the connected build machine and replace this with certificateIdentityRegexp and certificateOidcIssuer"
+    },
+    {
+      "match": "public.ecr.aws/docker/library/redis",
+      "unsignedUpstream": "the Docker official image of Redis's cosign identity has not been confirmed (this repository's build environment cannot reach the registry to check); the image is pinned by digest, its SBOM generated here, and signed with the offline key. Confirm the publisher's signature identity on the connected build machine and replace this with certificateIdentityRegexp and certificateOidcIssuer"
     }
   ],
   "charts": [

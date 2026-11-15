@@ -6,7 +6,7 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { configureApi } from "../src/api";
 import { App } from "../src/App";
-import { balances, OpenItems, Payments, Statement } from "../src/pages/Account";
+import { balances, Documents, OpenItems, Payments, Statement } from "../src/pages/Account";
 import { InvoiceDetail, Invoices } from "../src/pages/Invoices";
 import { OrderDetail, Orders } from "../src/pages/Orders";
 import { ReturnDetail, Returns } from "../src/pages/Returns";
@@ -137,6 +137,18 @@ describe("account", () => {
     expect(screen.getByRole("button", { name: "Download statement PDF" })).toBeInTheDocument();
     await userEvent.type(screen.getByLabelText("As of"), "2027-03-31");
     await waitFor(() => expect(calls.some((c) => c.url === "/api/v1/statement?asOf=2027-03-31")).toBe(true));
+    expect(JSON.stringify(calls)).not.toMatch(/customer/i);
+    await accessible(container);
+  });
+});
+
+describe("documents", () => {
+  it("lists what the supplier delivered to the portal, with a download for each", async () => {
+    routes["GET /api/v1/delivered-documents"] = { items: [{ id: ID, documentType: "PERIODIC_STATEMENT", number: "Statement 2027-03-31", pages: 1, createdAt: "2027-03-31T01:00:00Z" }] };
+    const { container } = at("/documents", "/documents", <Documents />);
+    expect(await screen.findByText("Statement 2027-03-31")).toBeInTheDocument();
+    expect(screen.getByText("Statement of account")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Download Statement 2027-03-31" })).toBeInTheDocument();
     expect(JSON.stringify(calls)).not.toMatch(/customer/i);
     await accessible(container);
   });

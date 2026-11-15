@@ -52,7 +52,11 @@ export async function challengeS256(verifier: string): Promise<string> {
   return base64Url(new Uint8Array(digest));
 }
 
-export async function authorizeUrl(config: OidcConfig, origin: string, state: string, verifier: string): Promise<string> {
+/**
+ * The authorization request. `fresh` makes the identity provider ask for the credentials again even when its session is
+ * live (OIDC prompt=login, max_age=0), so the new token's auth_time is now: the step-up a 21 CFR Part 11 signature needs.
+ */
+export async function authorizeUrl(config: OidcConfig, origin: string, state: string, verifier: string, fresh = false): Promise<string> {
   const query = new URLSearchParams({
     response_type: "code",
     client_id: config.clientId,
@@ -61,6 +65,7 @@ export async function authorizeUrl(config: OidcConfig, origin: string, state: st
     state,
     code_challenge: await challengeS256(verifier),
     code_challenge_method: "S256",
+    ...(fresh ? { prompt: "login", max_age: "0" } : {}),
   });
   return `${endpoints(config.issuer).authorize}?${query.toString()}`;
 }

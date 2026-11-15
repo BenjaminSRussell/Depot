@@ -16,6 +16,7 @@ import (
 	"fmt"
 	"log/slog"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -58,6 +59,17 @@ type Config struct {
 	RevenueAccount  string
 	TaxCode         string
 	PaymentTermDays int
+	// Periods and Ledgers let an opted-in charge post only into an open receivables period (close decides): Ledgers maps the lender's
+	// legal entity to its ledger. Without them nothing is auto-posted and the proposal waits for review. Now is the clock (default
+	// time.Now).
+	Periods PeriodChecker
+	Ledgers map[string]string
+	Now     func() time.Time
+}
+
+// PeriodChecker says whether the receivables period of a date is open; internal/periods.Client (close) implements it.
+type PeriodChecker interface {
+	Open(ctx context.Context, legalEntityID, ledgerID string, date time.Time) (bool, error)
 }
 
 // Data is the part of the event this consumer reads.
@@ -79,8 +91,31 @@ type Data struct {
 	AutoPostInvoice bool `json:"autoPostInvoice"`
 }
 
+// keyOf is the Idempotency-Key of one version of a charge.
+func keyOf(id string, version int) string {
+	return store.ICChargeKeyPrefix + id + ":" + strconv.Itoa(version)
+}
+
+// earlierPosted reports whether an earlier version of the charge has a posted invoice. A later version is then never auto-posted: it
+// would bill the borrower again for the same charge while version 1 stays on the books, so it waits for a person, who credits the
+// earlier invoice first.
+func earlierPosted(ctx context.Context, s Store, d Data) (bool, error) {
+	for v := 1; v < d.Version; v++ {
+		inv, found, err := s.FindByIdempotencyKey(ctx, keyOf(d.ID, v))
+		if err != nil {
+			return false, err
+		}
+		if found && inv.Status != domain.StatusProposal {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+const reviewEarlierPosted = " [Review: an earlier version of this charge is already posted; credit it before posting this one]"
+
 // Key is the Idempotency-Key of the proposal of a charge version.
-func Key(d Data) string { return store.ICChargeKeyPrefix + d.ID + ":" + strconv.Itoa(d.Version) }
+func Key(d Data) string { return keyOf(d.ID, d.Version) }
 
 // Proposal builds the invoice proposal of a charge and the line's tax (the charge's, rounded to the currency), or the reason it
 // cannot be raised (no retry changes it).
@@ -160,11 +195,21 @@ func Handle(ctx context.Context, s Store, cfg Config, evt events.Event) (store.I
 		return store.Invoice{}, eventing.Permanent(err)
 	}
 	ctx = tenant.With(ctx, scoped)
+	earlier := false
+	if d.AutoPostInvoice && d.Version > 1 {
+		if earlier, err = earlierPosted(ctx, s, d); err != nil {
+			return store.Invoice{}, err
+		}
+	}
 	if existing, found, err := s.FindByIdempotencyKey(ctx, inv.IdempotencyKey); err != nil || found {
-		if err == nil && d.AutoPostInvoice {
-			return autoPost(ctx, s, d, existing)
+		if err == nil && d.AutoPostInvoice && !earlier {
+			return autoPost(ctx, s, cfg, d, existing)
 		}
 		return existing, err
+	}
+	if earlier {
+		// Left for review with the reason on the line.
+		line.Description = strings.TrimSpace(truncate(line.Description, maxDescription-len(reviewEarlierPosted))) + reviewEarlierPosted
 	}
 	nets, totals, err := domain.Compute(inv.Currency, []domain.Line{line}, []decimal.Decimal{tax}, decimal.Zero)
 	if err != nil {
@@ -177,8 +222,11 @@ func Handle(ctx context.Context, s Store, cfg Config, evt events.Event) (store.I
 		return store.Invoice{}, err
 	}
 	slog.InfoContext(ctx, "intercompany invoice proposal raised", "charge", d.ID, "version", d.Version, "invoice", created.ID, "legalEntity", d.LenderLegalEntityID)
-	if d.AutoPostInvoice {
-		return autoPost(ctx, s, d, created)
+	if d.AutoPostInvoice && !earlier {
+		return autoPost(ctx, s, cfg, d, created)
+	}
+	if earlier {
+		slog.WarnContext(ctx, "intercompany invoice left for review: an earlier version of the charge is posted", "charge", d.ID, "version", d.Version, "invoice", created.ID)
 	}
 	return created, nil
 }
@@ -186,7 +234,7 @@ func Handle(ctx context.Context, s Store, cfg Config, evt events.Event) (store.I
 // autoPost posts the proposal of a charge whose pairing opted in. The proposal must be exactly the charge: the currency, and a
 // gross of price plus tax; anything else is left as a proposal for review and reported as a permanent failure. An invoice that is
 // already posted (a redelivery) is returned as it is.
-func autoPost(ctx context.Context, s Store, d Data, inv store.Invoice) (store.Invoice, error) {
+func autoPost(ctx context.Context, s Store, cfg Config, d Data, inv store.Invoice) (store.Invoice, error) {
 	if inv.Status == domain.StatusPosted {
 		return inv, nil
 	}
@@ -212,10 +260,53 @@ func autoPost(ctx context.Context, s Store, d Data, inv store.Invoice) (store.In
 	if err != nil {
 		return inv, eventing.Permanent(errors.New("the charge has no transaction date"))
 	}
-	posted, err := s.PostProposal(ctx, inv.ID, date, inv.Version)
+	posting, ok, err := postingDate(ctx, cfg, d, date)
+	if err != nil {
+		return inv, err
+	}
+	if !ok {
+		slog.WarnContext(ctx, "intercompany invoice left for review: no open receivables period to post it into", "charge", d.ID, "version", d.Version, "invoice", inv.ID)
+		return inv, nil
+	}
+	posted, err := s.PostProposal(ctx, inv.ID, posting, inv.Version)
 	if err != nil {
 		return inv, err
 	}
 	slog.InfoContext(ctx, "intercompany invoice posted", "charge", d.ID, "version", d.Version, "invoice", posted.ID, "legalEntity", d.LenderLegalEntityID)
 	return posted, nil
+}
+
+// postingDate is the charge's date when its receivables period is open, else today (the first open date), the charge date staying the
+// invoice date. A date after today posts today. ok is false when close or the lender's ledger is not configured, or today's period is
+// closed too: the proposal then stays for review. A failure to ask close is an error, so the event is retried.
+func postingDate(ctx context.Context, cfg Config, d Data, day time.Time) (time.Time, bool, error) {
+	ledger := cfg.Ledgers[strings.ToLower(d.LenderLegalEntityID)]
+	if cfg.Periods == nil || ledger == "" {
+		return time.Time{}, false, nil
+	}
+	now := time.Now
+	if cfg.Now != nil {
+		now = cfg.Now
+	}
+	today := now().UTC().Truncate(24 * time.Hour)
+	if day.After(today) {
+		day = today
+	}
+	for _, candidate := range []time.Time{day, today} {
+		open, err := cfg.Periods.Open(ctx, d.LenderLegalEntityID, ledger, candidate)
+		if err != nil {
+			return time.Time{}, false, err
+		}
+		if open {
+			return candidate, true, nil
+		}
+	}
+	return time.Time{}, false, nil
+}
+
+func truncate(s string, n int) string {
+	if r := []rune(s); len(r) > n {
+		return string(r[:n])
+	}
+	return s
 }
