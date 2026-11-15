@@ -268,6 +268,8 @@ var serviceGrants = map[string]map[string][]string{
 		// Open orders at cutover (#49): the opening-order imports of sales and purchasing and their read-backs.
 		"sales":      {"sales.opening-order.import", "sales.opening-order.read"},
 		"purchasing": {"procurement.opening-order.import", "procurement.opening-order.read"},
+		// The opening asset register (#49) and, with journal=post, the opening journal through the assets service's ledger posting.
+		"assets": {"assets.opening-asset.import", "assets.opening-asset.read", "assets.journal.post"},
 		// Parallel-run replay and ROLLED_BACK compensating journals (#484).
 		"ledger": {"ledger.entry.post", "ledger.balance.read", "ledger.ledger.lookup"},
 		// Legacy customers of open items resolved through the party migration's cross-reference (H-S8-6).

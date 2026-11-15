@@ -561,6 +561,8 @@
     "sales.opening-order.read": {"service_only": true, "permissions": [{"resource": "/v1/sales/opening-orders", "methods": ["GET"]}]},
     "procurement.opening-order.import": {"service_only": true, "permissions": [{"resource": "/v1/procurement/opening-orders", "methods": ["POST"]}]},
     "procurement.opening-order.read": {"service_only": true, "permissions": [{"resource": "/v1/procurement/opening-orders", "methods": ["GET"]}]},
+    "assets.opening-asset.import": {"service_only": true, "permissions": [{"resource": "/v1/assets/opening-assets", "methods": ["POST"]}]},
+    "assets.opening-asset.read": {"service_only": true, "permissions": [{"resource": "/v1/assets/opening-assets", "methods": ["GET"]}]},
     "inventory.truck-stock.write": {"permissions": [{"resource": "/v1/inventory/truck-stock-levels", "methods": ["PUT"]}]},
     "inventory.transfer.write": {"permissions": [
       {"resource": "/v1/inventory/transfer-orders", "methods": ["POST"]},
@@ -4227,6 +4229,7 @@
       "inventory": ["inventory.import.write", "inventory.import.read", "inventory.read"],
       "sales": ["sales.opening-order.import", "sales.opening-order.read"],
       "purchasing": ["procurement.opening-order.import", "procurement.opening-order.read"],
+      "assets": ["assets.opening-asset.import", "assets.opening-asset.read", "assets.journal.post"],
       "treasury": ["treasury.import.write", "treasury.import.read"],
       "ledger": ["ledger.entry.post", "ledger.balance.read", "ledger.ledger.lookup"],
       "migration": ["migration.xref.read"]

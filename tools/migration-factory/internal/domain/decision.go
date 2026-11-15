@@ -85,7 +85,8 @@ type PackFact struct {
 	// general ledger in every currency it holds a balance in.
 	GLPosted bool
 	// TargetLoaded is true for an onhand or bank_balances run whose staged balances all reached the inventory ledger or
-	// treasury and whose totals were reconciled with the target's own (opening_load RECONCILED, nothing rejected or pending).
+	// treasury, and for a fixed_assets, wip_prod or payroll_ytd run whose lines all reached assets, production or payroll,
+	// with the totals reconciled with the target's own (opening_load or staged_load RECONCILED, nothing rejected or pending).
 	TargetLoaded bool
 }
 
@@ -114,7 +115,7 @@ func NotPostedRun(pf PackFact) string {
 	if pf.Pack == PackGLBalances && pf.GLPosted {
 		return ""
 	}
-	if TargetOfPack(pf.Pack) != "" && pf.TargetLoaded {
+	if (TargetOfPack(pf.Pack) != "" || StagedTargetOfPack(pf.Pack) != "") && pf.TargetLoaded {
 		return ""
 	}
 	if why := NotPosted(pf.Pack); why != "" {

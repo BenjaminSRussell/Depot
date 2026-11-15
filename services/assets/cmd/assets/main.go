@@ -67,7 +67,7 @@ func run(ctx context.Context, getenv func(string) string) error {
 		}
 		st = st.WithMaxBooks(n)
 	}
-	a := api.New(st)
+	a := api.New(st).WithOpeningAssets(st)
 	ledger, err := ledgerclient.FromEnv(getenv, "assets")
 	if err != nil {
 		return fmt.Errorf("ledger client: %w", err)
