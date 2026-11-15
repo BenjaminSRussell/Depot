@@ -6,6 +6,7 @@ import { dash, formatDateTime, hitStateTone, scoreText, sentence } from "./forma
 import styles from "./pages.module.css";
 import { useLoad } from "./useLoad";
 import { ProblemMessage } from "../../shell/errors";
+import { UserName } from "../../shell/lookup/UserName";
 
 export const decisionLabel: Record<HitDecision, string> = {
   CLEAR_FALSE_POSITIVE: "Clear as false positive",
@@ -96,7 +97,7 @@ export function ScreeningHitPage() {
     ["Matched on", hit.matchedFields.join(", ") || dash],
     ["State", <Badge tone={hitStateTone[hit.state]}>{sentence(hit.state)}</Badge>],
     ["Detected", formatDateTime(hit.detectedAt)],
-    ["Decided by", hit.decidedBy ? <span className={styles.mono}>{hit.decidedBy}</span> : dash],
+    ["Decided by", <UserName id={hit.decidedBy} />],
     ["Decided", formatDateTime(hit.decidedAt)],
     ["Reason", hit.reason ?? dash],
   ];

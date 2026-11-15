@@ -20,6 +20,9 @@ const (
 	CodeRateUnavailable    = "IC-0859" // the rate tables have no rate for the pair and date
 	CodeNotConfigured      = "IC-0860" // the stored registry or the ledger is not configured
 	CodeBeyondFX           = "IC-0861" // the difference is larger than an exchange difference can explain
+	CodeNoCustomerAccount  = "IC-0862" // a pairing's customer account is not a customer in the party master
+	CodeNoVendorAccount    = "IC-0863" // a pairing's vendor account is not a vendor in the party master
+	CodePartyUnavailable   = "IC-0864" // the party service could not confirm the pairing's accounts; nothing was saved
 )
 
 // Settlement modes of an IC charge (ic.chargeSettlementMode, FR-40.13).

@@ -64,7 +64,11 @@ type VendorInvoiceIntake struct {
 	DecidedBy       string     `json:"decidedBy,omitempty"`
 	DecisionNote    string     `json:"decisionNote,omitempty"`
 	VendorInvoiceID string     `json:"vendorInvoiceId,omitempty"`
-	contentHash     string
+	// LedgerEntryID is the ledger entry that posted the invoice when an intercompany charge was auto-posted (#40); AutoPostNote is why
+	// an auto-post was refused and the row left for a clerk.
+	LedgerEntryID string `json:"ledgerEntryId,omitempty"`
+	AutoPostNote  string `json:"autoPostNote,omitempty"`
+	contentHash   string
 }
 
 // WithContentHash sets the hash of the sender's document the replay check compares.
@@ -75,7 +79,7 @@ func (v VendorInvoiceIntake) WithContentHash(h string) VendorInvoiceIntake {
 
 const intakeColumns = `id::text, legal_entity_id::text, source, source_ref, content_hash, vendor_id::text, invoice_number, invoice_date::text, purpose,
 	coalesce(purchase_order_id::text, ''), purchase_order_number, currency, net::text, gross::text, lines, status, received_by, received_at,
-	decided_at, decided_by, decision_note, coalesce(vendor_invoice_id::text, '')`
+	decided_at, decided_by, decision_note, coalesce(vendor_invoice_id::text, ''), ledger_entry_id, auto_post_note`
 
 func scanIntake(row pgx.Row) (VendorInvoiceIntake, error) {
 	var v VendorInvoiceIntake
@@ -83,7 +87,7 @@ func scanIntake(row pgx.Row) (VendorInvoiceIntake, error) {
 	var lines []byte
 	if err := row.Scan(&v.ID, &v.LegalEntityID, &v.Source, &v.SourceRef, &v.contentHash, &v.VendorID, &v.InvoiceNumber, &v.InvoiceDate, &v.Purpose,
 		&v.PurchaseOrderID, &v.PurchaseOrderNumber, &v.Currency, &net, &gross, &lines, &v.Status, &v.ReceivedBy, &v.ReceivedAt,
-		&v.DecidedAt, &v.DecidedBy, &v.DecisionNote, &v.VendorInvoiceID); err != nil {
+		&v.DecidedAt, &v.DecidedBy, &v.DecisionNote, &v.VendorInvoiceID, &v.LedgerEntryID, &v.AutoPostNote); err != nil {
 		return v, err
 	}
 	v.Net, v.Gross = decimal.RequireFromString(net), decimal.RequireFromString(gross)
@@ -136,6 +140,42 @@ func (s *Postgres) ReceiveVendorInvoice(ctx context.Context, in VendorInvoiceInt
 		return err
 	})
 	return out, created, err
+}
+
+// MarkIntakePosted records that an intake row was auto-posted to the ledger as the entry entryID: its status becomes POSTED, decided by
+// the consumer. Only a row that is still RECEIVED changes; a row already POSTED (a redelivery, or a clerk's posting) is returned as
+// it is. The caller checks the status first and never auto-posts a row a clerk touched.
+func (s *Postgres) MarkIntakePosted(ctx context.Context, id, entryID, actor string) (VendorInvoiceIntake, error) {
+	var out VendorInvoiceIntake
+	err := dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
+		if _, err := tx.Exec(ctx, `update ap_vendor_invoice_intake set status = 'POSTED', ledger_entry_id = $2, decided_at = now(), decided_by = $3, auto_post_note = ''
+			where id = $1 and status = 'RECEIVED'`, id, entryID, actor); err != nil {
+			return err
+		}
+		var err error
+		out, err = scanIntake(tx.QueryRow(ctx, `select `+intakeColumns+` from ap_vendor_invoice_intake where id = $1`, id))
+		return err
+	})
+	return out, err
+}
+
+// IntakePostedBefore reports whether an earlier version of an intercompany charge has a POSTED intake row (auto-posted or posted by a
+// clerk): a later version is then never auto-posted.
+func (s *Postgres) IntakePostedBefore(ctx context.Context, chargeID string, version int) (bool, error) {
+	var found bool
+	err := dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
+		return tx.QueryRow(ctx, `select exists(select 1 from ap_vendor_invoice_intake where source = 'INTERCOMPANY' and status = 'POSTED'
+			and source_ref like $1 || ':%' and split_part(source_ref, ':', 2)::int < $2)`, chargeID, version).Scan(&found)
+	})
+	return found, err
+}
+
+// ParkIntakeAutoPost records why an auto-post was refused on a RECEIVED row, so a clerk sees it on the worklist and posts it by hand.
+func (s *Postgres) ParkIntakeAutoPost(ctx context.Context, id, reason string) error {
+	return dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
+		_, err := tx.Exec(ctx, `update ap_vendor_invoice_intake set auto_post_note = $2 where id = $1 and status = 'RECEIVED'`, id, reason)
+		return err
+	})
 }
 
 // IntakeFilter selects received vendor invoices of a legal entity, newest first, after the cursor (receivedAt, id). Status, when set,

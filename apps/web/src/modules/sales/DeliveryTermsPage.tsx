@@ -38,6 +38,7 @@ import styles from "./pages.module.css";
 import { useLoad } from "./useLoad";
 import { ProblemMessage } from "../../shell/errors";
 import { EntityName } from "../../shell/lookup/EntityName";
+import { UserName } from "../../shell/lookup/UserName";
 
 /** Changing delivery terms needs this duty (enforced by the service; the route rows are seeded under #313). */
 export const DUTY_DELIVERY_TERMS_MAINTAIN = "sales.parameter.maintain";
@@ -337,7 +338,7 @@ export function DeliveryTermsDetailPage() {
     ["Legal entity", <EntityName entity="legalEntity" id={terms.legalEntityId} />],
     ["Transport days", String(terms.transportDays)],
     ["Receives", weekdayNames(terms.receivingDays) || dash],
-    ["Changed", `${formatDateTime(terms.updatedAt)} by ${terms.updatedBy}`],
+    ["Changed", <>{formatDateTime(terms.updatedAt)} by <UserName id={terms.updatedBy} /></>],
   ];
 
   return (

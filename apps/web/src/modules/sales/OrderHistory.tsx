@@ -5,10 +5,11 @@ import { formatDateTime } from "./format";
 import styles from "./pages.module.css";
 import { useLoad } from "./useLoad";
 import { ProblemMessage } from "../../shell/errors";
+import { UserName } from "../../shell/lookup/UserName";
 
 const versionColumns: DataTableColumn<OrderVersion>[] = [
   { key: "version", header: "Version", align: "end" },
-  { key: "changedAt", header: "Changed", render: (v) => `${formatDateTime(v.changedAt)} by ${v.actor}` },
+  { key: "changedAt", header: "Changed", render: (v) => <>{formatDateTime(v.changedAt)} by <UserName id={v.actor} /></> },
   { key: "reason", header: "Reason", render: (v) => v.reason || "—" },
   { key: "fields", header: "Fields", align: "end", render: (v) => String(v.diff.length) },
 ];

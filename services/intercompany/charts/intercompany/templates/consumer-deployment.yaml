@@ -1,0 +1,111 @@
+{{- if .Values.consumer.enabled }}
+{{- if not .Values.ledgerUrl }}
+{{- fail "ledgerUrl is required when consumer.enabled is true" }}
+{{- end }}
+{{- if not .Values.serviceIdentity.signingKeySecret }}
+{{- fail "serviceIdentity.signingKeySecret is required when consumer.enabled is true" }}
+{{- end }}
+# The intercompany charge feed (#40, args [consume]): raises an intercompany charge for every expense line and project hour another
+# legal entity bears, from expense's report.approved and projects' transaction.posted. It starts only while
+# service:intercompany-charges is seeded in the service principal table. Kafka user and ACLs: deploy/kafka/intercompany-consumer.yaml.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-consumer
+  labels:
+    app.kubernetes.io/name: intercompany
+    app.kubernetes.io/component: consumer
+spec:
+  replicas: {{ .Values.consumer.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: intercompany
+      app.kubernetes.io/component: consumer
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: intercompany
+        app.kubernetes.io/component: consumer
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        fsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      volumes:
+        - name: kafka
+          secret:
+            secretName: {{ required "consumer.kafka.secret is required" .Values.consumer.kafka.secret }}
+            defaultMode: 0440
+        - name: service-identity
+          secret:
+            secretName: {{ .Values.serviceIdentity.signingKeySecret }}
+            defaultMode: 0440
+      containers:
+        - name: intercompany-consumer
+          image: {{ include "intercompany.image" . | quote }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args: [consume]
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          ports:
+            - name: admin
+              containerPort: 9090
+          env:
+            {{- include "passage.cloudEnv" $ | nindent 12 }}
+            - name: PASSAGE_SERVICE_NAME
+              value: intercompany
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.databaseSecret }}
+                  key: DATABASE_URL
+            - name: ADMIN_ADDR
+              value: ":9090"
+            - { name: LEDGER_URL, value: {{ .Values.ledgerUrl | quote }} }
+            - { name: IC_CHARGE_COST_ACCOUNT, value: {{ required "consumer.accounts.cost is required" .Values.consumer.accounts.cost | quote }} }
+            - { name: IC_CHARGE_RECOVERY_ACCOUNT, value: {{ required "consumer.accounts.recovery is required" .Values.consumer.accounts.recovery | quote }} }
+            - { name: IC_CHARGE_MARGIN_ACCOUNT, value: {{ required "consumer.accounts.margin is required" .Values.consumer.accounts.margin | quote }} }
+{{- if .Values.fxUrl }}
+            - { name: FX_URL, value: {{ .Values.fxUrl | quote }} }
+            - { name: FX_RATE_TYPE, value: {{ .Values.fxRateType | quote }} }
+{{- end }}
+{{- if .Values.orgUrl }}
+            - { name: ORG_URL, value: {{ .Values.orgUrl | quote }} }
+{{- end }}
+{{- if .Values.taxUrl }}
+            - { name: TAX_URL, value: {{ .Values.taxUrl | quote }} }
+{{- end }}
+            - name: PASSAGE_SERVICE_SIGNING_KEY_FILE
+              value: /var/run/passage/service-identity/signing-key
+{{- if .Values.serviceIdentity.keyId }}
+            - name: PASSAGE_SERVICE_KEY_ID
+              value: {{ .Values.serviceIdentity.keyId | quote }}
+{{- end }}
+            - name: KAFKA_BROKERS
+              value: {{ required "consumer.kafka.brokers is required" .Values.consumer.kafka.brokers | quote }}
+            - name: KAFKA_GROUP
+              value: {{ .Values.consumer.kafka.group | quote }}
+            - name: KAFKA_USERNAME
+              value: {{ .Values.consumer.kafka.username | quote }}
+            - name: KAFKA_PASSWORD_FILE
+              value: /var/run/passage/kafka/password
+            - name: KAFKA_TLS_CA_FILE
+              value: /var/run/passage/kafka/ca.crt
+          volumeMounts:
+            - { name: kafka, mountPath: /var/run/passage/kafka, readOnly: true }
+            - { name: service-identity, mountPath: /var/run/passage/service-identity, readOnly: true }
+          livenessProbe:
+            httpGet: { path: /healthz, port: admin }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            httpGet: { path: /readyz, port: admin }
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          resources:
+            {{- toYaml .Values.consumer.resources | nindent 12 }}
+{{- end }}

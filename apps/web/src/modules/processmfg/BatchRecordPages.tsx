@@ -48,6 +48,7 @@ import { dash, formatDateTime, shortId, UUID } from "./format";
 import styles from "./pages.module.css";
 import { useLoad } from "./useLoad";
 import { ProblemMessage } from "../../shell/errors";
+import { UserName } from "../../shell/lookup/UserName";
 
 /** Duty that changes a batch's disposition; enforced by the service (AC-24.10). */
 export const DISPOSITION_DUTY = "production.batch-disposition.write";
@@ -548,7 +549,7 @@ export function BatchDetailPage() {
           empty={{ title: "Nothing recorded yet", description: "Every value recorded on the batch is kept here." }}
         />
       </Card>
-      <p className={styles.muted}>{`Registered ${formatDateTime(batch.createdAt)} by ${batch.createdBy || "unknown"} · updated ${formatDateTime(batch.updatedAt)} · version ${batch.version}`}</p>
+      <p className={styles.muted}>{<>Registered {formatDateTime(batch.createdAt)} by <UserName id={batch.createdBy} /> · updated {formatDateTime(batch.updatedAt)} · version {batch.version}</>}</p>
     </div>
   );
 }

@@ -16,6 +16,7 @@ import { ApiError, createEco, getEco, listEcos, releaseEco, type Eco, type EcoRe
 import { EcoImpactPanel } from "./impact";
 import styles from "./pages.module.css";
 import { LookupFormField } from "../../shell/lookup/LookupFormField";
+import { UserName } from "../../shell/lookup/UserName";
 
 const ecoStates = ["draft", "submitted", "approved", "scheduled", "released", "rejected", "cancelled"];
 const releasable = ["submitted", "approved", "scheduled"];
@@ -31,7 +32,7 @@ const ecoColumns: DataTableColumn<Eco>[] = [
   { key: "state", header: "State", render: (row) => <StatusPill status={row.state} /> },
   { key: "releaseDate", header: "Release date", render: (row) => row.releaseDate ?? "On release" },
   { key: "replaces", header: "Replacements", align: "end", render: (row) => row.replaces.length },
-  { key: "decidedBy", header: "Decided by", render: (row) => row.decidedBy || "Pending" },
+  { key: "decidedBy", header: "Decided by", render: (row) => <UserName id={row.decidedBy} empty="Pending" /> },
 ];
 
 export function EcosPage({ onOpen, onCreate }: { onOpen?: (id: string) => void; onCreate?: () => void }) {
@@ -197,7 +198,7 @@ export function EcoPage({ id, onBack, onOpenBom, onOpenEcr }: { id: string; onBa
         ["Number", eco.number],
         ["State", <StatusPill status={eco.state} />],
         ["Release date", eco.releaseDate ?? "On release"],
-        ["Decided by", eco.decidedBy || "Pending"],
+        ["Decided by", <UserName id={eco.decidedBy} empty="Pending" />],
         ...(eco.ecrId ? [["Change request", onOpenEcr ? <Button size="sm" onClick={() => onOpenEcr(eco.ecrId!)}>Open change request {eco.ecrId}</Button> : eco.ecrId] as [string, React.ReactNode]] : []),
       ]
     : [];

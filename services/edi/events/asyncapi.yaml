@@ -110,7 +110,7 @@ operations:
   publishPunchoutReturned:
     action: send
     channel: { $ref: '#/channels/punchoutReturned' }
-    summary: A punchout cart came back from the supplier and was validated (BR-35.13): the lines to put on a requisition for the requester (35-3).
+    summary: 'A punchout cart came back from the supplier and was validated (BR-35.13): the lines to put on a requisition for the requester (35-3).'
   publishSelfBillingReconciled:
     action: send
     channel: { $ref: '#/channels/selfBillingReconciled' }
@@ -118,7 +118,7 @@ operations:
   publishDisputeOpened:
     action: send
     channel: { $ref: '#/channels/disputeOpened' }
-    summary: A self-billing dispute was opened: a line that differs or has no shipment, or a shipment not billed in time (35-5).
+    summary: 'A self-billing dispute was opened: a line that differs or has no shipment, or a shipment not billed in time (35-5).'
   publishDisputeResolved:
     action: send
     channel: { $ref: '#/channels/disputeResolved' }

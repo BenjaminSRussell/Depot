@@ -32,6 +32,7 @@ import { dateTime, money, SIGNED_DECIMAL, UUID } from "./format";
 import { CommandFailure, Detail, keepKeyAfter, LoadFailure } from "./parts";
 import styles from "./pages.module.css";
 import { useLoad } from "./useLoad";
+import { UserName } from "../../shell/lookup/UserName";
 
 type Errors = Record<string, string>;
 
@@ -444,7 +445,7 @@ function ReconciliationDetail({ id }: { id: string }) {
           <Detail term={recon.bookBalanceSource === "opening" ? "Book balance" : "Book balance stated by"}>
             {recon.bookBalanceSource === "opening" ? "The opening balance from the migration" : recon.bookBalanceStatedBy ? `${recon.bookBalanceStatedBy} on ${dateTime(recon.bookBalanceStatedAt)}` : "Not recorded"}
           </Detail>
-          {recon.closedAt ? <Detail term="Closed">{`${recon.closedBy ?? "Unknown"} on ${dateTime(recon.closedAt)}`}</Detail> : null}
+          {recon.closedAt ? <Detail term="Closed">{<><UserName id={recon.closedBy} /> on {dateTime(recon.closedAt)}</>}</Detail> : null}
           {recon.reopenedAt ? <Detail term="Reopened">{`${recon.reopenedBy ?? "Unknown"} on ${dateTime(recon.reopenedAt)}: ${recon.reopenReason ?? ""}`}</Detail> : null}
         </dl>
         <div className={styles.actions}>

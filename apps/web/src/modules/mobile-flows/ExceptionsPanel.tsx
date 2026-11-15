@@ -9,6 +9,7 @@ import {
   type ExceptionKind,
   type OverrideGrant,
 } from "./domain/exceptions";
+import { UserName } from "../../shell/lookup/UserName";
 
 /**
  * On-device exceptions and supervisor override (FR-32.8, BR-32.7). Device UI: it uses the
@@ -289,7 +290,7 @@ export function ExceptionsPanel({
           {log.map((e) => (
             <li key={e.id}>
               {describeEntry(e)}
-              {e.kind === "OVERRIDE" ? ` · by ${e.userId}` : ""} · {new Date(e.occurredAt).toLocaleTimeString()}
+              {e.kind === "OVERRIDE" ? <> · by <UserName id={e.userId} /></> : ""} · {new Date(e.occurredAt).toLocaleTimeString()}
             </li>
           ))}
         </ol>

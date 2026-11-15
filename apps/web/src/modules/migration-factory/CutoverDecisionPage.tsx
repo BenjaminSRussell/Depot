@@ -37,6 +37,7 @@ import { formatDateTime } from "./domain";
 import styles from "./pages.module.css";
 import { useLoad } from "./useLoad";
 import { ProblemMessage } from "../../shell/errors";
+import { UserName } from "../../shell/lookup/UserName";
 
 const statusTone: Record<ChecklistStatus, BadgeTone> = { MET: "success", OPEN: "danger", UNCONFIRMED: "warning" };
 const statusLabel: Record<ChecklistStatus, string> = { MET: "Met", OPEN: "Open", UNCONFIRMED: "Unconfirmed" };
@@ -135,7 +136,7 @@ const decisionColumns: DataTableColumn<GoNoGoDecision>[] = [
   { key: "approvers", header: "Approvers", render: (row) => row.approvers.join(", ") },
   { key: "reason", header: "Reason", render: (row) => row.reason ?? "" },
   { key: "waivers", header: "Waived packs", render: (row) => (row.waivers ?? []).map((w) => `${w.pack}: ${w.reason}`).join("; ") },
-  { key: "decidedBy", header: "Recorded by", render: (row) => row.decidedBy ?? "" },
+  { key: "decidedBy", header: "Recorded by", render: (row) => <UserName id={row.decidedBy} /> },
   { key: "decidedAt", header: "When", render: (row) => formatDateTime(row.decidedAt) },
 ];
 

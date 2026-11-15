@@ -5,6 +5,7 @@ import type { Conflict, ConflictDetail, Mitigation, Rule } from "../../../module
 import { reply, route } from "../../backend";
 import { at, table, uid } from "../../store";
 import { byUsername, ME } from "./people";
+import { userIdOf } from "../directory";
 
 const BASE = "/api/v1/sod";
 const K_CONFLICT = 625;
@@ -78,17 +79,17 @@ const seeded: Stored[] = [
   conflict("omar.siddiqui", "SOD-INV-01", "OPEN", 52),
   conflict("jordan.avery", "SOD-GL-01", "MITIGATED", 210),
   conflict("rita.alvarez", "SOD-HR-01", "MITIGATED", 140),
-  conflict("tom.becker", "SOD-SEC-01", "ACCEPTED_RISK", 300, { decidedBy: "marcus.lee", decisionReason: "Two-person IT team; quarterly access review by the CFO covers account creation.", updatedAt: at(-290), version: 2 }),
+  conflict("tom.becker", "SOD-SEC-01", "ACCEPTED_RISK", 300, { decidedBy: userIdOf("marcus.lee"), decisionReason: "Two-person IT team; quarterly access review by the CFO covers account creation.", updatedAt: at(-290), version: 2 }),
   conflict("brian.kessler", "SOD-COST-01", "RESOLVED", 420, { resolvedAt: at(-120), updatedAt: at(-120), version: 2 }),
 ];
 for (const c of seeded) {
   if (c.userId === ME.id) {
     const m = mitigation(c.id, 1, "CTRL-GL-04 Monthly review of manual journals by the CFO", "The controller approves batches others enter; the CFO reviews every journal the controller posts.", "marcus.lee", 200, 165);
-    Object.assign(c, { mitigations: [m], mitigationId: m.mitigationId, expiresAt: m.expiresAt, decidedBy: "marcus.lee", updatedAt: m.approvedAt, version: 2 });
+    Object.assign(c, { mitigations: [m], mitigationId: m.mitigationId, expiresAt: m.expiresAt, decidedBy: userIdOf("marcus.lee"), updatedAt: m.approvedAt, version: 2 });
   }
   if (c.ruleId === "SOD-HR-01") {
     const m = mitigation(c.id, 2, "CTRL-HR-02 Payroll register sign-off by the CFO", "Every pay run is released only after the CFO signs the register and the change report.", "marcus.lee", 130, 12);
-    Object.assign(c, { mitigations: [m], mitigationId: m.mitigationId, expiresAt: m.expiresAt, decidedBy: "marcus.lee", updatedAt: m.approvedAt, version: 2 });
+    Object.assign(c, { mitigations: [m], mitigationId: m.mitigationId, expiresAt: m.expiresAt, decidedBy: userIdOf("marcus.lee"), updatedAt: m.approvedAt, version: 2 });
   }
 }
 
@@ -129,13 +130,13 @@ route("POST", `${BASE}/conflicts/{id}/mitigations`, ({ params, headers, body }) 
   if (!("conflictId" in c)) return c;
   const input = (body ?? {}) as { controlRef?: string; reason?: string; expiresAt?: string };
   const m: Mitigation = { mitigationId: crypto.randomUUID(), conflictId: c.conflictId, controlRef: input.controlRef ?? "", reason: input.reason ?? "", approverId: ME.id, approvedAt: at(0), expiresAt: input.expiresAt ?? at(90) };
-  const next = conflicts.update(c.id, { state: "MITIGATED", mitigationId: m.mitigationId, expiresAt: m.expiresAt, decidedBy: ME.username, mitigations: [...c.mitigations, m], updatedAt: at(0), version: c.version + 1 })!;
+  const next = conflicts.update(c.id, { state: "MITIGATED", mitigationId: m.mitigationId, expiresAt: m.expiresAt, decidedBy: userIdOf(ME.username), mitigations: [...c.mitigations, m], updatedAt: at(0), version: c.version + 1 })!;
   return reply.versioned(detail(next), next.version);
 });
 route("POST", `${BASE}/conflicts/{id}/accept-risk`, ({ params, headers, body }) => {
   const c = guard(params.id, headers);
   if (!("conflictId" in c)) return c;
   if (c.severity === "HIGH") return reply.problem(422, "SOD-0422", "a high-severity conflict cannot be accepted; mitigate it or remove a role");
-  const next = conflicts.update(c.id, { state: "ACCEPTED_RISK", decidedBy: ME.username, decisionReason: ((body ?? {}) as { reason?: string }).reason ?? "", updatedAt: at(0), version: c.version + 1 })!;
+  const next = conflicts.update(c.id, { state: "ACCEPTED_RISK", decidedBy: userIdOf(ME.username), decisionReason: ((body ?? {}) as { reason?: string }).reason ?? "", updatedAt: at(0), version: c.version + 1 })!;
   return reply.versioned(detail(next), next.version);
 });

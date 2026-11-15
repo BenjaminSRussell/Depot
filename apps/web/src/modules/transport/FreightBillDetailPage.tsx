@@ -6,6 +6,7 @@ import { dash, fixed, formatDateTime, matchTone, money, statusLabel } from "./fo
 import styles from "./pages.module.css";
 import { useLoad } from "./useLoad";
 import { ProblemMessage } from "../../shell/errors";
+import { UserName } from "../../shell/lookup/UserName";
 
 const expectedColumns = (currency: string): DataTableColumn<Line>[] => [
   { key: "chargeCode", header: "Charge", mono: true },
@@ -40,7 +41,7 @@ const decisionColumns: DataTableColumn<Decision>[] = [
     render: (row) => `${statusLabel(row.fromStatus)} → ${statusLabel(row.toStatus)}`,
   },
   { key: "reason", header: "Reason", render: (row) => row.reason || dash },
-  { key: "decidedBy", header: "By" },
+  { key: "decidedBy", header: "By", render: (r) => <UserName id={r.decidedBy} /> },
 ];
 
 /**

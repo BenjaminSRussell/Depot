@@ -93,7 +93,7 @@ describe("warehouse exception detail", () => {
     expect(post?.body).toEqual({ note: "returned through RMA" });
     expect(new Headers(post?.init.headers).get("If-Match")).toBe('"1"');
     expect(idempotencyKey(post!)).toBeTruthy();
-    expect(await screen.findByText(/by sup/)).toBeInTheDocument();
+    await waitFor(() => expect(document.body).toHaveTextContent(/by A user who is no longer listed/));
     expect(pageViolations(container)).toEqual([]);
   });
 

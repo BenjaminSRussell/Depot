@@ -148,7 +148,7 @@ describe("ExceptionsPanel supervisor override (BR-32.7)", () => {
     fillOverride("SUP-7");
     requestOverride();
     const use = await screen.findByRole("button", { name: "Use override: Skip · L-42 · A-01" });
-    expect(exceptionLog()).toHaveTextContent("Supervisor override · L-42 · A-01 · Customer hold · by SUP-7");
+    expect(exceptionLog()).toHaveTextContent("Supervisor override · L-42 · A-01 · Customer hold · by A user who is no longer listed");
 
     // Editing the form after the grant does not change what the override authorizes.
     fillWorkLine("L-99", "B-02");

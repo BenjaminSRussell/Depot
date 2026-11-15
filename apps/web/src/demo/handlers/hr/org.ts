@@ -4,6 +4,7 @@ import { LEGAL_ENTITY } from "../../company";
 import { reply, route } from "../../backend";
 import { at, day, dec, uid } from "../../store";
 import { ELENA, JORDAN, RACHEL, TOM, displayName, person, personById } from "./people";
+import { userIdOf } from "../directory";
 
 const K_POSITION = 700;
 const K_EMPLOYMENT = 701;
@@ -156,7 +157,7 @@ const matrix = [
 ];
 const CYCLES = [
   { id: uid(K_CYCLE, 1), name: "2027 annual merit", kind: "MERIT", effectiveDate: day(52), currency: "USD", allowOverBudget: false, guidelineMatrix: matrix, budgets: [{ departmentId: "Production", budgetAmount: dec(61000) }, { departmentId: "Quality", budgetAmount: dec(18500) }, { departmentId: "Operations", budgetAmount: dec(14200) }, { departmentId: "Maintenance", budgetAmount: dec(9800) }], status: "MANAGER_INPUT", createdBy: "Rachel Osei" },
-  { id: uid(K_CYCLE, 2), name: "2026 annual merit", kind: "MERIT", effectiveDate: day(-290), currency: "USD", allowOverBudget: false, guidelineMatrix: matrix, budgets: [{ departmentId: "Production", budgetAmount: dec(54000) }, { departmentId: "Quality", budgetAmount: dec(16000) }], status: "APPLIED", createdBy: "Rachel Osei", approvedBy: "Marcus Lee", approvedAt: at(-310), appliedAt: at(-290) },
+  { id: uid(K_CYCLE, 2), name: "2026 annual merit", kind: "MERIT", effectiveDate: day(-290), currency: "USD", allowOverBudget: false, guidelineMatrix: matrix, budgets: [{ departmentId: "Production", budgetAmount: dec(54000) }, { departmentId: "Quality", budgetAmount: dec(16000) }], status: "APPLIED", createdBy: "Rachel Osei", approvedBy: userIdOf("Marcus Lee"), approvedAt: at(-310), appliedAt: at(-290) },
   { id: uid(K_CYCLE, 3), name: "2026 plant performance bonus", kind: "BONUS", effectiveDate: day(25), currency: "USD", allowOverBudget: false, guidelineMatrix: matrix.slice(1, 4), budgets: [{ departmentId: "Production", budgetAmount: dec(42000) }, { departmentId: "Maintenance", budgetAmount: dec(8000) }], status: "PLANNING", createdBy: "Rachel Osei" },
 ];
 route("GET", "/api/v1/hr/compensation/cycles", () => PAGE(CYCLES));

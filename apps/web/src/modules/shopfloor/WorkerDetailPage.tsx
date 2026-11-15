@@ -187,7 +187,7 @@ export function WorkerDetailPage() {
           </div>
           <div className={styles.entry}>
             <dt className={styles.term}>Sign-in user</dt>
-            <dd className={styles.value}>{worker.userId ? <UserName id={worker.userId} /> : dash}</dd>
+            <dd className={styles.value}><UserName id={worker.userId} /></dd>
           </div>
           <div className={styles.entry}>
             <dt className={styles.term}>Party id</dt>

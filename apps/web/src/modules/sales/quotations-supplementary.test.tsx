@@ -290,7 +290,7 @@ describe("Sales quotation detail", () => {
     });
     renderAt(`/sales/quotations/${QUOTE_ID}`);
     expect(await screen.findByText("EU-RETAIL")).toBeInTheDocument();
-    expect(screen.getByText(/Line 2: customer accepted the substitute \(approver\)/)).toBeInTheDocument();
+    expect(document.body).toHaveTextContent(/Line 2: customer accepted the substitute \(A user who is no longer listed\)/);
   });
 
   it("sends a draft, and marks it lost only with a reason", async () => {

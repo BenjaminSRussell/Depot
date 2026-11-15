@@ -3,6 +3,7 @@ import { LEGAL_ENTITY, PLANT } from "../../company";
 import { reply, route } from "../../backend";
 import { at, day, uid } from "../../store";
 import { person } from "./people";
+import { userIdOf } from "../directory";
 
 const K_INCIDENT = 715;
 const K_LOAN = 716;
@@ -56,7 +57,7 @@ const incidentRow = (i: Incident) => {
     outcome: i.outcome,
     privacyCase: i.privacy ?? false,
     status: i.status,
-    reportedBy: "Nadia Petrov",
+    reportedBy: userIdOf("Nadia Petrov"),
     ...(i.status === "CLOSED" ? { reviewedBy: "Nadia Petrov", closedBy: "Jordan Avery", closedAt: at(i.occurred + 14) } : {}),
     details: { description: i.description, witnesses: i.privacy ? [] : ["Tom Brennan"], treatments: i.treatment ? ["First aid on site", "Referred to occupational health"] : ["First aid on site"], ...(i.rootCause ? { rootCause: i.rootCause } : {}), ...(i.action ? { correctiveAction: i.action } : {}) },
   };

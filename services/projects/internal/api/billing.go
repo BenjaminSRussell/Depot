@@ -9,6 +9,7 @@ import (
 	"github.com/BenjaminSRussell/passage/platform/authz"
 	"github.com/BenjaminSRussell/passage/platform/httpx"
 	"github.com/BenjaminSRussell/passage/platform/ids"
+	"github.com/BenjaminSRussell/passage/platform/tenant"
 	"github.com/BenjaminSRussell/passage/services/projects/internal/domain"
 	"github.com/BenjaminSRussell/passage/services/projects/internal/store"
 )
@@ -33,22 +34,24 @@ type categoryList struct {
 // transactionRequest is the wire shape of POST /v1/projects/transactions. The
 // caller gives the quantity and unit prices; the amounts are computed (BR-41.5).
 type transactionRequest struct {
-	ProjectID     string  `json:"projectId"`
-	WBSNodeID     *string `json:"wbsNodeId,omitempty"`
-	TxnType       string  `json:"txnType"`
-	CategoryID    string  `json:"categoryId"`
-	LineProperty  string  `json:"lineProperty"`
-	TxnDate       string  `json:"txnDate"`
-	Quantity      string  `json:"quantity"`
-	CostPrice     string  `json:"costPrice"`
-	SalesPrice    string  `json:"salesPrice"`
-	Currency      string  `json:"currency"`
-	WorkerID      *string `json:"workerId,omitempty"`
-	ItemID        *string `json:"itemId,omitempty"`
-	VendorPartyID *string `json:"vendorPartyId,omitempty"`
-	SourceDocType string  `json:"sourceDocType,omitempty"`
-	SourceDocID   *string `json:"sourceDocId,omitempty"`
-	Description   string  `json:"description,omitempty"`
+	ProjectID    string  `json:"projectId"`
+	WBSNodeID    *string `json:"wbsNodeId,omitempty"`
+	TxnType      string  `json:"txnType"`
+	CategoryID   string  `json:"categoryId"`
+	LineProperty string  `json:"lineProperty"`
+	TxnDate      string  `json:"txnDate"`
+	Quantity     string  `json:"quantity"`
+	CostPrice    string  `json:"costPrice"`
+	SalesPrice   string  `json:"salesPrice"`
+	Currency     string  `json:"currency"`
+	WorkerID     *string `json:"workerId,omitempty"`
+	// WorkerLegalEntityID is the legal entity that employs the worker of an HOUR transaction (#40).
+	WorkerLegalEntityID *string `json:"workerLegalEntityId,omitempty"`
+	ItemID              *string `json:"itemId,omitempty"`
+	VendorPartyID       *string `json:"vendorPartyId,omitempty"`
+	SourceDocType       string  `json:"sourceDocType,omitempty"`
+	SourceDocID         *string `json:"sourceDocId,omitempty"`
+	Description         string  `json:"description,omitempty"`
 }
 
 type transactionList struct {
@@ -166,7 +169,7 @@ func (a *API) createTransaction(w http.ResponseWriter, r *http.Request) {
 		ProjectID: req.ProjectID, WBSNodeID: req.WBSNodeID, TxnType: domain.TxnType(req.TxnType),
 		CategoryID: req.CategoryID, LineProperty: req.LineProperty, TxnDate: req.TxnDate,
 		Quantity: req.Quantity, CostPrice: req.CostPrice, SalesPrice: req.SalesPrice, Currency: req.Currency,
-		WorkerID: req.WorkerID, ItemID: req.ItemID, VendorPartyID: req.VendorPartyID,
+		WorkerID: req.WorkerID, WorkerLegalEntityID: req.WorkerLegalEntityID, ItemID: req.ItemID, VendorPartyID: req.VendorPartyID,
 		SourceDocType: req.SourceDocType, SourceDocID: req.SourceDocID, Description: strings.TrimSpace(req.Description),
 	}
 	if in.SourceDocType == "" {
@@ -179,13 +182,18 @@ func (a *API) createTransaction(w http.ResponseWriter, r *http.Request) {
 		fields["projectId"] = "must be a project id"
 	}
 	for name, v := range map[string]*string{"wbsNodeId": in.WBSNodeID, "workerId": in.WorkerID, "itemId": in.ItemID,
-		"vendorPartyId": in.VendorPartyID, "sourceDocId": in.SourceDocID} {
+		"vendorPartyId": in.VendorPartyID, "sourceDocId": in.SourceDocID, "workerLegalEntityId": in.WorkerLegalEntityID} {
 		if v != nil && !ids.Valid(*v) {
 			fields[name] = "must be a UUID"
 		}
 	}
 	if len(fields) > 0 {
 		httpx.Fail(w, r, validation(fields))
+		return
+	}
+	// The employing entity charges the hours to the project's entity (#40): the submitter must be able to act in it.
+	if in.WorkerLegalEntityID != nil && !tenant.InLegalEntityScope(p, *in.WorkerLegalEntityID) {
+		httpx.Fail(w, r, httpx.NewProblem(http.StatusForbidden, "AUTH-0003", "the legal entity that employs the worker is outside your legal-entity scope"))
 		return
 	}
 	if err := domain.PriceLine(&in); err != nil {

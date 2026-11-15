@@ -5,6 +5,7 @@ import { dash, formatUtc } from "./format";
 import styles from "./pages.module.css";
 import { BackLink, ConfirmAction, Entry, Facts, humanize, ListPage, Loaded, SelectField, Status, labelled, useAction } from "./parts";
 import { useLoad } from "./useLoad";
+import { UserName } from "../../shell/lookup/UserName";
 
 const STATUSES: IncidentStatus[] = ["REPORTED", "UNDER_REVIEW", "CLOSED"];
 
@@ -142,7 +143,7 @@ export function IncidentDetailPage() {
                 <Entry term="Days away / restricted" mono>{`${incident.daysAway ?? 0} / ${incident.daysRestricted ?? 0}`}</Entry>
                 <Entry term="OSHA recordable">{incident.oshaRecordable ? "Yes" : "No"}</Entry>
                 <Entry term="Reported by" mono>
-                  {incident.reportedBy}
+                  <UserName id={incident.reportedBy} />
                 </Entry>
                 {incident.supersedesId ? (
                   <Entry term="Corrects">

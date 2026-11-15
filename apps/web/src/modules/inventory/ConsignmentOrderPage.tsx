@@ -10,6 +10,7 @@ import { Named } from "../purchasing/Named";
 import styles from "./pages.module.css";
 import { useLoad } from "./useLoad";
 import { ProblemMessage } from "../../shell/errors";
+import { UserName } from "../../shell/lookup/UserName";
 
 /** The line's own dimensions; site, warehouse and owner are on the order. */
 const LINE_ONLY = ALL_DIMENSIONS.filter((name) => name !== "site" && name !== "warehouse" && name !== "owner");
@@ -265,7 +266,7 @@ export function ConsignmentOrderPage() {
           <Detail term="Created">{formatDateTime(order.createdAt)}</Detail>
           {order.closedAt ? (
             <Detail term={order.status === "CANCELLED" ? "Cancelled" : "Closed"}>
-              {`${formatDateTime(order.closedAt)}${order.closedBy ? ` by ${order.closedBy}` : ""}`}
+              <>{formatDateTime(order.closedAt)}{order.closedBy ? <> by <UserName id={order.closedBy} /></> : null}</>
             </Detail>
           ) : null}
           {order.closeReason ? <Detail term="Reason">{order.closeReason}</Detail> : null}

@@ -180,7 +180,7 @@ describe("realignment run", () => {
   it("reverses a posted run and shows a refusal from the service", async () => {
     fake(posted);
     renderAt(`/ledger/realignments/${RUN_ID}?ledger=${LEDGER}`);
-    expect(await screen.findByText(/Reason REORG, posted by controller/)).toBeInTheDocument();
+    await waitFor(() => expect(document.body).toHaveTextContent(/Reason REORG, posted by A user who is no longer listed/));
     expect(screen.getByRole("link", { name: "0190a000" })).toHaveAttribute("href", "/ledger/entries/0190a000-0000-7000-8000-0000000000f1");
     expect(screen.getByLabelText("Reason code")).toHaveValue("REORG");
     server.handler = () => json(422, { code: "LEDGER_REALIGNMENT_PERIOD_CLOSED", detail: "period 2026-01 is closed" });

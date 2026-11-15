@@ -6,6 +6,7 @@ import { fetchAutoClearingRule, fetchAutoClearingRules, fetchAutoClearingRun, fe
 import { LedgerPicker, ledgerQuery, useLedgerParam } from "./LedgerPicker";
 import { errorText } from "./OpenItemsPage";
 import styles from "./pages.module.css";
+import { UserName } from "../../shell/lookup/UserName";
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -114,7 +115,7 @@ export function AutoClearingRunPage() {
     { key: "groupsCleared", header: "Cleared", align: "end", mono: true },
     { key: "groupsSkipped", header: "Skipped", align: "end", mono: true },
     { key: "itemsCleared", header: "Items", align: "end", mono: true },
-    { key: "createdBy", header: "Run by" },
+    { key: "createdBy", header: "Run by", render: (r) => <UserName id={r.createdBy} /> },
   ];
 
   return (
@@ -201,7 +202,7 @@ export function AutoClearingRunDetailPage() {
   const query = ledgerQuery(ledgerId || run.data?.ledgerId || "");
   return (
     <div className={styles.stack}>
-      <PageHeader title="Automatic clearing run" description={run.data ? `Cleared on ${run.data.clearingDate}${run.data.createdBy ? ` by ${run.data.createdBy}` : ""}. ${run.data.ruleId ? `Rule: ${rule.data?.name ?? "loading"}.` : "All active rules."}` : undefined} actions={<Link to={`/ledger/auto-clearing${query}`}>Back to automatic clearing</Link>} />
+      <PageHeader title="Automatic clearing run" description={run.data ? <>Cleared on {run.data.clearingDate}{run.data.createdBy ? <> by <UserName id={run.data.createdBy} /></> : null}. {run.data.ruleId ? `Rule: ${rule.data?.name ?? "loading"}.` : "All active rules."}</> : undefined} actions={<Link to={`/ledger/auto-clearing${query}`}>Back to automatic clearing</Link>} />
       {run.isPending ? (
         <Skeleton height="tile" />
       ) : run.isError ? (

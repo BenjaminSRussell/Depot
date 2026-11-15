@@ -1,11 +1,8 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Alert, Button, buttonClassName, Card, DataTable, FormField, Input, PageHeader, Select, StatusPill, type DataTableColumn } from "../../shell/ui";
-import { describeProblem, type Problem } from "./api/client";
+import { buttonClassName, ListPage, StatusPill, type ListColumn, type ListData, type ListFilterDef, type ListQuery } from "../../shell/ui";
 import { listPartners, type Partner, type PartnerQuery } from "./api/partners";
 import { pricingLabels } from "./PartnerFormPage";
-import styles from "./pages.module.css";
-import { ProblemMessage } from "../../shell/errors";
 
 /** "±0.5 % price, ±2 days" */
 export function toleranceText(p: Partner): string {
@@ -16,7 +13,7 @@ export function pricingText(p: Partner): string {
   return p.pricing === "CostPlus" ? `${pricingLabels.CostPlus} ${p.markupPct} %` : pricingLabels[p.pricing];
 }
 
-const columns: DataTableColumn<Partner>[] = [
+const columns: ListColumn<Partner>[] = [
   { key: "direction", header: "Seller to buyer", mono: true, render: (p) => `${p.sellerEntity} → ${p.buyerEntity}` },
   { key: "accounts", header: "Customer / vendor", mono: true, render: (p) => `${p.customerAccount} / ${p.vendorAccount}` },
   { key: "pricing", header: "Pricing", render: pricingText },
@@ -25,117 +22,79 @@ const columns: DataTableColumn<Partner>[] = [
   { key: "version", header: "Version", align: "end", render: (p) => String(p.version) },
 ];
 
-type Show = "all" | "active" | "inactive";
+const filters: ListFilterDef[] = [
+  { kind: "text", key: "entity", label: "Entity" },
+  {
+    kind: "select",
+    key: "active",
+    label: "Status",
+    anyLabel: "All pairings",
+    options: [
+      { value: "true", label: "Active only" },
+      { value: "false", label: "Inactive only" },
+    ],
+  },
+];
 
-interface ListState {
-  loading: boolean;
-  items: Partner[];
-  next?: string;
-  failure: Problem | null;
+/** The pairings the server filters by entity (either side) and status, loaded page by page as the person asks for more. */
+function usePartnerRows(query: ListQuery): ListData<Partner> {
+  const entity = query.filters.entity?.trim() || undefined;
+  const active = query.filters.active === undefined || query.filters.active === "" ? undefined : query.filters.active === "true";
+  const [state, setState] = useState<{ rows: Partner[]; next?: string; loading: boolean; loadingMore: boolean; error?: unknown }>({ rows: [], loading: true, loadingMore: false });
+  const [reload, setReload] = useState(0);
+
+  useEffect(() => {
+    const ctl = new AbortController();
+    setState((s) => ({ ...s, loading: true, error: undefined }));
+    const request: PartnerQuery = { entity, active };
+    listPartners(request, ctl.signal)
+      .then((page) => setState({ rows: page.items, next: page.nextCursor, loading: false, loadingMore: false }))
+      .catch((error: unknown) => {
+        if (!ctl.signal.aborted) setState({ rows: [], loading: false, loadingMore: false, error });
+      });
+    return () => ctl.abort();
+  }, [entity, active, reload]);
+
+  const loadMore = useCallback(() => {
+    if (!state.next) return;
+    setState((s) => ({ ...s, loadingMore: true }));
+    listPartners({ entity, active, after: state.next })
+      .then((page) => setState((s) => ({ ...s, rows: [...s.rows, ...page.items], next: page.nextCursor, loadingMore: false })))
+      .catch((error: unknown) => setState((s) => ({ ...s, loadingMore: false, error })));
+  }, [state.next, entity, active]);
+
+  return {
+    rows: state.rows,
+    loading: state.loading,
+    loadingMore: state.loadingMore,
+    error: state.error,
+    hasMore: Boolean(state.next),
+    loadMore,
+    retry: () => setReload((n) => n + 1),
+  };
 }
 
 /** The tenant's trading-partner pairings (FR-40.1). */
 export function PartnersPage() {
   const navigate = useNavigate();
-  const [entity, setEntity] = useState("");
-  const [show, setShow] = useState<Show>("all");
-  const [query, setQuery] = useState<PartnerQuery>({});
-  const [reload, setReload] = useState(0);
-  const [state, setState] = useState<ListState>({ loading: true, items: [], failure: null });
-  const [more, setMore] = useState(false);
-
-  useEffect(() => {
-    const ctl = new AbortController();
-    setState((s) => ({ ...s, loading: true, failure: null }));
-    listPartners(query, ctl.signal)
-      .then((page) => setState({ loading: false, items: page.items, next: page.nextCursor, failure: null }))
-      .catch((err: unknown) => {
-        if (!ctl.signal.aborted) setState({ loading: false, items: [], failure: describeProblem(err) });
-      });
-    return () => ctl.abort();
-  }, [query, reload]);
-
-  function applyFilter(event: FormEvent) {
-    event.preventDefault();
-    setQuery({ entity: entity.trim() || undefined, active: show === "all" ? undefined : show === "active" });
-  }
-
-  async function loadMore() {
-    if (!state.next) return;
-    setMore(true);
-    try {
-      const page = await listPartners({ ...query, after: state.next });
-      setState((s) => ({ ...s, items: [...s.items, ...page.items], next: page.nextCursor }));
-    } catch (err) {
-      setState((s) => ({ ...s, failure: describeProblem(err) }));
-    } finally {
-      setMore(false);
-    }
-  }
-
   return (
-    <div className={styles.stack}>
-      <PageHeader
-        title="Trading partners"
-        description="Each pairing links a customer in the seller entity with a vendor in the buyer entity, with the actions, pricing and change tolerance the mirror documents follow. Every policy change is a new version."
-        actions={
-          <Link className={buttonClassName("primary")} to="/intercompany/partners/new">
-            New trading partner
-          </Link>
-        }
-      />
-      <Card>
-        <form className={styles.filters} onSubmit={applyFilter} noValidate>
-          <FormField id="partners-entity" label="Entity" optional hint="Either side of the pairing.">
-            {(control) => <Input {...control} className={styles.mono} value={entity} onChange={(e) => setEntity(e.target.value)} />}
-          </FormField>
-          <FormField id="partners-show" label="Show">
-            {(control) => (
-              <Select {...control} value={show} onChange={(e) => setShow(e.target.value as Show)}>
-                <option value="all">All pairings</option>
-                <option value="active">Active only</option>
-                <option value="inactive">Inactive only</option>
-              </Select>
-            )}
-          </FormField>
-          <Button type="submit">Apply filter</Button>
-        </form>
-      </Card>
-      {state.failure ? (
-        <Alert
-          tone="danger"
-          title="We couldn't load the trading partners"
-          live="alert"
-          action={
-            <Button size="sm" onClick={() => setReload((n) => n + 1)}>
-              Try again
-            </Button>
-          }
-        >
-          <ProblemMessage problem={state.failure} />
-        </Alert>
-      ) : (
-        <DataTable
-          label="Trading partners"
-          columns={columns}
-          rows={state.items}
-          getRowKey={(p) => p.id}
-          loading={state.loading}
-          onRowOpen={(p) => navigate(`/intercompany/partners/${p.id}`)}
-          empty={
-            query.entity || query.active !== undefined
-              ? { title: "No pairings match", description: "Try another entity or show all pairings." }
-              : { title: "No trading partners yet", description: "Pair a customer in one entity with a vendor in another to trade between them." }
-          }
-        />
-      )}
-      {state.next && !state.failure ? (
-        <div className={styles.formActions}>
-          <Button loading={more} onClick={() => void loadMore()}>
-            Show more pairings
-          </Button>
-        </div>
-      ) : null}
-    </div>
+    <ListPage
+      id="intercompany-partners"
+      title="Trading partners"
+      description="Each pairing links a customer in the seller entity with a vendor in the buyer entity, with the actions, pricing and change tolerance the mirror documents follow. Every policy change is a new version."
+      actions={
+        <Link className={buttonClassName("primary")} to="/intercompany/partners/new">
+          New trading partner
+        </Link>
+      }
+      noun="pairings"
+      singular="pairing"
+      columns={columns}
+      filters={filters}
+      useRows={usePartnerRows}
+      getRowKey={(p) => p.id}
+      onRowOpen={(p) => navigate(`/intercompany/partners/${p.id}`)}
+      empty={{ title: "No trading partners yet", description: "Pair a customer in one entity with a vendor in another to trade between them." }}
+    />
   );
 }

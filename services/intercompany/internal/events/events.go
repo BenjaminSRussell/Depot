@@ -124,4 +124,7 @@ type ChargeInvoiceRequestedData struct {
 	BorrowerLegalEntityID string `json:"borrowerLegalEntityId,omitempty"`
 	CustomerAccount       string `json:"customerAccount,omitempty"`
 	VendorAccount         string `json:"vendorAccount,omitempty"`
+	// AutoPostInvoice is the active pairing's autoPostInvoice action flag: when true billing posts the lender's proposal and
+	// payables posts the borrower's vendor invoice without review. False (the default) leaves both for a person.
+	AutoPostInvoice bool `json:"autoPostInvoice"`
 }

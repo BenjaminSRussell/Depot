@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -141,6 +142,8 @@ type lineDTO struct {
 	HasReceipt    bool   `json:"hasReceipt"`
 	Justification string `json:"justification"`
 	PaidBy        string `json:"paidBy"`
+	// ChargeToLegalEntityID is the legal entity that bears the line's cost when it is not the entity paying the report (#40).
+	ChargeToLegalEntityID string `json:"chargeToLegalEntityId,omitempty"`
 }
 
 type evaluationRequest struct {
@@ -371,11 +374,15 @@ func toLine(fields map[string]string, prefix string, l lineDTO) (domain.Line, bo
 	if l.PaidBy != "" && l.PaidBy != domain.PaidByEmployee && l.PaidBy != domain.PaidByCompanyCard {
 		fields[prefix+"paidBy"] = "must be EMPLOYEE or COMPANY_CARD"
 	}
+	if l.ChargeToLegalEntityID != "" && !ids.Valid(l.ChargeToLegalEntityID) {
+		fields[prefix+"chargeToLegalEntityId"] = "must be a legal entity id (UUID)"
+	}
 	date := parseDate(fields, prefix+"txnDate", l.TxnDate)
 	amount := money(fields, prefix+"amount", l.Amount)
 	return domain.Line{
 		ID: l.ID, Category: l.Category, TxnDate: date, Amount: amount, Merchant: l.Merchant,
 		Attendees: l.Attendees, HasReceipt: l.HasReceipt, Justification: l.Justification, PaidBy: l.PaidBy,
+		ChargeToLegalEntityID: strings.ToLower(l.ChargeToLegalEntityID),
 	}, len(fields) == before
 }
 

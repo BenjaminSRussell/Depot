@@ -908,6 +908,8 @@ components:
         net: { type: string }
         gross: { type: string }
         status: { type: string, enum: [RECEIVED, POSTED, REJECTED], description: "RECEIVED waits for an AP clerk; POSTED once the clerk recorded the vendor invoice posted from it; REJECTED with decisionNote." }
+        ledgerEntryId: { type: string, description: "The ledger entry that auto-posted an intercompany charge (#40); only then" }
+        autoPostNote: { type: string, description: "Why an auto-post was refused and the row left for a clerk (#40)" }
         receivedBy: { type: string }
         receivedAt: { type: string, format: date-time }
         decidedAt: { type: string, format: date-time }
