@@ -33,7 +33,7 @@ const columns: ListColumn<Outcome>[] = [
   { key: "active", header: "Status", sortValue: (row) => (row.active ? 0 : 1), render: (row) => <Badge tone={row.active ? "success" : "neutral"}>{row.active ? "Active" : "Retired"}</Badge> },
   {
     key: "edit",
-    header: "",
+    header: "Details",
     render: (row) => (
       <Link to={`/quality/outcomes/${row.id}`} aria-label={`Edit ${row.name}`}>
         Edit

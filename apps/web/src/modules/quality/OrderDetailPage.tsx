@@ -26,7 +26,7 @@ function resultColumns(order: OrderView, instruments: Instrument[]): DataTableCo
     { key: "sampleNo", header: "Sample", align: "end", render: (row) => String(row.sampleNo) },
     { key: "testId", header: "Test", render: (row) => names.get(row.testId) ?? shortId(row.testId) },
     { key: "retestNo", header: "Retest", align: "end", render: (row) => (row.retestNo > 0 ? String(row.retestNo) : dash) },
-    { key: "value", header: "Value or outcome", mono: true, render: (row) => (row.value !== undefined ? qty(row.value) : shortId(row.outcomeId)) },
+    { key: "value", header: "Value or outcome", mono: true, render: (row) => (row.value !== undefined ? qty(row.value) : (row.outcomeCode ?? shortId(row.outcomeId))) },
     {
       key: "passed",
       header: "Result",

@@ -4,6 +4,7 @@ import "./ledger";
 import "./org";
 import "./admin";
 import "./compliance";
+import "./auditPolicies";
 import "./assets";
 import "./expense";
 import "./finreport";

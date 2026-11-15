@@ -98,8 +98,8 @@ function fillForm() {
   fill("Sales order", ORDER);
   fill("Slip date", "2027-03-09");
   fill("Slip charge", "12.50");
-  fill("Slip line id", SLIP_LINE);
-  fill("Order line id", ORDER_LINE);
+  fill("Slip line", SLIP_LINE);
+  fill("Order line", ORDER_LINE);
   fill("Product", PRODUCT);
   fill("Description", "Widget");
   fill("Shipped quantity", "2");
@@ -209,10 +209,10 @@ describe("Invoice shipments", () => {
     fireEvent.click(screen.getByRole("button", { name: "Add packing slip" }));
     expect(screen.getAllByLabelText("Packing slip")).toHaveLength(2);
     fireEvent.click(screen.getByRole("button", { name: "Add line to slip 2" }));
-    expect(screen.getAllByLabelText("Slip line id")).toHaveLength(3);
+    expect(screen.getAllByLabelText("Slip line")).toHaveLength(3);
     fireEvent.click(screen.getByRole("button", { name: "Remove packing slip 1" }));
     expect(screen.getAllByLabelText("Packing slip")).toHaveLength(1);
-    expect(screen.getAllByLabelText("Slip line id")).toHaveLength(2);
+    expect(screen.getAllByLabelText("Slip line")).toHaveLength(2);
   });
 });
 

@@ -168,7 +168,7 @@ describe("build loads", () => {
         ? json(201, { items: [load(), load({ id: LOAD2, shipmentIds: [SHIP2], totalWeightKg: "800" })] })
         : undefined;
     const { container } = renderAt("/transport/loads/build");
-    fill("Shipment 1 shipment id", SHIP1);
+    fill("Shipment 1 shipment", SHIP1);
     fill("Shipment 1 ship-from site", SITE);
     fill("Shipment 1 ship-to region", "us-se");
     fill("Shipment 1 pickup date", "2026-06-01");
@@ -187,7 +187,7 @@ describe("build loads", () => {
   it("shows a shipment that is too large or already planned", async () => {
     handler = () => problem(409, "TMS-0116", `shipment ${SHIP1} is already on load ${LOAD2}`);
     renderAt("/transport/loads/build");
-    fill("Shipment 1 shipment id", SHIP1);
+    fill("Shipment 1 shipment", SHIP1);
     fill("Shipment 1 ship-from site", SITE);
     fill("Shipment 1 ship-to region", "US-SE");
     fill("Shipment 1 pickup date", "2026-06-01");
@@ -286,6 +286,7 @@ describe("load detail", () => {
 describe("freight bill decisions", () => {
   const bill = (extra: Partial<FreightBillDetail> = {}): FreightBillDetail => ({
     id: BILL,
+    billNumber: "FB-000042",
     loadId: LOAD,
     carrierId: CARRIER,
     currency: "USD",

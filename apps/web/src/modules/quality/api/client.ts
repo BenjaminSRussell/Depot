@@ -163,6 +163,8 @@ export interface Result {
   retestNo: number;
   value?: string;
   outcomeId?: string;
+  /** The outcome's code in the master; absent for an outcome id that predates the master. */
+  outcomeCode?: string;
   passed: boolean;
   instrumentId?: string;
   recordedBy: string;

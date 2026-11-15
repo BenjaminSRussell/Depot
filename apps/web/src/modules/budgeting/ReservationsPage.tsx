@@ -52,6 +52,7 @@ import styles from "./pages.module.css";
 import { dash, Detail, formatDateTime, LoadError, ResultBadge } from "./parts";
 import { useLoad } from "./useLoad";
 import { EntityLookup } from "../../shell/lookup/EntityLookup";
+import { EntityName } from "../../shell/lookup/EntityName";
 
 const money = (key: string, header: string) => ({ key, header, align: "end" as const, mono: true });
 
@@ -401,8 +402,8 @@ export function ReservationDetailPage() {
       </StatGroup>
       <Card>
         <dl className={styles.details}>
-          <Detail term="Legal entity" mono>
-            {res.legalEntityId}
+          <Detail term="Legal entity">
+            <EntityName entity="legalEntity" id={res.legalEntityId} />
           </Detail>
           <Detail term="Expires" mono>
             {res.expiryDate ?? "No expiry"}

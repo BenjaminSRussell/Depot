@@ -504,11 +504,7 @@ describe("purchase orders", () => {
     fireEvent.change(await screen.findByLabelText("Legal entity"), { target: { value: LE } });
     fireEvent.change(screen.getByLabelText("Vendor"), { target: { value: VENDOR } });
     fireEvent.change(screen.getByLabelText("Product"), { target: { value: PRODUCT } });
-    fireEvent.change(screen.getByLabelText("Agreement line id"), { target: { value: "nope" } });
-    fireEvent.click(screen.getByRole("button", { name: "Save purchase order" }));
-    expect(await screen.findByText("Agreement line id must be a UUID.")).toBeInTheDocument();
-    expect(fetchMock.mock.calls.some(([, i]) => (i as RequestInit).method === "POST")).toBe(false);
-    fireEvent.change(screen.getByLabelText("Agreement line id"), { target: { value: AGR_LINE } });
+    fireEvent.change(screen.getByLabelText("Agreement line"), { target: { value: AGR_LINE } });
     fireEvent.click(screen.getByRole("button", { name: "Save purchase order" }));
     await waitFor(() => expect(router.state.location.pathname).toBe(`/purchasing/purchase-orders/${PO_ID}`));
     expect(JSON.parse(String((fetchMock.mock.calls.find(([, i]) => (i as RequestInit).method === "POST") as [string, RequestInit])[1].body)).lines[0].agreementLineId).toBe(AGR_LINE);

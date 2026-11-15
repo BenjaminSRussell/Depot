@@ -1,37 +1,5 @@
 {
   "entries": {
-    "modules/analytics/SchedulesPage.tsx": {
-      "labels": [
-        "Saved query id"
-      ],
-      "reason": "Free-text key: a saved explorer query has no store or list in the analytics service, so its id is typed. A dashboard target is a dashboard lookup."
-    },
-    "modules/billing/NewShipmentProposalPage.tsx": {
-      "labels": [
-        "Order line id",
-        "Slip line id"
-      ],
-      "reason": "Slip lines and order lines belong to the packing slip and sales order chosen above; no lookup entity lists them on their own (the slip, order, customer and product are lookups)."
-    },
-    "modules/budgeting/CheckPage.tsx": {
-      "labels": [
-        "Document id"
-      ],
-      "reason": "A budget document is any source document (requisition, PO, invoice); no single list spans them, so the field stays a typed id."
-    },
-    "modules/budgeting/ReservationsPage.tsx": {
-      "labels": [
-        "Document id",
-        "Document line id"
-      ],
-      "reason": "A reservation names any source document and one of its lines; no single list spans them, so the fields stay typed ids."
-    },
-    "modules/compliance/AuditRunPage.tsx": {
-      "labels": [
-        "Policy id"
-      ],
-      "reason": "Free-text key the caller assigns: compliance stores no audit policies (the whole rule is entered on this page and evaluated statelessly), and the id only keys the findings across runs. A policy master would be a new subsystem."
-    },
     "modules/compliance/ScreeningCheckPage.tsx": {
       "labels": [
         "Document id"
@@ -67,54 +35,6 @@
         "Object id"
       ],
       "reason": "Free-text key: the estimated object is a quote, internal order or project task reference (such as Q-1001) that the costing service stores as text and does not look up."
-    },
-    "modules/purchasing/PurchaseOrderPages.tsx": {
-      "labels": [
-        "Agreement line id"
-      ],
-      "reason": "An agreement line is picked from the trade agreement's lines; no lookup entity lists them on their own."
-    },
-    "modules/purchasing/ServicePages.tsx": {
-      "labels": [
-        "Contract agreement line id"
-      ],
-      "reason": "An agreement line is picked from the contract's lines; no lookup entity lists them on their own."
-    },
-    "modules/quality/CertificatesPanel.tsx": {
-      "labels": [
-        "Certificate outcome id"
-      ],
-      "reason": "Structural: inspection outcomes are rows of one quality order with no master record or number of their own; there is nothing to list them from outside the order."
-    },
-    "modules/quality/ResultsEntry.tsx": {
-      "labels": [
-        "Outcome id"
-      ],
-      "reason": "Structural: inspection outcomes are rows of one quality order with no master record or number of their own; there is nothing to list them from outside the order."
-    },
-    "modules/transport/BuildLoadsPage.tsx": {
-      "labels": [
-        "Shipment id"
-      ],
-      "reason": "Structural: a load is built from sales, transfer and inbound shipments, which fulfillment, inventory and receiving own; no single list spans the three, so the field stays a typed id."
-    },
-    "modules/transport/NewCarrierInvoicePage.tsx": {
-      "labels": [
-        "Freight bill id"
-      ],
-      "reason": "Freight bills read by load and carrier, with no number of their own; the carrier is a vendor lookup."
-    },
-    "modules/transport/NewRateCardPage.tsx": {
-      "labels": [
-        "Service id"
-      ],
-      "reason": "Carrier services are carrier/party master data the transport service does not list yet; the carrier is a vendor lookup."
-    },
-    "modules/transport/RateShopPage.tsx": {
-      "labels": [
-        "Shipment id"
-      ],
-      "reason": "Structural: the shipment to rate is a sales, transfer or inbound shipment owned by fulfillment, inventory or receiving; no single list spans the three, so the field stays a typed id."
     }
   }
 }

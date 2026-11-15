@@ -1,10 +1,13 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { checkAxeAA } from "../../shell/a11y";
 import { findAlert, findStatus, findTable } from "../../test-utils";
 import { codesFor, parseViolations, toTransitionInput, type ActionValues } from "./AuditCasesPage";
-import { parseDocuments, toAuditInput, type AuditValues } from "./AuditRunPage";
+import { parseDocuments, toRunInput } from "./AuditRunPage";
+import { emptySpec, specToValues, toAuditSpec, type SpecValues } from "./auditSpec";
+import type { AuditPolicy } from "./api/client";
+import { clearResolvedOptions, setLookupFetcher } from "../../shell/lookup/entities";
 import { approvalText, toPlanInput } from "./BreakGlassPage";
 import compliance from "./module";
 
@@ -50,20 +53,37 @@ function renderAt(path: string) {
 
 const problem = (status: number, code: string, detail: string): Reply => ({ status, body: { type: "x", title: "x", status, code, detail } });
 
-const baseAudit: AuditValues = {
+const dup: AuditPolicy = {
   policyId: POLICY,
-  version: "2",
-  type: "KEYWORD",
-  words: "gift cards, alcohol",
-  currency: "",
-  limit: "",
-  limits: "",
-  holidays: "",
-  seed: "",
-  sampleBy: "percent",
-  sampleSize: "",
-  documents: "exp-1 | E-7 | MEALS | 250.00 | USD | 2026-10-03 | | Team gift cards",
+  code: "DUP-INVOICES",
+  name: "Duplicate vendor invoices",
+  ruleType: "DUPLICATE",
+  spec: { type: "DUPLICATE" },
+  active: true,
+  version: 4,
+  createdBy: "ana",
+  createdAt: "2026-10-01T00:00:00Z",
+  updatedAt: "2026-10-01T00:00:00Z",
 };
+
+const baseSpec: SpecValues = { ...emptySpec, type: "KEYWORD", words: "gift cards, alcohol" };
+
+/** Serves the policy list and the policy itself, then whatever the test's handler answers. */
+function withPolicy(policy: AuditPolicy, rest: (url: URL) => Reply = () => ({ status: 200, body: {} })) {
+  handler = (url) => {
+    if (url.pathname === "/api/v1/compliance/audit-policies") return { status: 200, body: { items: [policy] } };
+    if (url.pathname === `/api/v1/compliance/audit-policies/${policy.policyId}`) return { status: 200, body: policy };
+    return rest(url);
+  };
+}
+
+async function pickPolicy() {
+  setLookupFetcher(null);
+  clearResolvedOptions();
+  fireEvent.change(screen.getByLabelText("Audit policy"), { target: { value: "dup" } });
+  fireEvent.click(await screen.findByRole("option", { name: /Duplicate vendor invoices/ }));
+  await waitFor(() => expect(calls.some((c) => c.url.pathname === `/api/v1/compliance/audit-policies/${POLICY}`)).toBe(true));
+}
 
 describe("audit rule helpers", () => {
   it("parses one document per line and reports the bad line", () => {
@@ -78,78 +98,85 @@ describe("audit rule helpers", () => {
   });
 
   it("builds the rule spec of each type with decimal strings", () => {
-    expect(toAuditInput(baseAudit).input?.spec).toEqual({ type: "KEYWORD", keywords: ["gift cards", "alcohol"] });
-    const threshold = toAuditInput({ ...baseAudit, type: "THRESHOLD", currency: "usd", limits: "MEALS = 200\nTRAVEL=1500.50" });
-    expect(threshold.input?.spec).toEqual({ type: "THRESHOLD", currency: "USD", limits: { MEALS: "200", TRAVEL: "1500.50" } });
-    expect(toAuditInput({ ...baseAudit, type: "THRESHOLD", currency: "USD", limits: "MEALS" }).errors.limits).toBe('Line 1: write "CATEGORY = positive amount".');
-    expect(toAuditInput({ ...baseAudit, type: "AGGREGATE", currency: "USD", limit: "0" }).errors.limit).toBe("Enter a positive monthly limit.");
-    expect(toAuditInput({ ...baseAudit, type: "SAMPLING", seed: "run-7", sampleBy: "everyK", sampleSize: "10" }).input?.spec).toEqual({ type: "SAMPLING", sample: { seed: "run-7", everyK: 10 } });
-    expect(toAuditInput({ ...baseAudit, type: "SAMPLING", seed: "s", sampleSize: "150" }).errors.sampleSize).toBe("Enter a whole percentage from 1 to 100.");
-    expect(toAuditInput({ ...baseAudit, type: "WEEKEND_HOLIDAY", holidays: "2026-12-25, 26/12" }).errors.holidays).toBe("26/12 is not a YYYY-MM-DD date.");
-    expect(toAuditInput({ ...baseAudit, type: "DUPLICATE", documents: "inv-1 | V-1" }).errors.documents).toBe("Document inv-1 needs a date for this rule.");
-    expect(toAuditInput({ ...baseAudit, policyId: "pol-1", version: "0", words: "" }).errors).toEqual({
-      policyId: "Enter the policy's UUID.",
-      version: "Enter a whole version number from 1.",
-      words: "Enter at least one keyword.",
+    expect(toAuditSpec(baseSpec).spec).toEqual({ type: "KEYWORD", keywords: ["gift cards", "alcohol"] });
+    const threshold = toAuditSpec({ ...baseSpec, type: "THRESHOLD", currency: "usd", limits: "MEALS = 200\nTRAVEL=1500.50" });
+    expect(threshold.spec).toEqual({ type: "THRESHOLD", currency: "USD", limits: { MEALS: "200", TRAVEL: "1500.50" } });
+    expect(toAuditSpec({ ...baseSpec, type: "THRESHOLD", currency: "USD", limits: "MEALS" }).errors.limits).toBe('Line 1: write "CATEGORY = positive amount".');
+    expect(toAuditSpec({ ...baseSpec, type: "AGGREGATE", currency: "USD", limit: "0" }).errors.limit).toBe("Enter a positive monthly limit.");
+    expect(toAuditSpec({ ...baseSpec, type: "SAMPLING", seed: "run-7", sampleBy: "everyK", sampleSize: "10" }).spec).toEqual({ type: "SAMPLING", sample: { seed: "run-7", everyK: 10 } });
+    expect(toAuditSpec({ ...baseSpec, type: "SAMPLING", seed: "s", sampleSize: "150" }).errors.sampleSize).toBe("Enter a whole percentage from 1 to 100.");
+    expect(toAuditSpec({ ...baseSpec, type: "WEEKEND_HOLIDAY", holidays: "2026-12-25, 26/12" }).errors.holidays).toBe("26/12 is not a YYYY-MM-DD date.");
+    expect(toAuditSpec({ ...baseSpec, words: "" }).errors).toEqual({ words: "Enter at least one keyword." });
+  });
+
+  it("turns a stored spec back into form values", () => {
+    const spec = { type: "THRESHOLD", currency: "USD", limits: { MEALS: "200" } } as const;
+    expect(toAuditSpec(specToValues(spec)).spec).toEqual(spec);
+    expect(specToValues({ type: "SAMPLING", sample: { seed: "s", everyK: 5 } })).toMatchObject({ seed: "s", sampleBy: "everyK", sampleSize: "5" });
+  });
+
+  it("checks the run: a policy is chosen and the rule's dated documents carry a date", () => {
+    expect(toRunInput("", null, "a").errors.policyId).toBe("Choose the audit policy.");
+    expect(toRunInput(POLICY, dup, "inv-1 | V-1").errors.documents).toBe("Document inv-1 needs a date for this rule.");
+    expect(toRunInput(POLICY, dup, "inv-1 | V-1 | | 1 | USD | 2026-10-01").input).toEqual({
+      policyId: POLICY,
+      documents: [{ id: "inv-1", partyId: "V-1", amount: "1", currency: "USD", date: "2026-10-01T00:00:00Z" }],
     });
   });
 });
 
 describe("Audit rule run", () => {
-  it("runs a duplicate check and lists the later invoice with its evidence", async () => {
-    handler = () => ({
+  it("runs the chosen policy and lists the later invoice with its evidence", async () => {
+    withPolicy(dup, () => ({
       status: 200,
-      body: { count: 1, code: "AUD-0701", findings: [{ key: `audit:${POLICY}:v1:inv-2`, ruleType: "DUPLICATE", documentId: "inv-2", score: 100, evidence: { vendorId: "V-1", duplicateOf: "inv-1" } }] },
-    });
+      body: { policyVersion: 4, count: 1, code: "AUD-0701", findings: [{ key: `audit:${POLICY}:v4:inv-2`, ruleType: "DUPLICATE", documentId: "inv-2", score: 100, evidence: { vendorId: "V-1", duplicateOf: "inv-1" } }] },
+    }));
     const { container } = renderAt("/compliance/audit/run");
     expect(screen.getByText("No run yet")).toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText("Policy id"), { target: { value: POLICY } });
+    await pickPolicy();
+    expect(await screen.findByText(/Duplicate vendor invoice, version 4/)).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("Documents"), {
       target: { value: "inv-1 | V-1 | | 1000.00 | USD | 2026-10-01 | INV-0042\ninv-2 | V-1 | | 1003.00 | USD | 2026-10-11 | INV 42" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Run rule" }));
     expect((await findStatus()).textContent).toBe("1 document violates the policy (AUD-0701).");
-    expect(calls[0].method).toBe("POST");
-    expect(calls[0].url.pathname).toBe("/api/v1/compliance/audit-policies:evaluate");
-    expect(calls[0].body).toMatchObject({ policyId: POLICY, version: 1, spec: { type: "DUPLICATE" } });
-    expect((calls[0].body as { documents: unknown[] }).documents[1]).toEqual({ id: "inv-2", partyId: "V-1", amount: "1003.00", currency: "USD", date: "2026-10-11T00:00:00Z", number: "INV 42" });
+    const run = calls.find((c) => c.method === "POST")!;
+    expect(run.url.pathname).toBe("/api/v1/compliance/audit-policies:evaluate");
+    // The policy id alone: the service runs the stored rule at its current version.
+    expect(Object.keys(run.body as object).sort()).toEqual(["documents", "policyId"]);
+    expect(run.body).toMatchObject({ policyId: POLICY });
+    expect((run.body as { documents: unknown[] }).documents[1]).toEqual({ id: "inv-2", partyId: "V-1", amount: "1003.00", currency: "USD", date: "2026-10-11T00:00:00Z", number: "INV 42" });
     const table = await findTable({ name: "Audit violations" });
     expect(within(table).getByText("inv-2")).toBeInTheDocument();
     expect(within(table).getByText("Repeats inv-1")).toBeInTheDocument();
     expect(pageViolations(container)).toEqual([]);
   });
 
-  it("shows the threshold fields and an empty result", async () => {
-    handler = () => ({ status: 200, body: { count: 0, findings: [] } });
+  it("shows an empty result", async () => {
+    withPolicy({ ...dup, ruleType: "KEYWORD", spec: { type: "KEYWORD", keywords: ["gift"] } }, () => ({ status: 200, body: { policyVersion: 4, count: 0, findings: [] } }));
     renderAt("/compliance/audit/run");
-    fireEvent.change(screen.getByLabelText("Policy id"), { target: { value: POLICY } });
-    fireEvent.change(screen.getByLabelText("Rule"), { target: { value: "THRESHOLD" } });
-    fireEvent.change(screen.getByLabelText("Limit currency"), { target: { value: "usd" } });
-    fireEvent.change(screen.getByLabelText("Limits by category"), { target: { value: "MEALS = 200" } });
+    await pickPolicy();
     fireEvent.change(screen.getByLabelText("Documents"), { target: { value: "exp-1 | E-1 | MEALS | 150 | USD" } });
     fireEvent.click(screen.getByRole("button", { name: "Run rule" }));
     expect((await findStatus()).textContent).toBe("No document violates this rule.");
-    expect(calls[0].body).toMatchObject({ spec: { type: "THRESHOLD", currency: "USD", limits: { MEALS: "200" } } });
     expect(await screen.findByText("Every document passes this rule.")).toBeInTheDocument();
   });
 
-  it("validates before calling the service", async () => {
+  it("asks for a policy before calling the service", async () => {
     handler = () => ({ status: 200, body: {} });
     renderAt("/compliance/audit/run");
-    fireEvent.change(screen.getByLabelText("Rule"), { target: { value: "KEYWORD" } });
     fireEvent.click(screen.getByRole("button", { name: "Run rule" }));
-    expect(await screen.findByText("Enter the policy's UUID.")).toBeInTheDocument();
-    expect(screen.getByText("Enter at least one keyword.")).toBeInTheDocument();
+    expect(await screen.findByText("Choose the audit policy.")).toBeInTheDocument();
     expect(calls).toHaveLength(0);
   });
 
   it("shows the service refusal with its code", async () => {
-    handler = () => problem(422, "AUD-0712", "THRESHOLD limit for category \"MEALS\" must be positive");
+    withPolicy(dup, () => problem(422, "AUD-0722", "this audit policy is retired; run another policy"));
     renderAt("/compliance/audit/run");
-    fireEvent.change(screen.getByLabelText("Policy id"), { target: { value: POLICY } });
-    fireEvent.change(screen.getByLabelText("Rule"), { target: { value: "WEEKEND_HOLIDAY" } });
+    await pickPolicy();
+    fireEvent.change(screen.getByLabelText("Documents"), { target: { value: "inv-1 | V-1 | | 1 | USD | 2026-10-01" } });
     fireEvent.click(screen.getByRole("button", { name: "Run rule" }));
-    expect((await findAlert()).textContent).toContain("must be positive");
+    expect((await findAlert()).textContent).toContain("retired");
     expect(screen.queryByRole("table")).toBeNull();
   });
 });
