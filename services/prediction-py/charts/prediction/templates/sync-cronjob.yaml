@@ -6,7 +6,8 @@ kind: CronJob
 metadata:
   name: {{ $.Release.Name }}-sync-{{ $job }}
   labels:
-    app.kubernetes.io/name: prediction
+    app.kubernetes.io/name: prediction-sync
+    app.kubernetes.io/instance: {{ $.Release.Name }}
     app.kubernetes.io/component: sync-{{ $job }}
 spec:
   schedule: {{ $schedule | quote }}
@@ -19,7 +20,8 @@ spec:
       template:
         metadata:
           labels:
-            app.kubernetes.io/name: prediction
+            app.kubernetes.io/name: prediction-sync
+            app.kubernetes.io/instance: {{ $.Release.Name }}
             app.kubernetes.io/component: sync-{{ $job }}
         spec:
           restartPolicy: Never
