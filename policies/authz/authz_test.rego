@@ -3408,3 +3408,12 @@ test_payables_vendor_invoice_review_opens_only_the_two_decisions if {
 	not allowed("payables.vendor-invoice.intake", "POST", "/v1/payables/vendor-invoice-intake/i1:resolve")
 	allowed("open-item.read", "GET", "/v1/payables/vendor-invoice-intake/i1")
 }
+
+# #35 (35-5): the vendor 810 has its own inbound route (operators) and its partner a vendor profile (administrators).
+test_edi_vendor_810_route_and_profile if {
+	allowed("edi.operate", "POST", "/edi/v1/inbound/x12/vendor")
+	not allowed("edi.operate", "PUT", "/edi/v1/partners/p1/vendor-profile")
+	allowed("edi.admin", "PUT", "/edi/v1/partners/p1/vendor-profile")
+	allowed("edi.admin", "GET", "/edi/v1/partners/p1/vendor-profile")
+	not allowed("edi.admin", "POST", "/edi/v1/inbound/x12/vendor")
+}

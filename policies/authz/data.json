@@ -1425,11 +1425,13 @@
       {"resource": "/edi/v1/partners/*/self-billing", "methods": ["GET", "PUT"]},
       {"resource": "/edi/v1/partners/*/punchout", "methods": ["GET", "PUT"]},
       {"resource": "/edi/v1/partners/*/cxml", "methods": ["GET", "PUT"]},
+      {"resource": "/edi/v1/partners/*/vendor-profile", "methods": ["GET", "PUT"]},
       {"resource": "/edi/v1/partners/*/cxml/outbound", "methods": ["GET", "PUT"]}
     ]},
     "edi.operate": {"permissions": [
       {"resource": "/edi/v1/inbound/edifact", "methods": ["POST"]},
       {"resource": "/edi/v1/inbound/x12", "methods": ["POST"]},
+      {"resource": "/edi/v1/inbound/x12/vendor", "methods": ["POST"]},
       {"resource": "/edi/v1/interchanges", "methods": ["GET"]},
       {"resource": "/edi/v1/interchanges/*", "methods": ["GET"]},
       {"resource": "/edi/v1/interchanges/*/payload", "methods": ["GET"]},

@@ -979,6 +979,74 @@ paths:
         '409': { $ref: '#/components/responses/Problem' }
         '413': { $ref: '#/components/responses/Problem' }
         '422': { $ref: '#/components/responses/Problem' }
+  /edi/v1/inbound/x12/vendor:
+    post:
+      operationId: receiveVendorX12
+      summary: Receive one raw X12 interchange from a vendor of ours (its 810s are vendor invoices)
+      description: >
+        Like /edi/v1/inbound/x12, for a partner that is one of our vendors (PUT /partners/{id}/vendor-profile; 409 EDI-0043 without it, and nothing is
+        recorded). Its 810s are mapped as vendor invoices, never as a customer's self-billed invoice, and each goes into payables' vendor-invoice intake
+        (source X12_810) for the vendor and legal entity of the profile, for an AP clerk to match to the purchase order and the goods received; nothing is
+        posted. An invoice payables or the mapping refuses (no currency, no lines, a quantity of zero, a vendor invoice number received before) is parked
+        (EDI-0038 or EDI-0039) and posts again with POST /messages/{id}:post once the cause is fixed; with payables not configured (EDI_PAYABLES_URL) it stays
+        MAPPED for that route. A partner with a vendor profile has its 810s read this way on every route and transport.
+      x-passage-duty: edi.operate
+      parameters:
+        - name: environment
+          in: query
+          required: false
+          schema: { type: string, enum: [TEST, PROD], default: PROD }
+      requestBody:
+        required: true
+        content:
+          text/plain:
+            schema: { type: string }
+      responses:
+        '201':
+          description: Interchange recorded
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ReceiveResponse' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '413': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /edi/v1/partners/{id}/vendor-profile:
+    put:
+      operationId: putVendorProfile
+      summary: Say the partner is one of our vendors, and which vendor in which legal entity
+      x-passage-duty: edi.admin
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, required: [legalEntityId, vendorId], properties: { legalEntityId: { type: string, format: uuid }, vendorId: { type: string, format: uuid } } }
+      responses:
+        '200':
+          description: Saved
+          content:
+            application/json:
+              schema: { type: object, properties: { legalEntityId: { type: string, format: uuid }, vendorId: { type: string, format: uuid } } }
+        '400': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+    get:
+      operationId: getVendorProfile
+      summary: Read the partner's vendor profile
+      x-passage-duty: edi.admin
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { type: object, properties: { legalEntityId: { type: string, format: uuid }, vendorId: { type: string, format: uuid } } }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
   /edi/v1/inbound/edifact:
     post:
       operationId: receiveEdifact
@@ -1326,6 +1394,9 @@ paths:
                 waitDays: { type: integer, minimum: 1, maximum: 120, default: 30 }
                 taxRatePct: { type: string, default: '0', description: the VAT rate the partner's shipments are recomputed at (BR-35.15) when no taxCountry is set or the tax service is not configured }
                 taxCountry: { type: string, pattern: '^[A-Z]{2}$', description: "the customer's tax country; set, the VAT rate is determined by the tax service (EDI_TAX_URL) on the document date" }
+                revenueAccount: { type: string, maxLength: 20, description: "the ledger account of the lines of the legal invoice billing posts from a matched document; without it and taxCode the matched document waits unposted" }
+                taxCode: { type: string, maxLength: 20, description: the tax code of those lines }
+                paymentTermDays: { type: integer, minimum: 0, maximum: 365, default: 30, description: days from the document date to the due date of that invoice }
                 taxGroup: { type: string, maxLength: 40, description: the customer's tax group in the tax configuration }
                 itemTaxGroup: { type: string, maxLength: 40, description: the item tax group of the deliveries }
       responses:
@@ -1333,7 +1404,7 @@ paths:
           description: OK
           content:
             application/json:
-              schema: { type: object, properties: { quantityTolerance: { type: string }, priceTolerance: { type: string }, waitDays: { type: integer }, taxRatePct: { type: string }, taxCountry: { type: string }, taxGroup: { type: string }, itemTaxGroup: { type: string } } }
+              schema: { type: object, properties: { quantityTolerance: { type: string }, priceTolerance: { type: string }, waitDays: { type: integer }, taxRatePct: { type: string }, taxCountry: { type: string }, taxGroup: { type: string }, itemTaxGroup: { type: string }, revenueAccount: { type: string }, taxCode: { type: string }, paymentTermDays: { type: integer } } }
         '400': { $ref: '#/components/responses/Problem' }
         '403': { $ref: '#/components/responses/Problem' }
         '409':
@@ -1352,14 +1423,15 @@ paths:
           description: OK
           content:
             application/json:
-              schema: { type: object, properties: { quantityTolerance: { type: string }, priceTolerance: { type: string }, waitDays: { type: integer }, taxRatePct: { type: string }, taxCountry: { type: string }, taxGroup: { type: string }, itemTaxGroup: { type: string } } }
+              schema: { type: object, properties: { quantityTolerance: { type: string }, priceTolerance: { type: string }, waitDays: { type: integer }, taxRatePct: { type: string }, taxCountry: { type: string }, taxGroup: { type: string }, itemTaxGroup: { type: string }, revenueAccount: { type: string }, taxCode: { type: string }, paymentTermDays: { type: integer } } }
         '404': { $ref: '#/components/responses/Problem' }
   /edi/v1/self-billing:sweep:
     post:
       operationId: sweepSelfBilling
       summary: Match pending self-billed invoices and dispute shipments not billed in time
       description: >
-        Matches the inbound INVOIC 389 messages still MAPPED (a document is matched right after receipt; this catches any that missed it), then opens one
+        Matches the inbound INVOIC 389 and X12 810 messages still MAPPED (a document is matched right after receipt; this catches any that missed it), has billing post
+        every document that matched in full and has no legal invoice yet (`posted` counts them), then opens one
         UNBILLED dispute (EDI-0138) for each shipment of the caller's partners still not self-billed after the partner's wait days. Safe to run as often as wanted: a
         shipment is disputed once.
       x-passage-duty: edi.self-billing.reconcile
@@ -1368,7 +1440,7 @@ paths:
           description: OK
           content:
             application/json:
-              schema: { type: object, properties: { reconciled: { type: integer }, unbilled: { type: array, items: { type: object } } } }
+              schema: { type: object, properties: { reconciled: { type: integer }, posted: { type: integer, description: matched documents billing posted as legal invoices in this run }, unbilled: { type: array, items: { type: object } } } }
         '403': { $ref: '#/components/responses/Problem' }
   /edi/v1/self-billing/documents:
     get:

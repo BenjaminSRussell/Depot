@@ -1,5 +1,19 @@
 # NOT-IMPLEMENTED: edi (PSG-35, wave 35)
 
+## Status after B2B round 4 (#35, 2026-11-15)
+
+Built and tested against fakes and a real database; nothing was run against a cluster or a live network.
+
+| Item | Status | Left |
+| --- | --- | --- |
+| 856 and DESADV pack hierarchy from the warehouse | built: the warehouse confirmation (`POST /v1/warehouse/shipments/{id}:ship`) can carry `containers` (each with its pallet, weight and lines; warehouse migration 0012) and `shipment.shipped` passes them on; `domain.ShippedByWarehouse` builds the notice from those containers and falls back to fulfillment's containers when the confirmation named only SSCCs | A warehouse that does not record how the load was packed (today only a caller of the confirm route can send the lines) still falls back to fulfillment's containers. The lines are checked against the shipment's lines, not against the quantities fulfillment picked. |
+| Payables intake screen | built: `/ap-invoices/intake` (list, detail, match to the purchase order's posted receipts, "Post as vendor invoice" opens the post form filled in, record the posted invoice, reject with a reason), with payables `:resolve` and `:reject` (migration 0021) | Matching and posting stay a clerk step: payables posts a vendor invoice against receipt lines (GR/IR). A rejection is not sent back to the vendor (no cXML or 810 response is built for it). |
+| Posting a matched self-billed document as the legal invoice | built: billing `POST /v1/billing/self-billed-invoices` (service-only `billing.self-billed.post`), edi posts a document that matched in full right after the match and in the sweep, as `service:edi-selfbill`; the number is the document's own; idempotent on the document | The partner's self-billing settings must name a revenue account and tax code (`PUT /partners/{id}/self-billing`, migration 0020), or the matched document waits with the reason. A document with disputes is not posted: resolving a dispute does not post the document yet. A customer's credit memo (BIG07 CR, INVOIC 381) is not posted. The posted invoice's lines carry no order line ids, so sales is not told what it invoiced. |
+| Vendor 810 route | built: `POST /edi/v1/inbound/x12/vendor`, `PUT/GET /partners/{id}/vendor-profile` (migration 0021), source `X12_810` in payables' intake; a partner with a vendor profile has all its 810s read as vendor invoices, on every route and transport | The vendor is the partner's profile, not looked up from the purchase order named in BIG04 (the number goes into the intake as `purchaseOrderNumber` only). No 855 or 997-level answer carries a rejection of the invoice. |
+| VDA 4908 | not started: needs the VDA specification | The repository has no VDA 4908 record layout and no sample file, and the format is not implemented from memory. A message of the shape of the EDIFACT INVOIC 389 would map onto the same `SelfBillInput` once the layout is available. |
+
+Authorization (round 4): the principal `edi-selfbill` also holds `billing.self-billed.post` (grant `edi` -> `billing` gains it), new route `POST /edi/v1/inbound/x12/vendor` under `edi.operate` and `/partners/{id}/vendor-profile` under `edi.admin`. `edi-cxml` (payables intake) is the principal of the vendor 810 post. Migrations 0020 (self-billing post state, the settings of the invoice, the sweep's tenant function now also lists inbound X12 810s and matched documents waiting to post) and 0021 (vendor profile).
+
 ## Status after B2B round 2 (#35, 2026-11-11)
 
 Round 2 builds on the B2B batch below (README "Slice 10" and "Slice 11"). Built and tested against fakes and sample files; nothing was run against a cluster or a live network.

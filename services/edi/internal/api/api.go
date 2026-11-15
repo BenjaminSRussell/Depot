@@ -85,6 +85,8 @@ type API struct {
 	Sources       Sources
 	// SelfBilledPoster has billing post a matched self-billed document as our legal invoice (35-5); nil leaves matched documents unposted.
 	SelfBilledPoster SelfBilledPoster
+	// VendorInvoices takes a vendor's X12 810 into payables' vendor-invoice intake (35-5); nil leaves it MAPPED.
+	VendorInvoices VendorInvoices
 	// Intake places inbound orders with sales (POST /messages/{id}:post); nil
 	// refuses the route with 503.
 	Intake Intake
@@ -153,6 +155,9 @@ func (a *API) Routes() http.Handler {
 		}
 		r.With(authz.RequireDuty("edi.admin")).Post("/maps:test", a.mapsTest)
 		r.With(authz.RequireDuty("edi.operate")).Post("/inbound/x12", a.receiveX12)
+		r.With(authz.RequireDuty("edi.operate")).Post("/inbound/x12/vendor", a.receiveVendorX12)
+		r.With(authz.RequireDuty("edi.admin")).Put("/partners/{id}/vendor-profile", a.putVendorProfile)
+		r.With(authz.RequireDuty("edi.admin")).Get("/partners/{id}/vendor-profile", a.getVendorProfile)
 		r.With(authz.RequireDuty("edi.operate")).Post("/inbound/edifact", a.receiveEdifact)
 		r.With(authz.RequireDuty("edi.operate")).Get("/interchanges", a.listInterchanges)
 		r.With(authz.RequireDuty("edi.operate")).Get("/interchanges/{id}", a.getInterchange)
@@ -394,7 +399,10 @@ var InboundSets = []string{"850", "820", "214", "810"}
 // status: AK5 A and MAPPED without issues, E and FAILED with only
 // accepted-with-error issues, R and FAILED with a rejecting issue. Sets
 // outside InboundSets are rejected (AK5 R).
-func mapTransaction(t domain.Transaction) (txResult, error) {
+func mapTransaction(t domain.Transaction) (txResult, error) { return mapTransactionAs(t, false) }
+
+// mapTransactionAs is mapTransaction with vendor saying the sender is one of our vendors: its 810 is a vendor invoice, not a self-billed one.
+func mapTransactionAs(t domain.Transaction, vendor bool) (txResult, error) {
 	res := txResult{outcome: domain.TxOutcome{SetID: t.SetID, Control: t.Control}}
 	var issues []domain.Issue
 	switch t.SetID {
@@ -408,7 +416,13 @@ func mapTransaction(t domain.Transaction) (txResult, error) {
 		st, is := domain.Map214(t)
 		res.document, issues = st, is
 	case "810":
-		inv, is := domain.Map810(t)
+		var inv domain.Invoice
+		var is []domain.Issue
+		if vendor {
+			inv, is = domain.MapVendor810(t)
+		} else {
+			inv, is = domain.Map810(t)
+		}
 		res.document, issues = inv, is
 	default:
 		res.outcome.Code = domain.AckRejected
@@ -534,6 +548,11 @@ func (a *API) receiveX12(w http.ResponseWriter, r *http.Request) {
 // receiveRoute serves POST /inbound/x12 and /inbound/edifact: the payload
 // must be in the route's syntax.
 func (a *API) receiveRoute(w http.ResponseWriter, r *http.Request, syntax string) {
+	a.receiveRouteWith(w, r, syntax, false)
+}
+
+// receiveRouteWith is receiveRoute; vendor says the interchange is a vendor's, whose 810s are vendor invoices (POST /inbound/x12/vendor).
+func (a *API) receiveRouteWith(w http.ResponseWriter, r *http.Request, syntax string, vendor bool) {
 	env := r.URL.Query().Get("environment")
 	if env == "" {
 		env = "PROD"
@@ -547,7 +566,7 @@ func (a *API) receiveRoute(w http.ResponseWriter, r *http.Request, syntax string
 		httpx.Fail(w, r, httpx.NewProblem(http.StatusBadRequest, CodeSyntax, "could not read interchange"))
 		return
 	}
-	res, err := a.receive(r.Context(), body, receiveOptions{Environment: env, Syntax: syntax})
+	res, err := a.receive(r.Context(), body, receiveOptions{Environment: env, Syntax: syntax, Vendor: vendor})
 	if err != nil {
 		httpx.Fail(w, r, err)
 		return
@@ -566,6 +585,8 @@ type receiveOptions struct {
 	PartnerID   string
 	Source      *store.InboundSource
 	Syntax      string
+	// Vendor marks the interchange as a vendor's (POST /inbound/x12/vendor): its partner must have a vendor profile.
+	Vendor bool
 }
 
 // receive is the inbound pipeline. It tells the syntax by the first segment
@@ -610,6 +631,16 @@ func (a *API) receiveX12Interchange(ctx context.Context, body []byte, o receiveO
 			fmt.Sprintf("interchange sender %s/%s is not the partner this transport belongs to", ic.Sender.Qualifier, ic.Sender.ID))
 	}
 
+	// A partner that is one of our vendors sends vendor invoices in its 810s, whichever route or transport brought them; the vendor
+	// route insists on it.
+	vendor, err := a.vendorPartner(ctx, partner.ID)
+	if err != nil {
+		return receiveResponse{}, err
+	}
+	if o.Vendor && !vendor {
+		return receiveResponse{}, httpx.NewProblem(http.StatusConflict, CodeNoVendorProfile,
+			"partner has no vendor profile; PUT /partners/{id}/vendor-profile first")
+	}
 	var (
 		groups   []groupOutcomes
 		all      []domain.TxOutcome
@@ -639,7 +670,7 @@ func (a *API) receiveX12Interchange(ctx context.Context, body []byte, o receiveO
 		}
 		var gOut []domain.TxOutcome
 		for _, t := range g.Transactions {
-			res, err := mapTransaction(t)
+			res, err := mapTransactionAs(t, vendor)
 			if err != nil {
 				return receiveResponse{}, err
 			}
@@ -700,6 +731,10 @@ func (a *API) receiveX12Interchange(ctx context.Context, body []byte, o receiveO
 	}
 	if err != nil {
 		return receiveResponse{}, err
+	}
+	// A vendor's 810 goes into payables' intake right away; one that cannot stays MAPPED for POST /messages/{id}:post.
+	if vendor {
+		a.postVendorReceived(ctx, vendorMessages(res.Messages))
 	}
 	// A self-billed 810 of this interchange is matched right away; anything this misses is picked up by POST /self-billing:sweep.
 	if received := mappedMessages(res.Messages, "810"); len(received) > 0 {

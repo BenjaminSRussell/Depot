@@ -235,8 +235,15 @@ of a legal entity is invoiced: `STANDARD`, or `SELF_BILLED` with the self-billin
 posted while the agreement is valid (by each slip's own date, not the invoice date; a batch created earlier still replays) with
 409 `BIL-0150`: the customer's self-billed document, received and
 matched by the EDI engine, is the invoice. `GET` the same path with `legalEntityId` reads it (duty `billing.invoice.view`; STANDARD
-when none is set). A stale If-Match is 409 `BIL-0151`. Migration 0018. Not built: posting the matched self-billed document as the
-legal invoice with the customer's number.
+when none is set). A stale If-Match is 409 `BIL-0151`. Migration 0018.
+
+`POST /v1/billing/self-billed-invoices` (service-only duty `billing.self-billed.post`, granted to `edi`, called by the EDI engine as
+`service:edi-selfbill`) posts a self-billed document that matched in full as the legal customer invoice: the customer needs a SELF_BILLED rule in
+force on the document date (409 `BIL-0152`) naming the document's agreement when it names one (409 `BIL-0153`); the invoice is a posted SHIPMENT
+invoice under the document's own number (not billing's sequence), with the tax each line states, and `invoice.posted` is enqueued in the same
+transaction. The EDI document id is the idempotency key (`self-billed:<id>`): a repeat with the same content returns the invoice (200), other
+content is 409 `BIL-0154`. The lines carry no packing slip, so a slip line is not marked invoiced; order lines are reported to sales when the
+caller names them.
 
 ## Intercompany charges in Invoice mode (#40)
 

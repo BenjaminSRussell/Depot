@@ -99,3 +99,11 @@ func Map810(t Transaction) (Invoice, []Issue) {
 	}
 	return inv, issues
 }
+
+// MapVendor810 maps an inbound 810 a vendor sent us as an invoice (#35, 35-5): the same segments as Map810, but the document is the
+// vendor's invoice to us, so it is not self-billed and is marked for payables' vendor-invoice intake.
+func MapVendor810(t Transaction) (Invoice, []Issue) {
+	inv, issues := Map810(t)
+	inv.SelfBilled, inv.Vendor = false, true
+	return inv, issues
+}
