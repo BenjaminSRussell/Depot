@@ -7,6 +7,7 @@ import { checkTone, dash, formatDateTime, stateTone, statusLabel } from "./forma
 import styles from "./pages.module.css";
 import { useLoad } from "./useLoad";
 import { ProblemMessage } from "../../shell/errors";
+import { UserName } from "../../shell/lookup/UserName";
 
 const MAX_REASON = 500;
 
@@ -106,7 +107,7 @@ export function ScreeningHoldDetailPage() {
         </Alert>
       ) : (
         <Alert tone="success" title="Released" live="status">
-          Released by {hold.releasedBy} on {formatDateTime(hold.releasedAt)}. Tendering can proceed.
+          Released by <UserName id={hold.releasedBy} /> on {formatDateTime(hold.releasedAt)}. Tendering can proceed.
         </Alert>
       )}
       <Card>
@@ -114,9 +115,9 @@ export function ScreeningHoldDetailPage() {
           entries={[
             { term: "Hold", value: hold.id, mono: true },
             { term: "Load", value: <Link to={`/transport/loads/${hold.loadId}`}>{hold.loadId}</Link>, mono: true },
-            { term: "Held by", value: hold.createdBy },
+            { term: "Held by", value: <UserName id={hold.createdBy} /> },
             { term: "Held since", value: formatDateTime(hold.createdAt) },
-            { term: "Released by", value: hold.releasedBy ?? dash },
+            { term: "Released by", value: <UserName id={hold.releasedBy} /> },
             { term: "Released", value: formatDateTime(hold.releasedAt) },
             { term: "Reason", value: hold.releaseReason ?? dash },
           ]}

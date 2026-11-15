@@ -402,3 +402,43 @@ func TestBillingGrants_AppRoleCannotDelete(t *testing.T) {
 		}
 	}
 }
+
+// #40: an HOUR transaction publishes transaction.posted once, naming the employing entity (lender) and the project's entity (borrower)
+// with the hours and the hourly cost, so intercompany can charge 8 h at 60.00 across. A replayed key publishes nothing more.
+func TestTransactions_HourPublishesTransactionPostedOnce(t *testing.T) {
+	s, _ := setup(t)
+	ctx := tenantCtx(1)
+	billingProject(t, s, ctx, "ES-ICH", domain.TypeTimeMaterial)
+	employer := ids.New()
+	in := hours("ES-ICH", "CHARGEABLE", "2026-11-05", "8")
+	in.CostPrice = "60"
+	in.WorkerLegalEntityID = &employer
+	if err := domain.PriceLine(&in); err != nil {
+		t.Fatal(err)
+	}
+	first, created, err := s.CreateTransaction(ctx, in, "k-ic-1")
+	if err != nil || !created || first.WorkerLegalEntityID == nil || *first.WorkerLegalEntityID != employer || first.CostAmount != "480.00" {
+		t.Fatalf("create: %+v created=%v %v", first, created, err)
+	}
+	if _, created, err := s.CreateTransaction(ctx, in, "k-ic-1"); err != nil || created {
+		t.Fatalf("replay: created=%v %v", created, err)
+	}
+	other := in
+	otherEntity := ids.New()
+	other.WorkerLegalEntityID = &otherEntity
+	if _, _, err := s.CreateTransaction(ctx, other, "k-ic-1"); problemCode(err) != CodeIdempotencyReuse {
+		t.Fatalf("the same key with another employing entity: %v", err)
+	}
+	events := outboxEvents(t, s, ctx, "transaction", first.ID)
+	if len(events) != 1 {
+		t.Fatalf("transaction.posted events = %d, want 1", len(events))
+	}
+	if events[0]["type"] != "dev.passage.projects.transaction.posted.v1" {
+		t.Fatalf("type = %v", events[0]["type"])
+	}
+	data, _ := events[0]["data"].(map[string]any)
+	if data["transactionId"] != first.ID || data["version"] != float64(1) || data["workerLegalEntityId"] != employer || data["projectLegalEntityId"] == employer ||
+		data["workerId"] != *first.WorkerID || data["quantity"] != "8.000" || data["costPrice"] != "60.000000" || data["currency"] != "USD" || data["transactionDate"] != "2026-11-05" {
+		t.Fatalf("data = %v", data)
+	}
+}

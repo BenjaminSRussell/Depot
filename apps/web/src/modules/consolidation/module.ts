@@ -10,6 +10,7 @@ import { IcDifferencesPage } from "./IcDifferencesPage";
 import { InvestmentsPage } from "./InvestmentsPage";
 import { ProfitInInventoryPage } from "./ProfitInInventoryPage";
 import { ReclassificationPage } from "./ReclassificationPage";
+import { UnitTermsPage } from "./UnitTermsPage";
 import { TranslationPage } from "./TranslationPage";
 import { TrialBalancePage } from "./TrialBalancePage";
 import { ValidationPage } from "./ValidationPage";
@@ -23,6 +24,7 @@ const consolidation: PassageModule = {
     { path: "/consolidation", element: createElement(ConsolidationHome), handle: { title: "Consolidation workspace" } },
     { path: "/consolidation/groups", element: createElement(GroupsPage), handle: { title: "Consolidation groups" } },
     { path: "/consolidation/groups/:id", element: createElement(GroupDetailPage), handle: { title: "Consolidation group" } },
+    { path: "/consolidation/groups/:id/units/:unitId/terms", element: createElement(UnitTermsPage), handle: { title: "Acquisition terms" } },
     { path: "/consolidation/collections/:id", element: createElement(TrialBalancePage), handle: { title: "Consolidated trial balance" } },
     { path: "/consolidation/eliminations", element: createElement(EliminationsPage), handle: { title: "Elimination entries" } },
     { path: "/consolidation/translation", element: createElement(TranslationPage), handle: { title: "Currency translation" } },

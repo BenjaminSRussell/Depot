@@ -5,6 +5,7 @@ import { VERIFICATION_LABELS, VERIFICATION_TONES } from "./format";
 import styles from "./pages.module.css";
 import { useLoad } from "./useLoad";
 import { ProblemMessage } from "../../shell/errors";
+import { UserName } from "../../shell/lookup/UserName";
 
 const diffColumns: DataTableColumn<VerificationDiff>[] = [
   { key: "account", header: "Account", mono: true },
@@ -71,7 +72,7 @@ export function VerificationPage() {
         <dl className={styles.details}>
           <div className={styles.entry}>
             <dt className={styles.term}>Checked</dt>
-            <dd className={styles.value}><time dateTime={v.verifiedAt}>{v.verifiedAt}</time> by {v.requestedBy || "system"}</dd>
+            <dd className={styles.value}><time dateTime={v.verifiedAt}>{v.verifiedAt}</time> by <UserName id={v.requestedBy} empty="system" /></dd>
           </div>
           <div className={styles.entry}>
             <dt className={styles.term}>Read model as of sequence</dt>

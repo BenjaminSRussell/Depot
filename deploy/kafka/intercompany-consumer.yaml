@@ -1,0 +1,42 @@
+# The intercompany charge feed (#40, `intercompany consume`, group intercompany-charges) raises an intercompany charge for every expense
+# line and project hour another legal entity bears, from expense's report.approved (passage.expense.report) and projects'
+# transaction.posted (passage.projects.transaction), and parks what it cannot apply on passage.intercompany.charges.dlq. The chart's
+# consumer.kafka.username names this user. Literal ACLs: it reads those two topics and writes only its dead-letter topic.
+# NOT YET LIVE: deploy/kafka/connect.yaml has no outbox connector for expense or projects, so those two topics are not created or
+# written. Adding the connectors (a CDC role and publication per database, like intercompany's 0007/0008 migrations) is a deployment
+# step; until then the consumer stays off in the chart and the handlers are exercised by the service tests.
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaUser
+metadata:
+  name: intercompany-consumer
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: passage
+spec:
+  authentication:
+    type: scram-sha-512
+  authorization:
+    type: simple
+    acls:
+      - resource: {type: topic, name: passage.expense.report, patternType: literal}
+        operations: [Read, Describe]
+      - resource: {type: topic, name: passage.projects.transaction, patternType: literal}
+        operations: [Read, Describe]
+      - resource: {type: topic, name: passage.intercompany.charges.dlq, patternType: literal}
+        operations: [Write, Describe]
+      - resource: {type: group, name: intercompany-charges, patternType: literal}
+        operations: [Read, Describe]
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  name: passage-intercompany-charges-dlq
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: passage
+spec:
+  topicName: passage.intercompany.charges.dlq
+  partitions: 3
+  replicas: 3
+  config:
+    retention.ms: 2592000000

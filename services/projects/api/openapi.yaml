@@ -2653,6 +2653,10 @@ components:
         workerId:
           type: string
           format: uuid
+        workerLegalEntityId:
+          type: string
+          format: uuid
+          description: The legal entity that employs the worker of an HOUR transaction. The transaction.posted event carries it so intercompany charges the hours from this entity to the project's when they differ (#40).
         itemId:
           type: string
           format: uuid
@@ -2712,6 +2716,10 @@ components:
         workerId:
           type: string
           format: uuid
+        workerLegalEntityId:
+          type: string
+          format: uuid
+          description: The legal entity that employs the worker of an HOUR transaction. The transaction.posted event carries it so intercompany charges the hours from this entity to the project's when they differ (#40).
         itemId:
           type: string
           format: uuid

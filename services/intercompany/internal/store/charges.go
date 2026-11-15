@@ -135,8 +135,9 @@ func (s *Postgres) FinishCharge(ctx context.Context, id string, status domain.Ch
 			if err := tx.QueryRow(ctx, `select coalesce((select legal_entity_id::text from ic_entity where entity = $1), ''),
 					coalesce((select legal_entity_id::text from ic_entity where entity = $2), ''),
 					coalesce((select customer_account from intercompany_partner where seller_entity = $1 and buyer_entity = $2 and active order by version desc limit 1), ''),
-					coalesce((select vendor_account from intercompany_partner where seller_entity = $1 and buyer_entity = $2 and active order by version desc limit 1), '')`,
-				out.Lender, out.Borrower).Scan(&data.LenderLegalEntityID, &data.BorrowerLegalEntityID, &data.CustomerAccount, &data.VendorAccount); err != nil {
+					coalesce((select vendor_account from intercompany_partner where seller_entity = $1 and buyer_entity = $2 and active order by version desc limit 1), ''),
+					coalesce((select auto_post_invoice from intercompany_partner where seller_entity = $1 and buyer_entity = $2 and active order by version desc limit 1), false)`,
+				out.Lender, out.Borrower).Scan(&data.LenderLegalEntityID, &data.BorrowerLegalEntityID, &data.CustomerAccount, &data.VendorAccount, &data.AutoPostInvoice); err != nil {
 				return err
 			}
 			return enqueue(ctx, tx, "ic_charge", out.ID, icevents.ChargeInvoiceRequested, pr.TenantID, data)

@@ -5,9 +5,11 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/BenjaminSRussell/passage/platform/ids"
+	"github.com/BenjaminSRussell/passage/platform/tenant"
 	"github.com/BenjaminSRussell/passage/services/projects/internal/domain"
 )
 
@@ -353,5 +355,23 @@ func TestProposals_FixedPriceBillsDueMilestonesOnly(t *testing.T) {
 	}
 	if got := why(internal.ID); got != domain.ReasonProjectType {
 		t.Errorf("internal project line: %q", got)
+	}
+}
+
+// M4 (#40): the employing entity of an HOUR transaction must be one the submitter may act in.
+func TestTransactions_WorkerLegalEntityMustBeInTheSubmittersScope(t *testing.T) {
+	f := newFake()
+	h := router(f)
+	billingProject(t, f, "ES-IC", domain.TypeTimeMaterial)
+	employer := ids.New()
+	body := strings.Replace(hourBody("ES-IC", "CHARGEABLE", "2026-09-10", "8"), `"workerId"`, `"workerLegalEntityId":"`+employer+`","workerId"`, 1)
+	if rec := postTxn(t, h, body, "k-ic-out"); rec.Code != http.StatusForbidden {
+		t.Fatalf("employer outside the scope = %d %s; want 403", rec.Code, rec.Body.String())
+	}
+	p, _ := tenant.FromContext(accountant)
+	p.LegalEntityID = employer
+	in := tenant.With(context.Background(), p)
+	if rec := do(t, h, in, http.MethodPost, "/v1/projects/transactions", body, key("k-ic-in")); rec.Code != http.StatusCreated {
+		t.Fatalf("employer in scope = %d %s; want 201", rec.Code, rec.Body.String())
 	}
 }

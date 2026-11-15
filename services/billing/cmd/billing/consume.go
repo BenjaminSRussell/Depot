@@ -15,7 +15,9 @@ import (
 	"github.com/BenjaminSRussell/passage/platform/httpx"
 	"github.com/BenjaminSRussell/passage/platform/tenant"
 
+	"github.com/BenjaminSRussell/passage/services/billing/internal/api"
 	"github.com/BenjaminSRussell/passage/services/billing/internal/iccharge"
+	"github.com/BenjaminSRussell/passage/services/billing/internal/periods"
 	"github.com/BenjaminSRussell/passage/services/billing/internal/store"
 )
 
@@ -41,6 +43,33 @@ func icChargeConfig(getenv func(string) string) (iccharge.Config, error) {
 	return cfg, nil
 }
 
+// icChargePeriods adds what auto-posting needs to the config: the close service (BILLING_CLOSE_URL, with the service signing key) and the
+// lender's ledger per legal entity (BILLING_GL_PROFILES). Without both, an opted-in charge stays a proposal for review.
+func icChargePeriods(getenv func(string) string, cfg iccharge.Config) (iccharge.Config, error) {
+	closeURL, raw := getenv("BILLING_CLOSE_URL"), getenv("BILLING_GL_PROFILES")
+	if closeURL == "" || raw == "" {
+		return cfg, nil
+	}
+	profiles, err := api.ParseGLProfiles(raw)
+	if err != nil {
+		return cfg, err
+	}
+	signer, err := tenant.ServiceSignerFromEnv(getenv)
+	if err != nil {
+		return cfg, err
+	}
+	pc, err := periods.New(closeURL, signer, nil)
+	if err != nil {
+		return cfg, err
+	}
+	cfg.Periods = pc
+	cfg.Ledgers = map[string]string{}
+	for le, p := range profiles {
+		cfg.Ledgers[le] = p.LedgerID
+	}
+	return cfg, nil
+}
+
 // consume runs the intercompany charge consumer (#40): it raises the lender's invoice proposal of every chargeinvoice.requested and
 // serves only its admin port.
 func consume(ctx context.Context, getenv func(string) string) error {
@@ -53,6 +82,9 @@ func consume(ctx context.Context, getenv func(string) string) error {
 	}
 	cfg, err := icChargeConfig(getenv)
 	if err != nil {
+		return err
+	}
+	if cfg, err = icChargePeriods(getenv, cfg); err != nil {
 		return err
 	}
 	kcfg, err := kafka.ConfigFromEnv(getenv, iccharge.ConsumerName, iccharge.ConsumerName, []string{iccharge.Topic})

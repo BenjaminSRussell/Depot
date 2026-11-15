@@ -14,6 +14,7 @@ import {
 import { changeStatusLabel, changeStatusTone, dash, describeDelta } from "./labels";
 import styles from "./pages.module.css";
 import { ProblemMessage } from "../../shell/errors";
+import { UserName } from "../../shell/lookup/UserName";
 
 export interface OrderChangeDetailPageProps {
   changeId: string;
@@ -189,7 +190,7 @@ export function OrderChangeDetailPage({ changeId, onBack, onOpenOrder }: OrderCh
           <Detail term="Resolved">
             {change.resolvedAt ? (
               <>
-                <time dateTime={change.resolvedAt}>{change.resolvedAt.slice(0, 10)}</time> by {change.resolvedBy}
+                <time dateTime={change.resolvedAt}>{change.resolvedAt.slice(0, 10)}</time> by <UserName id={change.resolvedBy} />
               </>
             ) : (
               dash

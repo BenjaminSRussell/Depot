@@ -7,6 +7,7 @@ import { ITEMS, USER, PLANT, VENDORS, WH_DAL, itemByNumber } from "../../company
 import { at, day, dec, table, uid } from "../../store";
 import { newOrder } from "./orders";
 import { orders as productionOrders } from "./production";
+import { userIdOf } from "../directory";
 
 const BASE = "/api/v1/planning";
 const KIND_ORDER = 210;
@@ -127,8 +128,8 @@ const messages = table<Message>([
     code: "PLAN-M07",
     text: "Increase PO-52326 by 300 bearings to cover the CP-200 batch for Bluewater Municipal Utilities.",
   }),
-  msg("advance", "SA-MTR-05", 30, { status: "applied", version: 2, decidedBy: USER.name, decidedAt: at(-1), decisionNote: "Pulled in with the customer's agreement.", supplyRef: "MO-24627", demandRef: "SO-024181", suggestedDate: day(4), delayDays: 2, code: "PLAN-M01", text: "Start MO-24627 two days earlier to protect SO-024181." }),
-  msg("cancel", "FST-KIT-A", 100, { status: "dismissed", version: 2, decidedBy: "Priya Natarajan", decidedAt: at(-2), decisionNote: "Kits are reserved for the Dallas build.", supplyRef: "PO-52284", code: "PLAN-M04", text: "PO-52284 is not needed against current demand." }),
+  msg("advance", "SA-MTR-05", 30, { status: "applied", version: 2, decidedBy: userIdOf(USER.name), decidedAt: at(-1), decisionNote: "Pulled in with the customer's agreement.", supplyRef: "MO-24627", demandRef: "SO-024181", suggestedDate: day(4), delayDays: 2, code: "PLAN-M01", text: "Start MO-24627 two days earlier to protect SO-024181." }),
+  msg("cancel", "FST-KIT-A", 100, { status: "dismissed", version: 2, decidedBy: userIdOf("Priya Natarajan"), decidedAt: at(-2), decisionNote: "Kits are reserved for the Dallas build.", supplyRef: "PO-52284", code: "PLAN-M04", text: "PO-52284 is not needed against current demand." }),
 ]);
 
 const findNumber = (id: string) => ITEMS.find((i) => i.id === id)?.number ?? id;
@@ -226,7 +227,7 @@ for (const decision of ["apply", "dismiss"] as const) {
     if (!m) return reply.problem(404, "PLAN-0404", "Message not found.");
     if (m.status !== "open") return reply.problem(409, "PLAN-0003", `The message is already ${m.status}.`);
     const note = (req.body as { note?: string } | undefined)?.note;
-    const next = messages.update(m.id, { status: decision === "apply" ? "applied" : "dismissed", version: m.version + 1, decidedBy: USER.name, decidedAt: at(0), decisionNote: note ?? null });
+    const next = messages.update(m.id, { status: decision === "apply" ? "applied" : "dismissed", version: m.version + 1, decidedBy: userIdOf(USER.name), decidedAt: at(0), decisionNote: note ?? null });
     return reply.versioned(next, m.version + 1);
   });
 }
@@ -243,8 +244,8 @@ const forecastModel = {
   reductionPrinciple: "transactions" as const,
   reductionPercent: "0",
   status: "submitted" as "draft" | "submitted" | "published",
-  submittedBy: "Aisha Grant" as string | null,
-  decidedBy: USER.name as string | null,
+  submittedBy: userIdOf("Aisha Grant") as string | null,
+  decidedBy: userIdOf(USER.name) as string | null,
   publishedAt: at(-31) as string | null,
 };
 // The forecast model list the planning forecast pickers read (budget plan demand sources).
@@ -303,9 +304,9 @@ for (const step of ["submit", "publish", "reject"] as const) {
     const need = step === "submit" ? "draft" : "submitted";
     if (forecastModel.status !== need) return reply.problem(409, "PLAN-CONSENSUS-STATE", `The forecast is ${forecastModel.status}; it must be ${need} to ${step}.`);
     forecastModel.version += 1;
-    if (step === "submit") Object.assign(forecastModel, { status: "submitted", submittedBy: USER.name });
-    if (step === "publish") Object.assign(forecastModel, { status: "published", decidedBy: USER.name, publishedAt: at(0) });
-    if (step === "reject") Object.assign(forecastModel, { status: "draft", decidedBy: USER.name });
+    if (step === "submit") Object.assign(forecastModel, { status: "submitted", submittedBy: userIdOf(USER.name) });
+    if (step === "publish") Object.assign(forecastModel, { status: "published", decidedBy: userIdOf(USER.name), publishedAt: at(0) });
+    if (step === "reject") Object.assign(forecastModel, { status: "draft", decidedBy: userIdOf(USER.name) });
     return { model: forecastModel, publication: null };
   });
 }

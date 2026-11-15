@@ -46,6 +46,7 @@ import styles from "./pages.module.css";
 import { useLoad } from "./useLoad";
 import { ProblemMessage } from "../../shell/errors";
 import { LookupFormField } from "../../shell/lookup/LookupFormField";
+import { UserName } from "../../shell/lookup/UserName";
 
 /** Review duty: compiles records, raises and decides exceptions, maintains profiles; enforced by the service (FR-24.21, PRD 4.24.17). */
 export const RECORD_WRITE_DUTY = "production.batch-record.write";
@@ -312,7 +313,7 @@ export function BatchRecordDetailPage() {
         <StatTile label="Exceptions" value={String(record.exceptionCount)} />
         <StatTile label="Open" value={String(record.openExceptions)} />
         <StatTile label="Compiled" value={formatDateTime(record.compiledAt)} />
-        <StatTile label="Approved" value={record.approvedAt ? `${record.approvedBy ?? ""} ${formatDateTime(record.approvedAt)}`.trim() : dash} />
+        <StatTile label="Approved" value={record.approvedAt ? <><UserName id={record.approvedBy} /> {formatDateTime(record.approvedAt)}</> : dash} />
         <StatTile label="Sealed" value={record.sealedAt ? formatDateTime(record.sealedAt) : dash} />
       </StatGroup>
       {failure ? (

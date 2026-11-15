@@ -22,6 +22,7 @@ import { reply, route } from "../../backend";
 import { at, newId, table, uid } from "../../store";
 import { ACCOUNTS, LEDGER_ID } from "./ledger";
 import { ME } from "./people";
+import { userIdOf } from "../directory";
 
 const BASE = "/api/v1/reporting";
 const K_RUN = 630;
@@ -402,8 +403,8 @@ const library = table<LibraryEntry>([
 // --- verifications ---------------------------------------------------------------------------------
 
 const verifications = table<Verification>([
-  { id: uid(K_VERIFY, 1), ledgerId: LEDGER_ID, legalEntityId: LEGAL_ENTITY.id, status: "matched", hwmBefore: 128_431, hwmAfter: 128_431, entriesPending: 0, accountsCompared: 34, diffCount: 0, requestedBy: ME.username, verifiedAt: at(-0.31), diffs: [] },
-  { id: uid(K_VERIFY, 2), ledgerId: LEDGER_ID, legalEntityId: LEGAL_ENTITY.id, status: "inconclusive", hwmBefore: 128_402, hwmAfter: 128_409, entriesPending: 3, accountsCompared: 34, diffCount: 0, requestedBy: "ana.ortiz", verifiedAt: at(-dom + 0.6), diffs: [] },
+  { id: uid(K_VERIFY, 1), ledgerId: LEDGER_ID, legalEntityId: LEGAL_ENTITY.id, status: "matched", hwmBefore: 128_431, hwmAfter: 128_431, entriesPending: 0, accountsCompared: 34, diffCount: 0, requestedBy: userIdOf(ME.username), verifiedAt: at(-0.31), diffs: [] },
+  { id: uid(K_VERIFY, 2), ledgerId: LEDGER_ID, legalEntityId: LEGAL_ENTITY.id, status: "inconclusive", hwmBefore: 128_402, hwmAfter: 128_409, entriesPending: 3, accountsCompared: 34, diffCount: 0, requestedBy: userIdOf("ana.ortiz"), verifiedAt: at(-dom + 0.6), diffs: [] },
   {
     id: uid(K_VERIFY, 3),
     ledgerId: LEDGER_ID,
@@ -414,14 +415,14 @@ const verifications = table<Verification>([
     entriesPending: 0,
     accountsCompared: 34,
     diffCount: 2,
-    requestedBy: ME.username,
+    requestedBy: userIdOf(ME.username),
     verifiedAt: at(-dom - 27),
     diffs: [
       { account: "1200", readModel: "3505301.95", ledger: "3517781.95", difference: "-12480.00" },
       { account: "4000", readModel: "17823140.00", ledger: "17835620.00", difference: "-12480.00" },
     ],
   },
-  { id: uid(K_VERIFY, 4), ledgerId: LEDGER_ID, legalEntityId: LEGAL_ENTITY.id, status: "matched", hwmBefore: 121_870, hwmAfter: 121_870, entriesPending: 0, accountsCompared: 34, diffCount: 0, requestedBy: ME.username, verifiedAt: at(-dom - 26.5), diffs: [] },
+  { id: uid(K_VERIFY, 4), ledgerId: LEDGER_ID, legalEntityId: LEGAL_ENTITY.id, status: "matched", hwmBefore: 121_870, hwmAfter: 121_870, entriesPending: 0, accountsCompared: 34, diffCount: 0, requestedBy: userIdOf(ME.username), verifiedAt: at(-dom - 26.5), diffs: [] },
 ]);
 
 const verificationSummary = (v: Verification): VerificationSummary => {
@@ -520,5 +521,5 @@ route("GET", `${BASE}/balance-verifications/{id}`, ({ params }) => verifications
 route("POST", `${BASE}/balance-verifications`, ({ body }) => {
   const ledgerId = ((body ?? {}) as { ledgerId?: string }).ledgerId;
   if (ledgerId !== LEDGER_ID) return reply.problem(422, "REPORT-0003", `no ledger with that id; ${LEGAL_ENTITY.code}'s ledger is ${LEDGER_ID}`);
-  return reply.created(verifications.insert({ id: newId(), ledgerId, legalEntityId: LEGAL_ENTITY.id, status: "matched", hwmBefore: sequence, hwmAfter: sequence, entriesPending: 0, accountsCompared: 34, diffCount: 0, requestedBy: ME.username, verifiedAt: at(0), diffs: [] }));
+  return reply.created(verifications.insert({ id: newId(), ledgerId, legalEntityId: LEGAL_ENTITY.id, status: "matched", hwmBefore: sequence, hwmAfter: sequence, entriesPending: 0, accountsCompared: 34, diffCount: 0, requestedBy: userIdOf(ME.username), verifiedAt: at(0), diffs: [] }));
 });

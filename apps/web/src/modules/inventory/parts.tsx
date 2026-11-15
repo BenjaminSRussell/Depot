@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { useState } from "react";
 import { Alert, Button, type BadgeTone } from "../../shell/ui";
 import { describeProblem, type Problem } from "./api/client";
@@ -14,7 +15,7 @@ export const emptyDimensions = (): Record<FormDimension, string> => ({ site: "",
 /** All dimensions in canonical order, for describing stored dimension sets. */
 export const ALL_DIMENSIONS = ["site", "warehouse", "location", "batch", "serial", "inventory_status", "config", "size", "color", "style", "owner", "segment"] as const;
 
-export function Detail({ term, children, mono = false }: { term: string; children: string; mono?: boolean }) {
+export function Detail({ term, children, mono = false }: { term: string; children: ReactNode; mono?: boolean }) {
   return (
     <div className={styles.entry}>
       <dt className={styles.term}>{term}</dt>

@@ -5,6 +5,7 @@ import type { Comparison, Plan, PlanCell, PlanScenario, StageOwner } from "../..
 import { LEGAL_ENTITY } from "../company";
 import { DemoResponse, reply, route } from "../backend";
 import { at, newId, table, uid } from "../store";
+import { userIdOf } from "./directory";
 
 const BASE = "/api/v1/budget";
 const K_RULE = 365;
@@ -52,7 +53,7 @@ const plans = table<StoredPlan>([
     status: "Draft",
     submission: 0,
     version: 4,
-    createdBy: "ana.ortiz",
+    createdBy: userIdOf("ana.ortiz"),
     createdAt: at(-14),
     scenarios: [
       { id: BASELINE, name: "Baseline", kind: "Baseline", version: 6, total: "0" },
@@ -69,10 +70,10 @@ const plans = table<StoredPlan>([
     currency: "USD",
     status: "Approved",
     submission: 1,
-    submittedBy: "ana.ortiz",
+    submittedBy: userIdOf("ana.ortiz"),
     approvedScenarioId: uid(K_SCENARIO, 3),
     version: 9,
-    createdBy: "ana.ortiz",
+    createdBy: userIdOf("ana.ortiz"),
     createdAt: at(-380),
     scenarios: [{ id: uid(K_SCENARIO, 3), name: "Baseline", kind: "Baseline", version: 3, total: "0" }],
     stageOwners: [
@@ -203,7 +204,7 @@ route("POST", `${BASE}/plans`, ({ body }) => {
     status: "Draft",
     submission: 0,
     version: 1,
-    createdBy: "dev",
+    createdBy: userIdOf("dev"),
     createdAt: at(0),
     scenarios: [{ id: scenarioId, name: "Baseline", kind: "Baseline", version: 1, total: "0" }],
     stageOwners: [],
@@ -341,7 +342,7 @@ route("GET", "/api/v1/projects/{id}/forecasts", ({ params }) => {
   return {
     items: demoForecasts
       .filter((f) => f.projectId === params.id)
-      .map(({ months, cost, sales, ...f }) => ({ ...f, totalCost: dec(months.length * cost * 10_000), totalSales: dec(months.length * sales * 10_000), createdBy: "ana.ortiz", createdAt: at(-30) })),
+      .map(({ months, cost, sales, ...f }) => ({ ...f, totalCost: dec(months.length * cost * 10_000), totalSales: dec(months.length * sales * 10_000), createdBy: userIdOf("ana.ortiz"), createdAt: at(-30) })),
   };
 });
 
@@ -470,5 +471,5 @@ route("POST", `${BASE}/plans/{id}:submit`, ({ params }) => {
   if (!p) return notFound("budget plan");
   if (p.status !== "Draft") return reply.problem(409, "BUD-0042", `the plan is ${p.status}; only a Draft plan can be submitted`);
   if (!p.stageOwners.some((o) => o.stage === "Review") || !p.stageOwners.some((o) => o.stage === "Approve")) return reply.problem(422, "BUD-0045", "set who reviews and who approves before submitting");
-  return view(plans.update(p.id, { status: "Submitted", submission: p.submission + 1, submittedBy: "dev" })!);
+  return view(plans.update(p.id, { status: "Submitted", submission: p.submission + 1, submittedBy: userIdOf("dev") })!);
 });

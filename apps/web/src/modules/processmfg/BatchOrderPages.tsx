@@ -35,6 +35,7 @@ import { AllocationCard, OrderLifecycle } from "./OrderLifecycle";
 import styles from "./pages.module.css";
 import { useLoad } from "./useLoad";
 import { ProblemMessage } from "../../shell/errors";
+import { UserName } from "../../shell/lookup/UserName";
 
 const STATUS_LABELS: Record<OrderStatus, string> = {
   planned: "Planned",
@@ -359,7 +360,7 @@ export function BatchOrderDetailPage() {
           <p className={styles.note}>{`The order is ${STATUS_LABELS[order.status].toLowerCase()}; only planned or released orders can be rescaled.`}</p>
         )}
       </Card>
-      <p className={styles.muted}>{`Created ${formatDateTime(order.createdAt)} by ${order.createdBy || "unknown"} · updated ${formatDateTime(order.updatedAt)} · version ${order.version}`}</p>
+      <p className={styles.muted}>{<>Created {formatDateTime(order.createdAt)} by <UserName id={order.createdBy} /> · updated {formatDateTime(order.updatedAt)} · version {order.version}</>}</p>
     </div>
   );
 }

@@ -8,6 +8,7 @@ import styles from "./pages.module.css";
 import { DUTY_PROJECT_WRITE } from "./ProjectPages";
 import { useLoad } from "./useLoad";
 import { ProblemMessage } from "../../shell/errors";
+import { UserName } from "../../shell/lookup/UserName";
 
 /** Bounds of mig.recurring.min_interval_min; the service enforces the same ones. */
 export const MIN_INTERVAL_FLOOR = 15;
@@ -78,7 +79,7 @@ function IntervalCard({ settings, canEdit, onSaved, onStale }: { settings: Migra
     }
   }
 
-  const note = settings.updatedAt ? `Saved ${formatDateTime(settings.updatedAt)}${settings.updatedBy ? ` by ${settings.updatedBy}` : ""}.` : "Not changed from the default.";
+  const note = settings.updatedAt ? <>Saved {formatDateTime(settings.updatedAt)}{settings.updatedBy ? <> by <UserName id={settings.updatedBy} /></> : null}.</> : "Not changed from the default.";
 
   if (text !== null && canEdit) {
     return (

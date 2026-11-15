@@ -7,6 +7,7 @@ import { CUSTOMERS, ITEMS, USER, VENDORS, itemByNumber } from "../../company";
 import { reply, route, type DemoRequest } from "../../backend";
 import { at, dec, table, uid } from "../../store";
 import { purchaseOrders } from "./purchasing";
+import { userIdOf } from "../directory";
 
 const BASE = "/api/v1/quality";
 
@@ -20,7 +21,7 @@ function correction(started: number, currentStep: number, notes: string[], extra
       name,
       dueAt: at(-started + (i + 1) * 3),
       notes: done ? notes[i] : undefined,
-      completedBy: done ? (i % 2 === 0 ? "Priya Natarajan" : "Dana Kowalski") : undefined,
+      completedBy: done ? userIdOf(i % 2 === 0 ? "Priya Natarajan" : "Dana Kowalski") : undefined,
       completedAt: done ? at(-started + (i + 1) * 2.5) : undefined,
     };
   });
@@ -60,7 +61,7 @@ function ncr(s: NcrSeed): Nonconformance {
     description: "",
     dims: { site: "CR" },
     status: "NEW",
-    createdBy: "Priya Natarajan",
+    createdBy: userIdOf("Priya Natarajan"),
     createdAt: at(-ago),
     updatedAt: at(-ago + 0.3),
     version: 1,
@@ -217,7 +218,7 @@ route("POST", `${BASE}/nonconformances`, ({ body }) => {
     itemId: input.itemId ?? it?.id ?? "",
     uom: input.uom || it?.unit || "ea",
     description: input.description ?? "",
-    createdBy: USER.name,
+    createdBy: userIdOf(USER.name),
     createdAt: at(0),
     updatedAt: at(0),
   };
@@ -255,7 +256,7 @@ route("POST", `${BASE}/nonconformances/{id}:complete-step`, (req) =>
     const c = r.correction;
     if (!c || c.status !== "OPEN") return reply.problem(409, "QM-0133", "The 8D has no open step");
     const input = req.body as { step: number; notes: string };
-    const steps = c.steps.map((s) => (s.step === input.step ? { ...s, notes: input.notes, completedBy: USER.name, completedAt: at(0) } : s));
+    const steps = c.steps.map((s) => (s.step === input.step ? { ...s, notes: input.notes, completedBy: userIdOf(USER.name), completedAt: at(0) } : s));
     const last = input.step >= steps.length;
     return {
       ...r,

@@ -22,6 +22,7 @@ import { OpeningLoadPanel } from "./OpeningLoadPanel";
 import { TargetLoadPanel } from "./TargetLoadPanel";
 import { useLoad } from "./useLoad";
 import { ProblemMessage } from "../../shell/errors";
+import { UserName } from "../../shell/lookup/UserName";
 
 const totalColumns: DataTableColumn<ControlTotal>[] = [
   { key: "name", header: "Control total", mono: true },
@@ -120,7 +121,7 @@ export function PackRunDetailPage() {
             Release
           </Button>
         ) : row.status === "RELEASED" && row.releasedBy ? (
-          `By ${row.releasedBy}`
+          <>By <UserName id={row.releasedBy} /></>
         ) : null,
     },
   ];

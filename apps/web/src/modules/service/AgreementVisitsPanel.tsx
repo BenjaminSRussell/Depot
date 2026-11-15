@@ -18,6 +18,7 @@ import { dash, DATE, formatDateTime, sentence, shortId, today, UUID } from "./fo
 import styles from "./pages.module.css";
 import { useLoad } from "./useLoad";
 import { ProblemMessage } from "../../shell/errors";
+import { UserName } from "../../shell/lookup/UserName";
 
 export interface VisitValues {
   lineIndex: string;
@@ -52,7 +53,7 @@ const historyColumns: DataTableColumn<AgreementChange & { id: string }>[] = [
   { key: "at", header: "When", mono: true, render: (row) => formatDateTime(row.at) },
   { key: "change", header: "Change", render: (row) => `${sentence(row.from)} to ${sentence(row.to)}` },
   { key: "reason", header: "Reason", render: (row) => row.reason || dash },
-  { key: "actor", header: "By", mono: true, render: (row) => row.actor || dash },
+  { key: "actor", header: "By", mono: true, render: (row) => <UserName id={row.actor} /> },
 ];
 
 /** Visits used per line, counted from the visit list. */

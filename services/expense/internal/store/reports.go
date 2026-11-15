@@ -106,7 +106,7 @@ const reportColumns = `id::text, legal_entity_id::text, worker_id::text, purpose
   created_by, submitted_by, coalesce(ap_open_item_id::text, ''), reimbursed_at, coalesce(gl_entry_id, '')`
 
 const lineColumns = `id::text, report_id::text, line_no, category, txn_date, amount::text, merchant,
-  attendees, has_receipt, justification, paid_by, policy_results`
+  attendees, has_receipt, justification, paid_by, policy_results, coalesce(charge_to_legal_entity_id::text, '')`
 
 // CreateReport inserts a DRAFT report. A replayed key with the same request hash
 // returns the original report with replayed=true; the same key with another body
@@ -251,10 +251,10 @@ func (s *Store) AddLine(ctx context.Context, reportID, key, hash string, l domai
 			next = current.Lines[n-1].LineNo + 1
 		}
 		_, err = tx.Exec(ctx, `insert into expense_line(tenant_id, id, report_id, line_no, category, txn_date, amount, merchant,
-			attendees, has_receipt, justification, paid_by, create_key, request_hash)
-			values($1,$2,$3,$4,$5,$6,$7::numeric,$8,$9,$10,$11,$12,$13,$14)`,
+			attendees, has_receipt, justification, paid_by, create_key, request_hash, charge_to_legal_entity_id)
+			values($1,$2,$3,$4,$5,$6,$7::numeric,$8,$9,$10,$11,$12,$13,$14,nullif($15, '')::uuid)`,
 			p.TenantID, l.ID, reportID, next, l.Category, l.TxnDate, l.Amount.String(), l.Merchant,
-			l.Attendees, l.HasReceipt, l.Justification, l.PaidBy, key, hash)
+			l.Attendees, l.HasReceipt, l.Justification, l.PaidBy, key, hash, l.ChargeToLegalEntityID)
 		if err != nil {
 			return translate(err, CodeLineExists)
 		}
@@ -511,7 +511,7 @@ func scanLine(r pgx.Row) (ReportLine, error) {
 	var amount string
 	var results []byte
 	if err := r.Scan(&l.ID, &l.ReportID, &l.LineNo, &l.Category, &l.TxnDate, &amount, &l.Merchant,
-		&l.Attendees, &l.HasReceipt, &l.Justification, &l.PaidBy, &results); err != nil {
+		&l.Attendees, &l.HasReceipt, &l.Justification, &l.PaidBy, &results, &l.ChargeToLegalEntityID); err != nil {
 		return ReportLine{}, err
 	}
 	var err error

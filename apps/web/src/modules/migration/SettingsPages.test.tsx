@@ -79,7 +79,7 @@ describe("migration settings", () => {
     expect(await screen.findByText("60 minutes")).toBeInTheDocument();
     expect(calls.find((c) => c.method === "PUT")?.body).toEqual({ version: 0, recurringMinIntervalMin: 60 });
     expect(calls.find((c) => c.method === "PUT")?.url).toBe("/api/v1/integration/migration-settings");
-    expect(screen.getByText(/Saved .* by ben\./)).toBeInTheDocument();
+    expect(document.body).toHaveTextContent(/Saved .* by A user who is no longer listed\./);
   });
 
   it("offers a reload when another admin saved first", async () => {

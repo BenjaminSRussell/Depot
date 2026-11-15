@@ -97,7 +97,7 @@ describe("Quarantine release", () => {
     const [post] = posts("/quarantine/1/release");
     expect(post.body).toEqual({ party: "V001", version: 1 });
     expect(new Headers(post.init.headers).get("Idempotency-Key")).toBeTruthy();
-    expect(within(screen.getByRole("table", { name: "Quarantined records" })).getByText("By ops")).toBeInTheDocument();
+    expect(screen.getByRole("table", { name: "Quarantined records" })).toHaveTextContent("By A user who is no longer listed");
     expect(screen.queryByRole("button", { name: "Release record OI-BAD" })).not.toBeInTheDocument();
   });
 

@@ -3,6 +3,7 @@
 import { CUSTOMERS, LEGAL_ENTITY } from "../company";
 import { reply, route } from "../backend";
 import { at, uid } from "../store";
+import { userIdOf } from "./directory";
 
 const K_PENDING = 721;
 
@@ -32,7 +33,7 @@ const CHANGES: Change[] = [
   currentValue: String(c.current),
   requestedValue: String(c.requested),
   status: "pending",
-  requestedBy: c.by,
+  requestedBy: userIdOf(c.by),
   requestedAt: at(c.days),
 }));
 

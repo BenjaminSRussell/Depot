@@ -6,6 +6,7 @@ import { formatDateTime, sentence, UUID } from "./format";
 import styles from "./pages.module.css";
 import { useLoad } from "./useLoad";
 import { ProblemMessage } from "../../shell/errors";
+import { UserName } from "../../shell/lookup/UserName";
 
 const tone: Record<ChangeStatus, BadgeTone> = { PENDING: "warning", APPROVED: "success", REJECTED: "danger", WITHDRAWN: "neutral" };
 
@@ -26,7 +27,7 @@ const columns: DataTableColumn<ChangeRequest>[] = [
   { key: "orderNumber", header: "Order", mono: true, render: (r) => <Link to={`/sales/orders/${r.orderId}`}>{r.orderNumber}</Link> },
   { key: "changes", header: "Change", render: (r) => <Link to={`/sales/change-requests/${r.id}`}>{diffSummary(r)}</Link> },
   { key: "reason", header: "Reason", render: (r) => r.reason || "—" },
-  { key: "requestedBy", header: "Requested", render: (r) => `${formatDateTime(r.requestedAt)} by ${r.requestedBy}` },
+  { key: "requestedBy", header: "Requested", render: (r) => <>{formatDateTime(r.requestedAt)} by <UserName id={r.requestedBy} /></> },
   { key: "status", header: "Status", render: (r) => <ChangeStatusBadge status={r.status} /> },
 ];
 

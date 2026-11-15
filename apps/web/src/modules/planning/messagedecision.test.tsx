@@ -261,7 +261,7 @@ describe("Message detail page", () => {
     ]);
     renderAt(`/planning/messages/${ID}`);
     expect(await screen.findByText("This message was dismissed")).toBeTruthy();
-    expect(screen.getByText(/By user-1 on 2026-11-03/)).toBeTruthy();
+    expect(document.body).toHaveTextContent(/By A user who is no longer listed on 2026-11-03/);
     expect(screen.queryByText(/sent to the owner/)).toBeNull();
     expect(screen.queryByText(/earlier plan version/)).toBeNull();
     expect(screen.queryByRole("button", { name: "Apply message" })).toBeNull();

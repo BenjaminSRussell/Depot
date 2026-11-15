@@ -27,6 +27,8 @@ type Line struct {
 	HasReceipt    bool
 	Justification string
 	PaidBy        string
+	// ChargeToLegalEntityID is the legal entity that bears the cost when it is not the entity that pays the report; empty otherwise.
+	ChargeToLegalEntityID string
 }
 
 // Totals satisfies the report invariant: total = reimbursable + company-paid (8.43.4).

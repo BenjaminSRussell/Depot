@@ -24,6 +24,7 @@ import { ITEMS, LEGAL_ENTITY, PLANT, USER, VENDORS, itemByNumber } from "../../c
 import { reply, route } from "../../backend";
 import { at, day, dec, table, uid } from "../../store";
 import { newPurchaseLine, newPurchaseOrder, purchaseOrders, requisitions } from "./purchasing";
+import { userIdOf } from "../directory";
 
 const BASE = "/api/v1/procurement";
 const K_CATALOG = 420;
@@ -274,7 +275,7 @@ const inboundChanges = table<InboundChange>([
     requestedQty: "750",
     requestedBy: "Priya Natarajan (planner)",
     resolution: "ACKNOWLEDGED",
-    resolvedBy: USER.name,
+    resolvedBy: userIdOf(USER.name),
     resolvedAt: at(-3.1),
     resolutionNote: "Raised a separate order for the extra 150 ft with Riverbend.",
   }),
@@ -291,7 +292,7 @@ const inboundChanges = table<InboundChange>([
     versionNo: 2,
     attempts: 2,
     resolution: "RETRIED",
-    resolvedBy: "Dana Whitfield",
+    resolvedBy: userIdOf("Dana Whitfield"),
     resolvedAt: at(-12),
     resolutionNote: "Retried after Ironbridge confirmed the new date.",
     requestedBy: "Priya Natarajan (planner)",
@@ -322,7 +323,7 @@ route("POST", `${BASE}/inbound-changes/{id}:{action}`, ({ params, body }) => {
   if (c.status !== "REFUSED" || c.resolution) return reply.problem(409, "PRC-INB-009", "Only a refused change nobody settled can be settled");
   const note = (body as { note?: string } | undefined)?.note;
   if (params.action === "acknowledge") {
-    return inboundChanges.update(c.id, { resolution: "ACKNOWLEDGED", resolvedBy: USER.name, resolvedAt: at(0), resolutionNote: note });
+    return inboundChanges.update(c.id, { resolution: "ACKNOWLEDGED", resolvedBy: userIdOf(USER.name), resolvedAt: at(0), resolutionNote: note });
   }
   if (params.action === "retry") {
     // The reschedule of the seal order goes through once the truck is in; the others are refused again.
@@ -330,7 +331,7 @@ route("POST", `${BASE}/inbound-changes/{id}:{action}`, ({ params, body }) => {
     return inboundChanges.update(c.id, {
       attempts: (c.attempts ?? 1) + 1,
       resolution: "RETRIED",
-      resolvedBy: USER.name,
+      resolvedBy: userIdOf(USER.name),
       resolvedAt: at(0),
       resolutionNote: note,
       ...(passes ? { status: "APPLIED" as const, dateBefore: day(3), dateAfter: c.requestedDate, versionNo: 2 } : {}),

@@ -47,6 +47,7 @@ import styles from "./pages.module.css";
 import { useLoad } from "./useLoad";
 import { ProblemMessage } from "../../shell/errors";
 import { EntityName } from "../../shell/lookup/EntityName";
+import { UserName } from "../../shell/lookup/UserName";
 
 /** Changing a delivery tolerance needs this duty (enforced by the service; the route rows are seeded under #313). */
 export const DUTY_DELIVERY_TOLERANCE_MAINTAIN = "sales.parameter.maintain";
@@ -462,7 +463,7 @@ export function DeliveryToleranceDetailPage() {
     ["Over-delivery", percentText(rule.overdeliveryPct)],
     ["Under-delivery", percentText(rule.underdeliveryPct)],
     ["Partial delivery", sentence(rule.partialDelivery)],
-    ["Changed", `${formatDateTime(rule.updatedAt)} by ${rule.updatedBy}`],
+    ["Changed", <>{formatDateTime(rule.updatedAt)} by <UserName id={rule.updatedBy} /></>],
   ];
 
   return (
