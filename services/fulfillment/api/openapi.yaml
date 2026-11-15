@@ -114,6 +114,17 @@ components:
         carrierCode: { type: [string, "null"] }
         version: { type: integer, minimum: 1 }
         lineCount: { type: integer }
+    PackingSlipLineSummary:
+      type: object
+      required: [id, packingSlipId, packingSlipNumber, lineNo, orderLineId, productId, qty]
+      properties:
+        id: { type: string, format: uuid, description: "The shipment line the slip line covers." }
+        packingSlipId: { type: string, format: uuid }
+        packingSlipNumber: { type: string }
+        lineNo: { type: integer, minimum: 1 }
+        orderLineId: { type: string, format: uuid }
+        productId: { type: string, format: uuid }
+        qty: { type: string }
     PackingSlipSummary:
       type: object
       required: [id, packingSlipNumber, shipmentId, status, postingDate, currency, totalCost]
@@ -792,6 +803,8 @@ paths:
         - { name: status, in: query, schema: { $ref: "#/components/schemas/ShipmentStatus" } }
         - { name: warehouseId, in: query, schema: { type: string, format: uuid } }
         - { name: orderId, in: query, schema: { type: string, format: uuid } }
+        - { name: q, in: query, description: "Only shipments whose number contains it, ignoring case.", schema: { type: string, maxLength: 100 } }
+        - { name: number, in: query, description: "The exact shipment number.", schema: { type: string } }
         - { $ref: "#/components/parameters/Limit" }
       responses:
         "200":
@@ -830,6 +843,30 @@ paths:
                   items:
                     type: array
                     items: { $ref: "#/components/schemas/PackingSlipSummary" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+  /v1/fulfillment/packing-slip-lines:
+    get:
+      operationId: listPackingSlipLines
+      summary: Lines of packing slips for a picker, newest slip first
+      description: "A slip line is identified by the shipment line it covers (a slip carries each shipment line once); lineNo counts the slip's lines from 1."
+      x-passage-duty: fulfillment.warehouse.view
+      parameters:
+        - { name: slipId, in: query, schema: { type: string, format: uuid } }
+        - { name: q, in: query, description: "Only lines of slips whose number contains it, ignoring case.", schema: { type: string, maxLength: 100 } }
+        - { $ref: "#/components/parameters/Limit" }
+      responses:
+        "200":
+          description: Packing slip lines
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/PackingSlipLineSummary" }
         "400": { $ref: "#/components/responses/Problem" }
         "403": { $ref: "#/components/responses/Problem" }
   /v1/fulfillment/packing-slips/{id}:

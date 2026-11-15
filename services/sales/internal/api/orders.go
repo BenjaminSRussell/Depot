@@ -438,6 +438,37 @@ func (a *API) listOrders(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, http.StatusOK, page)
 }
 
+// listOrderLines serves the line pickers of other services' forms (billing's shipment proposals): q matches the order number.
+func (a *API) listOrderLines(w http.ResponseWriter, r *http.Request) {
+	if !validTenant(w, r) {
+		return
+	}
+	q := r.URL.Query()
+	f := store.OrderLineFilter{OrderID: q.Get("orderId"), Q: strings.TrimSpace(q.Get("q"))}
+	fields := map[string]string{}
+	if utf8.RuneCountInString(f.Q) > 100 {
+		fields["q"] = "must be at most 100 characters"
+	}
+	if f.OrderID != "" && !ids.Valid(f.OrderID) {
+		fields["orderId"] = "must be a UUID"
+	}
+	limit, ok := pageLimit(q.Get("limit"))
+	if !ok {
+		fields["limit"] = fmt.Sprintf("must be 1 to %d", maxPageSize)
+	}
+	if len(fields) > 0 {
+		validationFailed(w, r, fields)
+		return
+	}
+	f.Limit = limit
+	lines, err := a.store.ListOrderLines(r.Context(), f)
+	if err != nil {
+		a.fail(w, r, "list order lines", err)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, map[string]any{"items": lines})
+}
+
 var (
 	orderStatuses = map[string]bool{"DRAFT": true, "OPEN": true, "CONFIRMED": true, "PARTIALLY_SHIPPED": true, "SHIPPED": true,
 		"INVOICED": true, "CLOSED": true, "CANCELLED": true}

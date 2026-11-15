@@ -124,7 +124,30 @@ type ShipmentFilter struct {
 	Status      string
 	WarehouseID string
 	OrderID     string
-	Limit       int
+	// Q keeps the shipments whose number contains it, ignoring case; Number is the exact shipment number.
+	Q      string
+	Number string
+	Limit  int
+}
+
+// PackingSlipLineFilter narrows the packing slip line list. Empty fields do not filter.
+type PackingSlipLineFilter struct {
+	SlipID string
+	// Q keeps the lines whose slip number contains it, ignoring case.
+	Q     string
+	Limit int
+}
+
+// PackingSlipLineSummary is one line of a posted packing slip, for pickers. ID is the shipment line the slip line
+// covers (a slip carries each shipment line once), the id billing names a slip line by.
+type PackingSlipLineSummary struct {
+	ID                string          `json:"id"`
+	PackingSlipID     string          `json:"packingSlipId"`
+	PackingSlipNumber string          `json:"packingSlipNumber"`
+	LineNo            int             `json:"lineNo"`
+	OrderLineID       string          `json:"orderLineId"`
+	ProductID         string          `json:"productId"`
+	Qty               decimal.Decimal `json:"qty"`
 }
 
 // PackingSlipFilter narrows the packing slip journal. Empty fields do not filter.
@@ -332,6 +355,7 @@ type Store interface {
 	ListShipments(ctx context.Context, f ShipmentFilter) ([]ShipmentSummary, error)
 	GetShipment(ctx context.Context, id string) (Shipment, error)
 	ListPackingSlips(ctx context.Context, f PackingSlipFilter) ([]PackingSlipSummary, error)
+	ListPackingSlipLines(ctx context.Context, f PackingSlipLineFilter) ([]PackingSlipLineSummary, error)
 	GetPackingSlip(ctx context.Context, id string) (PackingSlip, error)
 	ConfirmPick(ctx context.Context, id string, version int, picks []PickInput, idem Idem) (Shipment, error)
 	PackContainer(ctx context.Context, id string, version int, containerType string, lines []PackInput, idem Idem) (PackResult, error)
@@ -782,8 +806,10 @@ func (s *Postgres) ListShipments(ctx context.Context, f ShipmentFilter) ([]Shipm
 			where ($1 = '' or s.status = $1)
 			  and ($2 = '' or s.warehouse_id::text = $2)
 			  and ($3 = '' or s.order_id::text = $3)
+			  and ($5 = '' or strpos(lower(s.shipment_number), lower($5)) > 0)
+			  and ($6 = '' or s.shipment_number = $6)
 			order by s.created_at desc, s.shipment_number desc
-			limit $4`, f.Status, f.WarehouseID, f.OrderID, f.Limit)
+			limit $4`, f.Status, f.WarehouseID, f.OrderID, f.Limit, f.Q, f.Number)
 		if err != nil {
 			return err
 		}
@@ -826,6 +852,36 @@ func (s *Postgres) ListPackingSlips(ctx context.Context, f PackingSlipFilter) ([
 				return err
 			}
 			r.TotalCost = dec(total)
+			out = append(out, r)
+		}
+		return rows.Err()
+	})
+	return out, err
+}
+
+// ListPackingSlipLines returns the lines of packing slips, newest slip first and in line order within a slip.
+func (s *Postgres) ListPackingSlipLines(ctx context.Context, f PackingSlipLineFilter) ([]PackingSlipLineSummary, error) {
+	out := []PackingSlipLineSummary{}
+	err := dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
+		rows, err := tx.Query(ctx, `select l.shipment_line_id, ps.id, ps.packing_slip_number, l.line_no, l.order_line_id, sl.product_id, l.qty::text
+			from (select pl.*, row_number() over (partition by pl.packing_slip_id order by pl.shipment_line_id) as line_no from packing_slip_line pl) l
+			join packing_slip ps on ps.tenant_id = l.tenant_id and ps.id = l.packing_slip_id
+			join shipment_line sl on sl.tenant_id = l.tenant_id and sl.id = l.shipment_line_id
+			where ($1 = '' or ps.id::text = $1)
+			  and ($3 = '' or strpos(lower(ps.packing_slip_number), lower($3)) > 0)
+			order by ps.created_at desc, ps.packing_slip_number desc, l.line_no
+			limit $2`, f.SlipID, f.Limit, f.Q)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var r PackingSlipLineSummary
+			var qty string
+			if err := rows.Scan(&r.ID, &r.PackingSlipID, &r.PackingSlipNumber, &r.LineNo, &r.OrderLineID, &r.ProductID, &qty); err != nil {
+				return err
+			}
+			r.Qty = dec(qty)
 			out = append(out, r)
 		}
 		return rows.Err()

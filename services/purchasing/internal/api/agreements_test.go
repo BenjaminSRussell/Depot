@@ -170,6 +170,26 @@ func TestListPurchaseAgreements_Filters(t *testing.T) {
 	}
 }
 
+func TestListAgreementLines_FiltersAndLookupDuty(t *testing.T) {
+	h := newHarness(t)
+	vendor, product := ids.New(), ids.New()
+	for _, duty := range []string{dutyPurchaseOrderInquire, dutyPurchaseOrderLookup} {
+		rec := h.do(call{method: "GET", path: "/v1/procurement/agreement-lines?status=EFFECTIVE&vendorId=" + vendor + "&productId=" + product + "&q=+pa-1+&number=PA-000001&limit=5", duties: []string{duty}})
+		if rec.Code != http.StatusOK {
+			t.Fatalf("%s: %d %s", duty, rec.Code, rec.Body)
+		}
+	}
+	if f := h.fake.lastAgrLineFilter; f.Status != domain.AgreementEffective || f.VendorID != vendor || f.ProductID != product || f.Q != "pa-1" || f.Number != "PA-000001" || h.fake.lastLimit != 5 {
+		t.Fatalf("filter %+v limit %d", f, h.fake.lastLimit)
+	}
+	if rec := h.do(call{method: "GET", path: "/v1/procurement/agreement-lines?vendorId=x", duties: []string{dutyPurchaseOrderInquire}}); problemCode(t, rec) != codeInvalid {
+		t.Fatalf("bad vendor: %d %s", rec.Code, rec.Body)
+	}
+	if rec := h.do(call{method: "GET", path: "/v1/procurement/agreement-lines", duties: []string{dutyAgreementMaintain}}); rec.Code != http.StatusForbidden {
+		t.Fatalf("agreement maintainers alone: %d", rec.Code)
+	}
+}
+
 // FR-17.5: an agreement line with price_override prices the PO line ahead of
 // trade agreements; without it the trade agreement lookup still applies.
 func TestCreateOrder_AgreementPriceOverride(t *testing.T) {

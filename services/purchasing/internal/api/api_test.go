@@ -54,6 +54,7 @@ type fakeStore struct {
 	lastInquiry        store.InquiryFilter
 	lastOpenLines      store.OpenLineFilter
 	lastAgrFilter      store.AgreementFilter
+	lastAgrLineFilter  store.AgreementLineFilter
 	lastSourcing       store.SourcingFilter
 	sourcingCalls      []store.SourcingFilter
 	lastConsolidated   []string
@@ -305,6 +306,11 @@ func (f *fakeStore) ListOpenRequisitionLines(_ context.Context, sf store.Sourcin
 		}
 	}
 	return store.Page[store.SourcingLine]{Items: items}, nil
+}
+
+func (f *fakeStore) ListAgreementLines(_ context.Context, af store.AgreementLineFilter, after string, limit int) (store.Page[store.AgreementLineSummary], error) {
+	f.lastAgrLineFilter, f.lastAfter, f.lastLimit = af, after, limit
+	return store.Page[store.AgreementLineSummary]{Items: []store.AgreementLineSummary{}}, nil
 }
 
 func (f *fakeStore) ListOpenOrderLines(_ context.Context, of store.OpenLineFilter, after string, limit int) (store.Page[store.OpenOrderLine], error) {

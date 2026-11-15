@@ -41,7 +41,7 @@ const (
 const rateCardColumns = `id, carrier_id, service_id, basis, currency, to_char(valid_from, 'YYYY-MM-DD'),
 	to_char(valid_to, 'YYYY-MM-DD'), minimum_charge::text, dim_divisor, fuel_pct::text, rate_rows, accessorials, request_hash`
 
-const freightBillColumns = `id, load_id, carrier_id, currency, expected_lines, expected_total::text, match_status,
+const freightBillColumns = `id, 'FB-' || lpad(bill_no::text, 6, '0'), load_id, carrier_id, currency, expected_lines, expected_total::text, match_status,
 	carrier_invoice_id, variance_total::text, version, created_at, request_hash`
 
 const carrierInvoiceColumns = `id, carrier_id, invoice_no, to_char(invoice_date, 'YYYY-MM-DD'), source, freight_bill_id,
@@ -61,6 +61,12 @@ type RateCardFilter struct {
 type FreightBillFilter struct {
 	MatchStatus string
 	CarrierID   string
+	LoadID      string
+	// Q matches the bill number as typed (case-insensitive, any part); Number is the exact bill number.
+	Q      string
+	Number string
+	// Limit is 0 for the default ListLimit.
+	Limit int
 }
 
 // InvoiceFilter narrows the carrier-invoice list. Empty fields match everything.
@@ -69,10 +75,20 @@ type InvoiceFilter struct {
 	CarrierID   string
 }
 
+func limitOr(n int) int {
+	if n <= 0 || n > ListLimit {
+		return ListLimit
+	}
+	return n
+}
+
 // Store is the persistence port used by the API.
 type Store interface {
 	CreateRateCard(ctx context.Context, in domain.RateCard, idem Idem) (domain.RateCard, error)
 	ListRateCards(ctx context.Context, f RateCardFilter) ([]domain.RateCard, error)
+	CreateCarrierService(ctx context.Context, in domain.CarrierService, idem Idem) (domain.CarrierService, error)
+	ListCarrierServices(ctx context.Context, f CarrierServiceFilter) ([]domain.CarrierService, error)
+	GetCarrierService(ctx context.Context, id string) (domain.CarrierService, error)
 	CreateFreightBill(ctx context.Context, in domain.FreightBill, idem Idem) (domain.FreightBill, error)
 	GetFreightBill(ctx context.Context, id string) (domain.FreightBill, error)
 	ListFreightBills(ctx context.Context, f FreightBillFilter) ([]domain.FreightBill, error)
@@ -284,7 +300,10 @@ func (s *Postgres) ListFreightBills(ctx context.Context, f FreightBillFilter) ([
 	err := dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
 		rows, err := tx.Query(ctx, `select `+freightBillColumns+` from freight_bill
 			where tenant_id = $1 and ($2::text = '' or match_status = $2) and ($3::text = '' or carrier_id::text = $3)
-			order by created_at desc, id limit $4`, p.TenantID, f.MatchStatus, f.CarrierID, ListLimit)
+			and ($4::text = '' or load_id::text = $4)
+			and ($5::text = '' or ('FB-' || lpad(bill_no::text, 6, '0')) ilike '%' || $5 || '%')
+			and ($6::text = '' or ('FB-' || lpad(bill_no::text, 6, '0')) = $6)
+			order by created_at desc, id limit $7`, p.TenantID, f.MatchStatus, f.CarrierID, f.LoadID, f.Q, f.Number, limitOr(f.Limit))
 		if err != nil {
 			return err
 		}
@@ -488,7 +507,7 @@ func scanFreightBill(row pgx.Row) (domain.FreightBill, string, error) {
 	var lines []byte
 	var total string
 	var variance, invoiceID, hash *string
-	if err := row.Scan(&b.ID, &b.LoadID, &b.CarrierID, &b.Currency, &lines, &total, &b.MatchStatus, &invoiceID, &variance,
+	if err := row.Scan(&b.ID, &b.Number, &b.LoadID, &b.CarrierID, &b.Currency, &lines, &total, &b.MatchStatus, &invoiceID, &variance,
 		&b.Version, &b.CreatedAt, &hash); err != nil {
 		return domain.FreightBill{}, "", err
 	}

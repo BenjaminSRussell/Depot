@@ -68,6 +68,87 @@ paths:
         '400': { $ref: '#/components/responses/Problem' }
         '401': { $ref: '#/components/responses/Problem' }
         '403': { $ref: '#/components/responses/Problem' }
+  /v1/transport/carrier-services:
+    post:
+      operationId: createCarrierService
+      summary: Create a carrier service
+      description: A service is one product a carrier sells, such as Ground or Next day air. The code is unique per carrier (TMS-0140 when it is taken). Rate cards name the service by id.
+      x-passage-duty: transport.rate-card.approve
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CarrierServiceRequest' }
+      responses:
+        '201':
+          description: Created (or the replayed service for a repeated Idempotency-Key)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CarrierService' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+    get:
+      operationId: listCarrierServices
+      summary: List carrier services for a lookup
+      description: Ordered by carrier and code. Readable with the rating, rate-card approval or transport view duty.
+      x-passage-duty: transport.view
+      parameters:
+        - name: carrierId
+          in: query
+          schema: { type: string, format: uuid }
+        - name: q
+          in: query
+          description: Part of the code or name.
+          schema: { type: string, maxLength: 100 }
+        - name: code
+          in: query
+          description: The exact service code (case-insensitive).
+          schema: { type: string }
+        - name: active
+          in: query
+          description: When true, retired services are left out.
+          schema: { type: boolean }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 500 }
+      responses:
+        '200':
+          description: Carrier services
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/CarrierService' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+  /v1/transport/carrier-services/{id}:
+    get:
+      operationId: getCarrierService
+      summary: One carrier service
+      x-passage-duty: transport.view
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: The service
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CarrierService' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
   /v1/transport/shipments/{id}:rate:
     post:
       operationId: rateShipment
@@ -138,6 +219,20 @@ paths:
         - name: carrierId
           in: query
           schema: { type: string, format: uuid }
+        - name: loadId
+          in: query
+          schema: { type: string, format: uuid }
+        - name: q
+          in: query
+          description: Part of the bill number, as typed in a lookup.
+          schema: { type: string, maxLength: 100 }
+        - name: number
+          in: query
+          description: The exact bill number, such as FB-000042.
+          schema: { type: string }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 500 }
       responses:
         '200':
           description: Freight bills
@@ -1602,11 +1697,30 @@ components:
           type: array
           minItems: 1
           items: { $ref: '#/components/schemas/Line' }
-    FreightBill:
+    CarrierServiceRequest:
       type: object
-      required: [id, loadId, carrierId, currency, expectedLines, expectedTotal, matchStatus, version, createdAt]
+      required: [carrierId, code, name, mode]
+      properties:
+        carrierId: { type: string, format: uuid }
+        code: { type: string, description: 'Upper-case letters, digits, dashes or underscores, at most 20.' }
+        name: { type: string, maxLength: 120 }
+        mode: { type: string, enum: [TL, LTL, PARCEL, INTERMODAL] }
+    CarrierService:
+      type: object
+      required: [id, carrierId, code, name, mode, active]
       properties:
         id: { type: string, format: uuid }
+        carrierId: { type: string, format: uuid }
+        code: { type: string }
+        name: { type: string }
+        mode: { type: string, enum: [TL, LTL, PARCEL, INTERMODAL] }
+        active: { type: boolean }
+    FreightBill:
+      type: object
+      required: [id, billNumber, loadId, carrierId, currency, expectedLines, expectedTotal, matchStatus, version, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        billNumber: { type: string, description: 'Readable number such as FB-000042; shared sequence, so one tenant sees gaps.' }
         loadId: { type: string, format: uuid }
         carrierId: { type: string, format: uuid }
         currency: { type: string }

@@ -119,6 +119,7 @@ func (a *API) Register(r chi.Router) {
 	r.Get("/readyz", a.ready)
 	r.With(requireAny(dutyWrite, dutyIntake)).Post(orders, a.createOrder)
 	r.With(authz.RequireDuty(dutyRead)).Get(orders, a.listOrders)
+	r.With(authz.RequireAnyDuty(dutyRead, "sales.order.lookup")).Get("/v1/sales/order-lines", a.listOrderLines)
 	r.With(authz.RequireAnyDuty(dutyRead, "sales.order.lookup")).Get(orders+"/{id}", a.getOrder)
 	r.With(authz.RequireDuty(dutyConfirm)).Post(orders+"/{id}:confirm", a.confirmOrder)
 	r.With(authz.RequireDuty(dutyWrite)).Patch(orders+"/{id}", a.patchOrder)
