@@ -185,6 +185,10 @@ export interface StatementSchedule {
   enabled: boolean;
   nextRunOn: string;
   lastRunOn?: string;
+  /** False when the runner is not enabled for the tenant: the schedule never runs by itself. */
+  runsEnabled?: boolean;
+  /** The date of a run that did not finish because a customer's statement failed; it is retried. */
+  runAsOf?: string;
 }
 export type StatementScheduleInput = Omit<StatementSchedule, "id" | "enabled" | "nextRunOn" | "lastRunOn">;
 export interface StatementRunSummary {

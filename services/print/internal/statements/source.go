@@ -10,6 +10,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -87,28 +88,54 @@ func (s *HTTPSource) get(ctx context.Context, base, path, aud, legalEntityID str
 	return json.Unmarshal(raw, into)
 }
 
-// Customers lists the customers with a non-zero balance in the latest aging snapshot of the legal entity.
+const (
+	snapshotPage     = 500
+	maxSnapshotPages = 1000
+)
+
+// Customers lists the customers with a non-zero balance in the latest aging snapshot of the legal entity, paging through every row
+// (one per customer and currency) and counting each customer once.
 func (s *HTTPSource) Customers(ctx context.Context, legalEntityID string) ([]string, error) {
-	var body struct {
-		Items []struct {
-			CustomerID string `json:"customerId"`
-			TotalOpen  string `json:"totalOpen"`
-		} `json:"items"`
-	}
-	q := url.Values{"legalEntityId": {legalEntityID}, "limit": {"500"}}
-	if err := s.get(ctx, s.ReceivablesURL, "/v1/receivables/aging-snapshots?"+q.Encode(), "receivables", legalEntityID, DutyReceivablesView, &body); err != nil {
-		return nil, err
-	}
 	seen := map[string]bool{}
 	var out []string
-	for _, it := range body.Items {
-		if strings.Trim(it.TotalOpen, "-0.") == "" || seen[it.CustomerID] {
-			continue
+	for page := 0; page < maxSnapshotPages; page++ {
+		var body struct {
+			Items []struct {
+				CustomerID string `json:"customerId"`
+				TotalOpen  string `json:"totalOpen"`
+			} `json:"items"`
 		}
-		seen[it.CustomerID] = true
-		out = append(out, it.CustomerID)
+		q := url.Values{"legalEntityId": {legalEntityID}, "limit": {strconv.Itoa(snapshotPage)}, "offset": {strconv.Itoa(page * snapshotPage)}}
+		if err := s.get(ctx, s.ReceivablesURL, "/v1/receivables/aging-snapshots?"+q.Encode(), "receivables", legalEntityID, DutyReceivablesView, &body); err != nil {
+			return nil, err
+		}
+		for _, it := range body.Items {
+			if strings.Trim(it.TotalOpen, "-0.") == "" || seen[it.CustomerID] {
+				continue
+			}
+			seen[it.CustomerID] = true
+			out = append(out, it.CustomerID)
+		}
+		if len(body.Items) < snapshotPage {
+			return out, nil
+		}
 	}
-	return out, nil
+	return nil, errors.New("statements: the aging snapshot has more rows than the runner pages through")
+}
+
+// CustomerBelongs reports whether the customer role is one of the legal entity (party answers 404 for another entity's customer).
+func (s *HTTPSource) CustomerBelongs(ctx context.Context, legalEntityID, customerID string) (bool, error) {
+	var role struct {
+		LegalEntityID string `json:"legalEntityId"`
+	}
+	err := s.get(ctx, s.PartyURL, "/v1/party/customers/"+url.PathEscape(customerID), "party", legalEntityID, DutyPartyRead, &role)
+	if err != nil {
+		if strings.Contains(err.Error(), "answered 404") {
+			return false, nil
+		}
+		return false, err
+	}
+	return strings.EqualFold(role.LegalEntityID, legalEntityID), nil
 }
 
 // Statement reads receivables' statement of one customer.

@@ -1,8 +1,11 @@
 package delivery
 
 import (
+	"bufio"
 	"context"
 	"errors"
+	"fmt"
+	"net"
 	"net/smtp"
 	"strings"
 	"sync"
@@ -51,12 +54,99 @@ func TestSMTPMailer_RefusesHeaderInjectionAndBadAddresses(t *testing.T) {
 	}
 }
 
-func TestSMTPMailer_GivesUpWhenTheRelayDoesNotAnswer(t *testing.T) {
-	block := make(chan struct{})
-	defer close(block)
-	m := SMTPMailer{Addr: "relay.example:25", From: "a@b.example", Timeout: 20 * time.Millisecond, send: func(string, smtp.Auth, string, []string, []byte) error { <-block; return nil }}
-	if err := m.Send(context.Background(), Message{To: "ap@bluewater.example", Subject: "x", Filename: "a.pdf"}); err == nil || !strings.Contains(err.Error(), "did not answer") {
+// fakeRelay is a minimal plain SMTP server; with silent it accepts the connection and never greets.
+func fakeRelay(t *testing.T, starttls, silent bool) (addr string, got chan string) {
+	t.Helper()
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = ln.Close() })
+	got = make(chan string, 4)
+	go func() {
+		for {
+			c, err := ln.Accept()
+			if err != nil {
+				return
+			}
+			go func() {
+				defer func() { _ = c.Close() }()
+				if silent {
+					time.Sleep(3 * time.Second)
+					return
+				}
+				r := bufio.NewReader(c)
+				fmt.Fprint(c, "220 relay ESMTP\r\n")
+				for {
+					line, err := r.ReadString('\n')
+					if err != nil {
+						return
+					}
+					cmd := strings.ToUpper(strings.TrimSpace(line))
+					switch {
+					case strings.HasPrefix(cmd, "EHLO"):
+						if starttls {
+							fmt.Fprint(c, "250-relay\r\n250 STARTTLS\r\n")
+						} else {
+							fmt.Fprint(c, "250 relay\r\n")
+						}
+					case strings.HasPrefix(cmd, "MAIL"), strings.HasPrefix(cmd, "RCPT"):
+						fmt.Fprint(c, "250 ok\r\n")
+					case cmd == "DATA":
+						fmt.Fprint(c, "354 go\r\n")
+						var body strings.Builder
+						for {
+							l, err := r.ReadString('\n')
+							if err != nil || l == ".\r\n" {
+								break
+							}
+							body.WriteString(l)
+						}
+						got <- body.String()
+						fmt.Fprint(c, "250 queued\r\n")
+					case cmd == "QUIT":
+						fmt.Fprint(c, "221 bye\r\n")
+						return
+					default:
+						fmt.Fprint(c, "250 ok\r\n")
+					}
+				}
+			}()
+		}
+	}()
+	return ln.Addr().String(), got
+}
+
+func TestSMTPMailer_SendsThroughARelayAndRefusesOneWithoutTLSWhenRequired(t *testing.T) {
+	addr, got := fakeRelay(t, false, false)
+	msg := Message{To: "ap@bluewater.example", Subject: "x", Body: "hi", Filename: "a.pdf", Attachment: []byte("%PDF-")}
+	if err := (SMTPMailer{Addr: addr, From: "a@b.example", RequireTLS: true}).Send(context.Background(), msg); !errors.Is(err, ErrTLSRequired) {
+		t.Fatalf("relay without TLS and RequireTLS: %v", err)
+	}
+	select {
+	case body := <-got:
+		t.Fatalf("a message went out in plaintext: %s", body)
+	default:
+	}
+	if err := (SMTPMailer{Addr: addr, From: "a@b.example"}).Send(context.Background(), msg); err != nil {
 		t.Fatalf("send: %v", err)
+	}
+	select {
+	case body := <-got:
+		if !strings.Contains(body, "Subject: x") {
+			t.Fatalf("body %s", body)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("nothing delivered")
+	}
+}
+
+func TestSMTPMailer_GivesUpWhenTheRelayDoesNotAnswerAndClosesTheConnection(t *testing.T) {
+	addr, _ := fakeRelay(t, false, true)
+	start := time.Now()
+	err := (SMTPMailer{Addr: addr, From: "a@b.example", Timeout: 150 * time.Millisecond}).Send(context.Background(), Message{To: "ap@bluewater.example", Subject: "x", Filename: "a.pdf"})
+	if err == nil || time.Since(start) > 2*time.Second {
+		t.Fatalf("send: %v after %v", err, time.Since(start))
 	}
 }
 
@@ -167,7 +257,7 @@ func TestDeliverer_SendsToEveryDestinationOnceAndSaysWhatItSkipped(t *testing.T)
 		printed = append(printed, q+" "+key)
 		return nil
 	}}
-	doc := Document{SourceKey: "invoice:1", Type: domain.DocCustomerInvoice, Number: "INV/1", LegalEntityID: le, AccountID: acct, PDF: []byte("%PDF-1.4"), Pages: 1}
+	doc := Document{SourceKey: "invoice:1", Type: domain.DocCustomerInvoice, Number: "INV/1", LegalEntityID: le, AccountID: acct, AccountVerified: true, PDF: []byte("%PDF-1.4"), Pages: 1}
 	res, err := d.Deliver(context.Background(), doc)
 	if err != nil || len(res) != 5 {
 		t.Fatalf("deliver: %v %+v", err, res)
@@ -224,5 +314,30 @@ func TestDeliverer_FailsAChannelWithoutItsAdapterAndSkipsAPortalWithoutACustomer
 	}
 	if byRuleOf(res, "r1").Status != store.DeliveryFailed || byRuleOf(res, "r2").Status != store.DeliverySkipped || byRuleOf(res, "r3").Status != store.DeliveryFailed {
 		t.Fatalf("results: %+v", res)
+	}
+}
+
+func TestDeliverer_AReusedSourceKeyForAnotherCustomerDelivers(t *testing.T) {
+	rules := []domain.OutputRule{
+		{ID: "r1", DocumentType: domain.DocCustomerInvoice, CopyKind: domain.CopyOriginal, Channel: domain.ChannelEmail, Destination: "ap@bluewater.example", Copies: 1, Sequence: 1},
+		{ID: "r2", DocumentType: domain.DocCustomerInvoice, CopyKind: domain.CopyOriginal, Channel: domain.ChannelPortal, Copies: 1, Sequence: 1},
+	}
+	mail := &recMailer{}
+	log := newMemLog()
+	d := &Deliverer{Docs: memRules{rules: rules}, Log: log, Mailer: mail}
+	first := Document{SourceKey: "INV-1", Type: domain.DocCustomerInvoice, Number: "INV-1", LegalEntityID: le, AccountID: acct, AccountVerified: true, PDF: []byte("%PDF-")}
+	other := first
+	other.AccountID = "0190a5f2-7b1c-7d3e-8a4f-123456789a77"
+	if _, err := d.Deliver(context.Background(), first); err != nil {
+		t.Fatal(err)
+	}
+	res, err := d.Deliver(context.Background(), other)
+	if err != nil || len(mail.sent) != 2 || len(log.portal) != 2 || byRuleOf(res, "r1").Status != store.DeliverySent {
+		t.Fatalf("another customer under the same key: %v %+v mails %d portal %d", err, res, len(mail.sent), len(log.portal))
+	}
+	// An unverified customer is not shown the document.
+	other.SourceKey, other.AccountVerified = "INV-2", false
+	if res, _ = d.Deliver(context.Background(), other); byRuleOf(res, "r2").Status != store.DeliverySkipped {
+		t.Fatalf("unverified: %+v", res)
 	}
 }

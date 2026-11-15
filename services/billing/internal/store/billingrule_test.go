@@ -67,20 +67,20 @@ func TestPostSelfBilled_PostsUnderTheDocumentNumberOnceAndWritesTheEvent(t *test
 	ctx := ctxAllEntities(testkit.TenantID(1))
 	s := New(pool)
 	le, customer := ids.New(), ids.New()
-	first, created, err := s.PostSelfBilled(ctx, selfBilledInvoice(le, customer, SelfBilledKeyPrefix+"msg-1", "h1", "10"), "SB-2027-0001")
-	if err != nil || !created || first.Number != "SB-2027-0001" || first.Status != domain.StatusPosted || first.Version != 2 {
+	first, created, err := s.PostSelfBilled(ctx, selfBilledInvoice(le, customer, SelfBilledKeyPrefix+"msg-1", "h1", "10"), "SB-aaaa-SB-2027-0001", "SB-2027-0001")
+	if err != nil || !created || first.Number != "SB-aaaa-SB-2027-0001" || first.Status != domain.StatusPosted || first.Version != 2 {
 		t.Fatalf("post: %+v %v %v", first, created, err)
 	}
 	got, err := s.GetInvoice(ctx, first.ID)
-	if err != nil || got.Number != "SB-2027-0001" || got.Status != domain.StatusPosted || got.FiscalYear != 2027 || got.Totals.Gross.String() != "95.2" || len(got.Lines) != 1 {
+	if err != nil || got.Number != "SB-aaaa-SB-2027-0001" || got.Status != domain.StatusPosted || got.FiscalYear != 2027 || got.Totals.Gross.String() != "95.2" || len(got.Lines) != 1 {
 		t.Fatalf("stored invoice: %+v %v", got, err)
 	}
 	// The same document again returns the posted invoice, creates nothing and draws no number.
-	again, created, err := s.PostSelfBilled(ctx, selfBilledInvoice(le, customer, SelfBilledKeyPrefix+"msg-1", "h1", "10"), "SB-2027-0001")
+	again, created, err := s.PostSelfBilled(ctx, selfBilledInvoice(le, customer, SelfBilledKeyPrefix+"msg-1", "h1", "10"), "SB-aaaa-SB-2027-0001", "SB-2027-0001")
 	if err != nil || created || again.ID != first.ID {
 		t.Fatalf("replay: %+v %v %v", again, created, err)
 	}
-	if _, _, err := s.PostSelfBilled(ctx, selfBilledInvoice(le, customer, SelfBilledKeyPrefix+"msg-1", "other", "10"), "SB-2027-0001"); !errors.Is(err, ErrSelfBilledKeyReuse) {
+	if _, _, err := s.PostSelfBilled(ctx, selfBilledInvoice(le, customer, SelfBilledKeyPrefix+"msg-1", "other", "10"), "SB-aaaa-SB-2027-0001", "SB-2027-0001"); !errors.Is(err, ErrSelfBilledKeyReuse) {
 		t.Fatalf("other content under the same document: %v", err)
 	}
 	var events int
@@ -88,8 +88,13 @@ func TestPostSelfBilled_PostsUnderTheDocumentNumberOnceAndWritesTheEvent(t *test
 		t.Fatalf("invoice.posted events: %d %v", events, err)
 	}
 	// A second document with the same number in the legal entity is refused by the number's uniqueness.
-	if _, _, err := s.PostSelfBilled(ctx, selfBilledInvoice(le, customer, SelfBilledKeyPrefix+"msg-2", "h2", "10"), "SB-2027-0001"); err == nil {
-		t.Fatal("two invoices with the same number")
+	if _, _, err := s.PostSelfBilled(ctx, selfBilledInvoice(le, customer, SelfBilledKeyPrefix+"msg-2", "h2", "10"), "SB-aaaa-SB-2027-0001", "SB-2027-0001"); !errors.Is(err, ErrSelfBilledNumberTaken) {
+		t.Fatalf("a second document of the customer with the same number: %v", err)
+	}
+	// Another customer's document may carry the same number: its invoice number is in its own namespace.
+	other := ids.New()
+	if got, created, err := s.PostSelfBilled(ctx, selfBilledInvoice(le, other, SelfBilledKeyPrefix+"msg-3", "h3", "10"), "SB-bbbb-SB-2027-0001", "SB-2027-0001"); err != nil || !created || got.CustomerDocumentNumber != "SB-2027-0001" {
+		t.Fatalf("another customer, the same number: %+v %v %v", got, created, err)
 	}
 	// Billing's own numbering is untouched: a proposal posted afterwards still draws INV-<year>-0000001.
 	var counters int

@@ -48,3 +48,13 @@ func (s *Store) GetVendorProfile(ctx context.Context, partnerID string) (VendorP
 	})
 	return p, err
 }
+
+// HasSelfBillConfig reports whether the partner self-bills (it has self-billing settings). A partner is a self-billing customer or one of
+// our vendors for its 810s, never both.
+func (s *Store) HasSelfBillConfig(ctx context.Context, partnerID string) (bool, error) {
+	var has bool
+	err := dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
+		return tx.QueryRow(ctx, `select exists(select 1 from self_billing_config where partner_id = $1)`, partnerID).Scan(&has)
+	})
+	return has, err
+}

@@ -37,6 +37,10 @@ type StatementSchedule struct {
 	Enabled      bool   `json:"enabled"`
 	NextRunOn    string `json:"nextRunOn"`
 	LastRunOn    string `json:"lastRunOn,omitempty"`
+	// RunAsOf is the date of a run that has not finished (a customer's statement failed): the next pass retries that date, so a
+	// statement already sent is not sent again. Attempts counts the passes of that run.
+	RunAsOf  string `json:"runAsOf,omitempty"`
+	Attempts int    `json:"attempts,omitempty"`
 }
 
 // Validate returns field-level errors, or none.

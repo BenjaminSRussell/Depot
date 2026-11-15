@@ -35,6 +35,13 @@ const (
 	CodeSelfBilledAgreement = "BIL-0153"
 	// CodeSelfBilledReplay is a document posted before with other content.
 	CodeSelfBilledReplay = "BIL-0154"
+	// CodeSelfBilledNumber is a customer document number already posted for this customer.
+	CodeSelfBilledNumber = "BIL-0155"
+	// CodeSelfBilledFuture refuses a document dated after today.
+	CodeSelfBilledFuture = "BIL-0156"
+	// CodeSelfBilledPeriod refuses a document no open period can take (the period service is not configured or answers badly, or the
+	// document's period and the current one are both closed).
+	CodeSelfBilledPeriod = "BIL-0157"
 
 	maxSourceRef = 200
 	maxDocNumber = 100
@@ -42,7 +49,7 @@ const (
 
 // SelfBilledStore posts self-billed documents; *store.Postgres implements it.
 type SelfBilledStore interface {
-	PostSelfBilled(ctx context.Context, inv store.Invoice, number string) (store.Invoice, bool, error)
+	PostSelfBilled(ctx context.Context, inv store.Invoice, number, documentNumber string) (store.Invoice, bool, error)
 }
 
 var _ SelfBilledStore = (*store.Postgres)(nil)
@@ -77,6 +84,24 @@ type selfBilledRequest struct {
 // postSelfBilled posts the matched self-billed document as a legal invoice. The same sourceRef again with the same content returns
 // the posted invoice (200, Idempotent-Replayed); with other content it is 409 BIL-0154. The customer must have a SELF_BILLED rule in
 // force on the document's date (409 BIL-0152) and, when the document names an agreement, that one (409 BIL-0153).
+// PeriodChecker says whether the receivables period of a date is open; periods.Client implements it (close).
+type PeriodChecker interface {
+	Open(ctx context.Context, legalEntityID, ledgerID string, date time.Time) (bool, error)
+}
+
+// WithPeriods sets the check that keeps a self-billed invoice out of a closed period.
+func (a *API) WithPeriods(p PeriodChecker) *API {
+	a.periods = p
+	return a
+}
+
+// selfBilledNumber is the billing-side number of a self-billed invoice: the customer's document number in the customer's own namespace
+// (the tail of its id), so two customers' numbers and billing's own sequence never collide.
+func selfBilledNumber(customerID, documentNumber string) string {
+	id := strings.ReplaceAll(customerID, "-", "")
+	return "SB-" + id[len(id)-12:] + "-" + documentNumber
+}
+
 func (a *API) postSelfBilled(w http.ResponseWriter, r *http.Request) {
 	sb, ok := a.store.(SelfBilledStore)
 	rules := a.rules()
@@ -112,14 +137,53 @@ func (a *API) postSelfBilled(w http.ResponseWriter, r *http.Request) {
 		httpx.Fail(w, r, httpx.NewProblem(http.StatusConflict, CodeSelfBilledAgreement, "the document names agreement "+req.AgreementRef+", the customer's rule names "+rule.AgreementRef))
 		return
 	}
-	raw, _ := json.Marshal(req)
+	// The posting date: the document's date when its receivables period is open, else today (the first open date), the customer's date
+	// staying the invoice date with a note. A document dated after today is refused: only the future is out of the question.
+	today := a.now().UTC().Truncate(24 * time.Hour)
+	if day.After(today.AddDate(0, 0, 1)) {
+		httpx.Fail(w, r, httpx.NewProblem(http.StatusUnprocessableEntity, CodeSelfBilledFuture, "the document is dated "+req.DocumentDate+", after today; a customer cannot invoice a delivery in the future"))
+		return
+	}
+	profile, known := a.profiles[req.LegalEntityID]
+	if a.periods == nil || !known {
+		httpx.Fail(w, r, httpx.NewProblem(http.StatusServiceUnavailable, CodeSelfBilledPeriod, "the period of the document cannot be checked: close and the legal entity's ledger are not configured, so nothing is posted"))
+		return
+	}
+	posting := day
+	if day.After(today) {
+		posting = today
+	}
+	open, err := a.periods.Open(r.Context(), req.LegalEntityID, profile.LedgerID, posting)
+	if err != nil {
+		httpx.Fail(w, r, httpx.NewProblem(http.StatusServiceUnavailable, CodeSelfBilledPeriod, "the period of the document could not be checked: "+err.Error()))
+		return
+	}
+	if !open {
+		later, err := a.periods.Open(r.Context(), req.LegalEntityID, profile.LedgerID, today)
+		if err != nil {
+			httpx.Fail(w, r, httpx.NewProblem(http.StatusServiceUnavailable, CodeSelfBilledPeriod, "the current period could not be checked: "+err.Error()))
+			return
+		}
+		if !later {
+			httpx.Fail(w, r, httpx.NewProblem(http.StatusConflict, CodeSelfBilledPeriod, "the receivables period of the document and the current one are both closed; open a period or ask close"))
+			return
+		}
+		inv.PostingNote = "The customer's document is dated " + req.DocumentDate + ", in a closed receivables period; posted on " + today.Format(dateLayout) + ", the first open date."
+		posting = today
+	}
+	inv.PostingDate = posting
+	// Only the document's own content decides whether a repeat is the same document: the partner's account, tax code and terms may change.
+	raw, _ := json.Marshal(documentContent(req))
 	sum := sha256.Sum256(raw)
 	inv.RequestHash = hex.EncodeToString(sum[:])
 	inv.IdempotencyKey = store.SelfBilledKeyPrefix + req.SourceRef
-	posted, created, err := sb.PostSelfBilled(r.Context(), inv, req.DocumentNumber)
+	posted, created, err := sb.PostSelfBilled(r.Context(), inv, selfBilledNumber(req.CustomerID, req.DocumentNumber), req.DocumentNumber)
 	switch {
 	case errors.Is(err, store.ErrSelfBilledKeyReuse):
 		httpx.Fail(w, r, httpx.NewProblem(http.StatusConflict, CodeSelfBilledReplay, "document "+req.SourceRef+" was already posted with different content"))
+		return
+	case errors.Is(err, store.ErrSelfBilledNumberTaken):
+		httpx.Fail(w, r, httpx.NewProblem(http.StatusConflict, CodeSelfBilledNumber, "the customer already sent another document with number "+req.DocumentNumber))
 		return
 	case err != nil:
 		httpx.Fail(w, r, err)
@@ -198,4 +262,17 @@ func (a *API) selfBilledInvoice(req selfBilledRequest) (store.Invoice, map[strin
 		inv.Lines = append(inv.Lines, l)
 	}
 	return inv, fields
+}
+
+// documentContent is what the customer's document says, without the settings the sender adds (accounts, tax code, terms).
+func documentContent(req selfBilledRequest) any {
+	type line struct{ Qty, UnitPrice, DiscountPct, Tax string }
+	lines := make([]line, len(req.Lines))
+	for i, l := range req.Lines {
+		lines[i] = line{l.Qty, l.UnitPrice, l.DiscountPct, l.Tax}
+	}
+	return struct {
+		LegalEntityID, CustomerID, DocumentNumber, DocumentDate, Currency string
+		Lines                                                             []line
+	}{req.LegalEntityID, req.CustomerID, req.DocumentNumber, req.DocumentDate, req.Currency, lines}
 }

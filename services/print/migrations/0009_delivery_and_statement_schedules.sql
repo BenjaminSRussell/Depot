@@ -63,6 +63,10 @@ CREATE TABLE IF NOT EXISTS print_statement_schedule (
   enabled boolean NOT NULL DEFAULT true,
   next_run_on date NOT NULL,
   last_run_on date,
+  -- An unfinished run (a customer failed) keeps its date and is retried, with a cap, until it finishes or the cap is reached.
+  run_as_of date,
+  attempts integer NOT NULL DEFAULT 0,
+  retry_after timestamptz,
   claimed_by text NOT NULL DEFAULT '',
   claimed_until timestamptz,
   idempotency_key text NOT NULL,

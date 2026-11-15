@@ -211,11 +211,14 @@ type ScheduleStore interface {
 	ListSchedules(ctx context.Context) ([]domain.StatementSchedule, error)
 	SetScheduleEnabled(ctx context.Context, id string, enabled bool) (domain.StatementSchedule, error)
 	DeleteSchedule(ctx context.Context, id string) error
-	// ClaimDueSchedules leases the enabled schedules whose run date has come (next_run_on <= today) and that no replica holds,
+	// ClaimDueSchedules leases the enabled schedules whose run date has come (next_run_on <= the date of now, and the retry wait of an unfinished run is over) and that no replica holds,
 	// for lease; two replicas calling at once receive disjoint sets.
 	ClaimDueSchedules(ctx context.Context, today time.Time, owner string, lease time.Duration, limit int) ([]domain.StatementSchedule, error)
 	// CompleteSchedule releases the lease and moves the schedule to its next run date.
 	CompleteSchedule(ctx context.Context, id string, ranOn, next time.Time) error
+	// DeferSchedule keeps an unfinished run (a customer failed): the run date stays due with its as-of date, attempts rises and the
+	// schedule is not offered again before retryAfter. The lease is released.
+	DeferSchedule(ctx context.Context, id string, asOf time.Time, attempts int, retryAfter time.Time) error
 	// BeginStatement claims one customer's statement of a run date: false when it is already DONE or another run holds it.
 	BeginStatement(ctx context.Context, scheduleID string, asOf time.Time, customerID string) (bool, error)
 	FinishStatement(ctx context.Context, scheduleID string, asOf time.Time, customerID string, ok bool, detail string) error
@@ -234,11 +237,12 @@ type StatementRun struct {
 var _ ScheduleStore = (*Postgres)(nil)
 
 const scheduleColumns = `id::text, name, legal_entity_id::text, sender_name, cadence, run_day, language, template_code, enabled,
-	to_char(next_run_on, 'YYYY-MM-DD'), coalesce(to_char(last_run_on, 'YYYY-MM-DD'), '')`
+	to_char(next_run_on, 'YYYY-MM-DD'), coalesce(to_char(last_run_on, 'YYYY-MM-DD'), ''),
+	coalesce(to_char(run_as_of, 'YYYY-MM-DD'), ''), attempts`
 
 func scanSchedule(row pgx.Row) (domain.StatementSchedule, error) {
 	var s domain.StatementSchedule
-	err := row.Scan(&s.ID, &s.Name, &s.LegalEntityID, &s.SenderName, &s.Cadence, &s.RunDay, &s.Language, &s.TemplateCode, &s.Enabled, &s.NextRunOn, &s.LastRunOn)
+	err := row.Scan(&s.ID, &s.Name, &s.LegalEntityID, &s.SenderName, &s.Cadence, &s.RunDay, &s.Language, &s.TemplateCode, &s.Enabled, &s.NextRunOn, &s.LastRunOn, &s.RunAsOf, &s.Attempts)
 	return s, err
 }
 
@@ -347,7 +351,7 @@ func (s *Postgres) ClaimDueSchedules(ctx context.Context, today time.Time, owner
 		rows, err := tx.Query(ctx, `update print_statement_schedule set claimed_by = $3, claimed_until = now() + $4::interval
 			where tenant_id = $1 and id in (
 			  select id from print_statement_schedule
-			  where tenant_id = $1 and enabled and next_run_on <= $2::date and (claimed_until is null or claimed_until < now())
+			  where tenant_id = $1 and enabled and next_run_on <= ($2::timestamptz at time zone 'UTC')::date and (claimed_until is null or claimed_until < now()) and (retry_after is null or retry_after <= $2::timestamptz)
 			  order by next_run_on, id limit $5 for update skip locked)
 			returning `+scheduleColumns, p.TenantID, today, owner, lease.String(), limit)
 		if err != nil {
@@ -370,7 +374,7 @@ func (s *Postgres) ClaimDueSchedules(ctx context.Context, today time.Time, owner
 func (s *Postgres) CompleteSchedule(ctx context.Context, id string, ranOn, next time.Time) error {
 	p, _ := tenant.FromContext(ctx)
 	return dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
-		_, err := tx.Exec(ctx, `update print_statement_schedule set last_run_on = $3, next_run_on = $4, claimed_by = '', claimed_until = null where tenant_id = $1 and id = $2`,
+		_, err := tx.Exec(ctx, `update print_statement_schedule set last_run_on = $3, next_run_on = $4, run_as_of = null, attempts = 0, retry_after = null, claimed_by = '', claimed_until = null where tenant_id = $1 and id = $2`,
 			p.TenantID, id, ranOn, next)
 		return err
 	})
@@ -448,4 +452,14 @@ func (s *Postgres) ListStatementRuns(ctx context.Context, scheduleID string, lim
 func isInvalidUUID(err error) bool {
 	var pg interface{ SQLState() string }
 	return errors.As(err, &pg) && pg.SQLState() == "22P02"
+}
+
+// DeferSchedule: see ScheduleStore.
+func (s *Postgres) DeferSchedule(ctx context.Context, id string, asOf time.Time, attempts int, retryAfter time.Time) error {
+	p, _ := tenant.FromContext(ctx)
+	return dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
+		_, err := tx.Exec(ctx, `update print_statement_schedule set run_as_of = $3, attempts = $4, retry_after = $5, claimed_by = '', claimed_until = null where tenant_id = $1 and id = $2`,
+			p.TenantID, id, asOf, attempts, retryAfter)
+		return err
+	})
 }

@@ -58,6 +58,14 @@ func (b *fakeBilling) PostSelfBilled(ctx context.Context, legalEntityID, key str
 
 const selfBillSettings = `{"taxRatePct":"8.5","waitDays":30,"revenueAccount":"4000","taxCode":"VAT19","paymentTermDays":45}`
 
+// skipBackoff lets the sweep retry now.
+func skipBackoff(t *testing.T) {
+	t.Helper()
+	if _, err := lastPool.Exec(context.Background(), `update self_billing_document set next_post_at = null where post_parked_at is null`); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func postedDocument(t *testing.T, h http.Handler) store.SelfBillDocument {
 	t.Helper()
 	docs := documents(t, h)
@@ -144,12 +152,20 @@ func TestSelfBilling_FailedPostIsRetriedBySweep(t *testing.T) {
 	// Billing refuses the document for a reason in the customer's rule: recorded, the document keeps waiting.
 	billing.fail = nil
 	billing.refused = &sources.DownstreamRefusedError{Service: "billing", Status: 409, Code: "BIL-0152", Detail: "the customer has no SELF_BILLED rule in force"}
+	if rec := do(t, h, http.MethodPost, "/edi/v1/self-billing:sweep", "", "edi.self-billing.reconcile", srcScope); !strings.Contains(rec.Body.String(), `"posted":0`) {
+		t.Fatalf("sweep inside the backoff: %s", rec.Body.String())
+	}
+	if doc = postedDocument(t, h); !strings.Contains(doc.PostError, "connection refused") {
+		t.Fatalf("a document inside its backoff was tried again: %+v", doc)
+	}
+	skipBackoff(t)
 	do(t, h, http.MethodPost, "/edi/v1/self-billing:sweep", "", "edi.self-billing.reconcile", srcScope)
 	if doc = postedDocument(t, h); doc.BillingInvoiceID != "" || !strings.Contains(doc.PostError, "BIL-0152") {
 		t.Fatalf("refused: %+v", doc)
 	}
 	// Billing recovers: the sweep posts it.
 	billing.refused = nil
+	skipBackoff(t)
 	rec := do(t, h, http.MethodPost, "/edi/v1/self-billing:sweep", "", "edi.self-billing.reconcile", srcScope)
 	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"posted":1`) {
 		t.Fatalf("sweep after recovery: %d %s", rec.Code, rec.Body.String())
@@ -177,5 +193,46 @@ func TestSelfBilling_SettingsForTheInvoiceAreChecked(t *testing.T) {
 	}
 	if get := do(t, h, http.MethodGet, "/edi/v1/partners/"+partner+"/self-billing", "", "edi.admin", srcScope); !strings.Contains(get.Body.String(), `"taxCode":"VAT19"`) {
 		t.Fatalf("get: %s", get.Body.String())
+	}
+}
+
+// A document billing holds with other content (BIL-0154) is parked at once with a clear reason, is not tried again by the sweep, and
+// gets a fresh start when the partner's settings are saved.
+func TestSelfBilling_ConflictParksTheDocumentUntilTheSettingsChange(t *testing.T) {
+	f, a, h, partner := selfBillSetup(t)
+	billing := &fakeBilling{refused: &sources.DownstreamRefusedError{Service: "billing", Status: 409, Code: "BIL-0154", Detail: "other content"}}
+	a.SelfBilledPoster = billing
+	do(t, h, http.MethodPut, "/edi/v1/partners/"+partner+"/self-billing", selfBillSettings, "edi.admin", srcScope)
+	sendShipment(t, f, h, partner, srcShipment, "SHP-0001", time.Now().AddDate(0, 0, -3))
+	do(t, h, http.MethodPost, "/edi/v1/inbound/x12?environment=TEST", selfBilled810(t, "SB-8104", "8", "6.80", "8680"), "edi.operate", srcScope)
+	doc := postedDocument(t, h)
+	if !strings.Contains(doc.PostError, "Parked after 1 attempt") || !strings.Contains(doc.PostError, "BIL-0154") {
+		t.Fatalf("not parked: %+v", doc)
+	}
+	billing.refused = nil
+	skipBackoff(t)
+	if rec := do(t, h, http.MethodPost, "/edi/v1/self-billing:sweep", "", "edi.self-billing.reconcile", srcScope); !strings.Contains(rec.Body.String(), `"posted":0`) {
+		t.Fatalf("a parked document was tried: %s", rec.Body.String())
+	}
+	do(t, h, http.MethodPut, "/edi/v1/partners/"+partner+"/self-billing", selfBillSettings, "edi.admin", srcScope)
+	if rec := do(t, h, http.MethodPost, "/edi/v1/self-billing:sweep", "", "edi.self-billing.reconcile", srcScope); !strings.Contains(rec.Body.String(), `"posted":1`) {
+		t.Fatalf("after the settings were saved: %s", rec.Body.String())
+	}
+}
+
+// Failures back off and park after the attempt cap.
+func TestSelfBilling_RepeatedFailuresParkAfterTheCap(t *testing.T) {
+	f, a, h, partner := selfBillSetup(t)
+	a.SelfBilledPoster = &fakeBilling{fail: errors.New("billing: connection refused")}
+	do(t, h, http.MethodPut, "/edi/v1/partners/"+partner+"/self-billing", selfBillSettings, "edi.admin", srcScope)
+	sendShipment(t, f, h, partner, srcShipment, "SHP-0001", time.Now().AddDate(0, 0, -3))
+	do(t, h, http.MethodPost, "/edi/v1/inbound/x12?environment=TEST", selfBilled810(t, "SB-8105", "8", "6.80", "8680"), "edi.operate", srcScope)
+	for i := 1; i < store.MaxSelfBillPostAttempts; i++ {
+		skipBackoff(t)
+		do(t, h, http.MethodPost, "/edi/v1/self-billing:sweep", "", "edi.self-billing.reconcile", srcScope)
+	}
+	doc := postedDocument(t, h)
+	if !strings.Contains(doc.PostError, "Parked after 8 attempt") {
+		t.Fatalf("after the cap: %+v", doc)
 	}
 }

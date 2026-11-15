@@ -50,6 +50,8 @@ type API struct {
 	docs          store.DocStore // templates, text blocks, output rules; nil without one
 	mailer        delivery.Mailer
 	runner        *statements.Runner
+	accounts      AccountChecker
+	stmtTenants   map[string]bool
 	sender        Sender
 	attempts      int // sends per device before failover (PRINT_RETRY + 1)
 	retentionDays int // PRINT_JOB_RETENTION_DAYS

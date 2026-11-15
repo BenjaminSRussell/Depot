@@ -159,7 +159,15 @@ export function DocumentDesignPage() {
     { key: "name", header: "Schedule" },
     { key: "legalEntityId", header: "Legal entity", render: (s) => <EntityName entity="legalEntity" id={s.legalEntityId} fallback="A legal entity" /> },
     { key: "cadence", header: "Repeats", render: (s) => `${SCHEDULE_CADENCE_LABELS[s.cadence] ?? s.cadence} on ${runDayLabel(s)}` },
-    { key: "next", header: "Next run", render: (s) => (s.enabled ? when(s.nextRunOn) : <Badge tone="neutral">Paused</Badge>) },
+    { key: "next", header: "Next run", render: (s) =>
+        !s.enabled ? (
+          <Badge tone="neutral">Paused</Badge>
+        ) : (
+          <span>
+            {when(s.nextRunOn)} {s.runsEnabled === false ? <Badge tone="warning">Does not run by itself</Badge> : null}
+            {s.runAsOf ? <Badge tone="warning">Retrying failed statements</Badge> : null}
+          </span>
+        ) },
     { key: "last", header: "Last run", render: (s) => when(s.lastRunOn) },
     {
       key: "actions",

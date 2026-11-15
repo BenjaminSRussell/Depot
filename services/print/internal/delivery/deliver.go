@@ -2,6 +2,8 @@ package delivery
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"strings"
 
@@ -22,6 +24,9 @@ type Document struct {
 	AccountID     string
 	PDF           []byte
 	Pages         int
+	// AccountVerified says the caller checked that AccountID is a customer of LegalEntityID. The portal channel shows the document
+	// to that customer, so it delivers only a verified one.
+	AccountVerified bool
 	// Subject and Body are the words of the e-mail; empty ones get a plain default.
 	Subject string
 	Body    string
@@ -51,6 +56,13 @@ const (
 	reasonArchive  = "the document archive is not available yet (waiting on the document-store decision)"
 )
 
+// key is the identity of the delivery: the caller's sourceKey together with the document type, legal entity and customer, so a
+// sourceKey reused for another customer or entity is another delivery and never replays the first.
+func (doc Document) key() string {
+	sum := sha256.Sum256([]byte(doc.Type + "|" + doc.LegalEntityID + "|" + doc.AccountID))
+	return doc.SourceKey + "#" + hex.EncodeToString(sum[:6])
+}
+
 // Deliver sends doc to every destination of the output plan for its type, legal entity and account, the original first. Each
 // destination is claimed before it is tried, so repeating the call (a retry, a second replica) sends nothing twice; a failed
 // destination is tried again on the next call. The error is only for a plan that cannot be read; a destination that fails is
@@ -64,7 +76,7 @@ func (d *Deliverer) Deliver(ctx context.Context, doc Document) ([]Result, error)
 	out := make([]Result, 0, len(plan))
 	for _, rule := range plan {
 		res := Result{RuleID: rule.ID, CopyKind: rule.CopyKind, Channel: rule.Channel, Destination: rule.Destination}
-		rec, claimed, err := d.Log.ClaimDelivery(ctx, store.Delivery{SourceKey: doc.SourceKey, RuleID: rule.ID, CopyKind: rule.CopyKind, Channel: rule.Channel, Destination: rule.Destination})
+		rec, claimed, err := d.Log.ClaimDelivery(ctx, store.Delivery{SourceKey: doc.key(), RuleID: rule.ID, CopyKind: rule.CopyKind, Channel: rule.Channel, Destination: rule.Destination})
 		if err != nil {
 			return out, err
 		}
@@ -104,7 +116,10 @@ func (d *Deliverer) send(ctx context.Context, doc Document, rule domain.OutputRu
 		if doc.AccountID == "" {
 			return store.DeliverySkipped, "the document has no customer to show it to"
 		}
-		if _, err := d.Log.SavePortalDocument(ctx, store.PortalDocument{SourceKey: doc.SourceKey, AccountID: doc.AccountID, LegalEntityID: doc.LegalEntityID,
+		if !doc.AccountVerified {
+			return store.DeliverySkipped, "the customer could not be checked against the legal entity"
+		}
+		if _, err := d.Log.SavePortalDocument(ctx, store.PortalDocument{SourceKey: doc.key(), AccountID: doc.AccountID, LegalEntityID: doc.LegalEntityID,
 			DocumentType: doc.Type, Number: doc.Number, Pages: doc.Pages, PDF: doc.PDF}); err != nil {
 			return store.DeliveryFailed, err.Error()
 		}
@@ -114,7 +129,7 @@ func (d *Deliverer) send(ctx context.Context, doc Document, rule domain.OutputRu
 			return store.DeliveryFailed, "no printer pipeline is configured"
 		}
 		for i := 1; i <= rule.Copies; i++ {
-			if err := d.Printer(ctx, rule.Destination, doc.PDF, fmt.Sprintf("deliver:%s:%s:%d", doc.SourceKey, rule.ID, i)); err != nil {
+			if err := d.Printer(ctx, rule.Destination, doc.PDF, fmt.Sprintf("deliver:%s:%s:%d", doc.key(), rule.ID, i)); err != nil {
 				return store.DeliveryFailed, err.Error()
 			}
 		}

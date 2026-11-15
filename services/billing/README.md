@@ -240,7 +240,7 @@ when none is set). A stale If-Match is 409 `BIL-0151`. Migration 0018.
 `POST /v1/billing/self-billed-invoices` (service-only duty `billing.self-billed.post`, granted to `edi`, called by the EDI engine as
 `service:edi-selfbill`) posts a self-billed document that matched in full as the legal customer invoice: the customer needs a SELF_BILLED rule in
 force on the document date (409 `BIL-0152`) naming the document's agreement when it names one (409 `BIL-0153`); the invoice is a posted SHIPMENT
-invoice under the document's own number (not billing's sequence), with the tax each line states, and `invoice.posted` is enqueued in the same
+invoice under the customer's document number in the customer's own namespace (`SB-<customer>-<number>`, `customerDocumentNumber` keeps the original; migration 0020), never billing's sequence, with the tax each line states, dated by the document when close (`BILLING_CLOSE_URL`, grant billing -> close) says its receivables period is open and by today otherwise (`postingNote`), refused when dated in the future (`BIL-0156`) or when no period can be checked (`BIL-0157`), and `invoice.posted` is enqueued in the same
 transaction. The EDI document id is the idempotency key (`self-billed:<id>`): a repeat with the same content returns the invoice (200), other
 content is 409 `BIL-0154`. The lines carry no packing slip, so a slip line is not marked invoiced; order lines are reported to sales when the
 caller names them.

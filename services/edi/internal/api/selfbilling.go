@@ -19,6 +19,7 @@ import (
 	"github.com/BenjaminSRussell/passage/platform/tenant"
 
 	"github.com/BenjaminSRussell/passage/services/edi/internal/domain"
+	"github.com/BenjaminSRussell/passage/services/edi/internal/sources"
 	"github.com/BenjaminSRussell/passage/services/edi/internal/store"
 	"github.com/BenjaminSRussell/passage/services/edi/internal/taxrate"
 )
@@ -124,7 +125,19 @@ func (a *API) putSelfBillConfig(w http.ResponseWriter, r *http.Request) {
 		httpx.Fail(w, r, validation(fields))
 		return
 	}
-	if err := a.store.PutSelfBillConfig(r.Context(), id, cfg); errors.Is(err, store.ErrNotFound) {
+	if _, verr := a.store.GetVendorProfile(a.tenantWide(r.Context()), id); verr == nil {
+		httpx.Fail(w, r, httpx.NewProblem(http.StatusConflict, CodeVendorOrSelfBilling, "the partner is one of our vendors, so its 810s are vendor invoices; a partner is a customer or a vendor for its 810s, not both"))
+		return
+	} else if !errors.Is(verr, store.ErrNotFound) {
+		httpx.Fail(w, r, verr)
+		return
+	}
+	if err := a.store.PutSelfBillConfig(r.Context(), id, cfg); err == nil {
+		// New settings give parked documents a fresh start.
+		if rerr := a.store.ResetSelfBillPosts(r.Context(), id); rerr != nil {
+			slog.WarnContext(r.Context(), "self-billed posts not reset", "partner", id, "err", rerr)
+		}
+	} else if errors.Is(err, store.ErrNotFound) {
 		httpx.Fail(w, r, httpx.NewProblem(http.StatusConflict, CodeNoTradeProfile, "partner has no trade profile; PUT /partners/{id}/trade-profile first"))
 		return
 	} else if err != nil {
@@ -466,8 +479,8 @@ func (a *API) postMatched(ctx context.Context, documentID string) (posted bool) 
 		slog.WarnContext(ctx, "self-billed document unreadable for posting", "document", documentID, "err", err)
 		return false
 	}
-	fail := func(reason string) bool {
-		if err := a.store.MarkSelfBillPostFailed(ctx, documentID, reason); err != nil {
+	fail := func(reason string, park ...bool) bool {
+		if err := a.store.MarkSelfBillPostFailed(ctx, documentID, reason, len(park) > 0 && park[0]); err != nil {
 			slog.WarnContext(ctx, "self-billed post state not recorded", "document", documentID, "err", err)
 		}
 		return false
@@ -500,6 +513,10 @@ func (a *API) postMatched(ctx context.Context, documentID string) (posted bool) 
 	ref, err := a.SelfBilledPoster.PostSelfBilled(tenant.With(ctx, sp), doc.LegalEntityID, "self-billed:"+doc.DocumentID, body)
 	if err != nil {
 		slog.WarnContext(ctx, "self-billed document not posted", "document", documentID, "err", err)
+		var refused *sources.DownstreamRefusedError
+		if errors.As(err, &refused) && refused.Code == "BIL-0154" {
+			return fail("billing already holds an invoice for this document with other content (BIL-0154); compare it with the document and the partner's self-billing settings", true)
+		}
 		return fail(err.Error())
 	}
 	if err := a.store.MarkSelfBillPosted(ctx, documentID, ref.ID, ref.Number); err != nil {

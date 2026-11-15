@@ -33,6 +33,25 @@ func WithMailer(m delivery.Mailer) Option { return func(a *API) { a.mailer = m }
 // WithStatementRunner sets the runner behind "run now" on a statement schedule.
 func WithStatementRunner(r *statements.Runner) Option { return func(a *API) { a.runner = r } }
 
+// AccountChecker says whether a customer belongs to a legal entity; statements.HTTPSource implements it (party).
+type AccountChecker interface {
+	CustomerBelongs(ctx context.Context, legalEntityID, customerID string) (bool, error)
+}
+
+// WithAccountChecker sets the check that a document's account is a customer of its legal entity before the portal shows it.
+func WithAccountChecker(c AccountChecker) Option { return func(a *API) { a.accounts = c } }
+
+// WithStatementTenants lists the tenants the statement runner runs for (PRINT_STATEMENT_TENANT_IDS); a schedule of another tenant is
+// reported with runsEnabled false.
+func WithStatementTenants(ids []string) Option {
+	return func(a *API) {
+		a.stmtTenants = map[string]bool{}
+		for _, id := range ids {
+			a.stmtTenants[id] = true
+		}
+	}
+}
+
 // SetStatementRunner sets the runner behind "run now"; it is set after New because the runner delivers through this API.
 func (a *API) SetStatementRunner(r *statements.Runner) { a.runner = r }
 
@@ -126,9 +145,34 @@ func (a *API) deliverDocument(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	p, _ := tenant.FromContext(ctx)
-	if req.LegalEntityID != "" && !tenant.InLegalEntityScope(p, req.LegalEntityID) {
+	if req.LegalEntityID == "" {
+		// A caller of one legal entity delivers in it; any other caller names the entity.
+		if scopes := tenant.LegalEntityScopeList(p); len(scopes) == 1 {
+			req.LegalEntityID = scopes[0]
+		} else {
+			validationFailed(w, r, map[string]string{"legalEntityId": "is required: the legal entity the document is delivered for"})
+			return
+		}
+	}
+	if !tenant.InLegalEntityScope(p, req.LegalEntityID) {
 		httpx.Fail(w, r, httpx.NewProblem(http.StatusForbidden, "AUTH-0003", "the legal entity is outside your scope"))
 		return
+	}
+	verified := false
+	if req.AccountID != "" && a.accounts != nil {
+		sp, err := tenant.ServicePrincipal(statements.Principal, p.TenantID, req.LegalEntityID)
+		if err == nil {
+			ok, cerr := a.accounts.CustomerBelongs(tenant.With(ctx, sp), req.LegalEntityID, req.AccountID)
+			if cerr != nil {
+				httpx.Fail(w, r, httpx.NewProblem(http.StatusBadGateway, "PRN-0021", "the customer could not be checked: "+cerr.Error()))
+				return
+			}
+			if !ok {
+				httpx.Fail(w, r, httpx.NewProblem(http.StatusUnprocessableEntity, "PRN-0022", "the account is not a customer of that legal entity"))
+				return
+			}
+			verified = true
+		}
 	}
 	composed, err := a.compose(r, req.renderRequest)
 	if err != nil {
@@ -141,7 +185,7 @@ func (a *API) deliverDocument(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	results, err := d.Deliver(context.WithoutCancel(ctx), delivery.Document{SourceKey: req.SourceKey, Type: composed.DocumentType, Number: composed.Number,
-		LegalEntityID: req.LegalEntityID, AccountID: req.AccountID, PDF: doc.PDF, Pages: doc.Pages})
+		LegalEntityID: req.LegalEntityID, AccountID: req.AccountID, AccountVerified: verified, PDF: doc.PDF, Pages: doc.Pages})
 	if err != nil {
 		httpx.Fail(w, r, err)
 		return
@@ -228,19 +272,63 @@ func (a *API) createSchedule(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, status, out)
 }
 
+// scheduleView is a schedule with whether the runner runs for its tenant. A schedule of a tenant the runner is not enabled for is
+// stored and shown but never runs by itself (PRINT_STATEMENT_TENANT_IDS), and the list says so.
+type scheduleView struct {
+	domain.StatementSchedule
+	RunsEnabled bool `json:"runsEnabled"`
+}
+
+// inScope returns the caller's schedules: those of a legal entity in its scope.
+func (a *API) schedulesInScope(r *http.Request, ss store.ScheduleStore) ([]domain.StatementSchedule, error) {
+	all, err := ss.ListSchedules(r.Context())
+	if err != nil {
+		return nil, err
+	}
+	p, _ := tenant.FromContext(r.Context())
+	out := all[:0:0]
+	for _, s := range all {
+		if tenant.InLegalEntityScope(p, s.LegalEntityID) {
+			out = append(out, s)
+		}
+	}
+	return out, nil
+}
+
+// scheduleInScope loads one schedule and checks its legal entity against the caller's scope; one outside it does not exist for the caller.
+func (a *API) scheduleInScope(w http.ResponseWriter, r *http.Request, ss store.ScheduleStore, id string) (domain.StatementSchedule, bool) {
+	all, err := a.schedulesInScope(r, ss)
+	if err != nil {
+		httpx.Fail(w, r, err)
+		return domain.StatementSchedule{}, false
+	}
+	for _, s := range all {
+		if s.ID == id {
+			return s, true
+		}
+	}
+	httpx.Fail(w, r, httpx.NewProblem(http.StatusNotFound, domain.CodeScheduleNotFound, "statement schedule not found"))
+	return domain.StatementSchedule{}, false
+}
+
 func (a *API) listSchedules(w http.ResponseWriter, r *http.Request) {
 	ss, ok := a.scheduleStore(w, r)
 	if !ok {
 		return
 	}
-	items, err := ss.ListSchedules(r.Context())
+	items, err := a.schedulesInScope(r, ss)
 	if err != nil {
 		httpx.Fail(w, r, err)
 		return
 	}
+	p, _ := tenant.FromContext(r.Context())
+	views := make([]scheduleView, 0, len(items))
+	for _, s := range items {
+		views = append(views, scheduleView{StatementSchedule: s, RunsEnabled: a.stmtTenants[p.TenantID]})
+	}
 	httpx.JSON(w, http.StatusOK, struct {
-		Items []domain.StatementSchedule `json:"items"`
-	}{Items: items})
+		Items []scheduleView `json:"items"`
+	}{Items: views})
 }
 
 // patchSchedule pauses or resumes a schedule.
@@ -264,6 +352,9 @@ func (a *API) patchSchedule(w http.ResponseWriter, r *http.Request) {
 		validationFailed(w, r, map[string]string{"enabled": "is required"})
 		return
 	}
+	if _, ok := a.scheduleInScope(w, r, ss, id); !ok {
+		return
+	}
 	out, err := ss.SetScheduleEnabled(r.Context(), id, *req.Enabled)
 	if err != nil {
 		httpx.Fail(w, r, err)
@@ -279,6 +370,9 @@ func (a *API) deleteSchedule(w http.ResponseWriter, r *http.Request) {
 	}
 	id, ok := pathID(w, r, domain.CodeScheduleNotFound, "statement schedule")
 	if !ok {
+		return
+	}
+	if _, ok := a.scheduleInScope(w, r, ss, id); !ok {
 		return
 	}
 	if err := ss.DeleteSchedule(r.Context(), id); err != nil {
@@ -298,29 +392,21 @@ func (a *API) runSchedule(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	sc, ok := a.scheduleInScope(w, r, ss, id)
+	if !ok {
+		return
+	}
 	if a.runner == nil {
 		httpx.Fail(w, r, httpx.NewProblem(http.StatusServiceUnavailable, "PRN-0016", "statement runs are not available: the receivables and party addresses are not configured"))
 		return
 	}
-	all, err := ss.ListSchedules(r.Context())
+	p, _ := tenant.FromContext(r.Context())
+	sum, err := a.runner.RunNow(context.WithoutCancel(r.Context()), p.TenantID, sc)
 	if err != nil {
-		httpx.Fail(w, r, err)
+		httpx.Fail(w, r, httpx.NewProblem(http.StatusBadGateway, "PRN-0021", "the statements could not be read: "+err.Error()))
 		return
 	}
-	for _, s := range all {
-		if s.ID != id {
-			continue
-		}
-		p, _ := tenant.FromContext(r.Context())
-		sum, err := a.runner.RunNow(context.WithoutCancel(r.Context()), p.TenantID, s)
-		if err != nil {
-			httpx.Fail(w, r, httpx.NewProblem(http.StatusBadGateway, "PRN-0021", "the statements could not be read: "+err.Error()))
-			return
-		}
-		httpx.JSON(w, http.StatusOK, sum)
-		return
-	}
-	httpx.Fail(w, r, httpx.NewProblem(http.StatusNotFound, domain.CodeScheduleNotFound, "statement schedule not found"))
+	httpx.JSON(w, http.StatusOK, sum)
 }
 
 func (a *API) listScheduleRuns(w http.ResponseWriter, r *http.Request) {
@@ -330,6 +416,9 @@ func (a *API) listScheduleRuns(w http.ResponseWriter, r *http.Request) {
 	}
 	id, ok := pathID(w, r, domain.CodeScheduleNotFound, "statement schedule")
 	if !ok {
+		return
+	}
+	if _, ok := a.scheduleInScope(w, r, ss, id); !ok {
 		return
 	}
 	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))

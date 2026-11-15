@@ -45,6 +45,8 @@ spec:
               value: {{ .Values.jobRetentionDays | quote }}
             - name: PRINT_PURGE_TENANT_IDS
               value: {{ join "," .Values.purgeTenantIds | quote }}
+            - name: PRINT_STATEMENT_TENANT_IDS
+              value: {{ join "," .Values.statementTenantIds | quote }}
             {{- if .Values.serviceIdentity.signingKeySecret }}
             - name: PASSAGE_SERVICE_NAME
               value: print
@@ -64,6 +66,8 @@ spec:
               value: {{ .Values.smtp.addr | quote }}
             - name: PRINT_SMTP_FROM
               value: {{ required "smtp.from is required with smtp.addr" .Values.smtp.from | quote }}
+            - name: PRINT_SMTP_REQUIRE_TLS
+              value: {{ .Values.smtp.requireTls | quote }}
             - name: PRINT_SMTP_USERNAME
               value: {{ .Values.smtp.username | quote }}
             {{- if .Values.smtp.passwordSecret }}

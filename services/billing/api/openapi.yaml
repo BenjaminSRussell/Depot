@@ -1134,7 +1134,7 @@ paths:
         notified. The customer must have a SELF_BILLED rule in force on `documentDate` (409 BIL-0152) and, when the document names an
         agreement, that one (409 BIL-0153). The invoice is posted at once, as a SHIPMENT invoice of the customer, under the document's own
         number (`documentNumber`, which the customer's agreement says is the invoice number) and not one drawn from billing's sequence, with the
-        tax each line states (the customer is the issuer, so the tax engine is not asked). Invoice and posting date are the document date; the due
+        tax each line states (the customer is the issuer, so the tax engine is not asked). The invoice number is `SB-<tail of the customer id>-<documentNumber>`, the customer's own number kept as `customerDocumentNumber`, so two customers' numbers never collide (409 BIL-0155 for a second document of one customer with the same number). The invoice date is the document date; the posting date is too when close says its receivables period is open, else today, the first open date, with `postingNote` saying so (409 BIL-0157 when both are closed, 503 BIL-0157 when close cannot be asked); a document dated after today is 422 BIL-0156. The due
         date is `paymentTermDays` later. `invoice.posted` is enqueued in the same transaction, so receivables, the ledger and the tax report see it as
         any posted invoice. `sourceRef` (the EDI document) is the idempotency key: the same document with the same content returns the posted
         invoice (200, Idempotent-Replayed); with other content it is 409 BIL-0154. An invoice number already taken in the legal entity is refused.

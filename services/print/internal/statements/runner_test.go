@@ -3,6 +3,7 @@ package statements_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -306,5 +307,90 @@ func TestHTTPSource_ReadsReceivablesAndPartyWithOnlyTheirDuties(t *testing.T) {
 	}
 	if _, err := statements.NewHTTPSource("", srv.URL, signer, nil); err == nil {
 		t.Fatal("a source without a receivables URL")
+	}
+}
+
+// A run with a failed customer is not completed: the schedule keeps its run date, a later pass retries only the failed customer for the
+// same date (nobody gets a second statement), and after statements.MaxAttempts the schedule moves on.
+func TestRunner_AFailedCustomerKeepsTheRunOpenAndIsRetriedForTheSameDate(t *testing.T) {
+	f := setup(t, emailAndPortal()...)
+	f.src.failFor[custB] = errors.New("receivables answered 503")
+	f.src.empty[custC] = true
+	r := f.runner("r1")
+	sums, err := r.RunTenant(context.Background(), testkit.TenantID(1))
+	if err != nil || len(sums) != 1 || !sums[0].Retry || sums[0].Failed != 1 || sums[0].Delivered != 1 {
+		t.Fatalf("first pass: %+v %v", sums, err)
+	}
+	list, _ := f.st.ListSchedules(f.ctx)
+	first := list[0]
+	if first.LastRunOn != "" || first.RunAsOf != sums[0].AsOf || first.Attempts != 1 || first.NextRunOn > sums[0].AsOf {
+		t.Fatalf("the run was completed or lost its date: %+v", first)
+	}
+	// Before the retry wait nothing is due.
+	if sums, _ = r.RunTenant(context.Background(), testkit.TenantID(1)); len(sums) != 0 {
+		t.Fatalf("retried before the wait: %+v", sums)
+	}
+	// Later, on another day, the failed customer is retried for the original date and the one already sent is left alone.
+	delete(f.src.failFor, custB)
+	f.now = f.now.Add(statements.RetryWait + 36*time.Hour)
+	sums, err = r.RunTenant(context.Background(), testkit.TenantID(1))
+	if err != nil || len(sums) != 1 || sums[0].AsOf != first.RunAsOf || sums[0].Delivered != 1 || sums[0].Skipped != 2 || sums[0].Failed != 0 || sums[0].Retry {
+		t.Fatalf("retry pass: %+v %v", sums, err)
+	}
+	if len(f.mail.sent) != 2 || f.src.statUsed[custA] != 1 {
+		t.Fatalf("mails %d, reads of A %d: a customer got a second statement", len(f.mail.sent), f.src.statUsed[custA])
+	}
+	list, _ = f.st.ListSchedules(f.ctx)
+	if list[0].RunAsOf != "" || list[0].Attempts != 0 || list[0].LastRunOn != first.RunAsOf {
+		t.Fatalf("after the retry: %+v", list[0])
+	}
+}
+
+func TestRunner_GivesUpAfterTheAttemptCap(t *testing.T) {
+	f := setup(t, emailAndPortal()...)
+	f.src.failFor[custB] = errors.New("receivables answered 503")
+	f.src.empty[custC] = true
+	r := f.runner("r1")
+	for i := 0; i < statements.MaxAttempts; i++ {
+		sums, err := r.RunTenant(context.Background(), testkit.TenantID(1))
+		if err != nil || len(sums) != 1 {
+			t.Fatalf("pass %d: %+v %v", i, sums, err)
+		}
+		if want := i < statements.MaxAttempts-1; sums[0].Retry != want {
+			t.Fatalf("pass %d retry=%v, want %v", i, sums[0].Retry, want)
+		}
+		f.now = f.now.Add(statements.RetryWait * 10)
+	}
+	list, _ := f.st.ListSchedules(f.ctx)
+	if list[0].RunAsOf != "" || list[0].LastRunOn == "" {
+		t.Fatalf("the schedule did not move on: %+v", list[0])
+	}
+}
+
+func TestHTTPSource_PagesThroughEverySnapshotRow(t *testing.T) {
+	var offsets []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		off := r.URL.Query().Get("offset")
+		offsets = append(offsets, off)
+		var rows []string
+		n := 500
+		if off != "0" {
+			n = 3
+		}
+		for i := 0; i < n; i++ {
+			id := fmt.Sprintf("0190a5f2-7b1c-7d3e-8a4f-%012d", i)
+			if off != "0" {
+				id = fmt.Sprintf("0190a5f2-7b1c-7d3e-8a4f-%012d", i) // the same customers again, in another currency
+			}
+			rows = append(rows, `{"customerId":"`+id+`","totalOpen":"1.00"}`)
+		}
+		_, _ = w.Write([]byte(`{"items":[` + strings.Join(rows, ",") + `]}`))
+	}))
+	defer srv.Close()
+	src, _ := statements.NewHTTPSource(srv.URL, srv.URL, testSigner(t), nil)
+	p, _ := tenant.ServicePrincipal(statements.Principal, testkit.TenantID(1), le)
+	got, err := src.Customers(tenant.With(context.Background(), p), le)
+	if err != nil || len(got) != 500 || len(offsets) != 2 || offsets[1] != "500" {
+		t.Fatalf("customers %d offsets %v %v", len(got), offsets, err)
 	}
 }

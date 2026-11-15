@@ -555,7 +555,8 @@ type SelfBillPostLine struct {
 func (s *Store) PendingSelfBillPosts(ctx context.Context, limit int) ([]string, error) {
 	var out []string
 	err := dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
-		rows, err := tx.Query(ctx, `select id::text from self_billing_document where status = 'MATCHED' and billed_at is null order by created_at, id limit $1`, limit)
+		rows, err := tx.Query(ctx, `select id::text from self_billing_document where status = 'MATCHED' and billed_at is null and post_parked_at is null and (next_post_at is null or next_post_at <= now())
+			order by next_post_at nulls first, created_at, id limit $1`, limit)
 		if err != nil {
 			return err
 		}
@@ -621,13 +622,45 @@ func (s *Store) MarkSelfBillPosted(ctx context.Context, documentID, invoiceID, n
 	})
 }
 
-// MarkSelfBillPostFailed records why the document was not posted this time; the sweep tries again.
-func (s *Store) MarkSelfBillPostFailed(ctx context.Context, documentID, reason string) error {
-	if len(reason) > 500 {
-		reason = reason[:500]
-	}
+// MaxSelfBillPostAttempts is how many times a matched document is posted before it is parked with its reason.
+const MaxSelfBillPostAttempts = 8
+
+// MarkSelfBillPostFailed records why the document was not posted this time. The next try waits 5 minutes doubled for each earlier attempt
+// (at most a day); after MaxSelfBillPostAttempts, or at once when park is set (a definite refusal), the document is parked: it keeps its
+// reason and is not tried again until the partner's self-billing settings are saved.
+func (s *Store) MarkSelfBillPostFailed(ctx context.Context, documentID, reason string, park bool) error {
 	return dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
-		_, err := tx.Exec(ctx, `update self_billing_document set post_error = $2, post_attempted_at = now() where id = $1 and billed_at is null`, documentID, reason)
+		var attempts int
+		if err := tx.QueryRow(ctx, `select post_attempts + 1 from self_billing_document where id = $1 and billed_at is null for update`, documentID).Scan(&attempts); err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return nil
+			}
+			return err
+		}
+		if attempts >= MaxSelfBillPostAttempts {
+			park = true
+		}
+		if park {
+			reason = fmt.Sprintf("Parked after %d attempt(s): %s", attempts, reason)
+		}
+		if len(reason) > 500 {
+			reason = reason[:500]
+		}
+		wait := time.Duration(5<<min(attempts-1, 8)) * time.Minute
+		if wait > 24*time.Hour {
+			wait = 24 * time.Hour
+		}
+		_, err := tx.Exec(ctx, `update self_billing_document set post_error = $2, post_attempted_at = now(), post_attempts = $3, next_post_at = now() + $4::interval,
+			post_parked_at = case when $5 then now() else null end where id = $1`, documentID, reason, attempts, wait.String(), park)
+		return err
+	})
+}
+
+// ResetSelfBillPosts gives the partner's parked and waiting documents a fresh start, as saving its self-billing settings does.
+func (s *Store) ResetSelfBillPosts(ctx context.Context, partnerID string) error {
+	return dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
+		_, err := tx.Exec(ctx, `update self_billing_document set post_attempts = 0, next_post_at = null, post_parked_at = null
+			where partner_id = $1 and status = 'MATCHED' and billed_at is null`, partnerID)
 		return err
 	})
 }

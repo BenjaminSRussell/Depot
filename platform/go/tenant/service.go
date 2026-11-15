@@ -82,6 +82,8 @@ var serviceGrants = map[string]map[string][]string{
 	},
 	"finreport": {"ledger": {"ledger.entry.lookup", "ledger.balance.read"}},
 	"billing": {
+		// A self-billed invoice is posted only into an open receivables period (#35, 35-5).
+		"close":  {"period.check"},
 		"ledger": {"ledger.entry.post", "ledger.ledger.lookup"},
 		"revrec": {"revrec.allocation.read"},
 		"sales":  {"sales.order.record-invoice", "sales.order.record-delivery"},

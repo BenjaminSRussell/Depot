@@ -26,6 +26,9 @@ serviceIdentity:
 # BILLING_GL_PROFILES) lists per legal entity: legalEntityId, ledgerId, receivableAccount,
 # taxAccount, chargeAccount, deferredRevenueAccounts and contractAssetAccount (1250 Contract
 # Asset when omitted; open it in the ledger chart next to 2400 Contract Liability).
+# closeUrl (BILLING_CLOSE_URL): the close service, asked whether a self-billed document's receivables period is open (grant billing -> close,
+# period.check; the close chart must list billing's public key). Without it no self-billed invoice is posted.
+closeUrl: ""
 ledgerUrl: ""
 glProfiles: []
 # With tenantIds set (and ledgerUrl), a worker books the journal of posted invoices and credit notes of every

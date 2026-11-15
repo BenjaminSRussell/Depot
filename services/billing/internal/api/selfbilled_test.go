@@ -2,15 +2,17 @@ package api
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/BenjaminSRussell/passage/services/billing/internal/domain"
 	"github.com/BenjaminSRussell/passage/services/billing/internal/store"
 )
 
-func (f *fakeStore) PostSelfBilled(_ context.Context, inv store.Invoice, number string) (store.Invoice, bool, error) {
+func (f *fakeStore) PostSelfBilled(_ context.Context, inv store.Invoice, number, documentNumber string) (store.Invoice, bool, error) {
 	for _, e := range f.invoices {
 		if e.IdempotencyKey == inv.IdempotencyKey {
 			if e.RequestHash != inv.RequestHash {
@@ -19,13 +21,37 @@ func (f *fakeStore) PostSelfBilled(_ context.Context, inv store.Invoice, number 
 			return e, false, nil
 		}
 	}
-	inv.Number, inv.Status, inv.Version = number, domain.StatusPosted, 2
+	inv.Number, inv.Status, inv.Version, inv.CustomerDocumentNumber = number, domain.StatusPosted, 2, documentNumber
 	f.invoices[inv.ID] = inv
 	f.selfPosts++
 	return inv, true, nil
 }
 
 const selfBilledDuty = "billing.self-billed.post"
+
+// fakePeriods answers which dates have an open receivables period.
+type fakePeriods struct {
+	closedBefore time.Time // dates before this are in a closed period
+	err          error
+	asked        []string
+}
+
+func (f *fakePeriods) Open(_ context.Context, _, _ string, d time.Time) (bool, error) {
+	f.asked = append(f.asked, d.Format("2006-01-02"))
+	return f.err == nil && !d.Before(f.closedBefore), f.err
+}
+
+// selfBilledAPI is setup with the legal entity's ledger profile and a period checker; the clock is 2027-03-25.
+func selfBilledAPI(t *testing.T, s *fakeStore, p *fakePeriods) http.Handler {
+	t.Helper()
+	a, h := setupAPI(t, s, &fakeTax{perLine: "99.00"})
+	a.profiles = map[string]store.GLProfile{leID: {LegalEntityID: leID, LedgerID: "0190a5f2-7b1c-7d3e-8a4f-0000000000f9"}}
+	a.now = func() time.Time { return time.Date(2027, 3, 25, 10, 0, 0, 0, time.UTC) }
+	if p != nil {
+		a.WithPeriods(p)
+	}
+	return h
+}
 
 func selfBilledBody(number, tax string) string {
 	return `{"legalEntityId":"` + leID + `","customerId":"` + custID + `","sourceRef":"msg-1","documentNumber":"` + number + `","documentDate":"2027-03-20",` +
@@ -45,7 +71,7 @@ func selfBilledAgreement(t *testing.T, h http.Handler) {
 // states, once.
 func TestSelfBilled_PostsTheCustomersDocumentAsTheLegalInvoice(t *testing.T) {
 	s := newFakeStore()
-	h := setup(t, s, &fakeTax{perLine: "99.00"}) // the tax engine is not asked: the issuer is the customer
+	h := selfBilledAPI(t, s, &fakePeriods{}) // the tax engine is not asked: the issuer is the customer
 	selfBilledAgreement(t, h)
 	rec := doAs(h, http.MethodPost, pathSelfBilled, "", selfBilledBody("SB-2027-0001", "15.20"), selfBilledDuty, nil)
 	if rec.Code != http.StatusCreated {
@@ -53,7 +79,7 @@ func TestSelfBilled_PostsTheCustomersDocumentAsTheLegalInvoice(t *testing.T) {
 	}
 	var out invoiceDTO
 	decode(t, rec, &out)
-	if out.Number != "SB-2027-0001" || out.Status != domain.StatusPosted || out.Type != domain.TypeShipment || out.CustomerID != custID ||
+	if out.Number != selfBilledNumber(custID, "SB-2027-0001") || out.CustomerDocumentNumber != "SB-2027-0001" || out.Status != domain.StatusPosted || out.Type != domain.TypeShipment || out.CustomerID != custID ||
 		out.Totals.Net != "80.00" || out.Totals.Tax != "15.20" || out.Totals.Gross != "95.20" || out.InvoiceDate != "2027-03-20" || out.PostingDate != "2027-03-20" || out.DueDate != "2027-04-19" {
 		t.Fatalf("invoice: %+v", out)
 	}
@@ -76,7 +102,7 @@ func TestSelfBilled_PostsTheCustomersDocumentAsTheLegalInvoice(t *testing.T) {
 
 func TestSelfBilled_NeedsTheRuleTheAgreementAndTheServiceDuty(t *testing.T) {
 	s := newFakeStore()
-	h := setup(t, s, &fakeTax{perLine: "0"})
+	h := selfBilledAPI(t, s, &fakePeriods{})
 	body := selfBilledBody("SB-1", "15.20")
 	if rec := doAs(h, http.MethodPost, pathSelfBilled, "", body, selfBilledDuty, nil); rec.Code != http.StatusConflict || !strings.Contains(rec.Body.String(), CodeNotSelfBilled) {
 		t.Fatalf("a customer on no rule: %d %s", rec.Code, rec.Body)
@@ -100,7 +126,7 @@ func TestSelfBilled_NeedsTheRuleTheAgreementAndTheServiceDuty(t *testing.T) {
 
 func TestSelfBilled_ChecksTheDocument(t *testing.T) {
 	s := newFakeStore()
-	h := setup(t, s, &fakeTax{perLine: "0"})
+	h := selfBilledAPI(t, s, &fakePeriods{})
 	selfBilledAgreement(t, h)
 	good := selfBilledBody("SB-1", "15.20")
 	for field, body := range map[string]string{
@@ -120,5 +146,48 @@ func TestSelfBilled_ChecksTheDocument(t *testing.T) {
 	}
 	if s.selfPosts != 0 {
 		t.Fatalf("refused documents posted %d invoices", s.selfPosts)
+	}
+}
+
+// A document dated in a closed period is posted on the first open date, with the customer's date kept and a note; a date in the future is
+// refused; with both periods closed, or no period service, nothing is posted.
+func TestSelfBilled_NeverPostsIntoAClosedPeriodOrTheFuture(t *testing.T) {
+	s := newFakeStore()
+	periods := &fakePeriods{closedBefore: time.Date(2027, 3, 1, 0, 0, 0, 0, time.UTC)}
+	h := selfBilledAPI(t, s, periods)
+	selfBilledAgreement(t, h)
+	closedDoc := strings.Replace(selfBilledBody("SB-9", "15.20"), `"documentDate":"2027-03-20"`, `"documentDate":"2027-02-20"`, 1)
+	closedDoc = strings.Replace(closedDoc, `"validFrom":"2027-03-01"`, `"validFrom":"2027-03-01"`, 1)
+	// The rule starts on 2027-03-01, so use a later rule start for this document.
+	rule := `{"legalEntityId":"` + leID + `","rule":"SELF_BILLED","agreementRef":"SBA-2027-01","validFrom":"2027-01-01"}`
+	doAs(h, http.MethodPut, "/v1/billing/customers/"+custID+"/billing-rule", "", rule, allDuties, map[string]string{"If-Match": `"1"`})
+	rec := doAs(h, http.MethodPost, pathSelfBilled, "", closedDoc, selfBilledDuty, nil)
+	var out invoiceDTO
+	decode(t, rec, &out)
+	if rec.Code != http.StatusCreated || out.PostingDate != "2027-03-25" || out.InvoiceDate != "2027-02-20" || !strings.Contains(out.PostingNote, "closed receivables period") {
+		t.Fatalf("closed period: %d %s", rec.Code, rec.Body)
+	}
+	if rec := doAs(h, http.MethodPost, pathSelfBilled, "", strings.Replace(selfBilledBody("SB-10", "15.20"), "2027-03-20", "2027-03-27", 1), selfBilledDuty, nil); rec.Code != http.StatusUnprocessableEntity || !strings.Contains(rec.Body.String(), CodeSelfBilledFuture) {
+		t.Fatalf("future: %d %s", rec.Code, rec.Body)
+	}
+	periods.closedBefore = time.Date(2027, 4, 1, 0, 0, 0, 0, time.UTC)
+	if rec := doAs(h, http.MethodPost, pathSelfBilled, "", strings.Replace(selfBilledBody("SB-11", "15.20"), "msg-1", "msg-2", 1), selfBilledDuty, nil); rec.Code != http.StatusConflict || !strings.Contains(rec.Body.String(), CodeSelfBilledPeriod) {
+		t.Fatalf("both closed: %d %s", rec.Code, rec.Body)
+	}
+	periods.err = errors.New("close is down")
+	if rec := doAs(h, http.MethodPost, pathSelfBilled, "", strings.Replace(selfBilledBody("SB-12", "15.20"), "msg-1", "msg-3", 1), selfBilledDuty, nil); rec.Code != http.StatusServiceUnavailable {
+		t.Fatalf("close down: %d %s", rec.Code, rec.Body)
+	}
+	noPeriods := selfBilledAPI(t, newFakeStore(), nil)
+	selfBilledAgreement(t, noPeriods)
+	if rec := doAs(noPeriods, http.MethodPost, pathSelfBilled, "", selfBilledBody("SB-13", "15.20"), selfBilledDuty, nil); rec.Code != http.StatusServiceUnavailable || !strings.Contains(rec.Body.String(), CodeSelfBilledPeriod) {
+		t.Fatalf("no period service: %d %s", rec.Code, rec.Body)
+	}
+}
+
+func TestSelfBilledNumber_IsInTheCustomersOwnNamespace(t *testing.T) {
+	a, b := selfBilledNumber("0190a5f2-7b1c-7d3e-8a4f-123456789a01", "1001"), selfBilledNumber("0190a5f2-7b1c-7d3e-8a4f-123456789b02", "1001")
+	if a == b || !strings.HasPrefix(a, "SB-") || strings.HasPrefix(a, "INV-") {
+		t.Fatalf("%s %s", a, b)
 	}
 }

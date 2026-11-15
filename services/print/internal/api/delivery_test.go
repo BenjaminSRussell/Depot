@@ -43,6 +43,13 @@ func inEntity(t *testing.T, h http.Handler, method, path, body, duties, key stri
 	return callAs(t, h, method, path, body, duties, key, leA)
 }
 
+// fakeAccounts says which customers belong to leA.
+type fakeAccounts map[string]bool
+
+func (f fakeAccounts) CustomerBelongs(_ context.Context, le, customer string) (bool, error) {
+	return le == leA && f[customer], nil
+}
+
 func dbRouter(t *testing.T, sender api.Sender, opts ...api.Option) http.Handler {
 	t.Helper()
 	admin, app := testkit.DBWithApp(t)
@@ -56,7 +63,7 @@ const invoiceDoc = `{"documentType":"CUSTOMER_INVOICE","number":"INV-9","legalEn
 
 func TestDeliverDocument_SendsByTheOutputPlanOnceAndReportsEveryDestination(t *testing.T) {
 	box := &outbox{}
-	h := dbRouter(t, &fakeSender{}, api.WithMailer(box))
+	h := dbRouter(t, &fakeSender{}, api.WithMailer(box), api.WithAccountChecker(fakeAccounts{custA: true}))
 	seedRule := func(key, body string) {
 		if rec := call(t, h, http.MethodPost, "/print/v1/output-rules", body, tenantAdmin, key); rec.Code != http.StatusCreated {
 			t.Fatalf("rule %s: %d %s", key, rec.Code, rec.Body)
@@ -218,32 +225,87 @@ func TestStatementSchedules_CreateListPauseRunAndDelete(t *testing.T) {
 	if again := inEntity(t, h, http.MethodPost, "/print/v1/statement-schedules", body, "print.admin", "k1"); again.Code != http.StatusOK || again.Header().Get("Idempotent-Replayed") != "true" {
 		t.Fatalf("replay: %d", again.Code)
 	}
-	if list := call(t, h, http.MethodGet, "/print/v1/statement-schedules", "", "print.job.submit", ""); list.Code != http.StatusOK || strings.Count(list.Body.String(), `"id"`) != 1 {
+	if list := inEntity(t, h, http.MethodGet, "/print/v1/statement-schedules", "", "print.job.submit", ""); list.Code != http.StatusOK || strings.Count(list.Body.String(), `"id"`) != 1 || !strings.Contains(list.Body.String(), `"runsEnabled":false`) {
 		t.Fatalf("list: %d %s", list.Code, list.Body)
 	}
 	if rec := inEntity(t, h, http.MethodPost, "/print/v1/statement-schedules", strings.Replace(body, `"cadence":"MONTHLY"`, `"cadence":"MONTHLY","templateCode":"NOPE-1"`, 1), "print.admin", "k2"); rec.Code != http.StatusNotFound {
 		t.Fatalf("unknown template: %d %s", rec.Code, rec.Body)
 	}
-	paused := call(t, h, http.MethodPatch, "/print/v1/statement-schedules/"+sc.ID, `{"enabled":false}`, "print.admin", "")
+	paused := inEntity(t, h, http.MethodPatch, "/print/v1/statement-schedules/"+sc.ID, `{"enabled":false}`, "print.admin", "")
 	if paused.Code != http.StatusOK || !strings.Contains(paused.Body.String(), `"enabled":false`) {
 		t.Fatalf("pause: %d %s", paused.Code, paused.Body)
 	}
-	if rec := call(t, h, http.MethodPatch, "/print/v1/statement-schedules/"+sc.ID, `{}`, "print.admin", ""); rec.Code != http.StatusBadRequest {
+	if rec := inEntity(t, h, http.MethodPatch, "/print/v1/statement-schedules/"+sc.ID, `{}`, "print.admin", ""); rec.Code != http.StatusBadRequest {
 		t.Fatalf("patch without enabled: %d", rec.Code)
 	}
-	if rec := call(t, h, http.MethodPost, "/print/v1/statement-schedules/"+sc.ID+":run", "", "print.admin", ""); rec.Code != http.StatusServiceUnavailable {
+	if rec := inEntity(t, h, http.MethodPost, "/print/v1/statement-schedules/"+sc.ID+":run", "", "print.admin", ""); rec.Code != http.StatusServiceUnavailable {
 		t.Fatalf("run without a source: %d %s", rec.Code, rec.Body)
 	}
-	if runs := call(t, h, http.MethodGet, "/print/v1/statement-schedules/"+sc.ID+"/runs", "", "print.job.submit", ""); runs.Code != http.StatusOK || !strings.Contains(runs.Body.String(), `"items":[]`) {
+	if runs := inEntity(t, h, http.MethodGet, "/print/v1/statement-schedules/"+sc.ID+"/runs", "", "print.job.submit", ""); runs.Code != http.StatusOK || !strings.Contains(runs.Body.String(), `"items":[]`) {
 		t.Fatalf("runs: %d %s", runs.Code, runs.Body)
 	}
-	if rec := call(t, h, http.MethodDelete, "/print/v1/statement-schedules/"+sc.ID, "", "print.admin", ""); rec.Code != http.StatusNoContent {
+	if rec := inEntity(t, h, http.MethodDelete, "/print/v1/statement-schedules/"+sc.ID, "", "print.admin", ""); rec.Code != http.StatusNoContent {
 		t.Fatalf("delete: %d", rec.Code)
 	}
-	if rec := call(t, h, http.MethodDelete, "/print/v1/statement-schedules/"+sc.ID, "", "print.admin", ""); rec.Code != http.StatusNotFound {
+	if rec := inEntity(t, h, http.MethodDelete, "/print/v1/statement-schedules/"+sc.ID, "", "print.admin", ""); rec.Code != http.StatusNotFound {
 		t.Fatalf("second delete: %d", rec.Code)
 	}
 	if rec := call(t, h, http.MethodDelete, "/print/v1/statement-schedules/not-an-id", "", "print.admin", ""); rec.Code != http.StatusNotFound {
 		t.Fatalf("delete of a malformed id: %d", rec.Code)
+	}
+}
+
+// A print.admin scoped to one legal entity cannot see, pause, run, read the runs of or delete another entity's schedule.
+func TestStatementSchedules_AreScopedToTheCallersLegalEntity(t *testing.T) {
+	h := dbRouter(t, &fakeSender{})
+	body := `{"name":"Monthly statements","legalEntityId":"` + leA + `","senderName":"Cedar Ridge Pumps, Inc.","cadence":"MONTHLY","runDay":3}`
+	var sc struct{ ID string }
+	rec := inEntity(t, h, http.MethodPost, "/print/v1/statement-schedules", body, "print.admin", "k1")
+	if err := json.Unmarshal(rec.Body.Bytes(), &sc); err != nil || sc.ID == "" {
+		t.Fatalf("create: %d %s", rec.Code, rec.Body)
+	}
+	const leB = "0190a5f2-7b1c-7d3e-8a4f-123456789a99"
+	asB := func(method, path, body, duties string) *httptest.ResponseRecorder {
+		return callAs(t, h, method, path, body, duties, "", leB)
+	}
+	if list := asB(http.MethodGet, "/print/v1/statement-schedules", "", "print.job.submit"); !strings.Contains(list.Body.String(), `"items":[]`) {
+		t.Fatalf("another entity lists the schedule: %s", list.Body)
+	}
+	base := "/print/v1/statement-schedules/" + sc.ID
+	for name, rc := range map[string]*httptest.ResponseRecorder{
+		"pause":  asB(http.MethodPatch, base, `{"enabled":false}`, "print.admin"),
+		"run":    asB(http.MethodPost, base+":run", "", "print.admin"),
+		"runs":   asB(http.MethodGet, base+"/runs", "", "print.job.submit"),
+		"delete": asB(http.MethodDelete, base, "", "print.admin"),
+	} {
+		if rc.Code != http.StatusNotFound {
+			t.Errorf("%s by another legal entity: %d %s", name, rc.Code, rc.Body)
+		}
+	}
+	if list := inEntity(t, h, http.MethodGet, "/print/v1/statement-schedules", "", "print.job.submit", ""); strings.Count(list.Body.String(), `"id"`) != 1 {
+		t.Fatalf("the owner lost its schedule: %s", list.Body)
+	}
+}
+
+func TestDeliverDocument_NeedsALegalEntityAndACustomerOfIt(t *testing.T) {
+	h := dbRouter(t, &fakeSender{}, api.WithMailer(&outbox{}), api.WithAccountChecker(fakeAccounts{custA: true}))
+	two := func(le string) *httptest.ResponseRecorder {
+		req := httptest.NewRequest(http.MethodPost, "/print/v1/documents:deliver", strings.NewReader(invoiceDoc+`,"sourceKey":"k","accountId":"`+custB+`"}`))
+		req.Header.Set("X-Passage-Tenant", testkit.TenantID(1))
+		req.Header.Set("X-Passage-Duties", "print.document.deliver")
+		if le != "" {
+			req.Header.Set("X-Passage-Legal-Entity", le)
+		}
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, req)
+		return rec
+	}
+	// A caller of two entities must name one.
+	if rec := two(leA + ",0190a5f2-7b1c-7d3e-8a4f-123456789a98"); rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "legalEntityId") {
+		t.Fatalf("no legal entity: %d %s", rec.Code, rec.Body)
+	}
+	// A customer that is not one of the entity's is refused before anything is delivered.
+	if rec := two(leA); rec.Code != http.StatusUnprocessableEntity || !strings.Contains(rec.Body.String(), "PRN-0022") {
+		t.Fatalf("another entity's customer: %d %s", rec.Code, rec.Body)
 	}
 }

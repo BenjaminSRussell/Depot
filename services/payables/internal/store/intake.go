@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/shopspring/decimal"
 
 	"github.com/BenjaminSRussell/passage/platform/dbx"
@@ -238,6 +239,11 @@ func (s *Postgres) DecideVendorInvoiceIntake(ctx context.Context, id string, d I
 		}
 		out, err = scanIntake(tx.QueryRow(ctx, `update ap_vendor_invoice_intake set status = $2, decided_at = now(), decided_by = $3, decision_note = $4, vendor_invoice_id = $5::uuid
 			where id = $1::uuid returning `+intakeColumns, id, d.Status, d.By, d.Note, nullable(d.VendorInvoiceID)))
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" && pgErr.ConstraintName == "ap_vendor_invoice_intake_invoice" {
+			// Two clerks closed two received invoices with the same vendor invoice at once.
+			return ErrIntakeInvoiceTaken
+		}
 		changed = err == nil
 		return err
 	})

@@ -11,8 +11,13 @@ ALTER TABLE self_billing_document
   ADD COLUMN IF NOT EXISTS billing_number text,
   ADD COLUMN IF NOT EXISTS billed_at timestamptz,
   ADD COLUMN IF NOT EXISTS post_error text NOT NULL DEFAULT '',
-  ADD COLUMN IF NOT EXISTS post_attempted_at timestamptz;
-CREATE INDEX IF NOT EXISTS self_billing_document_unposted ON self_billing_document (tenant_id, created_at) WHERE status = 'MATCHED' AND billed_at IS NULL;
+  ADD COLUMN IF NOT EXISTS post_attempted_at timestamptz,
+  -- Retries back off (next_post_at) and stop after a number of attempts or at a definite refusal (post_parked_at); saving the partner's
+  -- self-billing settings gives parked documents a fresh start.
+  ADD COLUMN IF NOT EXISTS post_attempts integer NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS next_post_at timestamptz,
+  ADD COLUMN IF NOT EXISTS post_parked_at timestamptz;
+CREATE INDEX IF NOT EXISTS self_billing_document_unposted ON self_billing_document (tenant_id, created_at) WHERE status = 'MATCHED' AND billed_at IS NULL AND post_parked_at IS NULL;
 
 -- The scheduled sweep finds its tenants through this function: it now also lists the tenants with an inbound X12 810 not matched yet
 -- (it read INVOIC only) and with a matched document still waiting for billing to post it.
@@ -26,7 +31,7 @@ BEGIN
           JOIN interchange i ON i.tenant_id = m.tenant_id AND i.id = m.interchange_id AND i.direction = 'IN'
           WHERE m.transaction_set IN ('INVOIC', '810') AND m.status = 'MAPPED' AND m.canonical->>'selfBilled' = 'true'
         UNION
-        SELECT d.tenant_id FROM self_billing_document d WHERE d.status = 'MATCHED' AND d.billed_at IS NULL
+        SELECT d.tenant_id FROM self_billing_document d WHERE d.status = 'MATCHED' AND d.billed_at IS NULL AND d.post_parked_at IS NULL AND (d.next_post_at IS NULL OR d.next_post_at <= now())
         UNION
         SELECT sh.tenant_id FROM self_billing_shipment sh
           JOIN self_billing_config c ON c.tenant_id = sh.tenant_id AND c.partner_id = sh.partner_id

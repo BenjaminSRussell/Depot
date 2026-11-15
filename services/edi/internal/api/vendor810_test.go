@@ -109,7 +109,7 @@ func messageStatus(t *testing.T, h http.Handler, id string) string {
 
 // #35 (35-5): a vendor's X12 810 has its own route and goes into payables' intake as source X12_810, never matched as a self-billed invoice.
 func TestVendor810_RouteSendsTheInvoiceToPayablesAndNotToSelfBilling(t *testing.T) {
-	_, a, h, partner := selfBillSetup(t)
+	a, h, partner := vendorSetup(t)
 	payables := &fakePayables{}
 	a.VendorInvoices = payables
 	// The route needs the partner to be one of our vendors.
@@ -159,7 +159,7 @@ func TestVendor810_RouteSendsTheInvoiceToPayablesAndNotToSelfBilling(t *testing.
 // Without payables configured the invoice is recorded and stays MAPPED; POST /messages/{id}:post puts it into the intake once it is, and a
 // second post returns the intake row already created.
 func TestVendor810_StaysMappedWithoutPayablesAndPostsLater(t *testing.T) {
-	_, a, h, partner := selfBillSetup(t)
+	a, h, partner := vendorSetup(t)
 	putVendorProfileFor(t, h, partner)
 	_, res := receiveVendor(t, h, "/edi/v1/inbound/x12/vendor", vendor810(t, "000000094", "V-7004", true))
 	id := res.Messages[0].MessageID
@@ -182,7 +182,7 @@ func TestVendor810_StaysMappedWithoutPayablesAndPostsLater(t *testing.T) {
 
 // A document payables or the mapping refuses is parked with its code, and posts once the cause is fixed.
 func TestVendor810_ParksWhatCannotBeTakenAndPostsAgainWhenFixed(t *testing.T) {
-	_, a, h, partner := selfBillSetup(t)
+	a, h, partner := vendorSetup(t)
 	payables := &fakePayables{refuse: &sources.DownstreamRefusedError{Service: "payables", Status: 409, Code: "AP-VII-002", Detail: "invoice V-7005 of this vendor was already received"}}
 	a.VendorInvoices = payables
 	putVendorProfileFor(t, h, partner)
@@ -217,7 +217,7 @@ func TestVendor810_ParksWhatCannotBeTakenAndPostsAgainWhenFixed(t *testing.T) {
 }
 
 func TestVendor810_ProfileIsChecked(t *testing.T) {
-	_, _, h, partner := selfBillSetup(t)
+	_, h, partner := vendorSetup(t)
 	for name, body := range map[string]string{
 		"legalEntityId": `{"legalEntityId":"nope","vendorId":"` + vendorID + `"}`,
 		"vendorId":      `{"legalEntityId":"` + srcLE + `","vendorId":"x"}`,
@@ -235,5 +235,43 @@ func TestVendor810_ProfileIsChecked(t *testing.T) {
 	}
 	if rec := do(t, h, http.MethodPut, "/edi/v1/partners/"+partner+"/vendor-profile", `{"legalEntityId":"`+srcLE+`","vendorId":"`+vendorID+`"}`, "edi.operate", srcScope); rec.Code != http.StatusForbidden {
 		t.Fatalf("without edi.admin: %d", rec.Code)
+	}
+}
+
+// vendorSetup is a partner that sends 810s and is not a self-billing customer.
+func vendorSetup(t *testing.T) (*API, http.Handler, string) {
+	t.Helper()
+	a, h, _, partner, _ := autoSetupWith(t, newFake(), edifactDistributor)
+	return a, h, partner
+}
+
+// A partner is a self-billing customer or a vendor for its 810s, never both: each setting refuses the other, whatever legal entity the
+// operator is scoped to.
+func TestVendor810_ExcludesSelfBillingOnTheSamePartner(t *testing.T) {
+	_, _, h, partner := selfBillSetup(t) // self-billing settings exist
+	body := `{"legalEntityId":"` + srcLE + `","vendorId":"` + vendorID + `"}`
+	if rec := do(t, h, http.MethodPut, "/edi/v1/partners/"+partner+"/vendor-profile", body, "edi.admin", srcScope); rec.Code != http.StatusConflict || !strings.Contains(rec.Body.String(), CodeVendorOrSelfBilling) {
+		t.Fatalf("vendor profile on a self-billing partner: %d %s", rec.Code, rec.Body.String())
+	}
+	_, h2, partner2 := vendorSetup(t)
+	putVendorProfileFor(t, h2, partner2)
+	if rec := do(t, h2, http.MethodPut, "/edi/v1/partners/"+partner2+"/self-billing", `{"taxRatePct":"8.5","waitDays":30}`, "edi.admin", srcScope); rec.Code != http.StatusConflict || !strings.Contains(rec.Body.String(), CodeVendorOrSelfBilling) {
+		t.Fatalf("self-billing on a vendor partner: %d %s", rec.Code, rec.Body.String())
+	}
+}
+
+// An operator scoped to another legal entity still gets the vendor routing: the profile is read across entities.
+func TestVendor810_RoutingDoesNotDependOnTheOperatorsLegalEntity(t *testing.T) {
+	a, h, partner := vendorSetup(t)
+	payables := &fakePayables{}
+	a.VendorInvoices = payables
+	putVendorProfileFor(t, h, partner)
+	elsewhere := map[string]string{tenant.HeaderLegalEntity: "0190a5f2-7b1c-7d3e-8a4f-0000000000f1"}
+	rec := do(t, h, http.MethodPost, "/edi/v1/inbound/x12?environment=TEST", vendor810(t, "000000098", "V-7008", true), "edi.operate", elsewhere)
+	if rec.Code != http.StatusCreated || len(payables.got) != 1 || payables.got[0].InvoiceNumber != "V-7008" {
+		t.Fatalf("receive from another scope: %d %s, payables %d", rec.Code, rec.Body.String(), len(payables.got))
+	}
+	if docs := documents(t, h); len(docs) != 0 {
+		t.Fatalf("matched as self-billed: %+v", docs)
 	}
 }

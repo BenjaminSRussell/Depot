@@ -126,7 +126,7 @@ from this pod; nothing connects inbound to the cluster.
   rank unique among active printers, and grants the app role UPDATE on printers and UPDATE/DELETE on
   rules (printers are never deleted).
 - **Stale job sweep** (`POST /print/v1/jobs:sweep`, and every 15 s for each tenant in
-  `PRINT_PURGE_TENANT_IDS`): a job still QUEUED after a minute (its process died between insert and
+  `PRINT_STATEMENT_TENANT_IDS`): a job still QUEUED after a minute (its process died between insert and
   completion) is claimed (its `updated_at` is stamped, so a second sweep skips it) and dispatched in
   failover order. A swept job prints the stored layout, like a reprint.
 - **Reprints**: `reprintOf` reuses the stored ZPL or PDF and records the source job.
@@ -160,6 +160,8 @@ export PRINT_JOB_RETENTION_DAYS=30  # job log retention, 1-365 (default 30)
 export PRINT_PURGE_TENANT_IDS=   # comma-separated tenant UUIDs for the daily purge (empty: off)
 export PRINT_SMTP_ADDR=          # host:port of a mail relay; empty keeps the log adapter, which sends nothing
 export PRINT_SMTP_FROM=          # sender address (required with PRINT_SMTP_ADDR); PRINT_SMTP_USERNAME / PRINT_SMTP_PASSWORD optional
+export PRINT_SMTP_REQUIRE_TLS=true # refuse a relay without TLS (port 465 is implicit TLS)
+export PRINT_STATEMENT_TENANT_IDS= # tenants the scheduled statements run for
 export PRINT_RECEIVABLES_URL=    # with PRINT_PARTY_URL and the service signing key: runs the scheduled statements
 go run ./cmd/print
 ```
@@ -247,7 +249,7 @@ the binary and every PDF it renders contain (subsets of) the fonts.
 - `/print/v1/statement-schedules` keep weekly or monthly statement runs. Each run reads the customers with a balance from
   receivables, renders each statement with the default `PERIODIC_STATEMENT` template (or the schedule's) and delivers it by the
   output rules, the account being the customer. The loop (`internal/statements`, every 10 minutes, tenants from
-  `PRINT_PURGE_TENANT_IDS`) leases a due schedule (`FOR UPDATE SKIP LOCKED`, 15 minutes) and claims each customer's statement
+  `PRINT_STATEMENT_TENANT_IDS`) leases a due schedule (`FOR UPDATE SKIP LOCKED`, 15 minutes) and claims each customer's statement
   of a date once in `print_statement_run`, so several replicas never produce one twice.
 - `POST /print/v1/document-templates/{code}/versions/{version}:restore` saves an old version's name and layout as a new version
   (If-Match required).

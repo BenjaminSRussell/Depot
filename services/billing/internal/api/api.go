@@ -106,6 +106,7 @@ type API struct {
 	glBooks       GLBooks
 	glBatch       int
 	profiles      map[string]store.GLProfile
+	periods       PeriodChecker
 	allocations   revrec.Reader
 
 	proposalsCreated   atomic.Int64
@@ -293,10 +294,13 @@ type summaryDTO struct {
 
 type invoiceDTO struct {
 	summaryDTO
-	Reason       string              `json:"reason,omitempty"`
-	Lines        []lineOutDTO        `json:"lines"`
-	Installments []installmentOutDTO `json:"installments"`
-	Credited     *creditedDTO        `json:"credited,omitempty"`
+	// CustomerDocumentNumber and PostingNote are set on an invoice posted from a customer's self-billed document.
+	CustomerDocumentNumber string              `json:"customerDocumentNumber,omitempty"`
+	PostingNote            string              `json:"postingNote,omitempty"`
+	Reason                 string              `json:"reason,omitempty"`
+	Lines                  []lineOutDTO        `json:"lines"`
+	Installments           []installmentOutDTO `json:"installments"`
+	Credited               *creditedDTO        `json:"credited,omitempty"`
 }
 
 type listDTO struct {
@@ -319,7 +323,7 @@ func toSummary(inv store.Invoice) summaryDTO {
 
 func toDTO(inv store.Invoice) invoiceDTO {
 	exp := money.MinorUnits(inv.Currency)
-	out := invoiceDTO{summaryDTO: toSummary(inv), Reason: inv.Reason, Lines: []lineOutDTO{}, Installments: []installmentOutDTO{}}
+	out := invoiceDTO{summaryDTO: toSummary(inv), Reason: inv.Reason, CustomerDocumentNumber: inv.CustomerDocumentNumber, PostingNote: inv.PostingNote, Lines: []lineOutDTO{}, Installments: []installmentOutDTO{}}
 	creditable := inv.Type != domain.TypeCreditNote && domain.CanBeCredited(inv.Status, inv.Type) == nil
 	for _, l := range inv.Lines {
 		line := lineOutDTO{LineNo: l.No, Description: l.Description, Qty: l.Qty.String(), UnitPrice: l.UnitPrice.String(),

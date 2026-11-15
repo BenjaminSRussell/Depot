@@ -392,7 +392,7 @@ paths:
                   required: [sourceKey]
                   properties:
                     sourceKey: { type: string, minLength: 1, maxLength: 200 }
-                    legalEntityId: { type: string, format: uuid }
+                    legalEntityId: { type: string, format: uuid, description: "Required (the caller's own entity when it has exactly one). Must be in the caller's scope." }
                     accountId: { type: string, format: uuid, description: The customer (or vendor) the output rules match on, and the customer the portal shows the document to. }
       responses:
         '200':
@@ -919,6 +919,9 @@ components:
             enabled: { type: boolean }
             nextRunOn: { type: string, format: date }
             lastRunOn: { type: string, format: date }
+            runAsOf: { type: string, format: date, description: "The date of a run that has not finished because a customer's statement failed; later passes retry that date, up to 5 passes." }
+            attempts: { type: integer }
+            runsEnabled: { type: boolean, description: "False when the runner is not enabled for this tenant (PRINT_STATEMENT_TENANT_IDS): the schedule is stored but never runs by itself." }
     StatementRunSummary:
       type: object
       required: [scheduleId, asOf, delivered, skipped, failed]

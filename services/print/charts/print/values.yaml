@@ -13,12 +13,15 @@ purgeTenantIds: []
 # Scheduled statements (#46): the runner reads open items from receivables and customer names from party under a signed service
 # grant (print -> receivables receivables.view, print -> party party.read; both charts must list print's public key). Without
 # the signing key secret and both URLs the schedules are stored but nothing runs. The runner acts only for the tenants in
-# purgeTenantIds, which is the tenant list the other scheduled jobs use.
+# statementTenantIds (PRINT_STATEMENT_TENANT_IDS), separate from the job-log purge list. A schedule of another tenant is stored and listed
+# with runsEnabled false but never runs by itself.
+statementTenantIds: []
 serviceIdentity: { signingKeySecret: "", keyId: "" }
 sources: { receivablesUrl: "", partyUrl: "" }
 # E-mail destinations of the output plan (#46). Without smtp.addr the log adapter records each message and sends nothing.
 # smtp.passwordSecret is a Secret with the key PRINT_SMTP_PASSWORD; the user name and sender address are not secret.
-smtp: { addr: "", from: "", username: "", passwordSecret: "" }
+# requireTls (default true) refuses to send through a relay that offers no TLS; port 465 uses implicit TLS.
+smtp: { addr: "", from: "", username: "", passwordSecret: "", requireTls: true }
 resources:
   requests: { cpu: 50m, memory: 64Mi }
   limits: { cpu: 250m, memory: 128Mi }

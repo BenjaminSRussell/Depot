@@ -29,6 +29,8 @@ import (
 const (
 	// CodeNoVendorProfile refuses a vendor 810 of a partner that has no vendor profile.
 	CodeNoVendorProfile = "EDI-0043"
+	// CodeVendorOrSelfBilling refuses a vendor profile on a self-billing partner, and self-billing on a vendor partner.
+	CodeVendorOrSelfBilling = "EDI-0044"
 
 	vendorInvoiceKind = "VENDOR_INVOICE"
 )
@@ -69,6 +71,14 @@ func (a *API) putVendorProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	p := store.VendorProfile{LegalEntityID: strings.ToLower(body.LegalEntityID), VendorID: strings.ToLower(body.VendorID)}
+	// The check sees every legal entity: a partner that self-bills in another one is still a self-billing partner.
+	if self, err := a.store.HasSelfBillConfig(a.tenantWide(r.Context()), id); err != nil {
+		httpx.Fail(w, r, err)
+		return
+	} else if self {
+		httpx.Fail(w, r, httpx.NewProblem(http.StatusConflict, CodeVendorOrSelfBilling, "the partner has self-billing settings, so its 810s are self-billed invoices of a customer; a partner is a customer or a vendor for its 810s, not both"))
+		return
+	}
 	if err := a.store.PutVendorProfile(r.Context(), id, p); errors.Is(err, store.ErrNotFound) {
 		httpx.Fail(w, r, notFound("partner"))
 		return
@@ -105,7 +115,8 @@ func (a *API) receiveVendorX12(w http.ResponseWriter, r *http.Request) {
 
 // vendorPartner reports whether the partner's 810s are vendor invoices: it has a vendor profile.
 func (a *API) vendorPartner(ctx context.Context, partnerID string) (bool, error) {
-	_, err := a.store.GetVendorProfile(ctx, partnerID)
+	// Routing must not depend on the operator's legal-entity scope, so the profile is read across entities.
+	_, err := a.store.GetVendorProfile(a.tenantWide(ctx), partnerID)
 	if errors.Is(err, store.ErrNotFound) {
 		return false, nil
 	}
@@ -178,7 +189,7 @@ func (a *API) postVendor810(ctx context.Context, id string) (VendorPostResult, e
 	if !st.Postable() {
 		return VendorPostResult{}, &notVendorInvoice{"message is " + st.Status + "; only a mapped or parked document is posted (reprocess a failed mapping first)"}
 	}
-	profile, err := a.store.GetVendorProfile(ctx, st.PartnerID)
+	profile, err := a.store.GetVendorProfile(a.tenantWide(ctx), st.PartnerID)
 	if err != nil {
 		return VendorPostResult{}, err
 	}
@@ -285,4 +296,13 @@ func (a *API) postVendorMessage(w http.ResponseWriter, r *http.Request, id strin
 		slog.ErrorContext(r.Context(), "edi vendor 810 post failed", "err", err, "messageId", id)
 		httpx.Fail(w, r, httpx.NewProblem(http.StatusBadGateway, CodeSourceDown, "payables could not take the invoice; post again"))
 	}
+}
+
+// tenantWide is ctx with the caller's tenant and every legal entity, for the checks that decide how a partner's documents are routed.
+func (a *API) tenantWide(ctx context.Context) context.Context {
+	p, ok := tenant.FromContext(ctx)
+	if !ok {
+		return ctx
+	}
+	return store.SystemContext(ctx, p.TenantID)
 }

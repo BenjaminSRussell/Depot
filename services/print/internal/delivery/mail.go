@@ -6,11 +6,13 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
+	"crypto/tls"
 	"encoding/base64"
 	"encoding/hex"
 	"errors"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/mail"
 	"net/smtp"
 	"strings"
@@ -31,31 +33,40 @@ type Mailer interface {
 	Send(ctx context.Context, m Message) error
 }
 
-// LogMailer writes one log line per message and sends nothing: the default adapter, so a deployment without a mail relay
-// still shows what would have gone out.
+// LogMailer writes one Debug log line per message and sends nothing: the default adapter, so a deployment without a mail relay
+// still shows what would have gone out. The recipient is logged under the key "email", which the platform's log pseudonymization
+// (logpseudo) replaces by a pseudonym when it is on; the subject is not logged.
 type LogMailer struct{ Log *slog.Logger }
 
 // Send logs the message without its body.
-func (l LogMailer) Send(_ context.Context, m Message) error {
+func (l LogMailer) Send(ctx context.Context, m Message) error {
 	log := l.Log
 	if log == nil {
 		log = slog.Default()
 	}
-	log.Info("e-mail not sent (log adapter)", "to", m.To, "subject", m.Subject, "attachment", m.Filename, "bytes", len(m.Attachment))
+	log.DebugContext(ctx, "e-mail not sent (log adapter)", "email", m.To, "attachment", m.Filename, "bytes", len(m.Attachment))
 	return nil
 }
 
-// SMTPMailer sends through an SMTP relay with net/smtp (PLAIN auth when a user is set, STARTTLS when the server offers it).
+// SMTPMailer sends through an SMTP relay with net/smtp. It dials with a deadline, drives the SMTP conversation itself and closes the
+// connection when the deadline or the context ends, so a send that timed out never completes later. Port 465 (or ImplicitTLS) is TLS
+// from the first byte; otherwise STARTTLS is used when the relay offers it, and with RequireTLS (the default in the service) a relay
+// that does not is refused and nothing is sent.
 type SMTPMailer struct {
-	Addr     string // host:port
-	From     string
-	Username string
-	Password string
-	Timeout  time.Duration
+	Addr        string // host:port
+	From        string
+	Username    string
+	Password    string
+	Timeout     time.Duration
+	ImplicitTLS bool
+	RequireTLS  bool
 
-	// send replaces smtp.SendMail in tests.
+	// send replaces the SMTP conversation in tests of the message format.
 	send func(addr string, a smtp.Auth, from string, to []string, msg []byte) error
 }
+
+// ErrTLSRequired is a relay that offers no TLS while RequireTLS is set.
+var ErrTLSRequired = errors.New("the mail relay offers no TLS (STARTTLS) and PRINT_SMTP_REQUIRE_TLS is set")
 
 // Send builds a MIME message with the PDF as an attachment and hands it to the relay.
 func (s SMTPMailer) Send(ctx context.Context, m Message) error {
@@ -69,32 +80,74 @@ func (s SMTPMailer) Send(ctx context.Context, m Message) error {
 	if err != nil {
 		return err
 	}
-	var auth smtp.Auth
-	if s.Username != "" {
-		host := s.Addr
-		if i := strings.LastIndexByte(host, ':'); i >= 0 {
-			host = host[:i]
-		}
-		auth = smtp.PlainAuth("", s.Username, s.Password, host)
+	if s.send != nil {
+		return s.send(s.Addr, nil, s.From, []string{m.To}, msg)
 	}
-	send := s.send
-	if send == nil {
-		send = smtp.SendMail
-	}
-	done := make(chan error, 1)
-	go func() { done <- send(s.Addr, auth, s.From, []string{m.To}, msg) }()
 	timeout := s.Timeout
 	if timeout <= 0 {
 		timeout = 30 * time.Second
 	}
-	select {
-	case err := <-done:
-		return err
-	case <-time.After(timeout):
-		return errors.New("the mail relay did not answer in time")
-	case <-ctx.Done():
-		return ctx.Err()
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	host, port, err := net.SplitHostPort(s.Addr)
+	if err != nil {
+		return fmt.Errorf("mail relay address: %w", err)
 	}
+	implicit := s.ImplicitTLS || port == "465"
+	d := net.Dialer{Timeout: timeout}
+	conn, err := d.DialContext(ctx, "tcp", s.Addr)
+	if err != nil {
+		return fmt.Errorf("the mail relay did not answer: %w", err)
+	}
+	deadline, _ := ctx.Deadline()
+	_ = conn.SetDeadline(deadline)
+	// The connection is closed when the deadline or the caller's context ends, which fails the conversation at once.
+	stop := context.AfterFunc(ctx, func() { _ = conn.Close() })
+	defer stop()
+	defer func() { _ = conn.Close() }()
+	if implicit {
+		tc := tls.Client(conn, &tls.Config{ServerName: host, MinVersion: tls.VersionTLS12})
+		if err := tc.HandshakeContext(ctx); err != nil {
+			return fmt.Errorf("the mail relay refused TLS: %w", err)
+		}
+		conn = tc
+	}
+	c, err := smtp.NewClient(conn, host)
+	if err != nil {
+		return fmt.Errorf("the mail relay did not answer in time: %w", err)
+	}
+	defer func() { _ = c.Close() }()
+	if !implicit {
+		if ok, _ := c.Extension("STARTTLS"); ok {
+			if err := c.StartTLS(&tls.Config{ServerName: host, MinVersion: tls.VersionTLS12}); err != nil {
+				return fmt.Errorf("the mail relay refused STARTTLS: %w", err)
+			}
+		} else if s.RequireTLS {
+			return ErrTLSRequired
+		}
+	}
+	if s.Username != "" {
+		if err := c.Auth(smtp.PlainAuth("", s.Username, s.Password, host)); err != nil {
+			return fmt.Errorf("the mail relay refused the login: %w", err)
+		}
+	}
+	if err := c.Mail(s.From); err != nil {
+		return err
+	}
+	if err := c.Rcpt(m.To); err != nil {
+		return err
+	}
+	w, err := c.Data()
+	if err != nil {
+		return err
+	}
+	if _, err := w.Write(msg); err != nil {
+		return err
+	}
+	if err := w.Close(); err != nil {
+		return err
+	}
+	return c.Quit()
 }
 
 // header refuses a value that could start another header.

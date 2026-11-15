@@ -21,6 +21,12 @@ const (
 	// Interval is how often the scheduled loop looks for due schedules.
 	Interval = 10 * time.Minute
 	batch    = 20
+	// MaxAttempts is how many passes an unfinished run gets (each retries only the customers that failed) before the schedule moves on.
+	MaxAttempts = 5
+	// RetryEvery is the wait before a pass after a failed one, times the attempts so far.
+	RetryEvery = 15 * time.Minute
+	// RetryWait is the wait after the first failed pass (exported for tests).
+	RetryWait = RetryEvery
 )
 
 // Runner renders and delivers the statements of due schedules. It is safe to run in several replicas at once.
@@ -41,6 +47,8 @@ type Summary struct {
 	Delivered  int    `json:"delivered"`
 	Skipped    int    `json:"skipped"`
 	Failed     int    `json:"failed"`
+	// Retry says the run is not finished: a statement failed and the next pass retries it.
+	Retry bool `json:"retry,omitempty"`
 }
 
 func (r *Runner) now() time.Time {
@@ -70,7 +78,7 @@ func (r *Runner) RunTenant(ctx context.Context, tenantID string) ([]Summary, err
 		return nil, err
 	}
 	tctx := tenant.With(ctx, base)
-	due, err := r.Schedules.ClaimDueSchedules(tctx, date(r.now()), r.owner(), Lease, batch)
+	due, err := r.Schedules.ClaimDueSchedules(tctx, r.now(), r.owner(), Lease, batch)
 	if err != nil {
 		return nil, err
 	}
@@ -99,6 +107,12 @@ func (r *Runner) runSchedule(ctx context.Context, tenantID string, s domain.Stat
 	}
 	ctx = tenant.With(ctx, p)
 	today := date(r.now())
+	// An unfinished run keeps its date, so the customers already sent are not sent again and the failed ones are retried.
+	if s.RunAsOf != "" {
+		if d, err := time.Parse(time.DateOnly, s.RunAsOf); err == nil {
+			today = d
+		}
+	}
 	sum := Summary{ScheduleID: s.ID, AsOf: today.Format(time.DateOnly)}
 	customers, err := r.Source.Customers(ctx, s.LegalEntityID)
 	if err != nil {
@@ -116,7 +130,18 @@ func (r *Runner) runSchedule(ctx context.Context, tenantID string, s domain.Stat
 		}
 	}
 	if scheduled {
-		if err := r.Schedules.CompleteSchedule(ctx, s.ID, today, domain.NextRunOn(s.Cadence, s.RunDay, today)); err != nil {
+		if sum.Failed > 0 && s.Attempts+1 < MaxAttempts {
+			sum.Retry = true
+			if err := r.Schedules.DeferSchedule(ctx, s.ID, today, s.Attempts+1, r.now().Add(time.Duration(s.Attempts+1)*RetryEvery)); err != nil {
+				return sum, err
+			}
+			return sum, nil
+		}
+		if sum.Failed > 0 {
+			slog.Error("scheduled statements gave up on failed customers", "schedule", s.ID, "asOf", sum.AsOf, "failed", sum.Failed)
+		}
+		next := domain.NextRunOn(s.Cadence, s.RunDay, date(r.now()))
+		if err := r.Schedules.CompleteSchedule(ctx, s.ID, today, next); err != nil {
 			return sum, err
 		}
 	}
@@ -190,7 +215,7 @@ func (r *Runner) produce(ctx context.Context, s domain.StatementSchedule, asOf t
 	}
 	results, err := r.Deliver.Deliver(ctx, delivery.Document{
 		SourceKey: fmt.Sprintf("statement:%s:%s:%s", s.ID, day, customerID), Type: domain.DocPeriodicStatement, Number: req.Number,
-		LegalEntityID: s.LegalEntityID, AccountID: customerID, PDF: doc.PDF, Pages: doc.Pages,
+		LegalEntityID: s.LegalEntityID, AccountID: customerID, AccountVerified: true, PDF: doc.PDF, Pages: doc.Pages,
 		Subject: "Statement of account as of " + day,
 		Body:    "Please find your statement of account as of " + day + " attached.",
 	})
