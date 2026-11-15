@@ -9,6 +9,7 @@ import { isExpired, QuotationStatusBadge } from "./QuotationsPage";
 import { useLoad } from "./useLoad";
 import { ProblemMessage } from "../../shell/errors";
 import { EntityName } from "../../shell/lookup/EntityName";
+import { UserName } from "../../shell/lookup/UserName";
 
 const LOST_REASON_MAX = 200;
 const OVERRIDE_MAX = 500;
@@ -168,11 +169,11 @@ export function QuotationDetailPage() {
     ["Win probability", `${quotation.probabilityPct}%`],
     ...(quotation.customerGroup ? ([["Customer group", quotation.customerGroup]] as [string, ReactNode][]) : []),
     ["Open lines", `${quotation.openLines} of ${quotation.lineCount}`],
-    ["Created", `${formatDateTime(quotation.createdAt)} by ${quotation.createdBy}`],
+    ["Created", <>{formatDateTime(quotation.createdAt)} by <UserName id={quotation.createdBy} /></>],
     ...(quotation.lostReason ? ([["Lost because", quotation.lostReason]] as [string, ReactNode][]) : []),
     ...(quotation.cancelReason ? ([["Cancelled because", quotation.cancelReason]] as [string, ReactNode][]) : []),
     ...(quotation.listingOverrides && quotation.listingOverrides.length > 0
-      ? ([["Listing overrides", quotation.listingOverrides.map((o) => `Line ${o.lineNo}: ${o.reason} (${o.actor})`).join("; ")]] as [string, ReactNode][])
+      ? ([["Listing overrides", <>{quotation.listingOverrides.map((o, n) => <span key={n}>{n > 0 ? "; " : ""}Line {o.lineNo}: {o.reason} (<UserName id={o.actor} />)</span>)}</>]] as [string, ReactNode][])
       : []),
   ];
   const mono = new Set<string>();

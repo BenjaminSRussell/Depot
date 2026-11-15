@@ -8,6 +8,7 @@ import { UUID, dayOf } from "./format";
 import styles from "./pages.module.css";
 import { BackLink, ConfirmAction, Entry, Facts, humanize, ListPage, Loaded, LookupField, Status, useAction } from "./parts";
 import { useLoad } from "./useLoad";
+import { UserName } from "../../shell/lookup/UserName";
 
 const columns: DataTableColumn<CompCycle>[] = [
   { key: "name", header: "Cycle", render: (row) => <Link to={`/hr/compensation/cycles/${row.id}`}>{row.name}</Link> },
@@ -133,7 +134,7 @@ export function CompCycleDetailPage() {
                 </Entry>
                 <Entry term="Over budget">{cycle.allowOverBudget ? "Allowed" : "Not allowed"}</Entry>
                 {cycle.status === "APPROVAL" || cycle.approvedBy ? (
-                  <Entry term="Approval">{cycle.approvedBy ? `Approved by ${cycle.approvedBy}${cycle.approvedAt ? ` on ${dayOf(cycle.approvedAt)}` : ""}` : "Waiting for an independent approver; it can't be applied until then."}</Entry>
+                  <Entry term="Approval">{cycle.approvedBy ? <>Approved by <UserName id={cycle.approvedBy} />{cycle.approvedAt ? ` on ${dayOf(cycle.approvedAt)}` : ""}</> : "Waiting for an independent approver; it can't be applied until then."}</Entry>
                 ) : null}
                 {cycle.appliedAt ? (
                   <Entry term="Applied" mono>

@@ -3,6 +3,7 @@ import { Alert, Button, Card, DataTable, FormField, Input, PageHeader, Select, S
 import { actOnEcr, ApiError, createEcr, getEcr, listEcrs, type Ecr, type EcrAction } from "./api/client";
 import styles from "./pages.module.css";
 import { EntityLookup } from "../../shell/lookup/EntityLookup";
+import { UserName } from "../../shell/lookup/UserName";
 
 const ecrStates = ["draft", "submitted", "under_review", "approved", "rejected", "cancelled"];
 const priorities = ["low", "medium", "high", "critical"];
@@ -23,7 +24,7 @@ const ecrColumns: DataTableColumn<Ecr>[] = [
   { key: "priority", header: "Priority" },
   { key: "state", header: "State", render: (row) => <StatusPill status={row.state} /> },
   { key: "products", header: "Products", render: (row) => row.products.join(", ") },
-  { key: "requestedBy", header: "Requested by", render: (row) => row.requestedBy || "" },
+  { key: "requestedBy", header: "Requested by", render: (row) => <UserName id={row.requestedBy} empty="" /> },
 ];
 
 export function EcrsPage({ onOpen, onCreate }: { onOpen?: (id: string) => void; onCreate?: () => void }) {
@@ -224,8 +225,8 @@ export function EcrPage({ id, onBack, onOpenEco, onCreateEco, canWrite = false, 
         ["Title", ecr.title],
         ["State", <StatusPill status={ecr.state} />],
         ["Priority", ecr.priority],
-        ["Requested by", ecr.requestedBy || "Unknown"],
-        ["Decided by", ecr.decidedBy || "Pending"],
+        ["Requested by", <UserName id={ecr.requestedBy} empty="Unknown" />],
+        ["Decided by", <UserName id={ecr.decidedBy} empty="Pending" />],
         ["Reason", ecr.reason || "None given"],
         ["Decision note", ecr.decisionReason || "None"],
         ["Change order", ecr.ecoId ? (onOpenEco ? <Button size="sm" onClick={() => onOpenEco(ecr.ecoId!)}>Open change order {ecr.ecoId}</Button> : ecr.ecoId) : "None yet"],

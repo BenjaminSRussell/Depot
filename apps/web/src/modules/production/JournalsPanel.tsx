@@ -24,6 +24,7 @@ import { addDecimals, amount, coProductTypeLabel, dash, describeFiring, isZero, 
 import styles from "./pages.module.css";
 import { ProblemMessage } from "../../shell/errors";
 import { EntityName } from "../../shell/lookup/EntityName";
+import { UserName } from "../../shell/lookup/UserName";
 
 const quantityPattern = /^[0-9]{1,12}(\.[0-9]{1,6})?$/;
 const hoursPattern = /^[0-9]{1,8}(\.[0-9]{1,2})?$/;
@@ -377,7 +378,7 @@ export function JournalsPanel({ order, onChanged, onOpenOrder }: JournalsPanelPr
             <div className={styles.toolbar}>
               <p className={styles.hint}>
                 {journalTypeLabel[current.type]} {current.journalNumber}, posting date {current.postingDate}
-                {current.posted ? `, posted by ${current.postedBy ?? dash}` : ", not posted yet"}.
+                {current.posted ? <>, posted by <UserName id={current.postedBy} /></> : ", not posted yet"}.
               </p>
               {!current.posted ? (
                 <div className={styles.actions}>

@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useState, type FormEvent, type ReactNode } from "react";
 import { Link, useParams } from "react-router-dom";
 import { holdsDuty } from "../../shell/dutyGate";
 import { usePrincipalDuties } from "../../shell/principal";
@@ -9,6 +9,7 @@ import { IntakeErrorStatusBadge } from "./IntakeErrorsPage";
 import styles from "./pages.module.css";
 import { useLoad } from "./useLoad";
 import { ProblemMessage } from "../../shell/errors";
+import { UserName } from "../../shell/lookup/UserName";
 
 /** Closing an intake error needs this duty (SalesOrderMaintain); the service enforces it. */
 export const DUTY_ORDER_WRITE = "sales.order.write";
@@ -84,7 +85,7 @@ export function IntakeErrorDetailPage() {
     }
   }
 
-  const facts: [string, string][] = [
+  const facts: [string, ReactNode][] = [
     ["Channel", e.channel],
     ["External reference", e.externalRef ?? "—"],
     ["Error", e.errorCode],
@@ -94,8 +95,8 @@ export function IntakeErrorDetailPage() {
     ["Last seen", formatDateTime(e.lastSeenAt)],
     ["Replays tried", String(e.replayCount)],
     ["Payload hash", e.requestHash],
-    ...(e.resolvedAt ? ([["Closed", `${formatDateTime(e.resolvedAt)} by ${e.resolvedBy ?? "—"}`]] as [string, string][]) : []),
-    ...(e.resolutionNote ? ([["Note", e.resolutionNote]] as [string, string][]) : []),
+    ...(e.resolvedAt ? ([["Closed", <>{formatDateTime(e.resolvedAt)} by <UserName id={e.resolvedBy} /></>]] as [string, ReactNode][]) : []),
+    ...(e.resolutionNote ? ([["Note", e.resolutionNote]] as [string, ReactNode][]) : []),
   ];
 
   return (

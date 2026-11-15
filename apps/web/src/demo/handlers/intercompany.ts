@@ -8,6 +8,7 @@ import type { FxAdjustment, IcSettings, RegistryEntity, StoredTransferPrice } fr
 import { LEGAL_ENTITY, LEGAL_ENTITY_DE, LEGAL_ENTITY_ES } from "../company";
 import { reply, route } from "../backend";
 import { at, day, newId, uid } from "../store";
+import { userIdOf } from "./directory";
 
 const BASE = "/api/v1/interco";
 const K_JOURNAL = 410;
@@ -35,7 +36,7 @@ const journals: PostedJournal[] = [
     sourceRef: uid(415, 1),
     postingDate: day(-6),
     status: "posted",
-    createdBy: "dev",
+    createdBy: userIdOf("dev"),
     createdAt: at(-6),
     entries: [
       entry("CRP-US", LEGAL_ENTITY.id, "CRP-US-GL", "USD", [["6100-EXPENSE", "debit", "10000.00"], ["1500-DUE-FROM-DE", "credit", "10000.00"]], 1),
@@ -51,7 +52,7 @@ const journals: PostedJournal[] = [
     status: "compensated",
     failureCode: "IC-0845",
     failureDetail: "the ledger of CRP-DE refused its side (LEDGER_PERIOD_CLOSED); the entries already posted were reversed",
-    createdBy: "dev",
+    createdBy: userIdOf("dev"),
     createdAt: at(-3),
     entries: [
       { ...entry("CRP-US", LEGAL_ENTITY.id, "CRP-US-GL", "USD", [["6100-EXPENSE", "debit", "2400.00"], ["1500-DUE-FROM-DE", "credit", "2400.00"]], 3), reversalEntryId: uid(414, 4) },
@@ -61,8 +62,8 @@ const journals: PostedJournal[] = [
 ];
 
 const charges: ChargeRecord[] = [
-  { id: uid(K_CHARGE, 1), sourceId: "TS-2204", version: 1, lendingEntity: "CRP-DE", borrowingEntity: "CRP-US", category: "Hour", resourceRole: "Engineer", transactionDate: day(-9), quantity: "8", unitCost: "60.00", currency: "USD", status: "posted", transferPriceMethod: "CostPlus", cost: "480.00", price: "528.00", margin: "48.00", journalId: uid(K_JOURNAL, 1), createdBy: "dev", createdAt: at(-8) },
-  { id: uid(K_CHARGE, 2), sourceId: "TS-2210", version: 1, lendingEntity: "CRP-DE", borrowingEntity: "CRP-US", category: "Hour", resourceRole: "Designer", transactionDate: day(-5), quantity: "6", unitCost: "55.00", currency: "USD", status: "suspense", failureCode: "IC-0821", createdBy: "dev", createdAt: at(-4) },
+  { id: uid(K_CHARGE, 1), sourceId: "TS-2204", version: 1, lendingEntity: "CRP-DE", borrowingEntity: "CRP-US", category: "Hour", resourceRole: "Engineer", transactionDate: day(-9), quantity: "8", unitCost: "60.00", currency: "USD", status: "posted", transferPriceMethod: "CostPlus", cost: "480.00", price: "528.00", margin: "48.00", journalId: uid(K_JOURNAL, 1), createdBy: userIdOf("dev"), createdAt: at(-8) },
+  { id: uid(K_CHARGE, 2), sourceId: "TS-2210", version: 1, lendingEntity: "CRP-DE", borrowingEntity: "CRP-US", category: "Hour", resourceRole: "Designer", transactionDate: day(-5), quantity: "6", unitCost: "55.00", currency: "USD", status: "suspense", failureCode: "IC-0821", createdBy: userIdOf("dev"), createdAt: at(-4) },
 ];
 
 function postJournal(req: JournalPreviewRequest & { postingDate: string; entities: EntityTarget[] }): PostedJournal {
@@ -81,7 +82,7 @@ function postJournal(req: JournalPreviewRequest & { postingDate: string; entitie
     sourceRef: pair,
     postingDate: req.postingDate,
     status: "posted",
-    createdBy: "dev",
+    createdBy: userIdOf("dev"),
     createdAt: at(0),
     entries: [
       entry(req.entity, a?.legalEntityId ?? "", a?.ledgerId ?? "", req.currency, [[req.account, req.side, dec(amount)], [row?.dueFrom ?? "1500-DUE-FROM", opp, dec(amount)]], journals.length * 2 + 1),
@@ -122,7 +123,7 @@ route("POST", `${BASE}/charges`, ({ body }) => {
     currency: b.currency,
     status: "suspense",
     failureCode: "IC-0821",
-    createdBy: "dev",
+    createdBy: userIdOf("dev"),
     createdAt: at(0),
   };
   if (!price) {
@@ -203,7 +204,7 @@ function makeRun(per: string, currency: string, tolerance: string, pairs: Pair[]
     mismatch: items.filter((i) => i.status === "Mismatch").length,
     open: items.filter((i) => i.resolution === "open").length,
     blocking: items.some((i) => i.status === "Mismatch"),
-    createdBy: "dev",
+    createdBy: userIdOf("dev"),
     createdAt: at(-2),
     items,
   };
@@ -290,9 +291,9 @@ const ledgerBalances: Record<string, [string, string]> = {
 };
 
 const prices: StoredTransferPrice[] = [
-  { id: uid(416, 1), lendingEntity: "CRP-DE", borrowingEntity: "CRP-US", category: "Hour", resourceRole: "Engineer", method: "CostPlus", markupPct: "10", currency: "USD", effectiveFrom: day(-200), createdBy: "ana.ortiz", createdAt: at(-200) },
-  { id: uid(416, 2), lendingEntity: "CRP-US", borrowingEntity: "CRP-DE", category: "Fee", resourceRole: "", method: "Table", unitPrice: "1250", currency: "EUR", effectiveFrom: day(-90), createdBy: "ana.ortiz", createdAt: at(-90) },
-  { id: uid(416, 3), lendingEntity: "CRP-DE", borrowingEntity: "CRP-ES", category: "Expense", resourceRole: "", method: "Cost", currency: "EUR", effectiveFrom: day(-60), createdBy: "marcus.lee", createdAt: at(-60) },
+  { id: uid(416, 1), lendingEntity: "CRP-DE", borrowingEntity: "CRP-US", category: "Hour", resourceRole: "Engineer", method: "CostPlus", markupPct: "10", currency: "USD", effectiveFrom: day(-200), createdBy: userIdOf("ana.ortiz"), createdAt: at(-200) },
+  { id: uid(416, 2), lendingEntity: "CRP-US", borrowingEntity: "CRP-DE", category: "Fee", resourceRole: "", method: "Table", unitPrice: "1250", currency: "EUR", effectiveFrom: day(-90), createdBy: userIdOf("ana.ortiz"), createdAt: at(-90) },
+  { id: uid(416, 3), lendingEntity: "CRP-DE", borrowingEntity: "CRP-ES", category: "Expense", resourceRole: "", method: "Cost", currency: "EUR", effectiveFrom: day(-60), createdBy: userIdOf("marcus.lee"), createdAt: at(-60) },
 ];
 
 let settings: IcSettings = { chargeSettlementMode: "Journal", crossBorderTax: true, reconCurrency: "USD", fxTolerancePct: "0.5", fxAdjustMaxPct: "2" };
@@ -317,7 +318,7 @@ route("GET", `${BASE}/transfer-prices`, ({ query }) => ({
   items: prices.filter((p) => (!query.get("lender") || p.lendingEntity === query.get("lender")) && (!query.get("borrower") || p.borrowingEntity === query.get("borrower"))),
 }));
 route("POST", `${BASE}/transfer-prices`, ({ body }) => {
-  const p = { ...(body as StoredTransferPrice), id: newId(), createdBy: "dev", createdAt: at(0) };
+  const p = { ...(body as StoredTransferPrice), id: newId(), createdBy: userIdOf("dev"), createdAt: at(0) };
   if (prices.some((x) => x.lendingEntity === p.lendingEntity && x.borrowingEntity === p.borrowingEntity && x.category === p.category && x.resourceRole === p.resourceRole && x.effectiveFrom === p.effectiveFrom)) {
     return reply.problem(409, "IC-0854", "a price for this pair, category and role already starts on that date");
   }

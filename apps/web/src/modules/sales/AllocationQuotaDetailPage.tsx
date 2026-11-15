@@ -7,6 +7,7 @@ import styles from "./pages.module.css";
 import { useLoad } from "./useLoad";
 import { ProblemMessage } from "../../shell/errors";
 import { EntityName } from "../../shell/lookup/EntityName";
+import { UserName } from "../../shell/lookup/UserName";
 
 const columns: DataTableColumn<AllocationConsumption>[] = [
   { key: "consumedAt", header: "Drawn", render: (c) => formatDateTime(c.consumedAt) },
@@ -79,7 +80,7 @@ export function AllocationQuotaDetailPage() {
     ["Quota", quota.quotaQty],
     ["Consumed", quota.consumedQty],
     ["Remaining", quota.remainingQty],
-    ["Set", `${formatDateTime(quota.createdAt)} by ${quota.createdBy}`],
+    ["Set", <>{formatDateTime(quota.createdAt)} by <UserName id={quota.createdBy} /></>],
   ];
   const mono = new Set<string>();
 

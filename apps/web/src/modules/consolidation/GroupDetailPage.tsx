@@ -27,6 +27,7 @@ import { isCurrency, isDecimal, isPositive, percent } from "./format";
 import styles from "./pages.module.css";
 import { RowGrid, type RowField } from "./RowGrid";
 import { useLegalEntityNames } from "./useEntityNames";
+import { UserName } from "../../shell/lookup/UserName";
 
 type MapKey = "mainAccount" | "consolidationAccount" | "accountType" | "role";
 type RateKey = "currency" | "average" | "closing";
@@ -150,7 +151,7 @@ export function GroupDetailPage() {
   const collectionColumns: DataTableColumn<Collection>[] = [
     { key: "period", header: "Period", mono: true, render: (c) => c.period },
     { key: "version", header: "Version", align: "end", render: (c) => String(c.version) },
-    { key: "by", header: "Collected by", render: (c) => c.createdBy },
+    { key: "by", header: "Collected by", render: (c) => <UserName id={c.createdBy} /> },
     { key: "at", header: "Collected", render: (c) => c.createdAt.slice(0, 16).replace("T", " ") },
     {
       key: "run",

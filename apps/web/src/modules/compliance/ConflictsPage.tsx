@@ -2,10 +2,11 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Alert, Badge, Button, DataTable, FormField, Input, PageHeader, Select, type DataTableColumn } from "../../shell/ui";
 import { CONFLICT_STATES, listConflicts, SEVERITIES, type Conflict, type ConflictFilter, type ConflictState, type Severity } from "./api/client";
-import { ageDays, dash, daysUntil, formatDateTime, sentence, severityTone, shortId, stateTone, UUID } from "./format";
+import { ageDays, dash, daysUntil, formatDateTime, sentence, severityTone, stateTone, UUID } from "./format";
 import styles from "./pages.module.css";
 import { useLoad } from "./useLoad";
 import { ProblemMessage } from "../../shell/errors";
+import { UserName } from "../../shell/lookup/UserName";
 
 /** "Maint, Pay" for the roles that grant each side of a conflict. */
 export function rolesText(c: Pick<Conflict, "rolesA" | "rolesB">): string {
@@ -23,7 +24,7 @@ export function expiryText(c: Pick<Conflict, "state" | "expiresAt">, now: Date =
 
 const columns: DataTableColumn<Conflict>[] = [
   { key: "ruleId", header: "Rule", mono: true },
-  { key: "userId", header: "User", mono: true, render: (c) => <span title={c.userId}>{shortId(c.userId)}</span> },
+  { key: "userId", header: "User", mono: true, render: (c) => <UserName id={c.userId} /> },
   { key: "severity", header: "Severity", render: (c) => <Badge tone={severityTone[c.severity]}>{sentence(c.severity)}</Badge> },
   { key: "duties", header: "Duties", render: (c) => `${c.dutyA} and ${c.dutyB}` },
   { key: "roles", header: "Roles", render: rolesText },

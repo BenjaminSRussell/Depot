@@ -5,6 +5,7 @@ import type { AccountMapRow, Collection, Group, GroupDetail, Holding, TrialBalan
 import { LEGAL_ENTITY, LEGAL_ENTITY_DE, LEGAL_ENTITY_ES } from "../company";
 import { reply, route } from "../backend";
 import { at, newId, uid } from "../store";
+import { userIdOf } from "./directory";
 
 const BASE = "/api/v1/consol";
 const K_GROUP = 400;
@@ -21,7 +22,7 @@ const U_ES = uid(K_UNIT, 3);
 const cents = (s: string): number => Math.round(Number(s) * 100);
 const dec = (c: number): string => (c / 100).toFixed(2);
 
-const groups: Group[] = [{ id: GROUP_ID, code: "CRP", name: "Cedar Ridge Pumps group", currency: "USD", createdBy: "dev", createdAt: at(-120) }];
+const groups: Group[] = [{ id: GROUP_ID, code: "CRP", name: "Cedar Ridge Pumps group", currency: "USD", createdBy: userIdOf("dev"), createdAt: at(-120) }];
 const units: Unit[] = [
   { id: U_US, legalEntityId: LEGAL_ENTITY.id, ledgerId: "CRP-US-GL", currency: "USD", currentPercent: "100.0000", ownership: [{ id: uid(K_HOLDING, 1), effectiveFrom: "2020-01-01", percent: "100.0000" }] },
   { id: U_DE, legalEntityId: LEGAL_ENTITY_DE.id, ledgerId: "CRP-DE-GL", currency: "EUR", currentPercent: "80.0000", ownership: [{ id: uid(K_HOLDING, 2), effectiveFrom: "2022-04-01", percent: "80.0000" }] },
@@ -95,13 +96,13 @@ function collect(per: string, rates: Record<string, { average: string; closing: 
     }
   }
   const version = collections.filter((c) => c.period === per).length + 1;
-  const stored: Stored = { id: version === 1 && collections.length === 0 ? uid(K_COLLECTION, 1) : newId(), groupId: GROUP_ID, period: per, version, currency: "USD", createdBy: "dev", createdAt: at(0), lineCount: lines.length, unmappedCount: lines.filter((l) => !l.consolidationAccount).length, lines };
+  const stored: Stored = { id: version === 1 && collections.length === 0 ? uid(K_COLLECTION, 1) : newId(), groupId: GROUP_ID, period: per, version, currency: "USD", createdBy: userIdOf("dev"), createdAt: at(0), lineCount: lines.length, unmappedCount: lines.filter((l) => !l.consolidationAccount).length, lines };
   collections.unshift(stored);
   return stored;
 }
 collect(period(-1), { EUR: { average: "1.0840", closing: "1.0950" } });
 
-const header = (c: Stored): Collection => ({ id: c.id, groupId: c.groupId, period: c.period, version: c.version, currency: c.currency, createdBy: c.createdBy, createdAt: c.createdAt });
+const header = (c: Stored): Collection => ({ id: c.id, groupId: c.groupId, period: c.period, version: c.version, currency: c.currency, createdBy: userIdOf(c.createdBy), createdAt: c.createdAt });
 
 function trialBalance(c: Stored): TrialBalance {
   const rows = new Map<string, { type: "balance_sheet" | "income"; total: number; units: Record<string, number> }>();
@@ -133,7 +134,7 @@ route("GET", `${BASE}/groups`, () => ({ items: groups.map((g) => ({ ...g, unitCo
 route("POST", `${BASE}/groups`, ({ body }) => {
   const b = body as { code: string; name: string; currency: string };
   if (groups.some((g) => g.code === b.code)) return reply.problem(409, "CNS-0925", `A consolidation group with code ${b.code} already exists`);
-  const g: Group = { id: newId(), code: b.code, name: b.name, currency: b.currency, createdBy: "dev", createdAt: at(0) };
+  const g: Group = { id: newId(), code: b.code, name: b.name, currency: b.currency, createdBy: userIdOf("dev"), createdAt: at(0) };
   groups.push(g);
   return reply.created(g, { Location: `${BASE}/groups/${g.id}` });
 });

@@ -6,6 +6,7 @@ import { dash, formatDateTime, shortId, stateTone, statusLabel } from "./format"
 import styles from "./pages.module.css";
 import { useLoad } from "./useLoad";
 import { ProblemMessage } from "../../shell/errors";
+import { UserName } from "../../shell/lookup/UserName";
 
 /** The parties that hold the load, such as "Northwind (potential match)". */
 export function heldPartiesText(hold: ScreeningHold): string {
@@ -19,7 +20,7 @@ const holdColumns: DataTableColumn<ScreeningHold>[] = [
   { key: "loadId", header: "Load", mono: true, render: (row) => <Link to={`/transport/loads/${row.loadId}`} title={row.loadId}>{shortId(row.loadId)}</Link> },
   { key: "parties", header: "Held parties", render: heldPartiesText },
   { key: "createdAt", header: "Held since", render: (row) => formatDateTime(row.createdAt) },
-  { key: "releasedBy", header: "Released by", render: (row) => row.releasedBy ?? dash },
+  { key: "releasedBy", header: "Released by", render: (row) => <UserName id={row.releasedBy} /> },
 ];
 
 /** Screening holds inquiry (PRD 6.34.14): loads waiting on trade compliance, and who released the others and why. */

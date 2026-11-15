@@ -26,6 +26,7 @@ import { PiiCard } from "./PiiCard";
 import { SkillsCard } from "./SkillsCard";
 import { useLoad } from "./useLoad";
 import { ProblemMessage } from "../../shell/errors";
+import { UserName } from "../../shell/lookup/UserName";
 
 const employmentColumns: DataTableColumn<Employment>[] = [
   { key: "legalEntityId", header: "Legal entity", mono: true },
@@ -172,7 +173,7 @@ export function WorkerDetailPage() {
             {worker.partyPersonId}
           </Entry>
           <Entry term="Sign-in user" mono>
-            {worker.userId ?? dash}
+            <UserName id={worker.userId} />
           </Entry>
           <Entry term="Created" mono>
             {dayOf(worker.createdAt)}

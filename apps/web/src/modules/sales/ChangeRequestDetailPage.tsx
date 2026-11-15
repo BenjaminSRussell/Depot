@@ -10,6 +10,7 @@ import { formatDateTime } from "./format";
 import styles from "./pages.module.css";
 import { useLoad } from "./useLoad";
 import { ProblemMessage } from "../../shell/errors";
+import { UserName } from "../../shell/lookup/UserName";
 
 /** Approving or rejecting a change needs this duty (SalesOrderApprove); the service enforces it. */
 export const DUTY_ORDER_APPROVE = "sales.order.approve";
@@ -106,8 +107,8 @@ export function ChangeRequestDetailPage() {
     ["Order", <Link key="o" to={`/sales/orders/${request.orderId}`}>{request.orderNumber}</Link>],
     ["Made against version", String(request.baseVersion)],
     ["Reason", request.reason || "—"],
-    ["Requested", `${formatDateTime(request.requestedAt)} by ${request.requestedBy}`],
-    ...(request.decidedAt ? ([["Decided", `${formatDateTime(request.decidedAt)} by ${request.decidedBy ?? "—"}`]] as [string, ReactNode][]) : []),
+    ["Requested", <>{formatDateTime(request.requestedAt)} by <UserName id={request.requestedBy} /></>],
+    ...(request.decidedAt ? ([["Decided", <>{formatDateTime(request.decidedAt)} by <UserName id={request.decidedBy} /></>]] as [string, ReactNode][]) : []),
     ...(request.decisionComment ? ([["Comment", request.decisionComment]] as [string, ReactNode][]) : []),
     ...(request.appliedVersion ? ([["Applied as version", String(request.appliedVersion)]] as [string, ReactNode][]) : []),
   ];

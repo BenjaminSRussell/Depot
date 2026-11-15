@@ -5,6 +5,7 @@ import { formatDateTime } from "./format";
 import styles from "./pages.module.css";
 import { useLoad } from "./useLoad";
 import { ProblemMessage } from "../../shell/errors";
+import { UserName } from "../../shell/lookup/UserName";
 
 /** One payroll export batch with its CSV file. */
 export function PayExportDetailPage() {
@@ -52,7 +53,7 @@ export function PayExportDetailPage() {
               </div>
               <div className={styles.entry}>
                 <dt className={styles.term}>Exported</dt>
-                <dd className={styles.value}>{`${formatDateTime(batch.createdAt)} by ${batch.createdBy}`}</dd>
+                <dd className={styles.value}>{<>{formatDateTime(batch.createdAt)} by <UserName id={batch.createdBy} /></>}</dd>
               </div>
             </dl>
           </Card>

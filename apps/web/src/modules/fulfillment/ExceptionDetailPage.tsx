@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useState, type FormEvent, type ReactNode } from "react";
 import { Link, useParams } from "react-router-dom";
 import { holdsDuty } from "../../shell/dutyGate";
 import { usePrincipalDuties } from "../../shell/principal";
@@ -10,6 +10,7 @@ import { ProblemAlert, useCommandKey } from "./forms";
 import styles from "./pages.module.css";
 import { useLoad } from "./useLoad";
 import { ProblemMessage } from "../../shell/errors";
+import { UserName } from "../../shell/lookup/UserName";
 
 /** What the supervisor does about each kind of case. */
 const ADVICE: Record<string, string> = {
@@ -109,14 +110,14 @@ export function ExceptionDetailPage() {
     );
   }
   const e = state.data;
-  const rows: [string, string, boolean][] = [
+  const rows: [string, ReactNode, boolean][] = [
     ["Order", e.orderId, true],
     ["Order line", e.orderLineId, true],
     ["Quantity beyond", e.qty, false],
     ["Order line keeps", e.keptQty, false],
     ["Raised", formatDateTime(e.createdAt), false],
-    ...(e.resolvedAt ? ([["Resolved", `${formatDateTime(e.resolvedAt)} by ${e.resolvedBy ?? "unknown"}`, false]] as [string, string, boolean][]) : []),
-    ...(e.resolutionNote ? ([["Resolution", e.resolutionNote, false]] as [string, string, boolean][]) : []),
+    ...(e.resolvedAt ? ([["Resolved", <>{formatDateTime(e.resolvedAt)} by <UserName id={e.resolvedBy} /></>, false]] as [string, ReactNode, boolean][]) : []),
+    ...(e.resolutionNote ? ([["Resolution", e.resolutionNote, false]] as [string, ReactNode, boolean][]) : []),
   ];
   return (
     <div className={styles.stack}>

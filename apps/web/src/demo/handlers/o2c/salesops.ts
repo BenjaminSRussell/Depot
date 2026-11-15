@@ -7,6 +7,7 @@ import { CUSTOMERS, LEGAL_ENTITY, PLANT, USER, WH_FG, itemByNumber } from "../..
 import { reply, route, type DemoRequest } from "../../backend";
 import { at, day, dec, table, uid } from "../../store";
 import { K, SALES_ACTOR, orderNumber, orderSeq, orders, r2, recordVersion } from "./model";
+import { userIdOf } from "../directory";
 
 const BASE = "/api/v1/sales";
 const K_AGREEMENT = 432;
@@ -66,7 +67,7 @@ function releasesOf(seed: AgreementSeed): AgreementRelease[] {
         returnedQty: "0",
         salesOrderId: o.id,
         orderNumber: o.orderNumber,
-        actor: SALES_ACTOR,
+        actor: userIdOf(SALES_ACTOR),
         releasedAt: o.createdAt,
       };
     })
@@ -104,10 +105,10 @@ function agreement(seed: AgreementSeed): Agreement {
     overdeliveryPct: "5",
     ceilingQty: dec(seed.commitment * 1.05, seed.amount ? 2 : 0),
     closeReason: seed.close?.reason,
-    closedBy: seed.close?.by,
+    closedBy: userIdOf(seed.close?.by),
     closedAt: seed.close ? at(-seed.close.ago) : undefined,
     version: 2 + releases.length + (seed.close ? 1 : 0),
-    createdBy: "dana.whitfield",
+    createdBy: userIdOf("dana.whitfield"),
     createdAt: at(seed.from - 5),
     updatedAt: releases[0]?.releasedAt ?? at(seed.from),
     releases,
@@ -143,7 +144,7 @@ route("POST", `${BASE}/agreements/{id}:close`, (req) => {
   if (v !== undefined && v !== a.version) return stale();
   if (a.status === "CLOSED") return reply.problem(409, "SLS-0130", "The agreement is already closed");
   const reason = String((req.body as { reason?: string } | undefined)?.reason ?? "");
-  const next = agreements.update(a.id, { status: "CLOSED", closeReason: reason, closedBy: SALES_ACTOR, closedAt: at(0), version: a.version + 1, updatedAt: at(0) })!;
+  const next = agreements.update(a.id, { status: "CLOSED", closeReason: reason, closedBy: userIdOf(SALES_ACTOR), closedAt: at(0), version: a.version + 1, updatedAt: at(0) })!;
   return reply.versioned(next, next.version);
 });
 
@@ -197,7 +198,7 @@ route("POST", `${BASE}/agreements/{id}:release-order`, ({ params, body }) => {
   const released = Number(a.releasedQty) + units;
   const commitment = Number(a.commitmentQty);
   const places = a.commitmentType === "AMOUNT" ? 2 : 0;
-  const release: AgreementRelease = { id: uid(K_RELEASE, 900 + seq), quantity: line.quantity, units: dec(units, places), drawnQty: "0", returnedQty: "0", salesOrderId: order.id, orderNumber: order.orderNumber, actor: SALES_ACTOR, releasedAt: at(0) };
+  const release: AgreementRelease = { id: uid(K_RELEASE, 900 + seq), quantity: line.quantity, units: dec(units, places), drawnQty: "0", returnedQty: "0", salesOrderId: order.id, orderNumber: order.orderNumber, actor: userIdOf(SALES_ACTOR), releasedAt: at(0) };
   const next = agreements.update(a.id, {
     releasedQty: dec(released, places),
     remainingQty: dec(Math.max(0, commitment - released), places),
@@ -228,7 +229,7 @@ function change(n: number, order: number, status: ChangeRequest["status"], ago: 
     reason,
     change: { reason, ...(header ? { requestedShipDate: header.new } : {}), ...(lineChanges.length ? { lines: lineChanges } : {}) },
     diff,
-    requestedBy: "dana.whitfield",
+    requestedBy: userIdOf("dana.whitfield"),
     requestedAt: at(-ago),
     decisionComment: "",
     version: status === "PENDING" ? 1 : 2,
@@ -243,15 +244,15 @@ const later = (date: string, days: number) => new Date(Date.parse(date) + days *
 
 const changes = table<ChangeRequest>([
   change(5, 4, "PENDING", 0.3, "Skid foundations at the Corpus Christi plant are two weeks behind", [{ lineNo: 0, field: "requestedShipDate", old: o4.requestedShipDate, new: later(o4.requestedShipDate, 14) }]),
-  change(4, 8, "PENDING", 0.8, "Second dewatering pit opens early; customer needs two more pumps", [{ lineNo: 1, field: "quantity", old: o8.lines[0].quantity, new: "5" }], { requestedBy: "jordan.avery" }),
+  change(4, 8, "PENDING", 0.8, "Second dewatering pit opens early; customer needs two more pumps", [{ lineNo: 1, field: "quantity", old: o8.lines[0].quantity, new: "5" }], { requestedBy: userIdOf("jordan.avery") }),
   change(3, 16, "PENDING", 1.6, "Co-op members cancelled ten of the units", [{ lineNo: 1, field: "quantity", old: o16.lines[0].quantity, new: "60" }]),
   change(2, 3, "REJECTED", 6, "Add two CP-400 to the order", [{ lineNo: 1, field: "quantity", old: "6", new: "8" }], {
-    decidedBy: "morgan.lee",
+    decidedBy: userIdOf("morgan.lee"),
     decidedAt: at(-5.6),
     decisionComment: "The order is partly shipped; enter the extra pumps as a new order against the agreement.",
   }),
   change(1, 1, "APPROVED", 4.4, "Customer asked for a later ship date", [{ lineNo: 1, field: "requestedShipDate", old: later(orders.get(orderId(1))!.lines[0].requestedShipDate, -5), new: orders.get(orderId(1))!.lines[0].requestedShipDate }], {
-    decidedBy: "morgan.lee",
+    decidedBy: userIdOf("morgan.lee"),
     decidedAt: at(-4.2),
     decisionComment: "Fine, stock is reserved either way.",
     appliedVersion: 3,
@@ -277,7 +278,7 @@ route("POST", `${BASE}/change-requests/{id}:{action}`, (req) => {
   if (v !== undefined && v !== c.version) return stale();
   if (c.status !== "PENDING") return reply.problem(409, "SLS-0112", "The request is already decided");
   const comment = String((req.body as { comment?: string } | undefined)?.comment ?? "");
-  const decided = { decidedBy: SALES_ACTOR, decidedAt: at(0), decisionComment: comment, version: c.version + 1 };
+  const decided = { decidedBy: userIdOf(SALES_ACTOR), decidedAt: at(0), decisionComment: comment, version: c.version + 1 };
   if (req.params.action === "reject" || req.params.action === "withdraw") {
     const next = changes.update(c.id, { ...decided, status: req.params.action === "reject" ? "REJECTED" : "WITHDRAWN" })!;
     return reply.versioned(next, next.version);
@@ -337,7 +338,7 @@ const intakeErrors = table<IntakeError>([
   intake(2, "EDI", "PO-88160", "SLS-0009", "Unit of measure CS is not set up for BP-300 (booster pump skid).", 2, 3.4),
   intake(1, "EDI", "PO-88222", "SLS-0040", "An order with this external reference already exists for Metro Facilities Group.", 1, 20.4, {
     status: "RESOLVED",
-    resolvedBy: SALES_ACTOR,
+    resolvedBy: userIdOf(SALES_ACTOR),
     resolvedAt: at(-20.2),
     resolutionNote: "Duplicate send from the customer's EDI provider; already stored as SO-024186.",
     replayable: false,
@@ -361,7 +362,7 @@ function replay(e: IntakeError): IntakeReplayResult {
   if (e.status !== "OPEN" || !e.replayable) return { intakeError: e, replayed: false, failure: { code: "SLS-0118", message: "This intake error cannot be replayed; resolve it with a note instead." } };
   if (e.errorCode === "SLS-0099") {
     const found = orders.get(orderId(3))!;
-    const next = intakeErrors.update(e.id, { status: "RESOLVED", resolvedBy: SALES_ACTOR, resolvedAt: at(0), resolutionNote: `Replayed: the order was already stored as ${found.orderNumber}.`, replayCount: e.replayCount + 1, replayedOrderId: found.id, attempts: e.attempts + 1, version: e.version + 1 })!;
+    const next = intakeErrors.update(e.id, { status: "RESOLVED", resolvedBy: userIdOf(SALES_ACTOR), resolvedAt: at(0), resolutionNote: `Replayed: the order was already stored as ${found.orderNumber}.`, replayCount: e.replayCount + 1, replayedOrderId: found.id, attempts: e.attempts + 1, version: e.version + 1 })!;
     return { intakeError: next, replayed: true, orderId: found.id, orderNumber: found.orderNumber };
   }
   const next = intakeErrors.update(e.id, { replayCount: e.replayCount + 1, attempts: e.attempts + 1, lastSeenAt: at(0), version: e.version + 1 })!;
@@ -391,7 +392,7 @@ route("POST", `${BASE}/intake-errors/{id}:resolve`, (req) => {
   if (v !== undefined && v !== e.version) return stale();
   if (e.status !== "OPEN") return reply.problem(409, "SLS-0117", "The intake error is already resolved");
   const note = String((req.body as { note?: string } | undefined)?.note ?? "");
-  const next = intakeErrors.update(e.id, { status: "RESOLVED", resolvedBy: SALES_ACTOR, resolvedAt: at(0), resolutionNote: note, version: e.version + 1 })!;
+  const next = intakeErrors.update(e.id, { status: "RESOLVED", resolvedBy: userIdOf(SALES_ACTOR), resolvedAt: at(0), resolutionNote: note, version: e.version + 1 })!;
   return reply.versioned(next, next.version);
 });
 
@@ -408,7 +409,7 @@ function listing(scope: "CUSTOMER" | "GROUP", key: string, item: string, type: "
     listingType: type,
     validFrom: from === undefined ? undefined : day(from),
     validTo: to === undefined ? undefined : day(to),
-    createdBy: ago > 30 ? "dana.whitfield" : SALES_ACTOR,
+    createdBy: userIdOf(ago > 30 ? "dana.whitfield" : SALES_ACTOR),
     createdAt: at(-ago),
   };
 }
@@ -436,7 +437,7 @@ route("POST", `${BASE}/product-listings`, ({ body }) => {
   if (listings.all().some((l) => l.scopeType === input.scopeType && l.scopeKey === input.scopeKey && l.productId === input.productId && l.listingType === input.listingType)) {
     return reply.problem(409, "SLS-0072", "The same entry already exists");
   }
-  return reply.created(listings.insert({ ...input, id: uid(K_LISTING, 100 + listings.all().length), createdBy: USER.name, createdAt: at(0) }));
+  return reply.created(listings.insert({ ...input, id: uid(K_LISTING, 100 + listings.all().length), createdBy: userIdOf(USER.name), createdAt: at(0) }));
 });
 
 route("DELETE", `${BASE}/product-listings/{id}`, ({ params }) => (listings.remove(params.id) ? reply.noContent() : reply.problem(404, "SLS-0404", "Listing entry not found")));

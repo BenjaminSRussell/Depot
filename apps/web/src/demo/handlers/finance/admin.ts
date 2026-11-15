@@ -7,6 +7,7 @@ import { LEGAL_ENTITY } from "../../company";
 import { reply, route } from "../../backend";
 import { at, newId, table, uid } from "../../store";
 import { DUTIES } from "./duties";
+import { directoryName } from "../directory";
 import { byUsername, emailOf, ME, PEOPLE } from "./people";
 
 const K_ASSIGNMENT = 621;
@@ -84,7 +85,9 @@ route("GET", "/api/v1/identity/users/{id}/effective-permissions", ({ params, que
 });
 route("GET", "/api/v1/identity/user-names", ({ query }) => {
   const wanted = (query.get("ids") ?? "").split(",").filter((id) => id !== "");
-  return { items: users.all().filter((u) => wanted.includes(u.userId)).map((u) => ({ userId: u.userId, displayName: u.displayName })) };
+  const known = users.all().filter((u) => wanted.includes(u.userId)).map((u) => ({ userId: u.userId, displayName: u.displayName }));
+  const staff = wanted.filter((id) => !known.some((u) => u.userId === id)).flatMap((id) => { const displayName = directoryName(id); return displayName ? [{ userId: id, displayName }] : []; });
+  return { items: [...known, ...staff] };
 });
 route("GET", "/api/v1/identity/users/{id}", ({ params }) => {
   const u = users.get(params.id);

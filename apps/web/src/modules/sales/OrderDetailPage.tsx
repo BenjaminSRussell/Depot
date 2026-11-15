@@ -28,6 +28,7 @@ import { OrderFlowPanel } from "./documentFlow";
 import { useLoad } from "./useLoad";
 import { ProblemMessage } from "../../shell/errors";
 import { EntityName } from "../../shell/lookup/EntityName";
+import { UserName } from "../../shell/lookup/UserName";
 
 const ruleTone = { PASS: "success", WARN: "warning", FAIL: "danger" } as const;
 
@@ -192,7 +193,7 @@ export function OrderDetailPage() {
       header: "Decision",
       render: (h) =>
         h.status === "REJECTED"
-          ? `Rejected by ${h.rejectedBy ?? dash}${h.rejectionComment ? `: ${h.rejectionComment}` : ""}`
+          ? <>Rejected by <UserName id={h.rejectedBy} />{h.rejectionComment ? `: ${h.rejectionComment}` : ""}</>
           : h.releasedUntil
             ? `Release valid until ${formatDateTime(h.releasedUntil)}`
             : dash,

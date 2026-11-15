@@ -8,6 +8,7 @@ import { formatDateTime, UUID } from "./format";
 import styles from "./pages.module.css";
 import { useLoad } from "./useLoad";
 import { ProblemMessage } from "../../shell/errors";
+import { UserName } from "../../shell/lookup/UserName";
 
 const MAX_APPROVERS = 20;
 
@@ -131,7 +132,7 @@ function PolicyForm({ scope, canSave }: { scope: Scope; canSave: boolean }) {
         ) : (
           <span className={styles.muted}>Changing it needs the {DUTY_ORDER_APPROVE} duty.</span>
         )}
-        {loaded.updatedAt ? <span className={styles.muted}>Last changed {formatDateTime(loaded.updatedAt)} by {loaded.updatedBy}</span> : null}
+        {loaded.updatedAt ? <span className={styles.muted}>Last changed {formatDateTime(loaded.updatedAt)} by <UserName id={loaded.updatedBy} /></span> : null}
       </div>
     </form>
   );

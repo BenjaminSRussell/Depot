@@ -26,6 +26,7 @@ import { ITEMS, LEGAL_ENTITY, USER, WH_DAL, WH_FG, WH_RAW, WH_WIP, itemByNumber,
 import { reply, route, type DemoRequest } from "../../backend";
 import { at, day, dec, table, uid } from "../../store";
 import { BIN_OF } from "./warehouse";
+import { userIdOf } from "../directory";
 
 const BASE = "/api/v1/inventory";
 const K_PLAN = 410;
@@ -124,17 +125,17 @@ const posted = (l: CountLine): CountLine => ({ ...l, postedVariance: dec(Number(
 const sheets = table<CountSheet>([
   sheet(18, 1, "OPEN", 0.3, [cline(1, "MTR-5HP-TEFC", 1, 22, 0.1), cline(2, "MTR-15HP-TEFC", 1, 4, 0.08), cline(3, "CST-VOL-04", 1), cline(4, "CST-IMP-06", 1)]),
   sheet(19, 2, "OPEN", 0.1, [cline(1, "SEAL-MK-125", 2), cline(2, "BRG-6206", 2), cline(3, "FST-KIT-A", 2)]),
-  sheet(17, 3, "COUNTED", 1.2, [cline(1, "CP-200", 3, 42, 1), cline(2, "CP-400", 3, 11, 1), cline(3, "SP-150", 3, 87, 1), cline(4, "DP-100", 3, 5, 1), cline(5, "BP-300", 3, 2, 1)], { submittedBy: "Luis Ortega" }),
+  sheet(17, 3, "COUNTED", 1.2, [cline(1, "CP-200", 3, 42, 1), cline(2, "CP-400", 3, 11, 1), cline(3, "SP-150", 3, 87, 1), cline(4, "DP-100", 3, 5, 1), cline(5, "BP-300", 3, 2, 1)], { submittedBy: userIdOf("Luis Ortega") }),
   sheet(15, 1, "POSTED", 7.3, [cline(1, "MTR-5HP-TEFC", 1, 24, 7.1), cline(2, "MTR-15HP-TEFC", 1, 4, 7.1), cline(3, "CST-VOL-04", 1, 30, 7.1), cline(4, "CST-IMP-06", 1, 12, 7.1)].map(posted), {
     journalId: uid(K_JOURNAL, 9),
     postedAt: at(-7),
-    approvedBy: "Dana Whitfield",
-    submittedBy: "Luis Ortega",
+    approvedBy: userIdOf("Dana Whitfield"),
+    submittedBy: userIdOf("Luis Ortega"),
   }),
   sheet(12, 2, "POSTED", 21.4, [cline(1, "SEAL-MK-125", 2, 141, 21.2), cline(2, "BRG-6206", 2, 606, 21.2), cline(3, "FST-KIT-A", 2, 220, 21.2)].map(posted), {
     journalId: uid(K_JOURNAL, 4),
     postedAt: at(-21),
-    submittedBy: "Marcus Bell",
+    submittedBy: userIdOf("Marcus Bell"),
   }),
 ]);
 
@@ -253,10 +254,10 @@ route("POST", `${BASE}/count-sheets/{id}:{action}`, ({ params }) => {
   switch (params.action) {
     case "submit":
       if (s.lines.some((l) => l.countedQty === null)) return reply.problem(422, "INV-CNT-007", "Count every line before closing the count");
-      return sheets.update(s.id, { status: "COUNTED", submittedBy: USER.name, version: s.version + 1 });
+      return sheets.update(s.id, { status: "COUNTED", submittedBy: userIdOf(USER.name), version: s.version + 1 });
     case "approve":
       if (s.status !== "COUNTED") return reply.problem(409, "INV-CNT-008", "Only a counted sheet can be approved");
-      return sheets.update(s.id, { status: "APPROVED", approvedBy: USER.name, version: s.version + 1 });
+      return sheets.update(s.id, { status: "APPROVED", approvedBy: userIdOf(USER.name), version: s.version + 1 });
     case "cancel":
       return sheets.update(s.id, { status: "CANCELLED", version: s.version + 1 });
     case "post": {

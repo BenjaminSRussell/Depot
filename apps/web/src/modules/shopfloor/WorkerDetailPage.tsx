@@ -36,6 +36,7 @@ import { WorkerMaintenance } from "./WorkerMaintenance";
 import { WorkerPaySetup } from "./WorkerPaySetup";
 import { ProblemMessage } from "../../shell/errors";
 import { EntityName } from "../../shell/lookup/EntityName";
+import { UserName } from "../../shell/lookup/UserName";
 
 /** Longest range GET registrations accepts, in days. */
 const MAX_LIST_DAYS = 31;
@@ -182,7 +183,7 @@ export function WorkerDetailPage() {
           </div>
           <div className={styles.entry}>
             <dt className={styles.term}>Sign-in user</dt>
-            <dd className={styles.value}>{worker.userId ?? dash}</dd>
+            <dd className={styles.value}><UserName id={worker.userId} /></dd>
           </div>
           <div className={styles.entry}>
             <dt className={styles.term}>Party id</dt>

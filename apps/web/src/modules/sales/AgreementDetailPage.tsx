@@ -18,6 +18,7 @@ import styles from "./pages.module.css";
 import { useLoad } from "./useLoad";
 import { ProblemMessage } from "../../shell/errors";
 import { EntityName } from "../../shell/lookup/EntityName";
+import { UserName } from "../../shell/lookup/UserName";
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -132,7 +133,7 @@ export function AgreementDetailPage() {
       : []),
     ["Remaining", commitmentText(agreement, agreement.remainingQty)],
     ["Valid", agreement.validFrom || agreement.validTo ? `${agreement.validFrom ?? "…"} to ${agreement.validTo ?? "…"}` : "Open-ended"],
-    ["Created", `${formatDateTime(agreement.createdAt)} by ${agreement.createdBy}`],
+    ["Created", <>{formatDateTime(agreement.createdAt)} by <UserName id={agreement.createdBy} /></>],
   ];
   const mono = new Set<string>();
   const exhausted = agreement.status === "EXHAUSTED";

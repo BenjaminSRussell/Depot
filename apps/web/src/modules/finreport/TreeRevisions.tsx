@@ -4,6 +4,7 @@ import { getRunTree, getTreeRevision, listTreeRevisions, type Tree, type TreeRev
 import styles from "./pages.module.css";
 import { useLoad } from "./useLoad";
 import { ProblemMessage } from "../../shell/errors";
+import { UserName } from "../../shell/lookup/UserName";
 
 /** The unit and every unit below it. */
 export function unitAndBelow(tree: Tree, unit: string): Set<string> {
@@ -44,7 +45,7 @@ export function TreeRevisionsCard({ code }: { code: string }) {
 
   const columns: DataTableColumn<TreeRevision>[] = [
     { key: "revision", header: "Revision", mono: true },
-    { key: "updatedBy", header: "Saved by" },
+    { key: "updatedBy", header: "Saved by", render: (r) => <UserName id={r.updatedBy} /> },
     { key: "createdAt", header: "Saved", render: (r) => <time dateTime={r.createdAt}>{r.createdAt}</time> },
     {
       key: "view",

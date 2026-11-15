@@ -8,6 +8,7 @@ import type { CreditEvaluation, CreditProfile, Hold, LimitType, Order, OrderLine
 import { CUSTOMERS, ITEMS, LEGAL_ENTITY, PLANT, WH_FG, itemByNumber, type Party } from "../../company";
 import { at, day, dec, table, uid } from "../../store";
 import { arExtras } from "./arLedger";
+import { userIdOf } from "../directory";
 
 // uid() kinds claimed by this area (100-102 are the sales order, line and hold ids).
 export const K = { order: 100, line: 101, hold: 102, schedule: 103, progress: 104, shipment: 105, shipLine: 106, container: 107, slip: 108, invoice: 109, condition: 110, change: 111, quotation: 112 } as const;
@@ -182,19 +183,19 @@ function recordVersion(o: Order, reason: string, diff: OrderVersion["diff"], act
 for (const o of seedOrders) {
   const created = new Date(o.createdAt).getTime();
   const iso = (offsetDays: number) => new Date(created + offsetDays * 86_400_000).toISOString();
-  versions.set(o.id, [{ version: 1, actor: o.channel === "EDI" ? "edi-intake" : NOW_SALES_ENTRY, reason: "Order entered", diff: [], changedAt: o.createdAt }]);
+  versions.set(o.id, [{ version: 1, actor: userIdOf(o.channel === "EDI" ? "edi-intake" : NOW_SALES_ENTRY), reason: "Order entered", diff: [], changedAt: o.createdAt }]);
   if (o.version >= 2) {
     const cancelled = o.status === "CANCELLED";
     const reason = cancelled ? "Cancelled at the customer's request" : o.status === "CLOSED" || o.status === "INVOICED" ? "Confirmed" : "Confirmed after credit check";
     const list = versions.get(o.id)!;
-    list.unshift({ version: 2, actor: NOW_SALES_ENTRY, reason, diff: [{ lineNo: 0, field: "status", old: cancelled ? "CONFIRMED" : "OPEN", new: cancelled ? "CANCELLED" : "CONFIRMED" }], changedAt: iso(0.2) });
+    list.unshift({ version: 2, actor: userIdOf(NOW_SALES_ENTRY), reason, diff: [{ lineNo: 0, field: "status", old: cancelled ? "CONFIRMED" : "OPEN", new: cancelled ? "CANCELLED" : "CONFIRMED" }], changedAt: iso(0.2) });
   }
   if (o.version >= 3) {
     const list = versions.get(o.id)!;
     const earlier = new Date(Date.parse(o.lines[0].requestedShipDate) - 5 * 86_400_000).toISOString().slice(0, 10);
     list.unshift({
       version: 3,
-      actor: "dana.whitfield",
+      actor: userIdOf("dana.whitfield"),
       reason: "Customer asked for a later ship date",
       diff: [{ lineNo: 1, field: "requestedShipDate", old: earlier, new: o.lines[0].requestedShipDate }],
       changedAt: iso(1.5),
