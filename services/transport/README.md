@@ -17,7 +17,7 @@ by request hash, and layer-based load plans. What is not built yet is listed
 in [NOT-IMPLEMENTED.md](NOT-IMPLEMENTED.md).
 
 The solvers (OR-Tools VRP and the load-plan stacker) live in the sibling Python service
-`services/routing-py`; `internal/optimizer` calls it over HTTP at `TMS_OPTIMIZER_URL`.
+`services/routing-py`; `internal/optimizer` calls it over HTTP at `ROUTING_PY_URL` (older name `TMS_OPTIMIZER_URL` is deprecated but still read).
 
 ## Layout
 
@@ -126,7 +126,7 @@ cache per tenant and rating input for `TMS_RATING_CACHE_MIN` minutes (default 10
 off) and says `X-Passage-Cache: HIT` or `MISS`; saving a rate card drops that tenant's
 cache on the replica.
 
-Configuration: `TMS_OPTIMIZER_URL` (chart `optimizer.url`) is the routing-py base URL;
+Configuration: `ROUTING_PY_URL` (the older `TMS_OPTIMIZER_URL` is still read and logged as deprecated) (chart `optimizer.url`) is the routing-py base URL;
 without it optimize and load-plan calls are 503 TMS-0123. `TMS_RATING_CACHE_MIN` sets
 the rate-shop cache window (values outside 0 to 60 are clamped; a non-number stops the
 service at start).

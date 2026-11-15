@@ -248,10 +248,12 @@ holding the EDB installer's option lines such as `superpassword=...`; the passwo
 
 - Not run on a real Windows VM yet (no installer test, no upgrade downtime measurement, no `tools/e2e` live suite against `passage-server.exe`): tracked on #213.
 - TLS from the Windows certificate store, embedded OPA and a Postgres-backed outbox relay (to drop external Kafka/Debezium) are follow-ups.
-- agents-ts is bundled and registered, but it does not serve users under `passage-server` yet: it verifies the caller's bearer token itself
-  and the gateway removes `Authorization` before proxying, and it needs `MCP_URL` (mcp-ts, not bundled), `AGENTS_JWT_ISSUER` and
-  `AGENTS_JWKS_URL` in a `services:` entry of `passage.yaml`. workflow-ts is not bundled for arm64 (no Temporal native module for Windows arm64).
-- transport reads the route optimizer from `TMS_OPTIMIZER_URL`; set it in a `services:` entry for `transport` to the `routing-py` port
-  (`passage-server services` prints it) until the supervisor passes it.
+- agents-ts serves users under `passage-server`: its `services:` entry sets `forwardAuthorization: true`, so the gateway passes the caller's
+  (already verified) bearer token to the `agents-ts` route and removes `Authorization` for every other service. The feature file fills
+  `AGENTS_JWT_ISSUER`, `AGENTS_JWT_AUDIENCE` and `AGENTS_JWKS_URL` from `oidcIssuer`, `oidcAudience` and `oidcJwksUrl` (the realm's certs URL when
+  unset) and `MCP_URL` from `mcpUrl` in `passage.yaml` (MSI property `MCP_URL`). mcp-ts is not bundled, so `mcpUrl` must name an MCP gateway
+  running elsewhere; agents-ts refuses to start while it is empty. workflow-ts is not bundled for arm64 (no Temporal native module for Windows arm64).
+- transport reads the route optimizer from `ROUTING_PY_URL`, which `passage-server` sets for every service from the peer's name, so routing works without
+  configuration. The older `TMS_OPTIMIZER_URL` is still read and logged as deprecated.
 - The Python services' OR-Tools wheels need the Microsoft Visual C++ runtime; Windows Server images normally have it.
 - The WiX source is validated as XML here; it needs its first real `wix build` on a Windows runner.

@@ -49,14 +49,22 @@ ops_operator_routes := [
 	["ops.region.view", "GET", "/v1/ops/tenants/t1/costs/2026-10"],
 	["ops.region.view", "GET", "/v1/ops/costs"],
 	["ops.region.view", "GET", "/v1/ops/licenses"],
+	["ops.region.view", "GET", "/v1/ops/tenants/t1/decommission"],
+	["ops.region.view", "GET", "/v1/ops/clone-schedules"],
+	["ops.region.view", "GET", "/v1/ops/clone-schedules/s1/runs"],
 	["ops.tenant.provision", "POST", "/v1/ops/tenants"],
 	["ops.tenant.provision", "PUT", "/v1/ops/tenants/t1/provision-steps/realm"],
 	["ops.cost.record", "PUT", "/v1/ops/tenants/t1/costs/2026-10"],
 	["ops.license.report", "PUT", "/v1/ops/tenants/t1/license/usage"],
+	["ops.tenant.decommission", "POST", "/v1/ops/tenants/t1:decommission"],
+	["ops.tenant.decommission", "PUT", "/v1/ops/tenants/t1/decommission-steps/realm"],
+	["ops.clone.schedule", "POST", "/v1/ops/clone-schedules"],
+	["ops.clone.schedule", "PUT", "/v1/ops/clone-schedules/s1"],
+	["ops.clone.schedule", "DELETE", "/v1/ops/clone-schedules/s1"],
 ]
 
 test_operator_only_duties_are_the_ops_duties if {
-	{d | some d, spec in data.duties; spec.operator_only == true} == {"ops.region.view", "ops.region.report", "ops.failover.execute", "ops.breakglass.request", "ops.breakglass.review", "ops.license.install", "ops.tenant.provision", "ops.cost.record", "ops.license.report"}
+	{d | some d, spec in data.duties; spec.operator_only == true} == {"ops.region.view", "ops.region.report", "ops.failover.execute", "ops.breakglass.request", "ops.breakglass.review", "ops.license.install", "ops.tenant.provision", "ops.cost.record", "ops.license.report", "ops.tenant.decommission", "ops.clone.schedule"}
 }
 
 test_operator_only_duties_grant_in_the_operator_tenant if {

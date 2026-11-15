@@ -14,6 +14,7 @@
 
 import { readFileSync } from "node:fs";
 import { parseTrustedProxies, TRUSTED_PROXIES_ENV } from "./clientAddress.ts";
+import { jsonLine } from "./logging/pseudonymize.ts";
 import { Jwks, type OidcConfig } from "./oidc.ts";
 import { KeycloakProvisioner, PendingProvisioner, type UserProvisioner } from "./provision.ts";
 import { scanPolicyFromEnv } from "./scan.ts";
@@ -113,7 +114,7 @@ function main(): void {
     cookieSecure: env["COOKIE_SECURE"] !== "false",
     limiter: new RateLimiter(300, 60_000),
     scan: scanPolicyFromEnv(env),
-    provisioner: provisionerFromEnv(env, (p) => readFileSync(p, "utf8"), (entry) => console.log(JSON.stringify(entry))),
+    provisioner: provisionerFromEnv(env, (p) => readFileSync(p, "utf8"), jsonLine(env)),
     ...(registration ? { registration } : {}),
     publicLimiter: new RateLimiter(Number(env["PUBLIC_RATE_PER_HOUR"] ?? 10), 3_600_000),
     trustedProxies,

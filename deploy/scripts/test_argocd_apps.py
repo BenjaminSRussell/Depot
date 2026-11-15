@@ -703,6 +703,42 @@ class ArgoApplicationsTest(unittest.TestCase):
                    if d["kind"] == "Role" and d["metadata"]["name"] == "passage-connect-read-debezium-cdc"]
         self.assertIn("debezium-cdc-billing", role["rules"][0]["resourceNames"])
 
+    def test_outbox_ops_relays_exactly_the_ops_channels_the_debezium_user_may_write(self):
+        # Ops routes by aggregate type (failover, tenant, slo, license), each the suffix of one channel of its AsyncAPI.
+        docs = load_docs(DEPLOY / "kafka/connect.yaml")
+        (debezium,) = [d for d in docs if d["kind"] == "KafkaUser" and d["metadata"]["name"] == "debezium"]
+        writable = {a["resource"]["name"] for a in debezium["spec"]["authorization"]["acls"]
+                    if a["resource"]["type"] == "topic" and a["resource"].get("patternType") == "literal"
+                    and "Write" in a["operations"]}
+        (cfg,) = [d["spec"]["config"] for d in docs if d["kind"] == "KafkaConnector" and d["metadata"]["name"] == "outbox-ops"]
+        self.assertEqual("aggregate_type", cfg["transforms.outbox.route.by.field"])
+        self.assertEqual("passage.ops", cfg["topic.prefix"])
+        self.assertEqual("passage.ops.${routedByValue}", cfg["transforms.outbox.route.topic.replacement"])
+        self.assertEqual("public.outbox", cfg["table.include.list"])
+        self.assertEqual("passage_outbox_ops", cfg["publication.name"])
+        self.assertEqual("no_data", cfg["snapshot.mode"])
+        chain = cfg["transforms"].split(",")
+        self.assertEqual(("outbox", "enrich"), (chain[0], chain[-1]))
+        aggregates = set()
+        for f in (REPO / "services/ops/internal/store").glob("*.go"):
+            if not f.name.endswith("_test.go"):
+                aggregates |= set(re.findall(r'enqueue\(ctx, tx, "([^"]+)"', f.read_text()))
+        self.assertEqual({"failover", "tenant", "slo", "license"}, aggregates,
+                         "a new ops aggregate type needs a channel, an ACL and a Filter in outbox-ops")
+        spec = yaml.safe_load((REPO / "services/ops/events/asyncapi.yaml").read_text())
+        channels = {c["address"] for c in spec["channels"].values()}
+        routed = {cfg["transforms.outbox.route.topic.replacement"].replace("${routedByValue}", a) for a in aggregates}
+        self.assertEqual(channels, routed)
+        self.assertEqual(routed, {t for t in writable if t.startswith("passage.ops.")})
+        secrets = {d["metadata"]["name"] for f in manifests(DEPLOY / "envs/dev/kafka-secrets") for d in load_docs(f)
+                   if d["kind"] == "ExternalSecret"}
+        self.assertIn("debezium-cdc-ops", secrets)
+        (role,) = [d for f in manifests(DEPLOY / "envs/dev/kafka-secrets") for d in load_docs(f)
+                   if d["kind"] == "Role" and d["metadata"]["name"] == "passage-connect-read-debezium-cdc"]
+        self.assertIn("debezium-cdc-ops", role["rules"][0]["resourceNames"])
+        for migration in ("0007_cdc_publication.sql", "0008_cdc_role_grants.sql"):
+            self.assertTrue((REPO / "services/ops/migrations" / migration).exists(), migration)
+
     @unittest.skipUnless(shutil.which("helm"), "helm not on PATH")
     def test_temporal_values_match_its_database(self):
         dev = self.dev_apps()

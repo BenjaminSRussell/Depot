@@ -36,6 +36,8 @@ type Config struct {
 	OIDCJWKSURL    string `yaml:"oidcJwksUrl"`
 	TenantID       string `yaml:"tenantId"`
 	OPAURL         string `yaml:"opaUrl"`
+	// MCPURL is the MCP gateway (mcp-ts, not bundled) agents-ts calls tools through; a services entry reads it as {mcpUrl}.
+	MCPURL         string `yaml:"mcpUrl"`
 	KafkaBootstrap string `yaml:"kafkaBootstrap"`
 	TemporalHost   string `yaml:"temporalHostPort"`
 	TemporalNS     string `yaml:"temporalNamespace"`
@@ -79,6 +81,10 @@ type ServiceSpec struct {
 	SinglePort bool `yaml:"singlePort"`
 	// ReadyPath is the readiness path the supervisor probes; empty means /readyz.
 	ReadyPath string `yaml:"readyPath"`
+	// ForwardAuthorization lets the gateway pass the caller's bearer token to this service. By default the gateway removes
+	// Authorization and speaks for the user through X-Passage-* identity headers; a service that verifies the token itself
+	// (agents-ts) opts in. The token has already been verified by the gateway's guard when it is forwarded.
+	ForwardAuthorization bool `yaml:"forwardAuthorization"`
 }
 
 const (
@@ -159,6 +165,7 @@ func (c *Config) applyOverrides(o map[string]string) {
 	set(&c.OIDCJWKSURL, "OIDC_JWKS_URL")
 	set(&c.TenantID, "TENANT_ID")
 	set(&c.OPAURL, "OPA_URL")
+	set(&c.MCPURL, "MCP_URL")
 	set(&c.KafkaBootstrap, "KAFKA_BOOTSTRAP")
 	set(&c.TemporalHost, "TEMPORAL_HOSTPORT")
 	set(&c.Listen, "LISTEN")
@@ -327,7 +334,7 @@ func (c Config) Resolve(getenv func(string) string, listDir func(string) ([]stri
 		if route == "" {
 			route = routeOf(n)
 		}
-		procs = append(procs, Process{Name: n, Route: route, Exe: exe, Args: s.Args, Optional: s.Optional, Port: port, AdminPort: adminPort, ReadyPath: s.ReadyPath})
+		procs = append(procs, Process{Name: n, Route: route, Exe: exe, Args: s.Args, Optional: s.Optional, Port: port, AdminPort: adminPort, ReadyPath: s.ReadyPath, ForwardAuthorization: s.ForwardAuthorization})
 	}
 	routes := map[string]string{}
 	for _, p := range procs {
@@ -353,8 +360,16 @@ func peerEnvName(name string) string {
 }
 
 // expand replaces {install} and {data} in a service's exe and args.
+//
+// A services entry may also read the sign-in settings: {oidcIssuer}, {oidcAudience}, {oidcJwksUrl} (the issuer's Keycloak
+// certs URL when oidcJwksUrl is unset) and {mcpUrl}.
 func (c Config) expand(v string) string {
-	return strings.NewReplacer("{install}", c.InstallDir, "{data}", c.DataDir).Replace(v)
+	jwks := c.OIDCJWKSURL
+	if jwks == "" && c.OIDCIssuer != "" {
+		jwks = strings.TrimRight(c.OIDCIssuer, "/") + "/protocol/openid-connect/certs"
+	}
+	return strings.NewReplacer("{install}", c.InstallDir, "{data}", c.DataDir,
+		"{oidcIssuer}", c.OIDCIssuer, "{oidcAudience}", c.OIDCAudience, "{oidcJwksUrl}", jwks, "{mcpUrl}", c.MCPURL).Replace(v)
 }
 
 func expandPorts(v string, port, adminPort int) string {

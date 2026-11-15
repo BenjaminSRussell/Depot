@@ -62,6 +62,8 @@ var servicePrincipals = map[string][]string{
 	"scheduling-downtime":     {"scheduling.downtime.apply"},
 	"scheduling-order-import": {"scheduling.order.import"},
 	"shopfloor-production":    {"shopfloor.job.sync"},
+	// The ops control plane's own reads and statement rendering (#50); it acts as this principal, in the operator tenant.
+	"ops-reporter": {"identity.ops.tenant-read", "print.ops.render"},
 }
 
 // servicePrincipalIssuers names the services whose signing key may present each
@@ -99,6 +101,7 @@ var servicePrincipalIssuers = map[string][]string{
 	"scheduling-downtime":     {"scheduling"},
 	"scheduling-order-import": {"scheduling"},
 	"shopfloor-production":    {"shopfloor"},
+	"ops-reporter":            {"ops"},
 }
 
 func ServicePrincipalTable() map[string][]string {

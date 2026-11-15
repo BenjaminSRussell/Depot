@@ -9,6 +9,7 @@
 // message is retried rather than lost.
 
 import { readFileSync } from "node:fs";
+import { jsonLine } from "./logging/pseudonymize.ts";
 import { Kafka, logLevel, type Consumer, type Producer } from "kafkajs";
 
 import type { HubEvent } from "./dispatcher.ts";
@@ -182,6 +183,11 @@ export async function startConsumer(
     clientId: "integration-hub",
     brokers: config.brokers,
     logLevel: logLevel.WARN,
+    // kafkajs's own log lines go through the pseudonymizer too (#605).
+    logCreator: () => {
+      const write = jsonLine(process.env);
+      return ({ namespace, label, log }) => write({ level: label.toLowerCase(), namespace, ...log });
+    },
     ...(config.caFile ? { ssl: { ca: [readFileSync(config.caFile, "utf8")] } } : {}),
     ...(config.username && config.passwordFile
       ? { sasl: { mechanism: "scram-sha-512" as const, username: config.username, password: readFileSync(config.passwordFile, "utf8").trim() } }
