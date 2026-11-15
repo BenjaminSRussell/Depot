@@ -73,6 +73,24 @@ func (s *Store) CreateRFIDRule(ctx context.Context, r RFIDRule) (RFIDRule, error
 	return out, err
 }
 
+// UpdateRFIDRule replaces what a rule does and where it acts; who created it and when stay.
+func (s *Store) UpdateRFIDRule(ctx context.Context, id string, r RFIDRule) (RFIDRule, error) {
+	var out RFIDRule
+	err := s.inTx(ctx, func(tx pgx.Tx) error {
+		var err error
+		out, err = scanRule(tx.QueryRow(ctx, `update rfid_rule set reader_id = $2, antenna = $3, action = $4, warehouse_id = $5, location_code = $6, posted_by = $7
+			where id = $1 returning `+ruleCols, id, r.ReaderID, r.Antenna, r.Action, r.WarehouseID, r.LocationCode, r.PostedBy))
+		if errors.Is(err, pgx.ErrNoRows) {
+			return &domain.Error{Code: CodeRFIDRuleNotFound, Detail: "RFID rule not found"}
+		}
+		if err != nil && mapErr(err) == ErrConflict {
+			return &domain.Error{Code: CodeRFIDRuleExists, Detail: fmt.Sprintf("reader %s has a %s rule for that antenna already", r.ReaderID, r.Action)}
+		}
+		return err
+	})
+	return out, err
+}
+
 // ListRFIDRules returns the rules, of one reader when readerID is given.
 func (s *Store) ListRFIDRules(ctx context.Context, readerID string) ([]RFIDRule, error) {
 	out := []RFIDRule{}

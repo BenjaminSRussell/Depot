@@ -399,6 +399,7 @@ func TestOpenAPIDocumentsEveryOperation(t *testing.T) {
 		"POST /v1/warehouse/work:assign":                             dutyWorkExecute,
 		"POST /v1/warehouse/work/{id}/lines/{n}:confirm":             dutyWorkExecute,
 		"POST /v1/warehouse/work/{id}:exception":                     dutyWorkExecute,
+		"POST /v1/warehouse/work/{id}:reassign":                      dutyWorkSupervise,
 		"POST /v1/warehouse/dock-doors":                              dutySetupMaintain,
 		"GET /v1/warehouse/dock-doors":                               dutyInquiry,
 		"POST /v1/warehouse/dock-appointments":                       dutyReceive + " or " + dutyShipConfirm,
@@ -422,6 +423,7 @@ func TestOpenAPIDocumentsEveryOperation(t *testing.T) {
 		"POST /v1/warehouse/automation/transport-orders/{id}:cancel": dutyWorkSupervise,
 		"GET /v1/warehouse/rfid-rules":                               dutySetupView,
 		"POST /v1/warehouse/rfid-rules":                              dutySetupMaintain,
+		"PUT /v1/warehouse/rfid-rules/{id}":                          dutySetupMaintain,
 		"DELETE /v1/warehouse/rfid-rules/{id}":                       dutySetupMaintain,
 	}
 	served := 0
