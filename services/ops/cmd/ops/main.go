@@ -260,6 +260,13 @@ func part4Config(getenv func(string) string, cfg *api.Config) error {
 	}
 	if getenv("OPS_CLONE_ENABLED") == "true" {
 		cfg.Cloner = api.CommandCloner{Command: getenv("OPS_CLONE_COMMAND")}
+		if v := getenv("OPS_CLONE_LEASE"); v != "" {
+			d, err := time.ParseDuration(v)
+			if err != nil || d < 10*time.Minute {
+				return fmt.Errorf("OPS_CLONE_LEASE must be a duration of at least 10m, got %q", v)
+			}
+			cfg.CloneLease = d
+		}
 	}
 	return nil
 }

@@ -103,9 +103,9 @@ type Store interface {
 	Audit(ctx context.Context, subject string) ([]AuditEntry, error)
 	CreateCloneSchedule(ctx context.Context, c domain.CloneSchedule, user string, now time.Time) (domain.CloneSchedule, error)
 	CloneSchedules(ctx context.Context) ([]domain.CloneSchedule, error)
-	SetCloneScheduleEnabled(ctx context.Context, id string, enabled bool, now time.Time) (domain.CloneSchedule, error)
-	DeleteCloneSchedule(ctx context.Context, id string) error
-	ClaimDueClones(ctx context.Context, now time.Time) ([]domain.CloneSchedule, error)
+	SetCloneScheduleEnabled(ctx context.Context, id string, enabled bool, now time.Time, user string) (domain.CloneSchedule, error)
+	DeleteCloneSchedule(ctx context.Context, id, user string) error
+	ClaimDueClones(ctx context.Context, now time.Time, lease time.Duration) ([]domain.CloneSchedule, error)
 	RecordCloneRun(ctx context.Context, scheduleID string, started, finished time.Time, status, detail string) error
 	CloneRuns(ctx context.Context, scheduleID string) ([]CloneRun, error)
 }

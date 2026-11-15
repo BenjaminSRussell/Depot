@@ -353,7 +353,7 @@ func (a *API) MeterOnce(ctx context.Context, now time.Time) int {
 	if a.cfg.Meter == nil || a.cfg.FX == nil || a.cfg.CostRates == nil {
 		return 0
 	}
-	month := now.UTC().AddDate(0, -1, 0).Format("2006-01")
+	month := previousMonth(now)
 	provisions, err := a.store.Provisions(ctx)
 	if err != nil {
 		slog.Error("metering", "err", err)
@@ -365,7 +365,12 @@ func (a *API) MeterOnce(ctx context.Context, now time.Time) int {
 		if p.Status != domain.ProvisionDone {
 			continue
 		}
+		// Only "no statement for this month" lets the job go on: any other read error skips the tenant, so a manually restated
+		// statement is never overwritten on a database hiccup.
 		if _, err := a.store.Cost(ctx, p.TenantID, month); err == nil {
+			continue
+		} else if !isCostUnknown(err) {
+			slog.Error("metering: reading the statement", "tenant", p.TenantID, "month", month, "err", err)
 			continue
 		}
 		if rateErr != nil {
@@ -515,7 +520,7 @@ func (a *API) setScheduleEnabled(w http.ResponseWriter, r *http.Request) {
 		httpx.Fail(w, r, validation("enabled", "is required"))
 		return
 	}
-	c, err := a.store.SetCloneScheduleEnabled(r.Context(), id, *body.Enabled, a.now())
+	c, err := a.store.SetCloneScheduleEnabled(r.Context(), id, *body.Enabled, a.now(), actorOf(r))
 	if err != nil {
 		httpx.Fail(w, r, err)
 		return
@@ -528,7 +533,7 @@ func (a *API) deleteSchedule(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if err := a.store.DeleteCloneSchedule(r.Context(), id); err != nil {
+	if err := a.store.DeleteCloneSchedule(r.Context(), id, actorOf(r)); err != nil {
 		httpx.Fail(w, r, err)
 		return
 	}
@@ -555,14 +560,17 @@ func (a *API) CloneOnce(ctx context.Context) int {
 	if a.cfg.Cloner == nil {
 		return 0
 	}
-	due, err := a.store.ClaimDueClones(ctx, a.now())
+	lease := a.cloneLease()
+	due, err := a.store.ClaimDueClones(ctx, a.now(), lease)
 	if err != nil {
 		slog.Error("clone schedules", "err", err)
 		return 0
 	}
 	for _, c := range due {
 		started := a.now()
-		detail, err := a.cfg.Cloner.Clone(ctx, c)
+		runCtx, cancel := context.WithTimeout(ctx, lease-time.Minute)
+		detail, err := a.cfg.Cloner.Clone(runCtx, c)
+		cancel()
 		status := "OK"
 		if err != nil {
 			status, detail = "FAILED", err.Error()
@@ -607,4 +615,33 @@ func (c CommandCloner) Clone(ctx context.Context, s domain.CloneSchedule) (strin
 		return text, fmt.Errorf("%s clone: %w", name, err)
 	}
 	return text, nil
+}
+
+// previousMonth is the calendar month before now's, as YYYY-MM. It starts from the first of the month: AddDate on the 29th to 31st
+// would overflow into the current month (2026-03-30 minus one month is "March 2").
+func previousMonth(now time.Time) string {
+	n := now.UTC()
+	return time.Date(n.Year(), n.Month(), 1, 0, 0, 0, 0, time.UTC).AddDate(0, -1, 0).Format("2006-01")
+}
+
+func isCostUnknown(err error) bool {
+	var p *httpx.Problem
+	if errors.As(err, &p) {
+		return p.Code == domain.CodeCostUnknown
+	}
+	var rule *domain.Error
+	return errors.As(err, &rule) && rule.Code == domain.CodeCostUnknown
+}
+
+func actorOf(r *http.Request) string {
+	p, _ := tenant.FromContext(r.Context())
+	return p.UserID
+}
+
+// cloneLease is how long a claimed clone may run before another replica may claim the schedule again (Config.CloneLease, default 6 h).
+func (a *API) cloneLease() time.Duration {
+	if a.cfg.CloneLease > 2*time.Minute {
+		return a.cfg.CloneLease
+	}
+	return 6 * time.Hour
 }

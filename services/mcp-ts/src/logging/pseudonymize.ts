@@ -186,7 +186,8 @@ export function pseudonymizeRecord(record: Record<string, unknown>, keys: MacKey
 
 /** Whether logs are pseudonymized: always under the eu-data-boundary overlay of the cloud profile, and with LOG_PSEUDONYMIZE=true. */
 export function pseudonymizationEnabled(env: Record<string, string | undefined>): boolean {
-  if ((env.PASSAGE_CLOUD_PROFILE ?? "").trim().split("+").slice(1).includes("eu-data-boundary")) {
+  // Like platform/go/cloudprofile ParseSelector: each part is trimmed ("commercial + eu-data-boundary").
+  if ((env.PASSAGE_CLOUD_PROFILE ?? "").trim().split("+").map((p) => p.trim()).slice(1).includes("eu-data-boundary")) {
     return true;
   }
   return (env[ENV_PSEUDONYMIZE] ?? "").trim().toLowerCase() === "true";

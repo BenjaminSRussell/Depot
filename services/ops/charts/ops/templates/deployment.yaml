@@ -95,6 +95,8 @@ spec:
               value: "true"
             - name: OPS_CLONE_COMMAND
               value: {{ .Values.clone.command | quote }}
+            - name: OPS_CLONE_LEASE
+              value: {{ .Values.clone.lease | quote }}
 {{- end }}
 {{- if .Values.licensePublicKey }}
             - name: OPS_LICENSE_PUBLIC_KEY

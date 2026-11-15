@@ -76,6 +76,8 @@ type Config struct {
 	FX    FXSource
 	// Cloner runs the scheduled masked clones (tools/tenant-restore); nil leaves the schedules stored and never run.
 	Cloner CloneRunner
+	// CloneLease bounds one clone run and holds the schedule against a second replica (OPS_CLONE_LEASE, default 6h).
+	CloneLease time.Duration
 }
 
 // API is the ops HTTP surface.
@@ -88,6 +90,7 @@ type API struct {
 	breakGlassOpened atomic.Int64
 	breakGlassUses   atomic.Int64
 	sloBreaches      atomic.Int64
+	cloning          atomic.Bool
 }
 
 // New builds the API.

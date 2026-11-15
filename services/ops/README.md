@@ -117,8 +117,8 @@ The hourly tick (`OPS_CHECK_INTERVAL`) also runs: the licence user-count reporte
 full), the monthly metering job (last month's statement for every PROVISIONED tenant without one, from `OPS_METER_QUERIES`, `OPS_METER_MODEL_VERSION`, `OPS_USD_PER_EUR`,
 `OPS_COST_RATES`) and the clone job (`OPS_CLONE_ENABLED=true`, `OPS_CLONE_COMMAND`). Identity and print are reached with `PASSAGE_SERVICE_SIGNING_KEY(_FILE)` as the
 service principal `ops-reporter` in the operator tenant (grants `ops` -> `identity.ops.tenant-read` and `print.ops.render`; add ops's public key to those services'
-`PASSAGE_SERVICE_PUBLIC_KEYS`). `IDENTITY_URL`, `PRINT_URL`, `OPS_SELLER_NAME`. Per-operation SLOs: `SLO_OPERATIONS` (JSON array, chart `slo.operations`), shown under
-`operations` in `GET /v1/ops/slo`. Migrations: `0007_cdc_publication`, `0008_cdc_role_grants` (the `outbox-ops` connector), `0009_ops_part4`. New event:
+`PASSAGE_SERVICE_PUBLIC_KEYS`). `IDENTITY_URL`, `PRINT_URL`, `OPS_SELLER_NAME`. Per-operation SLOs: `SLO_OPERATIONS` (JSON array, chart `slo.operations`; per route across its methods, since the shared series have no method label, and a `method` field is refused), shown under
+`operations` in `GET /v1/ops/slo`. Migrations: `0007_cdc_publication`, `0008_cdc_role_grants` (the `outbox-ops` connector), `0009_ops_part4`, `0010_clone_lease` (clone leases, soft delete). A real `passage-ops tenant` run is refused until real adapters are wired in (the logging adapter fails a non-dry run, so nothing is reported DONE); clone runs execute in the background with a lease (`OPS_CLONE_LEASE`) and every schedule change and run is audited. New event:
 `tenant.decommissioned.v1`.
 
 ## Configuration

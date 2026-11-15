@@ -177,9 +177,23 @@ func TestEveryExecutorIsRequiredAndTheLogAdapterAdmitsItChangesNothing(t *testin
 	if _, err := (&Runner{Reporter: &fakeAPI{}}).Provision(context.Background(), tenantX); err == nil {
 		t.Fatal("missing executors accepted")
 	}
-	detail, err := LogAdapter{}.EnsureRealm(context.Background(), tenantX, false)
+	detail, err := LogAdapter{}.EnsureRealm(context.Background(), tenantX, true)
 	if err != nil || !strings.Contains(detail, "logged only") {
-		t.Fatalf("detail = %q err=%v", detail, err)
+		t.Fatalf("dry detail = %q err=%v", detail, err)
+	}
+	// A real run performs nothing, so it is an error and nothing is reported DONE.
+	if _, err := (LogAdapter{}).DropDatabases(context.Background(), tenantX, false); !errors.Is(err, ErrNotConfigured) {
+		t.Fatalf("real run with the log adapter: %v", err)
+	}
+	api := &fakeAPI{provisionDone: map[string]bool{}, decommissionDone: map[string]bool{}}
+	r := Runner{Exec: LogExecutors(nil), Reporter: api}
+	if _, err := r.Decommission(context.Background(), tenantX); !errors.Is(err, ErrNotConfigured) {
+		t.Fatalf("decommission with the log adapter: %v", err)
+	}
+	for _, rep := range api.reports {
+		if strings.HasSuffix(rep, ":DONE") {
+			t.Fatalf("a step nobody performed was reported DONE: %v", api.reports)
+		}
 	}
 	if err := LogExecutors(nil).validate(); err != nil {
 		t.Fatal(err)

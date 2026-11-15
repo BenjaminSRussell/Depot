@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -238,21 +239,29 @@ func scanSchedule(row pgx.Row) (domain.CloneSchedule, error) {
 	return c, err
 }
 
-// CreateCloneSchedule stores a validated schedule; its first run is due now. A second schedule with the same name is OPS-1737.
+// CreateCloneSchedule stores a validated schedule and audits it; its first run is due now. A second live schedule with the same name is OPS-1737.
 func (s *Postgres) CreateCloneSchedule(ctx context.Context, c domain.CloneSchedule, user string, now time.Time) (domain.CloneSchedule, error) {
 	id := ids.New()
-	c2, err := scanSchedule(s.pool.QueryRow(ctx, `insert into ops_clone_schedule (id, name, source_tenant, schema_name, masks_file, interval_hours, next_run_at, created_by)
-		values ($1::uuid, $2, $3::uuid, $4, $5, $6, $7, $8) returning `+scheduleCols, id, c.Name, c.SourceTenant, c.Schema, c.MasksFile, c.IntervalHours, now, user))
+	var made domain.CloneSchedule
+	err := pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
+		var err error
+		made, err = scanSchedule(tx.QueryRow(ctx, `insert into ops_clone_schedule (id, name, source_tenant, schema_name, masks_file, interval_hours, next_run_at, created_by)
+			values ($1::uuid, $2, $3::uuid, $4, $5, $6, $7, $8) returning `+scheduleCols, id, c.Name, c.SourceTenant, c.Schema, c.MasksFile, c.IntervalHours, now, user))
+		if err != nil {
+			return err
+		}
+		return audit(ctx, tx, user, "clone.schedule.created", c.SourceTenant, map[string]any{"schedule": id, "name": c.Name, "schema": c.Schema, "intervalHours": c.IntervalHours})
+	})
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) && pgErr.Code == "23505" {
 		return c, Problem(&domain.Error{Code: domain.CodeScheduleConflict, Detail: "a clone schedule named " + c.Name + " already exists"})
 	}
-	return c2, err
+	return made, err
 }
 
 // CloneSchedules lists the schedules by name.
 func (s *Postgres) CloneSchedules(ctx context.Context) ([]domain.CloneSchedule, error) {
-	rows, err := s.pool.Query(ctx, `select `+scheduleCols+` from ops_clone_schedule order by name`)
+	rows, err := s.pool.Query(ctx, `select `+scheduleCols+` from ops_clone_schedule where deleted_at is null order by name`)
 	if err != nil {
 		return nil, err
 	}
@@ -268,34 +277,54 @@ func (s *Postgres) CloneSchedules(ctx context.Context) ([]domain.CloneSchedule, 
 	return out, rows.Err()
 }
 
-// SetCloneScheduleEnabled turns a schedule on or off; turning it on makes it due now.
-func (s *Postgres) SetCloneScheduleEnabled(ctx context.Context, id string, enabled bool, now time.Time) (domain.CloneSchedule, error) {
-	c, err := scanSchedule(s.pool.QueryRow(ctx, `update ops_clone_schedule set enabled = $2, next_run_at = case when $2 and not enabled then $3 else next_run_at end
-		where id = $1::uuid returning `+scheduleCols, id, enabled, now))
-	if errors.Is(err, pgx.ErrNoRows) {
-		return c, Problem(&domain.Error{Code: domain.CodeScheduleUnknown, Detail: "no clone schedule " + id})
-	}
-	return c, err
+// SetCloneScheduleEnabled turns a schedule on or off (turning it on makes it due now) and audits the change.
+func (s *Postgres) SetCloneScheduleEnabled(ctx context.Context, id string, enabled bool, now time.Time, user string) (domain.CloneSchedule, error) {
+	var c domain.CloneSchedule
+	err := pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
+		var err error
+		c, err = scanSchedule(tx.QueryRow(ctx, `update ops_clone_schedule set enabled = $2, next_run_at = case when $2 and not enabled then $3 else next_run_at end
+			where id = $1::uuid and deleted_at is null returning `+scheduleCols, id, enabled, now))
+		if errors.Is(err, pgx.ErrNoRows) {
+			return &domain.Error{Code: domain.CodeScheduleUnknown, Detail: "no clone schedule " + id}
+		}
+		if err != nil {
+			return err
+		}
+		action := "clone.schedule.disabled"
+		if enabled {
+			action = "clone.schedule.enabled"
+		}
+		return audit(ctx, tx, user, action, c.SourceTenant, map[string]any{"schedule": c.ID, "name": c.Name})
+	})
+	return c, Problem(err)
 }
 
-// DeleteCloneSchedule removes a schedule and its runs.
-func (s *Postgres) DeleteCloneSchedule(ctx context.Context, id string) error {
-	tag, err := s.pool.Exec(ctx, `delete from ops_clone_schedule where id = $1::uuid`, id)
-	if err != nil {
-		return err
-	}
-	if tag.RowsAffected() == 0 {
-		return Problem(&domain.Error{Code: domain.CodeScheduleUnknown, Detail: "no clone schedule " + id})
-	}
-	return nil
+// DeleteCloneSchedule retires a schedule (soft delete: it stops running and leaves the list, its run history stays) and audits it.
+func (s *Postgres) DeleteCloneSchedule(ctx context.Context, id, user string) error {
+	err := pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
+		c, err := scanSchedule(tx.QueryRow(ctx, `update ops_clone_schedule set deleted_at = now(), enabled = false where id = $1::uuid and deleted_at is null returning `+scheduleCols, id))
+		if errors.Is(err, pgx.ErrNoRows) {
+			return &domain.Error{Code: domain.CodeScheduleUnknown, Detail: "no clone schedule " + id}
+		}
+		if err != nil {
+			return err
+		}
+		return audit(ctx, tx, user, "clone.schedule.deleted", c.SourceTenant, map[string]any{"schedule": c.ID, "name": c.Name})
+	})
+	return Problem(err)
 }
 
-// ClaimDueClones returns the enabled schedules due at now and moves each one's next_run_at forward by its interval in the same
-// statement, under a row lock that skips rows another replica holds, so a schedule is claimed (and run) by one replica per period.
-func (s *Postgres) ClaimDueClones(ctx context.Context, now time.Time) ([]domain.CloneSchedule, error) {
-	rows, err := s.pool.Query(ctx, `update ops_clone_schedule set next_run_at = $1::timestamptz + make_interval(hours => interval_hours)
-		where id in (select id from ops_clone_schedule where enabled and next_run_at <= $1 order by next_run_at for update skip locked)
-		returning `+scheduleCols, now)
+// ClaimDueClones returns the enabled schedules due at now and leases each for `lease`: a schedule with a run in flight (its lease
+// not expired) is not claimed again, and one whose run died is claimed again after the lease. A schedule of a tenant that has a
+// decommission is skipped. next_run_at moves only when the run is recorded (RecordCloneRun), so a lost run is retried, not skipped.
+// The claim is one statement under a row lock that skips rows another replica holds.
+func (s *Postgres) ClaimDueClones(ctx context.Context, now time.Time, lease time.Duration) ([]domain.CloneSchedule, error) {
+	rows, err := s.pool.Query(ctx, `update ops_clone_schedule set running_until = $1::timestamptz + make_interval(secs => $2)
+		where id in (select id from ops_clone_schedule where enabled and deleted_at is null and next_run_at <= $1
+		    and (running_until is null or running_until <= $1)
+		    and not exists (select 1 from ops_tenant_decommission d where d.customer_tenant = source_tenant)
+		  order by next_run_at for update skip locked)
+		returning `+scheduleCols, now, lease.Seconds())
 	if err != nil {
 		return nil, err
 	}
@@ -311,15 +340,19 @@ func (s *Postgres) ClaimDueClones(ctx context.Context, now time.Time) ([]domain.
 	return out, rows.Err()
 }
 
-// RecordCloneRun stores the outcome of a run and the schedule's last status.
+// RecordCloneRun stores the outcome of a run, releases the lease, sets the next run one interval after the run started, and audits it.
 func (s *Postgres) RecordCloneRun(ctx context.Context, scheduleID string, started, finished time.Time, status, detail string) error {
 	return pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
 		if _, err := tx.Exec(ctx, `insert into ops_clone_run (schedule_id, started_at, finished_at, status, detail) values ($1::uuid, $2, $3, $4, $5)`,
 			scheduleID, started, finished, status, detail); err != nil {
 			return err
 		}
-		_, err := tx.Exec(ctx, `update ops_clone_schedule set last_run_at = $2, last_status = $3 where id = $1::uuid`, scheduleID, finished, status)
-		return err
+		c, err := scanSchedule(tx.QueryRow(ctx, `update ops_clone_schedule set last_run_at = $2, last_status = $3, running_until = null,
+			next_run_at = $4::timestamptz + make_interval(hours => interval_hours) where id = $1::uuid returning `+scheduleCols, scheduleID, finished, status, started))
+		if err != nil {
+			return err
+		}
+		return audit(ctx, tx, "service:ops-clone", "clone.run."+strings.ToLower(status), c.SourceTenant, map[string]any{"schedule": c.ID, "name": c.Name, "startedAt": started})
 	})
 }
 

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
@@ -370,5 +371,143 @@ func TestCommandClonerRunsTenantRestoreWithTheSchedulesArguments(t *testing.T) {
 		if strings.Contains(a, "postgres://") {
 			t.Fatal("a database URL reached the command line")
 		}
+	}
+}
+
+func TestPreviousMonthNeverOverflowsOnTheEndOfAMonth(t *testing.T) {
+	for now, want := range map[string]string{
+		"2026-03-30T04:00:00Z": "2026-02", "2026-03-29T04:00:00Z": "2026-02", "2026-03-31T23:59:00Z": "2026-02",
+		"2026-05-31T04:00:00Z": "2026-04", "2026-12-31T04:00:00Z": "2026-11", "2026-01-15T00:00:00Z": "2025-12", "2026-11-01T00:00:00Z": "2026-10",
+	} {
+		ts, _ := time.Parse(time.RFC3339, now)
+		if got := previousMonth(ts); got != want {
+			t.Errorf("previousMonth(%s) = %s, want %s", now, got, want)
+		}
+	}
+}
+
+func TestMeteringOnTheLastDaysOfAMonthBillsTheFinishedMonth(t *testing.T) {
+	now := time.Date(2026, 3, 30, 4, 0, 0, 0, time.UTC)
+	rates := mustRates(t)
+	meter := &fakeMeter{}
+	e := newEnv3(t, now, func(c *Config) { c.CostRates = &rates; c.Meter = meter; c.FX = StaticFX("1.08") })
+	tid := provisionTenant(t, e, "Cedar Ridge Pumps")
+	_, _ = e.admin.Exec(context.Background(), `update ops_tenant_provision set status = 'PROVISIONED' where customer_tenant = $1`, tid)
+	if n := e.api.MeterOnce(context.Background(), now); n != 1 || len(meter.calls) != 1 || meter.calls[0] != tid+" 2026-02" {
+		t.Fatalf("metered %d, calls %v", n, meter.calls)
+	}
+}
+
+func TestCostUnknownIsTheOnlyReadErrorThatLetsMeteringGoOn(t *testing.T) {
+	if !isCostUnknown(store.Problem(&domain.Error{Code: domain.CodeCostUnknown})) {
+		t.Fatal("not-found should allow metering")
+	}
+	if isCostUnknown(errors.New("connection reset")) || isCostUnknown(store.Problem(&domain.Error{Code: domain.CodeCostInvalid})) {
+		t.Fatal("another error must not")
+	}
+}
+
+func TestMeterQueryGapsAreErrorsNotZeros(t *testing.T) {
+	answers := map[string]string{
+		"empty": `{"status":"success","data":{"result":[]}}`,
+		"nan":   `{"status":"success","data":{"result":[{"metric":{},"value":[1,"NaN"]}]}}`,
+		"inf":   `{"status":"success","data":{"result":[{"metric":{},"value":[1,"+Inf"]}]}}`,
+		"two":   `{"status":"success","data":{"result":[{"metric":{},"value":[1,"1"]},{"metric":{},"value":[1,"2"]}]}}`,
+		"one":   `{"status":"success","data":{"result":[{"metric":{},"value":[1,"42.5"]}]}}`,
+	}
+	for name, body := range answers {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write([]byte(body)) }))
+		_, err := PromSource{URL: srv.URL}.scalar(context.Background(), "q", time.Now())
+		srv.Close()
+		if (name == "one") != (err == nil) {
+			t.Errorf("%s: err = %v", name, err)
+		}
+	}
+}
+
+func TestOperationSLOsRefuseAMethod(t *testing.T) {
+	if _, err := domain.ParseOperationSLOs(`[{"name":"a","service":"s","route":"/x","method":"POST"}]`); err == nil {
+		t.Fatal("a method was accepted although the series have no method label")
+	}
+}
+
+func TestCloneLeaseKeepsASecondReplicaOutAndAFailedLeaseIsRetried(t *testing.T) {
+	clock := time.Date(2026, 11, 10, 2, 0, 0, 0, time.UTC)
+	e := newEnv3(t, clock, func(c *Config) { c.Now = func() time.Time { return clock } })
+	ctx := context.Background()
+	src := ids.New()
+	s, err := e.api.store.CreateCloneSchedule(ctx, domain.CloneSchedule{Name: "n", SourceTenant: src, Schema: "party", MasksFile: "m", IntervalHours: 1}, "alice", clock)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lease := 2 * time.Hour
+	if got, _ := e.api.store.ClaimDueClones(ctx, clock, lease); len(got) != 1 {
+		t.Fatalf("first claim = %d", len(got))
+	}
+	// A second replica, a day into a "long" clone's lease, claims nothing; after the lease expires the lost run is claimed again.
+	if got, _ := e.api.store.ClaimDueClones(ctx, clock.Add(time.Hour), lease); len(got) != 0 {
+		t.Fatalf("a schedule with a run in flight was claimed again: %d", len(got))
+	}
+	if got, _ := e.api.store.ClaimDueClones(ctx, clock.Add(3*time.Hour), lease); len(got) != 1 {
+		t.Fatalf("a dead run was not retried after its lease: %d", len(got))
+	}
+	// Recording the run releases the lease and moves the next run one interval after the start.
+	if err := e.api.store.RecordCloneRun(ctx, s.ID, clock, clock.Add(10*time.Minute), "OK", "done"); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := e.api.store.ClaimDueClones(ctx, clock.Add(30*time.Minute), lease); len(got) != 0 {
+		t.Fatalf("claimed before the next period: %d", len(got))
+	}
+	if got, _ := e.api.store.ClaimDueClones(ctx, clock.Add(61*time.Minute), lease); len(got) != 1 {
+		t.Fatalf("not claimed in the next period: %d", len(got))
+	}
+}
+
+func TestCloneScheduleChangesAreAuditedHistorySurvivesDeleteAndDecommissionedTenantsAreSkipped(t *testing.T) {
+	clock := time.Date(2026, 11, 10, 2, 0, 0, 0, time.UTC)
+	cl := &fakeCloner{}
+	dir := &fakeDirectory{status: "suspended"}
+	e := newEnv3(t, clock, func(c *Config) { c.Cloner = cl; c.Directory = dir; c.Now = func() time.Time { return clock } })
+	src := provisionTenant(t, e, "Cedar Ridge Pumps")
+	body := `{"name":"nightly","sourceTenant":"` + src + `","schema":"party","masksFile":"/m.json","intervalHours":24}`
+	var sched domain.CloneSchedule
+	decodeJSON(t, e.do("POST", "/v1/ops/clone-schedules", "alice", DutyCloneSchedule, "", body), &sched)
+	if n := e.api.CloneOnce(context.Background()); n != 1 {
+		t.Fatalf("ran %d", n)
+	}
+	e.do("PUT", "/v1/ops/clone-schedules/"+sched.ID, "bob", DutyCloneSchedule, "", `{"enabled":false}`)
+	e.do("PUT", "/v1/ops/clone-schedules/"+sched.ID, "bob", DutyCloneSchedule, "", `{"enabled":true}`)
+	// Decommissioning the source tenant stops its schedule.
+	if rec := e.do("POST", "/v1/ops/tenants/"+src+":decommission", "alice", DutyDecommission, "", `{"reason":"gone"}`); rec.Code != http.StatusCreated {
+		t.Fatalf("decommission = %d %s", rec.Code, rec.Body)
+	}
+	clock = clock.Add(72 * time.Hour)
+	if n := e.api.CloneOnce(context.Background()); n != 0 {
+		t.Fatalf("a decommissioned tenant's schedule ran %d", n)
+	}
+	if rec := e.do("DELETE", "/v1/ops/clone-schedules/"+sched.ID, "carol", DutyCloneSchedule, "", ""); rec.Code != http.StatusNoContent {
+		t.Fatalf("delete = %d", rec.Code)
+	}
+	// The run history outlives the schedule, and a second schedule may reuse the name.
+	var n int
+	if err := e.admin.QueryRow(context.Background(), `select count(*) from ops_clone_run where schedule_id = $1`, sched.ID).Scan(&n); err != nil || n != 1 {
+		t.Fatalf("runs after delete = %d (%v)", n, err)
+	}
+	if rec := e.do("POST", "/v1/ops/clone-schedules", "alice", DutyCloneSchedule, "", body); rec.Code != http.StatusCreated {
+		t.Fatalf("reusing a deleted schedule's name = %d %s", rec.Code, rec.Body)
+	}
+	trail, err := e.api.store.Audit(context.Background(), src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got []string
+	for _, a := range trail {
+		if strings.HasPrefix(a.Action, "clone.") {
+			got = append(got, a.Action+"/"+a.Actor)
+		}
+	}
+	want := "clone.schedule.created/alice,clone.run.ok/service:ops-clone,clone.schedule.disabled/bob,clone.schedule.enabled/bob,clone.schedule.deleted/carol,clone.schedule.created/alice"
+	if strings.Join(got, ",") != want {
+		t.Fatalf("audit = %v", got)
 	}
 }

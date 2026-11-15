@@ -162,7 +162,9 @@ def pseudonymize_record(record: Mapping[str, Any], keys: MacKeys | None, tenant_
 
 def enabled(env: Mapping[str, str]) -> bool:
     """On under the eu-data-boundary overlay and with LOG_PSEUDONYMIZE=true."""
-    if "eu-data-boundary" in env.get("PASSAGE_CLOUD_PROFILE", "").split("+")[1:]:
+    # Like platform/go/cloudprofile ParseSelector: the value and each part are trimmed ("commercial + eu-data-boundary", a trailing newline).
+    parts = [p.strip() for p in env.get("PASSAGE_CLOUD_PROFILE", "").strip().split("+")]
+    if "eu-data-boundary" in parts[1:]:
         return True
     return env.get(ENV_PSEUDONYMIZE, "").strip().lower() == "true"
 
@@ -181,7 +183,12 @@ class PseudonymizingFilter(logging.Filter):
         extras = {k: v for k, v in record.__dict__.items() if k not in _STANDARD}
         tenant_id = tenant.get() or _find_tenant(extras)
         s = _Scrubber(self.keys, tenant_id)
-        record.msg, record.args = s.text(record.getMessage()), None
+        # The message stays a format string with its arguments (uvicorn's AccessFormatter unpacks a 5-tuple from args), each scrubbed.
+        record.msg = s.text(str(record.msg))
+        if isinstance(record.args, tuple):
+            record.args = tuple(s.value("", a) for a in record.args)
+        elif isinstance(record.args, Mapping):
+            record.args = {k: s.value("", a) for k, a in record.args.items()}
         for k, v in extras.items():
             record.__dict__[k] = s.value(k, v)
         if record.exc_info and record.exc_info[0] is not None:

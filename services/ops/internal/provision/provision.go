@@ -4,7 +4,7 @@
 // DryRun, which asks each adapter what it would do and changes nothing. Every adapter call is idempotent: a step that already
 // holds is a success, so a rerun resumes at the first step the API does not have as DONE.
 //
-// The adapters in this package are LogAdapter only: it records what would change and changes nothing, because the repository has
+// The adapters in this package are LogAdapter only: it records what would change, changes nothing, and fails a real run (ErrNotConfigured), because the repository has
 // no Keycloak admin, database owner, Kafka admin or lakehouse client the ops service can use (identity holds the Keycloak admin
 // client in its own module). A real adapter implements the same four interfaces and is passed in where Executors is built.
 package provision
@@ -217,6 +217,9 @@ func truncate(s string) string {
 // for the system exists; its detail says so, so a step it "completes" is visible in the API as not performed.
 type LogAdapter struct{ Log *slog.Logger }
 
+// ErrNotConfigured is what the LogAdapter answers to a real (not dry) run: it performed nothing, so no step may be reported DONE.
+var ErrNotConfigured = errors.New("no adapter is configured for this system: nothing was changed (dry runs still work)")
+
 func (a LogAdapter) note(system, verb string, t Tenant, dry bool) (string, error) {
 	log := a.Log
 	if log == nil {
@@ -224,6 +227,11 @@ func (a LogAdapter) note(system, verb string, t Tenant, dry bool) (string, error
 	}
 	msg := fmt.Sprintf("logged only, no %s adapter is configured: would %s for tenant %s in region %s", system, verb, t.ID, t.Region)
 	log.Info("provision step", "system", system, "verb", verb, "tenant", t.ID, "dryRun", dry)
+	if !dry {
+		// A step that changed nothing must never become DONE: the tenant would reach PROVISIONED or DECOMMISSIONED, with its event
+		// and audit entry, without anything having happened.
+		return "", fmt.Errorf("%s: %w (would %s)", system, ErrNotConfigured, verb)
+	}
 	return msg, nil
 }
 

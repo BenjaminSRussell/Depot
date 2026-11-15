@@ -90,6 +90,7 @@ class TestInstallLogging(unittest.TestCase):
         for env, want in (
             ({}, False), ({"LOG_PSEUDONYMIZE": "false"}, False), ({"LOG_PSEUDONYMIZE": "true"}, True),
             ({"PASSAGE_CLOUD_PROFILE": "gcc"}, False), ({"PASSAGE_CLOUD_PROFILE": "commercial+eu-data-boundary"}, True),
+            ({"PASSAGE_CLOUD_PROFILE": "commercial + eu-data-boundary"}, True), ({"PASSAGE_CLOUD_PROFILE": "commercial+eu-data-boundary\n"}, True),
         ):
             self.assertEqual(lp.install_logging(env), want, env)
             self.tearDown()
@@ -104,6 +105,20 @@ class TestInstallLogging(unittest.TestCase):
         self.assertNotIn("203.0.113.9", out)
         self.assertNotIn("jane.doe", out)
         self.assertIn("GET", out)
+
+    def test_uvicorns_access_formatter_still_formats_the_scrubbed_record(self):
+        from uvicorn.logging import AccessFormatter
+
+        self.assertTrue(lp.install_logging({"LOG_PSEUDONYMIZE": "true", **ENV_KEYS}))
+        record = logging.LogRecord("uvicorn.access", logging.INFO, "", 0, '%s - "%s %s HTTP/%s" %d',
+                                   ("203.0.113.9:51234", "GET", "/v1/users/jane.doe@example.com", "1.1", 200), None)
+        for f in logging.getLogger("uvicorn.access").filters:
+            f.filter(record)
+        line = AccessFormatter('%(client_addr)s - "%(request_line)s" %(status_code)s', use_colors=False).format(record)
+        self.assertNotIn("203.0.113.9", line)
+        self.assertNotIn("jane.doe", line)
+        self.assertIn("GET", line)
+        self.assertIn("200", line)
 
     def test_it_filters_uvicorns_own_loggers(self):
         self.assertTrue(lp.install_logging({"LOG_PSEUDONYMIZE": "true", **ENV_KEYS}))

@@ -152,3 +152,19 @@ func TestTenantDryRunAsksTheAdaptersAndReportsNothing(t *testing.T) {
 		}
 	}
 }
+
+func TestTenantRealRunWithoutAdaptersIsRefusedBeforeTheAPIIsTouched(t *testing.T) {
+	api := &tenantAPI{}
+	srv := httptest.NewServer(api)
+	defer srv.Close()
+	env := map[string]string{"OPS_API_URL": srv.URL}
+	for _, args := range [][]string{{"tenant", "provision", "--tenant", "t1"}, {"tenant", "decommission", "--tenant", "t1", "--reason", "x"}} {
+		err := run(context.Background(), args, &bytes.Buffer{}, func(k string) string { return env[k] }, deps{httpClient: srv.Client()})
+		if err == nil || !strings.Contains(err.Error(), "only --dry-run") {
+			t.Fatalf("%v: %v", args, err)
+		}
+	}
+	if len(api.requests) != 0 {
+		t.Fatalf("the API was called: %v", api.requests)
+	}
+}

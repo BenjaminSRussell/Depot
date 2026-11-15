@@ -9,7 +9,7 @@ import (
 )
 
 // Per-operation SLOs (PSG-50, FR-50.1). An operation is one route of one service (the chi route pattern the shared HTTP series
-// carry as the route label, for example POST /v1/ledger/journal-entries), with its own availability and p95 objectives. The
+// carry as the route label, for example /v1/ledger/journal-entries, across every method registered on it: the series have no method label), with its own availability and p95 objectives. The
 // figures are read from the same series as the per-service report; the objectives come from configuration (SLO_OPERATIONS).
 
 // OperationSLO is one objective: a service (scrape job) and a route pattern, with its targets. A zero target falls back to the
@@ -26,7 +26,11 @@ type OperationSLO struct {
 // "latencyP95Ms":500}]`. Names are unique; a service and a route are required; an availability is a fraction below 1.
 func ParseOperationSLOs(raw string) ([]OperationSLO, error) {
 	var ops []OperationSLO
-	if err := json.Unmarshal([]byte(raw), &ops); err != nil {
+	dec := json.NewDecoder(strings.NewReader(raw))
+	// The shared series (http_requests_total{route,status}, http_request_duration_seconds{route}) carry no method, so an objective is per
+	// route across all its methods; a method in the configuration is refused rather than silently measuring something else.
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&ops); err != nil {
 		return nil, fail(CodeSLOInvalid, "SLO operations must be a JSON array of objects: %v", err)
 	}
 	seen := map[string]bool{}

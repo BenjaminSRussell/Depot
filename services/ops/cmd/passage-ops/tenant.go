@@ -46,6 +46,9 @@ func runTenant(ctx context.Context, args []string, out io.Writer, getenv func(st
 		if exec, err = d.provisioners(getenv); err != nil {
 			return err
 		}
+	} else if !dry {
+		// Only the logging adapter exists: it changes nothing, so a real run would have nothing to report. Refuse before the API is touched.
+		return fmt.Errorf("%w: only --dry-run is available until adapters for Keycloak, the databases, Kafka and the lakehouse are wired in", provision.ErrNotConfigured)
 	}
 	rep := apiReporter{c: c}
 	runner := &provision.Runner{Exec: exec, Reporter: rep, DryRun: dry}

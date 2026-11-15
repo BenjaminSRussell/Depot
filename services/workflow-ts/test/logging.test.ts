@@ -128,6 +128,8 @@ describe("recordScrubber and jsonLine", () => {
     expect(pseudonymizationEnabled({})).toBe(false);
     expect(pseudonymizationEnabled({ PASSAGE_CLOUD_PROFILE: "gcc" })).toBe(false);
     expect(pseudonymizationEnabled({ PASSAGE_CLOUD_PROFILE: "commercial+eu-data-boundary", LOG_PSEUDONYMIZE: "false" })).toBe(true);
+    expect(pseudonymizationEnabled({ PASSAGE_CLOUD_PROFILE: "commercial + eu-data-boundary" })).toBe(true);
+    expect(pseudonymizationEnabled({ PASSAGE_CLOUD_PROFILE: "commercial+eu-data-boundary\n" })).toBe(true);
     const { log, lines } = capture({});
     log({ message: "x", email: "jane@example.com" });
     expect(lines[0]).toContain("jane@example.com");

@@ -44,6 +44,8 @@ metering:
 clone:
   enabled: false
   command: tenant-restore
+  # How long one clone may run; a schedule with a run in flight is not claimed again, and a lost run is retried after this.
+  lease: 6h
 # How often the licence check and the SLO check run.
 checkInterval: 1h
 # The platform operator's tenant (identity's IDENTITY_OPERATOR_TENANT_ID). The ops routes serve this tenant only; the

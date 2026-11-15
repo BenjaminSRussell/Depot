@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -424,8 +425,15 @@ func (a *API) CheckOnce(ctx context.Context) {
 	if n := a.MeterOnce(ctx, a.now()); n > 0 {
 		slog.Info("cost statements produced", "count", n)
 	}
-	if n := a.CloneOnce(ctx); n > 0 {
-		slog.Info("masked clones run", "count", n)
+	// Clones can run for hours: they run in their own goroutine (one per replica at a time) so the licence and SLO checks below are never
+	// held up, and the schedule's lease keeps another replica from starting the same clone.
+	if a.cfg.Cloner != nil && a.cloning.CompareAndSwap(false, true) {
+		go func() {
+			defer a.cloning.Store(false)
+			if n := a.CloneOnce(ctx); n > 0 {
+				slog.Info("masked clones run", "count", n)
+			}
+		}()
 	}
 	if n, err := a.store.CheckLicenses(ctx, a.now()); err != nil {
 		slog.Error("licence check", "err", err)
@@ -612,13 +620,17 @@ func (p PromSource) scalar(ctx context.Context, q string, at time.Time) (decimal
 	if resp.StatusCode != http.StatusOK || body.Status != "success" {
 		return decimal.Zero, fmt.Errorf("prometheus answered %d: %s", resp.StatusCode, body.Error)
 	}
+	// An empty answer, NaN, Inf or several series is an error, never a zero: a metering gap must not become a billed zero.
 	if len(body.Data.Result) == 0 {
-		return decimal.Zero, nil
+		return decimal.Zero, errors.New("the query returned no series (is the tenant label on the metric?)")
+	}
+	if len(body.Data.Result) > 1 {
+		return decimal.Zero, fmt.Errorf("the query returned %d series; aggregate it with sum()", len(body.Data.Result))
 	}
 	raw, _ := body.Data.Result[0].Value[1].(string)
 	v, err := decimal.NewFromString(raw)
 	if err != nil {
-		return decimal.Zero, nil // NaN: no observation
+		return decimal.Zero, fmt.Errorf("the query returned %q, not a number", raw)
 	}
 	return v, nil
 }
