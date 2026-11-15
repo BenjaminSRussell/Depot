@@ -261,3 +261,71 @@ func (e stagedEnv) startPack2(t *testing.T, path, body string) string {
 	}
 	return decode[runDetailDTO](t, rec).RunID
 }
+
+func wipBodyReq(extra string) string {
+	return fmt.Sprintf(`{"legalEntityId":%q,"siteId":%q,"warehouseId":%q,"openingDate":"2027-01-01","ledgerId":%q%s}`, leA, siteA, whA, ledgerA, extra)
+}
+
+func wip(id, order, item, material, labor, overhead, extra string) string {
+	return fmt.Sprintf(`{"legacyId":%q,"productionOrder":%q,"item":%q,"currency":"USD","material":%q,"labor":%q,"overhead":%q%s}`, id, order, item, material, labor, overhead, extra)
+}
+
+// Open production orders go to production with their open quantity and WIP, the items are found through the cross-reference, the opening journal is
+// booked, and the target's totals reconcile; a line without a quantity or with an unmapped item is rejected with its reason (#49).
+func TestStagedLoad_WIPOrdersGoToProductionAndTheJournalIsBooked(t *testing.T) {
+	e := newStagedEnv(t)
+	run := e.startStaged(t, "wip_prod", `"FG-1","FG-2","FG-3"`,
+		wip("W-1", "PRD-1", "FG-1", "100.50", "20", "5", `,"quantityOpen":"10","deliveryDate":"2027-02-01"`),
+		wip("W-2", "PRD-2", "FG-2", "7", "0", "0", `,"quantityOpen":"4"`))
+	got := e.stagedLoad(t, run.RunID, wipBodyReq(""), http.StatusOK)
+	if got.Status != "RECONCILED" || !got.Clean || got.Loaded != 2 || got.Pack != "wip_prod" {
+		t.Fatalf("load %+v", got)
+	}
+	keys := e.production.Batches()
+	if len(keys) != 1 || !strings.HasPrefix(keys[0], "mf-wipprod-AX2012-") || e.production.Extra(keys[0])["openingDate"] != "2027-01-01" {
+		t.Fatalf("production batches %v", keys)
+	}
+	posts := e.production.JournalRequests()
+	if len(posts) != 1 || posts[0]["ledgerId"] != ledgerA || posts[0]["legalEntityId"] != leA {
+		t.Fatalf("journal requests %v", posts)
+	}
+	for _, c := range e.production.Calls() {
+		if len(c.Duties) != 1 || (c.Method == http.MethodPost && strings.HasSuffix(c.Path, "opening-wip") && c.Duties[0] != "production.opening-wip.import") {
+			t.Fatalf("calls carry one duty each: %+v", c)
+		}
+	}
+	d := e.detail(t, run.RunID)
+	names := map[string]int{}
+	for _, c := range d.Reconciliation {
+		names[c.Name]++
+		if c.Status != "MATCH" {
+			t.Fatalf("reconciliation %+v", c)
+		}
+	}
+	if names["target.wip_prod.line_count"] != 1 || names["target.wip_prod.wipValue"] != 1 || names["target.wip_prod.material"] != 1 || names["target.wip_prod.labor"] != 1 || names["target.wip_prod.overhead"] != 1 {
+		t.Fatalf("reconciliation %+v", d.Reconciliation)
+	}
+	// What the legacy company's staged orders need is checked against everything the target holds, so a second run of the same company adds to it.
+	late := e.startStaged(t, "wip_prod", `"FG-1","FG-2","FG-3"`, wip("W-3", "PRD-3", "FG-3", "50", "0", "0", `,"quantityOpen":"1"`),
+		wip("W-4", "PRD-4", "FG-1", "9", "0", "0", ``), wip("W-5", "PRD-5", "FG-1", "9", "1", "0", `,"quantityOpen":"2"`))
+	l := e.stagedLoad(t, late.RunID, wipBodyReq(""), http.StatusOK)
+	// W-3: the item has no product; W-4: no quantity. W-5 loads. The company's expected total (5 orders) is not met, so the run is not reconciled.
+	if l.Loaded != 1 || l.Rejected != 2 || l.Status != "MISMATCH" {
+		t.Fatalf("late load %+v", l)
+	}
+	codes := map[string]string{}
+	for _, r := range e.detail(t, late.RunID).Rejects {
+		codes[r.LegacyID] = r.Code
+	}
+	if codes["W-3"] != "MIG-REF-UNRESOLVED" || codes["W-4"] != domain.CodeFieldRequired || len(codes) != 2 {
+		t.Fatalf("rejects %v", codes)
+	}
+	// The unmapped item gets a product and the line loads; only the missing quantity is left.
+	l = e.stagedLoad(t, late.RunID, wipBodyReq(fmt.Sprintf(`,"products":{"FG-3":%q}`, prodNut)), http.StatusOK)
+	if l.Loaded != 2 || l.Rejected != 1 {
+		t.Fatalf("with the mapping %+v", l)
+	}
+	if rec := e.do(t, "POST", "/api/v1/migration/runs/"+late.RunID+"/staged-load", fmt.Sprintf(`{"legalEntityId":%q,"siteId":%q,"warehouseId":%q,"openingDate":"2027-01-01"}`, leA, siteA, whA)); rec.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("no ledger: %d %s", rec.Code, rec.Body)
+	}
+}

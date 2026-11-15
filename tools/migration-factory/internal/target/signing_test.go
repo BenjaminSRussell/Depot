@@ -98,7 +98,10 @@ func TestServiceGrantForTheFactoryIsSeeded(t *testing.T) {
 	if assets := tenant.ServiceGrantTable()[target.ServiceName]["assets"]; !slices.Equal(slices.Sorted(slices.Values(assets)), []string{"assets.journal.post", "assets.opening-asset.import", "assets.opening-asset.read"}) {
 		t.Errorf("the grant for migration-factory -> assets must hold exactly the opening asset import duties and the journal post (#49), got %v", assets)
 	}
-	if other := tenant.ServiceGrantTable()[target.ServiceName]; len(other) != 9 {
-		t.Errorf("migration-factory is granted only receivables, payables (opening items), inventory, treasury, sales, purchasing and assets (opening imports), ledger (replay, compensations) and migration (cross-reference read), got %v", other)
+	if prod := tenant.ServiceGrantTable()[target.ServiceName]["production"]; !slices.Equal(slices.Sorted(slices.Values(prod)), []string{"production.journal.post", "production.opening-wip.import", "production.opening-wip.read"}) {
+		t.Errorf("the grant for migration-factory -> production must hold exactly the opening WIP import duties and the journal post (#49), got %v", prod)
+	}
+	if other := tenant.ServiceGrantTable()[target.ServiceName]; len(other) != 10 {
+		t.Errorf("migration-factory is granted only receivables, payables (opening items), inventory, treasury, sales, purchasing, assets and production (opening imports), ledger (replay, compensations) and migration (cross-reference read), got %v", other)
 	}
 }

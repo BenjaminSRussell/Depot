@@ -27,6 +27,7 @@ import (
 	"github.com/BenjaminSRussell/passage/platform/httpx"
 	"github.com/BenjaminSRussell/passage/platform/ids"
 	"github.com/BenjaminSRussell/passage/platform/ledgerclient"
+	"github.com/BenjaminSRussell/passage/platform/openingimport"
 	"github.com/BenjaminSRussell/passage/platform/tenant"
 	"github.com/BenjaminSRussell/passage/services/production/internal/domain"
 	"github.com/BenjaminSRussell/passage/services/production/internal/productclient"
@@ -105,17 +106,19 @@ type Config struct {
 
 // API holds the handlers and their counters.
 type API struct {
-	store    store.Store
-	cfg      Config
-	created  atomic.Int64
-	replayed atomic.Int64
-	moved    atomic.Int64
-	refused  atomic.Int64
-	posted   atomic.Int64
-	glBooked atomic.Int64
-	gl       store.GLBooks
-	ledger   ledgerclient.Ledger
-	products productclient.Resolver
+	store           store.Store
+	cfg             Config
+	created         atomic.Int64
+	replayed        atomic.Int64
+	moved           atomic.Int64
+	refused         atomic.Int64
+	posted          atomic.Int64
+	glBooked        atomic.Int64
+	gl              store.GLBooks
+	ledger          ledgerclient.Ledger
+	products        productclient.Resolver
+	opening         store.OpeningImporter
+	openingCounters *openingimport.Counters
 }
 
 // New returns the API over st.
@@ -127,6 +130,7 @@ func New(st store.Store, cfg Config) *API { return &API{store: st, cfg: cfg} }
 // the same middleware.
 func (a *API) Register(r chi.Router) {
 	r.Get("/readyz", a.ready)
+	a.registerOpening(r)
 	r.With(authz.RequireDuty(DutyRead)).Get("/v1/production/orders", a.listOrders)
 	r.With(authz.RequireDuty(DutyWrite)).Post("/v1/production/orders", a.createOrder)
 	r.With(authz.RequireDuty(DutyRead)).Get("/v1/production/planned-intake", a.listIntake)
@@ -194,6 +198,9 @@ func (a *API) Metrics() http.Handler {
 		fmt.Fprintf(w, "# HELP production_transitions_refused_total Commands and journal posts refused by the state machine, a guard or a precondition.\n# TYPE production_transitions_refused_total counter\nproduction_transitions_refused_total %d\n", a.refused.Load())
 		fmt.Fprintf(w, "# HELP production_journals_posted_total Production journals posted through :post.\n# TYPE production_journals_posted_total counter\nproduction_journals_posted_total %d\n", a.posted.Load())
 		fmt.Fprintf(w, "# HELP production_gl_entries_booked_total General-ledger entries booked from the WIP subledger.\n# TYPE production_gl_entries_booked_total counter\nproduction_gl_entries_booked_total %d\n", a.glBooked.Load())
+		if a.openingCounters != nil {
+			a.openingCounters.Write(w, "production_opening", "WIP")
+		}
 	})
 }
 

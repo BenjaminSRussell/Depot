@@ -132,7 +132,7 @@ func run(ctx context.Context, getenv func(string) string) error {
 		return fmt.Errorf("inventory client: %w", err)
 	}
 	st := store.New(pool).WithHolds(holds)
-	a := api.New(st, cfg)
+	a := api.New(st, cfg).WithOpeningWIP(st)
 	products, err := productclient.FromEnv(getenv)
 	if err != nil {
 		return fmt.Errorf("product client: %w", err)

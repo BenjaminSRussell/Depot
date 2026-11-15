@@ -1721,7 +1721,7 @@ test_integration_hub_reaches_only_render_and_xref_record if {
 }
 
 test_migration_factory_grant_reaches_only_the_receivables_import if {
-	data.service_grants["migration-factory"] == {"receivables": ["receivables.import.write", "receivables.view"], "payables": ["opening-item.import", "opening-item.import.read"], "inventory": ["inventory.import.write", "inventory.import.read", "inventory.read"], "sales": ["sales.opening-order.import", "sales.opening-order.read"], "purchasing": ["procurement.opening-order.import", "procurement.opening-order.read"], "assets": ["assets.opening-asset.import", "assets.opening-asset.read", "assets.journal.post"], "treasury": ["treasury.import.write", "treasury.import.read"], "ledger": ["ledger.entry.post", "ledger.balance.read", "ledger.ledger.lookup"], "migration": ["migration.xref.read"]}
+	data.service_grants["migration-factory"] == {"receivables": ["receivables.import.write", "receivables.view"], "payables": ["opening-item.import", "opening-item.import.read"], "inventory": ["inventory.import.write", "inventory.import.read", "inventory.read"], "sales": ["sales.opening-order.import", "sales.opening-order.read"], "purchasing": ["procurement.opening-order.import", "procurement.opening-order.read"], "assets": ["assets.opening-asset.import", "assets.opening-asset.read", "assets.journal.post"], "production": ["production.opening-wip.import", "production.opening-wip.read", "production.journal.post"], "treasury": ["treasury.import.write", "treasury.import.read"], "ledger": ["ledger.entry.post", "ledger.balance.read", "ledger.ledger.lookup"], "migration": ["migration.xref.read"]}
 	allowed("receivables.import.write", "POST", "/v1/receivables/open-items:batch")
 	allowed("receivables.view", "GET", "/v1/receivables/open-item-imports")
 	not allowed("receivables.view", "POST", "/v1/receivables/open-items:batch")
@@ -3490,6 +3490,13 @@ test_opening_order_import_duties_are_service_only_and_cover_only_their_route if 
 	allowed("assets.opening-asset.read", "GET", "/v1/assets/opening-assets")
 	not allowed("assets.opening-asset.read", "POST", "/v1/assets/opening-assets")
 	not allowed("assets.opening-asset.import", "POST", "/v1/assets")
+	data.duties["production.opening-wip.import"].service_only
+	data.duties["production.opening-wip.read"].service_only
+	allowed("production.opening-wip.import", "POST", "/v1/production/opening-wip")
+	not allowed("production.opening-wip.import", "GET", "/v1/production/opening-wip")
+	allowed("production.opening-wip.read", "GET", "/v1/production/opening-wip")
+	not allowed("production.opening-wip.read", "POST", "/v1/production/opening-wip")
+	not allowed("production.opening-wip.import", "POST", "/v1/production/orders")
 }
 
 test_prediction_feed_duty_is_service_only_and_the_prediction_service_holds_only_it if {
