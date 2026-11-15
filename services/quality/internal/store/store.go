@@ -47,6 +47,11 @@ type Store interface {
 	GetInstruments(ctx context.Context, ids []string) (map[string]domain.Instrument, error)
 	CalibrateInstrument(ctx context.Context, id string, calibrate func(domain.Instrument) (domain.Instrument, error)) (domain.Instrument, error)
 	ListInstruments(ctx context.Context, f InstrumentFilter) ([]domain.Instrument, error)
+	CreateOutcome(ctx context.Context, in domain.Outcome, key string) (domain.Outcome, bool, error)
+	GetOutcome(ctx context.Context, id string) (domain.Outcome, error)
+	ListOutcomes(ctx context.Context, f OutcomeFilter) ([]domain.Outcome, error)
+	UpdateOutcome(ctx context.Context, id string, expectedVersion int, name *string, active *bool) (domain.Outcome, error)
+	OutcomeIDsByCode(ctx context.Context, codes []string) (map[string]string, error)
 	CreateAssociation(ctx context.Context, in domain.Association, key string) (domain.Association, bool, error)
 	ListAssociations(ctx context.Context) ([]domain.Association, error)
 	CreateOrder(ctx context.Context, in domain.Order, key string) (domain.Order, bool, error)
@@ -580,16 +585,17 @@ func (s *Postgres) ListOrders(ctx context.Context, f OrderFilter) ([]domain.Orde
 func (s *Postgres) ListResults(ctx context.Context, orderID string) ([]domain.Result, error) {
 	out := []domain.Result{}
 	err := dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
-		rows, err := tx.Query(ctx, `select test_id, sample_no, retest_no, value_numeric::text, outcome_id, passed, instrument_id, recorded_by, recorded_at
-			from quality_result where `+ownTenant+` and quality_order_id = $1 order by sample_no, test_id, retest_no`, orderID)
+		rows, err := tx.Query(ctx, `select r.test_id, r.sample_no, r.retest_no, r.value_numeric::text, r.outcome_id, o.code, r.passed, r.instrument_id, r.recorded_by, r.recorded_at
+			from quality_result r left join quality_outcome o on o.tenant_id = r.tenant_id and o.id = r.outcome_id
+			where r.`+ownTenant+` and r.quality_order_id = $1 order by r.sample_no, r.test_id, r.retest_no`, orderID)
 		if err != nil {
 			return err
 		}
 		defer rows.Close()
 		for rows.Next() {
 			var r domain.Result
-			var value, outcome, instrument *string
-			if err := rows.Scan(&r.TestID, &r.SampleNo, &r.RetestNo, &value, &outcome, &r.Passed, &instrument, &r.RecordedBy, &r.RecordedAt); err != nil {
+			var value, outcome, outcomeCode, instrument *string
+			if err := rows.Scan(&r.TestID, &r.SampleNo, &r.RetestNo, &value, &outcome, &outcomeCode, &r.Passed, &instrument, &r.RecordedBy, &r.RecordedAt); err != nil {
 				return err
 			}
 			if value != nil {
@@ -598,6 +604,9 @@ func (s *Postgres) ListResults(ctx context.Context, orderID string) ([]domain.Re
 			}
 			if outcome != nil {
 				r.OutcomeID = *outcome
+			}
+			if outcomeCode != nil {
+				r.OutcomeCode = *outcomeCode
 			}
 			if instrument != nil {
 				r.InstrumentID = *instrument

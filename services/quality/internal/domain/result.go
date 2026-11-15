@@ -32,15 +32,18 @@ type TestLine struct {
 
 // Result is one recorded result for a test on one sample (FR-33.4).
 type Result struct {
-	TestID       string           `json:"testId"`
-	SampleNo     int              `json:"sampleNo"`
-	RetestNo     int              `json:"retestNo"`
-	Value        *decimal.Decimal `json:"value,omitempty"`
-	OutcomeID    string           `json:"outcomeId,omitempty"`
-	Passed       bool             `json:"passed"`
-	InstrumentID string           `json:"instrumentId,omitempty"`
-	RecordedBy   string           `json:"recordedBy"`
-	RecordedAt   time.Time        `json:"recordedAt"`
+	TestID    string           `json:"testId"`
+	SampleNo  int              `json:"sampleNo"`
+	RetestNo  int              `json:"retestNo"`
+	Value     *decimal.Decimal `json:"value,omitempty"`
+	OutcomeID string           `json:"outcomeId,omitempty"`
+	// OutcomeCode is the code of the outcome in the master, set when reading results back; an outcome id that
+	// predates the master has none.
+	OutcomeCode  string    `json:"outcomeCode,omitempty"`
+	Passed       bool      `json:"passed"`
+	InstrumentID string    `json:"instrumentId,omitempty"`
+	RecordedBy   string    `json:"recordedBy"`
+	RecordedAt   time.Time `json:"recordedAt"`
 }
 
 // EvaluateVariable rounds v half-up (half away from zero, so -1.25 becomes -1.3
