@@ -365,16 +365,20 @@ func TestHTTP_SignatureMeaningComesFromTheStep(t *testing.T) {
 	message := func(id, step, order string, values string) *httptest.ResponseRecorder {
 		return messageAuthed(strconv.FormatInt(time.Now().Unix(), 10), id, step, order, values)
 	}
-	signed := `{"name":"signed-by","type":"text","value":"Ana Ruiz"}`
+	signed := `{"name":"signed-by","type":"text","value":"supervisor-1"}`
 	for name, authTime := range map[string]string{
 		"without an auth time":           "",
 		"with an unreadable auth time":   "yesterday",
 		"with a sign-in ten minutes ago": strconv.FormatInt(time.Now().Add(-10*time.Minute).Unix(), 10),
 	} {
 		rec := messageAuthed(authTime, rc.ID, "Reactor/Heat/Ramp/2", recipeOrder, signed)
-		if rec.Code != http.StatusUnauthorized || problemCode(t, rec) != domain.CodeSignatureReauth {
+		if rec.Code != http.StatusForbidden || problemCode(t, rec) != domain.CodeSignatureReauth {
 			t.Fatalf("a signature %s: %d %s", name, rec.Code, rec.Body)
 		}
+	}
+	// Someone else's name is not the caller's signature (SF-0189); the printed name of the signer is the caller's user id.
+	if rec := message(rc.ID, "Reactor/Heat/Ramp/2", recipeOrder, `{"name":"signed-by","type":"text","value":"Ana Ruiz"}`); rec.Code != http.StatusUnprocessableEntity || problemCode(t, rec) != domain.CodeSignatureSigner {
+		t.Fatalf("a signature naming another person: %d %s", rec.Code, rec.Body)
 	}
 	if rec := messageAuthed("", rc.ID+"y", "", recipeOrder, `{"name":"temperature","type":"numeric","value":"70"}`); rec.Code != http.StatusCreated {
 		t.Fatalf("a message without a signature needs no fresh sign-in: %d %s", rec.Code, rec.Body)
@@ -394,6 +398,16 @@ func TestHTTP_SignatureMeaningComesFromTheStep(t *testing.T) {
 	rec = message(rc.ID, "Reactor/Heat/Ramp/2", recipeOrder, signed)
 	if rec.Code != http.StatusCreated || !strings.Contains(rec.Body.String(), `"name":"signature-meaning","type":"text","value":"verified"`) {
 		t.Fatalf("a signature without a meaning gets the step's: %d %s", rec.Code, rec.Body)
+	}
+	// The signer and the sign-in time are stored with the signature; a retry after the sign-in has aged out gets the stored message.
+	var signer string
+	var authTime *time.Time
+	if err := admin.QueryRow(context.Background(), `select signer_user, signer_auth_time from process_message where source_message_id = $1`, rc.ID+":Reactor/Heat/Ramp/2").Scan(&signer, &authTime); err != nil || signer != "supervisor-1" || authTime == nil {
+		t.Fatalf("stored signer = %q %v, %v", signer, authTime, err)
+	}
+	old := strconv.FormatInt(time.Now().Add(-time.Hour).Unix(), 10)
+	if rec := messageAuthed(old, rc.ID, "Reactor/Heat/Ramp/2", recipeOrder, signed); rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"duplicate":true`) {
+		t.Fatalf("a retry of a stored signature after the window: %d %s", rec.Code, rec.Body)
 	}
 	if rec := message(rc.ID+"x", "", recipeOrder, `{"name":"temperature","type":"numeric","value":"70"}`); rec.Code != http.StatusCreated {
 		t.Fatalf("a message without a signature is not checked: %d %s", rec.Code, rec.Body)

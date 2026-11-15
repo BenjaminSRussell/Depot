@@ -829,3 +829,14 @@ logged warning on a failed delivery report, not an error response.
 
 Only the platform module and what it already pulls in (chi, pgx/v5, shopspring/decimal,
 google/uuid, rapid for tests). No new dependencies in this slice.
+
+
+## Electronic signatures need `auth_time` (#25)
+
+A PI signature step (a process message with `signed-by` or `signature-meaning`) is accepted only from a signed-in person whose
+token was issued by a login within `SHOPFLOOR_SIGNATURE_MAX_AUTH_AGE_SECONDS` (chart `config.signatureMaxAuthAgeSeconds`,
+default 300). The gateways forward the token's `auth_time` claim as `X-Passage-Auth-Time`. **The identity provider must put
+`auth_time` in access tokens and honour `prompt=login` / `max_age=0`.** Keycloak does by default; an IdP that does not
+(Entra ID v2 access tokens, for one) makes every signature fail with 403 SF-0188, whose detail then says the sign-in carries
+no authentication time. There is no switch to turn the check off. The signer's user id and the `auth_time` used are stored on
+the message (`signer_user`, `signer_auth_time`, migration 0031).

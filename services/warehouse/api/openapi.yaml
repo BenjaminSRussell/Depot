@@ -1069,10 +1069,11 @@ paths:
     put:
       operationId: updateRFIDRule
       summary: Edit an RFID rule (reader, antenna, action, warehouse, location, posting identity)
-      description: Takes the same body as creating a rule and replaces all of it; who created the rule and when stay.
+      description: Takes the same body as creating a rule and replaces all of it; who created the rule and when stay, and `version`, `updatedBy` and `updatedAt` record the edit. `If-Match` (the rule's `version`) is checked when sent; a stale one is 409 WMS-VERSION-CONFLICT.
       x-passage-duty: warehouse.setup.maintain
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: If-Match, in: header, required: false, schema: { type: string } }
       requestBody:
         required: true
         content:
@@ -1318,6 +1319,9 @@ components:
         locationCode: { type: string }
         createdBy: { type: string }
         createdAt: { type: string, format: date-time }
+        version: { type: integer, minimum: 1 }
+        updatedBy: { type: string }
+        updatedAt: { type: string, format: date-time }
     AutomationOrder:
       type: object
       required: [id, workId, lineNo, station, loadUnit, fromLocation, toLocation, priority, status, createdBy, createdAt]

@@ -175,7 +175,7 @@ function StepInput({ ins, entry, onChange, outOfLimit, problem }: { ins: Instruc
     // The signer states what the signature means (21 CFR 11.50): the confirmation travels as the entry's comment.
     return (
       <div className={styles.stack}>
-        <FormField id="pi-sign" label={`${MEANING_LABEL[ins.meaning ?? "performed"]}: your name`} hint="Type your name to sign this step." error={problem ?? undefined}>
+        <FormField id="pi-sign" label={`${MEANING_LABEL[ins.meaning ?? "performed"]}: your name`} hint="Type your name to confirm that you are the one signing. The signature is recorded for the user you are signed in as." error={problem ?? undefined}>
           {(control) => <Input {...control} autoComplete="off" value={entry.value} invalid={Boolean(problem)} onChange={(e) => onChange({ ...entry, value: e.target.value })} />}
         </FormField>
         <label className={styles.checkRow}>

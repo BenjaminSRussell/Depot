@@ -455,9 +455,12 @@ func ReadbackTolerance(nodeType string, written decimal.Decimal) decimal.Decimal
 // step in the recipe, or a meaning other than the step's (21 CFR 11.50). 422.
 const CodeSignatureStep = "SF-0186"
 
-// CodeSignatureReauth is SF-0188 (401): a signature needs the signer to have authenticated within the maximum age
+// CodeSignatureReauth is SF-0188 (403): a signature needs the signer to have authenticated within the maximum age
 // (21 CFR 11.200: the signer re-enters their credentials to sign). The caller signs in again and sends it once more.
 const CodeSignatureReauth = "SF-0188"
+
+// CodeSignatureSigner is SF-0189 (422): signed-by names someone other than the signed-in caller. A signature is the caller's own.
+const CodeSignatureSigner = "SF-0189"
 
 // SignatureStep finds the instruction a kiosk step key names: "unit procedure/operation/phase/seq", as the kiosk builds
 // it. ok is false when the recipe has no such instruction.

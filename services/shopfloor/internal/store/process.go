@@ -144,10 +144,10 @@ func ingestProcessMessageTx(ctx context.Context, tx pgx.Tx, tenantID string, in 
 	var out ProcessIngest
 	id := ids.New()
 	tag, err := tx.Exec(ctx, `insert into process_message (tenant_id, id, source, source_message_id, category_code, order_id, phase_path,
-				characteristics, occurred_at, received_at, status)
-			values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+				characteristics, occurred_at, received_at, status, signer_user, signer_auth_time)
+			values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, nullif($12, ''), $13)
 			on conflict (tenant_id, source, source_message_id) do nothing`,
-		p.TenantID, id, in.Source, in.SourceMessageID, in.CategoryCode, in.OrderID, in.PhasePath, raw, in.OccurredAt, now, status)
+		p.TenantID, id, in.Source, in.SourceMessageID, in.CategoryCode, in.OrderID, in.PhasePath, raw, in.OccurredAt, now, status, in.SignerUser, in.SignerAuthTime)
 	if err != nil {
 		return out, err
 	}

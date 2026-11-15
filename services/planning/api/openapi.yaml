@@ -649,7 +649,12 @@ paths:
           schema: {type: string, format: uuid}
         - name: q
           in: query
+          description: Part of the code (a plain substring; % and _ are ordinary characters).
           schema: {type: string, maxLength: 64}
+        - name: code
+          in: query
+          description: Exactly this code; used to resolve one model by its code.
+          schema: {type: string, maxLength: 20}
         - $ref: '#/components/parameters/Limit'
       responses:
         '200':

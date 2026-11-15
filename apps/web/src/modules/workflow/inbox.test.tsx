@@ -93,7 +93,7 @@ describe("My work inbox", () => {
   it("filters by type of work on the server, before paging", async () => {
     const user = userEvent.setup();
     server.handler = (url) => json(200, url.searchParams.get("source") === "payables" ? page({ items: [hold] }) : page());
-    mount();
+    mount(["payment-hold.manage", "party.approve"]);
     await findTable();
     await user.selectOptions(screen.getByLabelText("Type of work"), "Payment holds");
     await waitFor(() => expect(screen.getByRole("table")).not.toHaveTextContent("PR-1042"));
@@ -147,10 +147,18 @@ describe("My work inbox", () => {
     expect(screen.queryByRole("button", { name: "Load more" })).not.toBeInTheDocument();
   });
 
+  it("offers only the types of work the person holds a duty for", async () => {
+    server.handler = () => json(200, page());
+    mount(["party.approve"]);
+    await findTable();
+    const options = within(screen.getByLabelText("Type of work")).getAllByRole("option").map((o) => o.textContent);
+    expect(options).toEqual(["All types", "Customer changes"]);
+  });
+
   it("keeps the type filter on the next page", async () => {
     const user = userEvent.setup();
     server.handler = (url) => json(200, page({ nextCursor: url.searchParams.get("cursor") ? undefined : "next-1" }));
-    mount();
+    mount(["payment-hold.manage"]);
     await findTable();
     await user.selectOptions(screen.getByLabelText("Type of work"), "Payment holds");
     await user.click(await screen.findByRole("button", { name: "Load more" }));

@@ -3,6 +3,7 @@ import type { Location, Work, WorkLine } from "../../../modules/warehouse/api/cl
 import { ITEMS, KIND, WH_DAL, WH_FG, WH_RAW, WH_WIP, itemByNumber, type Warehouse } from "../../company";
 import { reply, route } from "../../backend";
 import { at, dec, table, uid } from "../../store";
+import { byUsername } from "../finance/people";
 
 const BASE = "/api/v1/warehouse";
 const K_WORK = 310;
@@ -93,15 +94,15 @@ function work(wh: Warehouse, type: string, status: Work["status"], priority: num
 }
 
 const works = table<Work>([
-  work(WH_RAW, "PURCHASE_PUTAWAY", "IN_PROGRESS", 20, 0.3, [wline(1, "SEAL-MK-125", "PUT", 180, 120)], "Luis Ortega"),
+  work(WH_RAW, "PURCHASE_PUTAWAY", "IN_PROGRESS", 20, 0.3, [wline(1, "SEAL-MK-125", "PUT", 180, 120)], byUsername("omar.siddiqui").id),
   work(WH_RAW, "PURCHASE_PUTAWAY", "OPEN", 20, 0.1, [wline(1, "RM-SS316-BAR", "PUT", 250, 0)]),
-  work(WH_RAW, "PRODUCTION_PICK", "ASSIGNED", 10, 0.2, [wline(1, "CST-IMP-06", "PICK", 12, 0), wline(2, "RM-SS316-BAR", "PICK", 18, 0)], "Marcus Bell"),
+  work(WH_RAW, "PRODUCTION_PICK", "ASSIGNED", 10, 0.2, [wline(1, "CST-IMP-06", "PICK", 12, 0), wline(2, "RM-SS316-BAR", "PICK", 18, 0)], byUsername("kevin.brandt").id),
   work(WH_RAW, "PRODUCTION_PICK", "OPEN", 10, 0.15, [wline(1, "MTR-5HP-TEFC", "PICK", 6, 0), wline(2, "FST-KIT-A", "PICK", 6, 0), wline(3, "BRG-6206", "PICK", 12, 0)]),
   work(WH_RAW, "REPLENISHMENT", "OPEN", 40, 0.5, [wline(1, "BRG-6206", "PICK", 200, 0)]),
-  work(WH_RAW, "PURCHASE_PUTAWAY", "COMPLETED", 20, 2.2, [wline(1, "BRG-6206", "PUT", 1000, 1000)], "Luis Ortega"),
+  work(WH_RAW, "PURCHASE_PUTAWAY", "COMPLETED", 20, 2.2, [wline(1, "BRG-6206", "PUT", 1000, 1000)], byUsername("omar.siddiqui").id),
   work(WH_RAW, "COUNT", "OPEN", 60, 1, [wline(1, "CST-VOL-04", "PICK", 31, 0)]),
   work(WH_WIP, "PRODUCTION_PICK", "OPEN", 10, 0.2, [wline(1, "SA-IMP-06", "PICK", 8, 0), wline(2, "SA-MTR-05", "PICK", 8, 0)]),
-  work(WH_FG, "SALES_PICK", "ASSIGNED", 10, 0.2, [wline(1, "CP-200", "PICK", 12, 0)], "Marcus Bell"),
+  work(WH_FG, "SALES_PICK", "ASSIGNED", 10, 0.2, [wline(1, "CP-200", "PICK", 12, 0)], byUsername("kevin.brandt").id),
   work(WH_FG, "SALES_PICK", "OPEN", 20, 0.1, [wline(1, "SP-150", "PICK", 30, 0)]),
   work(WH_FG, "SALES_PICK", "OPEN", 20, 0.05, [wline(1, "CP-400", "PICK", 6, 0), wline(2, "BRG-6206", "PICK", 40, 0)]),
   work(WH_DAL, "TRANSFER_RECEIPT", "OPEN", 30, 0.4, [wline(1, "CP-200", "PUT", 15, 0)]),

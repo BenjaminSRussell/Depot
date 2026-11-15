@@ -269,7 +269,7 @@ func (f *fakeStore) CreateRFIDRule(_ context.Context, r store.RFIDRule) (store.R
 func (f *fakeStore) ListRFIDRules(context.Context, string) ([]store.RFIDRule, error) {
 	return nil, f.err
 }
-func (f *fakeStore) UpdateRFIDRule(_ context.Context, _ string, r store.RFIDRule) (store.RFIDRule, error) {
+func (f *fakeStore) UpdateRFIDRule(_ context.Context, _ string, r store.RFIDRule, _ int) (store.RFIDRule, error) {
 	return r, f.err
 }
 func (f *fakeStore) DeleteRFIDRule(context.Context, string) error { return f.err }
@@ -819,10 +819,16 @@ func TestRFIDRuleEdit(t *testing.T) {
 	}
 	a := create(rule("dock-1", "RECEIVE_PALLET", ""))
 	b := create(rule("dock-2", "RECEIVE_PALLET", ""))
-	rec := call(h, req{method: "PUT", path: "/v1/warehouse/rfid-rules/" + a.ID, duties: dutySetupMaintain, body: rule("dock-1", "CONFIRM_PUTAWAY", "A-01"), user: "editor"})
+	rec := call(h, req{method: "PUT", path: "/v1/warehouse/rfid-rules/" + a.ID, duties: dutySetupMaintain, body: rule("dock-1", "CONFIRM_PUTAWAY", "A-01"), user: "editor", ifMatch: "1"})
 	var got store.RFIDRule
 	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil || rec.Code != 200 || got.Action != "CONFIRM_PUTAWAY" || got.LocationCode != "A-01" || got.CreatedBy != "admin" || got.ID != a.ID {
 		t.Fatalf("edit: %d %s", rec.Code, rec.Body)
+	}
+	if rec := call(h, req{method: "PUT", path: "/v1/warehouse/rfid-rules/" + a.ID, duties: dutySetupMaintain, body: rule("dock-1", "CONFIRM_PUTAWAY", "A-02"), user: "other", ifMatch: "1"}); rec.Code != 409 || problemOf(t, rec).Code != codeVersionConflict {
+		t.Fatalf("a stale edit: %d %s", rec.Code, rec.Body)
+	}
+	if got.Version != 2 || got.UpdatedBy != "editor" || got.UpdatedAt == nil {
+		t.Fatalf("version and editor: %+v", got)
 	}
 	if rec := call(h, req{method: "PUT", path: "/v1/warehouse/rfid-rules/" + b.ID, duties: dutySetupMaintain, body: rule("dock-1", "CONFIRM_PUTAWAY", "A-01"), user: "editor"}); rec.Code != 409 || problemOf(t, rec).Code != store.CodeRFIDRuleExists {
 		t.Fatalf("a second rule for the reader and action: %d %s", rec.Code, rec.Body)

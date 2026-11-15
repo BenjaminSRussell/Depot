@@ -4,7 +4,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { AccountProvider } from "../../shell/auth/account";
 import type { Auth } from "../../shell/auth/auth";
 import type { Session } from "../../shell/auth/oidc";
-import { ShopfloorApiError, type RecipeDocument } from "./api/client";
+import { SESSION_EXPIRED_EVENT } from "../../shell/api/http";
+import { createProcessMessage, ShopfloorApiError, type RecipeDocument } from "./api/client";
 import { PiSheetRunner } from "./PiSheetRunner";
 
 const session: Session = { accessToken: "t", refreshToken: undefined, idToken: undefined, expiresAt: 0, subject: "u-1", tenantId: "t-1", duties: [], name: "Ana Ruiz" };
@@ -56,7 +57,7 @@ async function signStep() {
 
 describe("signing a PI step needs a fresh sign-in", () => {
   it("offers to sign in again when the service refuses the signature, and returns to the same step", async () => {
-    const onRecord = vi.fn().mockRejectedValue(new ShopfloorApiError(401, "SF-0188", "you signed in 12 minutes ago; sign in again"));
+    const onRecord = vi.fn().mockRejectedValue(new ShopfloorApiError(403, "SF-0188", "you signed in 12 minutes ago; sign in again"));
     const { auth, view } = mount(onRecord, true);
     const user = await signStep();
     expect(await screen.findByText("Sign in again to sign this step")).toBeInTheDocument();
@@ -73,7 +74,7 @@ describe("signing a PI step needs a fresh sign-in", () => {
   });
 
   it("says to sign in again by hand where the build has no sign-in, and shows other failures as before", async () => {
-    mount(vi.fn().mockRejectedValue(new ShopfloorApiError(401, "SF-0188", "sign in again")), false);
+    mount(vi.fn().mockRejectedValue(new ShopfloorApiError(403, "SF-0188", "sign in again")), false);
     await signStep();
     expect(await screen.findByText("Sign in again to sign this step")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Sign in again" })).not.toBeInTheDocument();
@@ -85,5 +86,22 @@ describe("signing a PI step needs a fresh sign-in", () => {
     await signStep();
     await waitFor(() => expect(screen.getByText("The step was not saved")).toBeInTheDocument());
     expect(screen.queryByText("Sign in again to sign this step")).not.toBeInTheDocument();
+  });
+});
+
+describe("the refusal goes through the shell's request path", () => {
+  it("is a 403 the kiosk handles itself: it does not raise the session-expired banner, whose sign-in would not refresh auth_time", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ code: "SF-0188", detail: "sign in again" }), { status: 403, headers: { "Content-Type": "application/problem+json" } })));
+    const expired = vi.fn();
+    window.addEventListener(SESSION_EXPIRED_EVENT, expired);
+    try {
+      await expect(
+        createProcessMessage({ source: "kiosk", sourceMessageId: "r:s", categoryCode: "process-data", orderId: "o", phasePath: "p", occurredAt: "2026-11-01T00:00:00Z", values: [] }),
+      ).rejects.toMatchObject({ code: "SF-0188", status: 403 });
+      expect(expired).not.toHaveBeenCalled();
+    } finally {
+      window.removeEventListener(SESSION_EXPIRED_EVENT, expired);
+      vi.unstubAllGlobals();
+    }
   });
 });

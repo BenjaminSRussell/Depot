@@ -873,7 +873,7 @@ export const lookupDefs: Record<LookupEntityKey, LookupDef> = {
         items(await getJson(`/api/v1/planning/forecasts${query({ legalEntityId: scope.legalEntityId, q: q.trim() || undefined, limit: String(PAGE_SIZE) })}`, signal)).map(forecastModelOption),
       ),
     resolve: async (id, signal) =>
-      present(items(await getJson(`/api/v1/planning/forecasts${query({ q: id, limit: "50" })}`, signal)).map(forecastModelOption)).find((o) => o.id === id) ?? null,
+      present(items(await getJson(`/api/v1/planning/forecasts${query({ code: id, limit: "1" })}`, signal)).map(forecastModelOption)).find((o) => o.id === id) ?? null,
   },
   formula: listedEntity("formula", "/api/v1/production/formulas", codeAndName, () => ({ limit: "100" })),
   ecr: listedEntity(

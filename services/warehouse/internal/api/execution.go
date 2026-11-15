@@ -97,7 +97,7 @@ type Store interface {
 	CancelAutomationOrder(ctx context.Context, in store.CancelInput) (store.AutomationOrder, error)
 	CreateRFIDRule(ctx context.Context, r store.RFIDRule) (store.RFIDRule, error)
 	ListRFIDRules(ctx context.Context, readerID string) ([]store.RFIDRule, error)
-	UpdateRFIDRule(ctx context.Context, id string, r store.RFIDRule) (store.RFIDRule, error)
+	UpdateRFIDRule(ctx context.Context, id string, r store.RFIDRule, ifMatch int) (store.RFIDRule, error)
 	DeleteRFIDRule(ctx context.Context, id string) error
 	GetGS1Company(ctx context.Context) (store.GS1Company, error)
 	GetPalletLabel(ctx context.Context, sscc string) (store.PalletLabel, error)

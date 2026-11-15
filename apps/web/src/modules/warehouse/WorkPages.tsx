@@ -21,7 +21,7 @@ import {
 } from "./api/client";
 import styles from "./pages.module.css";
 import { ChooseWarehouse, DECIMAL, Detail, INTEGER, LINE_STATUS_TONES, Named, sentence, useLocationNames, useWarehouse, UUID, WarehouseField, when, WORK_STATUS_TONES } from "./shared";
-import { heldByStation, identityText, ReassignCard } from "./AutomationPages";
+import { heldByStation, Holder, ReassignCard } from "./AutomationPages";
 import { holdsDuty } from "../../shell/dutyGate";
 import { usePrincipalDuties } from "../../shell/principal";
 import { useLoad } from "./useLoad";
@@ -46,7 +46,7 @@ const workColumns: DataTableColumn<Work>[] = [
   { key: "workType", header: "Type", render: (w) => sentence(w.workType) },
   { key: "status", header: "Status", render: (w) => <Badge tone={WORK_STATUS_TONES[w.status] ?? "neutral"}>{sentence(w.status)}</Badge> },
   { key: "priority", header: "Priority", align: "end" },
-  { key: "assignedUser", header: "Assigned to", render: (w) => w.assignedUser || "—" },
+  { key: "assignedUser", header: "Assigned to", render: (w) => (w.assignedUser ? <Holder identity={w.assignedUser} /> : "—") },
   { key: "createdAt", header: "Created", mono: true, render: (w) => when(w.createdAt) },
 ];
 
@@ -485,7 +485,9 @@ export function WorkDetailPage() {
           </Detail>
           <Detail term="Type">{sentence(loaded.workType)}</Detail>
           <Detail term="Priority">{loaded.priority}</Detail>
-          <Detail term="Assigned to">{loaded.assignedUser ? identityText(loaded.assignedUser) : "Nobody"}</Detail>
+          <Detail term="Assigned to">
+            <Holder identity={loaded.assignedUser ?? ""} />
+          </Detail>
           <Detail term="Assigned at">{when(loaded.assignedAt)}</Detail>
           <Detail term="Created">{when(loaded.createdAt)}</Detail>
           <Detail term="Parent work">

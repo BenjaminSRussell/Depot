@@ -24,6 +24,7 @@ const rule = (readerId: string, action: RfidRule["action"], warehouseId: string,
   postedBy: GATEWAY,
   createdBy: ME.id,
   createdAt: at(-120),
+  version: 1,
   ...extra,
 });
 const rules = table<RfidRule>([
@@ -52,7 +53,7 @@ route("POST", `${BASE}/rfid-rules`, ({ body }) => {
   const { input, problem } = ruleBody(body);
   if (!input) return problem!;
   if (clash(input)) return reply.problem(409, "WMS-RFID-RULE-EXISTS", `reader ${input.readerId} has a ${input.action} rule for that antenna already`);
-  return reply.created(rules.insert({ ...input, id: crypto.randomUUID(), createdBy: ME.id, createdAt: at(0) }));
+  return reply.created(rules.insert({ ...input, id: crypto.randomUUID(), createdBy: ME.id, createdAt: at(0), version: 1 }));
 });
 route("PUT", `${BASE}/rfid-rules/{id}`, ({ params, body }) => {
   const current = rules.get(params.id);
@@ -60,7 +61,7 @@ route("PUT", `${BASE}/rfid-rules/{id}`, ({ params, body }) => {
   const { input, problem } = ruleBody(body);
   if (!input) return problem!;
   if (clash(input, current.id)) return reply.problem(409, "WMS-RFID-RULE-EXISTS", `reader ${input.readerId} has a ${input.action} rule for that antenna already`);
-  return reply.ok(rules.update(current.id, { ...input, antenna: input.antenna, locationCode: input.locationCode }));
+  return reply.ok(rules.update(current.id, { ...input, antenna: input.antenna, locationCode: input.locationCode, version: current.version + 1, updatedBy: ME.id, updatedAt: at(0) }));
 });
 
 // ---- Reads ------------------------------------------------------------------------------------------------------

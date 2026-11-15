@@ -37,6 +37,14 @@ const sourceNames: Record<string, string> = {
 /** The sources My work can be narrowed to (the server filters before paging). */
 export const INBOX_SOURCES = Object.keys(sourceNames);
 
+/** The duty that entitles a person to a source's work; the service reads a source only for a caller who holds it. */
+export const SOURCE_DUTIES: Record<string, string> = {
+  purchasing: "procurement.requisition.approve",
+  party: "party.approve",
+  ledger: "ledger.journal.approve",
+  payables: "payment-hold.manage",
+};
+
 export function sourceName(source: string): string {
   return sourceNames[source] ?? "other work";
 }

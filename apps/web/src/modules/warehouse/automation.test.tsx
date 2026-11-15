@@ -25,6 +25,7 @@ const rule: RfidRule = {
   postedBy: "rfid-gateway",
   createdBy: "admin",
   createdAt: "2026-10-27T08:00:00Z",
+  version: 3,
 };
 
 const read: RfidRead = {
@@ -129,6 +130,7 @@ describe("RFID rules", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save rule" }));
     expect(await findTable({ name: "RFID rules" })).toBeInTheDocument();
     const puts = server.calls.filter((c) => c.method === "PUT");
+    expect(new Headers(puts.at(-1)?.init.headers).get("If-Match")).toBe('"3"');
     expect(puts.at(-1)?.body).toEqual({ readerId: "dock-1", action: "CONFIRM_PUTAWAY", warehouseId: WH, locationCode: "A-01", postedBy: "rfid-gateway" });
   });
 });

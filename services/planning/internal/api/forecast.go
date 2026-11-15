@@ -287,7 +287,12 @@ func (a *API) listForecastModels(w http.ResponseWriter, r *http.Request) {
 		validationFailed(w, r, map[string]string{"q": "must be at most 64 characters"})
 		return
 	}
-	items, err := a.store.ListForecastModels(r.Context(), entity, search, limit)
+	code := strings.TrimSpace(q.Get("code"))
+	if len(code) > 20 {
+		validationFailed(w, r, map[string]string{"code": "must be at most 20 characters"})
+		return
+	}
+	items, err := a.store.ListForecastModels(r.Context(), entity, search, code, limit)
 	if err != nil {
 		httpx.Fail(w, r, err)
 		return

@@ -250,11 +250,12 @@ const forecastModel = {
 // The forecast model list the planning forecast pickers read (budget plan demand sources).
 route("GET", `${BASE}/forecasts`, ({ query }) => {
   const q = (query.get("q") ?? "").toLowerCase();
+  const exact = query.get("code");
   const rows = [
     { code: forecastModel.code, version: forecastModel.version, status: forecastModel.status, reductionPrinciple: forecastModel.reductionPrinciple, legalEntityId: null, publishedAt: forecastModel.publishedAt },
     { code: "FC-2027", version: 3, status: "published", reductionPrinciple: "percent", legalEntityId: null, publishedAt: at(-12) },
   ];
-  return { items: rows.filter((r) => q === "" || r.code.toLowerCase().includes(q)).sort((a, b) => a.code.localeCompare(b.code)) };
+  return { items: rows.filter((r) => (q === "" || r.code.toLowerCase().includes(q)) && (!exact || r.code === exact)).sort((a, b) => a.code.localeCompare(b.code)) };
 });
 const MONTHLY: Record<string, number[]> = {
   "CP-200": [118, 124, 96, 132, 140, 151],

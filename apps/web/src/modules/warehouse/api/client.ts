@@ -497,6 +497,10 @@ export interface RfidRule {
   postedBy: string;
   createdBy: string;
   createdAt: string;
+  /** The rule's version, sent as If-Match when it is edited. */
+  version: number;
+  updatedBy?: string;
+  updatedAt?: string;
 }
 
 export interface RfidRuleInput {
@@ -519,8 +523,8 @@ export function createRfidRule(input: RfidRuleInput) {
 }
 
 /** PUT /v1/warehouse/rfid-rules/{id} (duty warehouse.setup.maintain): replaces the rule. */
-export function updateRfidRule(id: string, input: RfidRuleInput) {
-  return send<RfidRule>(`/rfid-rules/${encodeURIComponent(id)}`, { method: "PUT", body: JSON.stringify(input) });
+export function updateRfidRule(rule: Pick<RfidRule, "id" | "version">, input: RfidRuleInput) {
+  return send<RfidRule>(`/rfid-rules/${encodeURIComponent(rule.id)}`, { method: "PUT", version: rule.version, body: JSON.stringify(input) });
 }
 
 export type RfidOutcome = "DONE" | "SKIPPED" | "REFUSED";

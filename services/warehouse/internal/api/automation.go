@@ -459,7 +459,13 @@ func (a *API) updateRFIDRule(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	out, err := a.st.UpdateRFIDRule(r.Context(), strings.ToLower(id), rule)
+	fields := map[string]string{}
+	version := ifMatchVersion(r, fields, "rule")
+	if len(fields) > 0 {
+		validationFailed(w, r, fields)
+		return
+	}
+	out, err := a.st.UpdateRFIDRule(r.Context(), strings.ToLower(id), rule, version)
 	if err != nil {
 		automationFail(w, r, err)
 		return

@@ -23,6 +23,7 @@ import {
 } from "../../shell/ui";
 import { ProblemMessage } from "../../shell/errors";
 import { EntityLookup } from "../../shell/lookup/EntityLookup";
+import { UserName } from "../../shell/lookup/UserName";
 import {
   cancelTransportOrder,
   createRfidRule,
@@ -79,6 +80,13 @@ export function identityText(identity: string): string {
   if (identity.startsWith("automation:")) return `Station ${identity.slice("automation:".length)}`;
   if (identity.startsWith("rfid:")) return `Reader ${identity.slice("rfid:".length)}`;
   return identity;
+}
+
+/** Who holds a work: a station or reader in words, a person by name. */
+export function Holder({ identity }: { identity: string }) {
+  if (identity === "") return <>Nobody</>;
+  if (identity.startsWith("automation:") || identity.startsWith("rfid:")) return <>{identityText(identity)}</>;
+  return <UserName id={identity} />;
 }
 
 /* ---------- RFID rules ---------- */
@@ -205,7 +213,7 @@ function RuleForm({ rule }: { rule?: RfidRule }) {
     if (!input) return;
     setBusy(true);
     try {
-      if (rule) await updateRfidRule(rule.id, input);
+      if (rule) await updateRfidRule(rule, input);
       else await createRfidRule(input);
       release();
       navigate("/warehouse/rfid-rules");
@@ -234,6 +242,11 @@ function RuleForm({ rule }: { rule?: RfidRule }) {
         title={editing ? `Rule for reader ${rule.readerId}` : "New RFID rule"}
         description="A reader has one rule for each antenna and action. Reads already acted on keep what was done."
       />
+      {rule?.updatedBy && rule.updatedAt ? (
+        <p className={styles.note}>
+          Last changed by <UserName id={rule.updatedBy} /> on {when(rule.updatedAt)}.
+        </p>
+      ) : null}
       <Card>
         <form className={styles.form} onSubmit={submit} noValidate aria-label={editing ? "RFID rule" : "New RFID rule"}>
           <FormErrorSummary items={summaryItems(errors, RULE_FIELDS)} attempt={attempt} />
@@ -255,7 +268,7 @@ function RuleForm({ rule }: { rule?: RfidRule }) {
           {text("postedBy", "Reads posted as", "The identity the reader's gateway posts its reads as. A read posted by anyone else is stored but runs no rule.", false, { maxLength: 200 })}
           {failure ? (
             <div className={styles.formActions}>
-              <Alert tone="danger" title={failure.code === "WMS-RFID-RULE-EXISTS" ? "This reader already has that rule" : "Could not save the rule"} live="alert">
+              <Alert tone="danger" title={failure.code === "WMS-RFID-RULE-EXISTS" ? "This reader already has that rule" : failure.code === "WMS-VERSION-CONFLICT" ? "Someone else changed this rule" : "Could not save the rule"} live="alert">
                 <ProblemMessage problem={failure} />
               </Alert>
             </div>

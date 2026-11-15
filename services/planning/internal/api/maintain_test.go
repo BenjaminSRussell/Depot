@@ -93,10 +93,10 @@ func (f *fakeStore) ListForecastLines(_ context.Context, code, _, _ string, _ in
 	return m, []store.ForecastLine{}, nil
 }
 
-func (f *fakeStore) ListForecastModels(_ context.Context, _, q string, limit int) ([]store.ForecastModelSummary, error) {
+func (f *fakeStore) ListForecastModels(_ context.Context, _, q, exact string, limit int) ([]store.ForecastModelSummary, error) {
 	out := []store.ForecastModelSummary{}
 	for code, m := range f.models {
-		if q == "" || strings.Contains(code, q) {
+		if (q == "" || strings.Contains(code, strings.ToUpper(q))) && (exact == "" || exact == code) {
 			out = append(out, store.ForecastModelSummary{Code: code, Version: m.Version, Status: m.Status, ReductionPrinciple: m.ReductionPrinciple})
 		}
 	}
@@ -422,7 +422,10 @@ func TestListForecastModelsNeedsTheReadDutyAndValidatesItsFilters(t *testing.T) 
 	if rec := do(t, st, http.MethodGet, "/v1/planning/forecasts?q=FC", "", "planning.read", true, ""); !strings.Contains(rec.Body.String(), "FC-2027") || strings.Contains(rec.Body.String(), "BASE") {
 		t.Fatalf("search: %s", rec.Body)
 	}
-	for _, bad := range []string{"?legalEntityId=nope", "?limit=0", "?q=" + strings.Repeat("x", 65)} {
+	if rec := do(t, st, http.MethodGet, "/v1/planning/forecasts?code=BASE", "", "planning.read", true, ""); !strings.Contains(rec.Body.String(), "BASE") || strings.Contains(rec.Body.String(), "FC-2027") {
+		t.Fatalf("exact code: %s", rec.Body)
+	}
+	for _, bad := range []string{"?code=" + strings.Repeat("x", 21), "?legalEntityId=nope", "?limit=0", "?q=" + strings.Repeat("x", 65)} {
 		if rec := do(t, st, http.MethodGet, "/v1/planning/forecasts"+bad, "", "planning.read", true, ""); rec.Code != http.StatusUnprocessableEntity && rec.Code != http.StatusBadRequest {
 			t.Fatalf("%s: %d", bad, rec.Code)
 		}

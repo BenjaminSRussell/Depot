@@ -282,7 +282,6 @@ describe("kiosk PI sheet", () => {
     expect(await screen.findByText("All steps are done")).toBeInTheDocument();
     const signed = calls.filter((c) => c.url.pathname.endsWith("/process-messages")).at(-1)?.body as { values: unknown[] };
     expect(signed.values).toEqual([
-      { name: "signed-by", type: "text", value: "Ana Ruiz" },
       { name: "signature-meaning", type: "text", value: "verified" },
     ]);
     expect(calls.filter((c) => c.url.pathname.endsWith(":report")).map((c) => (c.body as { status: string }).status).at(-1)).toBe("completed");

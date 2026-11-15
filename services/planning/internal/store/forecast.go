@@ -363,7 +363,7 @@ type ForecastModelSummary struct {
 // ListForecastModels lists the tenant's forecast models by code (version 0 models, created by a write that never completed,
 // are included: they are the ones a first write names). A legal entity narrows the list to the models that entity owns and
 // the models no entity owns.
-func (s *Postgres) ListForecastModels(ctx context.Context, legalEntityID, q string, limit int) ([]ForecastModelSummary, error) {
+func (s *Postgres) ListForecastModels(ctx context.Context, legalEntityID, q, code string, limit int) ([]ForecastModelSummary, error) {
 	p, _ := tenant.FromContext(ctx)
 	out := []ForecastModelSummary{}
 	err := dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
@@ -371,8 +371,9 @@ func (s *Postgres) ListForecastModels(ctx context.Context, legalEntityID, q stri
 				to_char(published_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"')
 			from forecast_model
 			where tenant_id = $1 and ($2 = '' or legal_entity_id is null or legal_entity_id = nullif($2, '')::uuid)
-			  and ($3 = '' or code ilike '%' || $3 || '%')
-			order by code limit $4`, p.TenantID, legalEntityID, q, limit)
+			  and ($3 = '' or position(upper($3) in code) > 0)
+			  and ($4 = '' or code = $4)
+			order by code limit $5`, p.TenantID, legalEntityID, q, code, limit)
 		if err != nil {
 			return err
 		}

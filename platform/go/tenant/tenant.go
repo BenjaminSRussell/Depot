@@ -115,15 +115,25 @@ const (
 	LegalEntityScopeAll       = "ALL"
 )
 
-// AuthAge is how long ago the caller last authenticated, from the gateway's HeaderAuthTime. ok is false when the header is
-// missing or is not a positive Unix time, which a step-up check treats as not fresh (fail closed). A time in the future
-// (clock skew of up to a minute is allowed) reads as zero.
-func AuthAge(r *http.Request, now time.Time) (age time.Duration, ok bool) {
+// AuthTime is the moment the caller last authenticated, from the gateway's HeaderAuthTime. ok is false when the header is
+// missing or is not a positive Unix time. It is meaningful only for a person's request: a service-token request keeps the
+// X-Passage-* headers of whoever called it, so a caller must check Principal.Service is empty before trusting it.
+func AuthTime(r *http.Request) (time.Time, bool) {
 	secs, err := strconv.ParseInt(strings.TrimSpace(r.Header.Get(HeaderAuthTime)), 10, 64)
 	if err != nil || secs <= 0 {
+		return time.Time{}, false
+	}
+	return time.Unix(secs, 0).UTC(), true
+}
+
+// AuthAge is how long ago the caller last authenticated. ok is false when AuthTime is, which a step-up check treats as
+// not fresh (fail closed). A time in the future (clock skew of up to a minute is allowed) reads as zero.
+func AuthAge(r *http.Request, now time.Time) (age time.Duration, ok bool) {
+	at, ok := AuthTime(r)
+	if !ok {
 		return 0, false
 	}
-	age = now.Sub(time.Unix(secs, 0))
+	age = now.Sub(at)
 	if age < -time.Minute {
 		return 0, false
 	}

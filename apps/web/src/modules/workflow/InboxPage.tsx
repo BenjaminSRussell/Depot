@@ -5,7 +5,7 @@ import { holdsDuty } from "../../shell/dutyGate";
 import { ApiError } from "../../shell/api/http";
 import { ProblemMessage } from "../../shell/errors";
 import { formatAge, formatDate, isPastDate } from "../../shell/format";
-import { decideInboxItem, decisionDuty, INBOX_SOURCES, sourceList, sourceName, type InboxDecision, type InboxItem } from "../../shell/inbox/inbox";
+import { decideInboxItem, decisionDuty, INBOX_SOURCES, SOURCE_DUTIES, sourceList, sourceName, type InboxDecision, type InboxItem } from "../../shell/inbox/inbox";
 import { useInbox } from "../../shell/inbox/useInbox";
 import { useWorkContext } from "../../shell/lookup/workContextState";
 import { usePrincipalDuties } from "../../shell/principal";
@@ -39,7 +39,7 @@ export function InboxPage() {
 
   const activeKind = kind;
   const rows = inbox.items;
-  const filterable = useMemo(() => INBOX_SOURCES.filter((s) => !inbox.unavailable.includes(s) || s === kind), [inbox.unavailable, kind]);
+  const filterable = useMemo(() => INBOX_SOURCES.filter((s) => s === kind || (holdsDuty(duties, SOURCE_DUTIES[s]) && !inbox.unavailable.includes(s))), [inbox.unavailable, kind, duties]);
 
   async function decide(item: InboxItem, action: Decision) {
     setOutcome(null);

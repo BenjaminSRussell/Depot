@@ -197,9 +197,11 @@ func (s *Postgres) SweepAndon(ctx context.Context, now time.Time) (AndonSweepRes
 		// waiting on it could deadlock on the downtime and andon rows both transactions write.
 		rows, err := tx.Query(ctx, `select m.id::text, m.resource_id::text, m.site_id::text, d.id::text, d.started_at
 			from downtime_record d join machine m on m.tenant_id = d.tenant_id and m.id = d.machine_id
-			where d.tenant_id = $1 and d.ended_at is null and not d.andon_raised and d.started_at < $2
+			left join andon_site_setting s on s.tenant_id = m.tenant_id and s.site_id = m.site_id
+			where d.tenant_id = $1 and d.ended_at is null and not d.andon_raised
+			  and d.started_at < $2::timestamptz - make_interval(mins => coalesce(s.downtime_minutes, $3::int))
 			order by d.started_at, d.id
-			for update of m skip locked`, p.TenantID, now.Add(-book.shortestDown()))
+			for update of m skip locked`, p.TenantID, now, book.base.DowntimeMinutes)
 		if err != nil {
 			return err
 		}
@@ -221,10 +223,6 @@ func (s *Postgres) SweepAndon(ctx context.Context, now time.Time) (AndonSweepRes
 			return err
 		}
 		for _, x := range dues {
-			// The scan used the shortest threshold; a machine of a site with a longer one is due only past its own.
-			if !book.forSite(x.m.siteID).Due(x.d.start, now) {
-				continue
-			}
 			d := x.d
 			n, err := raiseAndon(ctx, tx, p.TenantID, x.m, &d)
 			if err != nil {
@@ -460,15 +458,6 @@ func (b andonBook) forSite(site *string) domain.AndonSettings {
 		}
 	}
 	return b.base
-}
-
-// shortestDown is the smallest downtime threshold anywhere, so a scan for downtimes that may be due misses none.
-func (b andonBook) shortestDown() time.Duration {
-	d := b.base.DownAfter()
-	for _, s := range b.sites {
-		d = min(d, s.DownAfter())
-	}
-	return d
 }
 
 // loadAndonBook reads the tenant's andon thresholds, or the defaults when it has set none, and the site overrides.
