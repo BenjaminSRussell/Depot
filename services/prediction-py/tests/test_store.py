@@ -11,7 +11,7 @@ import pytest
 
 from prediction import synth
 from prediction.domain import Config, PaidInvoice, PredictionError
-from prediction.service import SCORED_EVENT, InMemoryRepository, PredictionService
+from prediction.service import SCORED_EVENT, InMemoryRepository, PredictionService, SyncState
 
 OWNER_URL = os.environ.get("PASSAGE_TEST_DATABASE_URL", "")
 APP_URL = os.environ.get("PASSAGE_TEST_APP_DATABASE_URL", "") or OWNER_URL
@@ -207,7 +207,7 @@ def test_sync_state_and_the_dso_forecast_are_per_tenant_and_legal_entity(make_re
     assert make_repo().sync_state(t, le2) == SyncState() and make_repo().sync_state(other, le) == SyncState()
     assert make_repo().dso(t, le) is None
     invoices = synth.open_invoices(40)
-    preds = s.score(t, invoices)
+    preds = s.score(t, invoices, le)
     make_repo().save_invoice_facts(t, le, invoices)
     dso = make_repo().dso(t, le)
     assert dso is not None and dso.open_invoices == 40
@@ -227,10 +227,73 @@ def test_a_reversed_invoice_leaves_the_dso_forecast_but_keeps_its_prediction(mak
     s = svc(make_repo())
     s.retrain(t, synth.paid_invoices(400))
     invoices = synth.open_invoices(10)
-    s.score(t, invoices)
+    s.score(t, invoices, le)
     make_repo().save_invoice_facts(t, le, invoices)
     assert make_repo().dso(t, le).open_invoices == 10
     assert make_repo().mark_reversed(t, [invoices[0].invoice_id, "never-scored"]) == 1
     assert make_repo().mark_reversed(t, [invoices[0].invoice_id]) == 0
     assert make_repo().dso(t, le).open_invoices == 9
     assert make_repo().prediction(t, invoices[0].invoice_id) is not None
+
+
+def test_predictions_are_scoped_to_the_legal_entities_a_call_acts_for(make_repo):
+    t, le, le2 = tenant(), str(uuid.uuid4()), str(uuid.uuid4())
+    s = svc(make_repo())
+    s.retrain(t, synth.paid_invoices(400))
+    both = synth.open_invoices(6)
+    mine, theirs = both[:3], both[3:]
+    scored = s.score(t, mine, le, [le])
+    s.score(t, theirs, le2, [le2])
+    first = scored[0].invoice_id
+    repo = make_repo()
+    # Every entity of the tenant ('*'), the entity itself and a list holding it see the prediction; another entity and none do not.
+    assert repo.prediction(t, first) is not None and repo.prediction(t, first, [le]) is not None and repo.prediction(t, first, [le2, le]) is not None
+    assert repo.prediction(t, first, [le2]) is None and repo.prediction(t, first, []) is None
+    # A call scoped to entities stores for one of them, and cannot take over an invoice another entity holds.
+    with pytest.raises(PredictionError) as err:
+        repo.save_predictions(t, scored, None, [le])
+    assert err.value.code == "PRD-0403" and err.value.status == 403
+    with pytest.raises(PredictionError) as err:
+        repo.save_predictions(t, scored, le2, [le2])
+    assert err.value.code == "PRD-0403"
+    # Outcomes and actuals follow the scope too.
+    paid = PaidInvoice(**{**mine[0].__dict__, "paid_date": scored[0].predicted_payment_date})
+    assert repo.record_actuals(t, [paid], [le2]) == 0 and repo.outcomes(t, [le2]) == []
+    assert repo.record_actuals(t, [paid], [le]) == 1 and len(repo.outcomes(t, [le])) == 1 and repo.outcomes(t, [le2]) == []
+    assert repo.mark_reversed(t, [theirs[0].invoice_id], [le]) == 0 and repo.mark_reversed(t, [theirs[0].invoice_id], [le2]) == 1
+
+
+@pytest.mark.skipif(not OWNER_URL, reason="PASSAGE_TEST_DATABASE_URL is not set")
+def test_the_database_hides_other_legal_entities_and_sessions_without_a_scope(pg_schema):
+    import psycopg
+
+    from prediction.store import PgRepository
+
+    app_url, _owner = pg_schema
+    t, le, le2 = tenant(), str(uuid.uuid4()), str(uuid.uuid4())
+    s = svc(PgRepository(app_url))
+    s.retrain(t, synth.paid_invoices(400))
+    s.score(t, synth.open_invoices(4), le, [le])
+    repo = PgRepository(app_url)
+    repo.save_sync_state(t, le, SyncState(NOW, NOW, NOW, NOW))
+
+    def count(sql: str, scopes: str | None) -> int:
+        with psycopg.connect(app_url) as conn:
+            with conn.transaction():
+                conn.execute("select set_config('passage.tenant_id', %s, true)", (t,))
+                if scopes is not None:
+                    conn.execute("select set_config('passage.legal_entity_scopes', %s, true)", (scopes,))
+                return int(conn.execute(sql).fetchone()[0])  # type: ignore[index]
+
+    for table in ("payment_prediction", "prediction_sync"):
+        sql = f"select count(*) from {table}"
+        assert count(sql, "*") > 0 and count(sql, le) == count(sql, "*") and count(sql, f"{le2},{le}") == count(sql, "*")
+        assert count(sql, le2) == 0 and count(sql, "") == 0
+        # A session that sets no scope at all sees nothing, whatever the tenant says.
+        assert count(sql, None) == 0
+    with pytest.raises(psycopg.errors.InsufficientPrivilege):
+        with psycopg.connect(app_url) as conn:
+            with conn.transaction():
+                conn.execute("select set_config('passage.tenant_id', %s, true), set_config('passage.legal_entity_scopes', %s, true)", (t, le2))
+                conn.execute("insert into prediction_sync (tenant_id, legal_entity_id) values (%s, %s)", (t, le))
+    assert repo.sync_state(t, le2) == SyncState() and repo.sync_state(t, le).open_watermark == NOW

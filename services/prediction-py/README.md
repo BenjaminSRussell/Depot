@@ -37,7 +37,7 @@ OpenAPI: `api/openapi.yaml`. Event: `events/asyncapi.yaml`.
 and customer statistics as a JSON artifact, at most one ACTIVE per tenant), `payment_prediction` (latest per
 invoice; `actual_paid_date` is stamped when the invoice turns up paid in a retrain), `prediction_settings` and
 `outbox`. Every table has tenant row-level security (forced); each call runs in its own transaction with
-`passage.tenant_id` set. Scoring writes one `dev.passage.prediction.payment.scored.v1` outbox row per invoice in
+`passage.tenant_id` and `passage.legal_entity_scopes` set (migration 0003: `payment_prediction` and `prediction_sync` carry the restrictive legal-entity policy). Scoring writes one `dev.passage.prediction.payment.scored.v1` outbox row per invoice in
 the same transaction. A retrain holds a per-tenant advisory lock while it swaps the ACTIVE model.
 
 Env: `DATABASE_URL` (role `passage_app`; without it the process keeps everything in memory, for tests and local

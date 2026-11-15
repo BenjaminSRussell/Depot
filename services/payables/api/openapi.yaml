@@ -123,7 +123,9 @@ paths:
   /v1/payables/open-items:
     get:
       operationId: listOpenItems
+      summary: List AP open items, a vendor's invoice history with the vendor filter (agent tool passage.ap.vendor.history.list)
       x-passage-duty: open-item.read
+      x-passage-tool: passage.ap.vendor.history.list
       description: Open items of one legal entity, ordered by due date then id, with keyset pagination (limit 1 to 200, default 50; pass the previous nextCursor as cursor). legal_entity defaults to the caller's legal-entity scope and is required for an unscoped caller; naming an entity outside the caller's scope is a 403. With value_in, every item carries a valuation in that currency at the spot rate of today (UTC) from the fx service; the call forwards the caller's identity and duties, so the caller also needs the fx rate-read duty until service identity (#226) replaces forwarding.
       parameters:
         - { name: legal_entity, in: query, required: false, schema: { type: string, format: uuid } }
@@ -391,7 +393,9 @@ paths:
   /v1/payables/vendor-invoice-intake/{id}:
     get:
       operationId: getVendorInvoiceIntake
+      summary: Read one received vendor invoice (agent tool passage.ap.invoice.get)
       x-passage-duty: open-item.read
+      x-passage-tool: passage.ap.invoice.get
       description: One vendor invoice received electronically, with its lines as the vendor sent them.
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }

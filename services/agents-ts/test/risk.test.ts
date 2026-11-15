@@ -29,7 +29,15 @@ describe("fact based risk for AP coding proposals", () => {
     const got = await risk(t).assess("passage.ap.invoice.propose_coding", { invoiceId: "inv-1", amount: "1.00" });
     expect(got).toEqual({ vendorHighRisk: false, sodConflict: false, amount: usd("2500.00"), limitUtilisation: 0.25 });
     expect(t.asked.map((a) => a.name)).toEqual(["passage.ap.invoice.get", "passage.ap.vendor.history.list"]);
-    expect(t.asked[1]?.args).toEqual({ vendorId: "v-1" });
+    expect(t.asked[0]?.args).toEqual({ id: "inv-1" });
+    expect(t.asked[1]?.args).toEqual({ vendor: "v-1", limit: 1 });
+  });
+
+  it("reads a received vendor invoice the way payables answers it: gross for the amount, receivedBy for the creator", async () => {
+    const received = { gross: "2500.00", currency: "USD", vendorId: "v-1", receivedBy: INVOKER };
+    const t = tools({ "passage.ap.invoice.get": ok(received), "passage.ap.vendor.history.list": ok({ items: [{ id: "i-0" }] }) });
+    const got = await risk(t).assess("passage.ap.invoice.propose_coding", { invoiceId: "inv-1" });
+    expect(got).toEqual({ vendorHighRisk: false, sodConflict: true, amount: usd("2500.00"), limitUtilisation: 0.25 });
   });
 
   it("flags a vendor with no history, a blocked vendor and a high vendor risk", async () => {

@@ -1,5 +1,7 @@
 """Postgres repository (migrations/0001_prediction.sql). Every statement runs in a transaction that sets
-passage.tenant_id, so row-level security answers only the caller's tenant whatever the SQL says."""
+passage.tenant_id and passage.legal_entity_scopes, so row-level security answers only the caller's tenant and, on the tables that carry
+a legal entity (payment_prediction, prediction_sync; migrations/0003_legal_entity_scope.sql), only the legal entities the call acts for:
+a sync job the entity it runs for, an API read the caller's X-Passage-Legal-Entity ('*' for a caller who holds the all-scope duty)."""
 
 from __future__ import annotations
 
@@ -14,7 +16,7 @@ import psycopg
 from psycopg.types.json import Jsonb
 
 from prediction.domain import Config, Model, OpenInvoice, Outcome, PaidInvoice, Prediction, PredictionError, model_artifact, model_from_artifact
-from prediction.service import SCORED_EVENT, Dso, SyncState, scored_event
+from prediction.service import SCORED_EVENT, Dso, Entities, SyncState, scored_event
 
 # The image copies the migrations to /app/migrations (Dockerfile); a checkout reads them from the service directory.
 MIGRATIONS_DIR = Path(os.environ.get("PREDICTION_MIGRATIONS_DIR") or Path(__file__).resolve().parents[2] / "migrations")
@@ -38,11 +40,14 @@ class PgRepository:
         self.url = url
 
     @contextmanager
-    def _tenant(self, tenant_id: str) -> Iterator[psycopg.Connection]:
+    def _tenant(self, tenant_id: str, entities: Entities = None) -> Iterator[psycopg.Connection]:
+        """A transaction for the tenant. `entities` are the legal entities the call acts for: None is every one ('*'), a sequence is those
+        (comma-joined, as the Go services' dbx sets it) and an empty one sees nothing."""
         str(uuid.UUID(tenant_id))  # never set a malformed tenant
+        scopes = "*" if entities is None else ",".join(str(uuid.UUID(e)) for e in entities)  # never set a malformed entity
         with psycopg.connect(self.url) as conn:
             with conn.transaction():
-                conn.execute("select set_config('passage.tenant_id', %s, true)", (tenant_id,))
+                conn.execute("select set_config('passage.tenant_id', %s, true), set_config('passage.legal_entity_scopes', %s, true)", (tenant_id, scopes))
                 yield conn
 
     def ping(self) -> None:
@@ -89,26 +94,32 @@ class PgRepository:
         except psycopg.errors.UniqueViolation as exc:
             raise PredictionError("AGT-0409", f"model {model.model_version} was stored by a concurrent retrain; retrain again", 409) from exc
 
-    def save_predictions(self, tenant_id: str, predictions: list[Prediction]) -> None:
-        """Upserts the predictions and writes one prediction.payment.scored outbox row each, in one transaction."""
-        with self._tenant(tenant_id) as c:
-            with c.cursor() as cur:
-                cur.executemany(
-                    """insert into payment_prediction (tenant_id, invoice_id, model_version, predicted_payment_date, p_late_30d, features_hash, due_date, scored_at)
-                       values (%s, %s, %s, %s, %s, %s, %s, %s)
-                       on conflict (tenant_id, invoice_id) do update set model_version = excluded.model_version,
-                         predicted_payment_date = excluded.predicted_payment_date, p_late_30d = excluded.p_late_30d,
-                         features_hash = excluded.features_hash, due_date = excluded.due_date, scored_at = excluded.scored_at,
-                         actual_paid_date = null""",
-                    [(tenant_id, p.invoice_id, p.model_version, p.predicted_payment_date, Decimal(p.p_late_30d), p.features_hash, p.due_date, p.scored_at) for p in predictions],
-                )
-                cur.executemany(
-                    "insert into outbox (id, tenant_id, aggregate_type, aggregate_id, type, payload) values (%s, %s, 'payment_prediction', %s, %s, %s)",
-                    [(str(uuid.uuid4()), tenant_id, p.invoice_id, SCORED_EVENT, Jsonb(scored_event(p))) for p in predictions],
-                )
+    def save_predictions(self, tenant_id: str, predictions: list[Prediction], legal_entity_id: str | None = None, entities: Entities = None) -> None:
+        """Upserts the predictions for `legal_entity_id` and writes one prediction.payment.scored outbox row each, in one transaction. A call
+        scoped to legal entities stores for one of them; an invoice that already belongs to an entity outside the scope is refused (PRD-0403)."""
+        if entities is not None and legal_entity_id is None:
+            raise PredictionError("PRD-0403", "a call scoped to legal entities stores predictions for one of them", 403)
+        try:
+            with self._tenant(tenant_id, entities) as c:
+                with c.cursor() as cur:
+                    cur.executemany(
+                        """insert into payment_prediction (tenant_id, invoice_id, model_version, predicted_payment_date, p_late_30d, features_hash, due_date, scored_at, legal_entity_id)
+                           values (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                           on conflict (tenant_id, invoice_id) do update set model_version = excluded.model_version,
+                             predicted_payment_date = excluded.predicted_payment_date, p_late_30d = excluded.p_late_30d,
+                             features_hash = excluded.features_hash, due_date = excluded.due_date, scored_at = excluded.scored_at,
+                             actual_paid_date = null, legal_entity_id = coalesce(excluded.legal_entity_id, payment_prediction.legal_entity_id)""",
+                        [(tenant_id, p.invoice_id, p.model_version, p.predicted_payment_date, Decimal(p.p_late_30d), p.features_hash, p.due_date, p.scored_at, legal_entity_id) for p in predictions],
+                    )
+                    cur.executemany(
+                        "insert into outbox (id, tenant_id, aggregate_type, aggregate_id, type, payload) values (%s, %s, 'payment_prediction', %s, %s, %s)",
+                        [(str(uuid.uuid4()), tenant_id, p.invoice_id, SCORED_EVENT, Jsonb(scored_event(p))) for p in predictions],
+                    )
+        except psycopg.errors.InsufficientPrivilege as exc:
+            raise PredictionError("PRD-0403", "an invoice of this call belongs to a legal entity outside its scope", 403) from exc
 
-    def prediction(self, tenant_id: str, invoice_id: str) -> Prediction | None:
-        with self._tenant(tenant_id) as c:
+    def prediction(self, tenant_id: str, invoice_id: str, entities: Entities = None) -> Prediction | None:
+        with self._tenant(tenant_id, entities) as c:
             r = c.execute(
                 "select invoice_id, model_version, predicted_payment_date, p_late_30d, features_hash, scored_at, due_date from payment_prediction where invoice_id = %s",
                 (invoice_id,),
@@ -131,11 +142,11 @@ class PgRepository:
                 (tenant_id, config.min_rows, Decimal(str(config.mae_max_days)), user_id),
             )
 
-    def record_actuals(self, tenant_id: str, paid: list[PaidInvoice]) -> int:
-        """Stamps the paid date on each stored prediction of a paid invoice, once."""
+    def record_actuals(self, tenant_id: str, paid: list[PaidInvoice], entities: Entities = None) -> int:
+        """Stamps the paid date on each stored prediction of a paid invoice (of the legal entities in scope), once."""
         if not paid:
             return 0
-        with self._tenant(tenant_id) as c:
+        with self._tenant(tenant_id, entities) as c:
             res = c.execute(
                 """update payment_prediction p set actual_paid_date = v.paid_date
                      from (select * from unnest(%s::text[], %s::date[]) as t(invoice_id, paid_date)) v
@@ -144,8 +155,8 @@ class PgRepository:
             )
             return res.rowcount
 
-    def outcomes(self, tenant_id: str) -> list[Outcome]:
-        with self._tenant(tenant_id) as c:
+    def outcomes(self, tenant_id: str, entities: Entities = None) -> list[Outcome]:
+        with self._tenant(tenant_id, entities) as c:
             rows = c.execute(
                 "select model_version, predicted_payment_date, p_late_30d, due_date, actual_paid_date from payment_prediction where actual_paid_date is not null order by invoice_id"
             ).fetchall()
@@ -153,14 +164,14 @@ class PgRepository:
 
 
     def sync_state(self, tenant_id: str, legal_entity_id: str) -> SyncState:
-        with self._tenant(tenant_id) as c:
+        with self._tenant(tenant_id, [legal_entity_id]) as c:
             r = c.execute(
                 "select open_watermark, paid_watermark, reversed_watermark, last_retrain_at from prediction_sync where legal_entity_id = %s", (legal_entity_id,)
             ).fetchone()
         return SyncState(*r) if r else SyncState()
 
     def save_sync_state(self, tenant_id: str, legal_entity_id: str, state: SyncState) -> None:
-        with self._tenant(tenant_id) as c:
+        with self._tenant(tenant_id, [legal_entity_id]) as c:
             c.execute(
                 """insert into prediction_sync (tenant_id, legal_entity_id, open_watermark, paid_watermark, reversed_watermark, last_retrain_at, last_scored_at)
                    values (%s, %s, %s, %s, %s, %s, now())
@@ -173,7 +184,7 @@ class PgRepository:
         """Stores the legal entity, invoice date and amount on the invoices' predictions, which the DSO forecast reads."""
         if not invoices:
             return
-        with self._tenant(tenant_id) as c:
+        with self._tenant(tenant_id, [legal_entity_id]) as c:
             c.execute(
                 """update payment_prediction p set legal_entity_id = %s, invoice_date = v.invoice_date, amount = v.amount
                      from (select * from unnest(%s::text[], %s::date[], %s::numeric[]) as t(invoice_id, invoice_date, amount)) v
@@ -182,7 +193,7 @@ class PgRepository:
             )
 
     def dso(self, tenant_id: str, legal_entity_id: str) -> Dso | None:
-        with self._tenant(tenant_id) as c:
+        with self._tenant(tenant_id, [legal_entity_id]) as c:
             r = c.execute(
                 """select sum(amount * (predicted_payment_date - invoice_date)) / nullif(sum(amount), 0), count(*), sum(amount),
                           sum(amount * p_late_30d) / nullif(sum(amount), 0), max(scored_at)
@@ -194,11 +205,11 @@ class PgRepository:
             return None
         return Dso(round(float(r[0]), 1), int(r[1]), f"{r[2]:.2f}", f"{r[3]:.4f}", r[4])
 
-    def mark_reversed(self, tenant_id: str, invoice_ids: list[str]) -> int:
+    def mark_reversed(self, tenant_id: str, invoice_ids: list[str], entities: Entities = None) -> int:
         """Takes reversed invoices out of the DSO forecast; their predictions stay for the record."""
         if not invoice_ids:
             return 0
-        with self._tenant(tenant_id) as c:
+        with self._tenant(tenant_id, entities) as c:
             return c.execute(
                 "update payment_prediction set reversed_at = current_date where invoice_id = any(%s) and reversed_at is null", (invoice_ids,)
             ).rowcount

@@ -260,6 +260,7 @@ paths:
       operationId: getPayment
       summary: Read a payment
       x-passage-duty: receivables.view
+      x-passage-tool: passage.ar.payment.get
       parameters:
         - { $ref: "#/components/parameters/PaymentId" }
       responses:

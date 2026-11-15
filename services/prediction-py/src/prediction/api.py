@@ -82,6 +82,13 @@ class Caller(BaseModel):
             return legal_entity_id in self.legal_entities
         return ALL_SCOPE_DUTY in self.duties
 
+    def entities(self) -> list[str] | None:
+        """The legal entities the caller's database session acts for: the X-Passage-Legal-Entity ones, every one (None) for a caller who holds
+        the all-scope duty, and none ([]) for a caller with neither, who therefore sees no row of a legal-entity table."""
+        if self.legal_entities:
+            return sorted(self.legal_entities)
+        return None if ALL_SCOPE_DUTY in self.duties else []
+
     def require(self, duty: str) -> None:
         if duty not in self.duties:
             raise Problem(403, "AGT-0203", f"you do not hold duty {duty}, which this needs")
@@ -137,6 +144,9 @@ class SettingsRequest(BaseModel):
 
 class ScoreRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
+    # The legal entity the invoices belong to. A caller scoped to exactly one legal entity may leave it out; a caller scoped to several must name
+    # one of them; a caller with the all-scope duty may leave it out (the predictions then belong to no entity and only such callers see them).
+    legalEntityId: str | None = None
     openInvoices: list[InvoiceIn] = Field(min_length=1, max_length=MAX_OPEN)
 
 
@@ -200,7 +210,7 @@ def retrain(body: RetrainRequest, who: Annotated[Caller, Depends(caller)]) -> JS
         if i.paidDate < i.invoiceDate:
             raise Problem(400, "PRD-0400", f"invoice {i.invoiceId}: paidDate is before invoiceDate")
         paid.append(PaidInvoice(o.invoice_id, o.customer_id, o.amount, o.invoice_date, o.due_date, o.dunning_count, o.disputes, i.paidDate))
-    model = service.retrain(who.tenant_id, paid)
+    model = service.retrain(who.tenant_id, paid, who.entities())
     return JSONResponse(_model_json(model), status_code=201)
 
 
@@ -208,7 +218,18 @@ def retrain(body: RetrainRequest, who: Annotated[Caller, Depends(caller)]) -> JS
 @app.post("/v1/predictions/payment/score")
 def score(body: ScoreRequest, who: Annotated[Caller, Depends(caller)]) -> JSONResponse:
     who.require(DUTY_ADMIN)
-    preds = service.score(who.tenant_id, [_open(i) for i in body.openInvoices])
+    entity: str | None = None
+    if body.legalEntityId is not None:
+        entity = _uuid(body.legalEntityId)
+        if entity is None:
+            raise Problem(400, "PRD-0400", "legalEntityId must be a legal entity UUID")
+        if not who.may_see_entity(entity):
+            raise Problem(404, "AGT-0404", "no such legal entity")
+    elif len(who.legal_entities) == 1:
+        entity = next(iter(who.legal_entities))
+    elif who.entities() is not None:
+        raise Problem(400, "PRD-0400", "legalEntityId is required for a caller scoped to several legal entities, or to none")
+    preds = service.score(who.tenant_id, [_open(i) for i in body.openInvoices], entity, who.entities())
     return JSONResponse({"items": [_prediction_json(p) for p in preds]})
 
 
@@ -216,7 +237,7 @@ def score(body: ScoreRequest, who: Annotated[Caller, Depends(caller)]) -> JSONRe
 @app.get("/v1/ar/invoices/{invoice_id}/prediction")
 def get_prediction(invoice_id: str, who: Annotated[Caller, Depends(caller)]) -> JSONResponse:
     who.require(DUTY_VIEW)
-    found = service.prediction(who.tenant_id, invoice_id)
+    found = service.prediction(who.tenant_id, invoice_id, who.entities())
     if found is None:
         raise Problem(404, "AGT-0404", "no prediction for this invoice")
     prediction, stale = found
@@ -252,7 +273,7 @@ def get_accuracy(who: Annotated[Caller, Depends(caller)]) -> JSONResponse:
     """The prediction accuracy report: predictions whose invoices have since been paid, MAE, share within 7 days
     and p_late_30d calibration, overall and per model version."""
     who.require(DUTY_ADMIN)
-    return JSONResponse(service.accuracy(who.tenant_id))
+    return JSONResponse(service.accuracy(who.tenant_id, who.entities()))
 
 
 @app.get("/api/v1/predictions/payment/dso", include_in_schema=False)
