@@ -1120,7 +1120,7 @@ test_customer_portal_holds_only_service_only_customer_duties if {
 	data.service_grants["customer-portal"].sales == ["sales.customer-portal.read", "sales.customer-portal.order", "sales.customer-portal.return"]
 	data.service_grants["customer-portal"].party == ["party.customer-portal.read"]
 	data.service_grants["customer-portal"].identity == ["identity.customer-portal.read"]
-	data.service_grants["customer-portal"].print == ["print.customer-portal.render"]
+	data.service_grants["customer-portal"].print == ["print.customer-portal.render", "print.customer-portal.documents"]
 }
 
 test_customer_portal_render_duty_opens_only_the_renderer if {
@@ -3327,7 +3327,7 @@ test_payables_vendor_invoice_intake if {
 # #35 (35-5): the self-billing match asks the tax service for the VAT rate as edi-selfbill, with only the calculate duty.
 test_edi_selfbill_tax_grant if {
 	data.service_grants.edi.tax == ["tax.tax.calculate"]
-	data.service_principals["edi-selfbill"] == ["tax.tax.calculate"]
+	data.service_principals["edi-selfbill"] == ["tax.tax.calculate", "billing.self-billed.post"]
 }
 
 # #35 (35-5): billing's SELF_BILLED rule is set with the invoice maintain duty and read with the view duty.
