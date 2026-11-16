@@ -473,11 +473,12 @@ func ParseEvent(payload []byte) (gateway.Event, error) {
 	return ev, nil
 }
 
+// truncate cuts s to at most n bytes without splitting a character.
 func truncate(s string, n int) string {
 	if len(s) <= n {
 		return s
 	}
-	return s[:n]
+	return strings.ToValidUTF8(s[:n], "")
 }
 
 func last4(s string) string {

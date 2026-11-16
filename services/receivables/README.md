@@ -59,7 +59,8 @@ migrations/            0001 tables and RLS, 0002 outbox, 0003 idempotency_keys,
                        0004 dispute, promise_to_pay, dunning_run, dunning_letter, interest_note,
                        0005 lockbox_batch, 0006 collection_case, balance_confirmation_run,
                        balance_confirmation, 0007 down_payment, down_payment_clearing,
-                       0008 bank_statement_import, deduction, 0018 billing document keys, consumer_inbox
+                       0008 bank_statement_import, deduction, 0018 billing document keys, consumer_inbox,
+                       0030 gateway_payment, gateway_payment_allocation, gateway_event, gateway_route
 api/openapi.yaml       REST contract
 events/asyncapi.yaml   event contract
 charts/receivables/    Helm chart (passage-receivables)
@@ -79,7 +80,9 @@ go run ./cmd/receivables
 ```
 
 Required: `DATABASE_URL`. Optional: `HTTP_ADDR` (default `:8080`), `ADMIN_ADDR`
-(default `:9090`, serves `/metrics`), `MIGRATE_ON_START`.
+(default `:9090`, serves `/metrics`), `MIGRATE_ON_START`, and the card and ACH payment settings (see "Card and ACH payments from the
+customer portal": `RECEIVABLES_PAYMENT_PROVIDER`, `STRIPE_SECRET_KEY[_FILE]`, `STRIPE_WEBHOOK_SECRET[_FILE]`, `STRIPE_PUBLISHABLE_KEY`,
+`RECEIVABLES_STRIPE_ACCOUNTS`, `RECEIVABLES_GATEWAY_BANK_REF`, `RECEIVABLES_WEBHOOK_ADDR`).
 
 ## Test
 
@@ -163,11 +166,62 @@ The `type` is `https://passage.dev/problems/<code>`.
 | `AR-RMA-PARKED` | 409 | The ledger refused the credit's journal; it is parked until `:retry` |
 | `AR-RMA-STATE` | 409 | `:retry` of a POSTED credit, re-dating a credit that is not parked, or the `CN-` document number is already an open item |
 | `AR-RMA-NOT-FOUND` | 404 | RMA credit not found |
+| `AR-0019` | 422 | A portal payment's amount on an item is more than is open on it (less what a processing ACH payment claims) |
+| `AR-GATEWAY-ITEM` | 422 | A portal payment names a credit, a paid item, or items in more than one currency |
+| `AR-GATEWAY-METHOD` | 422 | ACH outside USD |
+| `AR-GATEWAY-NOT-FOUND` | 404 | Gateway payment unknown, or another customer's |
+| `AR-GATEWAY-OFF` | 503 | No payment provider is configured, or not for this legal entity |
+| `AR-GATEWAY-UNAVAILABLE` | 502 | Stripe could not be reached; retry with the same Idempotency-Key |
+| `AR-GATEWAY-REFUSED` | 422 | Stripe refused the payment (for example an amount below its minimum) |
 
 `Idempotency-Key` is enforced on create by storing the key on the payment row
 (unique per tenant). On apply the key and the response are stored in
 `idempotency_keys` in the same transaction, after the payment row lock, so a
 retry replays the first response instead of failing with 412.
+
+## Card and ACH payments from the customer portal (#30, FR-30.14)
+
+The gateway lives in receivables because a portal payment is an ordinary receivables payment once it succeeds: it is recorded and
+applied through `CreatePayment` and `ApplyPayment` and undone through `UnapplyPayment` and `ReversePayment`, in the same database and
+transactions as every other payment, so no cash application is duplicated and no second service holds AR state.
+
+- **Provider-neutral.** `internal/gateway` is the interface (`CreateIntent`, `PaymentDetails`, `ParseWebhook`) with neutral
+  methods (CARD, ACH), events (SUCCEEDED, PROCESSING, FAILED, REFUNDED, DISPUTED) and plain-language failures. `internal/gateway/stripe`
+  is the Stripe adapter: REST over HTTPS with form encoding, `Stripe-Version` pinned (`2024-06-20`), no SDK. An Adyen adapter implements
+  the same interface and adds its webhook route; the portal route and the store do not change.
+- **Start** (`POST /v1/receivables/customer-portal/payment-intents`, duty `receivables.customer-portal.pay`, held only by the portal BFF,
+  `Idempotency-Key` required): the customer and legal entity are the signed token's. Each item must be the customer's own open debit
+  in the legal entity, all in one currency; each amount is above zero, in the currency's minor unit and at most what is open on the
+  item less what an ACH payment still PROCESSING claims (AR-0019); less is a partial payment. ACH is USD only (AR-GATEWAY-METHOD).
+  The attempt is stored (`gateway_payment`, `gateway_payment_allocation`), then Stripe is asked for a PaymentIntent: the amount in Stripe's
+  minor units (zero-decimal currencies such as JPY in whole units, three-decimal ones in multiples of ten; never a float),
+  `payment_method_types[]` `card`, or `us_bank_account` with `verification_method=automatic` (Financial Connections, Stripe's own
+  microdeposit fallback), metadata (tenant, legal entity, attempt, customer, documents), the Idempotency-Key `passage-pi-<attempt id>`
+  and, when the legal entity has a Connect account, the `Stripe-Account` header. The answer carries only the client secret and the
+  publishable key. A replay of the same key returns the same attempt (and Stripe's same PaymentIntent). A Stripe refusal (an amount
+  below its minimum) fails the attempt (AR-GATEWAY-REFUSED); an outage is 502 AR-GATEWAY-UNAVAILABLE and the same key can be retried.
+- **Status only from webhooks.** `POST /webhooks/v1/stripe` is served on its own listener (`RECEIVABLES_WEBHOOK_ADDR`, default `:8081`
+  when a provider is set) without the tenant middleware. The `Stripe-Signature` HMAC-SHA256 over `<t>.<raw body>` is checked against
+  each configured signing secret before anything is parsed, and `t` must be within 5 minutes. The PaymentIntent id selects the attempt
+  through `receivables_gateway_route()` (SECURITY DEFINER over `gateway_route`, the only cross-tenant read, like edi's AS2 endpoint);
+  the event then runs as that tenant and legal entity. Event ids are recorded in `gateway_event`, so a redelivery or a replayed request
+  answers `duplicate` and changes nothing. Handled: `payment_intent.succeeded` (a PORTAL payment, mode CARD or ACH, `source_ref` the
+  PaymentIntent, bank account ref `RECEIVABLES_GATEWAY_BANK_REF`, Idempotency-Key `gateway:<attempt>`, applied to the chosen items with
+  `gateway-apply:<attempt>`, each capped at what is still open; the rest stays on account and the attempt is flagged `needsReview`),
+  `payment_intent.processing` (ACH on its way; nothing applied), `payment_intent.payment_failed` (the code and a plain message),
+  `charge.refunded` and `charge.dispute.created` (in full: unapply then reverse the receipt; in part: recorded and flagged). Brand, last
+  four, expiry month and year and the bank's name are read from the PaymentIntent's payment method; no card number, CVC or bank account
+  number is stored. Other event types and PaymentIntents Passage did not create are acknowledged and ignored. A transient failure answers
+  500 so Stripe redelivers; a refusal of receivables itself (an item settled meanwhile) is recorded on the attempt for review.
+- **Reads.** The portal reads its own attempts (`GET /customer-portal/payment-intents`, `/{id}`, receivables.customer-portal.read);
+  staff read `GET /gateway-payments?status=&customer=&payment=` and `/{id}` with the handled events (receivables.view).
+- **Configuration.** `RECEIVABLES_PAYMENT_PROVIDER=stripe` turns it on. `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` (comma-separated
+  signing secrets: the platform endpoint, the Connect endpoint, or two while one is rolled) come from a Kubernetes Secret, mounted and
+  read through `STRIPE_SECRET_KEY_FILE` / `STRIPE_WEBHOOK_SECRET_FILE` (chart `payments.existingSecret`, or `payments.externalSecret`).
+  `STRIPE_PUBLISHABLE_KEY` is plain config. `RECEIVABLES_STRIPE_ACCOUNTS` maps legal entity ids to Stripe Connect account ids; empty means
+  one platform account for every legal entity of the deployment, and when it is set only the listed legal entities take payments.
+  `RECEIVABLES_GATEWAY_BANK_REF` (default `STRIPE`) is the `ar_bank_account` account_ref of the Stripe clearing account. Keys are never
+  logged or put in an error. Without a provider the portal route answers 503 AR-GATEWAY-OFF.
 
 ## Web
 
@@ -186,6 +240,9 @@ receive, cancel, clear or offset, release, and the clearings); the deductions
 workbench (list with status and type filters and the age of each, record from
 an open item, detail with match, approve, deny and re-bill, split, write-off
 with the approval limit, and the parts of a split).
+
+The web module also lists the customer portal's card and ACH payments (Portal card and bank payments) and shows on a PORTAL payment's
+page how it was paid (brand and last four, or the bank) and its status.
 
 ## Dependencies
 
