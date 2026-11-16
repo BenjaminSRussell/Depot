@@ -3,8 +3,11 @@ package dbx_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
+	"sync"
 	"testing"
+	"testing/fstest"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -159,5 +162,64 @@ func TestConnectRefusesWeakTLSUnderAGovernmentProfile(t *testing.T) {
 	t.Setenv("PASSAGE_CLOUD_PROFILE", "no-such-profile")
 	if _, err := dbx.Connect(context.Background(), "postgres://u:p@127.0.0.1:1/x"); err == nil || !strings.Contains(err.Error(), "unknown cloud profile") {
 		t.Fatalf("a typo in the profile name must fail closed, got %v", err)
+	}
+}
+
+// Two replicas that start together with migrate-on-start both succeed, and each migration runs once (#213): Migrate holds an
+// advisory lock, so the second waits and then finds every file recorded.
+func TestConcurrentMigrateAppliesEachMigrationOnce(t *testing.T) {
+	first := testkit.DB(t)
+	ctx := context.Background()
+	second, err := pgxpool.NewWithConfig(ctx, first.Config().Copy()) // same throwaway schema, another "pod"
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer second.Close()
+	migrations := fstest.MapFS{
+		// Not idempotent: a second run of any file fails (the table exists) or shows up as an extra row.
+		"0001_create.sql": {Data: []byte("create table mig_runs (file text not null);\ninsert into mig_runs values ('0001');\n")},
+		"0002_slow.sql":   {Data: []byte("select pg_sleep(0.3);\ninsert into mig_runs values ('0002');\n")},
+		"0003_notx.sql":   {Data: []byte(dbx.NoTransactionMarker + "\ncreate table mig_notx (id int);\ninsert into mig_runs values ('0003');\n")},
+	}
+	var wg sync.WaitGroup
+	errs := make([]error, 2)
+	for i, pool := range []*pgxpool.Pool{first, second} {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			errs[i] = dbx.Migrate(ctx, pool, migrations)
+		}()
+	}
+	wg.Wait()
+	for i, err := range errs {
+		if err != nil {
+			t.Fatalf("replica %d: %v", i, err)
+		}
+	}
+	rows, err := first.Query(ctx, `select file, count(*) from mig_runs group by file order by file`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := pgx.CollectRows(rows, func(r pgx.CollectableRow) (string, error) {
+		var file string
+		var n int
+		err := r.Scan(&file, &n)
+		return fmt.Sprintf("%s x%d", file, n), err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Join(got, ",") != "0001 x1,0002 x1,0003 x1" {
+		t.Fatalf("migration runs = %v, want each file once", got)
+	}
+	var recorded int
+	if err := first.QueryRow(ctx, `select count(*) from schema_migrations`).Scan(&recorded); err != nil || recorded != 3 {
+		t.Fatalf("schema_migrations rows = %d (%v), want 3", recorded, err)
+	}
+	// The lock is released: a later run takes it at once and applies nothing.
+	timeout, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	if err := dbx.Migrate(timeout, second, migrations); err != nil {
+		t.Fatalf("a later run: %v", err)
 	}
 }

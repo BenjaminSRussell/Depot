@@ -45,13 +45,13 @@ func Connect(ctx context.Context, url string) (*pgxpool.Pool, error) {
 // leftover before it builds (see ledger 0032).
 const NoTransactionMarker = "-- dbx:no-transaction"
 
-func migrateNoTx(ctx context.Context, pool *pgxpool.Pool, name, body string) error {
+func migrateNoTx(ctx context.Context, conn *pgx.Conn, name, body string) error {
 	for _, stmt := range splitStatements(body) {
-		if _, err := pool.Exec(ctx, stmt); err != nil {
+		if _, err := conn.Exec(ctx, stmt); err != nil {
 			return fmt.Errorf("migration %s: %w", name, err)
 		}
 	}
-	_, err := pool.Exec(ctx, `insert into schema_migrations(name) values($1)`, name)
+	_, err := conn.Exec(ctx, `insert into schema_migrations(name) values($1)`, name)
 	return err
 }
 
@@ -91,8 +91,34 @@ func splitStatements(body string) []string {
 	return out
 }
 
+// Migrate holds a session advisory lock for the whole run, keyed on the database and the connection's current schema, so
+// replicas that start together with migrate-on-start take turns: the first applies the pending files, the others then find
+// them recorded and apply nothing. Every statement runs on the connection that holds the lock.
 func Migrate(ctx context.Context, pool *pgxpool.Pool, migrations fs.FS) error {
-	if _, err := pool.Exec(ctx, `create table if not exists schema_migrations (name text primary key, applied_at timestamptz not null default now())`); err != nil {
+	c, err := pool.Acquire(ctx)
+	if err != nil {
+		return err
+	}
+	defer c.Release()
+	conn := c.Conn()
+	var key int64
+	if err := conn.QueryRow(ctx, `select hashtextextended('passage.dbx.migrate:' || current_schema(), 0)`).Scan(&key); err != nil {
+		return err
+	}
+	if _, err := conn.Exec(ctx, `select pg_advisory_lock($1)`, key); err != nil {
+		return err
+	}
+	defer func() {
+		// Never hand a connection that may still hold the lock back to the pool: close it when the unlock fails.
+		if _, err := conn.Exec(context.WithoutCancel(ctx), `select pg_advisory_unlock($1)`, key); err != nil {
+			_ = conn.Close(context.WithoutCancel(ctx))
+		}
+	}()
+	return migrate(ctx, conn, migrations)
+}
+
+func migrate(ctx context.Context, conn *pgx.Conn, migrations fs.FS) error {
+	if _, err := conn.Exec(ctx, `create table if not exists schema_migrations (name text primary key, applied_at timestamptz not null default now())`); err != nil {
 		return err
 	}
 	entries, err := fs.ReadDir(migrations, ".")
@@ -108,7 +134,7 @@ func Migrate(ctx context.Context, pool *pgxpool.Pool, migrations fs.FS) error {
 	sort.Strings(names)
 	for _, name := range names {
 		var exists bool
-		if err := pool.QueryRow(ctx, `select exists(select 1 from schema_migrations where name=$1)`, name).Scan(&exists); err != nil {
+		if err := conn.QueryRow(ctx, `select exists(select 1 from schema_migrations where name=$1)`, name).Scan(&exists); err != nil {
 			return err
 		}
 		if exists {
@@ -119,12 +145,12 @@ func Migrate(ctx context.Context, pool *pgxpool.Pool, migrations fs.FS) error {
 			return err
 		}
 		if strings.HasPrefix(string(body), NoTransactionMarker) {
-			if err := migrateNoTx(ctx, pool, name, string(body)); err != nil {
+			if err := migrateNoTx(ctx, conn, name, string(body)); err != nil {
 				return err
 			}
 			continue
 		}
-		tx, err := pool.Begin(ctx)
+		tx, err := conn.Begin(ctx)
 		if err != nil {
 			return err
 		}
