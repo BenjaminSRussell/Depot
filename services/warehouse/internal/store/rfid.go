@@ -180,7 +180,7 @@ func (s *Store) actOnRead(ctx context.Context, tx pgx.Tx, rules []RFIDRule, read
 			continue
 		}
 		if epc.Scheme != "SSCC-96" {
-			act.Outcome, act.Detail = RFIDSkipped, "the tag is a "+epc.Scheme+", not a pallet's SSCC"
+			act.Outcome, act.Detail = RFIDSkipped, "the tag is "+epc.Scheme+", not a pallet's SSCC"
 			out = append(out, act)
 			continue
 		}
