@@ -50,7 +50,7 @@ type DocumentLine struct {
 	Amount         decimal.Decimal `json:"amount"`
 }
 
-const documentNumberSQL = `'BD-' || lpad(d.doc_no::text, 6, '0')`
+const documentNumberSQL = `coalesce(d.number, '')`
 
 func capLimit(n int) int {
 	if n <= 0 || n > listLimit {

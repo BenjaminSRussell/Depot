@@ -321,6 +321,16 @@ describe("lookup adapters", () => {
     expect((await lookupDefs.shipment.search("sh-", {})).map(formatOption)).toEqual(["SH-0000007 (partially shipped · 2026-11-02)"]);
   });
 
+  it("lists transfer orders and inbound notices for transport shipments", async () => {
+    handler = (url) => {
+      if (url.pathname === "/api/v1/inventory/transfer-orders") return json({ items: [{ id: "to-1", number: "TO-1A2B3C", status: "CREATED", shipDate: "2026-11-05" }] });
+      if (url.pathname === "/api/v1/receiving/asns") return json({ items: [{ id: "an-1", trackingNumber: "1Z999", carrier: "UPS", expectedArrival: "2026-11-09", status: "OPEN" }] });
+      return json({ items: [] });
+    };
+    expect((await lookupDefs.transferOrder.search("to-1", {})).map(formatOption)).toEqual(["TO-1A2B3C (created · 2026-11-05)"]);
+    expect((await lookupDefs.inboundNotice.search("", {})).map(formatOption)).toEqual(["1Z999 (UPS · due 2026-11-09 · open)"]);
+  });
+
   it("names a document line by its document and what it carries", async () => {
     handler = (url) => {
       if (url.pathname === "/api/v1/product/products/pr-1") return json({ id: "pr-1", name: "Seal kit", productNumber: "SEAL-MK-125" });
@@ -362,9 +372,11 @@ describe("lookup adapters", () => {
       return json({ items: [] });
     };
     expect(await lookupDefs.location.search("", {})).toEqual([]);
-    expect((await lookupDefs.location.search("b-02", { warehouseId: "wh-1" })).map(formatOption)).toEqual(["RM-B-02 (zone Seals)"]);
-    expect(calls).toContain("/api/v1/warehouse/locations?warehouseId=wh-1&limit=200");
+    expect((await lookupDefs.location.search("b-02", { warehouseId: "wh-1" })).map(formatOption)).toEqual(["RM-A-01 (zone Motors)", "RM-B-02 (zone Seals)"]);
+    expect(calls).toContain("/api/v1/warehouse/locations?warehouseId=wh-1&q=b-02&limit=20");
     expect((await lookupDefs.inventoryTransaction.search("", {})).map(formatOption)).toEqual(["PO-1042 (Seal kit x 5 EA · registered)", "sales line of 2026-11-03 (x 2)"]);
+    await lookupDefs.inventoryTransaction.search("po-10", {});
+    expect(calls).toContain("/api/v1/inventory/transactions?q=po-10&limit=20");
   });
 
   it("filters currencies by name or code", async () => {

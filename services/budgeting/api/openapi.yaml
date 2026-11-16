@@ -1161,7 +1161,7 @@ components:
       required: [id, number, documentType, legalEntityId, lineCount, updatedAt]
       properties:
         id: { type: string, format: uuid }
-        number: { type: string, description: 'Readable number such as BD-000042; shared sequence, so one tenant sees gaps.' }
+        number: { type: string, description: 'Readable number such as BD-000042, counted per tenant.' }
         documentType: { type: string, enum: [Requisition, PurchaseOrder, Invoice, Journal, Reservation] }
         legalEntityId: { type: string, format: uuid }
         lineCount: { type: integer }

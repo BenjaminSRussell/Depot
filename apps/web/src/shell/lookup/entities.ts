@@ -57,6 +57,8 @@ export type LookupEntityKey =
   | "carrierService"
   | "freightBill"
   | "shipment"
+  | "transferOrder"
+  | "inboundNotice"
   | "slipLine"
   | "orderLine"
   | "agreementLine"
@@ -796,8 +798,8 @@ function scheduleOption(row: Raw): LookupOption | null {
 const inventoryTransactionDef: LookupDef = {
   noun: "inventory transaction",
   search: async (q, _scope, signal) => {
-    const rows = items(await getJson(`/api/v1/inventory/transactions${query({ limit: "100" })}`, signal));
-    return narrow(present(await Promise.all(rows.map(inventoryTransactionOption))), q);
+    const rows = items(await getJson(`/api/v1/inventory/transactions${query({ q: q.trim() || undefined, limit: String(PAGE_SIZE) })}`, signal));
+    return present(await Promise.all(rows.map(inventoryTransactionOption)));
   },
   resolve: async (id, signal) => inventoryTransactionOption(await getOne("/api/v1/inventory/transactions", id, signal)),
 };
@@ -817,7 +819,7 @@ const locationDef: LookupDef = {
   noun: "location",
   search: async (q, scope, signal) =>
     scope.warehouseId
-      ? narrow(present((await listRows("/api/v1/warehouse/locations", { warehouseId: scope.warehouseId, limit: "200" }, signal)).map(locationOption)), q)
+      ? present(items(await getJson(`/api/v1/warehouse/locations${query({ warehouseId: scope.warehouseId, q: q.trim() || undefined, limit: String(PAGE_SIZE) })}`, signal)).map(locationOption))
       : [],
   resolve: async (id, signal) => locationOption(await getOne("/api/v1/warehouse/locations", id, signal)),
 };
@@ -860,6 +862,25 @@ export const lookupDefs: Record<LookupEntityKey, LookupDef> = {
       const number = [text(row, "status")?.replace(/_/g, " ").toLowerCase(), text(row, "plannedShipDate")?.slice(0, 10)].filter(Boolean).join(" · ");
       return hit ? { ...hit, number: number || undefined } : null;
     },
+  ),
+  transferOrder: listedEntity("transfer order", "/api/v1/inventory/transfer-orders", (row) => {
+    const hit = option(row, ["number"], []);
+    const number = [text(row, "status")?.replace(/_/g, " ").toLowerCase(), text(row, "shipDate")?.slice(0, 10)].filter(Boolean).join(" · ");
+    return hit ? { ...hit, number: number || undefined } : null;
+  }),
+  inboundNotice: listedEntity(
+    "inbound notice",
+    "/api/v1/receiving/asns",
+    (row) => {
+      const id = text(row, "id");
+      if (!id) {
+        return null;
+      }
+      const name = text(row, "trackingNumber") ?? `Notice of ${text(row, "expectedArrival") ?? text(row, "shipDate") ?? "unknown date"}`;
+      const number = [text(row, "carrier"), text(row, "expectedArrival") ? `due ${text(row, "expectedArrival")}` : undefined, lower(text(row, "status"))].filter(Boolean).join(" · ");
+      return { id, name, number: number || undefined };
+    },
+    () => ({ limit: "100" }),
   ),
   slipLine: serverSearch(
     "packing slip line",

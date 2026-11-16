@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/jackc/pgx/v5"
 
@@ -142,6 +143,37 @@ func (s *Postgres) OutcomeIDsByCode(ctx context.Context, codes []string) (map[st
 				return err
 			}
 			out[code] = id
+		}
+		return rows.Err()
+	})
+	return out, err
+}
+
+// ResolveOutcomeRefs maps each reference (an outcome id or code) to the outcome's id; references the master does not hold
+// are absent. A retired outcome still resolves by id (a test group may keep naming it) but not by code.
+func (s *Postgres) ResolveOutcomeRefs(ctx context.Context, refs []string) (map[string]string, error) {
+	out := map[string]string{}
+	err := dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
+		upper := make([]string, len(refs))
+		for i, r := range refs {
+			upper[i] = strings.ToUpper(r)
+		}
+		rows, err := tx.Query(ctx, `select id::text, code, active from quality_outcome where `+ownTenant+` and (id::text = any($1) or code = any($2))`, refs, upper)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var id, code string
+			var active bool
+			if err := rows.Scan(&id, &code, &active); err != nil {
+				return err
+			}
+			for _, r := range refs {
+				if r == id || (active && strings.ToUpper(r) == code) {
+					out[r] = id
+				}
+			}
 		}
 		return rows.Err()
 	})

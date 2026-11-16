@@ -58,3 +58,19 @@ func TestOutcomeMaster_CreateSearchRetireAndTenantScope(t *testing.T) {
 		t.Fatalf("cross-tenant get must be 404, got %v", err)
 	}
 }
+
+func TestOutcomeMaster_ResolvesCodesAndIdsButNotRetiredCodes(t *testing.T) {
+	s, _, ctx := setup(t)
+	a, _ := domain.NewOutcome("PASS", "Pass")
+	madeA, _, _ := s.CreateOutcome(ctx, a, "")
+	b, _ := domain.NewOutcome("OLD", "Old")
+	madeB, _, _ := s.CreateOutcome(ctx, b, "")
+	off := false
+	if _, err := s.UpdateOutcome(ctx, madeB.ID, 1, nil, &off); err != nil {
+		t.Fatal(err)
+	}
+	got, err := s.ResolveOutcomeRefs(ctx, []string{"pass", madeB.ID, "OLD", "NOPE"})
+	if err != nil || got["pass"] != madeA.ID || got[madeB.ID] != madeB.ID || len(got) != 2 {
+		t.Fatalf("resolved = %+v, %v (a retired outcome resolves by id only)", got, err)
+	}
+}

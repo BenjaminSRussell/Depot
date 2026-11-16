@@ -183,6 +183,10 @@ func (a *API) createTestGroup(w http.ResponseWriter, r *http.Request) {
 		httpx.Fail(w, r, validation(fields))
 		return
 	}
+	if err := a.resolvePassingOutcomes(r, req.Tests); err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
 	group, inserted, err := a.store.CreateTestGroup(r.Context(), domain.TestGroup{Code: req.Code, Tests: req.Tests}, key)
 	if err != nil {
 		httpx.Fail(w, r, err)

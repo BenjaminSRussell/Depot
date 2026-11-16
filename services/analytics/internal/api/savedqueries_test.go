@@ -60,6 +60,10 @@ func TestSavedQueries_PrivateToTheirUserSearchableAndDeletable(t *testing.T) {
 	if replay := do(t, h, http.MethodPost, "/v1/analytics/saved-queries", savedBody, ana(headerIdempotency, "k1")); replay.Code != http.StatusCreated || replay.Header().Get("Idempotency-Replayed") != "true" {
 		t.Fatalf("replay: %d %v", replay.Code, replay.Header())
 	}
+	// Another user sending ana's key and body gets no replay of ana's query.
+	if other := do(t, h, http.MethodPost, "/v1/analytics/saved-queries", savedBody, with(asUser("bo", DutyView), headerIdempotency, "k1")); other.Code != http.StatusUnprocessableEntity || problemCode(t, other.Body.String()).Code != domain.CodeIdempotencyReuse {
+		t.Fatalf("another user's replay of the key: %d %s", other.Code, other.Body)
+	}
 	if dup := do(t, h, http.MethodPost, "/v1/analytics/saved-queries", savedBody, ana(headerIdempotency, "k2")); dup.Code != http.StatusConflict || problemCode(t, dup.Body.String()).Code != domain.CodeSavedQueryDupe {
 		t.Fatalf("same name again: %d %s", dup.Code, dup.Body)
 	}

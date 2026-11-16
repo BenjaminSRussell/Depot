@@ -10,6 +10,7 @@ import (
 
 	"github.com/BenjaminSRussell/passage/platform/authz"
 	"github.com/BenjaminSRussell/passage/platform/httpx"
+	"github.com/BenjaminSRussell/passage/platform/tenant"
 	"github.com/BenjaminSRussell/passage/services/analytics/internal/domain"
 	"github.com/BenjaminSRussell/passage/services/analytics/internal/store"
 )
@@ -57,7 +58,9 @@ func (a *API) createSavedQuery(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, verr)
 		return
 	}
-	out, err := a.store.CreateSavedQuery(r.Context(), key, requestHash(r, raw), in, a.now())
+	// The key is the user's own: another user sending the same key and body is a different request, not a replay.
+	p, _ := tenant.FromContext(r.Context())
+	out, err := a.store.CreateSavedQuery(r.Context(), key, requestHash(r, raw)+"|"+p.UserID, in, a.now())
 	if err != nil {
 		fail(w, r, err)
 		return

@@ -49,6 +49,8 @@ type fakeStore struct {
 	s5          fakeSlice5
 	outcomes    map[string]domain.Outcome
 	outFilter   store.OutcomeFilter
+	// strictOutcomes makes a test group refuse passing outcomes that are not registered; by default any UUID passes.
+	strictOutcomes bool
 }
 
 func newFake() *fakeStore {
@@ -176,6 +178,21 @@ func (f *fakeStore) UpdateOutcome(_ context.Context, id string, version int, nam
 	o.Version++
 	f.outcomes[id] = o
 	return o, nil
+}
+
+func (f *fakeStore) ResolveOutcomeRefs(_ context.Context, refs []string) (map[string]string, error) {
+	out := map[string]string{}
+	for _, ref := range refs {
+		for _, o := range f.outcomes {
+			if o.ID == ref || (o.Active && o.Code == strings.ToUpper(ref)) {
+				out[ref] = o.ID
+			}
+		}
+		if _, ok := out[ref]; !ok && !f.strictOutcomes && ids.Valid(ref) {
+			out[ref] = ref
+		}
+	}
+	return out, nil
 }
 
 func (f *fakeStore) OutcomeIDsByCode(_ context.Context, codes []string) (map[string]string, error) {

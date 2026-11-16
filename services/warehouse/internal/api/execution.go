@@ -355,7 +355,7 @@ func (a *API) listLocations(w http.ResponseWriter, r *http.Request) {
 		validationFailed(w, r, fields)
 		return
 	}
-	out, err := a.st.ListLocations(r.Context(), store.LocationFilter{WarehouseID: q.Get("warehouseId"), Zone: q.Get("zone"), AfterName: after, Limit: limit})
+	out, err := a.st.ListLocations(r.Context(), store.LocationFilter{WarehouseID: q.Get("warehouseId"), Zone: q.Get("zone"), Q: strings.TrimSpace(q.Get("q")), AfterName: after, Limit: limit})
 	if err != nil {
 		fail(w, r, err, codeLocationNotFound)
 		return

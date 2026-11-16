@@ -165,3 +165,34 @@ func (a *API) resolveOutcomeCodes(r *http.Request, inputs []resultInput) ([]resu
 	}
 	return out, nil
 }
+
+// resolvePassingOutcomes replaces the passing outcome references of every attribute test (a code or an outcome id) with the
+// ids of registered outcomes; a reference the master does not hold is a field error.
+func (a *API) resolvePassingOutcomes(r *http.Request, tests []domain.TestLine) error {
+	var refs []string
+	for _, t := range tests {
+		refs = append(refs, t.PassingOutcomes...)
+	}
+	if len(refs) == 0 {
+		return nil
+	}
+	found, err := a.store.ResolveOutcomeRefs(r.Context(), refs)
+	if err != nil {
+		return err
+	}
+	fields := map[string]string{}
+	for i := range tests {
+		for j, ref := range tests[i].PassingOutcomes {
+			id, ok := found[ref]
+			if !ok {
+				fields[fmt.Sprintf("tests[%d].passingOutcomeIds", i)] = fmt.Sprintf("%q is not a registered outcome id or code", ref)
+				continue
+			}
+			tests[i].PassingOutcomes[j] = id
+		}
+	}
+	if len(fields) > 0 {
+		return validation(fields)
+	}
+	return nil
+}

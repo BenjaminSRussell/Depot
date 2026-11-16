@@ -3447,6 +3447,7 @@ test_analytics_saved_queries_are_for_viewers_and_authors if {
 		not allowed(duty, "PUT", "/v1/analytics/saved-queries/q1")
 	}
 	not allowed("analytics.export", "GET", "/v1/analytics/saved-queries")
+}
 
 # #40: the intercompany charge feed (expense lines and project hours another entity bears) holds one flag duty and opens no route.
 test_intercompany_charge_feed_holds_only_its_flag_duty if {

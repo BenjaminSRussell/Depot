@@ -26,23 +26,29 @@ const (
 // AuditPolicy is a stored audit rule. Version grows with every change to the rule, so the violation keys of an
 // earlier version stay what they were.
 type AuditPolicy struct {
-	PolicyID  string           `json:"policyId"`
-	Code      string           `json:"code"`
-	Name      string           `json:"name"`
-	RuleType  string           `json:"ruleType"`
-	Spec      domain.AuditSpec `json:"spec"`
-	Active    bool             `json:"active"`
-	Version   int              `json:"version"`
-	CreatedBy string           `json:"createdBy"`
-	CreatedAt time.Time        `json:"createdAt"`
-	UpdatedAt time.Time        `json:"updatedAt"`
+	PolicyID string           `json:"policyId"`
+	Code     string           `json:"code"`
+	Name     string           `json:"name"`
+	RuleType string           `json:"ruleType"`
+	Spec     domain.AuditSpec `json:"spec"`
+	Active   bool             `json:"active"`
+	// Version grows only with the rule: violation keys are built on it. RowVersion is the ETag and grows with every change.
+	Version    int       `json:"version"`
+	RowVersion int       `json:"rowVersion"`
+	CreatedBy  string    `json:"createdBy"`
+	CreatedAt  time.Time `json:"createdAt"`
+	UpdatedAt  time.Time `json:"updatedAt"`
 }
 
 // AuditPolicyInput is a new policy; the spec is validated by the caller.
 type AuditPolicyInput struct {
-	Code string           `json:"code"`
-	Name string           `json:"name"`
-	Spec domain.AuditSpec `json:"spec"`
+	// PolicyID and Version register a policy under the id and version earlier audit runs already used, so a rerun keeps its
+	// finding keys; both are optional (a new id, version 1).
+	PolicyID string           `json:"policyId,omitempty"`
+	Version  int              `json:"version,omitempty"`
+	Code     string           `json:"code"`
+	Name     string           `json:"name"`
+	Spec     domain.AuditSpec `json:"spec"`
 }
 
 // AuditPolicyPatch changes a policy: nil fields stay as they are. A new spec makes a new version.
@@ -61,12 +67,12 @@ type AuditPolicyFilter struct {
 	Limit      int
 }
 
-const auditPolicyColumns = `policy_id, code, name, rule_type, spec, active, version, created_by, created_at, updated_at`
+const auditPolicyColumns = `policy_id, code, name, rule_type, spec, active, version, row_version, created_by, created_at, updated_at`
 
 func scanAuditPolicy(row pgx.Row) (AuditPolicy, error) {
 	var p AuditPolicy
 	var spec []byte
-	if err := row.Scan(&p.PolicyID, &p.Code, &p.Name, &p.RuleType, &spec, &p.Active, &p.Version, &p.CreatedBy, &p.CreatedAt, &p.UpdatedAt); err != nil {
+	if err := row.Scan(&p.PolicyID, &p.Code, &p.Name, &p.RuleType, &spec, &p.Active, &p.Version, &p.RowVersion, &p.CreatedBy, &p.CreatedAt, &p.UpdatedAt); err != nil {
 		return AuditPolicy{}, err
 	}
 	return p, json.Unmarshal(spec, &p.Spec)
@@ -88,9 +94,16 @@ func (s *Postgres) CreateAuditPolicy(ctx context.Context, in AuditPolicyInput, k
 		out, err = idempotent(ctx, tx, p.TenantID, key, "audit-policy.create", struct {
 			Input AuditPolicyInput `json:"input"`
 		}{in}, func() (AuditPolicy, error) {
-			created, err := scanAuditPolicy(tx.QueryRow(ctx, `insert into audit_policy (tenant_id, policy_id, code, name, rule_type, spec, created_by, created_at, updated_at)
-				values ($1, $2, $3, $4, $5, $6::jsonb, $7, $8, $8) returning `+auditPolicyColumns,
-				p.TenantID, ids.New(), in.Code, strings.TrimSpace(in.Name), in.Spec.Type, string(spec), p.UserID, now))
+			id, version := in.PolicyID, in.Version
+			if id == "" {
+				id = ids.New()
+			}
+			if version == 0 {
+				version = 1
+			}
+			created, err := scanAuditPolicy(tx.QueryRow(ctx, `insert into audit_policy (tenant_id, policy_id, code, name, rule_type, spec, version, created_by, created_at, updated_at)
+				values ($1, $2, $3, $4, $5, $6::jsonb, $7, $8, $9, $9) returning `+auditPolicyColumns,
+				p.TenantID, strings.ToLower(id), in.Code, strings.TrimSpace(in.Name), in.Spec.Type, string(spec), version, p.UserID, now))
 			var pg *pgconn.PgError
 			if errors.As(err, &pg) && pg.Code == "23505" {
 				return AuditPolicy{}, problem(http.StatusConflict, CodeAuditPolicyDupe, "an audit policy with this code already exists")
@@ -164,7 +177,7 @@ func (s *Postgres) UpdateAuditPolicy(ctx context.Context, id string, expected in
 		if err != nil {
 			return err
 		}
-		if cur.Version != expected {
+		if cur.RowVersion != expected {
 			return problem(http.StatusPreconditionFailed, CodeVersionConflict, "the audit policy changed; reload it")
 		}
 		if in.Name != nil {
@@ -181,7 +194,7 @@ func (s *Postgres) UpdateAuditPolicy(ctx context.Context, id string, expected in
 		if err != nil {
 			return err
 		}
-		out, err = scanAuditPolicy(tx.QueryRow(ctx, `update audit_policy set name = $2, rule_type = $3, spec = $4::jsonb, active = $5, version = $6, updated_at = $7
+		out, err = scanAuditPolicy(tx.QueryRow(ctx, `update audit_policy set name = $2, rule_type = $3, spec = $4::jsonb, active = $5, version = $6, row_version = row_version + 1, updated_at = $7
 			where tenant_id = $8 and policy_id = $1 returning `+auditPolicyColumns, id, cur.Name, cur.RuleType, string(spec), cur.Active, cur.Version, now, p.TenantID))
 		return err
 	})

@@ -74,7 +74,7 @@ func (s *Postgres) ListCarrierServices(ctx context.Context, f CarrierServiceFilt
 	err := dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
 		rows, err := tx.Query(ctx, `select `+carrierServiceColumns+` from carrier_service
 			where tenant_id = $1 and ($2::text = '' or carrier_id::text = $2)
-			and ($3::text = '' or code ilike '%' || $3 || '%' or name ilike '%' || $3 || '%')
+			and ($3::text = '' or strpos(lower(code), lower($3)) > 0 or strpos(lower(name), lower($3)) > 0)
 			and ($4::text = '' or code = $4) and (not $5 or active)
 			order by carrier_id, code limit $6`, p.TenantID, f.CarrierID, f.Q, f.Code, f.ActiveOnly, limitOr(f.Limit))
 		if err != nil {

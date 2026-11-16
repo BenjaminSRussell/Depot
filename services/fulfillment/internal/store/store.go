@@ -916,12 +916,17 @@ func (s *Postgres) ListPackingSlips(ctx context.Context, f PackingSlipFilter) ([
 func (s *Postgres) ListPackingSlipLines(ctx context.Context, f PackingSlipLineFilter) ([]PackingSlipLineSummary, error) {
 	out := []PackingSlipLineSummary{}
 	err := dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
+		// Slips are chosen first and only their own lines are numbered, so a keystroke or one resolve never numbers the
+		// tenant's whole slip-line table.
 		rows, err := tx.Query(ctx, `select l.shipment_line_id, ps.id, ps.packing_slip_number, l.line_no, l.order_line_id, sl.product_id, l.qty::text
-			from (select pl.*, row_number() over (partition by pl.packing_slip_id order by pl.shipment_line_id) as line_no from packing_slip_line pl) l
-			join packing_slip ps on ps.tenant_id = l.tenant_id and ps.id = l.packing_slip_id
-			join shipment_line sl on sl.tenant_id = l.tenant_id and sl.id = l.shipment_line_id
+			from packing_slip ps
+			cross join lateral (select pl.shipment_line_id, pl.order_line_id, pl.qty,
+					row_number() over (order by pl.shipment_line_id) as line_no
+				from packing_slip_line pl where pl.tenant_id = ps.tenant_id and pl.packing_slip_id = ps.id) l
+			join shipment_line sl on sl.tenant_id = ps.tenant_id and sl.id = l.shipment_line_id
 			where ($1 = '' or ps.id::text = $1)
 			  and ($3 = '' or strpos(lower(ps.packing_slip_number), lower($3)) > 0)
+			  and ($4 = '' or ps.id in (select x.packing_slip_id from packing_slip_line x where x.shipment_line_id::text = $4))
 			  and ($4 = '' or l.shipment_line_id::text = $4)
 			order by ps.created_at desc, ps.packing_slip_number desc, l.line_no
 			limit $2`, f.SlipID, f.Limit, f.Q, f.ID)

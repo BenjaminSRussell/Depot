@@ -106,6 +106,7 @@ paths:
       parameters:
         - { name: warehouseId, in: query, required: true, schema: { type: string, format: uuid } }
         - { name: zone, in: query, schema: { type: string } }
+        - { name: q, in: query, description: Only locations whose name contains it, ignoring case (the location lookup), schema: { type: string, maxLength: 100 } }
         - $ref: "#/components/parameters/Limit"
         - $ref: "#/components/parameters/Cursor"
       responses:

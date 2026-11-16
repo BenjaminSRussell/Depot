@@ -41,7 +41,7 @@ const (
 const rateCardColumns = `id, carrier_id, service_id, basis, currency, to_char(valid_from, 'YYYY-MM-DD'),
 	to_char(valid_to, 'YYYY-MM-DD'), minimum_charge::text, dim_divisor, fuel_pct::text, rate_rows, accessorials, request_hash`
 
-const freightBillColumns = `id, 'FB-' || lpad(bill_no::text, 6, '0'), load_id, carrier_id, currency, expected_lines, expected_total::text, match_status,
+const freightBillColumns = `id, coalesce(number, ''), load_id, carrier_id, currency, expected_lines, expected_total::text, match_status,
 	carrier_invoice_id, variance_total::text, version, created_at, request_hash`
 
 const carrierInvoiceColumns = `id, carrier_id, invoice_no, to_char(invoice_date, 'YYYY-MM-DD'), source, freight_bill_id,
@@ -301,8 +301,8 @@ func (s *Postgres) ListFreightBills(ctx context.Context, f FreightBillFilter) ([
 		rows, err := tx.Query(ctx, `select `+freightBillColumns+` from freight_bill
 			where tenant_id = $1 and ($2::text = '' or match_status = $2) and ($3::text = '' or carrier_id::text = $3)
 			and ($4::text = '' or load_id::text = $4)
-			and ($5::text = '' or ('FB-' || lpad(bill_no::text, 6, '0')) ilike '%' || $5 || '%')
-			and ($6::text = '' or ('FB-' || lpad(bill_no::text, 6, '0')) = $6)
+			and ($5::text = '' or strpos(lower(coalesce(number, '')), lower($5)) > 0)
+			and ($6::text = '' or number = $6)
 			order by created_at desc, id limit $7`, p.TenantID, f.MatchStatus, f.CarrierID, f.LoadID, f.Q, f.Number, limitOr(f.Limit))
 		if err != nil {
 			return err

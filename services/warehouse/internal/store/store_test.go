@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"errors"
+	"strings"
 	"fmt"
 	"os"
 	"sync"
@@ -159,6 +160,12 @@ func TestStore_SetupConflictsAndIdempotency(t *testing.T) {
 	}
 	if one, err := st.GetLocation(ctx, page1[0].ID); err != nil || one.Name != page1[0].Name || one.ID != page1[0].ID {
 		t.Fatalf("GetLocation = %+v, %v", one, err)
+	}
+	if found, err := st.ListLocations(ctx, LocationFilter{WarehouseID: wh, Q: strings.ToUpper(page1[0].Name[1:]), Limit: 10}); err != nil || len(found) == 0 || found[0].ID != page1[0].ID {
+		t.Fatalf("search by part of a name = %+v, %v", found, err)
+	}
+	if none, err := st.ListLocations(ctx, LocationFilter{WarehouseID: wh, Q: "no-such-location", Limit: 10}); err != nil || len(none) != 0 {
+		t.Fatalf("search for nothing = %+v, %v", none, err)
 	}
 	if _, err := st.GetLocation(ctx, ids.New()); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("an unknown location must be ErrNotFound, got %v", err)

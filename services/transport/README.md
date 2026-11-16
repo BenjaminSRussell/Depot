@@ -58,7 +58,7 @@ charts/transport/       Helm chart (image, DATABASE_URL from a secret, probes, S
 | GET | /v1/transport/carrier-services, /{id} | transport.rate-card.maintain, transport.rate-card.approve or transport.view | The lookup of the rate card and rate shop forms: `q` (code or name), `code`, `carrierId`, `active=true`, `limit` |
 | POST | /v1/transport/shipments/{id}:rate | transport.rate-card.maintain | One quote per carrier service with the card valid on the ship date, ranked, with explain trace; not cached yet |
 | POST | /v1/transport/freight-bills | transport.freight-bill.reconcile | Expected charges for a load; `Idempotency-Key` optional |
-| GET | /v1/transport/freight-bills | transport.view | Newest first, at most 500; filter by `matchStatus`, `carrierId`, `loadId`, `q` (part of the bill number), `number` (exact, such as FB-000042), `limit`. A bill's number comes from a sequence shared by all tenants, so one tenant sees gaps |
+| GET | /v1/transport/freight-bills | transport.view | Newest first, at most 500; filter by `matchStatus`, `carrierId`, `loadId`, `q` (part of the bill number), `number` (exact, such as FB-000042), `limit`. A bill's number counts per tenant (`freight_bill_counter`) |
 | GET | /v1/transport/freight-bills/{id} | transport.view | The bill, its carrier invoice and the per-charge comparison once matched |
 | POST | /v1/transport/carrier-invoices | transport.freight-bill.reconcile | Matched to the named bill in the same transaction; no bill makes it UNEXPECTED_INVOICE |
 | GET | /v1/transport/carrier-invoices | transport.freight-bill.reconcile | Newest first, at most 500; `matchStatus=UNEXPECTED_INVOICE` is the exception queue |

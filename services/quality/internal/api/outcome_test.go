@@ -75,3 +75,25 @@ func TestResults_NameTheOutcomeByCode(t *testing.T) {
 		t.Fatalf("recorded %+v, want the master's id and a pass", got)
 	}
 }
+
+func TestTestGroups_PassingOutcomesAreRegisteredIdsOrCodes(t *testing.T) {
+	f := newFake()
+	f.strictOutcomes = true
+	known := ids.New()
+	f.outcomes = map[string]domain.Outcome{known: {ID: known, Code: "PASS", Name: "Pass", Active: true, Version: 1}}
+	h := newHandler(f)
+	body := func(ref string) string {
+		return `{"code":"GRP-1","tests":[{"testId":"` + ids.New() + `","name":"look","kind":"ATTRIBUTE","required":true,"passingOutcomeIds":["` + ref + `"]}]}`
+	}
+	if rec := call(h, reqSpec{method: http.MethodPost, path: "/v1/quality/test-groups", body: body("pass"), duties: allDuties, key: "g1"}); rec.Code != http.StatusCreated || !strings.Contains(rec.Body.String(), known) {
+		t.Fatalf("a code resolves to its id: %d %s", rec.Code, rec.Body)
+	}
+	if rec := call(h, reqSpec{method: http.MethodPost, path: "/v1/quality/test-groups", body: body(known), duties: allDuties, key: "g2"}); rec.Code != http.StatusCreated {
+		t.Fatalf("a registered id: %d %s", rec.Code, rec.Body)
+	}
+	for _, ref := range []string{"NOPE", ids.New()} {
+		if rec := call(h, reqSpec{method: http.MethodPost, path: "/v1/quality/test-groups", body: body(ref), duties: allDuties, key: "g3"}); rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "passingOutcomeIds") {
+			t.Fatalf("%s: %d %s", ref, rec.Code, rec.Body)
+		}
+	}
+}

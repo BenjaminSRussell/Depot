@@ -11,6 +11,7 @@ import (
 
 	"github.com/BenjaminSRussell/passage/platform/authz"
 	"github.com/BenjaminSRussell/passage/platform/httpx"
+	"github.com/BenjaminSRussell/passage/platform/ids"
 	"github.com/BenjaminSRussell/passage/services/compliance/internal/domain"
 	"github.com/BenjaminSRussell/passage/services/compliance/internal/store"
 )
@@ -67,6 +68,12 @@ func (a *API) createAuditPolicy(w http.ResponseWriter, r *http.Request) {
 	if in.Spec.Type == "" {
 		fields["spec.type"] = "is required"
 	}
+	if in.PolicyID != "" && !ids.Valid(in.PolicyID) {
+		fields["policyId"] = "must be a UUID"
+	}
+	if in.Version < 0 || in.Version > 9999 {
+		fields["version"] = "must be 1 to 9999 when given"
+	}
 	if len(fields) > 0 {
 		httpx.Fail(w, r, invalid(fields))
 		return
@@ -80,7 +87,7 @@ func (a *API) createAuditPolicy(w http.ResponseWriter, r *http.Request) {
 		httpx.Fail(w, r, domainProblem(err))
 		return
 	}
-	setETag(w, out.Version)
+	setETag(w, out.RowVersion)
 	httpx.JSON(w, http.StatusCreated, out)
 }
 
@@ -128,7 +135,7 @@ func (a *API) getAuditPolicy(w http.ResponseWriter, r *http.Request) {
 		httpx.Fail(w, r, domainProblem(err))
 		return
 	}
-	setETag(w, out.Version)
+	setETag(w, out.RowVersion)
 	httpx.JSON(w, http.StatusOK, out)
 }
 
@@ -174,6 +181,6 @@ func (a *API) updateAuditPolicy(w http.ResponseWriter, r *http.Request) {
 		httpx.Fail(w, r, domainProblem(err))
 		return
 	}
-	setETag(w, out.Version)
+	setETag(w, out.RowVersion)
 	httpx.JSON(w, http.StatusOK, out)
 }

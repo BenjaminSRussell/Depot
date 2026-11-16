@@ -52,6 +52,7 @@ type Store interface {
 	ListOutcomes(ctx context.Context, f OutcomeFilter) ([]domain.Outcome, error)
 	UpdateOutcome(ctx context.Context, id string, expectedVersion int, name *string, active *bool) (domain.Outcome, error)
 	OutcomeIDsByCode(ctx context.Context, codes []string) (map[string]string, error)
+	ResolveOutcomeRefs(ctx context.Context, refs []string) (map[string]string, error)
 	CreateAssociation(ctx context.Context, in domain.Association, key string) (domain.Association, bool, error)
 	ListAssociations(ctx context.Context) ([]domain.Association, error)
 	CreateOrder(ctx context.Context, in domain.Order, key string) (domain.Order, bool, error)

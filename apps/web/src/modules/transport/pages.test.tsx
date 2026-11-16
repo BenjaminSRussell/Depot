@@ -227,6 +227,26 @@ describe("Rate shop", () => {
     fill("Ship date", "2026-06-01");
   }
 
+  it("picks the shipment from the list that matches its kind and clears the choice when the kind changes", async () => {
+    const asked: string[] = [];
+    setLookupFetcher(async (url) => {
+      asked.push(url);
+      return new Response(JSON.stringify({ items: [] }), { status: 200, headers: { "Content-Type": "application/json" } });
+    });
+    renderAt("/transport/rate-shop");
+    fill("Shipment", LOAD);
+    fireEvent.change(screen.getByLabelText("Shipment kind"), { target: { value: "TRANSFER" } });
+    const before = asked.length;
+    expect((screen.getByLabelText("Shipment") as HTMLInputElement).value).toBe("");
+    fill("Shipment", "TO-1");
+    await waitFor(() => expect(asked.some((u) => u.includes("/api/v1/inventory/transfer-orders"))).toBe(true));
+    fireEvent.change(screen.getByLabelText("Shipment kind"), { target: { value: "INBOUND" } });
+    fill("Shipment", "1Z");
+    await waitFor(() => expect(asked.some((u) => u.includes("/api/v1/receiving/asns"))).toBe(true));
+    expect(asked.slice(before).some((u) => u.includes("/api/v1/fulfillment/shipments"))).toBe(false);
+    setLookupFetcher(null);
+  });
+
   it("ranks the options, marks the cheapest and opens its explain trace", async () => {
     handler = (url) => (url.pathname.endsWith(":rate") ? json(200, { shipmentId: LOAD, options: [ok(CARRIER, "47.4"), none], chosen: ok(CARRIER, "47.4") }) : undefined);
     const { container } = renderAt("/transport/rate-shop");

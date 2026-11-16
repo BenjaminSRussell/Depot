@@ -540,16 +540,25 @@ func registerDocument(ctx context.Context, tx pgx.Tx, tenantID, legalEntityID st
 		on conflict (tenant_id, id) do update set updated_at = now()`, tenantID, resp.DocumentID, legalEntityID, resp.DocumentType); err != nil {
 		return err
 	}
+	lineIDs := make([]string, len(resp.Lines))
+	nos := make([]int32, len(resp.Lines))
+	dims := make([]string, len(resp.Lines))
+	spans := make([]string, len(resp.Lines))
+	amounts := make([]string, len(resp.Lines))
 	for i, l := range resp.Lines {
-		if _, err := tx.Exec(ctx, `insert into budget_document_line (tenant_id, id, document_id, legal_entity_id, line_no, dimension_key, span_key, amount)
-			values ($1, $2, $3, $4, $5, $6, $7, $8)
-			on conflict (tenant_id, id) do update set line_no = excluded.line_no, dimension_key = excluded.dimension_key, span_key = excluded.span_key, amount = excluded.amount
-			where budget_document_line.document_id = excluded.document_id`,
-			tenantID, l.LineID, resp.DocumentID, legalEntityID, i+1, l.DimensionKey, l.SpanKey, l.Amount); err != nil {
-			return err
-		}
+		lineIDs[i], nos[i], dims[i], spans[i], amounts[i] = l.LineID, int32(i+1), l.DimensionKey, l.SpanKey, l.Amount.String()
 	}
-	return nil
+	// A revised document keeps only the lines of this check: the ones it dropped leave the register.
+	if _, err := tx.Exec(ctx, `delete from budget_document_line where tenant_id = $1 and document_id = $2 and id <> all($3::uuid[])`, tenantID, resp.DocumentID, lineIDs); err != nil {
+		return err
+	}
+	_, err := tx.Exec(ctx, `insert into budget_document_line (tenant_id, id, document_id, legal_entity_id, line_no, dimension_key, span_key, amount)
+		select $1, t.id, $2, $3, t.no, t.dim, t.span, t.amount::numeric
+		from unnest($4::uuid[], $5::int[], $6::text[], $7::text[], $8::text[]) as t(id, no, dim, span, amount)
+		on conflict (tenant_id, id) do update set line_no = excluded.line_no, dimension_key = excluded.dimension_key, span_key = excluded.span_key, amount = excluded.amount
+		where budget_document_line.document_id = excluded.document_id`,
+		tenantID, resp.DocumentID, legalEntityID, lineIDs, nos, dims, spans, amounts)
+	return err
 }
 
 // RelieveEncumbrance applies relief = min(matched share, remaining reservation)

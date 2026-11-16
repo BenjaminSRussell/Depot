@@ -49,6 +49,18 @@ func TestDocumentRegister_ChecksNumberDocumentsAndKeepLineIDs(t *testing.T) {
 	if found, err := st.ListDocumentLines(ctx, DocumentLineFilter{DocumentID: req.DocumentID, Q: "fy2026"}); err != nil || len(found) != 2 {
 		t.Fatalf("line search = %+v, %v", found, err)
 	}
+	// A revised document that drops a line loses it from the register; the kept line is renumbered.
+	revised := req
+	revised.Lines = req.Lines[1:]
+	if _, _, err := st.CheckBudget(ctx, "po-3", "h", revised, false); err != nil {
+		t.Fatal(err)
+	}
+	if left, err := st.ListDocumentLines(ctx, DocumentLineFilter{DocumentID: req.DocumentID}); err != nil || len(left) != 1 || left[0].ID != req.Lines[1].LineID || left[0].LineNo != 1 {
+		t.Fatalf("after dropping a line = %+v, %v", left, err)
+	}
+	if again, _ := st.GetDocument(ctx, req.DocumentID); again.LineCount != 1 {
+		t.Fatalf("line count after dropping = %d", again.LineCount)
+	}
 	// Another tenant sees none of it.
 	other := testCtx(testkit.TenantID(2), "budget.view")
 	if list, err := st.ListDocuments(other, DocumentFilter{}); err != nil || len(list) != 0 {

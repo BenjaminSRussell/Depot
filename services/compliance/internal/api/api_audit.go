@@ -1,6 +1,7 @@
 package api
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"regexp"
@@ -133,18 +134,27 @@ func (a *API) evaluateAudit(w http.ResponseWriter, r *http.Request) {
 	fields := map[string]string{}
 	if !ids.Valid(req.PolicyID) {
 		fields["policyId"] = "must be a UUID"
-	} else if req.Spec.Type == "" && req.Version == 0 {
-		// Neither a spec nor a version in the request: the run uses the stored policy, at its current version.
+	} else {
+		// A stored policy is the rule: a caller's spec or version under its id would key findings to a rule it does not hold.
 		policy, err := a.store.GetAuditPolicy(r.Context(), strings.ToLower(req.PolicyID))
-		if err != nil {
+		var problem *httpx.Problem
+		switch {
+		case err == nil:
+			if req.Spec.Type != "" || req.Version != 0 {
+				httpx.Fail(w, r, invalid(map[string]string{"spec": "a stored policy runs its own rule: send the policyId alone"}))
+				return
+			}
+			if !policy.Active {
+				httpx.Fail(w, r, httpx.NewProblem(http.StatusUnprocessableEntity, store.CodeAuditPolicyRetired, "this audit policy is retired; run another policy"))
+				return
+			}
+			req.Spec, req.Version = policy.Spec, policy.Version
+		case errors.As(err, &problem) && problem.Code == store.CodeAuditPolicyNotFound && (req.Spec.Type != "" || req.Version != 0):
+			// An id no stored policy holds: the request carries its own rule, as runs did before policies were stored.
+		default:
 			httpx.Fail(w, r, domainProblem(err))
 			return
 		}
-		if !policy.Active {
-			httpx.Fail(w, r, httpx.NewProblem(http.StatusUnprocessableEntity, store.CodeAuditPolicyRetired, "this audit policy is retired; run another policy"))
-			return
-		}
-		req.Spec, req.Version = policy.Spec, policy.Version
 	}
 	if req.Version < 1 {
 		fields["version"] = "must be at least 1"

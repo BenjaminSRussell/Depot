@@ -10,6 +10,8 @@ CREATE TABLE IF NOT EXISTS audit_policy (
   spec jsonb NOT NULL,
   active boolean NOT NULL DEFAULT true,
   version integer NOT NULL DEFAULT 1 CHECK (version >= 1),
+  -- row_version is the ETag: it grows with every change (a rename or a retirement too), while version grows only with the rule.
+  row_version integer NOT NULL DEFAULT 1 CHECK (row_version >= 1),
   created_by text NOT NULL,
   created_at timestamptz NOT NULL,
   updated_at timestamptz NOT NULL,

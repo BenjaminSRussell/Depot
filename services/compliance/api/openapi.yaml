@@ -386,7 +386,8 @@ paths:
         documents), THRESHOLD, WEEKEND_HOLIDAY and AGGREGATE. Each finding key
         is idempotent on (policy id, version, document id). Nothing is stored:
         persisted runs and audit_violation rows come with the audit store.
-        Without a spec and a version the run uses the stored audit policy named by policyId,
+        When policyId names a stored policy the run uses it at its current version and a spec or version in the request is refused (400);
+        an id no policy holds still runs the rule the request carries. Without a spec and a version the run uses the stored audit policy named by policyId,
         at its current version (404 AUD-0720 when it does not exist, 422
         AUD-0722 when it is retired); with a spec the request carries its own rule.
       requestBody:
@@ -1438,6 +1439,8 @@ components:
       type: object
       required: [code, name, spec]
       properties:
+        policyId: { type: string, format: uuid, description: "Registers the policy under the id earlier audit runs used, so a rerun keeps its finding keys. Optional." }
+        version: { type: integer, minimum: 1, maximum: 9999, description: "Starting version, with policyId. Optional, default 1." }
         code: { type: string, description: "2 to 32 characters of A-Z, 0-9, _ or -; stored upper-case." }
         name: { type: string, maxLength: 120 }
         spec: { $ref: "#/components/schemas/AuditSpec" }
@@ -1457,7 +1460,8 @@ components:
         ruleType: { type: string }
         spec: { $ref: "#/components/schemas/AuditSpec" }
         active: { type: boolean }
-        version: { type: integer, minimum: 1 }
+        version: { type: integer, minimum: 1, description: "Grows only with the rule; finding keys are built on it." }
+        rowVersion: { type: integer, minimum: 1, description: "The ETag a PATCH sends as If-Match; grows with every change, a rename or retirement included." }
         createdBy: { type: string }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }

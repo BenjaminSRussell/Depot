@@ -20,16 +20,28 @@ CREATE POLICY quality_outcome_tenant_access ON quality_outcome AS PERMISSIVE
   USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
   WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
 
-INSERT INTO quality_outcome (tenant_id, id, code, name)
-SELECT tenant_id, id, 'OUT-' || upper(right(replace(id::text, '-', ''), 8)), 'Outcome ' || upper(right(replace(id::text, '-', ''), 8))
-FROM (
-  SELECT tenant_id, outcome_id AS id FROM quality_result WHERE outcome_id IS NOT NULL
-  UNION
-  SELECT g.tenant_id, o::uuid FROM quality_test_group g,
-    LATERAL jsonb_array_elements(g.tests) AS t(v),
-    LATERAL jsonb_array_elements_text(CASE WHEN jsonb_typeof(t.v -> 'passingOutcomeIds') = 'array' THEN t.v -> 'passingOutcomeIds' ELSE '[]'::jsonb END) AS o
-) referenced
-ON CONFLICT DO NOTHING;
+-- Register every outcome id the results and test groups already mention. It reads every tenant, so it runs only under a
+-- role that bypasses row-level security; otherwise it is skipped with a notice and outcomes are registered by hand (rows
+-- that name an unregistered id stay valid). Only values shaped like a UUID are cast: older rows may hold other text.
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = current_user AND (rolsuper OR rolbypassrls)) THEN
+    RAISE NOTICE 'quality outcome backfill skipped: role % does not bypass row-level security', current_user;
+    RETURN;
+  END IF;
+  INSERT INTO quality_outcome (tenant_id, id, code, name)
+  SELECT tenant_id, id, 'OUT-' || upper(right(replace(id::text, '-', ''), 8)), 'Outcome ' || upper(right(replace(id::text, '-', ''), 8))
+  FROM (
+    SELECT tenant_id, outcome_id AS id FROM quality_result WHERE outcome_id IS NOT NULL
+    UNION
+    SELECT g.tenant_id, o::uuid FROM quality_test_group g,
+      LATERAL jsonb_array_elements(g.tests) AS t(v),
+      LATERAL jsonb_array_elements_text(CASE WHEN jsonb_typeof(t.v -> 'passingOutcomeIds') = 'array' THEN t.v -> 'passingOutcomeIds' ELSE '[]'::jsonb END) AS o
+    WHERE o ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+  ) referenced
+  ON CONFLICT DO NOTHING;
+END
+$$;
 
 DO $$
 BEGIN

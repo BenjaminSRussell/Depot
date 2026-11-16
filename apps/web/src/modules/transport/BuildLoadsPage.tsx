@@ -1,12 +1,13 @@
 import { useRef, useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Alert, Button, buttonClassName, Card, DataTable, FormField, Input, PageHeader } from "../../shell/ui";
+import { Alert, Button, buttonClassName, Card, DataTable, FormField, Input, PageHeader, Select } from "../../shell/ui";
 import { buildLoads, describeProblem, LOAD_MODES, newKey, type Load, type LoadBuildRequest, type LoadMode, type Problem } from "./api/client";
 import { AMOUNT, DATE, UUID } from "./format";
 import { loadColumns } from "./LoadsPage";
 import styles from "./pages.module.css";
 import { RowsEditor, type RowField } from "./RowsEditor";
 import { ProblemMessage } from "../../shell/errors";
+import { SHIPMENT_KINDS, shipmentKindEntity, type ShipmentKind } from "./shipmentKind";
 
 export interface BuildValues {
   maxWeightKg: string;
@@ -15,8 +16,8 @@ export interface BuildValues {
   shipments: Record<string, string>[];
 }
 
-const shipmentFields: RowField[] = [
-  { key: "id", label: "Shipment", lookup: "shipment", hint: "A shipment released by fulfillment." },
+const shipmentFields = (kind: ShipmentKind): RowField[] => [
+  { key: "id", label: "Shipment", lookup: shipmentKindEntity(kind), hint: SHIPMENT_KINDS.find((k) => k.value === kind)?.hint },
   { key: "shipFromSiteId", label: "Ship-from site", lookup: "site" },
   { key: "shipToRegion", label: "Ship-to region", upper: true, hint: "Such as US-SE." },
   { key: "mode", label: "Mode", options: LOAD_MODES },
@@ -74,6 +75,7 @@ export function validateBuild(v: BuildValues): { errors: Record<string, string>;
 export function BuildLoadsPage() {
   const navigate = useNavigate();
   const [values, setValues] = useState<BuildValues>({ maxWeightKg: "20000", maxVolumeM3: "90", maxPallets: "26", shipments: [blankShipment()] });
+  const [kind, setKind] = useState<ShipmentKind>("SALES");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [failure, setFailure] = useState<Problem | null>(null);
   const [busy, setBusy] = useState(false);
@@ -150,11 +152,29 @@ export function BuildLoadsPage() {
           <FormField id="build-pallets" label="Pallet positions" error={capacityError("maxPallets")}>
             {(control) => <Input {...control} inputMode="numeric" value={values.maxPallets} onChange={(e) => update({ maxPallets: e.target.value })} invalid={Boolean(capacityError("maxPallets"))} />}
           </FormField>
+          <FormField id="build-kind" label="Shipment kind" hint="What the shipment ids below refer to. Changing it clears the shipments chosen so far.">
+            {(control) => (
+              <Select
+                {...control}
+                value={kind}
+                onChange={(e) => {
+                  setKind(e.target.value as ShipmentKind);
+                  update({ shipments: values.shipments.map((row) => ({ ...row, id: "" })) });
+                }}
+              >
+                {SHIPMENT_KINDS.map((k) => (
+                  <option key={k.value} value={k.value}>
+                    {k.label}
+                  </option>
+                ))}
+              </Select>
+            )}
+          </FormField>
           <RowsEditor
             field="shipments"
             legend="Shipments to plan"
             noun="shipment"
-            fields={shipmentFields}
+            fields={shipmentFields(kind)}
             rows={values.shipments}
             errors={errors}
             blank={blankShipment}
