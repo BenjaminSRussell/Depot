@@ -8,3 +8,6 @@ appOrigin: https://supplier.dev.passage.dev
 # No clamd in dev: uploads are accepted unscanned. Set scan.clamavAddr (and drop this) wherever documents are real.
 scan:
   allowUnscanned: true
+# The portal edge (deploy/gateway/portal-gateway.yaml) is the TCP peer of every request, so the public routes' per-address limit
+# reads the client from X-Forwarded-For past the Envoy pods: the k3d (k3s) pod CIDR. Without it every client shares one allowance.
+trustedProxies: 10.42.0.0/16

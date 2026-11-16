@@ -19,6 +19,7 @@ hello-ledger-stage: the reviewed merge to main is the promotion gate (docs/runbo
 """
 
 import argparse
+import copy
 import sys
 from pathlib import Path
 
@@ -122,71 +123,35 @@ def stage_application(app: dict) -> dict:
     }
 
 
+class FlowMap(dict):
+    """A mapping written on one line, like the elements of the dev ApplicationSet."""
+
+
+Dumper.add_representer(FlowMap, lambda d, v: d.represent_mapping("tag:yaml.org,2002:map", v.items(), flow_style=True))
+
+
 def services_appset() -> str:
-    """The stage ApplicationSet, written out by hand so the element list keeps the dev file's one-line form."""
-    dev = yaml.safe_load((DEV / "services.yaml").read_text())
-    elements = dev["spec"]["generators"][0]["list"]["elements"]
-    wave = dev["metadata"]["annotations"]["argocd.argoproj.io/sync-wave"]
-    template = dev["spec"]["template"]["spec"]
-    (chart_src,) = [s for s in template["sources"] if "path" in s]
-    (digest,) = [p["value"] for p in chart_src["helm"]["parameters"] if p["name"] == "image.digest"]
-    retry = template["syncPolicy"]["retry"]
-    lines = [HEADER.format(source="services.yaml").rstrip("\n"),
-             "# Stage Applications for every service chart in the dev ApplicationSet. Services with a hand-written dev Application",
-             "# have a generated <name>-stage.yaml next to this file. Stage values are deploy/envs/stage/values/<name>.yaml (a missing",
-             "# file is ignored); replicas below two there are raised to two except for the singletons stage_apps.py lists.",
-             "apiVersion: argoproj.io/v1alpha1",
-             "kind: ApplicationSet",
-             "metadata:",
-             "  name: services-stage",
-             "  namespace: argocd",
-             "  annotations:",
-             f'    argocd.argoproj.io/sync-wave: "{wave}"',
-             "spec:",
-             "  goTemplate: true",
-             '  goTemplateOptions: ["missingkey=error"]',
-             "  generators:",
-             "    - list:",
-             "        elements:"]
-    for e in elements:
-        lines.append(f"          - {{ name: {e['name']}, path: {e['path']}, namespace: {e['namespace']} }}")
-    lines += [
-        "  template:",
-        "    metadata:",
-        "      name: '{{ .name }}-stage'",
-        "      namespace: argocd",
-        "      finalizers: [resources-finalizer.argocd.argoproj.io]",
-        "    spec:",
-        "      project: default",
-        "      sources:",
-        f"        - repoURL: {chart_src['repoURL']}",
-        f"          targetRevision: {chart_src['targetRevision']}",
-        "          path: '{{ .path }}'",
-        "          helm:",
-        "            releaseName: '{{ .name }}'",
-        "            ignoreMissingValueFiles: true",
-        "            valueFiles:",
-        "              - '$values/deploy/envs/stage/values/{{ .name }}.yaml'",
-        "            parameters:",
-        "              - name: image.digest",
-        f"                value: {digest}",
-        f"        - repoURL: {chart_src['repoURL']}",
-        f"          targetRevision: {chart_src['targetRevision']}",
-        "          ref: values",
-        "      destination:",
-        f"        name: {STAGE_CLUSTER}",
-        "        namespace: '{{ .namespace }}'",
-        "      syncPolicy:",
-        "        automated:",
-        "          prune: true",
-        "          selfHeal: true",
-        "        retry:",
-        f"          limit: {retry['limit']}",
-        "          backoff: { " + ", ".join(f"{k}: {v}" for k, v in retry["backoff"].items()) + " }",
-        "        syncOptions:",
-        "          - CreateNamespace=true",
-    ]
-    return "\n".join(lines) + "\n"
+    """The stage ApplicationSet: a copy of the dev one in which only the stage fields are changed, so a later change to the dev
+    template reaches stage (and --check reports the stage file as stale until it is regenerated)."""
+    appset = copy.deepcopy(yaml.safe_load((DEV / "services.yaml").read_text()))
+    appset["metadata"]["name"] = "services-stage"
+    gen = appset["spec"]["generators"][0]["list"]
+    gen["elements"] = [FlowMap(e) for e in gen["elements"]]
+    template = appset["spec"]["template"]
+    template["metadata"]["name"] = "{{ .name }}-stage"
+    spec = template["spec"] = stage_strings(template["spec"])
+    for src in spec["sources"]:
+        helm = src.get("helm") or {}
+        helm["valueFiles"] = [vf.replace("/deploy/envs/dev/values/", "/deploy/envs/stage/values/") for vf in helm.get("valueFiles", [])]
+        if not helm["valueFiles"]:
+            del helm["valueFiles"]
+    spec["destination"] = {"name": STAGE_CLUSTER, "namespace": spec["destination"]["namespace"]}
+    sync = spec["syncPolicy"]
+    sync["syncOptions"] = sorted(set(sync.get("syncOptions", [])) | {"CreateNamespace=true"})
+    comment = ("# Stage Applications for every service chart in the dev ApplicationSet. Services with a hand-written dev Application\n"
+               "# have a generated <name>-stage.yaml next to this file. Stage values are deploy/envs/stage/values/<name>.yaml (a missing\n"
+               "# file is ignored); replicas below two there are raised to two except for the singletons stage_apps.py lists.\n")
+    return HEADER.format(source="services.yaml") + comment + dump(appset)
 
 
 def generated() -> dict[Path, str]:

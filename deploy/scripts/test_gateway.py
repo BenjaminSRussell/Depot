@@ -1,3 +1,4 @@
+import ipaddress
 import re
 import subprocess
 import unittest
@@ -493,25 +494,48 @@ class PortalEdge(unittest.TestCase):
         self.assertIn("X-Passage-LegalEntity-Scope", removed)
         self.assertIn(ctp["spec"]["tls"]["minVersion"], {"1.2", "1.3"})
 
-    def test_portal_routes_are_rate_limited_per_client_address(self):
-        btp = named(self.docs, "BackendTrafficPolicy", "passage-portals-limits")
-        self.assertEqual(target_names(btp), {("HTTPRoute", r) for r in PORTAL_ROUTES})
-        rate = btp["spec"]["rateLimit"]
-        self.assertEqual(rate["type"], "Global")
-        cidrs = set()
-        for rule in rate["global"]["rules"]:
-            (selector,) = rule["clientSelectors"]
-            self.assertEqual(set(selector), {"sourceCIDR"})
-            self.assertEqual(selector["sourceCIDR"]["type"], "Distinct")
-            cidrs.add(selector["sourceCIDR"]["value"])
-            self.assertEqual(rule["limit"]["unit"], "Minute")
-            self.assertGreater(rule["limit"]["requests"], 0)
-        self.assertEqual(cidrs, {"0.0.0.0/0", "::/0"})
+    def test_portal_routes_are_rate_limited_per_client_address_one_bucket_per_portal(self):
+        limited = set()
+        for portal in PORTALS:
+            with self.subTest(portal=portal):
+                btp = named(self.docs, "BackendTrafficPolicy", f"passage-portal-{portal}-limits")
+                self.assertEqual(target_names(btp), {("HTTPRoute", f"{portal}-portal")})
+                limited |= target_names(btp)
+                rate = btp["spec"]["rateLimit"]
+                self.assertEqual(rate["type"], "Global")
+                cidrs = set()
+                for rule in rate["global"]["rules"]:
+                    (selector,) = rule["clientSelectors"]
+                    self.assertEqual(set(selector), {"sourceCIDR"})
+                    self.assertEqual(selector["sourceCIDR"]["type"], "Distinct")
+                    cidrs.add(selector["sourceCIDR"]["value"])
+                    self.assertEqual(rule["limit"]["unit"], "Minute")
+                    self.assertGreater(rule["limit"]["requests"], 0)
+                    # Without shared, Envoy Gateway keys a bucket per route match (/bff/ and /api/v1/ count separately).
+                    self.assertIs(rule.get("shared"), True)
+                self.assertEqual(cidrs, {"0.0.0.0/0", "::/0"})
         # The tenant limit keys on JWT headers the portals never carry, so it must not reach them.
+        portal_targets = {("Gateway", PORTAL_GATEWAY)} | {("HTTPRoute", r) for r in PORTAL_ROUTES}
         for other in of_kind(self.docs, "BackendTrafficPolicy"):
-            if other is not btp:
-                self.assertFalse(target_names(other) & ({("Gateway", PORTAL_GATEWAY)} | {("HTTPRoute", r) for r in PORTAL_ROUTES}))
+            if not other["metadata"]["name"].startswith("passage-portal-"):
+                self.assertFalse(target_names(other) & portal_targets, other["metadata"]["name"])
 
+    def test_the_supplier_bff_reads_the_client_address_past_the_edge(self):
+        # The supplier BFF limits its public routes (/bff/prospects, /bff/invites/*) per client address. Behind this edge the TCP
+        # peer is always an Envoy pod, so each environment must trust the Envoy pods' range and read X-Forwarded-For.
+        server = (DEPLOY.parent / "services/supplier-portal-ts/src/server.ts").read_text()
+        self.assertIn('clientAddress(req.socket.remoteAddress, req.headers["x-forwarded-for"], trustedProxies)', server)
+        self.assertTrue(any(m["path"]["value"] == "/bff/" for m in self.routes["supplier-portal"]["spec"]["rules"][0]["matches"]))
+        for env in ("dev", "stage"):
+            with self.subTest(env=env):
+                values = yaml.safe_load((DEPLOY / f"envs/{env}/values/supplier-portal.yaml").read_text())
+                entries = [e.strip() for e in str(values.get("trustedProxies", "")).split(",") if e.strip()]
+                self.assertTrue(entries, f"{env}: supplier-portal trustedProxies is empty")
+                for entry in entries:
+                    network = ipaddress.ip_network(entry, strict=True)
+                    self.assertTrue(network.is_private, f"{env}: {entry} must be the cluster's pod range, not a public one")
+        # The customer BFF keeps no per-address limit (its limits are per session), so it needs no trusted proxies.
+        self.assertNotIn("x-forwarded-for", (DEPLOY.parent / "services/customer-portal-ts/src/server.ts").read_text().lower())
 
 class PlantEdge(unittest.TestCase):
     """The plant edge terminates the connectors' mTLS and exposes only the connector's seven operations."""

@@ -518,10 +518,10 @@ class ThirdPartyImageTests(unittest.TestCase):
         runner = FakeRunner()
         found = ob.chart_images(runner, Path(tempfile.mkdtemp()))
         self.assertEqual(set(found), {"kyverno", "temporal", "strimzi-kafka-operator", "cert-manager", "argo-cd", "gateway-helm",
-                                      "kube-prometheus-stack"})
+                                      "kube-prometheus-stack", "prometheus-operator-crds"})
         self.assertIn("docker.io/library/postgres:17", found["kyverno"])
         renders = runner.ran("helm", "template")
-        self.assertEqual(len(renders), 7)
+        self.assertEqual(len(renders), 8)
         for c in renders:
             self.assertEqual("-f" in c, "temporal" in c[3], c)
 

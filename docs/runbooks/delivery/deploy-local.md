@@ -34,6 +34,21 @@ kubectl -n cert-manager get secret passage-local-ca -o jsonpath='{.data.ca\.crt}
 | Argo app `Unknown` | the revision is not pushed to GitHub, or the repository is private and needs credentials in Argo CD |
 | readiness 503 | Postgres pod not ready: `kubectl -n hello-ledger get pods` |
 
+## Monitoring in dev
+
+`root-dev` also syncs the monitoring stack (`deploy/envs/dev/apps/kube-prometheus-stack.yaml`): the
+Prometheus Operator CRDs early (wave -2) and the stack itself last (wave 3), so it never holds up the
+services. Nothing has to be created by hand: Grafana's admin Secret `grafana-admin` is generated in the
+cluster by the External Secrets Operator (`deploy/observability/grafana-admin`). To sign in:
+
+```sh
+kubectl -n observability get secret grafana-admin -o jsonpath='{.data.admin-password}' | base64 -d
+kubectl -n observability port-forward svc/kube-prometheus-stack-grafana 3000:80
+```
+
+If the stack stays Progressing, check `kubectl -n observability get externalsecret grafana-admin`: the
+Password generator needs the External Secrets Operator's generator CRDs.
+
 ## Tear down
 
 `make -C deploy destroy-local`

@@ -199,20 +199,54 @@ spec:
     allowCredentials: true
     maxAge: 600s
 ---
-# Per client address, on top of the BFFs' own limits (300 calls a minute per session; the supplier portal's public
-# registration per address and hour). 1200 a minute leaves room for several contacts behind one company NAT and caps a
-# single address that floods the sign-in or registration routes. Needs the real client address at Envoy
+# 1200 requests a minute per client address and portal (one bucket across /bff/ and /api/v1/ of that portal; the two portals
+# count separately), on top of the BFFs' own limits (300 calls a minute per session; the supplier portal's public routes per
+# address and hour, which needs the BFF's trustedProxies set to the Envoy pods). 1200 leaves room for several contacts behind
+# one company NAT and caps a single address that floods sign-in or registration. Needs the real client address at Envoy
 # (externalTrafficPolicy: Local on the Envoy Service, or PROXY protocol), as the AS2 edge does.
+---
 apiVersion: gateway.envoyproxy.io/v1alpha1
 kind: BackendTrafficPolicy
 metadata:
-  name: passage-portals-limits
+  name: passage-portal-customer-limits
   namespace: hello-ledger
 spec:
   targetRefs:
     - group: gateway.networking.k8s.io
       kind: HTTPRoute
       name: customer-portal
+  rateLimit:
+    type: Global
+    global:
+      rules:
+        - clientSelectors:
+            - sourceCIDR:
+                type: Distinct
+                value: 0.0.0.0/0
+          limit:
+            requests: 1200
+            unit: Minute
+          # One bucket per address for the whole portal: without it Envoy Gateway counts each route match (/bff/, /api/v1/)
+          # separately.
+          shared: true
+        - clientSelectors:
+            - sourceCIDR:
+                type: Distinct
+                value: ::/0
+          limit:
+            requests: 1200
+            unit: Minute
+          # One bucket per address for the whole portal: without it Envoy Gateway counts each route match (/bff/, /api/v1/)
+          # separately.
+          shared: true
+---
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: BackendTrafficPolicy
+metadata:
+  name: passage-portal-supplier-limits
+  namespace: hello-ledger
+spec:
+  targetRefs:
     - group: gateway.networking.k8s.io
       kind: HTTPRoute
       name: supplier-portal
@@ -227,6 +261,9 @@ spec:
           limit:
             requests: 1200
             unit: Minute
+          # One bucket per address for the whole portal: without it Envoy Gateway counts each route match (/bff/, /api/v1/)
+          # separately.
+          shared: true
         - clientSelectors:
             - sourceCIDR:
                 type: Distinct
@@ -234,3 +271,6 @@ spec:
           limit:
             requests: 1200
             unit: Minute
+          # One bucket per address for the whole portal: without it Envoy Gateway counts each route match (/bff/, /api/v1/)
+          # separately.
+          shared: true

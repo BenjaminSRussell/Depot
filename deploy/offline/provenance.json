@@ -100,6 +100,10 @@
     {
       "chart": "kube-prometheus-stack",
       "unverified": "the publisher's chart provenance has not been confirmed (this repository's build environment cannot download the chart from ghcr.io/prometheus-community/charts); add the publisher's GPG keyring, or pin the archive with pin-charts on the connected build machine"
+    },
+    {
+      "chart": "prometheus-operator-crds",
+      "unverified": "the publisher's chart provenance has not been confirmed (this repository's build environment cannot download the chart from ghcr.io/prometheus-community/charts); add the publisher's GPG keyring, or pin the archive with pin-charts on the connected build machine"
     }
   ]
 }

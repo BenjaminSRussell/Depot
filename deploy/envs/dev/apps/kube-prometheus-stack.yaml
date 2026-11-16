@@ -1,64 +1,35 @@
-# Prometheus Operator, Prometheus, Alertmanager, Grafana and kube-state-metrics for dev (#213, #30). The operator's CRDs
-# (monitoring.coreos.com: ServiceMonitor, PrometheusRule, ...) must exist before any chart turns on `serviceMonitor` or
-# `alerts`, so this syncs before the service Applications. The chart is kube-prometheus-stack because the observability
-# chart (deploy/observability) is written for it: its passage-slo dashboard ConfigMap carries the Grafana sidecar label
-# `grafana_dashboard: "1"`, which this chart's Grafana watches in every namespace. Pulled from the publisher's OCI registry.
+# Prometheus Operator CRDs, then Prometheus, Alertmanager, Grafana and kube-state-metrics for dev (#213, #30), as two
+# Applications so that nothing in the monitoring stack can hold up the rest of root-dev:
+# - prometheus-operator-crds (wave -2) installs only the monitoring.coreos.com CRDs (ServiceMonitor, PrometheusRule, ...), at
+#   the operator version kube-prometheus-stack runs, before any chart can turn on `serviceMonitor` or `alerts`;
+# - kube-prometheus-stack (wave 3, after the services) runs the operator and the stack, with its own CRDs off. root-dev waits
+#   for each wave to be Healthy (deploy/tofu/cluster/main.tf), so the stack comes last: a slow or broken stack cannot block
+#   the waves before it.
+# The chart is kube-prometheus-stack because the observability chart (deploy/observability) is written for it: its
+# passage-slo dashboard ConfigMap carries the Grafana sidecar label `grafana_dashboard: "1"`, which this chart's Grafana
+# watches in every namespace. Both charts come from the publisher's OCI registry.
 #
 # Dev choices: every ServiceMonitor, PodMonitor and PrometheusRule in the cluster is selected (not only this release's);
 # the k3d control plane's scheduler, controller manager, etcd and kube-proxy expose no scrape endpoints, so their monitors
 # are off; node-exporter is off (k3d nodes are containers); the operator's admission webhook takes its certificate from
-# cert-manager (installed by deploy/tofu/cluster) instead of a hook Job; Grafana's admin login is the Secret
-# `grafana-admin` (keys admin-user, admin-password) in namespace observability, created outside Git like keycloak-admin.
-# Its images are listed for the offline bundle by `offline_bundle.py chart-images --write` (deploy/offline/extra-images.txt).
+# cert-manager (installed by deploy/tofu/cluster) instead of a hook Job; Grafana's admin login is the Secret grafana-admin,
+# generated in the cluster by deploy/observability/grafana-admin (External Secrets Operator Password generator), so no
+# Secret has to be created by hand. Its images are in deploy/offline/extra-images.txt.
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: kube-prometheus-stack
+  name: prometheus-operator-crds
   namespace: argocd
   annotations:
-    # CRDs and operator before every Application that renders a ServiceMonitor or PrometheusRule (wave 0 and later).
+    # Before every Application that renders a ServiceMonitor or PrometheusRule (wave 0 and later).
     argocd.argoproj.io/sync-wave: "-2"
 spec:
   project: default
   source:
     repoURL: ghcr.io/prometheus-community/charts
-    chart: kube-prometheus-stack
-    targetRevision: 92.16.2
-    helm:
-      releaseName: kube-prometheus-stack
-      valuesObject:
-        prometheus:
-          prometheusSpec:
-            serviceMonitorSelectorNilUsesHelmValues: false
-            podMonitorSelectorNilUsesHelmValues: false
-            ruleSelectorNilUsesHelmValues: false
-            probeSelectorNilUsesHelmValues: false
-            scrapeConfigSelectorNilUsesHelmValues: false
-            retention: 7d
-        prometheusOperator:
-          admissionWebhooks:
-            certManager:
-              enabled: true
-        grafana:
-          admin:
-            existingSecret: grafana-admin
-          testFramework:
-            enabled: false
-          sidecar:
-            dashboards:
-              label: grafana_dashboard
-              labelValue: "1"
-              searchNamespace: ALL
-        nodeExporter:
-          enabled: false
-        kubeControllerManager:
-          enabled: false
-        kubeScheduler:
-          enabled: false
-        kubeEtcd:
-          enabled: false
-        kubeProxy:
-          enabled: false
+    chart: prometheus-operator-crds
+    # appVersion v0.94.2, the operator kube-prometheus-stack 92.16.2 runs.
+    targetRevision: 32.0.2
   destination:
     server: https://kubernetes.default.svc
     namespace: observability
@@ -72,4 +43,74 @@ spec:
     syncOptions:
       - CreateNamespace=true
       # The CRDs are too large for the last-applied annotation.
+      - ServerSideApply=true
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: kube-prometheus-stack
+  namespace: argocd
+  annotations:
+    # Last: after the services ApplicationSet (wave 2). Its CRDs come from prometheus-operator-crds at wave -2.
+    argocd.argoproj.io/sync-wave: "3"
+spec:
+  project: default
+  sources:
+    - repoURL: ghcr.io/prometheus-community/charts
+      chart: kube-prometheus-stack
+      targetRevision: 92.16.2
+      helm:
+        releaseName: kube-prometheus-stack
+        valuesObject:
+          crds:
+            enabled: false
+          prometheus:
+            prometheusSpec:
+              serviceMonitorSelectorNilUsesHelmValues: false
+              podMonitorSelectorNilUsesHelmValues: false
+              ruleSelectorNilUsesHelmValues: false
+              probeSelectorNilUsesHelmValues: false
+              scrapeConfigSelectorNilUsesHelmValues: false
+              retention: 7d
+          prometheusOperator:
+            admissionWebhooks:
+              certManager:
+                enabled: true
+          grafana:
+            admin:
+              existingSecret: grafana-admin
+            testFramework:
+              enabled: false
+            sidecar:
+              dashboards:
+                label: grafana_dashboard
+                labelValue: "1"
+                searchNamespace: ALL
+          nodeExporter:
+            enabled: false
+          kubeControllerManager:
+            enabled: false
+          kubeScheduler:
+            enabled: false
+          kubeEtcd:
+            enabled: false
+          kubeProxy:
+            enabled: false
+    # Secret grafana-admin, generated in the cluster (no hand-made Secret).
+    - repoURL: https://github.com/BenjaminSRussell/Passage.git
+      targetRevision: main
+      path: deploy/observability/grafana-admin
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: observability
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    retry:
+      limit: 5
+      backoff: { duration: 30s, factor: 2, maxDuration: 5m }
+    syncOptions:
+      - CreateNamespace=true
+      # The chart's large resources (dashboards, rules) and any CRD it still carries.
       - ServerSideApply=true

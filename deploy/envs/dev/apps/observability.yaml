@@ -25,5 +25,5 @@ spec:
       selfHeal: true
     syncOptions:
       - CreateNamespace=true
-      # PrometheusRule / ServiceMonitor CRDs come from kube-prometheus-stack.yaml (wave -2).
+      # PrometheusRule / ServiceMonitor CRDs come from prometheus-operator-crds in kube-prometheus-stack.yaml (wave -2).
       - SkipDryRunOnMissingResource=true

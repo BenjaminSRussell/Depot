@@ -71,10 +71,11 @@ CRD_PROVIDERS = {
     "kafka.strimzi.io": "strimzi-operator",
     "gateway.networking.k8s.io": "envoy-gateway",
     "gateway.envoyproxy.io": "envoy-gateway",
-    "monitoring.coreos.com": "kube-prometheus-stack",
+    "monitoring.coreos.com": "prometheus-operator-crds",
 }
 # Third-party charts the dev cluster installs from an OCI registry (Argo CD writes the registry path without a scheme).
-OCI_CHARTS = {"gateway-helm": "docker.io/envoyproxy", "kube-prometheus-stack": "ghcr.io/prometheus-community/charts"}
+OCI_CHARTS = {"gateway-helm": "docker.io/envoyproxy", "kube-prometheus-stack": "ghcr.io/prometheus-community/charts",
+              "prometheus-operator-crds": "ghcr.io/prometheus-community/charts"}
 CONNECT_SECRET_REF = re.compile(r"\$\{secrets:([^/}]+)/([^:}]+):([^}]+)\}")
 MANIFEST_SUFFIXES = (".yaml", ".yml", ".json")
 # Secrets that dev workloads read but no ExternalSecret writes yet: (namespace, name) -> where that is documented.
@@ -845,7 +846,29 @@ class ArgoApplicationsTest(unittest.TestCase):
         self.assertEqual(sidecar["searchNamespace"], "ALL")
         dashboards = (REPO / "deploy/observability/charts/observability/templates/dashboards.yaml").read_text()
         self.assertIn(f'{sidecar["label"]}: "{sidecar["labelValue"]}"', dashboards)
-        self.assertLess(wave(self.dev_apps()["kube-prometheus-stack"]), wave(self.dev_apps()["observability"]))
+
+    def test_the_monitoring_stack_cannot_block_the_dev_bootstrap(self):
+        # root-dev waits for each wave to be Healthy (deploy/tofu/cluster/main.tf). The CRDs come early from their own chart;
+        # the stack syncs last and depends on no Secret created outside Git.
+        dev = self.dev_apps()
+        stack = dev["kube-prometheus-stack"]
+        self.assertGreater(wave(stack), max(wave(a) for n, a in dev.items() if n != "kube-prometheus-stack"))
+        (chart,) = [s for s in sources(stack) if s.get("chart") == "kube-prometheus-stack"]
+        values = chart["helm"]["valuesObject"]
+        self.assertIs(values["crds"]["enabled"], False, "the CRDs belong to prometheus-operator-crds")
+        crds = [s for s in sources(dev["prometheus-operator-crds"]) if s.get("chart") == "prometheus-operator-crds"]
+        self.assertEqual(len(crds), 1)
+        secret = values["grafana"]["admin"]["existingSecret"]
+        written = {}
+        for src in sources(stack):
+            if "path" in src:
+                for f in manifests(REPO / src["path"]):
+                    for d in load_docs(f):
+                        if d["kind"] == "ExternalSecret":
+                            ns, name, keys = es_output(d)
+                            written[name] = (ns, keys)
+        self.assertIn(secret, written, f"{secret}: no ExternalSecret synced with the stack writes it")
+        self.assertEqual(written[secret], ("observability", {"admin-user", "admin-password"}))
 
     def env_service_apps(self, env):
         return {app["metadata"]["name"]: app for e, _, app in self.apps if e == env and service_chart_sources(app)}
@@ -878,6 +901,25 @@ class ArgoApplicationsTest(unittest.TestCase):
         import stage_apps  # deploy/scripts, on sys.path when this file runs
         self.assertEqual(stage_apps.main(["--check"]), 0, "run python3 deploy/scripts/stage_apps.py")
 
+    def test_a_change_to_the_dev_services_template_reaches_stage(self):
+        # The stage ApplicationSet is derived from the whole dev one, so a new dev template field shows up in stage and
+        # --check reports the committed stage file as stale until it is regenerated.
+        import stage_apps
+        dev = yaml.safe_load((DEPLOY / "envs/dev/apps/services.yaml").read_text())
+        dev["spec"]["template"]["spec"]["syncPolicy"]["syncOptions"] = ["ServerSideApply=true"]
+        dev["spec"]["template"]["spec"]["ignoreDifferences"] = [{"group": "apps", "kind": "Deployment", "jsonPointers": ["/spec/replicas"]}]
+        with tempfile.TemporaryDirectory() as tmp:
+            (Path(tmp) / "services.yaml").write_text(yaml.safe_dump(dev))
+            original, stage_apps.DEV = stage_apps.DEV, Path(tmp)
+            try:
+                stage = yaml.safe_load(stage_apps.services_appset())
+            finally:
+                stage_apps.DEV = original
+        spec = stage["spec"]["template"]["spec"]
+        self.assertEqual(spec["syncPolicy"]["syncOptions"], ["CreateNamespace=true", "ServerSideApply=true"])
+        self.assertEqual(spec["ignoreDifferences"], dev["spec"]["template"]["spec"]["ignoreDifferences"])
+        self.assertEqual(spec["destination"], {"name": "stage", "namespace": "{{ .namespace }}"})
+
     def test_stage_values_name_the_stage_environment(self):
         dev_values = {p.name for p in (DEPLOY / "envs/dev/values").glob("*.yaml")}
         stage_dir = DEPLOY / "envs/stage/values"
@@ -908,14 +950,15 @@ class ArgoApplicationsTest(unittest.TestCase):
                     release = release_name(app, src)
                     hpa_min = {d["spec"]["scaleTargetRef"]["name"]: d["spec"].get("minReplicas", 1)
                                for d in docs if d["kind"] == "HorizontalPodAutoscaler"}
-                    for d in docs:
-                        if d["kind"] != "Deployment" or d["metadata"]["name"] not in (release, f"{release}-{release}"):
-                            continue
+                    deployments = [d for d in docs if d["kind"] == "Deployment"]
+                    self.assertTrue(deployments, f"{name}: renders no Deployment")
+                    for d in deployments:
                         replicas = hpa_min.get(d["metadata"]["name"], d["spec"].get("replicas", 1))
                         if release in stage_apps.SINGLETONS:
                             self.assertEqual(replicas, 1, f"{name}: a singleton ({stage_apps.SINGLETONS[release]})")
                         else:
-                            self.assertGreaterEqual(replicas, 2, f"{name}: one replica in stage; set replicaCount in its stage values")
+                            self.assertGreaterEqual(replicas, 2, f"{name}: Deployment {d['metadata']['name']} runs one replica "
+                                                                 "in stage; set replicaCount in its stage values")
 
     @unittest.skipUnless(shutil.which("helm"), "helm not on PATH")
     def test_dev_charts_render_digest_pinned(self):

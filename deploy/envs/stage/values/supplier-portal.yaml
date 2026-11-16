@@ -9,3 +9,7 @@ appOrigin: https://supplier.stage.passage.dev
 # real supplier documents.
 scan:
   allowUnscanned: true
+# The portal edge is the TCP peer of every request, so the public routes' per-address limit reads the client from
+# X-Forwarded-For past the Envoy pods: the pod CIDR of the stage cluster. 10.244.0.0/16 is the AKS Azure CNI overlay default
+# (deploy/tofu/cluster/modules/aks sets no pod_cidr); change it if the stage cluster uses another.
+trustedProxies: 10.244.0.0/16
