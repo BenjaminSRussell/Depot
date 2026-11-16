@@ -84,6 +84,9 @@ const reads = table<RfidRead>([
   read(4, 0.4, "asrs-in", 1, "006141411000000039", { locationCode: "RM-B-01", action: "CONFIRM_PUTAWAY", actionOutcome: "REFUSED", actionDetail: "the location RM-B-01 has no room for the pallet" }),
   read(5, 0.9, "dock-r1", 3, "006141411000000046"),
   read(6, 1.1, "dock-r1", 1, "006141411000000053", { action: "RECEIVE_PALLET", actionOutcome: "SKIPPED", actionDetail: "the read was not posted by the identity this reader's rule accepts" }),
+  // A component's CPI-96 tag and one piece of a two-piece pump kit (ITIP-212), GS1 TDS 2.3 schemes: stored, not pallets.
+  read(7, 1.3, "dock-r1", 2, "", { epc: "3C14257BF40008BB800DBBB7", scheme: "CPI-96", key: "06141414471", serial: "900023", action: "RECEIVE_PALLET", actionOutcome: "SKIPPED", actionDetail: "the tag is CPI-96, not a pallet's SSCC" }),
+  read(8, 1.4, "dock-r1", 2, "", { epc: "4114257BF46DB64082874A82D6EDDA31000000000000000000000000", scheme: "ITIP-212", key: "106141411234590102", serial: "CRP-7741", action: "RECEIVE_PALLET", actionOutcome: "SKIPPED", actionDetail: "the tag is ITIP-212, not a pallet's SSCC" }),
 ]);
 
 route("GET", `${BASE}/rfid-reads`, ({ query }) => {
