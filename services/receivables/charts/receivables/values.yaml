@@ -69,10 +69,13 @@ sftpPoll:
 # account (acct_...); empty takes every entity's payments on the platform account. bankAccountRef is the ar_bank_account
 # account_ref of the Stripe clearing account the receipts debit (finance maps it, #512). Stripe calls the webhook listener
 # (webhookPort, RECEIVABLES_WEBHOOK_ADDR) without a Passage token: route https://<host>/webhooks/v1/stripe to the Service
-# <release>-receivables-webhook only, never through passage-api (#213).
+# <release>-receivables-webhook only, never through passage-api: the edge for that is deploy/gateway/payments-webhook (Gateway
+# passage-payments-webhook), and the NetworkPolicy below admits only its Envoy proxies to the webhook port (#213). Register these
+# events on the Stripe endpoint: payment_intent.succeeded, .processing, .payment_failed, .canceled, charge.refunded,
+# charge.dispute.created, .updated, .closed, .funds_withdrawn and .funds_reinstated.
 payments:
   provider: ""
-  publishableKey: ""            # pk_test_... / pk_live_...
+  publishableKey: ""            # pk_test_... / pk_live_...; required when provider is set
   existingSecret: ""            # e.g. receivables-stripe; required when provider is set
   secretKeyKey: STRIPE_SECRET_KEY
   webhookSecretKey: STRIPE_WEBHOOK_SECRET
@@ -80,6 +83,18 @@ payments:
   accounts: {}
   bankAccountRef: STRIPE
   webhookPort: 8081
+
+# With payments.provider set, a NetworkPolicy selects the receivables pods: the API and admin ports stay open to apiFrom (any
+# source when empty, as without a policy), and the token-less webhook port is admitted only from the payment webhook edge's
+# Envoy proxies (Gateway passage-payments-webhook, deploy/gateway/payments-webhook).
+networkPolicy:
+  enabled: true
+  apiFrom: []
+  webhookGateway:
+    namespaces: [envoy-gateway-system]
+    podLabels:
+      gateway.envoyproxy.io/owning-gateway-name: passage-payments-webhook
+      gateway.envoyproxy.io/owning-gateway-namespace: hello-ledger
 
 serviceMonitor:
   enabled: false

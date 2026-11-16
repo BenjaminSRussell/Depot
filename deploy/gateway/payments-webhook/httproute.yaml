@@ -1,0 +1,23 @@
+# The only route on Gateway passage-payments-webhook: POST /webhooks/v1/stripe, exactly, to the receivables chart's webhook
+# Service (payments.provider set, port payments.webhookPort; release receivables, so receivables-receivables-webhook). No other
+# path, method or service is reachable here, and no JWT filter applies: the Stripe-Signature HMAC is the credential.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: receivables-payments-webhook
+  namespace: hello-ledger
+spec:
+  parentRefs:
+    - name: passage-payments-webhook
+      sectionName: webhook-https
+  hostnames:
+    - payments-webhook.dev.passage.dev
+  rules:
+    - matches:
+        - path:
+            type: Exact
+            value: /webhooks/v1/stripe
+          method: POST
+      backendRefs:
+        - name: receivables-receivables-webhook
+          port: 8081

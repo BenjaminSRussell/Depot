@@ -1,0 +1,33 @@
+# Limits on the payment webhook route. requestBuffer receives each event in full at the edge and rejects bodies above 256Ki
+# with 413, the cap the receivables webhook listener applies (maxWebhookBody). The edge must not change the body: the
+# signature is over the raw bytes. The rate limit is per client address; Stripe sends from its published webhook IPs.
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: BackendTrafficPolicy
+metadata:
+  name: passage-payments-webhook-limits
+  namespace: hello-ledger
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      name: receivables-payments-webhook
+  requestBuffer:
+    limit: 256Ki
+  rateLimit:
+    type: Global
+    global:
+      rules:
+        - clientSelectors:
+            - sourceCIDR:
+                type: Distinct
+                value: 0.0.0.0/0
+          limit:
+            requests: 1200
+            unit: Minute
+        - clientSelectors:
+            - sourceCIDR:
+                type: Distinct
+                value: ::/0
+          limit:
+            requests: 1200
+            unit: Minute

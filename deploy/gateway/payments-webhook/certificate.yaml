@@ -1,0 +1,18 @@
+# TLS for the payment webhook edge. Stripe only delivers to HTTPS endpoints with a certificate from a public CA, so outside dev the
+# issuer must be a public ACME issuer (#213); dev uses the local CA from deploy/envs/dev/apps/cert-issuer.yaml.
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: passage-payments-webhook-tls
+  namespace: hello-ledger
+spec:
+  secretName: passage-payments-webhook-tls
+  dnsNames:
+    - payments-webhook.dev.passage.dev
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+    rotationPolicy: Always
+  issuerRef:
+    kind: ClusterIssuer
+    name: passage-local-ca

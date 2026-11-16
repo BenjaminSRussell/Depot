@@ -90,6 +90,9 @@ spec:
             {{- end }}
             {{- end }}
             {{- if .Values.payments.provider }}
+            {{- if not (hasPrefix "pk_" (required "payments.publishableKey (pk_...) is required when payments.provider is set: without it the portal cannot show the payment form" .Values.payments.publishableKey)) }}
+            {{- fail "payments.publishableKey must be a Stripe publishable key (pk_...)" }}
+            {{- end }}
             - name: RECEIVABLES_PAYMENT_PROVIDER
               value: {{ .Values.payments.provider | quote }}
             - name: RECEIVABLES_WEBHOOK_ADDR
