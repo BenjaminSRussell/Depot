@@ -58,13 +58,17 @@ ops_operator_routes := [
 	["ops.license.report", "PUT", "/v1/ops/tenants/t1/license/usage"],
 	["ops.tenant.decommission", "POST", "/v1/ops/tenants/t1:decommission"],
 	["ops.tenant.decommission", "PUT", "/v1/ops/tenants/t1/decommission-steps/realm"],
+	["ops.tenant.purge", "PUT", "/v1/ops/tenants/t1/export-verification"],
+	["ops.tenant.purge", "POST", "/v1/ops/tenants/t1:purge"],
+	["ops.tenant.purge", "PUT", "/v1/ops/tenants/t1/purge-result"],
+	["ops.region.view", "GET", "/v1/ops/tenants/t1/purge"],
 	["ops.clone.schedule", "POST", "/v1/ops/clone-schedules"],
 	["ops.clone.schedule", "PUT", "/v1/ops/clone-schedules/s1"],
 	["ops.clone.schedule", "DELETE", "/v1/ops/clone-schedules/s1"],
 ]
 
 test_operator_only_duties_are_the_ops_duties if {
-	{d | some d, spec in data.duties; spec.operator_only == true} == {"ops.region.view", "ops.region.report", "ops.failover.execute", "ops.breakglass.request", "ops.breakglass.review", "ops.license.install", "ops.tenant.provision", "ops.cost.record", "ops.license.report", "ops.tenant.decommission", "ops.clone.schedule"}
+	{d | some d, spec in data.duties; spec.operator_only == true} == {"ops.region.view", "ops.region.report", "ops.failover.execute", "ops.breakglass.request", "ops.breakglass.review", "ops.license.install", "ops.tenant.provision", "ops.cost.record", "ops.license.report", "ops.tenant.decommission", "ops.tenant.purge", "ops.clone.schedule"}
 }
 
 test_operator_only_duties_grant_in_the_operator_tenant if {

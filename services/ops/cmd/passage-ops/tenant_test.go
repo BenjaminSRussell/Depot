@@ -81,8 +81,8 @@ func runTenantCmd(t *testing.T, api *tenantAPI, sys *recordingSystems, args ...s
 	t.Helper()
 	srv := httptest.NewServer(api)
 	defer srv.Close()
-	d := deps{httpClient: srv.Client(), provisioners: func(func(string) string) (provision.Executors, error) {
-		return provision.Executors{Realm: sys, Databases: sys, Kafka: sys, Lakehouse: sys}, nil
+	d := deps{httpClient: srv.Client(), provisioners: func(func(string) string) (provision.Executors, []string, error) {
+		return provision.Executors{Realm: sys, Databases: sys, Kafka: sys, Lakehouse: sys}, nil, nil
 	}}
 	var out bytes.Buffer
 	env := map[string]string{"OPS_API_URL": srv.URL, "OPS_TOKEN": "tok"}

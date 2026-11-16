@@ -101,6 +101,12 @@ type Store interface {
 	Decommission(ctx context.Context, tenantID string) (Decommission, error)
 	RecordDecommissionStep(ctx context.Context, tenantID, action, status, detail, user string) (Decommission, error)
 	Audit(ctx context.Context, subject string) ([]AuditEntry, error)
+	// Purge (after a decommission): the export marker, the authorisation to delete and its result; the realm a provision created.
+	SetProvisionRealm(ctx context.Context, tenantID, realm, user string) error
+	VerifyExport(ctx context.Context, tenantID, exportID, note, user string) (Purge, error)
+	Purge(ctx context.Context, tenantID string) (Purge, error)
+	RequestPurge(ctx context.Context, tenantID, user string) (Purge, error)
+	RecordPurgeResult(ctx context.Context, tenantID, status, detail, user string) (Purge, error)
 	CreateCloneSchedule(ctx context.Context, c domain.CloneSchedule, user string, now time.Time) (domain.CloneSchedule, error)
 	CloneSchedules(ctx context.Context) ([]domain.CloneSchedule, error)
 	SetCloneScheduleEnabled(ctx context.Context, id string, enabled bool, now time.Time, user string) (domain.CloneSchedule, error)
@@ -139,11 +145,11 @@ func Problem(err error) error {
 	status := http.StatusConflict
 	switch rule.Code {
 	case domain.CodeRegionUnknown, domain.CodeRequestUnknown, domain.CodeBreakGlassUnknown, CodeLicenseNone, domain.CodeProvisionUnknown, domain.CodeCostUnknown,
-		domain.CodeDecommissionUnknown, domain.CodeScheduleUnknown:
+		domain.CodeDecommissionUnknown, domain.CodeScheduleUnknown, domain.CodePurgeUnknown:
 		status = http.StatusNotFound
 	case domain.CodeBreakGlassInvalid, domain.CodeBreakGlassReview, domain.CodeLicenseSignature, domain.CodeLicenseInvalid,
 		domain.CodeProvisionInvalid, domain.CodeProvisionLicense, domain.CodeResidency, domain.CodeCostInvalid, domain.CodeSLOInvalid,
-		domain.CodeDecommissionInvalid, domain.CodeScheduleInvalid:
+		domain.CodeDecommissionInvalid, domain.CodeScheduleInvalid, domain.CodePurgeInvalid:
 		status = http.StatusUnprocessableEntity
 	case domain.CodeCostUnavailable, domain.CodeSLOUnavailable, domain.CodeDecommissionUnavailable:
 		status = http.StatusServiceUnavailable

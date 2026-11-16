@@ -492,6 +492,67 @@ paths:
           description: The decommission after the step.
           content: { application/json: { schema: { $ref: '#/components/schemas/Decommission' } } }
         default: { $ref: '#/components/responses/Problem' }
+  /v1/ops/tenants/{id}/export-verification:
+    put:
+      operationId: verifyTenantExport
+      summary: Record that a decommissioned tenant's export was verified
+      description: >
+        Needs the decommission DECOMMISSIONED (409 OPS-1738). Records the export id, who verified it and when; audited. The marker is fixed once a purge is requested.
+      x-passage-duty: ops.tenant.purge
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, required: [exportId], properties: { exportId: { type: string, maxLength: 200 }, note: { type: string, maxLength: 1000 } } } } }
+      responses:
+        '200':
+          description: The purge record with the export marker.
+          content: { application/json: { schema: { $ref: '#/components/schemas/Purge' } } }
+        default: { $ref: '#/components/responses/Problem' }
+  /v1/ops/tenants/{id}:purge:
+    post:
+      operationId: requestTenantPurge
+      summary: Authorise the purge of a decommissioned tenant's data
+      description: >
+        Needs the decommission DECOMMISSIONED (409 OPS-1738) and a verified export (409 OPS-1739); audited. `passage-ops tenant purge` calls it, deletes with its own
+        purge credentials and reports with PUT .../purge-result. A FAILED purge may be requested again; a DONE one may not.
+      x-passage-duty: ops.tenant.purge
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: The purge record, REQUESTED.
+          content: { application/json: { schema: { $ref: '#/components/schemas/Purge' } } }
+        default: { $ref: '#/components/responses/Problem' }
+  /v1/ops/tenants/{id}/purge-result:
+    put:
+      operationId: recordTenantPurgeResult
+      summary: Report the result of a requested purge
+      description: >
+        DONE or FAILED with the per-database detail, including the tables retained (append-only, listed, without a delete grant, keyed by another tenant column). Audited.
+      x-passage-duty: ops.tenant.purge
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, required: [status], properties: { status: { type: string, enum: [DONE, FAILED] }, detail: { type: string, maxLength: 4000 } } } } }
+      responses:
+        '200':
+          description: The purge record.
+          content: { application/json: { schema: { $ref: '#/components/schemas/Purge' } } }
+        default: { $ref: '#/components/responses/Problem' }
+  /v1/ops/tenants/{id}/purge:
+    get:
+      operationId: getTenantPurge
+      summary: Read a tenant's export marker and purge record
+      x-passage-duty: ops.region.view
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: The purge record.
+          content: { application/json: { schema: { $ref: '#/components/schemas/Purge' } } }
+        default: { $ref: '#/components/responses/Problem' }
   /v1/ops/clone-schedules:
     get:
       operationId: listCloneSchedules
@@ -906,9 +967,11 @@ components:
       properties:
         status: { type: string, enum: [DONE, FAILED] }
         detail: { type: string, maxLength: 2000 }
+        realm: { type: string, pattern: '^[a-z0-9][a-z0-9-]{1,62}$', description: 'Only on the realm step of a provision: the Keycloak realm created, recorded so a decommission deletes exactly that realm.' }
     Provision:
       type: object
       properties:
+        realmName: { type: string, description: 'The Keycloak realm the realm step created (empty before it).' }
         tenantId: { type: string, format: uuid }
         name: { type: string }
         residency: { type: string }
@@ -966,6 +1029,19 @@ components:
         month: { type: string }
         clusterCostUsd: { type: string }
         items: { type: array, items: { $ref: '#/components/schemas/CostStatement' } }
+    Purge:
+      type: object
+      properties:
+        tenantId: { type: string, format: uuid }
+        exportId: { type: string }
+        exportNote: { type: string }
+        exportVerifiedBy: { type: string }
+        exportVerifiedAt: { type: string, format: date-time }
+        status: { type: string, enum: [REQUESTED, DONE, FAILED] }
+        detail: { type: string }
+        requestedBy: { type: string }
+        requestedAt: { type: string, format: date-time }
+        completedAt: { type: string, format: date-time }
     Decommission:
       type: object
       properties:
