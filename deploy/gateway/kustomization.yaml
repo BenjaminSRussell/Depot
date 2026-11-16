@@ -21,3 +21,5 @@ resources:
   - edge-certificate.yaml
   - edge-httproute.yaml
   - edge-clienttrafficpolicy.yaml
+  # Customer and supplier portal edge (#30, #511): cookie-session BFFs without a Passage JWT, a Gateway of its own.
+  - portal-gateway.yaml

@@ -1,3 +1,4 @@
+import ipaddress
 import re
 import subprocess
 import unittest
@@ -22,6 +23,13 @@ REGION_ROUTE = "ops-region-health"
 # The plant edge for iot-edge connectors (#25): mTLS with the edge CA, a token-less enrollment route, one route.
 EDGE_GATEWAY = "passage-edge"
 EDGE_ROUTE = "shopfloor-edge"
+# The customer and supplier portal edge (#30, #511): cookie-session BFFs without a Passage JWT, its own Gateway, one route
+# per portal to that portal's BFF Service (the release name in deploy/envs/dev/apps/services.yaml).
+PORTAL_GATEWAY = "passage-portals"
+PORTALS = ("customer", "supplier")
+PORTAL_ROUTES = {f"{p}-portal": p for p in PORTALS}
+# The JWT policy of the API gateway; the portal routes have CORS-only SecurityPolicies of their own.
+API_JWT_POLICY = "passage-api-jwt"
 
 
 def render():
@@ -104,7 +112,7 @@ class GatewayManifests(unittest.TestCase):
 
     def test_removal_precedes_claim_mapping_and_covers_mapped_headers(self):
         ctp = named(self.docs, "ClientTrafficPolicy", "passage-api-strip-identity-headers")
-        (sp,) = of_kind(self.docs, "SecurityPolicy")
+        sp = named(self.docs, "SecurityPolicy", API_JWT_POLICY)
         self.assertNotIn("requestHeaderModifier", str(of_kind(self.docs, "HTTPRoute")))
         removed = set(ctp["spec"]["headers"]["earlyRequestHeaders"]["remove"])
         for provider in sp["spec"]["jwt"]["providers"]:
@@ -114,7 +122,7 @@ class GatewayManifests(unittest.TestCase):
 
     def test_security_policy_targets_gateway_so_every_route_is_covered(self):
         self.assertTrue(api_routes(self.docs))
-        (sp,) = of_kind(self.docs, "SecurityPolicy")
+        sp = named(self.docs, "SecurityPolicy", API_JWT_POLICY)
         self.assertEqual(target_names(sp), {("Gateway", API_GATEWAY)})
         # The whole Gateway, not one listener: a listener added later is covered too.
         self.assertFalse([t for t in sp["spec"]["targetRefs"] if "sectionName" in t])
@@ -127,18 +135,42 @@ class GatewayManifests(unittest.TestCase):
         refs = listeners["https"]["tls"]["certificateRefs"]
         self.assertEqual([r["kind"] for r in refs], ["Secret"])
 
-    def test_envoy_gateway_version_requirement_recorded(self):
-        app = yaml.safe_load((DEPLOY / "envs/dev/apps/gateway.yaml").read_text())
-        self.assertIn(">=v1.4", app["metadata"]["annotations"]["passage.dev/requires"])
+    def test_envoy_gateway_controller_is_installed_at_v1_4_or_newer_before_the_gateway(self):
+        # #213: the controller and its CRDs come from the gateway-helm chart, at an exact v1.4+ version no older than the
+        # vendored CRDs the manifests are validated against, and sync before the Gateway resources.
+        controller = yaml.safe_load((DEPLOY / "envs/dev/apps/envoy-gateway.yaml").read_text())
+        gateway = yaml.safe_load((DEPLOY / "envs/dev/apps/gateway.yaml").read_text())
+        (chart,) = [s for s in controller["spec"]["sources"] if "chart" in s]
+        self.assertEqual((chart["repoURL"], chart["chart"]), ("docker.io/envoyproxy", "gateway-helm"))
+        version = tuple(int(x) for x in re.fullmatch(r"v(\d+)\.(\d+)\.(\d+)", chart["targetRevision"]).groups())
+        vendored = [p.name for p in (DEPLOY / "third_party").glob("envoy-gateway-v*")]
+        (vendored,) = vendored
+        self.assertGreaterEqual(version, tuple(int(x) for x in vendored.removeprefix("envoy-gateway-v").split(".")))
+        self.assertEqual(version[:2], (1, 4), "the CRDs in deploy/third_party are v1.4; vendor the new ones with the upgrade")
+        self.assertEqual(controller["spec"]["destination"]["namespace"], "envoy-gateway-system")
+        self.assertIn("ServerSideApply=true", controller["spec"]["syncPolicy"]["syncOptions"])
+        wave = lambda app: int(app["metadata"]["annotations"]["argocd.argoproj.io/sync-wave"])
+        self.assertLess(wave(controller), wave(gateway))
+        # Every rate limit here is Global, which needs the controller's rate-limit service and its Redis-protocol backend.
+        backend = chart["helm"]["valuesObject"]["config"]["envoyGateway"]["rateLimit"]["backend"]
+        self.assertEqual(backend["type"], "Redis")
+        host, port = backend["redis"]["url"].split(":")
+        name, namespace = host.split(".")[:2]
+        (git,) = [s for s in controller["spec"]["sources"] if "path" in s]
+        store = {(d["kind"], d["metadata"]["name"]): d for f in (DEPLOY.parent / git["path"]).glob("*.yaml")
+                 for d in yaml.safe_load_all(f.read_text()) if d}
+        svc = store[("Service", name)]
+        self.assertEqual((svc["metadata"]["namespace"], svc["spec"]["ports"][0]["port"]), (namespace, int(port)))
+        self.assertTrue({p["spec"]["rateLimit"]["type"] for p in of_kind(self.docs, "BackendTrafficPolicy")} <= {"Global"})
         self.assertIn("v1.4", (DEPLOY / "gateway/README.md").read_text())
 
     def test_duties_claim_mapped_as_single_string_claim(self):
-        (sp,) = of_kind(self.docs, "SecurityPolicy")
+        sp = named(self.docs, "SecurityPolicy", API_JWT_POLICY)
         for provider in sp["spec"]["jwt"]["providers"]:
             self.assertIn(("duties", "X-Passage-Duties"), {(m["claim"], m["header"]) for m in provider["claimToHeaders"]})
 
     def test_nil_tenant_denied(self):
-        (sp,) = of_kind(self.docs, "SecurityPolicy")
+        sp = named(self.docs, "SecurityPolicy", API_JWT_POLICY)
         denied = [r for r in sp["spec"]["authorization"]["rules"] if r["action"] == "Deny"]
         values = {v for r in denied for c in r["principal"]["jwt"]["claims"] if c["name"] == "tid" for v in c["values"]}
         self.assertIn("00000000-0000-0000-0000-000000000000", values)
@@ -200,15 +232,14 @@ class GatewayManifests(unittest.TestCase):
                 self.assertEqual(rule["backendRefs"][0]["name"], BACKEND_OF_ROUTE.get(name, name))
 
     def test_jwks_configmap_referenced_by_provider_exists(self):
-        (sp,) = of_kind(self.docs, "SecurityPolicy")
+        sp = named(self.docs, "SecurityPolicy", API_JWT_POLICY)
         cm_names = {c["metadata"]["name"] for c in of_kind(self.docs, "ConfigMap")}
         for provider in sp["spec"]["jwt"]["providers"]:
             self.assertIn(provider["localJWKS"]["valueRef"]["name"], cm_names)
 
-    def test_argocd_app_points_at_gateway_dir_and_flags_crd_dependency(self):
+    def test_argocd_app_points_at_gateway_dir_and_tolerates_missing_crds_on_first_sync(self):
         app = yaml.safe_load((DEPLOY / "envs/dev/apps/gateway.yaml").read_text())
         self.assertEqual(app["spec"]["source"]["path"], "deploy/gateway")
-        self.assertIn("#213", app["metadata"]["annotations"]["passage.dev/requires"])
         self.assertIn("SkipDryRunOnMissingResource=true", app["spec"]["syncPolicy"]["syncOptions"])
 
 
@@ -223,18 +254,20 @@ class AS2Edge(unittest.TestCase):
         cls.route = named(cls.docs, "HTTPRoute", AS2_ROUTE)
 
     def test_only_three_gateways_and_every_route_on_exactly_one(self):
-        self.assertEqual({g["metadata"]["name"] for g in of_kind(self.docs, "Gateway")}, {API_GATEWAY, AS2_GATEWAY, REGION_GATEWAY, EDGE_GATEWAY})
+        self.assertEqual({g["metadata"]["name"] for g in of_kind(self.docs, "Gateway")},
+                         {API_GATEWAY, AS2_GATEWAY, REGION_GATEWAY, EDGE_GATEWAY, PORTAL_GATEWAY})
         for route in of_kind(self.docs, "HTTPRoute"):
             name = route["metadata"]["name"]
             gateways = parent_gateways(route)
             self.assertEqual(len(route["spec"]["parentRefs"]), 1, name)
             # Only edi-as2 attaches to the AS2 edge, only ops-region-health to the region edge and only shopfloor-edge to the plant edge;
             # each attaches nowhere else.
-            expected = {AS2_ROUTE: AS2_GATEWAY, REGION_ROUTE: REGION_GATEWAY, EDGE_ROUTE: EDGE_GATEWAY}.get(name, API_GATEWAY)
+            expected = {AS2_ROUTE: AS2_GATEWAY, REGION_ROUTE: REGION_GATEWAY, EDGE_ROUTE: EDGE_GATEWAY,
+                        **{r: PORTAL_GATEWAY for r in PORTAL_ROUTES}}.get(name, API_GATEWAY)
             self.assertEqual(gateways, {expected}, name)
 
     def test_api_routes_still_require_a_jwt_and_the_as2_edge_never_does(self):
-        (sp,) = of_kind(self.docs, "SecurityPolicy")
+        sp = named(self.docs, "SecurityPolicy", API_JWT_POLICY)
         self.assertTrue(sp["spec"]["jwt"]["providers"])
         # Every API route is covered: the JWT policy targets the whole passage-api Gateway.
         self.assertEqual(target_names(sp), {("Gateway", API_GATEWAY)})
@@ -267,7 +300,7 @@ class AS2Edge(unittest.TestCase):
         listener = self.listener
         self.assertEqual((listener["protocol"], listener["port"], listener["tls"]["mode"]), ("HTTPS", 443, "Terminate"))
         # as2.<env>.passage.dev, in the environment of the IdP the API gateway trusts.
-        (sp,) = of_kind(self.docs, "SecurityPolicy")
+        sp = named(self.docs, "SecurityPolicy", API_JWT_POLICY)
         issuer_env = re.fullmatch(r"https://idp\.([a-z]+)\.passage\.dev/realms/\w+", sp["spec"]["jwt"]["providers"][0]["issuer"]).group(1)
         self.assertEqual(listener["hostname"], f"as2.{issuer_env}.passage.dev")
         self.assertEqual(listener["allowedRoutes"]["kinds"], [{"kind": "HTTPRoute"}])
@@ -375,6 +408,134 @@ class RegionHealthEdge(unittest.TestCase):
         self.assertEqual(target_names(btp), {("HTTPRoute", REGION_ROUTE)})
         self.assertEqual(btp["spec"]["rateLimit"]["type"], "Global")
 
+
+class PortalEdge(unittest.TestCase):
+    """The portal BFFs sit on a Gateway of their own: no JWT, only their BFF routes, own origin only, rate limited per address."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.docs = render()
+        cls.gateway = named(cls.docs, "Gateway", PORTAL_GATEWAY)
+        cls.listeners = {l["name"]: l for l in cls.gateway["spec"]["listeners"]}
+        cls.routes = {name: named(cls.docs, "HTTPRoute", name) for name in PORTAL_ROUTES}
+        cls.env = named(cls.docs, "Gateway", AS2_GATEWAY)["spec"]["listeners"][0]["hostname"].split(".", 1)[1]
+
+    def test_one_https_listener_per_portal_host_with_its_certificate(self):
+        self.assertEqual(self.gateway["spec"]["gatewayClassName"], named(self.docs, "Gateway", API_GATEWAY)["spec"]["gatewayClassName"])
+        self.assertEqual(set(self.listeners), {f"{p}-https" for p in PORTALS})
+        issuers = {d["metadata"]["name"] for d in yaml.safe_load_all((DEPLOY / "envs/dev/apps/cert-issuer.yaml").read_text())
+                   if d and d["kind"] == "ClusterIssuer"}
+        for portal in PORTALS:
+            with self.subTest(portal=portal):
+                listener = self.listeners[f"{portal}-https"]
+                self.assertEqual((listener["protocol"], listener["port"], listener["tls"]["mode"]), ("HTTPS", 443, "Terminate"))
+                # customer.<env>.passage.dev, the host the portal's dev values sign in from.
+                self.assertEqual(listener["hostname"], f"{portal}.{self.env}")
+                self.assertEqual(listener["allowedRoutes"], {"namespaces": {"from": "Same"}, "kinds": [{"kind": "HTTPRoute"}]})
+                (ref,) = listener["tls"]["certificateRefs"]
+                cert = named(self.docs, "Certificate", ref["name"])
+                self.assertEqual(cert["spec"]["secretName"], ref["name"])
+                self.assertEqual(cert["spec"]["dnsNames"], [listener["hostname"]])
+                self.assertEqual(cert["spec"]["issuerRef"]["kind"], "ClusterIssuer")
+                self.assertIn(cert["spec"]["issuerRef"]["name"], issuers)
+                values = yaml.safe_load((DEPLOY / f"envs/dev/values/{portal}-portal.yaml").read_text())
+                self.assertEqual(values["appOrigin"], f"https://{listener['hostname']}")
+                self.assertEqual(values["oidc"]["redirectUri"], f"https://{listener['hostname']}/bff/callback")
+
+    def test_each_route_reaches_only_its_portal_bff_and_only_the_bff_paths(self):
+        services = {e["name"] for e in yaml.safe_load((DEPLOY / "envs/dev/apps/services.yaml").read_text())
+                    ["spec"]["generators"][0]["list"]["elements"]}
+        for name, portal in PORTAL_ROUTES.items():
+            with self.subTest(route=name):
+                spec = self.routes[name]["spec"]
+                listener = self.listeners[f"{portal}-https"]
+                self.assertEqual(spec["parentRefs"], [{"name": PORTAL_GATEWAY, "sectionName": listener["name"]}])
+                self.assertEqual(spec["hostnames"], [listener["hostname"]])
+                (rule,) = spec["rules"]
+                self.assertNotIn("filters", rule)
+                self.assertEqual(rule["matches"], [{"path": {"type": "PathPrefix", "value": v}} for v in ("/bff/", "/api/v1/")])
+                # The chart's Service is the release name, port 8080, and the release is the services ApplicationSet element.
+                chart = DEPLOY.parent / f"services/{portal}-portal-ts/charts/{portal}-portal"
+                self.assertIn("name: {{ .Release.Name }}", (chart / "templates/service.yaml").read_text())
+                self.assertIn("port: 8080", (chart / "templates/service.yaml").read_text())
+                self.assertIn(name, services)
+                self.assertEqual(rule["backendRefs"], [{"name": name, "port": 8080}])
+                # The BFF serves its health checks outside these prefixes, so they are not exposed.
+                server = (DEPLOY.parent / f"services/{portal}-portal-ts/src/server.ts").read_text()
+                self.assertIn('url.pathname === "/healthz"', server)
+                self.assertIn('url.pathname.startsWith("/api/v1/")', server)
+        # Nothing on another Gateway reaches a portal BFF.
+        for route in of_kind(self.docs, "HTTPRoute"):
+            if route["metadata"]["name"] not in PORTAL_ROUTES:
+                backends = {b["name"] for rule in route["spec"]["rules"] for b in rule.get("backendRefs", [])}
+                self.assertFalse(backends & set(PORTAL_ROUTES), route["metadata"]["name"])
+
+    def test_no_jwt_reaches_the_portals_and_their_security_policies_allow_only_their_own_origin(self):
+        api = named(self.docs, "SecurityPolicy", API_JWT_POLICY)
+        self.assertFalse(target_names(api) & ({("Gateway", PORTAL_GATEWAY)} | {("HTTPRoute", r) for r in PORTAL_ROUTES}))
+        portal_policies = [p for p in of_kind(self.docs, "SecurityPolicy") if p["metadata"]["name"] != API_JWT_POLICY]
+        self.assertEqual(sorted(target_names(p) for p in portal_policies), sorted({("HTTPRoute", r)} for r in PORTAL_ROUTES))
+        for policy in portal_policies:
+            with self.subTest(policy=policy["metadata"]["name"]):
+                self.assertEqual(set(policy["spec"]) - {"targetRefs"}, {"cors"})
+                ((_, route),) = target_names(policy)
+                host = self.listeners[f"{PORTAL_ROUTES[route]}-https"]["hostname"]
+                cors = policy["spec"]["cors"]
+                self.assertEqual(cors["allowOrigins"], [f"https://{host}"])
+                self.assertIs(cors["allowCredentials"], True)
+                self.assertIn("X-CSRF-Token", cors["allowHeaders"])
+
+    def test_portal_edge_strips_identity_headers_and_requires_tls_1_2(self):
+        header_consts = set(re.findall(r'Header\w+\s*=\s*"(X-Passage-[A-Za-z-]+)"', TENANT_GO.read_text()))
+        ctp = named(self.docs, "ClientTrafficPolicy", "passage-portals-client")
+        self.assertEqual(target_names(ctp), {("Gateway", PORTAL_GATEWAY)})
+        removed = set(ctp["spec"]["headers"]["earlyRequestHeaders"]["remove"])
+        self.assertTrue(header_consts <= removed, header_consts - removed)
+        self.assertIn("X-Passage-LegalEntity-Scope", removed)
+        self.assertIn(ctp["spec"]["tls"]["minVersion"], {"1.2", "1.3"})
+
+    def test_portal_routes_are_rate_limited_per_client_address_one_bucket_per_portal(self):
+        limited = set()
+        for portal in PORTALS:
+            with self.subTest(portal=portal):
+                btp = named(self.docs, "BackendTrafficPolicy", f"passage-portal-{portal}-limits")
+                self.assertEqual(target_names(btp), {("HTTPRoute", f"{portal}-portal")})
+                limited |= target_names(btp)
+                rate = btp["spec"]["rateLimit"]
+                self.assertEqual(rate["type"], "Global")
+                cidrs = set()
+                for rule in rate["global"]["rules"]:
+                    (selector,) = rule["clientSelectors"]
+                    self.assertEqual(set(selector), {"sourceCIDR"})
+                    self.assertEqual(selector["sourceCIDR"]["type"], "Distinct")
+                    cidrs.add(selector["sourceCIDR"]["value"])
+                    self.assertEqual(rule["limit"]["unit"], "Minute")
+                    self.assertGreater(rule["limit"]["requests"], 0)
+                    # Without shared, Envoy Gateway keys a bucket per route match (/bff/ and /api/v1/ count separately).
+                    self.assertIs(rule.get("shared"), True)
+                self.assertEqual(cidrs, {"0.0.0.0/0", "::/0"})
+        # The tenant limit keys on JWT headers the portals never carry, so it must not reach them.
+        portal_targets = {("Gateway", PORTAL_GATEWAY)} | {("HTTPRoute", r) for r in PORTAL_ROUTES}
+        for other in of_kind(self.docs, "BackendTrafficPolicy"):
+            if not other["metadata"]["name"].startswith("passage-portal-"):
+                self.assertFalse(target_names(other) & portal_targets, other["metadata"]["name"])
+
+    def test_the_supplier_bff_reads_the_client_address_past_the_edge(self):
+        # The supplier BFF limits its public routes (/bff/prospects, /bff/invites/*) per client address. Behind this edge the TCP
+        # peer is always an Envoy pod, so each environment must trust the Envoy pods' range and read X-Forwarded-For.
+        server = (DEPLOY.parent / "services/supplier-portal-ts/src/server.ts").read_text()
+        self.assertIn('clientAddress(req.socket.remoteAddress, req.headers["x-forwarded-for"], trustedProxies)', server)
+        self.assertTrue(any(m["path"]["value"] == "/bff/" for m in self.routes["supplier-portal"]["spec"]["rules"][0]["matches"]))
+        for env in ("dev", "stage"):
+            with self.subTest(env=env):
+                values = yaml.safe_load((DEPLOY / f"envs/{env}/values/supplier-portal.yaml").read_text())
+                entries = [e.strip() for e in str(values.get("trustedProxies", "")).split(",") if e.strip()]
+                self.assertTrue(entries, f"{env}: supplier-portal trustedProxies is empty")
+                for entry in entries:
+                    network = ipaddress.ip_network(entry, strict=True)
+                    self.assertTrue(network.is_private, f"{env}: {entry} must be the cluster's pod range, not a public one")
+        # The customer BFF keeps no per-address limit (its limits are per session), so it needs no trusted proxies.
+        self.assertNotIn("x-forwarded-for", (DEPLOY.parent / "services/customer-portal-ts/src/server.ts").read_text().lower())
 
 class PlantEdge(unittest.TestCase):
     """The plant edge terminates the connectors' mTLS and exposes only the connector's seven operations."""

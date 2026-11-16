@@ -42,6 +42,34 @@
     {
       "match": "public.ecr.aws/docker/library/redis",
       "unsignedUpstream": "the Docker official image of Redis's cosign identity has not been confirmed (this repository's build environment cannot reach the registry to check); the image is pinned by digest, its SBOM generated here, and signed with the offline key. Confirm the publisher's signature identity on the connected build machine and replace this with certificateIdentityRegexp and certificateOidcIssuer"
+    },
+    {
+      "match": "docker.io/envoyproxy/*",
+      "unsignedUpstream": "Envoy Gateway's cosign identity has not been confirmed (this repository's build environment cannot reach the registry to check); the image is pinned by digest, its SBOM generated here, and signed with the offline key. Confirm the publisher's signature identity on the connected build machine and replace this with certificateIdentityRegexp and certificateOidcIssuer"
+    },
+    {
+      "match": "quay.io/prometheus/*",
+      "unsignedUpstream": "The Prometheus project's cosign identity has not been confirmed (this repository's build environment cannot reach the registry to check); the image is pinned by digest, its SBOM generated here, and signed with the offline key. Confirm the publisher's signature identity on the connected build machine and replace this with certificateIdentityRegexp and certificateOidcIssuer"
+    },
+    {
+      "match": "quay.io/prometheus-operator/*",
+      "unsignedUpstream": "The Prometheus Operator project's cosign identity has not been confirmed (this repository's build environment cannot reach the registry to check); the image is pinned by digest, its SBOM generated here, and signed with the offline key. Confirm the publisher's signature identity on the connected build machine and replace this with certificateIdentityRegexp and certificateOidcIssuer"
+    },
+    {
+      "match": "docker.io/grafana/*",
+      "unsignedUpstream": "Grafana Labs's cosign identity has not been confirmed (this repository's build environment cannot reach the registry to check); the image is pinned by digest, its SBOM generated here, and signed with the offline key. Confirm the publisher's signature identity on the connected build machine and replace this with certificateIdentityRegexp and certificateOidcIssuer"
+    },
+    {
+      "match": "quay.io/kiwigrid/*",
+      "unsignedUpstream": "The k8s-sidecar (Kiwigrid) project's cosign identity has not been confirmed (this repository's build environment cannot reach the registry to check); the image is pinned by digest, its SBOM generated here, and signed with the offline key. Confirm the publisher's signature identity on the connected build machine and replace this with certificateIdentityRegexp and certificateOidcIssuer"
+    },
+    {
+      "match": "registry.k8s.io/kube-state-metrics/*",
+      "unsignedUpstream": "The kube-state-metrics project's cosign identity has not been confirmed (this repository's build environment cannot reach the registry to check); the image is pinned by digest, its SBOM generated here, and signed with the offline key. Confirm the publisher's signature identity on the connected build machine and replace this with certificateIdentityRegexp and certificateOidcIssuer"
+    },
+    {
+      "match": "docker.io/valkey/*",
+      "unsignedUpstream": "The Valkey Docker official image's cosign identity has not been confirmed (this repository's build environment cannot reach the registry to check); the image is pinned by digest, its SBOM generated here, and signed with the offline key. Confirm the publisher's signature identity on the connected build machine and replace this with certificateIdentityRegexp and certificateOidcIssuer"
     }
   ],
   "charts": [
@@ -64,6 +92,18 @@
     {
       "chart": "argo-cd",
       "unverified": "the publisher's chart provenance has not been confirmed (this repository's build environment cannot reach the chart repository); add the publisher's GPG keyring, or pin the archive with pin-charts on the connected build machine"
+    },
+    {
+      "chart": "gateway-helm",
+      "unverified": "Envoy Gateway publishes the chart only as an OCI artifact (docker.io/envoyproxy/gateway-helm) with no GPG provenance file; pin the archive with pin-charts on the connected build machine (v1.4.6 pulled on 2026-11-16: archive sha256 fb7b71a8451b9cf999fbed320f1529fd0f0ca184202506935e13f82f4f0e9bc7, OCI manifest sha256:398ec3e6decf913d1a78112bfc34f921872a1c91ff234cf94cf390e84cedbcd0)"
+    },
+    {
+      "chart": "kube-prometheus-stack",
+      "unverified": "the publisher's chart provenance has not been confirmed (this repository's build environment cannot download the chart from ghcr.io/prometheus-community/charts); add the publisher's GPG keyring, or pin the archive with pin-charts on the connected build machine"
+    },
+    {
+      "chart": "prometheus-operator-crds",
+      "unverified": "the publisher's chart provenance has not been confirmed (this repository's build environment cannot download the chart from ghcr.io/prometheus-community/charts); add the publisher's GPG keyring, or pin the archive with pin-charts on the connected build machine"
     }
   ]
 }

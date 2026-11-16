@@ -1,0 +1,7 @@
+# edi in stage: the AS2 listener behind the AS2 edge on as2.stage.passage.dev (the stage gateway overlay; not built yet,
+# #213) and the workers that send deliveries and asynchronous MDNs. Partner transports need transports.secretName first.
+transports:
+  workers: true
+  as2:
+    enabled: true
+    publicUrl: https://as2.stage.passage.dev

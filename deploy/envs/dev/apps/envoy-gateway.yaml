@@ -1,0 +1,48 @@
+# Envoy Gateway controller (#82, #213): the chart's crds/ install the Gateway API and gateway.envoyproxy.io CRDs, and the
+# controller reconciles the Gateways, routes and policies in deploy/gateway (Application `gateway`, wave 1). v1.4 or newer is
+# required (localJWKS on the JWT provider, `shared` rate-limit rules); the CRDs the manifests are validated against are
+# vendored from v1.4.0 in deploy/third_party. The chart is published only as an OCI artifact: Argo CD names the registry
+# path without a scheme (docker.io/envoyproxy) and the chart (gateway-helm). Its images are in deploy/offline/extra-images.txt.
+# deploy/envoy-gateway holds the Valkey the rate-limit service counts in.
+# ServerSideApply because the CRDs are too large for the last-applied annotation.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: envoy-gateway
+  namespace: argocd
+  annotations:
+    # CRDs and controller before the Gateway resources (gateway.yaml, wave 1).
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  project: default
+  sources:
+    - repoURL: docker.io/envoyproxy
+      chart: gateway-helm
+      targetRevision: v1.4.6
+      helm:
+        releaseName: envoy-gateway
+        valuesObject:
+          config:
+            envoyGateway:
+              # The global rate-limit service, needed by every rate limit in deploy/gateway; its backend is the second source.
+              rateLimit:
+                backend:
+                  type: Redis
+                  redis:
+                    url: ratelimit-valkey.envoy-gateway-system.svc.cluster.local:6379
+    - repoURL: https://github.com/BenjaminSRussell/Passage.git
+      targetRevision: main
+      path: deploy/envoy-gateway
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: envoy-gateway-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    retry:
+      limit: 5
+      backoff: { duration: 30s, factor: 2, maxDuration: 5m }
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true

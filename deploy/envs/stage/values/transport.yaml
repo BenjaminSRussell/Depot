@@ -1,0 +1,4 @@
+# Stage values for the transport Application. Migrations run on start, as in dev and for hello-ledger-stage, so the login
+# role owns the tables it creates; the transport-db Secret (key url) is provisioned with the stage database (#213).
+env:
+  MIGRATE_ON_START: "true"

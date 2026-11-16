@@ -1,0 +1,7 @@
+# customer-portal in stage: served from customer.stage.passage.dev, signing in against the realm on idp.stage.passage.dev.
+# The client secret (customer-portal-oidc) and the Ed25519 signing seed (customer-portal-signing) are created outside Git
+# (#213). One replica until sessionStore.url names a shared Valkey (the chart refuses more without it).
+oidc:
+  issuer: https://idp.stage.passage.dev/realms/passage
+  redirectUri: https://customer.stage.passage.dev/bff/callback
+appOrigin: https://customer.stage.passage.dev

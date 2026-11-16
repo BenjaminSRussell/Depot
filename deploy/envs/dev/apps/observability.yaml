@@ -11,6 +11,11 @@ spec:
     repoURL: https://github.com/BenjaminSRussell/Passage.git
     targetRevision: main
     path: deploy/observability/charts/observability
+    helm:
+      valuesObject:
+        # The Prometheus kube-prometheus-stack.yaml runs (release kube-prometheus-stack, namespace observability).
+        prometheus:
+          endpoint: http://kube-prometheus-stack-prometheus.observability.svc:9090
   destination:
     server: https://kubernetes.default.svc
     namespace: observability
@@ -20,5 +25,5 @@ spec:
       selfHeal: true
     syncOptions:
       - CreateNamespace=true
-      # PrometheusRule / ServiceMonitor CRDs come from the cluster's monitoring stack.
+      # PrometheusRule / ServiceMonitor CRDs come from prometheus-operator-crds in kube-prometheus-stack.yaml (wave -2).
       - SkipDryRunOnMissingResource=true

@@ -1,0 +1,37 @@
+# Grafana's admin login for the dev kube-prometheus-stack (deploy/envs/dev/apps/kube-prometheus-stack.yaml), with nothing to
+# create by hand: the External Secrets Operator's Password generator makes the password once, in the cluster, and the
+# ExternalSecret writes it with the user name into Secret grafana-admin (keys admin-user, admin-password), which the chart's
+# grafana.admin.existingSecret names. refreshInterval 0 keeps the first password; delete the Secret to get a new one. Read it
+# with: kubectl -n observability get secret grafana-admin -o jsonpath='{.data.admin-password}' | base64 -d
+apiVersion: generators.external-secrets.io/v1alpha1
+kind: Password
+metadata:
+  name: grafana-admin-password
+  namespace: observability
+spec:
+  length: 32
+  digits: 8
+  symbols: 0
+  noUpper: false
+  allowRepeat: true
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: grafana-admin
+  namespace: observability
+spec:
+  refreshInterval: "0"
+  target:
+    name: grafana-admin
+    creationPolicy: Owner
+    template:
+      data:
+        admin-user: admin
+        admin-password: "{{ .password }}"
+  dataFrom:
+    - sourceRef:
+        generatorRef:
+          apiVersion: generators.external-secrets.io/v1alpha1
+          kind: Password
+          name: grafana-admin-password

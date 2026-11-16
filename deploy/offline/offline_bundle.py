@@ -267,11 +267,21 @@ def verify_upstream(ref: str, entry: dict, runner: Runner) -> str:
     return "verified"
 
 
+def is_oci(repo: str) -> bool:
+    """An Argo CD Helm source in an OCI registry: oci:// or, as Argo CD writes it, a registry path with no scheme."""
+    return repo.startswith("oci://") or "://" not in repo
+
+
 def pull_chart(c: dict, entry: dict, dest: Path, runner: Runner) -> Path:
     """helm pull one third-party chart into dest, checked as its provenance entry says; returns the archive."""
     tmp = dest / ".pull" / c["chart"]
     tmp.mkdir(parents=True, exist_ok=True)
-    cmd = ["helm", "pull", c["chart"], "--repo", c["repo"], "--version", c["version"], "--destination", str(tmp)]
+    if is_oci(c["repo"]):
+        # An OCI chart (Envoy Gateway's gateway-helm): Argo CD names the registry path without a scheme, helm wants oci://.
+        ref = f"oci://{c['repo'].removeprefix('oci://').rstrip('/')}/{c['chart']}"
+        cmd = ["helm", "pull", ref, "--version", c["version"], "--destination", str(tmp)]
+    else:
+        cmd = ["helm", "pull", c["chart"], "--repo", c["repo"], "--version", c["version"], "--destination", str(tmp)]
     if entry.get("keyring"):
         cmd += ["--verify", "--keyring", str(REPO / entry["keyring"])]
     runner(cmd)
@@ -466,13 +476,13 @@ def mirrored_path(ref: str) -> str:
 
 
 def rewrite_repo_urls(text: str, git_url: str, registry: str) -> str:
-    """Point every Argo CD source at the enclave: Git sources at the mirror, chart repositories at the OCI registry."""
+    """Point every Argo CD source at the enclave: Git sources at the mirror, chart repositories (HTTP or OCI) at the OCI registry."""
 
     def sub(m: re.Match[str]) -> str:
         url = m.group(2)
         if url == GIT_URL:
             return f"{m.group(1)}repoURL: {git_url}"
-        if url.startswith(("http://", "https://")):
+        if url.startswith(("http://", "https://")) or is_oci(url):
             return f"{m.group(1)}repoURL: {registry}/charts"
         return m.group(0)
 
