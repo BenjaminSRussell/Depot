@@ -31,6 +31,7 @@ import { PayAgreementsPage } from "./PayAgreementsPage";
 import { KioskPiPage } from "./KioskPiPage";
 import { NewPiSheetPage, PiSheetDesignerPage } from "./PiSheetDesignerPage";
 import { PiSheetsPage } from "./PiSheetsPage";
+import { NewPiStepPage, PiStepDetailPage, PiStepLibraryPage } from "./PiStepLibraryPages";
 import { NewPiCategoryPage, PiCategoriesPage, PiCategoryDetailPage } from "./PiCategoryPages";
 import { PayExportDetailPage } from "./PayExportDetailPage";
 import { PayExportsPage } from "./PayExportsPage";
@@ -96,6 +97,9 @@ const shopfloor: PassageModule = {
     { path: "/shopfloor/pi-categories", element: createElement(PiCategoriesPage), handle: { title: "PI categories", duty: "shopfloor.view" } },
     { path: "/shopfloor/pi-categories/new", element: createElement(NewPiCategoryPage), handle: { title: "New PI category", duty: "shopfloor.picategory.maintain" } },
     { path: "/shopfloor/pi-categories/:id", element: createElement(PiCategoryDetailPage), handle: { title: "PI category", duty: "shopfloor.view" } },
+    { path: "/shopfloor/pi-step-templates", element: createElement(PiStepLibraryPage), handle: { title: "PI step library", duty: "shopfloor.view" } },
+    { path: "/shopfloor/pi-step-templates/new", element: createElement(NewPiStepPage), handle: { title: "New step template", duty: "shopfloor.pistep.maintain" } },
+    { path: "/shopfloor/pi-step-templates/:id", element: createElement(PiStepDetailPage), handle: { title: "Step template", duty: "shopfloor.view" } },
     { path: "/shopfloor/kiosk/pi/:id", element: createElement(KioskPiPage), handle: { title: "PI sheet", duty: "shopfloor.controlrecipe.execute" } },
     { path: "/shopfloor/process-messages", element: createElement(ProcessMessagesPage), handle: { title: "Process messages" } },
     { path: "/shopfloor/process-messages/new", element: createElement(NewProcessMessagePage), handle: { title: "Record process message" } },
@@ -122,6 +126,7 @@ const shopfloor: PassageModule = {
     { label: "Edge fleet", to: "/shopfloor/edge-nodes", duty: "shopfloor.view" },
     { label: "Control recipes", to: "/shopfloor/control-recipes", duty: "shopfloor.view" },
     { label: "PI sheets", to: "/shopfloor/pi-sheets", duty: "shopfloor.view" },
+    { label: "PI step library", to: "/shopfloor/pi-step-templates", duty: "shopfloor.view" },
     { label: "PI categories", to: "/shopfloor/pi-categories", duty: "shopfloor.view" },
     { label: "Process messages", to: "/shopfloor/process-messages", duty: "shopfloor.view" },
     { label: "Process categories", to: "/shopfloor/process-categories", duty: "shopfloor.view" },

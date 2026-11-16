@@ -20,6 +20,29 @@ describe("designing", () => {
     expect(moveItem([1, 2], 0, 5)).toEqual([1, 2]);
   });
 
+  it("keeps a branch jump on the step it pointed at", () => {
+    const t = (n: number): Instruction => ({ seq: n, category: "instruction-text", text: `t${n}` });
+    const list: Instruction[] = [{ seq: 1, category: "branch", text: "b", condition: "a > 1", target: 3 }, t(2), t(3), t(4)];
+    expect(renumber(moveItem(list, 3, 1)).map((i) => i.target)).toEqual([4, undefined, undefined, undefined]);
+    expect(renumber(list.filter((i) => i.seq !== 3))[0]!.target).toBe(3); // the target is gone: on at the next step left
+    expect(renumber([t(1), { seq: 2, category: "branch", text: "b", condition: "a > 1", target: 1 }])[1]!.target).toBe(3);
+  });
+
+  it("names the problems of the new step kinds and unknown values", () => {
+    const sheet = doc([
+      { seq: 1, category: "calculation", text: "n", expression: "gross - tare" },
+      { seq: 2, category: "timer", text: "w", durationSeconds: 0 },
+      { seq: 3, category: "branch", text: "b", condition: "x +", target: 2 },
+      { seq: 4, category: "machine-readout", characteristic: { name: "T", type: "numeric" }, node: "" },
+    ]);
+    const problems = documentProblems(sheet).join("\n");
+    expect(problems).toMatch(/step 1: reads gross, which no earlier step produces/);
+    expect(problems).toMatch(/step 2: the timer runs 1 to 86400 seconds/);
+    expect(problems).toMatch(/step 3: the expression ends too early/);
+    expect(problems).toMatch(/step 3: jump to a later step/);
+    expect(problems).toMatch(/step 4: name the node/);
+  });
+
   it("names what is wrong in a sheet, in words", () => {
     const sheet = doc([
       { seq: 1, category: "instruction-text", text: " " },
