@@ -31,7 +31,16 @@ channels:
     messages:
       changeOrderApplied:
         $ref: '#/components/messages/ChangeOrderApplied'
+  transactionPosted:
+    address: passage.projects.transaction
+    messages:
+      transactionPosted:
+        $ref: '#/components/messages/TransactionPosted'
 operations:
+  publishTransactionPosted:
+    action: send
+    channel:
+      $ref: '#/channels/transactionPosted'
   publishChangeOrderApplied:
     action: send
     channel:
@@ -70,7 +79,39 @@ components:
       contentType: application/cloudevents+json
       payload:
         $ref: '#/components/schemas/ChangeOrderAppliedEvent'
+    TransactionPosted:
+      name: dev.passage.projects.transaction.posted.v1
+      contentType: application/cloudevents+json
+      payload:
+        $ref: '#/components/schemas/TransactionPostedEvent'
   schemas:
+    TransactionPostedEvent:
+      description: |
+        An HOUR transaction was recorded on a project (#40). Transactions are immutable, so version is always 1; transactionId and
+        version are the intercompany charge's sourceId and version. When workerLegalEntityId (the employing, lending entity) is
+        present and differs from projectLegalEntityId (the borrowing entity), intercompany charges the hours across. Quantity is
+        hours, costPrice the hourly cost, both decimal strings in currency (the project's currency).
+      allOf:
+        - $ref: '#/components/schemas/CloudEventEnvelope'
+        - type: object
+          required: [data]
+          properties:
+            data:
+              type: object
+              required: [transactionId, version, projectId, projectLegalEntityId, workerId, categoryId, sourceDocType, transactionDate, quantity, costPrice, currency]
+              properties:
+                transactionId: { type: string, format: uuid }
+                version: { type: integer, minimum: 1, enum: [1] }
+                projectId: { type: string }
+                projectLegalEntityId: { type: string, format: uuid }
+                workerId: { type: string, format: uuid }
+                workerLegalEntityId: { type: string, format: uuid, description: The legal entity that employs the worker; present only when the source named it }
+                categoryId: { type: string }
+                sourceDocType: { type: string, enum: [TIMESHEET, EXPENSE, PO_RECEIPT, INV_JOURNAL, MANUAL] }
+                transactionDate: { type: string, format: date }
+                quantity: { type: string, example: '8.000' }
+                costPrice: { type: string, example: '60.000000' }
+                currency: { type: string, pattern: '^[A-Z]{3}$' }
     ChangeOrderAppliedEvent:
       description: |
         An APPROVED change order was applied (BR-41.13). The PRD names the type

@@ -5,6 +5,7 @@ import { formatDateTime, shortId } from "./format";
 import styles from "./pages.module.css";
 import { useLoad } from "./useLoad";
 import { ProblemMessage } from "../../shell/errors";
+import { UserName } from "../../shell/lookup/UserName";
 
 /** "12.5 km": a solver distance, to one decimal. */
 export const km = (value: number) => `${value.toFixed(1)} km`;
@@ -19,7 +20,7 @@ const planColumns: DataTableColumn<RoutePlanSummary>[] = [
     render: (row) => (row.droppedCount > 0 ? <Badge tone="warning">{`${row.droppedCount} dropped`}</Badge> : <Badge tone="success">All served</Badge>),
   },
   { key: "distance", header: "Distance", align: "end", render: (row) => km(row.totalDistanceKm) },
-  { key: "createdBy", header: "Planned by" },
+  { key: "createdBy", header: "Planned by", render: (r) => <UserName id={r.createdBy} /> },
   { key: "createdAt", header: "Planned", render: (row) => formatDateTime(row.createdAt) },
 ];
 

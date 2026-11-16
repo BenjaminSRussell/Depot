@@ -144,9 +144,9 @@ describe("trading partners list", () => {
     renderAt("/intercompany/partners");
     expect(await screen.findByText("No trading partners yet")).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("Entity"), { target: { value: " S " } });
-    fireEvent.change(screen.getByLabelText("Show"), { target: { value: "inactive" } });
-    fireEvent.click(screen.getByRole("button", { name: "Apply filter" }));
-    expect(await screen.findByText("No pairings match")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Status"), { target: { value: "false" } });
+    fireEvent.click(screen.getByRole("button", { name: "Apply filters" }));
+    expect(await screen.findByText("No pairings match these filters")).toBeInTheDocument();
     const last = calls[calls.length - 1];
     expect(last.url.searchParams.get("entity")).toBe("S");
     expect(last.url.searchParams.get("active")).toBe("false");
@@ -161,15 +161,15 @@ describe("trading partners list", () => {
       return { status: 200, body: { items: [partner()], nextCursor: "cursor-1" } };
     };
     renderAt("/intercompany/partners");
-    expect(await screen.findByText("We couldn't load the trading partners")).toBeInTheDocument();
+    expect(await screen.findByText("Could not load pairings")).toBeInTheDocument();
     expect(screen.getByRole("alert")).toHaveTextContent("internal error");
     fail = false;
     fireEvent.click(screen.getByRole("button", { name: "Try again" }));
     const table = await findTable({ name: "Trading partners" });
     await waitFor(() => expect(bodyRows(table)).toHaveLength(1));
-    fireEvent.click(screen.getByRole("button", { name: "Show more pairings" }));
+    fireEvent.click(screen.getByRole("button", { name: "Load more pairings" }));
     await waitFor(() => expect(bodyRows(table)).toHaveLength(2));
-    expect(screen.queryByRole("button", { name: "Show more pairings" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Load more pairings" })).not.toBeInTheDocument();
   });
 });
 

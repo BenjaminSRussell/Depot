@@ -5,6 +5,7 @@ import { CUSTOMERS, LEGAL_ENTITY, PLANT, WH_FG, itemByNumber } from "../../compa
 import { reply, route } from "../../backend";
 import { at, day, dec, table, uid } from "../../store";
 import { K, SALES_ACTOR, customerById, itemById, orderNumber, orderSeq, orders, priceFor, r2, recordVersion } from "./model";
+import { userIdOf } from "../directory";
 
 const BASE = "/api/v1/sales";
 
@@ -45,7 +46,7 @@ function quotation(n: number, customer: number, status: QuotationStatus, created
     probabilityPct,
     netTotal: dec(lines.reduce((s, l) => s + Number(l.lineNet), 0)),
     version: status === "DRAFT" ? 1 : 2,
-    createdBy: SALES_ACTOR,
+    createdBy: userIdOf(SALES_ACTOR),
     createdAt: at(-createdDaysAgo),
     updatedAt: at(-createdDaysAgo / 2),
     lines,

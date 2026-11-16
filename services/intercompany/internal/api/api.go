@@ -28,6 +28,7 @@ import (
 	"github.com/BenjaminSRussell/passage/platform/money"
 	"github.com/BenjaminSRussell/passage/platform/tenant"
 	"github.com/BenjaminSRussell/passage/services/intercompany/internal/domain"
+	"github.com/BenjaminSRussell/passage/services/intercompany/internal/partyclient"
 	"github.com/BenjaminSRussell/passage/services/intercompany/internal/taxclient"
 )
 
@@ -71,6 +72,7 @@ type API struct {
 	registry    RegistryStore
 	ledgerRecon LedgerReconciler
 	tax         taxclient.Tax
+	party       partyclient.Directory
 
 	journalsPosted   atomic.Int64
 	chargesPosted    atomic.Int64
@@ -511,7 +513,7 @@ func problemFrom(err error) error {
 			status = http.StatusNotFound
 		case domain.CodeReconNotOpen, domain.CodeTransferPriceExist:
 			status = http.StatusConflict
-		case domain.CodeLedgerUnavailable, domain.CodeTaxUnavailable, domain.CodeNotConfigured:
+		case domain.CodeLedgerUnavailable, domain.CodeTaxUnavailable, domain.CodeNotConfigured, domain.CodePartyUnavailable:
 			status = http.StatusServiceUnavailable
 		case domain.CodePairingExists:
 			status = http.StatusConflict

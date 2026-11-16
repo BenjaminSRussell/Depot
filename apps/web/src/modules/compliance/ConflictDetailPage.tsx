@@ -18,6 +18,7 @@ import { dash, dateIn, formatDateTime, sentence, severityTone, stateTone } from 
 import styles from "./pages.module.css";
 import { useLoad } from "./useLoad";
 import { ProblemMessage } from "../../shell/errors";
+import { UserName } from "../../shell/lookup/UserName";
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -135,12 +136,12 @@ export function ConflictDetailPage() {
     ["Risk id", <span className={styles.mono}>{conflict.riskId}</span>],
     ["Severity", <Badge tone={severityTone[conflict.severity]}>{sentence(conflict.severity)}</Badge>],
     ["State", <Badge tone={stateTone[conflict.state]}>{sentence(conflict.state)}</Badge>],
-    ["User", <span className={styles.mono}>{conflict.userId}</span>],
+    ["User", <UserName id={conflict.userId} />],
     ["Duties", `${conflict.dutyA} and ${conflict.dutyB}`],
     ["Granted by roles", rolesText(conflict)],
     ["Detected", formatDateTime(conflict.detectedAt)],
     ["Mitigation expires", conflict.state === "MITIGATED" ? formatDateTime(conflict.expiresAt) : dash],
-    ["Decided by", conflict.decidedBy ? <span className={styles.mono}>{conflict.decidedBy}</span> : dash],
+    ["Decided by", <UserName id={conflict.decidedBy} />],
     ["Decision reason", conflict.decisionReason ?? dash],
     ["Resolved", formatDateTime(conflict.resolvedAt)],
   ];

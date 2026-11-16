@@ -287,6 +287,8 @@ export interface ReportLine {
   hasReceipt: boolean;
   justification: string;
   paidBy: PaidBy;
+  /** The legal entity that bears the line's cost when it is not the entity paying the report; the cost is charged across on approval. */
+  chargeToLegalEntityId?: string;
   policyResults: PolicyResult[];
 }
 

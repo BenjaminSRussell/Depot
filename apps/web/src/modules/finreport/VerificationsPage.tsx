@@ -7,6 +7,7 @@ import styles from "./pages.module.css";
 import { useLoad } from "./useLoad";
 import { ProblemMessage } from "../../shell/errors";
 import { LookupFormField } from "../../shell/lookup/LookupFormField";
+import { UserName } from "../../shell/lookup/UserName";
 
 export const verificationColumns: DataTableColumn<VerificationSummary>[] = [
   { key: "verifiedAt", header: "Checked", mono: true, render: (v) => <time dateTime={v.verifiedAt}>{v.verifiedAt}</time> },
@@ -15,7 +16,7 @@ export const verificationColumns: DataTableColumn<VerificationSummary>[] = [
   { key: "accountsCompared", header: "Accounts", mono: true, align: "end" },
   { key: "diffCount", header: "Differing", mono: true, align: "end" },
   { key: "hwmBefore", header: "As of sequence", mono: true, align: "end", render: (v) => (v.hwmBefore === v.hwmAfter ? String(v.hwmAfter) : `${v.hwmBefore} to ${v.hwmAfter}`) },
-  { key: "requestedBy", header: "Requested by", mono: true },
+  { key: "requestedBy", header: "Requested by", render: (r) => <UserName id={r.requestedBy} empty="system" /> },
 ];
 
 /** Ledger verification (FR-15.1): checks that the read model still adds up to the ledger's trial balance. */

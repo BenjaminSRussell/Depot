@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link, useParams } from "react-router-dom";
 import { holdsDuty } from "../../shell/dutyGate";
 import { usePrincipalDuties } from "../../shell/principal";
@@ -9,21 +9,22 @@ import styles from "./pages.module.css";
 import { Entry, problemText, ProblemAlert } from "./parts";
 import { useLoad } from "./useLoad";
 import { ProblemMessage } from "../../shell/errors";
+import { UserName } from "../../shell/lookup/UserName";
 
 const REASON_MAX = 500;
 
 type Outcome = { tone: "success"; text: string } | { tone: "danger"; problem: Problem };
 
-function facts(change: PendingChange): [string, string][] {
+function facts(change: PendingChange): [string, ReactNode][] {
   return [
     ["Field", pendingFieldLabel[change.field] ?? change.field],
     ["Current value", displayOrDash(change.currentValue)],
     ["Requested value", change.requestedValue],
     ["Customer", change.customerId],
     ["Legal entity", change.legalEntityId],
-    ["Requested by", `${change.requestedBy} at ${formatDateTime(change.requestedAt)}`],
-    ...(change.decidedAt ? ([["Decided", `${change.decidedBy ?? "—"} at ${formatDateTime(change.decidedAt)}`]] as [string, string][]) : []),
-    ...(change.reason ? ([["Reason", change.reason]] as [string, string][]) : []),
+    ["Requested by", <><UserName id={change.requestedBy} /> at {formatDateTime(change.requestedAt)}</>],
+    ...(change.decidedAt ? ([["Decided", <><UserName id={change.decidedBy} /> at {formatDateTime(change.decidedAt)}</>]] as [string, ReactNode][]) : []),
+    ...(change.reason ? ([["Reason", change.reason]] as [string, ReactNode][]) : []),
   ];
 }
 

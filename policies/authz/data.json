@@ -949,6 +949,9 @@
     "party.vendor.lookup": {"service_only": true, "permissions": [
       {"resource": "/v1/party/vendors/*", "methods": ["GET"]}
     ]},
+    "party.customer.lookup": {"service_only": true, "permissions": [
+      {"resource": "/v1/party/customers/*", "methods": ["GET"]}
+    ]},
     "party.import.read": {"service_only": true, "permissions": [
       {"resource": "/v1/party/parties/*", "methods": ["GET"]},
       {"resource": "/v1/party/customers/*", "methods": ["GET"]},
@@ -3495,6 +3498,7 @@
     "receivables.openitem.from-billing": {"flag": true, "permissions": []},
     "billing.iccharge.from-event": {"flag": true, "permissions": []},
     "payables.iccharge.from-event": {"flag": true, "permissions": []},
+    "intercompany.charge.from-event": {"flag": true, "permissions": []},
     "revrec.post": {"permissions": [
       {"resource": "/v1/revrec/recognition-runs", "methods": ["POST"]},
       {"resource": "/v1/revrec/journal-postings", "methods": ["POST"]},
@@ -4060,7 +4064,8 @@
       "ledger": ["ledger.entry.post", "ledger.journal.reverse", "ledger.ledger.lookup", "ledger.balance.read"],
       "fx": ["fx.rate.lookup"],
       "org": ["org.read"],
-      "tax": ["tax.tax.calculate", "tax.transaction.record"]
+      "tax": ["tax.tax.calculate", "tax.transaction.record"],
+      "party": ["party.customer.lookup", "party.vendor.lookup"]
     },
     "finreport": {"ledger": ["ledger.entry.lookup", "ledger.balance.read"]},
     "billing": {
@@ -4292,6 +4297,7 @@
     "edi-selfbill": ["tax.tax.calculate", "billing.self-billed.post"],
     "billing-iccharge": ["billing.iccharge.from-event"],
     "payables-iccharge": ["payables.iccharge.from-event"],
+    "intercompany-charges": ["intercompany.charge.from-event"],
     "edi-sales": ["sales.channel.intake"],
     "finreport-ledger": ["ledger.entry.lookup"],
     "pricing-cache": ["pricing.cache.invalidate"],

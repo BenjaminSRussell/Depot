@@ -33,6 +33,7 @@ type registryEnv struct {
 	tax   *taxclient.Fake
 	st    *store.Postgres
 	pool  *pgxpool.Pool
+	api   *api.API
 }
 
 func newRegistryEnv(t *testing.T) *registryEnv {
@@ -52,7 +53,7 @@ func newRegistryEnv(t *testing.T) *registryEnv {
 	})
 	rec := ledgerrecon.New(st, st, st, fake, poster, rates, "")
 	a := api.New(st).WithReconciliation(st).WithRegistry(st).WithPosting(poster, st, st).WithLedgerReconciliation(rec).WithTax(tax)
-	return &registryEnv{h: router(a), fake: fake, rates: rates, tax: tax, st: st, pool: pool}
+	return &registryEnv{h: router(a), fake: fake, rates: rates, tax: tax, st: st, pool: pool, api: a}
 }
 
 const cfgDuties = postDuties + "," + api.DutyConfigure
@@ -340,6 +341,9 @@ func TestCharge_PricedFromStoredPricesWithCrossBorderTax(t *testing.T) {
 	// Invoice mode hands the charge over: nothing is posted here.
 	before := len(e.fake.Entries())
 	e.put(t, http.MethodPut, "/v1/interco/settings", `{"chargeSettlementMode":"Invoice","crossBorderTax":true}`, http.StatusOK)
+	if rec := asConfigurer(e.h, http.MethodPost, "/v1/interco/partners", "pair-ab", `{"sellerEntity":"A","buyerEntity":"B","customerAccount":"C-B","vendorAccount":"V-A"}`); rec.Code != http.StatusCreated {
+		t.Fatalf("pairing = %d %s", rec.Code, rec.Body.String())
+	}
 	inv := decode[struct{ Status, SettlementMode, Price, Tax string }](t, postAs(e.h, http.MethodPost, "/v1/interco/charges", "", strings.Replace(regChargeBody, `"TS-1"`, `"TS-2"`, 1)))
 	if inv.Status != "invoice_requested" || inv.SettlementMode != "Invoice" || inv.Price != "550.00" || inv.Tax != "104.50" || len(e.fake.Entries()) != before {
 		t.Fatalf("invoice mode = %+v, entries %d -> %d", inv, before, len(e.fake.Entries()))
@@ -356,6 +360,27 @@ func TestCharge_PricedFromStoredPricesWithCrossBorderTax(t *testing.T) {
 	if err := e.pool.QueryRow(context.Background(), `select payload->'data'->>'lenderLegalEntityId', payload->'data'->>'borrowerLegalEntityId' from outbox
 		where type = 'dev.passage.interco.chargeinvoice.requested.v1'`).Scan(&lender, &borrower); err != nil || lender != leA || borrower != leB {
 		t.Errorf("legal entities = %q %q, %v", lender, borrower, err)
+	}
+
+	// Manual review is the default: the event carries the pairing's autoPostInvoice flag, false here. A pairing that opted in
+	// sends true, so billing and payables post without review.
+	flag := func(source string) bool {
+		var on bool
+		if err := e.pool.QueryRow(context.Background(), `select (payload->'data'->>'autoPostInvoice')::boolean from outbox
+			where type = 'dev.passage.interco.chargeinvoice.requested.v1' and payload->'data'->>'sourceId' = $1`, source).Scan(&on); err != nil {
+			t.Fatalf("event of %s: %v", source, err)
+		}
+		return on
+	}
+	if flag("TS-2") {
+		t.Error("autoPostInvoice is true for a pairing that never opted in")
+	}
+	if _, err := e.pool.Exec(context.Background(), `update intercompany_partner set auto_post_invoice = true where active`); err != nil {
+		t.Fatal(err)
+	}
+	postAs(e.h, http.MethodPost, "/v1/interco/charges", "", strings.Replace(regChargeBody, `"TS-1"`, `"TS-3"`, 1))
+	if !flag("TS-3") {
+		t.Error("autoPostInvoice is false for a pairing that opted in")
 	}
 }
 

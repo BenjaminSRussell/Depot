@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"reflect"
 	"testing"
 
 	"github.com/jackc/pgx/v5"
@@ -116,8 +117,8 @@ func TestDecideReport_ApprovalPublishesTheStoredReimbursableAmountOnceTheLiabili
 		t.Fatalf("report = %+v; want APPROVED with the journal entry", got)
 	}
 	got := approvedEvents(t, ctx, pool)
-	want := reimbursement.ReportApproved{ReportID: rep.ID, LegalEntityID: le, WorkerID: rep.WorkerID, Currency: "USD", Amount: "80.00", ApprovedOn: "2025-03-04"}
-	if len(got) != 1 || got[0] != want {
+	want := reimbursement.ReportApproved{ReportID: rep.ID, LegalEntityID: le, WorkerID: rep.WorkerID, Currency: "USD", Amount: "80.00", ApprovedOn: "2025-03-04", Revision: done.Version}
+	if len(got) != 1 || !reflect.DeepEqual(got[0], want) {
 		t.Fatalf("published = %+v; want exactly %+v", got, want)
 	}
 	if _, _, err := s.DecideReport(dana, rep.ID, false, commitDay, store.Command{Key: "reject-late", Hash: "hr"}); problemOf(t, err).Code != store.CodeReportState {
@@ -262,5 +263,66 @@ func TestDecideReport_RefusesTheCreatorAndAnyReportWithoutARecordedSubmitter(t *
 	}
 	if got, _ := s.GetReport(dana, anonymous.ID); got.Status != "SUBMITTED" {
 		t.Fatalf("status = %s; want SUBMITTED", got.Status)
+	}
+}
+
+// #40: lines another legal entity bears travel on the approved-report event, so intercompany can charge them across. Worked example:
+// a 300.00 hotel line borne by the Dallas entity and a 45.50 taxi line the paying entity bears itself; the report pays 345.50, and the
+// event lists only the hotel line with its category, amount, date and bearing entity.
+func TestMarkGLBooked_CarriesTheLinesAnotherEntityBears(t *testing.T) {
+	s, ctx, le, pool := setup(t, 23)
+	sam, dana := asUser(ctx, "sam"), asUser(ctx, "dana")
+	bearer := ids.New()
+
+	rep := newReport(t, s, sam, le, "create-charged")
+	hotel := line("TRAVEL", "Hotel", 300)
+	hotel.HasReceipt = true
+	hotel.ChargeToLegalEntityID = bearer
+	taxi := domain.Line{ID: ids.New(), Category: "TRAVEL", TxnDate: businessDay, Amount: decimal.RequireFromString("45.50"), Merchant: "Taxi", HasReceipt: true, ChargeToLegalEntityID: le}
+	var err error
+	if rep, _, err = s.AddLine(sam, rep.ID, "line-hotel", "h1", hotel, commitDay); err != nil {
+		t.Fatal(err)
+	}
+	if rep, _, err = s.AddLine(sam, rep.ID, "line-taxi", "h2", taxi, commitDay); err != nil {
+		t.Fatal(err)
+	}
+	if rep.Lines[0].ChargeToLegalEntityID != bearer {
+		t.Fatalf("the stored line lost its bearing entity: %+v", rep.Lines[0])
+	}
+	if rep, _, err = s.SubmitReport(sam, rep.ID, "submit-charged", "hs", 0, commitDay); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := s.DecideReport(dana, rep.ID, true, commitDay, store.Command{Key: "approve-charged", Hash: "ha", ExpectedVersion: rep.Version}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.MarkGLBooked(dana, rep.ID, "je-charged"); err != nil {
+		t.Fatal(err)
+	}
+	got := approvedEvents(t, ctx, pool)
+	if len(got) != 1 || got[0].Amount != "345.50" {
+		t.Fatalf("published = %+v; want one event paying 345.50", got)
+	}
+	want := []reimbursement.ChargedLine{{LineID: hotel.ID, LineNo: 1, Category: "TRAVEL", Amount: "300.00", Currency: "USD", TransactionDate: businessDay.Format("2006-01-02"), ChargeToLegalEntityID: bearer}}
+	if !reflect.DeepEqual(got[0].ChargedLines, want) {
+		t.Fatalf("chargedLines = %+v; want %+v", got[0].ChargedLines, want)
+	}
+}
+
+// M5 (#40): a report that holds only a company-card line goes straight to PAID with nothing to reimburse, and the 300.00 line another
+// entity bears is still charged across: the approval publishes the event with a zero amount, the line and the report revision.
+func TestDecideReport_ChargedLinesOfAReportWithNothingToReimburseStillTravel(t *testing.T) {
+	s, ctx, le, pool := setup(t, 24)
+	sam, dana := asUser(ctx, "sam"), asUser(ctx, "dana")
+	bearer := ids.New()
+	card := line("TRAVEL", "Hotel", 300)
+	card.HasReceipt, card.PaidBy, card.ChargeToLegalEntityID = true, domain.PaidByCompanyCard, bearer
+	rep := submittedReport(t, s, sam, le, card)
+	done, _, err := s.DecideReport(dana, rep.ID, true, commitDay, store.Command{Key: "approve-card", Hash: "ha", ExpectedVersion: rep.Version})
+	if err != nil || done.Status != "PAID" {
+		t.Fatalf("approve = %+v, %v; want PAID", done, err)
+	}
+	got := approvedEvents(t, ctx, pool)
+	if len(got) != 1 || got[0].Amount != "0.00" || got[0].Revision != done.Version || len(got[0].ChargedLines) != 1 || got[0].ChargedLines[0].Amount != "300.00" || got[0].ChargedLines[0].ChargeToLegalEntityID != bearer {
+		t.Fatalf("published = %+v; want one zero-amount event carrying the 300.00 line", got)
 	}
 }

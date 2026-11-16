@@ -306,7 +306,7 @@ describe("requisitions, candidates, offers and compensation cycles", () => {
     expect((await findStatus()).textContent).toContain("The cycle was approved");
     await waitFor(() => expect((screen.getByRole("button", { name: "Apply cycle" }) as HTMLButtonElement).disabled).toBe(false));
     expect(screen.queryByRole("button", { name: "Approve cycle" })).toBeNull();
-    expect(screen.getByText(/Approved by approver-1/)).toBeTruthy();
+    expect(document.body).toHaveTextContent(/Approved by A user who is no longer listed/);
   });
 
   it.each([

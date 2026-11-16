@@ -24,6 +24,25 @@ type ReportApproved struct {
 	Currency      string `json:"currency"`
 	Amount        string `json:"amount"`
 	ApprovedOn    string `json:"approvedOn"`
+	// Revision is the report's version when it was approved; intercompany versions the charges of its lines by it (a revised report is a
+	// new revision, so a charge can be repriced by the next version). Zero reads as 1.
+	Revision int `json:"revision,omitempty"`
+	// ChargedLines are the report's lines whose cost another legal entity bears (#40): intercompany raises a charge from the
+	// paying entity to the bearing one for each. Empty when every line is the paying entity's own cost; payables ignores it.
+	ChargedLines []ChargedLine `json:"chargedLines,omitempty"`
+}
+
+// ChargedLine is one expense line charged to a legal entity other than the one that pays the report.
+type ChargedLine struct {
+	LineID string `json:"lineId"`
+	LineNo int    `json:"lineNo"`
+	// Category is the expense category (MEALS, TRAVEL, ...); Amount is in the report currency (decimal string).
+	Category        string `json:"category"`
+	Amount          string `json:"amount"`
+	Currency        string `json:"currency"`
+	TransactionDate string `json:"transactionDate"`
+	// ChargeToLegalEntityID is the cost-bearing entity; it differs from the report's legalEntityId.
+	ChargeToLegalEntityID string `json:"chargeToLegalEntityId"`
 }
 
 type OpenItemSettled struct {

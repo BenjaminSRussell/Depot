@@ -8,6 +8,7 @@ import { getJournal, listJournals, type PostedEntry, type PostedJournal, type Po
 import { amount, dash } from "./format";
 import styles from "./pages.module.css";
 import { usePagedRows } from "./usePagedRows";
+import { UserName } from "../../shell/lookup/UserName";
 
 const statusTone: Record<PostingStatus, BadgeTone> = { posted: "success", pending: "warning", compensated: "danger" };
 const statusLabel: Record<PostingStatus, string> = { posted: "Posted", pending: "Paused, can be resumed", compensated: "Reversed" };
@@ -21,7 +22,7 @@ const columns: DataTableColumn<PostedJournal>[] = [
   { key: "source", header: "Source", render: (j) => (j.source === "charge" ? "IC charge" : "IC journal") },
   { key: "entities", header: "Entities", mono: true, render: (j) => j.entries.map((e) => e.entity).join(" / ") },
   { key: "status", header: "Status", render: (j) => <PostingBadge status={j.status} /> },
-  { key: "by", header: "Posted by", render: (j) => j.createdBy },
+  { key: "by", header: "Posted by", render: (j) => <UserName id={j.createdBy} /> },
 ];
 
 const journalFilters: ListFilterDef[] = [

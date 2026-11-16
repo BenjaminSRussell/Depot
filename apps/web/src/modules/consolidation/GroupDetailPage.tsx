@@ -27,6 +27,7 @@ import { isCurrency, isDecimal, isPositive, percent } from "./format";
 import styles from "./pages.module.css";
 import { RowGrid, type RowField } from "./RowGrid";
 import { useLegalEntityNames } from "./useEntityNames";
+import { UserName } from "../../shell/lookup/UserName";
 
 type MapKey = "mainAccount" | "consolidationAccount" | "accountType" | "role";
 type RateKey = "currency" | "average" | "closing";
@@ -141,6 +142,7 @@ export function GroupDetailPage() {
     { key: "currency", header: "Currency", mono: true, render: (u) => u.currency },
     { key: "fiscalYear", header: "Fiscal year starts in month", align: "end", render: (u) => String(u.fiscalYearStartMonth ?? 1) },
     { key: "percent", header: "Held today (%)", align: "end", render: (u) => percent(u.currentPercent) },
+    { key: "terms", header: "Acquisition terms", render: (u) => <Link to={`/consolidation/groups/${group!.id}/units/${u.id}/terms`}>Terms</Link> },
     {
       key: "history",
       header: "Ownership history",
@@ -150,7 +152,7 @@ export function GroupDetailPage() {
   const collectionColumns: DataTableColumn<Collection>[] = [
     { key: "period", header: "Period", mono: true, render: (c) => c.period },
     { key: "version", header: "Version", align: "end", render: (c) => String(c.version) },
-    { key: "by", header: "Collected by", render: (c) => c.createdBy },
+    { key: "by", header: "Collected by", render: (c) => <UserName id={c.createdBy} /> },
     { key: "at", header: "Collected", render: (c) => c.createdAt.slice(0, 16).replace("T", " ") },
     {
       key: "run",

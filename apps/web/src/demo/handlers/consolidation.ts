@@ -1,10 +1,11 @@
 // Consolidation service (/api/v1/consol) for the demo: the Cedar Ridge Pumps group of three legal entities in two
 // currencies, its account mapping, the collection of their ledger balances and the consolidated trial balance.
 // Typed against the module's own client types so shape drift fails `tsc`.
-import type { AccountMapRow, Collection, Group, GroupDetail, Holding, TrialBalance, TrialBalanceRow, UnmappedLine, Unit } from "../../modules/consolidation/api/groups";
+import type { AccountMapRow, Collection, Group, GroupDetail, Holding, TrialBalance, TrialBalanceRow, UnitTerms, UnmappedLine, Unit } from "../../modules/consolidation/api/groups";
 import { LEGAL_ENTITY, LEGAL_ENTITY_DE, LEGAL_ENTITY_ES } from "../company";
 import { reply, route } from "../backend";
 import { at, newId, uid } from "../store";
+import { userIdOf } from "./directory";
 
 const BASE = "/api/v1/consol";
 const K_GROUP = 400;
@@ -21,7 +22,7 @@ const U_ES = uid(K_UNIT, 3);
 const cents = (s: string): number => Math.round(Number(s) * 100);
 const dec = (c: number): string => (c / 100).toFixed(2);
 
-const groups: Group[] = [{ id: GROUP_ID, code: "CRP", name: "Cedar Ridge Pumps group", currency: "USD", createdBy: "dev", createdAt: at(-120) }];
+const groups: Group[] = [{ id: GROUP_ID, code: "CRP", name: "Cedar Ridge Pumps group", currency: "USD", createdBy: userIdOf("dev"), createdAt: at(-120) }];
 const units: Unit[] = [
   { id: U_US, legalEntityId: LEGAL_ENTITY.id, ledgerId: "CRP-US-GL", currency: "USD", currentPercent: "100.0000", ownership: [{ id: uid(K_HOLDING, 1), effectiveFrom: "2020-01-01", percent: "100.0000" }] },
   { id: U_DE, legalEntityId: LEGAL_ENTITY_DE.id, ledgerId: "CRP-DE-GL", currency: "EUR", currentPercent: "80.0000", ownership: [{ id: uid(K_HOLDING, 2), effectiveFrom: "2022-04-01", percent: "80.0000" }] },
@@ -95,13 +96,13 @@ function collect(per: string, rates: Record<string, { average: string; closing: 
     }
   }
   const version = collections.filter((c) => c.period === per).length + 1;
-  const stored: Stored = { id: version === 1 && collections.length === 0 ? uid(K_COLLECTION, 1) : newId(), groupId: GROUP_ID, period: per, version, currency: "USD", createdBy: "dev", createdAt: at(0), lineCount: lines.length, unmappedCount: lines.filter((l) => !l.consolidationAccount).length, lines };
+  const stored: Stored = { id: version === 1 && collections.length === 0 ? uid(K_COLLECTION, 1) : newId(), groupId: GROUP_ID, period: per, version, currency: "USD", createdBy: userIdOf("dev"), createdAt: at(0), lineCount: lines.length, unmappedCount: lines.filter((l) => !l.consolidationAccount).length, lines };
   collections.unshift(stored);
   return stored;
 }
 collect(period(-1), { EUR: { average: "1.0840", closing: "1.0950" } });
 
-const header = (c: Stored): Collection => ({ id: c.id, groupId: c.groupId, period: c.period, version: c.version, currency: c.currency, createdBy: c.createdBy, createdAt: c.createdAt });
+const header = (c: Stored): Collection => ({ id: c.id, groupId: c.groupId, period: c.period, version: c.version, currency: c.currency, createdBy: userIdOf(c.createdBy), createdAt: c.createdAt });
 
 function trialBalance(c: Stored): TrialBalance {
   const rows = new Map<string, { type: "balance_sheet" | "income"; total: number; units: Record<string, number> }>();
@@ -133,7 +134,7 @@ route("GET", `${BASE}/groups`, () => ({ items: groups.map((g) => ({ ...g, unitCo
 route("POST", `${BASE}/groups`, ({ body }) => {
   const b = body as { code: string; name: string; currency: string };
   if (groups.some((g) => g.code === b.code)) return reply.problem(409, "CNS-0925", `A consolidation group with code ${b.code} already exists`);
-  const g: Group = { id: newId(), code: b.code, name: b.name, currency: b.currency, createdBy: "dev", createdAt: at(0) };
+  const g: Group = { id: newId(), code: b.code, name: b.name, currency: b.currency, createdBy: userIdOf("dev"), createdAt: at(0) };
   groups.push(g);
   return reply.created(g, { Location: `${BASE}/groups/${g.id}` });
 });
@@ -174,6 +175,19 @@ route("DELETE", `${BASE}/groups/{id}/units/{unitId}`, ({ params }) => {
   if (collections.some((c) => c.lines.some((l) => l.unit === params.unitId))) return reply.problem(409, "CNS-0931", "Collections were made from this unit, so it stays in the group; end its ownership instead");
   units.splice(i, 1);
   return new Response(null, { status: 204 });
+});
+// The group's investment in the German subsidiary, stored the way the service keeps them: one record per unit, replaced on save.
+const unitTerms = new Map<string, UnitTerms>([
+  [U_DE, { unitId: U_DE, investmentCost: "2400000.00", shareCapital: "1500000.00", preAcquisitionRe: "620000.00", historicalRate: "1.0840", sellerIsSubsidiary: false, icNetInvestment: false, method: "full" }],
+]);
+route("GET", `${BASE}/groups/{id}/unit-terms`, ({ params }) => (groups.some((g) => g.id === params.id) ? { items: [...unitTerms.values()] } : reply.problem(404, "CNS-0924", "No consolidation group with that id")));
+route("PUT", `${BASE}/groups/{id}/units/{unitId}/terms`, ({ params, body }) => {
+  if (!groups.some((g) => g.id === params.id) || !units.some((u) => u.id === params.unitId)) return reply.problem(404, "CNS-0924", "No consolidation group or unit with that id");
+  const b = body as Omit<UnitTerms, "unitId">;
+  if (!(Number(b.historicalRate) > 0)) return reply.problem(400, "COM-0001", "The terms have invalid fields", { historicalRate: "must be above zero" });
+  const stored: UnitTerms = { unitId: params.unitId, ...b };
+  unitTerms.set(params.unitId, stored);
+  return structuredClone(stored);
 });
 route("POST", `${BASE}/runs`, ({ body }) => {
   const b = body as { collectionId?: string };

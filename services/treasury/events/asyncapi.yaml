@@ -98,7 +98,7 @@ operations:
     action: send
     channel:
       $ref: "#/channels/cashDesk"
-    summary: A cash desk day is final: counted, and signed a second time where the desk needs it.
+    summary: 'A cash desk day is final: counted, and signed a second time where the desk needs it.'
     messages:
       - $ref: "#/channels/cashDesk/messages/cashDeskDayClosed"
   publishCashDeskEntryPosted:

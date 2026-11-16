@@ -19,6 +19,7 @@ import { commitmentText, DECIMAL, formatDateTime, money, PERCENT, subtractDecima
 import styles from "./pages.module.css";
 import { useLoad } from "./useLoad";
 import { ProblemMessage } from "../../shell/errors";
+import { UserName } from "../../shell/lookup/UserName";
 
 /** Revising and closing an agreement needs this duty; the service enforces it. */
 export const DUTY_AGREEMENT_MAINTAIN = "sales.agreement.maintain";
@@ -95,7 +96,7 @@ const kindLabel: Record<AgreementVersion["kind"], string> = { REVISED: "Revised"
 const versionColumns: DataTableColumn<AgreementVersion>[] = [
   { key: "version", header: "Version", align: "end" },
   { key: "kind", header: "What", render: (v) => kindLabel[v.kind] ?? v.kind },
-  { key: "changedAt", header: "When", render: (v) => `${formatDateTime(v.changedAt)} by ${v.actor}` },
+  { key: "changedAt", header: "When", render: (v) => <>{formatDateTime(v.changedAt)} by <UserName id={v.actor} /></> },
   { key: "reason", header: "Reason", render: (v) => v.reason || "—" },
   { key: "fields", header: "Fields", align: "end", render: (v) => String(v.diff.length) },
 ];
@@ -249,7 +250,7 @@ export function AgreementLifecycle({ agreement, etag, onChanged }: Props) {
       </Alert>
       {closed ? (
         <Alert tone="warning" title="Closed">
-          {agreement.closeReason ?? "This agreement was closed."} {agreement.closedAt ? `(${formatDateTime(agreement.closedAt)} by ${agreement.closedBy ?? "unknown"})` : null}
+          {agreement.closeReason ?? "This agreement was closed."} {agreement.closedAt ? <>({formatDateTime(agreement.closedAt)} by <UserName id={agreement.closedBy} />)</> : null}
         </Alert>
       ) : canMaintain ? (
         <>

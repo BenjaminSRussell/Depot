@@ -27,6 +27,7 @@ import { reply, route } from "../../backend";
 import { ITEMS, LEGAL_ENTITY, PLANT, RESOURCES, USER, WH_WIP } from "../../company";
 import { at, day, dec, table } from "../../store";
 import { SEED_ORDERS, actualShare, findItem, orderFromInput, plannedRows, plannedTotal, rank } from "./orders";
+import { userIdOf } from "../directory";
 
 const BASE = "/api/v1/production";
 export const orders = table<ProductionOrder>(SEED_ORDERS);
@@ -169,7 +170,7 @@ function makeJournal(o: ProductionOrder, type: Journal["type"], lines: JournalLi
     postingDate: at(-daysAgo).slice(0, 10),
     posted,
     postedAt: posted ? at(-daysAgo) : undefined,
-    postedBy: posted ? by : undefined,
+    postedBy: posted ? userIdOf(by) : undefined,
     qtyGood: dec(qtyGood, 0),
     qtyError: dec(qtyError, 0),
     journalEntryId: posted ? `JE-${String((entrySeq += 3)).padStart(6, "0")}` : undefined,
@@ -338,7 +339,7 @@ function transition(id: string, command: ProductionCommand, body: CommandBody) {
   if (command === "report-finished") {
     const good = Number(result.qtyRaf) - Number(o.qtyRaf);
     const j = makeJournal(o, "report-as-finished", [receiptLine(o, good, Number(body.errorQuantity ?? 0))], 0, true, good, Number(body.errorQuantity ?? 0));
-    journals.insert({ ...j, postedBy: USER.name, createdBy: USER.name });
+    journals.insert({ ...j, postedBy: userIdOf(USER.name), createdBy: USER.name });
   }
   return reply.ok(orders.update(id, result));
 }
@@ -407,7 +408,7 @@ route("POST", `${BASE}/journals/{id}:post`, (req) => {
   const j = journals.get(req.params.id);
   if (!j) return reply.problem(404, "PROD-0404", "Journal not found.");
   if (j.posted) return reply.ok(j);
-  const posted = journals.update(j.id, { posted: true, postedAt: at(0), postedBy: USER.name, postingDate: day(0), journalEntryId: `JE-${String((entrySeq += 3)).padStart(6, "0")}`, postings: postingsOf(j.type, j.lines) })!;
+  const posted = journals.update(j.id, { posted: true, postedAt: at(0), postedBy: userIdOf(USER.name), postingDate: day(0), journalEntryId: `JE-${String((entrySeq += 3)).padStart(6, "0")}`, postings: postingsOf(j.type, j.lines) })!;
   // A posted report as finished books the quantity on the order, as the service does.
   const o = orders.get(j.orderId);
   if (o && j.type === "report-as-finished") {

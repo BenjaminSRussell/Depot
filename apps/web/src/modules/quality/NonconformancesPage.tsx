@@ -40,6 +40,7 @@ import { EntityName } from "../../shell/lookup/EntityName";
 import { InsideControl } from "../../shell/ui";
 import { EntityLookup } from "../../shell/lookup/EntityLookup";
 import type { LookupEntityKey } from "../../shell/lookup/entities";
+import { UserName } from "../../shell/lookup/UserName";
 
 export function NcrStatusBadge({ status }: { status: NcrStatus }) {
   const s = NCR_STATUS_LABELS[status] ?? { label: status, tone: "neutral" as const };
@@ -385,7 +386,7 @@ export function NonconformanceDetailPage() {
           {detail("Dimensions", Object.entries(ncr.dims ?? {}).map(([k, v]) => `${k} ${v}`).join(", ") || dash)}
           {detail("Vendor", ncr.vendorId ? <EntityName entity="vendor" id={ncr.vendorId} fallback={ncr.vendorId} /> : dash)}
           {detail("Customer", ncr.customerId ? <EntityName entity="customer" id={ncr.customerId} fallback={ncr.customerId} /> : dash)}
-          {detail("Raised", `${ncr.createdBy || dash}, ${formatDateTime(ncr.createdAt)}`)}
+          {detail("Raised", <><UserName id={ncr.createdBy} />, {formatDateTime(ncr.createdAt)}</>)}
           {detail("Correction", correction ? CORRECTION_STATUS_LABELS[correction.status].label : "Not started")}
           <div className={styles.entry}>
             <dt className={styles.term}>Quality order</dt>

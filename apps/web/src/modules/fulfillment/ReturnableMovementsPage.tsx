@@ -20,6 +20,7 @@ import styles from "./pages.module.css";
 import { useLoad } from "./useLoad";
 import { ProblemMessage } from "../../shell/errors";
 import { EntityName } from "../../shell/lookup/EntityName";
+import { UserName } from "../../shell/lookup/UserName";
 
 /** Most movements one view shows, newest first. */
 export const MOVEMENT_LIMIT = 200;
@@ -53,7 +54,7 @@ const columns: DataTableColumn<ReturnableMovement>[] = [
       ),
   },
   { key: "reason", header: "Reason", render: (row) => row.reason ?? dash },
-  { key: "actor", header: "By", mono: true, render: (row) => (row.actor ? shortId(row.actor) : dash) },
+  { key: "actor", header: "By", mono: true, render: (row) => <UserName id={row.actor} /> },
 ];
 
 interface Filter {

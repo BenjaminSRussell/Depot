@@ -7,6 +7,7 @@ import { ledgerQuery, useLedgerParam } from "./LedgerPicker";
 import { errorText } from "./OpenItemsPage";
 import styles from "./pages.module.css";
 import { describeMapping, RealignmentStatusBadge } from "./RealignmentsPage";
+import { UserName } from "../../shell/lookup/UserName";
 
 const columns: DataTableColumn<RealignmentRow>[] = [
   { key: "period", header: "Period", mono: true },
@@ -121,7 +122,7 @@ export function RealignmentPage() {
             <StatTile label={`Amount moved (${run!.currency})`} value={run!.amountMoved} />
             <StatTile label="Entries posted" value={run!.entryIds.length} />
           </StatGroup>
-          {run!.reasonCode ? <p className={styles.note}>Reason {run!.reasonCode}{run!.postedBy ? `, posted by ${run!.postedBy}` : ""}.</p> : null}
+          {run!.reasonCode ? <p className={styles.note}>Reason {run!.reasonCode}{run!.postedBy ? <>, posted by <UserName id={run!.postedBy} /></> : ""}.</p> : null}
           {run!.previewTruncated ? <Alert tone="info" title="Only the first rows are listed" live="status">The run moves more balances than are shown; posting moves all of them.</Alert> : null}
           <DataTable
             label="Affected balances"

@@ -16,6 +16,7 @@ import {
 import { CORRECTION_STATUS_LABELS, formatDate, formatDateTime } from "./format";
 import styles from "./pages.module.css";
 import { ProblemMessage } from "../../shell/errors";
+import { UserName } from "../../shell/lookup/UserName";
 
 interface ChangeProps {
   ncr: Nonconformance;
@@ -197,7 +198,7 @@ export function CorrectionPanel({ ncr, correction, onChanged }: ChangeProps & { 
                   {overdue.has(s.step) ? <Badge tone="danger">Overdue</Badge> : null}
                 </span>
                 {s.dueAt ? <span className={styles.term}>{`Due ${formatDate(s.dueAt)}`}</span> : null}
-                {s.completedAt ? <span className={styles.term}>{`${s.completedBy || "—"}, ${formatDateTime(s.completedAt)}`}</span> : null}
+                {s.completedAt ? <span className={styles.term}>{<><UserName id={s.completedBy} />, {formatDateTime(s.completedAt)}</>}</span> : null}
                 {s.notes ? <span className={styles.value}>{s.notes}</span> : null}
               </li>
             );

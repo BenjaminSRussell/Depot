@@ -212,7 +212,7 @@ describe("automatic clearing run", () => {
     };
     const { container } = renderAt(`/ledger/auto-clearing?ledger=${LEDGER}`);
     const earlier = await findTable({ name: "Earlier runs" });
-    expect(within(earlier).getByText("batch")).toBeInTheDocument();
+    expect(within(earlier).getByText("A user who is no longer listed")).toBeInTheDocument();
     await screen.findByRole("option", { name: "GR/IR matching" });
     expect(screen.queryByRole("option", { name: "Off" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^Clear \d/ })).not.toBeInTheDocument();

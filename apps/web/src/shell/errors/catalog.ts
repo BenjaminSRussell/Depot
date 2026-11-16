@@ -1186,6 +1186,9 @@ const groupFinance: Record<string, ProblemCatalogEntry> = {
   "IC-0859": { message: "The rate tables have no rate to convert this pair.", action: "Publish the closing rate for the two currencies and the period end, then run the reconciliation again." },
   "IC-0860": { message: "Intercompany is not fully set up for this step.", action: "Store the accounting matrix and the entities first, or ask an administrator to connect the ledger." },
   "IC-0861": { message: "That difference is too large to be an exchange difference.", action: "Find the missing or wrong entry and post a correcting entry instead of booking it to the FX-difference account." },
+  "IC-0862": { message: "That customer account is not a customer we hold.", action: "Pick the customer in the seller entity that stands for the buyer; the invoice documents are raised for it." },
+  "IC-0863": { message: "That vendor account is not a vendor we hold.", action: "Pick the vendor in the buyer entity that stands for the seller; the vendor invoice is taken in for it." },
+  "IC-0864": { message: "The customer and vendor accounts could not be confirmed right now.", action: "Nothing was saved. Try again in a moment, or ask an administrator to check the connection to the party service." },
 };
 
 /** Field service: the technician's day, captures, checklist and truck stock (#45). */

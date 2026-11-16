@@ -16,6 +16,7 @@ import (
 	"github.com/BenjaminSRussell/passage/platform/authz"
 	"github.com/BenjaminSRussell/passage/platform/httpx"
 	"github.com/BenjaminSRussell/passage/platform/ids"
+	"github.com/BenjaminSRussell/passage/platform/tenant"
 	"github.com/BenjaminSRussell/passage/services/expense/internal/domain"
 	"github.com/BenjaminSRussell/passage/services/expense/internal/store"
 )
@@ -229,6 +230,14 @@ func (a *API) addLine(w http.ResponseWriter, r *http.Request) {
 		refuse(w, r, fields)
 		return
 	}
+	// The entity that bears a line's cost must be one the submitter may act in: a line cannot book a cost into an entity nobody there
+	// approved (#40). The approver sees the entity on the report.
+	if line.ChargeToLegalEntityID != "" {
+		if p, _ := tenant.FromContext(r.Context()); !tenant.InLegalEntityScope(p, line.ChargeToLegalEntityID) {
+			httpx.Fail(w, r, httpx.NewProblem(http.StatusForbidden, "AUTH-0003", "the entity that bears this line's cost is outside your legal-entity scope"))
+			return
+		}
+	}
 	rep, replayed, err := a.reports.AddLine(r.Context(), id, key, hash, line, a.today())
 	if err != nil {
 		httpx.Fail(w, r, err)
@@ -363,7 +372,7 @@ func toReportDTO(rep store.Report) reportDTO {
 			lineDTO: lineDTO{
 				ID: l.ID, Category: l.Category, TxnDate: l.TxnDate.Format(dateLayout), Amount: l.Amount.StringFixed(2),
 				Merchant: l.Merchant, Attendees: l.Attendees, HasReceipt: l.HasReceipt,
-				Justification: l.Justification, PaidBy: l.PaidBy,
+				Justification: l.Justification, PaidBy: l.PaidBy, ChargeToLegalEntityID: l.ChargeToLegalEntityID,
 			},
 			LineNo:        l.LineNo,
 			PolicyResults: nonNil(l.Results),

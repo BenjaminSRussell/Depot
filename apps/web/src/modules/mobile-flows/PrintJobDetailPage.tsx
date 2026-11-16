@@ -6,6 +6,7 @@ import { dash, describeJobContent, describeJobError, formatDateTime, JobStatusBa
 import styles from "./pages.module.css";
 import { useLoad } from "./useLoad";
 import { ProblemMessage } from "../../shell/errors";
+import { UserName } from "../../shell/lookup/UserName";
 
 /** One print job, its outcome, and "print again" (BR-32.8: a new job with reprintOf). */
 export function PrintJobDetailPage() {
@@ -69,7 +70,7 @@ export function PrintJobDetailPage() {
     ["Printer", job.printerCode || dash, true],
     ["Attempts", String(job.attempts)],
     ["Error", job.status === "FAILED" ? describeJobError(job.lastError, job.format) : dash],
-    ["Created by", job.createdBy || dash],
+    ["Created by", <UserName id={job.createdBy} />],
     ["Created", formatDateTime(job.createdAt)],
     ["Completed", job.status === "QUEUED" ? dash : formatDateTime(job.updatedAt)],
   ];

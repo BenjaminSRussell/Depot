@@ -1,4 +1,4 @@
-import { useRef, useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent, type ReactNode } from "react";
 import { Link, useParams } from "react-router-dom";
 import { Alert, Badge, Button, Card, FormField, Input, PageHeader, Skeleton } from "../../shell/ui";
 import { holdsDuty } from "../../shell/dutyGate";
@@ -8,6 +8,7 @@ import { MAX_HOLD_REASON } from "./LegalHoldsPage";
 import styles from "./pages.module.css";
 import { useLoad } from "./useLoad";
 import { ProblemMessage } from "../../shell/errors";
+import { UserName } from "../../shell/lookup/UserName";
 
 /** One legal hold (FR-15.8): who placed it and why, and the release that ends it. */
 export function LegalHoldPage() {
@@ -71,13 +72,13 @@ export function LegalHoldPage() {
     }
   }
 
-  const rows: [string, string][] = [
+  const rows: [string, ReactNode][] = [
     ["Legal entity", hold.legalEntityId],
     ["Reason", hold.reason],
     ["Placed", `${hold.placedAt} by ${hold.placedBy}`],
   ];
   if (!hold.active) {
-    rows.push(["Released", `${hold.releasedAt ?? ""} by ${hold.releasedBy ?? ""}`]);
+    rows.push(["Released", <>{hold.releasedAt ?? ""} by <UserName id={hold.releasedBy} /></>]);
     if (hold.releaseNote) rows.push(["Release note", hold.releaseNote]);
   }
   return (

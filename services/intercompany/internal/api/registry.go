@@ -14,6 +14,7 @@ import (
 	"github.com/BenjaminSRussell/passage/platform/money"
 	"github.com/BenjaminSRussell/passage/platform/tenant"
 	"github.com/BenjaminSRussell/passage/services/intercompany/internal/domain"
+	"github.com/BenjaminSRussell/passage/services/intercompany/internal/partyclient"
 	"github.com/BenjaminSRussell/passage/services/intercompany/internal/taxclient"
 )
 
@@ -52,6 +53,12 @@ func (a *API) WithLedgerReconciliation(r LedgerReconciler) *API {
 // WithTax gives the API the tax service that prices cross-border charges.
 func (a *API) WithTax(t taxclient.Tax) *API {
 	a.tax = t
+	return a
+}
+
+// WithParty has a pairing's customer and vendor accounts checked against the party master when the pairing is created or changed.
+func (a *API) WithParty(d partyclient.Directory) *API {
+	a.party = d
 	return a
 }
 

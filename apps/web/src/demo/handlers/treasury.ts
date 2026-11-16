@@ -6,6 +6,7 @@ import { LEGAL_ENTITY } from "../company";
 import { reply, route } from "../backend";
 import { at, day, newId, table, uid } from "../store";
 import { byUsername, ME } from "./finance/people";
+import { userIdOf } from "./directory";
 
 const BASE = "/api/v1/treasury";
 const K_ACCOUNT = 360;
@@ -93,7 +94,7 @@ const recons = table<Recon>([
     bookBalanceSource: "stated",
     bookBalanceStatedBy: "ana.ortiz",
     bookBalanceStatedAt: at(-30),
-    closedBy: "marcus.lee",
+    closedBy: userIdOf("marcus.lee"),
     closedAt: at(-29),
     version: 5,
     createdBy: "ana.ortiz",
@@ -236,7 +237,7 @@ route("POST", `${BASE}/bank-reconciliations/{id}:close`, ({ params }) =>
     const v = view(r);
     if (v.summary.unmatchedCount > 0) return new DemoProblem(reply.problem(422, "TRS-0507", "some lines are neither matched nor excluded"));
     if (cents(v.difference) !== 0) return new DemoProblem(reply.problem(422, "TRS-0410", `the difference is ${v.difference}, it must be zero`));
-    return { ...r, state: "closed", closedBy: "dev", closedAt: at(0) };
+    return { ...r, state: "closed", closedBy: userIdOf("dev"), closedAt: at(0) };
   }),
 );
 
@@ -371,7 +372,7 @@ const days = new Map<string, DemoDay[]>([
   [
     DESK,
     [
-      { deskId: DESK, businessDate: day(-2), status: "closed", openingBalance: "1200.00", bookBalance: "1480.50", countedBalance: "1480.50", difference: "0.00", openedBy: ANA, closedBy: ANA, differencePosting: "not_posted", entries: [entry(1, "receipt", 310.5, "Parts counter sales", ANA, undefined, "4000"), entry(2, "payment", 30, "Office supplies", ANA, "RCPT-4417", "6400")] },
+      { deskId: DESK, businessDate: day(-2), status: "closed", openingBalance: "1200.00", bookBalance: "1480.50", countedBalance: "1480.50", difference: "0.00", openedBy: ANA, closedBy: userIdOf(ANA), differencePosting: "not_posted", entries: [entry(1, "receipt", 310.5, "Parts counter sales", ANA, undefined, "4000"), entry(2, "payment", 30, "Office supplies", ANA, "RCPT-4417", "6400")] },
       { deskId: DESK, businessDate: day(0), status: "open", openingBalance: "1480.50", bookBalance: "1480.50", openedBy: ANA, differencePosting: "not_posted", entries: [entry(3, "receipt", 250, "Walk-in sale, two seal kits", ANA, "INV-30177", "4000"), entry(4, "payment", 36.4, "Courier tip", ANA, undefined, "6400"), entry(5, "receipt", 120, "Customer deposit", ANA, "DEP-0091", "2300")] },
     ],
   ],
@@ -456,7 +457,7 @@ route("POST", `${BASE}/cash-desks/{id}/days/{date}:close`, ({ params, body }) =>
   const diff = total - cents(d.bookBalance);
   if (diff !== 0 && !input.reason) return reply.problem(422, "TRS-0542", `the count differs from the book balance by ${dec(diff)}; give the reason`);
   const dual = Boolean(desks.get(params.id)?.dualControl);
-  Object.assign(d, { status: dual ? "closing" : "closed", countedBalance: dec(total), difference: dec(diff), differenceReason: input.reason, denominations: input.denominations, closedBy: ME.id, differencePosting: !dual && diff !== 0 && postsToLedger(params.id) ? "posted" : "not_posted" });
+  Object.assign(d, { status: dual ? "closing" : "closed", countedBalance: dec(total), difference: dec(diff), differenceReason: input.reason, denominations: input.denominations, closedBy: userIdOf(ME.id), differencePosting: !dual && diff !== 0 && postsToLedger(params.id) ? "posted" : "not_posted" });
   return stripDay(d);
 });
 route("POST", `${BASE}/cash-desks/{id}/days/{date}:approve`, ({ params }) => {
