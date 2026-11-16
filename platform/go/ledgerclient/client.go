@@ -57,6 +57,9 @@ type Line struct {
 	Amount     decimal.Decimal
 	Text       string
 	Dimensions map[string]string
+	// TradingPartnerID is the legal entity on the other side of an intercompany line (#40); empty for an ordinary line. The ledger
+	// refuses one that is not a legal entity of the tenant or is the entry's own legal entity.
+	TradingPartnerID string
 }
 
 type Entry struct {
@@ -209,11 +212,12 @@ type amountBody struct {
 }
 
 type lineBody struct {
-	Account     string            `json:"account"`
-	DebitCredit string            `json:"debitCredit"`
-	Amount      amountBody        `json:"amount"`
-	Text        string            `json:"text,omitempty"`
-	Dimensions  map[string]string `json:"dimensions,omitempty"`
+	Account          string            `json:"account"`
+	DebitCredit      string            `json:"debitCredit"`
+	Amount           amountBody        `json:"amount"`
+	Text             string            `json:"text,omitempty"`
+	Dimensions       map[string]string `json:"dimensions,omitempty"`
+	TradingPartnerID string            `json:"tradingPartnerId,omitempty"`
 }
 
 type sourceBody struct {
@@ -345,7 +349,7 @@ func (c *Client) Post(ctx context.Context, e Entry) (string, error) {
 		if l.Credit {
 			side = sideCredit
 		}
-		body.Lines = append(body.Lines, lineBody{Account: l.Account, DebitCredit: side, Text: l.Text, Dimensions: l.Dimensions,
+		body.Lines = append(body.Lines, lineBody{Account: l.Account, DebitCredit: side, Text: l.Text, Dimensions: l.Dimensions, TradingPartnerID: l.TradingPartnerID,
 			Amount: amountBody{Currency: e.Currency, Value: l.Amount.StringFixed(money.MinorUnits(e.Currency))}})
 	}
 	raw, err := c.do(ctx, "post", e.IdempotencyKey, http.MethodPost, entriesPath, nil, body, e.IdempotencyKey, e.LegalEntityID, postDuties(DutyPost, e.PostClosed)...)

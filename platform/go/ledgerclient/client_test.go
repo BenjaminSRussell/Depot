@@ -394,3 +394,33 @@ func TestJournalLines_RejectsAnUnreadableAmountAndALedgerError(t *testing.T) {
 		t.Fatalf("err %v", err)
 	}
 }
+
+func TestPartnerBalances_ReadsRowsPerCounterparty(t *testing.T) {
+	var query map[string][]string
+	c, _ := newClientAs(t, "consolidation", func(w http.ResponseWriter, r *http.Request) {
+		query = r.URL.Query()
+		if r.URL.Path != "/v1/ledger/balances/by-partner" {
+			t.Errorf("path %s", r.URL.Path)
+		}
+		_, _ = w.Write([]byte(`{"currency":"USD","rows":[{"account":"1300","tradingPartnerId":"` + entityID + `","debit":"100.00","credit":"40.00"}]}`))
+	})
+	got, err := c.PartnerBalances(principalCtx(), ledgerclient.PartnerBalanceQuery{LegalEntityID: entityID, LedgerID: ledgerID, PeriodTo: "2026-09"})
+	if err != nil || got.Currency != "USD" || len(got.Rows) != 1 || !got.Rows[0].Net().Equal(decimal.RequireFromString("60")) ||
+		query["period_to"][0] != "2026-09" || query["ledger"][0] != ledgerID {
+		t.Fatalf("partner balances %+v query %v err %v", got, query, err)
+	}
+}
+
+func TestPost_SendsTheTradingPartner(t *testing.T) {
+	var body string
+	c, _ := newClientAs(t, "intercompany", func(w http.ResponseWriter, r *http.Request) {
+		raw, _ := io.ReadAll(r.Body)
+		body = string(raw)
+		_, _ = w.Write([]byte(`{"entries":[{"id":"` + entityID + `"}]}`))
+	})
+	_, err := c.Post(principalCtx(), ledgerclient.Entry{LegalEntityID: entityID, LedgerID: ledgerID, DocumentID: "d", PostingDate: "2026-03-01", Currency: "USD", IdempotencyKey: "k",
+		Lines: []ledgerclient.Line{{Account: "1300", Amount: decimal.NewFromInt(5), TradingPartnerID: ledgerID}, {Account: "4900", Credit: true, Amount: decimal.NewFromInt(5)}}})
+	if err != nil || strings.Count(body, `"tradingPartnerId"`) != 1 || !strings.Contains(body, `"tradingPartnerId":"`+ledgerID+`"`) {
+		t.Fatalf("body %s err %v", body, err)
+	}
+}

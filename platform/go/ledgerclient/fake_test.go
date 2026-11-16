@@ -1,11 +1,14 @@
 package ledgerclient_test
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"testing"
 
 	"github.com/shopspring/decimal"
+
+	"github.com/BenjaminSRussell/passage/platform/ids"
 
 	"github.com/BenjaminSRussell/passage/platform/ledgerclient"
 )
@@ -81,5 +84,36 @@ func TestFake_FailPostsInjectsTheLedgerAnswer(t *testing.T) {
 	f.FailPosts(nil)
 	if _, err := f.Post(principalCtx(), entry()); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestFake_PartnerBalancesPerCounterparty(t *testing.T) {
+	f := ledgerclient.NewFake()
+	owner, a, b := ids.New(), ids.New(), ids.New()
+	post := func(key, partner string, amount int64) {
+		t.Helper()
+		_, err := f.Post(context.Background(), ledgerclient.Entry{LegalEntityID: owner, LedgerID: "L1", DocumentID: key, PostingDate: "2026-03-10", Currency: "USD", IdempotencyKey: key,
+			Lines: []ledgerclient.Line{{Account: "1300", Amount: decimal.NewFromInt(amount), TradingPartnerID: partner}, {Account: "4900", Credit: true, Amount: decimal.NewFromInt(amount)}}})
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	post("k1", a, 100)
+	post("k2", b, 40)
+	post("k3", a, 5)
+	got, err := f.PartnerBalances(context.Background(), ledgerclient.PartnerBalanceQuery{LedgerID: "L1"})
+	if err != nil || len(got.Rows) != 2 || got.Rows[0].Account != "1300" {
+		t.Fatalf("rows: %+v %v", got, err)
+	}
+	by := map[string]decimal.Decimal{}
+	for _, r := range got.Rows {
+		by[r.TradingPartnerID] = r.Net()
+	}
+	if !by[a].Equal(decimal.NewFromInt(105)) || !by[b].Equal(decimal.NewFromInt(40)) {
+		t.Fatalf("by partner: %v", by)
+	}
+	if _, err := f.Post(context.Background(), ledgerclient.Entry{LegalEntityID: owner, LedgerID: "L1", DocumentID: "k4", PostingDate: "2026-03-10", Currency: "USD", IdempotencyKey: "k4",
+		Lines: []ledgerclient.Line{{Account: "1300", Amount: decimal.NewFromInt(1), TradingPartnerID: owner}, {Account: "4900", Credit: true, Amount: decimal.NewFromInt(1)}}}); ledgerclient.CodeOf(err) != "LEDGER_TRADING_PARTNER_INVALID" {
+		t.Fatalf("a line naming its own entity as partner must be refused: %v", err)
 	}
 }
