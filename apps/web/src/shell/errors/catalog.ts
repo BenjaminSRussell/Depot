@@ -1121,6 +1121,8 @@ const shared: Record<string, ProblemCatalogEntry> = {
   "SF-0187": { message: "This site has no andon thresholds of its own, so there is nothing to remove.", action: "Reload the page to see which sites have their own values." },
   "SF-0188": { message: "A signature needs you to have signed in within the last few minutes.", action: "Sign in again, then sign the step once more." },
   "SF-0189": { message: "A signature is made by the person who is signed in, so it can't carry someone else's name.", action: "Sign in as the person who signs, then sign the step again." },
+  "SF-0190": { message: "That PI category does not exist.", action: "Go back to the list of PI categories and open it from there." },
+  "SF-0191": { message: "That PI category is switched off, so no new step can be put in it.", action: "Choose an active category, or switch this one back on first." },
   "WMS-WORK-NOT-AUTOMATION": { message: "This work isn't held by an automated station, so it can't be handed over from here.", action: "Reload the work to see who holds it now." },
   "WMS-AUTO-ORDER-STATE": { message: "The order isn't in a state where this can be done. The PLC may still hold the move, or the order may already be finished.", action: "Clear the move on the PLC if it is still there, then reload the page and try again." },
   "WMS-RFID-RULE-EXISTS": { message: "This reader already has a rule for that antenna and action.", action: "Edit the existing rule instead." },

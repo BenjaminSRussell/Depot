@@ -1,7 +1,8 @@
 // The PI sheet designer's and the kiosk runner's rules, apart from any screen (FR-25.16). A PI sheet is the ISA-88
 // structure of a control recipe: unit procedures, operations, phases and, in each phase, numbered process instructions.
 
-import type { Instruction, InstructionCategory, RecipeDocument, SignatureMeaning } from "./api/client";
+import type { Instruction, InstructionCategory, PIStepSpec, PIStepTemplate, RecipeDocument, SignatureMeaning } from "./api/client";
+import { exprProblem, parseExpr } from "./piExpr";
 
 /** Signature meanings (21 CFR 11.50): what the signer states by signing the step. */
 export const MEANING_LABEL: Record<SignatureMeaning, string> = {
@@ -34,6 +35,9 @@ export const CATEGORY_LABEL: Record<InstructionCategory, string> = {
   "material-list": "Material list",
   "signature-request": "Signature",
   "sequence-definition": "Sequence",
+  "machine-readout": "Machine readout",
+  "timer": "Timer",
+  "branch": "Branch",
 };
 
 export const CATEGORIES = Object.keys(CATEGORY_LABEL) as InstructionCategory[];
@@ -56,6 +60,14 @@ export function newInstruction(category: InstructionCategory, seq: number): Inst
       return { seq, category, text: "", characteristic: { name: "", type: "numeric" } };
     case "material-list":
       return { seq, category, text: "Charge the materials.", materials: [] };
+    case "machine-readout":
+      return { seq, category, text: "", node: "", characteristic: { name: "", type: "numeric" } };
+    case "timer":
+      return { seq, category, text: "", durationSeconds: 60, blocking: true };
+    case "branch":
+      return { seq, category, text: "", condition: "", target: seq + 1 };
+    case "calculation":
+      return { seq, category, text: "", expression: "" };
     default:
       return { seq, category, text: "" };
   }
@@ -63,7 +75,19 @@ export function newInstruction(category: InstructionCategory, seq: number): Inst
 
 /** Instructions are numbered 1, 2, 3 in order within their phase; call after any insert, remove or move. */
 export function renumber(instructions: readonly Instruction[]): Instruction[] {
-  return instructions.map((ins, i) => ({ ...ins, seq: i + 1 }));
+  // A branch jumps to a step number: after a move or a removal each jump follows the step it pointed at. A jump to a step
+  // that is gone goes on at the next step that is left, and a jump that no longer points ahead goes to the next step.
+  const newSeq = new Map(instructions.map((ins, i) => [ins.seq, i + 1]));
+  return instructions.map((ins, i) => {
+    const seq = i + 1;
+    if (ins.category !== "branch" || ins.target === undefined) return { ...ins, seq };
+    let target = newSeq.get(ins.target);
+    if (target === undefined) {
+      const later = instructions.findIndex((x) => x.seq > (ins.target as number));
+      target = later === -1 ? instructions.length + 1 : later + 1;
+    }
+    return { ...ins, seq, target: target > seq ? target : seq + 1 };
+  });
 }
 
 export function moveItem<T>(list: readonly T[], from: number, to: number): T[] {
@@ -105,10 +129,11 @@ export function documentProblems(doc: RecipeDocument): string[] {
         if (ph.instructions.length === 0) out.push(`${where}: add an instruction.`);
         for (const ins of ph.instructions) {
           const step = `${where}, step ${ins.seq}`;
-          if (["instruction-text", "signature-request", "material-list", "sequence-definition", "calculation"].includes(ins.category) && (ins.text ?? "").trim() === "") {
+          if (["instruction-text", "signature-request", "material-list", "sequence-definition", "calculation", "timer", "branch"].includes(ins.category) && (ins.text ?? "").trim() === "") {
             out.push(`${step}: write the text.`);
           }
-          if (["process-parameter-setpoint", "process-data-request", "inspection-characteristic"].includes(ins.category)) {
+          out.push(...stepKindProblems(ins, step, ph.instructions.length));
+          if (["process-parameter-setpoint", "process-data-request", "inspection-characteristic", "machine-readout"].includes(ins.category)) {
             const c = ins.characteristic;
             if (!c || c.name.trim() === "") out.push(`${step}: name the characteristic.`);
             if (c?.min !== undefined && c.max !== undefined && c.min > c.max) out.push(`${step}: the minimum is above the maximum.`);
@@ -120,7 +145,65 @@ export function documentProblems(doc: RecipeDocument): string[] {
       }
     }
   }
+  return [...out, ...unknownNames(doc)];
+}
+
+const VAR_NAME = /^[a-z][a-z0-9_]{0,39}$/;
+
+/** What the kind of a step needs, as the service checks it: a formula, a node, a duration, a condition and its jump. */
+export function stepKindProblems(ins: Instruction | PIStepSpec, where: string, phaseSteps?: number): string[] {
+  const out: string[] = [];
+  if (ins.var !== undefined && ins.var !== "" && !VAR_NAME.test(ins.var)) out.push(`${where}: the value name must be lower-case letters, digits and '_', starting with a letter.`);
+  if (ins.category === "calculation" && ins.expression !== undefined && ins.expression.trim() !== "") {
+    const p = exprProblem(ins.expression, "number");
+    if (p) out.push(`${where}: ${p}`);
+  }
+  if (ins.category === "machine-readout") {
+    if ((ins.node ?? "").trim() === "") out.push(`${where}: name the node or tag the value is read from.`);
+    if (ins.characteristic && ins.characteristic.type !== "numeric") out.push(`${where}: a machine readout is a number.`);
+    if (ins.tolerance !== undefined && (ins.tolerance < 0 || ins.value === undefined)) out.push(`${where}: a tolerance is zero or more and needs the expected reading.`);
+  }
+  if (ins.category === "timer" && (!Number.isInteger(ins.durationSeconds) || (ins.durationSeconds ?? 0) < 1 || (ins.durationSeconds ?? 0) > 86400)) {
+    out.push(`${where}: the timer runs 1 to 86400 seconds.`);
+  }
+  if (ins.category === "branch") {
+    const p = exprProblem(ins.condition ?? "", "boolean");
+    if (p) out.push(`${where}: ${p}`);
+    if (phaseSteps !== undefined && ins.seq !== undefined && ((ins.target ?? 0) <= ins.seq || (ins.target ?? 0) > phaseSteps)) out.push(`${where}: jump to a later step of this phase, ${ins.seq + 1} to ${phaseSteps}.`);
+  }
   return out;
+}
+
+/** The names a calculation or branch reads that no step before it produces, in a document: the service refuses these. */
+export function unknownNames(doc: RecipeDocument): string[] {
+  const out: string[] = [];
+  const known = new Set<string>();
+  for (const up of doc.procedure.unitProcedures) {
+    for (const op of up.operations) {
+      for (const ph of op.phases) {
+        for (const ins of ph.instructions) {
+          const src = ins.category === "calculation" ? ins.expression : ins.category === "branch" ? ins.condition : undefined;
+          if (src) {
+            try {
+              for (const n of parseExpr(src).names) if (!known.has(n)) out.push(`${up.name} / ${op.name} / ${ph.name}, step ${ins.seq}: reads ${n}, which no earlier step produces.`);
+            } catch {
+              // The syntax problem is reported by documentProblems.
+            }
+          }
+          if (ins.var) known.add(ins.var);
+        }
+      }
+    }
+  }
+  return out;
+}
+
+/** A step of a sheet made from a published template: the template's spec is copied, and the reference is kept. */
+export function instructionFromTemplate(t: PIStepTemplate, seq: number): Instruction {
+  const spec = JSON.parse(JSON.stringify(t.spec)) as PIStepSpec;
+  const ins: Instruction = { ...spec, seq, category: t.kind, template: { code: t.code, version: t.version } };
+  if (ins.category === "branch") ins.target = seq + 1;
+  return ins;
 }
 
 // The kiosk runner.

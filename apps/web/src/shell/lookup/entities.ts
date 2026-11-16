@@ -53,7 +53,8 @@ export type LookupEntityKey =
   | "questionnaireSchedule"
   | "employment"
   | "dockAppointment"
-  | "project";
+  | "project"
+  | "piCategory";
 
 export interface LookupOption {
   id: string;
@@ -845,6 +846,7 @@ export const lookupDefs: Record<LookupEntityKey, LookupDef> = {
     },
   ),
   customerGroup: listedEntity("customer group", "/api/v1/party/customer-groups", codeAndName),
+  piCategory: listedEntity("PI category", "/api/v1/shopfloor/pi-categories", codeAndName, () => ({ active: "true", limit: "200" })),
   paymentTerm: listedEntity("payment term", "/api/v1/party/payment-terms", codeAndName),
   postingProfile: listedEntity("posting profile", "/api/v1/party/posting-profiles", codeAndName, (scope) => ({ legalEntityId: scope.legalEntityId })),
   purchaseOrder: searchedEntity(

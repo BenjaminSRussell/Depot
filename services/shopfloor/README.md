@@ -651,6 +651,14 @@ makes the recipe. Migration `0027`. The web designer is at `/shopfloor/pi-sheets
 `quality-result` for an inspection) with its limits, a value outside them needs a comment, and the recipe is reported received,
 in-execution and completed.
 
+### PI category master (round 5, FR-25.15)
+
+`POST/GET /v1/shopfloor/pi-categories`, `GET/PUT /v1/shopfloor/pi-categories/{id}` (migration `0032`, table `pi_category`). A
+category has a code that never changes (upper-case letters, digits, `_`, `.`, `-`; SF-0142 when used), a name, a description and
+a status. `PUT` carries the version read as `If-Match` (SF-0143, 412). Duty `shopfloor.picategory.maintain` maintains,
+`shopfloor.view` reads. The categories group the step templates of the step library; an inactive category takes no new templates
+(SF-0191). The web screen is `/shopfloor/pi-categories`; the category is a lookup entity (`piCategory`).
+
 ### Process messages that end a recipe
 
 An `order-status` process message from the process control system ends the in-execution recipes of its order that run on a
@@ -810,6 +818,8 @@ Problem details use `application/problem+json` with `type` `https://passage.dev/
 | `SF-0182` | 409 | The PI sheet changed since it was read (`rev`) |
 | `SF-0183` | 409 | A PI sheet with this code exists, or the code has a draft already |
 | `SF-0184` | 422 | A control recipe is made from a released PI sheet whose steps fit the destination |
+| `SF-0190` | 404 | PI category not found |
+| `SF-0191` | 422 | A PI step template cannot be put in an inactive PI category |
 | `SF-0178` | 422 | The control recipe cannot go to that destination, or a write is not a setpoint of the recipe |
 | `idempotency_key_reuse` | 422 | `Idempotency-Key` already used with a different request |
 

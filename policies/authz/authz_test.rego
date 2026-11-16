@@ -2999,6 +2999,32 @@ test_pi_sheet_duties if {
 	not allowed("shopfloor.pisheet.maintain", "POST", "/v1/shopfloor/control-recipes:from-pi-sheet")
 }
 
+# The PI category master (#25): maintaining needs its own duty, reading the view duty.
+test_pi_category_duties if {
+	allowed("shopfloor.picategory.maintain", "POST", "/v1/shopfloor/pi-categories")
+	allowed("shopfloor.picategory.maintain", "PUT", "/v1/shopfloor/pi-categories/0195f0a0-0000-7000-8000-0000000000c1")
+	not allowed("shopfloor.picategory.maintain", "GET", "/v1/shopfloor/pi-categories")
+	allowed("shopfloor.view", "GET", "/v1/shopfloor/pi-categories")
+	allowed("shopfloor.view", "GET", "/v1/shopfloor/pi-categories/0195f0a0-0000-7000-8000-0000000000c1")
+	not allowed("shopfloor.view", "POST", "/v1/shopfloor/pi-categories")
+	not allowed("shopfloor.view", "PUT", "/v1/shopfloor/pi-categories/0195f0a0-0000-7000-8000-0000000000c1")
+}
+
+# The PI step library (#25): drafting, publishing and versioning need the step maintain duty, reading the view duty.
+test_pi_step_library_duties if {
+	allowed("shopfloor.pistep.maintain", "POST", "/v1/shopfloor/pi-step-templates")
+	allowed("shopfloor.pistep.maintain", "PUT", "/v1/shopfloor/pi-step-templates/0195f0a0-0000-7000-8000-0000000000d1")
+	allowed("shopfloor.pistep.maintain", "POST", "/v1/shopfloor/pi-step-templates/0195f0a0-0000-7000-8000-0000000000d1:publish")
+	allowed("shopfloor.pistep.maintain", "POST", "/v1/shopfloor/pi-step-templates/0195f0a0-0000-7000-8000-0000000000d1:new-version")
+	not allowed("shopfloor.pistep.maintain", "GET", "/v1/shopfloor/pi-step-templates")
+	not allowed("shopfloor.pistep.maintain", "POST", "/v1/shopfloor/pi-sheets")
+	not allowed("shopfloor.pisheet.maintain", "POST", "/v1/shopfloor/pi-step-templates")
+	allowed("shopfloor.view", "GET", "/v1/shopfloor/pi-step-templates")
+	allowed("shopfloor.view", "GET", "/v1/shopfloor/pi-step-templates/0195f0a0-0000-7000-8000-0000000000d1")
+	not allowed("shopfloor.view", "POST", "/v1/shopfloor/pi-step-templates")
+	not allowed("shopfloor.view", "POST", "/v1/shopfloor/pi-step-templates/0195f0a0-0000-7000-8000-0000000000d1:publish")
+}
+
 # RFID ingest and warehouse automation (#32): readers and the PLC connector hold their own duties, people read, and
 # a supervisor gives transport work to a PLC.
 test_warehouse_rfid_and_automation_duties if {

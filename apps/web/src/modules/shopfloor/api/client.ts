@@ -1441,7 +1441,10 @@ export type InstructionCategory =
   | "inspection-characteristic"
   | "material-list"
   | "signature-request"
-  | "sequence-definition";
+  | "sequence-definition"
+  | "machine-readout"
+  | "timer"
+  | "branch";
 
 export interface InstructionCharacteristic {
   name: string;
@@ -1469,6 +1472,20 @@ export interface Instruction {
   materials?: InstructionMaterial[];
   /** What a signature-request step's signature means; a step without one is signed as performed. */
   meaning?: SignatureMeaning;
+  /** Names the value this step produces (a setpoint, an entered or read value, a calculation result) for later expressions. */
+  var?: string;
+  /** The step library entry this step was copied from, by code and published version. */
+  template?: { code: string; version: number };
+  /** A calculation's formula over the var of earlier steps. */
+  expression?: string;
+  /** A machine readout's allowed distance from its expected reading (value). */
+  tolerance?: number;
+  /** A timer's length, and whether the next step waits for it. */
+  durationSeconds?: number;
+  blocking?: boolean;
+  /** A branch's condition; when true the kiosk goes on at step number target of the phase. */
+  condition?: string;
+  target?: number;
 }
 
 export type SignatureMeaning = "performed" | "verified" | "reviewed" | "approved";
@@ -1610,4 +1627,124 @@ export function listEdgeCertificates(nodeId: string, signal?: AbortSignal): Prom
 /** Revokes one certificate. Revoking the current one unbinds the node: its connector has to enroll again. */
 export function revokeEdgeCertificate(nodeId: string, serial: string, reason: string): Promise<EdgeCertificate> {
   return post<EdgeCertificate>(`/edge-nodes/${encodeURIComponent(nodeId)}/certificates/${encodeURIComponent(serial)}:revoke`, { reason });
+}
+
+// ---- PI category master (FR-25.15, D7) -------------------------------------------------------------------------------
+
+export const DUTY_PI_CATEGORY_MAINTAIN = "shopfloor.picategory.maintain";
+
+/** A category that groups PI step templates in the step library. */
+export interface PICategory {
+  id: string;
+  code: string;
+  name: string;
+  description: string;
+  active: boolean;
+  version: number;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface NewPICategory {
+  code: string;
+  name: string;
+  description?: string;
+  active?: boolean;
+}
+
+export function listPICategories(filter: { active?: boolean } = {}, signal?: AbortSignal): Promise<PICategory[]> {
+  return items<PICategory>(`/pi-categories${query({ active: filter.active })}`, signal);
+}
+
+export function getPICategory(id: string, signal?: AbortSignal): Promise<PICategory> {
+  return send<PICategory>(`/pi-categories/${encodeURIComponent(id)}`, {}, signal);
+}
+
+/** Creates a category; reuse one key per form so a retried submit cannot create two. A used code is SF-0142. */
+export function createPICategory(input: NewPICategory, key: string = newKey()): Promise<PICategory> {
+  return post<PICategory>("/pi-categories", input, key);
+}
+
+/** Replaces name, description and status (the code never changes). The version is the If-Match entity tag (SF-0143, 412). */
+export function updatePICategory(category: PICategory, changes: { name?: string; description?: string; active?: boolean }): Promise<PICategory> {
+  return send<PICategory>(`/pi-categories/${encodeURIComponent(category.id)}`, {
+    method: "PUT",
+    headers: { "If-Match": `"${category.version}"` },
+    body: JSON.stringify({ name: category.name, description: category.description, active: category.active, ...changes }),
+  });
+}
+
+// ---- PI step library (FR-25.15, D7) -------------------------------------------------------------------------------------
+
+export const DUTY_PI_STEP_MAINTAIN = "shopfloor.pistep.maintain";
+
+export type PIStepStatus = "draft" | "published" | "superseded";
+
+/** The spec of a template: one instruction without a position. */
+export type PIStepSpec = Omit<Instruction, "seq"> & { seq?: number };
+
+export interface PIStepTemplate {
+  id: string;
+  code: string;
+  version: number;
+  name: string;
+  categoryId: string | null;
+  kind: InstructionCategory;
+  spec: PIStepSpec;
+  status: PIStepStatus;
+  /** The rev is also the entity tag: send it back as If-Match. */
+  rev: number;
+  createdBy: string;
+  createdAt: string;
+  updatedBy: string;
+  updatedAt: string;
+  publishedBy: string | null;
+  publishedAt: string | null;
+}
+
+export interface PIStepInput {
+  name: string;
+  categoryId: string | null;
+  spec: PIStepSpec;
+}
+
+export interface PIStepFilter {
+  status?: PIStepStatus;
+  code?: string;
+  version?: number;
+  categoryId?: string;
+  kind?: InstructionCategory;
+}
+
+export function listPISteps(filter: PIStepFilter = {}, signal?: AbortSignal): Promise<PIStepTemplate[]> {
+  return items<PIStepTemplate>(`/pi-step-templates${query({ status: filter.status, code: filter.code, version: filter.version, categoryId: filter.categoryId, kind: filter.kind })}`, signal);
+}
+
+export function getPIStep(id: string, signal?: AbortSignal): Promise<PIStepTemplate> {
+  return send<PIStepTemplate>(`/pi-step-templates/${encodeURIComponent(id)}`, {}, signal);
+}
+
+/** Drafts version 1 of a new code. A used code is SF-0194. */
+export function createPIStep(input: PIStepInput & { code: string }): Promise<PIStepTemplate> {
+  return post<PIStepTemplate>("/pi-step-templates", input);
+}
+
+/** Edits a draft; the rev read is the If-Match entity tag (SF-0143, 412 when stale). */
+export function updatePIStep(template: PIStepTemplate, input: PIStepInput): Promise<PIStepTemplate> {
+  return send<PIStepTemplate>(`/pi-step-templates/${encodeURIComponent(template.id)}`, {
+    method: "PUT",
+    headers: { "If-Match": `"${template.rev}"` },
+    body: JSON.stringify(input),
+  });
+}
+
+/** Publishes a draft: it becomes immutable and the version sheets refer to; the earlier published version is superseded. */
+export function publishPIStep(template: PIStepTemplate): Promise<PIStepTemplate> {
+  return send<PIStepTemplate>(`/pi-step-templates/${encodeURIComponent(template.id)}:publish`, { method: "POST", headers: { "If-Match": `"${template.rev}"` } });
+}
+
+/** Cuts the next version of a published template as a draft. */
+export function newPIStepVersion(template: PIStepTemplate): Promise<PIStepTemplate> {
+  return post<PIStepTemplate>(`/pi-step-templates/${encodeURIComponent(template.id)}:new-version`, {});
 }

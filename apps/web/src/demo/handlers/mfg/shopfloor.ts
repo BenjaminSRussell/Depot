@@ -1,6 +1,6 @@
 // Shop floor service (/api/v1/shopfloor) for the demo: machines, the andon board and OEE.
 // Resources and sites carry the real ids of company.ts; the screens show their names.
-import type { Andon, AndonSettings, AndonSiteSettings, AndonThresholds, ControlRecipeDetail, Downtime, EdgeCertificate, EdgeConfigVersion, EdgeNode, Job, Machine, OeeBucket, OeeTile, PISheet, RecipeDocument } from "../../../modules/shopfloor/api/client";
+import type { Andon, AndonSettings, AndonSiteSettings, AndonThresholds, ControlRecipeDetail, Downtime, EdgeCertificate, EdgeConfigVersion, EdgeNode, Job, Machine, OeeBucket, OeeTile, PICategory, PISheet, RecipeDocument } from "../../../modules/shopfloor/api/client";
 import { reply, route } from "../../backend";
 import { DC, PLANT, resourceByCode } from "../../company";
 import { at, table, uid } from "../../store";
@@ -414,6 +414,40 @@ route("POST", `${BASE}/pi-sheets/{id}:obsolete`, (req) => {
   return reply.ok(piSheets.update(row.id, { status: "obsolete", rev: row.rev + 1, updatedAt: new Date().toISOString() }));
 });
 
+// PI categories (FR-25.15, D7): the groups the step library's templates are filed under.
+const K_PI_CATEGORY = 389;
+const piCategories = table<PICategory>([
+  { id: uid(K_PI_CATEGORY, 1), code: "WEIGH", name: "Weighing and dosing", description: "Scale readings, tare and dosing checks.", active: true, version: 2, createdBy: ME.id, createdAt: at(-80), updatedAt: at(-20) },
+  { id: uid(K_PI_CATEGORY, 2), code: "CLEAN", name: "Cleaning and line clearance", description: "Cleaning steps and the checks that follow them.", active: true, version: 1, createdBy: ME.id, createdAt: at(-80), updatedAt: at(-80) },
+  { id: uid(K_PI_CATEGORY, 3), code: "CURE", name: "Curing and drying", description: "Timed holds and oven readouts.", active: true, version: 1, createdBy: ME.id, createdAt: at(-60), updatedAt: at(-60) },
+  { id: uid(K_PI_CATEGORY, 4), code: "LEGACY", name: "Retired step groups", description: "", active: false, version: 3, createdBy: ME.id, createdAt: at(-300), updatedAt: at(-90) },
+]);
+const NO_PI_CATEGORY = () => reply.problem(404, "SF-0190", "PI category not found.");
+route("GET", `${BASE}/pi-categories`, (req) => ({ items: piCategories.all().filter((c) => req.query.get("active") !== "true" || c.active).sort((a, b) => a.code.localeCompare(b.code)) }));
+route("GET", `${BASE}/pi-categories/{id}`, (req) => {
+  const row = piCategories.get(req.params.id);
+  return row ? reply.versioned(row, row.version) : NO_PI_CATEGORY();
+});
+route("POST", `${BASE}/pi-categories`, (req) => {
+  const body = (req.body ?? {}) as { code?: string; name?: string; description?: string; active?: boolean };
+  const errors: Record<string, string> = {};
+  if (!body.code || !/^[A-Z0-9][A-Z0-9_.-]{0,39}$/.test(body.code)) errors.code = "must be 1 to 40 characters: upper-case letters, digits, '_', '.' or '-'";
+  if (!body.name?.trim()) errors.name = "must be 1 to 120 characters";
+  if (Object.keys(errors).length > 0) return reply.problem(422, "COM-0001", "request failed validation", errors);
+  if (piCategories.all().some((c) => c.code === body.code)) return reply.problem(409, "SF-0142", "code is already used");
+  const now = new Date().toISOString();
+  const row = piCategories.insert({ id: crypto.randomUUID(), code: body.code!, name: body.name!.trim(), description: body.description?.trim() ?? "", active: body.active !== false, version: 1, createdBy: ME.id, createdAt: now, updatedAt: now });
+  return reply.versioned(row, 1, 201);
+});
+route("PUT", `${BASE}/pi-categories/{id}`, (req) => {
+  const row = piCategories.get(req.params.id);
+  if (!row) return NO_PI_CATEGORY();
+  if (req.headers.get("If-Match") !== `"${row.version}"`) return reply.problem(412, "SF-0143", "PI category was changed by someone else; reload it and retry with its current version");
+  const body = (req.body ?? {}) as { name?: string; description?: string; active?: boolean };
+  if (!body.name?.trim()) return reply.problem(422, "COM-0001", "request failed validation", { name: "must be 1 to 120 characters" });
+  const next = piCategories.update(row.id, { name: body.name.trim(), description: body.description?.trim() ?? "", active: body.active !== false, version: row.version + 1, updatedAt: new Date().toISOString() })!;
+  return reply.versioned(next, next.version);
+});
 
 // ---- Andon thresholds: the tenant's, and the Dallas site's own -----------------------------------------------------
 

@@ -3853,6 +3853,218 @@ paths:
         "404": { $ref: "#/components/responses/Problem" }
         "422": { $ref: "#/components/responses/Problem" }
         "500": { $ref: "#/components/responses/Problem" }
+  /v1/shopfloor/pi-categories:
+    post:
+      operationId: createPICategory
+      summary: Create a PI category
+      description: |
+        The PI category master (FR-25.15, D7): a category groups reusable PI step templates in the step library. The
+        code (upper-case letters, digits, `_`, `.`, `-`) never changes. A code already used is SF-0142.
+      x-passage-duty: shopfloor.picategory.maintain
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/NewPICategory" } } }
+      responses:
+        "201":
+          description: Created (or the stored outcome of a repeated key).
+          headers:
+            ETag: { description: The version as an entity tag; send it back as If-Match on the next change., schema: { type: string } }
+          content: { application/json: { schema: { $ref: "#/components/schemas/PICategory" } } }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+    get:
+      operationId: listPICategories
+      summary: List PI categories by code
+      x-passage-duty: shopfloor.view
+      parameters:
+        - { name: active, in: query, description: With true, only active rows., schema: { type: boolean } }
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: PI categories.
+          content: { application/json: { schema: { type: object, required: [items], properties: { items: { type: array, items: { $ref: "#/components/schemas/PICategory" } } } } } }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+  /v1/shopfloor/pi-categories/{id}:
+    get:
+      operationId: getPICategory
+      summary: Get one PI category
+      x-passage-duty: shopfloor.view
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: The category with its version as ETag.
+          headers:
+            ETag: { description: The version as an entity tag; send it back as If-Match on the next change., schema: { type: string } }
+          content: { application/json: { schema: { $ref: "#/components/schemas/PICategory" } } }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+    put:
+      operationId: updatePICategory
+      summary: Replace the editable fields of a PI category
+      description: |
+        Replaces the name, description and status (the code does not change) and bumps the version. `If-Match` carries the
+        version you read; another change in between is SF-0143 (412). An inactive category takes no new step templates
+        (SF-0191) but keeps those it has.
+      x-passage-duty: shopfloor.picategory.maintain
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/UpdatePICategory" } } }
+      responses:
+        "200":
+          description: Updated; the new version is in the ETag header.
+          headers:
+            ETag: { description: The version as an entity tag; send it back as If-Match on the next change., schema: { type: string } }
+          content: { application/json: { schema: { $ref: "#/components/schemas/PICategory" } } }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "412": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+  /v1/shopfloor/pi-step-templates:
+    post:
+      operationId: createPIStepTemplate
+      summary: Draft a PI step template
+      description: |
+        The PI step library (FR-25.15, D7): a reusable process instruction kept under a code, versioned. This creates version 1
+        of a new code as a draft. The `spec` is one instruction without a position (`seq`) and is checked for its kind: a
+        calculation needs an `expression` over earlier step values (parsed by a safe evaluator, never executed as code), a
+        machine readout a `node` and optionally an expected `value` with a `tolerance`, a timer a `durationSeconds` and
+        whether it `blocking`, a branch a `condition` (the jump `target` is set where a sheet uses the step). A code already
+        used is SF-0194. A template may be filed under an active PI category (SF-0191 when it is inactive).
+      x-passage-duty: shopfloor.pistep.maintain
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/NewPIStepTemplate" } } }
+      responses:
+        "201":
+          description: The draft, with its rev as ETag.
+          headers:
+            ETag: { description: The rev as an entity tag; send it back as If-Match on the next change., schema: { type: string } }
+          content: { application/json: { schema: { $ref: "#/components/schemas/PIStepTemplate" } } }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+    get:
+      operationId: listPIStepTemplates
+      summary: List PI step templates by code, newest version first
+      x-passage-duty: shopfloor.view
+      parameters:
+        - { name: status, in: query, schema: { type: string, enum: [draft, published, superseded] } }
+        - { name: code, in: query, schema: { type: string } }
+        - { name: version, in: query, schema: { type: integer, minimum: 1 }, description: With code, the one version a sheet or recipe refers to. }
+        - { name: categoryId, in: query, schema: { type: string, format: uuid } }
+        - { name: kind, in: query, schema: { type: string }, description: An instruction category such as timer or machine-readout. }
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: Templates.
+          content: { application/json: { schema: { type: object, required: [items], properties: { items: { type: array, items: { $ref: "#/components/schemas/PIStepTemplate" } } } } } }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+  /v1/shopfloor/pi-step-templates/{id}:
+    get:
+      operationId: getPIStepTemplate
+      summary: Get one PI step template version
+      x-passage-duty: shopfloor.view
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: The template with its rev as ETag.
+          headers:
+            ETag: { description: The rev as an entity tag; send it back as If-Match on the next change., schema: { type: string } }
+          content: { application/json: { schema: { $ref: "#/components/schemas/PIStepTemplate" } } }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+    put:
+      operationId: updatePIStepTemplate
+      summary: Edit a draft PI step template
+      description: |
+        Replaces the name, category and spec of a draft. `If-Match` carries the rev you read; another change in between is
+        SF-0143 (412). A published or superseded version is immutable (SF-0193, 409; the database refuses it too): make a
+        new version.
+      x-passage-duty: shopfloor.pistep.maintain
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/UpdatePIStepTemplate" } } }
+      responses:
+        "200":
+          description: Updated; the new rev is in the ETag header.
+          headers:
+            ETag: { description: The rev as an entity tag., schema: { type: string } }
+          content: { application/json: { schema: { $ref: "#/components/schemas/PIStepTemplate" } } }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "412": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+  /v1/shopfloor/pi-step-templates/{id}:publish:
+    post:
+      operationId: publishPIStepTemplate
+      summary: Publish a draft PI step template
+      description: |
+        Makes the draft immutable and the version sheets and recipes refer to. The code's earlier published version becomes
+        superseded; it stays readable and the sheets that name it keep it. `If-Match` carries the rev read (SF-0143, 412).
+        Only a draft can be published (SF-0193).
+      x-passage-duty: shopfloor.pistep.maintain
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - $ref: "#/components/parameters/IfMatch"
+      responses:
+        "200":
+          description: The published template.
+          headers:
+            ETag: { description: The rev as an entity tag., schema: { type: string } }
+          content: { application/json: { schema: { $ref: "#/components/schemas/PIStepTemplate" } } }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "412": { $ref: "#/components/responses/Problem" }
+  /v1/shopfloor/pi-step-templates/{id}:new-version:
+    post:
+      operationId: newPIStepTemplateVersion
+      summary: Cut the next version of a published PI step template
+      description: |
+        Copies the published version into the next version of its code, a draft; publishing it supersedes the current one.
+        A code has at most one draft (SF-0194). Only the published version is the source (SF-0193).
+      x-passage-duty: shopfloor.pistep.maintain
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "201":
+          description: The new draft.
+          headers:
+            ETag: { description: The rev as an entity tag., schema: { type: string } }
+          content: { application/json: { schema: { $ref: "#/components/schemas/PIStepTemplate" } } }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
 components:
   parameters:
     IfMatch:
@@ -3980,6 +4192,99 @@ components:
         updatedAt: { type: string, format: date-time }
         releasedBy: { type: [string, "null"] }
         releasedAt: { type: [string, "null"], format: date-time }
+    NewPICategory:
+      type: object
+      required: [code, name]
+      additionalProperties: false
+      properties:
+        code: { type: string, pattern: "^[A-Z0-9][A-Z0-9_.-]{0,39}$" }
+        name: { type: string, minLength: 1, maxLength: 120 }
+        description: { type: string, maxLength: 500 }
+        active: { type: boolean, default: true }
+    UpdatePICategory:
+      type: object
+      required: [name]
+      additionalProperties: false
+      properties:
+        code: { type: string, description: Ignored; the code does not change. }
+        name: { type: string, minLength: 1, maxLength: 120 }
+        description: { type: string, maxLength: 500 }
+        active: { type: boolean }
+    PICategory:
+      type: object
+      required: [id, code, name, description, active, version, createdBy, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        code: { type: string }
+        name: { type: string }
+        description: { type: string }
+        active: { type: boolean }
+        version: { type: integer }
+        createdBy: { type: string }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    PIStepSpec:
+      type: object
+      description: |
+        One process instruction without its position. `category` is the kind: instruction-text, process-parameter-setpoint,
+        process-data-request, calculation, inspection-characteristic, material-list, signature-request, sequence-definition,
+        machine-readout, timer or branch. The fields are those of a control recipe instruction.
+      required: [category]
+      additionalProperties: false
+      properties:
+        seq: { type: integer, description: Ignored in a template. }
+        category: { type: string }
+        text: { type: string, maxLength: 4000 }
+        characteristic: { type: object, additionalProperties: true }
+        value: { type: number, description: A setpoint's value, or a machine readout's expected reading. }
+        node: { type: string, maxLength: 300, description: The OPC-UA node or tag a setpoint is written to or a readout reads. }
+        materials: { type: array, items: { type: object, additionalProperties: true } }
+        meaning: { type: string, enum: [performed, verified, reviewed, approved] }
+        var: { type: string, pattern: "^[a-z][a-z0-9_]{0,39}$", description: Names the step's value for later expressions. }
+        template: { type: object, required: [code, version], properties: { code: { type: string }, version: { type: integer, minimum: 1 } } }
+        expression: { type: string, maxLength: 500, description: A calculation's formula over earlier step vars. Numbers, names, + - * /, comparison, and/or/not, abs, min, max, round, floor, ceil. }
+        tolerance: { type: number, minimum: 0, description: A machine readout's allowed distance from value. }
+        durationSeconds: { type: integer, minimum: 1, maximum: 86400 }
+        blocking: { type: boolean, description: The next step waits for the timer. }
+        condition: { type: string, maxLength: 500, description: A branch's true or false condition. }
+        target: { type: integer, minimum: 2, description: A branch's jump target, a later step of its phase; set in a sheet, not a template. }
+    NewPIStepTemplate:
+      type: object
+      required: [code, name, spec]
+      additionalProperties: false
+      properties:
+        code: { type: string, pattern: "^[A-Z0-9][A-Z0-9_.-]{0,39}$" }
+        name: { type: string, minLength: 1, maxLength: 120 }
+        categoryId: { type: [string, "null"], format: uuid }
+        spec: { $ref: "#/components/schemas/PIStepSpec" }
+    UpdatePIStepTemplate:
+      type: object
+      required: [name, spec]
+      additionalProperties: false
+      properties:
+        code: { type: string, description: Ignored; the code does not change. }
+        name: { type: string, minLength: 1, maxLength: 120 }
+        categoryId: { type: [string, "null"], format: uuid }
+        spec: { $ref: "#/components/schemas/PIStepSpec" }
+    PIStepTemplate:
+      type: object
+      required: [id, code, version, name, categoryId, kind, spec, status, rev, createdBy, createdAt, updatedBy, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        code: { type: string }
+        version: { type: integer }
+        name: { type: string }
+        categoryId: { type: [string, "null"], format: uuid }
+        kind: { type: string }
+        spec: { $ref: "#/components/schemas/PIStepSpec" }
+        status: { type: string, enum: [draft, published, superseded] }
+        rev: { type: integer }
+        createdBy: { type: string }
+        createdAt: { type: string, format: date-time }
+        updatedBy: { type: string }
+        updatedAt: { type: string, format: date-time }
+        publishedBy: { type: [string, "null"] }
+        publishedAt: { type: [string, "null"], format: date-time }
     NewWorker:
       type: object
       required: [partyId, name, costRate, currency]
