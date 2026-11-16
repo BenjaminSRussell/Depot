@@ -3,6 +3,12 @@
 -- shipment now remembers the order and the order line it shipped (nullable: shipments registered before this file have none and are posted
 -- without the references).
 ALTER TABLE self_billing_shipment ADD COLUMN IF NOT EXISTS order_id text, ADD COLUMN IF NOT EXISTS order_line_id text;
+-- A RESOLVED document that exists now was never posted by contract (the operators invoiced its disputes some other way), so it is parked with a reason
+-- and marked: neither the sweep nor a save of the partner's settings posts it. Only documents resolved after this migration are posted.
+ALTER TABLE self_billing_document ADD COLUMN IF NOT EXISTS resolved_before_auto_post boolean NOT NULL DEFAULT false;
+UPDATE self_billing_document SET resolved_before_auto_post = true, post_parked_at = now(),
+  post_error = 'Resolved before disputes were posted automatically: not posted by the sweep; invoice it by hand if it is still due'
+  WHERE status = 'RESOLVED' AND billed_at IS NULL AND post_parked_at IS NULL;
 DROP INDEX IF EXISTS self_billing_document_unposted;
 CREATE INDEX IF NOT EXISTS self_billing_document_unposted ON self_billing_document (tenant_id, created_at) WHERE status IN ('MATCHED', 'RESOLVED') AND billed_at IS NULL AND post_parked_at IS NULL;
 

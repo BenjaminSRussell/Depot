@@ -729,10 +729,10 @@ paths:
         quantityOpen and deliveryDate (wip_prod); a line without them is REJECTED (MIG-LOAD-FIELD-REQUIRED, or MIG-LOAD-FIELD-INVALID for a value the target cannot take) until
         the load names a default (`assetClass`) or a new extract supplies them. Fixed assets need `depreciatedThrough` (the last month the legacy system depreciated, 2026-12),
         which places each book's schedule so that exactly its remaining life is left (a declining-balance book is kept in whole years); `journal` post books the opening journal
-        through the assets service (cost and accumulated depreciation on the class accounts, the NBV against the acquisition clearing account, one call per book and currency
-        to POST /v1/assets/gl-postings, `ledgerId` and `openingDate` required) and `linked` marks the transactions booked without a journal for a ledger whose
-        gl_balances load already holds the asset accounts. wip_prod needs `siteId`, `warehouseId`, `openingDate` and `ledgerId`: the orders are created Started with the open quantity
-        and their WIP posted to the ledger through production (POST /v1/production/gl-postings:run), so the gl_balances load must leave the WIP account out. `products` (legacy item
+        through the assets service (cost and accumulated depreciation on the class accounts, the NBV against the migration clearing account, one call per book and currency
+        to POST /v1/assets/opening-journal, which books only the opening register's transactions; `ledgerId` and `openingDate` required) and `linked` marks the transactions booked without a journal for a ledger whose
+        gl_balances load already holds the asset accounts. wip_prod needs `siteId`, `warehouseId`, `openingDate` and `journal` (`ledgerId` with post): the orders are created Started with the open quantity
+        and, with post, their WIP booked in the ledger through production (POST /v1/production/opening-journal, WIP Dr, migration clearing Cr), so the gl_balances load must leave the WIP account out; linked marks it booked with no entry. `products` (legacy item
         to product) and `workers` (legacy worker to worker) map what the migration did not load; items and workers are also looked up in the migration service's cross-reference
         (company|code, else the code), and an id that is already a UUID needs no entry. A refusal that names lines (422 AST-OPB-001, PRD-OPB-001, PAY-OPB-001, or the -004 codes for a
         reference another batch took) stores those lines as REJECTED with the target's reason and sends the rest again at once; a reference the factory's own earlier batch took counts as loaded.
@@ -756,7 +756,7 @@ paths:
                 legalEntityId: {type: string, format: uuid}
                 openingDate: {type: string, format: date, description: The cutover date (fixed_assets and wip_prod).}
                 ledgerId: {type: string, format: uuid, description: The ledger the opening journal is booked in (fixed_assets with journal post, wip_prod).}
-                journal: {type: string, enum: [post, linked], description: fixed_assets only.}
+                journal: {type: string, enum: [post, linked], description: fixed_assets and wip_prod.}
                 depreciatedThrough: {type: string, pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$', description: fixed_assets only.}
                 assetClass: {type: string, description: The class of an asset whose line names none (fixed_assets).}
                 siteId: {type: string, format: uuid, description: wip_prod only.}

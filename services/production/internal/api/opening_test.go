@@ -37,7 +37,7 @@ func openingHandler(f *fakeOpening) http.Handler {
 }
 
 func wipBody(line, totals string) string {
-	return `{"legalEntityId":"` + entityID + `","batchKey":"b1","openingDate":"2027-01-01","controlTotals":` + totals + `,"lines":[` + line + `]}`
+	return `{"legalEntityId":"` + entityID + `","batchKey":"b1","openingDate":"2027-01-01","journal":"post","controlTotals":` + totals + `,"lines":[` + line + `]}`
 }
 
 const wipLine = `{"reference":"W1","orderNumber":"LEG-1","productId":"11111111-1111-4111-8111-111111111111","siteId":"22222222-2222-4222-8222-222222222222","warehouseId":"33333333-3333-4333-8333-333333333333",

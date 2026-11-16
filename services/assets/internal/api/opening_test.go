@@ -118,3 +118,25 @@ func TestOpeningAssets_EnvelopeAndDuties(t *testing.T) {
 		t.Fatalf("read: %d %s", rec.Code, rec.Body)
 	}
 }
+
+func TestOpeningAssets_ABookWithNoLifeLeftStandsAtSalvageAndDeclineFieldsAreChecked(t *testing.T) {
+	h := openingServer(&fakeOpening{})
+	post := func(line string) (int, string) {
+		rec := call(h, http.MethodPost, "/v1/assets/opening-assets", openingBody(line, goodTotals), openingDuty, false)
+		return rec.Code, rec.Body.String()
+	}
+	if code, body := post(strings.Replace(goodLine, `"remainingLifePeriods":40`, `"remainingLifePeriods":0`, 1)); code != http.StatusUnprocessableEntity || !strings.Contains(body, "remainingLifePeriods") {
+		t.Fatalf("no life left: %d %s", code, body)
+	}
+	if code, body := post(strings.Replace(goodLine, `"depreciatedThrough"`, `"declineFactor":"1.5","depreciatedThrough"`, 1)); code != http.StatusUnprocessableEntity || !strings.Contains(body, "declineFactor") {
+		t.Fatalf("a factor on a straight-line book: %d %s", code, body)
+	}
+	db := strings.Replace(strings.Replace(goodLine, `"StraightLine"`, `"DecliningBalance"`, 1), `"depreciatedThrough":"2026-12"`, `"depreciatedThrough":"2026","declineFactor":"1.5","switchToStraightLine":true`, 1)
+	db = strings.Replace(db, `"usefulLifePeriods":60,"remainingLifePeriods":40`, `"usefulLifePeriods":10,"remainingLifePeriods":8`, 1)
+	if code, body := post(db); code != http.StatusCreated {
+		t.Fatalf("a 150 percent book with a switch: %d %s", code, body)
+	}
+	if code, _ := post(strings.Replace(db, `"1.5"`, `"4"`, 1)); code != http.StatusUnprocessableEntity {
+		t.Fatalf("factor 4: %d", code)
+	}
+}

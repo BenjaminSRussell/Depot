@@ -22,17 +22,17 @@ const (
 
 	dutyAssetsImport     = "assets.opening-asset.import"
 	dutyAssetsImportRead = "assets.opening-asset.read"
-	dutyAssetsPost       = "assets.journal.post"
+	dutyAssetsPost       = "assets.opening-journal.post"
 	dutyProductionImport = "production.opening-wip.import"
 	dutyProductionRead   = "production.opening-wip.read"
-	dutyProductionPost   = "production.journal.post"
+	dutyProductionPost   = "production.opening-journal.post"
 	dutyPayrollImport    = "payroll.opening-ytd.import"
 	dutyPayrollRead      = "payroll.opening-ytd.read"
 
 	pathAssetsOpening     = "/v1/assets/opening-assets"
-	pathAssetsPost        = "/v1/assets/gl-postings"
+	pathAssetsPost        = "/v1/assets/opening-journal"
 	pathProductionOpening = "/v1/production/opening-wip"
-	pathProductionPost    = "/v1/production/gl-postings:run"
+	pathProductionPost    = "/v1/production/opening-journal"
 	pathPayrollOpening    = "/v1/payroll/opening-ytd"
 
 	// Problem codes of the three targets that name rows.

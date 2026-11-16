@@ -59,7 +59,7 @@ func run(ctx context.Context, getenv func(string) string) error {
 			return fmt.Errorf("migrate: %w", err)
 		}
 	}
-	st := store.New(pool)
+	st := store.New(pool).WithOpeningClearingAccount(getenv("ASSETS_OPENING_CLEARING_ACCOUNT"))
 	if raw := getenv("ASSET_MAX_BOOKS"); raw != "" {
 		n, err := strconv.Atoi(raw)
 		if err != nil || n < 1 || n > domain.MaxBooksLimit {

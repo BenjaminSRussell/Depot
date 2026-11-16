@@ -671,7 +671,7 @@ func (s *Store) MarkSelfBillPostFailed(ctx context.Context, documentID, reason s
 func (s *Store) ResetSelfBillPosts(ctx context.Context, partnerID string) error {
 	return dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
 		_, err := tx.Exec(ctx, `update self_billing_document set post_attempts = 0, next_post_at = null, post_parked_at = null
-			where partner_id = $1 and status in ('MATCHED', 'RESOLVED') and billed_at is null`, partnerID)
+			where partner_id = $1 and status in ('MATCHED', 'RESOLVED') and billed_at is null and not resolved_before_auto_post`, partnerID)
 		return err
 	})
 }

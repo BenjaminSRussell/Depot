@@ -98,6 +98,8 @@ type Store interface {
 type Postgres struct {
 	pool     *pgxpool.Pool
 	maxBooks int
+	// openingClearing is the account the NBV of the opening register is credited to (ASSETS_OPENING_CLEARING_ACCOUNT).
+	openingClearing string
 }
 
 // New returns a Postgres store over pool with the default book limit.
@@ -110,6 +112,12 @@ func (s *Postgres) WithMaxBooks(n int) *Postgres {
 	if n >= 1 && n <= domain.MaxBooksLimit {
 		s.maxBooks = n
 	}
+	return s
+}
+
+// WithOpeningClearingAccount sets the migration clearing account the opening register's NBV is credited to when its journal is booked.
+func (s *Postgres) WithOpeningClearingAccount(account string) *Postgres {
+	s.openingClearing = account
 	return s
 }
 

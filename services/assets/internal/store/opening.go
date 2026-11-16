@@ -28,6 +28,9 @@ const (
 	OpeningJournalLinked = "linked"
 )
 
+// OpeningSource is the source type of the transactions the opening import writes.
+const OpeningSource = "opening"
+
 // OpeningTables are the batch and line tables of the register import.
 var OpeningTables = openingimport.Tables{Batch: "asset_opening_batch", Line: "asset_opening_line"}
 
@@ -47,6 +50,10 @@ type OpeningLine struct {
 	Accumulated        decimal.Decimal
 	Salvage            decimal.Decimal
 	DepreciatedThrough string
+	// Factor and SwitchToStraightLine are the declining-balance rate (1 to 3, 2 is 200 percent) and whether the book switches to straight line;
+	// zero values mean 2 and no switch. They are ignored for straight line.
+	Factor               decimal.Decimal
+	SwitchToStraightLine bool
 }
 
 // NBV is the net book value at the cutover.
@@ -121,13 +128,15 @@ func (s *Postgres) ImportOpeningAssets(ctx context.Context, in OpeningImport) (o
 		lines[i] = openingimport.Line{Reference: l.Reference, Measures: l.Measures()}
 	}
 	// An asset an earlier opening batch created takes a further book; any other asset with the number is taken.
-	existing := map[string]string{}
+	var existing map[string]string
 	hooks := openingimport.Hooks{
 		Taken: func(ctx context.Context, tx pgx.Tx) (map[string]bool, error) {
 			numbers := make([]string, len(in.Lines))
 			for i, l := range in.Lines {
 				numbers[i] = l.AssetNumber
 			}
+			// Rebuilt on every attempt: Import retries after a unique violation and the assets of the rolled-back attempt are gone.
+			existing = map[string]string{}
 			taken := map[string]bool{}
 			rows, err := tx.Query(ctx, `select a.asset_number, a.id::text, exists (select 1 from asset_opening_link k where k.tenant_id = a.tenant_id and k.asset_id = a.id)
 				from asset a where a.legal_entity_id = $1::uuid and a.asset_number = any($2)`, in.LegalEntityID, numbers)
@@ -199,16 +208,19 @@ func insertOpeningAsset(ctx context.Context, tx pgx.Tx, tenantID string, in Open
 	if err != nil {
 		return err
 	}
-	factor, convention := "0", "None"
+	factor, convention, switchSL := "0", "None", false
 	if l.Method == "DecliningBalance" {
-		factor = "2"
+		factor, switchSL = "2", l.SwitchToStraightLine
+		if l.Factor.IsPositive() {
+			factor = l.Factor.String()
+		}
 	}
 	bookID := ids.New()
 	if _, err := tx.Exec(ctx, `insert into asset_book (tenant_id, id, asset_id, legal_entity_id, book_code, currency, method, factor, switch_to_straight_line, service_life_periods,
 			salvage_value, convention, in_service_date, cost, acquisition_cost, accumulated_depreciation, nbv, status, last_depreciated_period)
-		values ($1, $2, $3, $4::uuid, $5, $6, $7, $8::numeric, false, $9, $10::numeric, $11, $12::date, $13::numeric, $13::numeric, $14::numeric, $15::numeric, 'Open', $16)`,
+		values ($1, $2, $3, $4::uuid, $5, $6, $7, $8::numeric, $17, $9, $10::numeric, $11, $12::date, $13::numeric, $13::numeric, $14::numeric, $15::numeric, 'Open', $16)`,
 		tenantID, bookID, assetID, in.LegalEntityID, l.BookCode, l.Currency, l.Method, factor, l.UsefulLife, l.Salvage.String(), convention,
-		inService.Format("2006-01-02"), l.Cost.String(), l.Accumulated.String(), l.NBV().String(), last); err != nil {
+		inService.Format("2006-01-02"), l.Cost.String(), l.Accumulated.String(), l.NBV().String(), last, switchSL); err != nil {
 		return err
 	}
 	txID := ids.New()

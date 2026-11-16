@@ -55,10 +55,10 @@ func NewPayrollOpening(t testing.TB) *FakeStaged { return newStaged(t, "payroll"
 
 func newStaged(t testing.TB, kind string) *FakeStaged {
 	f := &FakeStaged{kind: kind, batches: map[string]*stagedBatch{}, refs: map[string]string{}, Refuse: map[string]bool{}}
-	path, postPath := "/v1/assets/opening-assets", "/v1/assets/gl-postings"
+	path, postPath := "/v1/assets/opening-assets", "/v1/assets/opening-journal"
 	switch kind {
 	case "production":
-		path, postPath = "/v1/production/opening-wip", "/v1/production/gl-postings:run"
+		path, postPath = "/v1/production/opening-wip", "/v1/production/opening-journal"
 	case "payroll":
 		path, postPath = "/v1/payroll/opening-ytd", ""
 	}
@@ -76,11 +76,11 @@ func newStaged(t testing.TB, kind string) *FakeStaged {
 func (f *FakeStaged) duties() (put, get, post, invalid, taken string) {
 	switch f.kind {
 	case "production":
-		return "production.opening-wip.import", "production.opening-wip.read", "production.journal.post", "PRD-OPB-001", "PRD-OPB-004"
+		return "production.opening-wip.import", "production.opening-wip.read", "production.opening-journal.post", "PRD-OPB-001", "PRD-OPB-004"
 	case "payroll":
 		return "payroll.opening-ytd.import", "payroll.opening-ytd.read", "", "PAY-OPB-001", "PAY-OPB-004"
 	}
-	return "assets.opening-asset.import", "assets.opening-asset.read", "assets.journal.post", "AST-OPB-001", "AST-OPB-004"
+	return "assets.opening-asset.import", "assets.opening-asset.read", "assets.opening-journal.post", "AST-OPB-001", "AST-OPB-004"
 }
 
 // FailNext queues statuses the next requests answer, in order.

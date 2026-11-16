@@ -103,15 +103,15 @@ func TestStagedLoad_FixedAssetsGoToTheRegisterAndTheJournalIsBooked(t *testing.T
 	if x := e.assets.Extra(keys[0]); x["openingDate"] != "2027-01-01" || x["journal"] != "post" {
 		t.Fatalf("batch request fields %v", x)
 	}
-	// One token per call, each with one duty of the grant; the journal calls carry assets.journal.post.
+	// One token per call, each with one duty of the grant; the journal calls carry assets.opening-journal.post.
 	posts := 0
 	for _, c := range e.assets.Calls() {
 		if len(c.Duties) != 1 {
 			t.Fatalf("each token carries one duty: %+v", c)
 		}
-		if strings.HasSuffix(c.Path, "gl-postings") {
+		if strings.HasSuffix(c.Path, "opening-journal") {
 			posts++
-			if c.Duties[0] != "assets.journal.post" {
+			if c.Duties[0] != "assets.opening-journal.post" {
 				t.Fatalf("journal call %+v", c)
 			}
 		}
@@ -141,7 +141,7 @@ func TestStagedLoad_FixedAssetsGoToTheRegisterAndTheJournalIsBooked(t *testing.T
 		t.Fatalf("second load %+v", again)
 	}
 	for _, c := range e.assets.Calls()[before:] {
-		if c.Method == http.MethodPost && !strings.HasSuffix(c.Path, "gl-postings") {
+		if c.Method == http.MethodPost && !strings.HasSuffix(c.Path, "opening-journal") {
 			t.Fatalf("the second pass sent a batch: %+v", c)
 		}
 	}
@@ -263,7 +263,7 @@ func (e stagedEnv) startPack2(t *testing.T, path, body string) string {
 }
 
 func wipBodyReq(extra string) string {
-	return fmt.Sprintf(`{"legalEntityId":%q,"siteId":%q,"warehouseId":%q,"openingDate":"2027-01-01","ledgerId":%q%s}`, leA, siteA, whA, ledgerA, extra)
+	return fmt.Sprintf(`{"legalEntityId":%q,"siteId":%q,"warehouseId":%q,"openingDate":"2027-01-01","journal":"post","ledgerId":%q%s}`, leA, siteA, whA, ledgerA, extra)
 }
 
 func wip(id, order, item, material, labor, overhead, extra string) string {
@@ -325,7 +325,7 @@ func TestStagedLoad_WIPOrdersGoToProductionAndTheJournalIsBooked(t *testing.T) {
 	if l.Loaded != 2 || l.Rejected != 1 {
 		t.Fatalf("with the mapping %+v", l)
 	}
-	if rec := e.do(t, "POST", "/api/v1/migration/runs/"+late.RunID+"/staged-load", fmt.Sprintf(`{"legalEntityId":%q,"siteId":%q,"warehouseId":%q,"openingDate":"2027-01-01"}`, leA, siteA, whA)); rec.Code != http.StatusUnprocessableEntity {
+	if rec := e.do(t, "POST", "/api/v1/migration/runs/"+late.RunID+"/staged-load", fmt.Sprintf(`{"legalEntityId":%q,"siteId":%q,"warehouseId":%q,"openingDate":"2027-01-01","journal":"post"}`, leA, siteA, whA)); rec.Code != http.StatusUnprocessableEntity {
 		t.Fatalf("no ledger: %d %s", rec.Code, rec.Body)
 	}
 }
@@ -374,5 +374,15 @@ func TestStagedLoad_PayrollYearsGoToPayrollAsPayElements(t *testing.T) {
 	}
 	if n := e.scalar(t, `select count(*) from staged_load where run_id = $1 and pack = 'payroll_ytd' and status = 'RECONCILED'`, run.RunID); n != 1 {
 		t.Fatalf("staged_load rows %d", n)
+	}
+}
+
+func TestStagedLoad_WIPLinkedSendsNoJournalRequest(t *testing.T) {
+	e := newStagedEnv(t)
+	run := e.startStaged(t, "wip_prod", `"FG-1"`, wip("W-1", "PRD-1", "FG-1", "10", "2", "1", `,"quantityOpen":"3"`))
+	got := e.stagedLoad(t, run.RunID, fmt.Sprintf(`{"legalEntityId":%q,"siteId":%q,"warehouseId":%q,"openingDate":"2027-01-01","journal":"linked"}`, leA, siteA, whA), http.StatusOK)
+	keys := e.production.Batches()
+	if got.Status != "RECONCILED" || len(e.production.JournalRequests()) != 0 || len(keys) != 1 || e.production.Extra(keys[0])["journal"] != "linked" {
+		t.Fatalf("linked %+v %v", got, e.production.JournalRequests())
 	}
 }

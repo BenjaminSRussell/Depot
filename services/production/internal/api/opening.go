@@ -28,6 +28,9 @@ const (
 	dutyOpeningRead   = "production.opening-wip.read"
 	pathOpeningWIP    = "/v1/production/opening-wip"
 
+	dutyOpeningJournal = "production.opening-journal.post"
+	pathOpeningJournal = "/v1/production/opening-journal"
+
 	CodeOpeningInvalid      = "PRD-OPB-001"
 	CodeOpeningKeyConflict  = "PRD-OPB-002"
 	CodeOpeningControlTotal = "PRD-OPB-003"
@@ -48,6 +51,7 @@ func (a *API) registerOpening(r chi.Router) {
 		return
 	}
 	r.With(authz.RequireDuty(dutyOpeningImport)).Post(pathOpeningWIP, a.importOpeningWIP)
+	r.With(authz.RequireDuty(dutyOpeningJournal)).Post(pathOpeningJournal, a.postOpeningJournal)
 	r.With(authz.RequireDuty(dutyOpeningRead)).Get(pathOpeningWIP, a.listOpeningWIP)
 }
 
@@ -70,6 +74,7 @@ type openingWIPRequest struct {
 	LegalEntityID string               `json:"legalEntityId"`
 	BatchKey      string               `json:"batchKey"`
 	OpeningDate   string               `json:"openingDate"`
+	Journal       string               `json:"journal"`
 	ControlTotals map[string]string    `json:"controlTotals"`
 	Lines         []openingLineRequest `json:"lines"`
 }
@@ -91,6 +96,9 @@ func (a *API) importOpeningWIP(w http.ResponseWriter, r *http.Request) {
 	}
 	if _, err := time.Parse(dayLayout, req.OpeningDate); err != nil {
 		fields["openingDate"] = "is required: the cutover date the opening WIP journals are dated, such as 2027-01-01"
+	}
+	if req.Journal != store.OpeningJournalPost && req.Journal != store.OpeningJournalLinked {
+		fields["journal"] = "must be post (the opening WIP journal is booked through POST /v1/production/opening-journal) or linked (the ledger already holds the WIP balances)"
 	}
 	if len(fields) > 0 {
 		a.openingCounters.Refuse(w, r, http.StatusBadRequest, validationCode, validationText, fields)
@@ -146,7 +154,7 @@ func rowErrors(bad map[string]string) []httpx.RowError {
 
 func openingImport(user string, req openingWIPRequest) (store.OpeningImport, map[string]string) {
 	totals, bad := openingimport.ParseTotals(req.ControlTotals)
-	in := store.OpeningImport{LegalEntityID: strings.ToLower(req.LegalEntityID), BatchKey: req.BatchKey, ImportedBy: user, OpeningDate: req.OpeningDate, Totals: totals,
+	in := store.OpeningImport{LegalEntityID: strings.ToLower(req.LegalEntityID), BatchKey: req.BatchKey, ImportedBy: user, OpeningDate: req.OpeningDate, Journal: req.Journal, Totals: totals,
 		Lines: make([]store.OpeningLine, 0, len(req.Lines))}
 	refs := make([]string, len(req.Lines))
 	numbers := map[string]int{}
@@ -198,9 +206,9 @@ func openingImport(user string, req openingWIPRequest) (store.OpeningImport, map
 	sorted := append([]store.OpeningLine(nil), in.Lines...)
 	sort.Slice(sorted, func(i, j int) bool { return sorted[i].Reference < sorted[j].Reference })
 	in.ContentHash = openingimport.Hash(in.LegalEntityID, in.Totals, struct {
-		Date  string
-		Lines []store.OpeningLine
-	}{in.OpeningDate, sorted})
+		Date, Journal string
+		Lines         []store.OpeningLine
+	}{in.OpeningDate, in.Journal, sorted})
 	return in, bad
 }
 
@@ -240,4 +248,29 @@ func (a *API) listOpeningWIP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	openingimport.WriteList(w, q, batches, time.Now())
+}
+
+// postOpeningJournal books the WIP rows of the opening-wip journals, and nothing else, in the general ledger.
+func (a *API) postOpeningJournal(w http.ResponseWriter, r *http.Request) {
+	p, ok := principal(w, r)
+	if !ok || !a.glReady(w, r) {
+		return
+	}
+	var req glPostRequest
+	if err := httpx.Decode(r, &req); err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+	fields := map[string]string{}
+	entity, ok := a.glEntity(w, r, p, req.LegalEntityID, req.LedgerID, fields)
+	if !ok {
+		return
+	}
+	res, err := a.gl.PostToGL(r.Context(), a.ledger, store.GLPostRequest{LegalEntityID: entity, LedgerID: req.LedgerID, OpeningOnly: true})
+	if err != nil {
+		a.fail(w, r, "book the opening WIP in the general ledger", err)
+		return
+	}
+	a.glBooked.Add(int64(len(res.Booked)))
+	httpx.JSON(w, http.StatusOK, glPostView(res))
 }

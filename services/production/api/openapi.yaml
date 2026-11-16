@@ -3318,8 +3318,8 @@ paths:
         (unique in the legal entity), a product, site and warehouse, a currency, the open quantity, an optional delivery date and the cost issued to the order and not yet
         received as finished goods (material, labor, overhead; wipValue must equal their sum). The order is stored Started with the open quantity and no BOM or route snapshot,
         and one posted journal of type opening-wip dated openingDate books its WIP in the subledger against the posting profile of its site (wip-material, wip-labor and wip-overhead
-        on the WIP account, against the inventory, labor absorption and overhead absorption accounts), so the WIP balance report and POST /v1/production/gl-postings:run
-        (which books the opening journal in the general ledger) see it. A site without a posting profile is a 422 PRD-OPB-005. controlTotals declares material.CUR, labor.CUR,
+        on the WIP account, against the one migration clearing account PRODUCTION_OPENING_CLEARING_ACCOUNT), so the WIP balance report and POST /v1/production/opening-journal
+        (which books it in the general ledger) see it. A site without a posting profile, or no clearing account set, is a 422 PRD-OPB-005. controlTotals declares material.CUR, labor.CUR,
         overhead.CUR and wipValue.CUR; the service recomputes them and a mismatch refuses the batch (PRD-OPB-003). A line error is a 422 PRD-OPB-001 with errors keyed
         lines[row].field and rowErrors. The same batchKey with the same content is a 200 with Idempotent-Replayed true; with other content it is a 409 PRD-OPB-002; a reference or
         order number already in use is a 422 PRD-OPB-004. Nothing is announced: no order event is written.
@@ -3330,11 +3330,12 @@ paths:
             schema:
               type: object
               additionalProperties: false
-              required: [legalEntityId, batchKey, openingDate, controlTotals, lines]
+              required: [legalEntityId, batchKey, openingDate, journal, controlTotals, lines]
               properties:
                 legalEntityId: { type: string, format: uuid }
                 batchKey: { type: string, maxLength: 100 }
                 openingDate: { type: string, format: date, description: "The cutover date the opening journals are dated." }
+                journal: { type: string, enum: [post, linked], description: "post: booked by POST /v1/production/opening-journal; linked: marked booked with no entry, for a ledger whose gl_balances already carry the WIP." }
                 controlTotals: { type: object, additionalProperties: { type: string }, description: "material.CUR, labor.CUR, overhead.CUR and wipValue.CUR as decimal strings." }
                 lines:
                   type: array
@@ -3394,3 +3395,25 @@ paths:
         '401': { $ref: '#/components/responses/Problem' }
         '403': { $ref: '#/components/responses/Problem' }
         '500': { $ref: '#/components/responses/Problem' }
+  /v1/production/opening-journal:
+    post:
+      operationId: postOpeningWIPJournal
+      x-passage-duty: production.opening-journal.post
+      description: >-
+        Books the WIP rows of the opening-wip journals in the general ledger, called by the migration factory with a service token after its opening batches (journal post). Only
+        those rows are booked, never an ordinary picking, route card or settlement posting. One entry per order: WIP Dr, the migration clearing account Cr. Answer and idempotency as POST /v1/production/gl-postings:run.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ledgerId]
+              properties:
+                legalEntityId: { type: string, format: uuid }
+                ledgerId: { type: string, format: uuid }
+      responses:
+        '200': { description: The bookings made and refused. }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }

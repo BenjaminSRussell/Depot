@@ -62,8 +62,8 @@ type stagedLoadRequest struct {
 	OpeningDate string `json:"openingDate"`
 	// LedgerID is the ledger the opening journal is booked in (fixed_assets with journal post, wip_prod).
 	LedgerID string `json:"ledgerId"`
-	// Journal is post (book the opening journal through the general ledger) or linked (the ledger already holds the balances); fixed_assets only.
-	// wip_prod always posts and payroll_ytd holds balances only.
+	// Journal is post (book the opening journal through the general ledger) or linked (the ledger already holds the balances); fixed_assets and
+	// wip_prod. payroll_ytd holds balances only.
 	Journal string `json:"journal"`
 	// DepreciatedThrough is the last month the legacy system depreciated, 2026-12 (fixed_assets).
 	DepreciatedThrough string `json:"depreciatedThrough"`
@@ -205,7 +205,9 @@ func checkStagedRequest(pack domain.Pack, req *stagedLoadRequest) error {
 			return invalid("siteId and warehouseId must be UUIDs: the extract carries no site or warehouse, so the load names the ones the opening production orders run in")
 		case !validDate():
 			return invalid("openingDate must be the cutover date, such as 2027-01-01")
-		case !ids.Valid(req.LedgerID):
+		case req.Journal != "post" && req.Journal != "linked":
+			return invalid("journal must be post (book the opening WIP journal through the general ledger) or linked (the ledger already holds the WIP balance)")
+		case req.Journal == "post" && !ids.Valid(req.LedgerID):
 			return invalid("ledgerId must be the ledger UUID the opening WIP journal is booked in")
 		}
 	}
@@ -360,7 +362,7 @@ func (s *Server) runStagedLoad(w http.ResponseWriter, r *http.Request) {
 		extra["openingDate"], extra["journal"] = req.OpeningDate, req.Journal
 	}
 	if pack == domain.PackWIPProd {
-		extra["openingDate"] = req.OpeningDate
+		extra["openingDate"], extra["journal"] = req.OpeningDate, req.Journal
 	}
 	for _, batch := range batches {
 		if fin.Fatal != "" || fin.Unavailable != "" {
@@ -409,7 +411,7 @@ func (s *Server) runStagedLoad(w http.ResponseWriter, r *http.Request) {
 // bookStagedJournal has the target book the opening journal of the run: for assets (journal post) one call per book and currency until the target has
 // nothing left, for production one call for the legal entity. It returns a problem text, or "" when nothing is to book or all is booked.
 func (s *Server) bookStagedJournal(ctx context.Context, tenantID, runID string, pack domain.Pack, req stagedLoadRequest, tgt StagedTarget, fin *store.StagedFinish) string {
-	if !tgt.CanPostJournal() || (pack == domain.PackFixedAssets && req.Journal != "post") {
+	if !tgt.CanPostJournal() || req.Journal != "post" {
 		return ""
 	}
 	var bodies []map[string]any

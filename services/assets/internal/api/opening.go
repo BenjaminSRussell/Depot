@@ -29,6 +29,9 @@ const (
 	dutyOpeningRead   = "assets.opening-asset.read"
 	pathOpeningAssets = "/v1/assets/opening-assets"
 
+	dutyOpeningJournal = "assets.opening-journal.post"
+	pathOpeningJournal = "/v1/assets/opening-journal"
+
 	CodeOpeningInvalid      = "AST-OPB-001"
 	CodeOpeningKeyConflict  = "AST-OPB-002"
 	CodeOpeningControlTotal = "AST-OPB-003"
@@ -61,6 +64,9 @@ type openingLineRequest struct {
 	NetBookValue            string `json:"netBookValue"`
 	SalvageValue            string `json:"salvageValue"`
 	DepreciatedThrough      string `json:"depreciatedThrough"`
+	// DeclineFactor and SwitchToStraightLine describe a DecliningBalance book (default 2, no switch); a StraightLine line leaves them out.
+	DeclineFactor        string `json:"declineFactor,omitempty"`
+	SwitchToStraightLine bool   `json:"switchToStraightLine,omitempty"`
 }
 
 type openingAssetsRequest struct {
@@ -202,6 +208,21 @@ func openingAssetImport(user string, req openingAssetsRequest) (store.OpeningImp
 		if l.RemainingLifePeriods < 0 || l.RemainingLifePeriods > l.UsefulLifePeriods {
 			bad[openingimport.Row(i, "remainingLifePeriods")] = "must be between zero and the useful life"
 		}
+		if l.RemainingLifePeriods == 0 && cost.IsPositive() && !nbv.Equal(salvage) {
+			bad[openingimport.Row(i, "remainingLifePeriods")] = "a book with no life left must stand at its salvage value: the schedule has no period left to depreciate the rest of the net book value"
+		}
+		factor := decimal.Zero
+		switch {
+		case l.Method != "DecliningBalance" && (l.DeclineFactor != "" || l.SwitchToStraightLine):
+			bad[openingimport.Row(i, "declineFactor")] = "applies to a DecliningBalance book only"
+		case l.DeclineFactor != "":
+			f, err := decimal.NewFromString(l.DeclineFactor)
+			if err != nil || f.LessThan(decimal.NewFromInt(1)) || f.GreaterThan(decimal.NewFromInt(3)) {
+				bad[openingimport.Row(i, "declineFactor")] = "must be a decimal from 1 to 3 (2 is 200 percent)"
+			} else {
+				factor = f
+			}
+		}
 		if !periodPattern.MatchString(l.DepreciatedThrough) {
 			bad[openingimport.Row(i, "depreciatedThrough")] = "is required: the last period the legacy system depreciated, 2026-10 (straight line) or 2025 (declining balance)"
 		} else if _, _, err := store.OpeningInService(l.Method, l.DepreciatedThrough, 0); err != nil && (l.Method == "StraightLine" || l.Method == "DecliningBalance") {
@@ -209,7 +230,7 @@ func openingAssetImport(user string, req openingAssetsRequest) (store.OpeningImp
 		}
 		in.Lines = append(in.Lines, store.OpeningLine{Reference: l.Reference, AssetNumber: l.AssetNumber, Name: l.Name, ClassCode: l.ClassCode, BookCode: l.BookCode,
 			Currency: l.Currency, Method: l.Method, AcquisitionDate: l.AcquisitionDate, UsefulLife: l.UsefulLifePeriods, RemainingLife: l.RemainingLifePeriods,
-			Cost: cost, Accumulated: accumulated, Salvage: salvage, DepreciatedThrough: l.DepreciatedThrough})
+			Cost: cost, Accumulated: accumulated, Salvage: salvage, DepreciatedThrough: l.DepreciatedThrough, Factor: factor, SwitchToStraightLine: l.SwitchToStraightLine})
 	}
 	openingimport.DuplicateReferences(refs, bad)
 	sorted := append([]store.OpeningLine(nil), in.Lines...)
@@ -272,10 +293,44 @@ func (a *API) listOpeningAssets(w http.ResponseWriter, r *http.Request) {
 	openingimport.WriteList(w, q, batches, a.now())
 }
 
+type openingJournalRequest struct {
+	LegalEntityID string `json:"legalEntityId"`
+	LedgerID      string `json:"ledgerId"`
+	BookCode      string `json:"bookCode"`
+	Currency      string `json:"currency"`
+}
+
+// postOpeningJournal books the opening register's transactions (source type opening) of one book and currency, and nothing else.
+func (a *API) postOpeningJournal(w http.ResponseWriter, r *http.Request) {
+	if !a.glReady(w, r) {
+		return
+	}
+	var req openingJournalRequest
+	if err := httpx.Decode(r, &req); err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+	if fields := glFields(req.LegalEntityID, req.LedgerID, req.BookCode, req.Currency); len(fields) > 0 {
+		writeValidation(w, r, fields)
+		return
+	}
+	if !inScope(w, r, req.LegalEntityID) {
+		return
+	}
+	res, err := a.gl.PostToGL(r.Context(), a.ledger, store.GLPostRequest{LegalEntityID: req.LegalEntityID, LedgerID: req.LedgerID, BookCode: req.BookCode, Currency: req.Currency, OpeningOnly: true})
+	if err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+	a.glBooked.Add(int64(len(res.Booked)))
+	httpx.JSON(w, http.StatusOK, res)
+}
+
 func (a *API) registerOpening(r chi.Router) {
 	if a.opening == nil {
 		return
 	}
+	r.With(authz.RequireDuty(dutyOpeningJournal)).Post(pathOpeningJournal, a.postOpeningJournal)
 	r.With(authz.RequireDuty(dutyOpeningImport)).Post(pathOpeningAssets, a.importOpeningAssets)
 	r.With(authz.RequireDuty(dutyOpeningRead)).Get(pathOpeningAssets, a.listOpeningAssets)
 }

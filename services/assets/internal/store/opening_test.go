@@ -35,6 +35,7 @@ func openingImport(le, key, hash, journal string) store.OpeningImport {
 
 func TestOpeningAssets_ImportIsIdempotentReadBackAndPosts(t *testing.T) {
 	s, pool, ctx := setup(t)
+	s.WithOpeningClearingAccount("3900")
 	le := ids.New()
 	in := openingImport(le, "b1", "h1", store.OpeningJournalPost)
 	got, created, err := s.ImportOpeningAssets(ctx, in)
@@ -106,7 +107,7 @@ func TestOpeningAssets_ImportIsIdempotentReadBackAndPosts(t *testing.T) {
 	}
 	// The opening journal books cost, accumulated depreciation and the NBV against the clearing account.
 	fake, ledgerID := ledgerclient.NewFake(), ids.New()
-	res, err := s.PostToGL(ctx, fake, store.GLPostRequest{LegalEntityID: le, LedgerID: ledgerID, BookCode: "IFRS", Currency: "USD"})
+	res, err := s.PostToGL(ctx, fake, store.GLPostRequest{LegalEntityID: le, LedgerID: ledgerID, BookCode: "IFRS", Currency: "USD", OpeningOnly: true})
 	if err != nil || len(res.Failed) != 0 || len(res.Booked) != 2 {
 		t.Fatalf("post: %v %+v", err, res)
 	}
@@ -116,7 +117,7 @@ func TestOpeningAssets_ImportIsIdempotentReadBackAndPosts(t *testing.T) {
 	if a := net(t, fake, ledgerID, "1590"); !a.Equal(d("-4000")) {
 		t.Fatalf("accumulated account %s", a)
 	}
-	if clr := net(t, fake, ledgerID, "2190"); !clr.Equal(d("-8500.5")) {
+	if clr := net(t, fake, ledgerID, "3900"); !clr.Equal(d("-8500.5")) || !net(t, fake, ledgerID, "2190").IsZero() {
 		t.Fatalf("clearing account %s", clr)
 	}
 }
@@ -181,5 +182,29 @@ func TestOpeningInService(t *testing.T) {
 	}
 	if _, _, err := store.OpeningInService("StraightLine", "2026", 1); err == nil {
 		t.Fatal("a yearly period must not do for a monthly book")
+	}
+}
+
+// Without the opening clearing account the document fails (it must not fall back to the acquisition clearing account), and the opening-only
+// booking leaves an ordinary acquisition alone.
+func TestOpeningAssets_JournalNeedsTheClearingAccountAndSkipsOrdinaryTransactions(t *testing.T) {
+	s, _, ctx := setup(t)
+	le := ids.New()
+	if _, _, err := s.ImportOpeningAssets(ctx, openingImport(le, "b1", "h1", store.OpeningJournalPost)); err != nil {
+		t.Fatal(err)
+	}
+	asset := newAsset(t, s, ctx, le, "FA-ORD")
+	if _, err := s.AddBook(ctx, asset.ID, store.Book{BookCode: "IFRS", Currency: "USD", Method: "StraightLine", ServiceLifePeriods: 60, Convention: "None", InServiceDate: day("2026-01-01"), Cost: d("999"), SalvageValue: d("0")}, "ord-ifrs"); err != nil {
+		t.Fatal(err)
+	}
+	fake, ledgerID := ledgerclient.NewFake(), ids.New()
+	req := store.GLPostRequest{LegalEntityID: le, LedgerID: ledgerID, BookCode: "IFRS", Currency: "USD", OpeningOnly: true}
+	if res, err := s.PostToGL(ctx, fake, req); err != nil || len(res.Booked) != 0 || len(res.Failed) != 2 || res.Failed[0].Code != store.CodeGLUnmapped {
+		t.Fatalf("no clearing account: %+v %v", res, err)
+	}
+	s.WithOpeningClearingAccount("3900")
+	res, err := s.PostToGL(ctx, fake, req)
+	if err != nil || len(res.Booked) != 2 || len(res.Failed) != 0 || !net(t, fake, ledgerID, "1500").Equal(d("12500.5")) {
+		t.Fatalf("opening only: %+v %v", res, err)
 	}
 }

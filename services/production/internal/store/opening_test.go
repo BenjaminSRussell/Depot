@@ -23,9 +23,10 @@ func openingWIPLines(site string) []OpeningLine {
 
 func TestOpeningWIP_ImportIsIdempotentBooksTheJournalAndReconciles(t *testing.T) {
 	pool, s := migrated(t)
+	s.WithOpeningClearingAccount("3900")
 	ctx := tenantCtx(testkit.TenantID(9200))
 	le, site, ledgerID, fake := ids.New(), ids.New(), ids.New(), ledgerclient.NewFake()
-	in := OpeningImport{LegalEntityID: le, BatchKey: "b1", ContentHash: "h1", ImportedBy: "loader", OpeningDate: "2027-01-01",
+	in := OpeningImport{LegalEntityID: le, BatchKey: "b1", ContentHash: "h1", ImportedBy: "loader", OpeningDate: "2027-01-01", Journal: OpeningJournalPost,
 		Totals: map[string]string{"material.USD": "107.5", "labor.USD": "20", "overhead.USD": "5", "wipValue.USD": "132.5"}, Lines: openingWIPLines(site)}
 	// Without a posting profile the WIP cannot be booked and nothing is stored.
 	var noProfile *OpeningProfileError
@@ -69,7 +70,7 @@ func TestOpeningWIP_ImportIsIdempotentBooksTheJournalAndReconciles(t *testing.T)
 		t.Fatalf("order: %s %s %v", status, qty, err)
 	}
 	// Booking it posts one entry per order journal; the GL WIP account matches the subledger.
-	res, err := s.PostToGL(ctx, fake, GLPostRequest{LegalEntityID: le, LedgerID: ledgerID})
+	res, err := s.PostToGL(ctx, fake, GLPostRequest{LegalEntityID: le, LedgerID: ledgerID, OpeningOnly: true})
 	if err != nil || len(res.Failed) != 0 || len(res.Booked) != 2 {
 		t.Fatalf("post: %+v %v", res, err)
 	}
@@ -77,7 +78,7 @@ func TestOpeningWIP_ImportIsIdempotentBooksTheJournalAndReconciles(t *testing.T)
 	if err != nil || !recon.Reconciled || len(recon.Accounts) != 1 || !recon.Accounts[0].GL.Equal(d("132.5")) {
 		t.Fatalf("reconcile: %+v %v", recon, err)
 	}
-	for acct, want := range map[string]string{acctWIP: "132.5", acctInv: "-107.5", acctLabor: "-20", acctOverhead: "-5"} {
+	for acct, want := range map[string]string{acctWIP: "132.5", "3900": "-132.5", acctInv: "0", acctLabor: "0", acctOverhead: "0"} {
 		if got := glNet(t, ctx, fake, ledgerID, acct); !got.Equal(d(want)) {
 			t.Fatalf("GL %s = %s, want %s", acct, got, want)
 		}
@@ -90,5 +91,34 @@ func TestOpeningWIP_ImportIsIdempotentBooksTheJournalAndReconciles(t *testing.T)
 	// A second booking has nothing left.
 	if res, err := s.PostToGL(ctx, fake, GLPostRequest{LegalEntityID: le, LedgerID: ledgerID}); err != nil || len(res.Booked) != 0 {
 		t.Fatalf("second post: %+v %v", res, err)
+	}
+}
+
+// linked marks the rows booked with no entry (the ledger already holds the WIP); the opening-only booking leaves ordinary postings alone; no
+// clearing account refuses the import.
+func TestOpeningWIP_LinkedBooksNothingAndTheClearingAccountIsRequired(t *testing.T) {
+	_, s := migrated(t)
+	ctx := tenantCtx(testkit.TenantID(9201))
+	le, site, ledgerID, fake := ids.New(), ids.New(), ids.New(), ledgerclient.NewFake()
+	if _, _, err := s.SavePostingProfile(ctx, ProfileSave{LegalEntityID: le, Profile: testProfile(domain.AllKey, domain.AllKey, "1450"), Actor: "admin"}); err != nil {
+		t.Fatal(err)
+	}
+	in := OpeningImport{LegalEntityID: le, BatchKey: "b1", ContentHash: "h1", ImportedBy: "loader", OpeningDate: "2027-01-01", Journal: OpeningJournalLinked,
+		Totals: map[string]string{"material.USD": "107.5", "labor.USD": "20", "overhead.USD": "5", "wipValue.USD": "132.5"}, Lines: openingWIPLines(site)}
+	var refused *OpeningProfileError
+	if _, _, err := s.ImportOpeningWIP(ctx, in); !errors.As(err, &refused) {
+		t.Fatalf("without a clearing account: %v", err)
+	}
+	s.WithOpeningClearingAccount("3900")
+	if _, created, err := s.ImportOpeningWIP(ctx, in); err != nil || !created {
+		t.Fatalf("import: %v %v", err, created)
+	}
+	res, err := s.PostToGL(ctx, fake, GLPostRequest{LegalEntityID: le, LedgerID: ledgerID, OpeningOnly: true})
+	if err != nil || len(res.Booked) != 0 || len(res.Failed) != 0 {
+		t.Fatalf("linked must book nothing: %+v %v", res, err)
+	}
+	rep, err := s.WIPReport(ctx, WIPFilter{LegalEntityID: le})
+	if err != nil || len(rep.Totals) != 1 || !rep.Totals[0].Balance.Equal(d("132.5")) {
+		t.Fatalf("the subledger still carries the WIP: %+v %v", rep, err)
 	}
 }

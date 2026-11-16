@@ -270,9 +270,9 @@ var serviceGrants = map[string]map[string][]string{
 		"sales":      {"sales.opening-order.import", "sales.opening-order.read"},
 		"purchasing": {"procurement.opening-order.import", "procurement.opening-order.read"},
 		// The opening asset register (#49) and, with journal=post, the opening journal through the assets service's ledger posting.
-		"assets": {"assets.opening-asset.import", "assets.opening-asset.read", "assets.journal.post"},
+		"assets": {"assets.opening-asset.import", "assets.opening-asset.read", "assets.opening-journal.post"},
 		// Open production orders and their WIP (#49) and the opening WIP journal through production's ledger posting.
-		"production": {"production.opening-wip.import", "production.opening-wip.read", "production.journal.post"},
+		"production": {"production.opening-wip.import", "production.opening-wip.read", "production.opening-journal.post"},
 		// Payroll year-to-date balances at cutover (#49); no journal, the liabilities come with the migrated GL balances.
 		"payroll": {"payroll.opening-ytd.import", "payroll.opening-ytd.read"},
 		// Parallel-run replay and ROLLED_BACK compensating journals (#484).

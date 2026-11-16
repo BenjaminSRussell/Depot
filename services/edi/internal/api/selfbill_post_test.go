@@ -306,3 +306,23 @@ func TestSelfBilling_RepeatedFailuresParkAfterTheCap(t *testing.T) {
 		t.Fatalf("after the cap: %+v", doc)
 	}
 }
+
+// A document resolved before disputes were posted automatically is parked by the migration and stays parked, even when the partner's settings are saved.
+func TestSelfBilling_DocumentsResolvedBeforeTheMigrationAreNotPosted(t *testing.T) {
+	f, a, h, partner := selfBillSetup(t)
+	billing := &fakeBilling{}
+	a.SelfBilledPoster = billing
+	do(t, h, http.MethodPut, "/edi/v1/partners/"+partner+"/self-billing", selfBillSettings, "edi.admin", srcScope)
+	sendShipment(t, f, h, partner, srcShipment, "SHP-0001", time.Now().AddDate(0, 0, -3))
+	do(t, h, http.MethodPost, "/edi/v1/inbound/x12?environment=TEST", selfBilled810(t, "SB-8106", "9", "7.65", "9765"), "edi.operate", srcScope)
+	// Stand in for the migration: the document was resolved and parked before the sweep posted such documents.
+	if _, err := lastPool.Exec(context.Background(), `update self_billing_document set status = 'RESOLVED', resolved_before_auto_post = true, post_parked_at = now(), post_error = 'Resolved before disputes were posted automatically'`); err != nil {
+		t.Fatal(err)
+	}
+	do(t, h, http.MethodPost, "/edi/v1/self-billing:sweep", "", "edi.self-billing.reconcile", srcScope)
+	do(t, h, http.MethodPut, "/edi/v1/partners/"+partner+"/self-billing", selfBillSettings, "edi.admin", srcScope)
+	do(t, h, http.MethodPost, "/edi/v1/self-billing:sweep", "", "edi.self-billing.reconcile", srcScope)
+	if doc := postedDocument(t, h); len(billing.posts) != 0 || doc.BillingInvoiceID != "" || !strings.Contains(doc.PostError, "Resolved before") {
+		t.Fatalf("document %+v posts %d", doc, len(billing.posts))
+	}
+}
