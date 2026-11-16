@@ -768,6 +768,7 @@ const ledgerPostingGaps: Record<string, ProblemCatalogEntry> = {
   LEDGER_PERIOD_CHECK: { message: "The accounting period couldn't be checked for this posting.", action: TRY_LATER },
   LEDGER_PERIOD_STATUS_UNAVAILABLE: { message: "The accounting period status isn't available right now.", action: TRY_LATER },
   LEDGER_QUANTITY_INVALID: { message: "A line quantity isn't valid.", action: "Enter a quantity the account allows." },
+  LEDGER_TRADING_PARTNER_INVALID: { message: "A line names a trading partner that isn't a legal entity of this company group, or is the entity that owns the ledger.", action: "Choose the other legal entity of the intercompany transaction, or leave the trading partner empty." },
   LEDGER_RATE_MISSING: { message: "There is no exchange rate for this posting date.", action: "Ask finance to add the rate, then try again." },
   LEDGER_REASON_NOT_FOUND: { message: "We couldn't find that reason code.", action: "Choose a reason code from the list." },
   LEDGER_VALIDATION_RULE_FAILED: { message: "A validation rule on this ledger rejected the entry.", action: "Check the rule's message under Details, correct the entry and try again." },

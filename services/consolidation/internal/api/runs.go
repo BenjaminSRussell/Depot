@@ -382,7 +382,7 @@ func (a *API) startRunFromCollection(w http.ResponseWriter, r *http.Request, bod
 		httpx.Fail(w, r, problemFrom(err))
 		return
 	}
-	in := domain.DeriveInput{GroupCurrency: c.Currency, Period: c.Period, Units: group.Units, Lines: c.Lines, Rates: c.Rates,
+	in := domain.DeriveInput{GroupCurrency: c.Currency, Period: c.Period, Units: group.Units, Lines: c.Lines, Rates: c.Rates, PartnerLines: c.Partners,
 		Terms: map[string]domain.UnitTerms{}, Opening: map[string]domain.OpeningBasis{}, OpeningRates: openingRates, IC: ic}
 	for id, t := range terms {
 		in.Terms[id] = t.UnitTerms

@@ -1171,7 +1171,7 @@ components:
               mainAccount: { type: string }
               consolidationAccount: { type: string }
               accountType: { type: string, enum: [balance_sheet, income] }
-              role: { type: string, enum: [asset, liability, equity, ic_sales, ic_cost, ic_receivable, ic_payable, dividend_paid], description: 'What a run reads the account for; asset, liability, equity, dividend_paid and the IC balances are balance_sheet accounts, ic_sales and ic_cost income accounts. dividend_paid is where a unit books the dividends it declared (a debit): they come off its net assets, give E6 for a consolidated subsidiary and the dividends received of an equity-method unit.' }
+              role: { type: string, enum: [asset, liability, equity, ic_sales, ic_cost, ic_receivable, ic_payable, ic_purchases, ic_cogs, ic_inventory, dividend_paid], description: 'What a run reads the account for; asset, liability, equity, dividend_paid, ic_inventory and the IC balances are balance_sheet accounts, ic_sales, ic_cost, ic_purchases and ic_cogs income accounts. The ic_* roles are read per trading partner (#40): the seller books ic_sales, ic_cost and ic_receivable, the buyer ic_payable and, for goods it bought from the seller, ic_purchases and ic_cogs (the cost of those sold on) or the balance sheet account ic_inventory that holds them, with the ledger lines naming the counterparty legal entity. dividend_paid is where a unit books the dividends it declared (a debit): they come off its net assets, give E6 for a consolidated subsidiary and the dividends received of an equity-method unit.' }
     CollectRequest:
       type: object
       required: [period]
@@ -1214,6 +1214,26 @@ components:
               unitAmount: { type: string }
               rate: { type: string }
               groupAmount: { type: string }
+        partnerLines:
+          type: array
+          description: >-
+            The intercompany part of the lines per trading partner (#40), read from the ledgers' partner balances of the accounts mapped with an ic_* role
+            when the ledger serves them. A memo that is already inside lines (it never adds to the trial balance): how much of a unit's account is with
+            which other unit of the group, translated like the line (income at the average rate, balance sheet at the closing rate). A run reads its
+            intercompany sales, cost, receivable and payable, and estimates the unrealised profit in inventory, per holder-subsidiary pair from them.
+          items:
+            type: object
+            properties:
+              unit: { type: string, format: uuid }
+              counterparty: { type: string, format: uuid, description: The unit on the other side of the line }
+              mainAccount: { type: string }
+              consolidationAccount: { type: string }
+              accountType: { type: string }
+              role: { type: string }
+              unitCurrency: { type: string }
+              unitAmount: { type: string }
+              rate: { type: string }
+              groupAmount: { type: string }
     TrialBalance:
       type: object
       required: [rows, unmapped, total, unitDifferences]
@@ -1227,6 +1247,10 @@ components:
               accountType: { type: string }
               total: { type: string }
               units: { type: object, additionalProperties: { type: string } }
+              partners:
+                type: object
+                description: 'The intercompany part of each unit amount by counterparty unit (#40): unit, then counterparty, then the amount in the group currency. A memo of units, not an addition to it.'
+                additionalProperties: { type: object, additionalProperties: { type: string } }
         unmapped: { type: array, items: { type: object } }
         total: { type: string }
         unitDifferences: { type: object, additionalProperties: { type: string } }
@@ -1728,6 +1752,14 @@ components:
         eliminationCount: { type: integer }
         ctaAmount: { $ref: '#/components/schemas/Decimal', description: Sum of the unit CTA in group currency }
         createdAt: { type: string, format: date-time }
+        warnings:
+          type: array
+          items: { type: string }
+          description: >-
+            What the run did on a fallback; returned when the run is created and not stored. CNS-0908: a receipt layer with no group cost used the seller's margin.
+            CNS-0933: a subsidiary's unrealised profit in inventory was estimated from the trading partner balances (closing intercompany inventory at the seller's
+            margin), because no receipt layers and no unsold share were given. CNS-0934: intercompany balances sit between two units that are not a holder and its
+            subsidiary, so no elimination covers them.
     RunList:
       type: object
       required: [items]
