@@ -1,4 +1,5 @@
-// Package xlsx writes and reads the plain SpreadsheetML workbooks the budget plan round trip needs: sheets of text and number cells.
+// Package xlsx writes and reads plain SpreadsheetML workbooks of text and number cells: the budget plan round trip and the sign-off
+// packets (tools/signoff-packets) use it.
 // It uses only the standard library (archive/zip and encoding/xml), so no spreadsheet dependency is added. The reader accepts what
 // Excel, LibreOffice and Google Sheets save: shared strings, inline strings, formula string results and numbers; it ignores styles,
 // formulas themselves, merged cells and everything else. It refuses a workbook that is too large once unzipped.
