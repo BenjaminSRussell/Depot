@@ -51,7 +51,17 @@ var (
 	releasePattern = regexp.MustCompile(`^[A-Za-z0-9._+-]{1,32}$`)
 	fieldPattern   = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9._\[\]-]{0,63}$`)
 	routePattern   = regexp.MustCompile(`^/[A-Za-z0-9/_:.{}*-]{0,199}$`)
+	// routePrefixPattern is a workspace: the first segment of a web route, such as /purchasing.
+	routePrefixPattern = regexp.MustCompile(`^/[a-z0-9][a-z0-9-]{0,63}$`)
 )
+
+// ValidateRoutePrefix checks the optional workspace filter of the signals: empty, or one route segment such as /purchasing.
+func ValidateRoutePrefix(prefix string) *Error {
+	if prefix == "" || routePrefixPattern.MatchString(prefix) {
+		return nil
+	}
+	return validation(map[string]string{"routePrefix": "one route segment such as /purchasing"})
+}
 
 // UXEvent is one thing a person did. Type decides which other fields are needed.
 type UXEvent struct {
@@ -212,10 +222,14 @@ func BuildFunnel(flow, from, to, release string, counts map[string]int, secondsT
 
 // UXSignals are the three friction lists for a period: where validation fails,
 // what people search for and do not find, and which forms they leave unsaved.
+// With a RoutePrefix the validation errors and abandoned forms are those of that
+// workspace's pages (each list is its top 20 there); searches carry no page and
+// stay counted across every workspace.
 type UXSignals struct {
 	From             string             `json:"from"`
 	To               string             `json:"to"`
 	Release          string             `json:"release,omitempty"`
+	RoutePrefix      string             `json:"routePrefix,omitempty"`
 	ValidationErrors []ValidationSignal `json:"validationErrors"`
 	NoResultSearches []SearchSignal     `json:"noResultSearches"`
 	AbandonedForms   []AbandonedSignal  `json:"abandonedForms"`

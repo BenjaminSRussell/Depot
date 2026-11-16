@@ -1,0 +1,152 @@
+{
+  "description": "The 13 EBICS 2.5 return codes the treasury client names (returncodes.go), with the disposition Classify gives each. A code not listed parks the subscriber. TestReturnCodes_ConstantsMatchTheEBICS25Annex checks this file against the constants and Classify; tools/signoff-packets turns it into the review table for #512 (spec annex text left for the reviewer).",
+  "unlistedDisposition": "park",
+  "codes": [
+    {
+      "annexName": "EBICS_OK",
+      "constant": "CodeOK",
+      "code": "000000",
+      "disposition": "proceed",
+      "tests": [
+        "TestReturnCodes_ConstantsMatchTheEBICS25Annex",
+        "TestClassify_CodesMapToBackOffParkOrProceed",
+        "TestDownload_PlainFileSingleSegmentAndNoData"
+      ]
+    },
+    {
+      "annexName": "EBICS_DOWNLOAD_POSTPROCESS_DONE",
+      "constant": "CodeDownloadDone",
+      "code": "011000",
+      "disposition": "proceed",
+      "tests": [
+        "TestReturnCodes_ConstantsMatchTheEBICS25Annex",
+        "TestClassify_CodesMapToBackOffParkOrProceed",
+        "TestResponses_ForgedOrTamperedAnswersAreRejected"
+      ]
+    },
+    {
+      "annexName": "EBICS_DOWNLOAD_POSTPROCESS_SKIPPED",
+      "constant": "CodeDownloadSkipped",
+      "code": "011001",
+      "disposition": "proceed",
+      "tests": [
+        "TestReturnCodes_ConstantsMatchTheEBICS25Annex",
+        "TestClassify_CodesMapToBackOffParkOrProceed"
+      ]
+    },
+    {
+      "annexName": "EBICS_NO_DOWNLOAD_DATA_AVAILABLE",
+      "constant": "CodeNoDownloadData",
+      "code": "090005",
+      "disposition": "no-data",
+      "tests": [
+        "TestReturnCodes_ConstantsMatchTheEBICS25Annex",
+        "TestClassify_CodesMapToBackOffParkOrProceed",
+        "TestDownload_PlainFileSingleSegmentAndNoData"
+      ]
+    },
+    {
+      "annexName": "EBICS_INTERNAL_ERROR",
+      "constant": "CodeInternalError",
+      "code": "061099",
+      "disposition": "back-off",
+      "tests": [
+        "TestReturnCodes_ConstantsMatchTheEBICS25Annex",
+        "TestClassify_CodesMapToBackOffParkOrProceed",
+        "TestBackoff_RetriesBackOffCodesWithGrowingDelaysThenSucceeds",
+        "TestBackoff_ExhaustedRetriesFailWithoutParking",
+        "TestUpload_FinalSegmentBackOffIsAmbiguousAndNotResent",
+        "TestPoller_BackOffCodesWaitThenSucceed_ExhaustionIsRetriedNextTick"
+      ]
+    },
+    {
+      "annexName": "EBICS_TX_RECOVERY_SYNC",
+      "constant": "CodeTxRecoverySync",
+      "code": "061101",
+      "disposition": "back-off",
+      "tests": [
+        "TestReturnCodes_ConstantsMatchTheEBICS25Annex",
+        "TestClassify_CodesMapToBackOffParkOrProceed"
+      ]
+    },
+    {
+      "annexName": "EBICS_AUTHENTICATION_FAILED",
+      "constant": "CodeAuthFailed",
+      "code": "061001",
+      "disposition": "park",
+      "tests": [
+        "TestReturnCodes_ConstantsMatchTheEBICS25Annex",
+        "TestClassify_CodesMapToBackOffParkOrProceed",
+        "TestOnboarding_StateMachineAndBankKeyConfirmation",
+        "TestBank_RejectsRequestsSignedWithAnotherKey",
+        "TestPark_RefusalNeedingAPersonParksUntilUnparked"
+      ]
+    },
+    {
+      "annexName": "EBICS_USER_UNKNOWN",
+      "constant": "CodeUserUnknown",
+      "code": "091003",
+      "disposition": "park",
+      "tests": [
+        "TestReturnCodes_ConstantsMatchTheEBICS25Annex",
+        "TestClassify_CodesMapToBackOffParkOrProceed"
+      ]
+    },
+    {
+      "annexName": "EBICS_BANK_PUBKEY_UPDATE_REQUIRED",
+      "constant": "CodeBankKeyUpdate",
+      "code": "091008",
+      "disposition": "park",
+      "tests": [
+        "TestReturnCodes_ConstantsMatchTheEBICS25Annex",
+        "TestClassify_CodesMapToBackOffParkOrProceed",
+        "TestPark_RefusalNeedingAPersonParksUntilUnparked",
+        "TestPark_StaleBankKeyIsRefusedByTheBankAndParked"
+      ]
+    },
+    {
+      "annexName": "EBICS_TX_UNKNOWN_TXID",
+      "constant": "CodeTxUnknown",
+      "code": "091101",
+      "disposition": "back-off",
+      "tests": [
+        "TestReturnCodes_ConstantsMatchTheEBICS25Annex",
+        "TestClassify_CodesMapToBackOffParkOrProceed"
+      ]
+    },
+    {
+      "annexName": "EBICS_TX_ABORT",
+      "constant": "CodeTxAbort",
+      "code": "091102",
+      "disposition": "back-off",
+      "tests": [
+        "TestReturnCodes_ConstantsMatchTheEBICS25Annex",
+        "TestClassify_CodesMapToBackOffParkOrProceed",
+        "TestUpload_MidTransferBackOffRestartsTheWholeTransaction"
+      ]
+    },
+    {
+      "annexName": "EBICS_TX_MESSAGE_REPLAY",
+      "constant": "CodeTxReplay",
+      "code": "091103",
+      "disposition": "park",
+      "tests": [
+        "TestReturnCodes_ConstantsMatchTheEBICS25Annex",
+        "TestClassify_CodesMapToBackOffParkOrProceed"
+      ]
+    },
+    {
+      "annexName": "EBICS_SIGNATURE_VERIFICATION_FAILED",
+      "constant": "CodeSignatureFailed",
+      "code": "091301",
+      "disposition": "park",
+      "tests": [
+        "TestReturnCodes_ConstantsMatchTheEBICS25Annex",
+        "TestClassify_CodesMapToBackOffParkOrProceed",
+        "TestPark_RefusalNeedingAPersonParksUntilUnparked",
+        "TestPoller_SkipsNewAndParkedSubscribersAndNeverContactsTheBank",
+        "TestAccountSender_ParkedSubscriberFailsAndIsAudited"
+      ]
+    }
+  ]
+}

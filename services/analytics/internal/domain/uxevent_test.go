@@ -165,3 +165,16 @@ func TestValidateUXPeriod(t *testing.T) {
 		}
 	}
 }
+
+func TestValidateRoutePrefix(t *testing.T) {
+	for _, ok := range []string{"", "/purchasing", "/ap-invoices", "/eam"} {
+		if err := ValidateRoutePrefix(ok); err != nil {
+			t.Errorf("%q refused: %v", ok, err)
+		}
+	}
+	for _, bad := range []string{"purchasing", "/", "/purchasing/", "/purchasing/requisitions", "/Purchasing", "/a%", "/a_b"} {
+		if err := ValidateRoutePrefix(bad); err == nil || err.Fields["routePrefix"] == "" {
+			t.Errorf("%q accepted", bad)
+		}
+	}
+}

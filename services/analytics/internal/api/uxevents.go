@@ -86,7 +86,12 @@ func (a *API) getUXSignals(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, verr)
 		return
 	}
-	out, err := a.store.GetUXSignals(r.Context(), q.Get("release"), from, to)
+	prefix := q.Get("routePrefix")
+	if verr := domain.ValidateRoutePrefix(prefix); verr != nil {
+		fail(w, r, verr)
+		return
+	}
+	out, err := a.store.GetUXSignals(r.Context(), q.Get("release"), prefix, from, to)
 	if err != nil {
 		fail(w, r, err)
 		return

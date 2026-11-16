@@ -3,7 +3,9 @@ package ebics
 import (
 	"crypto/rsa"
 	"encoding/hex"
+	"encoding/json"
 	"math/big"
+	"os"
 	"strings"
 	"testing"
 )
@@ -140,25 +142,52 @@ func TestSegments_SplitOnSizeAndKeepOneForEmpty(t *testing.T) {
 	}
 }
 
+// TestReturnCodes_ConstantsMatchTheEBICS25Annex reads testdata/returncodes.json, the table the EBICS return-code review in
+// #512 is made from (tools/signoff-packets): every code there is a constant here with the annex value, and Classify gives the
+// disposition the table states. The table lists every return-code constant once.
 func TestReturnCodes_ConstantsMatchTheEBICS25Annex(t *testing.T) {
-	for name, c := range map[string][2]string{
-		"EBICS_OK":                            {CodeOK, "000000"},
-		"EBICS_DOWNLOAD_POSTPROCESS_DONE":     {CodeDownloadDone, "011000"},
-		"EBICS_DOWNLOAD_POSTPROCESS_SKIPPED":  {CodeDownloadSkipped, "011001"},
-		"EBICS_NO_DOWNLOAD_DATA_AVAILABLE":    {CodeNoDownloadData, "090005"},
-		"EBICS_INTERNAL_ERROR":                {CodeInternalError, "061099"},
-		"EBICS_TX_RECOVERY_SYNC":              {CodeTxRecoverySync, "061101"},
-		"EBICS_AUTHENTICATION_FAILED":         {CodeAuthFailed, "061001"},
-		"EBICS_USER_UNKNOWN":                  {CodeUserUnknown, "091003"},
-		"EBICS_BANK_PUBKEY_UPDATE_REQUIRED":   {CodeBankKeyUpdate, "091008"},
-		"EBICS_TX_UNKNOWN_TXID":               {CodeTxUnknown, "091101"},
-		"EBICS_TX_ABORT":                      {CodeTxAbort, "091102"},
-		"EBICS_TX_MESSAGE_REPLAY":             {CodeTxReplay, "091103"},
-		"EBICS_SIGNATURE_VERIFICATION_FAILED": {CodeSignatureFailed, "091301"},
-	} {
-		if c[0] != c[1] {
-			t.Errorf("%s is %s in code, %s in the annex", name, c[0], c[1])
+	constants := map[string]string{
+		"CodeOK": CodeOK, "CodeDownloadDone": CodeDownloadDone, "CodeDownloadSkipped": CodeDownloadSkipped, "CodeNoDownloadData": CodeNoDownloadData,
+		"CodeInternalError": CodeInternalError, "CodeTxRecoverySync": CodeTxRecoverySync, "CodeAuthFailed": CodeAuthFailed, "CodeUserUnknown": CodeUserUnknown,
+		"CodeBankKeyUpdate": CodeBankKeyUpdate, "CodeTxUnknown": CodeTxUnknown, "CodeTxAbort": CodeTxAbort, "CodeTxReplay": CodeTxReplay,
+		"CodeSignatureFailed": CodeSignatureFailed,
+	}
+	raw, err := os.ReadFile("testdata/returncodes.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var table struct {
+		Codes []struct {
+			AnnexName   string `json:"annexName"`
+			Constant    string `json:"constant"`
+			Code        string `json:"code"`
+			Disposition string `json:"disposition"`
+		} `json:"codes"`
+		UnlistedDisposition string `json:"unlistedDisposition"`
+	}
+	if err := json.Unmarshal(raw, &table); err != nil {
+		t.Fatal(err)
+	}
+	if len(table.Codes) != len(constants) {
+		t.Fatalf("table lists %d codes, the package has %d constants", len(table.Codes), len(constants))
+	}
+	seen := map[string]bool{}
+	for _, c := range table.Codes {
+		v, ok := constants[c.Constant]
+		if !ok || seen[c.Constant] {
+			t.Errorf("%s: constant %s is unknown or listed twice", c.AnnexName, c.Constant)
+			continue
 		}
+		seen[c.Constant] = true
+		if v != c.Code {
+			t.Errorf("%s is %s in code, %s in the annex", c.AnnexName, v, c.Code)
+		}
+		if got := Classify(c.Code).String(); got != c.Disposition {
+			t.Errorf("%s (%s): Classify gives %s, the table says %s", c.AnnexName, c.Code, got, c.Disposition)
+		}
+	}
+	if got := Classify("999999").String(); got != table.UnlistedDisposition {
+		t.Errorf("an unlisted code is %s, the table says %s", got, table.UnlistedDisposition)
 	}
 }
 

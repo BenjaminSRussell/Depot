@@ -1,0 +1,1237 @@
+period,statement,statement_name,row,row_label,column,column_label,value
+1,TB-STD,Trial balance,ASSETS,Assets,OPEN,Opening,5000000.00
+1,TB-STD,Trial balance,ASSETS,Assets,CLOSE,Closing,5038274.48
+1,TB-STD,Trial balance,ASSETS,Assets,MOVE,Movement,38274.48
+1,TB-STD,Trial balance,ASSETS,Assets,CLOSE_DR,Closing debit,5059107.81
+1,TB-STD,Trial balance,ASSETS,Assets,CLOSE_CR,Closing credit,20833.33
+1,TB-STD,Trial balance,ASSETS,Assets,DIFF,Debit less credit,5038274.48
+1,TB-STD,Trial balance,LIAB,Liabilities,OPEN,Opening,0.00
+1,TB-STD,Trial balance,LIAB,Liabilities,CLOSE,Closing,-10222.34
+1,TB-STD,Trial balance,LIAB,Liabilities,MOVE,Movement,-10222.34
+1,TB-STD,Trial balance,LIAB,Liabilities,CLOSE_DR,Closing debit,0.00
+1,TB-STD,Trial balance,LIAB,Liabilities,CLOSE_CR,Closing credit,10222.34
+1,TB-STD,Trial balance,LIAB,Liabilities,DIFF,Debit less credit,-10222.34
+1,TB-STD,Trial balance,EQUITY,Equity,OPEN,Opening,-5000000.00
+1,TB-STD,Trial balance,EQUITY,Equity,CLOSE,Closing,-5000000.00
+1,TB-STD,Trial balance,EQUITY,Equity,MOVE,Movement,0.00
+1,TB-STD,Trial balance,EQUITY,Equity,CLOSE_DR,Closing debit,0.00
+1,TB-STD,Trial balance,EQUITY,Equity,CLOSE_CR,Closing credit,5000000.00
+1,TB-STD,Trial balance,EQUITY,Equity,DIFF,Debit less credit,-5000000.00
+1,TB-STD,Trial balance,REVENUE,Revenue,OPEN,Opening,0.00
+1,TB-STD,Trial balance,REVENUE,Revenue,CLOSE,Closing,-101111.48
+1,TB-STD,Trial balance,REVENUE,Revenue,MOVE,Movement,-101111.48
+1,TB-STD,Trial balance,REVENUE,Revenue,CLOSE_DR,Closing debit,0.00
+1,TB-STD,Trial balance,REVENUE,Revenue,CLOSE_CR,Closing credit,101111.48
+1,TB-STD,Trial balance,REVENUE,Revenue,DIFF,Debit less credit,-101111.48
+1,TB-STD,Trial balance,EXPENSE,Expenses,OPEN,Opening,0.00
+1,TB-STD,Trial balance,EXPENSE,Expenses,CLOSE,Closing,73059.34
+1,TB-STD,Trial balance,EXPENSE,Expenses,MOVE,Movement,73059.34
+1,TB-STD,Trial balance,EXPENSE,Expenses,CLOSE_DR,Closing debit,73059.34
+1,TB-STD,Trial balance,EXPENSE,Expenses,CLOSE_CR,Closing credit,0.00
+1,TB-STD,Trial balance,EXPENSE,Expenses,DIFF,Debit less credit,73059.34
+1,TB-STD,Trial balance,TOTAL,Total (must be 0.00),OPEN,Opening,0.00
+1,TB-STD,Trial balance,TOTAL,Total (must be 0.00),CLOSE,Closing,0.00
+1,TB-STD,Trial balance,TOTAL,Total (must be 0.00),MOVE,Movement,0.00
+1,TB-STD,Trial balance,TOTAL,Total (must be 0.00),CLOSE_DR,Closing debit,5132167.15
+1,TB-STD,Trial balance,TOTAL,Total (must be 0.00),CLOSE_CR,Closing credit,5132167.15
+1,TB-STD,Trial balance,TOTAL,Total (must be 0.00),DIFF,Debit less credit,0.00
+1,BS-STD,Balance sheet,ASSETS,Total assets,CUR,Current,5038274.48
+1,BS-STD,Balance sheet,ASSETS,Total assets,PY,Prior year,
+1,BS-STD,Balance sheet,ASSETS,Total assets,VAR,Variance,
+1,BS-STD,Balance sheet,LIAB,Liabilities,CUR,Current,10222.34
+1,BS-STD,Balance sheet,LIAB,Liabilities,PY,Prior year,
+1,BS-STD,Balance sheet,LIAB,Liabilities,VAR,Variance,
+1,BS-STD,Balance sheet,EQUITY,Equity,CUR,Current,5000000.00
+1,BS-STD,Balance sheet,EQUITY,Equity,PY,Prior year,
+1,BS-STD,Balance sheet,EQUITY,Equity,VAR,Variance,
+1,BS-STD,Balance sheet,RESULT,Current period result,CUR,Current,28052.14
+1,BS-STD,Balance sheet,RESULT,Current period result,PY,Prior year,
+1,BS-STD,Balance sheet,RESULT,Current period result,VAR,Variance,
+1,BS-STD,Balance sheet,LE,Liabilities and equity,CUR,Current,5038274.48
+1,BS-STD,Balance sheet,LE,Liabilities and equity,PY,Prior year,
+1,BS-STD,Balance sheet,LE,Liabilities and equity,VAR,Variance,
+1,BS-STD,Balance sheet,CHK,Check: assets less liabilities and equity (must be 0.00),CUR,Current,0.00
+1,BS-STD,Balance sheet,CHK,Check: assets less liabilities and equity (must be 0.00),PY,Prior year,
+1,BS-STD,Balance sheet,CHK,Check: assets less liabilities and equity (must be 0.00),VAR,Variance,
+1,PL-STD,Income statement,REV,Revenue,P,Period,101111.48
+1,PL-STD,Income statement,REV,Revenue,YTD,Year to date,101111.48
+1,PL-STD,Income statement,REV,Revenue,PY,Prior year,
+1,PL-STD,Income statement,EXP,Expenses,P,Period,73059.34
+1,PL-STD,Income statement,EXP,Expenses,YTD,Year to date,73059.34
+1,PL-STD,Income statement,EXP,Expenses,PY,Prior year,
+1,PL-STD,Income statement,RES,Net result,P,Period,28052.14
+1,PL-STD,Income statement,RES,Net result,YTD,Year to date,28052.14
+1,PL-STD,Income statement,RES,Net result,PY,Prior year,
+1,CF-STD,Cash flow statement (indirect),REV,Revenue,P,Period,101111.48
+1,CF-STD,Cash flow statement (indirect),REV,Revenue,YTD,Year to date,101111.48
+1,CF-STD,Cash flow statement (indirect),EXP,Expenses,P,Period,73059.34
+1,CF-STD,Cash flow statement (indirect),EXP,Expenses,YTD,Year to date,73059.34
+1,CF-STD,Cash flow statement (indirect),NI,Net income,P,Period,28052.14
+1,CF-STD,Cash flow statement (indirect),NI,Net income,YTD,Year to date,28052.14
+1,CF-STD,Cash flow statement (indirect),ADJ_DEP,Accumulated depreciation and amortisation,P,Period,20833.33
+1,CF-STD,Cash flow statement (indirect),ADJ_DEP,Accumulated depreciation and amortisation,YTD,Year to date,20833.33
+1,CF-STD,Cash flow statement (indirect),ADJ_PROV,Provisions,P,Period,0.00
+1,CF-STD,Cash flow statement (indirect),ADJ_PROV,Provisions,YTD,Year to date,0.00
+1,CF-STD,Cash flow statement (indirect),CF_ADJ,Adjustments for non-cash items,P,Period,20833.33
+1,CF-STD,Cash flow statement (indirect),CF_ADJ,Adjustments for non-cash items,YTD,Year to date,20833.33
+1,CF-STD,Cash flow statement (indirect),WC_REC,Receivables and inventories,P,Period,-20611.28
+1,CF-STD,Cash flow statement (indirect),WC_REC,Receivables and inventories,YTD,Year to date,-20611.28
+1,CF-STD,Cash flow statement (indirect),WC_PAY,Trade payables,P,Period,10222.34
+1,CF-STD,Cash flow statement (indirect),WC_PAY,Trade payables,YTD,Year to date,10222.34
+1,CF-STD,Cash flow statement (indirect),WC_ACC,Accruals and other liabilities,P,Period,0.00
+1,CF-STD,Cash flow statement (indirect),WC_ACC,Accruals and other liabilities,YTD,Year to date,0.00
+1,CF-STD,Cash flow statement (indirect),CF_WC,Working capital changes,P,Period,-10388.94
+1,CF-STD,Cash flow statement (indirect),CF_WC,Working capital changes,YTD,Year to date,-10388.94
+1,CF-STD,Cash flow statement (indirect),CF_OP,Cash flow from operating activities,P,Period,38496.53
+1,CF-STD,Cash flow statement (indirect),CF_OP,Cash flow from operating activities,YTD,Year to date,38496.53
+1,CF-STD,Cash flow statement (indirect),INV_PPE,"Property, plant and equipment",P,Period,0.00
+1,CF-STD,Cash flow statement (indirect),INV_PPE,"Property, plant and equipment",YTD,Year to date,0.00
+1,CF-STD,Cash flow statement (indirect),INV_OTH,Other non-current assets,P,Period,0.00
+1,CF-STD,Cash flow statement (indirect),INV_OTH,Other non-current assets,YTD,Year to date,0.00
+1,CF-STD,Cash flow statement (indirect),CF_INV,Cash flow from investing activities,P,Period,0.00
+1,CF-STD,Cash flow statement (indirect),CF_INV,Cash flow from investing activities,YTD,Year to date,0.00
+1,CF-STD,Cash flow statement (indirect),FIN_DEBT,Borrowings,P,Period,0.00
+1,CF-STD,Cash flow statement (indirect),FIN_DEBT,Borrowings,YTD,Year to date,0.00
+1,CF-STD,Cash flow statement (indirect),FIN_EQ,Equity,P,Period,0.00
+1,CF-STD,Cash flow statement (indirect),FIN_EQ,Equity,YTD,Year to date,0.00
+1,CF-STD,Cash flow statement (indirect),CF_FIN,Cash flow from financing activities,P,Period,0.00
+1,CF-STD,Cash flow statement (indirect),CF_FIN,Cash flow from financing activities,YTD,Year to date,0.00
+1,CF-STD,Cash flow statement (indirect),CF_NET,Net change in cash,P,Period,38496.53
+1,CF-STD,Cash flow statement (indirect),CF_NET,Net change in cash,YTD,Year to date,38496.53
+1,CF-STD,Cash flow statement (indirect),CASH,Change in cash and cash equivalents,P,Period,38496.53
+1,CF-STD,Cash flow statement (indirect),CASH,Change in cash and cash equivalents,YTD,Year to date,38496.53
+1,CF-STD,Cash flow statement (indirect),CF_CHK,Check: net change in cash less change in cash (must be 0.00),P,Period,0.00
+1,CF-STD,Cash flow statement (indirect),CF_CHK,Check: net change in cash less change in cash (must be 0.00),YTD,Year to date,0.00
+2,TB-STD,Trial balance,ASSETS,Assets,OPEN,Opening,5038274.48
+2,TB-STD,Trial balance,ASSETS,Assets,CLOSE,Closing,5077656.74
+2,TB-STD,Trial balance,ASSETS,Assets,MOVE,Movement,39382.26
+2,TB-STD,Trial balance,ASSETS,Assets,CLOSE_DR,Closing debit,5119323.40
+2,TB-STD,Trial balance,ASSETS,Assets,CLOSE_CR,Closing credit,41666.66
+2,TB-STD,Trial balance,ASSETS,Assets,DIFF,Debit less credit,5077656.74
+2,TB-STD,Trial balance,LIAB,Liabilities,OPEN,Opening,-10222.34
+2,TB-STD,Trial balance,LIAB,Liabilities,CLOSE,Closing,-20666.90
+2,TB-STD,Trial balance,LIAB,Liabilities,MOVE,Movement,-10444.56
+2,TB-STD,Trial balance,LIAB,Liabilities,CLOSE_DR,Closing debit,0.00
+2,TB-STD,Trial balance,LIAB,Liabilities,CLOSE_CR,Closing credit,20666.90
+2,TB-STD,Trial balance,LIAB,Liabilities,DIFF,Debit less credit,-20666.90
+2,TB-STD,Trial balance,EQUITY,Equity,OPEN,Opening,-5000000.00
+2,TB-STD,Trial balance,EQUITY,Equity,CLOSE,Closing,-5000000.00
+2,TB-STD,Trial balance,EQUITY,Equity,MOVE,Movement,0.00
+2,TB-STD,Trial balance,EQUITY,Equity,CLOSE_DR,Closing debit,0.00
+2,TB-STD,Trial balance,EQUITY,Equity,CLOSE_CR,Closing credit,5000000.00
+2,TB-STD,Trial balance,EQUITY,Equity,DIFF,Debit less credit,-5000000.00
+2,TB-STD,Trial balance,REVENUE,Revenue,OPEN,Opening,-101111.48
+2,TB-STD,Trial balance,REVENUE,Revenue,CLOSE,Closing,-203334.07
+2,TB-STD,Trial balance,REVENUE,Revenue,MOVE,Movement,-102222.59
+2,TB-STD,Trial balance,REVENUE,Revenue,CLOSE_DR,Closing debit,0.00
+2,TB-STD,Trial balance,REVENUE,Revenue,CLOSE_CR,Closing credit,203334.07
+2,TB-STD,Trial balance,REVENUE,Revenue,DIFF,Debit less credit,-203334.07
+2,TB-STD,Trial balance,EXPENSE,Expenses,OPEN,Opening,73059.34
+2,TB-STD,Trial balance,EXPENSE,Expenses,CLOSE,Closing,146344.23
+2,TB-STD,Trial balance,EXPENSE,Expenses,MOVE,Movement,73284.89
+2,TB-STD,Trial balance,EXPENSE,Expenses,CLOSE_DR,Closing debit,146344.23
+2,TB-STD,Trial balance,EXPENSE,Expenses,CLOSE_CR,Closing credit,0.00
+2,TB-STD,Trial balance,EXPENSE,Expenses,DIFF,Debit less credit,146344.23
+2,TB-STD,Trial balance,TOTAL,Total (must be 0.00),OPEN,Opening,0.00
+2,TB-STD,Trial balance,TOTAL,Total (must be 0.00),CLOSE,Closing,0.00
+2,TB-STD,Trial balance,TOTAL,Total (must be 0.00),MOVE,Movement,0.00
+2,TB-STD,Trial balance,TOTAL,Total (must be 0.00),CLOSE_DR,Closing debit,5265667.63
+2,TB-STD,Trial balance,TOTAL,Total (must be 0.00),CLOSE_CR,Closing credit,5265667.63
+2,TB-STD,Trial balance,TOTAL,Total (must be 0.00),DIFF,Debit less credit,0.00
+2,BS-STD,Balance sheet,ASSETS,Total assets,CUR,Current,5077656.74
+2,BS-STD,Balance sheet,ASSETS,Total assets,PY,Prior year,
+2,BS-STD,Balance sheet,ASSETS,Total assets,VAR,Variance,
+2,BS-STD,Balance sheet,LIAB,Liabilities,CUR,Current,20666.90
+2,BS-STD,Balance sheet,LIAB,Liabilities,PY,Prior year,
+2,BS-STD,Balance sheet,LIAB,Liabilities,VAR,Variance,
+2,BS-STD,Balance sheet,EQUITY,Equity,CUR,Current,5000000.00
+2,BS-STD,Balance sheet,EQUITY,Equity,PY,Prior year,
+2,BS-STD,Balance sheet,EQUITY,Equity,VAR,Variance,
+2,BS-STD,Balance sheet,RESULT,Current period result,CUR,Current,56989.84
+2,BS-STD,Balance sheet,RESULT,Current period result,PY,Prior year,
+2,BS-STD,Balance sheet,RESULT,Current period result,VAR,Variance,
+2,BS-STD,Balance sheet,LE,Liabilities and equity,CUR,Current,5077656.74
+2,BS-STD,Balance sheet,LE,Liabilities and equity,PY,Prior year,
+2,BS-STD,Balance sheet,LE,Liabilities and equity,VAR,Variance,
+2,BS-STD,Balance sheet,CHK,Check: assets less liabilities and equity (must be 0.00),CUR,Current,0.00
+2,BS-STD,Balance sheet,CHK,Check: assets less liabilities and equity (must be 0.00),PY,Prior year,
+2,BS-STD,Balance sheet,CHK,Check: assets less liabilities and equity (must be 0.00),VAR,Variance,
+2,PL-STD,Income statement,REV,Revenue,P,Period,102222.59
+2,PL-STD,Income statement,REV,Revenue,YTD,Year to date,203334.07
+2,PL-STD,Income statement,REV,Revenue,PY,Prior year,
+2,PL-STD,Income statement,EXP,Expenses,P,Period,73284.89
+2,PL-STD,Income statement,EXP,Expenses,YTD,Year to date,146344.23
+2,PL-STD,Income statement,EXP,Expenses,PY,Prior year,
+2,PL-STD,Income statement,RES,Net result,P,Period,28937.70
+2,PL-STD,Income statement,RES,Net result,YTD,Year to date,56989.84
+2,PL-STD,Income statement,RES,Net result,PY,Prior year,
+2,CF-STD,Cash flow statement (indirect),REV,Revenue,P,Period,102222.59
+2,CF-STD,Cash flow statement (indirect),REV,Revenue,YTD,Year to date,203334.07
+2,CF-STD,Cash flow statement (indirect),EXP,Expenses,P,Period,73284.89
+2,CF-STD,Cash flow statement (indirect),EXP,Expenses,YTD,Year to date,146344.23
+2,CF-STD,Cash flow statement (indirect),NI,Net income,P,Period,28937.70
+2,CF-STD,Cash flow statement (indirect),NI,Net income,YTD,Year to date,56989.84
+2,CF-STD,Cash flow statement (indirect),ADJ_DEP,Accumulated depreciation and amortisation,P,Period,20833.33
+2,CF-STD,Cash flow statement (indirect),ADJ_DEP,Accumulated depreciation and amortisation,YTD,Year to date,41666.66
+2,CF-STD,Cash flow statement (indirect),ADJ_PROV,Provisions,P,Period,0.00
+2,CF-STD,Cash flow statement (indirect),ADJ_PROV,Provisions,YTD,Year to date,0.00
+2,CF-STD,Cash flow statement (indirect),CF_ADJ,Adjustments for non-cash items,P,Period,20833.33
+2,CF-STD,Cash flow statement (indirect),CF_ADJ,Adjustments for non-cash items,YTD,Year to date,41666.66
+2,CF-STD,Cash flow statement (indirect),WC_REC,Receivables and inventories,P,Period,-21222.32
+2,CF-STD,Cash flow statement (indirect),WC_REC,Receivables and inventories,YTD,Year to date,-41833.60
+2,CF-STD,Cash flow statement (indirect),WC_PAY,Trade payables,P,Period,10444.56
+2,CF-STD,Cash flow statement (indirect),WC_PAY,Trade payables,YTD,Year to date,20666.90
+2,CF-STD,Cash flow statement (indirect),WC_ACC,Accruals and other liabilities,P,Period,0.00
+2,CF-STD,Cash flow statement (indirect),WC_ACC,Accruals and other liabilities,YTD,Year to date,0.00
+2,CF-STD,Cash flow statement (indirect),CF_WC,Working capital changes,P,Period,-10777.76
+2,CF-STD,Cash flow statement (indirect),CF_WC,Working capital changes,YTD,Year to date,-21166.70
+2,CF-STD,Cash flow statement (indirect),CF_OP,Cash flow from operating activities,P,Period,38993.27
+2,CF-STD,Cash flow statement (indirect),CF_OP,Cash flow from operating activities,YTD,Year to date,77489.80
+2,CF-STD,Cash flow statement (indirect),INV_PPE,"Property, plant and equipment",P,Period,0.00
+2,CF-STD,Cash flow statement (indirect),INV_PPE,"Property, plant and equipment",YTD,Year to date,0.00
+2,CF-STD,Cash flow statement (indirect),INV_OTH,Other non-current assets,P,Period,0.00
+2,CF-STD,Cash flow statement (indirect),INV_OTH,Other non-current assets,YTD,Year to date,0.00
+2,CF-STD,Cash flow statement (indirect),CF_INV,Cash flow from investing activities,P,Period,0.00
+2,CF-STD,Cash flow statement (indirect),CF_INV,Cash flow from investing activities,YTD,Year to date,0.00
+2,CF-STD,Cash flow statement (indirect),FIN_DEBT,Borrowings,P,Period,0.00
+2,CF-STD,Cash flow statement (indirect),FIN_DEBT,Borrowings,YTD,Year to date,0.00
+2,CF-STD,Cash flow statement (indirect),FIN_EQ,Equity,P,Period,0.00
+2,CF-STD,Cash flow statement (indirect),FIN_EQ,Equity,YTD,Year to date,0.00
+2,CF-STD,Cash flow statement (indirect),CF_FIN,Cash flow from financing activities,P,Period,0.00
+2,CF-STD,Cash flow statement (indirect),CF_FIN,Cash flow from financing activities,YTD,Year to date,0.00
+2,CF-STD,Cash flow statement (indirect),CF_NET,Net change in cash,P,Period,38993.27
+2,CF-STD,Cash flow statement (indirect),CF_NET,Net change in cash,YTD,Year to date,77489.80
+2,CF-STD,Cash flow statement (indirect),CASH,Change in cash and cash equivalents,P,Period,38993.27
+2,CF-STD,Cash flow statement (indirect),CASH,Change in cash and cash equivalents,YTD,Year to date,77489.80
+2,CF-STD,Cash flow statement (indirect),CF_CHK,Check: net change in cash less change in cash (must be 0.00),P,Period,0.00
+2,CF-STD,Cash flow statement (indirect),CF_CHK,Check: net change in cash less change in cash (must be 0.00),YTD,Year to date,0.00
+3,TB-STD,Trial balance,ASSETS,Assets,OPEN,Opening,5077656.74
+3,TB-STD,Trial balance,ASSETS,Assets,CLOSE,Closing,5118146.78
+3,TB-STD,Trial balance,ASSETS,Assets,MOVE,Movement,40490.04
+3,TB-STD,Trial balance,ASSETS,Assets,CLOSE_DR,Closing debit,5180646.77
+3,TB-STD,Trial balance,ASSETS,Assets,CLOSE_CR,Closing credit,62499.99
+3,TB-STD,Trial balance,ASSETS,Assets,DIFF,Debit less credit,5118146.78
+3,TB-STD,Trial balance,LIAB,Liabilities,OPEN,Opening,-20666.90
+3,TB-STD,Trial balance,LIAB,Liabilities,CLOSE,Closing,-31333.68
+3,TB-STD,Trial balance,LIAB,Liabilities,MOVE,Movement,-10666.78
+3,TB-STD,Trial balance,LIAB,Liabilities,CLOSE_DR,Closing debit,0.00
+3,TB-STD,Trial balance,LIAB,Liabilities,CLOSE_CR,Closing credit,31333.68
+3,TB-STD,Trial balance,LIAB,Liabilities,DIFF,Debit less credit,-31333.68
+3,TB-STD,Trial balance,EQUITY,Equity,OPEN,Opening,-5000000.00
+3,TB-STD,Trial balance,EQUITY,Equity,CLOSE,Closing,-5000000.00
+3,TB-STD,Trial balance,EQUITY,Equity,MOVE,Movement,0.00
+3,TB-STD,Trial balance,EQUITY,Equity,CLOSE_DR,Closing debit,0.00
+3,TB-STD,Trial balance,EQUITY,Equity,CLOSE_CR,Closing credit,5000000.00
+3,TB-STD,Trial balance,EQUITY,Equity,DIFF,Debit less credit,-5000000.00
+3,TB-STD,Trial balance,REVENUE,Revenue,OPEN,Opening,-203334.07
+3,TB-STD,Trial balance,REVENUE,Revenue,CLOSE,Closing,-306667.77
+3,TB-STD,Trial balance,REVENUE,Revenue,MOVE,Movement,-103333.70
+3,TB-STD,Trial balance,REVENUE,Revenue,CLOSE_DR,Closing debit,0.00
+3,TB-STD,Trial balance,REVENUE,Revenue,CLOSE_CR,Closing credit,306667.77
+3,TB-STD,Trial balance,REVENUE,Revenue,DIFF,Debit less credit,-306667.77
+3,TB-STD,Trial balance,EXPENSE,Expenses,OPEN,Opening,146344.23
+3,TB-STD,Trial balance,EXPENSE,Expenses,CLOSE,Closing,219854.67
+3,TB-STD,Trial balance,EXPENSE,Expenses,MOVE,Movement,73510.44
+3,TB-STD,Trial balance,EXPENSE,Expenses,CLOSE_DR,Closing debit,219854.67
+3,TB-STD,Trial balance,EXPENSE,Expenses,CLOSE_CR,Closing credit,0.00
+3,TB-STD,Trial balance,EXPENSE,Expenses,DIFF,Debit less credit,219854.67
+3,TB-STD,Trial balance,TOTAL,Total (must be 0.00),OPEN,Opening,0.00
+3,TB-STD,Trial balance,TOTAL,Total (must be 0.00),CLOSE,Closing,0.00
+3,TB-STD,Trial balance,TOTAL,Total (must be 0.00),MOVE,Movement,0.00
+3,TB-STD,Trial balance,TOTAL,Total (must be 0.00),CLOSE_DR,Closing debit,5400501.44
+3,TB-STD,Trial balance,TOTAL,Total (must be 0.00),CLOSE_CR,Closing credit,5400501.44
+3,TB-STD,Trial balance,TOTAL,Total (must be 0.00),DIFF,Debit less credit,0.00
+3,BS-STD,Balance sheet,ASSETS,Total assets,CUR,Current,5118146.78
+3,BS-STD,Balance sheet,ASSETS,Total assets,PY,Prior year,
+3,BS-STD,Balance sheet,ASSETS,Total assets,VAR,Variance,
+3,BS-STD,Balance sheet,LIAB,Liabilities,CUR,Current,31333.68
+3,BS-STD,Balance sheet,LIAB,Liabilities,PY,Prior year,
+3,BS-STD,Balance sheet,LIAB,Liabilities,VAR,Variance,
+3,BS-STD,Balance sheet,EQUITY,Equity,CUR,Current,5000000.00
+3,BS-STD,Balance sheet,EQUITY,Equity,PY,Prior year,
+3,BS-STD,Balance sheet,EQUITY,Equity,VAR,Variance,
+3,BS-STD,Balance sheet,RESULT,Current period result,CUR,Current,86813.10
+3,BS-STD,Balance sheet,RESULT,Current period result,PY,Prior year,
+3,BS-STD,Balance sheet,RESULT,Current period result,VAR,Variance,
+3,BS-STD,Balance sheet,LE,Liabilities and equity,CUR,Current,5118146.78
+3,BS-STD,Balance sheet,LE,Liabilities and equity,PY,Prior year,
+3,BS-STD,Balance sheet,LE,Liabilities and equity,VAR,Variance,
+3,BS-STD,Balance sheet,CHK,Check: assets less liabilities and equity (must be 0.00),CUR,Current,0.00
+3,BS-STD,Balance sheet,CHK,Check: assets less liabilities and equity (must be 0.00),PY,Prior year,
+3,BS-STD,Balance sheet,CHK,Check: assets less liabilities and equity (must be 0.00),VAR,Variance,
+3,PL-STD,Income statement,REV,Revenue,P,Period,103333.70
+3,PL-STD,Income statement,REV,Revenue,YTD,Year to date,306667.77
+3,PL-STD,Income statement,REV,Revenue,PY,Prior year,
+3,PL-STD,Income statement,EXP,Expenses,P,Period,73510.44
+3,PL-STD,Income statement,EXP,Expenses,YTD,Year to date,219854.67
+3,PL-STD,Income statement,EXP,Expenses,PY,Prior year,
+3,PL-STD,Income statement,RES,Net result,P,Period,29823.26
+3,PL-STD,Income statement,RES,Net result,YTD,Year to date,86813.10
+3,PL-STD,Income statement,RES,Net result,PY,Prior year,
+3,CF-STD,Cash flow statement (indirect),REV,Revenue,P,Period,103333.70
+3,CF-STD,Cash flow statement (indirect),REV,Revenue,YTD,Year to date,306667.77
+3,CF-STD,Cash flow statement (indirect),EXP,Expenses,P,Period,73510.44
+3,CF-STD,Cash flow statement (indirect),EXP,Expenses,YTD,Year to date,219854.67
+3,CF-STD,Cash flow statement (indirect),NI,Net income,P,Period,29823.26
+3,CF-STD,Cash flow statement (indirect),NI,Net income,YTD,Year to date,86813.10
+3,CF-STD,Cash flow statement (indirect),ADJ_DEP,Accumulated depreciation and amortisation,P,Period,20833.33
+3,CF-STD,Cash flow statement (indirect),ADJ_DEP,Accumulated depreciation and amortisation,YTD,Year to date,62499.99
+3,CF-STD,Cash flow statement (indirect),ADJ_PROV,Provisions,P,Period,0.00
+3,CF-STD,Cash flow statement (indirect),ADJ_PROV,Provisions,YTD,Year to date,0.00
+3,CF-STD,Cash flow statement (indirect),CF_ADJ,Adjustments for non-cash items,P,Period,20833.33
+3,CF-STD,Cash flow statement (indirect),CF_ADJ,Adjustments for non-cash items,YTD,Year to date,62499.99
+3,CF-STD,Cash flow statement (indirect),WC_REC,Receivables and inventories,P,Period,-21833.36
+3,CF-STD,Cash flow statement (indirect),WC_REC,Receivables and inventories,YTD,Year to date,-63666.96
+3,CF-STD,Cash flow statement (indirect),WC_PAY,Trade payables,P,Period,10666.78
+3,CF-STD,Cash flow statement (indirect),WC_PAY,Trade payables,YTD,Year to date,31333.68
+3,CF-STD,Cash flow statement (indirect),WC_ACC,Accruals and other liabilities,P,Period,0.00
+3,CF-STD,Cash flow statement (indirect),WC_ACC,Accruals and other liabilities,YTD,Year to date,0.00
+3,CF-STD,Cash flow statement (indirect),CF_WC,Working capital changes,P,Period,-11166.58
+3,CF-STD,Cash flow statement (indirect),CF_WC,Working capital changes,YTD,Year to date,-32333.28
+3,CF-STD,Cash flow statement (indirect),CF_OP,Cash flow from operating activities,P,Period,39490.01
+3,CF-STD,Cash flow statement (indirect),CF_OP,Cash flow from operating activities,YTD,Year to date,116979.81
+3,CF-STD,Cash flow statement (indirect),INV_PPE,"Property, plant and equipment",P,Period,-250000.99
+3,CF-STD,Cash flow statement (indirect),INV_PPE,"Property, plant and equipment",YTD,Year to date,-250000.99
+3,CF-STD,Cash flow statement (indirect),INV_OTH,Other non-current assets,P,Period,0.00
+3,CF-STD,Cash flow statement (indirect),INV_OTH,Other non-current assets,YTD,Year to date,0.00
+3,CF-STD,Cash flow statement (indirect),CF_INV,Cash flow from investing activities,P,Period,-250000.99
+3,CF-STD,Cash flow statement (indirect),CF_INV,Cash flow from investing activities,YTD,Year to date,-250000.99
+3,CF-STD,Cash flow statement (indirect),FIN_DEBT,Borrowings,P,Period,0.00
+3,CF-STD,Cash flow statement (indirect),FIN_DEBT,Borrowings,YTD,Year to date,0.00
+3,CF-STD,Cash flow statement (indirect),FIN_EQ,Equity,P,Period,0.00
+3,CF-STD,Cash flow statement (indirect),FIN_EQ,Equity,YTD,Year to date,0.00
+3,CF-STD,Cash flow statement (indirect),CF_FIN,Cash flow from financing activities,P,Period,0.00
+3,CF-STD,Cash flow statement (indirect),CF_FIN,Cash flow from financing activities,YTD,Year to date,0.00
+3,CF-STD,Cash flow statement (indirect),CF_NET,Net change in cash,P,Period,-210510.98
+3,CF-STD,Cash flow statement (indirect),CF_NET,Net change in cash,YTD,Year to date,-133021.18
+3,CF-STD,Cash flow statement (indirect),CASH,Change in cash and cash equivalents,P,Period,-210510.98
+3,CF-STD,Cash flow statement (indirect),CASH,Change in cash and cash equivalents,YTD,Year to date,-133021.18
+3,CF-STD,Cash flow statement (indirect),CF_CHK,Check: net change in cash less change in cash (must be 0.00),P,Period,0.00
+3,CF-STD,Cash flow statement (indirect),CF_CHK,Check: net change in cash less change in cash (must be 0.00),YTD,Year to date,0.00
+4,TB-STD,Trial balance,ASSETS,Assets,OPEN,Opening,5118146.78
+4,TB-STD,Trial balance,ASSETS,Assets,CLOSE,Closing,5159744.60
+4,TB-STD,Trial balance,ASSETS,Assets,MOVE,Movement,41597.82
+4,TB-STD,Trial balance,ASSETS,Assets,CLOSE_DR,Closing debit,5243077.92
+4,TB-STD,Trial balance,ASSETS,Assets,CLOSE_CR,Closing credit,83333.32
+4,TB-STD,Trial balance,ASSETS,Assets,DIFF,Debit less credit,5159744.60
+4,TB-STD,Trial balance,LIAB,Liabilities,OPEN,Opening,-31333.68
+4,TB-STD,Trial balance,LIAB,Liabilities,CLOSE,Closing,-42222.68
+4,TB-STD,Trial balance,LIAB,Liabilities,MOVE,Movement,-10889.00
+4,TB-STD,Trial balance,LIAB,Liabilities,CLOSE_DR,Closing debit,0.00
+4,TB-STD,Trial balance,LIAB,Liabilities,CLOSE_CR,Closing credit,42222.68
+4,TB-STD,Trial balance,LIAB,Liabilities,DIFF,Debit less credit,-42222.68
+4,TB-STD,Trial balance,EQUITY,Equity,OPEN,Opening,-5000000.00
+4,TB-STD,Trial balance,EQUITY,Equity,CLOSE,Closing,-5000000.00
+4,TB-STD,Trial balance,EQUITY,Equity,MOVE,Movement,0.00
+4,TB-STD,Trial balance,EQUITY,Equity,CLOSE_DR,Closing debit,0.00
+4,TB-STD,Trial balance,EQUITY,Equity,CLOSE_CR,Closing credit,5000000.00
+4,TB-STD,Trial balance,EQUITY,Equity,DIFF,Debit less credit,-5000000.00
+4,TB-STD,Trial balance,REVENUE,Revenue,OPEN,Opening,-306667.77
+4,TB-STD,Trial balance,REVENUE,Revenue,CLOSE,Closing,-411112.58
+4,TB-STD,Trial balance,REVENUE,Revenue,MOVE,Movement,-104444.81
+4,TB-STD,Trial balance,REVENUE,Revenue,CLOSE_DR,Closing debit,0.00
+4,TB-STD,Trial balance,REVENUE,Revenue,CLOSE_CR,Closing credit,411112.58
+4,TB-STD,Trial balance,REVENUE,Revenue,DIFF,Debit less credit,-411112.58
+4,TB-STD,Trial balance,EXPENSE,Expenses,OPEN,Opening,219854.67
+4,TB-STD,Trial balance,EXPENSE,Expenses,CLOSE,Closing,293590.66
+4,TB-STD,Trial balance,EXPENSE,Expenses,MOVE,Movement,73735.99
+4,TB-STD,Trial balance,EXPENSE,Expenses,CLOSE_DR,Closing debit,293590.66
+4,TB-STD,Trial balance,EXPENSE,Expenses,CLOSE_CR,Closing credit,0.00
+4,TB-STD,Trial balance,EXPENSE,Expenses,DIFF,Debit less credit,293590.66
+4,TB-STD,Trial balance,TOTAL,Total (must be 0.00),OPEN,Opening,0.00
+4,TB-STD,Trial balance,TOTAL,Total (must be 0.00),CLOSE,Closing,0.00
+4,TB-STD,Trial balance,TOTAL,Total (must be 0.00),MOVE,Movement,0.00
+4,TB-STD,Trial balance,TOTAL,Total (must be 0.00),CLOSE_DR,Closing debit,5536668.58
+4,TB-STD,Trial balance,TOTAL,Total (must be 0.00),CLOSE_CR,Closing credit,5536668.58
+4,TB-STD,Trial balance,TOTAL,Total (must be 0.00),DIFF,Debit less credit,0.00
+4,BS-STD,Balance sheet,ASSETS,Total assets,CUR,Current,5159744.60
+4,BS-STD,Balance sheet,ASSETS,Total assets,PY,Prior year,
+4,BS-STD,Balance sheet,ASSETS,Total assets,VAR,Variance,
+4,BS-STD,Balance sheet,LIAB,Liabilities,CUR,Current,42222.68
+4,BS-STD,Balance sheet,LIAB,Liabilities,PY,Prior year,
+4,BS-STD,Balance sheet,LIAB,Liabilities,VAR,Variance,
+4,BS-STD,Balance sheet,EQUITY,Equity,CUR,Current,5000000.00
+4,BS-STD,Balance sheet,EQUITY,Equity,PY,Prior year,
+4,BS-STD,Balance sheet,EQUITY,Equity,VAR,Variance,
+4,BS-STD,Balance sheet,RESULT,Current period result,CUR,Current,117521.92
+4,BS-STD,Balance sheet,RESULT,Current period result,PY,Prior year,
+4,BS-STD,Balance sheet,RESULT,Current period result,VAR,Variance,
+4,BS-STD,Balance sheet,LE,Liabilities and equity,CUR,Current,5159744.60
+4,BS-STD,Balance sheet,LE,Liabilities and equity,PY,Prior year,
+4,BS-STD,Balance sheet,LE,Liabilities and equity,VAR,Variance,
+4,BS-STD,Balance sheet,CHK,Check: assets less liabilities and equity (must be 0.00),CUR,Current,0.00
+4,BS-STD,Balance sheet,CHK,Check: assets less liabilities and equity (must be 0.00),PY,Prior year,
+4,BS-STD,Balance sheet,CHK,Check: assets less liabilities and equity (must be 0.00),VAR,Variance,
+4,PL-STD,Income statement,REV,Revenue,P,Period,104444.81
+4,PL-STD,Income statement,REV,Revenue,YTD,Year to date,411112.58
+4,PL-STD,Income statement,REV,Revenue,PY,Prior year,
+4,PL-STD,Income statement,EXP,Expenses,P,Period,73735.99
+4,PL-STD,Income statement,EXP,Expenses,YTD,Year to date,293590.66
+4,PL-STD,Income statement,EXP,Expenses,PY,Prior year,
+4,PL-STD,Income statement,RES,Net result,P,Period,30708.82
+4,PL-STD,Income statement,RES,Net result,YTD,Year to date,117521.92
+4,PL-STD,Income statement,RES,Net result,PY,Prior year,
+4,CF-STD,Cash flow statement (indirect),REV,Revenue,P,Period,104444.81
+4,CF-STD,Cash flow statement (indirect),REV,Revenue,YTD,Year to date,411112.58
+4,CF-STD,Cash flow statement (indirect),EXP,Expenses,P,Period,73735.99
+4,CF-STD,Cash flow statement (indirect),EXP,Expenses,YTD,Year to date,293590.66
+4,CF-STD,Cash flow statement (indirect),NI,Net income,P,Period,30708.82
+4,CF-STD,Cash flow statement (indirect),NI,Net income,YTD,Year to date,117521.92
+4,CF-STD,Cash flow statement (indirect),ADJ_DEP,Accumulated depreciation and amortisation,P,Period,20833.33
+4,CF-STD,Cash flow statement (indirect),ADJ_DEP,Accumulated depreciation and amortisation,YTD,Year to date,83333.32
+4,CF-STD,Cash flow statement (indirect),ADJ_PROV,Provisions,P,Period,0.00
+4,CF-STD,Cash flow statement (indirect),ADJ_PROV,Provisions,YTD,Year to date,0.00
+4,CF-STD,Cash flow statement (indirect),CF_ADJ,Adjustments for non-cash items,P,Period,20833.33
+4,CF-STD,Cash flow statement (indirect),CF_ADJ,Adjustments for non-cash items,YTD,Year to date,83333.32
+4,CF-STD,Cash flow statement (indirect),WC_REC,Receivables and inventories,P,Period,-22444.40
+4,CF-STD,Cash flow statement (indirect),WC_REC,Receivables and inventories,YTD,Year to date,-86111.36
+4,CF-STD,Cash flow statement (indirect),WC_PAY,Trade payables,P,Period,10889.00
+4,CF-STD,Cash flow statement (indirect),WC_PAY,Trade payables,YTD,Year to date,42222.68
+4,CF-STD,Cash flow statement (indirect),WC_ACC,Accruals and other liabilities,P,Period,0.00
+4,CF-STD,Cash flow statement (indirect),WC_ACC,Accruals and other liabilities,YTD,Year to date,0.00
+4,CF-STD,Cash flow statement (indirect),CF_WC,Working capital changes,P,Period,-11555.40
+4,CF-STD,Cash flow statement (indirect),CF_WC,Working capital changes,YTD,Year to date,-43888.68
+4,CF-STD,Cash flow statement (indirect),CF_OP,Cash flow from operating activities,P,Period,39986.75
+4,CF-STD,Cash flow statement (indirect),CF_OP,Cash flow from operating activities,YTD,Year to date,156966.56
+4,CF-STD,Cash flow statement (indirect),INV_PPE,"Property, plant and equipment",P,Period,0.00
+4,CF-STD,Cash flow statement (indirect),INV_PPE,"Property, plant and equipment",YTD,Year to date,-250000.99
+4,CF-STD,Cash flow statement (indirect),INV_OTH,Other non-current assets,P,Period,0.00
+4,CF-STD,Cash flow statement (indirect),INV_OTH,Other non-current assets,YTD,Year to date,0.00
+4,CF-STD,Cash flow statement (indirect),CF_INV,Cash flow from investing activities,P,Period,0.00
+4,CF-STD,Cash flow statement (indirect),CF_INV,Cash flow from investing activities,YTD,Year to date,-250000.99
+4,CF-STD,Cash flow statement (indirect),FIN_DEBT,Borrowings,P,Period,0.00
+4,CF-STD,Cash flow statement (indirect),FIN_DEBT,Borrowings,YTD,Year to date,0.00
+4,CF-STD,Cash flow statement (indirect),FIN_EQ,Equity,P,Period,0.00
+4,CF-STD,Cash flow statement (indirect),FIN_EQ,Equity,YTD,Year to date,0.00
+4,CF-STD,Cash flow statement (indirect),CF_FIN,Cash flow from financing activities,P,Period,0.00
+4,CF-STD,Cash flow statement (indirect),CF_FIN,Cash flow from financing activities,YTD,Year to date,0.00
+4,CF-STD,Cash flow statement (indirect),CF_NET,Net change in cash,P,Period,39986.75
+4,CF-STD,Cash flow statement (indirect),CF_NET,Net change in cash,YTD,Year to date,-93034.43
+4,CF-STD,Cash flow statement (indirect),CASH,Change in cash and cash equivalents,P,Period,39986.75
+4,CF-STD,Cash flow statement (indirect),CASH,Change in cash and cash equivalents,YTD,Year to date,-93034.43
+4,CF-STD,Cash flow statement (indirect),CF_CHK,Check: net change in cash less change in cash (must be 0.00),P,Period,0.00
+4,CF-STD,Cash flow statement (indirect),CF_CHK,Check: net change in cash less change in cash (must be 0.00),YTD,Year to date,0.00
+5,TB-STD,Trial balance,ASSETS,Assets,OPEN,Opening,5159744.60
+5,TB-STD,Trial balance,ASSETS,Assets,CLOSE,Closing,5202450.20
+5,TB-STD,Trial balance,ASSETS,Assets,MOVE,Movement,42705.60
+5,TB-STD,Trial balance,ASSETS,Assets,CLOSE_DR,Closing debit,5306616.85
+5,TB-STD,Trial balance,ASSETS,Assets,CLOSE_CR,Closing credit,104166.65
+5,TB-STD,Trial balance,ASSETS,Assets,DIFF,Debit less credit,5202450.20
+5,TB-STD,Trial balance,LIAB,Liabilities,OPEN,Opening,-42222.68
+5,TB-STD,Trial balance,LIAB,Liabilities,CLOSE,Closing,-53333.90
+5,TB-STD,Trial balance,LIAB,Liabilities,MOVE,Movement,-11111.22
+5,TB-STD,Trial balance,LIAB,Liabilities,CLOSE_DR,Closing debit,0.00
+5,TB-STD,Trial balance,LIAB,Liabilities,CLOSE_CR,Closing credit,53333.90
+5,TB-STD,Trial balance,LIAB,Liabilities,DIFF,Debit less credit,-53333.90
+5,TB-STD,Trial balance,EQUITY,Equity,OPEN,Opening,-5000000.00
+5,TB-STD,Trial balance,EQUITY,Equity,CLOSE,Closing,-5000000.00
+5,TB-STD,Trial balance,EQUITY,Equity,MOVE,Movement,0.00
+5,TB-STD,Trial balance,EQUITY,Equity,CLOSE_DR,Closing debit,0.00
+5,TB-STD,Trial balance,EQUITY,Equity,CLOSE_CR,Closing credit,5000000.00
+5,TB-STD,Trial balance,EQUITY,Equity,DIFF,Debit less credit,-5000000.00
+5,TB-STD,Trial balance,REVENUE,Revenue,OPEN,Opening,-411112.58
+5,TB-STD,Trial balance,REVENUE,Revenue,CLOSE,Closing,-516668.50
+5,TB-STD,Trial balance,REVENUE,Revenue,MOVE,Movement,-105555.92
+5,TB-STD,Trial balance,REVENUE,Revenue,CLOSE_DR,Closing debit,0.00
+5,TB-STD,Trial balance,REVENUE,Revenue,CLOSE_CR,Closing credit,516668.50
+5,TB-STD,Trial balance,REVENUE,Revenue,DIFF,Debit less credit,-516668.50
+5,TB-STD,Trial balance,EXPENSE,Expenses,OPEN,Opening,293590.66
+5,TB-STD,Trial balance,EXPENSE,Expenses,CLOSE,Closing,367552.20
+5,TB-STD,Trial balance,EXPENSE,Expenses,MOVE,Movement,73961.54
+5,TB-STD,Trial balance,EXPENSE,Expenses,CLOSE_DR,Closing debit,367552.20
+5,TB-STD,Trial balance,EXPENSE,Expenses,CLOSE_CR,Closing credit,0.00
+5,TB-STD,Trial balance,EXPENSE,Expenses,DIFF,Debit less credit,367552.20
+5,TB-STD,Trial balance,TOTAL,Total (must be 0.00),OPEN,Opening,0.00
+5,TB-STD,Trial balance,TOTAL,Total (must be 0.00),CLOSE,Closing,0.00
+5,TB-STD,Trial balance,TOTAL,Total (must be 0.00),MOVE,Movement,0.00
+5,TB-STD,Trial balance,TOTAL,Total (must be 0.00),CLOSE_DR,Closing debit,5674169.05
+5,TB-STD,Trial balance,TOTAL,Total (must be 0.00),CLOSE_CR,Closing credit,5674169.05
+5,TB-STD,Trial balance,TOTAL,Total (must be 0.00),DIFF,Debit less credit,0.00
+5,BS-STD,Balance sheet,ASSETS,Total assets,CUR,Current,5202450.20
+5,BS-STD,Balance sheet,ASSETS,Total assets,PY,Prior year,
+5,BS-STD,Balance sheet,ASSETS,Total assets,VAR,Variance,
+5,BS-STD,Balance sheet,LIAB,Liabilities,CUR,Current,53333.90
+5,BS-STD,Balance sheet,LIAB,Liabilities,PY,Prior year,
+5,BS-STD,Balance sheet,LIAB,Liabilities,VAR,Variance,
+5,BS-STD,Balance sheet,EQUITY,Equity,CUR,Current,5000000.00
+5,BS-STD,Balance sheet,EQUITY,Equity,PY,Prior year,
+5,BS-STD,Balance sheet,EQUITY,Equity,VAR,Variance,
+5,BS-STD,Balance sheet,RESULT,Current period result,CUR,Current,149116.30
+5,BS-STD,Balance sheet,RESULT,Current period result,PY,Prior year,
+5,BS-STD,Balance sheet,RESULT,Current period result,VAR,Variance,
+5,BS-STD,Balance sheet,LE,Liabilities and equity,CUR,Current,5202450.20
+5,BS-STD,Balance sheet,LE,Liabilities and equity,PY,Prior year,
+5,BS-STD,Balance sheet,LE,Liabilities and equity,VAR,Variance,
+5,BS-STD,Balance sheet,CHK,Check: assets less liabilities and equity (must be 0.00),CUR,Current,0.00
+5,BS-STD,Balance sheet,CHK,Check: assets less liabilities and equity (must be 0.00),PY,Prior year,
+5,BS-STD,Balance sheet,CHK,Check: assets less liabilities and equity (must be 0.00),VAR,Variance,
+5,PL-STD,Income statement,REV,Revenue,P,Period,105555.92
+5,PL-STD,Income statement,REV,Revenue,YTD,Year to date,516668.50
+5,PL-STD,Income statement,REV,Revenue,PY,Prior year,
+5,PL-STD,Income statement,EXP,Expenses,P,Period,73961.54
+5,PL-STD,Income statement,EXP,Expenses,YTD,Year to date,367552.20
+5,PL-STD,Income statement,EXP,Expenses,PY,Prior year,
+5,PL-STD,Income statement,RES,Net result,P,Period,31594.38
+5,PL-STD,Income statement,RES,Net result,YTD,Year to date,149116.30
+5,PL-STD,Income statement,RES,Net result,PY,Prior year,
+5,CF-STD,Cash flow statement (indirect),REV,Revenue,P,Period,105555.92
+5,CF-STD,Cash flow statement (indirect),REV,Revenue,YTD,Year to date,516668.50
+5,CF-STD,Cash flow statement (indirect),EXP,Expenses,P,Period,73961.54
+5,CF-STD,Cash flow statement (indirect),EXP,Expenses,YTD,Year to date,367552.20
+5,CF-STD,Cash flow statement (indirect),NI,Net income,P,Period,31594.38
+5,CF-STD,Cash flow statement (indirect),NI,Net income,YTD,Year to date,149116.30
+5,CF-STD,Cash flow statement (indirect),ADJ_DEP,Accumulated depreciation and amortisation,P,Period,20833.33
+5,CF-STD,Cash flow statement (indirect),ADJ_DEP,Accumulated depreciation and amortisation,YTD,Year to date,104166.65
+5,CF-STD,Cash flow statement (indirect),ADJ_PROV,Provisions,P,Period,0.00
+5,CF-STD,Cash flow statement (indirect),ADJ_PROV,Provisions,YTD,Year to date,0.00
+5,CF-STD,Cash flow statement (indirect),CF_ADJ,Adjustments for non-cash items,P,Period,20833.33
+5,CF-STD,Cash flow statement (indirect),CF_ADJ,Adjustments for non-cash items,YTD,Year to date,104166.65
+5,CF-STD,Cash flow statement (indirect),WC_REC,Receivables and inventories,P,Period,-23055.44
+5,CF-STD,Cash flow statement (indirect),WC_REC,Receivables and inventories,YTD,Year to date,-109166.80
+5,CF-STD,Cash flow statement (indirect),WC_PAY,Trade payables,P,Period,11111.22
+5,CF-STD,Cash flow statement (indirect),WC_PAY,Trade payables,YTD,Year to date,53333.90
+5,CF-STD,Cash flow statement (indirect),WC_ACC,Accruals and other liabilities,P,Period,0.00
+5,CF-STD,Cash flow statement (indirect),WC_ACC,Accruals and other liabilities,YTD,Year to date,0.00
+5,CF-STD,Cash flow statement (indirect),CF_WC,Working capital changes,P,Period,-11944.22
+5,CF-STD,Cash flow statement (indirect),CF_WC,Working capital changes,YTD,Year to date,-55832.90
+5,CF-STD,Cash flow statement (indirect),CF_OP,Cash flow from operating activities,P,Period,40483.49
+5,CF-STD,Cash flow statement (indirect),CF_OP,Cash flow from operating activities,YTD,Year to date,197450.05
+5,CF-STD,Cash flow statement (indirect),INV_PPE,"Property, plant and equipment",P,Period,0.00
+5,CF-STD,Cash flow statement (indirect),INV_PPE,"Property, plant and equipment",YTD,Year to date,-250000.99
+5,CF-STD,Cash flow statement (indirect),INV_OTH,Other non-current assets,P,Period,0.00
+5,CF-STD,Cash flow statement (indirect),INV_OTH,Other non-current assets,YTD,Year to date,0.00
+5,CF-STD,Cash flow statement (indirect),CF_INV,Cash flow from investing activities,P,Period,0.00
+5,CF-STD,Cash flow statement (indirect),CF_INV,Cash flow from investing activities,YTD,Year to date,-250000.99
+5,CF-STD,Cash flow statement (indirect),FIN_DEBT,Borrowings,P,Period,0.00
+5,CF-STD,Cash flow statement (indirect),FIN_DEBT,Borrowings,YTD,Year to date,0.00
+5,CF-STD,Cash flow statement (indirect),FIN_EQ,Equity,P,Period,0.00
+5,CF-STD,Cash flow statement (indirect),FIN_EQ,Equity,YTD,Year to date,0.00
+5,CF-STD,Cash flow statement (indirect),CF_FIN,Cash flow from financing activities,P,Period,0.00
+5,CF-STD,Cash flow statement (indirect),CF_FIN,Cash flow from financing activities,YTD,Year to date,0.00
+5,CF-STD,Cash flow statement (indirect),CF_NET,Net change in cash,P,Period,40483.49
+5,CF-STD,Cash flow statement (indirect),CF_NET,Net change in cash,YTD,Year to date,-52550.94
+5,CF-STD,Cash flow statement (indirect),CASH,Change in cash and cash equivalents,P,Period,40483.49
+5,CF-STD,Cash flow statement (indirect),CASH,Change in cash and cash equivalents,YTD,Year to date,-52550.94
+5,CF-STD,Cash flow statement (indirect),CF_CHK,Check: net change in cash less change in cash (must be 0.00),P,Period,0.00
+5,CF-STD,Cash flow statement (indirect),CF_CHK,Check: net change in cash less change in cash (must be 0.00),YTD,Year to date,0.00
+6,TB-STD,Trial balance,ASSETS,Assets,OPEN,Opening,5202450.20
+6,TB-STD,Trial balance,ASSETS,Assets,CLOSE,Closing,5346263.58
+6,TB-STD,Trial balance,ASSETS,Assets,MOVE,Movement,143813.38
+6,TB-STD,Trial balance,ASSETS,Assets,CLOSE_DR,Closing debit,5471263.56
+6,TB-STD,Trial balance,ASSETS,Assets,CLOSE_CR,Closing credit,124999.98
+6,TB-STD,Trial balance,ASSETS,Assets,DIFF,Debit less credit,5346263.58
+6,TB-STD,Trial balance,LIAB,Liabilities,OPEN,Opening,-53333.90
+6,TB-STD,Trial balance,LIAB,Liabilities,CLOSE,Closing,-164667.34
+6,TB-STD,Trial balance,LIAB,Liabilities,MOVE,Movement,-111333.44
+6,TB-STD,Trial balance,LIAB,Liabilities,CLOSE_DR,Closing debit,0.00
+6,TB-STD,Trial balance,LIAB,Liabilities,CLOSE_CR,Closing credit,164667.34
+6,TB-STD,Trial balance,LIAB,Liabilities,DIFF,Debit less credit,-164667.34
+6,TB-STD,Trial balance,EQUITY,Equity,OPEN,Opening,-5000000.00
+6,TB-STD,Trial balance,EQUITY,Equity,CLOSE,Closing,-5000000.00
+6,TB-STD,Trial balance,EQUITY,Equity,MOVE,Movement,0.00
+6,TB-STD,Trial balance,EQUITY,Equity,CLOSE_DR,Closing debit,0.00
+6,TB-STD,Trial balance,EQUITY,Equity,CLOSE_CR,Closing credit,5000000.00
+6,TB-STD,Trial balance,EQUITY,Equity,DIFF,Debit less credit,-5000000.00
+6,TB-STD,Trial balance,REVENUE,Revenue,OPEN,Opening,-516668.50
+6,TB-STD,Trial balance,REVENUE,Revenue,CLOSE,Closing,-623335.53
+6,TB-STD,Trial balance,REVENUE,Revenue,MOVE,Movement,-106667.03
+6,TB-STD,Trial balance,REVENUE,Revenue,CLOSE_DR,Closing debit,0.00
+6,TB-STD,Trial balance,REVENUE,Revenue,CLOSE_CR,Closing credit,623335.53
+6,TB-STD,Trial balance,REVENUE,Revenue,DIFF,Debit less credit,-623335.53
+6,TB-STD,Trial balance,EXPENSE,Expenses,OPEN,Opening,367552.20
+6,TB-STD,Trial balance,EXPENSE,Expenses,CLOSE,Closing,441739.29
+6,TB-STD,Trial balance,EXPENSE,Expenses,MOVE,Movement,74187.09
+6,TB-STD,Trial balance,EXPENSE,Expenses,CLOSE_DR,Closing debit,441739.29
+6,TB-STD,Trial balance,EXPENSE,Expenses,CLOSE_CR,Closing credit,0.00
+6,TB-STD,Trial balance,EXPENSE,Expenses,DIFF,Debit less credit,441739.29
+6,TB-STD,Trial balance,TOTAL,Total (must be 0.00),OPEN,Opening,0.00
+6,TB-STD,Trial balance,TOTAL,Total (must be 0.00),CLOSE,Closing,0.00
+6,TB-STD,Trial balance,TOTAL,Total (must be 0.00),MOVE,Movement,0.00
+6,TB-STD,Trial balance,TOTAL,Total (must be 0.00),CLOSE_DR,Closing debit,5913002.85
+6,TB-STD,Trial balance,TOTAL,Total (must be 0.00),CLOSE_CR,Closing credit,5913002.85
+6,TB-STD,Trial balance,TOTAL,Total (must be 0.00),DIFF,Debit less credit,0.00
+6,BS-STD,Balance sheet,ASSETS,Total assets,CUR,Current,5346263.58
+6,BS-STD,Balance sheet,ASSETS,Total assets,PY,Prior year,
+6,BS-STD,Balance sheet,ASSETS,Total assets,VAR,Variance,
+6,BS-STD,Balance sheet,LIAB,Liabilities,CUR,Current,164667.34
+6,BS-STD,Balance sheet,LIAB,Liabilities,PY,Prior year,
+6,BS-STD,Balance sheet,LIAB,Liabilities,VAR,Variance,
+6,BS-STD,Balance sheet,EQUITY,Equity,CUR,Current,5000000.00
+6,BS-STD,Balance sheet,EQUITY,Equity,PY,Prior year,
+6,BS-STD,Balance sheet,EQUITY,Equity,VAR,Variance,
+6,BS-STD,Balance sheet,RESULT,Current period result,CUR,Current,181596.24
+6,BS-STD,Balance sheet,RESULT,Current period result,PY,Prior year,
+6,BS-STD,Balance sheet,RESULT,Current period result,VAR,Variance,
+6,BS-STD,Balance sheet,LE,Liabilities and equity,CUR,Current,5346263.58
+6,BS-STD,Balance sheet,LE,Liabilities and equity,PY,Prior year,
+6,BS-STD,Balance sheet,LE,Liabilities and equity,VAR,Variance,
+6,BS-STD,Balance sheet,CHK,Check: assets less liabilities and equity (must be 0.00),CUR,Current,0.00
+6,BS-STD,Balance sheet,CHK,Check: assets less liabilities and equity (must be 0.00),PY,Prior year,
+6,BS-STD,Balance sheet,CHK,Check: assets less liabilities and equity (must be 0.00),VAR,Variance,
+6,PL-STD,Income statement,REV,Revenue,P,Period,106667.03
+6,PL-STD,Income statement,REV,Revenue,YTD,Year to date,623335.53
+6,PL-STD,Income statement,REV,Revenue,PY,Prior year,
+6,PL-STD,Income statement,EXP,Expenses,P,Period,74187.09
+6,PL-STD,Income statement,EXP,Expenses,YTD,Year to date,441739.29
+6,PL-STD,Income statement,EXP,Expenses,PY,Prior year,
+6,PL-STD,Income statement,RES,Net result,P,Period,32479.94
+6,PL-STD,Income statement,RES,Net result,YTD,Year to date,181596.24
+6,PL-STD,Income statement,RES,Net result,PY,Prior year,
+6,CF-STD,Cash flow statement (indirect),REV,Revenue,P,Period,106667.03
+6,CF-STD,Cash flow statement (indirect),REV,Revenue,YTD,Year to date,623335.53
+6,CF-STD,Cash flow statement (indirect),EXP,Expenses,P,Period,74187.09
+6,CF-STD,Cash flow statement (indirect),EXP,Expenses,YTD,Year to date,441739.29
+6,CF-STD,Cash flow statement (indirect),NI,Net income,P,Period,32479.94
+6,CF-STD,Cash flow statement (indirect),NI,Net income,YTD,Year to date,181596.24
+6,CF-STD,Cash flow statement (indirect),ADJ_DEP,Accumulated depreciation and amortisation,P,Period,20833.33
+6,CF-STD,Cash flow statement (indirect),ADJ_DEP,Accumulated depreciation and amortisation,YTD,Year to date,124999.98
+6,CF-STD,Cash flow statement (indirect),ADJ_PROV,Provisions,P,Period,0.00
+6,CF-STD,Cash flow statement (indirect),ADJ_PROV,Provisions,YTD,Year to date,0.00
+6,CF-STD,Cash flow statement (indirect),CF_ADJ,Adjustments for non-cash items,P,Period,20833.33
+6,CF-STD,Cash flow statement (indirect),CF_ADJ,Adjustments for non-cash items,YTD,Year to date,124999.98
+6,CF-STD,Cash flow statement (indirect),WC_REC,Receivables and inventories,P,Period,-23666.48
+6,CF-STD,Cash flow statement (indirect),WC_REC,Receivables and inventories,YTD,Year to date,-132833.28
+6,CF-STD,Cash flow statement (indirect),WC_PAY,Trade payables,P,Period,11333.44
+6,CF-STD,Cash flow statement (indirect),WC_PAY,Trade payables,YTD,Year to date,64667.34
+6,CF-STD,Cash flow statement (indirect),WC_ACC,Accruals and other liabilities,P,Period,0.00
+6,CF-STD,Cash flow statement (indirect),WC_ACC,Accruals and other liabilities,YTD,Year to date,0.00
+6,CF-STD,Cash flow statement (indirect),CF_WC,Working capital changes,P,Period,-12333.04
+6,CF-STD,Cash flow statement (indirect),CF_WC,Working capital changes,YTD,Year to date,-68165.94
+6,CF-STD,Cash flow statement (indirect),CF_OP,Cash flow from operating activities,P,Period,40980.23
+6,CF-STD,Cash flow statement (indirect),CF_OP,Cash flow from operating activities,YTD,Year to date,238430.28
+6,CF-STD,Cash flow statement (indirect),INV_PPE,"Property, plant and equipment",P,Period,0.00
+6,CF-STD,Cash flow statement (indirect),INV_PPE,"Property, plant and equipment",YTD,Year to date,-250000.99
+6,CF-STD,Cash flow statement (indirect),INV_OTH,Other non-current assets,P,Period,0.00
+6,CF-STD,Cash flow statement (indirect),INV_OTH,Other non-current assets,YTD,Year to date,0.00
+6,CF-STD,Cash flow statement (indirect),CF_INV,Cash flow from investing activities,P,Period,0.00
+6,CF-STD,Cash flow statement (indirect),CF_INV,Cash flow from investing activities,YTD,Year to date,-250000.99
+6,CF-STD,Cash flow statement (indirect),FIN_DEBT,Borrowings,P,Period,100000.00
+6,CF-STD,Cash flow statement (indirect),FIN_DEBT,Borrowings,YTD,Year to date,100000.00
+6,CF-STD,Cash flow statement (indirect),FIN_EQ,Equity,P,Period,0.00
+6,CF-STD,Cash flow statement (indirect),FIN_EQ,Equity,YTD,Year to date,0.00
+6,CF-STD,Cash flow statement (indirect),CF_FIN,Cash flow from financing activities,P,Period,100000.00
+6,CF-STD,Cash flow statement (indirect),CF_FIN,Cash flow from financing activities,YTD,Year to date,100000.00
+6,CF-STD,Cash flow statement (indirect),CF_NET,Net change in cash,P,Period,140980.23
+6,CF-STD,Cash flow statement (indirect),CF_NET,Net change in cash,YTD,Year to date,88429.29
+6,CF-STD,Cash flow statement (indirect),CASH,Change in cash and cash equivalents,P,Period,140980.23
+6,CF-STD,Cash flow statement (indirect),CASH,Change in cash and cash equivalents,YTD,Year to date,88429.29
+6,CF-STD,Cash flow statement (indirect),CF_CHK,Check: net change in cash less change in cash (must be 0.00),P,Period,0.00
+6,CF-STD,Cash flow statement (indirect),CF_CHK,Check: net change in cash less change in cash (must be 0.00),YTD,Year to date,0.00
+7,TB-STD,Trial balance,ASSETS,Assets,OPEN,Opening,5346263.58
+7,TB-STD,Trial balance,ASSETS,Assets,CLOSE,Closing,5391184.74
+7,TB-STD,Trial balance,ASSETS,Assets,MOVE,Movement,44921.16
+7,TB-STD,Trial balance,ASSETS,Assets,CLOSE_DR,Closing debit,5537018.05
+7,TB-STD,Trial balance,ASSETS,Assets,CLOSE_CR,Closing credit,145833.31
+7,TB-STD,Trial balance,ASSETS,Assets,DIFF,Debit less credit,5391184.74
+7,TB-STD,Trial balance,LIAB,Liabilities,OPEN,Opening,-164667.34
+7,TB-STD,Trial balance,LIAB,Liabilities,CLOSE,Closing,-176223.00
+7,TB-STD,Trial balance,LIAB,Liabilities,MOVE,Movement,-11555.66
+7,TB-STD,Trial balance,LIAB,Liabilities,CLOSE_DR,Closing debit,0.00
+7,TB-STD,Trial balance,LIAB,Liabilities,CLOSE_CR,Closing credit,176223.00
+7,TB-STD,Trial balance,LIAB,Liabilities,DIFF,Debit less credit,-176223.00
+7,TB-STD,Trial balance,EQUITY,Equity,OPEN,Opening,-5000000.00
+7,TB-STD,Trial balance,EQUITY,Equity,CLOSE,Closing,-5000000.00
+7,TB-STD,Trial balance,EQUITY,Equity,MOVE,Movement,0.00
+7,TB-STD,Trial balance,EQUITY,Equity,CLOSE_DR,Closing debit,0.00
+7,TB-STD,Trial balance,EQUITY,Equity,CLOSE_CR,Closing credit,5000000.00
+7,TB-STD,Trial balance,EQUITY,Equity,DIFF,Debit less credit,-5000000.00
+7,TB-STD,Trial balance,REVENUE,Revenue,OPEN,Opening,-623335.53
+7,TB-STD,Trial balance,REVENUE,Revenue,CLOSE,Closing,-731113.67
+7,TB-STD,Trial balance,REVENUE,Revenue,MOVE,Movement,-107778.14
+7,TB-STD,Trial balance,REVENUE,Revenue,CLOSE_DR,Closing debit,0.00
+7,TB-STD,Trial balance,REVENUE,Revenue,CLOSE_CR,Closing credit,731113.67
+7,TB-STD,Trial balance,REVENUE,Revenue,DIFF,Debit less credit,-731113.67
+7,TB-STD,Trial balance,EXPENSE,Expenses,OPEN,Opening,441739.29
+7,TB-STD,Trial balance,EXPENSE,Expenses,CLOSE,Closing,516151.93
+7,TB-STD,Trial balance,EXPENSE,Expenses,MOVE,Movement,74412.64
+7,TB-STD,Trial balance,EXPENSE,Expenses,CLOSE_DR,Closing debit,516151.93
+7,TB-STD,Trial balance,EXPENSE,Expenses,CLOSE_CR,Closing credit,0.00
+7,TB-STD,Trial balance,EXPENSE,Expenses,DIFF,Debit less credit,516151.93
+7,TB-STD,Trial balance,TOTAL,Total (must be 0.00),OPEN,Opening,0.00
+7,TB-STD,Trial balance,TOTAL,Total (must be 0.00),CLOSE,Closing,0.00
+7,TB-STD,Trial balance,TOTAL,Total (must be 0.00),MOVE,Movement,0.00
+7,TB-STD,Trial balance,TOTAL,Total (must be 0.00),CLOSE_DR,Closing debit,6053169.98
+7,TB-STD,Trial balance,TOTAL,Total (must be 0.00),CLOSE_CR,Closing credit,6053169.98
+7,TB-STD,Trial balance,TOTAL,Total (must be 0.00),DIFF,Debit less credit,0.00
+7,BS-STD,Balance sheet,ASSETS,Total assets,CUR,Current,5391184.74
+7,BS-STD,Balance sheet,ASSETS,Total assets,PY,Prior year,
+7,BS-STD,Balance sheet,ASSETS,Total assets,VAR,Variance,
+7,BS-STD,Balance sheet,LIAB,Liabilities,CUR,Current,176223.00
+7,BS-STD,Balance sheet,LIAB,Liabilities,PY,Prior year,
+7,BS-STD,Balance sheet,LIAB,Liabilities,VAR,Variance,
+7,BS-STD,Balance sheet,EQUITY,Equity,CUR,Current,5000000.00
+7,BS-STD,Balance sheet,EQUITY,Equity,PY,Prior year,
+7,BS-STD,Balance sheet,EQUITY,Equity,VAR,Variance,
+7,BS-STD,Balance sheet,RESULT,Current period result,CUR,Current,214961.74
+7,BS-STD,Balance sheet,RESULT,Current period result,PY,Prior year,
+7,BS-STD,Balance sheet,RESULT,Current period result,VAR,Variance,
+7,BS-STD,Balance sheet,LE,Liabilities and equity,CUR,Current,5391184.74
+7,BS-STD,Balance sheet,LE,Liabilities and equity,PY,Prior year,
+7,BS-STD,Balance sheet,LE,Liabilities and equity,VAR,Variance,
+7,BS-STD,Balance sheet,CHK,Check: assets less liabilities and equity (must be 0.00),CUR,Current,0.00
+7,BS-STD,Balance sheet,CHK,Check: assets less liabilities and equity (must be 0.00),PY,Prior year,
+7,BS-STD,Balance sheet,CHK,Check: assets less liabilities and equity (must be 0.00),VAR,Variance,
+7,PL-STD,Income statement,REV,Revenue,P,Period,107778.14
+7,PL-STD,Income statement,REV,Revenue,YTD,Year to date,731113.67
+7,PL-STD,Income statement,REV,Revenue,PY,Prior year,
+7,PL-STD,Income statement,EXP,Expenses,P,Period,74412.64
+7,PL-STD,Income statement,EXP,Expenses,YTD,Year to date,516151.93
+7,PL-STD,Income statement,EXP,Expenses,PY,Prior year,
+7,PL-STD,Income statement,RES,Net result,P,Period,33365.50
+7,PL-STD,Income statement,RES,Net result,YTD,Year to date,214961.74
+7,PL-STD,Income statement,RES,Net result,PY,Prior year,
+7,CF-STD,Cash flow statement (indirect),REV,Revenue,P,Period,107778.14
+7,CF-STD,Cash flow statement (indirect),REV,Revenue,YTD,Year to date,731113.67
+7,CF-STD,Cash flow statement (indirect),EXP,Expenses,P,Period,74412.64
+7,CF-STD,Cash flow statement (indirect),EXP,Expenses,YTD,Year to date,516151.93
+7,CF-STD,Cash flow statement (indirect),NI,Net income,P,Period,33365.50
+7,CF-STD,Cash flow statement (indirect),NI,Net income,YTD,Year to date,214961.74
+7,CF-STD,Cash flow statement (indirect),ADJ_DEP,Accumulated depreciation and amortisation,P,Period,20833.33
+7,CF-STD,Cash flow statement (indirect),ADJ_DEP,Accumulated depreciation and amortisation,YTD,Year to date,145833.31
+7,CF-STD,Cash flow statement (indirect),ADJ_PROV,Provisions,P,Period,0.00
+7,CF-STD,Cash flow statement (indirect),ADJ_PROV,Provisions,YTD,Year to date,0.00
+7,CF-STD,Cash flow statement (indirect),CF_ADJ,Adjustments for non-cash items,P,Period,20833.33
+7,CF-STD,Cash flow statement (indirect),CF_ADJ,Adjustments for non-cash items,YTD,Year to date,145833.31
+7,CF-STD,Cash flow statement (indirect),WC_REC,Receivables and inventories,P,Period,-24277.52
+7,CF-STD,Cash flow statement (indirect),WC_REC,Receivables and inventories,YTD,Year to date,-157110.80
+7,CF-STD,Cash flow statement (indirect),WC_PAY,Trade payables,P,Period,11555.66
+7,CF-STD,Cash flow statement (indirect),WC_PAY,Trade payables,YTD,Year to date,76223.00
+7,CF-STD,Cash flow statement (indirect),WC_ACC,Accruals and other liabilities,P,Period,0.00
+7,CF-STD,Cash flow statement (indirect),WC_ACC,Accruals and other liabilities,YTD,Year to date,0.00
+7,CF-STD,Cash flow statement (indirect),CF_WC,Working capital changes,P,Period,-12721.86
+7,CF-STD,Cash flow statement (indirect),CF_WC,Working capital changes,YTD,Year to date,-80887.80
+7,CF-STD,Cash flow statement (indirect),CF_OP,Cash flow from operating activities,P,Period,41476.97
+7,CF-STD,Cash flow statement (indirect),CF_OP,Cash flow from operating activities,YTD,Year to date,279907.25
+7,CF-STD,Cash flow statement (indirect),INV_PPE,"Property, plant and equipment",P,Period,0.00
+7,CF-STD,Cash flow statement (indirect),INV_PPE,"Property, plant and equipment",YTD,Year to date,-250000.99
+7,CF-STD,Cash flow statement (indirect),INV_OTH,Other non-current assets,P,Period,0.00
+7,CF-STD,Cash flow statement (indirect),INV_OTH,Other non-current assets,YTD,Year to date,0.00
+7,CF-STD,Cash flow statement (indirect),CF_INV,Cash flow from investing activities,P,Period,0.00
+7,CF-STD,Cash flow statement (indirect),CF_INV,Cash flow from investing activities,YTD,Year to date,-250000.99
+7,CF-STD,Cash flow statement (indirect),FIN_DEBT,Borrowings,P,Period,0.00
+7,CF-STD,Cash flow statement (indirect),FIN_DEBT,Borrowings,YTD,Year to date,100000.00
+7,CF-STD,Cash flow statement (indirect),FIN_EQ,Equity,P,Period,0.00
+7,CF-STD,Cash flow statement (indirect),FIN_EQ,Equity,YTD,Year to date,0.00
+7,CF-STD,Cash flow statement (indirect),CF_FIN,Cash flow from financing activities,P,Period,0.00
+7,CF-STD,Cash flow statement (indirect),CF_FIN,Cash flow from financing activities,YTD,Year to date,100000.00
+7,CF-STD,Cash flow statement (indirect),CF_NET,Net change in cash,P,Period,41476.97
+7,CF-STD,Cash flow statement (indirect),CF_NET,Net change in cash,YTD,Year to date,129906.26
+7,CF-STD,Cash flow statement (indirect),CASH,Change in cash and cash equivalents,P,Period,41476.97
+7,CF-STD,Cash flow statement (indirect),CASH,Change in cash and cash equivalents,YTD,Year to date,129906.26
+7,CF-STD,Cash flow statement (indirect),CF_CHK,Check: net change in cash less change in cash (must be 0.00),P,Period,0.00
+7,CF-STD,Cash flow statement (indirect),CF_CHK,Check: net change in cash less change in cash (must be 0.00),YTD,Year to date,0.00
+8,TB-STD,Trial balance,ASSETS,Assets,OPEN,Opening,5391184.74
+8,TB-STD,Trial balance,ASSETS,Assets,CLOSE,Closing,5437213.68
+8,TB-STD,Trial balance,ASSETS,Assets,MOVE,Movement,46028.94
+8,TB-STD,Trial balance,ASSETS,Assets,CLOSE_DR,Closing debit,5603880.32
+8,TB-STD,Trial balance,ASSETS,Assets,CLOSE_CR,Closing credit,166666.64
+8,TB-STD,Trial balance,ASSETS,Assets,DIFF,Debit less credit,5437213.68
+8,TB-STD,Trial balance,LIAB,Liabilities,OPEN,Opening,-176223.00
+8,TB-STD,Trial balance,LIAB,Liabilities,CLOSE,Closing,-188000.88
+8,TB-STD,Trial balance,LIAB,Liabilities,MOVE,Movement,-11777.88
+8,TB-STD,Trial balance,LIAB,Liabilities,CLOSE_DR,Closing debit,0.00
+8,TB-STD,Trial balance,LIAB,Liabilities,CLOSE_CR,Closing credit,188000.88
+8,TB-STD,Trial balance,LIAB,Liabilities,DIFF,Debit less credit,-188000.88
+8,TB-STD,Trial balance,EQUITY,Equity,OPEN,Opening,-5000000.00
+8,TB-STD,Trial balance,EQUITY,Equity,CLOSE,Closing,-5000000.00
+8,TB-STD,Trial balance,EQUITY,Equity,MOVE,Movement,0.00
+8,TB-STD,Trial balance,EQUITY,Equity,CLOSE_DR,Closing debit,0.00
+8,TB-STD,Trial balance,EQUITY,Equity,CLOSE_CR,Closing credit,5000000.00
+8,TB-STD,Trial balance,EQUITY,Equity,DIFF,Debit less credit,-5000000.00
+8,TB-STD,Trial balance,REVENUE,Revenue,OPEN,Opening,-731113.67
+8,TB-STD,Trial balance,REVENUE,Revenue,CLOSE,Closing,-840002.92
+8,TB-STD,Trial balance,REVENUE,Revenue,MOVE,Movement,-108889.25
+8,TB-STD,Trial balance,REVENUE,Revenue,CLOSE_DR,Closing debit,0.00
+8,TB-STD,Trial balance,REVENUE,Revenue,CLOSE_CR,Closing credit,840002.92
+8,TB-STD,Trial balance,REVENUE,Revenue,DIFF,Debit less credit,-840002.92
+8,TB-STD,Trial balance,EXPENSE,Expenses,OPEN,Opening,516151.93
+8,TB-STD,Trial balance,EXPENSE,Expenses,CLOSE,Closing,590790.12
+8,TB-STD,Trial balance,EXPENSE,Expenses,MOVE,Movement,74638.19
+8,TB-STD,Trial balance,EXPENSE,Expenses,CLOSE_DR,Closing debit,590790.12
+8,TB-STD,Trial balance,EXPENSE,Expenses,CLOSE_CR,Closing credit,0.00
+8,TB-STD,Trial balance,EXPENSE,Expenses,DIFF,Debit less credit,590790.12
+8,TB-STD,Trial balance,TOTAL,Total (must be 0.00),OPEN,Opening,0.00
+8,TB-STD,Trial balance,TOTAL,Total (must be 0.00),CLOSE,Closing,0.00
+8,TB-STD,Trial balance,TOTAL,Total (must be 0.00),MOVE,Movement,0.00
+8,TB-STD,Trial balance,TOTAL,Total (must be 0.00),CLOSE_DR,Closing debit,6194670.44
+8,TB-STD,Trial balance,TOTAL,Total (must be 0.00),CLOSE_CR,Closing credit,6194670.44
+8,TB-STD,Trial balance,TOTAL,Total (must be 0.00),DIFF,Debit less credit,0.00
+8,BS-STD,Balance sheet,ASSETS,Total assets,CUR,Current,5437213.68
+8,BS-STD,Balance sheet,ASSETS,Total assets,PY,Prior year,
+8,BS-STD,Balance sheet,ASSETS,Total assets,VAR,Variance,
+8,BS-STD,Balance sheet,LIAB,Liabilities,CUR,Current,188000.88
+8,BS-STD,Balance sheet,LIAB,Liabilities,PY,Prior year,
+8,BS-STD,Balance sheet,LIAB,Liabilities,VAR,Variance,
+8,BS-STD,Balance sheet,EQUITY,Equity,CUR,Current,5000000.00
+8,BS-STD,Balance sheet,EQUITY,Equity,PY,Prior year,
+8,BS-STD,Balance sheet,EQUITY,Equity,VAR,Variance,
+8,BS-STD,Balance sheet,RESULT,Current period result,CUR,Current,249212.80
+8,BS-STD,Balance sheet,RESULT,Current period result,PY,Prior year,
+8,BS-STD,Balance sheet,RESULT,Current period result,VAR,Variance,
+8,BS-STD,Balance sheet,LE,Liabilities and equity,CUR,Current,5437213.68
+8,BS-STD,Balance sheet,LE,Liabilities and equity,PY,Prior year,
+8,BS-STD,Balance sheet,LE,Liabilities and equity,VAR,Variance,
+8,BS-STD,Balance sheet,CHK,Check: assets less liabilities and equity (must be 0.00),CUR,Current,0.00
+8,BS-STD,Balance sheet,CHK,Check: assets less liabilities and equity (must be 0.00),PY,Prior year,
+8,BS-STD,Balance sheet,CHK,Check: assets less liabilities and equity (must be 0.00),VAR,Variance,
+8,PL-STD,Income statement,REV,Revenue,P,Period,108889.25
+8,PL-STD,Income statement,REV,Revenue,YTD,Year to date,840002.92
+8,PL-STD,Income statement,REV,Revenue,PY,Prior year,
+8,PL-STD,Income statement,EXP,Expenses,P,Period,74638.19
+8,PL-STD,Income statement,EXP,Expenses,YTD,Year to date,590790.12
+8,PL-STD,Income statement,EXP,Expenses,PY,Prior year,
+8,PL-STD,Income statement,RES,Net result,P,Period,34251.06
+8,PL-STD,Income statement,RES,Net result,YTD,Year to date,249212.80
+8,PL-STD,Income statement,RES,Net result,PY,Prior year,
+8,CF-STD,Cash flow statement (indirect),REV,Revenue,P,Period,108889.25
+8,CF-STD,Cash flow statement (indirect),REV,Revenue,YTD,Year to date,840002.92
+8,CF-STD,Cash flow statement (indirect),EXP,Expenses,P,Period,74638.19
+8,CF-STD,Cash flow statement (indirect),EXP,Expenses,YTD,Year to date,590790.12
+8,CF-STD,Cash flow statement (indirect),NI,Net income,P,Period,34251.06
+8,CF-STD,Cash flow statement (indirect),NI,Net income,YTD,Year to date,249212.80
+8,CF-STD,Cash flow statement (indirect),ADJ_DEP,Accumulated depreciation and amortisation,P,Period,20833.33
+8,CF-STD,Cash flow statement (indirect),ADJ_DEP,Accumulated depreciation and amortisation,YTD,Year to date,166666.64
+8,CF-STD,Cash flow statement (indirect),ADJ_PROV,Provisions,P,Period,0.00
+8,CF-STD,Cash flow statement (indirect),ADJ_PROV,Provisions,YTD,Year to date,0.00
+8,CF-STD,Cash flow statement (indirect),CF_ADJ,Adjustments for non-cash items,P,Period,20833.33
+8,CF-STD,Cash flow statement (indirect),CF_ADJ,Adjustments for non-cash items,YTD,Year to date,166666.64
+8,CF-STD,Cash flow statement (indirect),WC_REC,Receivables and inventories,P,Period,-24888.56
+8,CF-STD,Cash flow statement (indirect),WC_REC,Receivables and inventories,YTD,Year to date,-181999.36
+8,CF-STD,Cash flow statement (indirect),WC_PAY,Trade payables,P,Period,11777.88
+8,CF-STD,Cash flow statement (indirect),WC_PAY,Trade payables,YTD,Year to date,88000.88
+8,CF-STD,Cash flow statement (indirect),WC_ACC,Accruals and other liabilities,P,Period,0.00
+8,CF-STD,Cash flow statement (indirect),WC_ACC,Accruals and other liabilities,YTD,Year to date,0.00
+8,CF-STD,Cash flow statement (indirect),CF_WC,Working capital changes,P,Period,-13110.68
+8,CF-STD,Cash flow statement (indirect),CF_WC,Working capital changes,YTD,Year to date,-93998.48
+8,CF-STD,Cash flow statement (indirect),CF_OP,Cash flow from operating activities,P,Period,41973.71
+8,CF-STD,Cash flow statement (indirect),CF_OP,Cash flow from operating activities,YTD,Year to date,321880.96
+8,CF-STD,Cash flow statement (indirect),INV_PPE,"Property, plant and equipment",P,Period,0.00
+8,CF-STD,Cash flow statement (indirect),INV_PPE,"Property, plant and equipment",YTD,Year to date,-250000.99
+8,CF-STD,Cash flow statement (indirect),INV_OTH,Other non-current assets,P,Period,0.00
+8,CF-STD,Cash flow statement (indirect),INV_OTH,Other non-current assets,YTD,Year to date,0.00
+8,CF-STD,Cash flow statement (indirect),CF_INV,Cash flow from investing activities,P,Period,0.00
+8,CF-STD,Cash flow statement (indirect),CF_INV,Cash flow from investing activities,YTD,Year to date,-250000.99
+8,CF-STD,Cash flow statement (indirect),FIN_DEBT,Borrowings,P,Period,0.00
+8,CF-STD,Cash flow statement (indirect),FIN_DEBT,Borrowings,YTD,Year to date,100000.00
+8,CF-STD,Cash flow statement (indirect),FIN_EQ,Equity,P,Period,0.00
+8,CF-STD,Cash flow statement (indirect),FIN_EQ,Equity,YTD,Year to date,0.00
+8,CF-STD,Cash flow statement (indirect),CF_FIN,Cash flow from financing activities,P,Period,0.00
+8,CF-STD,Cash flow statement (indirect),CF_FIN,Cash flow from financing activities,YTD,Year to date,100000.00
+8,CF-STD,Cash flow statement (indirect),CF_NET,Net change in cash,P,Period,41973.71
+8,CF-STD,Cash flow statement (indirect),CF_NET,Net change in cash,YTD,Year to date,171879.97
+8,CF-STD,Cash flow statement (indirect),CASH,Change in cash and cash equivalents,P,Period,41973.71
+8,CF-STD,Cash flow statement (indirect),CASH,Change in cash and cash equivalents,YTD,Year to date,171879.97
+8,CF-STD,Cash flow statement (indirect),CF_CHK,Check: net change in cash less change in cash (must be 0.00),P,Period,0.00
+8,CF-STD,Cash flow statement (indirect),CF_CHK,Check: net change in cash less change in cash (must be 0.00),YTD,Year to date,0.00
+9,TB-STD,Trial balance,ASSETS,Assets,OPEN,Opening,5437213.68
+9,TB-STD,Trial balance,ASSETS,Assets,CLOSE,Closing,5484350.40
+9,TB-STD,Trial balance,ASSETS,Assets,MOVE,Movement,47136.72
+9,TB-STD,Trial balance,ASSETS,Assets,CLOSE_DR,Closing debit,5671850.37
+9,TB-STD,Trial balance,ASSETS,Assets,CLOSE_CR,Closing credit,187499.97
+9,TB-STD,Trial balance,ASSETS,Assets,DIFF,Debit less credit,5484350.40
+9,TB-STD,Trial balance,LIAB,Liabilities,OPEN,Opening,-188000.88
+9,TB-STD,Trial balance,LIAB,Liabilities,CLOSE,Closing,-200000.98
+9,TB-STD,Trial balance,LIAB,Liabilities,MOVE,Movement,-12000.10
+9,TB-STD,Trial balance,LIAB,Liabilities,CLOSE_DR,Closing debit,0.00
+9,TB-STD,Trial balance,LIAB,Liabilities,CLOSE_CR,Closing credit,200000.98
+9,TB-STD,Trial balance,LIAB,Liabilities,DIFF,Debit less credit,-200000.98
+9,TB-STD,Trial balance,EQUITY,Equity,OPEN,Opening,-5000000.00
+9,TB-STD,Trial balance,EQUITY,Equity,CLOSE,Closing,-5000000.00
+9,TB-STD,Trial balance,EQUITY,Equity,MOVE,Movement,0.00
+9,TB-STD,Trial balance,EQUITY,Equity,CLOSE_DR,Closing debit,0.00
+9,TB-STD,Trial balance,EQUITY,Equity,CLOSE_CR,Closing credit,5000000.00
+9,TB-STD,Trial balance,EQUITY,Equity,DIFF,Debit less credit,-5000000.00
+9,TB-STD,Trial balance,REVENUE,Revenue,OPEN,Opening,-840002.92
+9,TB-STD,Trial balance,REVENUE,Revenue,CLOSE,Closing,-950003.28
+9,TB-STD,Trial balance,REVENUE,Revenue,MOVE,Movement,-110000.36
+9,TB-STD,Trial balance,REVENUE,Revenue,CLOSE_DR,Closing debit,0.00
+9,TB-STD,Trial balance,REVENUE,Revenue,CLOSE_CR,Closing credit,950003.28
+9,TB-STD,Trial balance,REVENUE,Revenue,DIFF,Debit less credit,-950003.28
+9,TB-STD,Trial balance,EXPENSE,Expenses,OPEN,Opening,590790.12
+9,TB-STD,Trial balance,EXPENSE,Expenses,CLOSE,Closing,665653.86
+9,TB-STD,Trial balance,EXPENSE,Expenses,MOVE,Movement,74863.74
+9,TB-STD,Trial balance,EXPENSE,Expenses,CLOSE_DR,Closing debit,665653.86
+9,TB-STD,Trial balance,EXPENSE,Expenses,CLOSE_CR,Closing credit,0.00
+9,TB-STD,Trial balance,EXPENSE,Expenses,DIFF,Debit less credit,665653.86
+9,TB-STD,Trial balance,TOTAL,Total (must be 0.00),OPEN,Opening,0.00
+9,TB-STD,Trial balance,TOTAL,Total (must be 0.00),CLOSE,Closing,0.00
+9,TB-STD,Trial balance,TOTAL,Total (must be 0.00),MOVE,Movement,0.00
+9,TB-STD,Trial balance,TOTAL,Total (must be 0.00),CLOSE_DR,Closing debit,6337504.23
+9,TB-STD,Trial balance,TOTAL,Total (must be 0.00),CLOSE_CR,Closing credit,6337504.23
+9,TB-STD,Trial balance,TOTAL,Total (must be 0.00),DIFF,Debit less credit,0.00
+9,BS-STD,Balance sheet,ASSETS,Total assets,CUR,Current,5484350.40
+9,BS-STD,Balance sheet,ASSETS,Total assets,PY,Prior year,
+9,BS-STD,Balance sheet,ASSETS,Total assets,VAR,Variance,
+9,BS-STD,Balance sheet,LIAB,Liabilities,CUR,Current,200000.98
+9,BS-STD,Balance sheet,LIAB,Liabilities,PY,Prior year,
+9,BS-STD,Balance sheet,LIAB,Liabilities,VAR,Variance,
+9,BS-STD,Balance sheet,EQUITY,Equity,CUR,Current,5000000.00
+9,BS-STD,Balance sheet,EQUITY,Equity,PY,Prior year,
+9,BS-STD,Balance sheet,EQUITY,Equity,VAR,Variance,
+9,BS-STD,Balance sheet,RESULT,Current period result,CUR,Current,284349.42
+9,BS-STD,Balance sheet,RESULT,Current period result,PY,Prior year,
+9,BS-STD,Balance sheet,RESULT,Current period result,VAR,Variance,
+9,BS-STD,Balance sheet,LE,Liabilities and equity,CUR,Current,5484350.40
+9,BS-STD,Balance sheet,LE,Liabilities and equity,PY,Prior year,
+9,BS-STD,Balance sheet,LE,Liabilities and equity,VAR,Variance,
+9,BS-STD,Balance sheet,CHK,Check: assets less liabilities and equity (must be 0.00),CUR,Current,0.00
+9,BS-STD,Balance sheet,CHK,Check: assets less liabilities and equity (must be 0.00),PY,Prior year,
+9,BS-STD,Balance sheet,CHK,Check: assets less liabilities and equity (must be 0.00),VAR,Variance,
+9,PL-STD,Income statement,REV,Revenue,P,Period,110000.36
+9,PL-STD,Income statement,REV,Revenue,YTD,Year to date,950003.28
+9,PL-STD,Income statement,REV,Revenue,PY,Prior year,
+9,PL-STD,Income statement,EXP,Expenses,P,Period,74863.74
+9,PL-STD,Income statement,EXP,Expenses,YTD,Year to date,665653.86
+9,PL-STD,Income statement,EXP,Expenses,PY,Prior year,
+9,PL-STD,Income statement,RES,Net result,P,Period,35136.62
+9,PL-STD,Income statement,RES,Net result,YTD,Year to date,284349.42
+9,PL-STD,Income statement,RES,Net result,PY,Prior year,
+9,CF-STD,Cash flow statement (indirect),REV,Revenue,P,Period,110000.36
+9,CF-STD,Cash flow statement (indirect),REV,Revenue,YTD,Year to date,950003.28
+9,CF-STD,Cash flow statement (indirect),EXP,Expenses,P,Period,74863.74
+9,CF-STD,Cash flow statement (indirect),EXP,Expenses,YTD,Year to date,665653.86
+9,CF-STD,Cash flow statement (indirect),NI,Net income,P,Period,35136.62
+9,CF-STD,Cash flow statement (indirect),NI,Net income,YTD,Year to date,284349.42
+9,CF-STD,Cash flow statement (indirect),ADJ_DEP,Accumulated depreciation and amortisation,P,Period,20833.33
+9,CF-STD,Cash flow statement (indirect),ADJ_DEP,Accumulated depreciation and amortisation,YTD,Year to date,187499.97
+9,CF-STD,Cash flow statement (indirect),ADJ_PROV,Provisions,P,Period,0.00
+9,CF-STD,Cash flow statement (indirect),ADJ_PROV,Provisions,YTD,Year to date,0.00
+9,CF-STD,Cash flow statement (indirect),CF_ADJ,Adjustments for non-cash items,P,Period,20833.33
+9,CF-STD,Cash flow statement (indirect),CF_ADJ,Adjustments for non-cash items,YTD,Year to date,187499.97
+9,CF-STD,Cash flow statement (indirect),WC_REC,Receivables and inventories,P,Period,-25499.60
+9,CF-STD,Cash flow statement (indirect),WC_REC,Receivables and inventories,YTD,Year to date,-207498.96
+9,CF-STD,Cash flow statement (indirect),WC_PAY,Trade payables,P,Period,12000.10
+9,CF-STD,Cash flow statement (indirect),WC_PAY,Trade payables,YTD,Year to date,100000.98
+9,CF-STD,Cash flow statement (indirect),WC_ACC,Accruals and other liabilities,P,Period,0.00
+9,CF-STD,Cash flow statement (indirect),WC_ACC,Accruals and other liabilities,YTD,Year to date,0.00
+9,CF-STD,Cash flow statement (indirect),CF_WC,Working capital changes,P,Period,-13499.50
+9,CF-STD,Cash flow statement (indirect),CF_WC,Working capital changes,YTD,Year to date,-107497.98
+9,CF-STD,Cash flow statement (indirect),CF_OP,Cash flow from operating activities,P,Period,42470.45
+9,CF-STD,Cash flow statement (indirect),CF_OP,Cash flow from operating activities,YTD,Year to date,364351.41
+9,CF-STD,Cash flow statement (indirect),INV_PPE,"Property, plant and equipment",P,Period,0.00
+9,CF-STD,Cash flow statement (indirect),INV_PPE,"Property, plant and equipment",YTD,Year to date,-250000.99
+9,CF-STD,Cash flow statement (indirect),INV_OTH,Other non-current assets,P,Period,0.00
+9,CF-STD,Cash flow statement (indirect),INV_OTH,Other non-current assets,YTD,Year to date,0.00
+9,CF-STD,Cash flow statement (indirect),CF_INV,Cash flow from investing activities,P,Period,0.00
+9,CF-STD,Cash flow statement (indirect),CF_INV,Cash flow from investing activities,YTD,Year to date,-250000.99
+9,CF-STD,Cash flow statement (indirect),FIN_DEBT,Borrowings,P,Period,0.00
+9,CF-STD,Cash flow statement (indirect),FIN_DEBT,Borrowings,YTD,Year to date,100000.00
+9,CF-STD,Cash flow statement (indirect),FIN_EQ,Equity,P,Period,0.00
+9,CF-STD,Cash flow statement (indirect),FIN_EQ,Equity,YTD,Year to date,0.00
+9,CF-STD,Cash flow statement (indirect),CF_FIN,Cash flow from financing activities,P,Period,0.00
+9,CF-STD,Cash flow statement (indirect),CF_FIN,Cash flow from financing activities,YTD,Year to date,100000.00
+9,CF-STD,Cash flow statement (indirect),CF_NET,Net change in cash,P,Period,42470.45
+9,CF-STD,Cash flow statement (indirect),CF_NET,Net change in cash,YTD,Year to date,214350.42
+9,CF-STD,Cash flow statement (indirect),CASH,Change in cash and cash equivalents,P,Period,42470.45
+9,CF-STD,Cash flow statement (indirect),CASH,Change in cash and cash equivalents,YTD,Year to date,214350.42
+9,CF-STD,Cash flow statement (indirect),CF_CHK,Check: net change in cash less change in cash (must be 0.00),P,Period,0.00
+9,CF-STD,Cash flow statement (indirect),CF_CHK,Check: net change in cash less change in cash (must be 0.00),YTD,Year to date,0.00
+10,TB-STD,Trial balance,ASSETS,Assets,OPEN,Opening,5484350.40
+10,TB-STD,Trial balance,ASSETS,Assets,CLOSE,Closing,5532594.90
+10,TB-STD,Trial balance,ASSETS,Assets,MOVE,Movement,48244.50
+10,TB-STD,Trial balance,ASSETS,Assets,CLOSE_DR,Closing debit,5740928.20
+10,TB-STD,Trial balance,ASSETS,Assets,CLOSE_CR,Closing credit,208333.30
+10,TB-STD,Trial balance,ASSETS,Assets,DIFF,Debit less credit,5532594.90
+10,TB-STD,Trial balance,LIAB,Liabilities,OPEN,Opening,-200000.98
+10,TB-STD,Trial balance,LIAB,Liabilities,CLOSE,Closing,-212223.30
+10,TB-STD,Trial balance,LIAB,Liabilities,MOVE,Movement,-12222.32
+10,TB-STD,Trial balance,LIAB,Liabilities,CLOSE_DR,Closing debit,0.00
+10,TB-STD,Trial balance,LIAB,Liabilities,CLOSE_CR,Closing credit,212223.30
+10,TB-STD,Trial balance,LIAB,Liabilities,DIFF,Debit less credit,-212223.30
+10,TB-STD,Trial balance,EQUITY,Equity,OPEN,Opening,-5000000.00
+10,TB-STD,Trial balance,EQUITY,Equity,CLOSE,Closing,-5000000.00
+10,TB-STD,Trial balance,EQUITY,Equity,MOVE,Movement,0.00
+10,TB-STD,Trial balance,EQUITY,Equity,CLOSE_DR,Closing debit,0.00
+10,TB-STD,Trial balance,EQUITY,Equity,CLOSE_CR,Closing credit,5000000.00
+10,TB-STD,Trial balance,EQUITY,Equity,DIFF,Debit less credit,-5000000.00
+10,TB-STD,Trial balance,REVENUE,Revenue,OPEN,Opening,-950003.28
+10,TB-STD,Trial balance,REVENUE,Revenue,CLOSE,Closing,-1061114.75
+10,TB-STD,Trial balance,REVENUE,Revenue,MOVE,Movement,-111111.47
+10,TB-STD,Trial balance,REVENUE,Revenue,CLOSE_DR,Closing debit,0.00
+10,TB-STD,Trial balance,REVENUE,Revenue,CLOSE_CR,Closing credit,1061114.75
+10,TB-STD,Trial balance,REVENUE,Revenue,DIFF,Debit less credit,-1061114.75
+10,TB-STD,Trial balance,EXPENSE,Expenses,OPEN,Opening,665653.86
+10,TB-STD,Trial balance,EXPENSE,Expenses,CLOSE,Closing,740743.15
+10,TB-STD,Trial balance,EXPENSE,Expenses,MOVE,Movement,75089.29
+10,TB-STD,Trial balance,EXPENSE,Expenses,CLOSE_DR,Closing debit,740743.15
+10,TB-STD,Trial balance,EXPENSE,Expenses,CLOSE_CR,Closing credit,0.00
+10,TB-STD,Trial balance,EXPENSE,Expenses,DIFF,Debit less credit,740743.15
+10,TB-STD,Trial balance,TOTAL,Total (must be 0.00),OPEN,Opening,0.00
+10,TB-STD,Trial balance,TOTAL,Total (must be 0.00),CLOSE,Closing,0.00
+10,TB-STD,Trial balance,TOTAL,Total (must be 0.00),MOVE,Movement,0.00
+10,TB-STD,Trial balance,TOTAL,Total (must be 0.00),CLOSE_DR,Closing debit,6481671.35
+10,TB-STD,Trial balance,TOTAL,Total (must be 0.00),CLOSE_CR,Closing credit,6481671.35
+10,TB-STD,Trial balance,TOTAL,Total (must be 0.00),DIFF,Debit less credit,0.00
+10,BS-STD,Balance sheet,ASSETS,Total assets,CUR,Current,5532594.90
+10,BS-STD,Balance sheet,ASSETS,Total assets,PY,Prior year,
+10,BS-STD,Balance sheet,ASSETS,Total assets,VAR,Variance,
+10,BS-STD,Balance sheet,LIAB,Liabilities,CUR,Current,212223.30
+10,BS-STD,Balance sheet,LIAB,Liabilities,PY,Prior year,
+10,BS-STD,Balance sheet,LIAB,Liabilities,VAR,Variance,
+10,BS-STD,Balance sheet,EQUITY,Equity,CUR,Current,5000000.00
+10,BS-STD,Balance sheet,EQUITY,Equity,PY,Prior year,
+10,BS-STD,Balance sheet,EQUITY,Equity,VAR,Variance,
+10,BS-STD,Balance sheet,RESULT,Current period result,CUR,Current,320371.60
+10,BS-STD,Balance sheet,RESULT,Current period result,PY,Prior year,
+10,BS-STD,Balance sheet,RESULT,Current period result,VAR,Variance,
+10,BS-STD,Balance sheet,LE,Liabilities and equity,CUR,Current,5532594.90
+10,BS-STD,Balance sheet,LE,Liabilities and equity,PY,Prior year,
+10,BS-STD,Balance sheet,LE,Liabilities and equity,VAR,Variance,
+10,BS-STD,Balance sheet,CHK,Check: assets less liabilities and equity (must be 0.00),CUR,Current,0.00
+10,BS-STD,Balance sheet,CHK,Check: assets less liabilities and equity (must be 0.00),PY,Prior year,
+10,BS-STD,Balance sheet,CHK,Check: assets less liabilities and equity (must be 0.00),VAR,Variance,
+10,PL-STD,Income statement,REV,Revenue,P,Period,111111.47
+10,PL-STD,Income statement,REV,Revenue,YTD,Year to date,1061114.75
+10,PL-STD,Income statement,REV,Revenue,PY,Prior year,
+10,PL-STD,Income statement,EXP,Expenses,P,Period,75089.29
+10,PL-STD,Income statement,EXP,Expenses,YTD,Year to date,740743.15
+10,PL-STD,Income statement,EXP,Expenses,PY,Prior year,
+10,PL-STD,Income statement,RES,Net result,P,Period,36022.18
+10,PL-STD,Income statement,RES,Net result,YTD,Year to date,320371.60
+10,PL-STD,Income statement,RES,Net result,PY,Prior year,
+10,CF-STD,Cash flow statement (indirect),REV,Revenue,P,Period,111111.47
+10,CF-STD,Cash flow statement (indirect),REV,Revenue,YTD,Year to date,1061114.75
+10,CF-STD,Cash flow statement (indirect),EXP,Expenses,P,Period,75089.29
+10,CF-STD,Cash flow statement (indirect),EXP,Expenses,YTD,Year to date,740743.15
+10,CF-STD,Cash flow statement (indirect),NI,Net income,P,Period,36022.18
+10,CF-STD,Cash flow statement (indirect),NI,Net income,YTD,Year to date,320371.60
+10,CF-STD,Cash flow statement (indirect),ADJ_DEP,Accumulated depreciation and amortisation,P,Period,20833.33
+10,CF-STD,Cash flow statement (indirect),ADJ_DEP,Accumulated depreciation and amortisation,YTD,Year to date,208333.30
+10,CF-STD,Cash flow statement (indirect),ADJ_PROV,Provisions,P,Period,0.00
+10,CF-STD,Cash flow statement (indirect),ADJ_PROV,Provisions,YTD,Year to date,0.00
+10,CF-STD,Cash flow statement (indirect),CF_ADJ,Adjustments for non-cash items,P,Period,20833.33
+10,CF-STD,Cash flow statement (indirect),CF_ADJ,Adjustments for non-cash items,YTD,Year to date,208333.30
+10,CF-STD,Cash flow statement (indirect),WC_REC,Receivables and inventories,P,Period,-26110.64
+10,CF-STD,Cash flow statement (indirect),WC_REC,Receivables and inventories,YTD,Year to date,-233609.60
+10,CF-STD,Cash flow statement (indirect),WC_PAY,Trade payables,P,Period,12222.32
+10,CF-STD,Cash flow statement (indirect),WC_PAY,Trade payables,YTD,Year to date,112223.30
+10,CF-STD,Cash flow statement (indirect),WC_ACC,Accruals and other liabilities,P,Period,0.00
+10,CF-STD,Cash flow statement (indirect),WC_ACC,Accruals and other liabilities,YTD,Year to date,0.00
+10,CF-STD,Cash flow statement (indirect),CF_WC,Working capital changes,P,Period,-13888.32
+10,CF-STD,Cash flow statement (indirect),CF_WC,Working capital changes,YTD,Year to date,-121386.30
+10,CF-STD,Cash flow statement (indirect),CF_OP,Cash flow from operating activities,P,Period,42967.19
+10,CF-STD,Cash flow statement (indirect),CF_OP,Cash flow from operating activities,YTD,Year to date,407318.60
+10,CF-STD,Cash flow statement (indirect),INV_PPE,"Property, plant and equipment",P,Period,0.00
+10,CF-STD,Cash flow statement (indirect),INV_PPE,"Property, plant and equipment",YTD,Year to date,-250000.99
+10,CF-STD,Cash flow statement (indirect),INV_OTH,Other non-current assets,P,Period,0.00
+10,CF-STD,Cash flow statement (indirect),INV_OTH,Other non-current assets,YTD,Year to date,0.00
+10,CF-STD,Cash flow statement (indirect),CF_INV,Cash flow from investing activities,P,Period,0.00
+10,CF-STD,Cash flow statement (indirect),CF_INV,Cash flow from investing activities,YTD,Year to date,-250000.99
+10,CF-STD,Cash flow statement (indirect),FIN_DEBT,Borrowings,P,Period,0.00
+10,CF-STD,Cash flow statement (indirect),FIN_DEBT,Borrowings,YTD,Year to date,100000.00
+10,CF-STD,Cash flow statement (indirect),FIN_EQ,Equity,P,Period,0.00
+10,CF-STD,Cash flow statement (indirect),FIN_EQ,Equity,YTD,Year to date,0.00
+10,CF-STD,Cash flow statement (indirect),CF_FIN,Cash flow from financing activities,P,Period,0.00
+10,CF-STD,Cash flow statement (indirect),CF_FIN,Cash flow from financing activities,YTD,Year to date,100000.00
+10,CF-STD,Cash flow statement (indirect),CF_NET,Net change in cash,P,Period,42967.19
+10,CF-STD,Cash flow statement (indirect),CF_NET,Net change in cash,YTD,Year to date,257317.61
+10,CF-STD,Cash flow statement (indirect),CASH,Change in cash and cash equivalents,P,Period,42967.19
+10,CF-STD,Cash flow statement (indirect),CASH,Change in cash and cash equivalents,YTD,Year to date,257317.61
+10,CF-STD,Cash flow statement (indirect),CF_CHK,Check: net change in cash less change in cash (must be 0.00),P,Period,0.00
+10,CF-STD,Cash flow statement (indirect),CF_CHK,Check: net change in cash less change in cash (must be 0.00),YTD,Year to date,0.00
+11,TB-STD,Trial balance,ASSETS,Assets,OPEN,Opening,5532594.90
+11,TB-STD,Trial balance,ASSETS,Assets,CLOSE,Closing,5581947.18
+11,TB-STD,Trial balance,ASSETS,Assets,MOVE,Movement,49352.28
+11,TB-STD,Trial balance,ASSETS,Assets,CLOSE_DR,Closing debit,5811113.81
+11,TB-STD,Trial balance,ASSETS,Assets,CLOSE_CR,Closing credit,229166.63
+11,TB-STD,Trial balance,ASSETS,Assets,DIFF,Debit less credit,5581947.18
+11,TB-STD,Trial balance,LIAB,Liabilities,OPEN,Opening,-212223.30
+11,TB-STD,Trial balance,LIAB,Liabilities,CLOSE,Closing,-224667.84
+11,TB-STD,Trial balance,LIAB,Liabilities,MOVE,Movement,-12444.54
+11,TB-STD,Trial balance,LIAB,Liabilities,CLOSE_DR,Closing debit,0.00
+11,TB-STD,Trial balance,LIAB,Liabilities,CLOSE_CR,Closing credit,224667.84
+11,TB-STD,Trial balance,LIAB,Liabilities,DIFF,Debit less credit,-224667.84
+11,TB-STD,Trial balance,EQUITY,Equity,OPEN,Opening,-5000000.00
+11,TB-STD,Trial balance,EQUITY,Equity,CLOSE,Closing,-5000000.00
+11,TB-STD,Trial balance,EQUITY,Equity,MOVE,Movement,0.00
+11,TB-STD,Trial balance,EQUITY,Equity,CLOSE_DR,Closing debit,0.00
+11,TB-STD,Trial balance,EQUITY,Equity,CLOSE_CR,Closing credit,5000000.00
+11,TB-STD,Trial balance,EQUITY,Equity,DIFF,Debit less credit,-5000000.00
+11,TB-STD,Trial balance,REVENUE,Revenue,OPEN,Opening,-1061114.75
+11,TB-STD,Trial balance,REVENUE,Revenue,CLOSE,Closing,-1173337.33
+11,TB-STD,Trial balance,REVENUE,Revenue,MOVE,Movement,-112222.58
+11,TB-STD,Trial balance,REVENUE,Revenue,CLOSE_DR,Closing debit,0.00
+11,TB-STD,Trial balance,REVENUE,Revenue,CLOSE_CR,Closing credit,1173337.33
+11,TB-STD,Trial balance,REVENUE,Revenue,DIFF,Debit less credit,-1173337.33
+11,TB-STD,Trial balance,EXPENSE,Expenses,OPEN,Opening,740743.15
+11,TB-STD,Trial balance,EXPENSE,Expenses,CLOSE,Closing,816057.99
+11,TB-STD,Trial balance,EXPENSE,Expenses,MOVE,Movement,75314.84
+11,TB-STD,Trial balance,EXPENSE,Expenses,CLOSE_DR,Closing debit,816057.99
+11,TB-STD,Trial balance,EXPENSE,Expenses,CLOSE_CR,Closing credit,0.00
+11,TB-STD,Trial balance,EXPENSE,Expenses,DIFF,Debit less credit,816057.99
+11,TB-STD,Trial balance,TOTAL,Total (must be 0.00),OPEN,Opening,0.00
+11,TB-STD,Trial balance,TOTAL,Total (must be 0.00),CLOSE,Closing,0.00
+11,TB-STD,Trial balance,TOTAL,Total (must be 0.00),MOVE,Movement,0.00
+11,TB-STD,Trial balance,TOTAL,Total (must be 0.00),CLOSE_DR,Closing debit,6627171.80
+11,TB-STD,Trial balance,TOTAL,Total (must be 0.00),CLOSE_CR,Closing credit,6627171.80
+11,TB-STD,Trial balance,TOTAL,Total (must be 0.00),DIFF,Debit less credit,0.00
+11,BS-STD,Balance sheet,ASSETS,Total assets,CUR,Current,5581947.18
+11,BS-STD,Balance sheet,ASSETS,Total assets,PY,Prior year,
+11,BS-STD,Balance sheet,ASSETS,Total assets,VAR,Variance,
+11,BS-STD,Balance sheet,LIAB,Liabilities,CUR,Current,224667.84
+11,BS-STD,Balance sheet,LIAB,Liabilities,PY,Prior year,
+11,BS-STD,Balance sheet,LIAB,Liabilities,VAR,Variance,
+11,BS-STD,Balance sheet,EQUITY,Equity,CUR,Current,5000000.00
+11,BS-STD,Balance sheet,EQUITY,Equity,PY,Prior year,
+11,BS-STD,Balance sheet,EQUITY,Equity,VAR,Variance,
+11,BS-STD,Balance sheet,RESULT,Current period result,CUR,Current,357279.34
+11,BS-STD,Balance sheet,RESULT,Current period result,PY,Prior year,
+11,BS-STD,Balance sheet,RESULT,Current period result,VAR,Variance,
+11,BS-STD,Balance sheet,LE,Liabilities and equity,CUR,Current,5581947.18
+11,BS-STD,Balance sheet,LE,Liabilities and equity,PY,Prior year,
+11,BS-STD,Balance sheet,LE,Liabilities and equity,VAR,Variance,
+11,BS-STD,Balance sheet,CHK,Check: assets less liabilities and equity (must be 0.00),CUR,Current,0.00
+11,BS-STD,Balance sheet,CHK,Check: assets less liabilities and equity (must be 0.00),PY,Prior year,
+11,BS-STD,Balance sheet,CHK,Check: assets less liabilities and equity (must be 0.00),VAR,Variance,
+11,PL-STD,Income statement,REV,Revenue,P,Period,112222.58
+11,PL-STD,Income statement,REV,Revenue,YTD,Year to date,1173337.33
+11,PL-STD,Income statement,REV,Revenue,PY,Prior year,
+11,PL-STD,Income statement,EXP,Expenses,P,Period,75314.84
+11,PL-STD,Income statement,EXP,Expenses,YTD,Year to date,816057.99
+11,PL-STD,Income statement,EXP,Expenses,PY,Prior year,
+11,PL-STD,Income statement,RES,Net result,P,Period,36907.74
+11,PL-STD,Income statement,RES,Net result,YTD,Year to date,357279.34
+11,PL-STD,Income statement,RES,Net result,PY,Prior year,
+11,CF-STD,Cash flow statement (indirect),REV,Revenue,P,Period,112222.58
+11,CF-STD,Cash flow statement (indirect),REV,Revenue,YTD,Year to date,1173337.33
+11,CF-STD,Cash flow statement (indirect),EXP,Expenses,P,Period,75314.84
+11,CF-STD,Cash flow statement (indirect),EXP,Expenses,YTD,Year to date,816057.99
+11,CF-STD,Cash flow statement (indirect),NI,Net income,P,Period,36907.74
+11,CF-STD,Cash flow statement (indirect),NI,Net income,YTD,Year to date,357279.34
+11,CF-STD,Cash flow statement (indirect),ADJ_DEP,Accumulated depreciation and amortisation,P,Period,20833.33
+11,CF-STD,Cash flow statement (indirect),ADJ_DEP,Accumulated depreciation and amortisation,YTD,Year to date,229166.63
+11,CF-STD,Cash flow statement (indirect),ADJ_PROV,Provisions,P,Period,0.00
+11,CF-STD,Cash flow statement (indirect),ADJ_PROV,Provisions,YTD,Year to date,0.00
+11,CF-STD,Cash flow statement (indirect),CF_ADJ,Adjustments for non-cash items,P,Period,20833.33
+11,CF-STD,Cash flow statement (indirect),CF_ADJ,Adjustments for non-cash items,YTD,Year to date,229166.63
+11,CF-STD,Cash flow statement (indirect),WC_REC,Receivables and inventories,P,Period,-26721.68
+11,CF-STD,Cash flow statement (indirect),WC_REC,Receivables and inventories,YTD,Year to date,-260331.28
+11,CF-STD,Cash flow statement (indirect),WC_PAY,Trade payables,P,Period,12444.54
+11,CF-STD,Cash flow statement (indirect),WC_PAY,Trade payables,YTD,Year to date,124667.84
+11,CF-STD,Cash flow statement (indirect),WC_ACC,Accruals and other liabilities,P,Period,0.00
+11,CF-STD,Cash flow statement (indirect),WC_ACC,Accruals and other liabilities,YTD,Year to date,0.00
+11,CF-STD,Cash flow statement (indirect),CF_WC,Working capital changes,P,Period,-14277.14
+11,CF-STD,Cash flow statement (indirect),CF_WC,Working capital changes,YTD,Year to date,-135663.44
+11,CF-STD,Cash flow statement (indirect),CF_OP,Cash flow from operating activities,P,Period,43463.93
+11,CF-STD,Cash flow statement (indirect),CF_OP,Cash flow from operating activities,YTD,Year to date,450782.53
+11,CF-STD,Cash flow statement (indirect),INV_PPE,"Property, plant and equipment",P,Period,0.00
+11,CF-STD,Cash flow statement (indirect),INV_PPE,"Property, plant and equipment",YTD,Year to date,-250000.99
+11,CF-STD,Cash flow statement (indirect),INV_OTH,Other non-current assets,P,Period,0.00
+11,CF-STD,Cash flow statement (indirect),INV_OTH,Other non-current assets,YTD,Year to date,0.00
+11,CF-STD,Cash flow statement (indirect),CF_INV,Cash flow from investing activities,P,Period,0.00
+11,CF-STD,Cash flow statement (indirect),CF_INV,Cash flow from investing activities,YTD,Year to date,-250000.99
+11,CF-STD,Cash flow statement (indirect),FIN_DEBT,Borrowings,P,Period,0.00
+11,CF-STD,Cash flow statement (indirect),FIN_DEBT,Borrowings,YTD,Year to date,100000.00
+11,CF-STD,Cash flow statement (indirect),FIN_EQ,Equity,P,Period,0.00
+11,CF-STD,Cash flow statement (indirect),FIN_EQ,Equity,YTD,Year to date,0.00
+11,CF-STD,Cash flow statement (indirect),CF_FIN,Cash flow from financing activities,P,Period,0.00
+11,CF-STD,Cash flow statement (indirect),CF_FIN,Cash flow from financing activities,YTD,Year to date,100000.00
+11,CF-STD,Cash flow statement (indirect),CF_NET,Net change in cash,P,Period,43463.93
+11,CF-STD,Cash flow statement (indirect),CF_NET,Net change in cash,YTD,Year to date,300781.54
+11,CF-STD,Cash flow statement (indirect),CASH,Change in cash and cash equivalents,P,Period,43463.93
+11,CF-STD,Cash flow statement (indirect),CASH,Change in cash and cash equivalents,YTD,Year to date,300781.54
+11,CF-STD,Cash flow statement (indirect),CF_CHK,Check: net change in cash less change in cash (must be 0.00),P,Period,0.00
+11,CF-STD,Cash flow statement (indirect),CF_CHK,Check: net change in cash less change in cash (must be 0.00),YTD,Year to date,0.00
+12,TB-STD,Trial balance,ASSETS,Assets,OPEN,Opening,5581947.18
+12,TB-STD,Trial balance,ASSETS,Assets,CLOSE,Closing,5632407.24
+12,TB-STD,Trial balance,ASSETS,Assets,MOVE,Movement,50460.06
+12,TB-STD,Trial balance,ASSETS,Assets,CLOSE_DR,Closing debit,5882407.20
+12,TB-STD,Trial balance,ASSETS,Assets,CLOSE_CR,Closing credit,249999.96
+12,TB-STD,Trial balance,ASSETS,Assets,DIFF,Debit less credit,5632407.24
+12,TB-STD,Trial balance,LIAB,Liabilities,OPEN,Opening,-224667.84
+12,TB-STD,Trial balance,LIAB,Liabilities,CLOSE,Closing,-237334.60
+12,TB-STD,Trial balance,LIAB,Liabilities,MOVE,Movement,-12666.76
+12,TB-STD,Trial balance,LIAB,Liabilities,CLOSE_DR,Closing debit,0.00
+12,TB-STD,Trial balance,LIAB,Liabilities,CLOSE_CR,Closing credit,237334.60
+12,TB-STD,Trial balance,LIAB,Liabilities,DIFF,Debit less credit,-237334.60
+12,TB-STD,Trial balance,EQUITY,Equity,OPEN,Opening,-5000000.00
+12,TB-STD,Trial balance,EQUITY,Equity,CLOSE,Closing,-5395072.64
+12,TB-STD,Trial balance,EQUITY,Equity,MOVE,Movement,-395072.64
+12,TB-STD,Trial balance,EQUITY,Equity,CLOSE_DR,Closing debit,0.00
+12,TB-STD,Trial balance,EQUITY,Equity,CLOSE_CR,Closing credit,5395072.64
+12,TB-STD,Trial balance,EQUITY,Equity,DIFF,Debit less credit,-5395072.64
+12,TB-STD,Trial balance,REVENUE,Revenue,OPEN,Opening,-1173337.33
+12,TB-STD,Trial balance,REVENUE,Revenue,CLOSE,Closing,0.00
+12,TB-STD,Trial balance,REVENUE,Revenue,MOVE,Movement,1173337.33
+12,TB-STD,Trial balance,REVENUE,Revenue,CLOSE_DR,Closing debit,0.00
+12,TB-STD,Trial balance,REVENUE,Revenue,CLOSE_CR,Closing credit,0.00
+12,TB-STD,Trial balance,REVENUE,Revenue,DIFF,Debit less credit,0.00
+12,TB-STD,Trial balance,EXPENSE,Expenses,OPEN,Opening,816057.99
+12,TB-STD,Trial balance,EXPENSE,Expenses,CLOSE,Closing,0.00
+12,TB-STD,Trial balance,EXPENSE,Expenses,MOVE,Movement,-816057.99
+12,TB-STD,Trial balance,EXPENSE,Expenses,CLOSE_DR,Closing debit,0.00
+12,TB-STD,Trial balance,EXPENSE,Expenses,CLOSE_CR,Closing credit,0.00
+12,TB-STD,Trial balance,EXPENSE,Expenses,DIFF,Debit less credit,0.00
+12,TB-STD,Trial balance,TOTAL,Total (must be 0.00),OPEN,Opening,0.00
+12,TB-STD,Trial balance,TOTAL,Total (must be 0.00),CLOSE,Closing,0.00
+12,TB-STD,Trial balance,TOTAL,Total (must be 0.00),MOVE,Movement,0.00
+12,TB-STD,Trial balance,TOTAL,Total (must be 0.00),CLOSE_DR,Closing debit,5882407.20
+12,TB-STD,Trial balance,TOTAL,Total (must be 0.00),CLOSE_CR,Closing credit,5882407.20
+12,TB-STD,Trial balance,TOTAL,Total (must be 0.00),DIFF,Debit less credit,0.00
+12,BS-STD,Balance sheet,ASSETS,Total assets,CUR,Current,5632407.24
+12,BS-STD,Balance sheet,ASSETS,Total assets,PY,Prior year,
+12,BS-STD,Balance sheet,ASSETS,Total assets,VAR,Variance,
+12,BS-STD,Balance sheet,LIAB,Liabilities,CUR,Current,237334.60
+12,BS-STD,Balance sheet,LIAB,Liabilities,PY,Prior year,
+12,BS-STD,Balance sheet,LIAB,Liabilities,VAR,Variance,
+12,BS-STD,Balance sheet,EQUITY,Equity,CUR,Current,5395072.64
+12,BS-STD,Balance sheet,EQUITY,Equity,PY,Prior year,
+12,BS-STD,Balance sheet,EQUITY,Equity,VAR,Variance,
+12,BS-STD,Balance sheet,RESULT,Current period result,CUR,Current,0.00
+12,BS-STD,Balance sheet,RESULT,Current period result,PY,Prior year,
+12,BS-STD,Balance sheet,RESULT,Current period result,VAR,Variance,
+12,BS-STD,Balance sheet,LE,Liabilities and equity,CUR,Current,5632407.24
+12,BS-STD,Balance sheet,LE,Liabilities and equity,PY,Prior year,
+12,BS-STD,Balance sheet,LE,Liabilities and equity,VAR,Variance,
+12,BS-STD,Balance sheet,CHK,Check: assets less liabilities and equity (must be 0.00),CUR,Current,0.00
+12,BS-STD,Balance sheet,CHK,Check: assets less liabilities and equity (must be 0.00),PY,Prior year,
+12,BS-STD,Balance sheet,CHK,Check: assets less liabilities and equity (must be 0.00),VAR,Variance,
+12,PL-STD,Income statement,REV,Revenue,P,Period,113333.69
+12,PL-STD,Income statement,REV,Revenue,YTD,Year to date,1286671.02
+12,PL-STD,Income statement,REV,Revenue,PY,Prior year,
+12,PL-STD,Income statement,EXP,Expenses,P,Period,75540.39
+12,PL-STD,Income statement,EXP,Expenses,YTD,Year to date,891598.38
+12,PL-STD,Income statement,EXP,Expenses,PY,Prior year,
+12,PL-STD,Income statement,RES,Net result,P,Period,37793.30
+12,PL-STD,Income statement,RES,Net result,YTD,Year to date,395072.64
+12,PL-STD,Income statement,RES,Net result,PY,Prior year,
+12,CF-STD,Cash flow statement (indirect),REV,Revenue,P,Period,113333.69
+12,CF-STD,Cash flow statement (indirect),REV,Revenue,YTD,Year to date,1286671.02
+12,CF-STD,Cash flow statement (indirect),EXP,Expenses,P,Period,75540.39
+12,CF-STD,Cash flow statement (indirect),EXP,Expenses,YTD,Year to date,891598.38
+12,CF-STD,Cash flow statement (indirect),NI,Net income,P,Period,37793.30
+12,CF-STD,Cash flow statement (indirect),NI,Net income,YTD,Year to date,395072.64
+12,CF-STD,Cash flow statement (indirect),ADJ_DEP,Accumulated depreciation and amortisation,P,Period,20833.33
+12,CF-STD,Cash flow statement (indirect),ADJ_DEP,Accumulated depreciation and amortisation,YTD,Year to date,249999.96
+12,CF-STD,Cash flow statement (indirect),ADJ_PROV,Provisions,P,Period,0.00
+12,CF-STD,Cash flow statement (indirect),ADJ_PROV,Provisions,YTD,Year to date,0.00
+12,CF-STD,Cash flow statement (indirect),CF_ADJ,Adjustments for non-cash items,P,Period,20833.33
+12,CF-STD,Cash flow statement (indirect),CF_ADJ,Adjustments for non-cash items,YTD,Year to date,249999.96
+12,CF-STD,Cash flow statement (indirect),WC_REC,Receivables and inventories,P,Period,-27332.72
+12,CF-STD,Cash flow statement (indirect),WC_REC,Receivables and inventories,YTD,Year to date,-287664.00
+12,CF-STD,Cash flow statement (indirect),WC_PAY,Trade payables,P,Period,12666.76
+12,CF-STD,Cash flow statement (indirect),WC_PAY,Trade payables,YTD,Year to date,137334.60
+12,CF-STD,Cash flow statement (indirect),WC_ACC,Accruals and other liabilities,P,Period,0.00
+12,CF-STD,Cash flow statement (indirect),WC_ACC,Accruals and other liabilities,YTD,Year to date,0.00
+12,CF-STD,Cash flow statement (indirect),CF_WC,Working capital changes,P,Period,-14665.96
+12,CF-STD,Cash flow statement (indirect),CF_WC,Working capital changes,YTD,Year to date,-150329.40
+12,CF-STD,Cash flow statement (indirect),CF_OP,Cash flow from operating activities,P,Period,43960.67
+12,CF-STD,Cash flow statement (indirect),CF_OP,Cash flow from operating activities,YTD,Year to date,494743.20
+12,CF-STD,Cash flow statement (indirect),INV_PPE,"Property, plant and equipment",P,Period,0.00
+12,CF-STD,Cash flow statement (indirect),INV_PPE,"Property, plant and equipment",YTD,Year to date,-250000.99
+12,CF-STD,Cash flow statement (indirect),INV_OTH,Other non-current assets,P,Period,0.00
+12,CF-STD,Cash flow statement (indirect),INV_OTH,Other non-current assets,YTD,Year to date,0.00
+12,CF-STD,Cash flow statement (indirect),CF_INV,Cash flow from investing activities,P,Period,0.00
+12,CF-STD,Cash flow statement (indirect),CF_INV,Cash flow from investing activities,YTD,Year to date,-250000.99
+12,CF-STD,Cash flow statement (indirect),FIN_DEBT,Borrowings,P,Period,0.00
+12,CF-STD,Cash flow statement (indirect),FIN_DEBT,Borrowings,YTD,Year to date,100000.00
+12,CF-STD,Cash flow statement (indirect),FIN_EQ,Equity,P,Period,0.00
+12,CF-STD,Cash flow statement (indirect),FIN_EQ,Equity,YTD,Year to date,0.00
+12,CF-STD,Cash flow statement (indirect),CF_FIN,Cash flow from financing activities,P,Period,0.00
+12,CF-STD,Cash flow statement (indirect),CF_FIN,Cash flow from financing activities,YTD,Year to date,100000.00
+12,CF-STD,Cash flow statement (indirect),CF_NET,Net change in cash,P,Period,43960.67
+12,CF-STD,Cash flow statement (indirect),CF_NET,Net change in cash,YTD,Year to date,344742.21
+12,CF-STD,Cash flow statement (indirect),CASH,Change in cash and cash equivalents,P,Period,43960.67
+12,CF-STD,Cash flow statement (indirect),CASH,Change in cash and cash equivalents,YTD,Year to date,344742.21
+12,CF-STD,Cash flow statement (indirect),CF_CHK,Check: net change in cash less change in cash (must be 0.00),P,Period,0.00
+12,CF-STD,Cash flow statement (indirect),CF_CHK,Check: net change in cash less change in cash (must be 0.00),YTD,Year to date,0.00
