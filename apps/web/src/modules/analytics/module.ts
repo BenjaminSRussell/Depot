@@ -9,12 +9,13 @@ import { LineagePage } from "./LineagePage";
 import { MetricDetailPage, MetricsPage } from "./MetricsPage";
 import { ReconciliationPage } from "./ReconciliationPage";
 import { ScheduleCreatePage, ScheduleDetailPage, SchedulesPage } from "./SchedulesPage";
+import { UxTelemetryPage } from "./UxTelemetryPage";
 
 const analytics: PassageModule = {
   id: "analytics",
   title: "Analytics",
   description:
-    "Governed metrics, dashboards, the explorer and its exports, the daily reconciliation of metrics against the ledger, data-quality rules, scheduled reports and their deliveries, catalog lineage and archive partitions.",
+    "Governed metrics, dashboards, the explorer and its exports, the daily reconciliation of metrics against the ledger, data-quality rules, scheduled reports and their deliveries, catalog lineage, archive partitions and the UX telemetry funnels.",
   routes: [
     { path: "/analytics", element: createElement(MetricsPage), handle: { title: "Governed metrics", duty: "analytics.view" } },
     { path: "/analytics/metrics", element: createElement(MetricsPage) },
@@ -34,6 +35,7 @@ const analytics: PassageModule = {
     { path: "/analytics/lineage", element: createElement(LineagePage), handle: { title: "Lineage" } },
     { path: "/analytics/archive", element: createElement(ArchivePage), handle: { title: "Archive partitions" } },
     { path: "/analytics/archive/:id", element: createElement(ArchivePartitionPage), handle: { title: "Archive partition" } },
+    { path: "/analytics/ux", element: createElement(UxTelemetryPage), handle: { title: "UX telemetry", duty: "analytics.ux.view" } },
   ],
   nav: [
     { label: "Governed metrics", to: "/analytics/metrics", duty: "analytics.view" },
@@ -45,6 +47,7 @@ const analytics: PassageModule = {
     { label: "Scheduled reports", to: "/analytics/schedules", duty: "analytics.author" },
     { label: "Lineage", to: "/analytics/lineage", duty: "analytics.catalog.view" },
     { label: "Archive partitions", to: "/analytics/archive", duty: "analytics.archive.admin" },
+    { label: "UX telemetry", to: "/analytics/ux", duty: "analytics.ux.view" },
   ],
 };
 

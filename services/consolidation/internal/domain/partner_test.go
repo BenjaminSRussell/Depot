@@ -58,7 +58,7 @@ func threeUnitGroup() ([]Unit, []CollectLine, map[string]CollectRate, map[string
 }
 
 // Worked example, IFRS 10 B86(c): a parent sells goods to two subsidiaries at different margins and each holds part of them at the
-// period end.
+// period end. The balances and the expected figures are in testdata/ic-partner-examples.json, which the accountant reviews (#512).
 //
 //	P to S1: sales 1,000, cost 600, margin 40.00 percent. S1 bought 1,000, sold on goods it bought for 700, holds 300.
 //	         Unrealised profit 300 x 40 percent = 120.00. P is owed 400, S1 owes 400.
@@ -66,41 +66,10 @@ func threeUnitGroup() ([]Unit, []CollectLine, map[string]CollectRate, map[string
 //	         goods it bought for 1,200 EUR (1,320 USD), holds 880 USD. Unrealised profit 880 x 25 percent = 220.00. P is owed 600 USD,
 //	         S2 owes 498 EUR = 597.60 USD at the closing rate 1.20, so 2.40 is an exchange difference.
 func TestDeriveRun_ParentSellingToTwoSubsidiaries_B86c(t *testing.T) {
-	units, lines, rates, terms := threeUnitGroup()
-	partners, err := CollectPartners("USD", partnerMapping, []UnitPartnerLedger{
-		{UnitID: "P", Currency: "USD", Rows: []PartnerRow{
-			prow("4100", "S1", "-1000"), prow("5100", "S1", "600"), prow("1500", "S1", "400"),
-			prow("4100", "S2", "-2200"), prow("5100", "S2", "1650"), prow("1500", "S2", "600")}},
-		{UnitID: "S1", Currency: "USD", Rows: []PartnerRow{prow("5200", "P", "1000"), prow("5300", "P", "700"), prow("2500", "P", "-400")}},
-		{UnitID: "S2", Currency: "EUR", Rows: []PartnerRow{prow("5200", "P", "2000"), prow("5300", "P", "1200"), prow("2500", "P", "-498")}},
-	}, rates)
-	if err != nil {
-		t.Fatal(err)
-	}
-	lines = append(lines, roleLines(partners)...)
-	in := DeriveInput{GroupCurrency: "USD", Period: "2027-03", Units: units, Lines: lines, Rates: rates, Terms: terms, PartnerLines: partners,
-		Opening: map[string]OpeningBasis{"S1": {NetAssets: dec("900000"), Rate: dec("1")}, "S2": {NetAssets: dec("750000"), Rate: dec("1.15")}}}
-	d, err := DeriveRun(in)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(d.Units) != 2 {
-		t.Fatalf("units = %+v", d.Units)
-	}
-	want := map[string]struct{ sales, cost, receivable, payableUnit, profit string }{
-		"S1": {"1000", "600", "400", "400", "120"},
-		"S2": {"2200", "1650", "600", "498", "220"},
-	}
-	for _, u := range d.Units {
-		w := want[u.ID]
-		p := u.Pair
-		if p.ICSalesGroup == nil || p.ICCostGroup == nil || p.ReceivableGroup == nil || p.PayableUnit == nil || p.UnrealizedProfitGroup == nil {
-			t.Fatalf("%s: partner amounts missing: %+v", u.ID, p)
-		}
-		if !p.ICSalesGroup.Equal(dec(w.sales)) || !p.ICCostGroup.Equal(dec(w.cost)) || !p.ReceivableGroup.Equal(dec(w.receivable)) || !p.PayableUnit.Equal(dec(w.payableUnit)) || !p.UnrealizedProfitGroup.Equal(dec(w.profit)) {
-			t.Errorf("%s: sales %s cost %s receivable %s payable %s profit %s; want %+v", u.ID, p.ICSalesGroup, p.ICCostGroup, p.ReceivableGroup, p.PayableUnit, p.UnrealizedProfitGroup, w)
-		}
-	}
+	e := partnerExampleByID(t, "b86c-parent-to-two-subsidiaries")
+	_, lines, _, _ := threeUnitGroup()
+	in, d := e.derive(t, lines)
+	checkPartnerExample(t, e, d)
 	if len(d.Warnings) != 2 || !strings.Contains(d.Warnings[0], CodeProfitEstimated) {
 		t.Errorf("warnings = %v, want one CNS-0933 estimate per subsidiary", d.Warnings)
 	}
@@ -112,34 +81,26 @@ func TestDeriveRun_ParentSellingToTwoSubsidiaries_B86c(t *testing.T) {
 	if err := CheckBalanced(entriesOf(res)); err != nil {
 		t.Fatalf("elimination journal unbalanced: %v", err)
 	}
-	got := map[string]string{}
-	for _, e := range res.Entries {
-		if e.RuleCode == RuleE1 || e.RuleCode == RuleE2 || e.RuleCode == RuleE3 {
-			net := e.Debit.Sub(e.Credit)
-			got[e.UnitID+" "+e.RuleCode+" "+e.Account] = net.String()
+	// The run's E1 to E3 entries are the pairs' own, and each subsidiary's unrealised profit is eliminated on its own.
+	run := map[string]string{}
+	for _, en := range res.Entries {
+		if en.RuleCode == RuleE1 || en.RuleCode == RuleE2 || en.RuleCode == RuleE3 {
+			run[en.UnitID+" "+en.RuleCode+" "+en.Account] = en.Debit.Sub(en.Credit).StringFixed(2)
 		}
 	}
-	for k, v := range map[string]string{
-		"S1 E1 IC_REVENUE": "1000", "S1 E1 IC_COGS": "-1000",
-		"S2 E1 IC_REVENUE": "2200", "S2 E1 IC_COGS": "-2200",
-		"S1 E2 IC_PAYABLE": "400", "S1 E2 IC_RECEIVABLE": "-400",
-		"S2 E2 IC_PAYABLE": "597.6", "S2 E2 IC_RECEIVABLE": "-600", "S2 E2 FX_GAIN_LOSS": "2.4",
-		"S1 E3 COGS": "120", "S1 E3 INVENTORY": "-120",
-		"S2 E3 COGS": "220", "S2 E3 INVENTORY": "-220",
-	} {
-		if got[k] != v {
-			t.Errorf("%s = %q, want %s (all %v)", k, got[k], v, got)
+	for _, w := range e.Expected.Entries {
+		if want := w.Debit.Sub(w.Credit).StringFixed(2); run[w.Unit+" "+w.Rule+" "+w.Account] != want {
+			t.Errorf("run %s %s %s = %q, want %s (all %v)", w.Unit, w.Rule, w.Account, run[w.Unit+" "+w.Rule+" "+w.Account], want, run)
 		}
 	}
-	// Each subsidiary's unrealised profit is eliminated on its own: 120.00 + 220.00 = 340.00 off consolidated income.
 	var e3 string
 	for _, l := range res.Statements {
 		if l.Code == LineUnrealizedProfitE3 {
-			e3 = l.Amount.String()
+			e3 = l.Amount.Abs().StringFixed(2)
 		}
 	}
-	if e3 != "340" && e3 != "-340" {
-		t.Errorf("E3 statement line = %q, want 340", e3)
+	if e3 != e.Expected.UnrealizedProfitStatement {
+		t.Errorf("E3 statement line = %q, want %s", e3, e.Expected.UnrealizedProfitStatement)
 	}
 	// A rerun with the same inputs gives the same journal, entry for entry.
 	d2, err := DeriveRun(in)
@@ -257,43 +218,12 @@ func TestUnrealizedFromPartners_InventoryBalanceAndCap(t *testing.T) {
 // A subsidiary that sells to its parent (upstream): the subsidiary's sales are in its own currency, the parent's purchases in the group
 // currency, and the NCI bears its share of the unrealised profit.
 func TestDeriveRun_UpstreamSaleFromPartnerBalances(t *testing.T) {
-	units := []Unit{{ID: "P", LegalEntityID: "le-p", LedgerID: "l-p", Currency: "USD"}, heldByParent(subsidiary("S2", "EUR", "80"))}
-	lines := []CollectLine{collected("S2", "3000", AccountBalanceSheet, RoleEquity, "-800000"), collected("S2", "4000", AccountIncome, "", "-50000")}
-	rates := map[string]CollectRate{"EUR": {Average: dec("1.08"), Closing: dec("1.20")}}
-	terms := map[string]UnitTerms{"S2": {InvestmentCost: dec("900000"), ShareCapital: dec("800000"), HistoricalRate: dec("1.25"), SellerIsSubsidiary: true}}
-	partners, err := CollectPartners("USD", partnerMapping, []UnitPartnerLedger{
-		{UnitID: "S2", Currency: "EUR", Rows: []PartnerRow{prow("4100", "P", "-1000"), prow("5100", "P", "700"), prow("1500", "P", "250")}},
-		{UnitID: "P", Currency: "USD", Rows: []PartnerRow{prow("5200", "S2", "1080"), prow("5300", "S2", "756"), prow("2500", "S2", "-300")}},
-	}, rates)
-	if err != nil {
-		t.Fatal(err)
-	}
-	lines = append(lines, roleLines(partners)...)
-	d, err := DeriveRun(DeriveInput{GroupCurrency: "USD", Period: "2027-03", Units: units, Lines: lines, Rates: rates, Terms: terms, PartnerLines: partners,
-		Opening: map[string]OpeningBasis{"S2": {NetAssets: dec("750000"), Rate: dec("1.15")}}})
-	if err != nil {
-		t.Fatal(err)
-	}
-	p := d.Units[0].Pair
-	if !p.ICSales.Equal(dec("1000")) || !p.ICCost.Equal(dec("700")) || !p.ICReceivable.Equal(dec("250")) || !p.PayableGroup.Equal(dec("300")) || p.ICSalesGroup != nil {
-		t.Fatalf("upstream pair = %+v", p)
-	}
-	// Inventory 1,080 - 756 = 324 USD at the seller's margin 30 percent = 97.20; the NCI (20 percent) bears 19.44.
-	if p.UnrealizedProfitGroup == nil || !p.UnrealizedProfitGroup.Equal(dec("97.2")) {
-		t.Fatalf("unrealised profit = %v, want 97.20", p.UnrealizedProfitGroup)
-	}
-	entries, err := Eliminate(p)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var nci string
-	for _, e := range entries {
-		if e.RuleCode == RuleE3 && e.Account == AcctNCIEquity {
-			nci = e.Debit.String()
-		}
-	}
-	if nci != "19.44" {
-		t.Errorf("NCI share of the unrealised profit = %q, want 19.44", nci)
+	e := partnerExampleByID(t, "upstream-subsidiary-to-parent")
+	_, d := e.derive(t, []CollectLine{collected("S2", "3000", AccountBalanceSheet, RoleEquity, "-800000"), collected("S2", "4000", AccountIncome, "", "-50000")})
+	// Inventory 1,080 - 756 = 324 USD at the seller's margin 30 percent = 97.20; the NCI (20 percent) bears 19.44 (see the file).
+	checkPartnerExample(t, e, d)
+	if d.Units[0].Pair.ICSalesGroup != nil {
+		t.Fatalf("upstream pair has group-currency sales: %+v", d.Units[0].Pair)
 	}
 }
 

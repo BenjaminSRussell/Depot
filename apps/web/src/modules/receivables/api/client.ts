@@ -1250,3 +1250,49 @@ export function reverseCreditSettlement(batchId: string, reason: string): Promis
 export function reversePayment(id: string, version: number): Promise<unknown> {
   return send<unknown>(`/payments/${id}:reverse`, { method: "POST", headers: { "If-Match": `"${version}"` } });
 }
+
+/** A customer's card or bank account (ACH) payment from the customer portal (#30). Only the brand, last four digits, expiry and bank name are known. */
+export type GatewayStatus = "REQUIRES_PAYMENT" | "PROCESSING" | "SUCCEEDED" | "FAILED" | "REFUNDED" | "DISPUTED";
+export const GATEWAY_STATUSES: GatewayStatus[] = ["REQUIRES_PAYMENT", "PROCESSING", "SUCCEEDED", "FAILED", "REFUNDED", "DISPUTED"];
+
+export interface GatewayPayment {
+  id: string;
+  legalEntityId: string;
+  customerId: string;
+  provider: "STRIPE" | "ADYEN";
+  providerAccount?: string;
+  providerIntentId?: string;
+  method: "CARD" | "ACH";
+  amount: string;
+  currency: string;
+  status: GatewayStatus;
+  cardBrand?: string;
+  last4?: string;
+  cardExpMonth?: number;
+  cardExpYear?: number;
+  bankName?: string;
+  failureCode?: string;
+  failureMessage?: string;
+  paymentId?: string;
+  refundedAmount: string;
+  needsReview: boolean;
+  reviewReason?: string;
+  version: number;
+  createdAt: string;
+  updatedAt: string;
+  allocations: { openItemId: string; documentNumber: string; amount: string }[];
+  events?: { eventId: string; eventType: string; outcome: string; occurredAt: string; processedAt: string }[];
+}
+
+/** GET /gateway-payments - portal card and ACH payments, newest first; `payment` narrows to the one a receivables payment came from. */
+export function listGatewayPayments(
+  filter: { status?: GatewayStatus | ""; customer?: string; payment?: string; limit?: number } = {},
+  signal?: AbortSignal,
+): Promise<GatewayPayment[]> {
+  return items<GatewayPayment>(`/gateway-payments${query({ status: filter.status, customer: filter.customer, payment: filter.payment, limit: filter.limit })}`, signal);
+}
+
+/** GET /gateway-payments/{id} - one portal payment with the provider events handled for it. */
+export function getGatewayPayment(id: string, signal?: AbortSignal): Promise<GatewayPayment> {
+  return send<GatewayPayment>(`/gateway-payments/${id}`, {}, signal);
+}

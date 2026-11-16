@@ -1,6 +1,6 @@
 // The routes the customer portal app may call and the one upstream call each becomes. Nothing else is proxied. Reads are GET; the
-// two writes a customer makes for itself (FR-30.14) are POST /orders and POST /returns, each one call to sales with its own duty
-// and an Idempotency-Key. The customer is never a parameter or a body field: it is in the signed service token. The legal entity is
+// writes a customer makes for itself (FR-30.14) are POST /orders and POST /returns, each one call to sales with its own duty, and
+// POST /payment-intents, one call to receivables with the pay duty; each carries an Idempotency-Key. The customer is never a parameter or a body field: it is in the signed service token. The legal entity is
 // the session's, never the client's.
 
 import type { Audience } from "./serviceToken.ts";
@@ -38,6 +38,13 @@ export const ROUTES: readonly Route[] = [
   { method: "GET", path: "/api/v1/open-items/:id", audience: "receivables", duty: AR_READ, upstream: `${AR}/open-items/:id` },
   { method: "GET", path: "/api/v1/payments", audience: "receivables", duty: AR_READ, upstream: `${AR}/payments` },
   { method: "GET", path: "/api/v1/statement", audience: "receivables", duty: AR_READ, upstream: `${AR}/statement` },
+  // Card and bank account (ACH) payments (#30): the customer starts a payment of its own open items and reads its status. Receivables
+  // asks Stripe for the PaymentIntent and answers only its client secret; the card or bank details go from the browser to Stripe.
+  { method: "GET", path: "/api/v1/payment-intents", audience: "receivables", duty: AR_READ, upstream: `${AR}/payment-intents` },
+  { method: "GET", path: "/api/v1/payment-intents/:id", audience: "receivables", duty: AR_READ, upstream: `${AR}/payment-intents/:id` },
+  { method: "POST", path: "/api/v1/payment-intents", audience: "receivables", duty: "receivables.customer-portal.pay", upstream: `${AR}/payment-intents` },
+  // The customer went back to change the amounts: the abandoned payment is cancelled at Stripe and stops reserving the invoices.
+  { method: "POST", path: "/api/v1/payment-intents/:id/cancel", audience: "receivables", duty: "receivables.customer-portal.pay", upstream: `${AR}/payment-intents/:id:cancel` },
 
   { method: "GET", path: "/api/v1/orders", audience: "sales", duty: SALES_READ, upstream: `${SALES}/orders` },
   { method: "GET", path: "/api/v1/orders/:id", audience: "sales", duty: SALES_READ, upstream: `${SALES}/orders/:id` },

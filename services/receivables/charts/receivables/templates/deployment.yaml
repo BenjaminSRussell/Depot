@@ -17,9 +17,9 @@ spec:
         app.kubernetes.io/name: passage-receivables
         app.kubernetes.io/instance: {{ .Release.Name }}
     spec:
-      {{- if .Values.sftpPoll.sources }}
-      # The image runs as the distroless nonroot user (65532); the SFTP key Secret is root-owned, so the pod's fsGroup and a
-      # group-readable mode are what let the service read it.
+      {{- if or .Values.sftpPoll.sources .Values.payments.provider }}
+      # The image runs as the distroless nonroot user (65532); the SFTP key and payment Secrets are root-owned, so the pod's fsGroup
+      # and a group-readable mode are what let the service read them.
       securityContext:
         fsGroup: 65532
       {{- end }}
@@ -32,6 +32,10 @@ spec:
               containerPort: {{ .Values.service.port }}
             - name: admin
               containerPort: {{ .Values.service.adminPort }}
+            {{- if .Values.payments.provider }}
+            - name: webhook
+              containerPort: {{ .Values.payments.webhookPort }}
+            {{- end }}
           env:
             {{- include "passage.cloudEnv" $ | nindent 12 }}
             - name: PASSAGE_ENV
@@ -85,9 +89,35 @@ spec:
               value: {{ .Values.sftpPoll.interval | quote }}
             {{- end }}
             {{- end }}
-          {{- if .Values.sftpPoll.sources }}
+            {{- if .Values.payments.provider }}
+            {{- if not (hasPrefix "pk_" (required "payments.publishableKey (pk_...) is required when payments.provider is set: without it the portal cannot show the payment form" .Values.payments.publishableKey)) }}
+            {{- fail "payments.publishableKey must be a Stripe publishable key (pk_...)" }}
+            {{- end }}
+            - name: RECEIVABLES_PAYMENT_PROVIDER
+              value: {{ .Values.payments.provider | quote }}
+            - name: RECEIVABLES_WEBHOOK_ADDR
+              value: ":{{ .Values.payments.webhookPort }}"
+            - name: STRIPE_SECRET_KEY_FILE
+              value: /var/run/passage/payments/{{ .Values.payments.secretKeyKey }}
+            - name: STRIPE_WEBHOOK_SECRET_FILE
+              value: /var/run/passage/payments/{{ .Values.payments.webhookSecretKey }}
+            - name: STRIPE_PUBLISHABLE_KEY
+              value: {{ .Values.payments.publishableKey | quote }}
+            - name: RECEIVABLES_GATEWAY_BANK_REF
+              value: {{ .Values.payments.bankAccountRef | quote }}
+            {{- if .Values.payments.accounts }}
+            - name: RECEIVABLES_STRIPE_ACCOUNTS
+              value: {{ .Values.payments.accounts | toJson | quote }}
+            {{- end }}
+            {{- end }}
+          {{- if or .Values.sftpPoll.sources .Values.payments.provider }}
           volumeMounts:
+            {{- if .Values.sftpPoll.sources }}
             - { name: sftp-key, mountPath: /var/run/passage/sftp, readOnly: true }
+            {{- end }}
+            {{- if .Values.payments.provider }}
+            - { name: payments, mountPath: /var/run/passage/payments, readOnly: true }
+            {{- end }}
           {{- end }}
           livenessProbe:
             httpGet:
@@ -99,10 +129,21 @@ spec:
               port: http
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
-      {{- if .Values.sftpPoll.sources }}
+      {{- if or .Values.sftpPoll.sources .Values.payments.provider }}
       volumes:
+        {{- if .Values.sftpPoll.sources }}
         - name: sftp-key
           secret:
             secretName: {{ required "sftpPoll.keySecret names the Secret holding the client private key" .Values.sftpPoll.keySecret }}
             defaultMode: 0440
+        {{- end }}
+        {{- if .Values.payments.provider }}
+        - name: payments
+          secret:
+            secretName: {{ required "payments.existingSecret names the Secret holding the Stripe secret key and webhook signing secret" .Values.payments.existingSecret }}
+            defaultMode: 0440
+            items:
+              - { key: {{ .Values.payments.secretKeyKey }}, path: {{ .Values.payments.secretKeyKey }} }
+              - { key: {{ .Values.payments.webhookSecretKey }}, path: {{ .Values.payments.webhookSecretKey }} }
+        {{- end }}
       {{- end }}

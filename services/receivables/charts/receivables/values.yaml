@@ -60,6 +60,42 @@ sftpPoll:
   interval: 15m
   at: ""
 
+# Card and ACH payments from the customer portal (#30). provider "stripe" turns them on (empty: off; the portal then tells the
+# customer to pay by bank transfer). The Stripe secret key and the webhook signing secret come from the Secret `existingSecret`
+# (keys secretKeyKey and webhookSecretKey, read through STRIPE_SECRET_KEY_FILE / STRIPE_WEBHOOK_SECRET_FILE from a read-only mount,
+# never as plain env values and never logged); the webhook secret may list several signing secrets, comma separated (the platform
+# endpoint, the Connect endpoint, or two while one is rolled). With externalSecret.enabled the chart creates that Secret from the
+# secret store path externalSecret.key. The publishable key is not a secret. accounts maps a legal entity id to its Stripe Connect
+# account (acct_...); empty takes every entity's payments on the platform account. bankAccountRef is the ar_bank_account
+# account_ref of the Stripe clearing account the receipts debit (finance maps it, #512). Stripe calls the webhook listener
+# (webhookPort, RECEIVABLES_WEBHOOK_ADDR) without a Passage token: route https://<host>/webhooks/v1/stripe to the Service
+# <release>-receivables-webhook only, never through passage-api: the edge for that is deploy/gateway/payments-webhook (Gateway
+# passage-payments-webhook), and the NetworkPolicy below admits only its Envoy proxies to the webhook port (#213). Register these
+# events on the Stripe endpoint: payment_intent.succeeded, .processing, .payment_failed, .canceled, charge.refunded,
+# charge.dispute.created, .updated, .closed, .funds_withdrawn and .funds_reinstated.
+payments:
+  provider: ""
+  publishableKey: ""            # pk_test_... / pk_live_...; required when provider is set
+  existingSecret: ""            # e.g. receivables-stripe; required when provider is set
+  secretKeyKey: STRIPE_SECRET_KEY
+  webhookSecretKey: STRIPE_WEBHOOK_SECRET
+  externalSecret: { enabled: false, storeName: passage, key: "", refreshInterval: 1h }
+  accounts: {}
+  bankAccountRef: STRIPE
+  webhookPort: 8081
+
+# With payments.provider set, a NetworkPolicy selects the receivables pods: the API and admin ports stay open to apiFrom (any
+# source when empty, as without a policy), and the token-less webhook port is admitted only from the payment webhook edge's
+# Envoy proxies (Gateway passage-payments-webhook, deploy/gateway/payments-webhook).
+networkPolicy:
+  enabled: true
+  apiFrom: []
+  webhookGateway:
+    namespaces: [envoy-gateway-system]
+    podLabels:
+      gateway.envoyproxy.io/owning-gateway-name: passage-payments-webhook
+      gateway.envoyproxy.io/owning-gateway-namespace: hello-ledger
+
 serviceMonitor:
   enabled: false
   interval: 30s

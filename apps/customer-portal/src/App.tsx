@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
-import { NavLink, Navigate, Route, Routes, useLocation } from "react-router-dom";
+import { Link, NavLink, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { configureApi, get, signOut, type Me } from "./api";
 import { balances, Documents, OpenItems, Payments, Statement, type OpenItem } from "./pages/Account";
 import { InvoiceDetail, Invoices } from "./pages/Invoices";
 import { NewOrder } from "./pages/NewOrder";
 import { NewReturn } from "./pages/NewReturn";
+import { Pay, PaymentStatus } from "./pages/Pay";
 import { OrderDetail, Orders } from "./pages/Orders";
 import { ReturnDetail, Returns } from "./pages/Returns";
 import { Page, State, useLoad } from "./ui";
@@ -19,6 +20,7 @@ function Home() {
           const rows = balances(d.items);
           if (rows.length === 0) return <p>You have nothing to pay.</p>;
           return (
+            <>
             <ul>
               {rows.map((b) => (
                 <li key={b.currency}>
@@ -26,6 +28,8 @@ function Home() {
                 </li>
               ))}
             </ul>
+            <p><Link to="/open-items">Pay invoices</Link></p>
+            </>
           );
         }}
       </State>
@@ -90,6 +94,8 @@ export function App() {
               <Route path="/invoices/:id" element={<InvoiceDetail />} />
               <Route path="/open-items" element={<OpenItems />} />
               <Route path="/payments" element={<Payments />} />
+              <Route path="/pay" element={<Pay />} />
+              <Route path="/pay/:id" element={<PaymentStatus />} />
               <Route path="/statement" element={<Statement />} />
               <Route path="/documents" element={<Documents />} />
               <Route path="/returns" element={<Returns />} />

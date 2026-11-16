@@ -1,0 +1,907 @@
+{
+ "description": "Contract-modification worked examples 4 to 8 (IFRS 15.18 to 21, ASC 606-10-25-10 to 13): the contract before the modification and the full re-allocation revrec's Modify gives. TestModify_WorkedExamples4To8 checks Modify against this file; tools/signoff-packets turns it into the accountant's review workbook (#512).",
+ "examples": [
+  {
+   "number": 4,
+   "title": "Price cut below recognized revenue, cumulative catch-up",
+   "standard": "ASC 606-10-25-13(b), IFRS 15.21(b)",
+   "narrative": "A 12-month subscription of 1,200.00 with six months recognized (600.00) is cut by 700.00 to 500.00 on 2027-06-30, and the remaining months are not distinct. Revenue to date at the new price is 500.00 x 6/12 = 250.00 against 600.00 recognized: a negative cumulative catch-up of 350.00 comes back out of revenue at the date, and the six months left carry the other 250.00 (41.67 five times, 41.65 last). 600.00 - 350.00 + 250.00 = 500.00.",
+   "input": {
+    "currency": "USD",
+    "effectiveDate": "2027-06-30",
+    "obligations": [
+     {
+      "allocated": "1200.00",
+      "id": "a",
+      "lines": [
+       {
+        "amount": "100.00",
+        "date": "2027-01-31",
+        "id": "a-01",
+        "status": "RECOGNIZED"
+       },
+       {
+        "amount": "100.00",
+        "date": "2027-02-28",
+        "id": "a-02",
+        "status": "RECOGNIZED"
+       },
+       {
+        "amount": "100.00",
+        "date": "2027-03-31",
+        "id": "a-03",
+        "status": "RECOGNIZED"
+       },
+       {
+        "amount": "100.00",
+        "date": "2027-04-30",
+        "id": "a-04",
+        "status": "RECOGNIZED"
+       },
+       {
+        "amount": "100.00",
+        "date": "2027-05-31",
+        "id": "a-05",
+        "status": "RECOGNIZED"
+       },
+       {
+        "amount": "100.00",
+        "date": "2027-06-30",
+        "id": "a-06",
+        "status": "RECOGNIZED"
+       },
+       {
+        "amount": "100.00",
+        "date": "2027-07-31",
+        "id": "a-07",
+        "status": "SCHEDULED"
+       },
+       {
+        "amount": "100.00",
+        "date": "2027-08-31",
+        "id": "a-08",
+        "status": "SCHEDULED"
+       },
+       {
+        "amount": "100.00",
+        "date": "2027-09-30",
+        "id": "a-09",
+        "status": "SCHEDULED"
+       },
+       {
+        "amount": "100.00",
+        "date": "2027-10-31",
+        "id": "a-10",
+        "status": "SCHEDULED"
+       },
+       {
+        "amount": "100.00",
+        "date": "2027-11-30",
+        "id": "a-11",
+        "status": "SCHEDULED"
+       },
+       {
+        "amount": "100.00",
+        "date": "2027-12-31",
+        "id": "a-12",
+        "status": "SCHEDULED"
+       }
+      ],
+      "method": "RATABLE",
+      "ssp": "1200.00",
+      "sspSource": "EXPLICIT"
+     }
+    ],
+    "priceChange": "-700.00",
+    "transactionPrice": "1200.00",
+    "type": "CATCH_UP"
+   },
+   "expected": {
+    "catchUp": "-350.00",
+    "obligations": [
+     {
+      "id": "a",
+      "allocatedBefore": "1200.00",
+      "allocatedAfter": "500.00",
+      "sspBefore": "1200.00",
+      "sspAfter": "1200.00",
+      "progress": "0.5",
+      "catchUp": "-350.00",
+      "reversal": "350.00",
+      "removed": false,
+      "lines": [
+       {
+        "id": "a-07",
+        "amount": "41.67"
+       },
+       {
+        "id": "a-08",
+        "amount": "41.67"
+       },
+       {
+        "id": "a-09",
+        "amount": "41.67"
+       },
+       {
+        "id": "a-10",
+        "amount": "41.67"
+       },
+       {
+        "id": "a-11",
+        "amount": "41.67"
+       },
+       {
+        "id": "a-12",
+        "amount": "41.65"
+       }
+      ]
+     }
+    ],
+    "reversal": "350.00",
+    "transactionPriceAfter": "500.00"
+   }
+  },
+  {
+   "number": 5,
+   "title": "Price cut below recognized revenue, prospective",
+   "standard": "IFRS 15.88, ASC 606-10-32-43",
+   "narrative": "Example 4's cut accounted for prospectively. The remaining consideration would be 500.00 - 600.00 = -100.00: the 100.00 is a price concession on the six months already transferred and is taken out of revenue at the date; the six months left are delivered for nothing. 600.00 - 100.00 = 500.00.",
+   "input": {
+    "currency": "USD",
+    "effectiveDate": "2027-06-30",
+    "obligations": [
+     {
+      "allocated": "1200.00",
+      "id": "a",
+      "lines": [
+       {
+        "amount": "100.00",
+        "date": "2027-01-31",
+        "id": "a-01",
+        "status": "RECOGNIZED"
+       },
+       {
+        "amount": "100.00",
+        "date": "2027-02-28",
+        "id": "a-02",
+        "status": "RECOGNIZED"
+       },
+       {
+        "amount": "100.00",
+        "date": "2027-03-31",
+        "id": "a-03",
+        "status": "RECOGNIZED"
+       },
+       {
+        "amount": "100.00",
+        "date": "2027-04-30",
+        "id": "a-04",
+        "status": "RECOGNIZED"
+       },
+       {
+        "amount": "100.00",
+        "date": "2027-05-31",
+        "id": "a-05",
+        "status": "RECOGNIZED"
+       },
+       {
+        "amount": "100.00",
+        "date": "2027-06-30",
+        "id": "a-06",
+        "status": "RECOGNIZED"
+       },
+       {
+        "amount": "100.00",
+        "date": "2027-07-31",
+        "id": "a-07",
+        "status": "SCHEDULED"
+       },
+       {
+        "amount": "100.00",
+        "date": "2027-08-31",
+        "id": "a-08",
+        "status": "SCHEDULED"
+       },
+       {
+        "amount": "100.00",
+        "date": "2027-09-30",
+        "id": "a-09",
+        "status": "SCHEDULED"
+       },
+       {
+        "amount": "100.00",
+        "date": "2027-10-31",
+        "id": "a-10",
+        "status": "SCHEDULED"
+       },
+       {
+        "amount": "100.00",
+        "date": "2027-11-30",
+        "id": "a-11",
+        "status": "SCHEDULED"
+       },
+       {
+        "amount": "100.00",
+        "date": "2027-12-31",
+        "id": "a-12",
+        "status": "SCHEDULED"
+       }
+      ],
+      "method": "RATABLE",
+      "ssp": "1200.00",
+      "sspSource": "EXPLICIT"
+     }
+    ],
+    "priceChange": "-700.00",
+    "transactionPrice": "1200.00",
+    "type": "PROSPECTIVE"
+   },
+   "expected": {
+    "catchUp": "0.00",
+    "obligations": [
+     {
+      "id": "a",
+      "allocatedBefore": "1200.00",
+      "allocatedAfter": "500.00",
+      "sspBefore": "1200.00",
+      "sspAfter": "1200.00",
+      "progress": "0",
+      "catchUp": "0.00",
+      "reversal": "100.00",
+      "removed": false,
+      "lines": [
+       {
+        "id": "a-07",
+        "amount": "0.00"
+       },
+       {
+        "id": "a-08",
+        "amount": "0.00"
+       },
+       {
+        "id": "a-09",
+        "amount": "0.00"
+       },
+       {
+        "id": "a-10",
+        "amount": "0.00"
+       },
+       {
+        "id": "a-11",
+        "amount": "0.00"
+       },
+       {
+        "id": "a-12",
+        "amount": "0.00"
+       }
+      ]
+     }
+    ],
+    "reversal": "100.00",
+    "transactionPriceAfter": "500.00"
+   }
+  },
+  {
+   "number": 6,
+   "title": "Partial termination: one service removed, prospective",
+   "standard": "ASC 606-10-25-13(a), partial termination",
+   "narrative": "Two 12-month services of 1,200.00 each, three months recognized on both. Service b is removed from April and the price falls by 900.00 to 1,500.00. The 900.00 still to recognize (1,500.00 - 600.00) goes to a alone (b has nothing left promised): 100.00 a month as before; b keeps the 300.00 it recognized and its nine lines are cancelled.",
+   "input": {
+    "currency": "USD",
+    "effectiveDate": "2027-03-31",
+    "obligations": [
+     {
+      "allocated": "1200.00",
+      "id": "a",
+      "lines": [
+       {
+        "amount": "100.00",
+        "date": "2027-01-31",
+        "id": "a-01",
+        "status": "RECOGNIZED"
+       },
+       {
+        "amount": "100.00",
+        "date": "2027-02-28",
+        "id": "a-02",
+        "status": "RECOGNIZED"
+       },
+       {
+        "amount": "100.00",
+        "date": "2027-03-31",
+        "id": "a-03",
+        "status": "RECOGNIZED"
+       },
+       {
+        "amount": "100.00",
+        "date": "2027-04-30",
+        "id": "a-04",
+        "status": "SCHEDULED"
+       },
+       {
+        "amount": "100.00",
+        "date": "2027-05-31",
+        "id": "a-05",
+        "status": "SCHEDULED"
+       },
+       {
+        "amount": "100.00",
+        "date": "2027-06-30",
+        "id": "a-06",
+        "status": "SCHEDULED"
+       },
+       {
+        "amount": "100.00",
+        "date": "2027-07-31",
+        "id": "a-07",
+        "status": "SCHEDULED"
+       },
+       {
+        "amount": "100.00",
+        "date": "2027-08-31",
+        "id": "a-08",
+        "status": "SCHEDULED"
+       },
+       {
+        "amount": "100.00",
+        "date": "2027-09-30",
+        "id": "a-09",
+        "status": "SCHEDULED"
+       },
+       {
+        "amount": "100.00",
+        "date": "2027-10-31",
+        "id": "a-10",
+        "status": "SCHEDULED"
+       },
+       {
+        "amount": "100.00",
+        "date": "2027-11-30",
+        "id": "a-11",
+        "status": "SCHEDULED"
+       },
+       {
+        "amount": "100.00",
+        "date": "2027-12-31",
+        "id": "a-12",
+        "status": "SCHEDULED"
+       }
+      ],
+      "method": "RATABLE",
+      "ssp": "1200.00",
+      "sspSource": "EXPLICIT"
+     },
+     {
+      "allocated": "1200.00",
+      "id": "b",
+      "lines": [
+       {
+        "amount": "100.00",
+        "date": "2027-01-31",
+        "id": "b-01",
+        "status": "RECOGNIZED"
+       },
+       {
+        "amount": "100.00",
+        "date": "2027-02-28",
+        "id": "b-02",
+        "status": "RECOGNIZED"
+       },
+       {
+        "amount": "100.00",
+        "date": "2027-03-31",
+        "id": "b-03",
+        "status": "RECOGNIZED"
+       },
+       {
+        "amount": "100.00",
+        "date": "2027-04-30",
+        "id": "b-04",
+        "status": "SCHEDULED"
+       },
+       {
+        "amount": "100.00",
+        "date": "2027-05-31",
+        "id": "b-05",
+        "status": "SCHEDULED"
+       },
+       {
+        "amount": "100.00",
+        "date": "2027-06-30",
+        "id": "b-06",
+        "status": "SCHEDULED"
+       },
+       {
+        "amount": "100.00",
+        "date": "2027-07-31",
+        "id": "b-07",
+        "status": "SCHEDULED"
+       },
+       {
+        "amount": "100.00",
+        "date": "2027-08-31",
+        "id": "b-08",
+        "status": "SCHEDULED"
+       },
+       {
+        "amount": "100.00",
+        "date": "2027-09-30",
+        "id": "b-09",
+        "status": "SCHEDULED"
+       },
+       {
+        "amount": "100.00",
+        "date": "2027-10-31",
+        "id": "b-10",
+        "status": "SCHEDULED"
+       },
+       {
+        "amount": "100.00",
+        "date": "2027-11-30",
+        "id": "b-11",
+        "status": "SCHEDULED"
+       },
+       {
+        "amount": "100.00",
+        "date": "2027-12-31",
+        "id": "b-12",
+        "status": "SCHEDULED"
+       }
+      ],
+      "method": "RATABLE",
+      "ssp": "1200.00",
+      "sspSource": "EXPLICIT"
+     }
+    ],
+    "priceChange": "-900.00",
+    "scope": {
+     "b": "0"
+    },
+    "transactionPrice": "2400.00",
+    "type": "PROSPECTIVE"
+   },
+   "expected": {
+    "catchUp": "0.00",
+    "obligations": [
+     {
+      "id": "a",
+      "allocatedBefore": "1200.00",
+      "allocatedAfter": "1200.00",
+      "sspBefore": "1200.00",
+      "sspAfter": "1200.00",
+      "progress": "0",
+      "catchUp": "0.00",
+      "reversal": "0.00",
+      "removed": false,
+      "lines": [
+       {
+        "id": "a-04",
+        "amount": "100.00"
+       },
+       {
+        "id": "a-05",
+        "amount": "100.00"
+       },
+       {
+        "id": "a-06",
+        "amount": "100.00"
+       },
+       {
+        "id": "a-07",
+        "amount": "100.00"
+       },
+       {
+        "id": "a-08",
+        "amount": "100.00"
+       },
+       {
+        "id": "a-09",
+        "amount": "100.00"
+       },
+       {
+        "id": "a-10",
+        "amount": "100.00"
+       },
+       {
+        "id": "a-11",
+        "amount": "100.00"
+       },
+       {
+        "id": "a-12",
+        "amount": "100.00"
+       }
+      ]
+     },
+     {
+      "id": "b",
+      "allocatedBefore": "1200.00",
+      "allocatedAfter": "300.00",
+      "sspBefore": "1200.00",
+      "sspAfter": "300.00",
+      "progress": "0",
+      "catchUp": "0.00",
+      "reversal": "0.00",
+      "removed": true,
+      "lines": [
+       {
+        "id": "b-04",
+        "amount": "0.00"
+       },
+       {
+        "id": "b-05",
+        "amount": "0.00"
+       },
+       {
+        "id": "b-06",
+        "amount": "0.00"
+       },
+       {
+        "id": "b-07",
+        "amount": "0.00"
+       },
+       {
+        "id": "b-08",
+        "amount": "0.00"
+       },
+       {
+        "id": "b-09",
+        "amount": "0.00"
+       },
+       {
+        "id": "b-10",
+        "amount": "0.00"
+       },
+       {
+        "id": "b-11",
+        "amount": "0.00"
+       },
+       {
+        "id": "b-12",
+        "amount": "0.00"
+       }
+      ]
+     }
+    ],
+    "reversal": "0.00",
+    "transactionPriceAfter": "1500.00"
+   }
+  },
+  {
+   "number": 7,
+   "title": "Remaining scope halved, cumulative catch-up",
+   "standard": "ASC 606-10-25-13(b), IFRS 15.21(b): scope reduction",
+   "narrative": "The remaining nine months of a 1,200.00 service are halved in scope and the price falls by 450.00 to 750.00. The SSP scales to what stays promised (1,200.00 x 750/1,200 = 750.00) and progress becomes 300/750 = 0.4: revenue to date 300.00 equals what is recognized, so there is no catch-up, and the nine months left carry 50.00 each.",
+   "input": {
+    "currency": "USD",
+    "effectiveDate": "2027-03-31",
+    "obligations": [
+     {
+      "allocated": "1200.00",
+      "id": "a",
+      "lines": [
+       {
+        "amount": "100.00",
+        "date": "2027-01-31",
+        "id": "a-01",
+        "status": "RECOGNIZED"
+       },
+       {
+        "amount": "100.00",
+        "date": "2027-02-28",
+        "id": "a-02",
+        "status": "RECOGNIZED"
+       },
+       {
+        "amount": "100.00",
+        "date": "2027-03-31",
+        "id": "a-03",
+        "status": "RECOGNIZED"
+       },
+       {
+        "amount": "100.00",
+        "date": "2027-04-30",
+        "id": "a-04",
+        "status": "SCHEDULED"
+       },
+       {
+        "amount": "100.00",
+        "date": "2027-05-31",
+        "id": "a-05",
+        "status": "SCHEDULED"
+       },
+       {
+        "amount": "100.00",
+        "date": "2027-06-30",
+        "id": "a-06",
+        "status": "SCHEDULED"
+       },
+       {
+        "amount": "100.00",
+        "date": "2027-07-31",
+        "id": "a-07",
+        "status": "SCHEDULED"
+       },
+       {
+        "amount": "100.00",
+        "date": "2027-08-31",
+        "id": "a-08",
+        "status": "SCHEDULED"
+       },
+       {
+        "amount": "100.00",
+        "date": "2027-09-30",
+        "id": "a-09",
+        "status": "SCHEDULED"
+       },
+       {
+        "amount": "100.00",
+        "date": "2027-10-31",
+        "id": "a-10",
+        "status": "SCHEDULED"
+       },
+       {
+        "amount": "100.00",
+        "date": "2027-11-30",
+        "id": "a-11",
+        "status": "SCHEDULED"
+       },
+       {
+        "amount": "100.00",
+        "date": "2027-12-31",
+        "id": "a-12",
+        "status": "SCHEDULED"
+       }
+      ],
+      "method": "RATABLE",
+      "ssp": "1200.00",
+      "sspSource": "EXPLICIT"
+     }
+    ],
+    "priceChange": "-450.00",
+    "scope": {
+     "a": "0.5"
+    },
+    "transactionPrice": "1200.00",
+    "type": "CATCH_UP"
+   },
+   "expected": {
+    "catchUp": "0.00",
+    "obligations": [
+     {
+      "id": "a",
+      "allocatedBefore": "1200.00",
+      "allocatedAfter": "750.00",
+      "sspBefore": "1200.00",
+      "sspAfter": "750.00",
+      "progress": "0.4",
+      "catchUp": "0.00",
+      "reversal": "0.00",
+      "removed": false,
+      "lines": [
+       {
+        "id": "a-04",
+        "amount": "50.00"
+       },
+       {
+        "id": "a-05",
+        "amount": "50.00"
+       },
+       {
+        "id": "a-06",
+        "amount": "50.00"
+       },
+       {
+        "id": "a-07",
+        "amount": "50.00"
+       },
+       {
+        "id": "a-08",
+        "amount": "50.00"
+       },
+       {
+        "id": "a-09",
+        "amount": "50.00"
+       },
+       {
+        "id": "a-10",
+        "amount": "50.00"
+       },
+       {
+        "id": "a-11",
+        "amount": "50.00"
+       },
+       {
+        "id": "a-12",
+        "amount": "50.00"
+       }
+      ]
+     }
+    ],
+    "reversal": "0.00",
+    "transactionPriceAfter": "750.00"
+   }
+  },
+  {
+   "number": 8,
+   "title": "Support removed from a licence and support bundle, cumulative catch-up",
+   "standard": "ASC 606-10-25-13(b), IFRS 15.21(b): removal across a bundle",
+   "narrative": "A satisfied licence (SSP 800.00) and a support plan (1,200.00, three months recognized). Support is removed from April and the price falls by 1,200.00 to 800.00. Support's SSP scales to the 300.00 delivered; 800.00 over 800 : 300 gives 581.82 and 218.18. The licence recognized 800.00, so 218.18 comes back out; support recognized 300.00 against 218.18, so 81.82 comes back out and its nine lines are cancelled. Revenue ends at 800.00.",
+   "input": {
+    "currency": "USD",
+    "effectiveDate": "2027-03-31",
+    "obligations": [
+     {
+      "allocated": "800.00",
+      "id": "lic",
+      "lines": [
+       {
+        "amount": "800.00",
+        "date": "2027-01-15",
+        "id": "lic-1",
+        "status": "RECOGNIZED"
+       }
+      ],
+      "method": "MILESTONE",
+      "ssp": "800.00",
+      "sspSource": "EXPLICIT"
+     },
+     {
+      "allocated": "1200.00",
+      "id": "sup",
+      "lines": [
+       {
+        "amount": "100.00",
+        "date": "2027-01-31",
+        "id": "sup-01",
+        "status": "RECOGNIZED"
+       },
+       {
+        "amount": "100.00",
+        "date": "2027-02-28",
+        "id": "sup-02",
+        "status": "RECOGNIZED"
+       },
+       {
+        "amount": "100.00",
+        "date": "2027-03-31",
+        "id": "sup-03",
+        "status": "RECOGNIZED"
+       },
+       {
+        "amount": "100.00",
+        "date": "2027-04-30",
+        "id": "sup-04",
+        "status": "SCHEDULED"
+       },
+       {
+        "amount": "100.00",
+        "date": "2027-05-31",
+        "id": "sup-05",
+        "status": "SCHEDULED"
+       },
+       {
+        "amount": "100.00",
+        "date": "2027-06-30",
+        "id": "sup-06",
+        "status": "SCHEDULED"
+       },
+       {
+        "amount": "100.00",
+        "date": "2027-07-31",
+        "id": "sup-07",
+        "status": "SCHEDULED"
+       },
+       {
+        "amount": "100.00",
+        "date": "2027-08-31",
+        "id": "sup-08",
+        "status": "SCHEDULED"
+       },
+       {
+        "amount": "100.00",
+        "date": "2027-09-30",
+        "id": "sup-09",
+        "status": "SCHEDULED"
+       },
+       {
+        "amount": "100.00",
+        "date": "2027-10-31",
+        "id": "sup-10",
+        "status": "SCHEDULED"
+       },
+       {
+        "amount": "100.00",
+        "date": "2027-11-30",
+        "id": "sup-11",
+        "status": "SCHEDULED"
+       },
+       {
+        "amount": "100.00",
+        "date": "2027-12-31",
+        "id": "sup-12",
+        "status": "SCHEDULED"
+       }
+      ],
+      "method": "RATABLE",
+      "ssp": "1200.00",
+      "sspSource": "EXPLICIT"
+     }
+    ],
+    "priceChange": "-1200.00",
+    "scope": {
+     "sup": "0"
+    },
+    "transactionPrice": "2000.00",
+    "type": "CATCH_UP"
+   },
+   "expected": {
+    "catchUp": "-300.00",
+    "obligations": [
+     {
+      "id": "lic",
+      "allocatedBefore": "800.00",
+      "allocatedAfter": "581.82",
+      "sspBefore": "800.00",
+      "sspAfter": "800.00",
+      "progress": "1",
+      "catchUp": "-218.18",
+      "reversal": "218.18",
+      "removed": false,
+      "lines": []
+     },
+     {
+      "id": "sup",
+      "allocatedBefore": "1200.00",
+      "allocatedAfter": "218.18",
+      "sspBefore": "1200.00",
+      "sspAfter": "300.00",
+      "progress": "1",
+      "catchUp": "-81.82",
+      "reversal": "81.82",
+      "removed": true,
+      "lines": [
+       {
+        "id": "sup-04",
+        "amount": "0.00"
+       },
+       {
+        "id": "sup-05",
+        "amount": "0.00"
+       },
+       {
+        "id": "sup-06",
+        "amount": "0.00"
+       },
+       {
+        "id": "sup-07",
+        "amount": "0.00"
+       },
+       {
+        "id": "sup-08",
+        "amount": "0.00"
+       },
+       {
+        "id": "sup-09",
+        "amount": "0.00"
+       },
+       {
+        "id": "sup-10",
+        "amount": "0.00"
+       },
+       {
+        "id": "sup-11",
+        "amount": "0.00"
+       },
+       {
+        "id": "sup-12",
+        "amount": "0.00"
+       }
+      ]
+     }
+    ],
+    "reversal": "300.00",
+    "transactionPriceAfter": "800.00"
+   }
+  }
+ ]
+}

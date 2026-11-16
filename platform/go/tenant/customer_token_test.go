@@ -116,7 +116,7 @@ func TestPortalCustomerTrustsOnlyTheCustomerPortalToken(t *testing.T) {
 func TestCustomerPortalGrantIsCustomerScoped(t *testing.T) {
 	grants := tenant.ServiceGrantTable()["customer-portal"]
 	want := map[string][]string{
-		"receivables": {"receivables.customer-portal.read"},
+		"receivables": {"receivables.customer-portal.read", "receivables.customer-portal.pay"},
 		"billing":     {"billing.customer-portal.read"},
 		"sales":       {"sales.customer-portal.read", "sales.customer-portal.order", "sales.customer-portal.return"},
 		"party":       {"party.customer-portal.read"},

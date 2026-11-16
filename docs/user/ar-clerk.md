@@ -45,6 +45,18 @@ A remittance advice is the customer's own list of the invoices a payment covers.
 
 An advised payment books no cash and cannot be applied. When the bank credit arrives with the same reference, currency and amount, it takes the advice's invoice numbers and the advised payment is marked Confirmed.
 
+## Card and bank payments from the customer portal
+
+Customers can pay their open invoices by card or from a US bank account (ACH) in the customer portal. Passage never sees the card or bank details: the customer types them into Stripe's own form.
+
+- **Portal card and bank payments** lists them with the card brand and last four digits, or the bank, and the status.
+- **Paid** payments are recorded and applied to the invoices the customer chose. On the payment page, **Paid in the customer portal** shows how it was paid.
+- **Processing** bank payments take 3 to 5 business days. Nothing is applied until the bank confirms.
+- **Failed** payments changed nothing. **Why** says what the processor reported.
+- **Refunded** and **Disputed or returned** payments were reversed: the invoices are open again.
+- A card issuer **inquiry** withdraws no money and reverses nothing: the payment is flagged **Needs review** so you can answer it in Stripe. If a lost dispute is later won, the payment is flagged too: record it again.
+- **Needs review** means part of the money could not be applied as the customer chose (an invoice was paid in the meantime, or a partial refund). Check the payment and apply or unapply by hand.
+
 ## Check the journals posted to the ledger
 
 **Ledger journals** lists what receivables owes the general ledger: cash received, payments applied, fees, interest and write-offs.

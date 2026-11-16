@@ -920,6 +920,13 @@ export const routeHelp: readonly RouteHelp[] = [
     guide: "ar-clerk.md#settle-it-against-invoices",
   },
   {
+    patterns: ["/receivables/gateway-payments"],
+    title: "Portal card and bank payments",
+    purpose: "Payments customers made by card or bank account in the customer portal. The status comes only from the payment processor's verified notices.",
+    howTo: ["Filter by status to find processing, failed or returned payments.", "Open a paid one to see the payment it became and its application.", "Read Why for a failure or anything that needs review."],
+    guide: "ar-clerk.md#card-and-bank-payments-from-the-customer-portal",
+  },
+  {
     patterns: ["/receivables/remittance-advice"],
     title: "Remittance advice",
     purpose: "A customer's own list of the invoices a payment covers. Importing it lets the matcher settle the payment.",
@@ -1030,6 +1037,25 @@ export const routeHelp: readonly RouteHelp[] = [
     purpose: "A customer's open documents at a date, by currency, with a running balance, and the balance snapshots behind it.",
     howTo: ["Enter the legal entity and customer to load a statement.", "Select Balance snapshots, or Run snapshot now.", "Select Collections worklist to go back."],
     guide: "ar-clerk.md#look-at-what-is-owed",
+  },
+  {
+    patterns: ["/product/items/new"],
+    title: "New product",
+    purpose: "Create a product so it can be bought, stocked and sold.",
+    howTo: ["Enter the product number, name, base unit, kind, type and state.", "Select Create product.", "Open the product later to edit it."],
+    guide: "tenant-admin.md#create-a-product",
+  },
+  {
+    patterns: ["/analytics/ux"],
+    title: "UX telemetry",
+    purpose: "How far people get through buying and paying, and through setting up a company, and where they stop.",
+    howTo: [
+      "Choose the flow, the dates and, if you want, a release, then select Show telemetry.",
+      "Read the funnel: each step shows the sessions that reached it and how many dropped off before it.",
+      "Choose a Workspace to see the 20 fields and forms people struggle with most in that area.",
+      "Use the searches that found nothing, counted across every area, to spot missing records or names people expect.",
+    ],
+    guide: "tenant-admin.md#see-where-people-get-stuck",
   },
   {
     patterns: ["/receivables/*"],

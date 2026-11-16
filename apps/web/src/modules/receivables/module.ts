@@ -17,6 +17,7 @@ import { OpenItemsPage } from "./OpenItemsPage";
 import { OpeningImportsPage } from "./OpeningImports";
 import { PaymentDetailPage } from "./PaymentDetailPage";
 import { PaymentsPage } from "./PaymentsPage";
+import { GatewayPaymentsPage } from "./GatewayPayments";
 import { RemittanceAdvicePage } from "./RemittanceAdvice";
 import { BalanceSnapshotsPage, StatementPage } from "./Statements";
 import { NewPromisePage, PromisesPage } from "./Promises";
@@ -35,6 +36,7 @@ const receivables: PassageModule = {
     { path: "/receivables/payments", element: createElement(PaymentsPage), handle: { title: "Payments" } },
     { path: "/receivables/payments/new", element: createElement(NewPaymentPage), handle: { title: "Record payment" } },
     { path: "/receivables/payments/:id", element: createElement(PaymentDetailPage), handle: { title: "Payment" } },
+    { path: "/receivables/gateway-payments", element: createElement(GatewayPaymentsPage), handle: { title: "Portal card and bank payments" } },
     { path: "/receivables/remittance-advice", element: createElement(RemittanceAdvicePage), handle: { title: "Remittance advice" } },
     { path: "/receivables/gl-journals", element: createElement(GLJournalsPage), handle: { title: "Ledger journals" } },
     { path: "/receivables/ledger-setup", element: createElement(LedgerSetupPage), handle: { title: "Ledger setup" } },
@@ -75,6 +77,7 @@ const receivables: PassageModule = {
     { label: "Imported opening items", to: "/receivables/opening-items", duty: "receivables.view" },
     { label: "Payments", to: "/receivables/payments", duty: "receivables.view" },
     { label: "Record payment", to: "/receivables/payments/new", duty: "receivables.payment.post" },
+    { label: "Portal card and bank payments", to: "/receivables/gateway-payments", duty: "receivables.view" },
     { label: "Remittance advice", to: "/receivables/remittance-advice", duty: "receivables.payment.post" },
     { label: "Lockbox imports", to: "/receivables/lockbox", duty: "receivables.view" },
     { label: "Bank statements", to: "/receivables/bank-statements", duty: "receivables.view" },

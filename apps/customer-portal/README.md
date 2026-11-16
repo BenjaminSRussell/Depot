@@ -2,7 +2,7 @@
 
 Customer-facing portal for wave 30 (PSG-30, issue #30; FR-30.14, FR-30.25), served at `customer.<env>.passage.dev`. A standalone Vite +
 React 19 app (like `apps/supplier-portal`), not a shell module: customers are external users who must never reach the internal
-shell. It talks only to its BFF, `services/customer-portal-ts`. It reads, and makes two writes for the customer itself: an order and a return.
+shell. It talks only to its BFF, `services/customer-portal-ts`. It reads, and makes three writes for the customer itself: an order, a return and a card or bank account payment.
 
 ## Screens
 
@@ -13,7 +13,9 @@ shell. It talks only to its BFF, `services/customer-portal-ts`. It reads, and ma
 | `/orders/new` | Place an order from products they have bought before |
 | `/invoices`, `/invoices/:id` | Their posted invoices and credit notes with lines and totals |
 | `/open-items` | Their open items and the balance |
-| `/payments` | Payments received from them |
+| `/payments` | Payments received from them, and their card and bank account payments made here with the status |
+| `/pay?items=` or `/pay?invoices=` | Pay one or several open invoices: the amount of each (part is fine, more than open is refused), card or US bank account (ACH), then Stripe's Payment Element |
+| `/pay/:id` | Where a card or bank payment stands: waiting, processing (ACH takes days), paid, failed (in plain language), refunded or returned |
 | `/statement` | The account statement as of a day, by currency, with the closing balance |
 | `/returns`, `/returns/:id` | Their return orders, the credit expected and the lines |
 | `/returns/new` | Request a return of goods from one of their invoices |
@@ -24,6 +26,21 @@ from that verified token. The page holds no token. A selector appears when the c
 the contact's customer group (sent as `X-Customer`; the BFF signs one only when party lists it). Sign out sends the browser to Keycloak's
 end-session endpoint. The app is an installable shell (`public/manifest.webmanifest`, `public/sw.js`): the worker keeps static files and
 an offline page and never stores an API response or a page; serve `sw.js` from the root with `Cache-Control: no-cache`.
+
+## Card and bank account payments
+
+The customer picks open invoices and amounts; `POST /api/v1/payment-intents` (one Idempotency-Key per submit) has receivables create a
+Stripe PaymentIntent and answer its client secret. Only then is Stripe.js loaded, from `https://js.stripe.com/v3/` by a script tag
+(`src/stripe.ts`, no npm dependency), and the Payment Element is mounted in Stripe's iframe: the card number, CVC and bank details go
+from the browser to Stripe and never reach Passage (PCI SAQ A). The serving edge's Content-Security-Policy, when one is added, must allow
+`https://js.stripe.com` for scripts and frames and `https://api.stripe.com` for connections. After `confirmPayment` (or a 3-D Secure
+redirect back to `/pay/:id`) the page reads the payment from receivables, which changes it only on Stripe's signature-verified webhook.
+While a payment waits for the customer it holds its invoices; "Change the amounts" cancels it (`POST /api/v1/payment-intents/:id/cancel`)
+so they can be paid again. When the payment form cannot be shown (no publishable key) the page says so.
+
+The demo build (`npx vite build --mode demo`) answers the BFF in the browser (`src/demo.ts`, Harlan Agricultural Co-op buying from
+Cedar Ridge Pumps) and replaces the Payment Element with a stub: a card payment is paid at once and a bank account payment stays processing,
+without Stripe.js. Check it with `node apps/web/scripts/demo-check.mjs --base "" --port <p> /pay?items=... /pay/<id>` against `vite preview --mode demo`.
 
 ## Run and test
 

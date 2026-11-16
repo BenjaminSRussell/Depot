@@ -122,3 +122,102 @@ route("DELETE", `${BASE}/saved-queries/{id}`, ({ params }) => (savedQueries.remo
 
 // Report schedules: the schedule form reads the list; the demo starts with none.
 route("GET", `${BASE}/schedules`, () => ({ items: [] }));
+
+// UX telemetry (#510): Cedar Ridge Pumps' buyers and AP clerks over the last month, and the two new sites set up as
+// tenants of their own. Counts follow the chosen period's length, so a week shows about a quarter of a month.
+const UX_STEPS: Record<string, [string, number][]> = {
+  procure_to_pay: [
+    ["requisition_created", 412],
+    ["requisition_submitted", 368],
+    ["purchase_order_created", 301],
+    ["receipt_posted", 287],
+    ["vendor_invoice_posted", 243],
+    ["payment_proposal_created", 198],
+  ],
+  onboarding: [
+    ["legal_entity_created", 18],
+    ["fiscal_calendar_set", 17],
+    ["site_created", 14],
+    ["party_added", 13],
+    ["product_created", 11],
+    ["first_transaction", 8],
+  ],
+};
+const UX_SECONDS: Record<string, number> = { procure_to_pay: 3 * 86400 + 4 * 3600 + 12 * 60, onboarding: 2 * 3600 + 40 * 60 };
+const UX_VALIDATION: [string, string, number][] = [
+  ["/ap-invoices/post", "vendorInvoiceNumber", 46],
+  ["/purchasing/requisitions/new", "lines[0].quantity", 31],
+  ["/purchasing/purchase-orders/new", "lines[0].unitPrice", 22],
+  ["/receiving/receipts/new", "lines[0].lotNumber", 17],
+  ["/party/new", "taxRegistrationNumber", 9],
+  ["/product/items/new", "unitOfMeasure", 6],
+];
+const UX_SEARCHES: [string, number][] = [
+  ["impeller 4in bronze", 27],
+  ["mech seal kit 1.5", 19],
+  ["cedar ridge freight", 12],
+  ["vfd 15hp", 8],
+  ["casing gasket ss", 5],
+];
+const UX_ABANDONED: [string, number][] = [
+  ["/purchasing/requisitions/new", 38],
+  ["/ap-invoices/post", 24],
+  ["/purchasing/purchase-orders/new", 15],
+  ["/party/new", 7],
+];
+
+/** The period's share of the 30-day sample, halved again for a single release; null when the dates are not valid. */
+function uxScale(query: URLSearchParams): number | null {
+  const from = Date.parse(`${query.get("from") ?? ""}T00:00:00Z`);
+  const to = Date.parse(`${query.get("to") ?? ""}T00:00:00Z`);
+  if (Number.isNaN(from) || Number.isNaN(to) || to < from) return null;
+  const days = (to - from) / 86_400_000 + 1;
+  return (days / 30) * ((query.get("release") ?? "") === "" ? 1 : 0.45);
+}
+
+const uxPeriodProblem = () => reply.problem(400, "COM-0001", "request failed validation", { to: "on or after from, within one year" });
+
+route("GET", `${BASE}/ux-funnels`, ({ query }) => {
+  const flow = query.get("flow") ?? "";
+  const steps = UX_STEPS[flow];
+  if (!steps) return reply.problem(400, "COM-0001", "request failed validation", { flow: "one of onboarding, procure_to_pay" });
+  const scale = uxScale(query);
+  if (scale === null) return uxPeriodProblem();
+  let prev = 0;
+  const out = steps.map(([step, n], i) => {
+    const sessions = Math.round(n * scale);
+    const conversionFromPrevious = i === 0 ? 1 : prev > 0 ? Math.min(sessions / prev, 1) : 0;
+    prev = sessions;
+    return { step, sessions, conversionFromPrevious };
+  });
+  const finished = out[out.length - 1]?.sessions ?? 0;
+  return {
+    flow,
+    from: query.get("from"),
+    to: query.get("to"),
+    ...(query.get("release") ? { release: query.get("release") } : {}),
+    steps: out,
+    ...(finished > 0 ? { secondsToLastStep: UX_SECONDS[flow] } : {}),
+  };
+});
+
+route("GET", `${BASE}/ux-signals`, ({ query }) => {
+  const scale = uxScale(query);
+  if (scale === null) return uxPeriodProblem();
+  const n = (c: number) => Math.round(c * scale);
+  // A workspace keeps its own pages (the service's routePrefix); searches are not tied to a page.
+  const prefix = query.get("routePrefix") ?? "";
+  if (prefix !== "" && !/^\/[a-z0-9][a-z0-9-]{0,63}$/.test(prefix)) {
+    return reply.problem(400, "COM-0001", "request failed validation", { routePrefix: "one route segment such as /purchasing" });
+  }
+  const inWorkspace = (route: string) => prefix === "" || route === prefix || route.startsWith(`${prefix}/`);
+  return {
+    from: query.get("from"),
+    to: query.get("to"),
+    ...(query.get("release") ? { release: query.get("release") } : {}),
+    ...(prefix ? { routePrefix: prefix } : {}),
+    validationErrors: UX_VALIDATION.filter(([route]) => inWorkspace(route)).map(([route, field, c]) => ({ route, field, count: n(c) })).filter((v) => v.count > 0),
+    noResultSearches: UX_SEARCHES.map(([q, c]) => ({ query: q, count: n(c) })).filter((v) => v.count > 0),
+    abandonedForms: UX_ABANDONED.filter(([route]) => inWorkspace(route)).map(([route, c]) => ({ route, count: n(c) })).filter((v) => v.count > 0),
+  };
+});

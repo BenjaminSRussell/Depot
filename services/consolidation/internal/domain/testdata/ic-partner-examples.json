@@ -1,0 +1,433 @@
+{
+ "description": "Intercompany elimination per counterparty (#40, IFRS 10 B86(c)): the partner balances each unit's ledger holds (net, debit positive, unit currency), the rates and the expected pair figures and E1 (sales and cost), E2 (receivable and payable, with the exchange difference) and E3 (unrealised profit, with the NCI share) entries. The tests in partner_test.go derive the run from this file; tools/signoff-packets turns it into the accountant's review workbook (#512).",
+ "accounts": [
+  {
+   "mainAccount": "1500",
+   "consolidationAccount": "IC_REC",
+   "role": "ic_receivable"
+  },
+  {
+   "mainAccount": "2500",
+   "consolidationAccount": "IC_PAY",
+   "role": "ic_payable"
+  },
+  {
+   "mainAccount": "1400",
+   "consolidationAccount": "IC_INV",
+   "role": "ic_inventory"
+  },
+  {
+   "mainAccount": "4100",
+   "consolidationAccount": "IC_REVENUE",
+   "role": "ic_sales"
+  },
+  {
+   "mainAccount": "5100",
+   "consolidationAccount": "IC_COGS",
+   "role": "ic_cost"
+  },
+  {
+   "mainAccount": "5200",
+   "consolidationAccount": "IC_PURCHASES",
+   "role": "ic_purchases"
+  },
+  {
+   "mainAccount": "5300",
+   "consolidationAccount": "IC_COGS_BUYER",
+   "role": "ic_cogs"
+  },
+  {
+   "mainAccount": "4000",
+   "consolidationAccount": "REVENUE",
+   "role": ""
+  }
+ ],
+ "examples": [
+  {
+   "id": "b86c-parent-to-two-subsidiaries",
+   "title": "Parent sells to two subsidiaries at different margins",
+   "standard": "IFRS 10 B86(c)",
+   "narrative": "P to S1: sales 1,000, cost 600, margin 40.00 percent. S1 bought 1,000, sold on goods it bought for 700, holds 300. Unrealised profit 300 x 40 percent = 120.00. P is owed 400, S1 owes 400. P to S2: sales 2,200 USD, cost 1,650, margin 25.00 percent. S2 (EUR) bought 2,000 EUR (2,200 USD at the average rate 1.10), sold on goods it bought for 1,200 EUR (1,320 USD), holds 880 USD. Unrealised profit 880 x 25 percent = 220.00. P is owed 600 USD, S2 owes 498 EUR = 597.60 USD at the closing rate 1.20, so 2.40 is an exchange difference. Each subsidiary's unrealised profit is eliminated on its own: 120.00 + 220.00 = 340.00 off consolidated income.",
+   "groupCurrency": "USD",
+   "period": "2027-03",
+   "units": [
+    {
+     "id": "P",
+     "currency": "USD"
+    },
+    {
+     "id": "S1",
+     "currency": "USD",
+     "ownershipPct": "100"
+    },
+    {
+     "id": "S2",
+     "currency": "EUR",
+     "ownershipPct": "100"
+    }
+   ],
+   "rates": {
+    "EUR": {
+     "average": "1.10",
+     "closing": "1.20"
+    }
+   },
+   "terms": {
+    "S1": {
+     "investmentCost": "1000000",
+     "shareCapital": "1000000",
+     "historicalRate": "1",
+     "sellerIsSubsidiary": false
+    },
+    "S2": {
+     "investmentCost": "1000000",
+     "shareCapital": "800000",
+     "historicalRate": "1.25",
+     "sellerIsSubsidiary": false
+    }
+   },
+   "opening": {
+    "S1": {
+     "netAssets": "900000",
+     "rate": "1"
+    },
+    "S2": {
+     "netAssets": "750000",
+     "rate": "1.15"
+    }
+   },
+   "partnerRows": [
+    {
+     "unit": "P",
+     "account": "4100",
+     "counterparty": "S1",
+     "net": "-1000"
+    },
+    {
+     "unit": "P",
+     "account": "5100",
+     "counterparty": "S1",
+     "net": "600"
+    },
+    {
+     "unit": "P",
+     "account": "1500",
+     "counterparty": "S1",
+     "net": "400"
+    },
+    {
+     "unit": "P",
+     "account": "4100",
+     "counterparty": "S2",
+     "net": "-2200"
+    },
+    {
+     "unit": "P",
+     "account": "5100",
+     "counterparty": "S2",
+     "net": "1650"
+    },
+    {
+     "unit": "P",
+     "account": "1500",
+     "counterparty": "S2",
+     "net": "600"
+    },
+    {
+     "unit": "S1",
+     "account": "5200",
+     "counterparty": "P",
+     "net": "1000"
+    },
+    {
+     "unit": "S1",
+     "account": "5300",
+     "counterparty": "P",
+     "net": "700"
+    },
+    {
+     "unit": "S1",
+     "account": "2500",
+     "counterparty": "P",
+     "net": "-400"
+    },
+    {
+     "unit": "S2",
+     "account": "5200",
+     "counterparty": "P",
+     "net": "2000"
+    },
+    {
+     "unit": "S2",
+     "account": "5300",
+     "counterparty": "P",
+     "net": "1200"
+    },
+    {
+     "unit": "S2",
+     "account": "2500",
+     "counterparty": "P",
+     "net": "-498"
+    }
+   ],
+   "expected": {
+    "pairs": {
+     "S1": {
+      "icCostGroup": "600.00",
+      "icSalesGroup": "1000.00",
+      "payableUnit": "400.00",
+      "receivableGroup": "400.00",
+      "unrealizedProfitGroup": "120.00"
+     },
+     "S2": {
+      "icCostGroup": "1650.00",
+      "icSalesGroup": "2200.00",
+      "payableUnit": "498.00",
+      "receivableGroup": "600.00",
+      "unrealizedProfitGroup": "220.00"
+     }
+    },
+    "entries": [
+     {
+      "unit": "S1",
+      "rule": "E1",
+      "account": "IC_REVENUE",
+      "debit": "1000.00",
+      "credit": "0.00"
+     },
+     {
+      "unit": "S1",
+      "rule": "E1",
+      "account": "IC_COGS",
+      "debit": "0.00",
+      "credit": "1000.00"
+     },
+     {
+      "unit": "S1",
+      "rule": "E2",
+      "account": "IC_PAYABLE",
+      "debit": "400.00",
+      "credit": "0.00"
+     },
+     {
+      "unit": "S1",
+      "rule": "E2",
+      "account": "IC_RECEIVABLE",
+      "debit": "0.00",
+      "credit": "400.00"
+     },
+     {
+      "unit": "S1",
+      "rule": "E3",
+      "account": "COGS",
+      "debit": "120.00",
+      "credit": "0.00"
+     },
+     {
+      "unit": "S1",
+      "rule": "E3",
+      "account": "INVENTORY",
+      "debit": "0.00",
+      "credit": "120.00"
+     },
+     {
+      "unit": "S2",
+      "rule": "E1",
+      "account": "IC_REVENUE",
+      "debit": "2200.00",
+      "credit": "0.00"
+     },
+     {
+      "unit": "S2",
+      "rule": "E1",
+      "account": "IC_COGS",
+      "debit": "0.00",
+      "credit": "2200.00"
+     },
+     {
+      "unit": "S2",
+      "rule": "E2",
+      "account": "IC_PAYABLE",
+      "debit": "597.60",
+      "credit": "0.00"
+     },
+     {
+      "unit": "S2",
+      "rule": "E2",
+      "account": "IC_RECEIVABLE",
+      "debit": "0.00",
+      "credit": "600.00"
+     },
+     {
+      "unit": "S2",
+      "rule": "E2",
+      "account": "FX_GAIN_LOSS",
+      "debit": "2.40",
+      "credit": "0.00"
+     },
+     {
+      "unit": "S2",
+      "rule": "E3",
+      "account": "COGS",
+      "debit": "220.00",
+      "credit": "0.00"
+     },
+     {
+      "unit": "S2",
+      "rule": "E3",
+      "account": "INVENTORY",
+      "debit": "0.00",
+      "credit": "220.00"
+     }
+    ],
+    "unrealizedProfitStatement": "340.00"
+   }
+  },
+  {
+   "id": "upstream-subsidiary-to-parent",
+   "title": "Subsidiary sells to its parent (upstream) with a non-controlling interest",
+   "standard": "IFRS 10 B86(c)",
+   "narrative": "S2 (EUR, 80 percent owned) sells goods to P: sales 1,000 EUR, cost 700 EUR, margin 30 percent; S2 is owed 250 EUR. P bought them for 1,080 USD (1,000 EUR at the average rate 1.08), sold on goods it bought for 756 USD and owes 300 USD. Inventory 1,080 - 756 = 324 USD at the seller's margin 30 percent = 97.20 of unrealised profit; the NCI (20 percent) bears 19.44.",
+   "groupCurrency": "USD",
+   "period": "2027-03",
+   "units": [
+    {
+     "id": "P",
+     "currency": "USD"
+    },
+    {
+     "id": "S2",
+     "currency": "EUR",
+     "ownershipPct": "80"
+    }
+   ],
+   "rates": {
+    "EUR": {
+     "average": "1.08",
+     "closing": "1.20"
+    }
+   },
+   "terms": {
+    "S2": {
+     "investmentCost": "900000",
+     "shareCapital": "800000",
+     "historicalRate": "1.25",
+     "sellerIsSubsidiary": true
+    }
+   },
+   "opening": {
+    "S2": {
+     "netAssets": "750000",
+     "rate": "1.15"
+    }
+   },
+   "partnerRows": [
+    {
+     "unit": "S2",
+     "account": "4100",
+     "counterparty": "P",
+     "net": "-1000"
+    },
+    {
+     "unit": "S2",
+     "account": "5100",
+     "counterparty": "P",
+     "net": "700"
+    },
+    {
+     "unit": "S2",
+     "account": "1500",
+     "counterparty": "P",
+     "net": "250"
+    },
+    {
+     "unit": "P",
+     "account": "5200",
+     "counterparty": "S2",
+     "net": "1080"
+    },
+    {
+     "unit": "P",
+     "account": "5300",
+     "counterparty": "S2",
+     "net": "756"
+    },
+    {
+     "unit": "P",
+     "account": "2500",
+     "counterparty": "S2",
+     "net": "-300"
+    }
+   ],
+   "expected": {
+    "pairs": {
+     "S2": {
+      "icCost": "700.00",
+      "icReceivable": "250.00",
+      "icSales": "1000.00",
+      "payableGroup": "300.00",
+      "unrealizedProfitGroup": "97.20"
+     }
+    },
+    "entries": [
+     {
+      "unit": "S2",
+      "rule": "E1",
+      "account": "IC_REVENUE",
+      "debit": "1080.00",
+      "credit": "0.00"
+     },
+     {
+      "unit": "S2",
+      "rule": "E1",
+      "account": "IC_COGS",
+      "debit": "0.00",
+      "credit": "1080.00"
+     },
+     {
+      "unit": "S2",
+      "rule": "E2",
+      "account": "IC_PAYABLE",
+      "debit": "300.00",
+      "credit": "0.00"
+     },
+     {
+      "unit": "S2",
+      "rule": "E2",
+      "account": "IC_RECEIVABLE",
+      "debit": "0.00",
+      "credit": "300.00"
+     },
+     {
+      "unit": "S2",
+      "rule": "E3",
+      "account": "COGS",
+      "debit": "97.20",
+      "credit": "0.00"
+     },
+     {
+      "unit": "S2",
+      "rule": "E3",
+      "account": "INVENTORY",
+      "debit": "0.00",
+      "credit": "97.20"
+     },
+     {
+      "unit": "S2",
+      "rule": "E3",
+      "account": "NCI_EQUITY",
+      "debit": "19.44",
+      "credit": "0.00"
+     },
+     {
+      "unit": "S2",
+      "rule": "E3",
+      "account": "NCI_PROFIT",
+      "debit": "0.00",
+      "credit": "19.44"
+     }
+    ]
+   }
+  }
+ ]
+}

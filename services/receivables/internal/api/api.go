@@ -59,6 +59,7 @@ type API struct {
 	matched  atomic.Int64
 	failed   atomic.Int64
 	feed     PredictionFeed
+	gw       *GatewayConfig
 }
 
 // New returns an API over s.
@@ -95,6 +96,7 @@ func (a *API) Register(r chi.Router) {
 		a.creditSettlementRoutes(r)
 		a.adviceRoutes(r)
 		a.customerPortalRoutes(r)
+		a.gatewayRoutes(r)
 		r.With(authz.RequireDuty(dutyImport)).Post("/lockbox/imports", a.importLockbox)
 		r.With(authz.RequireDuty(dutyView)).Get("/lockbox/imports", a.listLockboxBatches)
 		r.With(authz.RequireDuty(dutyView)).Get("/worklist", a.worklist)

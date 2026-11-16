@@ -1032,7 +1032,13 @@
       {"resource": "/v1/receivables/customer-portal/open-items", "methods": ["GET"]},
       {"resource": "/v1/receivables/customer-portal/open-items/*", "methods": ["GET"]},
       {"resource": "/v1/receivables/customer-portal/payments", "methods": ["GET"]},
-      {"resource": "/v1/receivables/customer-portal/statement", "methods": ["GET"]}
+      {"resource": "/v1/receivables/customer-portal/statement", "methods": ["GET"]},
+      {"resource": "/v1/receivables/customer-portal/payment-intents", "methods": ["GET"]},
+      {"resource": "/v1/receivables/customer-portal/payment-intents/*", "methods": ["GET"]}
+    ]},
+    "receivables.customer-portal.pay": {"service_only": true, "permissions": [
+      {"resource": "/v1/receivables/customer-portal/payment-intents", "methods": ["POST"]},
+      {"resource": "/v1/receivables/customer-portal/payment-intents/*:cancel", "methods": ["POST"]}
     ]},
     "billing.customer-portal.read": {"service_only": true, "permissions": [
       {"resource": "/v1/billing/customer-portal/invoices", "methods": ["GET"]},
@@ -1155,6 +1161,8 @@
       {"resource": "/v1/receivables/rma-credits", "methods": ["GET"]},
       {"resource": "/v1/receivables/gl-journals", "methods": ["GET"]},
       {"resource": "/v1/receivables/gl-reconciliation", "methods": ["GET"]},
+      {"resource": "/v1/receivables/gateway-payments", "methods": ["GET"]},
+      {"resource": "/v1/receivables/gateway-payments/*", "methods": ["GET"]},
       {"resource": "/v1/receivables/statements", "methods": ["GET"]},
       {"resource": "/v1/receivables/worklist", "methods": ["GET"]}
     ]},
@@ -4338,7 +4346,7 @@
       "payables": ["payables.vendor-portal.read"]
     },
     "customer-portal": {
-      "receivables": ["receivables.customer-portal.read"],
+      "receivables": ["receivables.customer-portal.read", "receivables.customer-portal.pay"],
       "billing": ["billing.customer-portal.read"],
       "sales": ["sales.customer-portal.read", "sales.customer-portal.order", "sales.customer-portal.return"],
       "party": ["party.customer-portal.read"],

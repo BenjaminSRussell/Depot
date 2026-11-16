@@ -923,6 +923,12 @@ paths:
           in: query
           schema:
             type: string
+        - name: routePrefix
+          in: query
+          description: "A workspace, the first segment of a web route such as /purchasing. Keeps the validation errors and abandoned forms of its pages, so each list is the top 20 within it. Searches have no page and are not filtered."
+          schema:
+            type: string
+            pattern: "^/[a-z0-9][a-z0-9-]{0,63}$"
       responses:
         "200":
           description: The signals
@@ -1797,6 +1803,8 @@ components:
         to:
           type: string
         release:
+          type: string
+        routePrefix:
           type: string
         validationErrors:
           type: array

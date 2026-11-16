@@ -26,6 +26,7 @@ import { compareDecimals, DECIMAL, DECISION_LABELS, MODE_LABELS, money, STATUS_L
 import styles from "./pages.module.css";
 import { OrderFlowPanel } from "../sales/documentFlow";
 import { useLoad } from "./useLoad";
+import { GatewayPaymentPanel } from "./GatewayPayments";
 import { ProblemMessage } from "../../shell/errors";
 
 const APPLIABLE = new Set(["RECEIVED", "SUGGESTED", "ON_ACCOUNT"]);
@@ -252,6 +253,7 @@ export function PaymentDetailPage() {
           <Detail term="Remittance" mono>{payment.remittance.length > 0 ? payment.remittance.map((r) => r.reference).join(", ") : "None"}</Detail>
         </dl>
       </Card>
+      {payment.source === "PORTAL" ? <GatewayPaymentPanel paymentId={payment.id} /> : null}
       {result ? (
         <Alert tone="success" title="Payment applied" live="status">
           {result.settlements.length} item(s) settled; {money(result.payment.unappliedAmount, result.payment.currency)} on account. Status:{" "}

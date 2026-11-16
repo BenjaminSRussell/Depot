@@ -1,0 +1,611 @@
+{
+ "description": "Demo fiscal year 2026 for the statement pack (#15, AC1): an opening entry in period 0, twelve periods of cent-level sales, collections, purchases, payments, operating expenses and depreciation, an equipment purchase in period 3 and a loan in period 6, and the closing entries in period 12. Every journal is one debit and one credit of the same amount. Each account names its class (cash, asset, liability, equity, revenue, expense) for the reviewer's tie-out. Read by TestDemoDataset_StatementsTieToTrialBalanceAndCashFlowReconciles and by tools/signoff-packets.",
+ "ledger": "L1",
+ "currencyType": "rpt",
+ "fiscalYear": 2026,
+ "accounts": [
+  {
+   "account": "100100",
+   "name": "Cash at bank",
+   "class": "cash"
+  },
+  {
+   "account": "110100",
+   "name": "Trade receivables",
+   "class": "asset"
+  },
+  {
+   "account": "150100",
+   "name": "Machinery and equipment",
+   "class": "asset"
+  },
+  {
+   "account": "155100",
+   "name": "Accumulated depreciation",
+   "class": "asset"
+  },
+  {
+   "account": "200100",
+   "name": "Trade payables",
+   "class": "liability"
+  },
+  {
+   "account": "220100",
+   "name": "Bank loan",
+   "class": "liability"
+  },
+  {
+   "account": "300100",
+   "name": "Share capital",
+   "class": "equity"
+  },
+  {
+   "account": "300900",
+   "name": "Retained earnings",
+   "class": "equity"
+  },
+  {
+   "account": "400100",
+   "name": "Revenue",
+   "class": "revenue"
+  },
+  {
+   "account": "500100",
+   "name": "Cost of sales",
+   "class": "expense"
+  },
+  {
+   "account": "610100",
+   "name": "Operating expenses",
+   "class": "expense"
+  }
+ ],
+ "journals": [
+  {
+   "period": 0,
+   "debit": "100100",
+   "credit": "300100",
+   "amount": "5000000.00",
+   "closing": false
+  },
+  {
+   "period": 1,
+   "debit": "110100",
+   "credit": "400100",
+   "amount": "101111.48",
+   "closing": false
+  },
+  {
+   "period": 1,
+   "debit": "100100",
+   "credit": "110100",
+   "amount": "80500.20",
+   "closing": false
+  },
+  {
+   "period": 1,
+   "debit": "500100",
+   "credit": "200100",
+   "amount": "40222.63",
+   "closing": false
+  },
+  {
+   "period": 1,
+   "debit": "200100",
+   "credit": "100100",
+   "amount": "30000.29",
+   "closing": false
+  },
+  {
+   "period": 1,
+   "debit": "610100",
+   "credit": "100100",
+   "amount": "12003.38",
+   "closing": false
+  },
+  {
+   "period": 1,
+   "debit": "610100",
+   "credit": "155100",
+   "amount": "20833.33",
+   "closing": false
+  },
+  {
+   "period": 2,
+   "debit": "110100",
+   "credit": "400100",
+   "amount": "102222.59",
+   "closing": false
+  },
+  {
+   "period": 2,
+   "debit": "100100",
+   "credit": "110100",
+   "amount": "81000.27",
+   "closing": false
+  },
+  {
+   "period": 2,
+   "debit": "500100",
+   "credit": "200100",
+   "amount": "40444.85",
+   "closing": false
+  },
+  {
+   "period": 2,
+   "debit": "200100",
+   "credit": "100100",
+   "amount": "30000.29",
+   "closing": false
+  },
+  {
+   "period": 2,
+   "debit": "610100",
+   "credit": "100100",
+   "amount": "12006.71",
+   "closing": false
+  },
+  {
+   "period": 2,
+   "debit": "610100",
+   "credit": "155100",
+   "amount": "20833.33",
+   "closing": false
+  },
+  {
+   "period": 3,
+   "debit": "110100",
+   "credit": "400100",
+   "amount": "103333.70",
+   "closing": false
+  },
+  {
+   "period": 3,
+   "debit": "100100",
+   "credit": "110100",
+   "amount": "81500.34",
+   "closing": false
+  },
+  {
+   "period": 3,
+   "debit": "500100",
+   "credit": "200100",
+   "amount": "40667.07",
+   "closing": false
+  },
+  {
+   "period": 3,
+   "debit": "200100",
+   "credit": "100100",
+   "amount": "30000.29",
+   "closing": false
+  },
+  {
+   "period": 3,
+   "debit": "610100",
+   "credit": "100100",
+   "amount": "12010.04",
+   "closing": false
+  },
+  {
+   "period": 3,
+   "debit": "610100",
+   "credit": "155100",
+   "amount": "20833.33",
+   "closing": false
+  },
+  {
+   "period": 3,
+   "debit": "150100",
+   "credit": "100100",
+   "amount": "250000.99",
+   "closing": false
+  },
+  {
+   "period": 4,
+   "debit": "110100",
+   "credit": "400100",
+   "amount": "104444.81",
+   "closing": false
+  },
+  {
+   "period": 4,
+   "debit": "100100",
+   "credit": "110100",
+   "amount": "82000.41",
+   "closing": false
+  },
+  {
+   "period": 4,
+   "debit": "500100",
+   "credit": "200100",
+   "amount": "40889.29",
+   "closing": false
+  },
+  {
+   "period": 4,
+   "debit": "200100",
+   "credit": "100100",
+   "amount": "30000.29",
+   "closing": false
+  },
+  {
+   "period": 4,
+   "debit": "610100",
+   "credit": "100100",
+   "amount": "12013.37",
+   "closing": false
+  },
+  {
+   "period": 4,
+   "debit": "610100",
+   "credit": "155100",
+   "amount": "20833.33",
+   "closing": false
+  },
+  {
+   "period": 5,
+   "debit": "110100",
+   "credit": "400100",
+   "amount": "105555.92",
+   "closing": false
+  },
+  {
+   "period": 5,
+   "debit": "100100",
+   "credit": "110100",
+   "amount": "82500.48",
+   "closing": false
+  },
+  {
+   "period": 5,
+   "debit": "500100",
+   "credit": "200100",
+   "amount": "41111.51",
+   "closing": false
+  },
+  {
+   "period": 5,
+   "debit": "200100",
+   "credit": "100100",
+   "amount": "30000.29",
+   "closing": false
+  },
+  {
+   "period": 5,
+   "debit": "610100",
+   "credit": "100100",
+   "amount": "12016.70",
+   "closing": false
+  },
+  {
+   "period": 5,
+   "debit": "610100",
+   "credit": "155100",
+   "amount": "20833.33",
+   "closing": false
+  },
+  {
+   "period": 6,
+   "debit": "110100",
+   "credit": "400100",
+   "amount": "106667.03",
+   "closing": false
+  },
+  {
+   "period": 6,
+   "debit": "100100",
+   "credit": "110100",
+   "amount": "83000.55",
+   "closing": false
+  },
+  {
+   "period": 6,
+   "debit": "500100",
+   "credit": "200100",
+   "amount": "41333.73",
+   "closing": false
+  },
+  {
+   "period": 6,
+   "debit": "200100",
+   "credit": "100100",
+   "amount": "30000.29",
+   "closing": false
+  },
+  {
+   "period": 6,
+   "debit": "610100",
+   "credit": "100100",
+   "amount": "12020.03",
+   "closing": false
+  },
+  {
+   "period": 6,
+   "debit": "610100",
+   "credit": "155100",
+   "amount": "20833.33",
+   "closing": false
+  },
+  {
+   "period": 6,
+   "debit": "100100",
+   "credit": "220100",
+   "amount": "100000.00",
+   "closing": false
+  },
+  {
+   "period": 7,
+   "debit": "110100",
+   "credit": "400100",
+   "amount": "107778.14",
+   "closing": false
+  },
+  {
+   "period": 7,
+   "debit": "100100",
+   "credit": "110100",
+   "amount": "83500.62",
+   "closing": false
+  },
+  {
+   "period": 7,
+   "debit": "500100",
+   "credit": "200100",
+   "amount": "41555.95",
+   "closing": false
+  },
+  {
+   "period": 7,
+   "debit": "200100",
+   "credit": "100100",
+   "amount": "30000.29",
+   "closing": false
+  },
+  {
+   "period": 7,
+   "debit": "610100",
+   "credit": "100100",
+   "amount": "12023.36",
+   "closing": false
+  },
+  {
+   "period": 7,
+   "debit": "610100",
+   "credit": "155100",
+   "amount": "20833.33",
+   "closing": false
+  },
+  {
+   "period": 8,
+   "debit": "110100",
+   "credit": "400100",
+   "amount": "108889.25",
+   "closing": false
+  },
+  {
+   "period": 8,
+   "debit": "100100",
+   "credit": "110100",
+   "amount": "84000.69",
+   "closing": false
+  },
+  {
+   "period": 8,
+   "debit": "500100",
+   "credit": "200100",
+   "amount": "41778.17",
+   "closing": false
+  },
+  {
+   "period": 8,
+   "debit": "200100",
+   "credit": "100100",
+   "amount": "30000.29",
+   "closing": false
+  },
+  {
+   "period": 8,
+   "debit": "610100",
+   "credit": "100100",
+   "amount": "12026.69",
+   "closing": false
+  },
+  {
+   "period": 8,
+   "debit": "610100",
+   "credit": "155100",
+   "amount": "20833.33",
+   "closing": false
+  },
+  {
+   "period": 9,
+   "debit": "110100",
+   "credit": "400100",
+   "amount": "110000.36",
+   "closing": false
+  },
+  {
+   "period": 9,
+   "debit": "100100",
+   "credit": "110100",
+   "amount": "84500.76",
+   "closing": false
+  },
+  {
+   "period": 9,
+   "debit": "500100",
+   "credit": "200100",
+   "amount": "42000.39",
+   "closing": false
+  },
+  {
+   "period": 9,
+   "debit": "200100",
+   "credit": "100100",
+   "amount": "30000.29",
+   "closing": false
+  },
+  {
+   "period": 9,
+   "debit": "610100",
+   "credit": "100100",
+   "amount": "12030.02",
+   "closing": false
+  },
+  {
+   "period": 9,
+   "debit": "610100",
+   "credit": "155100",
+   "amount": "20833.33",
+   "closing": false
+  },
+  {
+   "period": 10,
+   "debit": "110100",
+   "credit": "400100",
+   "amount": "111111.47",
+   "closing": false
+  },
+  {
+   "period": 10,
+   "debit": "100100",
+   "credit": "110100",
+   "amount": "85000.83",
+   "closing": false
+  },
+  {
+   "period": 10,
+   "debit": "500100",
+   "credit": "200100",
+   "amount": "42222.61",
+   "closing": false
+  },
+  {
+   "period": 10,
+   "debit": "200100",
+   "credit": "100100",
+   "amount": "30000.29",
+   "closing": false
+  },
+  {
+   "period": 10,
+   "debit": "610100",
+   "credit": "100100",
+   "amount": "12033.35",
+   "closing": false
+  },
+  {
+   "period": 10,
+   "debit": "610100",
+   "credit": "155100",
+   "amount": "20833.33",
+   "closing": false
+  },
+  {
+   "period": 11,
+   "debit": "110100",
+   "credit": "400100",
+   "amount": "112222.58",
+   "closing": false
+  },
+  {
+   "period": 11,
+   "debit": "100100",
+   "credit": "110100",
+   "amount": "85500.90",
+   "closing": false
+  },
+  {
+   "period": 11,
+   "debit": "500100",
+   "credit": "200100",
+   "amount": "42444.83",
+   "closing": false
+  },
+  {
+   "period": 11,
+   "debit": "200100",
+   "credit": "100100",
+   "amount": "30000.29",
+   "closing": false
+  },
+  {
+   "period": 11,
+   "debit": "610100",
+   "credit": "100100",
+   "amount": "12036.68",
+   "closing": false
+  },
+  {
+   "period": 11,
+   "debit": "610100",
+   "credit": "155100",
+   "amount": "20833.33",
+   "closing": false
+  },
+  {
+   "period": 12,
+   "debit": "110100",
+   "credit": "400100",
+   "amount": "113333.69",
+   "closing": false
+  },
+  {
+   "period": 12,
+   "debit": "100100",
+   "credit": "110100",
+   "amount": "86000.97",
+   "closing": false
+  },
+  {
+   "period": 12,
+   "debit": "500100",
+   "credit": "200100",
+   "amount": "42667.05",
+   "closing": false
+  },
+  {
+   "period": 12,
+   "debit": "200100",
+   "credit": "100100",
+   "amount": "30000.29",
+   "closing": false
+  },
+  {
+   "period": 12,
+   "debit": "610100",
+   "credit": "100100",
+   "amount": "12040.01",
+   "closing": false
+  },
+  {
+   "period": 12,
+   "debit": "610100",
+   "credit": "155100",
+   "amount": "20833.33",
+   "closing": false
+  },
+  {
+   "period": 12,
+   "debit": "400100",
+   "credit": "300900",
+   "amount": "1286671.02",
+   "closing": true
+  },
+  {
+   "period": 12,
+   "debit": "300900",
+   "credit": "500100",
+   "amount": "497338.08",
+   "closing": true
+  },
+  {
+   "period": 12,
+   "debit": "300900",
+   "credit": "610100",
+   "amount": "394260.30",
+   "closing": true
+  }
+ ]
+}

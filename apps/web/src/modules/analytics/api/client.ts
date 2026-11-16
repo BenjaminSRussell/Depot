@@ -601,3 +601,57 @@ export async function addLineageEdges(edges: LineageEdge[], fetchImpl: Fetch = d
   const reply = await send(fetchImpl, `${catalogBase}/lineage/edges`, { method: "POST", body: JSON.stringify({ edges }) });
   return z.object({ added: z.number().int() }).parse(reply.body).added;
 }
+
+// --- UX telemetry (#510): funnels and friction signals -----------------------
+
+/** The measured flows and their steps, in order (services/analytics/internal/domain/uxevent.go). */
+export const UX_FLOWS = ["procure_to_pay", "onboarding"] as const;
+export type UxFlow = (typeof UX_FLOWS)[number];
+
+/** Release labels the service accepts, such as 2026.11.1. */
+export const UX_RELEASE = /^[A-Za-z0-9._+-]{1,32}$/;
+
+/** The longest period the service reads in one request. */
+export const UX_MAX_DAYS = 366;
+
+const uxFunnelSchema = z.object({
+  flow: z.string(),
+  from: z.string(),
+  to: z.string(),
+  release: z.string().optional(),
+  steps: z.array(z.object({ step: z.string(), sessions: z.number().int(), conversionFromPrevious: z.number() })),
+  secondsToLastStep: z.number().nullable().optional(),
+});
+
+const uxSignalsSchema = z.object({
+  from: z.string(),
+  to: z.string(),
+  release: z.string().optional(),
+  routePrefix: z.string().optional(),
+  validationErrors: z.array(z.object({ route: z.string(), field: z.string(), count: z.number().int() })),
+  noResultSearches: z.array(z.object({ query: z.string(), count: z.number().int() })),
+  abandonedForms: z.array(z.object({ route: z.string(), count: z.number().int() })),
+});
+
+export type UxFunnel = z.infer<typeof uxFunnelSchema>;
+export type UxSignals = z.infer<typeof uxSignalsSchema>;
+
+export interface UxPeriod {
+  from: string;
+  to: string;
+  release?: string;
+  /** A workspace for the signals: the first route segment, such as /purchasing. Empty for every workspace. */
+  routePrefix?: string;
+}
+
+/** Sessions by step of one flow for a period, optionally for one release. */
+export async function getUxFunnel(flow: UxFlow, period: UxPeriod, fetchImpl: Fetch = defaultFetch, signal?: AbortSignal): Promise<UxFunnel> {
+  const q = query({ flow, from: period.from, to: period.to, release: period.release ?? "" });
+  return uxFunnelSchema.parse(await call(fetchImpl, `/ux-funnels${q}`, {}, signal));
+}
+
+/** Where validation fails, what searches find nothing and which forms are left unsaved, for a period. */
+export async function getUxSignals(period: UxPeriod, fetchImpl: Fetch = defaultFetch, signal?: AbortSignal): Promise<UxSignals> {
+  const q = query({ from: period.from, to: period.to, release: period.release ?? "", routePrefix: period.routePrefix ?? "" });
+  return uxSignalsSchema.parse(await call(fetchImpl, `/ux-signals${q}`, {}, signal));
+}

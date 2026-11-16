@@ -1,5 +1,7 @@
 import { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { get } from "../api";
+import { PortalPayments } from "./Pay";
 import { Badge, day, DownloadButton, Field, money, Page, State, useLoad } from "../ui";
 
 export interface OpenItem {
@@ -29,24 +31,32 @@ export function balances(items: OpenItem[]): Array<{ currency: string; open: num
 
 export function OpenItems() {
   const load = useLoad(() => get<{ items: OpenItem[] }>("/api/v1/open-items?status=open&limit=200"), []);
+  const [chosen, setChosen] = useState<string[]>([]);
+  const navigate = useNavigate();
+  const toggle = (id: string, on: boolean) => setChosen((prev) => (on ? [...prev, id] : prev.filter((x) => x !== id)));
   return (
-    <Page title="Open items">
+    <Page
+      title="Open items"
+      action={<button type="button" disabled={chosen.length === 0} onClick={() => navigate(`/pay?items=${chosen.join(",")}`)}>{chosen.length > 1 ? `Pay ${chosen.length} selected` : "Pay selected"}</button>}
+    >
       <State load={load} empty={(d) => d.items.length === 0}>
         {(d) => (
           <>
             <ul>{balances(d.items).map((b) => <li key={b.currency}>Balance {money(b.open.toFixed(2), b.currency)}{b.overdue > 0 ? `, of which ${money(b.overdue.toFixed(2), b.currency)} is overdue` : ""}</li>)}</ul>
             <table>
               <caption className="sr-only">Your open items</caption>
-              <thead><tr><th scope="col">Document</th><th scope="col">Date</th><th scope="col">Due</th><th scope="col">Amount</th><th scope="col">Open</th><th scope="col">Status</th></tr></thead>
+              <thead><tr><th scope="col">Select</th><th scope="col">Document</th><th scope="col">Date</th><th scope="col">Due</th><th scope="col">Amount</th><th scope="col">Open</th><th scope="col">Status</th><th scope="col">Pay</th></tr></thead>
               <tbody>
                 {d.items.map((i) => (
                   <tr key={i.id}>
+                    <td>{i.side !== "CREDIT" ? <input type="checkbox" aria-label={`Select ${i.documentNumber} to pay`} checked={chosen.includes(i.id)} onChange={(e) => toggle(i.id, e.target.checked)} /> : null}</td>
                     <th scope="row">{i.documentNumber}</th>
                     <td>{day(i.documentDate)}</td>
                     <td>{day(i.dueDate)}</td>
                     <td>{money(i.amount, i.currency)}</td>
                     <td>{money(i.openAmount, i.currency)}</td>
                     <td><Badge value={i.status} /></td>
+                    <td>{i.side !== "CREDIT" ? <Link to={`/pay?items=${i.id}`} aria-label={`Pay ${i.documentNumber}`}>Pay</Link> : null}</td>
                   </tr>
                 ))}
               </tbody>
@@ -62,6 +72,7 @@ export function Payments() {
   const load = useLoad(() => get<{ items: Payment[] }>("/api/v1/payments?limit=200"), []);
   return (
     <Page title="Payments">
+      <PortalPayments />
       <State load={load} empty={(d) => d.items.length === 0}>
         {(d) => (
           <table>
