@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/shopspring/decimal"
 
 	"github.com/BenjaminSRussell/passage/services/receivables/internal/gateway"
@@ -21,14 +23,14 @@ func TestGatewayEvent_RefundDuringSuccessIsDeferredThenReverses(t *testing.T) {
 	g := withIntent(t, s, attempt(t, s, gateway.MethodCard, "race-1", GatewayAllocation{OpenItemID: a.ID, Amount: amt("100.00")}), "pi_race")
 	refund := event("evt_race_ref", gateway.KindRefunded, "pi_race", "100.00", "USD")
 	var refundErr error
-	opts := GatewayEventOptions{BankAccountRef: "STRIPE", Details: func(context.Context) (gateway.Details, error) {
-		// The refund webhook arrives on another connection while the success holds the attempt.
+	// The refund webhook arrives while the success holds the attempt's lease, after its payment is recorded.
+	s.afterGatewayPayment = func() {
 		_, refundErr = s.HandleGatewayEvent(portalCtx(1), g.ID, refund, GatewayEventOptions{BankAccountRef: "STRIPE"})
-		return gateway.Details{Method: gateway.MethodCard, Brand: "visa", Last4: "4242"}, nil
-	}}
-	if _, err := s.HandleGatewayEvent(portalCtx(1), g.ID, event("evt_race_ok", gateway.KindSucceeded, "pi_race", "100.00", "USD"), opts); err != nil {
+	}
+	if _, err := s.HandleGatewayEvent(portalCtx(1), g.ID, event("evt_race_ok", gateway.KindSucceeded, "pi_race", "100.00", "USD"), GatewayEventOptions{BankAccountRef: "STRIPE"}); err != nil {
 		t.Fatal(err)
 	}
+	s.afterGatewayPayment = nil
 	if !errors.Is(refundErr, ErrGatewayBusy) {
 		t.Fatalf("refund during the success = %v, want ErrGatewayBusy so it is redelivered", refundErr)
 	}
@@ -86,6 +88,120 @@ func TestGatewayEvent_SuccessCrashedBeforeRecordingHeals(t *testing.T) {
 	pays, _ := s.ListPayments(tenantCtx(1), PaymentFilter{}, 10)
 	if len(pays) != 2 || gw(t, s, h.ID).Status != GatewaySucceeded || itemByID(t, s, tenantCtx(1), b.ID).Status != "SETTLED" {
 		t.Fatalf("payments %d, attempt %s", len(pays), gw(t, s, h.ID).Status)
+	}
+}
+
+// A refund handled before the success took the lease (while the success read the card details from Stripe) wins: the success
+// then finds the attempt refunded and records nothing, so no payment exists for money that went back.
+func TestGatewayEvent_RefundBeforeTheSuccessTakesTheLease(t *testing.T) {
+	s := setup(t)
+	a := seedGatewayItem(t, s, "INV-R012", "40.00", "USD")
+	g := withIntent(t, s, attempt(t, s, gateway.MethodCard, "race-2", GatewayAllocation{OpenItemID: a.ID, Amount: amt("40.00")}), "pi_race2")
+	opts := GatewayEventOptions{BankAccountRef: "STRIPE", Details: func(context.Context) (gateway.Details, error) {
+		if _, err := s.HandleGatewayEvent(portalCtx(1), g.ID, event("evt_race2_ref", gateway.KindRefunded, "pi_race2", "40.00", "USD"), GatewayEventOptions{}); err != nil {
+			t.Errorf("refund: %v", err)
+		}
+		return gateway.Details{Method: gateway.MethodCard}, nil
+	}}
+	out, err := s.HandleGatewayEvent(portalCtx(1), g.ID, event("evt_race2_ok", gateway.KindSucceeded, "pi_race2", "40.00", "USD"), opts)
+	if err != nil || out != "ignored: the payment is already refunded" {
+		t.Fatalf("success after the refund = %q %v", out, err)
+	}
+	pays, _ := s.ListPayments(tenantCtx(1), PaymentFilter{}, 10)
+	if len(pays) != 0 || itemByID(t, s, tenantCtx(1), a.ID).Status != "OPEN" || gw(t, s, g.ID).Status != GatewayRefunded {
+		t.Fatalf("payments %d, attempt %s", len(pays), gw(t, s, g.ID).Status)
+	}
+}
+
+// The lease is a row lease, not a session lock: one held by another handling defers the event, an expired one (a crashed
+// handler) is taken over, and a handling releases its own lease only.
+func TestGatewayLease_HeldDefersExpiredIsTakenOver(t *testing.T) {
+	s := setup(t)
+	a := seedGatewayItem(t, s, "INV-R013", "30.00", "USD")
+	g := withIntent(t, s, attempt(t, s, gateway.MethodCard, "lease-1", GatewayAllocation{OpenItemID: a.ID, Amount: amt("30.00")}), "pi_lease")
+	ok := event("evt_lease_ok", gateway.KindSucceeded, "pi_lease", "30.00", "USD")
+	// A handler that crashed a moment ago holds the lease.
+	execAdmin(t, s, `update gateway_payment set handling_until = now() + interval '2 minutes', handling_token = gen_random_uuid() where id = $1`, g.ID)
+	if _, err := s.HandleGatewayEvent(portalCtx(1), g.ID, ok, GatewayEventOptions{}); !errors.Is(err, ErrGatewayBusy) {
+		t.Fatalf("event while the lease is held = %v", err)
+	}
+	// Its lease expires and the redelivery takes it over.
+	execAdmin(t, s, `update gateway_payment set handling_until = now() - interval '1 second' where id = $1`, g.ID)
+	if out := handle(t, s, g, ok, nil); out != "succeeded: payment recorded and applied" {
+		t.Fatalf("after expiry = %q", out)
+	}
+	var held int
+	admin, _ := adminPools.Load(s.pool)
+	if err := admin.(interface {
+		QueryRow(context.Context, string, ...any) pgx.Row
+	}).QueryRow(context.Background(), `select count(*) from gateway_payment where id = $1 and (handling_until is not null or handling_token is not null)`, g.ID).Scan(&held); err != nil || held != 0 {
+		t.Fatalf("lease left after the handling: %d %v", held, err)
+	}
+	// A handling taken over releases nothing of the new holder's lease.
+	tok, err := s.acquireGatewayLease(portalCtx(1), g.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s.releaseGatewayLease(portalCtx(1), g.ID, "00000000-0000-4000-8000-000000000999")
+	if _, err := s.acquireGatewayLease(portalCtx(1), g.ID); !errors.Is(err, ErrGatewayBusy) {
+		t.Fatalf("another token released the lease: %v", err)
+	}
+	s.releaseGatewayLease(portalCtx(1), g.ID, tok)
+	if _, err := s.acquireGatewayLease(portalCtx(1), g.ID); err != nil {
+		t.Fatalf("own release: %v", err)
+	}
+}
+
+// Review N2 (probe): handlings hold no connection while they wait for another; two concurrent deliveries on a two-connection
+// pool both complete.
+func TestGatewayEvent_NoConnectionHeldAcrossTheHandling(t *testing.T) {
+	s := setup(t)
+	a := seedGatewayItem(t, s, "INV-R014", "10.00", "USD")
+	b := seedGatewayItem(t, s, "INV-R015", "10.00", "USD")
+	g1 := withIntent(t, s, attempt(t, s, gateway.MethodCard, "hw-1", GatewayAllocation{OpenItemID: a.ID, Amount: amt("10.00")}), "pi_hw_1")
+	g2 := withIntent(t, s, attempt(t, s, gateway.MethodCard, "hw-2", GatewayAllocation{OpenItemID: b.ID, Amount: amt("10.00")}), "pi_hw_2")
+	cfg := s.pool.Config()
+	cfg.MaxConns = 2
+	small, err := pgxpool.NewWithConfig(context.Background(), cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer small.Close()
+	ss := New(small)
+	ctx, cancel := context.WithTimeout(portalCtx(1), 20*time.Second)
+	defer cancel()
+	both := make(chan struct{})
+	var once sync.Once
+	var mu sync.Mutex
+	n := 0
+	gate := func(context.Context) (gateway.Details, error) {
+		mu.Lock()
+		n++
+		if n == 2 {
+			once.Do(func() { close(both) })
+		}
+		mu.Unlock()
+		select {
+		case <-both:
+		case <-time.After(2 * time.Second):
+		}
+		return gateway.Details{}, nil
+	}
+	var wg sync.WaitGroup
+	errs := make([]error, 2)
+	for i, g := range []GatewayPayment{g1, g2} {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			_, errs[i] = ss.HandleGatewayEvent(ctx, g.ID, event("evt_hw_"+g.ID, gateway.KindSucceeded, []string{"pi_hw_1", "pi_hw_2"}[i], "10.00", "USD"), GatewayEventOptions{BankAccountRef: "STRIPE", Details: gate})
+		}()
+	}
+	wg.Wait()
+	if errs[0] != nil || errs[1] != nil {
+		t.Fatalf("handlings on a 2-connection pool: %v", errs)
+	}
+	if gw(t, s, g1.ID).Status != GatewaySucceeded || gw(t, s, g2.ID).Status != GatewaySucceeded {
+		t.Fatal("both attempts must have succeeded")
 	}
 }
 

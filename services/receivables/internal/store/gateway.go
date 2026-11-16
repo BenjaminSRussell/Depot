@@ -347,11 +347,6 @@ func (s *Postgres) FailGatewayAttempt(ctx context.Context, id, code, message str
 // cancel asks the provider to cancel its payment first; a payment already under way is refused (AR-GATEWAY-STATE). Only the
 // customer's own attempt still waiting for the customer can be cancelled; another customer's reads as not found.
 func (s *Postgres) CancelGatewayAttempt(ctx context.Context, id, customerID string, cancel func(g GatewayPayment) error) (GatewayPayment, error) {
-	release, err := s.lockGatewayAttempt(ctx, id)
-	if err != nil {
-		return GatewayPayment{}, err
-	}
-	defer release()
 	g, err := s.GetGatewayPayment(ctx, id)
 	if err == nil && !strings.EqualFold(g.CustomerID, customerID) {
 		err = httpx.NewProblem(http.StatusNotFound, CodeGatewayNotFound, "payment not found")
@@ -365,18 +360,25 @@ func (s *Postgres) CancelGatewayAttempt(ctx context.Context, id, customerID stri
 		}
 		return g, httpx.NewProblem(http.StatusConflict, CodeGatewayState, "the payment is already under way and cannot be cancelled")
 	}
+	// The provider is asked first, outside the lease. A payment it says is under way or paid is refused and left as it is: its
+	// webhook settles it, and it keeps reserving its invoices.
 	if g.ProviderIntentID != nil && cancel != nil {
 		if err := cancel(g); err != nil {
 			return g, err
 		}
 	}
+	token, err := s.acquireGatewayLease(ctx, id)
+	if err != nil {
+		return g, err
+	}
+	defer s.releaseGatewayLease(ctx, id, token)
 	p, _ := tenant.FromContext(ctx)
 	err = dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
 		tag, err := tx.Exec(ctx, `update gateway_payment set status = 'FAILED', failure_code = 'canceled', failure_message = $3,
 			version = version + 1, updated_at = now() where tenant_id = $1 and id = $2 and status = 'REQUIRES_PAYMENT' and version = $4`,
 			p.TenantID, id, gateway.PlainFailure("canceled"), g.Version)
 		if err == nil && tag.RowsAffected() == 0 {
-			return ErrGatewayBusy
+			return httpx.NewProblem(http.StatusConflict, CodeGatewayState, "the payment changed while it was being cancelled; reload it")
 		}
 		return err
 	})
@@ -481,36 +483,75 @@ type GatewayEventOptions struct {
 // transient: the webhook answers 5xx and the provider redelivers, and the redelivery sees the new state.
 var ErrGatewayBusy = errors.New("store: the payment attempt is being changed by another event; retry")
 
-// gatewayLockClass is the first key of the per-attempt advisory lock (the second is the attempt id's hash).
-const gatewayLockClass = 30014
+// GatewayLease is how long one handling may hold an attempt. It is far above a handling's length (a few transactions and no
+// provider call), and short enough that the attempt of a crashed handler is free again within minutes.
+const GatewayLease = 2 * time.Minute
 
-// lockGatewayAttempt takes the attempt's advisory lock on a connection of its own and keeps it until release, across the
-// several transactions handling an event takes (CreatePayment, ApplyPayment, the final write). It never waits: a held lock
-// is ErrGatewayBusy, so a delivery cannot hold a pool connection while it waits for another that needs one too.
-func (s *Postgres) lockGatewayAttempt(ctx context.Context, attemptID string) (func(), error) {
-	conn, err := s.pool.Acquire(ctx)
-	if err != nil {
-		return nil, err
-	}
-	var ok bool
-	if err := conn.QueryRow(ctx, `select pg_try_advisory_lock($1::int, hashtext($2))`, gatewayLockClass, attemptID).Scan(&ok); err != nil {
-		conn.Release()
-		return nil, err
-	}
-	if !ok {
-		conn.Release()
-		return nil, ErrGatewayBusy
-	}
-	return func() {
-		_, _ = conn.Exec(context.WithoutCancel(ctx), `select pg_advisory_unlock($1::int, hashtext($2))`, gatewayLockClass, attemptID)
-		conn.Release()
-	}, nil
+// acquireGatewayLease takes the attempt's lease with one conditional UPDATE (a free or expired lease only) and answers the
+// token that releases it. A lease held by another handling is ErrGatewayBusy: the webhook answers 409 and the provider
+// redelivers. It is safe behind a transaction-mode pooler and holds no connection: each transaction of the handling takes
+// one from the pool and gives it back.
+func (s *Postgres) acquireGatewayLease(ctx context.Context, attemptID string) (string, error) {
+	p, _ := tenant.FromContext(ctx)
+	token := ids.New()
+	err := dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
+		tag, err := tx.Exec(ctx, `update gateway_payment set handling_until = now() + make_interval(secs => $3), handling_token = $4
+			where tenant_id = $1 and id = $2 and (handling_until is null or handling_until < now())`,
+			p.TenantID, attemptID, GatewayLease.Seconds(), token)
+		if err != nil {
+			return err
+		}
+		if tag.RowsAffected() == 0 {
+			var exists bool
+			if err := tx.QueryRow(ctx, `select exists (select 1 from gateway_payment where tenant_id = $1 and id = $2)`, p.TenantID, attemptID).Scan(&exists); err != nil {
+				return err
+			}
+			if !exists {
+				return httpx.NewProblem(http.StatusNotFound, CodeGatewayNotFound, "payment not found")
+			}
+			return ErrGatewayBusy
+		}
+		return nil
+	})
+	return token, err
+}
+
+// releaseGatewayLease ends the lease if this handling still holds it (a handling that outlived its lease and was taken over
+// releases nothing).
+func (s *Postgres) releaseGatewayLease(ctx context.Context, attemptID, token string) {
+	p, _ := tenant.FromContext(ctx)
+	ctx = context.WithoutCancel(ctx)
+	_ = dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
+		_, err := tx.Exec(ctx, `update gateway_payment set handling_until = null, handling_token = null
+			where tenant_id = $1 and id = $2 and handling_token = $3`, p.TenantID, attemptID, token)
+		return err
+	})
+}
+
+// loadForEvent reads the attempt with its items, and whether the event was handled already.
+func (s *Postgres) loadForEvent(ctx context.Context, attemptID string, ev gateway.Event) (GatewayPayment, bool, error) {
+	p, _ := tenant.FromContext(ctx)
+	var g GatewayPayment
+	duplicate := false
+	err := dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
+		var err error
+		g, err = scanGateway(tx.QueryRow(ctx, `select `+gatewayColumns+` from gateway_payment where id = $1`, attemptID))
+		if err != nil {
+			return notFound(err, CodeGatewayNotFound, "payment not found")
+		}
+		if err := tx.QueryRow(ctx, `select exists (select 1 from gateway_event where tenant_id = $1 and provider = $2 and event_id = $3)`,
+			p.TenantID, g.Provider, ev.ID).Scan(&duplicate); err != nil || duplicate {
+			return err
+		}
+		return loadGatewayAllocations(ctx, tx, p.TenantID, []*GatewayPayment{&g})
+	})
+	return g, duplicate, err
 }
 
 // HandleGatewayEvent applies one verified webhook event to its attempt and records the event id, so a redelivery or a replay is
-// answered "duplicate" without acting twice. The attempt's advisory lock is held for the whole handling, and the final write is
-// a compare-and-set on the attempt's version, so two events of one attempt (a refund racing the success) never interleave: the
-// second gets ErrGatewayBusy and is redelivered. Only these events move money:
+// answered "duplicate" without acting twice. The attempt's lease (acquireGatewayLease) is held for the whole handling, and the
+// final write is a compare-and-set on the attempt's version, so two events of one attempt (a refund racing the success) never
+// interleave: the second gets ErrGatewayBusy and is redelivered. No lease is held across a provider call. Only these events move money:
 //
 //   - SUCCEEDED records a PORTAL payment (CreatePayment, Idempotency-Key gateway:<attempt>), stores its id on the attempt at
 //     once, and applies it to the items the customer chose (ApplyPayment, gateway-apply:<attempt>), each capped at what is still
@@ -525,27 +566,27 @@ func (s *Postgres) lockGatewayAttempt(ctx context.Context, attemptID string) (fu
 // the provider redelivers; a refusal of receivables itself (an item settled meanwhile, a payment a clerk already reversed) is
 // recorded on the attempt for review.
 func (s *Postgres) HandleGatewayEvent(ctx context.Context, attemptID string, ev gateway.Event, opts GatewayEventOptions) (string, error) {
-	release, err := s.lockGatewayAttempt(ctx, attemptID)
+	g, duplicate, err := s.loadForEvent(ctx, attemptID, ev)
 	if err != nil {
 		return "", err
 	}
-	defer release()
-	p, _ := tenant.FromContext(ctx)
-	var g GatewayPayment
-	duplicate := false
-	err = dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
-		var err error
-		g, err = scanGateway(tx.QueryRow(ctx, `select `+gatewayColumns+` from gateway_payment where id = $1`, attemptID))
-		if err != nil {
-			return notFound(err, CodeGatewayNotFound, "payment not found")
+	if duplicate {
+		return "duplicate", nil
+	}
+	// The provider is asked for the payment method before the lease is taken: no lease is held across a provider call.
+	var details *gateway.Details
+	if ev.Kind == gateway.KindSucceeded && opts.Details != nil && g.Status != GatewaySucceeded && g.Status != GatewayRefunded && g.Status != GatewayDisputed {
+		if d, err := opts.Details(ctx); err == nil {
+			details = &d
 		}
-		if err := tx.QueryRow(ctx, `select exists (select 1 from gateway_event where tenant_id = $1 and provider = $2 and event_id = $3)`,
-			p.TenantID, g.Provider, ev.ID).Scan(&duplicate); err != nil || duplicate {
-			return err
-		}
-		return loadGatewayAllocations(ctx, tx, p.TenantID, []*GatewayPayment{&g})
-	})
+	}
+	token, err := s.acquireGatewayLease(ctx, attemptID)
 	if err != nil {
+		return "", err
+	}
+	defer s.releaseGatewayLease(ctx, attemptID, token)
+	// Read again under the lease: another event may have moved the attempt meanwhile.
+	if g, duplicate, err = s.loadForEvent(ctx, attemptID, ev); err != nil {
 		return "", err
 	}
 	if duplicate {
@@ -592,12 +633,6 @@ func (s *Postgres) HandleGatewayEvent(ctx context.Context, attemptID string, ev 
 	case gateway.KindSucceeded:
 		if g.Status == GatewaySucceeded || g.Status == GatewayRefunded || g.Status == GatewayDisputed {
 			return s.ignore(ctx, g, ev)
-		}
-		var details *gateway.Details
-		if opts.Details != nil {
-			if d, err := opts.Details(ctx); err == nil {
-				details = &d
-			}
 		}
 		paymentID, review, err := s.settleGateway(ctx, g, ev, details, opts.BankAccountRef)
 		if err != nil {
@@ -814,6 +849,9 @@ func (s *Postgres) settleGateway(ctx context.Context, g GatewayPayment, ev gatew
 	}
 	if err := s.setGatewayPaymentID(ctx, g.ID, pay.ID); err != nil {
 		return "", "", err
+	}
+	if s.afterGatewayPayment != nil {
+		s.afterGatewayPayment()
 	}
 	if pay.Status != "RECEIVED" || !pay.UnappliedAmount.Equal(pay.Amount) {
 		// An earlier delivery of this event applied it already.

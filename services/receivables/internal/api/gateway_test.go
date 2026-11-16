@@ -337,3 +337,25 @@ func TestGatewayAPI_CancelGranularityAndForeignCharges(t *testing.T) {
 		t.Fatalf("charge without a PaymentIntent: %d %s", rec.Code, rec.Body)
 	}
 }
+
+// Review N3: a PaymentIntent the customer already paid cannot be "cancelled" away: the refusal is checked against the
+// PaymentIntent's status, the attempt stays waiting for its webhook and keeps its invoices reserved.
+func TestGatewayAPI_CancelOfAPaidIntentIsRefused(t *testing.T) {
+	h := newGatewayHarness(t, true)
+	a := h.item(t, gwCustA, "INV-7401", "100.00")
+	const path = "/v1/receivables/customer-portal/payment-intents"
+	body := `{"method":"CARD","allocations":[{"openItemId":"` + a.ID + `","amount":"100.00"}]}`
+	created := decodeBody[intentAnswer](t, h.portal(t, gwCustA, http.MethodPost, path, body, "key-paid-0001"))
+	intentID := strings.SplitN(created.ClientSecret, "_secret_", 2)[0]
+	h.fake.SetStatus(intentID, "succeeded")
+	rec := h.portal(t, gwCustA, http.MethodPost, path+"/"+created.ID+":cancel", "{}", "")
+	if rec.Code != http.StatusConflict || codeOf(t, rec) != "AR-GATEWAY-STATE" {
+		t.Fatalf("cancel of a paid PaymentIntent: %d %s", rec.Code, rec.Body)
+	}
+	if got := decodeBody[intentAnswer](t, h.staff("/v1/receivables/gateway-payments/"+created.ID)); got.Status != "REQUIRES_PAYMENT" {
+		t.Fatalf("the attempt moved: %+v", got)
+	}
+	if rec := h.portal(t, gwCustA, http.MethodPost, path, body, "key-paid-0002"); rec.Code != http.StatusUnprocessableEntity || codeOf(t, rec) != "AR-0019" {
+		t.Fatalf("the reservation must stay: %d %s", rec.Code, rec.Body)
+	}
+}

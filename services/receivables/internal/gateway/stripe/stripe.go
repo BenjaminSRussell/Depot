@@ -215,17 +215,29 @@ func (g *Gateway) CheckAmount(amount decimal.Decimal, currency string) error {
 	return err
 }
 
-// CancelIntent cancels an abandoned PaymentIntent (POST /v1/payment_intents/{id}/cancel, Idempotency-Key per attempt). Stripe
-// refuses one that is processing or paid with payment_intent_unexpected_state; an already cancelled one answers as cancelled.
+// CancelIntent cancels an abandoned PaymentIntent (POST /v1/payment_intents/{id}/cancel, Idempotency-Key per attempt). When Stripe
+// refuses, the PaymentIntent is read: it counts as cancelled only when its status is canceled. Any other status (succeeded,
+// processing, requires_capture: the customer may already have paid) is refused with Code payment_intent_unexpected_state, so
+// the attempt is left for its webhook. Stripe's refusal text is never relied on.
 func (g *Gateway) CancelIntent(ctx context.Context, account, intentID, attemptID string) error {
 	var out intentJSON
 	form := url.Values{"cancellation_reason": {"abandoned"}}
 	err := g.call(ctx, http.MethodPost, "/v1/payment_intents/"+url.PathEscape(intentID)+"/cancel", form, account, "passage-pi-cancel-"+attemptID, &out)
-	var ge *gateway.Error
-	if errors.As(err, &ge) && ge.Code == "payment_intent_unexpected_state" && strings.Contains(strings.ToLower(ge.Message), "canceled") {
+	if err == nil {
 		return nil
 	}
-	return err
+	var ge *gateway.Error
+	if !errors.As(err, &ge) || !ge.Refused() {
+		return err
+	}
+	var current intentJSON
+	if rerr := g.call(ctx, http.MethodGet, "/v1/payment_intents/"+url.PathEscape(intentID), nil, account, "", &current); rerr != nil {
+		return rerr
+	}
+	if current.Status == "canceled" {
+		return nil
+	}
+	return &gateway.Error{Status: http.StatusConflict, Code: "payment_intent_unexpected_state", Message: "the PaymentIntent is " + truncate(current.Status, 40)}
 }
 
 // IdempotencyKey is the Stripe Idempotency-Key of a payment attempt's create.

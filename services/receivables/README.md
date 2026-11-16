@@ -207,15 +207,19 @@ transactions as every other payment, so no cash application is duplicated and no
   below its minimum) fails the attempt (AR-GATEWAY-REFUSED); an outage is 502 AR-GATEWAY-UNAVAILABLE and the same key can be retried.
 - **Cancel** (`POST /customer-portal/payment-intents/{id}:cancel`, the pay duty): the customer went back to change the amounts; the
   PaymentIntent is cancelled at Stripe (Idempotency-Key `passage-pi-cancel-<attempt>`) and the attempt fails with code `canceled`, so
-  it stops reserving the invoices. One under way or paid is 409 AR-GATEWAY-STATE.
+  it stops reserving the invoices. When Stripe refuses, the PaymentIntent is read, and it counts as cancelled only if its status is
+  `canceled`. If it is succeeded, processing or requires_capture (the customer may already have paid), the request is 409
+  AR-GATEWAY-STATE, the attempt stays as it is for its webhook and keeps its reservation, and the portal opens its status page.
 - **Status only from webhooks.** `POST /webhooks/v1/stripe` is served on its own listener (`RECEIVABLES_WEBHOOK_ADDR`, default `:8081`
   when a provider is set) without the tenant middleware. The `Stripe-Signature` HMAC-SHA256 over `<t>.<raw body>` is checked against
   each configured signing secret before anything is parsed, and `t` must be within 5 minutes. The PaymentIntent id selects the attempt
   through `receivables_gateway_route()` (SECURITY DEFINER over `gateway_route`, the only cross-tenant read, like edi's AS2 endpoint);
   the event then runs as that tenant and legal entity. Event ids are recorded in `gateway_event`, so a redelivery or a replayed request
-  answers `duplicate` and changes nothing. Events of one attempt are handled one at a time: a per-attempt advisory lock is held for the
-  whole handling (never waited on: a second delivery gets 409 and Stripe redelivers it), and the final write is a compare-and-set on
-  the attempt's version, so a refund racing the success is handled after it. The provider time of the latest applied event is kept
+  answers `duplicate` and changes nothing. Events of one attempt are handled one at a time under a lease on the attempt's row
+  (`handling_until` and `handling_token`, migration 0031). It is taken with a conditional UPDATE, released by its token, and expires
+  after 2 minutes, so a crashed handler never blocks the attempt. It is safe behind the transaction-mode pooler, holds no connection,
+  and is never held across a Stripe call. A second delivery gets 409 and Stripe redelivers it. The final write is a compare-and-set
+  on the attempt's version, so a refund racing the success is handled after it. The provider time of the latest applied event is kept
   (`last_event_at`, migration 0031): an older processing or failure that arrives late is recorded as ignored.
   Handled:
   - `payment_intent.succeeded`: a PORTAL payment (mode CARD or ACH, `source_ref` the PaymentIntent, bank account ref

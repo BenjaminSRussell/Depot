@@ -33,15 +33,16 @@ type Server struct {
 	// Fail, when set, is answered to the next create: the HTTP status and Stripe's error code.
 	FailStatus int
 	FailCode   string
-	// CancelRefused, when set, makes cancels answer that the PaymentIntent is already processing.
-	CancelRefused bool
+	// Statuses is the status of each PaymentIntent (default requires_payment_method). A cancel of one that is not cancellable
+	// answers Stripe's own refusal; a successful cancel sets it to canceled.
+	Statuses map[string]string
 	// Method is the payment method the reads report: "card" (Visa 4242, 12/2030) or "us_bank_account" (STRIPE TEST BANK 6789).
 	Method string
 }
 
 // New starts the fake.
 func New() *Server {
-	s := &Server{byKey: map[string]map[string]any{}, Method: "card"}
+	s := &Server{byKey: map[string]map[string]any{}, Method: "card", Statuses: map[string]string{}}
 	s.Server = httptest.NewServer(http.HandlerFunc(s.serve))
 	return s
 }
@@ -89,19 +90,38 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewEncoder(w).Encode(pi)
 	case r.Method == http.MethodPost && strings.HasPrefix(r.URL.Path, "/v1/payment_intents/") && strings.HasSuffix(r.URL.Path, "/cancel"):
 		id := strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, "/v1/payment_intents/"), "/cancel")
-		if s.CancelRefused {
+		status := s.status(id)
+		switch status {
+		case "succeeded", "canceled", "processing":
+			// Stripe's refusal: its message always names the statuses that "may be canceled".
 			w.WriteHeader(http.StatusBadRequest)
-			_, _ = w.Write([]byte(`{"error":{"type":"invalid_request_error","code":"payment_intent_unexpected_state","message":"This PaymentIntent's status is processing."}}`))
+			_ = json.NewEncoder(w).Encode(map[string]any{"error": map[string]any{"type": "invalid_request_error", "code": "payment_intent_unexpected_state",
+				"message": "You cannot cancel this PaymentIntent because it has a status of " + status + ". Only a PaymentIntent with one of the following statuses may be canceled: requires_payment_method, requires_capture, requires_confirmation, requires_action, processing."}})
 			return
 		}
+		s.Statuses[id] = "canceled"
 		_ = json.NewEncoder(w).Encode(map[string]any{"id": id, "object": "payment_intent", "status": "canceled"})
 	case r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, "/v1/payment_intents/"):
 		id := strings.TrimPrefix(r.URL.Path, "/v1/payment_intents/")
-		_ = json.NewEncoder(w).Encode(map[string]any{"id": id, "object": "payment_intent", "payment_method": PaymentMethod(s.Method)})
+		_ = json.NewEncoder(w).Encode(map[string]any{"id": id, "object": "payment_intent", "status": s.status(id), "payment_method": PaymentMethod(s.Method)})
 	default:
 		w.WriteHeader(http.StatusNotFound)
 		_, _ = w.Write([]byte(`{"error":{"type":"invalid_request_error","message":"Unrecognized request URL"}}`))
 	}
+}
+
+func (s *Server) status(id string) string {
+	if st, ok := s.Statuses[id]; ok {
+		return st
+	}
+	return "requires_payment_method"
+}
+
+// SetStatus sets the status a PaymentIntent has at the fake (tests use it to model a payment the customer already made).
+func (s *Server) SetStatus(id, status string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.Statuses[id] = status
 }
 
 // PaymentMethod is a Stripe payment method object of the given type, with test details only.

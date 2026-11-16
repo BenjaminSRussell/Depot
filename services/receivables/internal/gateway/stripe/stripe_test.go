@@ -297,9 +297,17 @@ func TestCheckAmountAndCancel(t *testing.T) {
 	if r.Path != "/v1/payment_intents/pi_5/cancel" || r.Header.Get("Idempotency-Key") != "passage-pi-cancel-att-1" || r.Header.Get("Stripe-Account") != "acct_1" {
 		t.Fatalf("cancel request = %s %v", r.Path, r.Header)
 	}
-	fake.CancelRefused = true
-	var ge *gateway.Error
-	if err := g.CancelIntent(context.Background(), "", "pi_6", "att-2"); !errors.As(err, &ge) || ge.Code != "payment_intent_unexpected_state" {
-		t.Fatalf("cancel of a processing PaymentIntent = %v", err)
+	// Cancelling it again: Stripe refuses ("status of canceled"), the read says canceled, so it is cancelled.
+	if err := g.CancelIntent(context.Background(), "acct_1", "pi_5", "att-1"); err != nil {
+		t.Fatalf("second cancel: %v", err)
+	}
+	// A PaymentIntent the customer already paid, or one processing: Stripe's refusal also says "may be canceled", and it is
+	// still refused, because the read says succeeded or processing.
+	for _, status := range []string{"succeeded", "processing"} {
+		fake.SetStatus("pi_6", status)
+		var ge *gateway.Error
+		if err := g.CancelIntent(context.Background(), "", "pi_6", "att-2"); !errors.As(err, &ge) || ge.Code != "payment_intent_unexpected_state" || ge.Refused() {
+			t.Fatalf("cancel of a %s PaymentIntent = %v", status, err)
+		}
 	}
 }
