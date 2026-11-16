@@ -627,6 +627,7 @@ const uxSignalsSchema = z.object({
   from: z.string(),
   to: z.string(),
   release: z.string().optional(),
+  routePrefix: z.string().optional(),
   validationErrors: z.array(z.object({ route: z.string(), field: z.string(), count: z.number().int() })),
   noResultSearches: z.array(z.object({ query: z.string(), count: z.number().int() })),
   abandonedForms: z.array(z.object({ route: z.string(), count: z.number().int() })),
@@ -639,6 +640,8 @@ export interface UxPeriod {
   from: string;
   to: string;
   release?: string;
+  /** A workspace for the signals: the first route segment, such as /purchasing. Empty for every workspace. */
+  routePrefix?: string;
 }
 
 /** Sessions by step of one flow for a period, optionally for one release. */
@@ -649,6 +652,6 @@ export async function getUxFunnel(flow: UxFlow, period: UxPeriod, fetchImpl: Fet
 
 /** Where validation fails, what searches find nothing and which forms are left unsaved, for a period. */
 export async function getUxSignals(period: UxPeriod, fetchImpl: Fetch = defaultFetch, signal?: AbortSignal): Promise<UxSignals> {
-  const q = query({ from: period.from, to: period.to, release: period.release ?? "" });
+  const q = query({ from: period.from, to: period.to, release: period.release ?? "", routePrefix: period.routePrefix ?? "" });
   return uxSignalsSchema.parse(await call(fetchImpl, `/ux-signals${q}`, {}, signal));
 }

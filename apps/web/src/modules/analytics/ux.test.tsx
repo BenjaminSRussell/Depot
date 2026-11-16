@@ -1,11 +1,13 @@
-import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render as renderPage, screen, waitFor, within } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it } from "vitest";
 import { json, pageViolations, renderRoutes, server, useFakeServer } from "../../shell/testing/fakeServer";
-import type { NavEntry } from "../../shell/workspaces/model";
+import { loadWorkspaceConfig, type NavEntry } from "../../shell/workspaces/model";
+import { WorkspaceNavProvider } from "../../shell/workspaces/WorkspaceNav";
 import { findTable } from "../../test-utils";
 import type { UxFunnel, UxSignals } from "./api/client";
 import analytics from "./module";
-import { biggestDrop, checkFilter, daysBefore, duration, funnelRows, nameRoute } from "./UxTelemetryPage";
+import { biggestDrop, checkFilter, daysBefore, duration, fieldLabel, funnelRows, funnelSummary, nameRoute, UxTelemetryPage, wordsOf } from "./UxTelemetryPage";
 
 // UX telemetry (#510): the funnel and friction signals over GET /v1/analytics/ux-funnels and /ux-signals.
 
@@ -39,6 +41,26 @@ const signals: UxSignals = {
   abandonedForms: [{ route: "/purchasing/requisitions/new", count: 38 }],
 };
 
+const navEntry = (to: string, label: string, moduleTitle: string) => ({ to, label, moduleTitle }) as NavEntry;
+const NAV = [
+  navEntry("/ap-invoices/post", "Post vendor invoice", "Vendor invoices"),
+  navEntry("/purchasing/requisitions", "Requisitions", "Purchasing"),
+  navEntry("/receiving/receipts", "Receipts", "Receiving"),
+];
+const config = loadWorkspaceConfig();
+const page = (entries: NavEntry[]) => (
+  <MemoryRouter initialEntries={["/analytics/ux"]}>
+    <WorkspaceNavProvider entries={entries} config={config}>
+      <UxTelemetryPage />
+    </WorkspaceNavProvider>
+  </MemoryRouter>
+);
+
+const withSteps = (counts: number[]): UxFunnel => ({
+  ...funnel,
+  steps: funnel.steps.map((s, i) => ({ ...s, sessions: counts[i] ?? 0, conversionFromPrevious: i === 0 ? 1 : counts[i - 1] ? Math.min((counts[i] ?? 0) / counts[i - 1], 1) : 0 })),
+});
+
 const calls = (path: string) => server.calls.filter((c) => c.url.pathname === `/api/v1/analytics/${path}`);
 
 describe("UX telemetry page", () => {
@@ -58,8 +80,10 @@ describe("UX telemetry page", () => {
     expect(screen.getByText(/Most sessions are lost before purchase order created: 60/)).toBeInTheDocument();
 
     const validation = await findTable({ name: "Validation errors by field" });
-    expect(within(validation).getByText("vendorInvoiceNumber")).toBeInTheDocument();
+    expect(within(validation).getByText("Vendor invoice number")).toHaveAttribute("title", "vendorInvoiceNumber");
+    expect(within(validation).getByText("Line 1 – Quantity")).toBeInTheDocument();
     expect(within(validation).getByText("New requisition")).toBeInTheDocument();
+    expect(within(validation).getByText("AP invoices")).toBeInTheDocument();
     expect(within(await findTable({ name: "Searches without results" })).getByText("impeller 4in bronze")).toBeInTheDocument();
     expect(pageViolations(container)).toEqual([]);
 
@@ -88,10 +112,77 @@ describe("UX telemetry page", () => {
     await waitFor(() => expect(calls("ux-signals")).toHaveLength(2));
     expect(await screen.findByText("No sessions in this period")).toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText(/^Workspace/), { target: { value: "Purchasing" } });
+  });
+
+  it("asks the service for one workspace's signals, so its top 20 is taken within it", async () => {
+    server.handler = (url) => {
+      if (url.pathname === "/api/v1/analytics/ux-funnels") return json(200, funnel);
+      if (url.pathname === "/api/v1/analytics/ux-signals") {
+        const only = url.searchParams.get("routePrefix");
+        return json(200, {
+          ...signals,
+          ...(only ? { routePrefix: only } : {}),
+          validationErrors: signals.validationErrors.filter((v) => !only || v.route.startsWith(`${only}/`)),
+          abandonedForms: signals.abandonedForms.filter((v) => !only || v.route.startsWith(`${only}/`)),
+        });
+      }
+      return undefined;
+    };
+    renderPage(page(NAV));
+    await findTable({ name: "Validation errors by field" });
+    const select = screen.getByLabelText(/^Workspace/) as HTMLSelectElement;
+    expect([...select.options].map((o) => o.text)).toEqual(["Every workspace", "Purchasing", "Receiving", "Vendor invoices"]);
+    expect(calls("ux-signals")[0].url.searchParams.get("routePrefix")).toBeNull();
+
+    fireEvent.change(select, { target: { value: "/purchasing" } });
+    await waitFor(() => expect(calls("ux-signals")).toHaveLength(2));
+    expect(calls("ux-signals")[1].url.searchParams.get("routePrefix")).toBe("/purchasing");
     const validation = await findTable({ name: "Validation errors by field" });
-    expect(within(validation).queryByText("vendorInvoiceNumber")).toBeNull();
-    expect(within(validation).getByText("lines[0].quantity")).toBeInTheDocument();
+    await waitFor(() => expect(within(validation).queryByText("Vendor invoice number")).toBeNull());
+    expect(within(validation).getByText("Line 1 – Quantity")).toBeInTheDocument();
+    expect(screen.getAllByText("Showing the 20 most frequent in Purchasing.")).toHaveLength(2);
+
+    // Another period keeps the workspace: the options come from the navigation, not from the rows of the last answer.
+    const filter = screen.getByRole("form", { name: "Telemetry filter" });
+    fireEvent.change(within(filter).getByLabelText("From"), { target: { value: "2026-11-01" } });
+    fireEvent.click(within(filter).getByRole("button", { name: "Show telemetry" }));
+    await waitFor(() => expect(calls("ux-signals")).toHaveLength(3));
+    expect(calls("ux-signals")[2].url.searchParams.get("routePrefix")).toBe("/purchasing");
+    expect(select.value).toBe("/purchasing");
+  });
+
+  it("drops a chosen workspace the navigation no longer offers, so the select and the lists agree", async () => {
+    server.handler = (url) => (url.pathname.includes("/ux-") ? json(200, url.pathname.endsWith("funnels") ? funnel : signals) : undefined);
+    const view = renderPage(page(NAV));
+    await findTable({ name: "Validation errors by field" });
+    fireEvent.change(screen.getByLabelText(/^Workspace/), { target: { value: "/purchasing" } });
+    await waitFor(() => expect(calls("ux-signals")).toHaveLength(2));
+
+    view.rerender(page(NAV.filter((e) => e.moduleTitle !== "Purchasing")));
+    await waitFor(() => expect((screen.getByLabelText(/^Workspace/) as HTMLSelectElement).value).toBe(""));
+    await waitFor(() => expect(calls("ux-signals")).toHaveLength(3));
+    expect(calls("ux-signals")[2].url.searchParams.get("routePrefix")).toBeNull();
+    const validation = await findTable({ name: "Validation errors by field" });
+    expect(await within(validation).findByText("Vendor invoice number")).toBeInTheDocument();
+  });
+
+  it("shows every step when the first has no sessions, and caps finished of started at 100%", async () => {
+    let steps = [0, 4, 6, 5, 5, 3];
+    server.handler = (url) => (url.pathname.includes("/ux-") ? json(200, url.pathname.endsWith("funnels") ? withSteps(steps) : signals) : undefined);
+    const view = render();
+    const table = await findTable({ name: "Procure to pay funnel steps" });
+    expect(await within(table).findByText("Payment proposal created")).toBeInTheDocument();
+    expect(screen.queryByText("No sessions in this period")).toBeNull();
+    expect(screen.getByText("No session reached the first step in this period")).toBeInTheDocument();
+    expect(screen.getByText(/A later step counts more sessions than the first/)).toBeInTheDocument();
+    view.unmount();
+
+    steps = [2, 3, 3, 4, 4, 5];
+    render();
+    await findTable({ name: "Procure to pay funnel steps" });
+    expect(await screen.findByText("Capped at 100%: some sessions began before this period or release")).toBeInTheDocument();
+    expect(screen.queryByText("250%")).toBeNull();
+    expect(screen.getAllByText("100%").length).toBeGreaterThan(0);
   });
 
   it("refuses a bad period or release before calling the service", async () => {
@@ -133,6 +224,25 @@ describe("UX telemetry helpers", () => {
     });
   });
 
+  it("caps shares at 100% and leaves them out when the first step is empty", () => {
+    const empty = funnelRows(withSteps([0, 4, 6, 5, 5, 3]));
+    expect(empty.map((r) => r.ofStart)).toEqual([null, null, null, null, null, null]);
+    expect(empty[2].ofLargest).toBe(1);
+    expect(funnelSummary(empty)).toEqual({ started: 0, finished: 3, finishedShare: null, laterExceedsFirst: true, any: true });
+    const grows = funnelRows(withSteps([2, 3, 3, 4, 4, 5]));
+    expect(grows[5].ofStart).toBe(1);
+    expect(funnelSummary(grows).finishedShare).toBe(1);
+    expect(funnelSummary(funnelRows(withSteps([0, 0, 0, 0, 0, 0]))).any).toBe(false);
+  });
+
+  it("labels fields and route segments in words", () => {
+    expect(fieldLabel("lines[0].unitPrice")).toBe("Line 1 – Unit price");
+    expect(fieldLabel("vendorInvoiceNumber")).toBe("Vendor invoice number");
+    expect(fieldLabel("addresses[2].postalCode")).toBe("Address 3 – Postal code");
+    expect(wordsOf("ap-invoices")).toBe("AP invoices");
+    expect(wordsOf("eam")).toBe("EAM");
+  });
+
   it("names a route by its nav entry or help title and its workspace", () => {
     const entries = [
       { to: "/ap-invoices/post", label: "Post vendor invoice", moduleTitle: "Vendor invoices" },
@@ -141,6 +251,8 @@ describe("UX telemetry helpers", () => {
     expect(nameRoute("/ap-invoices/post", entries)).toEqual({ page: "Post vendor invoice", module: "Vendor invoices" });
     expect(nameRoute("/purchasing/requisitions/new", entries)).toEqual({ page: "New requisition", module: "Purchasing" });
     expect(nameRoute("/receivables/unknown", entries)).toEqual({ page: "/receivables/unknown", module: "Receivables" });
+    expect(nameRoute("/product/items/new", entries)).toEqual({ page: "New product", module: "Product" });
+    expect(nameRoute("/ap-invoices/grir", [])).toEqual({ page: "Goods received, not invoiced", module: "AP invoices" });
   });
 
   it("formats durations", () => {

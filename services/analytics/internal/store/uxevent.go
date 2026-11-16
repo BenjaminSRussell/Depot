@@ -82,16 +82,21 @@ func (s *Postgres) GetFunnel(ctx context.Context, flow, release string, from, to
 }
 
 // GetUXSignals returns the most frequent validation errors, searches that found
-// nothing and abandoned forms in the period (GET /analytics/ux-signals).
-func (s *Postgres) GetUXSignals(ctx context.Context, release string, from, to time.Time) (domain.UXSignals, error) {
+// nothing and abandoned forms in the period (GET /analytics/ux-signals). A
+// routePrefix (one segment such as /purchasing, checked by the caller) keeps the
+// validation errors and abandoned forms of that workspace's pages, so the top 20
+// is taken within it; searches have no page and are not filtered.
+func (s *Postgres) GetUXSignals(ctx context.Context, release, routePrefix string, from, to time.Time) (domain.UXSignals, error) {
 	lo, hi := periodBounds(from, to)
 	out := domain.UXSignals{
-		From: from.Format(time.DateOnly), To: to.Format(time.DateOnly), Release: release,
+		From: from.Format(time.DateOnly), To: to.Format(time.DateOnly), Release: release, RoutePrefix: routePrefix,
 		ValidationErrors: []domain.ValidationSignal{}, NoResultSearches: []domain.SearchSignal{}, AbandonedForms: []domain.AbandonedSignal{},
 	}
 	const where = ` from ux_event where ` + ownTenant + ` and event_type = $1 and occurred_at >= $2 and occurred_at < $3 and ($4 = '' or release = $4)`
+	// The prefix holds only letters, digits and dashes, so it carries no LIKE wildcard.
+	const inWorkspace = ` and ($5 = '' or route = $5 or route like $5 || '/%')`
 	err := dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
-		rows, err := tx.Query(ctx, `select route, field, count(*)`+where+` group by route, field order by count(*) desc, route, field limit 20`, domain.UXValidationError, lo, hi, release)
+		rows, err := tx.Query(ctx, `select route, field, count(*)`+where+inWorkspace+` group by route, field order by count(*) desc, route, field limit 20`, domain.UXValidationError, lo, hi, release, routePrefix)
 		if err != nil {
 			return err
 		}
@@ -123,7 +128,7 @@ func (s *Postgres) GetUXSignals(ctx context.Context, release string, from, to ti
 		if err := rows.Err(); err != nil {
 			return err
 		}
-		rows, err = tx.Query(ctx, `select route, count(*)`+where+` group by route order by count(*) desc, route limit 20`, domain.UXFormAbandoned, lo, hi, release)
+		rows, err = tx.Query(ctx, `select route, count(*)`+where+inWorkspace+` group by route order by count(*) desc, route limit 20`, domain.UXFormAbandoned, lo, hi, release, routePrefix)
 		if err != nil {
 			return err
 		}

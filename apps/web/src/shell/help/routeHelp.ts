@@ -1032,14 +1032,21 @@ export const routeHelp: readonly RouteHelp[] = [
     guide: "ar-clerk.md#look-at-what-is-owed",
   },
   {
+    patterns: ["/product/items/new"],
+    title: "New product",
+    purpose: "Create a product so it can be bought, stocked and sold.",
+    howTo: ["Enter the product number, name, base unit, kind, type and state.", "Select Create product.", "Open the product later to edit it."],
+    guide: "tenant-admin.md#create-a-product",
+  },
+  {
     patterns: ["/analytics/ux"],
     title: "UX telemetry",
     purpose: "How far people get through buying and paying, and through setting up a company, and where they stop.",
     howTo: [
       "Choose the flow, the dates and, if you want, a release, then select Show telemetry.",
       "Read the funnel: each step shows the sessions that reached it and how many dropped off before it.",
-      "Use Workspace to narrow the fields that fail checks and the forms left unsaved.",
-      "Use the searches that found nothing to spot missing records or names people expect.",
+      "Choose a Workspace to see the 20 fields and forms people struggle with most in that area.",
+      "Use the searches that found nothing, counted across every area, to spot missing records or names people expect.",
     ],
     guide: "tenant-admin.md#see-where-people-get-stuck",
   },

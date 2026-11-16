@@ -1,4 +1,4 @@
-import { useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { ProblemMessage } from "../../shell/errors";
 import { resolveHelp } from "../../shell/help/routeHelp";
 import { useWorkspaceNav } from "../../shell/workspaces/WorkspaceNav";
@@ -62,14 +62,21 @@ export interface FunnelRow {
   sessions: number;
   conversion: number;
   dropped: number;
-  /** Sessions as a share of the first step, 0 to 1: the bar length. */
-  ofStart: number;
+  /** Sessions as a share of the first step, 0 to 1 (capped); null when the first step has none. */
+  ofStart: number | null;
+  /** Sessions as a share of the busiest step, 0 to 1: the bar length. */
+  ofLargest: number;
   first: boolean;
 }
 
-/** The funnel's rows with the sessions lost since the previous step and the share of the first step. */
+/**
+ * The funnel's rows with the sessions lost since the previous step. Steps are counted per session, and a session may
+ * have started before the period or under another release, so a later step can count more than the first one, and the
+ * first one can be empty: shares of the first step are capped at 100% and left out when it has no sessions.
+ */
 export function funnelRows(funnel: UxFunnel): FunnelRow[] {
   const start = funnel.steps[0]?.sessions ?? 0;
+  const largest = Math.max(0, ...funnel.steps.map((s) => s.sessions));
   return funnel.steps.map((s, i) => {
     const prev = i === 0 ? s.sessions : (funnel.steps[i - 1]?.sessions ?? 0);
     return {
@@ -77,10 +84,34 @@ export function funnelRows(funnel: UxFunnel): FunnelRow[] {
       sessions: s.sessions,
       conversion: s.conversionFromPrevious,
       dropped: i === 0 ? 0 : Math.max(prev - s.sessions, 0),
-      ofStart: start > 0 ? Math.min(s.sessions / start, 1) : 0,
+      ofStart: start > 0 ? Math.min(s.sessions / start, 1) : null,
+      ofLargest: largest > 0 ? s.sessions / largest : 0,
       first: i === 0,
     };
   });
+}
+
+export interface FunnelSummary {
+  started: number;
+  finished: number;
+  /** Finished over started, capped at 1; null when no session reached the first step. */
+  finishedShare: number | null;
+  /** True when a later step counts more sessions than the first. */
+  laterExceedsFirst: boolean;
+  /** True when any step has a session. */
+  any: boolean;
+}
+
+export function funnelSummary(rows: FunnelRow[]): FunnelSummary {
+  const started = rows[0]?.sessions ?? 0;
+  const finished = rows[rows.length - 1]?.sessions ?? 0;
+  return {
+    started,
+    finished,
+    finishedShare: started > 0 ? Math.min(finished / started, 1) : null,
+    laterExceedsFirst: rows.some((r) => r.sessions > started),
+    any: rows.some((r) => r.sessions > 0),
+  };
 }
 
 /** The step that loses the most sessions, if any loses one. */
@@ -91,6 +122,47 @@ export function biggestDrop(rows: FunnelRow[]): FunnelRow | undefined {
 export interface PageName {
   page: string;
   module: string;
+}
+
+const ACRONYMS: Record<string, string> = { ap: "AP", ar: "AR", eam: "EAM", fx: "FX", gl: "GL", hr: "HR", ic: "IC", pi: "PI", rfq: "RFQ", rfid: "RFID", uom: "UoM", vat: "VAT", id: "ID" };
+
+/** "ap-invoices" -> "AP invoices": a route segment or name in words, sentence case, acronyms kept. */
+export function wordsOf(name: string): string {
+  const words = name
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .split(/[-_\s]+/)
+    .filter(Boolean)
+    .map((w) => w.toLowerCase());
+  return words
+    .map((w, i) => ACRONYMS[w] ?? (i === 0 ? w.charAt(0).toUpperCase() + w.slice(1) : w))
+    .join(" ");
+}
+
+/**
+ * A readable label for a form-field path as the service names it: `lines[0].unitPrice` -> "Line 1 – Unit price",
+ * `vendorInvoiceNumber` -> "Vendor invoice number". The raw path stays available as a tooltip.
+ */
+export function fieldLabel(path: string): string {
+  return path
+    .split(".")
+    .filter(Boolean)
+    .map((part) => {
+      const m = /^([A-Za-z][A-Za-z0-9_-]*)\[(\d+)\]$/.exec(part);
+      if (!m) return wordsOf(part);
+      const base = wordsOf(m[1]).replace(/sses$/, "ss").replace(/ies$/, "y").replace(/([^s])s$/, "$1");
+      return `${base} ${Number(m[2]) + 1}`;
+    })
+    .join(" – ");
+}
+
+/** The workspaces the viewer's navigation offers: route prefix (such as /purchasing) and name, by name. */
+export function workspaceOptions(entries: readonly NavEntry[]): { prefix: string; name: string }[] {
+  const byPrefix = new Map<string, string>();
+  for (const e of entries) {
+    const segment = e.to.split("/")[1] ?? "";
+    if (segment !== "" && !byPrefix.has(`/${segment}`)) byPrefix.set(`/${segment}`, e.moduleTitle);
+  }
+  return [...byPrefix].map(([prefix, name]) => ({ prefix, name })).sort((a, b) => a.name.localeCompare(b.name));
 }
 
 /**
@@ -104,7 +176,7 @@ export function nameRoute(route: string, entries: readonly NavEntry[]): PageName
   const help = resolveHelp(route);
   const page = exact?.label ?? (help && !help.pattern.endsWith("/*") ? help.entry.title : route);
   const owner = exact ?? own[0];
-  const module = owner?.moduleTitle ?? (segment === "" ? "Home" : stepLabel(segment.replace(/-/g, "_")));
+  const module = owner?.moduleTitle ?? (segment === "" ? "Home" : wordsOf(segment));
   return { page, module };
 }
 
@@ -124,14 +196,14 @@ const funnelColumns: DataTableColumn<FunnelRow>[] = [
   { key: "sessions", header: "Sessions", align: "end", render: (r) => count(r.sessions) },
   {
     key: "bar",
-    header: "Share of first step",
+    header: "Compared with the busiest step",
     render: (r) => (
       <span className={styles.funnelBar} aria-hidden="true">
-        <span className={styles.funnelFill} style={{ width: `${Math.round(r.ofStart * 100)}%` }} />
+        <span className={styles.funnelFill} style={{ width: `${Math.round(r.ofLargest * 100)}%` }} />
       </span>
     ),
   },
-  { key: "ofStart", header: "Of first step", align: "end", render: (r) => percent(r.ofStart) },
+  { key: "ofStart", header: "Of first step", align: "end", render: (r) => (r.ofStart === null ? "—" : percent(r.ofStart)) },
   { key: "conversion", header: "From previous step", align: "end", render: (r) => (r.first ? "—" : percent(r.conversion)) },
   { key: "dropped", header: "Dropped off", align: "end", render: (r) => (r.first ? "—" : count(r.dropped)) },
 ];
@@ -139,7 +211,7 @@ const funnelColumns: DataTableColumn<FunnelRow>[] = [
 const validationColumns: DataTableColumn<ValidationRow>[] = [
   { key: "module", header: "Workspace" },
   { key: "page", header: "Page" },
-  { key: "field", header: "Field", mono: true },
+  { key: "field", header: "Field", render: (r) => <span title={r.field}>{fieldLabel(r.field)}</span> },
   { key: "count", header: "Errors", align: "end", render: (r) => count(r.count) },
 ];
 
@@ -186,13 +258,20 @@ export function UxTelemetryPage() {
   const [draft, setDraft] = useState<Filter>({ flow: "procure_to_pay", from: daysBefore(end, 29), to: end, release: "" });
   const [filter, setFilter] = useState<Filter>(draft);
   const [errors, setErrors] = useState<FilterErrors>({});
-  const [workspace, setWorkspace] = useState("");
+  const [chosenWorkspace, setWorkspace] = useState("");
   const { entries } = useWorkspaceNav();
+  const workspaces = useMemo(() => workspaceOptions(entries), [entries]);
+  // A workspace that is no longer offered (the navigation changed) filters nothing, and the select shows it so.
+  const workspace = workspaces.some((w) => w.prefix === chosenWorkspace) ? chosenWorkspace : "";
+  useEffect(() => {
+    if (workspace !== chosenWorkspace) setWorkspace("");
+  }, [workspace, chosenWorkspace]);
 
   const period = { from: filter.from, to: filter.to, release: filter.release };
   const periodKey = `${filter.from}/${filter.to}/${filter.release}`;
   const funnel = useLoad((signal) => getUxFunnel(filter.flow, period, undefined, signal), `${filter.flow}/${periodKey}`);
-  const signals = useLoad((signal) => getUxSignals(period, undefined, signal), periodKey);
+  const signals = useLoad((signal) => getUxSignals({ ...period, routePrefix: workspace }, undefined, signal), `${periodKey}/${workspace}`);
+  const workspaceName = workspaces.find((w) => w.prefix === workspace)?.name;
 
   function submit(event: FormEvent) {
     event.preventDefault();
@@ -202,8 +281,7 @@ export function UxTelemetryPage() {
   }
 
   const rows = funnel.data ? funnelRows(funnel.data) : [];
-  const started = rows[0]?.sessions ?? 0;
-  const finished = rows[rows.length - 1]?.sessions ?? 0;
+  const summary = funnelSummary(rows);
   const worst = biggestDrop(rows);
 
   const named = useMemo(() => {
@@ -214,10 +292,7 @@ export function UxTelemetryPage() {
       abandoned: s.abandonedForms.map((a) => ({ ...a, ...nameRoute(a.route, entries) })),
     };
   }, [signals.data, entries]);
-  const workspaces = [...new Set([...named.validation, ...named.abandoned].map((r) => r.module))].sort((a, b) => a.localeCompare(b));
-  const inWorkspace = <T extends PageName>(list: T[]) => (workspace === "" ? list : list.filter((r) => r.module === workspace));
-  const validation = inWorkspace(named.validation);
-  const abandoned = inWorkspace(named.abandoned);
+  const scope = workspaceName ? `the 20 most frequent in ${workspaceName}` : "the 20 most frequent across every workspace";
 
   return (
     <div className={styles.stack}>
@@ -262,15 +337,31 @@ export function UxTelemetryPage() {
           <div className={styles.stack}>
             {funnel.data ? (
               <StatGroup label="Funnel summary">
-                <StatTile label="Sessions that started" value={count(started)} />
-                <StatTile label="Sessions that finished" value={count(finished)} />
-                <StatTile label="Finished of started" value={started > 0 ? percent(finished / started) : "—"} />
+                <StatTile label="Sessions that started" value={count(summary.started)} />
+                <StatTile label="Sessions that finished" value={count(summary.finished)} />
+                <StatTile
+                  label="Finished of started"
+                  value={summary.finishedShare === null ? "—" : percent(summary.finishedShare)}
+                  hint={
+                    summary.finishedShare === null
+                      ? "No session reached the first step in this period"
+                      : summary.laterExceedsFirst
+                        ? "Capped at 100%: some sessions began before this period or release"
+                        : undefined
+                  }
+                />
                 <StatTile
                   label="Median time to finish"
                   value={funnel.data.secondsToLastStep != null ? duration(funnel.data.secondsToLastStep) : "—"}
                   hint="From a session's first step to its last"
                 />
               </StatGroup>
+            ) : null}
+            {summary.laterExceedsFirst ? (
+              <p className={styles.muted}>
+                A later step counts more sessions than the first: steps are counted per session, and some sessions began the flow before this period or
+                under another release. Shares of the first step are capped at 100%.
+              </p>
             ) : null}
             {worst ? (
               <p className={styles.muted}>
@@ -280,10 +371,10 @@ export function UxTelemetryPage() {
             <DataTable
               label={`${FLOW_LABELS[filter.flow]} funnel steps`}
               columns={funnelColumns}
-              rows={started > 0 ? rows : []}
+              rows={summary.any ? rows : []}
               getRowKey={(r) => r.step}
               loading={funnel.loading}
-              empty={{ title: "No sessions in this period", description: "Nobody reached the first step of this flow in the chosen period and release." }}
+              empty={{ title: "No sessions in this period", description: "Nobody reached any step of this flow in the chosen period and release." }}
             />
           </div>
         )}
@@ -296,13 +387,13 @@ export function UxTelemetryPage() {
       ) : (
         <>
           <div className={styles.toolbar}>
-            <FormField id="ux-workspace" label="Workspace" hint="Narrows the validation errors and unsaved forms.">
+            <FormField id="ux-workspace" label="Workspace" hint="Shows the fields and unsaved forms of one workspace. Searches are always counted across every workspace.">
               {(control) => (
                 <Select {...control} value={workspace} onChange={(e) => setWorkspace(e.target.value)}>
                   <option value="">Every workspace</option>
                   {workspaces.map((w) => (
-                    <option key={w} value={w}>
-                      {w}
+                    <option key={w.prefix} value={w.prefix}>
+                      {w.name}
                     </option>
                   ))}
                 </Select>
@@ -310,16 +401,18 @@ export function UxTelemetryPage() {
             </FormField>
           </div>
           <Card title="Fields that fail validation">
+            <p className={styles.muted}>Showing {scope}.</p>
             <DataTable
               label="Validation errors by field"
               columns={validationColumns}
-              rows={validation}
+              rows={named.validation}
               getRowKey={(r) => `${r.route}/${r.field}`}
               loading={signals.loading}
               empty={{ title: "No validation errors", description: "No form refused a value in this period." }}
             />
           </Card>
           <Card title="Searches that found nothing">
+            <p className={styles.muted}>Showing the 20 most frequent across every workspace: a search is not tied to a page.</p>
             <DataTable
               label="Searches without results"
               columns={searchColumns}
@@ -330,10 +423,11 @@ export function UxTelemetryPage() {
             />
           </Card>
           <Card title="Forms left unsaved">
+            <p className={styles.muted}>Showing {scope}.</p>
             <DataTable
               label="Forms left unsaved by page"
               columns={abandonedColumns}
-              rows={abandoned}
+              rows={named.abandoned}
               getRowKey={(r) => r.route}
               loading={signals.loading}
               empty={{ title: "No forms left unsaved", description: "Nobody left a form with unsaved changes in this period." }}

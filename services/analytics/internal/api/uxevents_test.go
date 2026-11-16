@@ -149,6 +149,30 @@ func TestUX_SignalsAndTenantIsolation(t *testing.T) {
 		t.Fatalf("abandoned %+v", s.AbandonedForms)
 	}
 
+	// A workspace keeps its own pages' validation errors and abandoned forms (top 20 within it); searches have no page.
+	signals := func(query string) (int, domain.UXSignals) {
+		rec := do(t, h, http.MethodGet, "/v1/analytics/ux-signals?from=2026-11-10&to=2026-11-10"+query, "", uxViewer)
+		var out domain.UXSignals
+		_ = json.Unmarshal(rec.Body.Bytes(), &out)
+		return rec.Code, out
+	}
+	if code, p := signals("&routePrefix=/purchasing"); code != http.StatusOK || p.RoutePrefix != "/purchasing" || len(p.ValidationErrors) != 1 ||
+		p.ValidationErrors[0].Route != "/purchasing/requisitions/new" || len(p.AbandonedForms) != 0 || len(p.NoResultSearches) != 1 {
+		t.Fatalf("purchasing: %d %+v", code, p)
+	}
+	if code, r := signals("&routePrefix=/receiving"); code != http.StatusOK || len(r.ValidationErrors) != 0 || len(r.AbandonedForms) != 1 {
+		t.Fatalf("receiving: %d %+v", code, r)
+	}
+	// A prefix matches whole segments only: /purchas is not /purchasing.
+	if code, p := signals("&routePrefix=/purchas"); code != http.StatusOK || len(p.ValidationErrors)+len(p.AbandonedForms) != 0 {
+		t.Fatalf("partial segment matched: %d %+v", code, p)
+	}
+	for _, bad := range []string{"purchasing", "/purchasing/requisitions", "/Purchasing", "/%25"} {
+		if code, _ := signals("&routePrefix=" + bad); code != http.StatusBadRequest {
+			t.Errorf("routePrefix %q: %d, want 400", bad, code)
+		}
+	}
+
 	// Another tenant sees none of it.
 	rec = doTenant(t, h, "00000000-0000-7000-8000-000000000002", http.MethodGet, "/v1/analytics/ux-signals?from=2026-11-10&to=2026-11-10", uxViewer)
 	var none domain.UXSignals

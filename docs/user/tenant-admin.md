@@ -79,7 +79,9 @@ Open **Analytics**, then **UX telemetry**. You need the duty to view UX telemetr
 
 1. Choose the flow: **Procure to pay** or **Tenant onboarding**. Choose the first and last day, and a release if you only want one.
 2. Select **Show telemetry**. The funnel lists each step with the sessions that reached it, the share of the first step, the share of the step before, and how many dropped off.
-3. Below the funnel, read the fields that fail checks, the searches that found nothing and the forms people left without saving. Use **Workspace** to look at one area only.
+3. Below the funnel, read the fields that fail checks, the searches that found nothing and the forms people left without saving. Each list shows the 20 most frequent. Choose a **Workspace** to see the 20 most frequent fields and unsaved forms in that area. Searches are not tied to a page, so they are always counted across every area.
+
+If a later step shows more sessions than the first, some sessions began the flow before the chosen dates or under another release. Shares of the first step are then capped at 100%.
 
 Counts are by browser session. Passage does not keep names, and it drops search text that looks like an email address or a long number.
 

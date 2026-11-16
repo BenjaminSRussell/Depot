@@ -205,12 +205,19 @@ route("GET", `${BASE}/ux-signals`, ({ query }) => {
   const scale = uxScale(query);
   if (scale === null) return uxPeriodProblem();
   const n = (c: number) => Math.round(c * scale);
+  // A workspace keeps its own pages (the service's routePrefix); searches are not tied to a page.
+  const prefix = query.get("routePrefix") ?? "";
+  if (prefix !== "" && !/^\/[a-z0-9][a-z0-9-]{0,63}$/.test(prefix)) {
+    return reply.problem(400, "COM-0001", "request failed validation", { routePrefix: "one route segment such as /purchasing" });
+  }
+  const inWorkspace = (route: string) => prefix === "" || route === prefix || route.startsWith(`${prefix}/`);
   return {
     from: query.get("from"),
     to: query.get("to"),
     ...(query.get("release") ? { release: query.get("release") } : {}),
-    validationErrors: UX_VALIDATION.map(([route, field, c]) => ({ route, field, count: n(c) })).filter((v) => v.count > 0),
+    ...(prefix ? { routePrefix: prefix } : {}),
+    validationErrors: UX_VALIDATION.filter(([route]) => inWorkspace(route)).map(([route, field, c]) => ({ route, field, count: n(c) })).filter((v) => v.count > 0),
     noResultSearches: UX_SEARCHES.map(([q, c]) => ({ query: q, count: n(c) })).filter((v) => v.count > 0),
-    abandonedForms: UX_ABANDONED.map(([route, c]) => ({ route, count: n(c) })).filter((v) => v.count > 0),
+    abandonedForms: UX_ABANDONED.filter(([route]) => inWorkspace(route)).map(([route, c]) => ({ route, count: n(c) })).filter((v) => v.count > 0),
   };
 });
