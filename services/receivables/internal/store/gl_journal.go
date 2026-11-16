@@ -49,6 +49,9 @@ type journalLine struct {
 	Credit  bool            `json:"credit"`
 	Amount  decimal.Decimal `json:"amount"`
 	Text    string          `json:"text,omitempty"`
+	// TradingPartnerID is the counterparty legal entity of an intercompany line (#40), set on the receivable credit of a payment from an
+	// intercompany customer so the payment lowers the tagged receivable.
+	TradingPartnerID string `json:"tradingPartnerId,omitempty"`
 }
 
 // journalSpec is a journal receivables owes the ledger, stored in the transaction of its cause.
@@ -139,11 +142,22 @@ func applyJournal(ctx context.Context, tx pgx.Tx, tenantID string, pay Payment, 
 	for _, a := range allocs {
 		cash, disc, off = cash.Add(a.Amount), disc.Add(a.CashDiscount), off.Add(a.WriteOff)
 	}
+	// An intercompany customer's payment lowers the receivable that the invoice raised with the borrower named (#40).
+	partner := ""
+	if pay.CustomerID != nil {
+		err := tx.QueryRow(ctx, `select partner_legal_entity_id::text from ar_customer_partner where legal_entity_id = $1::uuid and customer_id = $2::uuid`,
+			pay.LegalEntityID, *pay.CustomerID).Scan(&partner)
+		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			return err
+		}
+	}
+	receivable := credit(domain.AccountReceivable, cash.Add(disc).Add(off), "Open items settled")
+	receivable.TradingPartnerID = partner
 	return enqueueJournal(ctx, tx, tenantID, journalSpec{LegalEntityID: pay.LegalEntityID, SourceType: JournalPaymentApply, SourceID: pay.ID,
 		SourceKey: fmt.Sprintf("apply:%s:%d", pay.ID, pay.Version), DocumentID: "PAY-" + pay.ID, PostingDate: today(), Currency: pay.Currency,
 		Lines: []journalLine{
 			debit(domain.AccountUnappliedCash, cash, "Payment applied"), debit(domain.AccountCashDiscount, disc, "Cash discount taken"),
-			debit(domain.AccountWriteOff, off, "Write-off"), credit(domain.AccountReceivable, cash.Add(disc).Add(off), "Open items settled")}})
+			debit(domain.AccountWriteOff, off, "Write-off"), receivable}})
 }
 
 // downPaymentJournal owes the ledger the postings a down payment or deposit move carries on its event.
@@ -403,7 +417,7 @@ func (s *Postgres) postJournalToLedger(ctx context.Context, v GLJournalView, led
 	}
 	out := make([]ledgerclient.Line, 0, len(lines))
 	for _, l := range lines {
-		out = append(out, ledgerclient.Line{Account: l.Account, Credit: l.Credit, Amount: l.Amount, Text: l.Text})
+		out = append(out, ledgerclient.Line{Account: l.Account, Credit: l.Credit, Amount: l.Amount, Text: l.Text, TradingPartnerID: l.TradingPartnerID})
 	}
 	return s.ledger.Post(ctx, ledgerclient.Entry{LegalEntityID: v.LegalEntityID, LedgerID: ledgerID, DocumentID: v.DocumentID,
 		PostingDate: v.PostingDate, Currency: v.Currency, IdempotencyKey: fmt.Sprintf("gl-journal:%s:%s", v.LegalEntityID, v.ID),

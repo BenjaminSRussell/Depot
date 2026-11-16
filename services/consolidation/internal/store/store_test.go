@@ -369,19 +369,19 @@ func TestCreateCollection_RefusesLinesOfAUnitThatLeftOrChangedCurrencyMeanwhile(
 	if err := s.RemoveUnit(ctx, g.ID, gone.ID); err != nil {
 		t.Fatal(err)
 	}
-	if _, _, err := s.CreateCollection(ctx, g.ID, "2026-03", 0, []domain.CollectLine{line(gone.ID)}, map[string]string{}, ""); codeOf(err) != domain.CodeCollectionError {
+	if _, _, err := s.CreateCollection(ctx, g.ID, "2026-03", 0, []domain.CollectLine{line(gone.ID)}, nil, map[string]string{}, ""); codeOf(err) != domain.CodeCollectionError {
 		t.Fatalf("lines of a removed unit: %v; want %s", err, domain.CodeCollectionError)
 	}
 	usd := "USD"
 	if _, err := s.UpdateUnit(ctx, g.ID, moved.ID, store.UnitChange{Currency: &usd}); err != nil {
 		t.Fatal(err)
 	}
-	if _, _, err := s.CreateCollection(ctx, g.ID, "2026-03", 0, []domain.CollectLine{line(moved.ID)}, map[string]string{}, ""); codeOf(err) != domain.CodeCollectionError {
+	if _, _, err := s.CreateCollection(ctx, g.ID, "2026-03", 0, []domain.CollectLine{line(moved.ID)}, nil, map[string]string{}, ""); codeOf(err) != domain.CodeCollectionError {
 		t.Fatalf("lines in the unit's old currency: %v; want %s", err, domain.CodeCollectionError)
 	}
 	// Once a collection holds the unit's lines, the unit stays and keeps its currency.
 	if _, _, err := s.CreateCollection(ctx, g.ID, "2026-03", 0, []domain.CollectLine{{UnitID: moved.ID, MainAccount: "1000", UnitCurrency: "USD",
-		UnitAmount: dec("10"), Rate: dec("1"), GroupAmount: dec("10")}}, map[string]string{}, ""); err != nil {
+		UnitAmount: dec("10"), Rate: dec("1"), GroupAmount: dec("10")}}, nil, map[string]string{}, ""); err != nil {
 		t.Fatal(err)
 	}
 	if err := s.RemoveUnit(ctx, g.ID, moved.ID); codeOf(err) != domain.CodeUnitInUse {

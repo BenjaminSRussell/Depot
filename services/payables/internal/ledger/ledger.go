@@ -338,6 +338,9 @@ type lineBody struct {
 	Amount      amountBody        `json:"amount"`
 	Text        string            `json:"text,omitempty"`
 	Dimensions  map[string]string `json:"dimensions,omitempty"`
+	// TradingPartnerID names the counterparty legal entity of an intercompany line (#40); omitted for an ordinary line, so entries without one
+	// keep their idempotency payload.
+	TradingPartnerID string `json:"tradingPartnerId,omitempty"`
 }
 
 type amountBody struct {
@@ -354,6 +357,33 @@ type entryResult struct {
 func (c *Client) Signed() bool { return c.signer != nil }
 
 func (c *Client) Post(ctx context.Context, e Entry) (string, error) {
+	id, err := c.post(ctx, e)
+	var status *StatusError
+	if errors.As(err, &status) && status.Status == http.StatusBadRequest && status.Code == "COM-0001" && hasPartner(e) {
+		// A ledger that predates the trading partner (#40) refuses the unknown field. Post without it rather than park the entry; the
+		// consolidation reads such lines as untagged.
+		slog.WarnContext(ctx, "ledger refused tradingPartnerId; posting without it", "key", e.IdempotencyKey, "correlationId", middleware.GetReqID(ctx))
+		lines := make([]domain.RunJournalLine, len(e.Lines))
+		copy(lines, e.Lines)
+		for i := range lines {
+			lines[i].TradingPartnerID = ""
+		}
+		e.Lines = lines
+		return c.post(ctx, e)
+	}
+	return id, err
+}
+
+func hasPartner(e Entry) bool {
+	for _, l := range e.Lines {
+		if l.TradingPartnerID != "" {
+			return true
+		}
+	}
+	return false
+}
+
+func (c *Client) post(ctx context.Context, e Entry) (string, error) {
 	if c.signer == nil {
 		return "", errors.New("ledger: posting needs a service signing key; the end user's headers are never forwarded for a journal")
 	}
@@ -368,7 +398,7 @@ func (c *Client) Post(ctx context.Context, e Entry) (string, error) {
 		if l.Credit {
 			side = "C"
 		}
-		body.Lines = append(body.Lines, lineBody{Account: l.Account, DebitCredit: side, Text: l.Text, Dimensions: l.Dimensions, Amount: amountBody{Currency: e.Currency, Value: l.Amount.StringFixed(money.MinorUnits(e.Currency))}})
+		body.Lines = append(body.Lines, lineBody{Account: l.Account, DebitCredit: side, Text: l.Text, Dimensions: l.Dimensions, TradingPartnerID: l.TradingPartnerID, Amount: amountBody{Currency: e.Currency, Value: l.Amount.StringFixed(money.MinorUnits(e.Currency))}})
 	}
 	payload, err := json.Marshal(body)
 	if err != nil {

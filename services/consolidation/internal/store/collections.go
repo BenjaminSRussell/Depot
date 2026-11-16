@@ -34,6 +34,8 @@ type CollectionDetail struct {
 	Collection
 	Lines []domain.CollectLine
 	Rates map[string]domain.CollectRate
+	// Partners are the intercompany balances per trading partner (#40), a memo of Lines.
+	Partners []domain.PartnerLine
 }
 
 func errCollectionNotFound(id string) error {
@@ -43,7 +45,7 @@ func errCollectionNotFound(id string) error {
 // CreateCollection stores collected lines as the next version of the group's
 // collection for the period. The lines and header are immutable. With an
 // Idempotency-Key a retry returns the stored collection.
-func (s *Postgres) CreateCollection(ctx context.Context, groupID, period string, mappingVersion int, lines []domain.CollectLine, inputs any, key string) (Collection, bool, error) {
+func (s *Postgres) CreateCollection(ctx context.Context, groupID, period string, mappingVersion int, lines []domain.CollectLine, partners []domain.PartnerLine, inputs any, key string) (Collection, bool, error) {
 	tenantID, by, err := creator(ctx)
 	if err != nil {
 		return Collection{}, false, err
@@ -90,6 +92,11 @@ func (s *Postgres) CreateCollection(ctx context.Context, groupID, period string,
 				batch.Queue(`insert into consolidation_collection_line (tenant_id, collection_id, seq, unit_id, main_account, consolidation_account, account_type, unit_currency, unit_amount, rate, group_amount, role)
 					values ($1, $2, $3, $4::uuid, $5, $6, $7, $8, $9::numeric, $10::numeric, $11::numeric, nullif($12, ''))`,
 					tenantID, c.ID, i, l.UnitID, l.MainAccount, acct, typ, l.UnitCurrency, l.UnitAmount.String(), l.Rate.String(), l.GroupAmount.String(), l.Role)
+			}
+			for i, p := range partners {
+				batch.Queue(`insert into consolidation_collection_partner_line (tenant_id, collection_id, seq, unit_id, counterparty_unit_id, main_account, consolidation_account, account_type, role, unit_currency, unit_amount, rate, group_amount)
+					values ($1, $2, $3, $4::uuid, $5::uuid, $6, $7, $8, $9, $10, $11::numeric, $12::numeric, $13::numeric)`,
+					tenantID, c.ID, i, p.UnitID, p.CounterpartyUnitID, p.MainAccount, p.ConsolidationAccount, p.Type, p.Role, p.UnitCurrency, p.UnitAmount.String(), p.Rate.String(), p.GroupAmount.String())
 			}
 			res := tx.SendBatch(ctx, &batch)
 			for range batch.Len() {
@@ -228,7 +235,34 @@ func loadCollection(ctx context.Context, tx pgx.Tx, tenantID, where, id string, 
 		}
 		d.Lines = append(d.Lines, l)
 	}
-	return rows.Err()
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	rows.Close()
+	prows, err := tx.Query(ctx, `select unit_id::text, counterparty_unit_id::text, main_account, consolidation_account, account_type, role, unit_currency,
+			unit_amount::text, rate::text, group_amount::text
+		from consolidation_collection_partner_line where tenant_id = $1 and collection_id = $2::uuid order by seq`, tenantID, d.ID)
+	if err != nil {
+		return err
+	}
+	defer prows.Close()
+	for prows.Next() {
+		var l domain.PartnerLine
+		var amount, rate, group string
+		if err := prows.Scan(&l.UnitID, &l.CounterpartyUnitID, &l.MainAccount, &l.ConsolidationAccount, &l.Type, &l.Role, &l.UnitCurrency, &amount, &rate, &group); err != nil {
+			return err
+		}
+		for _, f := range []struct {
+			dst *decimal.Decimal
+			raw string
+		}{{&l.UnitAmount, amount}, {&l.Rate, rate}, {&l.GroupAmount, group}} {
+			if *f.dst, err = decimal.NewFromString(f.raw); err != nil {
+				return fmt.Errorf("store: collection partner amount %q: %w", f.raw, err)
+			}
+		}
+		d.Partners = append(d.Partners, l)
+	}
+	return prows.Err()
 }
 
 // lockCollectedUnits holds the units the lines were collected from (FOR SHARE) until the collection commits, and refuses lines

@@ -56,6 +56,7 @@ const (
 // Store records the intake row and, for a pairing that opted in, its posting; *store.Postgres implements it.
 type Store interface {
 	ReceiveVendorInvoice(ctx context.Context, in store.VendorInvoiceIntake) (store.VendorInvoiceIntake, bool, error)
+	RecordVendorPartner(ctx context.Context, legalEntityID, vendorID, partnerLegalEntityID string) error
 	CreateFromInvoice(ctx context.Context, in store.OpenItem) (store.OpenItem, bool, error)
 	MarkIntakePosted(ctx context.Context, id, entryID, actor string) (store.VendorInvoiceIntake, error)
 	ParkIntakeAutoPost(ctx context.Context, id, reason string) error
@@ -114,7 +115,10 @@ type Data struct {
 	Price                 string `json:"price"`
 	Tax                   string `json:"tax"`
 	BorrowerLegalEntityID string `json:"borrowerLegalEntityId"`
-	VendorAccount         string `json:"vendorAccount"`
+	// LenderLegalEntityID is the other side of the vendor invoice; the entry names it as the trading partner on the cost and control
+	// lines (#40).
+	LenderLegalEntityID string `json:"lenderLegalEntityId"`
+	VendorAccount       string `json:"vendorAccount"`
 	// AutoPostInvoice is the pairing's opt-in to post the vendor invoice without review.
 	AutoPostInvoice bool `json:"autoPostInvoice"`
 }
@@ -188,6 +192,12 @@ func Handle(ctx context.Context, s Store, auto *AutoPost, evt events.Event) (sto
 	if err != nil {
 		return store.VendorInvoiceIntake{}, eventing.Permanent(err)
 	}
+	if partner := PartnerOf(d); partner != "" {
+		// The payment run names the lender on the control debit of this vendor (#40).
+		if err := s.RecordVendorPartner(tenant.With(ctx, scoped), in.LegalEntityID, in.VendorID, partner); err != nil {
+			return store.VendorInvoiceIntake{}, err
+		}
+	}
 	out, created, err := s.ReceiveVendorInvoice(tenant.With(ctx, scoped), in)
 	switch {
 	case errors.Is(err, store.ErrIntakeReplayConflict), errors.Is(err, store.ErrIntakeDuplicateInvoice):
@@ -218,6 +228,15 @@ func EntryLines(p EntityProfile, in store.VendorInvoiceIntake, text string) ([]d
 	}
 	lines = append(lines, domain.RunJournalLine{Account: p.ControlAccount, Credit: true, Amount: in.Gross, Text: text})
 	return lines, nil
+}
+
+// PartnerOf is the trading partner an auto-posted entry names on its cost and control lines: the lender's legal entity, or "" when the
+// event carries none or it is the borrower's own legal entity (the ledger refuses a partner equal to its own entity).
+func PartnerOf(d Data) string {
+	if ids.Valid(d.LenderLegalEntityID) && d.LenderLegalEntityID != d.BorrowerLegalEntityID {
+		return d.LenderLegalEntityID
+	}
+	return ""
 }
 
 // park leaves the intake row RECEIVED with the reason an auto-post was refused, so a clerk sees it on the worklist and posts it by
@@ -274,6 +293,13 @@ func autoPost(ctx context.Context, s Store, auto *AutoPost, d Data, in store.Ven
 	lines, err := EntryLines(profile, in, text)
 	if err != nil {
 		return park(ctx, s, in, err.Error())
+	}
+	if partner := PartnerOf(d); partner != "" {
+		for i := range lines {
+			if lines[i].Account == profile.ExpenseAccount || lines[i].Account == profile.ControlAccount {
+				lines[i].TradingPartnerID = partner
+			}
+		}
 	}
 	now := time.Now
 	if auto.Now != nil {

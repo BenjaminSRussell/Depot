@@ -163,9 +163,34 @@ type collectLineBody struct {
 	GroupAmount          string `json:"groupAmount"`
 }
 
+type partnerLineBody struct {
+	Unit                 string `json:"unit"`
+	Counterparty         string `json:"counterparty"`
+	MainAccount          string `json:"mainAccount"`
+	ConsolidationAccount string `json:"consolidationAccount"`
+	AccountType          string `json:"accountType"`
+	Role                 string `json:"role"`
+	UnitCurrency         string `json:"unitCurrency"`
+	UnitAmount           string `json:"unitAmount"`
+	Rate                 string `json:"rate"`
+	GroupAmount          string `json:"groupAmount"`
+}
+
 type collectionDetailResponse struct {
 	collectionResponse
 	Lines []collectLineBody `json:"lines"`
+	// PartnerLines is the intercompany part of the lines per counterparty (#40); a memo that is already inside Lines.
+	PartnerLines []partnerLineBody `json:"partnerLines"`
+}
+
+func partnerBodies(lines []domain.PartnerLine, groupCurrency string) []partnerLineBody {
+	out := make([]partnerLineBody, 0, len(lines))
+	for _, l := range lines {
+		out = append(out, partnerLineBody{Unit: l.UnitID, Counterparty: l.CounterpartyUnitID, MainAccount: l.MainAccount, ConsolidationAccount: l.ConsolidationAccount,
+			AccountType: l.Type, Role: l.Role, UnitCurrency: l.UnitCurrency, UnitAmount: l.UnitAmount.StringFixed(int32(money.MinorUnits(l.UnitCurrency))),
+			Rate: l.Rate.String(), GroupAmount: l.GroupAmount.StringFixed(int32(money.MinorUnits(groupCurrency)))})
+	}
+	return out
 }
 
 type tbRowBody struct {
@@ -173,6 +198,9 @@ type tbRowBody struct {
 	Type    string            `json:"accountType"`
 	Total   string            `json:"total"`
 	Units   map[string]string `json:"units"`
+	// Partners splits the part of a unit's amount that is intercompany by counterparty unit (#40): unit, then counterparty, then the
+	// amount in the group currency. It is a memo of Units, not an addition to it.
+	Partners map[string]map[string]string `json:"partners,omitempty"`
 }
 
 type trialBalanceResponse struct {
@@ -273,13 +301,38 @@ func (a *API) collect(w http.ResponseWriter, r *http.Request) {
 		httpx.Fail(w, r, problemFrom(err))
 		return
 	}
+	// The intercompany balances per trading partner (#40), read only when the mapping gives an account an intercompany role and the
+	// ledger can serve them.
+	var partnerLedgers []domain.UnitPartnerLedger
+	var partners []domain.PartnerLine
+	if reader, ok := a.ledger.(ledgerclient.PartnerReader); ok && domain.HasICRoles(mapping) {
+		byEntity := map[string]string{}
+		for _, u := range group.Units {
+			byEntity[strings.ToLower(u.LegalEntityID)] = u.ID
+		}
+		for _, u := range group.Units {
+			pl, err := a.readUnitPartners(r.Context(), reader, u, body.Period, income, byEntity)
+			if err != nil {
+				httpx.Fail(w, r, problemFrom(err))
+				return
+			}
+			if len(pl.Rows) > 0 {
+				partnerLedgers = append(partnerLedgers, pl)
+			}
+		}
+		if partners, err = domain.CollectPartners(group.Currency, mapping, partnerLedgers, rates); err != nil {
+			httpx.Fail(w, r, problemFrom(err))
+			return
+		}
+	}
 	inputs := struct {
 		Period         string                        `json:"period"`
 		Rates          map[string]domain.CollectRate `json:"rates"`
 		Units          []domain.UnitLedger           `json:"units"`
 		MappingVersion int                           `json:"mappingVersion"`
-	}{body.Period, rates, ledgers, mappingVersion}
-	c, replayed, err := a.groups.CreateCollection(r.Context(), groupID, body.Period, mappingVersion, lines, inputs, key)
+		Partners       []domain.UnitPartnerLedger    `json:"partners,omitempty"`
+	}{body.Period, rates, ledgers, mappingVersion, partnerLedgers}
+	c, replayed, err := a.groups.CreateCollection(r.Context(), groupID, body.Period, mappingVersion, lines, partners, inputs, key)
 	if err != nil {
 		httpx.Fail(w, r, problemFrom(err))
 		return
@@ -342,6 +395,50 @@ func (a *API) readUnit(ctx context.Context, u domain.Unit, period string, income
 	return ul, nil
 }
 
+// readUnitPartners reads one unit's balances per trading partner the way readUnit reads its balances: the balance sheet cumulative to
+// the period and the income accounts from the start of the unit's fiscal year. A partner that is not a unit of the group (an external
+// counterparty) is left out: only the group's own pairs are eliminated. Only accounts mapped with an intercompany role are kept by
+// the caller, so the rows here may hold others.
+func (a *API) readUnitPartners(ctx context.Context, reader ledgerclient.PartnerReader, u domain.Unit, period string, income map[string]bool, byEntity map[string]string) (domain.UnitPartnerLedger, error) {
+	fail := func(err error) error {
+		return &domain.Error{Code: domain.CodeNoLedger, Detail: fmt.Sprintf("the trading partner balances of unit %s could not be read: %v", u.ID, err)}
+	}
+	q := ledgerclient.PartnerBalanceQuery{LegalEntityID: u.LegalEntityID, LedgerID: u.LedgerID, PeriodTo: period}
+	cumulative, err := reader.PartnerBalances(ctx, q)
+	if err != nil {
+		return domain.UnitPartnerLedger{}, fail(err)
+	}
+	out := domain.UnitPartnerLedger{UnitID: u.ID, Currency: u.Currency}
+	add := func(rows []ledgerclient.PartnerBalance, want bool) {
+		for _, r := range rows {
+			if income[r.Account] != want {
+				continue
+			}
+			if unit, ok := byEntity[strings.ToLower(r.TradingPartnerID)]; ok && unit != u.ID {
+				out.Rows = append(out.Rows, domain.PartnerRow{Account: r.Account, CounterpartyUnitID: unit, Net: r.Net()})
+			}
+		}
+	}
+	add(cumulative.Rows, false)
+	hasIncome := false
+	for _, v := range income {
+		hasIncome = hasIncome || v
+	}
+	if hasIncome {
+		from, err := a.fiscalStart(ctx, u, period)
+		if err != nil {
+			return domain.UnitPartnerLedger{}, err
+		}
+		q.PeriodFrom = from
+		ytd, err := reader.PartnerBalances(ctx, q)
+		if err != nil {
+			return domain.UnitPartnerLedger{}, fail(err)
+		}
+		add(ytd.Rows, true)
+	}
+	return out, nil
+}
+
 func toCollectionResponse(id, groupID, period string, version int, currency, by string, at time.Time) collectionResponse {
 	return collectionResponse{ID: id, GroupID: groupID, Period: period, Version: version, Currency: currency, CreatedBy: by, CreatedAt: at.UTC()}
 }
@@ -387,7 +484,7 @@ func (a *API) getCollection(w http.ResponseWriter, r *http.Request) {
 		httpx.Fail(w, r, problemFrom(err))
 		return
 	}
-	out := collectionDetailResponse{collectionResponse: toCollectionResponse(d.ID, d.GroupID, d.Period, d.Version, d.Currency, d.CreatedBy, d.CreatedAt), Lines: make([]collectLineBody, 0, len(d.Lines))}
+	out := collectionDetailResponse{collectionResponse: toCollectionResponse(d.ID, d.GroupID, d.Period, d.Version, d.Currency, d.CreatedBy, d.CreatedAt), Lines: make([]collectLineBody, 0, len(d.Lines)), PartnerLines: partnerBodies(d.Partners, d.Currency)}
 	for _, l := range d.Lines {
 		out.Lines = append(out.Lines, lineBody(l, d.Currency))
 	}
@@ -418,12 +515,33 @@ func (a *API) getTrialBalance(w http.ResponseWriter, r *http.Request) {
 		Rows:               make([]tbRowBody, 0, len(tb.Rows)), Unmapped: make([]collectLineBody, 0, len(tb.Unmapped)),
 		Total: tb.Total.StringFixed(places), UnitDifferences: map[string]string{},
 	}
+	// The intercompany part of each account per counterparty (#40).
+	partnerSums := map[string]map[string]map[string]decimal.Decimal{}
+	for _, p := range d.Partners {
+		if partnerSums[p.ConsolidationAccount] == nil {
+			partnerSums[p.ConsolidationAccount] = map[string]map[string]decimal.Decimal{}
+		}
+		if partnerSums[p.ConsolidationAccount][p.UnitID] == nil {
+			partnerSums[p.ConsolidationAccount][p.UnitID] = map[string]decimal.Decimal{}
+		}
+		partnerSums[p.ConsolidationAccount][p.UnitID][p.CounterpartyUnitID] = partnerSums[p.ConsolidationAccount][p.UnitID][p.CounterpartyUnitID].Add(p.GroupAmount)
+	}
+	partners := map[string]map[string]map[string]string{}
+	for acct, byUnit := range partnerSums {
+		partners[acct] = map[string]map[string]string{}
+		for u, byCounter := range byUnit {
+			partners[acct][u] = map[string]string{}
+			for cp, v := range byCounter {
+				partners[acct][u][cp] = v.StringFixed(places)
+			}
+		}
+	}
 	for _, row := range tb.Rows {
 		units := make(map[string]string, len(row.Units))
 		for u, v := range row.Units {
 			units[u] = v.StringFixed(places)
 		}
-		out.Rows = append(out.Rows, tbRowBody{Account: row.Account, Type: row.Type, Total: row.Total.StringFixed(places), Units: units})
+		out.Rows = append(out.Rows, tbRowBody{Account: row.Account, Type: row.Type, Total: row.Total.StringFixed(places), Units: units, Partners: partners[row.Account]})
 	}
 	for _, l := range tb.Unmapped {
 		out.Unmapped = append(out.Unmapped, lineBody(l, d.Currency))

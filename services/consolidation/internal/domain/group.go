@@ -192,6 +192,12 @@ const (
 	RoleICCost       = "ic_cost"
 	RoleICReceivable = "ic_receivable"
 	RoleICPayable    = "ic_payable"
+	// Roles of the buyer's side of intercompany goods (#40), read per trading partner: ic_purchases and ic_cogs are the income-type
+	// accounts the buyer books the goods it bought from, and the cost of those it sold on, to; ic_inventory is the balance sheet
+	// account that holds them (the closing value, when the buyer tags its inventory lines with the seller).
+	RoleICPurchases = "ic_purchases"
+	RoleICCOGS      = "ic_cogs"
+	RoleICInventory = "ic_inventory"
 	// RoleDividendPaid is the account a subsidiary or associate books the dividends it declared to its shareholders on (a debit
 	// balance of the period, in the unit's currency). A run eliminates the subsidiary's against its owners' dividend income (E6), and
 	// the equity method takes an associate's, in the share held, off the investment.
@@ -201,7 +207,8 @@ const (
 // ValidRole reports whether r is an account role or empty.
 func ValidRole(r string) bool {
 	switch r {
-	case "", RoleAsset, RoleLiability, RoleEquity, RoleICSales, RoleICCost, RoleICReceivable, RoleICPayable, RoleDividendPaid:
+	case "", RoleAsset, RoleLiability, RoleEquity, RoleICSales, RoleICCost, RoleICReceivable, RoleICPayable, RoleDividendPaid,
+		RoleICPurchases, RoleICCOGS, RoleICInventory:
 		return true
 	}
 	return false
@@ -225,11 +232,11 @@ func ValidateMapping(rows []AccountMapping) error {
 			return invalid(fmt.Sprintf("account %s has the unknown role %q", r.MainAccount, r.Role))
 		}
 		switch r.Role {
-		case RoleAsset, RoleLiability, RoleEquity, RoleICReceivable, RoleICPayable, RoleDividendPaid:
+		case RoleAsset, RoleLiability, RoleEquity, RoleICReceivable, RoleICPayable, RoleDividendPaid, RoleICInventory:
 			if r.Type != AccountBalanceSheet {
 				return invalid(fmt.Sprintf("account %s has the balance sheet role %s but is not a balance_sheet account", r.MainAccount, r.Role))
 			}
-		case RoleICSales, RoleICCost:
+		case RoleICSales, RoleICCost, RoleICPurchases, RoleICCOGS:
 			if r.Type != AccountIncome {
 				return invalid(fmt.Sprintf("account %s has the income role %s but is not an income account", r.MainAccount, r.Role))
 			}

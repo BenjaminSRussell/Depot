@@ -57,6 +57,9 @@ type Line struct {
 	Amount     decimal.Decimal
 	Text       string
 	Dimensions map[string]string
+	// TradingPartnerID is the legal entity on the other side of an intercompany line (#40); empty for an ordinary line. The ledger
+	// refuses one that is not a legal entity of the tenant or is the entry's own legal entity.
+	TradingPartnerID string
 }
 
 type Entry struct {
@@ -209,11 +212,12 @@ type amountBody struct {
 }
 
 type lineBody struct {
-	Account     string            `json:"account"`
-	DebitCredit string            `json:"debitCredit"`
-	Amount      amountBody        `json:"amount"`
-	Text        string            `json:"text,omitempty"`
-	Dimensions  map[string]string `json:"dimensions,omitempty"`
+	Account          string            `json:"account"`
+	DebitCredit      string            `json:"debitCredit"`
+	Amount           amountBody        `json:"amount"`
+	Text             string            `json:"text,omitempty"`
+	Dimensions       map[string]string `json:"dimensions,omitempty"`
+	TradingPartnerID string            `json:"tradingPartnerId,omitempty"`
 }
 
 type sourceBody struct {
@@ -345,14 +349,35 @@ func (c *Client) Post(ctx context.Context, e Entry) (string, error) {
 		if l.Credit {
 			side = sideCredit
 		}
-		body.Lines = append(body.Lines, lineBody{Account: l.Account, DebitCredit: side, Text: l.Text, Dimensions: l.Dimensions,
+		body.Lines = append(body.Lines, lineBody{Account: l.Account, DebitCredit: side, Text: l.Text, Dimensions: l.Dimensions, TradingPartnerID: l.TradingPartnerID,
 			Amount: amountBody{Currency: e.Currency, Value: l.Amount.StringFixed(money.MinorUnits(e.Currency))}})
 	}
 	raw, err := c.do(ctx, "post", e.IdempotencyKey, http.MethodPost, entriesPath, nil, body, e.IdempotencyKey, e.LegalEntityID, postDuties(DutyPost, e.PostClosed)...)
+	if err != nil && CodeOf(err) == CodeInvalidRequest && Rejected(err) && stripPartners(&body) {
+		// A ledger that predates the trading partner (#40) refuses the unknown field with a 400. Its entry carries no partner, which the
+		// consolidation reads as untagged (and says so); a refusal here would compensate the whole intercompany journal instead.
+		slog.WarnContext(ctx, "ledger refused tradingPartnerId; posting without it", "key", e.IdempotencyKey, "correlationId", middleware.GetReqID(ctx))
+		raw, err = c.do(ctx, "post", e.IdempotencyKey, http.MethodPost, entriesPath, nil, body, e.IdempotencyKey, e.LegalEntityID, postDuties(DutyPost, e.PostClosed)...)
+	}
 	if err != nil {
 		return "", err
 	}
 	return entryID(ctx, "post", e.IdempotencyKey, raw)
+}
+
+// CodeInvalidRequest is the problem code of a request the ledger could not read or validate (400).
+const CodeInvalidRequest = "COM-0001"
+
+// stripPartners clears the trading partner of every line of body and reports whether any line had one.
+func stripPartners(body *entryBody) bool {
+	had := false
+	for i := range body.Lines {
+		if body.Lines[i].TradingPartnerID != "" {
+			had = true
+			body.Lines[i].TradingPartnerID = ""
+		}
+	}
+	return had
 }
 
 func (c *Client) Reverse(ctx context.Context, r Reversal) (string, error) {

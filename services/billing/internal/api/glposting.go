@@ -331,7 +331,13 @@ func glEntry(p store.GLProfile, d store.GLDocument, b glBooking) (ledgerclient.E
 	e := ledgerclient.Entry{LegalEntityID: p.LegalEntityID, LedgerID: p.LedgerID, DocumentID: d.ID, PostingDate: d.PostingDate, Currency: d.Currency,
 		IdempotencyKey: key + d.ID, SourceType: source}
 	text := strings.ReplaceAll(kind, "_", " ") + " " + d.Number
-	e.Lines = append(e.Lines, ledgerclient.Line{Account: p.ReceivableAccount, Credit: d.CreditNote, Amount: d.Gross, Text: text})
+	// An intercompany invoice names the borrower on the receivable and on the revenue lines (#40); tax and the contract position stay
+	// without a partner.
+	revenue := map[string]bool{}
+	for _, l := range d.Lines {
+		revenue[l.Account] = true
+	}
+	e.Lines = append(e.Lines, ledgerclient.Line{Account: p.ReceivableAccount, Credit: d.CreditNote, Amount: d.Gross, Text: text, TradingPartnerID: d.TradingPartnerID})
 	// credit holds the signed amount per account, positive for a credit; a document books revenue, charges and tax on its own
 	// side only (an invoice credits them, a credit note debits them), the contract position moves either way.
 	side := decimal.NewFromInt(1)
@@ -375,7 +381,11 @@ func glEntry(p store.GLProfile, d store.GLDocument, b glBooking) (ledgerclient.E
 		amount := credit[account]
 		total = total.Add(amount)
 		if !amount.IsZero() {
-			e.Lines = append(e.Lines, ledgerclient.Line{Account: account, Credit: amount.IsPositive(), Amount: amount.Abs(), Text: text})
+			line := ledgerclient.Line{Account: account, Credit: amount.IsPositive(), Amount: amount.Abs(), Text: text}
+			if revenue[account] && account != p.ReceivableAccount {
+				line.TradingPartnerID = d.TradingPartnerID
+			}
+			e.Lines = append(e.Lines, line)
 		}
 	}
 	if wrongSide || !total.Equal(d.Gross.Mul(side)) {

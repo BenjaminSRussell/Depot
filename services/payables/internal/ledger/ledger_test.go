@@ -473,3 +473,34 @@ func TestEntryForDocument_FollowsNextCursorToTheRunsEntry(t *testing.T) {
 		t.Fatalf("id %q err %v cursors %v", id, err, cursors)
 	}
 }
+
+// A ledger that predates the trading partner refuses it with 400 COM-0001: the entry is posted once more without it.
+func TestPost_RetriesWithoutTheTradingPartnerOnAnOldLedger(t *testing.T) {
+	var bodies []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		raw := new(strings.Builder)
+		buf := make([]byte, 4096)
+		for {
+			n, err := r.Body.Read(buf)
+			raw.Write(buf[:n])
+			if err != nil {
+				break
+			}
+		}
+		bodies = append(bodies, raw.String())
+		if strings.Contains(raw.String(), "tradingPartnerId") {
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = w.Write([]byte(`{"code":"COM-0001"}`))
+			return
+		}
+		w.WriteHeader(http.StatusCreated)
+		_, _ = w.Write([]byte(`{"entries":[{"id":"entry-9"}]}`))
+	}))
+	defer srv.Close()
+	e := postEntry()
+	e.Lines[0].TradingPartnerID = "0c5d3b0e-6b0a-4c43-9d57-3c1a3a7a1d11"
+	id, err := postClient(srv.URL).Post(postCtx(), e)
+	if err != nil || id != "entry-9" || len(bodies) != 2 || strings.Contains(bodies[1], "tradingPartnerId") {
+		t.Fatalf("id %q err %v bodies %d", id, err, len(bodies))
+	}
+}

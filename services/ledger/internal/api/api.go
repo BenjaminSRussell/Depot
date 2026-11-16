@@ -138,6 +138,7 @@ func (a *API) Register(r chi.Router) {
 		r.With(authz.RequireAnyDuty(dutyPost, dutyEntryValidate)).Post("/validate", a.validateEntry)
 		r.With(authz.RequireAnyDuty(dutyRead, dutyEntryLookup)).Get("/journal-lines", a.listLines)
 		r.With(authz.RequireDuty(dutyBalanceRead)).Get("/balances", a.trialBalance)
+		r.With(authz.RequireDuty(dutyBalanceRead)).Get("/balances/by-partner", a.partnerBalances)
 		r.With(authz.RequireDuty(dutyRebuild)).Post("/balances:rebuild", a.rebuildBalances)
 		r.With(authz.RequireDuty(dutyRead)).Get("/reason-codes", a.listReasonCodes)
 		r.With(authz.RequireDuty(dutyRead)).Get("/reason-codes/{code}", a.getReasonCode)
@@ -610,6 +611,8 @@ type lineDTO struct {
 	SourceLineRef string            `json:"sourceLineRef"`
 	Quantity      string            `json:"quantity,omitempty"`
 	Unit          string            `json:"unit,omitempty"`
+	// TradingPartnerID is the counterparty legal entity of an intercompany line (#40).
+	TradingPartnerID string `json:"tradingPartnerId,omitempty"`
 }
 
 type postEntryRequest struct {
@@ -635,6 +638,49 @@ type singleEntryRequest struct {
 // their values and the optionalDimensions list are left out and a retry that tags differently replays the
 // entry the first attempt posted. A request without optionalDimensions is hashed exactly as before.
 func withoutOptional(req postEntryRequest, groups []ledgerLinesDTO) (postEntryRequest, []ledgerLinesDTO) {
+	req, groups = withoutOptionalDimensions(req, groups)
+	return withoutPartner(req, groups)
+}
+
+// withoutPartner leaves the trading partner (#40) out of the idempotency hash, like an optional dimension: a poster that resumes a journal
+// across the rollout of the field (a retry after a lost answer) sends the partner the first attempt did not, and must replay the entry
+// that attempt posted instead of meeting a 409. A request without partners is hashed exactly as before.
+func withoutPartner(req postEntryRequest, groups []ledgerLinesDTO) (postEntryRequest, []ledgerLinesDTO) {
+	has := func(lines []lineDTO) bool {
+		for _, l := range lines {
+			if l.TradingPartnerID != "" {
+				return true
+			}
+		}
+		return false
+	}
+	strip := func(lines []lineDTO) []lineDTO {
+		out := make([]lineDTO, len(lines))
+		for i, l := range lines {
+			l.TradingPartnerID = ""
+			out[i] = l
+		}
+		return out
+	}
+	if has(req.Lines) {
+		req.Lines = strip(req.Lines)
+	}
+	var out []ledgerLinesDTO
+	for i, g := range groups {
+		if has(g.Lines) {
+			if out == nil {
+				out = append([]ledgerLinesDTO(nil), groups...)
+			}
+			out[i] = ledgerLinesDTO{LedgerID: g.LedgerID, Lines: strip(g.Lines)}
+		}
+	}
+	if out != nil {
+		groups = out
+	}
+	return req, groups
+}
+
+func withoutOptionalDimensions(req postEntryRequest, groups []ledgerLinesDTO) (postEntryRequest, []ledgerLinesDTO) {
 	if len(req.OptionalDimensions) == 0 {
 		return req, groups
 	}
@@ -748,8 +794,16 @@ func lineInput(prefix string, l lineDTO, fields map[string]string) domain.LineIn
 	if !ok {
 		fields[prefix+".quantity"] = "must be a decimal string"
 	}
+	partner := ""
+	if l.TradingPartnerID != "" {
+		if id, ok := ids.Canonical(l.TradingPartnerID); ok {
+			partner = id
+		} else {
+			fields[prefix+".tradingPartnerId"] = "must be a legal entity id (UUID)"
+		}
+	}
 	return domain.LineInput{Account: l.Account, Dimensions: l.Dimensions, Side: l.DebitCredit,
-		Amount: amount, Currency: l.Amount.Currency, Text: l.Text, SourceLineRef: l.SourceLineRef, Quantity: qty, Unit: l.Unit}
+		Amount: amount, Currency: l.Amount.Currency, Text: l.Text, SourceLineRef: l.SourceLineRef, Quantity: qty, Unit: l.Unit, TradingPartner: partner}
 }
 
 func (a *API) postEntry(w http.ResponseWriter, r *http.Request) {
@@ -1019,6 +1073,42 @@ func (a *API) trialBalance(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.JSON(w, http.StatusOK, tb)
+}
+
+// partnerBalances serves GET /v1/ledger/balances/by-partner: the intercompany balances of a ledger by account and trading partner (#40).
+func (a *API) partnerBalances(w http.ResponseWriter, r *http.Request) {
+	if _, ok := principal(w, r); !ok {
+		return
+	}
+	q := r.URL.Query()
+	f := store.PartnerBalanceFilter{LedgerID: q.Get("ledger"), PeriodFrom: q.Get("period_from"), PeriodTo: q.Get("period_to"),
+		AccountFrom: q.Get("account_from"), AccountTo: q.Get("account_to")}
+	fields := map[string]string{}
+	if !ids.Valid(f.LedgerID) {
+		fields["ledger"] = "is required and must be a UUID"
+	}
+	for name, v := range map[string]string{"period_from": f.PeriodFrom, "period_to": f.PeriodTo} {
+		if v != "" && !periodRe.MatchString(v) {
+			fields[name] = "must be a period as YYYY-MM"
+		}
+	}
+	if v := q.Get("trading_partner"); v != "" {
+		if id, ok := ids.Canonical(v); ok {
+			f.TradingPartnerID = id
+		} else {
+			fields["trading_partner"] = "must be a legal entity id (UUID)"
+		}
+	}
+	if len(fields) > 0 {
+		validationFailed(w, r, fields)
+		return
+	}
+	res, err := a.store.PartnerBalances(r.Context(), f)
+	if err != nil {
+		a.fail(w, r, err)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, res)
 }
 
 type rebuildRequest struct {

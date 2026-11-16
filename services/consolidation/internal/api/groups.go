@@ -32,7 +32,7 @@ type GroupStore interface {
 	SetMapping(ctx context.Context, groupID string, rows []domain.AccountMapping) (int, error)
 	GetMapping(ctx context.Context, groupID string, version int) ([]domain.AccountMapping, int, error)
 	ListMappingVersions(ctx context.Context, groupID string) ([]store.MappingVersion, error)
-	CreateCollection(ctx context.Context, groupID, period string, mappingVersion int, lines []domain.CollectLine, inputs any, key string) (store.Collection, bool, error)
+	CreateCollection(ctx context.Context, groupID, period string, mappingVersion int, lines []domain.CollectLine, partners []domain.PartnerLine, inputs any, key string) (store.Collection, bool, error)
 	LatestCollection(ctx context.Context, groupID, period string) (store.CollectionDetail, bool, error)
 	ListCollections(ctx context.Context, groupID string) ([]store.Collection, error)
 	GetCollection(ctx context.Context, id string) (store.CollectionDetail, error)

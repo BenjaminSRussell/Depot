@@ -11,6 +11,7 @@ import (
 	"github.com/shopspring/decimal"
 
 	"github.com/BenjaminSRussell/passage/platform/dbx"
+	"github.com/BenjaminSRussell/passage/platform/ids"
 	"github.com/BenjaminSRussell/passage/platform/ledgerclient"
 	"github.com/BenjaminSRussell/passage/services/receivables/internal/domain"
 )
@@ -305,5 +306,52 @@ func TestBankAccountMapping_CamtStatementAccountBooksToItsLedgerAccount(t *testi
 		return tx.QueryRow(ctx, `select lines from gl_journal where source_id = $1`, batch.Payments[0].ID).Scan(&raw)
 	}); err != nil || !strings.Contains(string(raw), `"account": "1015"`) || strings.Contains(string(raw), `"account": "1000"`) {
 		t.Fatalf("journal lines = %s (%v)", raw, err)
+	}
+}
+
+// #40: a payment of an intercompany customer (one whose invoice named a trading partner) credits the receivable with that partner named,
+// so it lowers the tagged receivable the invoice raised; an ordinary customer's payment names none.
+func TestGLJournal_PaymentApplicationNamesTheIntercompanyPartner(t *testing.T) {
+	s, gl, _ := rmaSetup(t)
+	ctx := tenantCtx(1)
+	item := seedInvoice(t, s, ctx)
+	partner := ids.New()
+	items, err := domain.PlanInvoiceItems("INV-IC-1", "USD", amt("500.00"), "2027-04-01", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.ApplyBillingDocument(ctx, BillingDocument{SourceType: "INVOICE", ID: ids.New(), Number: "INV-IC-1", LegalEntityID: legalEntity, CustomerID: item.CustomerID,
+		Currency: "USD", DocumentDate: "2027-03-01", Items: items, TradingPartnerID: partner}); err != nil {
+		t.Fatal(err)
+	}
+	cust := item.CustomerID
+	pay, err := s.CreatePayment(ctx, Payment{LegalEntityID: legalEntity, CustomerID: &cust, PaymentMode: "ACH", Source: "MANUAL",
+		Amount: amt("980.00"), UnappliedAmount: amt("980.00"), Currency: "USD", ReceivedDate: "2027-03-08", ValueDate: "2027-03-08"}, "gl-ic-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	plan := ApplyRequest{Allocations: []domain.Allocation{{OpenItemID: item.ID, Amount: amt("980.00")}}, Residual: decimal.Zero}
+	if _, err := s.ApplyPayment(ctx, pay.ID, pay.Version, plan, ""); err != nil {
+		t.Fatal(err)
+	}
+	if res, err := s.PostDueJournals(ctx, time.Now().UTC(), 50); err != nil || res.Failed != 0 {
+		t.Fatalf("sweep: %+v %v", res, err)
+	}
+	named := 0
+	for _, e := range gl.Entries() {
+		if e.SourceType != "receivables-"+JournalPaymentApply {
+			continue
+		}
+		for _, l := range e.Lines {
+			if l.TradingPartnerID != "" {
+				if l.Account != "1200" || !l.Credit || l.TradingPartnerID != partner {
+					t.Errorf("partner on the wrong line: %+v", l)
+				}
+				named++
+			}
+		}
+	}
+	if named != 1 {
+		t.Fatalf("lines naming the partner = %d, want the receivable credit only", named)
 	}
 }

@@ -61,6 +61,8 @@ type RunJournalLine struct {
 	Text    string
 	// Dimensions are ledger dimension values of the line (the vendor group code on a control-account debit).
 	Dimensions map[string]string
+	// TradingPartnerID is the counterparty legal entity of an intercompany line (#40); empty otherwise.
+	TradingPartnerID string
 }
 
 func RunSupportsMethod(method string) bool { return method == MethodTransfer || method == MethodWire }
@@ -130,6 +132,9 @@ type VendorGroupDims struct {
 	Attribute string
 	// Codes maps an open item id to its vendor group code; an item without one is untagged.
 	Codes map[string]string
+	// Partners maps a vendor id to the legal entity on the other side of an intercompany vendor (#40); its control debit names it as the
+	// trading partner, so the payment lowers the tagged payable. An ordinary vendor is absent.
+	Partners map[string]string
 }
 
 func RunJournal(currency string, groups []ProposalGroup, controlAccount, bankAccount, discountAccount, withholdingAccount string, dims VendorGroupDims) []RunJournalLine {
@@ -155,14 +160,14 @@ func RunJournal(currency string, groups []ProposalGroup, controlAccount, bankAcc
 			perCode[code] = perCode[code].Add(amount)
 		}
 		for _, code := range codes {
-			line := RunJournalLine{Account: controlAccount, Amount: perCode[code], Text: "vendor " + g.VendorID}
+			line := RunJournalLine{Account: controlAccount, Amount: perCode[code], Text: "vendor " + g.VendorID, TradingPartnerID: dims.Partners[g.VendorID]}
 			if code != "" {
 				line.Dimensions = map[string]string{dims.Attribute: code}
 			}
 			lines = append(lines, line)
 		}
 		if len(codes) == 0 {
-			lines = append(lines, RunJournalLine{Account: controlAccount, Amount: gross, Text: "vendor " + g.VendorID})
+			lines = append(lines, RunJournalLine{Account: controlAccount, Amount: gross, Text: "vendor " + g.VendorID, TradingPartnerID: dims.Partners[g.VendorID]})
 		}
 		paid = paid.Add(g.Valued)
 		withheld = withheld.Add(groupWithheld)

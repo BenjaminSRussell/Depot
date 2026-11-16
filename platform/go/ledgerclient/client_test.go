@@ -394,3 +394,61 @@ func TestJournalLines_RejectsAnUnreadableAmountAndALedgerError(t *testing.T) {
 		t.Fatalf("err %v", err)
 	}
 }
+
+func TestPartnerBalances_ReadsRowsPerCounterparty(t *testing.T) {
+	var query map[string][]string
+	c, _ := newClientAs(t, "consolidation", func(w http.ResponseWriter, r *http.Request) {
+		query = r.URL.Query()
+		if r.URL.Path != "/v1/ledger/balances/by-partner" {
+			t.Errorf("path %s", r.URL.Path)
+		}
+		_, _ = w.Write([]byte(`{"currency":"USD","rows":[{"account":"1300","tradingPartnerId":"` + entityID + `","debit":"100.00","credit":"40.00"}]}`))
+	})
+	got, err := c.PartnerBalances(principalCtx(), ledgerclient.PartnerBalanceQuery{LegalEntityID: entityID, LedgerID: ledgerID, PeriodTo: "2026-09"})
+	if err != nil || got.Currency != "USD" || len(got.Rows) != 1 || !got.Rows[0].Net().Equal(decimal.RequireFromString("60")) ||
+		query["period_to"][0] != "2026-09" || query["ledger"][0] != ledgerID {
+		t.Fatalf("partner balances %+v query %v err %v", got, query, err)
+	}
+}
+
+func TestPost_SendsTheTradingPartner(t *testing.T) {
+	var body string
+	c, _ := newClientAs(t, "intercompany", func(w http.ResponseWriter, r *http.Request) {
+		raw, _ := io.ReadAll(r.Body)
+		body = string(raw)
+		_, _ = w.Write([]byte(`{"entries":[{"id":"` + entityID + `"}]}`))
+	})
+	_, err := c.Post(principalCtx(), ledgerclient.Entry{LegalEntityID: entityID, LedgerID: ledgerID, DocumentID: "d", PostingDate: "2026-03-01", Currency: "USD", IdempotencyKey: "k",
+		Lines: []ledgerclient.Line{{Account: "1300", Amount: decimal.NewFromInt(5), TradingPartnerID: ledgerID}, {Account: "4900", Credit: true, Amount: decimal.NewFromInt(5)}}})
+	if err != nil || strings.Count(body, `"tradingPartnerId"`) != 1 || !strings.Contains(body, `"tradingPartnerId":"`+ledgerID+`"`) {
+		t.Fatalf("body %s err %v", body, err)
+	}
+}
+
+// A ledger that predates the trading partner refuses the field with 400 COM-0001; the client posts once more without it, so an
+// intercompany journal is not compensated during a rollout that deploys a poster first.
+func TestPost_RetriesWithoutTheTradingPartnerWhenAnOldLedgerRefusesIt(t *testing.T) {
+	var bodies []string
+	c, _ := newClientAs(t, "intercompany", func(w http.ResponseWriter, r *http.Request) {
+		raw, _ := io.ReadAll(r.Body)
+		bodies = append(bodies, string(raw))
+		if strings.Contains(string(raw), `"tradingPartnerId"`) {
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = w.Write([]byte(`{"code":"COM-0001"}`))
+			return
+		}
+		_, _ = w.Write([]byte(`{"entries":[{"id":"` + entityID + `"}]}`))
+	})
+	e := ledgerclient.Entry{LegalEntityID: entityID, LedgerID: ledgerID, DocumentID: "d", PostingDate: "2026-03-01", Currency: "USD", IdempotencyKey: "k",
+		Lines: []ledgerclient.Line{{Account: "1300", Amount: decimal.NewFromInt(5), TradingPartnerID: ledgerID}, {Account: "4900", Credit: true, Amount: decimal.NewFromInt(5)}}}
+	id, err := c.Post(principalCtx(), e)
+	if err != nil || id != entityID || len(bodies) != 2 || strings.Contains(bodies[1], "tradingPartnerId") {
+		t.Fatalf("id %q err %v bodies %v", id, err, bodies)
+	}
+	// An entry with no partner that is refused with the same code is not retried.
+	bodies = nil
+	e.Lines[0].TradingPartnerID = ""
+	if _, err := c.Post(principalCtx(), e); err != nil || len(bodies) != 1 {
+		t.Fatalf("plain entry: %v bodies %d", err, len(bodies))
+	}
+}

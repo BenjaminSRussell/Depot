@@ -104,6 +104,7 @@ components:
             type: [string, "null"]
             description: Always null on the event; the journal is booked after the post by the auto-book worker or POST /v1/billing/gl-postings and its ledger entry id is kept in invoice.journal_posting_id.
           intercompany: { type: boolean }
+          trading_partner_id: { type: string, format: uuid, description: "The legal entity on the other side of an intercompany invoice (the borrower of a charge billed in Invoice settlement mode, #40); absent on an ordinary invoice." }
     CreditNotePosted:
       name: dev.passage.billing.creditnote.posted.v1
       contentType: application/cloudevents+json
