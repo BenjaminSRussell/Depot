@@ -307,6 +307,78 @@ describe("lookup adapters", () => {
     expect(calls).toContain("/api/v1/org/warehouses?limit=20&legalEntityId=le-1&siteId=s-1");
   });
 
+  it("searches carrier services, freight bills and shipments on the server and reads them by number", async () => {
+    handler = (url) => {
+      if (url.pathname === "/api/v1/transport/carrier-services") return json({ items: [{ id: "cs-1", carrierId: "c-1", code: "GROUND", name: "Ground freight", mode: "LTL", active: true }] });
+      if (url.pathname === "/api/v1/transport/freight-bills") return json({ items: [{ id: "fb-1", billNumber: "FB-000042", expectedTotal: "412.50", currency: "USD", matchStatus: "VARIANCE" }] });
+      if (url.pathname === "/api/v1/fulfillment/shipments") return json({ items: [{ id: "sh-1", shipmentNumber: "SH-0000007", status: "PARTIALLY_SHIPPED", plannedShipDate: "2026-11-02T00:00:00Z" }] });
+      return json({ items: [] });
+    };
+    expect((await lookupDefs.carrierService.search("gro", { carrierId: "c-1" })).map(formatOption)).toEqual(["Ground freight (GROUND · ltl)"]);
+    expect(calls).toContain("/api/v1/transport/carrier-services?q=gro&limit=20&carrierId=c-1&active=true");
+    expect((await lookupDefs.freightBill.search("42", { carrierId: "c-1", loadId: "l-1" })).map(formatOption)).toEqual(["FB-000042 (412.50 USD · variance)"]);
+    expect(calls).toContain("/api/v1/transport/freight-bills?q=42&limit=20&carrierId=c-1&loadId=l-1");
+    expect((await lookupDefs.shipment.search("sh-", {})).map(formatOption)).toEqual(["SH-0000007 (partially shipped · 2026-11-02)"]);
+  });
+
+  it("lists transfer orders and inbound notices for transport shipments", async () => {
+    handler = (url) => {
+      if (url.pathname === "/api/v1/inventory/transfer-orders") return json({ items: [{ id: "to-1", number: "TO-1A2B3C", status: "CREATED", shipDate: "2026-11-05" }] });
+      if (url.pathname === "/api/v1/receiving/asns") return json({ items: [{ id: "an-1", trackingNumber: "1Z999", carrier: "UPS", expectedArrival: "2026-11-09", status: "OPEN" }] });
+      return json({ items: [] });
+    };
+    expect((await lookupDefs.transferOrder.search("to-1", {})).map(formatOption)).toEqual(["TO-1A2B3C (created · 2026-11-05)"]);
+    expect((await lookupDefs.inboundNotice.search("", {})).map(formatOption)).toEqual(["1Z999 (UPS · due 2026-11-09 · open)"]);
+  });
+
+  it("names a document line by its document and what it carries", async () => {
+    handler = (url) => {
+      if (url.pathname === "/api/v1/product/products/pr-1") return json({ id: "pr-1", name: "Seal kit", productNumber: "SEAL-MK-125" });
+      if (url.pathname === "/api/v1/fulfillment/packing-slip-lines") return json({ items: [{ id: "sl-1", packingSlipNumber: "PS-000012", lineNo: 2, productId: "pr-1", qty: "5" }] });
+      if (url.pathname === "/api/v1/sales/order-lines") return json({ items: [{ id: "ol-1", orderNumber: "SO-1042", lineNo: 1, productId: "pr-1", quantity: "5", unit: "EA" }] });
+      if (url.pathname === "/api/v1/procurement/agreement-lines") return json({ items: [{ id: "al-1", agreementNumber: "PA-2026-002", lineNo: 1, status: "EFFECTIVE", commitmentType: "VALUE", productId: "pr-1", currency: "USD" }] });
+      if (url.pathname === "/api/v1/budget/document-lines") return json({ items: [{ id: "bl-1", documentNumber: "BD-000014", lineNo: 1, dimensionKey: "6200|CR-PLANT", spanKey: "FY2026-Q4", amount: "18400" }] });
+      return json({ items: [] });
+    };
+    expect((await lookupDefs.slipLine.search("", { slipId: "s-1" })).map(formatOption)).toEqual(["PS-000012 line 2 (Seal kit x 5)"]);
+    expect(calls).toContain("/api/v1/fulfillment/packing-slip-lines?limit=20&slipId=s-1");
+    expect((await lookupDefs.orderLine.search("so-", { orderId: "o-1" })).map(formatOption)).toEqual(["SO-1042 line 1 (Seal kit x 5 EA)"]);
+    expect((await lookupDefs.agreementLine.search("", { vendorId: "v-1", productId: "pr-1" })).map(formatOption)).toEqual(["PA-2026-002 line 1 (Seal kit · effective)"]);
+    expect(calls).toContain("/api/v1/procurement/agreement-lines?limit=20&vendorId=v-1&productId=pr-1&status=EFFECTIVE");
+    expect((await lookupDefs.budgetDocumentLine.search("", { documentId: "d-1" })).map(formatOption)).toEqual(["BD-000014 line 1 (6200|CR-PLANT · FY2026-Q4 · 18400)"]);
+  });
+
+  it("lists the masters active-only by name and code", async () => {
+    handler = (url) => {
+      if (url.pathname === "/api/v1/quality/outcomes") return json({ items: [{ id: "o-1", code: "NO-DEFECT", name: "No visible defect", active: true }] });
+      if (url.pathname === "/api/v1/compliance/audit-policies") return json({ items: [{ policyId: "p-1", code: "GIFT-CARDS", name: "Gift cards", ruleType: "KEYWORD", version: 2 }] });
+      if (url.pathname === "/api/v1/analytics/saved-queries") return json({ items: [{ id: "q-1", name: "Revenue by entity", measures: ["revenue", "cogs"], lookbackDays: 90 }] });
+      if (url.pathname === "/api/v1/budget/documents") return json({ items: [{ id: "d-1", number: "BD-000014", documentType: "PurchaseOrder", lineCount: 2 }] });
+      return json({ items: [] });
+    };
+    expect((await lookupDefs.qualityOutcome.search("def", {})).map(formatOption)).toEqual(["No visible defect (NO-DEFECT)"]);
+    expect(calls).toContain("/api/v1/quality/outcomes?q=def&limit=20&active=true");
+    expect((await lookupDefs.auditPolicy.search("", {})).map(formatOption)).toEqual(["Gift cards (GIFT-CARDS · keyword · version 2)"]);
+    expect((await lookupDefs.savedQuery.search("", {})).map(formatOption)).toEqual(["Revenue by entity (2 metrics · last 90 days)"]);
+    expect((await lookupDefs.budgetDocument.search("bd", { documentType: "PurchaseOrder" })).map(formatOption)).toEqual(["BD-000014 (purchase order · 2 lines)"]);
+    expect(calls).toContain("/api/v1/budget/documents?q=bd&limit=20&type=PurchaseOrder");
+  });
+
+  it("reads locations of one warehouse and transactions by reference", async () => {
+    handler = (url) => {
+      if (url.pathname === "/api/v1/warehouse/locations") return json({ items: [{ id: "lo-1", name: "RM-A-01", zone: "Motors" }, { id: "lo-2", name: "RM-B-02", zone: "Seals" }] });
+      if (url.pathname === "/api/v1/inventory/transactions") return json({ items: [{ id: "tx-1", reference: "PO-1042", sourceType: "PURCHASE_LINE", physicalDate: "2026-11-02", productId: "pr-1", enteredQty: "5", enteredUnit: "EA", receiptStatus: "REGISTERED" }, { id: "tx-2", sourceType: "SALES_LINE", physicalDate: "2026-11-03", qty: "2" }] });
+      if (url.pathname === "/api/v1/product/products/pr-1") return json({ id: "pr-1", name: "Seal kit", productNumber: "SEAL-MK-125" });
+      return json({ items: [] });
+    };
+    expect(await lookupDefs.location.search("", {})).toEqual([]);
+    expect((await lookupDefs.location.search("b-02", { warehouseId: "wh-1" })).map(formatOption)).toEqual(["RM-A-01 (zone Motors)", "RM-B-02 (zone Seals)"]);
+    expect(calls).toContain("/api/v1/warehouse/locations?warehouseId=wh-1&q=b-02&limit=20");
+    expect((await lookupDefs.inventoryTransaction.search("", {})).map(formatOption)).toEqual(["PO-1042 (Seal kit x 5 EA · registered)", "sales line of 2026-11-03 (x 2)"]);
+    await lookupDefs.inventoryTransaction.search("po-10", {});
+    expect(calls).toContain("/api/v1/inventory/transactions?q=po-10&limit=20");
+  });
+
   it("filters currencies by name or code", async () => {
     handler = () => json({ items: [{ code: "USD", name: "US Dollar" }, { code: "EUR", name: "Euro" }] });
     expect((await lookupDefs.currency.search("eur", {})).map((c) => c.id)).toEqual(["EUR"]);

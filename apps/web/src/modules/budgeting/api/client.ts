@@ -383,6 +383,35 @@ export function getCheck(id: string, signal?: AbortSignal): Promise<CheckOutcome
   return request(`${BASE}/checks/${encodeURIComponent(id)}`, { signal });
 }
 
+/** A source document a budget check has seen, by its readable number (BD-000042). */
+export interface BudgetDocument {
+  id: string;
+  number: string;
+  documentType: DocumentType | "Reservation";
+  legalEntityId: string;
+  lineCount: number;
+  updatedAt: string;
+}
+
+export interface BudgetDocumentLine {
+  id: string;
+  documentId: string;
+  documentNumber: string;
+  lineNo: number;
+  dimensionKey: string;
+  spanKey: string;
+  amount: string;
+}
+
+export function getBudgetDocument(id: string, signal?: AbortSignal): Promise<BudgetDocument> {
+  return request(`${BASE}/documents/${encodeURIComponent(id)}`, { signal });
+}
+
+/** The lines of one registered document, in line order. */
+export function listBudgetDocumentLines(documentId: string, signal?: AbortSignal): Promise<Items<BudgetDocumentLine>> {
+  return request(`${BASE}/document-lines${query({ documentId, limit: "500" })}`, { signal });
+}
+
 /** Runs a budget check for a document's lines (FR-38.4). */
 export function checkBudget(input: CheckInput, idempotencyKey: string): Promise<CheckOutcome> {
   return command(`${BASE}/checks`, input, idempotencyKey);

@@ -22,6 +22,8 @@ describe("transport module", () => {
       "/transport/rate-shop",
       "/transport/rate-cards",
       "/transport/rate-cards/new",
+      "/transport/carrier-services",
+      "/transport/carrier-services/new",
       "/transport/freight-bills",
       "/transport/freight-bills/new",
       "/transport/freight-bills/:id",

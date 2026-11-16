@@ -93,6 +93,8 @@ and `npx tsc --noEmit` in `apps/web`).
 
 Contract: `api/openapi.yaml`. Events: `events/asyncapi.yaml`.
 
+`GET /v1/sales/order-lines` (and `/{id}`, duty `sales.order.read` or `sales.order.lookup`) lists order lines for the line pickers of other services' forms (billing's shipment proposals): `orderId`, `q` (order number, ignoring case), `limit`; each row names its order number, line number, product, quantity, unit and line status.
+
 Events are written to the outbox in the transaction that makes the change. The `outbox-sales`
 Debezium connector (`deploy/kafka/connect.yaml`) streams the outbox through the
 `passage_outbox_sales` publication (migration 0039) as the `debezium_cdc_sales` role (grants in

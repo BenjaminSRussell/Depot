@@ -37,7 +37,10 @@ campaign, incident step and export policy screens.
 | `POST /v1/sod/conflicts/{id}/mitigations` | compliance.sod.approve | `If-Match` and `Idempotency-Key` required; the caller is the approver; emits `sod.mitigation.approved` |
 | `POST /v1/sod/conflicts/{id}/accept-risk` | compliance.sod.admin | `If-Match` required; LOW and MEDIUM only |
 | `POST /v1/security/incidents:breach-clocks` | compliance.security-incident.manage | slice 2, read-only: the notification clocks of a confirmed personal-data breach with their status at server time |
-| `POST /v1/compliance/audit-policies:evaluate` | compliance.audit-policy.run | slice 3, read-only: runs one audit rule over the document window in the body; findings keyed on (policy, version, document); `code: AUD-0701` when any document violates |
+| `POST /v1/compliance/audit-policies:evaluate` | compliance.audit-policy.run | slice 3, read-only: runs one audit rule over the document window in the body; findings keyed on (policy, version, document); `code: AUD-0701` when any document violates. With only a `policyId` (no `spec`, no `version`) it runs the stored policy at its current version (`AUD-0720` unknown, `AUD-0722` retired); the response carries `policyVersion` |
+| `POST /v1/compliance/audit-policies` | compliance.audit-policy.maintain | a named rule (migration 0008): `code` unique per tenant (`AUD-0721`), the rule checked like the evaluate route (`AUD-0711`, `AUD-0712`); `Idempotency-Key` required |
+| `GET /v1/compliance/audit-policies`, `/{id}` | compliance.audit-policy.run or compliance.audit-policy.maintain | `q` (code or name), `code`, `active=true`, `limit`; the read carries the ETag |
+| `PATCH /v1/compliance/audit-policies/{id}` | compliance.audit-policy.maintain | rename, retire or change the rule with `If-Match` (the `rowVersion`, which moves on every change); a new `spec` is a new rule `version` (`SOD-1109` when stale) |
 | `POST /v1/compliance/audit-cases:group` | compliance.audit-case.manage | slice 3, read-only: case drafts from violations (one per vendor for DUPLICATE, one per policy otherwise) |
 | `POST /v1/compliance/audit-cases:transition` | compliance.audit-case.manage | slice 3, read-only: one action of the case status machine, judged at server time with `audit.case_archive_days` |
 | `POST /v1/security/elevated-sessions:plan` | compliance.break-glass.request | slice 3, read-only: the break-glass session the calling user's request would open; no session is stored and no token issued |
@@ -285,6 +288,9 @@ document, the case machine never skips a state and no break-glass session exceed
 | `AUD-0711` | 422 | unknown audit rule type, or a violation whose rule has no case category |
 | `AUD-0712` | 422 | audit rule configuration missing or out of range (KEYWORD without words, THRESHOLD without a currency or a positive limit, a holiday that is not YYYY-MM-DD, AGGREGATE without a limit, SAMPLING without a seed) |
 | `AUD-0713` | 422 | case action not allowed from the current status |
+| `AUD-0720` | 404 | no audit policy with that id |
+| `AUD-0721` | 409 | an audit policy with this code already exists |
+| `AUD-0722` | 422 | the audit policy is retired, so it cannot be run |
 | `AUD-0714` | 422 | resolution code missing or of the wrong kind; recovery amount negative or without currency |
 | `AUD-0715` | 422 | archive refused: the archive window has not passed since closing |
 | `SEC-0707` | 422 | break-glass cannot grant compliance.security.admin or platform.global.admin to yourself (BR-48.19) |

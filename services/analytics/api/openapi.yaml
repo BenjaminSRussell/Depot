@@ -356,6 +356,102 @@ paths:
             application/problem+json:
               schema:
                 $ref: "#/components/schemas/Problem"
+  /v1/analytics/saved-queries:
+    get:
+      operationId: listSavedQueries
+      summary: The caller's saved explorer queries by name
+      description: Saved queries are private to their user. Readable with the view or the author duty.
+      x-passage-duty: analytics.view
+      parameters:
+        - { name: q, in: query, description: "Part of the name, case-insensitive.", schema: { type: string, maxLength: 100 } }
+        - { name: name, in: query, description: "The exact name.", schema: { type: string } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 500, default: 100 } }
+      responses:
+        "200":
+          description: Saved queries
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SavedQueriesResponse"
+        "400":
+          $ref: "#/components/responses/Problem"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+    post:
+      operationId: createSavedQuery
+      summary: Save an explorer query under a name
+      description: Metrics and dimensions are checked against the published catalog like a query plan. A name the user already has is ANA-0115.
+      x-passage-duty: analytics.view
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          description: Replays within 24 hours return the stored response with Idempotency-Replayed true.
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 255
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SavedQueryRequest"
+      responses:
+        "201":
+          description: Created, or the stored response of an earlier identical request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SavedQuery"
+        "400":
+          $ref: "#/components/responses/Problem"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "409":
+          $ref: "#/components/responses/Problem"
+        "422":
+          $ref: "#/components/responses/Problem"
+  /v1/analytics/saved-queries/{id}:
+    get:
+      operationId: getSavedQuery
+      summary: One of the caller's saved queries
+      x-passage-duty: analytics.view
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: The saved query
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SavedQuery"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+    delete:
+      operationId: deleteSavedQuery
+      summary: Delete one of the caller's saved queries
+      description: A schedule that names it keeps its target id.
+      x-passage-duty: analytics.view
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "204":
+          description: Deleted
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
   /v1/analytics/schedules:
     get:
       operationId: listSchedules
@@ -1304,6 +1400,29 @@ components:
           enum: [PDF, XLSX]
         destination:
           $ref: "#/components/schemas/Destination"
+    SavedQueryRequest:
+      type: object
+      required: [name, measures]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 120 }
+        measures: { type: array, minItems: 1, maxItems: 10, items: { type: string } }
+        dimensions: { type: array, maxItems: 8, items: { type: string } }
+        lookbackDays: { type: integer, minimum: 1, maximum: 1826, default: 30, description: "The range is the last N days up to today." }
+    SavedQuery:
+      type: object
+      required: [id, name, measures, dimensions, lookbackDays, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        measures: { type: array, items: { type: string } }
+        dimensions: { type: array, items: { type: string } }
+        lookbackDays: { type: integer }
+        createdAt: { type: string, format: date-time }
+    SavedQueriesResponse:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/SavedQuery" } }
     Schedule:
       type: object
       required: [scheduleId, name, targetType, targetId, cron, timezone, format, destination, failureCount, version]

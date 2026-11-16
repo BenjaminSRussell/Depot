@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
   Alert,
@@ -13,9 +13,13 @@ import {
   type DataTableColumn,
 } from "../../shell/ui";
 import {
+  createSavedQuery,
+  deleteSavedQuery,
   describeProblem,
   listMetrics,
+  listSavedQueries,
   MAX_DIMENSIONS,
+  MAX_LOOKBACK_DAYS,
   MAX_MEASURES,
   MAX_SPAN_YEARS,
   planQuery,
@@ -29,6 +33,8 @@ import { ExportPanel } from "./ExportsPage";
 import { DATE, dimensionLabel, grainLabel, monthStart, today } from "./format";
 import styles from "./pages.module.css";
 import { useLoad } from "./useLoad";
+import { LookupFormField } from "../../shell/lookup/LookupFormField";
+import { clearResolvedOptions } from "../../shell/lookup/entities";
 import { ProblemMessage } from "../../shell/errors";
 
 type Errors = Partial<Record<"measures" | "dimensions" | "from" | "to", string>>;
@@ -109,6 +115,125 @@ function PlanResult({ plan }: { plan: Plan }) {
         getRowKey={(f) => f.member}
         empty={{ title: "No scope filter", description: "You hold every legal entity in this tenant, so no legal-entity filter is added." }}
       />
+    </Card>
+  );
+}
+
+function daysAgo(days: number): string {
+  const d = new Date(`${today()}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - days);
+  return d.toISOString().slice(0, 10);
+}
+
+/** Whole days a query's range covers, to keep as the look-back of a saved query. */
+export function lookbackOf(input: QueryInput): number {
+  const span = Math.round((Date.parse(`${input.to}T00:00:00Z`) - Date.parse(`${input.from}T00:00:00Z`)) / 86_400_000);
+  return Math.min(MAX_LOOKBACK_DAYS, Math.max(1, Number.isFinite(span) ? span : 30));
+}
+
+/**
+ * Saved queries: pick one of your own by name to fill the form, or save the current choice under a name. A saved query
+ * keeps its metrics, dimensions and a look-back (the last N days up to today), so it stays current and can be scheduled.
+ */
+function SavedQueriesPanel({ input, apply }: { input: QueryInput; apply(next: QueryInput): void }) {
+  const [savedId, setSavedId] = useState("");
+  const [name, setName] = useState("");
+  const [days, setDays] = useState(() => String(lookbackOf(input)));
+  const [message, setMessage] = useState<string | null>(null);
+  const [failure, setFailure] = useState<Problem | null>(null);
+  const [nameError, setNameError] = useState<string | undefined>();
+  const [busy, setBusy] = useState(false);
+  const key = useRef(crypto.randomUUID());
+
+  async function pick(id: string) {
+    setSavedId(id);
+    setMessage(null);
+    setFailure(null);
+    if (id === "") return;
+    try {
+      const found = (await listSavedQueries()).find((q) => q.id === id);
+      if (!found) return;
+      apply({ measures: found.measures, dimensions: found.dimensions, from: daysAgo(found.lookbackDays), to: today() });
+      setDays(String(found.lookbackDays));
+      setMessage(`Loaded ${found.name}.`);
+    } catch (error) {
+      setFailure(describeProblem(error));
+    }
+  }
+
+  async function save(event: FormEvent) {
+    event.preventDefault();
+    setMessage(null);
+    setFailure(null);
+    const lookback = Number(days);
+    if (name.trim() === "") return setNameError("Name the query.");
+    if (!Number.isInteger(lookback) || lookback < 1 || lookback > MAX_LOOKBACK_DAYS) return setNameError(`Keep a look-back of 1 to ${MAX_LOOKBACK_DAYS} days.`);
+    if (input.measures.length === 0) return setNameError("Choose at least one metric before saving.");
+    setNameError(undefined);
+    setBusy(true);
+    try {
+      const saved = await createSavedQuery({ name: name.trim(), measures: input.measures, dimensions: input.dimensions, lookbackDays: lookback }, key.current);
+      key.current = crypto.randomUUID();
+      clearResolvedOptions();
+      setSavedId(saved.id);
+      setName("");
+      setMessage(`Saved ${saved.name}.`);
+    } catch (error) {
+      const problem = describeProblem(error);
+      if (problem.code === "ANA-0115") setNameError("You already have a saved query with this name.");
+      else setFailure(problem);
+      if (problem.status >= 400 && problem.status < 500) key.current = crypto.randomUUID();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function remove() {
+    setBusy(true);
+    setMessage(null);
+    try {
+      await deleteSavedQuery(savedId);
+      clearResolvedOptions();
+      setSavedId("");
+      setMessage("Deleted the saved query.");
+    } catch (error) {
+      setFailure(describeProblem(error));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Card title="Saved queries">
+      <form className={styles.form} onSubmit={save} noValidate aria-label="Saved queries">
+        <LookupFormField id="saved-query" label="Saved query" optional entity="savedQuery" hint="Fills the form from one of your saved queries." value={savedId} onChange={(id) => void pick(id)} />
+        <FormField id="saved-query-name" label="Save the current choice as" error={nameError}>
+          {(control) => <Input {...control} maxLength={120} value={name} invalid={Boolean(nameError)} onChange={(e) => setName(e.target.value)} />}
+        </FormField>
+        <FormField id="saved-query-days" label="Look-back (days)" hint="The saved range is the last N days up to today.">
+          {(control) => <Input {...control} inputMode="numeric" value={days} onChange={(e) => setDays(e.target.value)} />}
+        </FormField>
+        <div className={styles.formActions}>
+          <Button type="submit" loading={busy}>
+            Save query
+          </Button>
+          {savedId ? (
+            <Button variant="ghost" onClick={() => void remove()} disabled={busy}>
+              Delete the selected query
+            </Button>
+          ) : null}
+        </div>
+      </form>
+      {failure ? (
+        <Alert tone="danger" title="The saved query could not be used" live="alert">
+          <ProblemMessage problem={failure} />
+        </Alert>
+      ) : null}
+      {message ? (
+        <p role="status" className={styles.muted}>
+          {message}
+        </p>
+      ) : null}
     </Card>
   );
 }
@@ -260,6 +385,7 @@ export function ExplorerPage() {
           </form>
         </Card>
       )}
+      {metrics.length > 0 ? <SavedQueriesPanel input={input} apply={(next) => { setInput(next); setPlan(null); setErrors({}); }} /> : null}
       {plan ? <PlanResult plan={plan.plan} /> : null}
       {plan && plan.plan.reason !== "NO_SCOPE" ? <ExportPanel key={JSON.stringify(plan.query)} query={plan.query} /> : null}
     </div>

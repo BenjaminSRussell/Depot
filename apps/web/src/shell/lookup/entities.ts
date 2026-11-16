@@ -53,7 +53,22 @@ export type LookupEntityKey =
   | "questionnaireSchedule"
   | "employment"
   | "dockAppointment"
-  | "project";
+  | "project"
+  | "carrierService"
+  | "freightBill"
+  | "shipment"
+  | "transferOrder"
+  | "inboundNotice"
+  | "slipLine"
+  | "orderLine"
+  | "agreementLine"
+  | "budgetDocument"
+  | "budgetDocumentLine"
+  | "qualityOutcome"
+  | "auditPolicy"
+  | "savedQuery"
+  | "inventoryTransaction"
+  | "location";
 
 export interface LookupOption {
   id: string;
@@ -74,6 +89,23 @@ export interface LookupScope {
   siteId?: string;
   /** The worker whose records are listed (employments). */
   workerId?: string;
+  /** The warehouse whose locations are listed. */
+  warehouseId?: string;
+  /** The carrier whose services or freight bills are listed. */
+  carrierId?: string;
+  /** The load whose freight bills are listed. */
+  loadId?: string;
+  /** The sales order whose lines are listed. */
+  orderId?: string;
+  /** The packing slip whose lines are listed. */
+  slipId?: string;
+  /** The vendor whose agreement lines are listed. */
+  vendorId?: string;
+  /** The product the agreement lines are for. */
+  productId?: string;
+  /** The budget document whose lines are listed, or the type of document to list. */
+  documentId?: string;
+  documentType?: string;
 }
 
 export interface LookupDef {
@@ -476,6 +508,52 @@ function searchedEntity(
   };
 }
 
+/**
+ * A lookup over a list route that searches on the server and narrows by the scope: the typed text goes as `q`, `limit` as
+ * the page size, and `params` adds the filters the scope sets. `map` may look up names the row only has ids for.
+ */
+function serverSearch(
+  noun: string,
+  path: string,
+  map: (row: Raw) => LookupOption | null | Promise<LookupOption | null>,
+  params: (scope: LookupScope) => Record<string, string | undefined> = () => ({}),
+  createHref?: string,
+): LookupDef {
+  return {
+    noun,
+    createHref,
+    search: async (q, scope, signal) =>
+      present(
+        await Promise.all(
+          items(await getJson(`${path}${query({ q: q.trim() || undefined, limit: String(PAGE_SIZE), ...params(scope) })}`, signal)).map(map),
+        ),
+      ),
+    resolve: async (id, signal) => map(await getOne(path, id, signal)),
+  };
+}
+
+/** The name of a product by id, for lines that carry only the product id. */
+async function productNameOf(row: Raw): Promise<string | undefined> {
+  const id = text(row, "productId");
+  return id ? (await resolveOption("product", id))?.name : undefined;
+}
+
+/** "SEAL-MK-125 x 5": what a document line is for, from its product name and quantity. */
+function lineWhat(product: string | undefined, qty: string | undefined, unit?: string): string | undefined {
+  const parts = [product, qty ? `x ${qty}${unit ? ` ${unit}` : ""}` : undefined].filter(Boolean);
+  return parts.length > 0 ? parts.join(" ") : undefined;
+}
+
+const AUDIT_RULE_NAMES: Record<string, string> = {
+  DUPLICATE: "duplicate invoice",
+  KEYWORD: "keyword",
+  LIST_SEARCH: "watch list",
+  SAMPLING: "sampling",
+  THRESHOLD: "amount limit",
+  WEEKEND_HOLIDAY: "weekend or holiday",
+  AGGREGATE: "monthly total",
+};
+
 /** A bank account reads "OPS-EUR (DE89 **** 3000 · EUR · DE01)": accounts carry a code, not a name. */
 function bankAccountOption(row: Raw, entityCode?: string): LookupOption | null {
   const hit = option(row, ["accountCode"], []);
@@ -712,7 +790,191 @@ function scheduleOption(row: Raw): LookupOption | null {
   return { id, name, number: [window, lower(text(row, "status"))].filter(Boolean).join(" · ") || undefined };
 }
 
+/**
+ * An inventory transaction reads by its reference, or by its source and date when it has none, with what it moved:
+ * "PO-1042 (Seal kit x 5 EA · registered)". Transactions are listed newest first without a text search, so the typed
+ * text narrows what the first pages hold.
+ */
+const inventoryTransactionDef: LookupDef = {
+  noun: "inventory transaction",
+  search: async (q, _scope, signal) => {
+    const rows = items(await getJson(`/api/v1/inventory/transactions${query({ q: q.trim() || undefined, limit: String(PAGE_SIZE) })}`, signal));
+    return present(await Promise.all(rows.map(inventoryTransactionOption)));
+  },
+  resolve: async (id, signal) => inventoryTransactionOption(await getOne("/api/v1/inventory/transactions", id, signal)),
+};
+
+async function inventoryTransactionOption(row: Raw): Promise<LookupOption | null> {
+  const id = text(row, "id");
+  if (!id) return null;
+  const source = lower(text(row, "sourceType")) ?? "transaction";
+  const name = text(row, "reference") ?? `${source} of ${text(row, "physicalDate") ?? "unknown date"}`;
+  const status = lower(text(row, "issueStatus", "receiptStatus"));
+  const what = lineWhat(await productNameOf(row), text(row, "enteredQty", "qty"), text(row, "enteredUnit"));
+  return { id, name, number: [what, status].filter(Boolean).join(" · ") || undefined };
+}
+
+/** A warehouse location reads "RM-A-01 (Motors)"; locations are listed per warehouse, so with none in scope there is nothing to pick. */
+const locationDef: LookupDef = {
+  noun: "location",
+  search: async (q, scope, signal) =>
+    scope.warehouseId
+      ? present(items(await getJson(`/api/v1/warehouse/locations${query({ warehouseId: scope.warehouseId, q: q.trim() || undefined, limit: String(PAGE_SIZE) })}`, signal)).map(locationOption))
+      : [],
+  resolve: async (id, signal) => locationOption(await getOne("/api/v1/warehouse/locations", id, signal)),
+};
+
+function locationOption(row: Raw): LookupOption | null {
+  const hit = option(row, ["name"], ["zone"]);
+  return hit ? { ...hit, number: hit.number ? `zone ${hit.number}` : undefined } : null;
+}
+
 export const lookupDefs: Record<LookupEntityKey, LookupDef> = {
+  location: locationDef,
+  inventoryTransaction: inventoryTransactionDef,
+  carrierService: serverSearch(
+    "carrier service",
+    "/api/v1/transport/carrier-services",
+    (row) => {
+      const hit = option(row, ["name"], ["code"]);
+      return hit ? { ...hit, number: [hit.number, text(row, "mode")?.toLowerCase(), row.active === false ? "retired" : undefined].filter(Boolean).join(" · ") } : null;
+    },
+    (scope) => ({ carrierId: scope.carrierId, active: "true" }),
+    "/transport/carrier-services/new",
+  ),
+  freightBill: serverSearch(
+    "freight bill",
+    "/api/v1/transport/freight-bills",
+    (row) => {
+      const hit = option(row, ["billNumber"], []);
+      const total = text(row, "expectedTotal");
+      const currency = text(row, "currency");
+      const number = [total && currency ? `${total} ${currency}` : undefined, text(row, "matchStatus")?.toLowerCase()].filter(Boolean).join(" · ");
+      return hit ? { ...hit, number: number || undefined, currency } : null;
+    },
+    (scope) => ({ carrierId: scope.carrierId, loadId: scope.loadId }),
+  ),
+  shipment: serverSearch(
+    "shipment",
+    "/api/v1/fulfillment/shipments",
+    (row) => {
+      const hit = option(row, ["shipmentNumber"], []);
+      const number = [text(row, "status")?.replace(/_/g, " ").toLowerCase(), text(row, "plannedShipDate")?.slice(0, 10)].filter(Boolean).join(" · ");
+      return hit ? { ...hit, number: number || undefined } : null;
+    },
+  ),
+  transferOrder: listedEntity("transfer order", "/api/v1/inventory/transfer-orders", (row) => {
+    const hit = option(row, ["number"], []);
+    const number = [text(row, "status")?.replace(/_/g, " ").toLowerCase(), text(row, "shipDate")?.slice(0, 10)].filter(Boolean).join(" · ");
+    return hit ? { ...hit, number: number || undefined } : null;
+  }),
+  inboundNotice: listedEntity(
+    "inbound notice",
+    "/api/v1/receiving/asns",
+    (row) => {
+      const id = text(row, "id");
+      if (!id) {
+        return null;
+      }
+      const name = text(row, "trackingNumber") ?? `Notice of ${text(row, "expectedArrival") ?? text(row, "shipDate") ?? "unknown date"}`;
+      const number = [text(row, "carrier"), text(row, "expectedArrival") ? `due ${text(row, "expectedArrival")}` : undefined, lower(text(row, "status"))].filter(Boolean).join(" · ");
+      return { id, name, number: number || undefined };
+    },
+    () => ({ limit: "100" }),
+  ),
+  slipLine: serverSearch(
+    "packing slip line",
+    "/api/v1/fulfillment/packing-slip-lines",
+    async (row) => {
+      const id = text(row, "id");
+      const slip = text(row, "packingSlipNumber");
+      const lineNo = row.lineNo;
+      if (!id || !slip || typeof lineNo !== "number") return null;
+      return { id, name: `${slip} line ${lineNo}`, number: lineWhat(await productNameOf(row), text(row, "qty")) };
+    },
+    (scope) => ({ slipId: scope.slipId }),
+  ),
+  orderLine: serverSearch(
+    "order line",
+    "/api/v1/sales/order-lines",
+    async (row) => {
+      const id = text(row, "id");
+      const order = text(row, "orderNumber");
+      const lineNo = row.lineNo;
+      if (!id || !order || typeof lineNo !== "number") return null;
+      return { id, name: `${order} line ${lineNo}`, number: lineWhat(await productNameOf(row), text(row, "quantity"), text(row, "unit")) };
+    },
+    (scope) => ({ orderId: scope.orderId }),
+  ),
+  agreementLine: serverSearch(
+    "agreement line",
+    "/api/v1/procurement/agreement-lines",
+    async (row) => {
+      const id = text(row, "id");
+      const agreement = text(row, "agreementNumber");
+      const lineNo = row.lineNo;
+      if (!id || !agreement || typeof lineNo !== "number") return null;
+      const what = (await productNameOf(row)) ?? text(row, "category") ?? lower(text(row, "commitmentType"));
+      return { id, name: `${agreement} line ${lineNo}`, number: [what, lower(text(row, "status"))].filter(Boolean).join(" · ") || undefined, currency: text(row, "currency") };
+    },
+    (scope) => ({ vendorId: scope.vendorId, productId: scope.productId, status: "EFFECTIVE" }),
+  ),
+  budgetDocument: serverSearch(
+    "budget document",
+    "/api/v1/budget/documents",
+    (row) => {
+      const hit = option(row, ["number"], []);
+      const lines = row.lineCount;
+      const number = [text(row, "documentType")?.replace(/([a-z])([A-Z])/g, "$1 $2").toLowerCase(), typeof lines === "number" ? `${lines} ${lines === 1 ? "line" : "lines"}` : undefined].filter(Boolean).join(" · ");
+      return hit ? { ...hit, number: number || undefined } : null;
+    },
+    (scope) => ({ type: scope.documentType }),
+  ),
+  budgetDocumentLine: serverSearch(
+    "budget document line",
+    "/api/v1/budget/document-lines",
+    (row) => {
+      const id = text(row, "id");
+      const doc = text(row, "documentNumber");
+      const lineNo = row.lineNo;
+      if (!id || !doc || typeof lineNo !== "number") return null;
+      return { id, name: `${doc} line ${lineNo}`, number: [text(row, "dimensionKey"), text(row, "spanKey"), text(row, "amount")].filter(Boolean).join(" · ") };
+    },
+    (scope) => ({ documentId: scope.documentId }),
+  ),
+  qualityOutcome: serverSearch(
+    "outcome",
+    "/api/v1/quality/outcomes",
+    (row) => {
+      const hit = option(row, ["name"], ["code"]);
+      return hit ? { ...hit, number: [hit.number, row.active === false ? "retired" : undefined].filter(Boolean).join(" · ") } : null;
+    },
+    () => ({ active: "true" }),
+    "/quality/outcomes/new",
+  ),
+  auditPolicy: serverSearch(
+    "audit policy",
+    "/api/v1/compliance/audit-policies",
+    (row) => {
+      const hit = option(row, ["name"], ["code"], ["policyId", "id"]);
+      const version = row.version;
+      return hit
+        ? { ...hit, number: [hit.number, AUDIT_RULE_NAMES[text(row, "ruleType") ?? ""], typeof version === "number" ? `version ${version}` : undefined].filter(Boolean).join(" · ") }
+        : null;
+    },
+    () => ({ active: "true" }),
+    "/compliance/audit/policies/new",
+  ),
+  savedQuery: serverSearch(
+    "saved query",
+    "/api/v1/analytics/saved-queries",
+    (row) => {
+      const hit = option(row, ["name"], []);
+      const measures = Array.isArray(row.measures) ? row.measures.length : 0;
+      const days = row.lookbackDays;
+      return hit ? { ...hit, number: [measures > 0 ? `${measures} ${measures === 1 ? "metric" : "metrics"}` : undefined, typeof days === "number" ? `last ${days} days` : undefined].filter(Boolean).join(" · ") || undefined } : null;
+    },
+  ),
   dashboard: listedEntity("dashboard", "/api/v1/analytics/dashboards", (row) => option(row, ["title"], [], ["dashboardId", "id"])),
   resource: listedEntity(
     "resource",

@@ -2,14 +2,15 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Alert, Badge, Button, buttonClassName, DataTable, FormField, PageHeader, Select, type DataTableColumn } from "../../shell/ui";
 import { INVOICE_STATUSES, listCarrierInvoices, type CarrierInvoice, type InvoiceStatus } from "./api/client";
-import { dash, formatDateTime, matchTone, money, shortId, statusLabel } from "./format";
+import { dash, formatDateTime, matchTone, money, statusLabel } from "./format";
+import { EntityName } from "../../shell/lookup/EntityName";
 import styles from "./pages.module.css";
 import { useLoad } from "./useLoad";
 import { ProblemMessage } from "../../shell/errors";
 
 const columns: DataTableColumn<CarrierInvoice>[] = [
   { key: "invoiceNo", header: "Invoice", mono: true },
-  { key: "carrierId", header: "Carrier", mono: true, render: (row) => <span title={row.carrierId}>{shortId(row.carrierId)}</span> },
+  { key: "carrierId", header: "Carrier", render: (row) => <EntityName entity="vendor" id={row.carrierId} /> },
   { key: "invoiceDate", header: "Invoice date", mono: true },
   { key: "source", header: "Source", render: (row) => <Badge tone="neutral">{row.source}</Badge> },
   { key: "total", header: "Total", align: "end", render: (row) => money(row.total, row.currency) },
@@ -19,7 +20,7 @@ const columns: DataTableColumn<CarrierInvoice>[] = [
     key: "freightBillId",
     header: "Freight bill",
     mono: true,
-    render: (row) => (row.freightBillId ? <Link to={`/transport/freight-bills/${row.freightBillId}`}>{shortId(row.freightBillId)}</Link> : dash),
+    render: (row) => (row.freightBillId ? <Link to={`/transport/freight-bills/${row.freightBillId}`}><EntityName entity="freightBill" id={row.freightBillId} /></Link> : dash),
   },
   { key: "createdAt", header: "Registered", render: (row) => formatDateTime(row.createdAt) },
 ];

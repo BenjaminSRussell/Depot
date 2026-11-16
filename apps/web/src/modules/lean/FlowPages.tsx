@@ -137,7 +137,7 @@ export function validateFlow(values: FlowValues): { errors: FlowErrors; input?: 
   const parsed = values.activities.map((a, i) => {
     if (a.name.trim().length < 1 || a.name.trim().length > 80) activity[`${i}.name`] = "Enter a name of up to 80 characters.";
     if (!/^\d{1,7}$/.test(a.cycleTimeS)) activity[`${i}.cycleTimeS`] = "Enter whole seconds.";
-    if (a.outputLocationId.trim() !== "" && !UUID.test(a.outputLocationId.trim())) activity[`${i}.outputLocationId`] = "Enter a location id (a UUID).";
+    if (a.outputLocationId.trim() !== "" && !UUID.test(a.outputLocationId.trim())) activity[`${i}.outputLocationId`] = "Choose the output location.";
     const preds = a.predecessors
       .split(",")
       .map((p) => p.trim())
@@ -177,6 +177,8 @@ export function NewFlowPage() {
   const [errors, setErrors] = useState<FlowErrors>({});
   const [failure, setFailure] = useState<Problem | null>(null);
   const [busy, setBusy] = useState(false);
+  // The warehouse whose locations the activities pick from; it only scopes the pickers and is not part of the flow.
+  const [warehouseId, setWarehouseId] = useState("");
   const key = useRef(newKey());
 
   function update(patch: Partial<FlowValues>) {
@@ -225,6 +227,9 @@ export function NewFlowPage() {
             <FormField id="flow-site" label="Site" error={errors.siteId}>
               {(c) => <EntityLookup entity="site" {...c} value={values.siteId} onChange={(e) => update({ siteId: e.target.value })} invalid={Boolean(errors.siteId)} />}
             </FormField>
+            <FormField id="flow-warehouse" label="Warehouse of the output locations" optional hint="Narrows the output location of each activity to this warehouse's locations.">
+              {(c) => <EntityLookup entity="warehouse" scope={{ siteId: values.siteId || undefined }} {...c} value={warehouseId} onChange={(e) => setWarehouseId(e.target.value)} />}
+            </FormField>
             <FormField id="flow-takt" label="Takt time (seconds)" optional error={errors.taktTimeS}>
               {(c) => <Input {...c} inputMode="numeric" value={values.taktTimeS} onChange={(e) => update({ taktTimeS: e.target.value })} invalid={Boolean(errors.taktTimeS)} />}
             </FormField>
@@ -259,11 +264,12 @@ export function NewFlowPage() {
                 <FormField id={`act-${i}-cycle`} label="Cycle time (seconds)" error={activityError(i, "cycleTimeS")}>
                   {(c) => <Input {...c} inputMode="numeric" value={a.cycleTimeS} onChange={(e) => updateActivity(i, { cycleTimeS: e.target.value })} invalid={Boolean(activityError(i, "cycleTimeS"))} />}
                 </FormField>
-                <FormField id={`act-${i}-output`} label="Output location id" optional error={activityError(i, "outputLocationId")}>
+                <FormField id={`act-${i}-output`} label="Output location" optional hint={warehouseId ? undefined : "Choose the warehouse above first."} error={activityError(i, "outputLocationId")}>
                   {(c) => (
-                    <Input
+                    <EntityLookup
+                      entity="location"
+                      scope={{ warehouseId: warehouseId || undefined }}
                       {...c}
-                      className={styles.mono}
                       value={a.outputLocationId}
                       onChange={(e) => updateActivity(i, { outputLocationId: e.target.value })}
                       invalid={Boolean(activityError(i, "outputLocationId"))}

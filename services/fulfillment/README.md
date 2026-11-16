@@ -142,8 +142,10 @@ and `npx tsc --noEmit` in `apps/web`.
 | POST | `/v1/fulfillment/shipments/{id}:confirm-pick` | fulfillment.warehouse.pick | Idempotency-Key, If-Match; above plan only within the over-delivery tolerance (FUL-0004 with none, FUL-0005 above it) and never beyond what the order line keeps after sales cancelled the remainder (FUL-0066) |
 | POST | `/v1/fulfillment/shipments/{id}/containers` | fulfillment.warehouse.pack | Packs and closes a container with an SSCC; Idempotency-Key, If-Match |
 | POST | `/v1/fulfillment/shipments/{id}:post-packing-slip` | fulfillment.packing-slip.post | Slip, journal, containers SHIPPED and outbox in one transaction; Idempotency-Key, If-Match |
+| GET | `/v1/fulfillment/shipments` | fulfillment.warehouse.view | Also `q` (part of the shipment number, ignoring case) and `number` (exact), the shipment lookup of the transport forms |
 | GET | `/v1/fulfillment/packing-slips` | fulfillment.warehouse.view | Packing slip journal; filters `shipmentId`, `orderId`, `status`, `limit` |
 | GET | `/v1/fulfillment/packing-slips/{id}` | fulfillment.warehouse.view | Slip with lines and journal |
+| GET | `/v1/fulfillment/packing-slip-lines`, `/{id}` | fulfillment.warehouse.view | Slip lines for pickers (billing's shipment proposal form): `slipId`, `q` (slip number), `limit`; a line is identified by the shipment line it covers |
 | POST | `/v1/fulfillment/packing-slips/{id}:cancel` | fulfillment.packing-slip.post | Reversing slip with mirror lines, journal and packaging fee lines; takes returnable containers back off the customer's balance; Idempotency-Key |
 
 ## Endpoints (slice 2)

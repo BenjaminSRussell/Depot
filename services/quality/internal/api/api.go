@@ -70,6 +70,10 @@ func (a *API) Register(r chi.Router) {
 	r.With(authz.RequireDuty(dutySetup)).Post("/v1/quality/instruments", a.createInstrument)
 	r.With(authz.RequireDuty(dutyView)).Get("/v1/quality/instruments", a.listInstruments)
 	r.With(authz.RequireDuty(dutySetup)).Post("/v1/quality/instruments/{id}:calibrate", a.calibrateInstrument)
+	r.With(authz.RequireDuty(dutySetup)).Post("/v1/quality/outcomes", a.createOutcome)
+	r.With(authz.RequireDuty(dutyView)).Get("/v1/quality/outcomes", a.listOutcomes)
+	r.With(authz.RequireDuty(dutyView)).Get("/v1/quality/outcomes/{id}", a.getOutcome)
+	r.With(authz.RequireDuty(dutySetup)).Patch("/v1/quality/outcomes/{id}", a.updateOutcome)
 	r.With(authz.RequireDuty(dutySetup)).Post("/v1/quality/associations", a.createAssociation)
 	r.With(authz.RequireDuty(dutyView)).Get("/v1/quality/associations", a.listAssociations)
 	r.With(authz.RequireDuty(dutyOrder)).Post("/v1/quality/quality-orders", a.createOrder)
@@ -177,6 +181,10 @@ func (a *API) createTestGroup(w http.ResponseWriter, r *http.Request) {
 	}
 	if fields := domain.ValidateTestGroup(req.Code, req.Tests); len(fields) > 0 {
 		httpx.Fail(w, r, validation(fields))
+		return
+	}
+	if err := a.resolvePassingOutcomes(r, req.Tests); err != nil {
+		httpx.Fail(w, r, err)
 		return
 	}
 	group, inserted, err := a.store.CreateTestGroup(r.Context(), domain.TestGroup{Code: req.Code, Tests: req.Tests}, key)
@@ -665,12 +673,14 @@ type resultsRequest struct {
 }
 
 type resultInput struct {
-	TestID       string           `json:"testId"`
-	SampleNo     int              `json:"sampleNo"`
-	RetestNo     int              `json:"retestNo"`
-	Value        *decimal.Decimal `json:"value"`
-	OutcomeID    string           `json:"outcomeId"`
-	InstrumentID string           `json:"instrumentId"`
+	TestID    string           `json:"testId"`
+	SampleNo  int              `json:"sampleNo"`
+	RetestNo  int              `json:"retestNo"`
+	Value     *decimal.Decimal `json:"value"`
+	OutcomeID string           `json:"outcomeId"`
+	// OutcomeCode names the outcome by its master code instead of its id; the id wins when both are sent.
+	OutcomeCode  string `json:"outcomeCode"`
+	InstrumentID string `json:"instrumentId"`
 }
 
 func (a *API) recordResults(w http.ResponseWriter, r *http.Request) {
@@ -798,6 +808,10 @@ func (a *API) buildResults(r *http.Request, inputs []resultInput, group domain.T
 		return nil, validation(fields)
 	}
 	instruments, err := a.store.GetInstruments(r.Context(), instrumentIDs)
+	if err != nil {
+		return nil, err
+	}
+	inputs, err = a.resolveOutcomeCodes(r, inputs)
 	if err != nil {
 		return nil, err
 	}
@@ -1013,12 +1027,12 @@ func httpStatus(code string) int {
 	switch code {
 	case domain.CodeValidation:
 		return http.StatusBadRequest
-	case domain.CodeTestGroupMissing, domain.CodeOrderMissing, domain.CodeInstrumentMissing, domain.CodeStudyMissing, domain.CodeCompositionMissing,
+	case domain.CodeOutcomeMissing, domain.CodeTestGroupMissing, domain.CodeOrderMissing, domain.CodeInstrumentMissing, domain.CodeStudyMissing, domain.CodeCompositionMissing,
 		domain.CodeNCRMissing:
 		return http.StatusNotFound
 	case domain.CodeClosed, domain.CodeResultDuplicate, domain.CodeInstrumentDupe, domain.CodeStatus, domain.CodeSourceLineDupe,
 		domain.CodeListRace, domain.CodeCompositionRace, domain.CodeStudyRace, domain.CodeNCRStatus, domain.CodeNCRRace, domain.CodeCAPAStep,
-		domain.CodeCertNotRequired, domain.CodeCertSampleRace, domain.CodeStudyStatus, domain.CodeReceiptCheckDupe, domain.CodeWriteRace:
+		domain.CodeCertNotRequired, domain.CodeCertSampleRace, domain.CodeStudyStatus, domain.CodeReceiptCheckDupe, domain.CodeWriteRace, domain.CodeOutcomeDupe:
 		return http.StatusConflict
 	}
 	return http.StatusUnprocessableEntity

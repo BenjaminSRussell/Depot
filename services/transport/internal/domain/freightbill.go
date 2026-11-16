@@ -21,6 +21,7 @@ var (
 // ship confirmation from rating (FR-34.7).
 type FreightBill struct {
 	ID               string           `json:"id"`
+	Number           string           `json:"billNumber"`
 	LoadID           string           `json:"loadId"`
 	CarrierID        string           `json:"carrierId"`
 	Currency         string           `json:"currency"`

@@ -1,9 +1,11 @@
 import { useRef, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { Alert, Badge, Button, Card, DataTable, FormField, Input, Select, Textarea, type DataTableColumn } from "../../shell/ui";
+import { EntityLookup } from "../../shell/lookup/EntityLookup";
 import {
   describeProblem,
   listCertificates,
+  listOutcomes,
   newKey,
   recordCertificate,
   waiveCertificate,
@@ -27,7 +29,7 @@ export interface CertificateValues {
   documentRef: string;
   /** Per test id: the number of a variable test, or the chosen outcome of an attribute test. */
   values: Record<string, string>;
-  /** Per attribute test id: the outcome id typed when OTHER is chosen. */
+  /** Per attribute test id: the outcome picked when OTHER is chosen. */
   other: Record<string, string>;
 }
 
@@ -45,7 +47,7 @@ export function validateCertificate(form: CertificateValues, tests: TestLine[]):
       else values[test.testId] = { value: raw };
     } else {
       const outcome = raw === OTHER ? (form.other[test.testId] ?? "").trim() : raw;
-      if (!UUID.test(outcome)) errors[test.testId] = "Enter the outcome id (a UUID).";
+      if (!UUID.test(outcome)) errors[test.testId] = "Choose the outcome.";
       else values[test.testId] = { outcome };
     }
   }
@@ -143,6 +145,11 @@ export function CertificatesPanel({ order, onChanged }: { order: OrderView; onCh
 }
 
 function RecordCertificateForm({ order, onRecorded }: { order: OrderView; onRecorded(): void }) {
+  const outcomes = useLoad((signal) => listOutcomes({}, signal), "outcomes");
+  const outcomeName = (id: string) => {
+    const found = outcomes.data?.find((o) => o.id === id);
+    return found ? `${found.name} (${found.code})` : "Passing outcome";
+  };
   const tests = order.testGroup.tests;
   const initialType: CertType = order.certificateRequired && order.certificateRequired !== "NONE" ? order.certificateRequired : "COA";
   const [form, setForm] = useState<CertificateValues>({ type: initialType, documentRef: "", values: {}, other: {} });
@@ -234,16 +241,16 @@ function RecordCertificateForm({ order, onRecorded }: { order: OrderView; onReco
                   <Select {...control} value={raw} invalid={Boolean(errors[test.testId])} onChange={(event) => update({ values: { ...form.values, [test.testId]: event.target.value } })}>
                     <option value="">Not on the certificate</option>
                     {(test.passingOutcomeIds ?? []).map((o) => (
-                      <option key={o} value={o}>{`Passing outcome ${shortId(o)}`}</option>
+                      <option key={o} value={o}>{outcomeName(o)}</option>
                     ))}
                     <option value={OTHER}>Another outcome (fails)</option>
                   </Select>
                 )}
               </FormField>
               {raw === OTHER ? (
-                <FormField id={`cert-${test.testId}-other`} label="Certificate outcome id">
+                <FormField id={`cert-${test.testId}-other`} label="Certificate outcome" hint="Pick the outcome the certificate states; it fails the test.">
                   {(control) => (
-                    <Input {...control} value={form.other[test.testId] ?? ""} onChange={(event) => update({ other: { ...form.other, [test.testId]: event.target.value } })} />
+                    <EntityLookup {...control} entity="qualityOutcome" value={form.other[test.testId] ?? ""} onChange={(event) => update({ other: { ...form.other, [test.testId]: event.target.value } })} />
                   )}
                 </FormField>
               ) : null}

@@ -188,7 +188,7 @@ describe("change a purchase order", () => {
     expect(within(line1).getByLabelText("Unit price")).toHaveValue("");
     expect(within(line1).getByText("Blank keeps 10 / 1 while product and unit stay the same")).toBeInTheDocument();
     expect(within(line1).getByText("20 received; cannot go lower")).toBeInTheDocument();
-    expect(within(screen.getByRole("group", { name: "Line 3" })).queryByLabelText("Agreement line id")).not.toBeInTheDocument();
+    expect(within(screen.getByRole("group", { name: "Line 3" })).queryByLabelText("Agreement line")).not.toBeInTheDocument();
     expect(pageViolations(container)).toEqual([]);
 
     fireEvent.change(within(line1).getByLabelText("Quantity"), { target: { value: "110" } });

@@ -254,6 +254,17 @@ func TestPostAndCancelPackingSlip_AC28_1_AC28_2(t *testing.T) {
 	if none, err := s.ListPackingSlips(ctx, store.PackingSlipFilter{Q: "no-such-slip", Limit: 10}); err != nil || len(none) != 0 {
 		t.Fatalf("slips matching nothing = %+v, %v", none, err)
 	}
+	// Slip lines list by slip, numbered from 1, each named by the shipment line it covers.
+	lines, err := s.ListPackingSlipLines(ctx, store.PackingSlipLineFilter{SlipID: slips[0].ID, Limit: 10})
+	if err != nil || len(lines) == 0 || lines[0].LineNo != 1 || lines[0].PackingSlipNumber != number || lines[0].ID != f.shipment.Lines[0].ID || lines[0].OrderLineID == "" {
+		t.Fatalf("slip lines = %+v, %v", lines, err)
+	}
+	if one, err := s.ListPackingSlipLines(ctx, store.PackingSlipLineFilter{ID: lines[0].ID, Limit: 1}); err != nil || len(one) != 1 || one[0].PackingSlipID != lines[0].PackingSlipID {
+		t.Fatalf("slip line by id = %+v, %v", one, err)
+	}
+	if found, err := s.ListPackingSlipLines(ctx, store.PackingSlipLineFilter{Q: strings.ToLower(number), Limit: 50}); err != nil || len(found) != len(lines) {
+		t.Fatalf("slip lines matching %q = %d, %v", number, len(found), err)
+	}
 }
 
 func assertJournal(t *testing.T, got, want []store.JournalEntry) {
@@ -383,6 +394,15 @@ func TestRunRelease_SkipsLinesAlreadyReleased(t *testing.T) {
 	}
 	if list, _ := s.ListShipments(ctx, store.ShipmentFilter{Status: "SHIPPED", Limit: 10}); len(list) != 0 {
 		t.Fatalf("SHIPPED filter returned %d shipments, want 0", len(list))
+	}
+	number := f.shipment.ShipmentNumber
+	for _, filter := range []store.ShipmentFilter{{Q: strings.ToLower(number[1:]), Limit: 10}, {Number: number, Limit: 10}} {
+		if found, err := s.ListShipments(ctx, filter); err != nil || len(found) != 1 || found[0].ShipmentNumber != number {
+			t.Fatalf("shipments matching %+v = %+v, %v", filter, found, err)
+		}
+	}
+	if none, _ := s.ListShipments(ctx, store.ShipmentFilter{Number: "SH-none", Limit: 10}); len(none) != 0 {
+		t.Fatalf("unknown number matched %d shipments", len(none))
 	}
 }
 

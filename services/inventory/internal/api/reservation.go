@@ -396,8 +396,11 @@ func (a *API) listTransactions(w http.ResponseWriter, r *http.Request) {
 	}
 	q := r.URL.Query()
 	f := store.TransactionFilter{ProductID: q.Get("product"), Status: domain.Status(q.Get("status")), SourceType: q.Get("sourceType"),
-		LegalEntityID: q.Get("legalEntity"), Cursor: q.Get("cursor")}
+		LegalEntityID: q.Get("legalEntity"), Cursor: q.Get("cursor"), Q: strings.TrimSpace(q.Get("q"))}
 	fields := map[string]string{}
+	if utf8.RuneCountInString(f.Q) > maxDimensionFilterLen {
+		fields["q"] = fmt.Sprintf("must be at most %d characters", maxDimensionFilterLen)
+	}
 	if f.LegalEntityID != "" && !ids.Valid(f.LegalEntityID) {
 		fields["legalEntity"] = "must be a UUID"
 	}

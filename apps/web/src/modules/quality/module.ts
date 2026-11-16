@@ -6,6 +6,7 @@ import { InstrumentsPage, NewInstrumentPage } from "./InstrumentsPage";
 import { ItemCompliancePage, ItemLookupPage } from "./ItemCompliancePage";
 import { NewNonconformancePage, NonconformanceDetailPage, NonconformancesPage } from "./NonconformancesPage";
 import { NewOrderPage } from "./NewOrderPage";
+import { NewOutcomePage, OutcomeEditPage, OutcomesPage } from "./OutcomesPage";
 import { OrderDetailPage } from "./OrderDetailPage";
 import { OrdersPage } from "./OrdersPage";
 import { ReceivingChecksPage } from "./ReceivingChecksPage";
@@ -19,7 +20,7 @@ const quality: PassageModule = {
   id: "quality",
   title: "Quality",
   description:
-    "Quality orders with results, incoming vendor certificates, physical samples, usage decisions and certificates of analysis, receipts against source inspection, nonconformances with their 8D correction, test groups, instruments and their calibration due list, quality associations, AQL sampling, product compliance, stability studies with their lifecycle and SPC charts.",
+    "Quality orders with results, attribute outcomes, incoming vendor certificates, physical samples, usage decisions and certificates of analysis, receipts against source inspection, nonconformances with their 8D correction, test groups, instruments and their calibration due list, quality associations, AQL sampling, product compliance, stability studies with their lifecycle and SPC charts.",
   routes: [
     { path: "/quality", element: createElement(OrdersPage), handle: { title: "Quality orders", duty: "quality.view" } },
     { path: "/quality/orders", element: createElement(OrdersPage) },
@@ -27,6 +28,9 @@ const quality: PassageModule = {
     { path: "/quality/orders/:id", element: createElement(OrderDetailPage), handle: { title: "Quality order" } },
     { path: "/quality/test-groups", element: createElement(TestGroupsPage) },
     { path: "/quality/test-groups/new", element: createElement(NewTestGroupPage), handle: { title: "New test group version" } },
+    { path: "/quality/outcomes", element: createElement(OutcomesPage), handle: { title: "Outcomes", duty: "quality.view" } },
+    { path: "/quality/outcomes/new", element: createElement(NewOutcomePage), handle: { title: "New outcome" } },
+    { path: "/quality/outcomes/:id", element: createElement(OutcomeEditPage), handle: { title: "Outcome" } },
     { path: "/quality/instruments", element: createElement(InstrumentsPage) },
     { path: "/quality/instruments/new", element: createElement(NewInstrumentPage), handle: { title: "Register instrument" } },
     { path: "/quality/associations", element: createElement(AssociationsPage) },
@@ -51,6 +55,7 @@ const quality: PassageModule = {
     { label: "New quality order", to: "/quality/orders/new", duty: "quality.order.maintain" },
     { label: "Nonconformances", to: "/quality/nonconformances", duty: "quality.view" },
     { label: "Test groups", to: "/quality/test-groups", duty: "quality.view" },
+    { label: "Outcomes", to: "/quality/outcomes", duty: "quality.view" },
     { label: "Instruments", to: "/quality/instruments", duty: "quality.view" },
     { label: "Quality associations", to: "/quality/associations", duty: "quality.view" },
     { label: "Sampling calculator", to: "/quality/sampling", duty: "quality.view" },

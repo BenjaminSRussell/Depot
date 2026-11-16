@@ -25,6 +25,8 @@ type fakeStore struct {
 	order        store.Order
 	released     bool
 	filter       store.OrderFilter
+	lineFilter   store.OrderLineFilter
+	knownLine    string
 	profileLE    string
 	profile      store.CreditProfile
 	listedLE     *string
@@ -52,6 +54,14 @@ func (f *fakeStore) RejectHold(_ context.Context, _, _ string, _ int, comment, _
 func (f *fakeStore) ListOrders(_ context.Context, filter store.OrderFilter) (store.OrderPage, error) {
 	f.filter = filter
 	return store.OrderPage{Items: []store.OrderSummary{}}, nil
+}
+
+func (f *fakeStore) ListOrderLines(_ context.Context, filter store.OrderLineFilter) ([]store.OrderLineSummary, error) {
+	f.lineFilter = filter
+	if filter.ID != "" && f.knownLine == filter.ID {
+		return []store.OrderLineSummary{{ID: filter.ID, OrderNumber: "SO-1", LineNo: 1}}, nil
+	}
+	return []store.OrderLineSummary{}, nil
 }
 
 func (f *fakeStore) GetCreditProfile(_ context.Context, le, _ string) (store.CreditProfile, error) {
@@ -241,5 +251,38 @@ func TestLegalEntityScope_RefusesCallerWithoutScope(t *testing.T) {
 	}
 	if rec := serveBody(t, &fakeStore{}, http.MethodPost, orders, orderBody(le), noScope, map[string]string{idempotencyKey: "k-noscope"}); rec.Code != http.StatusForbidden {
 		t.Fatalf("create order: %d %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestListOrderLines_PassesFiltersAndAcceptsTheLookupDuty(t *testing.T) {
+	fs := &fakeStore{}
+	order := ids.New()
+	for _, duty := range []string{dutyRead, "sales.order.lookup"} {
+		rec := serve(t, fs, http.MethodGet, "/v1/sales/order-lines?q=+so-1+&limit=7&orderId="+order, principal(duty), nil)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("%s: status = %d body %s", duty, rec.Code, rec.Body.String())
+		}
+	}
+	if fs.lineFilter.Q != "so-1" || fs.lineFilter.Limit != 7 || fs.lineFilter.OrderID != order {
+		t.Fatalf("filter = %+v", fs.lineFilter)
+	}
+	if rec := serve(t, fs, http.MethodGet, "/v1/sales/order-lines?orderId=x", principal(dutyRead), nil); rec.Code != http.StatusBadRequest {
+		t.Fatalf("a bad orderId: status = %d", rec.Code)
+	}
+	if rec := serve(t, fs, http.MethodGet, "/v1/sales/order-lines", principal("sales.other"), nil); rec.Code != http.StatusForbidden {
+		t.Fatalf("status = %d, want 403", rec.Code)
+	}
+}
+
+func TestGetOrderLine_ByIdOr404(t *testing.T) {
+	line := ids.New()
+	fs := &fakeStore{knownLine: line}
+	if rec := serve(t, fs, http.MethodGet, "/v1/sales/order-lines/"+line, principal("sales.order.lookup"), nil); rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "SO-1") {
+		t.Fatalf("known line: %d %s", rec.Code, rec.Body)
+	}
+	for _, path := range []string{"/v1/sales/order-lines/" + ids.New(), "/v1/sales/order-lines/nope"} {
+		if rec := serve(t, fs, http.MethodGet, path, principal(dutyRead), nil); rec.Code != http.StatusNotFound {
+			t.Fatalf("%s: %d", path, rec.Code)
+		}
 	}
 }

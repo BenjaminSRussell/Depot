@@ -108,6 +108,8 @@ export interface NewFreightBill {
 
 export interface FreightBill extends NewFreightBill {
   id: string;
+  /** Readable number such as FB-000042. */
+  billNumber: string;
   expectedTotal: string;
   matchStatus: BillStatus;
   carrierInvoiceId?: string;
@@ -247,6 +249,31 @@ function post<T>(path: string, body: unknown, key?: string, extra: Record<string
   const headers: Record<string, string> = { ...extra };
   if (key) headers["Idempotency-Key"] = key;
   return send<T>(path, { method: "POST", headers, body: JSON.stringify(body) });
+}
+
+/** A service a carrier sells (such as Ground); rate cards and rate shopping name it by id. */
+export interface CarrierService {
+  id: string;
+  carrierId: string;
+  code: string;
+  name: string;
+  mode: LoadMode;
+  active: boolean;
+}
+
+export interface NewCarrierService {
+  carrierId: string;
+  code: string;
+  name: string;
+  mode: LoadMode;
+}
+
+export function listCarrierServices(filter: { carrierId?: string } = {}, signal?: AbortSignal): Promise<CarrierService[]> {
+  return items<CarrierService>(`/carrier-services${query({ ...filter, limit: "500" })}`, signal);
+}
+
+export function createCarrierService(input: NewCarrierService, key: string = newKey()): Promise<CarrierService> {
+  return post<CarrierService>("/carrier-services", input, key);
 }
 
 export function listRateCards(filter: { carrierId?: string; serviceId?: string } = {}, signal?: AbortSignal): Promise<RateCard[]> {

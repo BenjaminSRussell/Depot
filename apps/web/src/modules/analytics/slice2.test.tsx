@@ -339,7 +339,7 @@ describe("report schedules", () => {
     render("/analytics/schedules/new");
     fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Bad" } });
     fireEvent.change(screen.getByLabelText("Report type"), { target: { value: "QUERY" } });
-    fireEvent.change(screen.getByLabelText("Saved query id"), { target: { value: "q1" } });
+    fireEvent.change(screen.getByLabelText("Saved query"), { target: { value: "00000000-0000-4000-8000-000000000001" } });
     fireEvent.change(screen.getByLabelText(/^Cron/), { target: { value: "61 6 * * 1" } });
     fireEvent.change(screen.getByLabelText("Recipients"), { target: { value: "a@example.com" } });
     fireEvent.click(screen.getByRole("button", { name: "Create schedule" }));

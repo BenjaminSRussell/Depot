@@ -62,7 +62,6 @@ import {
 import {
   Details,
   LoadError,
-  ShortId,
   StatusBadge,
   currencyPattern,
   dash,
@@ -296,7 +295,7 @@ export function validateOrder(legalEntityId: string, vendorId: string, currency:
     if (!datePattern.test(l.deliveryDate)) errors[f("deliveryDate")] = "Enter a date.";
     if (l.siteId !== "" && !uuidPattern.test(l.siteId.trim())) errors[f("siteId")] = "Site id must be a UUID.";
     if (l.warehouseId !== "" && !uuidPattern.test(l.warehouseId.trim())) errors[f("warehouseId")] = "Warehouse id must be a UUID.";
-    if (l.agreementLineId !== "" && !uuidPattern.test(l.agreementLineId.trim())) errors[f("agreementLineId")] = "Agreement line id must be a UUID.";
+    if (l.agreementLineId !== "" && !uuidPattern.test(l.agreementLineId.trim())) errors[f("agreementLineId")] = "Choose the agreement line, or leave it empty.";
   });
   charges.forEach((c, i) => {
     if (!decimalPattern.test(c.value)) errors[`charges[${i}].value`] = "Enter a decimal value.";
@@ -353,11 +352,14 @@ function LinesCard({
   setLines,
   errors,
   editing = false,
+  vendorId,
 }: {
   lines: LineDraft[];
   setLines: (fn: (ls: LineDraft[]) => LineDraft[]) => void;
   errors: Errors;
   editing?: boolean;
+  /** The order's vendor: the agreement lines offered are the vendor's. */
+  vendorId?: string;
 }) {
   const update = (index: number, patch: Partial<LineDraft>) => setLines((ls) => ls.map((l, i) => (i === index ? { ...l, ...patch } : l)));
   return (
@@ -474,12 +476,20 @@ function LinesCard({
               {existing ? (
                 line.agreementLineId ? (
                   <p className={styles.muted}>
-                    Released against agreement line <ShortId id={line.agreementLineId} />; its quantity cannot change here.
+                    Released against agreement line <Named entity="agreementLine" id={line.agreementLineId} />; its quantity cannot change here.
                   </p>
                 ) : null
               ) : (
-                <FormField id={id("agreement")} label="Agreement line id" optional hint="Releases the line against a purchase agreement" error={err("agreementLineId")}>
-                  {(c) => <Input {...c} value={line.agreementLineId} onChange={(e) => update(i, { agreementLineId: e.target.value })} />}
+                <FormField id={id("agreement")} label="Agreement line" optional hint="Releases the line against a purchase agreement" error={err("agreementLineId")}>
+                  {(c) => (
+                    <EntityLookup
+                      entity="agreementLine"
+                      scope={{ vendorId: vendorId || undefined, productId: line.productId.trim() || undefined }}
+                      {...c}
+                      value={line.agreementLineId}
+                      onChange={(e) => update(i, { agreementLineId: e.target.value })}
+                    />
+                  )}
                 </FormField>
               )}
             </div>
@@ -752,6 +762,7 @@ export function PurchaseOrderCreatePage() {
             setLines(next);
           }}
           errors={errors}
+          vendorId={vendorId}
         />
         <ChargesCard
           charges={charges}
@@ -839,7 +850,7 @@ function EditForm({ po }: { po: PurchaseOrder }) {
           ]}
         />
       </Card>
-      <LinesCard lines={lines} setLines={setLines} errors={errors} editing />
+      <LinesCard lines={lines} setLines={setLines} errors={errors} editing vendorId={po.vendorId} />
       <ChargesCard
         charges={charges}
         lines={lines}

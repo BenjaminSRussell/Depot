@@ -61,6 +61,11 @@ const (
 	CodeCoANotReleasable  = "QM-0186" // a CoA needs a closed order whose decision released quantity
 	CodeCoAReasonRequired = "QM-0187" // a new CoA revision needs the reason for the amendment
 	CodeWriteRace         = "QM-0188" // a CoA revision or receipt check is being written concurrently
+
+	// Outcome master (#500).
+	CodeOutcomeMissing = "QM-0190" // outcome not found
+	CodeOutcomeDupe    = "QM-0191" // an outcome with this code already exists
+	CodeOutcomeUnknown = "QM-0192" // a result names an outcome code the master does not hold
 )
 
 // Error is a rule violation with a stable code. Reason is an optional machine

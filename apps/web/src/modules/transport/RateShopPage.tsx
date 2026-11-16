@@ -1,9 +1,12 @@
 import { useState, type FormEvent } from "react";
-import { Alert, Badge, Button, Card, DataTable, EmptyState, FormField, Input, PageHeader, type DataTableColumn } from "../../shell/ui";
+import { Alert, Badge, Button, Card, DataTable, EmptyState, FormField, Input, PageHeader, Select, type DataTableColumn } from "../../shell/ui";
 import { describeProblem, rateShipment, type Problem, type Quote, type RateRequest, type RateResponse } from "./api/client";
-import { AMOUNT, DATE, fixed, money, shortId, statusLabel, UUID } from "./format";
+import { AMOUNT, DATE, fixed, money, statusLabel, UUID } from "./format";
 import styles from "./pages.module.css";
 import { ProblemMessage } from "../../shell/errors";
+import { EntityName } from "../../shell/lookup/EntityName";
+import { LookupFormField } from "../../shell/lookup/LookupFormField";
+import { SHIPMENT_KINDS, shipmentKindEntity, type ShipmentKind } from "./shipmentKind";
 
 interface Values {
   shipmentId: string;
@@ -34,7 +37,7 @@ const initial: Values = {
 /** Checks that mirror the service, and the request the form sends. */
 export function validateRate(v: Values): { errors: Errors; body?: RateRequest } {
   const errors: Errors = {};
-  if (!UUID.test(v.shipmentId.trim())) errors.shipmentId = "Enter the shipment id as a lower-case UUID.";
+  if (!UUID.test(v.shipmentId.trim())) errors.shipmentId = "Choose the shipment.";
   const zone = (s: string) => s.trim().length >= 1 && s.trim().length <= 20;
   if (!zone(v.originZone)) errors.originZone = "Enter the origin zone, up to 20 characters.";
   if (!zone(v.destinationZone)) errors.destinationZone = "Enter the destination zone, up to 20 characters.";
@@ -67,6 +70,7 @@ const quoteKey = (q: Quote) => `${q.carrierId}-${q.serviceId}-${q.status}`;
 /** Rate a shipment across carrier services, compare, and read the explain trace (FR-34.3, FR-34.4). */
 export function RateShopPage() {
   const [values, setValues] = useState<Values>(initial);
+  const [kind, setKind] = useState<ShipmentKind>("SALES");
   const [errors, setErrors] = useState<Errors>({});
   const [result, setResult] = useState<RateResponse | null>(null);
   const [failure, setFailure] = useState<Problem | null>(null);
@@ -110,8 +114,8 @@ export function RateShopPage() {
 
   const chosenKey = result?.chosen ? quoteKey(result.chosen) : null;
   const columns: DataTableColumn<Quote>[] = [
-    { key: "carrierId", header: "Carrier", mono: true, render: (q) => <span title={q.carrierId}>{shortId(q.carrierId)}</span> },
-    { key: "serviceId", header: "Service", mono: true, render: (q) => <span title={q.serviceId}>{shortId(q.serviceId)}</span> },
+    { key: "carrierId", header: "Carrier", render: (q) => <EntityName entity="vendor" id={q.carrierId} /> },
+    { key: "serviceId", header: "Service", render: (q) => <EntityName entity="carrierService" id={q.serviceId} /> },
     {
       key: "status",
       header: "Status",
@@ -144,7 +148,25 @@ export function RateShopPage() {
       />
       <Card>
         <form className={styles.form} onSubmit={submit} noValidate>
-          {field("shipmentId", "Shipment id", undefined, false, { className: styles.mono })}
+          <FormField id="rate-kind" label="Shipment kind" hint="What the shipment is. Changing it clears the shipment chosen.">
+            {(c) => (
+              <Select
+                {...c}
+                value={kind}
+                onChange={(e) => {
+                  setKind(e.target.value as ShipmentKind);
+                  setValues({ ...values, shipmentId: "" });
+                }}
+              >
+                {SHIPMENT_KINDS.map((k) => (
+                  <option key={k.value} value={k.value}>
+                    {k.label}
+                  </option>
+                ))}
+              </Select>
+            )}
+          </FormField>
+          <LookupFormField id="rate-shipmentId" label="Shipment" entity={shipmentKindEntity(kind)} value={values.shipmentId} error={errors.shipmentId} onChange={(shipmentId) => setValues({ ...values, shipmentId })} />
           {field("originZone", "Origin zone", "Zone or lane code, such as CHI.")}
           {field("destinationZone", "Destination zone")}
           {field("weightKg", "Weight (kg)", undefined, false, { inputMode: "decimal" })}
@@ -185,7 +207,7 @@ export function RateShopPage() {
         )
       ) : null}
       {!busy && opened ? (
-        <Card title={`Explain trace for ${shortId(opened.carrierId)} / ${shortId(opened.serviceId)}`}>
+        <Card title="Explain trace">
           <ol className={styles.trace} aria-label="Explain trace">
             {opened.trace.map((step, i) => (
               <li key={i}>

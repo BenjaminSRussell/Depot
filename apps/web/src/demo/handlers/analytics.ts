@@ -1,8 +1,8 @@
 // Analytics workspace dashboards (/api/v1/analytics/dashboards) and the governed metric catalogue their tiles are
 // bound to. Tiles show the metric they name, so the metrics list is served too (the dashboard pages load it).
-import type { Dashboard, Metric } from "../../modules/analytics/api/client";
+import type { Dashboard, Metric, SavedQuery } from "../../modules/analytics/api/client";
 import { reply, route } from "../backend";
-import { at } from "../store";
+import { at, table, uid } from "../store";
 
 const BASE = "/api/v1/analytics";
 
@@ -93,3 +93,32 @@ route("GET", `${BASE}/dashboards/{id}/values`, ({ params }) => {
     }),
   };
 });
+
+// Saved explorer queries: private to the demo user, who starts with two.
+const K_SAVED = 910;
+const savedQueries = table<SavedQuery>([
+  { id: uid(K_SAVED, 1), name: "Revenue and margin by entity", measures: ["net_revenue", "gross_margin_pct"], dimensions: ["legal_entity"], lookbackDays: 90, createdAt: at(-20) },
+  { id: uid(K_SAVED, 2), name: "Pump units by product family", measures: ["pump_units_shipped"], dimensions: ["product_family"], lookbackDays: 30, createdAt: at(-8) },
+]);
+
+route("GET", `${BASE}/saved-queries`, ({ query }) => {
+  const q = (query.get("q") ?? "").trim().toLowerCase();
+  return {
+    items: savedQueries
+      .all()
+      .filter((s) => (q === "" || s.name.toLowerCase().includes(q)) && (!query.get("name") || s.name === query.get("name")))
+      .sort((a, b) => a.name.localeCompare(b.name)),
+  };
+});
+route("POST", `${BASE}/saved-queries`, ({ body }) => {
+  const input = body as { name: string; measures: string[]; dimensions?: string[]; lookbackDays?: number };
+  const name = (input.name ?? "").trim();
+  if (savedQueries.all().some((s) => s.name.toLowerCase() === name.toLowerCase())) return reply.problem(409, "ANA-0115", "you already have a saved query with this name");
+  const row = savedQueries.insert({ id: crypto.randomUUID(), name, measures: input.measures ?? [], dimensions: input.dimensions ?? [], lookbackDays: input.lookbackDays ?? 30, createdAt: at(0) });
+  return reply.created(row);
+});
+route("GET", `${BASE}/saved-queries/{id}`, ({ params }) => savedQueries.get(params.id) ?? reply.problem(404, "ANA-0112", "saved query not found"));
+route("DELETE", `${BASE}/saved-queries/{id}`, ({ params }) => (savedQueries.remove(params.id) ? reply.noContent() : reply.problem(404, "ANA-0112", "saved query not found")));
+
+// Report schedules: the schedule form reads the list; the demo starts with none.
+route("GET", `${BASE}/schedules`, () => ({ items: [] }));

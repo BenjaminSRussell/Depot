@@ -1,8 +1,9 @@
 import { useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
-import { Button, Card, DataTable, FormField, Input, PageHeader, Select, type DataTableColumn } from "../../shell/ui";
+import { Button, Card, DataTable, FormField, PageHeader, Select, type DataTableColumn } from "../../shell/ui";
+import { LookupFormField } from "../../shell/lookup/LookupFormField";
 import { describeProblem, listStatusChanges, STATUS_COMMANDS, type Page, type Problem, type StatusChange, type StatusCommand } from "./api/client";
-import { dash, formatDateTime, sentence, shortId, UUID } from "./format";
+import { dash, formatDateTime, sentence, shortId } from "./format";
 import { ProblemAlert } from "./parts";
 import styles from "./pages.module.css";
 import { commandLabels } from "./TransactionPage";
@@ -34,7 +35,6 @@ const noFilters: Filters = { transaction: "", command: "" };
 export function StatusChangesPage() {
   const [draft, setDraft] = useState<Filters>(noFilters);
   const [filters, setFilters] = useState<Filters>(noFilters);
-  const [error, setError] = useState("");
   const key = JSON.stringify(filters);
   const state = useLoad((signal) => listStatusChanges(filters, signal), key);
   const [more, setMore] = useState<{ key: string; page: Page<StatusChange> } | null>(null);
@@ -48,9 +48,7 @@ export function StatusChangesPage() {
   function apply(event: FormEvent) {
     event.preventDefault();
     const transaction = draft.transaction.trim();
-    const invalid = transaction !== "" && !UUID.test(transaction) ? "Enter the transaction id (a UUID)." : "";
-    setError(invalid);
-    if (!invalid) setFilters({ ...draft, transaction });
+    setFilters({ ...draft, transaction });
   }
 
   async function loadMore() {
@@ -76,17 +74,15 @@ export function StatusChangesPage() {
       />
       <Card title="Filter">
         <form onSubmit={apply} noValidate className={styles.form}>
-          <FormField id="sc-transaction" label="Transaction" optional error={error || undefined}>
-            {(control) => (
-              <Input
-                {...control}
-                value={draft.transaction}
-                onChange={(event) => setDraft({ ...draft, transaction: event.target.value })}
-                placeholder="Transaction id"
-                invalid={Boolean(error)}
-              />
-            )}
-          </FormField>
+          <LookupFormField
+            id="sc-transaction"
+            label="Transaction"
+            optional
+            entity="inventoryTransaction"
+            hint="Pick a transaction to see only its status moves."
+            value={draft.transaction}
+            onChange={(transaction) => setDraft({ ...draft, transaction })}
+          />
           <FormField id="sc-command" label="Command" optional>
             {(control) => (
               <Select {...control} value={draft.command} onChange={(event) => setDraft({ ...draft, command: event.target.value as StatusCommand | "" })}>
@@ -105,7 +101,6 @@ export function StatusChangesPage() {
             </Button>
             <Button
               onClick={() => {
-                setError("");
                 setDraft(noFilters);
                 setFilters(noFilters);
               }}

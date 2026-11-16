@@ -1,6 +1,7 @@
 package api
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"regexp"
@@ -13,6 +14,7 @@ import (
 	"github.com/BenjaminSRussell/passage/platform/ids"
 	"github.com/BenjaminSRussell/passage/platform/tenant"
 	"github.com/BenjaminSRussell/passage/services/compliance/internal/domain"
+	"github.com/BenjaminSRussell/passage/services/compliance/internal/store"
 )
 
 // Audit and break-glass duties (PRD §9.48 duties). compliance.break-glass.request stands for
@@ -47,9 +49,11 @@ type AuditEvaluateRequest struct {
 // AuditEvaluateResponse lists the findings; each Key is idempotent on (policy
 // version, document). Code is AUD-0701 when any document violates the policy.
 type AuditEvaluateResponse struct {
-	Count    int              `json:"count"`
-	Findings []domain.Finding `json:"findings"`
-	Code     string           `json:"code,omitempty"`
+	// PolicyVersion is the version the findings are keyed to: the request's, or the stored policy's current one.
+	PolicyVersion int              `json:"policyVersion"`
+	Count         int              `json:"count"`
+	Findings      []domain.Finding `json:"findings"`
+	Code          string           `json:"code,omitempty"`
 }
 
 // GroupCasesRequest is the body of POST /v1/compliance/audit-cases:group.
@@ -130,6 +134,27 @@ func (a *API) evaluateAudit(w http.ResponseWriter, r *http.Request) {
 	fields := map[string]string{}
 	if !ids.Valid(req.PolicyID) {
 		fields["policyId"] = "must be a UUID"
+	} else {
+		// A stored policy is the rule: a caller's spec or version under its id would key findings to a rule it does not hold.
+		policy, err := a.store.GetAuditPolicy(r.Context(), strings.ToLower(req.PolicyID))
+		var problem *httpx.Problem
+		switch {
+		case err == nil:
+			if req.Spec.Type != "" || req.Version != 0 {
+				httpx.Fail(w, r, invalid(map[string]string{"spec": "a stored policy runs its own rule: send the policyId alone"}))
+				return
+			}
+			if !policy.Active {
+				httpx.Fail(w, r, httpx.NewProblem(http.StatusUnprocessableEntity, store.CodeAuditPolicyRetired, "this audit policy is retired; run another policy"))
+				return
+			}
+			req.Spec, req.Version = policy.Spec, policy.Version
+		case errors.As(err, &problem) && problem.Code == store.CodeAuditPolicyNotFound && (req.Spec.Type != "" || req.Version != 0):
+			// An id no stored policy holds: the request carries its own rule, as runs did before policies were stored.
+		default:
+			httpx.Fail(w, r, domainProblem(err))
+			return
+		}
 	}
 	if req.Version < 1 {
 		fields["version"] = "must be at least 1"
@@ -172,7 +197,7 @@ func (a *API) evaluateAudit(w http.ResponseWriter, r *http.Request) {
 	if findings == nil {
 		findings = []domain.Finding{}
 	}
-	out := AuditEvaluateResponse{Count: len(findings), Findings: findings}
+	out := AuditEvaluateResponse{Count: len(findings), Findings: findings, PolicyVersion: req.Version}
 	if out.Count > 0 {
 		out.Code = codeAuditViolations
 	}

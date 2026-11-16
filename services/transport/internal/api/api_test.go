@@ -31,15 +31,17 @@ const (
 // fakeStore satisfies store.Store without a database so handler behaviour can be
 // tested in every environment. It records what the handlers pass in.
 type fakeStore struct {
-	cards       []domain.RateCard
-	bill        domain.FreightBill
-	billErr     error
-	invoice     domain.CarrierInvoice
-	invoiceErr  error
-	registerErr error
-	idems       []store.Idem
-	billFilter  store.FreightBillFilter
-	registered  domain.CarrierInvoice
+	cards         []domain.RateCard
+	bill          domain.FreightBill
+	billErr       error
+	invoice       domain.CarrierInvoice
+	invoiceErr    error
+	registerErr   error
+	idems         []store.Idem
+	billFilter    store.FreightBillFilter
+	services      []domain.CarrierService
+	serviceFilter store.CarrierServiceFilter
+	registered    domain.CarrierInvoice
 
 	// Slice 2: tenders, tracking and voyages (tender_test.go).
 	tender        domain.Tender
@@ -107,6 +109,21 @@ func (f *fakeStore) CreateRateCard(_ context.Context, in domain.RateCard, idem s
 
 func (f *fakeStore) ListRateCards(_ context.Context, _ store.RateCardFilter) ([]domain.RateCard, error) {
 	return f.cards, nil
+}
+
+func (f *fakeStore) CreateCarrierService(_ context.Context, in domain.CarrierService, idem store.Idem) (domain.CarrierService, error) {
+	f.idems = append(f.idems, idem)
+	in.ID = "0190f0a0-0000-7000-8000-0000000000e1"
+	return in, nil
+}
+
+func (f *fakeStore) ListCarrierServices(_ context.Context, filter store.CarrierServiceFilter) ([]domain.CarrierService, error) {
+	f.serviceFilter = filter
+	return f.services, nil
+}
+
+func (f *fakeStore) GetCarrierService(_ context.Context, _ string) (domain.CarrierService, error) {
+	return domain.CarrierService{}, store.NotFound("carrier service")
 }
 
 func (f *fakeStore) CreateFreightBill(_ context.Context, in domain.FreightBill, idem store.Idem) (domain.FreightBill, error) {
@@ -255,6 +272,7 @@ func TestRoutes_RequireTheirDuty(t *testing.T) {
 		{http.MethodPost, base + "/rate-cards", api.DutyRateApprove},
 		{http.MethodGet, base + "/rate-cards", api.DutyRate},
 		{http.MethodPost, base + "/freight-bills", api.DutyReconcile},
+		{http.MethodPost, base + "/carrier-services", api.DutyRateApprove},
 		{http.MethodGet, base + "/freight-bills", api.DutyView},
 		{http.MethodGet, base + "/freight-bills/" + billID, api.DutyView},
 		{http.MethodPost, base + "/carrier-invoices", api.DutyReconcile},
