@@ -54,6 +54,8 @@ export type LookupEntityKey =
   | "employment"
   | "dockAppointment"
   | "project"
+  | "piCategory"
+  | "piStepTemplate"
   | "carrierService"
   | "freightBill"
   | "shipment"
@@ -1107,6 +1109,17 @@ export const lookupDefs: Record<LookupEntityKey, LookupDef> = {
     },
   ),
   customerGroup: listedEntity("customer group", "/api/v1/party/customer-groups", codeAndName),
+  piStepTemplate: listedEntity(
+    "PI step template",
+    "/api/v1/shopfloor/pi-step-templates",
+    (row) => {
+      const hit = codeAndName(row);
+      const version = typeof row.version === "number" ? `v${row.version}` : undefined;
+      return hit ? { ...hit, number: [hit.number, version].filter(Boolean).join(" ") || undefined } : null;
+    },
+    () => ({ status: "published", limit: "200" }),
+  ),
+  piCategory: listedEntity("PI category", "/api/v1/shopfloor/pi-categories", codeAndName, () => ({ active: "true", limit: "200" })),
   paymentTerm: listedEntity("payment term", "/api/v1/party/payment-terms", codeAndName),
   postingProfile: listedEntity("posting profile", "/api/v1/party/posting-profiles", codeAndName, (scope) => ({ legalEntityId: scope.legalEntityId })),
   purchaseOrder: searchedEntity(

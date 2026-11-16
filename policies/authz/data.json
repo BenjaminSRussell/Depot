@@ -48,7 +48,7 @@
     "io.data.export": {"permissions": [{"resource": "/v1/exports{,/**}", "methods": ["GET", "POST"]}]},
     "platform.release.maintain": {"permissions": [{"resource": "/v1/platform/releases{,/**}", "methods": ["GET", "POST", "PUT", "DELETE"]}]},
     "platform.release.view": {"permissions": [{"resource": "/v1/platform/releases{,/**}", "methods": ["GET"]}]},
-    "ops.region.view": {"operator_only": true, "permissions": [{"resource": "/v1/ops/regions", "methods": ["GET"]}, {"resource": "/v1/ops/capacity/estimate", "methods": ["GET"]}, {"resource": "/v1/ops/failover-requests/*", "methods": ["GET"]}, {"resource": "/v1/ops/failovers/*", "methods": ["GET"]}, {"resource": "/v1/ops/break-glass", "methods": ["GET"]}, {"resource": "/v1/ops/failovers/*/scorecard", "methods": ["GET"]}, {"resource": "/v1/ops/tenants/*/license", "methods": ["GET"]}, {"resource": "/v1/ops/slo", "methods": ["GET"]}, {"resource": "/v1/ops/tenants", "methods": ["GET"]}, {"resource": "/v1/ops/tenants/*", "methods": ["GET"]}, {"resource": "/v1/ops/tenants/*/costs/*", "methods": ["GET"]}, {"resource": "/v1/ops/costs", "methods": ["GET"]}, {"resource": "/v1/ops/licenses", "methods": ["GET"]}, {"resource": "/v1/ops/tenants/*/decommission", "methods": ["GET"]}, {"resource": "/v1/ops/clone-schedules", "methods": ["GET"]}, {"resource": "/v1/ops/clone-schedules/*/runs", "methods": ["GET"]}]},
+    "ops.region.view": {"operator_only": true, "permissions": [{"resource": "/v1/ops/regions", "methods": ["GET"]}, {"resource": "/v1/ops/capacity/estimate", "methods": ["GET"]}, {"resource": "/v1/ops/failover-requests/*", "methods": ["GET"]}, {"resource": "/v1/ops/failovers/*", "methods": ["GET"]}, {"resource": "/v1/ops/break-glass", "methods": ["GET"]}, {"resource": "/v1/ops/failovers/*/scorecard", "methods": ["GET"]}, {"resource": "/v1/ops/tenants/*/license", "methods": ["GET"]}, {"resource": "/v1/ops/slo", "methods": ["GET"]}, {"resource": "/v1/ops/tenants", "methods": ["GET"]}, {"resource": "/v1/ops/tenants/*", "methods": ["GET"]}, {"resource": "/v1/ops/tenants/*/costs/*", "methods": ["GET"]}, {"resource": "/v1/ops/costs", "methods": ["GET"]}, {"resource": "/v1/ops/licenses", "methods": ["GET"]}, {"resource": "/v1/ops/tenants/*/decommission", "methods": ["GET"]}, {"resource": "/v1/ops/tenants/*/purge", "methods": ["GET"]}, {"resource": "/v1/ops/clone-schedules", "methods": ["GET"]}, {"resource": "/v1/ops/clone-schedules/*/runs", "methods": ["GET"]}]},
     "ops.region.report": {"operator_only": true, "permissions": [{"resource": "/v1/ops/regions/*/lag", "methods": ["PUT"]}]},
     "ops.failover.execute": {"operator_only": true, "permissions": [{"resource": "/v1/ops/failover", "methods": ["POST"]}, {"resource": "/v1/ops/regions/*:rejoin", "methods": ["POST"]}, {"resource": "/v1/ops/failover-requests/*:approve", "methods": ["POST"]}, {"resource": "/v1/ops/failovers/*/steps/*", "methods": ["PUT"]}]},
     "ops.breakglass.request": {"operator_only": true, "permissions": [{"resource": "/v1/ops/break-glass", "methods": ["POST"]}, {"resource": "/v1/ops/break-glass/*:revoke", "methods": ["POST"]}]},
@@ -56,6 +56,7 @@
     "ops.breakglass.review": {"operator_only": true, "permissions": [{"resource": "/v1/ops/break-glass/*:review", "methods": ["POST"]}]},
     "ops.tenant.provision": {"operator_only": true, "permissions": [{"resource": "/v1/ops/tenants", "methods": ["POST"]}, {"resource": "/v1/ops/tenants/*/provision-steps/*", "methods": ["PUT"]}]},
     "ops.cost.record": {"operator_only": true, "permissions": [{"resource": "/v1/ops/tenants/*/costs/*", "methods": ["PUT"]}]},
+    "ops.tenant.purge": {"operator_only": true, "permissions": [{"resource": "/v1/ops/tenants/*/export-verification", "methods": ["PUT"]}, {"resource": "/v1/ops/tenants/*:purge", "methods": ["POST"]}, {"resource": "/v1/ops/tenants/*/purge-result", "methods": ["PUT"]}]},
     "ops.tenant.decommission": {"operator_only": true, "permissions": [{"resource": "/v1/ops/tenants/*:decommission", "methods": ["POST"]}, {"resource": "/v1/ops/tenants/*/decommission-steps/*", "methods": ["PUT"]}]},
     "ops.clone.schedule": {"operator_only": true, "permissions": [{"resource": "/v1/ops/clone-schedules", "methods": ["POST"]}, {"resource": "/v1/ops/clone-schedules/*", "methods": ["PUT", "DELETE"]}]},
     "ops.license.report": {"operator_only": true, "permissions": [{"resource": "/v1/ops/tenants/*/license/usage", "methods": ["PUT"]}]},
@@ -3781,14 +3782,18 @@
       {"resource": "/v1/shopfloor/edge-nodes/*:heartbeat", "methods": ["POST"]},
       {"resource": "/v1/shopfloor/edge-nodes/*:renew-certificate", "methods": ["POST"]},
       {"resource": "/v1/shopfloor/edge-nodes/*/control-recipes", "methods": ["GET"]},
-      {"resource": "/v1/shopfloor/edge-nodes/*/control-recipes/*:report", "methods": ["POST"]}
+      {"resource": "/v1/shopfloor/edge-nodes/*/control-recipes/*:report", "methods": ["POST"]},
+      {"resource": "/v1/shopfloor/edge-nodes/*/readings", "methods": ["POST"]}
     ]},
     "shopfloor.controlrecipe.create": {"permissions": [
       {"resource": "/v1/shopfloor/control-recipes", "methods": ["POST"]},
       {"resource": "/v1/shopfloor/control-recipes/*:resend", "methods": ["POST"]},
       {"resource": "/v1/shopfloor/control-recipes:from-pi-sheet", "methods": ["POST"]}
     ]},
-    "shopfloor.controlrecipe.execute": {"permissions": [{"resource": "/v1/shopfloor/control-recipes/*:report", "methods": ["POST"]}]},
+    "shopfloor.controlrecipe.execute": {"permissions": [
+      {"resource": "/v1/shopfloor/control-recipes/*:report", "methods": ["POST"]},
+      {"resource": "/v1/shopfloor/control-recipes/*/readouts", "methods": ["POST"]}
+    ]},
     "shopfloor.job.sync": {"flag": true, "permissions": []},
     "shopfloor.job.schedule": {"permissions": [{"resource": "/v1/shopfloor/jobs", "methods": ["POST"]}]},
     "shopfloor.job.reopen": {"permissions": [{"resource": "/v1/shopfloor/jobs/*:reopen", "methods": ["POST"]}]},
@@ -3849,7 +3854,24 @@
       {"resource": "/v1/shopfloor/pi-sheets/*:new-version", "methods": ["POST"]},
       {"resource": "/v1/shopfloor/pi-sheets/*:obsolete", "methods": ["POST"]}
     ]},
+    "shopfloor.picategory.maintain": {"permissions": [
+      {"resource": "/v1/shopfloor/pi-categories", "methods": ["POST"]},
+      {"resource": "/v1/shopfloor/pi-categories/*", "methods": ["PUT"]}
+    ]},
+    "shopfloor.piexecution.verify": {"permissions": [{"resource": "/v1/shopfloor/pi-executions/*:verify", "methods": ["POST"]}]},
+    "shopfloor.pistep.maintain": {"permissions": [
+      {"resource": "/v1/shopfloor/pi-step-templates", "methods": ["POST"]},
+      {"resource": "/v1/shopfloor/pi-step-templates/*", "methods": ["PUT"]},
+      {"resource": "/v1/shopfloor/pi-step-templates/*:publish", "methods": ["POST"]},
+      {"resource": "/v1/shopfloor/pi-step-templates/*:new-version", "methods": ["POST"]}
+    ]},
     "shopfloor.view": {"permissions": [
+      {"resource": "/v1/shopfloor/pi-executions", "methods": ["GET"]},
+      {"resource": "/v1/shopfloor/pi-executions/*", "methods": ["GET"]},
+      {"resource": "/v1/shopfloor/pi-step-templates", "methods": ["GET"]},
+      {"resource": "/v1/shopfloor/pi-step-templates/*", "methods": ["GET"]},
+      {"resource": "/v1/shopfloor/pi-categories", "methods": ["GET"]},
+      {"resource": "/v1/shopfloor/pi-categories/*", "methods": ["GET"]},
       {"resource": "/v1/shopfloor/andon-settings", "methods": ["GET"]},
       {"resource": "/v1/shopfloor/edge-nodes/*/certificates", "methods": ["GET"]},
       {"resource": "/v1/shopfloor/pi-sheets", "methods": ["GET"]},

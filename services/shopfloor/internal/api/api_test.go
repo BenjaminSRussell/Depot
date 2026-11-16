@@ -56,6 +56,10 @@ type fakeStore struct {
 	absences      []domain.Absence
 	reasonIn      *store.DowntimeReasonInput
 	categoryIn    *domain.CategoryInput
+	piCategoryIn  *store.PICategoryInput
+	piStepIn      *store.PIStepInput
+	piStepFilter  *store.PIStepFilter
+	piSteps       map[domain.TemplateRef]store.PIStepTemplate
 }
 
 func (f *fakeStore) Ping(context.Context) error { return nil }

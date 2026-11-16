@@ -31,6 +31,8 @@ import (
 const (
 	// DutyDecommission opens a tenant decommission and reports its steps.
 	DutyDecommission = "ops.tenant.decommission"
+	// DutyPurge records the verified export of a decommissioned tenant, authorises the purge of its data and reports the result.
+	DutyPurge = "ops.tenant.purge"
 	// DutyCloneSchedule creates, changes and deletes masked-clone schedules.
 	DutyCloneSchedule = "ops.clone.schedule"
 	// reporterActor is the service principal ops acts as toward identity and print (platform/go/tenant serviceprincipal.go).
@@ -181,6 +183,10 @@ func (a *API) registerPart4(g chi.Router) {
 	g.With(authz.RequireDuty(DutyDecommission)).Post("/v1/ops/tenants/{id}:decommission", a.decommission)
 	g.With(authz.RequireDuty(DutyView)).Get("/v1/ops/tenants/{id}/decommission", a.getDecommission)
 	g.With(authz.RequireDuty(DutyDecommission)).Put("/v1/ops/tenants/{id}/decommission-steps/{action}", a.decommissionStep)
+	g.With(authz.RequireDuty(DutyPurge)).Put("/v1/ops/tenants/{id}/export-verification", a.verifyExport)
+	g.With(authz.RequireDuty(DutyPurge)).Post("/v1/ops/tenants/{id}:purge", a.requestPurge)
+	g.With(authz.RequireDuty(DutyPurge)).Put("/v1/ops/tenants/{id}/purge-result", a.purgeResult)
+	g.With(authz.RequireDuty(DutyView)).Get("/v1/ops/tenants/{id}/purge", a.getPurge)
 	g.With(authz.RequireDuty(DutyCloneSchedule)).Post("/v1/ops/clone-schedules", a.createSchedule)
 	g.With(authz.RequireDuty(DutyView)).Get("/v1/ops/clone-schedules", a.listSchedules)
 	g.With(authz.RequireDuty(DutyCloneSchedule)).Put("/v1/ops/clone-schedules/{id}", a.setScheduleEnabled)
@@ -644,4 +650,84 @@ func (a *API) cloneLease() time.Duration {
 		return a.cfg.CloneLease
 	}
 	return 6 * time.Hour
+}
+
+// ---- purge of a decommissioned tenant's data ----
+
+type exportBody struct {
+	ExportID string `json:"exportId"`
+	Note     string `json:"note"`
+}
+
+// verifyExport records that the tenant's export was verified (who, when, which export). Needs the decommission DECOMMISSIONED.
+func (a *API) verifyExport(w http.ResponseWriter, r *http.Request) {
+	p, _ := tenant.FromContext(r.Context())
+	id, ok := tenantParam(w, r)
+	if !ok {
+		return
+	}
+	var body exportBody
+	if err := httpx.Decode(r, &body); err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+	rec, err := a.store.VerifyExport(r.Context(), id, strings.TrimSpace(body.ExportID), strings.TrimSpace(body.Note), p.UserID)
+	if err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, rec)
+}
+
+// requestPurge authorises the purge (decommission DECOMMISSIONED, export verified) and audits the request. `passage-ops tenant purge`
+// calls it, then deletes with its own purge credentials, then reports with PUT .../purge-result.
+func (a *API) requestPurge(w http.ResponseWriter, r *http.Request) {
+	p, _ := tenant.FromContext(r.Context())
+	id, ok := tenantParam(w, r)
+	if !ok {
+		return
+	}
+	rec, err := a.store.RequestPurge(r.Context(), id, p.UserID)
+	if err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+	slog.Info("tenant purge requested", "tenant", id, "requestedBy", p.UserID)
+	httpx.JSON(w, http.StatusOK, rec)
+}
+
+func (a *API) purgeResult(w http.ResponseWriter, r *http.Request) {
+	p, _ := tenant.FromContext(r.Context())
+	id, ok := tenantParam(w, r)
+	if !ok {
+		return
+	}
+	var body provisionStepBody
+	if err := httpx.Decode(r, &body); err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+	if len(body.Detail) > 4000 {
+		httpx.Fail(w, r, validation("detail", "at most 4000 characters"))
+		return
+	}
+	rec, err := a.store.RecordPurgeResult(r.Context(), id, body.Status, body.Detail, p.UserID)
+	if err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, rec)
+}
+
+func (a *API) getPurge(w http.ResponseWriter, r *http.Request) {
+	id, ok := tenantParam(w, r)
+	if !ok {
+		return
+	}
+	rec, err := a.store.Purge(r.Context(), id)
+	if err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, rec)
 }

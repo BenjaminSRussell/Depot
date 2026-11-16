@@ -105,6 +105,12 @@ func (a *API) createControlRecipe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	in, fields := req.input()
+	if len(fields) == 0 {
+		if err := a.templateRefFields(r.Context(), req.Recipe, fields); err != nil {
+			a.fail(w, r, "check PI step template references", err)
+			return
+		}
+	}
 	if len(fields) > 0 {
 		validationFailed(w, r, fields)
 		return

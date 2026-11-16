@@ -651,6 +651,85 @@ makes the recipe. Migration `0027`. The web designer is at `/shopfloor/pi-sheets
 `quality-result` for an inspection) with its limits, a value outside them needs a comment, and the recipe is reported received,
 in-execution and completed.
 
+### PI category master (round 5, FR-25.15)
+
+`POST/GET /v1/shopfloor/pi-categories`, `GET/PUT /v1/shopfloor/pi-categories/{id}` (migration `0032`, table `pi_category`). A
+category has a code that never changes (upper-case letters, digits, `_`, `.`, `-`; SF-0142 when used), a name, a description and
+a status. `PUT` carries the version read as `If-Match` (SF-0143, 412). Duty `shopfloor.picategory.maintain` maintains,
+`shopfloor.view` reads. The categories group the step templates of the step library; an inactive category takes no new templates
+(SF-0191). The web screen is `/shopfloor/pi-categories`; the category is a lookup entity (`piCategory`).
+
+### PI step library (round 5, FR-25.15, D7)
+
+`POST/GET /v1/shopfloor/pi-step-templates`, `GET/PUT .../{id}` (`If-Match` carries the rev; `ETag` is the rev), `POST .../{id}:publish`
+(If-Match), `POST .../{id}:new-version` (migration `0033`, table `pi_step_template`). A template is one instruction (`spec`, without
+`seq`) kept under a code and a version number; the `kind` is the spec's category. Status: `draft`, `published`, `superseded`. One
+draft and one published version per code. Publishing supersedes the earlier published version, which stays readable and can still be
+named by sheets. A published or superseded version is immutable: the service answers SF-0193, and a database trigger refuses any
+change except published to superseded. A template may be filed under an active PI category (SF-0191 when inactive). Duty
+`shopfloor.pistep.maintain` writes, `shopfloor.view` reads.
+
+Step kinds added to the recipe document (all run at the kiosk only; a process control destination refuses them):
+
+| Kind | Fields | Rules |
+|---|---|---|
+| `calculation` | `expression`, `var` | The formula must compute a number from `var` names of earlier steps. Without an expression a calculation stays the old text-only step. |
+| `machine-readout` | `node`, `characteristic` (numeric), optional `value` and `tolerance`, `var` | The kiosk fetches the connector's latest reading of `node`. A reading outside the limits or farther than `tolerance` from `value`, or typed by hand, needs a comment. |
+| `timer` | `durationSeconds` (1 to 86400), `blocking`, text | A blocking timer holds the next step until it runs out. |
+| `branch` | `condition`, `target`, text | `condition` must be true or false; `target` is a later step of the same phase, the steps between are skipped. |
+
+A step's `var` (`^[a-z][a-z0-9_]{0,39}$`, unique in the recipe) names the value it produces. A calculation or branch may read only
+names defined before it, and not a name defined in steps a branch may skip. `template: {code, version}` on an instruction records the
+library entry it was copied from; saving a sheet, releasing it and creating a recipe check that every reference names an existing,
+non-draft version of the same kind. The instruction's own fields are the copy.
+
+Expressions (`internal/domain/expr.go`, mirrored in `apps/web/src/modules/shopfloor/piExpr.ts`): numbers, names, `+ - * /`, unary
+minus, comparisons, `and`/`or`/`not` (also `&& || !`), and the functions `abs`, `min`, `max`, `round(x, places)`, `floor`, `ceil`.
+Arithmetic is exact decimal (division to 12 places), `and`/`or` stop at the left operand, types are checked when the text is parsed,
+text is limited to 500 characters, 200 terms and 32 levels. There is no eval and no other function or member access.
+
+### Machine readouts on the kiosk (round 5)
+
+`POST /v1/shopfloor/edge-nodes/{id}/readings` (duty `shopfloor.edge.connect`, the bound connector only) stores the latest value
+the connector read from a node (`node_reading`, migration `0034`, one row per edge node and node, a newer reading replaces an older
+one; a reading stamped more than five seconds ahead of the service's clock is refused). `POST /v1/shopfloor/control-recipes/{id}/readouts`
+with `{stepKey}` (duty `shopfloor.controlrecipe.execute`, migration `0036`) hands the kiosk the freshest reading of the node of that
+machine-readout step, judged by when the service received it (at most five minutes), from an edge node at a site of the recipe's resource
+(machine `site_id`; a resource with no machine at a site reads from any edge node of the tenant), and records it as the step's claim
+(`pi_readout_claim`). SF-0196 when there is none. The claim is fixed once a message is recorded for the step. The iot-edge connector does
+not push readings yet (it needs a live OPC-UA server to prove, #213); until it does the kiosk offers a hand entry with a reason.
+
+### The service decides what a kiosk step records (round 5 review)
+
+A kiosk process message whose source id is `<recipe id>:<step key>` (the recipe id is lower-cased; a step key is `unit/operation/phase/seq`,
+and names cannot contain `/`) is checked against the recipe before it is stored, and the values stored are the service's:
+
+- limits, unit, expected value, tolerance and node come from the recipe document, never from the message; a value the step does not ask for is refused (SF-0198);
+- a calculation is computed from the values already stored for the earlier steps; a client result that differs is refused; a branch is decided by the service with the recipe's target, and a `branch-taken` or `branch-target` that disagrees is refused; a step a branch skips takes no message;
+- a machine readout says `readout-source` `machine` or `entered-by-hand`; a hand entry needs a comment; a `machine` value must equal the claim handed out for the step, and the claim id, edge node and reading time are stored with the step;
+- a blocking timer is accepted only after its duration has passed since the later of the recipe's start and the last recorded step (service clock, SF-0199);
+- a message for a signature-request step is a signature: it needs the step-up, and the service fills in `signed-by` and the step's meaning;
+- a retry of a stored message answers with the stored one, so the kiosk adopts what the service holds.
+
+Sealing derives the record again from the recipe and the stored values (messages stored before these checks cannot forge a skipped step,
+a calculation, a tolerance or a signature): a signature step without a signer, a step-up time and the right meaning is `missing` with a
+deviation; a calculation that differs from the service's result, a recorded step a branch skips, a hand entry without a reason and a
+`machine` value without a claim are deviations. A blocking timer is enforced at ingest only.
+
+### PI execution records (round 5, FR-25.18)
+
+When a kiosk recipe is reported completed, the same transaction seals a record (`pi_execution`, `pi_execution_step`, migration
+`0035`): the header (order, resource, sheet code and version, the caller that completed it, start and completion time, step and
+deviation counts, head hash, record hash) and one row per recipe step in document order. A step holds its status (`recorded`,
+`acknowledged` for steps that collect nothing, `skipped` by a branch, `missing`), the values the kiosk recorded for it, the signer,
+the signature meaning and the step-up time already captured on the process message, the comment, and the deviations (out of limits,
+outside a readout tolerance, hand-entered readout, not recorded). The record hash covers the header (including the deviation count and the sheet id) and `:verify` recounts the deviations from the steps. The hash of a step is SHA-256 over the previous hash and the step's
+canonical JSON; the first step chains from a seed bound to the execution and recipe ids; the record hash covers the header and the head
+of the chain. `POST /v1/shopfloor/pi-executions/{id}:verify` (duty `shopfloor.piexecution.verify`) recomputes all of it from what is
+stored and names the first step that does not match. `GET /v1/shopfloor/pi-executions` and `.../{id}` read with `shopfloor.view`. Both
+tables are append only (triggers refuse UPDATE, DELETE and TRUNCATE; the application role has no UPDATE right). The PDF/A archive is not
+produced: print has no PI layout and the archive store is decision #512; the record hash is what an archive copy is checked against.
+
 ### Process messages that end a recipe
 
 An `order-status` process message from the process control system ends the in-execution recipes of its order that run on a
@@ -810,6 +889,16 @@ Problem details use `application/problem+json` with `type` `https://passage.dev/
 | `SF-0182` | 409 | The PI sheet changed since it was read (`rev`) |
 | `SF-0183` | 409 | A PI sheet with this code exists, or the code has a draft already |
 | `SF-0184` | 422 | A control recipe is made from a released PI sheet whose steps fit the destination |
+| `SF-0190` | 404 | PI category not found |
+| `SF-0191` | 422 | A PI step template cannot be put in an inactive PI category |
+| `SF-0192` | 404 | PI step template not found |
+| `SF-0193` | 409 | The step template is not in a state that command needs (only a draft is edited or published; a new version is made from the published one) |
+| `SF-0194` | 409 | A step template with this code exists, or the code has a draft already |
+| `SF-0195` | 422 | Reserved for a step template reference that cannot be used; today a bad reference is a field error on the sheet (400) naming the instruction |
+| `SF-0196` | 404 | No recent reading of the node from the connector |
+| `SF-0197` | 404 | PI execution record not found |
+| `SF-0198` | 422 | A kiosk step message disagrees with the recipe or with what the service worked out (value not asked for, calculation result, branch decision, skipped step, machine reading that was not the one handed out, hand entry without a reason) |
+| `SF-0199` | 422 | A blocking timer is recorded before it has run out on the service's clock |
 | `SF-0178` | 422 | The control recipe cannot go to that destination, or a write is not a setpoint of the recipe |
 | `idempotency_key_reuse` | 422 | `Idempotency-Key` already used with a different request |
 

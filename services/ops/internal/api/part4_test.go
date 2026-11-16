@@ -511,3 +511,92 @@ func TestCloneScheduleChangesAreAuditedHistorySurvivesDeleteAndDecommissionedTen
 		t.Fatalf("audit = %v", got)
 	}
 }
+
+func TestPurgeNeedsADecommissionedTenantAVerifiedExportAndIsAudited(t *testing.T) {
+	dir := &fakeDirectory{status: "suspended"}
+	e := newEnv3(t, time.Now().UTC(), func(c *Config) { c.Directory = dir })
+	tid := provisionTenant(t, e, "Cedar Ridge Pumps")
+	base := "/v1/ops/tenants/" + tid
+	export := `{"exportId":"exp-2026-11","note":"checksums match"}`
+	do := func(method, path, duty, body string) *httptest.ResponseRecorder {
+		return e.do(method, base+path, "alice", duty, "", body)
+	}
+	// Nothing is decommissioned yet.
+	if rec := do("PUT", "/export-verification", DutyPurge, export); rec.Code != http.StatusNotFound || !strings.Contains(rec.Body.String(), "OPS-1732") {
+		t.Fatalf("export before decommission = %d %s", rec.Code, rec.Body)
+	}
+	if rec := e.do("POST", base+":decommission", "alice", DutyDecommission, "", `{"reason":"contract ended"}`); rec.Code != http.StatusCreated {
+		t.Fatalf("decommission = %d %s", rec.Code, rec.Body)
+	}
+	if rec := do("PUT", "/export-verification", DutyPurge, export); rec.Code != http.StatusConflict || !strings.Contains(rec.Body.String(), "OPS-1738") {
+		t.Fatalf("export while decommissioning = %d %s", rec.Code, rec.Body)
+	}
+	for _, a := range domain.DecommissionSteps {
+		if rec := e.do("PUT", base+"/decommission-steps/"+a, "runner", DutyDecommission, "", `{"status":"DONE"}`); rec.Code != http.StatusOK {
+			t.Fatalf("%s = %d", a, rec.Code)
+		}
+	}
+	// Needs its own duty; no marker, no purge.
+	if rec := do("PUT", "/export-verification", DutyDecommission, export); rec.Code != http.StatusForbidden {
+		t.Fatalf("duty = %d", rec.Code)
+	}
+	if rec := do("POST", ":purge", DutyPurge, ""); rec.Code != http.StatusConflict || !strings.Contains(rec.Body.String(), "OPS-1739") {
+		t.Fatalf("purge without an export = %d %s", rec.Code, rec.Body)
+	}
+	if rec := do("PUT", "/export-verification", DutyPurge, `{"exportId":""}`); rec.Code != http.StatusUnprocessableEntity || !strings.Contains(rec.Body.String(), "OPS-1741") {
+		t.Fatalf("empty export id = %d %s", rec.Code, rec.Body)
+	}
+	if rec := do("PUT", "/export-verification", DutyPurge, export); rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"exportVerifiedBy":"alice"`) {
+		t.Fatalf("export = %d %s", rec.Code, rec.Body)
+	}
+	// A result needs a request first.
+	if rec := do("PUT", "/purge-result", DutyPurge, `{"status":"DONE"}`); rec.Code != http.StatusConflict {
+		t.Fatalf("result before request = %d %s", rec.Code, rec.Body)
+	}
+	if rec := do("POST", ":purge", DutyPurge, ""); rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"status":"REQUESTED"`) {
+		t.Fatalf("purge = %d %s", rec.Code, rec.Body)
+	}
+	if rec := do("PUT", "/export-verification", DutyPurge, export); rec.Code != http.StatusConflict {
+		t.Fatalf("the marker is fixed once a purge is requested: %d", rec.Code)
+	}
+	if rec := do("PUT", "/purge-result", DutyPurge, `{"status":"FAILED","detail":"b: rows remain"}`); rec.Code != http.StatusOK {
+		t.Fatalf("failed result = %d %s", rec.Code, rec.Body)
+	}
+	if rec := do("POST", ":purge", DutyPurge, ""); rec.Code != http.StatusOK {
+		t.Fatalf("a failed purge may be retried: %d", rec.Code)
+	}
+	if rec := do("PUT", "/purge-result", DutyPurge, `{"status":"DONE","detail":"deleted 7 rows"}`); rec.Code != http.StatusOK {
+		t.Fatalf("done = %d %s", rec.Code, rec.Body)
+	}
+	if rec := do("POST", ":purge", DutyPurge, ""); rec.Code != http.StatusConflict {
+		t.Fatalf("a DONE purge is not repeated: %d", rec.Code)
+	}
+	rec := do("GET", "/purge", DutyView, "")
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"status":"DONE"`) {
+		t.Fatalf("get = %d %s", rec.Code, rec.Body)
+	}
+	trail := e.do("GET", base+"/decommission", "alice", DutyView, "", "").Body.String()
+	for _, want := range []string{"tenant.export.verified", "tenant.purge.requested", "tenant.purge.failed", "tenant.purge.completed"} {
+		if !strings.Contains(trail, want) {
+			t.Fatalf("audit lacks %s: %s", want, trail)
+		}
+	}
+}
+
+func TestProvisionRealmIsRecordedAndUsedInTheEvent(t *testing.T) {
+	e := newEnv3(t, time.Now().UTC(), nil)
+	tid := provisionTenant(t, e, "Acme")
+	steps := "/v1/ops/tenants/" + tid + "/provision-steps/"
+	if rec := e.do("PUT", steps+"databases", "r", DutyProvision, "", `{"status":"DONE","realm":"x-realm"}`); rec.Code != http.StatusBadRequest {
+		t.Fatalf("a realm on another step = %d", rec.Code)
+	}
+	if rec := e.do("PUT", steps+"realm", "r", DutyProvision, "", `{"status":"DONE","realm":"Bad Realm!"}`); rec.Code != http.StatusBadRequest {
+		t.Fatalf("a bad realm name = %d", rec.Code)
+	}
+	if rec := e.do("PUT", steps+"realm", "r", DutyProvision, "", `{"status":"DONE","realm":"acme-prod"}`); rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"realmName":"acme-prod"`) {
+		t.Fatalf("realm = %d %s", rec.Code, rec.Body)
+	}
+	if rec := e.do("PUT", steps+"realm", "r", DutyProvision, "", `{"status":"DONE","realm":"other-realm"}`); rec.Code != http.StatusConflict {
+		t.Fatalf("a recorded realm is not renamed: %d", rec.Code)
+	}
+}

@@ -26,12 +26,13 @@ type deps struct {
 	executors  func(getenv func(string) string) (failover.Executors, error)
 	lagSource  func(ctx context.Context, getenv func(string) string) (LagSource, error)
 	sleep      func(ctx context.Context, d time.Duration) error
-	// provisioners builds the systems a tenant provision or decommission changes; nil logs what would change (provision.LogExecutors).
-	provisioners func(getenv func(string) string) (provision.Executors, error)
+	// provisioners builds the systems a tenant provision or decommission changes and names the ones with no configuration (they stay on
+	// the logging adapter, which a real run refuses). nil logs what would change for every system (provision.LogExecutors).
+	provisioners func(getenv func(string) string) (provision.Executors, []string, error)
 }
 
 func defaultDeps() deps {
-	return deps{executors: executorsFromEnv, lagSource: pgLagSource, sleep: sleepCtx}
+	return deps{executors: executorsFromEnv, lagSource: pgLagSource, sleep: sleepCtx, provisioners: provisionersFromEnv}
 }
 
 func sleepCtx(ctx context.Context, d time.Duration) error {

@@ -1,6 +1,6 @@
 // Shop floor service (/api/v1/shopfloor) for the demo: machines, the andon board and OEE.
 // Resources and sites carry the real ids of company.ts; the screens show their names.
-import type { Andon, AndonSettings, AndonSiteSettings, AndonThresholds, ControlRecipeDetail, Downtime, EdgeCertificate, EdgeConfigVersion, EdgeNode, Job, Machine, OeeBucket, OeeTile, PISheet, RecipeDocument } from "../../../modules/shopfloor/api/client";
+import type { Andon, AndonSettings, AndonSiteSettings, AndonThresholds, ControlRecipeDetail, Downtime, EdgeCertificate, EdgeConfigVersion, EdgeNode, Job, Machine, OeeBucket, OeeTile, PICategory, PIExecution, PIExecutionDetail, PIExecutionStep, PISheet, PIStepSpec, PIStepTemplate, RecipeDocument } from "../../../modules/shopfloor/api/client";
 import { reply, route } from "../../backend";
 import { DC, PLANT, resourceByCode } from "../../company";
 import { at, table, uid } from "../../store";
@@ -414,6 +414,144 @@ route("POST", `${BASE}/pi-sheets/{id}:obsolete`, (req) => {
   return reply.ok(piSheets.update(row.id, { status: "obsolete", rev: row.rev + 1, updatedAt: new Date().toISOString() }));
 });
 
+// PI categories (FR-25.15, D7): the groups the step library's templates are filed under.
+const K_PI_CATEGORY = 389;
+const piCategories = table<PICategory>([
+  { id: uid(K_PI_CATEGORY, 1), code: "WEIGH", name: "Weighing and dosing", description: "Scale readings, tare and dosing checks.", active: true, version: 2, createdBy: ME.id, createdAt: at(-80), updatedAt: at(-20) },
+  { id: uid(K_PI_CATEGORY, 2), code: "CLEAN", name: "Cleaning and line clearance", description: "Cleaning steps and the checks that follow them.", active: true, version: 1, createdBy: ME.id, createdAt: at(-80), updatedAt: at(-80) },
+  { id: uid(K_PI_CATEGORY, 3), code: "CURE", name: "Curing and drying", description: "Timed holds and oven readouts.", active: true, version: 1, createdBy: ME.id, createdAt: at(-60), updatedAt: at(-60) },
+  { id: uid(K_PI_CATEGORY, 4), code: "LEGACY", name: "Retired step groups", description: "", active: false, version: 3, createdBy: ME.id, createdAt: at(-300), updatedAt: at(-90) },
+]);
+const NO_PI_CATEGORY = () => reply.problem(404, "SF-0190", "PI category not found.");
+route("GET", `${BASE}/pi-categories`, (req) => ({ items: piCategories.all().filter((c) => req.query.get("active") !== "true" || c.active).sort((a, b) => a.code.localeCompare(b.code)) }));
+route("GET", `${BASE}/pi-categories/{id}`, (req) => {
+  const row = piCategories.get(req.params.id);
+  return row ? reply.versioned(row, row.version) : NO_PI_CATEGORY();
+});
+route("POST", `${BASE}/pi-categories`, (req) => {
+  const body = (req.body ?? {}) as { code?: string; name?: string; description?: string; active?: boolean };
+  const errors: Record<string, string> = {};
+  if (!body.code || !/^[A-Z0-9][A-Z0-9_.-]{0,39}$/.test(body.code)) errors.code = "must be 1 to 40 characters: upper-case letters, digits, '_', '.' or '-'";
+  if (!body.name?.trim()) errors.name = "must be 1 to 120 characters";
+  if (Object.keys(errors).length > 0) return reply.problem(422, "COM-0001", "request failed validation", errors);
+  if (piCategories.all().some((c) => c.code === body.code)) return reply.problem(409, "SF-0142", "code is already used");
+  const now = new Date().toISOString();
+  const row = piCategories.insert({ id: crypto.randomUUID(), code: body.code!, name: body.name!.trim(), description: body.description?.trim() ?? "", active: body.active !== false, version: 1, createdBy: ME.id, createdAt: now, updatedAt: now });
+  return reply.versioned(row, 1, 201);
+});
+route("PUT", `${BASE}/pi-categories/{id}`, (req) => {
+  const row = piCategories.get(req.params.id);
+  if (!row) return NO_PI_CATEGORY();
+  if (req.headers.get("If-Match") !== `"${row.version}"`) return reply.problem(412, "SF-0143", "PI category was changed by someone else; reload it and retry with its current version");
+  const body = (req.body ?? {}) as { name?: string; description?: string; active?: boolean };
+  if (!body.name?.trim()) return reply.problem(422, "COM-0001", "request failed validation", { name: "must be 1 to 120 characters" });
+  const next = piCategories.update(row.id, { name: body.name.trim(), description: body.description?.trim() ?? "", active: body.active !== false, version: row.version + 1, updatedAt: new Date().toISOString() })!;
+  return reply.versioned(next, next.version);
+});
+
+// PI step library (FR-25.15, D7): versioned reusable steps. A published version is immutable.
+const K_PI_STEP = 395;
+const stepBase = { createdBy: ME.id, updatedBy: ME.id };
+const piSteps = table<PIStepTemplate>([
+  { ...stepBase, id: uid(K_PI_STEP, 1), code: "CURE-HOLD", version: 2, name: "Cure hold", categoryId: uid(K_PI_CATEGORY, 3), kind: "timer", spec: { category: "timer", text: "Let the resin cure; do not move the fixture.", durationSeconds: 900, blocking: true }, status: "published", rev: 3, createdAt: at(-30), updatedAt: at(-10), publishedBy: ME.id, publishedAt: at(-10) },
+  { ...stepBase, id: uid(K_PI_STEP, 2), code: "CURE-HOLD", version: 1, name: "Cure hold", categoryId: uid(K_PI_CATEGORY, 3), kind: "timer", spec: { category: "timer", text: "Let the resin cure.", durationSeconds: 600, blocking: true }, status: "superseded", rev: 3, createdAt: at(-60), updatedAt: at(-10), publishedBy: ME.id, publishedAt: at(-50) },
+  { ...stepBase, id: uid(K_PI_STEP, 3), code: "NET-WEIGHT", version: 1, name: "Net weight", categoryId: uid(K_PI_CATEGORY, 1), kind: "calculation", spec: { category: "calculation", text: "Net weight of the charge.", expression: "gross - tare", var: "net" }, status: "published", rev: 2, createdAt: at(-40), updatedAt: at(-35), publishedBy: ME.id, publishedAt: at(-35) },
+  { ...stepBase, id: uid(K_PI_STEP, 4), code: "OVEN-TEMP", version: 1, name: "Oven temperature readout", categoryId: uid(K_PI_CATEGORY, 3), kind: "machine-readout", spec: { category: "machine-readout", text: "", node: "ns=2;s=Oven1.Temp", value: 180, tolerance: 5, var: "oven_temp", characteristic: { name: "Oven temperature", type: "numeric", unit: "degC", min: 150, max: 210 } }, status: "published", rev: 2, createdAt: at(-20), updatedAt: at(-18), publishedBy: ME.id, publishedAt: at(-18) },
+  { ...stepBase, id: uid(K_PI_STEP, 5), code: "TOO-HOT", version: 1, name: "Oven too hot?", categoryId: null, kind: "branch", spec: { category: "branch", text: "Is the oven above its limit?", condition: "oven_temp > 200" }, status: "draft", rev: 1, createdAt: at(-2), updatedAt: at(-2), publishedBy: null, publishedAt: null },
+]);
+const NO_PI_STEP = () => reply.problem(404, "SF-0192", "PI step template not found.");
+const stale = (req: { headers: Headers }, row: PIStepTemplate) => req.headers.get("If-Match") !== `"${row.rev}"`;
+route("GET", `${BASE}/pi-step-templates`, (req) => {
+  const q = req.query;
+  return {
+    items: piSteps
+      .all()
+      .filter((t) => (!q.get("status") || t.status === q.get("status")) && (!q.get("code") || t.code === q.get("code")) && (!q.get("version") || String(t.version) === q.get("version")) && (!q.get("categoryId") || t.categoryId === q.get("categoryId")) && (!q.get("kind") || t.kind === q.get("kind")))
+      .sort((a, b) => a.code.localeCompare(b.code) || b.version - a.version),
+  };
+});
+route("GET", `${BASE}/pi-step-templates/{id}`, (req) => {
+  const row = piSteps.get(req.params.id);
+  return row ? reply.versioned(row, row.rev) : NO_PI_STEP();
+});
+route("POST", `${BASE}/pi-step-templates`, (req) => {
+  const body = (req.body ?? {}) as { code?: string; name?: string; categoryId?: string | null; spec?: PIStepSpec };
+  if (!body.code || !/^[A-Z0-9][A-Z0-9_.-]{0,39}$/.test(body.code)) return reply.problem(422, "COM-0001", "request failed validation", { code: "must be 1 to 40 characters: upper-case letters, digits, '_', '.' or '-'" });
+  if (!body.spec || !body.name?.trim()) return reply.problem(422, "COM-0001", "request failed validation", { name: "must be 1 to 120 characters" });
+  if (piSteps.all().some((t) => t.code === body.code)) return reply.problem(409, "SF-0194", "a PI step template with this code exists; make a new version of it instead");
+  const now = new Date().toISOString();
+  const row = piSteps.insert({ ...stepBase, id: crypto.randomUUID(), code: body.code, version: 1, name: body.name.trim(), categoryId: body.categoryId ?? null, kind: body.spec.category, spec: body.spec, status: "draft", rev: 1, createdAt: now, updatedAt: now, publishedBy: null, publishedAt: null });
+  return reply.versioned(row, 1, 201);
+});
+route("PUT", `${BASE}/pi-step-templates/{id}`, (req) => {
+  const row = piSteps.get(req.params.id);
+  if (!row) return NO_PI_STEP();
+  if (row.status !== "draft") return reply.problem(409, "SF-0193", `a ${row.status} version cannot be edited; make a new version of the template`);
+  if (stale(req, row)) return reply.problem(412, "SF-0143", "PI step template was changed by someone else; reload it and retry with its current version");
+  const body = (req.body ?? {}) as { name?: string; categoryId?: string | null; spec?: PIStepSpec };
+  const next = piSteps.update(row.id, { name: body.name?.trim() || row.name, categoryId: body.categoryId ?? null, spec: body.spec ?? row.spec, kind: body.spec?.category ?? row.kind, rev: row.rev + 1, updatedAt: new Date().toISOString() })!;
+  return reply.versioned(next, next.rev);
+});
+route("POST", `${BASE}/pi-step-templates/{id}:publish`, (req) => {
+  const row = piSteps.get(req.params.id);
+  if (!row) return NO_PI_STEP();
+  if (row.status !== "draft") return reply.problem(409, "SF-0193", "only a draft can be published");
+  if (stale(req, row)) return reply.problem(412, "SF-0143", "PI step template was changed by someone else; reload it and retry with its current version");
+  for (const other of piSteps.all()) if (other.code === row.code && other.status === "published") piSteps.update(other.id, { status: "superseded", rev: other.rev + 1 });
+  const now = new Date().toISOString();
+  const next = piSteps.update(row.id, { status: "published", rev: row.rev + 1, publishedBy: ME.id, publishedAt: now, updatedAt: now })!;
+  return reply.versioned(next, next.rev);
+});
+route("POST", `${BASE}/pi-step-templates/{id}:new-version`, (req) => {
+  const row = piSteps.get(req.params.id);
+  if (!row) return NO_PI_STEP();
+  if (row.status !== "published") return reply.problem(409, "SF-0193", "a new version is made from the published version of a template");
+  if (piSteps.all().some((t) => t.code === row.code && t.status === "draft")) return reply.problem(409, "SF-0194", "the template has a draft already; finish or publish it first");
+  const now = new Date().toISOString();
+  const version = Math.max(...piSteps.all().filter((t) => t.code === row.code).map((t) => t.version)) + 1;
+  const made = piSteps.insert({ ...row, id: crypto.randomUUID(), version, status: "draft", rev: 1, createdAt: now, updatedAt: now, publishedBy: null, publishedAt: null });
+  return reply.versioned(made, 1, 201);
+});
+
+// Machine readouts on the kiosk: the connector's latest reading of a node (the demo answers every node with a plausible value).
+route("POST", `${BASE}/control-recipes/{id}/readouts`, (req) => {
+  const stepKey = ((req.body ?? {}) as { stepKey?: string }).stepKey ?? "";
+  if (!stepKey) return reply.problem(400, "COM-0001", "request failed validation", { stepKey: "is required" });
+  return { node: stepKey, value: "181.5", nodeType: "Double", readAt: new Date(Date.now() - 4000).toISOString(), ageSeconds: 4 };
+});
+route("POST", `${BASE}/edge-nodes/{id}/readings`, () => reply.noContent());
+
+// PI execution records (FR-25.18): sealed runs of kiosk sheets. The demo seals nothing new; it serves two finished runs.
+const K_PI_EXEC = 396;
+const hex = (n: number) => (n.toString(16).padStart(2, "0")).repeat(32);
+const execStep = (seq: number, over: Partial<PIExecutionStep>): PIExecutionStep => ({
+  seq, key: `Assembly/Fit/Bearings/${seq}`, phasePath: "Pump assembly/Assembly/Fit/Bearings", kind: "instruction-text", text: "", template: null, status: "recorded", values: [], occurredAt: at(-1.2), signerUser: "", signerAuthTime: "",
+  signatureMeaning: "", comment: "", deviation: false, deviationReasons: [], prevHash: hex(seq), hash: hex(seq + 1), ...over,
+});
+const execRows: PIExecutionDetail[] = [
+  {
+    id: uid(K_PI_EXEC, 1), recipeId: uid(234, 2), orderId: orders.all()[0]?.id ?? uid(234, 2), resourceId: resourceByCode("ASM-01").id, piSheetId: uid(388, 1), sheetCode: "PUMP-ASSY", sheetVersion: 2, executedBy: ME.id,
+    startedAt: at(-1.3), completedAt: at(-1), stepCount: 4, deviationCount: 1, headHash: hex(5), recordHash: hex(9), createdAt: at(-1),
+    steps: [
+      execStep(1, { text: "Check the housing is clean.", status: "acknowledged", occurredAt: "" }),
+      execStep(2, { kind: "process-data-request", text: "Record the bearing clearance.", values: [{ name: "Clearance", type: "numeric", value: "0.19", unit: "mm", min: "0.05", max: "0.15", outOfLimit: true }, { name: "comment", type: "text", value: "Gauge re-zeroed, second reading taken" }], comment: "Gauge re-zeroed, second reading taken", deviation: true, deviationReasons: ["Clearance is outside its limits"] }),
+      execStep(3, { kind: "timer", text: "Let the sealant cure.", values: [{ name: "timer-seconds", type: "numeric", value: "600" }, { name: "timer-blocking", type: "boolean", value: "true" }] }),
+      execStep(4, { kind: "signature-request", text: "Sign the fit.", signerUser: ME.id, signerAuthTime: at(-1.1), signatureMeaning: "verified", values: [{ name: "signature-meaning", type: "text", value: "verified" }] }),
+    ],
+  },
+  {
+    id: uid(K_PI_EXEC, 2), recipeId: uid(234, 1), orderId: orders.all()[1]?.id ?? uid(234, 1), resourceId: resourceByCode("TST-01").id, piSheetId: null, sheetCode: null, sheetVersion: null, executedBy: byUsername("omar.siddiqui").id,
+    startedAt: at(-3.3), completedAt: at(-3), stepCount: 2, deviationCount: 0, headHash: hex(7), recordHash: hex(8), createdAt: at(-3),
+    steps: [execStep(1, { kind: "machine-readout", text: "Oven temperature.", values: [{ name: "Oven temperature", type: "numeric", value: "181.5", unit: "degC" }, { name: "readout-source", type: "text", value: "machine" }] }), execStep(2, { text: "Release the load.", status: "acknowledged", occurredAt: "" })],
+  },
+];
+const execHeader = ({ steps: _steps, ...row }: PIExecutionDetail): PIExecution => row;
+route("GET", `${BASE}/pi-executions`, (req) => ({ items: execRows.filter((x) => (!req.query.get("orderId") || x.orderId === req.query.get("orderId")) && (!req.query.get("recipeId") || x.recipeId === req.query.get("recipeId"))).map(execHeader) }));
+route("GET", `${BASE}/pi-executions/{id}`, (req) => execRows.find((x) => x.id === req.params.id) ?? reply.problem(404, "SF-0197", "PI execution record not found."));
+route("POST", `${BASE}/pi-executions/{id}:verify`, (req) => {
+  const row = execRows.find((x) => x.id === req.params.id);
+  return row ? { valid: true, checkedSteps: row.stepCount, brokenAtSeq: null, reason: "", recordHash: row.recordHash } : reply.problem(404, "SF-0197", "PI execution record not found.");
+});
 
 // ---- Andon thresholds: the tenant's, and the Dallas site's own -----------------------------------------------------
 

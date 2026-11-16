@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"strings"
 
 	"github.com/BenjaminSRussell/passage/services/ops/internal/provision"
 	"github.com/BenjaminSRussell/passage/services/ops/internal/store"
@@ -20,9 +21,21 @@ import (
 //
 //	passage-ops tenant provision --tenant <id> [--dry-run]
 //	passage-ops tenant decommission --tenant <id> --reason <text> [--dry-run]
+//
+// provisionersFromEnv is the real adapters of the systems whose OPS_* configuration is present (provision.FromEnv).
+func provisionersFromEnv(getenv func(string) string) (provision.Executors, []string, error) {
+	return provision.FromEnv(getenv, slog.Default(), nil)
+}
+
 func runTenant(ctx context.Context, args []string, out io.Writer, getenv func(string) string, d deps) error {
+	if len(args) > 0 && args[0] == "verify-export" {
+		return runVerifyExport(ctx, args[1:], out, getenv, d)
+	}
+	if len(args) > 0 && args[0] == "purge" {
+		return runPurge(ctx, args[1:], out, getenv, d)
+	}
 	if len(args) == 0 || (args[0] != "provision" && args[0] != "decommission") {
-		return errors.New("usage: passage-ops tenant provision|decommission --tenant <id> [--reason <text>] [--dry-run]")
+		return errors.New("usage: passage-ops tenant provision|decommission --tenant <id> [--reason <text>] [--dry-run] | verify-export --tenant <id> --export-id <id> [--note <text>] | purge --tenant <id> [--dry-run]")
 	}
 	fs := flag.NewFlagSet("tenant "+args[0], flag.ContinueOnError)
 	fs.SetOutput(io.Discard)
@@ -42,13 +55,18 @@ func runTenant(ctx context.Context, args []string, out io.Writer, getenv func(st
 		return err
 	}
 	exec := provision.LogExecutors(slog.Default())
+	var missing []string
 	if d.provisioners != nil {
-		if exec, err = d.provisioners(getenv); err != nil {
+		if exec, missing, err = d.provisioners(getenv); err != nil {
 			return err
 		}
-	} else if !dry {
-		// Only the logging adapter exists: it changes nothing, so a real run would have nothing to report. Refuse before the API is touched.
-		return fmt.Errorf("%w: only --dry-run is available until adapters for Keycloak, the databases, Kafka and the lakehouse are wired in", provision.ErrNotConfigured)
+	} else {
+		missing = []string{"every system"}
+	}
+	if len(missing) > 0 && !dry {
+		// A system without an adapter is on the logging adapter: it changes nothing, so a real run would have nothing to report.
+		// Refuse before the API is touched.
+		return fmt.Errorf("%w: only --dry-run is available until these are configured: %s", provision.ErrNotConfigured, strings.Join(missing, ", "))
 	}
 	rep := apiReporter{c: c}
 	runner := &provision.Runner{Exec: exec, Reporter: rep, DryRun: dry}
@@ -56,7 +74,7 @@ func runTenant(ctx context.Context, args []string, out io.Writer, getenv func(st
 	if _, err := c.do(ctx, http.MethodGet, "/v1/ops/tenants/"+url.PathEscape(tenantID), nil, nil, &prov); err != nil {
 		return err
 	}
-	t := provision.Tenant{ID: prov.TenantID, Name: prov.Name, Residency: prov.Residency, Region: prov.Region, Tier: prov.Tier}
+	t := provision.Tenant{ID: prov.TenantID, Name: prov.Name, Residency: prov.Residency, Region: prov.Region, Tier: prov.Tier, Realm: prov.RealmName}
 	var res provision.Result
 	if args[0] == "provision" {
 		res, err = runner.Provision(ctx, t)
@@ -98,6 +116,12 @@ func (r apiReporter) ProvisionDone(ctx context.Context, tenantID string) (map[st
 
 func (r apiReporter) ReportProvisionStep(ctx context.Context, tenantID, action, status, detail string) error {
 	_, err := r.c.do(ctx, http.MethodPut, "/v1/ops/tenants/"+url.PathEscape(tenantID)+"/provision-steps/"+url.PathEscape(action), nil, map[string]string{"status": status, "detail": detail}, nil)
+	return err
+}
+
+// ReportRealmStep reports the realm step with the realm's name, which the API records for the decommission.
+func (r apiReporter) ReportRealmStep(ctx context.Context, tenantID, status, detail, realm string) error {
+	_, err := r.c.do(ctx, http.MethodPut, "/v1/ops/tenants/"+url.PathEscape(tenantID)+"/provision-steps/realm", nil, map[string]string{"status": status, "detail": detail, "realm": realm}, nil)
 	return err
 }
 

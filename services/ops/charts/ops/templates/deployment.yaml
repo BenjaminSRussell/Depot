@@ -118,6 +118,57 @@ spec:
             - name: OPS_COST_RATES
               value: {{ .Values.costRates | toJson | quote }}
 {{- end }}
+{{- with .Values.provisioning.keycloak }}
+{{- if .url }}
+            - name: OPS_KEYCLOAK_URL
+              value: {{ .url | quote }}
+            - name: OPS_KEYCLOAK_ADMIN_REALM
+              value: {{ .adminRealm | quote }}
+            - name: OPS_KEYCLOAK_REALM_PREFIX
+              value: {{ .realmPrefix | quote }}
+{{- if .realmTemplate }}
+            - name: OPS_KEYCLOAK_REALM_TEMPLATE
+              value: {{ .realmTemplate | quote }}
+{{- end }}
+            - name: OPS_KEYCLOAK_CLIENT_ID
+              valueFrom:
+                secretKeyRef: { name: {{ required "provisioning.keycloak.secret is required with a url" .secret }}, key: OPS_KEYCLOAK_CLIENT_ID }
+            - name: OPS_KEYCLOAK_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef: { name: {{ .secret }}, key: OPS_KEYCLOAK_CLIENT_SECRET }
+{{- end }}
+{{- end }}
+{{- with .Values.provisioning.databases }}
+{{- if .secret }}
+            - name: OPS_PROVISION_DATABASES
+              valueFrom:
+                secretKeyRef: { name: {{ .secret }}, key: OPS_PROVISION_DATABASES }
+{{- end }}
+{{- end }}
+{{- with .Values.provisioning.purge }}
+{{- if .secret }}
+            - name: OPS_PURGE_DATABASES
+              valueFrom:
+                secretKeyRef: { name: {{ .secret }}, key: OPS_PURGE_DATABASES }
+            - name: OPS_PURGE_KEEP_TABLES
+              value: {{ join "," .keepTables | quote }}
+{{- end }}
+{{- end }}
+{{- with .Values.provisioning.lakehouse }}
+{{- if .catalogUrl }}
+            - name: OPS_LAKEHOUSE_CATALOG_URL
+              value: {{ .catalogUrl | quote }}
+            - name: OPS_LAKEHOUSE_CATALOG_PREFIX
+              value: {{ .catalogPrefix | quote }}
+            - name: OPS_LAKEHOUSE_NAMESPACE_PREFIX
+              value: {{ .namespacePrefix | quote }}
+{{- if .secret }}
+            - name: OPS_LAKEHOUSE_CATALOG_TOKEN
+              valueFrom:
+                secretKeyRef: { name: {{ .secret }}, key: OPS_LAKEHOUSE_CATALOG_TOKEN }
+{{- end }}
+{{- end }}
+{{- end }}
             - name: OPS_CHECK_INTERVAL
               value: {{ .Values.checkInterval | quote }}
           ports:

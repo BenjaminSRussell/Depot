@@ -166,6 +166,21 @@ func TestOpenAPIDocumentsEveryOperation(t *testing.T) {
 		"/v1/shopfloor/pi-sheets/{id}:new-version post":                            DutyPISheetMaintain,
 		"/v1/shopfloor/pi-sheets/{id}:obsolete post":                               DutyPISheetMaintain,
 		"/v1/shopfloor/control-recipes:from-pi-sheet post":                         DutyControlRecipeCreate,
+		"/v1/shopfloor/pi-categories post":                                         DutyPICategoryMaintain,
+		"/v1/shopfloor/pi-categories get":                                          DutyView,
+		"/v1/shopfloor/pi-categories/{id} get":                                     DutyView,
+		"/v1/shopfloor/pi-categories/{id} put":                                     DutyPICategoryMaintain,
+		"/v1/shopfloor/edge-nodes/{id}/readings post":                              DutyEdgeConnect,
+		"/v1/shopfloor/control-recipes/{id}/readouts post":                         DutyControlRecipeExecute,
+		"/v1/shopfloor/pi-executions get":                                          DutyView,
+		"/v1/shopfloor/pi-executions/{id} get":                                     DutyView,
+		"/v1/shopfloor/pi-executions/{id}:verify post":                             DutyPIExecutionVerify,
+		"/v1/shopfloor/pi-step-templates post":                                     DutyPIStepMaintain,
+		"/v1/shopfloor/pi-step-templates get":                                      DutyView,
+		"/v1/shopfloor/pi-step-templates/{id} get":                                 DutyView,
+		"/v1/shopfloor/pi-step-templates/{id} put":                                 DutyPIStepMaintain,
+		"/v1/shopfloor/pi-step-templates/{id}:publish post":                        DutyPIStepMaintain,
+		"/v1/shopfloor/pi-step-templates/{id}:new-version post":                    DutyPIStepMaintain,
 	}
 	keyed := map[string]bool{
 		"/v1/shopfloor/workers post":                                               true,
@@ -197,6 +212,7 @@ func TestOpenAPIDocumentsEveryOperation(t *testing.T) {
 		"/v1/shopfloor/workers/{id}:reactivate post":                               true,
 		"/v1/shopfloor/jobs/{id}:reopen post":                                      true,
 		"/v1/shopfloor/control-recipes:from-pi-sheet post":                         true,
+		"/v1/shopfloor/pi-categories post":                                         true,
 	}
 	for op := range served {
 		d, ok := declared[op]

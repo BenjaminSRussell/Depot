@@ -61,6 +61,10 @@ func (a *API) createPISheet(w http.ResponseWriter, r *http.Request) {
 	}
 	req.Code, req.Name = strings.TrimSpace(req.Code), strings.TrimSpace(req.Name)
 	f := piDocFields(req.Recipe)
+	if err := a.templateRefFields(r.Context(), req.Recipe, f); err != nil {
+		a.fail(w, r, "check PI step template references", err)
+		return
+	}
 	if !piCode.MatchString(req.Code) {
 		f["code"] = "must be 1 to 40 characters: upper-case letters, digits, '_', '.' or '-'"
 	}
@@ -148,6 +152,10 @@ func (a *API) updatePISheet(w http.ResponseWriter, r *http.Request) {
 	}
 	req.Name = strings.TrimSpace(req.Name)
 	f := piDocFields(req.Recipe)
+	if err := a.templateRefFields(r.Context(), req.Recipe, f); err != nil {
+		a.fail(w, r, "check PI step template references", err)
+		return
+	}
 	if n := len(req.Name); n < 1 || n > 120 {
 		f["name"] = "must be 1 to 120 characters"
 	}
@@ -212,7 +220,11 @@ func (a *API) releasePISheet(w http.ResponseWriter, r *http.Request) {
 		if err := jsonUnmarshal(sh.Doc, &doc); err != nil {
 			return sh, err
 		}
-		if f := piDocFields(doc); len(f) > 0 {
+		f := piDocFields(doc)
+		if err := a.templateRefFields(r.Context(), doc, f); err != nil {
+			return sh, err
+		}
+		if len(f) > 0 {
 			for k, v := range f {
 				return sh, httpx.NewProblem(http.StatusUnprocessableEntity, store.CodePISheetUnusable, "the sheet is not complete: "+strings.TrimPrefix(k, "recipe.")+" "+v)
 			}
