@@ -58,8 +58,10 @@ func classes(c []string) []string {
 type LocationFilter struct {
 	WarehouseID string
 	Zone        string
-	AfterName   string
-	Limit       int
+	// Q keeps the locations whose name contains it, ignoring case (the location lookup).
+	Q         string
+	AfterName string
+	Limit     int
 }
 
 // ListLocations returns a page of a warehouse's locations ordered by name,
@@ -69,10 +71,28 @@ func (s *Store) ListLocations(ctx context.Context, f LocationFilter) ([]domain.L
 	err := s.inTx(ctx, func(tx pgx.Tx) error {
 		var err error
 		out, err = queryLocations(ctx, tx, `where warehouse_id = $1 and ($2::text = '' or zone = $2::text) and name > $3::text
-			order by name limit $4`, f.WarehouseID, f.Zone, f.AfterName, f.Limit)
+			and ($5::text = '' or strpos(lower(name), lower($5::text)) > 0)
+			order by name limit $4`, f.WarehouseID, f.Zone, f.AfterName, f.Limit, f.Q)
 		return err
 	})
 	return out, err
+}
+
+// GetLocation returns one location with its stock, or ErrNotFound (the location lookup's resolve, for a stored id).
+func (s *Store) GetLocation(ctx context.Context, id string) (domain.Location, error) {
+	var out []domain.Location
+	err := s.inTx(ctx, func(tx pgx.Tx) error {
+		var err error
+		out, err = queryLocations(ctx, tx, `where id = $1::uuid`, id)
+		return err
+	})
+	if err != nil {
+		return domain.Location{}, err
+	}
+	if len(out) == 0 {
+		return domain.Location{}, ErrNotFound
+	}
+	return out[0], nil
 }
 
 const locationColumns = `id::text, name, zone, pick_sequence, status, max_weight::text, max_volume::text, max_lps, max_items,

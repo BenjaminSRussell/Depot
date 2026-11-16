@@ -80,6 +80,7 @@ type Store interface {
 	ListReleaseRuns(ctx context.Context, f ReleaseRunFilter, after string, limit int) (Page[ReleaseRun], error)
 	SplitRequisitionLine(ctx context.Context, lineID string, version int, quantities []decimal.Decimal, minor int32, splitBy string, idem Idem) (Requisition, error)
 	ListOpenOrderLines(ctx context.Context, f OpenLineFilter, after string, limit int) (Page[OpenOrderLine], error)
+	ListAgreementLines(ctx context.Context, f AgreementLineFilter, after string, limit int) (Page[AgreementLineSummary], error)
 	ListOpenOrdersByVendor(ctx context.Context, f InquiryFilter, after string, limit int) (Page[VendorOpenOrders], error)
 	ListOverdueLines(ctx context.Context, f InquiryFilter, after string, limit int) (Page[OverdueLine], error)
 	ListBackorderedLines(ctx context.Context, f InquiryFilter, after string, limit int) (Page[BackorderedLine], error)

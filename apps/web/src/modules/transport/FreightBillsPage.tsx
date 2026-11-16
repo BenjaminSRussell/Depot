@@ -2,15 +2,16 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Alert, Badge, Button, buttonClassName, DataTable, FormField, PageHeader, Select, type DataTableColumn } from "../../shell/ui";
 import { BILL_STATUSES, listFreightBills, type BillStatus, type FreightBill } from "./api/client";
-import { formatDateTime, matchTone, money, shortId, statusLabel } from "./format";
+import { formatDateTime, matchTone, money, statusLabel } from "./format";
+import { EntityName } from "../../shell/lookup/EntityName";
 import styles from "./pages.module.css";
 import { useLoad } from "./useLoad";
 import { ProblemMessage } from "../../shell/errors";
 
 const columns: DataTableColumn<FreightBill>[] = [
-  { key: "id", header: "Freight bill", mono: true, render: (row) => shortId(row.id) },
-  { key: "loadId", header: "Load", mono: true, render: (row) => <span title={row.loadId}>{shortId(row.loadId)}</span> },
-  { key: "carrierId", header: "Carrier", mono: true, render: (row) => <span title={row.carrierId}>{shortId(row.carrierId)}</span> },
+  { key: "billNumber", header: "Freight bill", mono: true, render: (row) => row.billNumber },
+  { key: "loadId", header: "Load", render: (row) => <EntityName entity="load" id={row.loadId} /> },
+  { key: "carrierId", header: "Carrier", render: (row) => <EntityName entity="vendor" id={row.carrierId} /> },
   { key: "expectedTotal", header: "Expected", align: "end", render: (row) => money(row.expectedTotal, row.currency) },
   { key: "varianceTotal", header: "Variance", align: "end", render: (row) => money(row.varianceTotal, row.currency) },
   { key: "matchStatus", header: "Match", render: (row) => <Badge tone={matchTone(row.matchStatus)}>{statusLabel(row.matchStatus)}</Badge> },

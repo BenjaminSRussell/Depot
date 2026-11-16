@@ -248,6 +248,62 @@ paths:
           description: The amount that moved.
           content: { application/json: { schema: { type: object, required: [encumbranceId, purchaseOrderId, purchaseOrderLineId, converted, status], properties: { encumbranceId: { type: string, format: uuid }, purchaseOrderId: { type: string, format: uuid }, purchaseOrderLineId: { type: string, format: uuid }, converted: { $ref: '#/components/schemas/Money' }, status: { type: string } } } } }
         default: { $ref: '#/components/responses/Problem' }
+  /v1/budget/documents:
+    get:
+      operationId: listBudgetDocuments
+      x-passage-duty: budget.view
+      description: >-
+        The source documents budget checks have seen, newest activity first, each with a readable number (BD-000042). A
+        document is registered by its first check and its lines refreshed by every check. q matches part of the number,
+        number is exact.
+      parameters:
+        - { name: type, in: query, required: false, schema: { type: string, enum: [Requisition, PurchaseOrder, Invoice, Journal, Reservation] } }
+        - { name: q, in: query, required: false, schema: { type: string, maxLength: 100 } }
+        - { name: number, in: query, required: false, schema: { type: string } }
+        - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 500 } }
+      responses:
+        '200':
+          description: Documents.
+          content: { application/json: { schema: { $ref: '#/components/schemas/BudgetDocumentList' } } }
+        default: { $ref: '#/components/responses/Problem' }
+  /v1/budget/documents/{id}:
+    get:
+      operationId: getBudgetDocument
+      x-passage-duty: budget.view
+      description: One registered document, or BUD-0005.
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: The document.
+          content: { application/json: { schema: { $ref: '#/components/schemas/BudgetDocument' } } }
+        default: { $ref: '#/components/responses/Problem' }
+  /v1/budget/document-lines:
+    get:
+      operationId: listBudgetDocumentLines
+      x-passage-duty: budget.view
+      description: The lines of registered documents in line order. q matches the line number, dimension or span.
+      parameters:
+        - { name: documentId, in: query, required: false, schema: { type: string, format: uuid } }
+        - { name: q, in: query, required: false, schema: { type: string, maxLength: 100 } }
+        - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 500 } }
+      responses:
+        '200':
+          description: Document lines.
+          content: { application/json: { schema: { $ref: '#/components/schemas/BudgetDocumentLineList' } } }
+        default: { $ref: '#/components/responses/Problem' }
+  /v1/budget/document-lines/{id}:
+    get:
+      operationId: getBudgetDocumentLine
+      x-passage-duty: budget.view
+      description: One registered document line, or BUD-0005.
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: The line.
+          content: { application/json: { schema: { $ref: '#/components/schemas/BudgetDocumentLine' } } }
+        default: { $ref: '#/components/responses/Problem' }
   /v1/budget/reservations:
     get:
       operationId: listBudgetReservations
@@ -1100,6 +1156,37 @@ components:
               amount: { $ref: '#/components/schemas/Money' }
               consumedAt: { type: string, format: date-time }
         check: { $ref: '#/components/schemas/CheckResult', description: Present on the create response of a fund-holding document. }
+    BudgetDocument:
+      type: object
+      required: [id, number, documentType, legalEntityId, lineCount, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        number: { type: string, description: 'Readable number such as BD-000042, counted per tenant.' }
+        documentType: { type: string, enum: [Requisition, PurchaseOrder, Invoice, Journal, Reservation] }
+        legalEntityId: { type: string, format: uuid }
+        lineCount: { type: integer }
+        updatedAt: { type: string, format: date-time }
+    BudgetDocumentList:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/BudgetDocument' } }
+    BudgetDocumentLine:
+      type: object
+      required: [id, documentId, documentNumber, lineNo, dimensionKey, spanKey, amount]
+      properties:
+        id: { type: string, format: uuid }
+        documentId: { type: string, format: uuid }
+        documentNumber: { type: string }
+        lineNo: { type: integer }
+        dimensionKey: { type: string }
+        spanKey: { type: string }
+        amount: { type: string }
+    BudgetDocumentLineList:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/BudgetDocumentLine' } }
     ReservationList:
       type: object
       required: [items]

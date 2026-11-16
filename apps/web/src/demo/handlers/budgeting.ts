@@ -1,10 +1,10 @@
 // Budgeting service (/api/v1/budget) for the demo: control rule versions and budget plans with scenarios, the plan grid,
 // spreading and scenario comparison. Typed against the module's own client types so shape drift fails `tsc`.
-import type { ActualRow, Balance, Rule } from "../../modules/budgeting/api/client";
+import type { ActualRow, Balance, BudgetDocument, BudgetDocumentLine, CheckOutcome, Reservation, Rule } from "../../modules/budgeting/api/client";
 import type { Comparison, Plan, PlanCell, PlanScenario, StageOwner } from "../../modules/budgeting/api/plans";
 import { LEGAL_ENTITY } from "../company";
 import { DemoResponse, reply, route } from "../backend";
-import { at, newId, table, uid } from "../store";
+import { at, day, newId, table, uid } from "../store";
 import { userIdOf } from "./directory";
 
 const BASE = "/api/v1/budget";
@@ -473,3 +473,109 @@ route("POST", `${BASE}/plans/{id}:submit`, ({ params }) => {
   if (!p.stageOwners.some((o) => o.stage === "Review") || !p.stageOwners.some((o) => o.stage === "Approve")) return reply.problem(422, "BUD-0045", "set who reviews and who approves before submitting");
   return view(plans.update(p.id, { status: "Submitted", submission: p.submission + 1, submittedBy: userIdOf("dev") })!);
 });
+
+// Source documents a budget check has seen (BD-numbers) with their lines, for the document and line lookups.
+const K_DOC = 369;
+interface DemoDocument extends BudgetDocument {
+  lines: Omit<BudgetDocumentLine, "documentId" | "documentNumber">[];
+}
+const documents = table<DemoDocument>([
+  {
+    id: uid(K_DOC, 1), number: "BD-000014", documentType: "PurchaseOrder", legalEntityId: LEGAL_ENTITY.id, lineCount: 2, updatedAt: at(-4),
+    lines: [
+      { id: uid(K_DOC, 101), lineNo: 1, dimensionKey: "6200|CR-PLANT", spanKey: "FY2026-Q4", amount: "18400" },
+      { id: uid(K_DOC, 102), lineNo: 2, dimensionKey: "6300|CR-PLANT", spanKey: "FY2026-Q4", amount: "9800" },
+    ],
+  },
+  {
+    id: uid(K_DOC, 2), number: "BD-000015", documentType: "Requisition", legalEntityId: LEGAL_ENTITY.id, lineCount: 1, updatedAt: at(-2),
+    lines: [{ id: uid(K_DOC, 201), lineNo: 1, dimensionKey: "6300|CR-PLANT", spanKey: "FY2026-Q4", amount: "6200" }],
+  },
+  {
+    id: uid(K_DOC, 3), number: "BD-000016", documentType: "Invoice", legalEntityId: LEGAL_ENTITY.id, lineCount: 1, updatedAt: at(-1),
+    lines: [{ id: uid(K_DOC, 301), lineNo: 1, dimensionKey: "6400|DAL-DC", spanKey: "FY2026-Q4", amount: "41000" }],
+  },
+]);
+
+const documentView = ({ lines: _lines, ...doc }: DemoDocument): BudgetDocument => doc;
+const lineViews = (d: DemoDocument): BudgetDocumentLine[] => d.lines.map((l) => ({ ...l, documentId: d.id, documentNumber: d.number }));
+
+route("GET", `${BASE}/documents`, ({ query }) => {
+  const q = (query.get("q") ?? "").trim().toLowerCase();
+  return {
+    items: documents
+      .all()
+      .filter((d) => (!query.get("type") || d.documentType === query.get("type")) && (!query.get("number") || d.number === query.get("number")) && (q === "" || d.number.toLowerCase().includes(q)))
+      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+      .map(documentView),
+  };
+});
+route("GET", `${BASE}/documents/{id}`, ({ params }) => {
+  const d = documents.get(params.id);
+  return d ? documentView(d) : notFound("budget document");
+});
+route("GET", `${BASE}/document-lines`, ({ query }) => {
+  const q = (query.get("q") ?? "").trim().toLowerCase();
+  return {
+    items: documents
+      .all()
+      .filter((d) => !query.get("documentId") || d.id === query.get("documentId"))
+      .flatMap(lineViews)
+      .filter((l) => q === "" || String(l.lineNo) === q || l.dimensionKey.toLowerCase().includes(q) || l.spanKey.toLowerCase().includes(q)),
+  };
+});
+route("GET", `${BASE}/document-lines/{id}`, ({ params }) => {
+  const line = documents.all().flatMap(lineViews).find((l) => l.id === params.id);
+  return line ?? notFound("budget document line");
+});
+
+// A check passes the lines against the rule's balances and registers the document the first time it is seen.
+route("POST", `${BASE}/checks`, ({ body }) => {
+  const input = body as { ruleVersionId: string; documentId: string; documentType: DemoDocument["documentType"]; lines: { lineId: string; dimensionKey: string; spanKey: string; amount: string }[] };
+  const existing = documents.get(input.documentId);
+  const seen = documents.all().length;
+  const doc: DemoDocument = {
+    id: input.documentId,
+    number: existing?.number ?? `BD-${String(14 + seen).padStart(6, "0")}`,
+    documentType: input.documentType,
+    legalEntityId: LEGAL_ENTITY.id,
+    lineCount: input.lines.length,
+    updatedAt: at(0),
+    lines: input.lines.map((l, i) => ({ id: l.lineId, lineNo: i + 1, dimensionKey: l.dimensionKey, spanKey: l.spanKey, amount: l.amount })),
+  };
+  if (existing) documents.update(doc.id, doc);
+  else documents.insert(doc);
+  const outcome: CheckOutcome = {
+    id: crypto.randomUUID(),
+    ruleVersionId: input.ruleVersionId,
+    documentId: input.documentId,
+    documentType: input.documentType,
+    result: "pass",
+    overridden: false,
+    checkedAt: at(0),
+    lines: input.lines.map((l) => ({ ...l, prior: "0", result: "pass", available: "100000", net: l.amount, overPct: "0", trace: ["Found the balance", "Within available funds"] })),
+  };
+  return reply.created(outcome);
+});
+
+// One funds reservation with an open line, to consume by a follow-on document.
+const reservation: Reservation = {
+  id: uid(K_DOC, 900),
+  legalEntityId: LEGAL_ENTITY.id,
+  ruleVersionId: uid(K_RULE, 1),
+  type: "FundsReservation",
+  number: "FR-000003",
+  description: "Pump bearings for the Q4 plant overhaul",
+  expiryDate: day(60),
+  status: "Open",
+  total: "12000",
+  consumed: "0",
+  released: "0",
+  open: "12000",
+  version: 1,
+  createdAt: at(-9),
+  lines: [{ lineId: uid(K_DOC, 901), dimensionKey: "6400|DAL-DC", spanKey: "FY2026-Q4", amount: "12000", consumed: "0", released: "0", open: "12000" }],
+  consumptions: [],
+};
+route("GET", `${BASE}/reservations`, () => ({ items: [{ ...reservation, lines: [], consumptions: [] }] }));
+route("GET", `${BASE}/reservations/{id}`, ({ params }) => (params.id === reservation.id ? reply.versioned(reservation, reservation.version) : notFound("reservation")));

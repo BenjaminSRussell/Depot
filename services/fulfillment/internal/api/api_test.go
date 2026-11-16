@@ -33,6 +33,8 @@ type fakeStore struct {
 
 	warehouse       string
 	storeSkips      []domain.Skip
+	slipLineFilter  store.PackingSlipLineFilter
+	knownSlipLine   string
 	shipmentFilter  store.ShipmentFilter
 	slipFilter      store.PackingSlipFilter
 	picks           []store.PickInput
@@ -76,6 +78,14 @@ func (f *fakeStore) ListShipments(_ context.Context, filter store.ShipmentFilter
 func (f *fakeStore) ListPackingSlips(_ context.Context, filter store.PackingSlipFilter) ([]store.PackingSlipSummary, error) {
 	f.slipFilter = filter
 	return []store.PackingSlipSummary{}, nil
+}
+
+func (f *fakeStore) ListPackingSlipLines(_ context.Context, filter store.PackingSlipLineFilter) ([]store.PackingSlipLineSummary, error) {
+	f.slipLineFilter = filter
+	if filter.ID != "" && f.knownSlipLine == filter.ID {
+		return []store.PackingSlipLineSummary{{ID: filter.ID, PackingSlipNumber: "PS-1", LineNo: 1}}, nil
+	}
+	return []store.PackingSlipLineSummary{}, nil
 }
 
 func (f *fakeStore) GetPackingSlip(_ context.Context, id string) (store.PackingSlip, error) {
@@ -402,6 +412,35 @@ func TestPackingSlips_ListAndGet(t *testing.T) {
 	rec = do(t, h, http.MethodGet, "/v1/fulfillment/packing-slips/"+ids.New(), "", nil)
 	if rec.Code != http.StatusNotFound || !strings.Contains(rec.Body.String(), store.CodeSlipNotFound) {
 		t.Fatalf("status = %d body = %s, want 404 %s", rec.Code, rec.Body.String(), store.CodeSlipNotFound)
+	}
+}
+
+func TestPackingSlipLines_ListAndShipmentSearch(t *testing.T) {
+	fs := &fakeStore{}
+	h := newServer(t, fs)
+	slip := ids.New()
+	rec := do(t, h, http.MethodGet, "/v1/fulfillment/packing-slip-lines?q=+ps-7+&slipId="+slip+"&limit=20", "", nil)
+	if rec.Code != http.StatusOK || fs.slipLineFilter.SlipID != slip || fs.slipLineFilter.Q != "ps-7" || fs.slipLineFilter.Limit != 20 {
+		t.Fatalf("status = %d filter = %+v", rec.Code, fs.slipLineFilter)
+	}
+	if rec := do(t, h, http.MethodGet, "/v1/fulfillment/packing-slip-lines?slipId=x", "", nil); rec.Code != http.StatusBadRequest {
+		t.Fatalf("a bad slipId: status = %d", rec.Code)
+	}
+	if rec := do(t, h, http.MethodGet, "/v1/fulfillment/shipments?q=+sh-1+&number=SH-0000001", "", nil); rec.Code != http.StatusOK || fs.shipmentFilter.Q != "sh-1" || fs.shipmentFilter.Number != "SH-0000001" {
+		t.Fatalf("status = %d filter = %+v", rec.Code, fs.shipmentFilter)
+	}
+}
+
+func TestPackingSlipLine_GetByShipmentLineOr404(t *testing.T) {
+	line := ids.New()
+	h := newServer(t, &fakeStore{knownSlipLine: line})
+	if rec := do(t, h, http.MethodGet, "/v1/fulfillment/packing-slip-lines/"+line, "", nil); rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "PS-1") {
+		t.Fatalf("known line: %d %s", rec.Code, rec.Body)
+	}
+	for _, id := range []string{ids.New(), "nope"} {
+		if rec := do(t, h, http.MethodGet, "/v1/fulfillment/packing-slip-lines/"+id, "", nil); rec.Code != http.StatusNotFound {
+			t.Fatalf("%s: %d", id, rec.Code)
+		}
 	}
 }
 

@@ -90,7 +90,7 @@ export function EntityLookup({
   const [resultsFor, setResultsFor] = useState<string | null>(null);
   const [denied, setDenied] = useState(false);
   const requestId = useRef(0);
-  const scopeKey = `${scope?.legalEntityId ?? ""}|${scope?.siteId ?? ""}`;
+  const scopeKey = JSON.stringify(scope ?? {});
 
   const work = useWorkContext();
   const preset =
@@ -140,6 +140,19 @@ export function EntityLookup({
       onChange({ target: { name, value: "" }, option: null });
     }
   }, [scope?.legalEntityId]);
+
+  // A line picked under one order, slip, carrier, vendor or document does not follow the form to another.
+  const parentKey = [scope?.orderId, scope?.slipId, scope?.carrierId, scope?.vendorId, scope?.documentId, scope?.documentType, scope?.warehouseId].join("|");
+  const lastParent = useRef(parentKey);
+  useEffect(() => {
+    const before = lastParent.current;
+    lastParent.current = parentKey;
+    if (before !== parentKey && before.replace(/\|/g, "") !== "" && value !== "" && !readOnly && !disabled) {
+      setSelected(null);
+      setTyped(null);
+      onChange({ target: { name, value: "" }, option: null });
+    }
+  }, [parentKey]);
 
   const query = typed ?? "";
   useEffect(() => {

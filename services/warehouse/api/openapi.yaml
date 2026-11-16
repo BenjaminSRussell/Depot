@@ -106,6 +106,7 @@ paths:
       parameters:
         - { name: warehouseId, in: query, required: true, schema: { type: string, format: uuid } }
         - { name: zone, in: query, schema: { type: string } }
+        - { name: q, in: query, description: Only locations whose name contains it, ignoring case (the location lookup), schema: { type: string, maxLength: 100 } }
         - $ref: "#/components/parameters/Limit"
         - $ref: "#/components/parameters/Cursor"
       responses:
@@ -117,6 +118,22 @@ paths:
         "400": { $ref: "#/components/responses/Validation" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+  /v1/warehouse/locations/{id}:
+    get:
+      operationId: getLocation
+      summary: One location with its stock (the location lookup's resolve)
+      x-passage-duty: warehouse.setup.view
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: The location.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Location" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
   /v1/warehouse/location-directives:
     post:
       operationId: createLocationDirective

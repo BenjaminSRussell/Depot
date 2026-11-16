@@ -15,7 +15,14 @@ route("GET", `${BASE}/shipments`, ({ query }) => {
   const limit = Number(query.get("limit") ?? 0);
   const rows = shipments
     .all()
-    .filter((s) => (!status || s.status === status) && (!orderId || s.orderId === orderId) && (!warehouseId || s.warehouseId === warehouseId))
+    .filter(
+      (s) =>
+        (!status || s.status === status) &&
+        (!orderId || s.orderId === orderId) &&
+        (!warehouseId || s.warehouseId === warehouseId) &&
+        (!query.get("number") || s.shipmentNumber === query.get("number")) &&
+        matchesQ(query, s.shipmentNumber),
+    )
     .sort((a, b) => b.plannedShipDate.localeCompare(a.plannedShipDate) || b.shipmentNumber.localeCompare(a.shipmentNumber))
     .map(({ lines, containers: _containers, ...header }) => ({ ...header, lineCount: lines.length }));
   return { items: limit > 0 ? rows.slice(0, limit) : rows };
@@ -54,6 +61,24 @@ route("GET", `${BASE}/packing-slips`, ({ query }) => {
     .map(slipSummary);
   return { items: rows };
 });
+/** The lines of every posted slip, numbered within their slip; a slip line is identified by the shipment line it covers. */
+function slipLines() {
+  return slips
+    .all()
+    .sort((a, b) => b.postingDate.localeCompare(a.postingDate))
+    .flatMap((s) =>
+      s.lines.map((l, i) => {
+        const line = shipments.get(s.shipmentId)?.lines.find((x) => x.id === l.shipmentLineId);
+        return { id: l.shipmentLineId, packingSlipId: s.id, packingSlipNumber: s.packingSlipNumber, lineNo: i + 1, orderLineId: l.orderLineId, productId: line?.productId ?? "", qty: l.qty };
+      }),
+    );
+}
+
+route("GET", `${BASE}/packing-slip-lines`, ({ query }) => ({
+  items: slipLines().filter((l) => (!query.get("slipId") || l.packingSlipId === query.get("slipId")) && matchesQ(query, l.packingSlipNumber)),
+}));
+route("GET", `${BASE}/packing-slip-lines/{id}`, ({ params }) => slipLines().find((l) => l.id === params.id) ?? reply.problem(404, "FUL-0404", "Packing slip line not found"));
+
 route("GET", `${BASE}/packing-slips/{id}`, ({ params }) => {
   const s = slips.get(params.id);
   return s ?? reply.problem(404, "FUL-0404", "Packing slip not found");

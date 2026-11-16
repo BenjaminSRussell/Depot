@@ -211,14 +211,37 @@ export interface AuditFinding {
   evidence: Record<string, string>;
 }
 
+/** The policy id alone runs the stored policy at its current version; a version and a spec run a rule the caller carries. */
 export interface AuditEvaluateInput {
   policyId: string;
-  version: number;
-  spec: AuditSpec;
+  version?: number;
+  spec?: AuditSpec;
   documents: AuditDocument[];
 }
 
+/** A stored audit rule (FR-48.14). Every change to its spec is a new version; renaming or retiring is not. */
+export interface AuditPolicy {
+  policyId: string;
+  code: string;
+  name: string;
+  ruleType: AuditRuleType;
+  spec: AuditSpec;
+  active: boolean;
+  version: number;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface NewAuditPolicy {
+  code: string;
+  name: string;
+  spec: AuditSpec;
+}
+
 export interface AuditEvaluateResult {
+  /** The version the finding keys are built on. */
+  policyVersion?: number;
   count: number;
   findings: AuditFinding[];
   /** AUD-0701 when any document violates the policy. */
@@ -476,6 +499,28 @@ export function withholdTds(input: TdsInput): Promise<TdsResult> {
 }
 
 /** Runs one audit rule over a document window (FR-48.14); nothing is stored. */
+export async function listAuditPolicies(signal?: AbortSignal): Promise<AuditPolicy[]> {
+  return (await json<{ items: AuditPolicy[] }>(`${complianceBase}/audit-policies${query({ limit: "500" })}`, {}, signal)).items ?? [];
+}
+
+/** One policy with its ETag, which the next update sends as If-Match. */
+export async function getAuditPolicyVersioned(id: string, signal?: AbortSignal): Promise<Versioned<AuditPolicy>> {
+  return versioned<AuditPolicy>(`${complianceBase}/audit-policies/${encodeURIComponent(id)}`, {}, signal);
+}
+
+export function getAuditPolicy(id: string, signal?: AbortSignal): Promise<AuditPolicy> {
+  return json<AuditPolicy>(`${complianceBase}/audit-policies/${encodeURIComponent(id)}`, {}, signal);
+}
+
+export function createAuditPolicy(input: NewAuditPolicy, key: string = newKey()): Promise<AuditPolicy> {
+  return json<AuditPolicy>(`${complianceBase}/audit-policies`, { method: "POST", headers: { "Idempotency-Key": key }, body: JSON.stringify(input) });
+}
+
+/** Renames, retires or re-specifies a policy; etag is the one from its last read. */
+export function updateAuditPolicy(id: string, etag: string, patch: { name?: string; active?: boolean; spec?: AuditSpec }): Promise<AuditPolicy> {
+  return json<AuditPolicy>(`${complianceBase}/audit-policies/${encodeURIComponent(id)}`, { method: "PATCH", headers: { "If-Match": etag }, body: JSON.stringify(patch) });
+}
+
 export function evaluateAuditPolicy(input: AuditEvaluateInput): Promise<AuditEvaluateResult> {
   return json<AuditEvaluateResult>(`${complianceBase}/audit-policies:evaluate`, { method: "POST", body: JSON.stringify(input) });
 }

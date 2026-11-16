@@ -9,6 +9,14 @@ import { ProblemMessage } from "../../shell/errors";
 
 const COUNTRY = /^[A-Za-z]{2}$/;
 
+/** The documents a screening names, by the list that picks each one; the screening itself only needs the document's id. */
+const DOCUMENT_KINDS = [
+  { key: "salesOrder", label: "Sales order", entity: "salesOrder" },
+  { key: "shipment", label: "Delivery", entity: "shipment" },
+  { key: "purchaseOrder", label: "Purchase order", entity: "purchaseOrder" },
+  { key: "payment", label: "Payment", entity: "arPayment" },
+] as const;
+
 /**
  * Parses one list entry per line, fields separated by "|":
  * list code | entry id | version | name | country | address | aliases (separated by ";").
@@ -57,7 +65,7 @@ type Errors = Partial<Record<Exclude<keyof ScreenValues, "type">, string>>;
 /** Checks the form and builds the request; mirrors the service's field checks. */
 export function toScreenInput(v: ScreenValues): { subject?: ScreeningSubject; entries?: ListEntry[]; errors: Errors } {
   const errors: Errors = {};
-  if (!UUID.test(v.id.trim())) errors.id = v.type === "PARTY" ? "Choose the party." : "Enter the document's UUID.";
+  if (!UUID.test(v.id.trim())) errors.id = v.type === "PARTY" ? "Choose the party." : "Choose the document.";
   if (!v.name.trim()) errors.name = "Enter the name to screen.";
   if (v.country.trim() && !COUNTRY.test(v.country.trim())) errors.country = "Use a two-letter country code such as DE.";
   const parsed = parseEntries(v.entries);
@@ -87,6 +95,7 @@ const initial: ScreenValues = { type: "PARTY", id: "", name: "", address: "", co
  */
 export function ScreeningCheckPage() {
   const [values, setValues] = useState<ScreenValues>(initial);
+  const [kind, setKind] = useState<(typeof DOCUMENT_KINDS)[number]["key"]>("salesOrder");
   const [errors, setErrors] = useState<Errors>({});
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<Problem | null>(null);
@@ -151,9 +160,28 @@ export function ScreeningCheckPage() {
               onChange={(id, option) => setValues((v) => ({ ...v, id, name: option && v.name.trim() === "" ? option.name : v.name }))}
             />
           ) : (
-            <FormField id="screen-id" label="Document id" hint="A sales order, delivery, purchase order or payment; no single list spans them." error={errors.id}>
-              {(control) => <Input {...control} className={styles.mono} value={values.id} onChange={(e) => set("id", e.target.value)} invalid={Boolean(errors.id)} />}
-            </FormField>
+            <>
+              <FormField id="screen-document-kind" label="Document kind" hint="Each kind is picked from its own list.">
+                {(control) => (
+                  <Select {...control} value={kind} onChange={(e) => { setKind(e.target.value as (typeof DOCUMENT_KINDS)[number]["key"]); set("id", ""); }}>
+                    {DOCUMENT_KINDS.map((k) => (
+                      <option key={k.key} value={k.key}>
+                        {k.label}
+                      </option>
+                    ))}
+                  </Select>
+                )}
+              </FormField>
+              <LookupFormField
+                id="screen-id"
+                label="Document"
+                entity={DOCUMENT_KINDS.find((k) => k.key === kind)!.entity}
+                prefill={false}
+                value={values.id}
+                error={errors.id}
+                onChange={(id) => set("id", id)}
+              />
+            </>
           )}
           <FormField id="screen-name" label="Name" error={errors.name}>
             {(control) => <Input {...control} value={values.name} onChange={(e) => set("name", e.target.value)} invalid={Boolean(errors.name)} />}

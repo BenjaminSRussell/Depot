@@ -28,4 +28,6 @@ const (
 	CodeUnexpectedInvoice  = "TMS-0109"
 	CodeAllocationResidual = "TMS-0110"
 	CodeContainerCheck     = "TMS-0124"
+	// CodeCarrierServiceExists: the carrier already has a service with that code.
+	CodeCarrierServiceExists = "TMS-0140"
 )

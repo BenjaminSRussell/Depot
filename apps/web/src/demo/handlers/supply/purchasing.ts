@@ -601,17 +601,15 @@ route("GET", `${BASE}/agreements`, ({ query }) => {
   return { items: agreementSummaries().filter((a) => !status || a.status === status) };
 });
 
-route("GET", `${BASE}/agreements/{id}`, ({ params }) => {
-  const sum = agreementSummaries().find((a) => a.id === params.id);
-  if (!sum) return reply.problem(404, "PRC-AGR-NOT-FOUND", "Agreement not found");
-  const { lineCount: _l, maxPctReleased: _m, ...head } = sum;
+/** The lines of a demo agreement; the detail read and the agreement-line lookup share them. */
+function linesOf(sum: PurchaseAgreementSummary): PurchaseAgreement["lines"] {
   const products = sum.vendorId === VENDORS[0].id ? ["CST-IMP-06", "CST-VOL-04"] : sum.vendorId === VENDORS[3].id ? ["FST-KIT-A"] : ["MTR-5HP-TEFC", "MTR-15HP-TEFC"];
-  const lines = products.slice(0, sum.lineCount).map((n, i): PurchaseAgreement["lines"][number] => {
+  return products.slice(0, sum.lineCount).map((n, i): PurchaseAgreement["lines"][number] => {
     const it = itemByNumber(n);
     const committed = Math.round(Number(sum.maxPctReleased) > 90 ? 60000 : 40000);
     const released = (committed * Number(sum.maxPctReleased)) / 100;
     return {
-      id: uid(K_AGR, 10 + i + 1),
+      id: uid(K_AGR, (Number(sum.number.slice(-3)) % 10 === 2 ? 10 : Number(sum.number.slice(-3)) % 10 === 4 ? 20 : 30) + i + 1),
       lineNo: i + 1,
       commitmentType: "VALUE",
       productId: it.id,
@@ -629,8 +627,49 @@ route("GET", `${BASE}/agreements/{id}`, ({ params }) => {
       remaining: dec(committed - released),
     };
   });
-  const agreement: PurchaseAgreement = { ...head, lines, releases: [], updatedAt: sum.createdAt };
+}
+
+route("GET", `${BASE}/agreement-lines`, ({ query }) => {
+  const status = query.get("status");
+  const items = agreementSummaries()
+    .filter((a) => (!status || a.status === status) && (!query.get("vendorId") || a.vendorId === query.get("vendorId")) && (!query.get("agreementId") || a.id === query.get("agreementId")) && matchesQ(query, a.number))
+    .flatMap((a) =>
+      linesOf(a)
+        .filter((l) => !query.get("productId") || l.productId === query.get("productId"))
+        .map((l) => ({
+          id: l.id,
+          agreementId: a.id,
+          agreementNumber: a.number,
+          lineNo: l.lineNo,
+          vendorId: a.vendorId,
+          status: a.status,
+          commitmentType: l.commitmentType,
+          productId: l.productId,
+          category: l.category,
+          unit: l.unit,
+          currency: a.currency,
+          committedQty: l.committedQty,
+          committedAmount: l.committedAmount,
+        })),
+    );
+  return { items };
+});
+
+route("GET", `${BASE}/agreements/{id}`, ({ params }) => {
+  const sum = agreementSummaries().find((a) => a.id === params.id);
+  if (!sum) return reply.problem(404, "PRC-AGR-NOT-FOUND", "Agreement not found");
+  const { lineCount: _l, maxPctReleased: _m, ...head } = sum;
+  const agreement: PurchaseAgreement = { ...head, lines: linesOf(sum), releases: [], updatedAt: sum.createdAt };
   return reply.versioned(agreement, agreement.version);
+});
+
+// An agreement line read on its own (the lookup's resolve): found among the lines of every agreement.
+route("GET", `${BASE}/agreement-lines/{id}`, ({ params }) => {
+  for (const a of agreementSummaries()) {
+    const l = linesOf(a).find((x) => x.id === params.id);
+    if (l) return { id: l.id, agreementId: a.id, agreementNumber: a.number, lineNo: l.lineNo, vendorId: a.vendorId, status: a.status, commitmentType: l.commitmentType, productId: l.productId, category: l.category, unit: l.unit, currency: a.currency, committedQty: l.committedQty, committedAmount: l.committedAmount };
+  }
+  return reply.problem(404, "PRC-AGR-NOT-FOUND", "Agreement line not found");
 });
 
 route("GET", `${BASE}/rfq-types`, () => ({ items: [] }));

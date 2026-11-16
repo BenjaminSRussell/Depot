@@ -63,6 +63,74 @@ type AgreementFilter struct {
 	VendorID string
 }
 
+// AgreementLineFilter narrows the agreement-line list that line pickers read. Empty fields do not filter.
+type AgreementLineFilter struct {
+	// ID is one line by its id (the line lookup's resolve).
+	ID          string
+	AgreementID string
+	VendorID    string
+	ProductID   string
+	Status      string
+	// Q keeps the lines of agreements whose number contains it, ignoring case; Number is the exact agreement number.
+	Q      string
+	Number string
+}
+
+// AgreementLineSummary is one agreement line as a picker shows it: which agreement it belongs to and what it commits.
+type AgreementLineSummary struct {
+	ID              string          `json:"id"`
+	AgreementID     string          `json:"agreementId"`
+	AgreementNumber string          `json:"agreementNumber"`
+	LineNo          int             `json:"lineNo"`
+	VendorID        string          `json:"vendorId"`
+	Status          string          `json:"status"`
+	CommitmentType  string          `json:"commitmentType"`
+	ProductID       *string         `json:"productId,omitempty"`
+	Category        string          `json:"category,omitempty"`
+	Unit            string          `json:"unit,omitempty"`
+	Currency        string          `json:"currency"`
+	CommittedQty    decimal.Decimal `json:"committedQty"`
+	CommittedAmount decimal.Decimal `json:"committedAmount"`
+}
+
+// ListAgreementLines lists lines across agreements, newest line first, for the agreement-line lookups. Child rows follow the
+// agreement's legal entity scope.
+func (s *Postgres) ListAgreementLines(ctx context.Context, f AgreementLineFilter, after string, limit int) (Page[AgreementLineSummary], error) {
+	p, _ := tenant.FromContext(ctx)
+	limit = clampLimit(limit)
+	var items []AgreementLineSummary
+	err := s.withTx(ctx, func(tx pgx.Tx) error {
+		rows, err := tx.Query(ctx, `select l.id, a.id, a.number, l.line_no, a.vendor_id, a.status, l.commitment_type, l.product_id::text, l.category, l.unit, a.currency,
+				l.committed_qty::text, l.committed_amount::text
+			from purchase_agreement_line l
+			join purchase_agreement a on a.tenant_id = l.tenant_id and a.id = l.agreement_id
+			where l.tenant_id = $1
+			and ($2 = '' or a.id::text = $2) and ($3 = '' or a.vendor_id::text = $3) and ($4 = '' or l.product_id::text = $4)
+			and ($5 = '' or a.status = $5) and ($6 = '' or strpos(lower(a.number), lower($6)) > 0) and ($7 = '' or a.number = $7)
+			and ($8::uuid is null or l.id < $8::uuid) and ($10 = '' or l.id::text = $10)
+			order by l.id desc limit $9`, p.TenantID, f.AgreementID, f.VendorID, f.ProductID, f.Status, f.Q, f.Number, nullable(after), limit+1, f.ID)
+		if err != nil {
+			return err
+		}
+		items, err = pgx.CollectRows(rows, func(row pgx.CollectableRow) (AgreementLineSummary, error) {
+			var l AgreementLineSummary
+			var qty, amount string
+			err := row.Scan(&l.ID, &l.AgreementID, &l.AgreementNumber, &l.LineNo, &l.VendorID, &l.Status, &l.CommitmentType, &l.ProductID, &l.Category, &l.Unit,
+				&l.Currency, &qty, &amount)
+			l.CommittedQty, l.CommittedAmount = decimal.RequireFromString(qty), decimal.RequireFromString(amount)
+			return l, err
+		})
+		return err
+	})
+	if err != nil {
+		return Page[AgreementLineSummary]{}, err
+	}
+	if items == nil {
+		items = []AgreementLineSummary{}
+	}
+	return pageOf(items, limit, func(l AgreementLineSummary) string { return l.ID }), nil
+}
+
 // CreateAgreement stores a purchase agreement (DRAFT or EFFECTIVE, as given)
 // with a fresh PA- number and its lines; released figures start at zero. A
 // replayed Idempotency-Key returns the agreement created by the first request.

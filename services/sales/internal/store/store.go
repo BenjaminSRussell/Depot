@@ -249,6 +249,28 @@ type OrderFilter struct {
 	Q string
 }
 
+// OrderLineFilter narrows the order-line list that line pickers read. Empty fields do not filter.
+type OrderLineFilter struct {
+	// ID is one line by its id (the line lookup's resolve).
+	ID      string
+	OrderID string
+	// Q keeps the lines of orders whose number contains it, ignoring case.
+	Q     string
+	Limit int
+}
+
+// OrderLineSummary is one order line as a picker shows it.
+type OrderLineSummary struct {
+	ID          string          `json:"id"`
+	OrderID     string          `json:"orderId"`
+	OrderNumber string          `json:"orderNumber"`
+	LineNo      int             `json:"lineNo"`
+	ProductID   string          `json:"productId"`
+	Quantity    decimal.Decimal `json:"quantity"`
+	Unit        string          `json:"unit"`
+	LineStatus  string          `json:"lineStatus"`
+}
+
 // OrderPage is one page of orders, newest first. NextCursor is set when more
 // rows follow.
 type OrderPage struct {
@@ -279,6 +301,7 @@ type Store interface {
 	CreateOrder(ctx context.Context, in NewOrder) (Order, bool, error)
 	GetOrder(ctx context.Context, id string) (Order, error)
 	ListOrders(ctx context.Context, f OrderFilter) (OrderPage, error)
+	ListOrderLines(ctx context.Context, f OrderLineFilter) ([]OrderLineSummary, error)
 	PortalProducts(ctx context.Context, f PortalProductFilter) ([]PortalProduct, error)
 	ConfirmOrder(ctx context.Context, id string, version int, actor string, now time.Time) (ConfirmResult, error)
 	ReleaseHold(ctx context.Context, orderID, holdID string, version int, actor string, now time.Time) (ConfirmResult, error)
@@ -1384,6 +1407,38 @@ func (s *Postgres) ListOrders(ctx context.Context, f OrderFilter) (OrderPage, er
 		page.NextCursor = page.Items[f.Limit-1].ID
 	}
 	return page, nil
+}
+
+// ListOrderLines returns order lines, newest order first and in line order within an order.
+func (s *Postgres) ListOrderLines(ctx context.Context, f OrderLineFilter) ([]OrderLineSummary, error) {
+	p, _ := tenant.FromContext(ctx)
+	out := []OrderLineSummary{}
+	err := dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
+		rows, err := tx.Query(ctx, `select l.id::text, o.id::text, o.order_number, l.line_no, l.product_id::text, l.quantity::text, l.unit, l.line_status
+			from sales_order_line l
+			join sales_order o on o.tenant_id = l.tenant_id and o.id = l.order_id
+			where l.tenant_id = $1
+				and ($2 = '' or o.id::text = $2)
+				and ($3 = '' or strpos(lower(o.order_number), lower($3)) > 0)
+				and ($5 = '' or l.id::text = $5)
+			order by o.created_at desc, o.id desc, l.line_no
+			limit $4`, p.TenantID, f.OrderID, f.Q, f.Limit, f.ID)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var l OrderLineSummary
+			var qty string
+			if err := rows.Scan(&l.ID, &l.OrderID, &l.OrderNumber, &l.LineNo, &l.ProductID, &qty, &l.Unit, &l.LineStatus); err != nil {
+				return err
+			}
+			l.Quantity = decimal.RequireFromString(qty)
+			out = append(out, l)
+		}
+		return rows.Err()
+	})
+	return out, err
 }
 
 // ListCreditProfiles returns the credit profiles of one legal entity, or of

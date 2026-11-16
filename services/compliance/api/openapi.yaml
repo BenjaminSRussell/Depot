@@ -280,6 +280,100 @@ paths:
         "401": { $ref: "#/components/responses/Problem" }
         "403": { $ref: "#/components/responses/Problem" }
         "422": { $ref: "#/components/responses/Problem" }
+  /v1/compliance/audit-policies:
+    post:
+      operationId: createAuditPolicy
+      x-passage-duty: compliance.audit-policy.maintain
+      description: >-
+        Stores a named audit rule. The rule is checked as the evaluate route checks it (AUD-0711, AUD-0712); a code already in
+        use is 409 AUD-0721. Audit runs name the policy by id.
+      parameters:
+        - { name: Idempotency-Key, in: header, required: true, schema: { type: string, maxLength: 200 } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AuditPolicyInput" }
+      responses:
+        "201":
+          description: Created
+          headers:
+            ETag: { schema: { type: string } }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AuditPolicy" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+    get:
+      operationId: listAuditPolicies
+      x-passage-duty: compliance.audit-policy.run
+      description: Stored audit policies by code, for the policy lookup. Readable with the run or the maintain duty.
+      parameters:
+        - { name: q, in: query, schema: { type: string, maxLength: 100 }, description: "Part of the code or name." }
+        - { name: code, in: query, schema: { type: string }, description: "The exact code, case-insensitive." }
+        - { name: active, in: query, schema: { type: boolean }, description: "When true, retired policies are left out." }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 500, default: 100 } }
+      responses:
+        "200":
+          description: Policies
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/AuditPolicy" } }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+  /v1/compliance/audit-policies/{id}:
+    get:
+      operationId: getAuditPolicy
+      x-passage-duty: compliance.audit-policy.run
+      description: One stored audit policy with its rule and version; the ETag is the version a PATCH sends as If-Match.
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: The policy
+          headers:
+            ETag: { schema: { type: string } }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AuditPolicy" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+    patch:
+      operationId: updateAuditPolicy
+      x-passage-duty: compliance.audit-policy.maintain
+      description: Renames, retires or re-specifies a policy with If-Match. A new spec is a new version.
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: If-Match, in: header, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AuditPolicyPatch" }
+      responses:
+        "200":
+          description: Updated
+          headers:
+            ETag: { schema: { type: string } }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AuditPolicy" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "412": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+        "428": { $ref: "#/components/responses/Problem" }
   /v1/compliance/audit-policies:evaluate:
     post:
       operationId: evaluateAuditPolicy
@@ -292,16 +386,20 @@ paths:
         documents), THRESHOLD, WEEKEND_HOLIDAY and AGGREGATE. Each finding key
         is idempotent on (policy id, version, document id). Nothing is stored:
         persisted runs and audit_violation rows come with the audit store.
+        When policyId names a stored policy the run uses it at its current version and a spec or version in the request is refused (400);
+        an id no policy holds still runs the rule the request carries. Without a spec and a version the run uses the stored audit policy named by policyId,
+        at its current version (404 AUD-0720 when it does not exist, 422
+        AUD-0722 when it is retired); with a spec the request carries its own rule.
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [policyId, version, spec]
+              required: [policyId]
               properties:
                 policyId: { type: string, format: uuid }
-                version: { type: integer, minimum: 1 }
+                version: { type: integer, minimum: 1, description: "Required with a spec; a stored policy's own version is used otherwise." }
                 spec: { $ref: "#/components/schemas/AuditSpec" }
                 documents:
                   type: array
@@ -315,8 +413,9 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [count, findings]
+                required: [count, findings, policyVersion]
                 properties:
+                  policyVersion: { type: integer, description: "The version the finding keys are built on." }
                   count: { type: integer }
                   findings: { type: array, items: { $ref: "#/components/schemas/Finding" } }
                   code: { type: string, enum: [AUD-0701], description: "warning: {n} documents violate the policy; absent when count is 0" }
@@ -1336,6 +1435,36 @@ components:
       type: string
       pattern: '^-?\d+(\.\d+)?$'
       description: decimal amount as a string, never a float
+    AuditPolicyInput:
+      type: object
+      required: [code, name, spec]
+      properties:
+        policyId: { type: string, format: uuid, description: "Registers the policy under the id earlier audit runs used, so a rerun keeps its finding keys. Optional." }
+        version: { type: integer, minimum: 1, maximum: 9999, description: "Starting version, with policyId. Optional, default 1." }
+        code: { type: string, description: "2 to 32 characters of A-Z, 0-9, _ or -; stored upper-case." }
+        name: { type: string, maxLength: 120 }
+        spec: { $ref: "#/components/schemas/AuditSpec" }
+    AuditPolicyPatch:
+      type: object
+      properties:
+        name: { type: string, maxLength: 120 }
+        spec: { $ref: "#/components/schemas/AuditSpec" }
+        active: { type: boolean }
+    AuditPolicy:
+      type: object
+      required: [policyId, code, name, ruleType, spec, active, version, createdBy, createdAt, updatedAt]
+      properties:
+        policyId: { type: string, format: uuid }
+        code: { type: string }
+        name: { type: string }
+        ruleType: { type: string }
+        spec: { $ref: "#/components/schemas/AuditSpec" }
+        active: { type: boolean }
+        version: { type: integer, minimum: 1, description: "Grows only with the rule; finding keys are built on it." }
+        rowVersion: { type: integer, minimum: 1, description: "The ETag a PATCH sends as If-Match; grows with every change, a rename or retirement included." }
+        createdBy: { type: string }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
     AuditSpec:
       type: object
       required: [type]

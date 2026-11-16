@@ -1281,6 +1281,47 @@ paths:
         "422": {description: SLS-0049 the order is not CONFIRMED, content: {application/problem+json: {schema: {$ref: "#/components/schemas/Problem"}}}}
         "502": {description: SLS-0050 production could not plan a line; the lines planned before it are kept, content: {application/problem+json: {schema: {$ref: "#/components/schemas/Problem"}}}}
         "503": {description: SLS-0050 the production service is not configured, content: {application/problem+json: {schema: {$ref: "#/components/schemas/Problem"}}}}
+  /v1/sales/order-lines:
+    get:
+      summary: Order lines for a picker, newest order first
+      description: >-
+        Lines of the orders in the caller's scope, in line order within an order. q keeps the lines of orders whose
+        number contains it; orderId narrows to one order. Readable with the order read or lookup duty.
+      operationId: listOrderLines
+      x-passage-duty: sales.order.read
+      parameters:
+        - {name: orderId, in: query, schema: {type: string, format: uuid}}
+        - {name: q, in: query, description: "only lines of orders whose number contains it, ignoring case", schema: {type: string, maxLength: 100}}
+        - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 200, default: 50}}
+      responses:
+        "200":
+          description: order lines
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: {$ref: "#/components/schemas/OrderLineSummary"}
+        "400": {$ref: "#/components/responses/Problem"}
+        "403": {$ref: "#/components/responses/Problem"}
+  /v1/sales/order-lines/{id}:
+    get:
+      summary: One order line by id (the line lookup's resolve)
+      operationId: getOrderLine
+      x-passage-duty: sales.order.read
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+      responses:
+        "200":
+          description: the order line
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/OrderLineSummary"}
+        "403": {$ref: "#/components/responses/Problem"}
+        "404": {$ref: "#/components/responses/Problem"}
   /v1/sales/orders:auto-close:
     post:
       summary: Close the INVOICED orders that nothing has changed for a grace period (the nightly auto-close, PRD 5.27.16)
@@ -4546,6 +4587,18 @@ components:
           required: [confirmed]
           properties:
             confirmed: {type: boolean}
+    OrderLineSummary:
+      type: object
+      required: [id, orderId, orderNumber, lineNo, productId, quantity, unit, lineStatus]
+      properties:
+        id: {type: string, format: uuid}
+        orderId: {type: string, format: uuid}
+        orderNumber: {type: string}
+        lineNo: {type: integer, minimum: 1}
+        productId: {type: string, format: uuid}
+        quantity: {type: string}
+        unit: {type: string}
+        lineStatus: {type: string, enum: [OPEN, RESERVED, PICKED, DELIVERED, INVOICED, CANCELLED]}
     OrderSummary:
       type: object
       required: [id, legalEntityId, orderNumber, customerId, orderType, status, currency, netTotal, lineCount, activeHolds, version]

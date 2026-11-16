@@ -2,15 +2,16 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Alert, Badge, Button, buttonClassName, DataTable, PageHeader, type DataTableColumn } from "../../shell/ui";
 import { listRateCards, type RateCard } from "./api/client";
-import { dash, fixed, shortId, UUID } from "./format";
+import { dash, fixed, UUID } from "./format";
+import { EntityName } from "../../shell/lookup/EntityName";
 import styles from "./pages.module.css";
 import { useLoad } from "./useLoad";
 import { ProblemMessage } from "../../shell/errors";
 import { LookupFormField } from "../../shell/lookup/LookupFormField";
 
 const columns: DataTableColumn<RateCard>[] = [
-  { key: "carrierId", header: "Carrier", mono: true, render: (row) => <span title={row.carrierId}>{shortId(row.carrierId)}</span> },
-  { key: "serviceId", header: "Service", mono: true, render: (row) => <span title={row.serviceId}>{shortId(row.serviceId)}</span> },
+  { key: "carrierId", header: "Carrier", render: (row) => <EntityName entity="vendor" id={row.carrierId} /> },
+  { key: "serviceId", header: "Service", render: (row) => <EntityName entity="carrierService" id={row.serviceId} fallback="Unnamed service" /> },
   { key: "basis", header: "Basis", render: (row) => <Badge tone="neutral">{row.basis}</Badge> },
   { key: "currency", header: "Currency", mono: true },
   { key: "validFrom", header: "Valid from", mono: true },
@@ -32,9 +33,14 @@ export function RateCardsPage() {
         title="Rate cards"
         description="Effective-dated price lists per carrier service. Cards of the same carrier, service and basis may not share a day; rate shopping uses the card valid on the ship date."
         actions={
-          <Link className={buttonClassName("primary")} to="/transport/rate-cards/new">
-            New rate card
-          </Link>
+          <>
+            <Link className={buttonClassName("secondary")} to="/transport/carrier-services">
+              Carrier services
+            </Link>
+            <Link className={buttonClassName("primary")} to="/transport/rate-cards/new">
+              New rate card
+            </Link>
+          </>
         }
       />
       <form

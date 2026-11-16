@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/shopspring/decimal"
@@ -323,4 +324,56 @@ func buildPurchaseAgreementLine(i int, l purchaseAgreementLineBody) (domain.Agre
 		}
 	}
 	return line, nil
+}
+
+// listAgreementLines is GET /agreement-lines: the lines of purchase agreements for the pickers of purchase order and service
+// forms. q matches the agreement number, number is exact; vendorId, productId, agreementId and status narrow the list.
+func (a *API) listAgreementLines(w http.ResponseWriter, r *http.Request) {
+	limit, after, err := listParams(r)
+	if err != nil {
+		fail(w, r, err)
+		return
+	}
+	q := r.URL.Query()
+	f := store.AgreementLineFilter{AgreementID: q.Get("agreementId"), VendorID: q.Get("vendorId"), ProductID: q.Get("productId"),
+		Status: q.Get("status"), Q: strings.TrimSpace(q.Get("q")), Number: q.Get("number")}
+	for _, c := range []struct{ name, value string }{{"agreementId", f.AgreementID}, {"vendorId", f.VendorID}, {"productId", f.ProductID}} {
+		if err := uuidField(c.name, c.value, false); err != nil {
+			fail(w, r, err)
+			return
+		}
+	}
+	if f.Status != "" && !validAgreementStatus(f.Status) {
+		fail(w, r, invalid("status", "must be DRAFT, EFFECTIVE, ON_HOLD or CLOSED"))
+		return
+	}
+	if utf8.RuneCountInString(f.Q) > 100 {
+		fail(w, r, invalid("q", "must be at most 100 characters"))
+		return
+	}
+	page, err := a.store.ListAgreementLines(r.Context(), f, after, limit)
+	if err != nil {
+		fail(w, r, err)
+		return
+	}
+	writePage(w, page)
+}
+
+// getAgreementLine is GET /agreement-lines/{id}: one line by id (the line lookup's resolve).
+func (a *API) getAgreementLine(w http.ResponseWriter, r *http.Request) {
+	id, err := pathID(r)
+	if err != nil {
+		fail(w, r, httpx.NewProblem(http.StatusNotFound, store.CodeAgreementNotFound, "agreement line not found"))
+		return
+	}
+	page, err := a.store.ListAgreementLines(r.Context(), store.AgreementLineFilter{ID: id}, "", 1)
+	if err != nil {
+		fail(w, r, err)
+		return
+	}
+	if len(page.Items) == 0 {
+		fail(w, r, httpx.NewProblem(http.StatusNotFound, store.CodeAgreementNotFound, "agreement line not found"))
+		return
+	}
+	httpx.JSON(w, http.StatusOK, page.Items[0])
 }

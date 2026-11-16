@@ -51,6 +51,8 @@ import {
 import styles from "./pages.module.css";
 import { dash, Detail, formatDateTime, LoadError, ResultBadge } from "./parts";
 import { useLoad } from "./useLoad";
+import { EntityLookup } from "../../shell/lookup/EntityLookup";
+import { EntityName } from "../../shell/lookup/EntityName";
 
 const money = (key: string, header: string) => ({ key, header, align: "end" as const, mono: true });
 
@@ -322,8 +324,8 @@ export function ReservationDetailPage() {
     e.preventDefault();
     const clean = { ...form, lineId, documentId: form.documentId.trim(), documentLineId: form.documentLineId.trim(), amount: form.amount.trim() };
     const found: typeof errors = {};
-    if (!UUID.test(clean.documentId)) found.documentId = "Enter the follow-on document id (a UUID).";
-    if (!UUID.test(clean.documentLineId)) found.documentLineId = "Enter the document line id (a UUID).";
+    if (!UUID.test(clean.documentId)) found.documentId = "Choose the follow-on document.";
+    if (!UUID.test(clean.documentLineId)) found.documentLineId = "Choose the document line.";
     const line = res.lines.find((l) => l.lineId === clean.lineId);
     if (!isMoney(clean.amount) || toUnits(clean.amount) <= 0n) found.amount = "Enter a positive decimal with at most 4 places.";
     else if (line && toUnits(clean.amount) > toUnits(line.open)) found.amount = `At most ${formatAmount(line.open)} remains on this line.`;
@@ -360,7 +362,7 @@ export function ReservationDetailPage() {
     }
   }
 
-  const field = (name: "documentId" | "documentLineId" | "amount", label: string) => (
+  const field = (name: "amount", label: string) => (
     <FormField id={`consume-${name}`} label={label} error={errors[name]}>
       {(c) => (
         <Input
@@ -400,8 +402,8 @@ export function ReservationDetailPage() {
       </StatGroup>
       <Card>
         <dl className={styles.details}>
-          <Detail term="Legal entity" mono>
-            {res.legalEntityId}
+          <Detail term="Legal entity">
+            <EntityName entity="legalEntity" id={res.legalEntityId} />
           </Detail>
           <Detail term="Expires" mono>
             {res.expiryDate ?? "No expiry"}
@@ -445,8 +447,30 @@ export function ReservationDetailPage() {
                 </Select>
               )}
             </FormField>
-            {field("documentId", "Document id")}
-            {field("documentLineId", "Document line id")}
+            <FormField id="consume-documentId" label="Document" hint="A document a budget check has seen." error={errors.documentId}>
+              {(c) => (
+                <EntityLookup
+                  {...c}
+                  entity="budgetDocument"
+                  scope={{ documentType: form.documentType }}
+                  value={form.documentId}
+                  invalid={Boolean(errors.documentId)}
+                  onChange={(e) => setForm((f) => ({ ...f, documentId: e.target.value, documentLineId: "" }))}
+                />
+              )}
+            </FormField>
+            <FormField id="consume-documentLineId" label="Document line" error={errors.documentLineId}>
+              {(c) => (
+                <EntityLookup
+                  {...c}
+                  entity="budgetDocumentLine"
+                  scope={{ documentId: form.documentId || undefined }}
+                  value={form.documentLineId}
+                  invalid={Boolean(errors.documentLineId)}
+                  onChange={(e) => setForm((f) => ({ ...f, documentLineId: e.target.value }))}
+                />
+              )}
+            </FormField>
             {field("amount", "Amount")}
             <p className={styles.note}>The amount moves from the reservation to an encumbrance of the document line, so available funds do not change.</p>
             <div className={styles.formActions}>

@@ -1,7 +1,7 @@
 import { useRef, useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Alert, Badge, Button, buttonClassName, Card, DataTable, FormField, Input, PageHeader, Select, type DataTableColumn } from "../../shell/ui";
-import { createTestGroup, describeProblem, listTestGroups, newKey, type NewTestGroup, type Problem, type TestGroup, type TestLine } from "./api/client";
+import { createTestGroup, describeProblem, listOutcomes, listTestGroups, newKey, type NewTestGroup, type Problem, type TestGroup, type TestLine } from "./api/client";
 import { CODE, SIGNED_DECIMAL, UUID } from "./format";
 import styles from "./pages.module.css";
 import { useLoad } from "./useLoad";
@@ -90,7 +90,7 @@ export function validateTestGroup(code: string, lines: LineValues[], testId: () 
       if (test.min !== undefined && test.max !== undefined && Number(test.min) > Number(test.max)) errors[`${i}.min`] = "The minimum must not exceed the maximum.";
     } else {
       const outcomes = l.passingOutcomeIds.split(/[\s,]+/).filter(Boolean);
-      if (outcomes.length === 0 || outcomes.some((o) => !UUID.test(o))) errors[`${i}.passingOutcomeIds`] = "Enter one or more passing outcome ids (UUIDs), separated by commas.";
+      if (outcomes.length === 0 || outcomes.some((o) => !UUID.test(o))) errors[`${i}.passingOutcomeIds`] = "Choose at least one passing outcome.";
       test.passingOutcomeIds = outcomes;
     }
     tests.push(test);
@@ -108,6 +108,7 @@ export function NewTestGroupPage() {
   const [failure, setFailure] = useState<Problem | null>(null);
   const [busy, setBusy] = useState(false);
   const key = useRef(newKey());
+  const outcomes = useLoad((signal) => listOutcomes({}, signal), "outcomes");
 
   function update(i: number, patch: Partial<LineValues>) {
     setLines(lines.map((l, j) => (j === i ? { ...l, ...patch } : l)));
@@ -168,11 +169,33 @@ export function NewTestGroupPage() {
                   </FormField>
                 </>
               ) : (
-                <FormField id={`test-${i}-outcomes`} label="Passing outcome ids" hint="Comma-separated UUIDs from the outcome catalog." error={errors[`${i}.passingOutcomeIds`]}>
-                  {(control) => (
-                    <Input {...control} value={line.passingOutcomeIds} invalid={Boolean(errors[`${i}.passingOutcomeIds`])} onChange={(event) => update(i, { passingOutcomeIds: event.target.value })} />
-                  )}
-                </FormField>
+                <fieldset className={styles.valueGroup} aria-describedby={errors[`${i}.passingOutcomeIds`] ? `test-${i}-outcomes-error` : undefined}>
+                  <legend className={styles.legend}>Passing outcomes</legend>
+                  {(outcomes.data ?? []).filter((o) => o.active || line.passingOutcomeIds.split(/[\s,]+/).includes(o.id)).map((o) => {
+                    const chosen = line.passingOutcomeIds.split(/[\s,]+/).filter(Boolean);
+                    return (
+                      <span key={o.id} className={styles.check}>
+                        <Input
+                          id={`test-${i}-outcome-${o.id}`}
+                          type="checkbox"
+                          checked={chosen.includes(o.id)}
+                          onChange={(event) => update(i, { passingOutcomeIds: (event.target.checked ? [...chosen, o.id] : chosen.filter((c) => c !== o.id)).join(",") })}
+                        />
+                        <label htmlFor={`test-${i}-outcome-${o.id}`}>{`${o.name} (${o.code})`}</label>
+                      </span>
+                    );
+                  })}
+                  {outcomes.data && outcomes.data.length === 0 ? (
+                    <p className={styles.note}>
+                      No outcomes yet. <Link to="/quality/outcomes/new">Add an outcome</Link> first.
+                    </p>
+                  ) : null}
+                  {errors[`${i}.passingOutcomeIds`] ? (
+                    <Alert tone="danger" live="alert">
+                      {errors[`${i}.passingOutcomeIds`]}
+                    </Alert>
+                  ) : null}
+                </fieldset>
               )}
               <FormField id={`test-${i}-required`} label="Required">
                 {(control) => <Input {...control} type="checkbox" checked={line.required} onChange={(event) => update(i, { required: event.target.checked })} />}

@@ -197,15 +197,17 @@ describe("Status changes inquiry", () => {
     await waitFor(() => expect(calls.at(-1)?.url.searchParams.get("cursor")).toBe(CHANGE_ID));
   });
 
-  it("validates the transaction filter before calling the service", async () => {
+  it("filters by the transaction picked in the lookup", async () => {
     handler = () => json(200, { items: [] });
     renderAt("/inventory/status-changes");
     expect(await screen.findByText("No status changes match")).toBeInTheDocument();
-    const before = calls.length;
+    // Typing text that is not a transaction picks nothing; the filter stays empty.
     fireEvent.change(screen.getByLabelText(/Transaction/), { target: { value: "not-an-id" } });
     fireEvent.click(screen.getByRole("button", { name: "Apply filters" }));
-    expect(await screen.findByText("Enter the transaction id (a UUID).")).toBeInTheDocument();
-    expect(calls.length).toBe(before);
+    await waitFor(() => expect(calls.at(-1)?.url.searchParams.get("transaction")).toBeNull());
+    fireEvent.change(screen.getByLabelText(/Transaction/), { target: { value: TXN_ID } });
+    fireEvent.click(screen.getByRole("button", { name: "Apply filters" }));
+    await waitFor(() => expect(calls.at(-1)?.url.searchParams.get("transaction")).toBe(TXN_ID));
   });
 
   it("reports a failed load", async () => {

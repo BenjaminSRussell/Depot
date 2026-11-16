@@ -87,6 +87,8 @@ func (a *API) Routes(r chi.Router) {
 	r.With(authz.RequireDuty("fulfillment.warehouse.view")).Get("/v1/fulfillment/shipments", a.listShipments)
 	r.With(authz.RequireAnyDuty("fulfillment.warehouse.view", "fulfillment.shipment.read")).Get("/v1/fulfillment/shipments/{id}", a.getShipment)
 	r.With(authz.RequireDuty("fulfillment.warehouse.view")).Get("/v1/fulfillment/packing-slips", a.listPackingSlips)
+	r.With(authz.RequireDuty("fulfillment.warehouse.view")).Get("/v1/fulfillment/packing-slip-lines", a.listPackingSlipLines)
+	r.With(authz.RequireDuty("fulfillment.warehouse.view")).Get("/v1/fulfillment/packing-slip-lines/{id}", a.getPackingSlipLine)
 	r.With(authz.RequireAnyDuty("fulfillment.warehouse.view", "fulfillment.packing-slip.read")).Get("/v1/fulfillment/packing-slips/{id}", a.getPackingSlip)
 	r.With(authz.RequireDuty("fulfillment.warehouse.pick")).Post("/v1/fulfillment/shipments/{id}:confirm-pick", a.confirmPick)
 	r.With(authz.RequireDuty("fulfillment.warehouse.pack")).Post("/v1/fulfillment/shipments/{id}/containers", a.packContainer)
@@ -286,7 +288,11 @@ func (a *API) runRelease(w http.ResponseWriter, r *http.Request) {
 
 func (a *API) listShipments(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
-	f := store.ShipmentFilter{Status: q.Get("status"), WarehouseID: q.Get("warehouseId"), OrderID: q.Get("orderId")}
+	f := store.ShipmentFilter{Status: q.Get("status"), WarehouseID: q.Get("warehouseId"), OrderID: q.Get("orderId"), Q: strings.TrimSpace(q.Get("q")), Number: q.Get("number")}
+	if utf8.RuneCountInString(f.Q) > 100 {
+		fail(w, r, "q", "must be at most 100 characters")
+		return
+	}
 	if f.Status != "" && !shipmentStatuses[f.Status] {
 		fail(w, r, "status", "must be a shipment status")
 		return
@@ -310,6 +316,50 @@ func (a *API) listShipments(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.JSON(w, http.StatusOK, listResponse[store.ShipmentSummary]{Items: items})
+}
+
+// listPackingSlipLines serves the line pickers of billing's shipment proposal form.
+func (a *API) listPackingSlipLines(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
+	f := store.PackingSlipLineFilter{SlipID: q.Get("slipId"), Q: strings.TrimSpace(q.Get("q"))}
+	if utf8.RuneCountInString(f.Q) > 100 {
+		fail(w, r, "q", "must be at most 100 characters")
+		return
+	}
+	if f.SlipID != "" && !ids.Valid(f.SlipID) {
+		fail(w, r, "slipId", "must be a UUID")
+		return
+	}
+	limit, ok := limitParam(w, r)
+	if !ok {
+		return
+	}
+	f.Limit = limit
+	items, err := a.store.ListPackingSlipLines(r.Context(), f)
+	if err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, listResponse[store.PackingSlipLineSummary]{Items: items})
+}
+
+// getPackingSlipLine reads one slip line by the shipment line it covers (the line lookup's resolve).
+func (a *API) getPackingSlipLine(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	if !ids.Valid(id) {
+		httpx.Fail(w, r, httpx.NewProblem(http.StatusNotFound, store.CodeSlipNotFound, "packing slip line not found"))
+		return
+	}
+	items, err := a.store.ListPackingSlipLines(r.Context(), store.PackingSlipLineFilter{ID: id, Limit: 1})
+	if err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+	if len(items) == 0 {
+		httpx.Fail(w, r, httpx.NewProblem(http.StatusNotFound, store.CodeSlipNotFound, "packing slip line not found"))
+		return
+	}
+	httpx.JSON(w, http.StatusOK, items[0])
 }
 
 func (a *API) listPackingSlips(w http.ResponseWriter, r *http.Request) {

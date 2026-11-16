@@ -79,6 +79,10 @@ type Store interface {
 	ListHolds(ctx context.Context, f store.HoldFilter) (store.HoldPage, error)
 	CheckHolds(ctx context.Context, target domain.HoldScope) (store.HoldCheck, error)
 	RequestErasure(ctx context.Context, in store.ErasureInput, key string, now time.Time) (store.ErasureCommand, error)
+	CreateAuditPolicy(ctx context.Context, in store.AuditPolicyInput, key string, now time.Time) (store.AuditPolicy, error)
+	GetAuditPolicy(ctx context.Context, id string) (store.AuditPolicy, error)
+	ListAuditPolicies(ctx context.Context, f store.AuditPolicyFilter) ([]store.AuditPolicy, error)
+	UpdateAuditPolicy(ctx context.Context, id string, expected int, in store.AuditPolicyPatch, now time.Time) (store.AuditPolicy, error)
 }
 
 // Config carries the tenant policies the service reads from its environment
@@ -192,6 +196,7 @@ func (a *API) Register(r chi.Router) {
 	r.With(authz.RequireDuty(DutySoDAdmin)).Post("/v1/sod/conflicts/{id}/accept-risk", a.acceptRisk)
 	r.With(authz.RequireDuty(DutyIncidentManage)).Post("/v1/security/incidents:breach-clocks", a.breachClocks)
 	r.With(authz.RequireDuty(DutyAuditPolicyRun)).Post("/v1/compliance/audit-policies:evaluate", a.evaluateAudit)
+	a.registerAuditPolicies(r)
 	r.With(authz.RequireDuty(DutyAuditCaseManage)).Post("/v1/compliance/audit-cases:group", a.groupCases)
 	r.With(authz.RequireDuty(DutyAuditCaseManage)).Post("/v1/compliance/audit-cases:transition", a.transitionCase)
 	r.With(authz.RequireDuty(DutyBreakGlassRequest)).Post("/v1/security/elevated-sessions:plan", a.planElevated)

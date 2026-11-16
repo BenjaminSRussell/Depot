@@ -60,6 +60,19 @@ func TestPostgres_ListOrdersForOneCustomer(t *testing.T) {
 	if none, err := s.ListOrders(ctx, OrderFilter{CustomerID: ids.New(), ExcludeDraft: true, Limit: 50}); err != nil || len(none.Items) != 0 {
 		t.Fatalf("a third customer sees %+v err %v", none.Items, err)
 	}
+	// Order lines list for pickers by order or by part of the order number.
+	if lines, err := s.ListOrderLines(ctx, OrderLineFilter{OrderID: a2.ID, Limit: 10}); err != nil || len(lines) != 1 || lines[0].ID != a2.Lines[0].ID || lines[0].OrderNumber != a2.OrderNumber || lines[0].LineNo != 1 {
+		t.Fatalf("order lines of a2 = %+v err %v", lines, err)
+	}
+	if one, err := s.ListOrderLines(ctx, OrderLineFilter{ID: a2.Lines[0].ID, Limit: 1}); err != nil || len(one) != 1 || one[0].OrderID != a2.ID {
+		t.Fatalf("order line by id = %+v err %v", one, err)
+	}
+	if lines, err := s.ListOrderLines(ctx, OrderLineFilter{Q: strings.ToLower(b1.OrderNumber), Limit: 10}); err != nil || len(lines) != 1 || lines[0].OrderID != b1.ID {
+		t.Fatalf("order lines matching %q = %+v err %v", b1.OrderNumber, lines, err)
+	}
+	if none, err := s.ListOrderLines(ctx, OrderLineFilter{Q: "no-such-order", Limit: 10}); err != nil || len(none) != 0 {
+		t.Fatalf("order lines matching nothing = %+v err %v", none, err)
+	}
 }
 
 // The portal reorders from the customer's own committed orders: the latest price per product and unit, never a draft, another

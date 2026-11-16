@@ -152,6 +152,10 @@ func (a *API) Register(r chi.Router) {
 	r.With(authz.RequireDuty(DutyRate)).Post(prefix+"/shipments/{id}:rate", a.rateShipment)
 	r.With(authz.RequireDuty(DutyRateApprove)).Post(prefix+"/rate-cards", a.createRateCard)
 	r.With(authz.RequireDuty(DutyRate)).Get(prefix+"/rate-cards", a.listRateCards)
+	// Carrier services (#500): read by anyone who rates, approves cards or views transport; created with the cards.
+	r.With(authz.RequireDuty(DutyRateApprove)).Post(prefix+"/carrier-services", a.createCarrierService)
+	r.With(authz.RequireAnyDuty(DutyRate, DutyRateApprove, DutyView)).Get(prefix+"/carrier-services", a.listCarrierServices)
+	r.With(authz.RequireAnyDuty(DutyRate, DutyRateApprove, DutyView)).Get(prefix+"/carrier-services/{id}", a.getCarrierService)
 	r.With(authz.RequireDuty(DutyReconcile)).Post(prefix+"/freight-bills", a.createFreightBill)
 	r.With(authz.RequireDuty(DutyView)).Get(prefix+"/freight-bills", a.listFreightBills)
 	r.With(authz.RequireDuty(DutyView)).Get(prefix+"/freight-bills/{id}", a.getFreightBill)
@@ -486,8 +490,13 @@ func (a *API) listFreightBills(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	q := r.URL.Query()
-	f := store.FreightBillFilter{MatchStatus: q.Get("matchStatus"), CarrierID: q.Get("carrierId")}
+	f := store.FreightBillFilter{MatchStatus: q.Get("matchStatus"), CarrierID: q.Get("carrierId"), LoadID: q.Get("loadId"), Q: strings.TrimSpace(q.Get("q")), Number: q.Get("number")}
 	fields := map[string]string{}
+	checkOptionalID(fields, "loadId", f.LoadID)
+	f.Limit = limitParam(fields, q.Get("limit"))
+	if len([]rune(f.Q)) > 100 {
+		fields["q"] = "must be at most 100 characters"
+	}
 	if f.MatchStatus != "" && !slices.Contains(billStatuses, f.MatchStatus) {
 		fields["matchStatus"] = "must be one of " + strings.Join(billStatuses, ", ")
 	}
