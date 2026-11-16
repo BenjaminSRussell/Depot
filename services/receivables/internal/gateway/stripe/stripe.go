@@ -67,8 +67,9 @@ func New(c Config) (*Gateway, error) {
 	if !strings.HasPrefix(c.SecretKey, "sk_") && !strings.HasPrefix(c.SecretKey, "rk_") {
 		return nil, errors.New("stripe: the secret key must be a Stripe secret or restricted key (sk_ or rk_)")
 	}
-	if c.PublishableKey != "" && !strings.HasPrefix(c.PublishableKey, "pk_") {
-		return nil, errors.New("stripe: the publishable key must start with pk_")
+	if !strings.HasPrefix(c.PublishableKey, "pk_") {
+		// Without it the portal could create PaymentIntents but never show the payment form.
+		return nil, errors.New("stripe: the publishable key (pk_...) is required")
 	}
 	g := &Gateway{secretKey: c.SecretKey, publishableKey: c.PublishableKey, base: strings.TrimRight(c.BaseURL, "/"), client: c.Client}
 	for _, s := range c.WebhookSecrets {
@@ -121,15 +122,21 @@ func ToMinor(amount decimal.Decimal, currency string) (int64, error) {
 	if zeroDecimal[currency] {
 		iso = 0
 	}
+	if !amount.IsPositive() {
+		return 0, errors.New("the amount must be above zero")
+	}
 	if !amount.Equal(amount.Truncate(iso)) {
-		return 0, fmt.Errorf("stripe: %s has more decimals than %s has", amount, currency)
+		if iso == 0 {
+			return 0, fmt.Errorf("%s payments are in whole units, without decimals", currency)
+		}
+		return 0, fmt.Errorf("%s payments have at most %d decimals", currency, iso)
 	}
 	minor := amount.Shift(exponent(currency))
-	if !minor.Equal(minor.Truncate(0)) || !minor.IsPositive() {
-		return 0, fmt.Errorf("stripe: %s %s is not a positive amount Stripe can take", amount, currency)
+	if !minor.Equal(minor.Truncate(0)) {
+		return 0, fmt.Errorf("%s payments have at most %d decimals", currency, iso)
 	}
 	if exponent(currency) == 3 && minor.Mod(decimal.NewFromInt(10)).Sign() != 0 {
-		return 0, fmt.Errorf("stripe: %s amounts must be multiples of 0.010", currency)
+		return 0, fmt.Errorf("%s card and bank payments must be in steps of 0.010", currency)
 	}
 	return minor.IntPart(), nil
 }
@@ -200,6 +207,25 @@ func (g *Gateway) call(ctx context.Context, method, path string, form url.Values
 		return &gateway.Error{Status: res.StatusCode, Code: "malformed", Message: "Stripe's answer was not the expected JSON"}
 	}
 	return nil
+}
+
+// CheckAmount tells whether Stripe can charge the amount in the currency, with a plain reason when it cannot.
+func (g *Gateway) CheckAmount(amount decimal.Decimal, currency string) error {
+	_, err := ToMinor(amount, strings.ToUpper(currency))
+	return err
+}
+
+// CancelIntent cancels an abandoned PaymentIntent (POST /v1/payment_intents/{id}/cancel, Idempotency-Key per attempt). Stripe
+// refuses one that is processing or paid with payment_intent_unexpected_state; an already cancelled one answers as cancelled.
+func (g *Gateway) CancelIntent(ctx context.Context, account, intentID, attemptID string) error {
+	var out intentJSON
+	form := url.Values{"cancellation_reason": {"abandoned"}}
+	err := g.call(ctx, http.MethodPost, "/v1/payment_intents/"+url.PathEscape(intentID)+"/cancel", form, account, "passage-pi-cancel-"+attemptID, &out)
+	var ge *gateway.Error
+	if errors.As(err, &ge) && ge.Code == "payment_intent_unexpected_state" && strings.Contains(strings.ToLower(ge.Message), "canceled") {
+		return nil
+	}
+	return err
 }
 
 // IdempotencyKey is the Stripe Idempotency-Key of a payment attempt's create.
@@ -404,6 +430,7 @@ type disputeJSON struct {
 	Currency      string            `json:"currency"`
 	PaymentIntent string            `json:"payment_intent"`
 	Reason        string            `json:"reason"`
+	Status        string            `json:"status"`
 	Metadata      map[string]string `json:"metadata"`
 }
 
@@ -423,7 +450,7 @@ func ParseEvent(payload []byte) (gateway.Event, error) {
 	}
 	ev := gateway.Event{ID: e.ID, Type: e.Type, Kind: gateway.KindIgnored, Created: time.Unix(e.Created, 0).UTC(), Livemode: e.Livemode, Account: e.Account}
 	switch e.Type {
-	case "payment_intent.succeeded", "payment_intent.processing", "payment_intent.payment_failed":
+	case "payment_intent.succeeded", "payment_intent.processing", "payment_intent.payment_failed", "payment_intent.canceled":
 		var pi piJSON
 		if err := json.Unmarshal(e.Data.Object, &pi); err != nil || pi.ID == "" {
 			return gateway.Event{}, gateway.ErrMalformed
@@ -440,6 +467,9 @@ func ParseEvent(payload []byte) (gateway.Event, error) {
 			}
 		case "payment_intent.processing":
 			ev.Kind = gateway.KindProcessing
+		case "payment_intent.canceled":
+			ev.Kind = gateway.KindCanceled
+			ev.FailureCode = "canceled"
 		default:
 			ev.Kind = gateway.KindFailed
 			if lpe := pi.LastPaymentError; lpe != nil {
@@ -453,22 +483,41 @@ func ParseEvent(payload []byte) (gateway.Event, error) {
 		}
 	case "charge.refunded":
 		var c chargeJSON
-		if err := json.Unmarshal(e.Data.Object, &c); err != nil || c.PaymentIntent == "" {
+		if err := json.Unmarshal(e.Data.Object, &c); err != nil || c.ID == "" {
 			return gateway.Event{}, gateway.ErrMalformed
+		}
+		if c.PaymentIntent == "" {
+			// A charge made without a PaymentIntent is never Passage's: acknowledged and ignored.
+			return ev, nil
 		}
 		cur := strings.ToUpper(c.Currency)
 		ev.Kind, ev.IntentID, ev.Currency, ev.Metadata = gateway.KindRefunded, c.PaymentIntent, cur, c.Metadata
 		ev.Amount, ev.Total = FromMinor(c.AmountRefunded, cur), FromMinor(c.Amount, cur)
-	case "charge.dispute.created":
-		// A card chargeback, or an ACH return after the payment succeeded (Stripe reports those as disputes): the money has
-		// left the account.
+	case "charge.dispute.created", "charge.dispute.updated", "charge.dispute.closed", "charge.dispute.funds_withdrawn", "charge.dispute.funds_reinstated":
 		var d disputeJSON
-		if err := json.Unmarshal(e.Data.Object, &d); err != nil || d.PaymentIntent == "" {
+		if err := json.Unmarshal(e.Data.Object, &d); err != nil || d.ID == "" {
 			return gateway.Event{}, gateway.ErrMalformed
 		}
+		if d.PaymentIntent == "" {
+			return ev, nil
+		}
 		cur := strings.ToUpper(d.Currency)
-		ev.Kind, ev.IntentID, ev.Currency, ev.Metadata, ev.Reason = gateway.KindDisputed, d.PaymentIntent, cur, d.Metadata, truncate(d.Reason, 80)
+		ev.IntentID, ev.Currency, ev.Metadata, ev.Reason, ev.DisputeStatus = d.PaymentIntent, cur, d.Metadata, truncate(d.Reason, 80), truncate(d.Status, 40)
 		ev.Amount = FromMinor(d.Amount, cur)
+		inquiry := strings.HasPrefix(d.Status, "warning_")
+		switch {
+		case e.Type == "charge.dispute.funds_withdrawn":
+			// The money has left the account: a chargeback, or an ACH return after the payment succeeded.
+			ev.Kind = gateway.KindDisputed
+		case e.Type == "charge.dispute.funds_reinstated":
+			ev.Kind = gateway.KindReinstated
+		case inquiry:
+			// An inquiry or retrieval (warning_needs_response, warning_under_review, warning_closed): no money moved.
+			ev.Kind = gateway.KindInquiry
+		case e.Type == "charge.dispute.created":
+			// A dispute that is not an inquiry withdraws the funds when it is opened (funds_withdrawn follows and is a no-op).
+			ev.Kind = gateway.KindDisputed
+		}
 	}
 	return ev, nil
 }

@@ -39,6 +39,7 @@ type GatewayStore interface {
 	GetGatewayPayment(ctx context.Context, id string) (store.GatewayPayment, error)
 	ResolveGatewayIntent(ctx context.Context, provider, intentID string) (store.GatewayRoute, error)
 	HandleGatewayEvent(ctx context.Context, attemptID string, ev gateway.Event, opts store.GatewayEventOptions) (string, error)
+	CancelGatewayAttempt(ctx context.Context, id, customerID string, cancel func(g store.GatewayPayment) error) (store.GatewayPayment, error)
 }
 
 // GatewayConfig is the payment provider of this deployment.
@@ -219,7 +220,7 @@ func (a *API) portalCreateIntent(w http.ResponseWriter, r *http.Request, custome
 		return
 	}
 	in := store.GatewayAttemptInput{LegalEntityID: strings.ToLower(le), CustomerID: customer, Provider: a.gw.Gateway.Provider(), ProviderAccount: account,
-		Method: gateway.Method(body.Method), ContactID: p.UserID}
+		Method: gateway.Method(body.Method), ContactID: p.UserID, CheckAmount: a.gw.Gateway.CheckAmount}
 	if in.Method != gateway.MethodCard && in.Method != gateway.MethodACH {
 		badQuery(w, r, "method", "must be CARD or ACH")
 		return
@@ -277,6 +278,52 @@ func (a *API) portalCreateIntent(w http.ResponseWriter, r *http.Request, custome
 		status = http.StatusOK
 	}
 	httpx.JSON(w, status, out)
+}
+
+// portalIntentAction serves POST /customer-portal/payment-intents/{id}:cancel: the customer went back to change the amounts,
+// so the abandoned payment is cancelled at the provider and stops reserving what it would have paid.
+func (a *API) portalIntentAction(w http.ResponseWriter, r *http.Request, customer string) {
+	gs, ok := a.gatewayStore(w, r)
+	if !ok {
+		return
+	}
+	id, action, found := strings.Cut(chi.URLParam(r, "ref"), ":")
+	if !found || !ids.Valid(id) || action != "cancel" {
+		httpx.Fail(w, r, httpx.NewProblem(http.StatusNotFound, store.CodeGatewayNotFound, "payment not found"))
+		return
+	}
+	var cancel func(g store.GatewayPayment) error
+	if a.gw != nil {
+		gw := a.gw.Gateway
+		cancel = func(g store.GatewayPayment) error {
+			err := gw.CancelIntent(r.Context(), deref(g.ProviderAccount), deref(g.ProviderIntentID), g.ID)
+			var ge *gateway.Error
+			if errors.As(err, &ge) && ge.Code == "payment_intent_unexpected_state" {
+				return httpx.NewProblem(http.StatusConflict, store.CodeGatewayState, "the payment is already under way and cannot be cancelled")
+			}
+			if err != nil {
+				slog.Error("payment provider cancel failed", "attempt", g.ID, "err", err, "correlationId", middleware.GetReqID(r.Context()))
+				return httpx.NewProblem(http.StatusBadGateway, store.CodeGatewayUnavailable, "the payment service could not be reached; try again in a minute")
+			}
+			return nil
+		}
+	}
+	g, err := gs.CancelGatewayAttempt(r.Context(), id, customer, cancel)
+	if errors.Is(err, store.ErrGatewayBusy) {
+		err = httpx.NewProblem(http.StatusConflict, store.CodeGatewayState, "the payment is changing right now; reload it")
+	}
+	if err != nil {
+		a.fail("cancel portal payment", w, r, err)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, toPortalIntent(g))
+}
+
+func deref(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
 }
 
 func (a *API) portalListIntents(w http.ResponseWriter, r *http.Request, customer string) {
@@ -391,6 +438,12 @@ func (a *API) stripeWebhook(w http.ResponseWriter, r *http.Request) {
 			return gw.PaymentDetails(ctx, ev.Account, ev.IntentID)
 		},
 	})
+	if errors.Is(err, store.ErrGatewayBusy) {
+		// Another event of the same attempt is being handled: the provider redelivers this one after it.
+		slog.Warn("payment webhook deferred: the attempt is busy", "event", ev.ID, "type", ev.Type, "attempt", route.GatewayPaymentID)
+		http.Error(w, "busy; retry", http.StatusConflict)
+		return
+	}
 	if err != nil {
 		// The provider redelivers; every step is idempotent.
 		a.failed.Add(1)

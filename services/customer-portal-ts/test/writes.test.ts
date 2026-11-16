@@ -125,6 +125,14 @@ describe("paying invoices by card or bank account", () => {
     expect(tokenClaims(call.headers.get("x-passage-service-token") as string)).toMatchObject({ aud: "receivables", cus: CUSTOMER_A, duties: ["receivables.customer-portal.pay"] });
   });
 
+  it("cancels an abandoned payment with the pay duty, at receivables' :cancel", async () => {
+    rig = await startRig();
+    const s = await signIn(rig);
+    expect((await post(s, `/api/v1/payment-intents/${ID_1}/cancel`, {})).status).toBe(200);
+    expect(rig.calls[0]!.url).toBe(`http://receivables.test/v1/receivables/customer-portal/payment-intents/${ID_1}:cancel`);
+    expect(tokenClaims(rig.calls[0]!.headers.get("x-passage-service-token") as string)).toMatchObject({ duties: ["receivables.customer-portal.pay"] });
+  });
+
   it("reads a payment's status with the read duty only", async () => {
     rig = await startRig();
     const s = await signIn(rig);

@@ -43,6 +43,8 @@ export const ROUTES: readonly Route[] = [
   { method: "GET", path: "/api/v1/payment-intents", audience: "receivables", duty: AR_READ, upstream: `${AR}/payment-intents` },
   { method: "GET", path: "/api/v1/payment-intents/:id", audience: "receivables", duty: AR_READ, upstream: `${AR}/payment-intents/:id` },
   { method: "POST", path: "/api/v1/payment-intents", audience: "receivables", duty: "receivables.customer-portal.pay", upstream: `${AR}/payment-intents` },
+  // The customer went back to change the amounts: the abandoned payment is cancelled at Stripe and stops reserving the invoices.
+  { method: "POST", path: "/api/v1/payment-intents/:id/cancel", audience: "receivables", duty: "receivables.customer-portal.pay", upstream: `${AR}/payment-intents/:id:cancel` },
 
   { method: "GET", path: "/api/v1/orders", audience: "sales", duty: SALES_READ, upstream: `${SALES}/orders` },
   { method: "GET", path: "/api/v1/orders/:id", audience: "sales", duty: SALES_READ, upstream: `${SALES}/orders/:id` },

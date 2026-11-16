@@ -1144,14 +1144,23 @@ test_customer_portal_render_duty_opens_only_the_renderer if {
 	allowed("print.document.render", "POST", "/print/v1/documents:render")
 }
 
-# A write duty of the portal is one POST on one route and nothing else.
+# A write duty of the portal is POST only: one route each, except the payment duty, which also cancels the customer's own
+# abandoned payment (#30).
+portal_write_routes("receivables.customer-portal.pay") := 2
+
+portal_write_routes(duty) := 1 if duty != "receivables.customer-portal.pay"
+
 test_customer_portal_write_duties_are_one_post_each if {
 	every duty in customer_portal_writes {
 		data.duties[duty].service_only
-		count(data.duties[duty].permissions) == 1
+		count(data.duties[duty].permissions) == portal_write_routes(duty)
 		every perm in data.duties[duty].permissions {
 			perm.methods == ["POST"]
 		}
+	}
+	{perm.resource | some perm in data.duties["receivables.customer-portal.pay"].permissions} == {
+		"/v1/receivables/customer-portal/payment-intents",
+		"/v1/receivables/customer-portal/payment-intents/*:cancel",
 	}
 }
 
@@ -1216,6 +1225,9 @@ test_receivables_customer_portal_duty_opens_only_customer_routes if {
 test_receivables_customer_portal_pay_opens_only_payment_intents if {
 	data.duties["receivables.customer-portal.pay"].service_only
 	allowed("receivables.customer-portal.pay", "POST", "/v1/receivables/customer-portal/payment-intents")
+	allowed("receivables.customer-portal.pay", "POST", "/v1/receivables/customer-portal/payment-intents/g1:cancel")
+	not allowed("receivables.customer-portal.read", "POST", "/v1/receivables/customer-portal/payment-intents/g1:cancel")
+	not allowed("receivables.customer-portal.pay", "POST", "/v1/receivables/customer-portal/payment-intents/g1:apply")
 	not allowed("receivables.customer-portal.pay", "GET", "/v1/receivables/customer-portal/payment-intents")
 	not allowed("receivables.customer-portal.pay", "POST", "/v1/receivables/payments")
 	not allowed("receivables.customer-portal.pay", "POST", "/v1/receivables/payments/p1:apply")

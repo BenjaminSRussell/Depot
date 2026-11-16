@@ -54,6 +54,7 @@ Customers can pay their open invoices by card or from a US bank account (ACH) in
 - **Processing** bank payments take 3 to 5 business days. Nothing is applied until the bank confirms.
 - **Failed** payments changed nothing. **Why** says what the processor reported.
 - **Refunded** and **Disputed or returned** payments were reversed: the invoices are open again.
+- A card issuer **inquiry** withdraws no money and reverses nothing: the payment is flagged **Needs review** so you can answer it in Stripe. If a lost dispute is later won, the payment is flagged too: record it again.
 - **Needs review** means part of the money could not be applied as the customer chose (an invoice was paid in the meantime, or a partial refund). Check the payment and apply or unapply by hand.
 
 ## Check the journals posted to the ledger

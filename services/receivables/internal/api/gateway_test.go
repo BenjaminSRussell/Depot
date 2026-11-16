@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -289,5 +290,50 @@ func TestGatewayAPI_OffWithoutAProvider(t *testing.T) {
 	payload := stripetest.Event("evt_off", "payment_intent.succeeded", h.now, stripetest.Intent("pi_x", 100, "usd", nil))
 	if rec := h.deliver(payload, stripetest.Signed(payload, gwWhsec, h.now)); rec.Code != http.StatusNotFound {
 		t.Fatalf("webhook without a provider: %d", rec.Code)
+	}
+}
+
+func TestGatewayAPI_CancelGranularityAndForeignCharges(t *testing.T) {
+	h := newGatewayHarness(t, true)
+	a := h.item(t, gwCustA, "INV-7301", "100.00")
+	const path = "/v1/receivables/customer-portal/payment-intents"
+	body := `{"method":"CARD","allocations":[{"openItemId":"` + a.ID + `","amount":"100.00"}]}`
+	created := decodeBody[intentAnswer](t, h.portal(t, gwCustA, http.MethodPost, path, body, "key-cancel-01"))
+	// While it waits for the customer, the invoice cannot be paid again.
+	if rec := h.portal(t, gwCustA, http.MethodPost, path, body, "key-cancel-02"); rec.Code != http.StatusUnprocessableEntity || codeOf(t, rec) != "AR-0019" {
+		t.Fatalf("second payment while the first waits: %d %s", rec.Code, rec.Body)
+	}
+	if rec := h.portal(t, gwCustB, http.MethodPost, path+"/"+created.ID+":cancel", "{}", ""); rec.Code != http.StatusNotFound {
+		t.Fatalf("another customer cancels: %d %s", rec.Code, rec.Body)
+	}
+	rec := h.portal(t, gwCustA, http.MethodPost, path+"/"+created.ID+":cancel", "{}", "")
+	if rec.Code != http.StatusOK || decodeBody[intentAnswer](t, rec).Status != "FAILED" {
+		t.Fatalf("cancel: %d %s", rec.Code, rec.Body)
+	}
+	last := h.fake.Requests()[len(h.fake.Requests())-1]
+	if !strings.HasSuffix(last.Path, "/cancel") || last.Header.Get("Idempotency-Key") != "passage-pi-cancel-"+created.ID {
+		t.Fatalf("Stripe cancel = %s %v", last.Path, last.Header)
+	}
+	if rec := h.portal(t, gwCustA, http.MethodPost, path, body, "key-cancel-03"); rec.Code != http.StatusCreated {
+		t.Fatalf("after the cancel the invoice can be paid: %d %s", rec.Code, rec.Body)
+	}
+
+	// An amount Stripe cannot take is refused before Stripe is called, with a plain reason.
+	ctx := tenant.With(context.Background(), tenant.Principal{TenantID: gwTenant, Duties: map[string]struct{}{tenant.DutyAllScope: {}}})
+	kwd, err := h.store.CreateOpenItem(ctx, store.OpenItem{LegalEntityID: gwLE, CustomerID: gwCustA, SourceType: "INVOICE", DocumentNumber: "INV-7302",
+		DocumentDate: "2027-03-01", DueDate: "2027-03-31", Currency: "KWD", Amount: decimal.RequireFromString("12.345"), OpenAmount: decimal.RequireFromString("12.345")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	calls := len(h.fake.Requests())
+	rec = h.portal(t, gwCustA, http.MethodPost, path, `{"method":"CARD","allocations":[{"openItemId":"`+kwd.ID+`","amount":"12.345"}]}`, "key-kwd-0001")
+	if rec.Code != http.StatusUnprocessableEntity || codeOf(t, rec) != "AR-GATEWAY-AMOUNT" || !strings.Contains(rec.Body.String(), "steps of 0.010") || len(h.fake.Requests()) != calls {
+		t.Fatalf("KWD 12.345: %d %s", rec.Code, rec.Body)
+	}
+
+	// A verified refund of a charge without a PaymentIntent is acknowledged, not refused (Stripe would retry and disable the endpoint).
+	foreign := []byte(`{"id":"evt_foreign","object":"event","type":"charge.refunded","created":` + strconv.FormatInt(h.now.Unix(), 10) + `,"data":{"object":{"id":"ch_1","amount":500,"amount_refunded":500,"currency":"usd","payment_intent":null}}}`)
+	if rec := h.deliver(foreign, stripetest.Signed(foreign, gwWhsec, h.now)); rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "ignored") {
+		t.Fatalf("charge without a PaymentIntent: %d %s", rec.Code, rec.Body)
 	}
 }

@@ -32,6 +32,10 @@ const (
 	CodeGatewayOff         = "AR-GATEWAY-OFF"
 	CodeGatewayUnavailable = "AR-GATEWAY-UNAVAILABLE"
 	CodeGatewayRefused     = "AR-GATEWAY-REFUSED"
+	// CodeGatewayAmount: the provider cannot charge the amount in this currency (for example KWD by card in steps of 0.010).
+	CodeGatewayAmount = "AR-GATEWAY-AMOUNT"
+	// CodeGatewayState: the payment can no longer be cancelled; it is under way or done.
+	CodeGatewayState = "AR-GATEWAY-STATE"
 	// MaxGatewayItems bounds the open items of one payment.
 	MaxGatewayItems = 50
 )
@@ -90,6 +94,7 @@ type GatewayPayment struct {
 	Version          int                  `json:"version"`
 	CreatedAt        time.Time            `json:"createdAt"`
 	UpdatedAt        time.Time            `json:"updatedAt"`
+	LastEventAt      *time.Time           `json:"lastEventAt,omitempty"`
 	Allocations      []GatewayAllocation  `json:"allocations"`
 	Events           []GatewayEventRecord `json:"events,omitempty"`
 }
@@ -103,7 +108,13 @@ type GatewayAttemptInput struct {
 	Method          gateway.Method
 	ContactID       string
 	Allocations     []GatewayAllocation
+	// CheckAmount is the provider's granularity check (Stripe takes 3-decimal currencies in steps of 0.010); nil checks nothing.
+	CheckAmount func(amount decimal.Decimal, currency string) error
 }
+
+// GatewayReservationWindow is how long an attempt the provider created a payment for, still waiting for the customer or for
+// the provider's webhook, keeps what it pays from being paid again. Cancelling it, its failure or this window releases it.
+const GatewayReservationWindow = 30 * time.Minute
 
 // GatewayFilter narrows the gateway payment list.
 type GatewayFilter struct {
@@ -124,7 +135,7 @@ var ErrGatewayRouteNotFound = errors.New("store: no gateway payment for the prov
 
 const gatewayColumns = `id, legal_entity_id, customer_id, provider, provider_account, provider_intent_id, method, amount::text, currency,
 	status, card_brand, last4, card_exp_month, card_exp_year, bank_name, failure_code, failure_message, payment_id::text,
-	refunded_amount::text, needs_review, review_reason, contact_id, version, created_at, updated_at`
+	refunded_amount::text, needs_review, review_reason, contact_id, version, created_at, updated_at, last_event_at`
 
 func scanGateway(row rowScanner) (GatewayPayment, error) {
 	var g GatewayPayment
@@ -132,7 +143,7 @@ func scanGateway(row rowScanner) (GatewayPayment, error) {
 	var expMonth, expYear *int16
 	if err := row.Scan(&g.ID, &g.LegalEntityID, &g.CustomerID, &g.Provider, &g.ProviderAccount, &g.ProviderIntentID, &g.Method, &amount,
 		&g.Currency, &g.Status, &g.CardBrand, &g.Last4, &expMonth, &expYear, &g.BankName, &g.FailureCode, &g.FailureMessage, &g.PaymentID,
-		&refunded, &g.NeedsReview, &g.ReviewReason, &g.ContactID, &g.Version, &g.CreatedAt, &g.UpdatedAt); err != nil {
+		&refunded, &g.NeedsReview, &g.ReviewReason, &g.ContactID, &g.Version, &g.CreatedAt, &g.UpdatedAt, &g.LastEventAt); err != nil {
 		return GatewayPayment{}, err
 	}
 	g.Amount, g.RefundedAmount = decimal.RequireFromString(amount), decimal.RequireFromString(refunded)
@@ -217,16 +228,31 @@ func (s *Postgres) CreateGatewayAttempt(ctx context.Context, in GatewayAttemptIn
 			if !a.Amount.IsPositive() || !a.Amount.Equal(a.Amount.Truncate(money.MinorUnits(currency))) {
 				return httpx.NewProblem(http.StatusBadRequest, "COM-0001", fmt.Sprintf("the amount on %s must be above zero with at most %d decimals", item.DocumentNumber, money.MinorUnits(currency)))
 			}
+			if in.CheckAmount != nil {
+				if err := in.CheckAmount(a.Amount, currency); err != nil {
+					return httpx.NewProblem(http.StatusUnprocessableEntity, CodeGatewayAmount, fmt.Sprintf("the amount on %s cannot be charged: %s", item.DocumentNumber, err.Error()))
+				}
+			}
+			// What other payments already claim: ACH payments processing, and payments the provider was asked for in the last
+			// GatewayReservationWindow that still wait for the customer or for the webhook (a card paid seconds ago).
 			var pendingText string
 			if err := tx.QueryRow(ctx, `select coalesce(sum(a.amount), 0)::text from gateway_payment_allocation a
 				join gateway_payment g on g.tenant_id = a.tenant_id and g.id = a.gateway_payment_id
-				where a.tenant_id = $1 and a.open_item_id = $2 and g.status = 'PROCESSING'`, p.TenantID, id).Scan(&pendingText); err != nil {
+				where a.tenant_id = $1 and a.open_item_id = $2
+				  and (g.status = 'PROCESSING' or (g.status = 'REQUIRES_PAYMENT' and g.provider_intent_id is not null
+				       and g.created_at > now() - make_interval(secs => $3)))`,
+				p.TenantID, id, GatewayReservationWindow.Seconds()).Scan(&pendingText); err != nil {
 				return err
 			}
-			payable := item.OpenAmount.Sub(decimal.RequireFromString(pendingText))
+			pending := decimal.RequireFromString(pendingText)
+			payable := item.OpenAmount.Sub(pending)
 			if a.Amount.GreaterThan(payable) {
-				return httpx.NewProblem(http.StatusUnprocessableEntity, CodeGatewayOverpay,
-					fmt.Sprintf("%s has %s %s left to pay; pay that much or less", item.DocumentNumber, payable.StringFixed(money.MinorUnits(currency)), currency))
+				detail := fmt.Sprintf("%s has %s %s left to pay; pay that much or less", item.DocumentNumber, payable.StringFixed(money.MinorUnits(currency)), currency)
+				if pending.IsPositive() {
+					detail = fmt.Sprintf("%s has %s %s left to pay: %s %s is already being paid by another card or bank payment; pay that much or less, or wait for it to finish",
+						item.DocumentNumber, payable.StringFixed(money.MinorUnits(currency)), currency, pending.StringFixed(money.MinorUnits(currency)), currency)
+				}
+				return httpx.NewProblem(http.StatusUnprocessableEntity, CodeGatewayOverpay, detail)
 			}
 			total = total.Add(a.Amount)
 			allocs = append(allocs, GatewayAllocation{OpenItemID: id, DocumentNumber: item.DocumentNumber, Amount: a.Amount})
@@ -315,6 +341,49 @@ func (s *Postgres) FailGatewayAttempt(ctx context.Context, id, code, message str
 			version = version + 1, updated_at = now() where tenant_id = $1 and id = $2 and status = 'REQUIRES_PAYMENT'`, p.TenantID, id, code, message)
 		return err
 	})
+}
+
+// CancelGatewayAttempt ends an attempt the customer abandoned (went back to change the amounts), releasing what it reserved.
+// cancel asks the provider to cancel its payment first; a payment already under way is refused (AR-GATEWAY-STATE). Only the
+// customer's own attempt still waiting for the customer can be cancelled; another customer's reads as not found.
+func (s *Postgres) CancelGatewayAttempt(ctx context.Context, id, customerID string, cancel func(g GatewayPayment) error) (GatewayPayment, error) {
+	release, err := s.lockGatewayAttempt(ctx, id)
+	if err != nil {
+		return GatewayPayment{}, err
+	}
+	defer release()
+	g, err := s.GetGatewayPayment(ctx, id)
+	if err == nil && !strings.EqualFold(g.CustomerID, customerID) {
+		err = httpx.NewProblem(http.StatusNotFound, CodeGatewayNotFound, "payment not found")
+	}
+	if err != nil {
+		return GatewayPayment{}, err
+	}
+	if g.Status != GatewayRequiresPayment {
+		if g.Status == GatewayFailed {
+			return g, nil
+		}
+		return g, httpx.NewProblem(http.StatusConflict, CodeGatewayState, "the payment is already under way and cannot be cancelled")
+	}
+	if g.ProviderIntentID != nil && cancel != nil {
+		if err := cancel(g); err != nil {
+			return g, err
+		}
+	}
+	p, _ := tenant.FromContext(ctx)
+	err = dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
+		tag, err := tx.Exec(ctx, `update gateway_payment set status = 'FAILED', failure_code = 'canceled', failure_message = $3,
+			version = version + 1, updated_at = now() where tenant_id = $1 and id = $2 and status = 'REQUIRES_PAYMENT' and version = $4`,
+			p.TenantID, id, gateway.PlainFailure("canceled"), g.Version)
+		if err == nil && tag.RowsAffected() == 0 {
+			return ErrGatewayBusy
+		}
+		return err
+	})
+	if err != nil {
+		return g, err
+	}
+	return s.GetGatewayPayment(ctx, id)
 }
 
 // ListGatewayPayments lists gateway payments, newest first, with their items.
@@ -408,67 +477,117 @@ type GatewayEventOptions struct {
 	Details func(ctx context.Context) (gateway.Details, error)
 }
 
+// ErrGatewayBusy: another delivery is handling the same attempt, or the attempt moved while this event was handled. It is
+// transient: the webhook answers 5xx and the provider redelivers, and the redelivery sees the new state.
+var ErrGatewayBusy = errors.New("store: the payment attempt is being changed by another event; retry")
+
+// gatewayLockClass is the first key of the per-attempt advisory lock (the second is the attempt id's hash).
+const gatewayLockClass = 30014
+
+// lockGatewayAttempt takes the attempt's advisory lock on a connection of its own and keeps it until release, across the
+// several transactions handling an event takes (CreatePayment, ApplyPayment, the final write). It never waits: a held lock
+// is ErrGatewayBusy, so a delivery cannot hold a pool connection while it waits for another that needs one too.
+func (s *Postgres) lockGatewayAttempt(ctx context.Context, attemptID string) (func(), error) {
+	conn, err := s.pool.Acquire(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var ok bool
+	if err := conn.QueryRow(ctx, `select pg_try_advisory_lock($1::int, hashtext($2))`, gatewayLockClass, attemptID).Scan(&ok); err != nil {
+		conn.Release()
+		return nil, err
+	}
+	if !ok {
+		conn.Release()
+		return nil, ErrGatewayBusy
+	}
+	return func() {
+		_, _ = conn.Exec(context.WithoutCancel(ctx), `select pg_advisory_unlock($1::int, hashtext($2))`, gatewayLockClass, attemptID)
+		conn.Release()
+	}, nil
+}
+
 // HandleGatewayEvent applies one verified webhook event to its attempt and records the event id, so a redelivery or a replay is
-// answered "duplicate" without acting twice. Only these events move money:
+// answered "duplicate" without acting twice. The attempt's advisory lock is held for the whole handling, and the final write is
+// a compare-and-set on the attempt's version, so two events of one attempt (a refund racing the success) never interleave: the
+// second gets ErrGatewayBusy and is redelivered. Only these events move money:
 //
-//   - SUCCEEDED records a PORTAL payment (CreatePayment, Idempotency-Key gateway:<attempt>) and applies it to the items the
-//     customer chose (ApplyPayment, gateway-apply:<attempt>), each capped at what is still open; what cannot be applied stays on
-//     account and the attempt is flagged for review.
-//   - REFUNDED in full and DISPUTED in full (a chargeback or an ACH return) reverse it: UnapplyPayment, then ReversePayment.
-//     A partial refund or dispute is recorded and flagged for a clerk.
+//   - SUCCEEDED records a PORTAL payment (CreatePayment, Idempotency-Key gateway:<attempt>), stores its id on the attempt at
+//     once, and applies it to the items the customer chose (ApplyPayment, gateway-apply:<attempt>), each capped at what is still
+//     open; what cannot be applied stays on account and the attempt is flagged for review.
+//   - REFUNDED in full and DISPUTED in full (funds withdrawn: a chargeback or an ACH return) reverse it: UnapplyPayment, then
+//     ReversePayment. The payment is found by the attempt's payment id, or else by its gateway:<attempt> key, so a success that
+//     crashed before recording itself is still reversed. A partial refund or dispute is recorded and flagged for a clerk.
 //
-// PROCESSING (ACH on its way) and FAILED change the attempt only. An event arriving after a later state (a processing event
-// after success) is recorded as ignored. A transient failure is returned so the provider redelivers; a refusal of receivables
-// itself (an item settled meanwhile, a payment a clerk already reversed) is recorded on the attempt for review.
+// An inquiry (a dispute that withdrew nothing) and reinstated dispute funds are flagged for a clerk and move no money.
+// PROCESSING, FAILED and CANCELED change the attempt only, and an older event than the last one applied never does. An event
+// arriving after a later state (a processing event after success) is recorded as ignored. A transient failure is returned so
+// the provider redelivers; a refusal of receivables itself (an item settled meanwhile, a payment a clerk already reversed) is
+// recorded on the attempt for review.
 func (s *Postgres) HandleGatewayEvent(ctx context.Context, attemptID string, ev gateway.Event, opts GatewayEventOptions) (string, error) {
+	release, err := s.lockGatewayAttempt(ctx, attemptID)
+	if err != nil {
+		return "", err
+	}
+	defer release()
 	p, _ := tenant.FromContext(ctx)
 	var g GatewayPayment
 	duplicate := false
-	err := dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
-		var seen bool
-		if err := tx.QueryRow(ctx, `select exists (select 1 from gateway_event where tenant_id = $1 and event_id = $2 and provider = (
-			select provider from gateway_payment where tenant_id = $1 and id = $3))`, p.TenantID, ev.ID, attemptID).Scan(&seen); err != nil {
-			return err
-		}
-		if seen {
-			duplicate = true
-			return nil
-		}
+	err = dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
 		var err error
 		g, err = scanGateway(tx.QueryRow(ctx, `select `+gatewayColumns+` from gateway_payment where id = $1`, attemptID))
 		if err != nil {
 			return notFound(err, CodeGatewayNotFound, "payment not found")
 		}
+		if err := tx.QueryRow(ctx, `select exists (select 1 from gateway_event where tenant_id = $1 and provider = $2 and event_id = $3)`,
+			p.TenantID, g.Provider, ev.ID).Scan(&duplicate); err != nil || duplicate {
+			return err
+		}
 		return loadGatewayAllocations(ctx, tx, p.TenantID, []*GatewayPayment{&g})
 	})
-	if err != nil || duplicate {
-		if duplicate {
-			return "duplicate", nil
-		}
+	if err != nil {
 		return "", err
+	}
+	if duplicate {
+		return "duplicate", nil
 	}
 	if ev.Account != deref(g.ProviderAccount) {
 		return "ignored: the event is for another provider account", s.recordGatewayEvent(ctx, g, ev, "ignored: another provider account", nil)
 	}
+	stale := g.LastEventAt != nil && ev.Created.Before(*g.LastEventAt)
 	switch ev.Kind {
 	case gateway.KindProcessing:
 		if g.Status != GatewayRequiresPayment && g.Status != GatewayFailed {
 			return s.ignore(ctx, g, ev)
+		}
+		if stale {
+			return s.ignoreStale(ctx, g, ev)
 		}
 		return "processing", s.recordGatewayEvent(ctx, g, ev, "processing", func(u *gatewayUpdate) {
 			u.status = GatewayProcessing
 			u.details = ev.Details
 			u.clearFailure = true
 		})
-	case gateway.KindFailed:
+	case gateway.KindFailed, gateway.KindCanceled:
 		if g.Status != GatewayRequiresPayment && g.Status != GatewayProcessing {
 			return s.ignore(ctx, g, ev)
 		}
-		outcome := "failed: " + firstNonEmpty(ev.FailureCode, "unknown")
+		if ev.Kind == gateway.KindCanceled && g.Status == GatewayProcessing {
+			return s.ignore(ctx, g, ev)
+		}
+		if stale {
+			// A failure older than the event that moved the attempt (a newer processing on the same PaymentIntent) is history.
+			return s.ignoreStale(ctx, g, ev)
+		}
+		code := firstNonEmpty(ev.FailureCode, "unknown")
+		outcome := "failed: " + code
+		if ev.Kind == gateway.KindCanceled {
+			outcome = "cancelled"
+		}
 		return outcome, s.recordGatewayEvent(ctx, g, ev, outcome, func(u *gatewayUpdate) {
 			u.status = GatewayFailed
 			u.details = ev.Details
-			u.failureCode, u.failureMessage = ev.FailureCode, firstNonEmpty(gateway.PlainFailure(ev.FailureCode), ev.FailureMessage)
+			u.failureCode, u.failureMessage = code, firstNonEmpty(gateway.PlainFailure(ev.FailureCode), ev.FailureMessage)
 		})
 	case gateway.KindSucceeded:
 		if g.Status == GatewaySucceeded || g.Status == GatewayRefunded || g.Status == GatewayDisputed {
@@ -495,6 +614,20 @@ func (s *Postgres) HandleGatewayEvent(ctx context.Context, attemptID string, ev 
 			u.clearFailure = true
 			u.review = review
 		})
+	case gateway.KindInquiry:
+		review := fmt.Sprintf("card issuer inquiry (%s) of %s %s; no money was withdrawn. Answer it in the Stripe dashboard if asked",
+			firstNonEmpty(ev.DisputeStatus, "inquiry"), ev.Amount.StringFixed(money.MinorUnits(g.Currency)), g.Currency)
+		if ev.DisputeStatus == "warning_closed" {
+			review = "the card issuer inquiry closed without a chargeback; nothing to do"
+		}
+		return "inquiry: flagged for review", s.recordGatewayEvent(ctx, g, ev, "inquiry ("+firstNonEmpty(ev.DisputeStatus, "inquiry")+"): flagged for review", func(u *gatewayUpdate) {
+			u.review = review
+		})
+	case gateway.KindReinstated:
+		review := fmt.Sprintf("the dispute's %s %s came back (dispute won); record the payment again by hand and apply it", ev.Amount.StringFixed(money.MinorUnits(g.Currency)), g.Currency)
+		return "dispute funds reinstated: flagged for review", s.recordGatewayEvent(ctx, g, ev, "dispute funds reinstated: flagged for review", func(u *gatewayUpdate) {
+			u.review = review
+		})
 	case gateway.KindRefunded, gateway.KindDisputed:
 		status, verb := GatewayRefunded, "refunded"
 		full := !ev.Amount.LessThan(ev.Total)
@@ -515,22 +648,29 @@ func (s *Postgres) HandleGatewayEvent(ctx context.Context, attemptID string, ev 
 				u.review = review
 			})
 		}
+		paymentID := deref(g.PaymentID)
+		if paymentID == "" {
+			// The success may have recorded the payment and crashed before it stored its id: find it by its key.
+			if paymentID, err = s.gatewayPaymentByKey(ctx, g.ID); err != nil {
+				return "", err
+			}
+		}
 		review := ""
-		if g.PaymentID != nil {
-			var err error
-			if review, err = s.reverseGatewayPayment(ctx, *g.PaymentID, "Card or bank payment "+verb+" at the provider"); err != nil {
+		if paymentID != "" {
+			if review, err = s.reverseGatewayPayment(ctx, paymentID, "Card or bank payment "+verb+" at the provider"); err != nil {
 				return "", err
 			}
 		}
 		outcome := verb + ": payment reversed"
-		if g.PaymentID == nil {
-			outcome = verb + " before the payment was recorded"
+		if paymentID == "" {
+			outcome = verb + " before any payment was recorded"
 		}
 		if review != "" {
 			outcome = verb + ": " + review
 		}
 		return outcome, s.recordGatewayEvent(ctx, g, ev, outcome, func(u *gatewayUpdate) {
 			u.status = status
+			u.paymentID = paymentID
 			u.refunded = &ev.Amount
 			u.review = review
 		})
@@ -538,8 +678,39 @@ func (s *Postgres) HandleGatewayEvent(ctx context.Context, attemptID string, ev 
 	return "ignored", nil
 }
 
+// gatewayPaymentByKey is the receivables payment a success of the attempt recorded, by its gateway:<attempt> key, or "".
+func (s *Postgres) gatewayPaymentByKey(ctx context.Context, attemptID string) (string, error) {
+	p, _ := tenant.FromContext(ctx)
+	id := ""
+	err := dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
+		err := tx.QueryRow(ctx, `select id::text from payment where tenant_id = $1 and idempotency_key = $2`, p.TenantID, "gateway:"+attemptID).Scan(&id)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil
+		}
+		return err
+	})
+	return id, err
+}
+
+// setGatewayPaymentID stores the payment a success recorded right after CreatePayment, before it is applied, so a crash
+// between the two still leaves the attempt pointing at its payment. It is written under the attempt's lock and does not move
+// the version the final compare-and-set checks.
+func (s *Postgres) setGatewayPaymentID(ctx context.Context, attemptID, paymentID string) error {
+	p, _ := tenant.FromContext(ctx)
+	return dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
+		_, err := tx.Exec(ctx, `update gateway_payment set payment_id = $3, updated_at = now() where tenant_id = $1 and id = $2 and payment_id is null`,
+			p.TenantID, attemptID, paymentID)
+		return err
+	})
+}
+
 func (s *Postgres) ignore(ctx context.Context, g GatewayPayment, ev gateway.Event) (string, error) {
 	outcome := "ignored: the payment is already " + strings.ToLower(g.Status)
+	return outcome, s.recordGatewayEvent(ctx, g, ev, outcome, nil)
+}
+
+func (s *Postgres) ignoreStale(ctx context.Context, g GatewayPayment, ev gateway.Event) (string, error) {
+	outcome := "ignored: older than the last event applied"
 	return outcome, s.recordGatewayEvent(ctx, g, ev, outcome, nil)
 }
 
@@ -554,8 +725,9 @@ type gatewayUpdate struct {
 	review         string
 }
 
-// recordGatewayEvent applies the update to the attempt and records the event in one transaction. A concurrent delivery of the
-// same event records nothing a second time.
+// recordGatewayEvent applies the update to the attempt and records the event in one transaction. The update is a
+// compare-and-set on the version the handling read: if the attempt moved meanwhile, nothing is written and ErrGatewayBusy
+// tells the provider to redeliver. A concurrent delivery of the same event records nothing a second time.
 func (s *Postgres) recordGatewayEvent(ctx context.Context, g GatewayPayment, ev gateway.Event, outcome string, change func(*gatewayUpdate)) error {
 	p, _ := tenant.FromContext(ctx)
 	return dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
@@ -582,7 +754,7 @@ func (s *Postgres) recordGatewayEvent(ctx context.Context, g GatewayPayment, ev 
 			r := u.refunded.String()
 			refunded = &r
 		}
-		_, err = tx.Exec(ctx, `update gateway_payment set
+		tag, err = tx.Exec(ctx, `update gateway_payment set
 				status = coalesce(nullif($3, ''), status),
 				card_brand = coalesce($4, card_brand), last4 = coalesce($5, last4),
 				card_exp_month = coalesce($6, card_exp_month), card_exp_year = coalesce($7, card_exp_year), bank_name = coalesce($8, bank_name),
@@ -591,10 +763,17 @@ func (s *Postgres) recordGatewayEvent(ctx context.Context, g GatewayPayment, ev 
 				payment_id = coalesce(nullif($12, '')::uuid, payment_id),
 				refunded_amount = coalesce($13::numeric, refunded_amount),
 				needs_review = needs_review or $14 <> '', review_reason = case when $14 <> '' then left($14, 300) else review_reason end,
+				last_event_at = greatest(coalesce(last_event_at, $16), $16),
 				version = version + 1, updated_at = now()
-			where tenant_id = $1 and id = $2`, p.TenantID, g.ID, u.status, brand, last4, expMonth, expYear, bank,
-			u.clearFailure, u.failureCode, u.failureMessage, u.paymentID, refunded, u.review)
-		return err
+			where tenant_id = $1 and id = $2 and version = $15`, p.TenantID, g.ID, u.status, brand, last4, expMonth, expYear, bank,
+			u.clearFailure, u.failureCode, u.failureMessage, u.paymentID, refunded, u.review, g.Version, ev.Created)
+		if err != nil {
+			return err
+		}
+		if tag.RowsAffected() == 0 {
+			return ErrGatewayBusy
+		}
+		return nil
 	})
 }
 
@@ -631,6 +810,9 @@ func (s *Postgres) settleGateway(ctx context.Context, g GatewayPayment, ev gatew
 			// The payment could not be recorded at all (a clerk recorded the same provider payment by hand): nothing to apply.
 			return "", "the payment could not be recorded: " + review, nil
 		}
+		return "", "", err
+	}
+	if err := s.setGatewayPaymentID(ctx, g.ID, pay.ID); err != nil {
 		return "", "", err
 	}
 	if pay.Status != "RECEIVED" || !pay.UnappliedAmount.Equal(pay.Amount) {

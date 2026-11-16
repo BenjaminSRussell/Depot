@@ -145,12 +145,12 @@ describe("routing", () => {
     expect(rig.calls).toHaveLength(0);
   });
 
-  it("covers every route with a distinct upstream under a customer-portal path, and only three writes", () => {
+  it("covers every route with a distinct upstream under a customer-portal path, and only four writes", () => {
     for (const r of ROUTES) {
       expect(r.upstream, r.path).toContain("/customer-portal/");
       expect(r.duty, r.path).toContain("customer-portal");
     }
-    expect(ROUTES.filter((r) => r.method !== "GET").map((r) => `${r.method} ${r.path}`).sort()).toEqual(["POST /api/v1/orders", "POST /api/v1/payment-intents", "POST /api/v1/returns"]);
+    expect(ROUTES.filter((r) => r.method !== "GET").map((r) => `${r.method} ${r.path}`).sort()).toEqual(["POST /api/v1/orders", "POST /api/v1/payment-intents", "POST /api/v1/payment-intents/:id/cancel", "POST /api/v1/returns"]);
     expect(new Set(ROUTES.map((r) => `${r.method} ${r.path}`)).size).toBe(ROUTES.length);
   });
 });

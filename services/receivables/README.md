@@ -60,7 +60,7 @@ migrations/            0001 tables and RLS, 0002 outbox, 0003 idempotency_keys,
                        0005 lockbox_batch, 0006 collection_case, balance_confirmation_run,
                        balance_confirmation, 0007 down_payment, down_payment_clearing,
                        0008 bank_statement_import, deduction, 0018 billing document keys, consumer_inbox,
-                       0030 gateway_payment, gateway_payment_allocation, gateway_event, gateway_route
+                       0030 gateway_payment, gateway_payment_allocation, gateway_event, gateway_route, 0031 last_event_at
 api/openapi.yaml       REST contract
 events/asyncapi.yaml   event contract
 charts/receivables/    Helm chart (passage-receivables)
@@ -173,6 +173,8 @@ The `type` is `https://passage.dev/problems/<code>`.
 | `AR-GATEWAY-OFF` | 503 | No payment provider is configured, or not for this legal entity |
 | `AR-GATEWAY-UNAVAILABLE` | 502 | Stripe could not be reached; retry with the same Idempotency-Key |
 | `AR-GATEWAY-REFUSED` | 422 | Stripe refused the payment (for example an amount below its minimum) |
+| `AR-GATEWAY-AMOUNT` | 422 | Stripe cannot charge the amount in this currency (three-decimal currencies in steps of 0.010) |
+| `AR-GATEWAY-STATE` | 409 | A portal payment under way or paid cannot be cancelled |
 
 `Idempotency-Key` is enforced on create by storing the key on the payment row
 (unique per tenant). On apply the key and the response are stored in
@@ -192,7 +194,10 @@ transactions as every other payment, so no cash application is duplicated and no
 - **Start** (`POST /v1/receivables/customer-portal/payment-intents`, duty `receivables.customer-portal.pay`, held only by the portal BFF,
   `Idempotency-Key` required): the customer and legal entity are the signed token's. Each item must be the customer's own open debit
   in the legal entity, all in one currency; each amount is above zero, in the currency's minor unit and at most what is open on the
-  item less what an ACH payment still PROCESSING claims (AR-0019); less is a partial payment. ACH is USD only (AR-GATEWAY-METHOD).
+  item less what other payments already claim (AR-0019): ACH payments PROCESSING, and attempts Stripe was asked for in the last 30
+  minutes that still wait for the customer or for the webhook (a card paid seconds ago); less is a partial payment. ACH is USD only
+  (AR-GATEWAY-METHOD), and an amount Stripe cannot charge (a three-decimal currency not in steps of 0.010, decimals on a zero-decimal
+  one) is refused with a plain reason (AR-GATEWAY-AMOUNT) before Stripe is called.
   The attempt is stored (`gateway_payment`, `gateway_payment_allocation`), then Stripe is asked for a PaymentIntent: the amount in Stripe's
   minor units (zero-decimal currencies such as JPY in whole units, three-decimal ones in multiples of ten; never a float),
   `payment_method_types[]` `card`, or `us_bank_account` with `verification_method=automatic` (Financial Connections, Stripe's own
@@ -200,25 +205,46 @@ transactions as every other payment, so no cash application is duplicated and no
   and, when the legal entity has a Connect account, the `Stripe-Account` header. The answer carries only the client secret and the
   publishable key. A replay of the same key returns the same attempt (and Stripe's same PaymentIntent). A Stripe refusal (an amount
   below its minimum) fails the attempt (AR-GATEWAY-REFUSED); an outage is 502 AR-GATEWAY-UNAVAILABLE and the same key can be retried.
+- **Cancel** (`POST /customer-portal/payment-intents/{id}:cancel`, the pay duty): the customer went back to change the amounts; the
+  PaymentIntent is cancelled at Stripe (Idempotency-Key `passage-pi-cancel-<attempt>`) and the attempt fails with code `canceled`, so
+  it stops reserving the invoices. One under way or paid is 409 AR-GATEWAY-STATE.
 - **Status only from webhooks.** `POST /webhooks/v1/stripe` is served on its own listener (`RECEIVABLES_WEBHOOK_ADDR`, default `:8081`
   when a provider is set) without the tenant middleware. The `Stripe-Signature` HMAC-SHA256 over `<t>.<raw body>` is checked against
   each configured signing secret before anything is parsed, and `t` must be within 5 minutes. The PaymentIntent id selects the attempt
   through `receivables_gateway_route()` (SECURITY DEFINER over `gateway_route`, the only cross-tenant read, like edi's AS2 endpoint);
   the event then runs as that tenant and legal entity. Event ids are recorded in `gateway_event`, so a redelivery or a replayed request
-  answers `duplicate` and changes nothing. Handled: `payment_intent.succeeded` (a PORTAL payment, mode CARD or ACH, `source_ref` the
-  PaymentIntent, bank account ref `RECEIVABLES_GATEWAY_BANK_REF`, Idempotency-Key `gateway:<attempt>`, applied to the chosen items with
-  `gateway-apply:<attempt>`, each capped at what is still open; the rest stays on account and the attempt is flagged `needsReview`),
-  `payment_intent.processing` (ACH on its way; nothing applied), `payment_intent.payment_failed` (the code and a plain message),
-  `charge.refunded` and `charge.dispute.created` (in full: unapply then reverse the receipt; in part: recorded and flagged). Brand, last
-  four, expiry month and year and the bank's name are read from the PaymentIntent's payment method; no card number, CVC or bank account
-  number is stored. Other event types and PaymentIntents Passage did not create are acknowledged and ignored. A transient failure answers
-  500 so Stripe redelivers; a refusal of receivables itself (an item settled meanwhile) is recorded on the attempt for review.
+  answers `duplicate` and changes nothing. Events of one attempt are handled one at a time: a per-attempt advisory lock is held for the
+  whole handling (never waited on: a second delivery gets 409 and Stripe redelivers it), and the final write is a compare-and-set on
+  the attempt's version, so a refund racing the success is handled after it. The provider time of the latest applied event is kept
+  (`last_event_at`, migration 0031): an older processing or failure that arrives late is recorded as ignored.
+  Handled:
+  - `payment_intent.succeeded`: a PORTAL payment (mode CARD or ACH, `source_ref` the PaymentIntent, bank account ref
+    `RECEIVABLES_GATEWAY_BANK_REF`, Idempotency-Key `gateway:<attempt>`), its id stored on the attempt at once, applied to the chosen
+    items with `gateway-apply:<attempt>`, each capped at what is still open; the rest stays on account and the attempt is flagged
+    `needsReview`. A retry after a crash completes the record without a second payment.
+  - `payment_intent.processing` (ACH on its way; nothing applied), `payment_intent.payment_failed` (the code and a plain message),
+    `payment_intent.canceled` (a waiting attempt fails with code `canceled`).
+  - `charge.refunded`: in full, unapply then reverse the receipt; in part, recorded and flagged. The payment is found by the attempt's
+    payment id or else by its `gateway:<attempt>` key, so a success that crashed before recording itself is still reversed.
+  - `charge.dispute.funds_withdrawn`, and `charge.dispute.created` with a status that is not `warning_*`: money withdrawn (a
+    chargeback, or an ACH return after success); reversed like a refund.
+  - `charge.dispute.created`, `.updated` or `.closed` with a `warning_*` status (`warning_needs_response`, `warning_under_review`,
+    `warning_closed`): an inquiry that withdrew nothing; flagged for review, nothing reversed.
+  - `charge.dispute.funds_reinstated`: the dispute was won and the money came back; flagged for the clerk to record the payment again.
+
+  Brand, last four, expiry month and year and the bank's name are read from the PaymentIntent's payment method; no card number, CVC
+  or bank account number is stored. Other event types, PaymentIntents Passage did not create and charges without a PaymentIntent are
+  acknowledged and ignored. A transient failure answers 500 so Stripe redelivers; a refusal of receivables itself (an item settled
+  meanwhile) is recorded on the attempt for review.
 - **Reads.** The portal reads its own attempts (`GET /customer-portal/payment-intents`, `/{id}`, receivables.customer-portal.read);
   staff read `GET /gateway-payments?status=&customer=&payment=` and `/{id}` with the handled events (receivables.view).
+- **Edge.** `deploy/gateway/payments-webhook` (Gateway `passage-payments-webhook`, its own Argo CD Application) routes only
+  `POST /webhooks/v1/stripe`, exactly, to the webhook Service; the chart's NetworkPolicy admits only that Gateway's proxies to the
+  webhook port (`networkPolicy.webhookGateway`).
 - **Configuration.** `RECEIVABLES_PAYMENT_PROVIDER=stripe` turns it on. `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` (comma-separated
   signing secrets: the platform endpoint, the Connect endpoint, or two while one is rolled) come from a Kubernetes Secret, mounted and
   read through `STRIPE_SECRET_KEY_FILE` / `STRIPE_WEBHOOK_SECRET_FILE` (chart `payments.existingSecret`, or `payments.externalSecret`).
-  `STRIPE_PUBLISHABLE_KEY` is plain config. `RECEIVABLES_STRIPE_ACCOUNTS` maps legal entity ids to Stripe Connect account ids; empty means
+  `STRIPE_PUBLISHABLE_KEY` is plain config and required (`pk_...`; the service and the chart refuse to start without it). `RECEIVABLES_STRIPE_ACCOUNTS` maps legal entity ids to Stripe Connect account ids; empty means
   one platform account for every legal entity of the deployment, and when it is set only the listed legal entities take payments.
   `RECEIVABLES_GATEWAY_BANK_REF` (default `STRIPE`) is the `ar_bank_account` account_ref of the Stripe clearing account. Keys are never
   logged or put in an error. Without a provider the portal route answers 503 AR-GATEWAY-OFF.

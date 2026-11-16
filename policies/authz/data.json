@@ -1037,7 +1037,8 @@
       {"resource": "/v1/receivables/customer-portal/payment-intents/*", "methods": ["GET"]}
     ]},
     "receivables.customer-portal.pay": {"service_only": true, "permissions": [
-      {"resource": "/v1/receivables/customer-portal/payment-intents", "methods": ["POST"]}
+      {"resource": "/v1/receivables/customer-portal/payment-intents", "methods": ["POST"]},
+      {"resource": "/v1/receivables/customer-portal/payment-intents/*:cancel", "methods": ["POST"]}
     ]},
     "billing.customer-portal.read": {"service_only": true, "permissions": [
       {"resource": "/v1/billing/customer-portal/invoices", "methods": ["GET"]},

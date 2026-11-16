@@ -29,7 +29,7 @@ func TestGatewayFromEnv(t *testing.T) {
 		}
 		return []byte("whsec_file\n"), nil
 	}
-	fromFiles := map[string]string{"RECEIVABLES_PAYMENT_PROVIDER": "stripe", "STRIPE_SECRET_KEY_FILE": "/s/key", "STRIPE_WEBHOOK_SECRET_FILE": "/s/hook"}
+	fromFiles := map[string]string{"RECEIVABLES_PAYMENT_PROVIDER": "stripe", "STRIPE_SECRET_KEY_FILE": "/s/key", "STRIPE_WEBHOOK_SECRET_FILE": "/s/hook", "STRIPE_PUBLISHABLE_KEY": "pk_test_abc"}
 	if _, err := gatewayFromEnv(envOf(fromFiles), files); err != nil {
 		t.Fatalf("files: %v", err)
 	}
@@ -40,6 +40,7 @@ func TestGatewayFromEnv(t *testing.T) {
 		"bad account":      {"RECEIVABLES_STRIPE_ACCOUNTS": `{"le":"acct_1"}`},
 		"bad bank ref":     {"RECEIVABLES_GATEWAY_BANK_REF": "stripe clearing"},
 		"publishable key":  {"STRIPE_SECRET_KEY": "pk_live_oops"},
+		"no publishable":   {"STRIPE_PUBLISHABLE_KEY": ""},
 	} {
 		env := map[string]string{}
 		for k, v := range base {

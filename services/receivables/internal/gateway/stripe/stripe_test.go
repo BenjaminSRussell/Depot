@@ -37,6 +37,7 @@ func TestNew_RefusesBadKeys(t *testing.T) {
 		"publishable as secret": {SecretKey: "pk_test_x", WebhookSecrets: []string{whsec}},
 		"no webhook secret":     {SecretKey: secretKey},
 		"bad publishable":       {SecretKey: secretKey, PublishableKey: "sk_test_x", WebhookSecrets: []string{whsec}},
+		"no publishable":        {SecretKey: secretKey, WebhookSecrets: []string{whsec}},
 	} {
 		if _, err := stripe.New(c); err == nil {
 			t.Errorf("%s: accepted", name)
@@ -228,5 +229,77 @@ func TestPaymentDetails_KeepsOnlyBrandLast4ExpiryAndBank(t *testing.T) {
 func TestPlainFailure(t *testing.T) {
 	if gateway.PlainFailure("card_declined") == "" || gateway.PlainFailure("something_new") == "" || gateway.PlainFailure("") != "" {
 		t.Fatal("plain failure messages")
+	}
+}
+
+func TestParseEvent_DisputesMoveMoneyOnlyWhenFundsAreWithdrawn(t *testing.T) {
+	now := time.Unix(1_800_000_000, 0)
+	dispute := func(typ, status string) gateway.Event {
+		t.Helper()
+		ev, err := stripe.ParseEvent(stripetest.Event("evt_"+typ+status, typ, now, map[string]any{"id": "dp_1", "object": "dispute", "amount": 1000, "currency": "usd", "payment_intent": "pi_3", "status": status, "reason": "fraudulent"}))
+		if err != nil {
+			t.Fatalf("%s %s: %v", typ, status, err)
+		}
+		return ev
+	}
+	for _, c := range []struct {
+		typ, status string
+		want        gateway.Kind
+	}{
+		{"charge.dispute.created", "warning_needs_response", gateway.KindInquiry},
+		{"charge.dispute.updated", "warning_under_review", gateway.KindInquiry},
+		{"charge.dispute.closed", "warning_closed", gateway.KindInquiry},
+		{"charge.dispute.created", "needs_response", gateway.KindDisputed},
+		{"charge.dispute.funds_withdrawn", "needs_response", gateway.KindDisputed},
+		{"charge.dispute.funds_reinstated", "won", gateway.KindReinstated},
+		{"charge.dispute.closed", "lost", gateway.KindIgnored},
+		{"charge.dispute.updated", "under_review", gateway.KindIgnored},
+	} {
+		if got := dispute(c.typ, c.status); got.Kind != c.want || (c.want != gateway.KindIgnored && got.DisputeStatus != c.status) {
+			t.Errorf("%s %s = %s (%q), want %s", c.typ, c.status, got.Kind, got.DisputeStatus, c.want)
+		}
+	}
+}
+
+func TestParseEvent_ChargesWithoutAPaymentIntentAreIgnored(t *testing.T) {
+	for _, payload := range []string{
+		`{"id":"evt_x","object":"event","type":"charge.refunded","created":1800000000,"data":{"object":{"id":"ch_1","amount":500,"amount_refunded":500,"currency":"usd","payment_intent":null}}}`,
+		`{"id":"evt_y","object":"event","type":"charge.dispute.created","created":1800000000,"data":{"object":{"id":"dp_1","amount":500,"currency":"usd","payment_intent":null,"status":"needs_response"}}}`,
+	} {
+		ev, err := stripe.ParseEvent([]byte(payload))
+		if err != nil || ev.Kind != gateway.KindIgnored {
+			t.Errorf("%s: %+v %v, want ignored", payload, ev.Kind, err)
+		}
+	}
+	ev, err := stripe.ParseEvent(stripetest.Event("evt_c", "payment_intent.canceled", time.Unix(1_800_000_000, 0), stripetest.Intent("pi_9", 100, "usd", nil)))
+	if err != nil || ev.Kind != gateway.KindCanceled || ev.FailureCode != "canceled" {
+		t.Fatalf("canceled = %+v (%v)", ev, err)
+	}
+}
+
+func TestCheckAmountAndCancel(t *testing.T) {
+	fake := stripetest.New()
+	defer fake.Close()
+	g := newGateway(t, fake.URL)
+	if err := g.CheckAmount(decimal.RequireFromString("12.345"), "KWD"); err == nil || !strings.Contains(err.Error(), "steps of 0.010") {
+		t.Fatalf("KWD 12.345: %v", err)
+	}
+	if err := g.CheckAmount(decimal.RequireFromString("12.340"), "KWD"); err != nil {
+		t.Fatalf("KWD 12.340: %v", err)
+	}
+	if err := g.CheckAmount(decimal.RequireFromString("10.5"), "JPY"); err == nil || !strings.Contains(err.Error(), "whole units") {
+		t.Fatalf("JPY 10.5: %v", err)
+	}
+	if err := g.CancelIntent(context.Background(), "acct_1", "pi_5", "att-1"); err != nil {
+		t.Fatal(err)
+	}
+	r := fake.Requests()[0]
+	if r.Path != "/v1/payment_intents/pi_5/cancel" || r.Header.Get("Idempotency-Key") != "passage-pi-cancel-att-1" || r.Header.Get("Stripe-Account") != "acct_1" {
+		t.Fatalf("cancel request = %s %v", r.Path, r.Header)
+	}
+	fake.CancelRefused = true
+	var ge *gateway.Error
+	if err := g.CancelIntent(context.Background(), "", "pi_6", "att-2"); !errors.As(err, &ge) || ge.Code != "payment_intent_unexpected_state" {
+		t.Fatalf("cancel of a processing PaymentIntent = %v", err)
 	}
 }

@@ -59,7 +59,15 @@ const (
 	KindProcessing Kind = "PROCESSING"
 	KindFailed     Kind = "FAILED"
 	KindRefunded   Kind = "REFUNDED"
-	KindDisputed   Kind = "DISPUTED"
+	// KindDisputed is a dispute whose funds were withdrawn: a chargeback, or an ACH return after success.
+	KindDisputed Kind = "DISPUTED"
+	// KindInquiry is a dispute that withdrew no money (Stripe's warning_* statuses: an inquiry or retrieval, under review, or
+	// closed without becoming a chargeback). It is flagged for a clerk and never reverses anything.
+	KindInquiry Kind = "INQUIRY"
+	// KindReinstated is a dispute whose withdrawn funds came back (the dispute was won). Flagged for a clerk to record again.
+	KindReinstated Kind = "REINSTATED"
+	// KindCanceled is a provider payment cancelled before it was paid (by Passage or at the provider).
+	KindCanceled Kind = "CANCELED"
 	// KindIgnored is an event type this integration does not act on; it is acknowledged so the provider stops sending it.
 	KindIgnored Kind = "IGNORED"
 )
@@ -97,8 +105,10 @@ type Event struct {
 	// FailureMessage is the provider's own message; callers show PlainFailure(FailureCode) to customers.
 	FailureMessage string
 	// Reason is the dispute reason (an ACH return names why the bank sent the money back).
-	Reason   string
-	Metadata map[string]string
+	Reason string
+	// DisputeStatus is the provider's dispute status (warning_needs_response, needs_response, won, lost, ...).
+	DisputeStatus string
+	Metadata      map[string]string
 }
 
 // Gateway is one payment provider.
@@ -111,6 +121,11 @@ type Gateway interface {
 	CreateIntent(ctx context.Context, req IntentRequest) (Intent, error)
 	// PaymentDetails reads the payment method of a provider payment (brand, last four, expiry, bank name).
 	PaymentDetails(ctx context.Context, account, intentID string) (Details, error)
+	// CheckAmount tells whether the provider can charge the amount in the currency (its granularity), with a plain reason.
+	CheckAmount(amount decimal.Decimal, currency string) error
+	// CancelIntent cancels a provider payment the customer abandoned (idempotent per attempt). A payment already under way
+	// is refused with an *Error whose Code is "payment_intent_unexpected_state".
+	CancelIntent(ctx context.Context, account, intentID, attemptID string) error
 	// ParseWebhook verifies the signature of a webhook (and its age) before parsing anything, then reads the event.
 	ParseWebhook(payload []byte, header http.Header, now time.Time) (Event, error)
 }
@@ -171,6 +186,10 @@ func PlainFailure(code string) string {
 		return "The amount is below the smallest payment we can take. Pay a larger amount."
 	case "amount_too_large":
 		return "The amount is above the largest payment we can take. Pay in several parts."
+	case "amount_invalid":
+		return "The amount cannot be charged in this currency. Change the amount and try again."
+	case "canceled":
+		return "The payment was cancelled before it was made. Nothing was charged."
 	}
 	return "The payment did not go through. Try again or use another payment method."
 }

@@ -33,6 +33,8 @@ type Server struct {
 	// Fail, when set, is answered to the next create: the HTTP status and Stripe's error code.
 	FailStatus int
 	FailCode   string
+	// CancelRefused, when set, makes cancels answer that the PaymentIntent is already processing.
+	CancelRefused bool
 	// Method is the payment method the reads report: "card" (Visa 4242, 12/2030) or "us_bank_account" (STRIPE TEST BANK 6789).
 	Method string
 }
@@ -85,6 +87,14 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 			"amount": form.Get("amount"), "currency": form.Get("currency")}
 		s.byKey[key] = pi
 		_ = json.NewEncoder(w).Encode(pi)
+	case r.Method == http.MethodPost && strings.HasPrefix(r.URL.Path, "/v1/payment_intents/") && strings.HasSuffix(r.URL.Path, "/cancel"):
+		id := strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, "/v1/payment_intents/"), "/cancel")
+		if s.CancelRefused {
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = w.Write([]byte(`{"error":{"type":"invalid_request_error","code":"payment_intent_unexpected_state","message":"This PaymentIntent's status is processing."}}`))
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"id": id, "object": "payment_intent", "status": "canceled"})
 	case r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, "/v1/payment_intents/"):
 		id := strings.TrimPrefix(r.URL.Path, "/v1/payment_intents/")
 		_ = json.NewEncoder(w).Encode(map[string]any{"id": id, "object": "payment_intent", "payment_method": PaymentMethod(s.Method)})

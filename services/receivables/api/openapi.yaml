@@ -327,6 +327,28 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/PortalIntent" }
         "404": { $ref: "#/components/responses/Problem" }
+  /v1/receivables/customer-portal/payment-intents/{id}:cancel:
+    post:
+      operationId: customerPortalCancelPaymentIntent
+      summary: Cancel a portal payment the customer abandoned before paying (customer portal)
+      description: >
+        The customer went back to change the amounts. Receivables cancels the Stripe PaymentIntent
+        (Idempotency-Key per attempt) and marks the attempt FAILED with code canceled, so it stops
+        reserving what it would have paid. Only the customer's own attempt still waiting for the
+        customer can be cancelled; one under way or paid is 409 AR-GATEWAY-STATE, another
+        customer's reads as not found. A cancelled one answers as it is.
+      x-passage-duty: receivables.customer-portal.pay
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: The attempt, cancelled
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PortalIntent" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "502": { $ref: "#/components/responses/Problem" }
   /v1/receivables/gateway-payments:
     get:
       operationId: listGatewayPayments
@@ -378,11 +400,17 @@ paths:
         Stripe-Signature header (HMAC-SHA256 over the timestamp and the raw body with the endpoint's
         signing secret) is verified before anything is parsed and its timestamp must be within 5 minutes.
         The PaymentIntent selects the attempt (tenant and legal entity come from it); the event id makes a
-        redelivery or a replay a no-op. Handled - payment_intent.succeeded (records a PORTAL payment and
-        applies it to the chosen items), payment_intent.processing (ACH on its way), payment_intent.payment_failed,
-        charge.refunded and charge.dispute.created (a chargeback or an ACH return; a full one reverses the
-        payment through unapply and receipt reversal, a partial one is flagged for review). Other events
-        and PaymentIntents Passage did not create are acknowledged and ignored.
+        redelivery or a replay a no-op; events of one attempt are handled one at a time (a second one
+        gets 409 and is redelivered) and an older processing or failure than the last event applied is
+        ignored. Handled - payment_intent.succeeded (records a PORTAL payment and applies it to the chosen
+        items), payment_intent.processing (ACH on its way), payment_intent.payment_failed,
+        payment_intent.canceled, charge.refunded (a full refund reverses the payment through unapply and
+        receipt reversal), charge.dispute.funds_withdrawn and charge.dispute.created with a status that is
+        not warning_* (a chargeback or an ACH return; reversed like a refund), charge.dispute.created,
+        updated or closed with a warning_* status (an inquiry; flagged for review, nothing reversed) and
+        charge.dispute.funds_reinstated (flagged for review). A partial refund or dispute is flagged for
+        review. Other events, PaymentIntents Passage did not create and charges without a PaymentIntent
+        are acknowledged and ignored.
       security: []
       x-passage-duty: none (Stripe authenticated by the Stripe-Signature HMAC)
       parameters:
@@ -405,6 +433,8 @@ paths:
           description: The signature does not verify, is older than 5 minutes, or the event is unreadable
         "404":
           description: Card payments are not set up on this deployment
+        "409":
+          description: Another event of the same payment is being handled; Stripe redelivers
         "500":
           description: A transient failure; Stripe redelivers and every step is idempotent
         "503":

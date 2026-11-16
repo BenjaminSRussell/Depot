@@ -20,7 +20,7 @@ var (
 // gatewayFromEnv reads the card and ACH payment provider (#30). RECEIVABLES_PAYMENT_PROVIDER empty leaves payments off; "stripe"
 // needs STRIPE_SECRET_KEY and STRIPE_WEBHOOK_SECRET (each from the chart's Secret, as a value or a _FILE path; the webhook secret
 // may list several, comma separated: the platform endpoint, the Connect endpoint, or two while one is rolled) and takes
-// STRIPE_PUBLISHABLE_KEY (plain config), RECEIVABLES_STRIPE_ACCOUNTS (a JSON object of legal entity id to Stripe Connect account
+// STRIPE_PUBLISHABLE_KEY (plain config, required: pk_...), RECEIVABLES_STRIPE_ACCOUNTS (a JSON object of legal entity id to Stripe Connect account
 // id), RECEIVABLES_GATEWAY_BANK_REF (the ar_bank_account account_ref of the Stripe clearing account, default STRIPE) and
 // STRIPE_API_BASE (tests only). Secrets never appear in an error.
 func gatewayFromEnv(getenv func(string) string, readFile func(string) ([]byte, error)) (*api.GatewayConfig, error) {
