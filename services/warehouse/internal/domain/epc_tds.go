@@ -50,7 +50,7 @@ var tds2Headers = [...]string{"CPI++", "GSRN++", "GSRNP++", "SGLN++", "GDTI++", 
 
 func refuseHeader(h int) error {
 	name := epcHeaderName(h)
-	if name == "reserved for future use" || strings.HasPrefix(name, "permanently") || strings.HasPrefix(name, "reserved") {
+	if strings.HasPrefix(name, "reserved") || strings.HasPrefix(name, "permanently") {
 		return epcErr("EPC header 0x%02X is %s in GS1 TDS 2.3 table 14-1, not a scheme", h, name)
 	}
 	return epcErr("EPC header 0x%02X is %s, a scheme this warehouse does not decode", h, name)
@@ -72,8 +72,8 @@ var tdsDecoders = map[int]tdsDecoder{
 	0x3B: {"ADI-var", 0, decodeADIVar},
 }
 
-// Partition tables. For CPI-96 the reference column is the number of bits and the most digits (table 14-34); for
-// CPI-var it is the most bits and the most characters of the 6-bit part reference with its terminator (table 14-35).
+// Partition tables. For CPI-96 the reference columns are its bits and its most digits (table 14-34); for CPI-var they
+// are the most bits of the 6-bit part reference with its terminator and its most characters (table 14-35).
 var (
 	cpi96Partitions  = []epcPartition{{40, 12, 11, 3}, {37, 11, 14, 4}, {34, 10, 17, 5}, {30, 9, 21, 6}, {27, 8, 24, 7}, {24, 7, 27, 8}, {20, 6, 31, 9}}
 	cpiVarPartitions = []epcPartition{{40, 12, 114, 18}, {37, 11, 120, 19}, {34, 10, 126, 20}, {30, 9, 132, 21}, {27, 8, 138, 22}, {24, 7, 144, 23}, {20, 6, 150, 24}}
