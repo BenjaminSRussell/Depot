@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"strings"
 
 	"github.com/BenjaminSRussell/passage/services/ops/internal/provision"
 	"github.com/BenjaminSRussell/passage/services/ops/internal/store"
@@ -20,6 +21,11 @@ import (
 //
 //	passage-ops tenant provision --tenant <id> [--dry-run]
 //	passage-ops tenant decommission --tenant <id> --reason <text> [--dry-run]
+// provisionersFromEnv is the real adapters of the systems whose OPS_* configuration is present (provision.FromEnv).
+func provisionersFromEnv(getenv func(string) string) (provision.Executors, []string, error) {
+	return provision.FromEnv(getenv, slog.Default(), nil)
+}
+
 func runTenant(ctx context.Context, args []string, out io.Writer, getenv func(string) string, d deps) error {
 	if len(args) == 0 || (args[0] != "provision" && args[0] != "decommission") {
 		return errors.New("usage: passage-ops tenant provision|decommission --tenant <id> [--reason <text>] [--dry-run]")
@@ -42,13 +48,18 @@ func runTenant(ctx context.Context, args []string, out io.Writer, getenv func(st
 		return err
 	}
 	exec := provision.LogExecutors(slog.Default())
+	var missing []string
 	if d.provisioners != nil {
-		if exec, err = d.provisioners(getenv); err != nil {
+		if exec, missing, err = d.provisioners(getenv); err != nil {
 			return err
 		}
-	} else if !dry {
-		// Only the logging adapter exists: it changes nothing, so a real run would have nothing to report. Refuse before the API is touched.
-		return fmt.Errorf("%w: only --dry-run is available until adapters for Keycloak, the databases, Kafka and the lakehouse are wired in", provision.ErrNotConfigured)
+	} else {
+		missing = []string{"every system"}
+	}
+	if len(missing) > 0 && !dry {
+		// A system without an adapter is on the logging adapter: it changes nothing, so a real run would have nothing to report.
+		// Refuse before the API is touched.
+		return fmt.Errorf("%w: only --dry-run is available until these are configured: %s", provision.ErrNotConfigured, strings.Join(missing, ", "))
 	}
 	rep := apiReporter{c: c}
 	runner := &provision.Runner{Exec: exec, Reporter: rep, DryRun: dry}

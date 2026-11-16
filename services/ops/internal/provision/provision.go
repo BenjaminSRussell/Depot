@@ -4,9 +4,7 @@
 // DryRun, which asks each adapter what it would do and changes nothing. Every adapter call is idempotent: a step that already
 // holds is a success, so a rerun resumes at the first step the API does not have as DONE.
 //
-// The adapters in this package are LogAdapter only: it records what would change, changes nothing, and fails a real run (ErrNotConfigured), because the repository has
-// no Keycloak admin, database owner, Kafka admin or lakehouse client the ops service can use (identity holds the Keycloak admin
-// client in its own module). A real adapter implements the same four interfaces and is passed in where Executors is built.
+// Adapters: Keycloak (Admin REST API), Databases (RLS verification and purge under the shared-schema tenancy model), SharedTopicKafka (nothing to do per tenant), IcebergCatalog (REST catalog namespace), built from the OPS_* environment by FromEnv. LogAdapter is what a system without configuration uses: it records what would change, changes nothing, and fails a real run (ErrNotConfigured).
 package provision
 
 import (
