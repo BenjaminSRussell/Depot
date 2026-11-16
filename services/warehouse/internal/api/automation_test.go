@@ -414,6 +414,26 @@ func TestRFIDRulesReceiveAndConfirmPutaway(t *testing.T) {
 	if sg.Accepted != 1 || sg.Reads[0].EPC.Scheme != "SGTIN-198" || sg.Reads[0].Actions[0].Outcome != store.RFIDSkipped {
 		t.Fatalf("SGTIN-198 read: %+v", sg)
 	}
+	// The TDS 2.3 schemes are stored too and skipped by the dock rule: a CPI-var part (annex E.3), the longest ADI-var
+	// (434 bits, 112 hexadecimal characters) and the shortest (68 bits written in 17).
+	cpi, _ := domain.EncodeEPCTagURI("urn:epc:tag:cpi-var:3.9521141.5PQ7%2FZ43.12345")
+	adiShort, _ := domain.EncodeEPCTagURI("urn:epc:tag:adi-var:0.2S194..1")
+	adiLong, _ := domain.EncodeEPCTagURI("urn:epc:tag:adi-var:63.W81X9C." + strings.Repeat("A", 32) + ".%23" + strings.Repeat("1", 29))
+	for i, tc := range []struct{ hex, scheme, key, serial string }{
+		{cpi, "CPI-var", "95211415PQ7/Z43", "12345"},
+		{adiLong, "ADI-var", "W81X9C" + strings.Repeat("A", 32), "#" + strings.Repeat("1", 29)},
+		{adiShort[:17], "ADI-var", "2S194", "1"},
+	} {
+		got := ingest("dock-1", 0, tc.hex, fmt.Sprintf("2026-10-27T09:3%d:00Z", i+1))
+		if got.Accepted != 1 || got.Reads[0].EPC.Scheme != tc.scheme || got.Reads[0].EPC.Key != tc.key || got.Reads[0].EPC.Serial != tc.serial ||
+			got.Reads[0].Actions[0].Outcome != store.RFIDSkipped || !strings.Contains(got.Reads[0].Actions[0].Detail, tc.scheme) {
+			t.Fatalf("%s read %s: %+v", tc.scheme, tc.hex, got)
+		}
+	}
+	rec = call(h, req{method: "GET", path: "/v1/warehouse/rfid-reads?readerId=dock-1", duties: all})
+	if !strings.Contains(rec.Body.String(), `"scheme":"ADI-var"`) || !strings.Contains(rec.Body.String(), `"key":"95211415PQ7/Z43"`) {
+		t.Fatalf("stored TDS 2.3 reads: %s", rec.Body)
+	}
 	rec = call(h, req{method: "GET", path: "/v1/warehouse/rfid-reads?readerId=rack-A", duties: all})
 	if !strings.Contains(rec.Body.String(), `"action":"CONFIRM_PUTAWAY"`) || !strings.Contains(rec.Body.String(), `"actionOutcome":"DONE"`) {
 		t.Fatalf("stored reads keep what was done: %s", rec.Body)

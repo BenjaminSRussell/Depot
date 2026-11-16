@@ -894,8 +894,12 @@ paths:
       description: >
         Up to 500 reads. Each EPC is decoded: the 96-bit SGTIN, SSCC, SGLN, GRAI, GIAI, GSRN, GSRNP, GDTI and GID (24
         hexadecimal characters), and SGTIN-198, SGLN-195, GRAI-170, GDTI-174 and GIAI-202 with their alphanumeric
-        serial (up to 52 characters, padded to a 16-bit word with zero bits). A read that cannot be decoded is listed in
-        `rejected` with its position (WMS-EPC-INVALID) and the rest are stored. A tag read again at the same reader
+        serial (up to 52 characters, padded to a 16-bit word with zero bits), and, from GS1 TDS 2.3, CPI-96, CPI-var
+        (86 to 224 bits), SGCN-96, ITIP-110, ITIP-212 and ADI-var (68 to 434 bits, so 17 to 112 characters). The
+        decoded `epc` gives the pure identity URI, the tag URI and, for a CPI, SGCN or ITIP, the GS1 element string.
+        Any other header of TDS table 14-1 (reserved, USDoD-96, GDTI-113, the TDS 2.0 "+" schemes) is refused. A
+        read that cannot be decoded is listed in `rejected` with its position (WMS-EPC-INVALID) and the rest are
+        stored. A tag read again at the same reader
         within five seconds is counted in `duplicates`. A tag that is an SSCC the warehouse labelled names its receipt
         and pallet. A stored read then runs the rules of its reader (`/v1/warehouse/rfid-rules`): RECEIVE_PALLET
         receives the expected ASN pallet with that SSCC at its announced quantity, CONFIRM_PUTAWAY confirms the open
@@ -923,7 +927,7 @@ paths:
                       readerId: { type: string, minLength: 1, maxLength: 64 }
                       antenna: { type: integer, minimum: 0, maximum: 255 }
                       locationCode: { type: string, maxLength: 60 }
-                      epc: { type: string, pattern: "^[0-9A-Fa-f]{24,64}$" }
+                      epc: { type: string, pattern: "^[0-9A-Fa-f]{17,112}$" }
                       rssi: { type: integer, minimum: -200, maximum: 0 }
                       readAt: { type: string, format: date-time }
       responses:
@@ -1332,7 +1336,19 @@ components:
             properties:
               index: { type: integer }
               id: { type: string, format: uuid }
-              epc: { type: object, additionalProperties: true }
+              epc:
+                type: object
+                additionalProperties: true
+                properties:
+                  scheme: { type: string, examples: ["SSCC-96", "SGTIN-198", "CPI-var", "ITIP-212", "ADI-var"] }
+                  filter: { type: integer }
+                  partition: { type: integer }
+                  companyPrefix: { type: string, description: The GS1 company prefix, or the CAGE code or DoDAAC of an ADI. }
+                  key: { type: string }
+                  serial: { type: string }
+                  urn: { type: string, description: The pure identity EPC URI. }
+                  tagUri: { type: string, description: The EPC tag URI, with the coding scheme and filter. }
+                  elementString: { type: string, description: The GS1 element string of a CPI, SGCN or ITIP. }
               receiptId: { type: string, format: uuid }
               lineNo: { type: integer }
               actions:
