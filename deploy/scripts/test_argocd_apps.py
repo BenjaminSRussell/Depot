@@ -15,8 +15,12 @@ test checks, without a cluster:
 - every consumer KafkaUser in deploy/kafka is the username of a chart's consumer, reads its group and writes only
   dead-letter topics a synced KafkaTopic creates; the inventory postings consumer's ACLs are exactly the topics,
   group and dead-letter topic its code uses (#480); an outbox connector that routes by event type (outbox-sales,
-  outbox-fulfillment) sends every message of its service's AsyncAPI to that message's channel, and the debezium
-  user's literal ACLs under its prefix are exactly those channels;
+  outbox-fulfillment and the others) sends every message of its service's AsyncAPI to that message's channel, the
+  debezium user's literal ACLs under its prefix are exactly those channels, and every event type of that context the
+  service defines in Go is a declared message;
+- every outbox connector has, in dev, its database and REPLICATION role (dev Postgres init or a deploy/postgres
+  release), one Vault key read by both sides, its publication and outbox grant in the service's migrations, its
+  ExternalSecret and Role entry, and debezium write ACLs; every topic a consumer KafkaUser reads has a producer (#213);
 - if helm is on PATH, every dev and local Application whose source is a chart in this repo renders with its
   values, and outside local every container image is pinned by digest; Temporal's persistence values name the
   Service and Secret its database chart renders.
@@ -614,18 +618,34 @@ class ArgoApplicationsTest(unittest.TestCase):
                 self.assertEqual(cfg["topic.prefix"] + ".", prefix)
                 spec = yaml.safe_load((REPO / f"services/{service}/events/asyncapi.yaml").read_text())
                 messages = spec["components"]["messages"]
-                channels = set()
+                channels, declared = set(), set()
                 for channel in spec["channels"].values():
                     if not channel["address"].startswith(prefix):
                         continue
                     channels.add(channel["address"])
                     for ref in channel["messages"].values():
-                        typ = messages[ref["$ref"].rsplit("/", 1)[1]]["name"]
+                        message = messages[ref["$ref"].rsplit("/", 1)[1]]
+                        # Some specs name a message by its verb and carry the CloudEvents type in x-passage-type.
+                        typ = message.get("x-passage-type") or message["name"]
+                        declared.add(typ)
                         m = regex.fullmatch(typ)
                         self.assertIsNotNone(m, f"{name}: {typ} does not match the route")
                         self.assertEqual(replacement.replace("${routedByValue}", m["routedByValue"]), channel["address"], typ)
                 self.assertEqual({t for t in writable if t.startswith(prefix)}, channels,
                                  f"{name}: debezium literal ACLs under {prefix} differ from the AsyncAPI channels")
+                # A type the service writes that the regex does not route keeps its own name as the topic, which no ACL
+                # allows, and fails the connector task for every later event; so every type of the topic's context the
+                # service defines in Go must be a declared message.
+                context = cfg["topic.prefix"].removeprefix("passage.")
+                defined = set()
+                for f in (REPO / f"services/{service}").rglob("*.go"):
+                    if f.name.endswith("_test.go"):
+                        continue
+                    src = f.read_text()
+                    defined |= set(re.findall(rf'"(dev\.passage\.{re.escape(context)}\.[a-z0-9.-]+)"', src))
+                    defined |= {f"dev.passage.{context}.{e}.{v}.v{n}" for e, v, n in
+                                re.findall(r'events\.Type\(\s*Context\s*,\s*"([^"]+)"\s*,\s*"([^"]+)"\s*,\s*(\d+)\)', src)}
+                self.assertEqual(set(), defined - declared, f"{name}: event types defined in Go but not in the AsyncAPI")
                 routed |= channels
         self.assertLessEqual({"passage.sales.orderprogress", "passage.fulfillment.packingslip"}, routed)
 
@@ -766,6 +786,104 @@ class ArgoApplicationsTest(unittest.TestCase):
         self.assertIn("debezium-cdc-ops", role["rules"][0]["resourceNames"])
         for migration in ("0007_cdc_publication.sql", "0008_cdc_role_grants.sql"):
             self.assertTrue((REPO / "services/ops/migrations" / migration).exists(), migration)
+
+    def test_every_outbox_connector_is_provisioned_end_to_end(self):
+        # Every KafkaConnector in connect.yaml needs, in dev (#213): its database and REPLICATION role (created by the shared
+        # dev Postgres init in postgres.yaml, or by a deploy/postgres release on its own host), the same Vault password on
+        # both sides, the publication and the role's SELECT on outbox in its service's migrations, the ExternalSecret Connect
+        # reads with its Role entry, and a debezium write ACL for every channel its service's AsyncAPI declares under the
+        # prefix it routes to. A consumer KafkaUser that reads a topic no connector may write never receives an event.
+        docs = load_docs(DEPLOY / "kafka/connect.yaml")
+        (debezium,) = [d for d in docs if d["kind"] == "KafkaUser" and d["metadata"]["name"] == "debezium"]
+        acls = [a["resource"] for a in debezium["spec"]["authorization"]["acls"]
+                if a["resource"]["type"] == "topic" and "Write" in a["operations"]]
+
+        def writable(topic):
+            return any(topic == r["name"] if r.get("patternType", "literal") == "literal" else topic.startswith(r["name"])
+                       for r in acls)
+        kafka_secrets = [d for f in manifests(DEPLOY / "envs/dev/kafka-secrets") for d in load_docs(f)]
+        external = {d["metadata"]["name"]: d for d in kafka_secrets if d["kind"] == "ExternalSecret"}
+        (role,) = [d for d in kafka_secrets if d["kind"] == "Role" and d["metadata"]["name"] == "passage-connect-read-debezium-cdc"]
+        readable = set(role["rules"][0]["resourceNames"])
+        pg = self.dev_postgres()
+        pg_ns = pg[("Deployment", "postgres")]["metadata"]["namespace"]
+        scripts = list(pg[("ConfigMap", "postgres-init")]["data"].values())
+        (container,) = pod_containers(pg[("Deployment", "postgres")])
+        env = {e["name"]: e["valueFrom"]["secretKeyRef"] for e in container["env"] if "valueFrom" in e}
+        pg_vault = {(es_output(d)[1], item["secretKey"]): item["remoteRef"]["key"]
+                    for (kind, _), d in pg.items() if kind == "ExternalSecret" for item in d["spec"]["data"]}
+        own_hosts = {app["spec"]["destination"]["namespace"]: src["helm"]
+                     for env_name, _, app in self.apps if env_name == "dev"
+                     for src in sources(app) if src.get("path") == "deploy/postgres"}
+        connectors = [d for d in docs if d["kind"] == "KafkaConnector"]
+        self.assertEqual(len(connectors), len({c["spec"]["config"]["slot.name"] for c in connectors}), "slot names must be unique")
+        self.assertEqual(len(connectors), len({c["spec"]["config"]["publication.name"] for c in connectors}))
+        for connector in connectors:
+            name, cfg = connector["metadata"]["name"], connector["spec"]["config"]
+            with self.subTest(connector=name):
+                service = name.removeprefix("outbox-")
+                db, pub = cfg["database.dbname"], cfg["publication.name"]
+                self.assertEqual("disabled", cfg["publication.autocreate.mode"], "the publication comes from the migrations")
+                self.assertEqual("public.outbox", cfg["table.include.list"])
+                (user_ref,) = CONNECT_SECRET_REF.findall(cfg["database.user"])
+                (pass_ref,) = CONNECT_SECRET_REF.findall(cfg["database.password"])
+                self.assertEqual(user_ref[:2], pass_ref[:2])
+                secret = user_ref[1]
+                self.assertIn(secret, external, f"no ExternalSecret in deploy/envs/dev/kafka-secrets writes {secret}")
+                self.assertIn(secret, readable, f"Role passage-connect-read-debezium-cdc does not name {secret}")
+                es = external[secret]
+                cdc_role = es["spec"]["target"]["template"]["data"]["username"]
+                (vault,) = [item["remoteRef"]["key"] for item in es["spec"]["data"]]
+                host_ns = cfg["database.hostname"].split(".")[1]
+                if host_ns == pg_ns:
+                    created = [s for s in scripts if f"'CREATE DATABASE {db}'" in s or f"'CREATE DATABASE {db} " in s]
+                    self.assertTrue(created, f"the dev Postgres init (postgres.yaml) never creates {db}")
+                    (script,) = [s for s in scripts if f"CREATE ROLE {cdc_role} " in s] or [None]
+                    self.assertIsNotNone(script, f"the dev Postgres init never creates the CDC role {cdc_role}")
+                    self.assertIn(f"CREATE ROLE {cdc_role} LOGIN NOSUPERUSER NOBYPASSRLS REPLICATION PASSWORD :'cdc_password';", script)
+                    self.assertTrue(any(re.search(rf"GRANT CONNECT ON DATABASE {db} TO [^;]*\b{cdc_role}\b", s) for s in scripts),
+                                    f"{cdc_role} has no CONNECT on {db}")
+                    self.assertTrue(any(f"REVOKE CONNECT ON DATABASE {db} FROM PUBLIC;" in s for s in scripts), db)
+                    (password_env,) = re.findall(r'-v cdc_password="\$(\w+)"', script)
+                    ref = env.get(password_env)
+                    self.assertIsNotNone(ref, f"the dev Postgres container has no {password_env}")
+                    self.assertEqual(vault, pg_vault.get((ref["name"], ref["key"])),
+                                     f"{cdc_role}: the dev Postgres and Connect read different Vault keys")
+                else:
+                    helm = own_hosts.get(host_ns)
+                    self.assertIsNotNone(helm, f"no dev deploy/postgres release runs in {host_ns}")
+                    values = helm.get("valuesObject") or {}
+                    self.assertEqual(db, values.get("database"))
+                    self.assertTrue((values.get("cdc") or {}).get("enabled", True), f"{host_ns}: cdc disabled")
+                    self.assertEqual("debezium_cdc", cdc_role, "the deploy/postgres chart creates debezium_cdc")
+                    self.assertEqual(f"passage/dev/{helm['releaseName']}-postgres/cdc-password", vault)
+                migrations = "\n".join(p.read_text() for p in sorted((REPO / f"services/{service}/migrations").glob("*.sql")))
+                self.assertRegex(migrations, rf"CREATE PUBLICATION {pub}\b", f"services/{service}/migrations never creates {pub}")
+                self.assertRegex(migrations, rf"ALTER PUBLICATION {pub} ADD TABLE")
+                self.assertRegex(migrations, rf"GRANT SELECT ON outbox TO {cdc_role}\b", f"{cdc_role} cannot read the outbox")
+                prefix = cfg["transforms.outbox.route.topic.replacement"].split("${", 1)[0]
+                self.assertTrue(any(r["name"].startswith(prefix) or prefix.startswith(r["name"]) for r in acls),
+                                f"{name}: no ACL lets the debezium user write under {prefix}")
+                if cfg["transforms.outbox.route.by.field"] == "type":
+                    # Routed by event type, a channel is the topic its events land on (the regex is checked against
+                    # every message in test_type_routed_outbox_connectors_match_their_asyncapi_channels).
+                    spec = yaml.safe_load((REPO / f"services/{service}/events/asyncapi.yaml").read_text())
+                    channels = {c["address"] for c in spec["channels"].values() if c["address"].startswith(prefix)}
+                    self.assertTrue(channels, f"{name}: its AsyncAPI declares no channel under {prefix}")
+                    self.assertEqual([], sorted(t for t in channels if not writable(t)),
+                                     f"{name}: AsyncAPI channels the debezium user may not write")
+        # Every topic a consumer reads is one an outbox connector may write (dead-letter topics are written by consumers).
+        for path in manifests(DEPLOY / "kafka"):
+            if not path.name.endswith("-consumer.yaml"):
+                continue
+            for doc in load_docs(path):
+                if doc.get("kind") != "KafkaUser":
+                    continue
+                read = {a["resource"]["name"] for a in doc["spec"]["authorization"]["acls"]
+                        if a["resource"]["type"] == "topic" and "Read" in a["operations"]}
+                with self.subTest(consumer=doc["metadata"]["name"]):
+                    self.assertEqual([], sorted(t for t in read if not t.endswith(".dlq") and not writable(t)),
+                                     f"{path.name}: topics no outbox connector writes")
 
     @unittest.skipUnless(shutil.which("helm"), "helm not on PATH")
     def test_temporal_values_match_its_database(self):
