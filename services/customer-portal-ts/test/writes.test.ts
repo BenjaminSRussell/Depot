@@ -107,3 +107,46 @@ describe("placing an order", () => {
     expect([(await post(s, "/api/v1/orders", ORDER)).status, (await post(s, "/api/v1/orders", ORDER)).status, (await post(s, "/api/v1/orders", ORDER)).status]).toEqual([200, 200, 429]);
   });
 });
+
+describe("paying invoices by card or bank account", () => {
+  const PAYMENT = { method: "CARD", allocations: [{ openItemId: ID_1, amount: "1250.50" }] };
+
+  it("is one call to receivables holding only the pay duty, for the session's customer, with the client's key and body", async () => {
+    rig = await startRig();
+    const s = await signIn(rig);
+    rig.answer(new Response(JSON.stringify({ id: "g1", status: "REQUIRES_PAYMENT", clientSecret: "pi_1_secret_x", publishableKey: "pk_test_x" }), { status: 201, headers: { "content-type": "application/json" } }));
+    const res = await post(s, "/api/v1/payment-intents", PAYMENT);
+    expect(res.status).toBe(201);
+    expect(((await res.json()) as { clientSecret: string }).clientSecret).toBe("pi_1_secret_x");
+    const call = rig.calls[0]!;
+    expect(call.url).toBe("http://receivables.test/v1/receivables/customer-portal/payment-intents");
+    expect(call.headers.get("idempotency-key")).toBe(KEY);
+    expect(JSON.parse(call.body)).toEqual(PAYMENT);
+    expect(tokenClaims(call.headers.get("x-passage-service-token") as string)).toMatchObject({ aud: "receivables", cus: CUSTOMER_A, duties: ["receivables.customer-portal.pay"] });
+  });
+
+  it("cancels an abandoned payment with the pay duty, at receivables' :cancel", async () => {
+    rig = await startRig();
+    const s = await signIn(rig);
+    expect((await post(s, `/api/v1/payment-intents/${ID_1}/cancel`, {})).status).toBe(200);
+    expect(rig.calls[0]!.url).toBe(`http://receivables.test/v1/receivables/customer-portal/payment-intents/${ID_1}:cancel`);
+    expect(tokenClaims(rig.calls[0]!.headers.get("x-passage-service-token") as string)).toMatchObject({ duties: ["receivables.customer-portal.pay"] });
+  });
+
+  it("reads a payment's status with the read duty only", async () => {
+    rig = await startRig();
+    const s = await signIn(rig);
+    await api(rig, s, "GET", `/api/v1/payment-intents/${ID_1}`);
+    expect(rig.calls[0]!.url).toBe(`http://receivables.test/v1/receivables/customer-portal/payment-intents/${ID_1}`);
+    expect(tokenClaims(rig.calls[0]!.headers.get("x-passage-service-token") as string)).toMatchObject({ duties: ["receivables.customer-portal.read"] });
+  });
+
+  it("never forwards a customer named in the body, and needs CSRF, origin and a key", async () => {
+    rig = await startRig();
+    const s = await signIn(rig);
+    expect((await post(s, "/api/v1/payment-intents", { ...PAYMENT, customerId: CUSTOMER_B })).status).toBe(400);
+    expect((await post(s, "/api/v1/payment-intents", PAYMENT, { origin: "https://evil.example.invalid" })).status).toBe(403);
+    expect((await post(s, "/api/v1/payment-intents", PAYMENT, { "idempotency-key": "short" })).status).toBe(400);
+    expect(rig.calls).toHaveLength(0);
+  });
+});

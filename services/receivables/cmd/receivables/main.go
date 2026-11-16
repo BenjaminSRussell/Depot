@@ -152,6 +152,17 @@ func run() error {
 		s.WithRates(fc)
 	}
 	h := api.New(s).WithPredictionFeed(s)
+	gw, err := gatewayFromEnv(os.Getenv, os.ReadFile)
+	if err != nil {
+		return err
+	}
+	webhookAddr := os.Getenv("RECEIVABLES_WEBHOOK_ADDR")
+	if gw != nil {
+		h.WithGateway(*gw)
+		if webhookAddr == "" {
+			webhookAddr = ":8081"
+		}
+	}
 	r := httpx.NewRouter()
 	h.Register(r)
 	admin := http.NewServeMux()
@@ -180,8 +191,12 @@ func run() error {
 	if sftpPoll != nil {
 		go sftpPoll.loop(ctx)
 	}
-	errs := make(chan error, 2)
+	errs := make(chan error, 3)
 	go func() { errs <- httpx.Serve(ctx, addr, r) }()
 	go func() { errs <- httpx.Serve(ctx, adminAddr, admin) }()
+	if gw != nil {
+		// The payment provider's webhooks reach their own listener, exposed through a route without a Passage token (#30).
+		go func() { errs <- httpx.Serve(ctx, webhookAddr, h.WebhookRoutes()) }()
+	}
 	return <-errs
 }

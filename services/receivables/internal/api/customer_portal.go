@@ -26,6 +26,11 @@ func (a *API) customerPortalRoutes(r chi.Router) {
 	r.With(read).Get("/customer-portal/open-items/{ref}", portalCustomerOnly(a.portalOpenItem))
 	r.With(read).Get("/customer-portal/payments", portalCustomerOnly(a.portalPayments))
 	r.With(read).Get("/customer-portal/statement", portalCustomerOnly(a.portalStatement))
+	r.With(read).Get("/customer-portal/payment-intents", portalCustomerOnly(a.portalListIntents))
+	r.With(read).Get("/customer-portal/payment-intents/{ref}", portalCustomerOnly(a.portalGetIntent))
+	r.With(authz.RequireDuty(dutyCustomerPortalPay)).Post("/customer-portal/payment-intents", portalCustomerOnly(a.portalCreateIntent))
+	// Custom methods ({id}:cancel) share the {ref} route; chi does not match a literal ':' after a parameter.
+	r.With(authz.RequireDuty(dutyCustomerPortalPay)).Post("/customer-portal/payment-intents/{ref}", portalCustomerOnly(a.portalIntentAction))
 }
 
 type portalCustomerHandler func(w http.ResponseWriter, r *http.Request, customer string)

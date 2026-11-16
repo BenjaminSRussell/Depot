@@ -920,6 +920,13 @@ export const routeHelp: readonly RouteHelp[] = [
     guide: "ar-clerk.md#settle-it-against-invoices",
   },
   {
+    patterns: ["/receivables/gateway-payments"],
+    title: "Portal card and bank payments",
+    purpose: "Payments customers made by card or bank account in the customer portal. The status comes only from the payment processor's verified notices.",
+    howTo: ["Filter by status to find processing, failed or returned payments.", "Open a paid one to see the payment it became and its application.", "Read Why for a failure or anything that needs review."],
+    guide: "ar-clerk.md#card-and-bank-payments-from-the-customer-portal",
+  },
+  {
     patterns: ["/receivables/remittance-advice"],
     title: "Remittance advice",
     purpose: "A customer's own list of the invoices a payment covers. Importing it lets the matcher settle the payment.",

@@ -270,6 +270,8 @@ type Postgres struct {
 	billing     billingclient.Reader
 	reserver    billingclient.Reserver
 	rates       fxclient.Rates
+	// afterGatewayPayment, tests only, runs inside a gateway success handling right after its payment is recorded.
+	afterGatewayPayment func()
 }
 
 // New returns a Postgres store over pool.
