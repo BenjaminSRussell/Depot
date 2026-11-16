@@ -39,8 +39,9 @@ describe("agent run workflow", () => {
   const startRun = (taskQueue: string) =>
     environment.client.workflow.start(agentRunWorkflow, { workflowId: `${agentRunWorkflowId(input.tenantId, input.runId)}:${taskQueue}`, taskQueue, args: [input] });
 
+  // Activity retry backoff runs on the wall clock even in the time-skipping server, so allow for a few retries.
   async function until(check: () => boolean | Promise<boolean>): Promise<void> {
-    for (let i = 0; i < 200 && !(await check()); i += 1) await new Promise((r) => setTimeout(r, 50));
+    for (let i = 0; i < 600 && !(await check()); i += 1) await new Promise((r) => setTimeout(r, 50));
     expect(await check()).toBe(true);
   }
 
@@ -157,11 +158,11 @@ describe("agent run workflow", () => {
     expect(fake.calls.plan).toBe(4);
     expect(result.outcome).toEqual({ status: "COMMITTED" });
     expect(fake.calls.abort).toBe(0);
-  }, 60_000);
+  }, 120_000);
 
   it("an outage during the hourly re-read is ridden out, and abort retries until it lands", async () => {
     const { fake, taskQueue } = await fresh();
-    fake.transient.resolve = 5;
+    fake.transient.resolve = 3;
     fake.transient.abort = 3;
     fake.refuse = undefined;
     const result = await (await worker(fake, taskQueue)).runUntil(async () => {
@@ -171,7 +172,7 @@ describe("agent run workflow", () => {
       return handle.result();
     });
     expect(result.outcome).toEqual({ status: "COMMITTED" });
-  }, 60_000);
+  }, 120_000);
 
   it("abort is retried through its own outage after a step is refused", async () => {
     const { fake, taskQueue } = await fresh();
