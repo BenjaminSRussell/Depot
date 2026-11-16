@@ -370,3 +370,28 @@ type unsignedLedger struct{}
 
 func (unsignedLedger) Post(context.Context, ledger.Entry) (string, error) { return "", nil }
 func (unsignedLedger) Signed() bool                                       { return false }
+
+// #40: the auto-posted entry names the lender's legal entity as the trading partner on the cost and control lines, not on tax, so
+// the consolidation reads the borrower's payable per counterparty. A lender that is the borrower's own entity names none.
+func TestHandle_AutoPostNamesTheLenderAsTradingPartner(t *testing.T) {
+	s, _ := migratedStore(t)
+	led := newFakeLedger()
+	le, vendor, lender := ids.New(), ids.New(), ids.New()
+	auto := autoFor(led, map[string]iccharge.EntityProfile{le: profileFor("L-B")})
+	data := autoCharge(le, vendor)
+	data["lenderLegalEntityId"] = lender
+	if _, err := iccharge.Handle(consumerCtx(t), s, auto, event(t, data, publishedSource)); err != nil {
+		t.Fatal(err)
+	}
+	e := led.entries["payables-iccharge:"+data["id"].(string)+":1"]
+	got := map[string]string{}
+	for _, l := range e.Lines {
+		got[l.Account] = l.TradingPartnerID
+	}
+	if got["6200"] != lender || got["2100"] != lender || got["1400"] != "" {
+		t.Fatalf("partners by account %v, want cost and control lines to name %s and input tax none", got, lender)
+	}
+	if p := iccharge.PartnerOf(iccharge.Data{BorrowerLegalEntityID: le, LenderLegalEntityID: le}); p != "" {
+		t.Fatalf("a lender that is the borrower's own entity must name no partner, got %q", p)
+	}
+}

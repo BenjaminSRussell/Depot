@@ -338,6 +338,9 @@ type lineBody struct {
 	Amount      amountBody        `json:"amount"`
 	Text        string            `json:"text,omitempty"`
 	Dimensions  map[string]string `json:"dimensions,omitempty"`
+	// TradingPartnerID names the counterparty legal entity of an intercompany line (#40); omitted for an ordinary line, so entries without one
+	// keep their idempotency payload.
+	TradingPartnerID string `json:"tradingPartnerId,omitempty"`
 }
 
 type amountBody struct {
@@ -368,7 +371,7 @@ func (c *Client) Post(ctx context.Context, e Entry) (string, error) {
 		if l.Credit {
 			side = "C"
 		}
-		body.Lines = append(body.Lines, lineBody{Account: l.Account, DebitCredit: side, Text: l.Text, Dimensions: l.Dimensions, Amount: amountBody{Currency: e.Currency, Value: l.Amount.StringFixed(money.MinorUnits(e.Currency))}})
+		body.Lines = append(body.Lines, lineBody{Account: l.Account, DebitCredit: side, Text: l.Text, Dimensions: l.Dimensions, TradingPartnerID: l.TradingPartnerID, Amount: amountBody{Currency: e.Currency, Value: l.Amount.StringFixed(money.MinorUnits(e.Currency))}})
 	}
 	payload, err := json.Marshal(body)
 	if err != nil {

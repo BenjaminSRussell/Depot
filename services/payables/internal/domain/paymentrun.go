@@ -61,6 +61,8 @@ type RunJournalLine struct {
 	Text    string
 	// Dimensions are ledger dimension values of the line (the vendor group code on a control-account debit).
 	Dimensions map[string]string
+	// TradingPartnerID is the counterparty legal entity of an intercompany line (#40); empty otherwise.
+	TradingPartnerID string
 }
 
 func RunSupportsMethod(method string) bool { return method == MethodTransfer || method == MethodWire }
