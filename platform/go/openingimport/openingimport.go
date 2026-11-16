@@ -354,9 +354,9 @@ type Counters struct {
 
 // Write renders the counters as Prometheus text under the name prefix (for example "assets_opening").
 func (c *Counters) Write(w http.ResponseWriter, prefix, what string) {
-	fmt.Fprintf(w, "# HELP %s_batches_total Opening %s batches by outcome.\n# TYPE %s_batches_total counter\n%s_batches_total{outcome=\"imported\"} %d\n%s_batches_total{outcome=\"replayed\"} %d\n%s_batches_total{outcome=\"refused\"} %d\n",
+	_, _ = fmt.Fprintf(w, "# HELP %s_batches_total Opening %s batches by outcome.\n# TYPE %s_batches_total counter\n%s_batches_total{outcome=\"imported\"} %d\n%s_batches_total{outcome=\"replayed\"} %d\n%s_batches_total{outcome=\"refused\"} %d\n",
 		prefix, what, prefix, prefix, c.Imported.Load(), prefix, c.Replayed.Load(), prefix, c.Refused.Load())
-	fmt.Fprintf(w, "# HELP %s_lines_total Opening %s lines stored by imported batches.\n# TYPE %s_lines_total counter\n%s_lines_total %d\n", prefix, what, prefix, prefix, c.Lines.Load())
+	_, _ = fmt.Fprintf(w, "# HELP %s_lines_total Opening %s lines stored by imported batches.\n# TYPE %s_lines_total counter\n%s_lines_total %d\n", prefix, what, prefix, prefix, c.Lines.Load())
 }
 
 // Refuse sends a refused batch: a problem with the field messages and the structured row errors.
