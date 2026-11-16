@@ -59,6 +59,9 @@ spec:
               value: {{ .Values.config.autoStartOnFeedback | quote }}
             - name: PRODUCTION_ESTIMATE_ON_CREATE
               value: {{ .Values.config.estimateOnCreate | quote }}
+{{- if .Values.openingClearingAccount }}
+            - { name: PRODUCTION_OPENING_CLEARING_ACCOUNT, value: {{ .Values.openingClearingAccount | quote }} }
+{{- end }}
 {{- if .Values.ledgerUrl }}
             - { name: LEDGER_URL, value: {{ .Values.ledgerUrl | quote }} }
 {{- end }}

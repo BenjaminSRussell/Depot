@@ -8,10 +8,13 @@ import type { RiskAssessment, RiskPort, ToolPort } from "./engine.js";
  * segregation-of-duties flags, and the payment prediction gives the chance of a late payment.
  *
  * What the source tools answer (the contract this reads, per tool):
- * - passage.ap.invoice.get: `total` or `amount` as a decimal string or `{amount, currency}` (with `currency`), `vendorId`, `createdBy`,
- *   optionally `vendorBlocked` (true) or `vendorRisk` ("HIGH").
- * - passage.ap.vendor.history.list: `items`, the vendor's earlier invoices; a vendor with none is unproven and counts as high risk.
- * - passage.ar.payment.get: `amount`, `currency`, `customerId`, optionally `enteredBy`.
+ * - passage.ap.invoice.get (payables `GET /v1/payables/vendor-invoice-intake/{id}`, called with `id`): `total`, `amount` or `gross` as a decimal
+ *   string or `{amount, currency}` (with `currency`), `vendorId`, `createdBy` or `decidedBy` (the clerk who posted or resolved a received invoice; `receivedBy` and `service:`/`system:` principals count as unknown), optionally `vendorBlocked` (true) or
+ *   `vendorRisk` ("HIGH").
+ * - passage.ap.vendor.history.list (payables `GET /v1/payables/open-items`, called with `vendor` and `limit`): `items`, the vendor's earlier
+ *   invoices; a vendor with none is unproven and counts as high risk.
+ * - passage.ar.payment.get (receivables `GET /v1/receivables/payments/{id}`, called with `id`): `amount`, `currency`, `customerId`, optionally
+ *   `enteredBy`.
  * - passage.ar.invoice.prediction.get: `pLate30d`, a decimal string between 0 and 1.
  * A fact that cannot be read (a failed call, a missing or malformed field) is listed in `unverified` and makes the proposal
  * high-risk, so an unreadable source can never make a proposal look safe.
@@ -75,21 +78,25 @@ export function createFactRisk(deps: FactRiskDeps): RiskPort {
   const apCoding = async (args: Record<string, unknown>): Promise<RiskAssessment> => {
     const invoiceId = text(args.invoiceId);
     if (invoiceId === undefined) return unverified(["the proposal names no invoice"]);
-    const inv = await read("passage.ap.invoice.get", { invoiceId });
+    const inv = await read("passage.ap.invoice.get", { id: invoiceId });
     if (!inv.doc) return unverified([inv.reason ?? "the invoice could not be read"]);
     const reasons: string[] = [];
-    const amount = moneyOf(inv.doc.total ?? inv.doc.amount, inv.doc.currency);
+    const amount = moneyOf(inv.doc.total ?? inv.doc.amount ?? inv.doc.gross, inv.doc.currency);
     if (amount === undefined) reasons.push("the invoice has no readable amount");
     const vendorId = text(inv.doc.vendorId);
     let vendorHighRisk = inv.doc.vendorBlocked === true || inv.doc.vendorRisk === "HIGH";
     if (vendorId === undefined) {
       reasons.push("the invoice has no vendor");
     } else {
-      const history = await read("passage.ap.vendor.history.list", { vendorId });
+      const history = await read("passage.ap.vendor.history.list", { vendor: vendorId, limit: 1 });
       if (!history.doc) reasons.push(history.reason ?? "the vendor history could not be read");
       else if (!Array.isArray(history.doc.items) || history.doc.items.length === 0) vendorHighRisk = true;
     }
-    const createdBy = text(inv.doc.createdBy);
+    // The creator is the human who created the invoice (`createdBy`) or who posted or resolved the received invoice (`decidedBy`). `receivedBy` is
+    // whoever delivered it (a service principal for an electronic invoice), never a person to compare, so it is not read; a service or system
+    // principal is "unknown" and keeps the proposal high-risk (fail closed).
+    const rawCreator = text(inv.doc.createdBy) ?? text(inv.doc.decidedBy);
+    const createdBy = rawCreator !== undefined && !/^(service|system):/i.test(rawCreator) ? rawCreator : undefined;
     if (createdBy === undefined) reasons.push("the invoice does not say who created it");
     const out: RiskAssessment = { vendorHighRisk: vendorHighRisk || reasons.length > 0, sodConflict: createdBy !== undefined && createdBy === deps.invokerUserId };
     if (reasons.length > 0) out.unverified = reasons;
@@ -103,7 +110,7 @@ export function createFactRisk(deps: FactRiskDeps): RiskPort {
   const cashApplication = async (args: Record<string, unknown>): Promise<RiskAssessment> => {
     const paymentId = text(args.paymentId);
     if (paymentId === undefined) return unverified(["the proposal names no payment"]);
-    const pay = await read("passage.ar.payment.get", { paymentId });
+    const pay = await read("passage.ar.payment.get", { id: paymentId });
     if (!pay.doc) return unverified([pay.reason ?? "the payment could not be read"]);
     const reasons: string[] = [];
     const amount = moneyOf(pay.doc.amount, pay.doc.currency);

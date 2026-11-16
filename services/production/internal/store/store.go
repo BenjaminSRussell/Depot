@@ -286,6 +286,14 @@ type Store interface {
 type Postgres struct {
 	pool   *pgxpool.Pool
 	claims issueclaim.Claimer
+	// openingClearing is the migration clearing account the opening WIP journal credits (PRODUCTION_OPENING_CLEARING_ACCOUNT).
+	openingClearing string
+}
+
+// WithOpeningClearingAccount sets the migration clearing account the opening WIP is credited to.
+func (s *Postgres) WithOpeningClearingAccount(account string) *Postgres {
+	s.openingClearing = account
+	return s
 }
 
 var _ Store = (*Postgres)(nil)

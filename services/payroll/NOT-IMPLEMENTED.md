@@ -52,3 +52,7 @@ The PRD owner should correct BR-43.1 and AC-43.1.
 | Direct-deposit bank details encrypted with the `hr_pii` key pattern (8.43.10, open question 2 defaults to payroll) | later slice of PSG-43 | Needs the worker payroll profile tables |
 | Worker payroll profile: stored W-4, state forms, garnishments (8.43.6) | later slice of PSG-43 | The W-4 is accepted per request in this slice |
 | Pay run cutoff, unapproved time policy validation (PAY-RUN-001/002/003) | later slice of PSG-43 | Needs pay run aggregate and time data |
+
+## Year-to-date balances at cutover (#49, round 5)
+
+`POST /v1/payroll/opening-ytd` and `GET /v1/payroll/opening-ytd` (migration 0004, duties `payroll.opening-ytd.import` and `.read`, service only) hold the gross, tax, deductions and net a worker was paid in a tax year before the cutover, one line per pay element, once per legal entity; idempotent per batch key and per legacy reference, all or nothing, 1000 lines a batch, control totals recomputed, structured `rowErrors`. No journal is written. Not built: the pay run calculation does not read the stored balances yet (a request still carries `ytd.ficaWages`, `ytd.futaWages` and `ytd.supplementalWages`), balances by wage type or by wage base, a net check across batches (the check runs when all four elements of a worker year are in one batch), and payroll outside the US (amounts are two decimals).

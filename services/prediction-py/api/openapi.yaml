@@ -42,7 +42,9 @@ paths:
       summary: Score open invoices with the tenant's ACTIVE model
       description: |
         Stores the latest prediction per invoice and writes one dev.passage.prediction.payment.scored.v1 event per
-        invoice to the outbox in the same transaction. 422 AGT-0213 without an ACTIVE model.
+        invoice to the outbox in the same transaction. 422 AGT-0213 without an ACTIVE model. Predictions are stored for a legal entity and
+        a caller sees those of the entities in its X-Passage-Legal-Entity (every one with the all-scope duty): a legalEntityId outside the
+        caller's scope is 404 AGT-0404 and an invoice that already belongs to an entity outside it is 403 PRD-0403.
       x-passage-duty: agents.admin
       requestBody:
         required: true
@@ -230,6 +232,7 @@ components:
       additionalProperties: false
       required: [openInvoices]
       properties:
+        legalEntityId: {type: string, format: uuid, description: "The legal entity the invoices belong to. A caller scoped to one legal entity (X-Passage-Legal-Entity) may leave it out; one scoped to several must name one of them (400); a caller with the all-scope duty must name one too (400 otherwise), so no prediction belongs to no entity."}
         openInvoices: {type: array, minItems: 1, maxItems: 5000, items: {$ref: "#/components/schemas/Invoice"}}
     Model:
       type: object

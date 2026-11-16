@@ -54,6 +54,8 @@ const (
 	RowReferenceTaken   = "REFERENCE_TAKEN"
 	RowOrderNumberTaken = "ORDER_NUMBER_TAKEN"
 	RowInvalid          = "INVALID"
+	// RowNumberTaken is a natural key (asset number, production order number) the legal entity already holds.
+	RowNumberTaken = "NUMBER_TAKEN"
 )
 
 func (p *Problem) Error() string { return fmt.Sprintf("%s (%d): %s", p.Code, p.Status, p.Detail) }

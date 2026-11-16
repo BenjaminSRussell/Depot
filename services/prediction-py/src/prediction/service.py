@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, replace
 from datetime import date, datetime
-from typing import Callable, Protocol
+from typing import Callable, Protocol, Sequence
 
 from prediction.domain import (
     CODE_UNAVAILABLE,
@@ -22,6 +22,16 @@ from prediction.domain import (
     train,
     utcnow,
 )
+
+
+# The legal entities a call acts for: None is every legal entity of the tenant (the Postgres repository sets passage.legal_entity_scopes to '*'),
+# a sequence is exactly those entities, and an empty one sees nothing.
+Entities = Sequence[str] | None
+
+
+def visible(entity: str | None, entities: Entities) -> bool:
+    """Whether a row of `entity` is in scope: every row is for None, a row with no entity only for None."""
+    return entities is None or (entity is not None and entity in entities)
 
 
 @dataclass(frozen=True)
@@ -53,17 +63,18 @@ class Repository(Protocol):
     def model_count(self, tenant_id: str) -> int: ...
     def active_model(self, tenant_id: str) -> Model | None: ...
     def save_model(self, tenant_id: str, model: Model) -> None: ...
-    def save_predictions(self, tenant_id: str, predictions: list[Prediction]) -> None: ...
-    def prediction(self, tenant_id: str, invoice_id: str) -> Prediction | None: ...
+    def save_predictions(self, tenant_id: str, predictions: list[Prediction], legal_entity_id: str | None = None, entities: Entities = None) -> None: ...
+    def prediction(self, tenant_id: str, invoice_id: str, entities: Entities = None) -> Prediction | None: ...
     def settings(self, tenant_id: str) -> Config | None: ...
     def save_settings(self, tenant_id: str, config: Config, user_id: str) -> None: ...
-    def record_actuals(self, tenant_id: str, paid: list[PaidInvoice]) -> int: ...
-    def outcomes(self, tenant_id: str) -> list[Outcome]: ...
+    def record_actuals(self, tenant_id: str, paid: list[PaidInvoice], entities: Entities = None) -> int: ...
+    def outcomes(self, tenant_id: str, entities: Entities = None) -> list[Outcome]: ...
     def sync_state(self, tenant_id: str, legal_entity_id: str) -> SyncState: ...
     def save_sync_state(self, tenant_id: str, legal_entity_id: str, state: SyncState) -> None: ...
     def save_invoice_facts(self, tenant_id: str, legal_entity_id: str, invoices: list[OpenInvoice]) -> None: ...
     def dso(self, tenant_id: str, legal_entity_id: str) -> Dso | None: ...
-    def mark_reversed(self, tenant_id: str, invoice_ids: list[str]) -> int: ...
+    def mark_reversed(self, tenant_id: str, invoice_ids: list[str], entities: Entities = None) -> int: ...
+    def claim_unowned(self, tenant_id: str, legal_entity_id: str, invoice_ids: list[str]) -> int: ...
 
 
 class InMemoryRepository:
@@ -75,6 +86,8 @@ class InMemoryRepository:
         self._sync: dict[tuple[str, str], SyncState] = {}
         # (tenant, invoice) -> (legal entity, invoice date, amount): what the DSO forecast is computed from.
         self._facts: dict[tuple[str, str], tuple[str, date, float]] = {}
+        # (tenant, invoice) -> the legal entity a prediction was stored for, or None when it was stored for none.
+        self._entity: dict[tuple[str, str], str | None] = {}
         self._reversed: set[tuple[str, str]] = set()
         # prediction.payment.scored events, as the Postgres repository writes them to the outbox.
         self.events: list[tuple[str, dict[str, object]]] = []
@@ -96,14 +109,22 @@ class InMemoryRepository:
                     m.status = "RETIRED"
         stored.append(model)
 
-    def save_predictions(self, tenant_id: str, predictions: list[Prediction]) -> None:
+    def save_predictions(self, tenant_id: str, predictions: list[Prediction], legal_entity_id: str | None = None, entities: Entities = None) -> None:
         bucket = self._predictions.setdefault(tenant_id, {})
+        if entities is not None and legal_entity_id is None:
+            raise PredictionError("PRD-0403", "a call scoped to legal entities stores predictions for one of them", 403)
         for p in predictions:
+            known = (tenant_id, p.invoice_id) in self._entity
+            if known and p.invoice_id in bucket and not visible(self._entity[(tenant_id, p.invoice_id)], entities):
+                raise PredictionError("PRD-0403", f"invoice {p.invoice_id} belongs to another legal entity", 403)
+            self._entity[(tenant_id, p.invoice_id)] = legal_entity_id if legal_entity_id is not None else self._entity.get((tenant_id, p.invoice_id))
             bucket[p.invoice_id] = p
             self._paid.get(tenant_id, {}).pop(p.invoice_id, None)  # rescored: the old outcome no longer applies
             self.events.append((tenant_id, scored_event(p)))
 
-    def prediction(self, tenant_id: str, invoice_id: str) -> Prediction | None:
+    def prediction(self, tenant_id: str, invoice_id: str, entities: Entities = None) -> Prediction | None:
+        if not visible(self._entity.get((tenant_id, invoice_id)), entities):
+            return None
         return self._predictions.get(tenant_id, {}).get(invoice_id)
 
     def settings(self, tenant_id: str) -> Config | None:
@@ -112,20 +133,22 @@ class InMemoryRepository:
     def save_settings(self, tenant_id: str, config: Config, user_id: str) -> None:
         self._settings[tenant_id] = config
 
-    def record_actuals(self, tenant_id: str, paid: list[PaidInvoice]) -> int:
+    def record_actuals(self, tenant_id: str, paid: list[PaidInvoice], entities: Entities = None) -> int:
         stored = self._predictions.get(tenant_id, {})
         seen = self._paid.setdefault(tenant_id, {})
         n = 0
         for inv in paid:
-            if inv.invoice_id in stored and inv.invoice_id not in seen:
+            if inv.invoice_id in stored and inv.invoice_id not in seen and visible(self._entity.get((tenant_id, inv.invoice_id)), entities):
                 seen[inv.invoice_id] = inv
                 n += 1
         return n
 
-    def outcomes(self, tenant_id: str) -> list[Outcome]:
+    def outcomes(self, tenant_id: str, entities: Entities = None) -> list[Outcome]:
         stored = self._predictions.get(tenant_id, {})
         out = []
         for invoice_id, inv in sorted(self._paid.get(tenant_id, {}).items()):
+            if not visible(self._entity.get((tenant_id, invoice_id)), entities):
+                continue
             p = stored[invoice_id]
             out.append(Outcome(p.model_version, p.predicted_payment_date, p.p_late_30d, p.due_date or inv.due_date, inv.paid_date))
         return out
@@ -139,9 +162,18 @@ class InMemoryRepository:
     def save_invoice_facts(self, tenant_id: str, legal_entity_id: str, invoices: list[OpenInvoice]) -> None:
         for inv in invoices:
             self._facts[(tenant_id, inv.invoice_id)] = (legal_entity_id, inv.invoice_date, inv.amount)
+            self._entity[(tenant_id, inv.invoice_id)] = legal_entity_id
 
-    def mark_reversed(self, tenant_id: str, invoice_ids: list[str]) -> int:
-        known = [i for i in invoice_ids if i in self._predictions.get(tenant_id, {}) and (tenant_id, i) not in self._reversed]
+    def claim_unowned(self, tenant_id: str, legal_entity_id: str, invoice_ids: list[str]) -> int:
+        n = 0
+        for i in invoice_ids:
+            if i in self._predictions.get(tenant_id, {}) and self._entity.get((tenant_id, i)) is None:
+                self._entity[(tenant_id, i)] = legal_entity_id
+                n += 1
+        return n
+
+    def mark_reversed(self, tenant_id: str, invoice_ids: list[str], entities: Entities = None) -> int:
+        known = [i for i in invoice_ids if i in self._predictions.get(tenant_id, {}) and (tenant_id, i) not in self._reversed and visible(self._entity.get((tenant_id, i)), entities)]
         self._reversed.update((tenant_id, i) for i in known)
         return len(known)
 
@@ -201,19 +233,20 @@ class PredictionService:
         self.repo.save_settings(tenant_id, updated, user_id)
         return updated
 
-    def retrain(self, tenant_id: str, paid: list[PaidInvoice]) -> Model:
+    def retrain(self, tenant_id: str, paid: list[PaidInvoice], entities: Entities = None) -> Model:
         """A model that passes the MAE gate becomes ACTIVE and retires the previous one; one that
         does not is stored as CANDIDATE and the previous ACTIVE model keeps serving. Paid invoices
         that had a stored prediction are recorded as its outcome first (the accuracy report)."""
-        self.repo.record_actuals(tenant_id, paid)
+        self.repo.record_actuals(tenant_id, paid, entities)
         model = train(paid, self.config_for(tenant_id), self.clock(), self.repo.model_count(tenant_id) + 1)
         self.repo.save_model(tenant_id, model)
         return model
 
-    def accuracy(self, tenant_id: str) -> dict[str, object]:
-        return accuracy_report(self.repo.outcomes(tenant_id))
+    def accuracy(self, tenant_id: str, entities: Entities = None) -> dict[str, object]:
+        return accuracy_report(self.repo.outcomes(tenant_id, entities))
 
-    def score(self, tenant_id: str, invoices: list[OpenInvoice]) -> list[Prediction]:
+    def score(self, tenant_id: str, invoices: list[OpenInvoice], legal_entity_id: str | None = None, entities: Entities = None) -> list[Prediction]:
+        """Scores the invoices and stores the predictions for `legal_entity_id`. A caller scoped to legal entities (`entities`) stores for one of them."""
         model = self.active_model(tenant_id)
         if model is None:
             cfg = self.config_for(tenant_id)
@@ -222,12 +255,12 @@ class PredictionService:
                 f"Payment prediction not available: no active model; it needs at least {cfg.min_rows} paid invoices and a model within {cfg.mae_max_days} days MAE.",
             )
         predictions = score(model, invoices, self.clock())
-        self.repo.save_predictions(tenant_id, predictions)
+        self.repo.save_predictions(tenant_id, predictions, legal_entity_id, entities)
         return predictions
 
-    def prediction(self, tenant_id: str, invoice_id: str) -> tuple[Prediction, bool] | None:
+    def prediction(self, tenant_id: str, invoice_id: str, entities: Entities = None) -> tuple[Prediction, bool] | None:
         """The stored prediction and whether it is stale (BR-47.12)."""
-        found = self.repo.prediction(tenant_id, invoice_id)
+        found = self.repo.prediction(tenant_id, invoice_id, entities)
         if found is None:
             return None
         return found, is_stale(found.scored_at, self.clock())

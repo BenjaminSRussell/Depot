@@ -46,7 +46,8 @@ def _score_all(service: PredictionService, tenant_id: str, legal_entity_id: str,
     n = 0
     for i in range(0, len(invoices), SCORE_BATCH):
         batch = invoices[i : i + SCORE_BATCH]
-        service.score(tenant_id, batch)
+        service.repo.claim_unowned(tenant_id, legal_entity_id, [inv.invoice_id for inv in batch])
+        service.score(tenant_id, batch, legal_entity_id, [legal_entity_id])
         service.repo.save_invoice_facts(tenant_id, legal_entity_id, batch)
         n += len(batch)
     return n
@@ -78,7 +79,7 @@ def weekly(service: PredictionService, feed: ReceivablesFeed, tenant_id: str, le
     # The most recent history, as the retrain route takes at most this many.
     paid = sorted(paid, key=lambda i: i.paid_date)[-MAX_TRAINING_ROWS:]
     try:
-        model = service.retrain(tenant_id, paid)
+        model = service.retrain(tenant_id, paid, legal_entity_ids)
         rep.retrained = f"{model.model_version} {model.status}"
     except PredictionError as exc:
         rep.skipped = f"{exc.code}: {exc}"
@@ -92,9 +93,9 @@ def weekly(service: PredictionService, feed: ReceivablesFeed, tenant_id: str, le
             opened, open_mark = _read(feed, tenant_id, le, "open", None)
             rep.scored += _score_all(service, tenant_id, le, opened)
             reversed_, rev_mark = _read(feed, tenant_id, le, "reversed", None)
-            service.repo.mark_reversed(tenant_id, [i.invoice_id for i in reversed_])
+            service.repo.mark_reversed(tenant_id, [i.invoice_id for i in reversed_], [le])
             service.repo.save_sync_state(tenant_id, le, SyncState(open_mark, paid_marks.get(le), rev_mark, now))
-        except (FeedError, SignerError, ValueError) as exc:
+        except (FeedError, SignerError, ValueError, PredictionError) as exc:
             rep.errors.append(f"{le}: {exc}")
     return rep
 
@@ -106,9 +107,9 @@ def delta(service: PredictionService, feed: ReceivablesFeed, tenant_id: str, leg
         try:
             state = service.repo.sync_state(tenant_id, le)
             paid, paid_mark = _read(feed, tenant_id, le, "paid", state.paid_watermark, overlap=True)
-            rep.actuals += service.repo.record_actuals(tenant_id, [p for p in paid if isinstance(p, PaidInvoice)])
+            rep.actuals += service.repo.record_actuals(tenant_id, [p for p in paid if isinstance(p, PaidInvoice)], [le])
             reversed_, rev_mark = _read(feed, tenant_id, le, "reversed", state.reversed_watermark, overlap=True)
-            service.repo.mark_reversed(tenant_id, [i.invoice_id for i in reversed_])
+            service.repo.mark_reversed(tenant_id, [i.invoice_id for i in reversed_], [le])
             if service.active_model(tenant_id) is None:
                 rep.skipped = "no active model: the weekly retrain has not produced one yet"
                 service.repo.save_sync_state(tenant_id, le, replace(state, paid_watermark=paid_mark, reversed_watermark=rev_mark))
@@ -116,7 +117,7 @@ def delta(service: PredictionService, feed: ReceivablesFeed, tenant_id: str, leg
             opened, open_mark = _read(feed, tenant_id, le, "open", state.open_watermark, overlap=True)
             rep.scored += _score_all(service, tenant_id, le, opened)
             service.repo.save_sync_state(tenant_id, le, SyncState(open_mark, paid_mark, rev_mark, state.last_retrain_at))
-        except (FeedError, SignerError, ValueError) as exc:
+        except (FeedError, SignerError, ValueError, PredictionError) as exc:
             rep.errors.append(f"{le}: {exc}")
     return rep
 

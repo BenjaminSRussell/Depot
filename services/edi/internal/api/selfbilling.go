@@ -16,6 +16,7 @@ import (
 	"github.com/shopspring/decimal"
 
 	"github.com/BenjaminSRussell/passage/platform/httpx"
+	"github.com/BenjaminSRussell/passage/platform/ids"
 	"github.com/BenjaminSRussell/passage/platform/tenant"
 
 	"github.com/BenjaminSRussell/passage/services/edi/internal/domain"
@@ -499,8 +500,16 @@ func (a *API) postMatched(ctx context.Context, documentID string) (posted bool) 
 		if l.DeliveryNote != "" {
 			desc += ", delivery note " + l.DeliveryNote
 		}
-		body.Lines = append(body.Lines, domain.SelfBilledInvoiceLine{Description: desc, Qty: l.Quantity.String(), UnitPrice: l.UnitPrice.String(), Tax: l.Tax.String(),
-			RevenueAccount: cfg.RevenueAccount, TaxCode: cfg.TaxCode})
+		line := domain.SelfBilledInvoiceLine{Description: desc, Qty: l.Quantity.String(), UnitPrice: l.UnitPrice.String(), Tax: l.Tax.String(),
+			RevenueAccount: cfg.RevenueAccount, TaxCode: cfg.TaxCode, OrderID: l.OrderID, OrderLineID: l.OrderLineID}
+		// The item of a line is the product id the shipment notice carried as the vendor part.
+		if ids.Valid(l.Item) {
+			line.ProductID = l.Item
+		}
+		body.Lines = append(body.Lines, line)
+	}
+	if len(body.Lines) == 0 {
+		return fail("every line of the document was rejected in dispute, so there is nothing to invoice; the customer's corrected document is a new one", true)
 	}
 	actor, ok := tenant.FromContext(ctx)
 	if !ok {

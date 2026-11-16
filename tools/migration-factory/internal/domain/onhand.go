@@ -234,9 +234,9 @@ var notPosted = map[Pack]string{
 	PackProjectWIP:  "staged in the factory only, not posted to project operations (D7)",
 	PackOpenOrders:  "staged in the factory only, not posted to sales or purchasing (H-S11-1)",
 	PackBankBal:     "staged in the factory only, not posted to treasury (load it with POST /migration/runs/{id}/opening-load)",
-	PackWIPProd:     "staged in the factory only, not posted to production control (D1a)",
-	PackFixedAssets: "staged in the factory only, not posted to fixed assets (D1a)",
-	PackPayrollYTD:  "staged in the factory only, not posted to payroll (D1a)",
+	PackWIPProd:     "staged in the factory only, not posted to production control (load it with POST /migration/runs/{id}/staged-load)",
+	PackFixedAssets: "staged in the factory only, not posted to fixed assets (load it with POST /migration/runs/{id}/staged-load)",
+	PackPayrollYTD:  "staged in the factory only, not posted to payroll (load it with POST /migration/runs/{id}/staged-load)",
 }
 
 // PayablesStagedReason is why an open_items run with payables lines is staged for them.

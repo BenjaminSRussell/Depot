@@ -131,8 +131,8 @@ func run(ctx context.Context, getenv func(string) string) error {
 	if err != nil {
 		return fmt.Errorf("inventory client: %w", err)
 	}
-	st := store.New(pool).WithHolds(holds)
-	a := api.New(st, cfg)
+	st := store.New(pool).WithHolds(holds).WithOpeningClearingAccount(getenv("PRODUCTION_OPENING_CLEARING_ACCOUNT"))
+	a := api.New(st, cfg).WithOpeningWIP(st)
 	products, err := productclient.FromEnv(getenv)
 	if err != nil {
 		return fmt.Errorf("product client: %w", err)

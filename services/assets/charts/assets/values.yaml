@@ -44,6 +44,8 @@ containerSecurityContext:
     drop: [ALL]
 
 ledgerUrl: ""
+# The migration clearing account the opening register's net book value is credited to (POST /v1/assets/opening-journal); empty and that journal fails AST-0603.
+openingClearingAccount: ""
 serviceIdentity:
   signingKeySecret: ""
   keyId: ""

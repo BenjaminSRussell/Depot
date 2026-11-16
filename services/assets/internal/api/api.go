@@ -26,6 +26,7 @@ import (
 	"github.com/BenjaminSRussell/passage/platform/ids"
 	"github.com/BenjaminSRussell/passage/platform/ledgerclient"
 	"github.com/BenjaminSRussell/passage/platform/money"
+	"github.com/BenjaminSRussell/passage/platform/openingimport"
 	"github.com/BenjaminSRussell/passage/platform/tenant"
 	"github.com/BenjaminSRussell/passage/services/assets/internal/domain"
 	"github.com/BenjaminSRussell/passage/services/assets/internal/store"
@@ -67,19 +68,21 @@ var (
 
 // API holds the store and counters used by /metrics.
 type API struct {
-	gl       store.GLBooks
-	ledger   ledgerclient.Ledger
-	glBooked atomic.Int64
-	store    store.Store
-	now      func() time.Time
-	created  atomic.Int64
-	booked   atomic.Int64
-	disposed atomic.Int64
-	leased   atomic.Int64
-	adjusted atomic.Int64
-	added    atomic.Int64
-	runs     atomic.Int64
-	capex    atomic.Int64
+	gl              store.GLBooks
+	opening         store.OpeningImporter
+	openingCounters *openingimport.Counters
+	ledger          ledgerclient.Ledger
+	glBooked        atomic.Int64
+	store           store.Store
+	now             func() time.Time
+	created         atomic.Int64
+	booked          atomic.Int64
+	disposed        atomic.Int64
+	leased          atomic.Int64
+	adjusted        atomic.Int64
+	added           atomic.Int64
+	runs            atomic.Int64
+	capex           atomic.Int64
 	// Slice 3: lease remeasurements and count sessions.
 	remeasured atomic.Int64
 	terminated atomic.Int64
@@ -99,6 +102,7 @@ func (a *API) Register(r chi.Router) {
 	r.Get("/readyz", a.ready)
 	r.Group(func(r chi.Router) {
 		r.Use(requireTenant)
+		a.registerOpening(r)
 		r.With(authz.RequireDuty(DutyMaintain)).Post("/v1/assets", a.createAsset)
 		r.With(authz.RequireDuty(DutyView)).Get("/v1/assets", a.listAssets)
 		r.With(authz.RequireDuty(DutyView)).Get("/v1/assets/{id}", a.getAsset)
@@ -187,6 +191,9 @@ func (a *API) Metrics() http.Handler {
 		fmt.Fprintf(w, "# TYPE assets_capex_decisions_total counter\nassets_capex_decisions_total %d\n", a.decided.Load())
 		fmt.Fprintf(w, "# TYPE assets_transfers_total counter\nassets_transfers_total %d\n", a.transferred.Load())
 		fmt.Fprintf(w, "# TYPE assets_group_assets_total counter\nassets_group_assets_total %d\n", a.grouped.Load())
+		if a.openingCounters != nil {
+			a.openingCounters.Write(w, "assets_opening", "asset register")
+		}
 	})
 }
 

@@ -235,14 +235,25 @@ type WIPProdLine struct {
 	Material        decimal.Decimal
 	Labor           decimal.Decimal
 	Overhead        decimal.Decimal
+	// QuantityOpen and DeliveryDate are optional in the extract (production control's opening import needs them: the quantity still to
+	// produce and the order's due date); a line without them is staged and reconciled as before and held back by the load to production.
+	QuantityOpen decimal.Decimal
+	DeliveryDate string
 }
 
 // Staged maps the order onto the stored line; WIP is the sum of its three components.
 func (w WIPProdLine) Staged() StagedLine {
-	return StagedLine{LegacyID: w.LegacyID, NaturalKey: w.ProductionOrder, Currency: w.Currency,
+	l := StagedLine{LegacyID: w.LegacyID, NaturalKey: w.ProductionOrder, Currency: w.Currency,
 		Group: map[string]string{"production_order": w.ProductionOrder, "item": w.Item},
 		Measures: map[string]decimal.Decimal{"material": w.Material, "labor": w.Labor, "overhead": w.Overhead,
 			"wip": w.Material.Add(w.Labor).Add(w.Overhead)}}
+	if w.QuantityOpen.IsPositive() {
+		l.Measures["quantity_open"] = w.QuantityOpen
+	}
+	if w.DeliveryDate != "" {
+		l.Group["delivery_date"] = w.DeliveryDate
+	}
+	return l
 }
 
 // ValidateWIPProd applies the wip_prod suite: the shared rules, the item in the item master given
@@ -293,6 +304,11 @@ type FixedAssetLine struct {
 	AccumulatedDepreciation decimal.Decimal
 	SalvageValue            decimal.Decimal
 	NextDepreciation        decimal.Decimal
+	// AssetClass, AssetName and AcquisitionDate are optional in the extract: the asset register's opening import needs the class, the
+	// name and the date the asset was acquired. A line without them is staged and reconciled as before and held back by the load to assets.
+	AssetClass      string
+	AssetName       string
+	AcquisitionDate string
 }
 
 // NBV is the net book value: acquisition cost less accumulated depreciation.
@@ -324,8 +340,14 @@ func (a FixedAssetLine) ProjectNextDepreciation() decimal.Decimal {
 
 // Staged maps the asset book onto the stored line; the natural key is (asset, book).
 func (a FixedAssetLine) Staged() StagedLine {
+	group := map[string]string{"asset": a.Asset, "book": a.Book, "method": a.Method}
+	for k, v := range map[string]string{"asset_class": a.AssetClass, "asset_name": a.AssetName, "acquisition_date": a.AcquisitionDate} {
+		if v != "" {
+			group[k] = v
+		}
+	}
 	return StagedLine{LegacyID: a.LegacyID, NaturalKey: a.Asset + "/" + a.Book, Currency: a.Currency,
-		Group: map[string]string{"asset": a.Asset, "book": a.Book, "method": a.Method},
+		Group: group,
 		Measures: map[string]decimal.Decimal{"acquisition_cost": a.AcquisitionCost, "accumulated_depreciation": a.AccumulatedDepreciation,
 			"nbv": a.NBV(), "next_depreciation": a.NextDepreciation, "salvage": a.SalvageValue,
 			"useful_life_months": decimal.NewFromInt(int64(a.UsefulLifeMonths)), "remaining_life_months": decimal.NewFromInt(int64(a.RemainingLifeMonths))}}

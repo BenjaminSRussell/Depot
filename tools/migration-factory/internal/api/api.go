@@ -121,6 +121,13 @@ type Store interface {
 	RejectOrderLines(ctx context.Context, runID, legalEntityID string, lease time.Duration, rejects []store.OrderReject) error
 	ListOrderRejects(ctx context.Context, runID string, limit int) ([]store.OrderRejectRow, error)
 	FinishOrderLoad(ctx context.Context, runID string, fin store.OrderFinish) (domain.OrderLoad, []domain.ControlTotal, error)
+	GetStagedLoad(ctx context.Context, runID string) (domain.StagedLoad, error)
+	ClaimStagedLoad(ctx context.Context, runID, legalEntityID, startedBy string, lease time.Duration) (domain.StagedLoad, store.StagedLoadRun, []store.PendingStagedLine, error)
+	RecordStagedBatch(ctx context.Context, runID, legalEntityID string, lease time.Duration, batchKey string, lines []store.PendingStagedLine) error
+	RejectStagedLines(ctx context.Context, runID, legalEntityID string, lease time.Duration, rejects []store.StagedReject) error
+	ListStagedRejects(ctx context.Context, runID string, limit int) ([]store.StagedRejectRow, error)
+	ListStagedBooks(ctx context.Context, runID string) ([]store.StagedBook, error)
+	FinishStagedLoad(ctx context.Context, runID string, fin store.StagedFinish) (domain.StagedLoad, []domain.ControlTotal, error)
 }
 
 // Server serves the API over a Store.
@@ -136,6 +143,10 @@ type Server struct {
 	// sales and purchasing are the targets of the SALES and PURCHASE lines of an open_orders run (#49).
 	sales      OrderTarget
 	purchasing OrderTarget
+	// assets, production and payroll are the targets of the fixed_assets, wip_prod and payroll_ytd runs (#49).
+	assets     StagedTarget
+	production StagedTarget
+	payroll    StagedTarget
 	xref       XrefResolver
 	ledger     ledgerclient.Ledger
 	// subledgers post the subledger documents of a parallel-run replay (49-4).
@@ -173,6 +184,8 @@ func (s *Server) Register(r chi.Router) {
 		r.With(authz.RequireDuty(DutyMigrationView)).Get("/migration/runs/{id}/opening-load", s.getOpeningLoad)
 		r.With(authz.RequireDuty(DutyMigrationRun)).Post("/migration/runs/{id}/orders-load", s.runOrderLoad)
 		r.With(authz.RequireDuty(DutyMigrationView)).Get("/migration/runs/{id}/orders-load", s.getOrderLoad)
+		r.With(authz.RequireDuty(DutyMigrationRun)).Post("/migration/runs/{id}/staged-load", s.runStagedLoad)
+		r.With(authz.RequireDuty(DutyMigrationView)).Get("/migration/runs/{id}/staged-load", s.getStagedLoad)
 		r.With(authz.RequireDuty(DutyMigrationRun)).Post("/migration/runs/{id}/opening-journal", s.postOpeningJournal)
 		r.With(authz.RequireDuty(DutyMigrationView)).Get("/migration/runs/{id}/opening-journal", s.getOpeningJournal)
 		r.With(authz.RequireDuty(DutyMigrationView)).Get("/migration/runs/{id}/target-load", s.getTargetLoad)

@@ -16,6 +16,8 @@ resources:
 serviceMonitor: { enabled: false }
 
 ledgerUrl: ""
+# The migration clearing account the opening WIP is credited to; empty and an opening WIP import is refused (PRD-OPB-005).
+openingClearingAccount: ""
 inventoryUrl: ""
 # productUrl: the product service that releasedProductId reads order quantity rules from (FR-21.1); needs serviceIdentity.
 productUrl: ""

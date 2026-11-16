@@ -1679,6 +1679,127 @@ paths:
           $ref: "#/components/responses/Problem"
         "428":
           $ref: "#/components/responses/Problem"
+  /v1/assets/opening-journal:
+    post:
+      operationId: postOpeningAssetJournal
+      x-passage-duty: assets.opening-journal.post
+      description: >-
+        Books the opening register's journal in the general ledger, called by the migration factory with a service token after its opening batches (journal post). Only the
+        transactions of source type opening of one book code and currency are booked, never an ordinary acquisition, adjustment or depreciation. Each is cost Dr, accumulated depreciation Cr and the net book
+        value Cr the migration clearing account ASSETS_OPENING_CLEARING_ACCOUNT (the acquisition clearing account is not used; without the setting the document fails AST-0603). Idempotent per transaction
+        through the pending booking, like POST /v1/assets/gl-postings, and the answer has the same shape.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [legalEntityId, ledgerId, bookCode, currency]
+              properties:
+                legalEntityId: { type: string, format: uuid }
+                ledgerId: { type: string, format: uuid }
+                bookCode: { type: string }
+                currency: { type: string, pattern: '^[A-Z]{3}$' }
+      responses:
+        '200': { description: The bookings made and refused. }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /v1/assets/opening-assets:
+    post:
+      operationId: importOpeningAssets
+      x-passage-duty: assets.opening-asset.import
+      description: >-
+        Cutover import of the asset register, called by the migration factory with a service token. All or nothing, 1 to 1000 lines (one per asset
+        and depreciation book) of one legal entity, numbered from 1 in errors. Every line has a unique reference (the legacy asset-book id), an asset number, name and
+        class, a book code, a currency, a method (StraightLine in months, DecliningBalance in years), the acquisition date, the useful and remaining life in
+        periods, the acquisition cost, accumulated depreciation, net book value (which must equal cost less accumulated depreciation), salvage value and
+        depreciatedThrough, the last period the legacy system depreciated (2026-10 or 2025). The book is created Open with the schedule placed so that exactly the remaining
+        life is left after depreciatedThrough, and one Acquisition transaction of source type opening dated openingDate books the cost and the accumulated depreciation. The books of one asset
+        share its number, name and class, and a later batch may add a book to an asset an earlier batch imported. journal post leaves the transactions for POST /v1/assets/opening-journal
+        (cost and accumulated depreciation on the class accounts, the NBV against the migration clearing account); journal linked marks them booked without a journal for a ledger whose opening balances
+        already hold the asset accounts. controlTotals declares cost.CUR, accumulatedDepreciation.CUR and nbv.CUR; the service recomputes them and a mismatch refuses the batch (AST-OPB-003).
+        A book with remainingLifePeriods 0 must stand at its salvage value. A line error is a 422 AST-OPB-001 with errors keyed lines[row].field and rowErrors. The same batchKey with the same content is a 200 with Idempotent-Replayed true; with other
+        content it is a 409 AST-OPB-002; a reference, asset number or book already in use is a 422 AST-OPB-004. Nothing is announced: no asset event is written.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [legalEntityId, batchKey, openingDate, journal, controlTotals, lines]
+              properties:
+                legalEntityId: { type: string, format: uuid }
+                batchKey: { type: string, maxLength: 100 }
+                openingDate: { type: string, format: date, description: "The cutover date the opening transactions carry and the opening journal is dated." }
+                journal: { type: string, enum: [post, linked] }
+                controlTotals: { type: object, additionalProperties: { type: string }, description: "cost.CUR, accumulatedDepreciation.CUR and nbv.CUR as decimal strings." }
+                lines:
+                  type: array
+                  minItems: 1
+                  maxItems: 1000
+                  items:
+                    type: object
+                    additionalProperties: false
+                    required: [reference, assetNumber, name, classCode, bookCode, currency, method, acquisitionDate, usefulLifePeriods, remainingLifePeriods, acquisitionCost, accumulatedDepreciation, netBookValue, salvageValue, depreciatedThrough]
+                    properties:
+                      reference: { type: string, maxLength: 100 }
+                      assetNumber: { type: string, maxLength: 40 }
+                      name: { type: string, maxLength: 120 }
+                      classCode: { type: string, pattern: '^[A-Z0-9][A-Z0-9_-]{0,19}$' }
+                      bookCode: { type: string, pattern: '^[A-Z0-9][A-Z0-9_-]{0,19}$' }
+                      currency: { type: string, pattern: '^[A-Z]{3}$' }
+                      method: { type: string, enum: [StraightLine, DecliningBalance] }
+                      acquisitionDate: { type: string, format: date }
+                      usefulLifePeriods: { type: integer, minimum: 1, maximum: 1200 }
+                      remainingLifePeriods: { type: integer, minimum: 0 }
+                      acquisitionCost: { type: string, description: "Decimal string above zero, at most the currency's minor units." }
+                      accumulatedDepreciation: { type: string }
+                      netBookValue: { type: string }
+                      salvageValue: { type: string }
+                      depreciatedThrough: { type: string, pattern: '^[0-9]{4}(-(0[1-9]|1[0-2]))?$' }
+                      declineFactor: { type: string, description: "DecliningBalance only: the rate, 1 to 3 (default 2, 200 percent)." }
+                      switchToStraightLine: { type: boolean, description: "DecliningBalance only: the book switches to straight line (default false)." }
+      responses:
+        '200': { description: The batch was already imported with this content., headers: { Idempotent-Replayed: { schema: { type: string, enum: ['true'] } } }, content: { application/json: { schema: { $ref: '#/components/schemas/OpeningAssetBatch' } } } }
+        '201': { description: The batch was imported., content: { application/json: { schema: { $ref: '#/components/schemas/OpeningAssetBatch' } } } }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '500': { $ref: '#/components/responses/Problem' }
+    get:
+      operationId: listOpeningAssets
+      x-passage-duty: assets.opening-asset.read
+      description: >-
+        Imported opening batches of one legal entity (legal_entity), newest first, optionally one batch_key, with keyset paging (limit 1 to 200, default 50;
+        pass the previous nextCursor as cursor). lineCount and totals are read back from the stored lines, so the loader can verify what landed against what it sent.
+      parameters:
+        - { name: legal_entity, in: query, required: true, schema: { type: string, format: uuid } }
+        - { name: batch_key, in: query, schema: { type: string } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
+        - { name: cursor, in: query, schema: { type: string }, description: "The previous page's nextCursor." }
+      responses:
+        '200':
+          description: Batches.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, nextCursor, asOf]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/OpeningAssetBatch' } }
+                  nextCursor: { type: string, description: "Empty on the last page." }
+                  asOf: { type: string, format: date-time }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '500': { $ref: '#/components/responses/Problem' }
 components:
   headers:
     ETag:
@@ -1744,6 +1865,17 @@ components:
           schema:
             $ref: "#/components/schemas/Problem"
   schemas:
+    OpeningAssetBatch:
+      type: object
+      required: [id, legalEntityId, batchKey, lineCount, totals, importedBy, importedAt]
+      properties:
+        id: { type: string, format: uuid }
+        legalEntityId: { type: string, format: uuid }
+        batchKey: { type: string }
+        lineCount: { type: integer }
+        totals: { type: object, additionalProperties: { type: string }, description: "cost.CUR, accumulatedDepreciation.CUR and nbv.CUR summed from the stored lines." }
+        importedBy: { type: string }
+        importedAt: { type: string, format: date-time }
     LeasePostingProfile:
       type: object
       required: [legalEntityId, rouAssetAccount, rouAccumulatedDepreciationAccount, liabilityAccount, interestExpenseAccount, depreciationExpenseAccount, paymentClearingAccount, remeasurementGainAccount]

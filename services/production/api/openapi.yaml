@@ -97,6 +97,17 @@ components:
         application/problem+json:
           schema: { $ref: '#/components/schemas/Problem' }
   schemas:
+    OpeningWIPBatch:
+      type: object
+      required: [id, legalEntityId, batchKey, lineCount, totals, importedBy, importedAt]
+      properties:
+        id: { type: string, format: uuid }
+        legalEntityId: { type: string, format: uuid }
+        batchKey: { type: string }
+        lineCount: { type: integer }
+        totals: { type: object, additionalProperties: { type: string }, description: "material.CUR, labor.CUR, overhead.CUR and wipValue.CUR as decimal strings. Summed from the stored lines." }
+        importedBy: { type: string }
+        importedAt: { type: string, format: date-time }
     Decimal:
       type: string
       description: Decimal number as a string (JSON numbers are accepted on input); never a float.
@@ -3297,3 +3308,112 @@ paths:
         '412': { description: conflict_version, content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } } }
         '422': { description: The order already matches (PRODUCTION_ORDER_CHANGE_NO_DELTA), or the key was used for another change (idempotency_key_reuse), content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } } }
         '428': { description: precondition_required, content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } } }
+  /v1/production/opening-wip:
+    post:
+      operationId: importOpeningWIP
+      x-passage-duty: production.opening-wip.import
+      description: >-
+        Cutover import of the production orders still open in the legacy system with their work in progress, called by the migration factory with a service token. All or
+        nothing, 1 to 1000 lines of one legal entity, numbered from 1 in errors. Every line has a unique reference (the legacy production order id), an order number
+        (unique in the legal entity), a product, site and warehouse, a currency, the open quantity, an optional delivery date and the cost issued to the order and not yet
+        received as finished goods (material, labor, overhead; wipValue must equal their sum). The order is stored Started with the open quantity and no BOM or route snapshot,
+        and one posted journal of type opening-wip dated openingDate books its WIP in the subledger against the posting profile of its site (wip-material, wip-labor and wip-overhead
+        on the WIP account, against the one migration clearing account PRODUCTION_OPENING_CLEARING_ACCOUNT), so the WIP balance report and POST /v1/production/opening-journal
+        (which books it in the general ledger) see it. A site without a posting profile, or no clearing account set, is a 422 PRD-OPB-005. controlTotals declares material.CUR, labor.CUR,
+        overhead.CUR and wipValue.CUR; the service recomputes them and a mismatch refuses the batch (PRD-OPB-003). A line error is a 422 PRD-OPB-001 with errors keyed
+        lines[row].field and rowErrors. The same batchKey with the same content is a 200 with Idempotent-Replayed true; with other content it is a 409 PRD-OPB-002; a reference or
+        order number already in use is a 422 PRD-OPB-004. Nothing is announced: no order event is written.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [legalEntityId, batchKey, openingDate, journal, controlTotals, lines]
+              properties:
+                legalEntityId: { type: string, format: uuid }
+                batchKey: { type: string, maxLength: 100 }
+                openingDate: { type: string, format: date, description: "The cutover date the opening journals are dated." }
+                journal: { type: string, enum: [post, linked], description: "post: booked by POST /v1/production/opening-journal; linked: marked booked with no entry, for a ledger whose gl_balances already carry the WIP." }
+                controlTotals: { type: object, additionalProperties: { type: string }, description: "material.CUR, labor.CUR, overhead.CUR and wipValue.CUR as decimal strings." }
+                lines:
+                  type: array
+                  minItems: 1
+                  maxItems: 1000
+                  items:
+                    type: object
+                    additionalProperties: false
+                    required: [reference, orderNumber, productId, siteId, warehouseId, currency, quantityOpen, material, labor, overhead, wipValue]
+                    properties:
+                      reference: { type: string, maxLength: 100 }
+                      orderNumber: { type: string, maxLength: 40 }
+                      productId: { type: string, format: uuid }
+                      siteId: { type: string, format: uuid }
+                      warehouseId: { type: string, format: uuid }
+                      currency: { type: string, pattern: '^[A-Z]{3}$' }
+                      quantityOpen: { type: string, description: "Decimal string above zero, at most 6 decimal places." }
+                      deliveryDate: { type: string, format: date }
+                      material: { type: string, description: "Decimal string, zero or more, at most the currency's minor units." }
+                      labor: { type: string }
+                      overhead: { type: string }
+                      wipValue: { type: string }
+      responses:
+        '200': { description: The batch was already imported with this content., headers: { Idempotent-Replayed: { schema: { type: string, enum: ['true'] } } }, content: { application/json: { schema: { $ref: '#/components/schemas/OpeningWIPBatch' } } } }
+        '201': { description: The batch was imported., content: { application/json: { schema: { $ref: '#/components/schemas/OpeningWIPBatch' } } } }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '500': { $ref: '#/components/responses/Problem' }
+    get:
+      operationId: listOpeningWIP
+      x-passage-duty: production.opening-wip.read
+      description: >-
+        Imported opening batches of one legal entity (legal_entity), newest first, optionally one batch_key, with keyset paging (limit 1 to 200, default 50;
+        pass the previous nextCursor as cursor). lineCount and totals are read back from the stored lines, so the loader can verify what landed against what it sent.
+      parameters:
+        - { name: legal_entity, in: query, required: true, schema: { type: string, format: uuid } }
+        - { name: batch_key, in: query, schema: { type: string } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
+        - { name: cursor, in: query, schema: { type: string }, description: "The previous page's nextCursor." }
+      responses:
+        '200':
+          description: Batches.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, nextCursor, asOf]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/OpeningWIPBatch' } }
+                  nextCursor: { type: string, description: "Empty on the last page." }
+                  asOf: { type: string, format: date-time }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '500': { $ref: '#/components/responses/Problem' }
+  /v1/production/opening-journal:
+    post:
+      operationId: postOpeningWIPJournal
+      x-passage-duty: production.opening-journal.post
+      description: >-
+        Books the WIP rows of the opening-wip journals in the general ledger, called by the migration factory with a service token after its opening batches (journal post). Only
+        those rows are booked, never an ordinary picking, route card or settlement posting. One entry per order: WIP Dr, the migration clearing account Cr. Answer and idempotency as POST /v1/production/gl-postings:run.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ledgerId]
+              properties:
+                legalEntityId: { type: string, format: uuid }
+                ledgerId: { type: string, format: uuid }
+      responses:
+        '200': { description: The bookings made and refused. }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }

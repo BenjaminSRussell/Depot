@@ -26,6 +26,9 @@ type stagedRecordDTO struct {
 	Material        string `json:"material,omitempty"`
 	Labor           string `json:"labor,omitempty"`
 	Overhead        string `json:"overhead,omitempty"`
+	// QuantityOpen and DeliveryDate are optional: the quantity still to produce and the due date, which production's opening import needs.
+	QuantityOpen string `json:"quantityOpen,omitempty"`
+	DeliveryDate string `json:"deliveryDate,omitempty"`
 	// fixed_assets
 	Asset                   string `json:"asset,omitempty"`
 	Book                    string `json:"book,omitempty"`
@@ -36,6 +39,10 @@ type stagedRecordDTO struct {
 	AccumulatedDepreciation string `json:"accumulatedDepreciation,omitempty"`
 	SalvageValue            string `json:"salvageValue,omitempty"`
 	NextDepreciation        string `json:"nextDepreciation,omitempty"`
+	// AssetClass, AssetName and AcquisitionDate are optional: the register's opening import needs them.
+	AssetClass      string `json:"assetClass,omitempty"`
+	AssetName       string `json:"assetName,omitempty"`
+	AcquisitionDate string `json:"acquisitionDate,omitempty"`
 	// payroll_ytd
 	Worker     string `json:"worker,omitempty"`
 	TaxYear    string `json:"taxYear,omitempty"`
@@ -84,12 +91,12 @@ func stagedLines(pack domain.Pack, recs []stagedRecordDTO, master map[string]str
 	case domain.PackWIPProd:
 		in := make([]domain.WIPProdLine, 0, len(recs))
 		for _, rec := range recs {
-			m, err := stagedAmounts(rec.LegacyID, map[string]string{"material": rec.Material, "labor": rec.Labor, "overhead": rec.Overhead})
+			m, err := stagedAmounts(rec.LegacyID, map[string]string{"material": rec.Material, "labor": rec.Labor, "overhead": rec.Overhead, "quantityOpen": rec.QuantityOpen})
 			if err != nil {
 				return nil, nil, nil, err
 			}
 			w := domain.WIPProdLine{LegacyID: t(rec.LegacyID), ProductionOrder: t(rec.ProductionOrder), Item: t(rec.Item), Currency: t(rec.Currency),
-				Material: m["material"], Labor: m["labor"], Overhead: m["overhead"]}
+				Material: m["material"], Labor: m["labor"], Overhead: m["overhead"], QuantityOpen: m["quantityOpen"], DeliveryDate: t(rec.DeliveryDate)}
 			in = append(in, w)
 			all = append(all, w.Staged())
 		}
@@ -110,7 +117,7 @@ func stagedLines(pack domain.Pack, recs []stagedRecordDTO, master map[string]str
 			a := domain.FixedAssetLine{LegacyID: t(rec.LegacyID), Asset: t(rec.Asset), Book: t(rec.Book), Currency: t(rec.Currency),
 				Method: strings.ToUpper(t(rec.Method)), UsefulLifeMonths: rec.UsefulLifeMonths, RemainingLifeMonths: rec.RemainingLifeMonths,
 				AcquisitionCost: m["acquisitionCost"], AccumulatedDepreciation: m["accumulatedDepreciation"], SalvageValue: m["salvageValue"],
-				NextDepreciation: m["nextDepreciation"]}
+				NextDepreciation: m["nextDepreciation"], AssetClass: t(rec.AssetClass), AssetName: t(rec.AssetName), AcquisitionDate: t(rec.AcquisitionDate)}
 			in = append(in, a)
 			all = append(all, a.Staged())
 		}

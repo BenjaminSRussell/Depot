@@ -488,3 +488,32 @@ func (u unreachableStore) FinishOrderLoad(context.Context, string, store.OrderFi
 	u.fail()
 	return domain.OrderLoad{}, nil, nil
 }
+
+func (u unreachableStore) GetStagedLoad(context.Context, string) (domain.StagedLoad, error) {
+	u.fail()
+	return domain.StagedLoad{}, nil
+}
+func (u unreachableStore) ClaimStagedLoad(context.Context, string, string, string, time.Duration) (domain.StagedLoad, store.StagedLoadRun, []store.PendingStagedLine, error) {
+	u.fail()
+	return domain.StagedLoad{}, store.StagedLoadRun{}, nil, nil
+}
+func (u unreachableStore) RecordStagedBatch(context.Context, string, string, time.Duration, string, []store.PendingStagedLine) error {
+	u.fail()
+	return nil
+}
+func (u unreachableStore) RejectStagedLines(context.Context, string, string, time.Duration, []store.StagedReject) error {
+	u.fail()
+	return nil
+}
+func (u unreachableStore) ListStagedRejects(context.Context, string, int) ([]store.StagedRejectRow, error) {
+	u.fail()
+	return nil, nil
+}
+func (u unreachableStore) ListStagedBooks(context.Context, string) ([]store.StagedBook, error) {
+	u.fail()
+	return nil, nil
+}
+func (u unreachableStore) FinishStagedLoad(context.Context, string, store.StagedFinish) (domain.StagedLoad, []domain.ControlTotal, error) {
+	u.fail()
+	return domain.StagedLoad{}, nil, nil
+}

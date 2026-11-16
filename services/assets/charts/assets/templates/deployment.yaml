@@ -20,6 +20,9 @@ spec:
     spec:
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
+{{- if .Values.openingClearingAccount }}
+            - { name: ASSETS_OPENING_CLEARING_ACCOUNT, value: {{ .Values.openingClearingAccount | quote }} }
+{{- end }}
 {{- if .Values.serviceIdentity.signingKeySecret }}
       volumes:
         - name: service-identity

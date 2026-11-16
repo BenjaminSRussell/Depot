@@ -160,7 +160,7 @@ func resolveProfile(profiles []PostingProfile, class string) PostingProfile {
 
 // glNet is the net debit (credit when negative) per account of one journal: the cost and accumulated depreciation movements on the class accounts, and the
 // counter account that balances them by transaction type. A disposal books the proceeds and takes the rest as gain or loss.
-func glNet(p PostingProfile, typ string, cost, accumulated, proceeds decimal.Decimal, net map[string]decimal.Decimal) error {
+func glNet(p PostingProfile, typ, source, openingClearing string, cost, accumulated, proceeds decimal.Decimal, net map[string]decimal.Decimal) error {
 	add := func(account string, v decimal.Decimal) { net[account] = net[account].Add(v) }
 	add(p.Cost, cost)
 	add(p.Accumulated, accumulated.Neg())
@@ -175,6 +175,14 @@ func glNet(p PostingProfile, typ string, cost, accumulated, proceeds decimal.Dec
 			add(p.Loss, gl.Neg())
 		}
 	case "Acquisition", "AcquisitionAdj":
+		if source == OpeningSource {
+			// The opening register's NBV is not an open acquisition: it goes to the migration clearing account, which the opening GL balances clear.
+			if openingClearing == "" {
+				return fmt.Errorf("no opening clearing account is configured (ASSETS_OPENING_CLEARING_ACCOUNT)")
+			}
+			add(openingClearing, nbv.Neg())
+			break
+		}
 		add(p.AcquisitionClearing, nbv.Neg())
 	case "Depreciation", "DepreciationAdj":
 		add(p.DepreciationExpense, nbv.Neg())
@@ -195,6 +203,10 @@ type GLPostRequest struct {
 	LedgerID      string
 	BookCode      string
 	Currency      string
+	// OpeningOnly books only the transactions of source type opening (the opening register import), and OpeningClearing is the account their NBV is
+	// credited to.
+	OpeningOnly     bool
+	OpeningClearing string
 }
 
 type GLBooked struct {
@@ -217,9 +229,9 @@ type GLPostResult struct {
 }
 
 type glTx struct {
-	id, typ, date, class string
-	cost, accumulated    decimal.Decimal
-	proceeds             decimal.Decimal
+	id, typ, date, class, source string
+	cost, accumulated            decimal.Decimal
+	proceeds                     decimal.Decimal
 }
 
 type glGroup struct {
@@ -234,7 +246,8 @@ func (s *Postgres) unbookedGroups(ctx context.Context, tx pgx.Tx, tenantID strin
 		join asset_book b on b.tenant_id = t.tenant_id and b.id = t.asset_book_id
 		where t.tenant_id = $1 and t.legal_entity_id = $2 and b.book_code = $3 and b.currency = $4
 			and not exists (select 1 from asset_gl_entry g where g.tenant_id = t.tenant_id and g.transaction_id = t.id)
-		group by 1 order by min(t.created_at), 1 limit $5`, tenantID, in.LegalEntityID, in.BookCode, in.Currency, MaxGLGroupsPerRun+1)
+			and (not $6 or t.source_type = 'opening')
+		group by 1 order by min(t.created_at), 1 limit $5`, tenantID, in.LegalEntityID, in.BookCode, in.Currency, MaxGLGroupsPerRun+1, in.OpeningOnly)
 	if err != nil {
 		return nil, false, err
 	}
@@ -255,7 +268,7 @@ func (s *Postgres) unbookedGroups(ctx context.Context, tx pgx.Tx, tenantID strin
 		keys = keys[:MaxGLGroupsPerRun]
 	}
 	rows, err := tx.Query(ctx, `select coalesce(t.run_id, t.id)::text, t.id::text, t.type, t.transaction_date::text, a.class_code, t.cost_amount::text, t.accumulated_amount::text,
-			coalesce(t.proceeds_amount, 0)::text, t.run_id is not null
+			coalesce(t.proceeds_amount, 0)::text, t.run_id is not null, t.source_type
 		from asset_transaction t join asset_book b on b.tenant_id = t.tenant_id and b.id = t.asset_book_id
 		join asset a on a.tenant_id = b.tenant_id and a.id = b.asset_id
 		where t.tenant_id = $1 and coalesce(t.run_id, t.id) = any($2::uuid[]) and b.book_code = $3 and b.currency = $4
@@ -271,7 +284,7 @@ func (s *Postgres) unbookedGroups(ctx context.Context, tx pgx.Tx, tenantID strin
 		var key, cost, acc, proceeds string
 		var isRun bool
 		var x glTx
-		if err := rows.Scan(&key, &x.id, &x.typ, &x.date, &x.class, &cost, &acc, &proceeds, &isRun); err != nil {
+		if err := rows.Scan(&key, &x.id, &x.typ, &x.date, &x.class, &cost, &acc, &proceeds, &isRun, &x.source); err != nil {
 			return nil, false, err
 		}
 		x.cost, x.accumulated, x.proceeds = decimal.RequireFromString(cost), decimal.RequireFromString(acc), decimal.RequireFromString(proceeds)
@@ -296,7 +309,7 @@ func (g *glGroup) entry(in GLPostRequest, profiles []PostingProfile) (ledgerclie
 	for _, x := range g.txs {
 		p := resolveProfile(profiles, x.class)
 		placeholder = placeholder || p.Placeholder
-		if err := glNet(p, x.typ, x.cost.Round(mu), x.accumulated.Round(mu), x.proceeds.Round(mu), net); err != nil {
+		if err := glNet(p, x.typ, x.source, in.OpeningClearing, x.cost.Round(mu), x.accumulated.Round(mu), x.proceeds.Round(mu), net); err != nil {
 			return ledgerclient.Entry{}, false, err
 		}
 	}
@@ -432,6 +445,7 @@ func (s *Postgres) discard(ctx context.Context, tenantID, key string) error {
 // A group the ledger refuses is reported and the rest go on.
 func (s *Postgres) PostToGL(ctx context.Context, ledger ledgerclient.Ledger, in GLPostRequest) (GLPostResult, error) {
 	p := principal(ctx)
+	in.OpeningClearing = s.openingClearing
 	var groups []*glGroup
 	more := false
 	err := dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) (err error) {

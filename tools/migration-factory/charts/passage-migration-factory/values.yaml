@@ -43,6 +43,15 @@ sales:
   url: ""
 purchasing:
   url: ""
+# assets.url, production.url and payroll.url are the service base addresses the staged fixed_assets, wip_prod and payroll_ytd packs are loaded into
+# (POST /v1/assets/opening-assets, POST /v1/production/opening-wip, POST /v1/payroll/opening-ytd); empty and the staged load answers 503 MIG-1580.
+# They use the same signing key.
+assets:
+  url: ""
+production:
+  url: ""
+payroll:
+  url: ""
 # The migration service, whose cross-reference resolves the legacy customers and vendors of an open-items run (H-S8-6, #49) and the items, customers and vendors of an open-orders load.
 migration:
   url: ""
