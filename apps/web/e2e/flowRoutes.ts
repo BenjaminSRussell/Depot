@@ -76,6 +76,7 @@ export const FLOW_ROUTES: readonly string[] = [
   "/receivables/disputes",
   "/receivables/down-payments",
   "/receivables/dunning-runs",
+  "/receivables/gateway-payments",
   "/receivables/gl-journals",
   "/receivables/ledger-setup",
   "/receivables/interest-notes",

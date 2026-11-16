@@ -28,6 +28,7 @@ describe("receivables module", () => {
       "/receivables/payments",
       "/receivables/payments/new",
       "/receivables/payments/:id",
+      "/receivables/gateway-payments",
       "/receivables/remittance-advice",
       "/receivables/gl-journals",
       "/receivables/ledger-setup",
