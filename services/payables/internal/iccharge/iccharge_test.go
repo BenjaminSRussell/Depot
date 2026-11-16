@@ -395,3 +395,24 @@ func TestHandle_AutoPostNamesTheLenderAsTradingPartner(t *testing.T) {
 		t.Fatalf("a lender that is the borrower's own entity must name no partner, got %q", p)
 	}
 }
+
+// #40: taking an intercompany charge in remembers the lender as the vendor's partner, once, for the payment run.
+func TestHandle_RecordsTheVendorsPartnerForThePaymentRun(t *testing.T) {
+	s, admin := migratedStore(t)
+	le, vendor, lender := ids.New(), ids.New(), ids.New()
+	data := map[string]any{"id": ids.New(), "sourceId": "TS-9", "version": 1, "lender": "A", "borrower": "B", "category": "Hour", "transactionDate": "2026-11-05",
+		"currency": "USD", "price": "550.00", "tax": "104.50", "borrowerLegalEntityId": le, "lenderLegalEntityId": lender, "vendorAccount": vendor}
+	for i := 0; i < 2; i++ {
+		if _, err := iccharge.Handle(consumerCtx(t), s, nil, event(t, data, publishedSource)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	var n int
+	var partner string
+	if err := admin.QueryRow(context.Background(), `select count(*), coalesce(max(partner_legal_entity_id::text), '') from ap_vendor_partner where legal_entity_id = $1 and vendor_id = $2`, le, vendor).Scan(&n, &partner); err != nil {
+		t.Fatal(err)
+	}
+	if n != 1 || partner != lender {
+		t.Fatalf("rows %d partner %q, want one row naming %s", n, partner, lender)
+	}
+}

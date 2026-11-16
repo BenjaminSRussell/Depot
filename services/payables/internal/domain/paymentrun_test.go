@@ -173,3 +173,23 @@ func TestRunJournal_ControlDebitsCarryTheVendorGroupCodePerItem(t *testing.T) {
 		t.Fatalf("with the dimension off the control debit stays one untagged line: %+v", off)
 	}
 }
+
+// #40: the control debit of an intercompany vendor names the lender, so the payment lowers the tagged payable; the bank line and the
+// other vendors' lines name none.
+func TestRunJournal_NamesThePartnerOfAnIntercompanyVendor(t *testing.T) {
+	groups := twoGroups()
+	partner := "0c5d3b0e-6b0a-4c43-9d57-3c1a3a7a1d11"
+	lines := domain.RunJournal("USD", groups, "2000", "1010", "4900", "", domain.VendorGroupDims{Partners: map[string]string{groups[1].VendorID: partner}})
+	got := map[string]int{}
+	for _, l := range lines {
+		if l.TradingPartnerID != "" {
+			if l.Account != "2000" || l.Credit || l.Text != "vendor "+groups[1].VendorID {
+				t.Errorf("partner on the wrong line: %+v", l)
+			}
+			got[l.TradingPartnerID]++
+		}
+	}
+	if got[partner] != 1 {
+		t.Fatalf("partner lines = %v, want exactly the second vendor's control debit", got)
+	}
+}

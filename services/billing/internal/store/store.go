@@ -757,7 +757,7 @@ func postedData(inv Invoice) billingevents.InvoicePostedData {
 		InvoiceID: inv.ID, Number: inv.Number, Type: inv.Type, LegalEntityID: inv.LegalEntityID, Customer: inv.CustomerID,
 		InvoiceAccount: inv.InvoiceAccountID, Currency: inv.Currency, InvoiceDate: inv.InvoiceDate.Format(dateLayout),
 		PostingDate: inv.PostingDate.Format(dateLayout), DueDate: inv.DueDate.Format(dateLayout), Lines: postedLines(inv.Currency, inv.Lines),
-		Totals: postedTotals(inv.Currency, inv.Totals), Installments: installments,
+		Totals: postedTotals(inv.Currency, inv.Totals), Installments: installments, TradingPartnerID: inv.TradingPartnerID,
 	}
 }
 

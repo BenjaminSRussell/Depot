@@ -638,6 +638,49 @@ type singleEntryRequest struct {
 // their values and the optionalDimensions list are left out and a retry that tags differently replays the
 // entry the first attempt posted. A request without optionalDimensions is hashed exactly as before.
 func withoutOptional(req postEntryRequest, groups []ledgerLinesDTO) (postEntryRequest, []ledgerLinesDTO) {
+	req, groups = withoutOptionalDimensions(req, groups)
+	return withoutPartner(req, groups)
+}
+
+// withoutPartner leaves the trading partner (#40) out of the idempotency hash, like an optional dimension: a poster that resumes a journal
+// across the rollout of the field (a retry after a lost answer) sends the partner the first attempt did not, and must replay the entry
+// that attempt posted instead of meeting a 409. A request without partners is hashed exactly as before.
+func withoutPartner(req postEntryRequest, groups []ledgerLinesDTO) (postEntryRequest, []ledgerLinesDTO) {
+	has := func(lines []lineDTO) bool {
+		for _, l := range lines {
+			if l.TradingPartnerID != "" {
+				return true
+			}
+		}
+		return false
+	}
+	strip := func(lines []lineDTO) []lineDTO {
+		out := make([]lineDTO, len(lines))
+		for i, l := range lines {
+			l.TradingPartnerID = ""
+			out[i] = l
+		}
+		return out
+	}
+	if has(req.Lines) {
+		req.Lines = strip(req.Lines)
+	}
+	var out []ledgerLinesDTO
+	for i, g := range groups {
+		if has(g.Lines) {
+			if out == nil {
+				out = append([]ledgerLinesDTO(nil), groups...)
+			}
+			out[i] = ledgerLinesDTO{LedgerID: g.LedgerID, Lines: strip(g.Lines)}
+		}
+	}
+	if out != nil {
+		groups = out
+	}
+	return req, groups
+}
+
+func withoutOptionalDimensions(req postEntryRequest, groups []ledgerLinesDTO) (postEntryRequest, []ledgerLinesDTO) {
 	if len(req.OptionalDimensions) == 0 {
 		return req, groups
 	}

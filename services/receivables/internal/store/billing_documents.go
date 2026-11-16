@@ -40,6 +40,9 @@ type BillingDocument struct {
 	Currency       string
 	DocumentDate   string
 	Items          []domain.PlannedItem
+	// TradingPartnerID is the legal entity on the other side of an intercompany invoice (#40); the store remembers it for the customer
+	// so the ledger journals of the customer's payments name it.
+	TradingPartnerID string
 }
 
 // ErrOriginalInvoiceNotFound is a credit note whose invoice has no open items in its legal entity (yet). The caller retries,
@@ -89,6 +92,14 @@ func (s *Postgres) ApplyBillingDocument(ctx context.Context, d BillingDocument) 
 		}
 		if taken {
 			return numberTaken()
+		}
+		if d.SourceType == "INVOICE" && d.TradingPartnerID != "" && d.TradingPartnerID != d.LegalEntityID {
+			if _, err := tx.Exec(ctx, `insert into ar_customer_partner (tenant_id, legal_entity_id, customer_id, partner_legal_entity_id)
+				values ($1, $2::uuid, $3::uuid, $4::uuid)
+				on conflict (tenant_id, legal_entity_id, customer_id) do update set partner_legal_entity_id = excluded.partner_legal_entity_id, updated_at = now()`,
+				p.TenantID, d.LegalEntityID, d.CustomerID, d.TradingPartnerID); err != nil {
+				return err
+			}
 		}
 		for _, it := range d.Items {
 			var original any

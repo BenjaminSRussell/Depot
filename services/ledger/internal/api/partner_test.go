@@ -45,3 +45,22 @@ func TestPostEntry_RefusesAMalformedTradingPartner(t *testing.T) {
 		t.Fatalf("a malformed partner must be a 400 naming the field: %d %s", rec.Code, rec.Body.String())
 	}
 }
+
+// The partner is not part of the idempotency hash: a poster that resumes a journal across the rollout of the field sends it where the
+// first attempt did not, and must replay that entry, not meet a 409.
+func TestPostEntry_TradingPartnerIsNotPartOfTheIdempotencyHash(t *testing.T) {
+	with := strings.Replace(entryBody, `"debitCredit":"C"`, `"tradingPartnerId":"`+testPartner+`","debitCredit":"C"`, 1)
+	fs := &fakeStore{}
+	h := server(fs)
+	for _, body := range []string{entryBody, with} {
+		if rec := call(h, http.MethodPost, "/v1/ledger/journal-entries", body, dutyPost, map[string]string{"Idempotency-Key": "ic-hash"}); rec.Code != http.StatusCreated {
+			t.Fatalf("post: %d %s", rec.Code, rec.Body.String())
+		}
+	}
+	if len(fs.posted) != 2 || string(fs.posted[0].Hash) != string(fs.posted[1].Hash) {
+		t.Fatalf("hashes differ with and without the partner")
+	}
+	if fs.posted[1].Lines[1].TradingPartner != testPartner {
+		t.Fatalf("the partner must still reach the store: %+v", fs.posted[1].Lines[1])
+	}
+}

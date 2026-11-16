@@ -33,6 +33,8 @@ const (
 	CodeProfitEstimated = "CNS-0933"
 	// CodeICOutsidePairs warns that intercompany balances sit between two units that are not a holder and its subsidiary.
 	CodeICOutsidePairs = "CNS-0934"
+	// CodeICUntagged warns that intercompany balances without a trading partner on their ledger lines were found and how the run took them.
+	CodeICUntagged = "CNS-0935"
 )
 
 func invalid(detail string) error { return &Error{Code: CodeInvalid, Detail: detail} }

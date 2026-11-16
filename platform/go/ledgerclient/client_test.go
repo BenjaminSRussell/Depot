@@ -424,3 +424,31 @@ func TestPost_SendsTheTradingPartner(t *testing.T) {
 		t.Fatalf("body %s err %v", body, err)
 	}
 }
+
+// A ledger that predates the trading partner refuses the field with 400 COM-0001; the client posts once more without it, so an
+// intercompany journal is not compensated during a rollout that deploys a poster first.
+func TestPost_RetriesWithoutTheTradingPartnerWhenAnOldLedgerRefusesIt(t *testing.T) {
+	var bodies []string
+	c, _ := newClientAs(t, "intercompany", func(w http.ResponseWriter, r *http.Request) {
+		raw, _ := io.ReadAll(r.Body)
+		bodies = append(bodies, string(raw))
+		if strings.Contains(string(raw), `"tradingPartnerId"`) {
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = w.Write([]byte(`{"code":"COM-0001"}`))
+			return
+		}
+		_, _ = w.Write([]byte(`{"entries":[{"id":"` + entityID + `"}]}`))
+	})
+	e := ledgerclient.Entry{LegalEntityID: entityID, LedgerID: ledgerID, DocumentID: "d", PostingDate: "2026-03-01", Currency: "USD", IdempotencyKey: "k",
+		Lines: []ledgerclient.Line{{Account: "1300", Amount: decimal.NewFromInt(5), TradingPartnerID: ledgerID}, {Account: "4900", Credit: true, Amount: decimal.NewFromInt(5)}}}
+	id, err := c.Post(principalCtx(), e)
+	if err != nil || id != entityID || len(bodies) != 2 || strings.Contains(bodies[1], "tradingPartnerId") {
+		t.Fatalf("id %q err %v bodies %v", id, err, bodies)
+	}
+	// An entry with no partner that is refused with the same code is not retried.
+	bodies = nil
+	e.Lines[0].TradingPartnerID = ""
+	if _, err := c.Post(principalCtx(), e); err != nil || len(bodies) != 1 {
+		t.Fatalf("plain entry: %v bodies %d", err, len(bodies))
+	}
+}

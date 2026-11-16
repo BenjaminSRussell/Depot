@@ -209,7 +209,9 @@ func DeriveRun(in DeriveInput) (Derived, error) {
 		if err := readPairAccounts(&pair, in, u, terms, end); err != nil {
 			return Derived{}, fail(CodeRunFromCollection, err.Error())
 		}
-		partnered, estimate := applyPartnerFlows(&pair, in, u, terms, end)
+		resolved := applyPartnerFlows(&pair, in, u, terms, end)
+		partnered := resolved.Applied
+		out.Warnings = append(out.Warnings, resolved.Warnings...)
 		if partnered {
 			for _, h := range u.Holdings {
 				if inForce(OwnershipInterval{From: h.From, To: h.To, Percent: h.Percent}, end) {
@@ -223,13 +225,6 @@ func DeriveRun(in DeriveInput) (Derived, error) {
 		}
 		statedShare := false
 		if o, ok := in.IC[u.ID]; ok {
-			if partnered {
-				for name, v := range map[string]*decimal.Decimal{"icSales": o.ICSales, "icCost": o.ICCost, "icReceivable": o.ICReceivable, "payableGroup": o.PayableGroup} {
-					if v != nil {
-						return Derived{}, fail(CodeRunFromCollection, "its intercompany sales, cost, receivable and payable are read from the ledgers' trading partner balances; leave "+name+" out of the request")
-					}
-				}
-			}
 			statedShare = o.UnsoldShare != nil
 			if terms.ICReceivableAccount != "" && o.ICReceivable != nil {
 				return Derived{}, fail(CodeRunFromCollection, "its IC receivable is read from account "+terms.ICReceivableAccount+" of its ledger; leave icReceivable out of the request")
@@ -241,6 +236,20 @@ func DeriveRun(in DeriveInput) (Derived, error) {
 				if v != nil {
 					*dst = *v
 				}
+			}
+			// A request amount replaces what the ledgers gave, including the group-currency amounts of a parent's sales that came per
+			// trading partner: the request's amount is in the unit's currency like every ic amount.
+			if o.ICSales != nil {
+				pair.ICSalesGroup = nil
+			}
+			if o.ICCost != nil {
+				pair.ICCostGroup = nil
+			}
+			if o.ICReceivable != nil {
+				pair.ReceivableGroup = nil
+			}
+			if o.PayableGroup != nil {
+				pair.PayableUnit = nil
 			}
 			set(&pair.ICSales, o.ICSales)
 			set(&pair.ICCost, o.ICCost)
@@ -274,15 +283,20 @@ func DeriveRun(in DeriveInput) (Derived, error) {
 			}
 		}
 		switch {
-		case partnered && len(layers) == 0 && statedShare && pair.ICSalesGroup != nil:
+		case partnered && len(layers) == 0 && statedShare && pair.ICSalesGroup != nil && pair.ICCostGroup != nil && resolved.CostKnown:
 			// A stated unsold share of a parent's sales to this subsidiary applies to the margin of those sales, in the group currency.
 			p := round(pair.ICSalesGroup.Sub(*pair.ICCostGroup).Mul(pair.UnsoldShare), in.GroupCurrency)
 			pair.UnrealizedProfitGroup = &p
-		case partnered && len(layers) == 0 && !statedShare && (estimate.Profit.IsPositive() || estimate.Inventory.IsPositive()):
-			pair.UnrealizedProfitGroup = decPtr(estimate.Profit)
+		case partnered && len(layers) == 0 && statedShare && pair.ICSalesGroup != nil && pair.UnsoldShare.IsPositive():
+			// The seller's cost is unknown: with none, the margin is not 100 percent, it is not known, so nothing is eliminated.
+			out.Warnings = append(out.Warnings, (&Error{Code: CodeProfitEstimated, Detail: "unit " + u.ID +
+				": the unsold share cannot be applied to the parent's sales because the seller's cost of sales is unknown (no ic_cost line with a partner and no ic_cost account total); no unrealised profit is eliminated"}).Error())
+		case partnered && len(layers) == 0 && !statedShare && resolved.EstimateOK && (resolved.Estimate.Profit.IsPositive() || resolved.Estimate.Inventory.IsPositive()):
+			est := resolved.Estimate
+			pair.UnrealizedProfitGroup = decPtr(est.Profit)
 			out.Warnings = append(out.Warnings, (&Error{Code: CodeProfitEstimated, Detail: fmt.Sprintf(
 				"unit %s: unrealised profit %s %s estimated from the trading partner balances: closing intercompany inventory %s at the seller's margin of %s percent; give receipt layers or an unsold share for an exact figure",
-				u.ID, estimate.Profit.StringFixed(2), in.GroupCurrency, estimate.Inventory.StringFixed(2), estimate.MarginPct.String())}).Error())
+				u.ID, est.Profit.StringFixed(2), in.GroupCurrency, est.Inventory.StringFixed(2), est.MarginPct.String())}).Error())
 		}
 		out.Units = append(out.Units, RunUnit{ID: u.ID, Pair: pair, OpeningNetAssets: opening, ClosingNetAssets: closing})
 	}

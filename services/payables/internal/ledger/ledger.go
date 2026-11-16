@@ -357,6 +357,33 @@ type entryResult struct {
 func (c *Client) Signed() bool { return c.signer != nil }
 
 func (c *Client) Post(ctx context.Context, e Entry) (string, error) {
+	id, err := c.post(ctx, e)
+	var status *StatusError
+	if errors.As(err, &status) && status.Status == http.StatusBadRequest && status.Code == "COM-0001" && hasPartner(e) {
+		// A ledger that predates the trading partner (#40) refuses the unknown field. Post without it rather than park the entry; the
+		// consolidation reads such lines as untagged.
+		slog.WarnContext(ctx, "ledger refused tradingPartnerId; posting without it", "key", e.IdempotencyKey, "correlationId", middleware.GetReqID(ctx))
+		lines := make([]domain.RunJournalLine, len(e.Lines))
+		copy(lines, e.Lines)
+		for i := range lines {
+			lines[i].TradingPartnerID = ""
+		}
+		e.Lines = lines
+		return c.post(ctx, e)
+	}
+	return id, err
+}
+
+func hasPartner(e Entry) bool {
+	for _, l := range e.Lines {
+		if l.TradingPartnerID != "" {
+			return true
+		}
+	}
+	return false
+}
+
+func (c *Client) post(ctx context.Context, e Entry) (string, error) {
 	if c.signer == nil {
 		return "", errors.New("ledger: posting needs a service signing key; the end user's headers are never forwarded for a journal")
 	}

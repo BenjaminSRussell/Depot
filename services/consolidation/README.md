@@ -160,6 +160,7 @@ Problem details use `type: https://passage.dev/problems/<code>`.
 | CNS-0905 | Two-sided IC difference above the threshold; returned per pair by the IC difference preview and the task ends in Error (BR-40.15) |
 | CNS-0906 | A validation rule failed for a unit; returned per rule by the validation preview (FR-40.20) |
 | CNS-0908 | Group cost unknown for some layers; margin fallback used (warning in the profit-in-inventory preview) |
+| CNS-0935 | Warning of a run over a collection: intercompany balances of a pair carry no trading partner on part of their ledger lines (the tagged total differs from the account total); the run says which figure it used. Not in the PRD catalog |
 | CNS-0933 / CNS-0934 | Warnings of a run over a collection: the unrealised profit of a subsidiary was estimated from the trading partner balances (no layers, no unsold share) / intercompany balances sit between two units that are not a holder and its subsidiary, so no elimination covers them. Not in the PRD catalog |
 | CNS-0909 | Top-side journal at or above the approval threshold needs approval (warning in the group journal check) |
 | CNS-0910 | Move from an existing equity interest to control is a step acquisition, not supported (domain guard) |

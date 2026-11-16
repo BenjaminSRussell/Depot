@@ -87,6 +87,10 @@ type Pair struct {
 	ReceivableGroup       *decimal.Decimal
 	PayableUnit           *decimal.Decimal
 	UnrealizedProfitGroup *decimal.Decimal
+	// ReverseReceivableGroup and ReversePayableGroup are the other direction of the pair (the buyer's receivable from the seller and the
+	// seller's payable to the buyer, for example an intercompany loan), group currency as collected; E2 eliminates them as well.
+	ReverseReceivableGroup *decimal.Decimal
+	ReversePayableGroup    *decimal.Decimal
 }
 
 // Eliminate builds the entries for E1–E5 and checks that every rule balances.
@@ -120,6 +124,18 @@ func Eliminate(p Pair) ([]Entry, error) {
 	out = leg(out, RuleE2, AcctICPayable, ap)
 	out = leg(out, RuleE2, AcctICReceivable, ar.Neg())
 	out = leg(out, RuleE2, p.icDifferenceAccount(), ar.Sub(ap))
+	if p.ReverseReceivableGroup != nil || p.ReversePayableGroup != nil {
+		var rr, rp decimal.Decimal
+		if p.ReverseReceivableGroup != nil {
+			rr = round(*p.ReverseReceivableGroup, cur)
+		}
+		if p.ReversePayableGroup != nil {
+			rp = round(*p.ReversePayableGroup, cur)
+		}
+		out = leg(out, RuleE2, AcctICPayable, rp)
+		out = leg(out, RuleE2, AcctICReceivable, rr.Neg())
+		out = leg(out, RuleE2, p.icDifferenceAccount(), rr.Sub(rp))
+	}
 
 	// E3: unrealized profit in closing inventory at the average rate. Upstream
 	// profit is shared with the NCI; downstream profit belongs to the parent.

@@ -192,8 +192,13 @@ func TestRun_ParentSellingToTwoSubsidiaries_PartnerDimension(t *testing.T) {
 			t.Errorf("rerun %s = %s, first run %s", k, second[k], v)
 		}
 	}
-	// The partner amounts are not taken from the request when the ledgers hold them.
-	if rec := call(a, http.MethodPost, "/v1/consol/runs", tenantID, api.DutyRun, "r3", fmt.Sprintf(`{"collectionId":%q,"openingRates":[{"currency":"EUR","rate":"1.15"}],"ic":[{"unit":%q,"icSales":"5"}]}`, col.ID, de.ID)); rec.Code != http.StatusUnprocessableEntity || !strings.Contains(rec.Body.String(), "icSales") {
-		t.Fatalf("override next to partner balances = %d %s", rec.Code, rec.Body.String())
+	// A request amount may correct a pair's figure; it changes the elimination and so the inputs hash.
+	over := created[struct {
+		ID         string
+		InputsHash string
+	}](t, call(a, http.MethodPost, "/v1/consol/runs", tenantID, api.DutyRun, "r3", fmt.Sprintf(`{"collectionId":%q,"openingRates":[{"currency":"EUR","rate":"1.15"}],"ic":[{"unit":%q,"icSales":"5"}]}`, col.ID, de.ID)))
+	plain := decode[struct{ InputsHash string }](t, call(a, http.MethodGet, "/v1/consol/runs/"+run.ID, tenantID, api.DutyView, "", ""))
+	if over.InputsHash == "" || over.InputsHash == plain.InputsHash {
+		t.Fatalf("the override must change the inputs hash: %s vs %s", over.InputsHash, plain.InputsHash)
 	}
 }

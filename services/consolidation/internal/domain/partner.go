@@ -107,60 +107,68 @@ func CollectPartners(groupCurrency string, mapping []AccountMapping, units []Uni
 	return out, nil
 }
 
-// pairFlows are the intercompany amounts of one seller and buyer, summed from the partner lines. Debit balances are positive.
+// pairFlows are the intercompany amounts of one seller and buyer, resolved from the partner lines and the unit's role-account totals.
+// Debit balances are positive; credit balances (sales, payables) are stored as positive amounts.
 type pairFlows struct {
-	found bool
 	// Seller side.
-	salesUnit, salesGroup           decimal.Decimal // credit balance of ic_sales, as a positive amount
+	salesUnit, salesGroup           decimal.Decimal
 	costUnit, costGroup             decimal.Decimal
 	receivableUnit, receivableGroup decimal.Decimal
 	// Buyer side.
-	payableUnit, payableGroup decimal.Decimal // credit balance of ic_payable, as a positive amount
+	payableUnit, payableGroup decimal.Decimal
 	purchasesGroup, cogsGroup decimal.Decimal
 	inventoryGroup            decimal.Decimal
 	hasInventory              bool
+	// costKnown is false when neither a tagged ic_cost nor an ic_cost account total says what the seller's goods cost, so no margin
+	// can be worked out (a missing cost is never read as zero, which would make the margin 100 percent).
+	costKnown bool
 }
 
-// flowsBetween sums the partner lines of the sellers about the buyers and of the buyers about the sellers (sets of unit ids).
-func flowsBetween(lines []PartnerLine, sellers, buyers map[string]bool) pairFlows {
-	var f pairFlows
+// partnerResolution is what applyPartnerFlows found for one pair.
+type partnerResolution struct {
+	Applied  bool
+	Estimate profitEstimate
+	// EstimateOK is false when the unrealised profit cannot be estimated (no seller cost, no seller sales).
+	EstimateOK bool
+	CostKnown  bool
+	Warnings   []string
+}
+
+type amt struct {
+	unit, group decimal.Decimal
+	n           int
+}
+
+func sumPartner(lines []PartnerLine, owners, counter map[string]bool, role string) amt {
+	var a amt
 	for _, l := range lines {
-		switch {
-		case sellers[l.UnitID] && buyers[l.CounterpartyUnitID]:
-			switch l.Role {
-			case RoleICSales:
-				f.salesUnit, f.salesGroup, f.found = f.salesUnit.Sub(l.UnitAmount), f.salesGroup.Sub(l.GroupAmount), true
-			case RoleICCost:
-				f.costUnit, f.costGroup, f.found = f.costUnit.Add(l.UnitAmount), f.costGroup.Add(l.GroupAmount), true
-			case RoleICReceivable:
-				f.receivableUnit, f.receivableGroup, f.found = f.receivableUnit.Add(l.UnitAmount), f.receivableGroup.Add(l.GroupAmount), true
-			}
-		case buyers[l.UnitID] && sellers[l.CounterpartyUnitID]:
-			switch l.Role {
-			case RoleICPayable:
-				f.payableUnit, f.payableGroup, f.found = f.payableUnit.Sub(l.UnitAmount), f.payableGroup.Sub(l.GroupAmount), true
-			case RoleICPurchases:
-				f.purchasesGroup, f.found = f.purchasesGroup.Add(l.GroupAmount), true
-			case RoleICCOGS:
-				f.cogsGroup, f.found = f.cogsGroup.Add(l.GroupAmount), true
-			case RoleICInventory:
-				f.inventoryGroup, f.hasInventory, f.found = f.inventoryGroup.Add(l.GroupAmount), true, true
-			}
+		if l.Role == role && owners[l.UnitID] && (counter == nil || counter[l.CounterpartyUnitID]) {
+			a.unit, a.group, a.n = a.unit.Add(l.UnitAmount), a.group.Add(l.GroupAmount), a.n+1
 		}
 	}
-	return f
+	return a
+}
+
+func sumRole(lines []CollectLine, owners map[string]bool, role string) amt {
+	var a amt
+	for _, l := range lines {
+		if l.Role == role && owners[l.UnitID] {
+			a.unit, a.group, a.n = a.unit.Add(l.UnitAmount), a.group.Add(l.GroupAmount), a.n+1
+		}
+	}
+	return a
 }
 
 // UnrealizedFromPartners estimates the unrealised profit in the buyer's closing inventory (IFRS 10 B86(c), IAS 28.28) when neither
 // receipt layers nor a stated unsold share exist. The closing intercompany inventory at the buyer's cost (which is the seller's price)
 // is the balance of the buyer's ic_inventory accounts with the seller when it has them, else the goods it bought from the seller in the
 // fiscal year less the cost of those it sold on (ic_purchases less ic_cogs). It is capped at what the seller sold the buyer. The profit
-// is that inventory times the seller's margin on its sales to this buyer, (sales less cost) / sales. It is an estimate: goods bought in
-// earlier years and still held are missed without ic_inventory, and the buyer's cost of goods sold is taken to be intercompany goods at
-// the seller's price.
-func UnrealizedFromPartners(f pairFlows, groupCurrency string) (profit, inventory, marginPct decimal.Decimal) {
-	if !f.salesGroup.IsPositive() {
-		return decimal.Zero, decimal.Zero, decimal.Zero
+// is that inventory times the seller's margin on its sales to this buyer, (sales less cost) / sales. ok is false when the seller's cost
+// is unknown (it is never read as zero) or the seller sold nothing. It is an estimate: goods bought in earlier years and still held are
+// missed without ic_inventory, and the buyer's cost of goods sold is taken to be intercompany goods at the seller's price.
+func UnrealizedFromPartners(f pairFlows, groupCurrency string) (profit, inventory, marginPct decimal.Decimal, ok bool) {
+	if !f.salesGroup.IsPositive() || !f.costKnown {
+		return decimal.Zero, decimal.Zero, decimal.Zero, false
 	}
 	inventory = f.purchasesGroup.Sub(f.cogsGroup)
 	if f.hasInventory {
@@ -176,7 +184,7 @@ func UnrealizedFromPartners(f pairFlows, groupCurrency string) (profit, inventor
 	if margin.IsNegative() {
 		margin = decimal.Zero
 	}
-	return round(inventory.Mul(margin), groupCurrency), inventory, margin.Mul(decimal.NewFromInt(100)).Round(4)
+	return round(inventory.Mul(margin), groupCurrency), inventory, margin.Mul(decimal.NewFromInt(100)).Round(4), true
 }
 
 // profitEstimate is the unrealised profit RunUnits estimates from the partner balances of one pair.
@@ -184,12 +192,19 @@ type profitEstimate struct {
 	Profit, Inventory, MarginPct decimal.Decimal
 }
 
-// applyPartnerFlows fills the pair of subsidiary u from the partner lines between u and its holders (#40). It returns false when the
-// partner lines say nothing about the pair, so the pair keeps what the unit's own account balances gave. The seller is the subsidiary
+// applyPartnerFlows fills the pair of subsidiary u from the partner lines between u and its holders (#40). The seller is the subsidiary
 // when the unit's terms say so, otherwise its holders (a parent selling to several subsidiaries has one pair per subsidiary, each with
-// its own sales, receivable, payable and margin, so each subsidiary's unrealised profit is eliminated on its own). The estimate of the
-// unrealised profit is returned for the caller to use only when no layers and no stated unsold share exist.
-func applyPartnerFlows(pair *Pair, in DeriveInput, u Unit, terms UnitTerms, end time.Time) (bool, profitEstimate) {
+// its own sales, receivable, payable and margin).
+//
+// Tagged lines are not trusted to be complete: payments, settlements, manual and batch journals and postings from before the rollout
+// carry no partner. For every role the tagged total of the owner (all counterparties) is compared with the owner's collected account
+// total. When they agree the pair's tagged figure is used. When they differ, a subsidiary's own account total is used (its account
+// holds only its group counterparties' balances in practice) and for a holder's account the total is used when every tagged line is
+// this pair's, else the tagged figure stands and the untagged remainder is reported; every case answers CNS-0935. A seller's cost that
+// no line says is taken from the seller's ic_cost account total (shared out by sales for a holder) and, with none, the margin is
+// unknown and nothing is estimated (CNS-0933). The reverse direction (the buyer's receivable from the seller and the seller's payable
+// to the buyer, an intercompany loan or a charge the other way) is eliminated in E2 as well.
+func applyPartnerFlows(pair *Pair, in DeriveInput, u Unit, terms UnitTerms, end time.Time) partnerResolution {
 	holders := map[string]bool{}
 	for _, h := range u.Holdings {
 		if inForce(OwnershipInterval{From: h.From, To: h.To, Percent: h.Percent}, end) {
@@ -198,25 +213,134 @@ func applyPartnerFlows(pair *Pair, in DeriveInput, u Unit, terms UnitTerms, end 
 	}
 	self := map[string]bool{u.ID: true}
 	sellers, buyers := holders, self
+	sellerIsUnit := false
 	if terms.SellerIsSubsidiary {
 		sellers, buyers = self, holders
+		sellerIsUnit = true
 	}
-	f := flowsBetween(in.PartnerLines, sellers, buyers)
-	if !f.found {
-		return false, profitEstimate{}
+	var res partnerResolution
+	tagged := false
+	for _, l := range in.PartnerLines {
+		tagged = tagged || (sellers[l.UnitID] && buyers[l.CounterpartyUnitID]) || (buyers[l.UnitID] && sellers[l.CounterpartyUnitID])
 	}
-	if terms.SellerIsSubsidiary {
+	if !tagged {
+		return res // no line names a partner of this pair: the unit's own account balances stand
+	}
+	warn := func(code, detail string) {
+		res.Warnings = append(res.Warnings, (&Error{Code: code, Detail: "unit " + u.ID + ": " + detail}).Error())
+	}
+	places := int32(2)
+	// resolve returns the pair's amount of one role (debit positive), whether any line or total supports it, and the owner's total.
+	resolve := func(role string, owners, counter map[string]bool, ownerIsUnit bool) (amt, bool) {
+		pairT := sumPartner(in.PartnerLines, owners, counter, role)
+		allT := sumPartner(in.PartnerLines, owners, nil, role)
+		tot := sumRole(in.Lines, owners, role)
+		tol := decimal.New(1, -2).Mul(decimal.NewFromInt(int64(tot.n + allT.n + 1)))
+		switch {
+		case pairT.n == 0 && allT.n == 0:
+			// Nothing is tagged for this role at all: the owner's account total is untagged.
+			if tot.n > 0 && (!tot.group.IsZero() || !tot.unit.IsZero()) {
+				if ownerIsUnit {
+					warn(CodeICUntagged, fmt.Sprintf("the %s balance %s %s has no trading partner on its ledger lines; the account total is used", role, tot.group.StringFixed(places), in.GroupCurrency))
+					return tot, true
+				}
+				warn(CodeICUntagged, fmt.Sprintf("the %s balance %s %s of its holders has no trading partner on its ledger lines and is not attributed to this pair", role, tot.group.StringFixed(places), in.GroupCurrency))
+			}
+			return amt{}, false
+		case pairT.n == 0:
+			return amt{}, false // other pairs are tagged, this one has none
+		}
+		rem := tot.group.Sub(allT.group)
+		switch {
+		case rem.Abs().LessThanOrEqual(tol):
+			return pairT, true
+		case ownerIsUnit:
+			warn(CodeICUntagged, fmt.Sprintf("the tagged %s lines total %s %s but the account holds %s; the account total is used", role, allT.group.StringFixed(places), in.GroupCurrency, tot.group.StringFixed(places)))
+			return tot, true
+		case allT.group.Equal(pairT.group) && allT.n == pairT.n:
+			warn(CodeICUntagged, fmt.Sprintf("the tagged %s lines of its holders total %s %s but the accounts hold %s; no other pair is tagged, so the account total is attributed to this pair", role, allT.group.StringFixed(places), in.GroupCurrency, tot.group.StringFixed(places)))
+			return tot, true
+		}
+		warn(CodeICUntagged, fmt.Sprintf("the %s accounts of its holders hold %s %s more than the tagged lines; that remainder is not attributed to this pair", role, rem.StringFixed(places), in.GroupCurrency))
+		return pairT, true
+	}
+
+	var f pairFlows
+	sales, okSales := resolve(RoleICSales, sellers, buyers, sellerIsUnit)
+	cost, okCost := resolve(RoleICCost, sellers, buyers, sellerIsUnit)
+	recv, okRecv := resolve(RoleICReceivable, sellers, buyers, sellerIsUnit)
+	pay, okPay := resolve(RoleICPayable, buyers, sellers, !sellerIsUnit)
+	purch, okPurch := resolve(RoleICPurchases, buyers, sellers, !sellerIsUnit)
+	cogs, okCogs := resolve(RoleICCOGS, buyers, sellers, !sellerIsUnit)
+	inv, okInv := resolve(RoleICInventory, buyers, sellers, !sellerIsUnit)
+	f.salesUnit, f.salesGroup = sales.unit.Neg(), sales.group.Neg()
+	f.costUnit, f.costGroup, f.costKnown = cost.unit, cost.group, okCost
+	f.receivableUnit, f.receivableGroup = recv.unit, recv.group
+	f.payableUnit, f.payableGroup = pay.unit.Neg(), pay.group.Neg()
+	f.purchasesGroup, f.cogsGroup = purch.group, cogs.group
+	f.inventoryGroup, f.hasInventory = inv.group, okInv
+	if okSales && !okCost && !sellerIsUnit {
+		// A holder's cost of sales that no line names: share the account total out by sales.
+		totCost, totSales := sumRole(in.Lines, sellers, RoleICCost), sumRole(in.Lines, sellers, RoleICSales)
+		if totCost.n > 0 && totSales.group.IsNegative() && f.salesGroup.IsPositive() {
+			f.costGroup = totCost.group.Mul(f.salesGroup).Div(totSales.group.Neg())
+			f.costKnown = true
+			warn(CodeICUntagged, "the seller's cost of sales is not tagged with a partner; its ic_cost account total is shared out by sales to give this pair's margin")
+		}
+	}
+	// The reverse direction, for E2 only: the buyer's receivable from the seller and the seller's payable to the buyer.
+	revRecv := sumPartner(in.PartnerLines, buyers, sellers, RoleICReceivable)
+	revPay := sumPartner(in.PartnerLines, sellers, buyers, RoleICPayable)
+	forward := okSales || okCost || okRecv || okPay || okPurch || okCogs || okInv
+	reverse := revRecv.n > 0 || revPay.n > 0
+	if !forward && !reverse {
+		return res
+	}
+	res.Applied = true
+	if reverse {
+		rr, rp := revRecv.group, revPay.group.Neg()
+		if rr.IsNegative() || rp.IsNegative() {
+			warn(CodeICUntagged, "a balance in the reverse direction of the pair (the buyer's receivable from the seller, the seller's payable to the buyer) is on the wrong side and is left out")
+		} else {
+			pair.ReverseReceivableGroup, pair.ReversePayableGroup = decPtr(rr), decPtr(rp)
+		}
+	}
+	if sellerIsUnit {
 		// The subsidiary sells: its own currency is the seller's, the parent's payable is in the group currency as collected.
-		pair.ICSales, pair.ICCost, pair.ICReceivable = f.salesUnit, f.costUnit, f.receivableUnit
-		pair.PayableGroup = f.payableGroup
+		if okSales {
+			pair.ICSales = f.salesUnit
+		}
+		if okCost {
+			pair.ICCost = f.costUnit
+		}
+		if okRecv {
+			pair.ICReceivable = f.receivableUnit
+		}
+		if okPay {
+			pair.PayableGroup = f.payableGroup
+		}
 	} else {
-		// The parent sells: its sales, cost and receivable are already in the group currency, the subsidiary's payable is not.
-		pair.ICSalesGroup, pair.ICCostGroup, pair.ReceivableGroup = decPtr(f.salesGroup), decPtr(f.costGroup), decPtr(f.receivableGroup)
-		pair.PayableUnit = decPtr(f.payableUnit)
-		pair.ICSales, pair.ICCost, pair.ICReceivable, pair.PayableGroup = decimal.Zero, decimal.Zero, decimal.Zero, decimal.Zero
+		// The parent sells: its sales, cost and receivable are in the group currency, the subsidiary's payable is not.
+		if okSales {
+			pair.ICSalesGroup = decPtr(f.salesGroup)
+		}
+		if okCost || f.costKnown {
+			pair.ICCostGroup = decPtr(f.costGroup)
+		}
+		if okRecv {
+			pair.ReceivableGroup = decPtr(f.receivableGroup)
+		}
+		if okPay {
+			pair.PayableUnit = decPtr(f.payableUnit)
+		}
 	}
-	profit, inventory, margin := UnrealizedFromPartners(f, in.GroupCurrency)
-	return true, profitEstimate{Profit: profit, Inventory: inventory, MarginPct: margin}
+	res.CostKnown = f.costKnown
+	profit, inventory, margin, ok := UnrealizedFromPartners(f, in.GroupCurrency)
+	res.Estimate, res.EstimateOK = profitEstimate{Profit: profit, Inventory: inventory, MarginPct: margin}, ok
+	if !ok && okSales {
+		warn(CodeProfitEstimated, "the seller's cost of sales is unknown (no ic_cost line with a partner and no ic_cost account total), so no margin and no unrealised profit can be worked out; give receipt layers or an unsold share with the cost")
+	}
+	return res
 }
 
 func decPtr(d decimal.Decimal) *decimal.Decimal { return &d }

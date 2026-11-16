@@ -24,6 +24,17 @@ func heldByParent(u Unit) Unit {
 	return u
 }
 
+// roleLines are the collected balances a ledger holds for the accounts the partner lines are part of: when every intercompany line
+// names its partner, the role accounts' totals equal the tagged totals.
+func roleLines(partners []PartnerLine) []CollectLine {
+	var out []CollectLine
+	for _, p := range partners {
+		out = append(out, CollectLine{UnitID: p.UnitID, MainAccount: p.MainAccount, ConsolidationAccount: p.ConsolidationAccount, Type: p.Type, Role: p.Role,
+			UnitCurrency: p.UnitCurrency, UnitAmount: p.UnitAmount, Rate: p.Rate, GroupAmount: p.GroupAmount})
+	}
+	return out
+}
+
 func prow(account, partner, net string) PartnerRow {
 	return PartnerRow{Account: account, CounterpartyUnitID: partner, Net: dec(net)}
 }
@@ -66,6 +77,7 @@ func TestDeriveRun_ParentSellingToTwoSubsidiaries_B86c(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	lines = append(lines, roleLines(partners)...)
 	in := DeriveInput{GroupCurrency: "USD", Period: "2027-03", Units: units, Lines: lines, Rates: rates, Terms: terms, PartnerLines: partners,
 		Opening: map[string]OpeningBasis{"S1": {NetAssets: dec("900000"), Rate: dec("1")}, "S2": {NetAssets: dec("750000"), Rate: dec("1.15")}}}
 	d, err := DeriveRun(in)
@@ -157,7 +169,7 @@ func TestDeriveRun_UnsoldShareSources(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	base := DeriveInput{GroupCurrency: "USD", Period: "2027-03", Units: units[:2], Lines: lines[:2], Rates: rates, Terms: terms, PartnerLines: partners,
+	base := DeriveInput{GroupCurrency: "USD", Period: "2027-03", Units: units[:2], Lines: append(lines[:2:2], roleLines(partners)...), Rates: rates, Terms: terms, PartnerLines: partners,
 		Opening: map[string]OpeningBasis{"S1": {NetAssets: dec("900000"), Rate: dec("1")}}}
 	profit := func(in DeriveInput) (string, []string) {
 		t.Helper()
@@ -197,40 +209,48 @@ func TestDeriveRun_UnsoldShareSources(t *testing.T) {
 	if got, w := profit(layered); got != "200" || len(w) != 0 {
 		t.Fatalf("layers without a stated share = %s warnings %v", got, w)
 	}
-	// The partner amounts may not be overridden from the request.
+	// A request amount replaces what the ledgers gave for the pair (the review-mode and untagged cases need a way to correct it).
 	sales := dec("5")
-	bad := base
-	bad.IC = map[string]ICOverride{"S1": {ICSales: &sales}}
-	if _, err := DeriveRun(bad); err == nil || !strings.Contains(err.Error(), "icSales") {
+	over := base
+	over.IC = map[string]ICOverride{"S1": {ICSales: &sales}}
+	d, err := DeriveRun(over)
+	if err != nil {
 		t.Fatalf("an icSales override next to partner balances: %v", err)
+	}
+	if p := d.Units[0].Pair; p.ICSalesGroup != nil || !p.ICSales.Equal(dec("5")) {
+		t.Fatalf("the override must replace the partner sales: %+v", p)
 	}
 }
 
 // The buyer's ic_inventory balance is the closing value when its inventory lines name the seller; ic_purchases less ic_cogs is the
 // fallback, capped at what the seller sold.
 func TestUnrealizedFromPartners_InventoryBalanceAndCap(t *testing.T) {
-	f := pairFlows{found: true, salesGroup: dec("1000"), costGroup: dec("600"), purchasesGroup: dec("1000"), cogsGroup: dec("700")}
-	if p, inv, m := UnrealizedFromPartners(f, "USD"); !p.Equal(dec("120")) || !inv.Equal(dec("300")) || !m.Equal(dec("40")) {
-		t.Errorf("purchases less cogs: %s %s %s", p, inv, m)
+	f := pairFlows{costKnown: true, salesGroup: dec("1000"), costGroup: dec("600"), purchasesGroup: dec("1000"), cogsGroup: dec("700")}
+	if p, inv, m, ok := UnrealizedFromPartners(f, "USD"); !ok || !p.Equal(dec("120")) || !inv.Equal(dec("300")) || !m.Equal(dec("40")) {
+		t.Errorf("purchases less cogs: %s %s %s %v", p, inv, m, ok)
 	}
 	f.hasInventory, f.inventoryGroup = true, dec("250")
-	if p, inv, _ := UnrealizedFromPartners(f, "USD"); !p.Equal(dec("100")) || !inv.Equal(dec("250")) {
+	if p, inv, _, _ := UnrealizedFromPartners(f, "USD"); !p.Equal(dec("100")) || !inv.Equal(dec("250")) {
 		t.Errorf("inventory balance wins: %s %s", p, inv)
 	}
 	f.inventoryGroup = dec("4000")
-	if _, inv, _ := UnrealizedFromPartners(f, "USD"); !inv.Equal(dec("1000")) {
+	if _, inv, _, _ := UnrealizedFromPartners(f, "USD"); !inv.Equal(dec("1000")) {
 		t.Errorf("inventory is capped at the seller's sales: %s", inv)
 	}
 	f.hasInventory, f.cogsGroup = false, dec("1500")
-	if p, inv, _ := UnrealizedFromPartners(f, "USD"); !p.IsZero() || !inv.IsZero() {
+	if p, inv, _, _ := UnrealizedFromPartners(f, "USD"); !p.IsZero() || !inv.IsZero() {
 		t.Errorf("more cogs than purchases leaves no inventory: %s %s", p, inv)
 	}
-	if p, _, _ := UnrealizedFromPartners(pairFlows{purchasesGroup: dec("5")}, "USD"); !p.IsZero() {
-		t.Errorf("no sales, no margin: %s", p)
+	if _, _, _, ok := UnrealizedFromPartners(pairFlows{costKnown: true, purchasesGroup: dec("5")}, "USD"); ok {
+		t.Errorf("no sales, no margin")
 	}
 	// A seller that sold below cost has no margin to eliminate.
-	if p, _, m := UnrealizedFromPartners(pairFlows{salesGroup: dec("500"), costGroup: dec("800"), purchasesGroup: dec("500")}, "USD"); !p.IsZero() || !m.IsZero() {
+	if p, _, m, _ := UnrealizedFromPartners(pairFlows{costKnown: true, salesGroup: dec("500"), costGroup: dec("800"), purchasesGroup: dec("500")}, "USD"); !p.IsZero() || !m.IsZero() {
 		t.Errorf("loss-making sale: %s %s", p, m)
+	}
+	// An unknown cost is not zero cost: no estimate rather than a margin of 100 percent.
+	if _, _, _, ok := UnrealizedFromPartners(pairFlows{salesGroup: dec("1000"), purchasesGroup: dec("1000")}, "USD"); ok {
+		t.Errorf("an unknown seller cost was estimated")
 	}
 }
 
@@ -248,6 +268,7 @@ func TestDeriveRun_UpstreamSaleFromPartnerBalances(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	lines = append(lines, roleLines(partners)...)
 	d, err := DeriveRun(DeriveInput{GroupCurrency: "USD", Period: "2027-03", Units: units, Lines: lines, Rates: rates, Terms: terms, PartnerLines: partners,
 		Opening: map[string]OpeningBasis{"S2": {NetAssets: dec("750000"), Rate: dec("1.15")}}})
 	if err != nil {
@@ -286,6 +307,7 @@ func TestDeriveRun_SiblingBalancesAreReported(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	lines = append(lines, roleLines(partners)...)
 	d, err := DeriveRun(DeriveInput{GroupCurrency: "USD", Period: "2027-03", Units: units, Lines: lines, Rates: rates, Terms: terms, PartnerLines: partners,
 		Opening: map[string]OpeningBasis{"S1": {NetAssets: dec("900000"), Rate: dec("1")}, "S2": {NetAssets: dec("750000"), Rate: dec("1.15")}}})
 	if err != nil {
@@ -321,5 +343,233 @@ func TestCollectPartners_TranslatesByAccountTypeAndKeepsOnlyICRoles(t *testing.T
 	}
 	if !HasICRoles(partnerMapping) || HasICRoles(partnerMapping[len(partnerMapping)-1:]) {
 		t.Fatal("HasICRoles")
+	}
+}
+
+// collectedG is a collected role line with its group amount (the unit is in the group currency).
+func collectedG(unit, account, typ, role, amount string) CollectLine {
+	l := collected(unit, account, typ, role, amount)
+	l.GroupAmount, l.Rate = l.UnitAmount, dec("1")
+	return l
+}
+
+func warningsContain(ws []string, parts ...string) bool {
+	for _, w := range ws {
+		ok := true
+		for _, p := range parts {
+			ok = ok && strings.Contains(w, p)
+		}
+		if ok {
+			return true
+		}
+	}
+	return false
+}
+
+// One tagged line must not hide the untagged rest of a pair: a subsidiary seller whose account holds 5,000 of sales and 1,000 of
+// receivable but only 100 of each tagged keeps its account totals and the run says so (CNS-0935); an override still applies.
+func TestDeriveRun_PartialTaggingKeepsTheAccountTotals(t *testing.T) {
+	units, lines, rates, terms := threeUnitGroup()
+	units = units[:2]
+	tm := terms["S1"]
+	tm.SellerIsSubsidiary = true
+	terms["S1"] = tm
+	lines = append(lines, collectedG("S1", "4100", AccountIncome, RoleICSales, "-5000"), collectedG("S1", "1500", AccountBalanceSheet, RoleICReceivable, "1000"))
+	partners, err := CollectPartners("USD", partnerMapping, []UnitPartnerLedger{
+		{UnitID: "S1", Currency: "USD", Rows: []PartnerRow{prow("4100", "P", "-100"), prow("1500", "P", "100")}}}, rates)
+	if err != nil {
+		t.Fatal(err)
+	}
+	in := DeriveInput{GroupCurrency: "USD", Period: "2027-03", Units: units, Lines: lines, Rates: rates, Terms: terms, PartnerLines: partners,
+		Opening: map[string]OpeningBasis{"S1": {NetAssets: dec("900000"), Rate: dec("1")}}}
+	d, err := DeriveRun(in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	p := d.Units[0].Pair
+	if !p.ICSales.Equal(dec("5000")) || !p.ICReceivable.Equal(dec("1000")) {
+		t.Fatalf("ICSales %s ICReceivable %s, want the account totals 5000 and 1000", p.ICSales, p.ICReceivable)
+	}
+	if !warningsContain(d.Warnings, CodeICUntagged, "ic_sales") || !warningsContain(d.Warnings, CodeICUntagged, "ic_receivable") {
+		t.Fatalf("warnings = %v, want CNS-0935 for both roles", d.Warnings)
+	}
+	s := dec("4000")
+	in.IC = map[string]ICOverride{"S1": {ICSales: &s}}
+	if d, err = DeriveRun(in); err != nil || !d.Units[0].Pair.ICSales.Equal(s) {
+		t.Fatalf("override: %v %v", d.Units[0].Pair.ICSales, err)
+	}
+}
+
+// A parent's paid-off receivable: the tagged receivable (400) never saw the untagged payment of 250, the account holds 150. With one
+// pair tagged the account total is attributed to the pair, with a warning; with two pairs tagged the tagged figure stands.
+func TestDeriveRun_UntaggedPaymentOfAParentReceivable(t *testing.T) {
+	units, lines, rates, terms := threeUnitGroup()
+	units = units[:2]
+	partners, _ := CollectPartners("USD", partnerMapping, []UnitPartnerLedger{
+		{UnitID: "P", Currency: "USD", Rows: []PartnerRow{prow("4100", "S1", "-1000"), prow("5100", "S1", "600"), prow("1500", "S1", "400")}},
+		{UnitID: "S1", Currency: "USD", Rows: []PartnerRow{prow("5200", "P", "1000"), prow("2500", "P", "-400")}}}, rates)
+	lines = append(lines, roleLines(partners)...)
+	for i := range lines {
+		if lines[i].UnitID == "P" && lines[i].MainAccount == "1500" {
+			lines[i].UnitAmount, lines[i].GroupAmount = dec("150"), dec("150") // 250 was paid, the payment line names no partner
+		}
+		if lines[i].UnitID == "S1" && lines[i].MainAccount == "2500" {
+			lines[i].UnitAmount, lines[i].GroupAmount = dec("-150"), dec("-150")
+		}
+	}
+	d, err := DeriveRun(DeriveInput{GroupCurrency: "USD", Period: "2027-03", Units: units, Lines: lines, Rates: rates, Terms: terms, PartnerLines: partners,
+		Opening: map[string]OpeningBasis{"S1": {NetAssets: dec("900000"), Rate: dec("1")}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	p := d.Units[0].Pair
+	if !p.ReceivableGroup.Equal(dec("150")) || !p.PayableUnit.Equal(dec("150")) {
+		t.Fatalf("receivable %s payable %s, want the net 150 on both sides", p.ReceivableGroup, p.PayableUnit)
+	}
+	if !warningsContain(d.Warnings, CodeICUntagged, "ic_receivable") || !warningsContain(d.Warnings, CodeICUntagged, "ic_payable") {
+		t.Fatalf("warnings = %v", d.Warnings)
+	}
+}
+
+// A borrower's clerk-posted vendor invoice carries no partner: the subsidiary's payable is its account total, not zero (which turned
+// the whole receivable into an exchange difference).
+func TestDeriveRun_UntaggedBuyerPayableFallsBackToTheAccount(t *testing.T) {
+	units, lines, rates, terms := threeUnitGroup()
+	units = units[:2]
+	partners, _ := CollectPartners("USD", partnerMapping, []UnitPartnerLedger{
+		{UnitID: "P", Currency: "USD", Rows: []PartnerRow{prow("4100", "S1", "-1000"), prow("5100", "S1", "600"), prow("1500", "S1", "400")}}}, rates)
+	lines = append(lines, roleLines(partners)...)
+	lines = append(lines, collectedG("S1", "2500", AccountBalanceSheet, RoleICPayable, "-400"))
+	d, err := DeriveRun(DeriveInput{GroupCurrency: "USD", Period: "2027-03", Units: units, Lines: lines, Rates: rates, Terms: terms, PartnerLines: partners,
+		Opening: map[string]OpeningBasis{"S1": {NetAssets: dec("900000"), Rate: dec("1")}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	p := d.Units[0].Pair
+	if p.PayableUnit == nil || !p.PayableUnit.Equal(dec("400")) {
+		t.Fatalf("payable = %v, want 400 from the account", p.PayableUnit)
+	}
+	entries, err := Eliminate(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, e := range entries {
+		if e.RuleCode == RuleE2 && e.Account == AcctFXGainLoss {
+			t.Fatalf("a matching pair must leave no exchange difference: %+v", e)
+		}
+	}
+	if !warningsContain(d.Warnings, CodeICUntagged, "ic_payable") {
+		t.Fatalf("warnings = %v", d.Warnings)
+	}
+}
+
+// The seller's cost is never tagged by billing: it comes from the seller's ic_cost account, shared out by sales; with none, nothing is
+// estimated and a stated share eliminates nothing, instead of a margin of 100 percent.
+func TestDeriveRun_UnknownSellerCostIsNotZeroCost(t *testing.T) {
+	units, lines, rates, terms := threeUnitGroup()
+	units = units[:2]
+	partners, _ := CollectPartners("USD", partnerMapping, []UnitPartnerLedger{
+		{UnitID: "P", Currency: "USD", Rows: []PartnerRow{prow("4100", "S1", "-1000"), prow("1500", "S1", "1000")}},
+		{UnitID: "S1", Currency: "USD", Rows: []PartnerRow{prow("5200", "P", "1000"), prow("2500", "P", "-1000")}}}, rates)
+	base := lines
+	lines = append(append([]CollectLine{}, base...), roleLines(partners)...)
+	in := DeriveInput{GroupCurrency: "USD", Period: "2027-03", Units: units, Lines: lines, Rates: rates, Terms: terms, PartnerLines: partners,
+		Opening: map[string]OpeningBasis{"S1": {NetAssets: dec("900000"), Rate: dec("1")}}}
+	d, err := DeriveRun(in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p := d.Units[0].Pair; p.UnrealizedProfitGroup != nil {
+		t.Fatalf("an estimate was made without a cost: %s", p.UnrealizedProfitGroup)
+	}
+	if !warningsContain(d.Warnings, CodeProfitEstimated, "cost of sales is unknown") {
+		t.Fatalf("warnings = %v", d.Warnings)
+	}
+	half := dec("0.5")
+	in.IC = map[string]ICOverride{"S1": {UnsoldShare: &half}}
+	if d, err = DeriveRun(in); err != nil || d.Units[0].Pair.UnrealizedProfitGroup != nil || !warningsContain(d.Warnings, CodeProfitEstimated, "unsold share cannot be applied") {
+		t.Fatalf("stated share without a cost: %v %v", d.Warnings, err)
+	}
+	// The seller's ic_cost account holds 600 of untagged cost on sales of 1,000 to this one subsidiary: margin 40 percent.
+	in.IC = nil
+	in.Lines = append(append([]CollectLine{}, lines...), collectedG("P", "5100", AccountIncome, RoleICCost, "600"), collectedG("P", "4100", AccountIncome, RoleICSales, "0"))
+	in.Lines = append(in.Lines, collectedG("S1", "5300", AccountIncome, RoleICCOGS, "700"))
+	in.PartnerLines = append(append([]PartnerLine{}, partners...), PartnerLine{UnitID: "S1", CounterpartyUnitID: "P", MainAccount: "5300", ConsolidationAccount: "X", Type: AccountIncome, Role: RoleICCOGS,
+		UnitCurrency: "USD", UnitAmount: dec("700"), Rate: dec("1"), GroupAmount: dec("700")})
+	if d, err = DeriveRun(in); err != nil {
+		t.Fatal(err)
+	}
+	if p := d.Units[0].Pair; p.UnrealizedProfitGroup == nil || !p.UnrealizedProfitGroup.Equal(dec("120")) {
+		t.Fatalf("profit = %v warnings %v, want 120 (300 held at 40 percent)", p.UnrealizedProfitGroup, d.Warnings)
+	}
+}
+
+// E2 runs both ways: a parent sells to S1 (receivable 400 against S1's payable 400) and S1 lends the parent 300 (S1's receivable against the
+// parent's payable). Only reverse-direction lines are not an outside pair.
+func TestDeriveRun_ReverseDirectionBalancesAreEliminated(t *testing.T) {
+	units, lines, rates, terms := threeUnitGroup()
+	units = units[:2]
+	partners, _ := CollectPartners("USD", partnerMapping, []UnitPartnerLedger{
+		{UnitID: "P", Currency: "USD", Rows: []PartnerRow{prow("4100", "S1", "-1000"), prow("5100", "S1", "600"), prow("1500", "S1", "400"), prow("2500", "S1", "-300")}},
+		{UnitID: "S1", Currency: "USD", Rows: []PartnerRow{prow("2500", "P", "-400"), prow("1500", "P", "300"), prow("5200", "P", "1000")}}}, rates)
+	lines = append(lines, roleLines(partners)...)
+	in := DeriveInput{GroupCurrency: "USD", Period: "2027-03", Units: units, Lines: lines, Rates: rates, Terms: terms, PartnerLines: partners,
+		Opening: map[string]OpeningBasis{"S1": {NetAssets: dec("900000"), Rate: dec("1")}}}
+	d, err := DeriveRun(in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	p := d.Units[0].Pair
+	if p.ReverseReceivableGroup == nil || !p.ReverseReceivableGroup.Equal(dec("300")) || !p.ReversePayableGroup.Equal(dec("300")) {
+		t.Fatalf("reverse = %v %v", p.ReverseReceivableGroup, p.ReversePayableGroup)
+	}
+	entries, err := Eliminate(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pay, rec := dec("0"), dec("0")
+	for _, e := range entries {
+		if e.RuleCode == RuleE2 && e.Account == AcctICPayable {
+			pay = pay.Add(e.Debit)
+		}
+		if e.RuleCode == RuleE2 && e.Account == AcctICReceivable {
+			rec = rec.Add(e.Credit)
+		}
+	}
+	if !pay.Equal(dec("700")) || !rec.Equal(dec("700")) {
+		t.Fatalf("E2 payable %s receivable %s, want 400 + 300 on each side", pay, rec)
+	}
+	// Only reverse lines: the pair is covered, no CNS-0934.
+	only, _ := CollectPartners("USD", partnerMapping, []UnitPartnerLedger{
+		{UnitID: "S1", Currency: "USD", Rows: []PartnerRow{prow("1500", "P", "300")}},
+		{UnitID: "P", Currency: "USD", Rows: []PartnerRow{prow("2500", "S1", "-300")}}}, rates)
+	in.PartnerLines, in.Lines = only, append(append([]CollectLine{}, lines[:5]...), roleLines(only)...)
+	d, err = DeriveRun(in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if warningsContain(d.Warnings, CodeICOutsidePairs) {
+		t.Fatalf("reverse-only lines of a holder and its subsidiary flagged as outside pairs: %v", d.Warnings)
+	}
+	if p := d.Units[0].Pair; p.ReverseReceivableGroup == nil || !p.ReverseReceivableGroup.Equal(dec("300")) || p.ICSalesGroup != nil {
+		t.Fatalf("reverse-only pair = %+v", p)
+	}
+}
+
+// The inputs hash covers the amounts that came per trading partner.
+func TestCanonical_CoversThePartnerAmounts(t *testing.T) {
+	mk := func(sales string) []byte {
+		pair := Pair{Currency: "USD", OwnershipPct: dec("100"), Rates: Rates{Closing: dec("1"), Average: dec("1"), Opening: dec("1"), Historical: dec("1")}, ICSalesGroup: decPtr(dec(sales))}
+		raw, err := RunInput{GroupID: "g", Period: "2027-03", Currency: "USD", Units: []RunUnit{{ID: "S1", Pair: pair}}}.Canonical()
+		if err != nil {
+			t.Fatal(err)
+		}
+		return raw
+	}
+	if string(mk("1000")) == string(mk("3000")) {
+		t.Fatal("different partner sales gave the same canonical inputs")
+	}
+	if RulesVersion != "consol-rules-5" {
+		t.Fatalf("rules version %s", RulesVersion)
 	}
 }
