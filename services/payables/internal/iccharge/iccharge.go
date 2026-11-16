@@ -56,7 +56,6 @@ const (
 // Store records the intake row and, for a pairing that opted in, its posting; *store.Postgres implements it.
 type Store interface {
 	ReceiveVendorInvoice(ctx context.Context, in store.VendorInvoiceIntake) (store.VendorInvoiceIntake, bool, error)
-	RecordVendorPartner(ctx context.Context, legalEntityID, vendorID, partnerLegalEntityID string) error
 	CreateFromInvoice(ctx context.Context, in store.OpenItem) (store.OpenItem, bool, error)
 	MarkIntakePosted(ctx context.Context, id, entryID, actor string) (store.VendorInvoiceIntake, error)
 	ParkIntakeAutoPost(ctx context.Context, id, reason string) error
@@ -191,12 +190,6 @@ func Handle(ctx context.Context, s Store, auto *AutoPost, evt events.Event) (sto
 	scoped, err := tenant.ServicePrincipal(ConsumerName, actor.TenantID, d.BorrowerLegalEntityID)
 	if err != nil {
 		return store.VendorInvoiceIntake{}, eventing.Permanent(err)
-	}
-	if partner := PartnerOf(d); partner != "" {
-		// The payment run names the lender on the control debit of this vendor (#40).
-		if err := s.RecordVendorPartner(tenant.With(ctx, scoped), in.LegalEntityID, in.VendorID, partner); err != nil {
-			return store.VendorInvoiceIntake{}, err
-		}
 	}
 	out, created, err := s.ReceiveVendorInvoice(tenant.With(ctx, scoped), in)
 	switch {
@@ -338,7 +331,7 @@ func autoPost(ctx context.Context, s Store, auto *AutoPost, d Data, in store.Ven
 		return park(ctx, s, in, "the row has no invoice date")
 	}
 	if _, _, err := s.CreateFromInvoice(ctx, store.OpenItem{LegalEntityID: in.LegalEntityID, VendorID: in.VendorID, SourceInvoiceID: in.ID, InvoiceNumber: in.InvoiceNumber,
-		InvoiceDate: in.InvoiceDate, DueDate: invoiceDate.AddDate(0, 0, days).Format(time.DateOnly), DueDateSource: store.DueDateDefaulted, Currency: in.Currency, Amount: in.Gross}); err != nil {
+		InvoiceDate: in.InvoiceDate, DueDate: invoiceDate.AddDate(0, 0, days).Format(time.DateOnly), DueDateSource: store.DueDateDefaulted, Currency: in.Currency, Amount: in.Gross, TradingPartnerID: PartnerOf(d)}); err != nil {
 		if errors.Is(err, store.ErrConflictingReplay) {
 			return in, eventing.Permanent(err)
 		}

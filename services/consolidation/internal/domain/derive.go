@@ -256,6 +256,18 @@ func DeriveRun(in DeriveInput) (Derived, error) {
 			set(&pair.UnsoldShare, o.UnsoldShare)
 			set(&pair.ICReceivable, o.ICReceivable)
 			set(&pair.PayableGroup, o.PayableGroup)
+			if partnered && (o.ICSales != nil || o.ICCost != nil) {
+				// E1 and E3 must rest on the same figures: the estimate is made from the sales and cost the request gave.
+				f := resolved.Flows
+				if o.ICSales != nil {
+					f.salesGroup = round(o.ICSales.Mul(pair.Rates.Average), in.GroupCurrency)
+				}
+				if o.ICCost != nil {
+					f.costGroup, f.costKnown = round(o.ICCost.Mul(pair.Rates.Average), in.GroupCurrency), true
+				}
+				profit, inventory, margin, ok := UnrealizedFromPartners(f, in.GroupCurrency)
+				resolved.Estimate, resolved.EstimateOK, resolved.CostKnown = profitEstimate{Profit: profit, Inventory: inventory, MarginPct: margin}, ok, f.costKnown
+			}
 		}
 		layers := in.Layers[u.ID]
 		if len(layers) > 0 {

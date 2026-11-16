@@ -174,22 +174,30 @@ func TestRunJournal_ControlDebitsCarryTheVendorGroupCodePerItem(t *testing.T) {
 	}
 }
 
-// #40: the control debit of an intercompany vendor names the lender, so the payment lowers the tagged payable; the bank line and the
-// other vendors' lines name none.
-func TestRunJournal_NamesThePartnerOfAnIntercompanyVendor(t *testing.T) {
+// #40: a payment names the trading partner per settled item. One vendor with an auto-posted intercompany invoice (item i3, tagged) and an
+// ordinary one (i2) gets two control debits, only the first naming the lender; a vendor's item without a partner stays untagged, and the
+// bank line names none.
+func TestRunJournal_NamesThePartnerPerSettledItem(t *testing.T) {
 	groups := twoGroups()
+	groups[1].Lines = append(groups[1].Lines, domain.ProposalLine{OpenItemID: "i3", OpenAmount: d("100"), Pay: d("100"), Rate: d("1"), Valued: d("100")})
+	groups[1].Net, groups[1].Valued = d("600"), d("600")
 	partner := "0c5d3b0e-6b0a-4c43-9d57-3c1a3a7a1d11"
-	lines := domain.RunJournal("USD", groups, "2000", "1010", "4900", "", domain.VendorGroupDims{Partners: map[string]string{groups[1].VendorID: partner}})
-	got := map[string]int{}
+	lines := domain.RunJournal("USD", groups, "2000", "1010", "4900", "", domain.VendorGroupDims{Partners: map[string]string{"i3": partner}})
+	got := map[string]string{}
 	for _, l := range lines {
-		if l.TradingPartnerID != "" {
-			if l.Account != "2000" || l.Credit || l.Text != "vendor "+groups[1].VendorID {
-				t.Errorf("partner on the wrong line: %+v", l)
-			}
-			got[l.TradingPartnerID]++
+		if l.Account == "2000" && l.Text == "vendor "+groups[1].VendorID {
+			got[l.TradingPartnerID] = l.Amount.String()
+		} else if l.TradingPartnerID != "" {
+			t.Errorf("partner on a line that is not a control debit: %+v", l)
 		}
 	}
-	if got[partner] != 1 {
-		t.Fatalf("partner lines = %v, want exactly the second vendor's control debit", got)
+	if got[partner] != "100" || got[""] != "500" || len(got) != 2 {
+		t.Fatalf("control debits of the second vendor by partner = %v, want 100 for the lender and 500 untagged", got)
+	}
+	// The first vendor has no tagged item: one untagged line, as before.
+	for _, l := range lines {
+		if l.Text == "vendor "+groups[0].VendorID && l.TradingPartnerID != "" {
+			t.Errorf("untagged vendor named a partner: %+v", l)
+		}
 	}
 }

@@ -131,7 +131,9 @@ type partnerResolution struct {
 	// EstimateOK is false when the unrealised profit cannot be estimated (no seller cost, no seller sales).
 	EstimateOK bool
 	CostKnown  bool
-	Warnings   []string
+	// Flows are the resolved amounts, so an override of the request can be applied before the estimate is made.
+	Flows    pairFlows
+	Warnings []string
 }
 
 type amt struct {
@@ -219,49 +221,126 @@ func applyPartnerFlows(pair *Pair, in DeriveInput, u Unit, terms UnitTerms, end 
 		sellerIsUnit = true
 	}
 	var res partnerResolution
-	tagged := false
+	// The pair is read from the lines when a line names a partner between the holder and the unit, or when the holder has tagged lines and
+	// the unit has intercompany balances of its own that the untagged rest of the holder's accounts could belong to. A subsidiary with
+	// neither is left alone (no intercompany balance, nothing to eliminate).
+	direct, holderTagged, ownIC := false, false, false
 	for _, l := range in.PartnerLines {
-		tagged = tagged || (sellers[l.UnitID] && buyers[l.CounterpartyUnitID]) || (buyers[l.UnitID] && sellers[l.CounterpartyUnitID])
+		direct = direct || (holders[l.UnitID] && l.CounterpartyUnitID == u.ID) || (l.UnitID == u.ID && holders[l.CounterpartyUnitID])
+		holderTagged = holderTagged || holders[l.UnitID] || l.UnitID == u.ID
 	}
-	if !tagged {
+	for _, l := range in.Lines {
+		ownIC = ownIC || (l.UnitID == u.ID && isICRole(l.Role) && (!l.GroupAmount.IsZero() || !l.UnitAmount.IsZero()))
+	}
+	if !direct && !(holderTagged && ownIC) {
 		return res // no line names a partner of this pair: the unit's own account balances stand
 	}
 	warn := func(code, detail string) {
 		res.Warnings = append(res.Warnings, (&Error{Code: code, Detail: "unit " + u.ID + ": " + detail}).Error())
 	}
 	places := int32(2)
-	// resolve returns the pair's amount of one role (debit positive), whether any line or total supports it, and the owner's total.
+	// The subsidiaries of the holders (u among them): a holder's untagged balances cannot be told apart between them.
+	var subs []string
+	for _, x := range in.Units {
+		for _, h := range x.Holdings {
+			if holders[h.HolderUnitID] && inForce(OwnershipInterval{From: h.From, To: h.To, Percent: h.Percent}, end) {
+				subs = append(subs, x.ID)
+				break
+			}
+		}
+	}
+	sub := func(a, b amt) amt { return amt{unit: a.unit.Sub(b.unit), group: a.group.Sub(b.group), n: a.n} }
+	add := func(a, b amt) amt { return amt{unit: a.unit.Add(b.unit), group: a.group.Add(b.group), n: a.n + b.n} }
+	// counterBase names the role of the unit's own accounts that holds the other side of a holder's role.
+	counterBase := map[string]string{RoleICSales: RoleICPurchases, RoleICCost: RoleICPurchases, RoleICReceivable: RoleICPayable,
+		RoleICPurchases: RoleICSales, RoleICCOGS: RoleICSales, RoleICInventory: RoleICSales, RoleICPayable: RoleICReceivable}
+	gateBase := map[string]string{RoleICCost: RoleICSales, RoleICCOGS: RoleICPurchases, RoleICInventory: RoleICPurchases}
+	// counterMatches reports whether the unit's own counter-side accounts hold an untagged balance of the size of the holder's untagged
+	// remainder (within 1 percent, which covers the translation of a foreign unit): only then can the remainder be this unit's.
+	counterMatchesFor := func(role string, owners map[string]bool, unit string) bool {
+		if b, ok := gateBase[role]; ok {
+			role = b
+		}
+		mine := map[string]bool{unit: true}
+		holderRem := sub(sumRole(in.Lines, owners, role), sumPartner(in.PartnerLines, owners, nil, role))
+		counter := counterBase[role]
+		unitRem := sub(sumRole(in.Lines, mine, counter), sumPartner(in.PartnerLines, mine, nil, counter))
+		a, b := holderRem.group.Abs(), unitRem.group.Abs()
+		if a.IsZero() || b.IsZero() {
+			return false
+		}
+		tol := decimal.Max(decimal.New(1, -2), a.Mul(decimal.New(1, -2)))
+		return a.Sub(b).Abs().LessThanOrEqual(tol)
+	}
+	// counterMatches: this unit holds the other side of the remainder and no other subsidiary of the holders does.
+	counterMatches := func(role string, owners map[string]bool) bool {
+		if !counterMatchesFor(role, owners, u.ID) {
+			return false
+		}
+		for _, x := range subs {
+			if x != u.ID && counterMatchesFor(role, owners, x) {
+				return false
+			}
+		}
+		return true
+	}
+	// resolve returns the pair's amount of one role (debit positive) and whether any line or total supports it.
 	resolve := func(role string, owners, counter map[string]bool, ownerIsUnit bool) (amt, bool) {
 		pairT := sumPartner(in.PartnerLines, owners, counter, role)
 		allT := sumPartner(in.PartnerLines, owners, nil, role)
 		tot := sumRole(in.Lines, owners, role)
 		tol := decimal.New(1, -2).Mul(decimal.NewFromInt(int64(tot.n + allT.n + 1)))
+		nonzero := func(a amt) bool { return a.group.Abs().GreaterThan(tol) || a.unit.Abs().GreaterThan(tol) }
+		rem := sub(tot, allT) // what the account holds beyond every tagged line
+		if ownerIsUnit {
+			// A subsidiary's account holds its group counterparties' balances. What is tagged to another counterparty is not this pair's.
+			switch {
+			case pairT.n == 0 && allT.n == 0:
+				if tot.n > 0 && nonzero(tot) {
+					warn(CodeICUntagged, fmt.Sprintf("the %s balance %s %s has no trading partner on its ledger lines; the account total is used", role, tot.group.StringFixed(places), in.GroupCurrency))
+					return tot, true
+				}
+				return amt{}, false
+			case pairT.n == 0:
+				if nonzero(rem) {
+					warn(CodeICUntagged, fmt.Sprintf("the %s balance %s %s beyond the lines tagged to other counterparties has no trading partner; it is taken as this pair's", role, rem.group.StringFixed(places), in.GroupCurrency))
+					return rem, true
+				}
+				return amt{}, false
+			case !nonzero(rem):
+				return pairT, true
+			}
+			warn(CodeICUntagged, fmt.Sprintf("the tagged %s lines total %s %s but the account holds %s; the account total less what is tagged to other counterparties is used", role, allT.group.StringFixed(places), in.GroupCurrency, tot.group.StringFixed(places)))
+			return add(pairT, rem), true
+		}
+		// A holder's account holds the balances with all its subsidiaries: the untagged rest is attributed to a pair only when that
+		// subsidiary's own counter-side accounts hold an untagged balance of the same size and no other subsidiary's do.
 		switch {
 		case pairT.n == 0 && allT.n == 0:
-			// Nothing is tagged for this role at all: the owner's account total is untagged.
-			if tot.n > 0 && (!tot.group.IsZero() || !tot.unit.IsZero()) {
-				if ownerIsUnit {
-					warn(CodeICUntagged, fmt.Sprintf("the %s balance %s %s has no trading partner on its ledger lines; the account total is used", role, tot.group.StringFixed(places), in.GroupCurrency))
+			if tot.n > 0 && nonzero(tot) {
+				if counterMatches(role, owners) {
+					warn(CodeICUntagged, fmt.Sprintf("the %s balance %s %s of its holder has no trading partner on its ledger lines; this unit's own accounts hold the other side and no other subsidiary does, so the account total is this pair's", role, tot.group.StringFixed(places), in.GroupCurrency))
 					return tot, true
 				}
 				warn(CodeICUntagged, fmt.Sprintf("the %s balance %s %s of its holders has no trading partner on its ledger lines and is not attributed to this pair", role, tot.group.StringFixed(places), in.GroupCurrency))
 			}
 			return amt{}, false
 		case pairT.n == 0:
-			return amt{}, false // other pairs are tagged, this one has none
-		}
-		rem := tot.group.Sub(allT.group)
-		switch {
-		case rem.Abs().LessThanOrEqual(tol):
+			if nonzero(rem) {
+				if counterMatches(role, owners) {
+					warn(CodeICUntagged, fmt.Sprintf("the %s balance %s %s of its holders beyond the tagged lines has no trading partner; this unit's own accounts hold the other side and no other subsidiary does, so it is taken as this pair's", role, rem.group.StringFixed(places), in.GroupCurrency))
+					return rem, true
+				}
+				warn(CodeICUntagged, fmt.Sprintf("the %s balance %s %s of its holders beyond the tagged lines has no trading partner and is not attributed to this pair", role, rem.group.StringFixed(places), in.GroupCurrency))
+			}
+			return amt{}, false
+		case !nonzero(rem):
 			return pairT, true
-		case ownerIsUnit:
-			warn(CodeICUntagged, fmt.Sprintf("the tagged %s lines total %s %s but the account holds %s; the account total is used", role, allT.group.StringFixed(places), in.GroupCurrency, tot.group.StringFixed(places)))
-			return tot, true
-		case allT.group.Equal(pairT.group) && allT.n == pairT.n:
-			warn(CodeICUntagged, fmt.Sprintf("the tagged %s lines of its holders total %s %s but the accounts hold %s; no other pair is tagged, so the account total is attributed to this pair", role, allT.group.StringFixed(places), in.GroupCurrency, tot.group.StringFixed(places)))
-			return tot, true
+		case counterMatches(role, owners):
+			warn(CodeICUntagged, fmt.Sprintf("the tagged %s lines of its holders total %s %s but the accounts hold %s; this unit's own accounts hold the untagged remainder, so it is taken as this pair's", role, allT.group.StringFixed(places), in.GroupCurrency, tot.group.StringFixed(places)))
+			return add(pairT, rem), true
 		}
-		warn(CodeICUntagged, fmt.Sprintf("the %s accounts of its holders hold %s %s more than the tagged lines; that remainder is not attributed to this pair", role, rem.StringFixed(places), in.GroupCurrency))
+		warn(CodeICUntagged, fmt.Sprintf("the %s accounts of its holders hold %s %s more than the tagged lines; that remainder is not attributed to this pair", role, rem.group.StringFixed(places), in.GroupCurrency))
 		return pairT, true
 	}
 
@@ -297,6 +376,19 @@ func applyPartnerFlows(pair *Pair, in DeriveInput, u Unit, terms UnitTerms, end 
 		return res
 	}
 	res.Applied = true
+	// A balance on the wrong side (a payment that was not tagged took more than the tagged invoice) is no elimination amount: leave it out.
+	for name, v := range map[string]*decimal.Decimal{"ic_sales": &f.salesGroup, "ic_cost": &f.costGroup, "ic_receivable": &f.receivableGroup, "ic_payable": &f.payableGroup} {
+		if v.IsNegative() {
+			warn(CodeICUntagged, "the "+name+" balance of the pair is on the wrong side after the account totals were applied and is left out")
+			*v = decimal.Zero
+		}
+	}
+	for name, v := range map[string]*decimal.Decimal{"ic_sales": &f.salesUnit, "ic_cost": &f.costUnit, "ic_receivable": &f.receivableUnit, "ic_payable": &f.payableUnit} {
+		if v.IsNegative() {
+			_ = name
+			*v = decimal.Zero
+		}
+	}
 	if reverse {
 		rr, rp := revRecv.group, revPay.group.Neg()
 		if rr.IsNegative() || rp.IsNegative() {
@@ -320,7 +412,10 @@ func applyPartnerFlows(pair *Pair, in DeriveInput, u Unit, terms UnitTerms, end 
 			pair.PayableGroup = f.payableGroup
 		}
 	} else {
-		// The parent sells: its sales, cost and receivable are in the group currency, the subsidiary's payable is not.
+		// The parent sells: its sales, cost and receivable are in the group currency, the subsidiary's payable is not. The subsidiary's own
+		// ic_receivable and ic_payable that the unit's role totals gave are the other direction of the pair (the reverse amounts below), so
+		// the unit-currency fields start from zero.
+		pair.ICSales, pair.ICCost, pair.ICReceivable, pair.PayableGroup = decimal.Zero, decimal.Zero, decimal.Zero, decimal.Zero
 		if okSales {
 			pair.ICSalesGroup = decPtr(f.salesGroup)
 		}
@@ -335,6 +430,7 @@ func applyPartnerFlows(pair *Pair, in DeriveInput, u Unit, terms UnitTerms, end 
 		}
 	}
 	res.CostKnown = f.costKnown
+	res.Flows = f
 	profit, inventory, margin, ok := UnrealizedFromPartners(f, in.GroupCurrency)
 	res.Estimate, res.EstimateOK = profitEstimate{Profit: profit, Inventory: inventory, MarginPct: margin}, ok
 	if !ok && okSales {

@@ -115,6 +115,18 @@ func (s *Postgres) unapply(ctx context.Context, id string, version int, reason, 
 		}
 		cash, disc, off := decimal.Zero, decimal.Zero, decimal.Zero
 		gain, loss := decimal.Zero, decimal.Zero
+		// The reversal names the partner of each settled item like the application did (#40).
+		liveIDs := make([]string, 0, len(live))
+		for _, l := range live {
+			liveIDs = append(liveIDs, l.openItemID)
+		}
+		partners, err := itemPartners(ctx, tx, liveIDs)
+		if err != nil {
+			return err
+		}
+		var order []string
+		recvByPartner := map[string]decimal.Decimal{}
+		gainBy, lossBy := map[string]decimal.Decimal{}, map[string]decimal.Decimal{}
 		out.Reversed = []UnappliedSettlement{}
 		settled := []rcvevents.SettlementData{}
 		for _, l := range live {
@@ -145,10 +157,17 @@ func (s *Postgres) unapply(ctx context.Context, id string, version int, reason, 
 				return err
 			}
 			cash, disc, off = cash.Add(l.amount), disc.Add(l.discount), off.Add(l.writeOff)
+			pt := partners[l.openItemID]
+			if _, seen := recvByPartner[pt]; !seen {
+				order = append(order, pt)
+			}
+			recvByPartner[pt] = recvByPartner[pt].Add(l.amount).Add(l.discount).Add(l.writeOff)
 			if l.fxGainLoss.IsPositive() {
 				gain = gain.Add(l.fxGainLoss)
+				gainBy[pt] = gainBy[pt].Add(l.fxGainLoss)
 			} else {
 				loss = loss.Add(l.fxGainLoss.Neg())
+				lossBy[pt] = lossBy[pt].Add(l.fxGainLoss.Neg())
 			}
 			out.Reversed = append(out.Reversed, UnappliedSettlement{SettlementID: l.id, OpenItemID: item.ID, Amount: l.amount, ItemAmount: l.itemAmount,
 				OpenAfter: newOpen, ItemStatus: status})
@@ -176,9 +195,7 @@ func (s *Postgres) unapply(ctx context.Context, id string, version int, reason, 
 		key := fmt.Sprintf("unapply:%s:%d", pay.ID, pay.Version)
 		if err := enqueueJournal(ctx, tx, p.TenantID, journalSpec{LegalEntityID: pay.LegalEntityID, SourceType: JournalPaymentUnapply, SourceID: pay.ID,
 			SourceKey: key, DocumentID: "PAY-" + pay.ID + "-UNAPPLY", PostingDate: today(), Currency: pay.Currency,
-			Lines: []journalLine{
-				debit(domain.AccountReceivable, cash.Add(disc).Add(off), "Application reversed"), credit(domain.AccountUnappliedCash, cash, "Payment unapplied"),
-				credit(domain.AccountCashDiscount, disc, "Cash discount reversed"), credit(domain.AccountWriteOff, off, "Write-off reversed")}}); err != nil {
+			Lines: unapplyLines(order, recvByPartner, cash, disc, off)}); err != nil {
 			return err
 		}
 		if gain.IsPositive() || loss.IsPositive() {
@@ -191,11 +208,15 @@ func (s *Postgres) unapply(ctx context.Context, id string, version int, reason, 
 				return err
 			}
 			var lines []journalLine
-			if gain.IsPositive() {
-				lines = append(lines, debit(set.GainAccount, gain, "Realized exchange gain reversed"), credit(domain.AccountReceivable, gain, "Realized exchange gain reversed"))
+			for _, pt := range order {
+				if g := gainBy[pt]; g.IsPositive() {
+					lines = append(lines, debit(set.GainAccount, g, "Realized exchange gain reversed"), withPartner(credit(domain.AccountReceivable, g, "Realized exchange gain reversed"), pt))
+				}
 			}
-			if loss.IsPositive() {
-				lines = append(lines, debit(domain.AccountReceivable, loss, "Realized exchange loss reversed"), credit(set.LossAccount, loss, "Realized exchange loss reversed"))
+			for _, pt := range order {
+				if l := lossBy[pt]; l.IsPositive() {
+					lines = append(lines, withPartner(debit(domain.AccountReceivable, l, "Realized exchange loss reversed"), pt), credit(set.LossAccount, l, "Realized exchange loss reversed"))
+				}
 			}
 			if err := enqueueJournal(ctx, tx, p.TenantID, journalSpec{LegalEntityID: pay.LegalEntityID, SourceType: JournalRealizedFX, SourceID: pay.ID,
 				SourceKey: "fx-" + key, DocumentID: "PAY-" + pay.ID + "-UNAPPLY", PostingDate: today(), Currency: set.FunctionalCurrency, Lines: lines}); err != nil {
@@ -207,4 +228,20 @@ func (s *Postgres) unapply(ctx context.Context, id string, version int, reason, 
 		})
 	})
 	return out, mapWriteErr(err)
+}
+
+func withPartner(l journalLine, partner string) journalLine {
+	l.TradingPartnerID = partner
+	return l
+}
+
+// unapplyLines is the journal of an unapply: Dr 1200 for what the settlements took off the items (one line per trading partner of the
+// items, #40), Cr 1205 for the cash, Cr the discount and write-off accounts.
+func unapplyLines(order []string, recvByPartner map[string]decimal.Decimal, cash, disc, off decimal.Decimal) []journalLine {
+	var lines []journalLine
+	for _, pt := range order {
+		lines = append(lines, withPartner(debit(domain.AccountReceivable, recvByPartner[pt], "Application reversed"), pt))
+	}
+	return append(lines, credit(domain.AccountUnappliedCash, cash, "Payment unapplied"), credit(domain.AccountCashDiscount, disc, "Cash discount reversed"),
+		credit(domain.AccountWriteOff, off, "Write-off reversed"))
 }

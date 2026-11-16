@@ -573,3 +573,209 @@ func TestCanonical_CoversThePartnerAmounts(t *testing.T) {
 		t.Fatalf("rules version %s", RulesVersion)
 	}
 }
+
+func collectedEUR(unit, account, typ, role, amount, rate string) CollectLine {
+	l := collected(unit, account, typ, role, amount)
+	l.Rate = dec(rate)
+	l.GroupAmount = l.UnitAmount.Mul(l.Rate).Round(2)
+	return l
+}
+
+// runEntriesOf derives and runs the group and sums the E1, E2 and E3 entries per unit, rule and account (debit less credit).
+func runEntriesOf(t *testing.T, in DeriveInput) (Derived, map[string]string) {
+	t.Helper()
+	d, err := DeriveRun(in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	res, err := ComputeRun(RunInput{GroupID: "g", Period: "2027-03", Currency: "USD", Units: d.Units})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := map[string]string{}
+	for _, e := range res.Entries {
+		if e.RuleCode == RuleE1 || e.RuleCode == RuleE2 || e.RuleCode == RuleE3 {
+			k := e.UnitID + " " + e.RuleCode + " " + e.Account
+			v := e.Debit.Sub(e.Credit)
+			if prev, ok := got[k]; ok {
+				v = v.Add(dec(prev))
+			}
+			got[k] = v.String()
+		}
+	}
+	return d, got
+}
+
+func wantEntries(t *testing.T, got, want map[string]string) {
+	t.Helper()
+	for k, v := range want {
+		if got[k] != v {
+			t.Errorf("%s = %q, want %s (all %v)", k, got[k], v, got)
+		}
+	}
+}
+
+// The holder's untagged balances with another subsidiary are not put on the one tagged pair: P sold 1,000 to S1 (tagged) and 2,200 to
+// S2 (untagged). S1 keeps its tagged 1,000; S2, the only subsidiary without tagged lines, gets the rest of P's accounts and its own payable.
+func TestDeriveRun_HolderRemainderGoesToTheOnlyUntaggedSubsidiary(t *testing.T) {
+	units, lines, rates, terms := threeUnitGroup()
+	lines = append(lines,
+		collectedG("P", "4100", AccountIncome, RoleICSales, "-3200"), collectedG("P", "5100", AccountIncome, RoleICCost, "2250"),
+		collectedG("P", "1500", AccountBalanceSheet, RoleICReceivable, "1000"),
+		collectedG("S1", "2500", AccountBalanceSheet, RoleICPayable, "-400"),
+		collectedEUR("S2", "2500", AccountBalanceSheet, RoleICPayable, "-498", "1.20"), collectedEUR("S2", "5200", AccountIncome, RoleICPurchases, "2000", "1.10"))
+	partners, _ := CollectPartners("USD", partnerMapping, []UnitPartnerLedger{
+		{UnitID: "P", Currency: "USD", Rows: []PartnerRow{prow("4100", "S1", "-1000"), prow("5100", "S1", "600"), prow("1500", "S1", "400")}},
+		{UnitID: "S1", Currency: "USD", Rows: []PartnerRow{prow("2500", "P", "-400")}}}, rates)
+	d, got := runEntriesOf(t, DeriveInput{GroupCurrency: "USD", Period: "2027-03", Units: units, Lines: lines, Rates: rates, Terms: terms, PartnerLines: partners,
+		Opening: map[string]OpeningBasis{"S1": {NetAssets: dec("900000"), Rate: dec("1")}, "S2": {NetAssets: dec("750000"), Rate: dec("1.15")}}})
+	wantEntries(t, got, map[string]string{
+		"S1 E1 IC_REVENUE": "1000", "S1 E2 IC_PAYABLE": "400", "S1 E2 IC_RECEIVABLE": "-400",
+		"S2 E1 IC_REVENUE": "2200", "S2 E2 IC_PAYABLE": "597.6", "S2 E2 IC_RECEIVABLE": "-600", "S2 E2 FX_GAIN_LOSS": "2.4",
+	})
+	if got["S1 E2 FX_GAIN_LOSS"] != "" {
+		t.Errorf("S1 must have no exchange difference: %v", got)
+	}
+	if !warningsContain(d.Warnings, CodeICUntagged, "ic_sales") {
+		t.Errorf("warnings = %v, want CNS-0935 for the sales remainder", d.Warnings)
+	}
+}
+
+// A holder whose other subsidiaries are all tagged too has no one the remainder can belong to: it is reported, not attributed.
+func TestDeriveRun_HolderRemainderIsNotAttributedWhenSeveralPairsCouldOwnIt(t *testing.T) {
+	units, lines, rates, terms := threeUnitGroup()
+	lines = append(lines, collectedG("P", "4100", AccountIncome, RoleICSales, "-4200"), collectedG("S1", "2500", AccountBalanceSheet, RoleICPayable, "-400"))
+	partners, _ := CollectPartners("USD", partnerMapping, []UnitPartnerLedger{
+		{UnitID: "P", Currency: "USD", Rows: []PartnerRow{prow("4100", "S1", "-1000"), prow("4100", "S2", "-2200")}},
+		{UnitID: "S1", Currency: "USD", Rows: []PartnerRow{prow("2500", "P", "-400")}}}, rates)
+	d, got := runEntriesOf(t, DeriveInput{GroupCurrency: "USD", Period: "2027-03", Units: units, Lines: lines, Rates: rates, Terms: terms, PartnerLines: partners,
+		Opening: map[string]OpeningBasis{"S1": {NetAssets: dec("900000"), Rate: dec("1")}, "S2": {NetAssets: dec("750000"), Rate: dec("1.15")}}})
+	wantEntries(t, got, map[string]string{"S1 E1 IC_REVENUE": "1000", "S2 E1 IC_REVENUE": "2200"})
+	if !warningsContain(d.Warnings, CodeICUntagged, "not attributed") {
+		t.Errorf("warnings = %v", d.Warnings)
+	}
+}
+
+// The reverse direction is not counted twice: S1 lent the parent 300 (S1's receivable, P's payable, tagged on both sides) while P's
+// sales and receivable are tagged to S2 only. The loan is eliminated once, and P's untagged 400 receivable (S1 is the only subsidiary
+// without tagged lines) against S1's payable of 400.
+func TestDeriveRun_ReverseLoanIsEliminatedOnce(t *testing.T) {
+	units, lines, rates, terms := threeUnitGroup()
+	lines = append(lines,
+		collectedG("P", "4100", AccountIncome, RoleICSales, "-3200"), collectedG("P", "1500", AccountBalanceSheet, RoleICReceivable, "1000"),
+		collectedG("P", "2500", AccountBalanceSheet, RoleICPayable, "-300"),
+		collectedG("S1", "1500", AccountBalanceSheet, RoleICReceivable, "300"), collectedG("S1", "2500", AccountBalanceSheet, RoleICPayable, "-400"),
+		collectedEUR("S2", "2500", AccountBalanceSheet, RoleICPayable, "-500", "1.20"))
+	partners, _ := CollectPartners("USD", partnerMapping, []UnitPartnerLedger{
+		{UnitID: "P", Currency: "USD", Rows: []PartnerRow{prow("4100", "S2", "-2200"), prow("1500", "S2", "600"), prow("2500", "S1", "-300")}},
+		{UnitID: "S1", Currency: "USD", Rows: []PartnerRow{prow("1500", "P", "300")}},
+		{UnitID: "S2", Currency: "EUR", Rows: []PartnerRow{prow("2500", "P", "-500")}}}, rates)
+	_, got := runEntriesOf(t, DeriveInput{GroupCurrency: "USD", Period: "2027-03", Units: units, Lines: lines, Rates: rates, Terms: terms, PartnerLines: partners,
+		Opening: map[string]OpeningBasis{"S1": {NetAssets: dec("900000"), Rate: dec("1")}, "S2": {NetAssets: dec("750000"), Rate: dec("1.15")}}})
+	wantEntries(t, got, map[string]string{
+		"S1 E2 IC_PAYABLE": "700", "S1 E2 IC_RECEIVABLE": "-700", // 400 against P's receivable and the 300 loan, each once
+		"S2 E2 IC_PAYABLE": "600", "S2 E2 IC_RECEIVABLE": "-600",
+	})
+	if got["S1 E2 FX_GAIN_LOSS"] != "" {
+		t.Errorf("no exchange difference expected on S1: %v", got)
+	}
+}
+
+// A subsidiary seller's fallback is its account less what is tagged to other counterparties: S1's receivable is tagged 400 with the
+// parent and 300 with S2, and the account holds 600 (a payment was not tagged), so the pair takes 600 - 300 = 300, not 600.
+func TestDeriveRun_SubsidiaryFallbackLeavesOutSiblingBalances(t *testing.T) {
+	units, lines, rates, terms := threeUnitGroup()
+	tm := terms["S1"]
+	tm.SellerIsSubsidiary = true
+	terms["S1"] = tm
+	lines = append(lines,
+		collectedG("S1", "4100", AccountIncome, RoleICSales, "-1500"), collectedG("S1", "5100", AccountIncome, RoleICCost, "900"),
+		collectedG("S1", "1500", AccountBalanceSheet, RoleICReceivable, "600"), collectedG("P", "2500", AccountBalanceSheet, RoleICPayable, "-400"))
+	partners, _ := CollectPartners("USD", partnerMapping, []UnitPartnerLedger{
+		{UnitID: "S1", Currency: "USD", Rows: []PartnerRow{prow("4100", "P", "-1000"), prow("5100", "P", "600"), prow("1500", "P", "400"),
+			prow("4100", "S2", "-500"), prow("5100", "S2", "300"), prow("1500", "S2", "300")}},
+		{UnitID: "P", Currency: "USD", Rows: []PartnerRow{prow("2500", "S1", "-400")}}}, rates)
+	d, err := DeriveRun(DeriveInput{GroupCurrency: "USD", Period: "2027-03", Units: units[:2], Lines: lines, Rates: rates, Terms: terms, PartnerLines: partners,
+		Opening: map[string]OpeningBasis{"S1": {NetAssets: dec("900000"), Rate: dec("1")}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	p := d.Units[0].Pair
+	if !p.ICSales.Equal(dec("1000")) || !p.ICCost.Equal(dec("600")) || !p.ICReceivable.Equal(dec("300")) || !p.PayableGroup.Equal(dec("400")) {
+		t.Fatalf("pair = sales %s cost %s receivable %s payable %s, want 1000, 600, 300, 400", p.ICSales, p.ICCost, p.ICReceivable, p.PayableGroup)
+	}
+	if !warningsContain(d.Warnings, CodeICOutsidePairs) {
+		t.Errorf("the S1-S2 balances are outside a pair and must be reported: %v", d.Warnings)
+	}
+}
+
+// An icSales or icCost override on a parent-seller pair feeds the CNS-0933 estimate, so E1 and E3 rest on the same figures.
+func TestDeriveRun_OverrideFeedsTheEstimate(t *testing.T) {
+	units, lines, rates, terms := threeUnitGroup()
+	units = units[:2]
+	partners, _ := CollectPartners("USD", partnerMapping, []UnitPartnerLedger{
+		{UnitID: "P", Currency: "USD", Rows: []PartnerRow{prow("4100", "S1", "-1000"), prow("5100", "S1", "600"), prow("1500", "S1", "400")}},
+		{UnitID: "S1", Currency: "USD", Rows: []PartnerRow{prow("5200", "P", "1000"), prow("5300", "P", "500"), prow("2500", "P", "-400")}}}, rates)
+	lines = append(lines, roleLines(partners)...)
+	in := DeriveInput{GroupCurrency: "USD", Period: "2027-03", Units: units, Lines: lines, Rates: rates, Terms: terms, PartnerLines: partners,
+		Opening: map[string]OpeningBasis{"S1": {NetAssets: dec("900000"), Rate: dec("1")}}}
+	_, base := runEntriesOf(t, in)
+	wantEntries(t, base, map[string]string{"S1 E1 IC_REVENUE": "1000", "S1 E3 COGS": "200"}) // 500 held at 40 percent
+	sales, cost := dec("2000"), dec("1000")
+	in.IC = map[string]ICOverride{"S1": {ICSales: &sales, ICCost: &cost}}
+	_, over := runEntriesOf(t, in)
+	// Sales 2,000 at cost 1,000 is a 50 percent margin on the 500 still held: E1 and E3 use the request's figures.
+	wantEntries(t, over, map[string]string{"S1 E1 IC_REVENUE": "2000", "S1 E3 COGS": "250"})
+}
+
+// E: P trades with S1 only (part tagged, part untagged from before the rollout); S2 has no intercompany balances at all. P's untagged
+// remainder cannot be S2's: S2 gets no elimination, and the remainder is reported. With S2's terms marking its IC balance a net
+// investment (the exchange difference would go to CTA) S2 still gets nothing.
+func TestDeriveRun_HolderRemainderIsNotGivenToASubsidiaryWithoutIntercompanyBalances(t *testing.T) {
+	for _, netInvestment := range []bool{false, true} {
+		units, lines, rates, terms := threeUnitGroup()
+		if netInvestment {
+			tm := terms["S2"]
+			tm.ICNetInvestment = true
+			terms["S2"] = tm
+		}
+		lines = append(lines,
+			collectedG("P", "4100", AccountIncome, RoleICSales, "-3000"), collectedG("P", "5100", AccountIncome, RoleICCost, "1800"),
+			collectedG("P", "1500", AccountBalanceSheet, RoleICReceivable, "1400"), collectedG("S1", "2500", AccountBalanceSheet, RoleICPayable, "-1400"))
+		partners, _ := CollectPartners("USD", partnerMapping, []UnitPartnerLedger{
+			{UnitID: "P", Currency: "USD", Rows: []PartnerRow{prow("4100", "S1", "-1000"), prow("5100", "S1", "600"), prow("1500", "S1", "400")}},
+			{UnitID: "S1", Currency: "USD", Rows: []PartnerRow{prow("2500", "P", "-400")}}}, rates)
+		d, got := runEntriesOf(t, DeriveInput{GroupCurrency: "USD", Period: "2027-03", Units: units, Lines: lines, Rates: rates, Terms: terms, PartnerLines: partners,
+			Opening: map[string]OpeningBasis{"S1": {NetAssets: dec("900000"), Rate: dec("1")}, "S2": {NetAssets: dec("750000"), Rate: dec("1.15")}}})
+		for k := range got {
+			if strings.HasPrefix(k, "S2 ") {
+				t.Errorf("netInvestment=%v: S2 has no intercompany balances but got %s = %s", netInvestment, k, got[k])
+			}
+		}
+		// S1 owes 1,400 in all and holds the other side of P's whole receivable; nothing on S1's side matches the untagged sales.
+		wantEntries(t, got, map[string]string{"S1 E1 IC_REVENUE": "1000", "S1 E2 IC_PAYABLE": "1400", "S1 E2 IC_RECEIVABLE": "-1400"})
+		if got["S1 E2 FX_GAIN_LOSS"] != "" {
+			t.Errorf("netInvestment=%v: S1 must have no exchange difference: %v", netInvestment, got)
+		}
+		if !warningsContain(d.Warnings, CodeICUntagged, "not attributed") {
+			t.Errorf("netInvestment=%v: the unattributed remainder must be reported: %v", netInvestment, d.Warnings)
+		}
+	}
+}
+
+// The untagged rest goes to a subsidiary only when that subsidiary's own accounts hold an untagged balance of the same size: S2 owes
+// 700 against the holder's untagged 1,000 receivable, so nothing is attributed.
+func TestDeriveRun_HolderRemainderNeedsAMatchingCounterBalance(t *testing.T) {
+	units, lines, rates, terms := threeUnitGroup()
+	lines = append(lines,
+		collectedG("P", "1500", AccountBalanceSheet, RoleICReceivable, "1400"), collectedG("S1", "2500", AccountBalanceSheet, RoleICPayable, "-400"),
+		collectedG("S2", "2500", AccountBalanceSheet, RoleICPayable, "-700"))
+	partners, _ := CollectPartners("USD", partnerMapping, []UnitPartnerLedger{
+		{UnitID: "P", Currency: "USD", Rows: []PartnerRow{prow("1500", "S1", "400")}},
+		{UnitID: "S1", Currency: "USD", Rows: []PartnerRow{prow("2500", "P", "-400")}}}, rates)
+	_, got := runEntriesOf(t, DeriveInput{GroupCurrency: "USD", Period: "2027-03", Units: units, Lines: lines, Rates: rates, Terms: terms, PartnerLines: partners,
+		Opening: map[string]OpeningBasis{"S1": {NetAssets: dec("900000"), Rate: dec("1")}, "S2": {NetAssets: dec("750000"), Rate: dec("1.15")}}})
+	if got["S2 E2 IC_RECEIVABLE"] != "" {
+		t.Errorf("a receivable remainder of 1000 was given to S2, which owes 700: %v", got)
+	}
+}

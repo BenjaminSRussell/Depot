@@ -129,6 +129,8 @@ type Error struct {
 	Op     string
 	Status int
 	Code   string
+	// Detail is the problem's detail text; the client reads it only to tell an older ledger's refusal of an unknown field.
+	Detail string
 }
 
 func (e *Error) Error() string {
@@ -312,11 +314,12 @@ func (c *Client) do(ctx context.Context, op, subject, method, path string, query
 	}
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
 		var problem struct {
-			Code string `json:"code"`
+			Code   string `json:"code"`
+			Detail string `json:"detail"`
 		}
 		_ = json.Unmarshal(raw, &problem)
 		slog.ErrorContext(ctx, "ledger rejected the request", "op", op, "subject", subject, "status", resp.StatusCode, "code", problem.Code, "correlationId", middleware.GetReqID(ctx))
-		return nil, &Error{Op: op, Status: resp.StatusCode, Code: problem.Code}
+		return nil, &Error{Op: op, Status: resp.StatusCode, Code: problem.Code, Detail: problem.Detail}
 	}
 	return raw, nil
 }
@@ -353,7 +356,7 @@ func (c *Client) Post(ctx context.Context, e Entry) (string, error) {
 			Amount: amountBody{Currency: e.Currency, Value: l.Amount.StringFixed(money.MinorUnits(e.Currency))}})
 	}
 	raw, err := c.do(ctx, "post", e.IdempotencyKey, http.MethodPost, entriesPath, nil, body, e.IdempotencyKey, e.LegalEntityID, postDuties(DutyPost, e.PostClosed)...)
-	if err != nil && CodeOf(err) == CodeInvalidRequest && Rejected(err) && stripPartners(&body) {
+	if err != nil && RefusedPartnerField(err) && stripPartners(&body) {
 		// A ledger that predates the trading partner (#40) refuses the unknown field with a 400. Its entry carries no partner, which the
 		// consolidation reads as untagged (and says so); a refusal here would compensate the whole intercompany journal instead.
 		slog.WarnContext(ctx, "ledger refused tradingPartnerId; posting without it", "key", e.IdempotencyKey, "correlationId", middleware.GetReqID(ctx))
@@ -367,6 +370,16 @@ func (c *Client) Post(ctx context.Context, e Entry) (string, error) {
 
 // CodeInvalidRequest is the problem code of a request the ledger could not read or validate (400).
 const CodeInvalidRequest = "COM-0001"
+
+// partnerFieldRefusal is what an older ledger's decoder says about the field (platform httpx.Decode rejects unknown fields).
+const partnerFieldRefusal = `unknown field "tradingPartnerId"`
+
+// RefusedPartnerField reports whether err is an older ledger's 400 naming tradingPartnerId as an unknown field. Any other 400, the
+// upgraded ledger's own refusal of a bad partner value included, is not: that must not be retried without the partner.
+func RefusedPartnerField(err error) bool {
+	var le *Error
+	return errors.As(err, &le) && le.Status == http.StatusBadRequest && le.Code == CodeInvalidRequest && strings.Contains(le.Detail, partnerFieldRefusal)
+}
 
 // stripPartners clears the trading partner of every line of body and reports whether any line had one.
 func stripPartners(body *entryBody) bool {

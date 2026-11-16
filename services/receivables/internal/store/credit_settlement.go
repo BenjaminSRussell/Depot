@@ -180,7 +180,7 @@ func (s *Postgres) SettleCredit(ctx context.Context, req CreditSettlementRequest
 		if total.GreaterThan(room) {
 			return settleInvalid(fmt.Sprintf("the debits total %s, more than credit %s holds open (%s)", total, credit.DocumentNumber, room))
 		}
-		var diffs []decimal.Decimal
+		var diffs []fxDiff
 		for _, m := range moves {
 			newOpen := m.item.OpenAmount.Sub(m.itemAmount)
 			status := domain.ApplyStatus(newOpen)
@@ -207,7 +207,11 @@ func (s *Postgres) SettleCredit(ctx context.Context, req CreditSettlementRequest
 				}
 				ia, fx := m.itemAmount, m.price.fx.Difference
 				line.ItemCurrency, line.ItemAmount, line.RealizedFX = m.item.Currency, &ia, &fx
-				diffs = append(diffs, fx)
+				partners, err := itemPartners(ctx, tx, []string{m.item.ID})
+				if err != nil {
+					return err
+				}
+				diffs = append(diffs, fxDiff{amount: fx, partner: partners[m.item.ID]})
 			}
 			out.Settlements = append(out.Settlements, line)
 		}
@@ -215,6 +219,17 @@ func (s *Postgres) SettleCredit(ctx context.Context, req CreditSettlementRequest
 			if err := fxJournal(ctx, tx, p.TenantID, *fxSet, credit.LegalEntityID, credit.ID, "credit-fx:"+out.BatchID, "CS-"+out.BatchID, diffs); err != nil {
 				return err
 			}
+		}
+		reclass := make([]partnerMove, 0, len(moves))
+		for _, m := range moves {
+			pm := partnerMove{debitID: m.item.ID, amount: m.amount}
+			if m.price != nil {
+				pm.price = &m.price.paymentRate
+			}
+			reclass = append(reclass, pm)
+		}
+		if err := creditReclassJournals(ctx, tx, p.TenantID, credit, reclass, out.BatchID, fxSet); err != nil {
+			return err
 		}
 		creditOpen := credit.OpenAmount.Add(total)
 		out.Total, out.CreditOpenAfter, out.CreditStatus = total, creditOpen, domain.ApplyStatus(creditOpen)
@@ -362,4 +377,73 @@ func (s *Postgres) priceCreditSettlement(ctx context.Context, book rateBook, set
 	}
 	return settlementPricing{itemCurrency: item.Currency, paymentRate: cr, itemRate: ir,
 		fx: domain.ComputeRealizedFX(set.FunctionalCurrency, d.Amount, cr, itemAmount, ir)}, itemAmount, nil
+}
+
+// JournalCreditReclass is the journal that moves the receivable between trading partners when a credit is settled against an item of
+// another partner (#40).
+const JournalCreditReclass = "credit_reclass"
+
+// partnerMove is one debit a credit was settled against: its amount in the credit's currency and, for a cross-currency settlement, the
+// rate of the credit into the functional currency.
+type partnerMove struct {
+	debitID string
+	amount  decimal.Decimal
+	price   *decimal.Decimal
+}
+
+// creditReclassJournals owes the ledger the reclass a credit settlement needs when the credit item and a debit item carry different
+// trading partners (an untagged item counts as the partner null): the receivable is credited under the debit's partner and debited
+// under the credit's, for the settled amount, so each partner's tagged receivable falls by what was settled against it (#40). Both
+// items are on the same account, so without it the tagged balances of the two partners would stay open for ever. A same-currency
+// settlement is journalled in the credit's currency, a cross-currency one in the functional currency at the credit's rate. Journals
+// are keyed by the batch, so a retry owes none twice.
+func creditReclassJournals(ctx context.Context, tx pgx.Tx, tenantID string, creditItem OpenItem, moves []partnerMove, batchID string, fxSet *FXSetting) error {
+	ids := []string{creditItem.ID}
+	for _, m := range moves {
+		ids = append(ids, m.debitID)
+	}
+	partners, err := itemPartners(ctx, tx, ids)
+	if err != nil {
+		return err
+	}
+	creditPartner := partners[creditItem.ID]
+	var same, cross []journalLine
+	for _, m := range moves {
+		debitPartner := partners[m.debitID]
+		if debitPartner == creditPartner {
+			continue
+		}
+		amount, into := m.amount, &same
+		if m.price != nil {
+			if fxSet == nil {
+				continue
+			}
+			amount, into = m.amount.Mul(*m.price).Round(int32(money.MinorUnits(fxSet.FunctionalCurrency))), &cross
+		}
+		if !amount.IsPositive() {
+			continue
+		}
+		*into = append(*into, withPartner(debit(domain.AccountReceivable, amount, "Credit settled against another partner"), creditPartner),
+			withPartner(credit(domain.AccountReceivable, amount, "Credit settled against another partner"), debitPartner))
+	}
+	for _, j := range []struct {
+		key, currency string
+		lines         []journalLine
+	}{{"credit-reclass:" + batchID, creditItem.Currency, same}, {"credit-reclass-fx:" + batchID, fxCurrency(fxSet), cross}} {
+		if len(j.lines) == 0 {
+			continue
+		}
+		if err := enqueueJournal(ctx, tx, tenantID, journalSpec{LegalEntityID: creditItem.LegalEntityID, SourceType: JournalCreditReclass, SourceID: creditItem.ID,
+			SourceKey: j.key, DocumentID: "CS-" + batchID + "-RECLASS", PostingDate: today(), Currency: j.currency, Lines: j.lines}); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func fxCurrency(set *FXSetting) string {
+	if set == nil {
+		return ""
+	}
+	return set.FunctionalCurrency
 }

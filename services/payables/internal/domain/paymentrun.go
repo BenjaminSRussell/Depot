@@ -132,8 +132,8 @@ type VendorGroupDims struct {
 	Attribute string
 	// Codes maps an open item id to its vendor group code; an item without one is untagged.
 	Codes map[string]string
-	// Partners maps a vendor id to the legal entity on the other side of an intercompany vendor (#40); its control debit names it as the
-	// trading partner, so the payment lowers the tagged payable. An ordinary vendor is absent.
+	// Partners maps an open item id to the legal entity on the other side of an auto-posted intercompany vendor invoice (#40); the control
+	// debit of that item names it as the trading partner, so the payment lowers the tagged payable. An item posted without a partner is absent.
 	Partners map[string]string
 }
 
@@ -143,31 +143,33 @@ func RunJournal(currency string, groups []ProposalGroup, controlAccount, bankAcc
 	paid, withheld, discount := decimal.Zero, decimal.Zero, decimal.Zero
 	for _, g := range groups {
 		gross, groupWithheld := decimal.Zero, decimal.Zero
-		// The control debit is split per vendor group code so each group's ledger balance falls with its own items.
-		var codes []string
-		perCode := map[string]decimal.Decimal{}
+		// The control debit is split per vendor group code so each group's ledger balance falls with its own items, and per trading partner so
+		// a payment of an intercompany item lowers the tagged payable while the vendor's other items stay untagged (#40).
+		type bucket struct{ code, partner string }
+		var codes []bucket
+		perCode := map[bucket]decimal.Decimal{}
 		for _, l := range g.Lines {
 			amount := l.OpenAmount.Mul(l.Rate).Round(minor)
 			gross = gross.Add(amount)
 			groupWithheld = groupWithheld.Add(l.Withheld.Mul(l.Rate).Round(minor))
-			code := ""
+			b := bucket{partner: dims.Partners[l.OpenItemID]}
 			if dims.Attribute != "" {
-				code = dims.Codes[l.OpenItemID]
+				b.code = dims.Codes[l.OpenItemID]
 			}
-			if _, seen := perCode[code]; !seen {
-				codes = append(codes, code)
+			if _, seen := perCode[b]; !seen {
+				codes = append(codes, b)
 			}
-			perCode[code] = perCode[code].Add(amount)
+			perCode[b] = perCode[b].Add(amount)
 		}
-		for _, code := range codes {
-			line := RunJournalLine{Account: controlAccount, Amount: perCode[code], Text: "vendor " + g.VendorID, TradingPartnerID: dims.Partners[g.VendorID]}
-			if code != "" {
-				line.Dimensions = map[string]string{dims.Attribute: code}
+		for _, b := range codes {
+			line := RunJournalLine{Account: controlAccount, Amount: perCode[b], Text: "vendor " + g.VendorID, TradingPartnerID: b.partner}
+			if b.code != "" {
+				line.Dimensions = map[string]string{dims.Attribute: b.code}
 			}
 			lines = append(lines, line)
 		}
 		if len(codes) == 0 {
-			lines = append(lines, RunJournalLine{Account: controlAccount, Amount: gross, Text: "vendor " + g.VendorID, TradingPartnerID: dims.Partners[g.VendorID]})
+			lines = append(lines, RunJournalLine{Account: controlAccount, Amount: gross, Text: "vendor " + g.VendorID})
 		}
 		paid = paid.Add(g.Valued)
 		withheld = withheld.Add(groupWithheld)

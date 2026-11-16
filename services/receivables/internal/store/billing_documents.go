@@ -93,12 +93,19 @@ func (s *Postgres) ApplyBillingDocument(ctx context.Context, d BillingDocument) 
 		if taken {
 			return numberTaken()
 		}
-		if d.SourceType == "INVOICE" && d.TradingPartnerID != "" && d.TradingPartnerID != d.LegalEntityID {
-			if _, err := tx.Exec(ctx, `insert into ar_customer_partner (tenant_id, legal_entity_id, customer_id, partner_legal_entity_id)
-				values ($1, $2::uuid, $3::uuid, $4::uuid)
-				on conflict (tenant_id, legal_entity_id, customer_id) do update set partner_legal_entity_id = excluded.partner_legal_entity_id, updated_at = now()`,
-				p.TenantID, d.LegalEntityID, d.CustomerID, d.TradingPartnerID); err != nil {
+		// The partner of an intercompany invoice goes on each of its items; a credit note's credit item has its invoice's.
+		partner := ""
+		switch {
+		case d.SourceType == "INVOICE" && d.TradingPartnerID != "" && d.TradingPartnerID != d.LegalEntityID:
+			partner = d.TradingPartnerID
+		case d.OriginalID != "":
+			var inherited *string
+			if err := tx.QueryRow(ctx, `select trading_partner_id::text from open_item where source_type = 'INVOICE' and source_doc_id = $1::uuid and trading_partner_id is not null limit 1`,
+				d.OriginalID).Scan(&inherited); err != nil && !errors.Is(err, pgx.ErrNoRows) {
 				return err
+			}
+			if inherited != nil {
+				partner = *inherited
 			}
 		}
 		for _, it := range d.Items {
@@ -107,10 +114,10 @@ func (s *Postgres) ApplyBillingDocument(ctx context.Context, d BillingDocument) 
 				original = d.OriginalID
 			}
 			if _, err := tx.Exec(ctx, `insert into open_item (tenant_id, id, legal_entity_id, customer_id, source_type, document_number,
-				document_date, due_date, currency, amount, open_amount, status, source_doc_id, installment_no, original_doc_id)
-				values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $10, 'OPEN', $11, $12, $13)`,
+				document_date, due_date, currency, amount, open_amount, status, source_doc_id, installment_no, original_doc_id, trading_partner_id)
+				values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $10, 'OPEN', $11, $12, $13, nullif($14, '')::uuid)`,
 				p.TenantID, ids.New(), d.LegalEntityID, d.CustomerID, d.SourceType, it.DocumentNumber, d.DocumentDate, it.DueDate,
-				d.Currency, it.Amount.String(), d.ID, it.InstallmentNo, original); err != nil {
+				d.Currency, it.Amount.String(), d.ID, it.InstallmentNo, original, partner); err != nil {
 				return err
 			}
 			created++
