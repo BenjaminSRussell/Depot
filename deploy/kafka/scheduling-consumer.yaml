@@ -1,3 +1,8 @@
+# The scheduling consumers (`scheduling consume`): the downtime consumer (group scheduling-downtime) reads eam's
+# passage.eam.downtime and parks on passage.eam.downtime.dlq; the production order intake (group scheduling-order-import,
+# chart consumer.kafka.orderGroup, started once service:scheduling-order-import is seeded) reads production's
+# order.scheduled and order.statuschanged on passage.production.order (outbox-production, deploy/kafka/connect.yaml) and parks
+# on passage.production.order.dlq. Literal ACLs: the user reads only those two topics and writes only their dead-letter topics.
 apiVersion: kafka.strimzi.io/v1beta2
 kind: KafkaUser
 metadata:
@@ -17,6 +22,12 @@ spec:
         operations: [Write, Describe]
       - resource: {type: group, name: scheduling-downtime, patternType: literal}
         operations: [Read, Describe]
+      - resource: {type: topic, name: passage.production.order, patternType: literal}
+        operations: [Read, Describe]
+      - resource: {type: topic, name: passage.production.order.dlq, patternType: literal}
+        operations: [Write, Describe]
+      - resource: {type: group, name: scheduling-order-import, patternType: literal}
+        operations: [Read, Describe]
 ---
 apiVersion: kafka.strimzi.io/v1beta2
 kind: KafkaTopic
@@ -27,6 +38,20 @@ metadata:
     strimzi.io/cluster: passage
 spec:
   topicName: passage.eam.downtime.dlq
+  partitions: 3
+  replicas: 3
+  config:
+    retention.ms: 2592000000
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  name: passage-production-order-dlq
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: passage
+spec:
+  topicName: passage.production.order.dlq
   partitions: 3
   replicas: 3
   config:

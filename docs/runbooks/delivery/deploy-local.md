@@ -34,6 +34,25 @@ kubectl -n cert-manager get secret passage-local-ca -o jsonpath='{.data.ca\.crt}
 | Argo app `Unknown` | the revision is not pushed to GitHub, or the repository is private and needs credentials in Argo CD |
 | readiness 503 | Postgres pod not ready: `kubectl -n hello-ledger get pods` |
 
+## Outbox connector databases and CDC keys (dev)
+
+The shared dev Postgres (`deploy/envs/dev/apps/postgres.yaml`) creates the database of every outbox connector in
+`deploy/kafka/connect.yaml` that points at `postgres.hello-ledger.svc`, and the connector's REPLICATION role
+`debezium_cdc_<service>`. The role's password is the Vault key `passage/dev/<service>-postgres/cdc-password`, which
+Kafka Connect reads too (`debezium-cdc-<service>` in `deploy/envs/dev/kafka-secrets/debezium-cdc.yaml`).
+
+- For the `95-<service>-db.sh` services (billing, budgeting, warehouse, intercompany, fieldservice, ops, receivables,
+  expense, projects, party, product, purchasing, production, hr) the key is optional. Without it the pod still starts, the
+  database is created, and the init log says `debezium_cdc_<service> not created`; that connector fails to log in.
+- To enable one: write the key (URL-safe hex, property `value`), wait for the ExternalSecrets `<service>-cdc`
+  (namespace `hello-ledger`) and `debezium-cdc-<service>` (namespace `kafka`) to sync, then restart the Postgres pod:
+  `kubectl -n hello-ledger rollout restart deploy/postgres`. Init scripts run only on an empty data directory, which is
+  an emptyDir, so the restart recreates every dev database.
+- The receiving, eam, transport, sales and fulfillment keys stay required: a missing one keeps the pod in
+  `CreateContainerConfigError`.
+- The Postgres allows 32 replication slots and walsenders, one each per connector; raise `max_replication_slots` and
+  `max_wal_senders` in its args before adding connectors past that (`deploy/scripts/test_argocd_apps.py` checks).
+
 ## Tear down
 
 `make -C deploy destroy-local`

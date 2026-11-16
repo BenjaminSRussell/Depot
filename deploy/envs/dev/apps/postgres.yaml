@@ -550,147 +550,233 @@ data:
     GRANT ALL ON SCHEMA public TO passage_app;
     SQL
   # One 95- script per outbox connector database (deploy/kafka/connect.yaml): each creates its database and CDC role and
-  # needs only passage_app from 10-app-role.sh, so they share a number and run in name order after the others.
+  # needs only passage_app from 10-app-role.sh, so they share a number and run in name order after the others. Their
+  # passwords are optional: with its Vault key not yet written a script creates the database, skips the CDC role and logs
+  # it, so the shared Postgres still starts; write the key and restart the pod (docs/runbooks/delivery/deploy-local.md).
   95-billing-db.sh: |
-    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v cdc_password="$CDC_BILLING_PASSWORD" <<'SQL'
-    CREATE ROLE debezium_cdc_billing LOGIN NOSUPERUSER NOBYPASSRLS REPLICATION PASSWORD :'cdc_password';
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" <<'SQL'
     SELECT 'CREATE DATABASE passage_billing' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'passage_billing')\gexec
     REVOKE CONNECT ON DATABASE passage_billing FROM PUBLIC;
     GRANT CONNECT, CREATE ON DATABASE passage_billing TO passage_app;
-    GRANT CONNECT ON DATABASE passage_billing TO debezium_cdc_billing;
     \c passage_billing
     GRANT ALL ON SCHEMA public TO passage_app;
     SQL
+    if [ -z "$CDC_BILLING_PASSWORD" ]; then
+      echo "95-billing-db.sh: CDC_BILLING_PASSWORD is empty (Vault passage/dev/billing-postgres/cdc-password not written); debezium_cdc_billing not created"
+    else
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v cdc_password="$CDC_BILLING_PASSWORD" <<'SQL'
+    CREATE ROLE debezium_cdc_billing LOGIN NOSUPERUSER NOBYPASSRLS REPLICATION PASSWORD :'cdc_password';
+    GRANT CONNECT ON DATABASE passage_billing TO debezium_cdc_billing;
+    SQL
+    fi
   95-budgeting-db.sh: |
-    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v cdc_password="$CDC_BUDGETING_PASSWORD" <<'SQL'
-    CREATE ROLE debezium_cdc_budgeting LOGIN NOSUPERUSER NOBYPASSRLS REPLICATION PASSWORD :'cdc_password';
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" <<'SQL'
     SELECT 'CREATE DATABASE passage_budgeting' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'passage_budgeting')\gexec
     REVOKE CONNECT ON DATABASE passage_budgeting FROM PUBLIC;
     GRANT CONNECT, CREATE ON DATABASE passage_budgeting TO passage_app;
-    GRANT CONNECT ON DATABASE passage_budgeting TO debezium_cdc_budgeting;
     \c passage_budgeting
     GRANT ALL ON SCHEMA public TO passage_app;
     SQL
+    if [ -z "$CDC_BUDGETING_PASSWORD" ]; then
+      echo "95-budgeting-db.sh: CDC_BUDGETING_PASSWORD is empty (Vault passage/dev/budgeting-postgres/cdc-password not written); debezium_cdc_budgeting not created"
+    else
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v cdc_password="$CDC_BUDGETING_PASSWORD" <<'SQL'
+    CREATE ROLE debezium_cdc_budgeting LOGIN NOSUPERUSER NOBYPASSRLS REPLICATION PASSWORD :'cdc_password';
+    GRANT CONNECT ON DATABASE passage_budgeting TO debezium_cdc_budgeting;
+    SQL
+    fi
   95-warehouse-db.sh: |
-    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v cdc_password="$CDC_WAREHOUSE_PASSWORD" <<'SQL'
-    CREATE ROLE debezium_cdc_warehouse LOGIN NOSUPERUSER NOBYPASSRLS REPLICATION PASSWORD :'cdc_password';
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" <<'SQL'
     SELECT 'CREATE DATABASE passage_warehouse' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'passage_warehouse')\gexec
     REVOKE CONNECT ON DATABASE passage_warehouse FROM PUBLIC;
     GRANT CONNECT, CREATE ON DATABASE passage_warehouse TO passage_app;
-    GRANT CONNECT ON DATABASE passage_warehouse TO debezium_cdc_warehouse;
     \c passage_warehouse
     GRANT ALL ON SCHEMA public TO passage_app;
     SQL
+    if [ -z "$CDC_WAREHOUSE_PASSWORD" ]; then
+      echo "95-warehouse-db.sh: CDC_WAREHOUSE_PASSWORD is empty (Vault passage/dev/warehouse-postgres/cdc-password not written); debezium_cdc_warehouse not created"
+    else
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v cdc_password="$CDC_WAREHOUSE_PASSWORD" <<'SQL'
+    CREATE ROLE debezium_cdc_warehouse LOGIN NOSUPERUSER NOBYPASSRLS REPLICATION PASSWORD :'cdc_password';
+    GRANT CONNECT ON DATABASE passage_warehouse TO debezium_cdc_warehouse;
+    SQL
+    fi
   95-intercompany-db.sh: |
-    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v cdc_password="$CDC_INTERCOMPANY_PASSWORD" <<'SQL'
-    CREATE ROLE debezium_cdc_intercompany LOGIN NOSUPERUSER NOBYPASSRLS REPLICATION PASSWORD :'cdc_password';
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" <<'SQL'
     SELECT 'CREATE DATABASE passage_intercompany' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'passage_intercompany')\gexec
     REVOKE CONNECT ON DATABASE passage_intercompany FROM PUBLIC;
     GRANT CONNECT, CREATE ON DATABASE passage_intercompany TO passage_app;
-    GRANT CONNECT ON DATABASE passage_intercompany TO debezium_cdc_intercompany;
     \c passage_intercompany
     GRANT ALL ON SCHEMA public TO passage_app;
     SQL
+    if [ -z "$CDC_INTERCOMPANY_PASSWORD" ]; then
+      echo "95-intercompany-db.sh: CDC_INTERCOMPANY_PASSWORD is empty (Vault passage/dev/intercompany-postgres/cdc-password not written); debezium_cdc_intercompany not created"
+    else
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v cdc_password="$CDC_INTERCOMPANY_PASSWORD" <<'SQL'
+    CREATE ROLE debezium_cdc_intercompany LOGIN NOSUPERUSER NOBYPASSRLS REPLICATION PASSWORD :'cdc_password';
+    GRANT CONNECT ON DATABASE passage_intercompany TO debezium_cdc_intercompany;
+    SQL
+    fi
   95-fieldservice-db.sh: |
-    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v cdc_password="$CDC_FIELDSERVICE_PASSWORD" <<'SQL'
-    CREATE ROLE debezium_cdc_fieldservice LOGIN NOSUPERUSER NOBYPASSRLS REPLICATION PASSWORD :'cdc_password';
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" <<'SQL'
     SELECT 'CREATE DATABASE passage_fieldservice' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'passage_fieldservice')\gexec
     REVOKE CONNECT ON DATABASE passage_fieldservice FROM PUBLIC;
     GRANT CONNECT, CREATE ON DATABASE passage_fieldservice TO passage_app;
-    GRANT CONNECT ON DATABASE passage_fieldservice TO debezium_cdc_fieldservice;
     \c passage_fieldservice
     GRANT ALL ON SCHEMA public TO passage_app;
     SQL
+    if [ -z "$CDC_FIELDSERVICE_PASSWORD" ]; then
+      echo "95-fieldservice-db.sh: CDC_FIELDSERVICE_PASSWORD is empty (Vault passage/dev/fieldservice-postgres/cdc-password not written); debezium_cdc_fieldservice not created"
+    else
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v cdc_password="$CDC_FIELDSERVICE_PASSWORD" <<'SQL'
+    CREATE ROLE debezium_cdc_fieldservice LOGIN NOSUPERUSER NOBYPASSRLS REPLICATION PASSWORD :'cdc_password';
+    GRANT CONNECT ON DATABASE passage_fieldservice TO debezium_cdc_fieldservice;
+    SQL
+    fi
   95-ops-db.sh: |
-    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v cdc_password="$CDC_OPS_PASSWORD" <<'SQL'
-    CREATE ROLE debezium_cdc_ops LOGIN NOSUPERUSER NOBYPASSRLS REPLICATION PASSWORD :'cdc_password';
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" <<'SQL'
     SELECT 'CREATE DATABASE passage_ops' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'passage_ops')\gexec
     REVOKE CONNECT ON DATABASE passage_ops FROM PUBLIC;
     GRANT CONNECT, CREATE ON DATABASE passage_ops TO passage_app;
-    GRANT CONNECT ON DATABASE passage_ops TO debezium_cdc_ops;
     \c passage_ops
     GRANT ALL ON SCHEMA public TO passage_app;
     SQL
+    if [ -z "$CDC_OPS_PASSWORD" ]; then
+      echo "95-ops-db.sh: CDC_OPS_PASSWORD is empty (Vault passage/dev/ops-postgres/cdc-password not written); debezium_cdc_ops not created"
+    else
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v cdc_password="$CDC_OPS_PASSWORD" <<'SQL'
+    CREATE ROLE debezium_cdc_ops LOGIN NOSUPERUSER NOBYPASSRLS REPLICATION PASSWORD :'cdc_password';
+    GRANT CONNECT ON DATABASE passage_ops TO debezium_cdc_ops;
+    SQL
+    fi
   95-receivables-db.sh: |
-    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v cdc_password="$CDC_RECEIVABLES_PASSWORD" <<'SQL'
-    CREATE ROLE debezium_cdc_receivables LOGIN NOSUPERUSER NOBYPASSRLS REPLICATION PASSWORD :'cdc_password';
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" <<'SQL'
     SELECT 'CREATE DATABASE passage_receivables' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'passage_receivables')\gexec
     REVOKE CONNECT ON DATABASE passage_receivables FROM PUBLIC;
     GRANT CONNECT, CREATE ON DATABASE passage_receivables TO passage_app;
-    GRANT CONNECT ON DATABASE passage_receivables TO debezium_cdc_receivables;
     \c passage_receivables
     GRANT ALL ON SCHEMA public TO passage_app;
     SQL
+    if [ -z "$CDC_RECEIVABLES_PASSWORD" ]; then
+      echo "95-receivables-db.sh: CDC_RECEIVABLES_PASSWORD is empty (Vault passage/dev/receivables-postgres/cdc-password not written); debezium_cdc_receivables not created"
+    else
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v cdc_password="$CDC_RECEIVABLES_PASSWORD" <<'SQL'
+    CREATE ROLE debezium_cdc_receivables LOGIN NOSUPERUSER NOBYPASSRLS REPLICATION PASSWORD :'cdc_password';
+    GRANT CONNECT ON DATABASE passage_receivables TO debezium_cdc_receivables;
+    SQL
+    fi
   95-expense-db.sh: |
-    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v cdc_password="$CDC_EXPENSE_PASSWORD" <<'SQL'
-    CREATE ROLE debezium_cdc_expense LOGIN NOSUPERUSER NOBYPASSRLS REPLICATION PASSWORD :'cdc_password';
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" <<'SQL'
     SELECT 'CREATE DATABASE passage_expense' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'passage_expense')\gexec
     REVOKE CONNECT ON DATABASE passage_expense FROM PUBLIC;
     GRANT CONNECT, CREATE ON DATABASE passage_expense TO passage_app;
-    GRANT CONNECT ON DATABASE passage_expense TO debezium_cdc_expense;
     \c passage_expense
     GRANT ALL ON SCHEMA public TO passage_app;
     SQL
+    if [ -z "$CDC_EXPENSE_PASSWORD" ]; then
+      echo "95-expense-db.sh: CDC_EXPENSE_PASSWORD is empty (Vault passage/dev/expense-postgres/cdc-password not written); debezium_cdc_expense not created"
+    else
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v cdc_password="$CDC_EXPENSE_PASSWORD" <<'SQL'
+    CREATE ROLE debezium_cdc_expense LOGIN NOSUPERUSER NOBYPASSRLS REPLICATION PASSWORD :'cdc_password';
+    GRANT CONNECT ON DATABASE passage_expense TO debezium_cdc_expense;
+    SQL
+    fi
   95-projects-db.sh: |
-    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v cdc_password="$CDC_PROJECTS_PASSWORD" <<'SQL'
-    CREATE ROLE debezium_cdc_projects LOGIN NOSUPERUSER NOBYPASSRLS REPLICATION PASSWORD :'cdc_password';
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" <<'SQL'
     SELECT 'CREATE DATABASE passage_projects' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'passage_projects')\gexec
     REVOKE CONNECT ON DATABASE passage_projects FROM PUBLIC;
     GRANT CONNECT, CREATE ON DATABASE passage_projects TO passage_app;
-    GRANT CONNECT ON DATABASE passage_projects TO debezium_cdc_projects;
     \c passage_projects
     GRANT ALL ON SCHEMA public TO passage_app;
     SQL
+    if [ -z "$CDC_PROJECTS_PASSWORD" ]; then
+      echo "95-projects-db.sh: CDC_PROJECTS_PASSWORD is empty (Vault passage/dev/projects-postgres/cdc-password not written); debezium_cdc_projects not created"
+    else
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v cdc_password="$CDC_PROJECTS_PASSWORD" <<'SQL'
+    CREATE ROLE debezium_cdc_projects LOGIN NOSUPERUSER NOBYPASSRLS REPLICATION PASSWORD :'cdc_password';
+    GRANT CONNECT ON DATABASE passage_projects TO debezium_cdc_projects;
+    SQL
+    fi
   95-party-db.sh: |
-    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v cdc_password="$CDC_PARTY_PASSWORD" <<'SQL'
-    CREATE ROLE debezium_cdc_party LOGIN NOSUPERUSER NOBYPASSRLS REPLICATION PASSWORD :'cdc_password';
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" <<'SQL'
     SELECT 'CREATE DATABASE passage_party' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'passage_party')\gexec
     REVOKE CONNECT ON DATABASE passage_party FROM PUBLIC;
     GRANT CONNECT, CREATE ON DATABASE passage_party TO passage_app;
-    GRANT CONNECT ON DATABASE passage_party TO debezium_cdc_party;
     \c passage_party
     GRANT ALL ON SCHEMA public TO passage_app;
     SQL
+    if [ -z "$CDC_PARTY_PASSWORD" ]; then
+      echo "95-party-db.sh: CDC_PARTY_PASSWORD is empty (Vault passage/dev/party-postgres/cdc-password not written); debezium_cdc_party not created"
+    else
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v cdc_password="$CDC_PARTY_PASSWORD" <<'SQL'
+    CREATE ROLE debezium_cdc_party LOGIN NOSUPERUSER NOBYPASSRLS REPLICATION PASSWORD :'cdc_password';
+    GRANT CONNECT ON DATABASE passage_party TO debezium_cdc_party;
+    SQL
+    fi
   95-product-db.sh: |
-    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v cdc_password="$CDC_PRODUCT_PASSWORD" <<'SQL'
-    CREATE ROLE debezium_cdc_product LOGIN NOSUPERUSER NOBYPASSRLS REPLICATION PASSWORD :'cdc_password';
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" <<'SQL'
     SELECT 'CREATE DATABASE passage_product' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'passage_product')\gexec
     REVOKE CONNECT ON DATABASE passage_product FROM PUBLIC;
     GRANT CONNECT, CREATE ON DATABASE passage_product TO passage_app;
-    GRANT CONNECT ON DATABASE passage_product TO debezium_cdc_product;
     \c passage_product
     GRANT ALL ON SCHEMA public TO passage_app;
     SQL
+    if [ -z "$CDC_PRODUCT_PASSWORD" ]; then
+      echo "95-product-db.sh: CDC_PRODUCT_PASSWORD is empty (Vault passage/dev/product-postgres/cdc-password not written); debezium_cdc_product not created"
+    else
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v cdc_password="$CDC_PRODUCT_PASSWORD" <<'SQL'
+    CREATE ROLE debezium_cdc_product LOGIN NOSUPERUSER NOBYPASSRLS REPLICATION PASSWORD :'cdc_password';
+    GRANT CONNECT ON DATABASE passage_product TO debezium_cdc_product;
+    SQL
+    fi
   95-purchasing-db.sh: |
-    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v cdc_password="$CDC_PURCHASING_PASSWORD" <<'SQL'
-    CREATE ROLE debezium_cdc_purchasing LOGIN NOSUPERUSER NOBYPASSRLS REPLICATION PASSWORD :'cdc_password';
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" <<'SQL'
     SELECT 'CREATE DATABASE passage_purchasing' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'passage_purchasing')\gexec
     REVOKE CONNECT ON DATABASE passage_purchasing FROM PUBLIC;
     GRANT CONNECT, CREATE ON DATABASE passage_purchasing TO passage_app;
-    GRANT CONNECT ON DATABASE passage_purchasing TO debezium_cdc_purchasing;
     \c passage_purchasing
     GRANT ALL ON SCHEMA public TO passage_app;
     SQL
+    if [ -z "$CDC_PURCHASING_PASSWORD" ]; then
+      echo "95-purchasing-db.sh: CDC_PURCHASING_PASSWORD is empty (Vault passage/dev/purchasing-postgres/cdc-password not written); debezium_cdc_purchasing not created"
+    else
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v cdc_password="$CDC_PURCHASING_PASSWORD" <<'SQL'
+    CREATE ROLE debezium_cdc_purchasing LOGIN NOSUPERUSER NOBYPASSRLS REPLICATION PASSWORD :'cdc_password';
+    GRANT CONNECT ON DATABASE passage_purchasing TO debezium_cdc_purchasing;
+    SQL
+    fi
   95-production-db.sh: |
-    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v cdc_password="$CDC_PRODUCTION_PASSWORD" <<'SQL'
-    CREATE ROLE debezium_cdc_production LOGIN NOSUPERUSER NOBYPASSRLS REPLICATION PASSWORD :'cdc_password';
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" <<'SQL'
     SELECT 'CREATE DATABASE passage_production' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'passage_production')\gexec
     REVOKE CONNECT ON DATABASE passage_production FROM PUBLIC;
     GRANT CONNECT, CREATE ON DATABASE passage_production TO passage_app;
-    GRANT CONNECT ON DATABASE passage_production TO debezium_cdc_production;
     \c passage_production
     GRANT ALL ON SCHEMA public TO passage_app;
     SQL
+    if [ -z "$CDC_PRODUCTION_PASSWORD" ]; then
+      echo "95-production-db.sh: CDC_PRODUCTION_PASSWORD is empty (Vault passage/dev/production-postgres/cdc-password not written); debezium_cdc_production not created"
+    else
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v cdc_password="$CDC_PRODUCTION_PASSWORD" <<'SQL'
+    CREATE ROLE debezium_cdc_production LOGIN NOSUPERUSER NOBYPASSRLS REPLICATION PASSWORD :'cdc_password';
+    GRANT CONNECT ON DATABASE passage_production TO debezium_cdc_production;
+    SQL
+    fi
   95-hr-db.sh: |
-    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v cdc_password="$CDC_HR_PASSWORD" <<'SQL'
-    CREATE ROLE debezium_cdc_hr LOGIN NOSUPERUSER NOBYPASSRLS REPLICATION PASSWORD :'cdc_password';
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" <<'SQL'
     SELECT 'CREATE DATABASE passage_hr' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'passage_hr')\gexec
     REVOKE CONNECT ON DATABASE passage_hr FROM PUBLIC;
     GRANT CONNECT, CREATE ON DATABASE passage_hr TO passage_app;
-    GRANT CONNECT ON DATABASE passage_hr TO debezium_cdc_hr;
     \c passage_hr
     GRANT ALL ON SCHEMA public TO passage_app;
     SQL
+    if [ -z "$CDC_HR_PASSWORD" ]; then
+      echo "95-hr-db.sh: CDC_HR_PASSWORD is empty (Vault passage/dev/hr-postgres/cdc-password not written); debezium_cdc_hr not created"
+    else
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v cdc_password="$CDC_HR_PASSWORD" <<'SQL'
+    CREATE ROLE debezium_cdc_hr LOGIN NOSUPERUSER NOBYPASSRLS REPLICATION PASSWORD :'cdc_password';
+    GRANT CONNECT ON DATABASE passage_hr TO debezium_cdc_hr;
+    SQL
+    fi
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -722,7 +808,9 @@ spec:
       containers:
         - name: postgres
           image: postgres:17-alpine@sha256:eee6c6e1b0894fa4fe0075eb054af9fd1cf39a35321c2d4110626cfe506411fb
-          args: [-c, wal_level=logical]
+          # One logical slot and one walsender per outbox connector on this Postgres (deploy/kafka/connect.yaml), with
+          # headroom; deploy/scripts/test_argocd_apps.py fails when the connectors outgrow these limits.
+          args: [-c, wal_level=logical, -c, max_replication_slots=32, -c, max_wal_senders=32]
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
@@ -754,46 +842,46 @@ spec:
                 secretKeyRef: { name: fulfillment-cdc, key: CDC_PASSWORD }
             - name: CDC_BILLING_PASSWORD
               valueFrom:
-                secretKeyRef: { name: billing-cdc, key: CDC_PASSWORD }
+                secretKeyRef: { name: billing-cdc, key: CDC_PASSWORD, optional: true }
             - name: CDC_BUDGETING_PASSWORD
               valueFrom:
-                secretKeyRef: { name: budgeting-cdc, key: CDC_PASSWORD }
+                secretKeyRef: { name: budgeting-cdc, key: CDC_PASSWORD, optional: true }
             - name: CDC_WAREHOUSE_PASSWORD
               valueFrom:
-                secretKeyRef: { name: warehouse-cdc, key: CDC_PASSWORD }
+                secretKeyRef: { name: warehouse-cdc, key: CDC_PASSWORD, optional: true }
             - name: CDC_INTERCOMPANY_PASSWORD
               valueFrom:
-                secretKeyRef: { name: intercompany-cdc, key: CDC_PASSWORD }
+                secretKeyRef: { name: intercompany-cdc, key: CDC_PASSWORD, optional: true }
             - name: CDC_FIELDSERVICE_PASSWORD
               valueFrom:
-                secretKeyRef: { name: fieldservice-cdc, key: CDC_PASSWORD }
+                secretKeyRef: { name: fieldservice-cdc, key: CDC_PASSWORD, optional: true }
             - name: CDC_OPS_PASSWORD
               valueFrom:
-                secretKeyRef: { name: ops-cdc, key: CDC_PASSWORD }
+                secretKeyRef: { name: ops-cdc, key: CDC_PASSWORD, optional: true }
             - name: CDC_RECEIVABLES_PASSWORD
               valueFrom:
-                secretKeyRef: { name: receivables-cdc, key: CDC_PASSWORD }
+                secretKeyRef: { name: receivables-cdc, key: CDC_PASSWORD, optional: true }
             - name: CDC_EXPENSE_PASSWORD
               valueFrom:
-                secretKeyRef: { name: expense-cdc, key: CDC_PASSWORD }
+                secretKeyRef: { name: expense-cdc, key: CDC_PASSWORD, optional: true }
             - name: CDC_PROJECTS_PASSWORD
               valueFrom:
-                secretKeyRef: { name: projects-cdc, key: CDC_PASSWORD }
+                secretKeyRef: { name: projects-cdc, key: CDC_PASSWORD, optional: true }
             - name: CDC_PARTY_PASSWORD
               valueFrom:
-                secretKeyRef: { name: party-cdc, key: CDC_PASSWORD }
+                secretKeyRef: { name: party-cdc, key: CDC_PASSWORD, optional: true }
             - name: CDC_PRODUCT_PASSWORD
               valueFrom:
-                secretKeyRef: { name: product-cdc, key: CDC_PASSWORD }
+                secretKeyRef: { name: product-cdc, key: CDC_PASSWORD, optional: true }
             - name: CDC_PURCHASING_PASSWORD
               valueFrom:
-                secretKeyRef: { name: purchasing-cdc, key: CDC_PASSWORD }
+                secretKeyRef: { name: purchasing-cdc, key: CDC_PASSWORD, optional: true }
             - name: CDC_PRODUCTION_PASSWORD
               valueFrom:
-                secretKeyRef: { name: production-cdc, key: CDC_PASSWORD }
+                secretKeyRef: { name: production-cdc, key: CDC_PASSWORD, optional: true }
             - name: CDC_HR_PASSWORD
               valueFrom:
-                secretKeyRef: { name: hr-cdc, key: CDC_PASSWORD }
+                secretKeyRef: { name: hr-cdc, key: CDC_PASSWORD, optional: true }
             - name: EAM_APP_PASSWORD
               valueFrom:
                 secretKeyRef: { name: eam-database, key: APP_PASSWORD }

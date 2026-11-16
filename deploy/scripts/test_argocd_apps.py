@@ -218,6 +218,38 @@ def pod_images(doc):
     return [c["image"] for c in pod_containers(doc)]
 
 
+EVENT_LITERAL = re.compile(r"""["'`](dev\.passage\.[a-z0-9-]+(?:\.[a-z0-9-]+)+)["'`]""")
+EVENT_TYPE_CALL = re.compile(r'events\.Type\(\s*("[a-z0-9]+"|Context)\s*,\s*"([^"]+)"\s*,\s*"([^"]+)"\s*,\s*(\d+)\s*\)')
+PLATFORM_IMPORT = re.compile(r'"github\.com/BenjaminSRussell/passage/platform/([a-z0-9_/]+)"')
+
+
+def service_event_types(service):
+    """Every CloudEvents type a service names in its non-test Go, Python or TypeScript sources and in the platform/go
+    packages its Go code imports: quoted literals and events.Type(...) calls (Context is the service's own context)."""
+    root = REPO / "services" / service
+    own = re.findall(r'\bContext\s*=\s*"([a-z0-9]+)"', "".join(f.read_text() for f in (root / "internal/events").glob("*.go")))
+    files, packages = [], set()
+    for f in root.rglob("*"):
+        if f.suffix not in (".go", ".py", ".ts") or "node_modules" in f.parts or "tests" in f.parts \
+                or f.name.endswith(("_test.go", ".test.ts")) or f.name.startswith("test_"):
+            continue
+        files.append(f)
+    for f in files:
+        if f.suffix == ".go":
+            packages |= set(PLATFORM_IMPORT.findall(f.read_text(errors="ignore")))
+    for package in sorted(packages):
+        files += [f for f in (REPO / "platform/go" / package).glob("*.go") if not f.name.endswith("_test.go")]
+    types = set()
+    for f in files:
+        src = f.read_text(errors="ignore")
+        types |= set(EVENT_LITERAL.findall(src))
+        for ctx, entity, verb, version in EVENT_TYPE_CALL.findall(src):
+            context = ctx.strip('"') if ctx != "Context" else (own[0] if own else None)
+            if context:
+                types.add(f"dev.passage.{context}.{entity}.{verb}.v{version}")
+    return types
+
+
 class ArgoApplicationsTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -456,8 +488,9 @@ class ArgoApplicationsTest(unittest.TestCase):
         # The inventory postings consumer (#480): its KafkaUser reads exactly the topics and group the code subscribes
         # to and writes the dead-letter topic the code parks on.
         api = (REPO / "services/inventory/internal/api/postings_consumer.go").read_text()
+        truck = (REPO / "services/inventory/internal/api/truck_consumer.go").read_text()
         cmd = (REPO / "services/inventory/cmd/inventory/consumer.go").read_text()
-        source_topics = set(re.findall(r'^\s+\w+Topic\s+=\s+"([^"]+)"', api, re.M))
+        source_topics = set(re.findall(r'^\s+\w+Topic\s+=\s+"([^"]+)"', api + truck, re.M))
         (group,) = re.findall(r'PostingsConsumerName\s+=\s+"([^"]+)"', api)
         (dlq,) = re.findall(r'postingsDeadLetterTopic\s+=\s+"([^"]+)"', cmd)
         values = yaml.safe_load((REPO / "services/inventory/charts/inventory/values.yaml").read_text())
@@ -466,7 +499,11 @@ class ArgoApplicationsTest(unittest.TestCase):
         self.assertEqual(kafka["group"], group)
         self.assertIn(kafka["username"], users, "deploy/kafka/inventory-consumer.yaml")
         granted = users[kafka["username"]]
-        self.assertEqual(source_topics, {"passage.receiving.receipt", "passage.sales.orderprogress", "passage.fulfillment.packingslip"})
+        self.assertEqual(source_topics, {"passage.receiving.receipt", "passage.sales.orderprogress", "passage.fulfillment.packingslip",
+                                         "passage.service.workorder.completed"})
+        subscribed = re.search(r"\[\]string\{(api\.\w+Topic(?:, api\.\w+Topic)*)\}", cmd)
+        self.assertIsNotNone(subscribed, "the postings consumer's topic list")
+        self.assertEqual(len(source_topics), len(subscribed.group(1).split(",")), "the consumer subscribes to every source topic")
         want = {("topic", t): {"Read", "Describe"} for t in source_topics}
         want[("topic", dlq)] = {"Write", "Describe"}
         want[("group", group)] = {"Read", "Describe"}
@@ -635,17 +672,11 @@ class ArgoApplicationsTest(unittest.TestCase):
                                  f"{name}: debezium literal ACLs under {prefix} differ from the AsyncAPI channels")
                 # A type the service writes that the regex does not route keeps its own name as the topic, which no ACL
                 # allows, and fails the connector task for every later event; so every type of the topic's context the
-                # service defines in Go must be a declared message.
+                # service or a platform/go package it imports defines (expense's report.approved lives in
+                # platform/go/reimbursement) must be a declared message.
                 context = cfg["topic.prefix"].removeprefix("passage.")
-                defined = set()
-                for f in (REPO / f"services/{service}").rglob("*.go"):
-                    if f.name.endswith("_test.go"):
-                        continue
-                    src = f.read_text()
-                    defined |= set(re.findall(rf'"(dev\.passage\.{re.escape(context)}\.[a-z0-9.-]+)"', src))
-                    defined |= {f"dev.passage.{context}.{e}.{v}.v{n}" for e, v, n in
-                                re.findall(r'events\.Type\(\s*Context\s*,\s*"([^"]+)"\s*,\s*"([^"]+)"\s*,\s*(\d+)\)', src)}
-                self.assertEqual(set(), defined - declared, f"{name}: event types defined in Go but not in the AsyncAPI")
+                defined = {typ for typ in service_event_types(service) if typ.startswith(f"dev.passage.{context}.")}
+                self.assertEqual(set(), defined - declared, f"{name}: event types defined in code but not in the AsyncAPI")
                 routed |= channels
         self.assertLessEqual({"passage.sales.orderprogress", "passage.fulfillment.packingslip"}, routed)
 
@@ -872,6 +903,25 @@ class ArgoApplicationsTest(unittest.TestCase):
                     self.assertTrue(channels, f"{name}: its AsyncAPI declares no channel under {prefix}")
                     self.assertEqual([], sorted(t for t in channels if not writable(t)),
                                      f"{name}: AsyncAPI channels the debezium user may not write")
+        # Each connector holds one logical replication slot and one walsender on its Postgres: the shared dev Postgres must
+        # allow at least as many as the connectors pointing at it, and a deploy/postgres release (limits in its
+        # StatefulSet template) serves one connector each.
+
+        def setting(args, name):
+            values = [int(a.split("=", 1)[1]) for a in args if str(a).startswith(name + "=")]
+            return values[-1] if values else 10  # PostgreSQL's default for both
+        per_host = {}
+        for connector in connectors:
+            per_host.setdefault(connector["spec"]["config"]["database.hostname"].split(".")[1], []).append(connector["metadata"]["name"])
+        args = container.get("args") or []
+        chart = (DEPLOY / "postgres/templates/statefulset.yaml").read_text()
+        chart_args = [m.group(0) for m in re.finditer(r"max_(?:replication_slots|wal_senders)=\d+", chart)]
+        for ns, names in per_host.items():
+            with self.subTest(postgres=ns):
+                limits = args if ns == pg_ns else chart_args
+                for name in ("max_replication_slots", "max_wal_senders"):
+                    self.assertLessEqual(len(names), setting(limits, name),
+                                         f"{len(names)} connectors on postgres.{ns}.svc exceed its {name}")
         # Every topic a consumer reads is one an outbox connector may write (dead-letter topics are written by consumers).
         for path in manifests(DEPLOY / "kafka"):
             if not path.name.endswith("-consumer.yaml"):
@@ -884,6 +934,56 @@ class ArgoApplicationsTest(unittest.TestCase):
                 with self.subTest(consumer=doc["metadata"]["name"]):
                     self.assertEqual([], sorted(t for t in read if not t.endswith(".dlq") and not writable(t)),
                                      f"{path.name}: topics no outbox connector writes")
+
+    # Event types a consumer service names but does not subscribe to, so they need no read ACL: (service, type) -> why.
+    UNSUBSCRIBED_HANDLERS = {
+        ("payables", "dev.passage.expense.report.approved.v1"):
+            "consumer.HandleExpenseReportApproved is not wired: `payables consume` reads only passage.interco.chargeinvoice",
+        ("workflow-ts", "dev.passage.party.change.requested.v1"):
+            "changeRequested.ts maps it, but eventConsumer.ts subscribes only to the tender and budget plan topics",
+        ("workflow-ts", "dev.passage.party.merge.requested.v1"):
+            "changeRequested.ts maps it, but eventConsumer.ts subscribes only to the tender and budget plan topics",
+    }
+
+    def test_consumer_event_types_route_to_topics_they_read(self):
+        # An ACL on a topic some connector writes is not enough (#213): every event type a consumer service names that a
+        # type-routed outbox connector of another service publishes is routed through that connector's regex, and the
+        # topic it lands on must be one the consumer's KafkaUser reads. This caught search reading packing slips from
+        # passage.fulfillment.shipment while outbox-fulfillment writes them to passage.fulfillment.packingslip.
+        docs = load_docs(DEPLOY / "kafka/connect.yaml")
+        routers = [(d["metadata"]["name"].removeprefix("outbox-"),
+                    re.compile(d["spec"]["config"]["transforms.outbox.route.topic.regex"].replace("(?<", "(?P<")),
+                    d["spec"]["config"]["transforms.outbox.route.topic.replacement"])
+                   for d in docs if d["kind"] == "KafkaConnector"
+                   and d["spec"]["config"].get("transforms.outbox.route.by.field") == "type"]
+        services_by_user = {}
+        for values_file in sorted(REPO.glob("services/*/charts/*/values.yaml")):
+            values = yaml.safe_load(values_file.read_text()) or {}
+            kafka = ((values.get("consumer") or {}).get("kafka")) or values.get("kafka")
+            if isinstance(kafka, dict) and kafka.get("username"):
+                services_by_user.setdefault(kafka["username"], set()).add(values_file.relative_to(REPO).parts[1])
+        checked = set()
+        for path in manifests(DEPLOY / "kafka"):
+            if not path.name.endswith("-consumer.yaml"):
+                continue
+            for doc in load_docs(path):
+                if doc.get("kind") != "KafkaUser":
+                    continue
+                user = doc["metadata"]["name"]
+                read = {a["resource"]["name"] for a in doc["spec"]["authorization"]["acls"]
+                        if a["resource"]["type"] == "topic" and "Read" in a["operations"]}
+                for service in sorted(services_by_user.get(user, ())):
+                    for typ in sorted(service_event_types(service)):
+                        for producer, regex, replacement in routers:
+                            m = regex.fullmatch(typ)
+                            if producer == service or not m or (service, typ) in self.UNSUBSCRIBED_HANDLERS:
+                                continue
+                            topic = replacement.replace("${routedByValue}", m["routedByValue"])
+                            checked.add((user, topic))
+                            with self.subTest(consumer=user, type=typ):
+                                self.assertIn(topic, read, f"{typ} lands on {topic} (outbox-{producer}), which {user} does not read")
+        self.assertIn(("search-consumer", "passage.fulfillment.packingslip"), checked)
+        self.assertIn(("intercompany-consumer", "passage.expense.report"), checked)
 
     @unittest.skipUnless(shutil.which("helm"), "helm not on PATH")
     def test_temporal_values_match_its_database(self):
