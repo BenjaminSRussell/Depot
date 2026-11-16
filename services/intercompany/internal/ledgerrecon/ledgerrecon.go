@@ -225,9 +225,15 @@ func (r *Reconciler) AdjustFX(ctx context.Context, itemID string) (domain.FXAdju
 		return domain.FXAdjustment{}, err
 	}
 	var a domain.EntityRecord
+	partner := ""
 	for _, e := range entities {
 		if e.Entity == it.Entity {
 			a = e
+		}
+	}
+	for _, e := range entities {
+		if e.Entity == it.Counterparty && e.LegalEntityID != a.LegalEntityID {
+			partner = e.LegalEntityID // the due-from balance is with this counterparty (#40)
 		}
 	}
 	if a.Entity == "" {
@@ -272,7 +278,7 @@ func (r *Reconciler) AdjustFX(ctx context.Context, itemID string) (domain.FXAdju
 		// An increase debits the due-from account and credits the FX account; a decrease does the opposite.
 		return ledgerclient.Entry{LegalEntityID: adj.Target.LegalEntityID, LedgerID: adj.Target.LedgerID, DocumentID: adj.ID, PostingDate: date.Format(time.DateOnly), Currency: adj.Currency,
 			IdempotencyKey: "ic-fx:" + adj.ID, SourceType: posting.SourceType, Lines: []ledgerclient.Line{
-				{Account: adj.BalanceAccount, Credit: !adj.IncreasesBalance, Amount: adj.Amount, Text: text},
+				{Account: adj.BalanceAccount, Credit: !adj.IncreasesBalance, Amount: adj.Amount, Text: text, TradingPartnerID: partner},
 				{Account: adj.FXAccount, Credit: adj.IncreasesBalance, Amount: adj.Amount, Text: text},
 			}}
 	}
