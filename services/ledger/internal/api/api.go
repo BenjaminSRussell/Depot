@@ -138,6 +138,7 @@ func (a *API) Register(r chi.Router) {
 		r.With(authz.RequireAnyDuty(dutyPost, dutyEntryValidate)).Post("/validate", a.validateEntry)
 		r.With(authz.RequireAnyDuty(dutyRead, dutyEntryLookup)).Get("/journal-lines", a.listLines)
 		r.With(authz.RequireDuty(dutyBalanceRead)).Get("/balances", a.trialBalance)
+		r.With(authz.RequireDuty(dutyBalanceRead)).Get("/balances/by-partner", a.partnerBalances)
 		r.With(authz.RequireDuty(dutyRebuild)).Post("/balances:rebuild", a.rebuildBalances)
 		r.With(authz.RequireDuty(dutyRead)).Get("/reason-codes", a.listReasonCodes)
 		r.With(authz.RequireDuty(dutyRead)).Get("/reason-codes/{code}", a.getReasonCode)
@@ -610,6 +611,8 @@ type lineDTO struct {
 	SourceLineRef string            `json:"sourceLineRef"`
 	Quantity      string            `json:"quantity,omitempty"`
 	Unit          string            `json:"unit,omitempty"`
+	// TradingPartnerID is the counterparty legal entity of an intercompany line (#40).
+	TradingPartnerID string `json:"tradingPartnerId,omitempty"`
 }
 
 type postEntryRequest struct {
@@ -748,8 +751,16 @@ func lineInput(prefix string, l lineDTO, fields map[string]string) domain.LineIn
 	if !ok {
 		fields[prefix+".quantity"] = "must be a decimal string"
 	}
+	partner := ""
+	if l.TradingPartnerID != "" {
+		if id, ok := ids.Canonical(l.TradingPartnerID); ok {
+			partner = id
+		} else {
+			fields[prefix+".tradingPartnerId"] = "must be a legal entity id (UUID)"
+		}
+	}
 	return domain.LineInput{Account: l.Account, Dimensions: l.Dimensions, Side: l.DebitCredit,
-		Amount: amount, Currency: l.Amount.Currency, Text: l.Text, SourceLineRef: l.SourceLineRef, Quantity: qty, Unit: l.Unit}
+		Amount: amount, Currency: l.Amount.Currency, Text: l.Text, SourceLineRef: l.SourceLineRef, Quantity: qty, Unit: l.Unit, TradingPartner: partner}
 }
 
 func (a *API) postEntry(w http.ResponseWriter, r *http.Request) {
@@ -1019,6 +1030,42 @@ func (a *API) trialBalance(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.JSON(w, http.StatusOK, tb)
+}
+
+// partnerBalances serves GET /v1/ledger/balances/by-partner: the intercompany balances of a ledger by account and trading partner (#40).
+func (a *API) partnerBalances(w http.ResponseWriter, r *http.Request) {
+	if _, ok := principal(w, r); !ok {
+		return
+	}
+	q := r.URL.Query()
+	f := store.PartnerBalanceFilter{LedgerID: q.Get("ledger"), PeriodFrom: q.Get("period_from"), PeriodTo: q.Get("period_to"),
+		AccountFrom: q.Get("account_from"), AccountTo: q.Get("account_to")}
+	fields := map[string]string{}
+	if !ids.Valid(f.LedgerID) {
+		fields["ledger"] = "is required and must be a UUID"
+	}
+	for name, v := range map[string]string{"period_from": f.PeriodFrom, "period_to": f.PeriodTo} {
+		if v != "" && !periodRe.MatchString(v) {
+			fields[name] = "must be a period as YYYY-MM"
+		}
+	}
+	if v := q.Get("trading_partner"); v != "" {
+		if id, ok := ids.Canonical(v); ok {
+			f.TradingPartnerID = id
+		} else {
+			fields["trading_partner"] = "must be a legal entity id (UUID)"
+		}
+	}
+	if len(fields) > 0 {
+		validationFailed(w, r, fields)
+		return
+	}
+	res, err := a.store.PartnerBalances(r.Context(), f)
+	if err != nil {
+		a.fail(w, r, err)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, res)
 }
 
 type rebuildRequest struct {

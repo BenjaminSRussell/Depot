@@ -3597,3 +3597,11 @@ test_payment_prediction_routes_answer_under_the_gateway_prefix_and_the_dso_tile_
 	allowed("agents.admin", "PUT", "/v1/predictions/payment/settings")
 	not allowed("agents.admin", "GET", "/v1/predictions/payment/dso")
 }
+
+# #40: the partner balance read of the ledger (intercompany balances by trading partner) is part of the balance duty, so the
+# consolidation's existing ledger.balance.read grant covers it and no grant changes.
+test_ledger_partner_balances_use_the_balance_duty if {
+	allowed("ledger.balance.read", "GET", "/v1/ledger/balances/by-partner")
+	not allowed("ledger.balance.read", "POST", "/v1/ledger/balances/by-partner")
+	not allowed("ledger.entry.post", "GET", "/v1/ledger/balances/by-partner")
+}
