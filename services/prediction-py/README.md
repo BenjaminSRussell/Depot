@@ -63,8 +63,9 @@ recompute writes through its own idempotent upserts), so delivery is at least on
 safety net. Needs `KAFKA_BROKERS`, `RECEIVABLES_URL` and the service signing key (the same as the sync jobs); optional
 `PREDICTION_KAFKA_GROUP` and `PREDICTION_KAFKA_TOPICS`; SCRAM-SHA-512 over TLS with `KAFKA_USERNAME`, `KAFKA_PASSWORD_FILE` and
 `KAFKA_TLS_CA_FILE` (chart `consumer.kafka.secret`; `deploy/kafka/prediction-consumer.yaml` is the KafkaUser with read ACLs on the seven
-topics and the group `prediction`). **Prerequisite not built:** receivables has no outbox connector in `deploy/kafka/connect.yaml`, so
-the `passage.receivables.*` topics do not exist (`auto.create.topics.enable` is false) and no event reaches the consumer until one is added. Tests: `tests/test_consumer.py` with a fake source and a fake Kafka client.
+topics and the group `prediction`). The `passage.receivables.*` topics are written by `outbox-receivables` in
+`deploy/kafka/connect.yaml` (routed by event type; receivables migrations 0030 and 0031 publish the outbox to `debezium_cdc_receivables`);
+until that connector runs on the cluster no event reaches the consumer (`auto.create.topics.enable` is false). Tests: `tests/test_consumer.py` with a fake source and a fake Kafka client.
 
 ## Run and test
 

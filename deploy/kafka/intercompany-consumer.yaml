@@ -2,9 +2,8 @@
 # line and project hour another legal entity bears, from expense's report.approved (passage.expense.report) and projects'
 # transaction.posted (passage.projects.transaction), and parks what it cannot apply on passage.intercompany.charges.dlq. The chart's
 # consumer.kafka.username names this user. Literal ACLs: it reads those two topics and writes only its dead-letter topic.
-# NOT YET LIVE: deploy/kafka/connect.yaml has no outbox connector for expense or projects, so those two topics are not created or
-# written. Adding the connectors (a CDC role and publication per database, like intercompany's 0007/0008 migrations) is a deployment
-# step; until then the consumer stays off in the chart and the handlers are exercised by the service tests.
+# The two topics are written by outbox-expense and outbox-projects (deploy/kafka/connect.yaml, routed by event type, #213); the
+# consumer stays off in the chart until those connectors run on the cluster.
 apiVersion: kafka.strimzi.io/v1beta2
 kind: KafkaUser
 metadata:
