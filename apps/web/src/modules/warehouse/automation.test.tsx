@@ -149,6 +149,17 @@ describe("RFID reads", () => {
     fill("Pallet number or item number", SSCC);
     await waitFor(() => expect(server.calls.at(-1)?.url.searchParams.get("key")).toBe(SSCC));
   });
+
+  it("shows the GS1 TDS 2.3 schemes with their key and serial", async () => {
+    const cpi: RfidRead = { ...read, id: "r3", epc: "3D76451FD75411DEF6B4CC00000003039000", scheme: "CPI-var", key: "95211415PQ7/Z43", serial: "12345", actionOutcome: "SKIPPED", actionDetail: "the tag is CPI-var, not a pallet's SSCC" };
+    const adi: RfidRead = { ...read, id: "r4", epc: "3B0E0CF5E76C9047759AD00373DC7602E7200", scheme: "ADI-var", key: "35962.PQ7VZ4", serial: "M37GXB92", action: undefined, actionOutcome: undefined, actionDetail: undefined };
+    server.handler = (url) => (url.pathname === "/api/v1/warehouse/rfid-reads" ? json(200, { items: [cpi, adi] }) : undefined);
+    renderAt("/warehouse/rfid-reads");
+    const table = await findTable({ name: "RFID reads" });
+    await waitFor(() => expect(table).toHaveTextContent("CPI-var 95211415PQ7/Z43 / 12345"));
+    expect(table).toHaveTextContent("ADI-var 35962.PQ7VZ4 / M37GXB92");
+    expect(table).toHaveTextContent("the tag is CPI-var, not a pallet's SSCC");
+  });
 });
 
 describe("Automation orders", () => {

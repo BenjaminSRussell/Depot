@@ -100,7 +100,8 @@ func (s *Store) IngestRFID(ctx context.Context, reads []RFIDRead) (RFIDIngest, e
 				}
 				return err
 			}
-			hex := strings.ToUpper(strings.TrimSpace(rd.EPC))
+			// The canonical form: a tag reported with more or less padding is the same tag, stored and deduplicated once.
+			hex := epc.Hex
 			dup := false
 			for _, at := range seen[seenKey{rd.ReaderID, hex}] {
 				if absDuration(at.Sub(rd.ReadAt)) <= DedupeWindow {

@@ -414,6 +414,26 @@ func TestRFIDRulesReceiveAndConfirmPutaway(t *testing.T) {
 	if sg.Accepted != 1 || sg.Reads[0].EPC.Scheme != "SGTIN-198" || sg.Reads[0].Actions[0].Outcome != store.RFIDSkipped {
 		t.Fatalf("SGTIN-198 read: %+v", sg)
 	}
+	// The TDS 2.3 schemes are stored too and skipped by the dock rule: a CPI-var part (annex E.3), the longest ADI-var
+	// (434 bits, 112 hexadecimal characters) and the shortest (68 bits written in 17).
+	cpi, _ := domain.EncodeEPCTagURI("urn:epc:tag:cpi-var:3.9521141.5PQ7%2FZ43.12345")
+	adiShort, _ := domain.EncodeEPCTagURI("urn:epc:tag:adi-var:0.2S194..1")
+	adiLong, _ := domain.EncodeEPCTagURI("urn:epc:tag:adi-var:63.W81X9C." + strings.Repeat("A", 32) + ".%23" + strings.Repeat("1", 29))
+	for i, tc := range []struct{ hex, scheme, key, serial string }{
+		{cpi, "CPI-var", "95211415PQ7/Z43", "12345"},
+		{adiLong, "ADI-var", "W81X9C." + strings.Repeat("A", 32), "#" + strings.Repeat("1", 29)},
+		{adiShort[:17], "ADI-var", "2S194", "1"},
+	} {
+		got := ingest("dock-1", 0, tc.hex, fmt.Sprintf("2026-10-27T09:3%d:00Z", i+1))
+		if got.Accepted != 1 || got.Reads[0].EPC.Scheme != tc.scheme || got.Reads[0].EPC.Key != tc.key || got.Reads[0].EPC.Serial != tc.serial ||
+			got.Reads[0].Actions[0].Outcome != store.RFIDSkipped || !strings.Contains(got.Reads[0].Actions[0].Detail, tc.scheme) {
+			t.Fatalf("%s read %s: %+v", tc.scheme, tc.hex, got)
+		}
+	}
+	rec = call(h, req{method: "GET", path: "/v1/warehouse/rfid-reads?readerId=dock-1", duties: all})
+	if !strings.Contains(rec.Body.String(), `"scheme":"ADI-var"`) || !strings.Contains(rec.Body.String(), `"key":"95211415PQ7/Z43"`) {
+		t.Fatalf("stored TDS 2.3 reads: %s", rec.Body)
+	}
 	rec = call(h, req{method: "GET", path: "/v1/warehouse/rfid-reads?readerId=rack-A", duties: all})
 	if !strings.Contains(rec.Body.String(), `"action":"CONFIRM_PUTAWAY"`) || !strings.Contains(rec.Body.String(), `"actionOutcome":"DONE"`) {
 		t.Fatalf("stored reads keep what was done: %s", rec.Body)
@@ -835,5 +855,77 @@ func TestRFIDRuleEdit(t *testing.T) {
 	}
 	if rec := call(h, req{method: "PUT", path: "/v1/warehouse/rfid-rules/" + ids.New(), duties: dutySetupMaintain, body: rule("dock-3", "RECEIVE_PALLET", ""), user: "editor"}); rec.Code != 404 {
 		t.Fatalf("an unknown rule: %d %s", rec.Code, rec.Body)
+	}
+}
+
+// A tag reported with more or less padding is one tag (TDS 14.4 steps 3 and 4): it is stored once, in its canonical
+// form, and the other spellings are duplicates. And two ADIs whose CAGE code or DoDAAC and part number run together
+// the same way keep different keys, so a key filter tells them apart.
+func TestRFIDReadsCanonicalHexAndADIKeys(t *testing.T) {
+	pool := testkit.DB(t)
+	if err := dbx.Migrate(context.Background(), pool, migrations.FS); err != nil {
+		t.Fatal(err)
+	}
+	h := persistedRouter(store.New(pool))
+	all := strings.Join([]string{dutyRFIDIngest, dutyInquiry}, ",")
+	ingest := func(reads ...string) store.RFIDIngest {
+		t.Helper()
+		rec := call(h, req{method: "POST", path: "/v1/warehouse/rfid-reads:ingest", duties: all, body: `{"reads":[` + strings.Join(reads, ",") + `]}`})
+		var out store.RFIDIngest
+		if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil || rec.Code != 200 {
+			t.Fatalf("ingest: %d %s", rec.Code, rec.Body)
+		}
+		return out
+	}
+	read := func(reader, epc string, second int) string {
+		return fmt.Sprintf(`{"readerId":%q,"epc":%q,"readAt":"2026-10-27T09:00:%02dZ"}`, reader, epc, second)
+	}
+	list := func(query string) []store.RFIDReadRow {
+		t.Helper()
+		rec := call(h, req{method: "GET", path: "/v1/warehouse/rfid-reads?" + query, duties: all})
+		var out struct{ Items []store.RFIDReadRow }
+		if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil || rec.Code != 200 {
+			t.Fatalf("list %s: %d %s", query, rec.Code, rec.Body)
+		}
+		return out.Items
+	}
+	// The ADI-var of TDS annex E.3 as the annex writes it (37 characters), padded to its 16-bit word (40, what the
+	// encoder writes) and in between (38), one second apart at one reader.
+	annex := "3B0E0CF5E76C9047759AD00373DC7602E7200"
+	canonical := annex + "000"
+	for i, spelling := range []string{annex, canonical, annex + "0"} {
+		got := ingest(read("probe-1", spelling, i))
+		if want := map[bool]int{true: 1, false: 0}[i == 0]; got.Accepted != want || got.Duplicates != 1-want {
+			t.Fatalf("spelling %d (%s): %+v", i, spelling, got)
+		}
+		if i == 0 && got.Reads[0].EPC.Hex != canonical {
+			t.Fatalf("canonical hex %s", got.Reads[0].EPC.Hex)
+		}
+	}
+	if rows := list("readerId=probe-1"); len(rows) != 1 || rows[0].EPC != canonical {
+		t.Fatalf("stored reads of probe-1: %+v", rows)
+	}
+	// The same in one batch, and for a CPI-var (33 to 36 characters) and an SGTIN-198 (50 to 52).
+	cpi := "3D76451FD75411DEF6B4CC00000003039000"
+	sgtin, _ := domain.EncodeEPCString(0x36, 3, "0614141", "712345", "32a/b")
+	got := ingest(read("probe-2", annex, 1), read("probe-2", canonical, 2), read("probe-2", strings.ToLower(annex)+"00", 3),
+		read("probe-2", cpi[:33], 4), read("probe-2", cpi, 5), read("probe-2", sgtin[:50], 6), read("probe-2", sgtin, 7))
+	if got.Accepted != 3 || got.Duplicates != 4 {
+		t.Fatalf("one batch: %+v", got)
+	}
+	if rows := list("readerId=probe-2"); len(rows) != 3 {
+		t.Fatalf("stored reads of probe-2: %+v", rows)
+	}
+
+	// CAGE code 2S194 with part number A1, and DoDAAC 2S194A with part number 1, both serial 5.
+	cageTag, dodaacTag := "3B020C93C79D01C40D40", "3B0324F1E74071035000"
+	if got := ingest(read("probe-3", cageTag, 10), read("probe-3", dodaacTag, 11)); got.Accepted != 2 ||
+		got.Reads[0].EPC.Key != "2S194.A1" || got.Reads[1].EPC.Key != "2S194A.1" {
+		t.Fatalf("ADI reads: %+v", got)
+	}
+	for key, want := range map[string]string{"2S194.A1": cageTag, "2S194A.1": dodaacTag} {
+		if rows := list("key=" + key); len(rows) != 1 || rows[0].EPC != want || rows[0].Serial != "5" {
+			t.Fatalf("reads of key %s: %+v", key, rows)
+		}
 	}
 }
