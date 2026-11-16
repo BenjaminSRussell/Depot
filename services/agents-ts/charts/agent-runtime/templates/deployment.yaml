@@ -91,6 +91,14 @@ spec:
             - name: AGENTS_APPROVAL_EXPIRY_H
               value: {{ .Values.approvalExpiryHours | quote }}
             {{- end }}
+            - name: AGENTS_RUN_ENGINE
+              value: {{ .Values.runEngine | quote }}
+            {{- if eq .Values.runEngine "temporal" }}
+            - name: AGENTS_WORKFLOW_URL
+              value: {{ .Values.workflowUrl | quote }}
+            - name: PASSAGE_SERVICE_PUBLIC_KEYS
+              value: {{ required "servicePublicKeys is required when runEngine is temporal" .Values.servicePublicKeys | quote }}
+            {{- end }}
             - name: AGENTS_KILLSWITCH_POLL_MS
               value: {{ .Values.killSwitchPollMs | quote }}
             - name: AGENTS_SELF_APPROVAL_LIMIT

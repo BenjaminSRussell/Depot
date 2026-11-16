@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import {
   createServiceTokenSigner,
-  BUDGETING_GRANT,
+  AGENTS_GRANT, BUDGETING_GRANT,
   ENGINEERING_GRANT,
   PAYABLES_GRANT,
   QUALITY_GRANT,
@@ -42,6 +42,7 @@ describe("service token", () => {
       quality: [...QUALITY_GRANT],
       transport: [...TRANSPORT_GRANT],
       party: [...PARTY_GRANT, ...PARTY_MERGE_GRANT],
+      agents: [...AGENTS_GRANT],
     });
   });
 

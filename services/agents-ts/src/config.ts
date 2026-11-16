@@ -45,6 +45,16 @@ export interface Config {
   phiFields: readonly string[];
   /** Caller authentication: the realm that signs the bearer tokens callers send (auth.ts). */
   jwt: { issuer: string; audience: string; jwksUrl: string | undefined; jwksFile: string | undefined };
+  /**
+   * How runs execute (AGENTS_RUN_ENGINE). `temporal`: each run is a workflow (workflow-ts agentRunWorkflow) whose steps call
+   * this service, so a run resumes after an approval across pod restarts (FR-47.4). `inprocess` (the default, for dev):
+   * the run lives in one promise of this pod and is lost with it.
+   */
+  runEngine: "inprocess" | "temporal";
+  /** workflow-ts base URL (AGENTS_WORKFLOW_URL): where a run is started and an approval decision is signalled; required with `temporal`. */
+  workflowUrl: string | undefined;
+  /** Public keys of the services allowed to call the run-step routes (PASSAGE_SERVICE_PUBLIC_KEYS, `name[:kid]=base64` comma separated); required with `temporal`. */
+  servicePublicKeys: string;
 }
 
 export function parseAddr(value: string, name: string): { host: string; port: number } {
@@ -115,6 +125,14 @@ export function loadConfig(env: NodeJS.ProcessEnv): Config {
   const jwksFile = env["AGENTS_JWKS_FILE"] || undefined;
   if (jwksUrl === undefined && jwksFile === undefined) throw new Error("AGENTS_JWKS_URL or AGENTS_JWKS_FILE (the realm's signing keys) is required");
   if (jwksUrl !== undefined && !/^https?:\/\//.test(jwksUrl)) throw new Error("AGENTS_JWKS_URL must be an http(s) URL");
+  const runEngine = env["AGENTS_RUN_ENGINE"] ?? "inprocess";
+  if (runEngine !== "inprocess" && runEngine !== "temporal") throw new Error("AGENTS_RUN_ENGINE must be inprocess or temporal");
+  const workflowUrl = env["AGENTS_WORKFLOW_URL"] || undefined;
+  const servicePublicKeys = env["PASSAGE_SERVICE_PUBLIC_KEYS"] ?? "";
+  if (runEngine === "temporal") {
+    if (workflowUrl === undefined || !/^https?:\/\//.test(workflowUrl)) throw new Error("AGENTS_WORKFLOW_URL must be workflow-ts's http(s) URL when AGENTS_RUN_ENGINE=temporal");
+    if (servicePublicKeys.trim() === "") throw new Error("PASSAGE_SERVICE_PUBLIC_KEYS must hold workflow-ts's public key when AGENTS_RUN_ENGINE=temporal");
+  }
   return {
     host: http.host,
     port: http.port,
@@ -148,6 +166,9 @@ export function loadConfig(env: NodeJS.ProcessEnv): Config {
     providerRegion: env["AGENTS_PROVIDER_REGION"] || undefined,
     phiFields: parsePhiFields(env["AGENTS_PHI_FIELDS"], phiFile(env["AGENTS_PHI_FIELDS_FILE"])),
     jwt: { issuer, audience: env["AGENTS_JWT_AUDIENCE"] || "passage-api", jwksUrl, jwksFile },
+    runEngine,
+    workflowUrl,
+    servicePublicKeys,
   };
 }
 

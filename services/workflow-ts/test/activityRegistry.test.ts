@@ -23,6 +23,11 @@ describe("worker activity registry", () => {
     const activities = buildActivities({ PASSAGE_SERVICE_SIGNING_KEY: seed }, () => "", warn);
     expect(Object.keys(activities).sort()).toEqual(
       [
+        "agentAbort",
+        "agentBegin",
+        "agentCommit",
+        "agentPlan",
+        "agentResolve",
         "approveEco",
         "cancelEco",
         "checkEffectiveness",

@@ -60,9 +60,38 @@ deterministic in tests.
 | `AGENTS_MODEL`, `AGENTS_COPILOT_MODEL`, `AGENTS_MODEL_OVERRIDES` | Model ids; the overrides are a JSON object of agent id to model id | `claude-sonnet-5-5` |
 | `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` + `AGENTS_OPENAI_BASE_URL`, `AWS_REGION` + `AWS_ACCESS_KEY_ID` + `AWS_SECRET_ACCESS_KEY` | Provider credentials, from a secret; a missing one fails the first run naming the variable | |
 | `AGENTS_RUN_TOKEN_CAP`, `AGENTS_COPILOT_TOKEN_CAP`, `AGENTS_COPILOT_MAX_TURNS` | Per-run and per-chat token caps, chat turns | 20000, 8000, 4 |
+| `AGENTS_RUN_ENGINE`, `AGENTS_WORKFLOW_URL`, `PASSAGE_SERVICE_PUBLIC_KEYS` | `inprocess` (dev fallback: a run is one promise in the pod) or `temporal` (each run is workflow-ts `agentRunWorkflow`, so a run resumes after an approval across pod restarts; needs the workflow URL and workflow-ts's public key, see "Runs as workflows") | `inprocess` |
 | `AGENTS_APPROVAL_EXPIRY_H`, `AGENTS_SELF_APPROVAL_LIMIT`, `AGENTS_SELF_APPROVAL_CURRENCY` | BR-47.3 expiry (1 to 240 hours) and the self-approval limit | 72, 0, USD |
 | `AGENTS_KILLSWITCH_POLL_MS` | How often each pod reads the shared kill switch (100 to 5000) | 1000 |
 | `HTTP_ADDR`, `ADMIN_ADDR`, `MIGRATE_ON_START`, `AGENTS_DB_POOL` | Listeners and database | `0.0.0.0:8080`, `0.0.0.0:9090`, off, 10 |
+
+## Runs as workflows
+
+With `AGENTS_RUN_ENGINE=temporal` (FR-47.4, FR-47.8) `POST /api/v1/agents/{id}/runs` still answers 202 with the run id,
+but the run is a Temporal workflow, `agentRunWorkflow` in `services/workflow-ts` (the only package with the Temporal SDK).
+The run's logic stays here, as idempotent steps (`src/runtime/steps.ts`) over durable state (migration 0007), and the
+workflow drives them as activities through `POST /api/v1/agents/runs/{id}/steps/{begin|plan|resolve|commit|abort}`,
+authenticated by workflow-ts's signed service token (grant `agents.run.workflow`, no legal entity).
+
+1. `create` (the HTTP start, after the duty, kill switch, evaluation and budget checks) stores the input and the caller's
+   token in `agent_run_state` and `agent_run_credential` and starts the workflow with ids only: the prompt, tokens and
+   pseudonym map never enter Temporal history.
+2. `begin` reserves the budget hold and opens the run; `plan` checks the kill switch, makes the one model call on pseudonymized
+   text, applies the proposal's gates and risk, and either opens the approval request or goes straight to commit (AUTO).
+3. The workflow waits for the approval as a signal (`agent-approval-decided`, sent by this service after the decision
+   endpoint records the decision) with a timer for the BR-47.3 expiry. The signal only wakes it: `resolve` reads the stored
+   decision, the source of truth, and with `expire` records REJECTED/EXPIRED for an undecided request (first writer wins
+   against a human). The workflow also re-reads hourly, so a lost signal delays a run at most that long.
+4. `commit` checks the kill switch, the PII gate and the self-approval rule, restores real values from the persisted pseudonym
+   map and calls the tool as the approver, using the token the decision request carried (kept in `agent_run_credential`
+   until it expires or the run ends; the starter's token is the fallback). A commit interrupted by a restart mid-call is
+   never repeated: the run fails and says to check the target record.
+5. Every step records its action row with `recordAction`, idempotent per `(run, seq)`, and a step that exhausts its retries
+   ends the run FAILED through `abort`, so a run is never left RUNNING.
+
+The in-process engine (`src/runtime/engine.ts`) stays as the dev fallback and is unchanged. Temporal tests are in
+workflow-ts (`test/agentRun.test.ts`, CI only); the steps are tested here with fakes (`test/steps.test.ts`,
+`test/steps-api.test.ts`) and Postgres (`test/runstate-pg.test.ts`).
 
 ## Run and test
 

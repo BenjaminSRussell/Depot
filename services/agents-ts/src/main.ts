@@ -12,6 +12,10 @@ import { createCopilotService } from "./runtime/copilot.js";
 import { createKnowledgeService } from "./runtime/knowledge.js";
 import { PgKeywordIndex } from "./store/knowledge.js";
 import { createMcpConnector } from "./runtime/mcp.js";
+import { createVerifier, parsePublicKeys } from "./api/serviceToken.js";
+import { createRunSteps } from "./runtime/steps.js";
+import { createWorkflowGateway } from "./runtime/workflowGateway.js";
+import { PgRunStateStore } from "./store/runstate.js";
 import { createRunService } from "./runtime/service.js";
 import { createAdminServer, createRequestHandler, listen, Metrics } from "./server.js";
 import { PgApprovalStore } from "./store/approvals.js";
@@ -55,7 +59,26 @@ async function main(): Promise<void> {
   await ensurePartitions();
   const partitionTimer = setInterval(() => void ensurePartitions(), 24 * 3_600_000);
   partitionTimer.unref();
+  // AGENTS_RUN_ENGINE=temporal: runs are workflows (workflow-ts) that call these steps; the in-process engine stays the dev default.
+  const approvalHours = cfg.approvalExpiryHours ?? 72;
+  const stepsService =
+    cfg.runEngine === "temporal"
+      ? createRunSteps({
+          agents,
+          providerFor,
+          mcp,
+          audit: store,
+          state: new PgRunStateStore(store),
+          inbox,
+          killSwitch: registry,
+          // The pseudonym map must outlive the longest approval wait, or a resumed run could not restore real values.
+          pseudonymTtlMs: Math.max(24, approvalHours + 24) * 3_600_000,
+        })
+      : undefined;
   const runs = createRunService({
+    ...(stepsService !== undefined && cfg.workflowUrl !== undefined
+      ? { workflow: { steps: stepsService, state: new PgRunStateStore(store), gateway: createWorkflowGateway({ baseUrl: cfg.workflowUrl }) } }
+      : {}),
     agents,
     evalPassed: (agent) => versions.evalPassed(agent),
     providerFor,
@@ -94,6 +117,7 @@ async function main(): Promise<void> {
     log: killLog,
     approvals: inbox,
     runs,
+    ...(stepsService !== undefined ? { steps: { service: stepsService, verifier: createVerifier({ keys: parsePublicKeys(cfg.servicePublicKeys) }) } } : {}),
     copilot,
     knowledge,
   };

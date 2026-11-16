@@ -1,0 +1,171 @@
+import { createPrivateKey, createPublicKey, randomBytes, sign } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { afterEach, describe, expect, it } from "vitest";
+import { defaultCatalog } from "../src/agents/catalog.js";
+import { createVerifier, DUTY_RUN_WORKFLOW, parsePublicKeys, SERVICE_GRANTS, SERVICE_NAME } from "../src/api/serviceToken.js";
+import { createRunService } from "../src/runtime/service.js";
+import { createRunSteps } from "../src/runtime/steps.js";
+import type { WorkflowGateway } from "../src/runtime/workflowGateway.js";
+import { tokenFor } from "./jwt.js";
+import { proposal, ScriptedProvider } from "./fakes.js";
+import { FakeMcp, headers, MemoryStore, OTHER, serve, T1, tool, USER } from "./surface-fakes.js";
+import { MemState } from "./memstate.js";
+
+const AP_DUTIES = "agents.invoke,ap.invoice.read,ap.vendor.read,ledger.account.read,tax.code.read,ap.invoice.propose";
+const PROPOSE = "passage.ap.invoice.propose_coding";
+const PKCS8 = Buffer.from("302e020100300506032b657004220420", "hex");
+const seed = randomBytes(32);
+const publicB64 = createPublicKey(createPrivateKey({ key: Buffer.concat([PKCS8, seed]), format: "der", type: "pkcs8" })).export({ format: "der", type: "spki" }).subarray(-32).toString("base64");
+const NOW = Date.now();
+
+function mint(over: Record<string, unknown> = {}): string {
+  const iat = Math.floor(NOW / 1000);
+  const claims = { iss: "workflow-ts", aud: "agents", tid: T1, act: USER, duties: [DUTY_RUN_WORKFLOW], iat, exp: iat + 60, jti: randomBytes(8).toString("hex"), ...over };
+  const body = Buffer.from(JSON.stringify(claims)).toString("base64url");
+  const sig = sign(null, Buffer.from(`passage.service-token.v1.${body}`), createPrivateKey({ key: Buffer.concat([PKCS8, seed]), format: "der", type: "pkcs8" })).toString("base64url");
+  return `${body}.${sig}`;
+}
+
+const setup = async () => {
+  const store = new MemoryStore();
+  const state = new MemState();
+  const mcp = new FakeMcp([tool(PROPOSE, "ap.invoice.propose", "suggest")], { [PROPOSE]: { ok: true, output: { id: "coding-1" }, ref: "coding-1" } });
+  const provider = new ScriptedProvider([proposal(0.9, "1200", PROPOSE, { invoiceId: "INV-7" })]);
+  const agents = defaultCatalog("claude-sonnet-5-5");
+  const gateway = { started: [] as string[], woken: [] as string[], failStart: false } as WorkflowGateway & { started: string[]; woken: string[]; failStart: boolean };
+  gateway.start = async (_c, runId) => {
+    if (gateway.failStart) throw new Error("down");
+    gateway.started.push(runId);
+  };
+  gateway.approvalDecided = async (_c, runId, actionId) => void gateway.woken.push(`${runId}/${actionId}`);
+  const steps = createRunSteps({
+    agents,
+    providerFor: () => provider,
+    mcp,
+    audit: store,
+    state,
+    inbox: store,
+    killSwitch: { isHalted: () => false },
+    riskFor: () => ({ assess: () => ({ vendorHighRisk: false, sodConflict: false }) }),
+    pseudonymTtlMs: 86_400_000,
+  });
+  const runs = createRunService({
+    agents,
+    evalPassed: async () => true,
+    providerFor: () => provider,
+    mcp,
+    store,
+    inbox: store,
+    killSwitch: { isHalted: () => false },
+    config: { runTokenCap: 50_000, selfApprovalLimit: { amount: "0", currency: "USD" }, pseudonymTtlMs: 60_000 },
+    workflow: { steps, state, gateway },
+  });
+  const verifier = createVerifier({ keys: parsePublicKeys(`workflow-ts=${publicB64}`), now: () => NOW });
+  const srv = await serve({ approvals: store, runs, steps: { service: steps, verifier } });
+  return { store, state, mcp, provider, gateway, srv };
+};
+
+let close: (() => Promise<void>) | undefined;
+afterEach(async () => {
+  await close?.();
+  close = undefined;
+});
+
+const step = (base: string, runId: string, name: string, token: string | undefined, body: unknown = {}) =>
+  fetch(`${base}/api/v1/agents/runs/${runId}/steps/${name}`, { method: "POST", headers: token === undefined ? {} : { "x-passage-service-token": token }, body: JSON.stringify(body) });
+
+describe("agent runs as workflows (AGENTS_RUN_ENGINE=temporal)", () => {
+  it("start answers 202 with the run id and starts the workflow; the steps then run, an approval wakes the workflow and the commit runs as the approver", async () => {
+    const s = await setup();
+    close = s.srv.close;
+    const res = await fetch(`${s.srv.base}/api/v1/agents/ap_coding/runs`, { method: "POST", headers: headers(AP_DUTIES), body: JSON.stringify({ prompt: "Code invoice INV-7 for Acme" }) });
+    expect(res.status).toBe(202);
+    const { runId, status } = (await res.json()) as { runId: string; status: string };
+    expect(status).toBe("RUNNING");
+    expect(s.gateway.started).toEqual([runId]);
+    expect(s.mcp.connects).toHaveLength(0); // nothing runs in this process
+    expect(s.provider.seen).toHaveLength(0);
+
+    // What the workflow does, one activity at a time.
+    const t = mint();
+    expect(await (await step(s.srv.base, runId, "begin", t)).json()).toEqual({ next: "plan" });
+    const planned = (await (await step(s.srv.base, runId, "plan", mint())).json()) as { next: string; actionId: string };
+    expect(planned.next).toBe("await_approval");
+    expect(s.mcp.connects[0]).toMatchObject({ userId: USER, token: tokenFor(T1, USER, AP_DUTIES) });
+
+    const decide = await fetch(`${s.srv.base}/api/v1/agents/runs/${runId}/actions/${planned.actionId}/decision`, { method: "POST", headers: headers("ap.invoice.propose", OTHER), body: JSON.stringify({ decision: "APPROVED" }) });
+    expect(decide.status).toBe(200);
+    expect(s.gateway.woken).toEqual([`${runId}/${planned.actionId}`]);
+    expect(await (await step(s.srv.base, runId, "resolve", mint(), { expire: false })).json()).toEqual({ next: "commit" });
+    expect(await (await step(s.srv.base, runId, "commit", mint())).json()).toEqual({ next: "done", status: "COMMITTED" });
+    expect(s.mcp.connects.at(-1)).toMatchObject({ userId: OTHER, token: tokenFor(T1, OTHER, "ap.invoice.propose") });
+    expect(s.mcp.calls.at(-1)).toEqual({ name: PROPOSE, args: { invoiceId: "INV-7" } });
+
+    const view = (await (await fetch(`${s.srv.base}/api/v1/agents/runs/${runId}`, { headers: headers("agents.run.read") })).json()) as { run: { status: string } };
+    expect(view.run.status).toBe("COMMITTED");
+    const actions = (await (await fetch(`${s.srv.base}/api/v1/agents/runs/${runId}/actions`, { headers: headers("agents.run.read") })).json()) as { items: unknown[] };
+    expect(actions.items).toEqual([expect.objectContaining({ toolName: PROPOSE, decision: "APPROVED", approverUserId: OTHER, committedEntityRef: "coding-1" })]);
+    expect(s.state.creds.size).toBe(0);
+  });
+
+  it("the prompt and the starter's token stay in the run's own rows, not in anything sent to the workflow", async () => {
+    const s = await setup();
+    close = s.srv.close;
+    await fetch(`${s.srv.base}/api/v1/agents/ap_coding/runs`, { method: "POST", headers: headers(AP_DUTIES), body: JSON.stringify({ prompt: "Remit to DE89370400440532013000" }) });
+    expect(s.gateway.started.join()).not.toContain("DE89");
+    const [row] = [...s.state.rows.values()];
+    expect((row?.input as { prompt: string }).prompt).toContain("DE89370400440532013000");
+  });
+
+  it("a start whose workflow cannot be started answers 502 AGT-0214", async () => {
+    const s = await setup();
+    close = s.srv.close;
+    s.gateway.failStart = true;
+    const res = await fetch(`${s.srv.base}/api/v1/agents/ap_coding/runs`, { method: "POST", headers: headers(AP_DUTIES), body: JSON.stringify({ prompt: "x" }) });
+    expect(res.status).toBe(502);
+    expect(((await res.json()) as { code: string }).code).toBe("AGT-0214");
+  });
+
+  it("the step routes answer only to a valid service token for the agents service", async () => {
+    const s = await setup();
+    close = s.srv.close;
+    const run = "00000000-0000-7000-8000-00000000f001";
+    for (const token of [undefined, "garbage", tokenFor(T1, USER, AP_DUTIES), mint({ aud: "payables" }), mint({ duties: ["agents.invoke"] }), mint({ le: "00000000-0000-7000-8000-0000000000a1" }), mint({ exp: Math.floor(NOW / 1000) - 5 })]) {
+      expect((await step(s.srv.base, run, "plan", token)).status).toBe(401);
+    }
+    expect((await step(s.srv.base, run, "plan", mint())).status).toBe(404); // valid token, no such run
+    const replay = mint({ jti: "same" });
+    expect((await step(s.srv.base, run, "plan", replay)).status).toBe(404);
+    expect((await step(s.srv.base, run, "plan", replay)).status).toBe(401);
+    expect((await fetch(`${s.srv.base}/api/v1/agents/runs/${run}/steps/plan`, { method: "GET", headers: { "x-passage-service-token": mint() } })).status).toBe(405);
+  });
+
+  it("another tenant's token cannot reach a run", async () => {
+    const s = await setup();
+    close = s.srv.close;
+    const res = await fetch(`${s.srv.base}/api/v1/agents/ap_coding/runs`, { method: "POST", headers: headers(AP_DUTIES), body: JSON.stringify({ prompt: "x" }) });
+    const { runId } = (await res.json()) as { runId: string };
+    expect((await step(s.srv.base, runId, "begin", mint({ tid: "00000000-0000-7000-8000-0000000000ff" }))).status).toBe(404);
+  });
+});
+
+describe("agents service grants", () => {
+  it("match policies/authz/data.json and the Go table", () => {
+    const root = new URL("../../../", import.meta.url);
+    const data = JSON.parse(readFileSync(new URL("policies/authz/data.json", root), "utf8")) as { service_grants: Record<string, Record<string, string[]>> };
+    const fromData: Record<string, string[]> = {};
+    for (const [iss, targets] of Object.entries(data.service_grants)) if (targets[SERVICE_NAME]) fromData[iss] = targets[SERVICE_NAME];
+    expect(fromData).toEqual(SERVICE_GRANTS);
+    const go = readFileSync(new URL("platform/go/tenant/service.go", root), "utf8");
+    const table = go.slice(go.indexOf("var serviceGrants = "), go.indexOf("// ServiceGrantTable"));
+    const fromGo: Record<string, string[]> = {};
+    let issuer = "";
+    for (const line of table.split("\n")) {
+      const iss = /^\t"([^"]+)": \{$/.exec(line);
+      if (iss) issuer = iss[1]!;
+      const aud = /^\t\t"([^"]+)":\s*\{(.*)\},$/.exec(line);
+      if (aud && aud[1] === SERVICE_NAME) fromGo[issuer] = [...aud[2]!.matchAll(/"([^"]+)"/g)].map((m) => m[1]!);
+    }
+    expect(fromGo).toEqual(SERVICE_GRANTS);
+  });
+});

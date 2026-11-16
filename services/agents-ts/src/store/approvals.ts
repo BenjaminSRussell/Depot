@@ -71,6 +71,11 @@ export class PgApprovalStore implements ApprovalStore {
 
   /** Opens a request and returns its action id (the id the decision endpoint takes). */
   async open(a: NewApproval): Promise<string> {
+    // A step retried after a restart finds the request it already opened for this run and seq.
+    const existing = await this.store.withTenant(a.tenantId, async (c) =>
+      (await c.query<{ action_id: string }>("select action_id from approval_request where tenant_id = $1 and run_id = $2 and seq = $3", [a.tenantId, a.runId, a.seq])).rows[0],
+    );
+    if (existing !== undefined) return existing.action_id;
     const actionId = randomUUID();
     await this.store.withTenant(a.tenantId, (c) =>
       c.query(

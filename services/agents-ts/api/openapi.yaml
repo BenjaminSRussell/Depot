@@ -5,8 +5,8 @@ info:
   description: |
     PRD 9.47.5 endpoints for agent runs, approvals, kill switch, budgets and
     eval triggers. This build serves the kill switch (read and toggle), the
-    approval decision, run start and run read, and the copilot chat
-    (src/api/router.ts). The budget, eval and promotion endpoints are not
+    approval decision, run start and run read, the copilot chat and, for runs
+    executed as workflows, the service-to-service run steps (src/api/router.ts). The budget, eval and promotion endpoints are not
     served yet; NOT-IMPLEMENTED.md lists them. Every route needs the
     caller's bearer token (Authorization: Bearer), which the runtime verifies
     itself (RS256, issuer, audience, expiry) and takes the tenant, user and
@@ -184,6 +184,49 @@ paths:
                     items: {$ref: "#/components/schemas/AgentAction"}
         "401": {$ref: "#/components/responses/Problem"}
         "403": {$ref: "#/components/responses/Problem"}
+        "404": {$ref: "#/components/responses/Problem"}
+  /api/v1/agents/runs/{runId}/steps/{step}:
+    post:
+      operationId: runAgentStep
+      summary: One step of a run executed as a workflow (service to service)
+      description: |
+        Called by workflow-ts's agentRunWorkflow with a signed service token in X-Passage-Service-Token
+        (tenant-level, granted agents.run.workflow); a user's bearer token is refused. Each step is idempotent: a
+        retry after a lost response answers from the stored state. `begin` reserves the budget hold and opens the run,
+        `plan` makes the model call and either opens the approval request or ends the run, `resolve` reads the stored
+        decision (with expire true an undecided request is rejected as expired, AGT-0208), `commit` calls the tool as
+        the approver, and `abort` ends a run the workflow gave up on. The kill switch is checked inside begin, plan
+        and commit. Only served when AGENTS_RUN_ENGINE=temporal; otherwise 404.
+      x-passage-duty: agents.run.workflow
+      x-passage-approval: none
+      parameters:
+        - {name: runId, in: path, required: true, schema: {type: string, format: uuid}}
+        - {name: step, in: path, required: true, schema: {type: string, enum: [begin, plan, resolve, commit, abort]}}
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                expire: {type: boolean, description: "resolve only: the approval window has passed"}
+                reason: {type: string, maxLength: 500, description: "abort only"}
+      responses:
+        "200":
+          description: What the workflow does next.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [next]
+                properties:
+                  next: {type: string, enum: [plan, await_approval, commit, done]}
+                  actionId: {type: string, format: uuid}
+                  expiresAtMs: {type: integer}
+                  status: {type: string}
+                  code: {type: string}
+                  reason: {type: string}
+        "401": {$ref: "#/components/responses/Problem"}
         "404": {$ref: "#/components/responses/Problem"}
   /api/v1/knowledge/search:
     post:

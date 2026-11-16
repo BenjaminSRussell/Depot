@@ -1,6 +1,8 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { KillSwitchRegistry } from "../domain/killswitch.js";
 import { type ApprovalStore, handleApprovalDecision } from "./decision.js";
+import { HEADER as SERVICE_TOKEN_HEADER, ServiceTokenError, type ServiceTokenVerifier } from "./serviceToken.js";
+import { StepRefusal, type RunSteps } from "../runtime/steps.js";
 import { handleKillSwitchCommand, type KillSwitchWiring, readKillSwitchStatus } from "./killswitch.js";
 import { COPILOT_DUTY, type CopilotService } from "../runtime/copilot.js";
 import { parseChunks, parseSearch, type KnowledgeService } from "../runtime/knowledge.js";
@@ -27,6 +29,8 @@ export interface AgentsApiBase {
   /** The knowledge index and its hybrid search; absent and the knowledge routes answer 404. */
   knowledge?: KnowledgeService;
   now?: () => Date;
+  /** The run-step routes workflow-ts calls (AGENTS_RUN_ENGINE=temporal); absent and they answer 404. */
+  steps?: { service: RunSteps; verifier: ServiceTokenVerifier };
 }
 
 const UUID = "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}";
@@ -37,6 +41,7 @@ const ACTIONS_PATH = new RegExp(`^/api/v1/agents/runs/(${UUID})/actions$`);
 const CHAT_PATH = "/api/v1/copilot/chat";
 const KNOWLEDGE_CHUNKS_PATH = "/api/v1/knowledge/chunks";
 const KNOWLEDGE_SEARCH_PATH = "/api/v1/knowledge/search";
+const STEP_PATH = new RegExp(`^/api/v1/agents/runs/(${UUID})/steps/(begin|plan|resolve|commit|abort)$`);
 const DECISION_PATH = new RegExp(`^/api/v1/agents/runs/(${UUID})/actions/(${UUID})/decision$`);
 
 async function readBody(req: IncomingMessage): Promise<unknown> {
@@ -108,6 +113,38 @@ class MethodNotAllowed extends ApiError {
   }
 }
 
+/** A run step for workflow-ts: authenticated by its signed service token (tenant-level, grant `agents.run.workflow`), never by a user token. */
+async function handleStep(steps: NonNullable<AgentsApiBase["steps"]>, req: IncomingMessage, runId: string, step: string, body: unknown): Promise<unknown> {
+  const raw = req.headers[SERVICE_TOKEN_HEADER];
+  const token = Array.isArray(raw) ? raw[0] : raw;
+  let tenantId: string;
+  try {
+    const claims = steps.verifier.verify(token ?? "");
+    if (!claims.duties.includes("agents.run.workflow")) throw new ServiceTokenError("no run duty");
+    tenantId = claims.tid.toLowerCase();
+  } catch {
+    throw new ApiError(401, "AGT-0401", "a valid service token is required");
+  }
+  const obj = typeof body === "object" && body !== null && !Array.isArray(body) ? (body as Record<string, unknown>) : {};
+  try {
+    switch (step) {
+      case "begin":
+        return await steps.service.begin(tenantId, runId);
+      case "plan":
+        return await steps.service.plan(tenantId, runId);
+      case "resolve":
+        return await steps.service.resolve(tenantId, runId, obj["expire"] === true);
+      case "commit":
+        return await steps.service.commit(tenantId, runId);
+      default:
+        return await steps.service.abort(tenantId, runId, typeof obj["reason"] === "string" ? obj["reason"].slice(0, 500) : "run aborted");
+    }
+  } catch (err) {
+    if (err instanceof StepRefusal) throw new ApiError(err.status as 404, err.code as "AGT-0404", err.message);
+    throw err;
+  }
+}
+
 /**
  * The agents HTTP surface served in this slice: the kill switch (read and
  * toggle) and the approval decision. Every other route answers 404. A toggle's
@@ -164,6 +201,13 @@ export function createAgentsHandler(deps: AgentsApiDeps): (req: IncomingMessage,
         send(res, 202, started);
         return;
       }
+      const step = STEP_PATH.exec(path);
+      if (step !== null) {
+        if (deps.steps === undefined) throw new ApiError(404, "AGT-0404", "no such route");
+        if (req.method !== "POST") throw new MethodNotAllowed("POST");
+        send(res, 200, await handleStep(deps.steps, req, (step[1] ?? "").toLowerCase(), step[2] ?? "", await readBody(req).catch(() => ({}))));
+        return;
+      }
       const runMatch = RUN_PATH.exec(path) ?? ACTIONS_PATH.exec(path);
       if (runMatch !== null && deps.runs !== undefined) {
         if (req.method !== "GET") throw new MethodNotAllowed("GET");
@@ -184,6 +228,7 @@ export function createAgentsHandler(deps: AgentsApiDeps): (req: IncomingMessage,
         store: deps.approvals,
         now,
       });
+      await deps.runs?.decided(principal, bearerToken(req.headers), out);
       send(res, 200, out);
     } catch (err) {
       // Internal errors are never echoed to the caller.

@@ -103,3 +103,15 @@ npm run typecheck
 npm run build
 TEMPORAL_ADDRESS=localhost:7233 npm start
 ```
+
+## Agent runs (#47)
+
+`agentRunWorkflow` (`src/agentRunWorkflow.ts`) drives an AI agent run whose logic lives in services/agents-ts
+(`AGENTS_RUN_ENGINE=temporal` there): activities `agentBegin`, `agentPlan`, `agentResolve`, `agentCommit` and `agentAbort`
+(`src/agentRunActivities.ts`) call the agents run-step routes with a tenant-level service token for the user who started the
+run (audience `agents`, duty `agents.run.workflow`, `AGENTS_BASE_URL`). The approval wait is the signal
+`agent-approval-decided` with a timer for the expiry the agents service reports; the signal only wakes the workflow, which
+reads the stored decision. `POST /v1/workflows/agent-runs/{runId}:start` (duty `agents.invoke`) starts it with ids only and
+`POST /v1/workflows/agent-runs/{runId}:approval-decided` (duty `agents.run.read`) wakes it; agents calls both with the
+caller's edge identity. Workflow id `agent-run:{runId}`. Tests: `test/agentRun.test.ts` (Temporal time-skipping, CI only),
+`test/agentRunActivities.test.ts` and `test/agentRunApi.test.ts`.

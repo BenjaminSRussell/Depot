@@ -228,6 +228,7 @@ var serviceGrants = map[string]map[string][]string{
 		"quality":     {"quality.capa.execute"},
 		"transport":   {"transport.tender.execute"},
 		"party":       {"party.approve", "party.merge.execute"},
+		"agents":      {"agents.run.workflow"},
 	},
 	"party": {
 		"numbering": {"numbering.sequence.allocate"},

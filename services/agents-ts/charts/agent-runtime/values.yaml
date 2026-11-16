@@ -33,6 +33,14 @@ runTokenCap: 20000
 copilot: { tokenCap: 8000, maxTurns: 4 }
 # agent.approval_expiry_h (BR-47.3): 1 to 240; empty means 72.
 approvalExpiryHours: ""
+# How a run executes. inprocess (the default, for dev): one promise in the pod that took the request, lost with the pod.
+# temporal (production): each run is a workflow in workflow-ts (agentRunWorkflow) that calls this service's run steps,
+# so a run waiting for an approval resumes after a restart. Needs workflowUrl, and servicePublicKeys holding workflow-ts's
+# Ed25519 public key as "workflow-ts=<base64>" (comma separated for more callers). Add workflow-ts's pod labels to
+# networkPolicy.ingressPodLabels so it can reach the run-step routes.
+runEngine: inprocess
+workflowUrl: http://workflow.passage.svc.cluster.local:8080
+servicePublicKeys: ""
 # Above this amount an approver who started the run may not approve it (wave-48 SoD limit).
 selfApprovalLimit: { amount: "0", currency: USD }
 # An agent runs only when the newest eval_run of its exact definition passed (AGT-0204 otherwise). The eval pipeline

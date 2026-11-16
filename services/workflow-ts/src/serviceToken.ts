@@ -20,6 +20,9 @@ export const PARTY_AUDIENCE = "party";
 export const PARTY_GRANT = ["party.approve"] as const;
 /** Tenant-level: a merge moves roles in every legal entity, so this token names none (#450). Go `tenantLevelDuties` mirrors it. */
 export const PARTY_MERGE_GRANT = ["party.merge.execute"] as const;
+export const AGENTS_AUDIENCE = "agents";
+/** Tenant-level: an agent run is not bound to a legal entity, so this token names none (agents checks the run's own tenant). */
+export const AGENTS_GRANT = ["agents.run.workflow"] as const;
 
 export interface TokenSubject {
   tenantId: string;
@@ -47,6 +50,7 @@ export interface ServiceTokenSigner {
   mintForTransport(subject: TokenSubject): string;
   mintForParty(subject: TokenSubject): string;
   mintForPartyMerge(subject: TenantTokenSubject): string;
+  mintForAgents(subject: TenantTokenSubject): string;
 }
 
 export interface SignerOptions {
@@ -92,6 +96,10 @@ export function createServiceTokenSigner(options: SignerOptions): ServiceTokenSi
     mintForQuality: (subject) => mint(QUALITY_AUDIENCE, QUALITY_GRANT, subject, true),
     mintForTransport: (subject) => mint(TRANSPORT_AUDIENCE, TRANSPORT_GRANT, subject, true),
     mintForParty: (subject) => mint(PARTY_AUDIENCE, PARTY_GRANT, subject, true),
+    mintForAgents: ({ tenantId, actor }) => {
+      if (!tenantId || !actor) throw new TypeError("a tenant-level service token needs a tenant and the acting user");
+      return sealed(AGENTS_AUDIENCE, AGENTS_GRANT, tenantId, undefined, actor);
+    },
     mintForPartyMerge: ({ tenantId, actor }) => {
       if (!tenantId || !actor) throw new TypeError("a tenant-level service token needs a tenant and the acting user");
       return sealed(PARTY_AUDIENCE, PARTY_MERGE_GRANT, tenantId, undefined, actor);
