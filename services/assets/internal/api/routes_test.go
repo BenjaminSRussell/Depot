@@ -22,7 +22,7 @@ func TestRoutesMatchOpenAPI(t *testing.T) {
 	}
 	spec := string(raw)
 	r := chi.NewRouter()
-	api.New(newFake()).Register(r)
+	api.New(newFake()).WithOpeningAssets(&fakeOpening{}).Register(r)
 	registered := map[string]bool{}
 	err = chi.Walk(r, func(method, route string, _ http.Handler, _ ...func(http.Handler) http.Handler) error {
 		registered[route] = true

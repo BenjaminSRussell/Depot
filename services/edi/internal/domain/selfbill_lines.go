@@ -19,6 +19,10 @@ type SBShipmentLine struct {
 	UnitPrice    decimal.Decimal
 	ShippedOn    time.Time
 	ShipmentID   string
+	// OrderID and OrderLineID are the sales order and order line the line shipped, so the invoice posted from a self-billed document
+	// can name what it bills (#35).
+	OrderID     string
+	OrderLineID string
 }
 
 // SelfBillingLines lists what a shipment shipped, one line per (PO line, item), from its shipped containers. A shipment that
@@ -56,7 +60,7 @@ func SelfBillingLinesForSlip(p TradeProfile, sh SourceShipment, o SourceOrder, s
 			row, seen := byKey[k]
 			if !seen {
 				row = &SBShipmentLine{DeliveryNote: note, POLine: k.line, Item: k.item, UnitPrice: po.UnitPrice,
-					ShippedOn: sh.ActualShipDate.UTC(), ShipmentID: sh.ID}
+					ShippedOn: sh.ActualShipDate.UTC(), ShipmentID: sh.ID, OrderID: o.ID, OrderLineID: po.ID}
 				byKey[k] = row
 				order = append(order, k)
 			}
@@ -85,6 +89,11 @@ type SelfBilledInvoiceLine struct {
 	Tax            string `json:"tax"`
 	RevenueAccount string `json:"revenueAccount"`
 	TaxCode        string `json:"taxCode"`
+	// OrderID, OrderLineID and ProductID name the sales order, its line and the product the document line bills, found through the
+	// shipment it matched; billing's invoice.posted then tells sales what was invoiced. Empty when the shipment predates the references.
+	OrderID     string `json:"orderId,omitempty"`
+	OrderLineID string `json:"orderLineId,omitempty"`
+	ProductID   string `json:"productId,omitempty"`
 }
 
 type SelfBilledInvoiceRequest struct {

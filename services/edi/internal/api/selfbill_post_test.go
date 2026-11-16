@@ -96,6 +96,11 @@ func TestSelfBilling_MatchedDocumentIsPostedAsTheLegalInvoice(t *testing.T) {
 		p.Lines[0].RevenueAccount != "4000" || p.Lines[0].TaxCode != "VAT19" || !strings.Contains(p.Lines[0].Description, "prod-a") || !strings.Contains(p.Lines[0].Description, "SHP-0001") {
 		t.Fatalf("request: %+v", p)
 	}
+	// The line names the sales order and order line its delivery note and PO line matched, and the product, so billing's invoice.posted
+	// tells sales what was invoiced.
+	if p.Lines[0].OrderID != srcOrder || p.Lines[0].OrderLineID != "ol-1" || p.Lines[0].ProductID != "" {
+		t.Fatalf("order references: %+v", p.Lines[0])
+	}
 	doc := postedDocument(t, h)
 	if doc.BillingInvoiceID == "" || doc.BillingNumber != "SB-8101" || doc.PostError != "" || p.SourceRef != doc.ID || billing.keys[0] != "self-billed:"+doc.ID {
 		t.Fatalf("document: %+v key %v ref %s", doc, billing.keys, p.SourceRef)
@@ -126,6 +131,71 @@ func TestSelfBilling_DisputedDocumentIsNotPosted(t *testing.T) {
 	}
 	if len(billing.posts) != 0 {
 		t.Fatalf("a disputed document was posted: %+v", billing.posts)
+	}
+}
+
+// A document held by a dispute posts once its disputes are decided: the sweep picks the RESOLVED document up and billing gets the lines at the
+// customer's figures the dispute accepted, each naming its sales order line (#35).
+func TestSelfBilling_ResolvedDocumentIsPostedBySweepAtTheAcceptedFigures(t *testing.T) {
+	f, a, h, partner := selfBillSetup(t)
+	billing := &fakeBilling{}
+	a.SelfBilledPoster = billing
+	do(t, h, http.MethodPut, "/edi/v1/partners/"+partner+"/self-billing", selfBillSettings, "edi.admin", srcScope)
+	sendShipment(t, f, h, partner, srcShipment, "SHP-0001", time.Now().AddDate(0, 0, -3))
+	do(t, h, http.MethodPost, "/edi/v1/inbound/x12?environment=TEST", selfBilled810(t, "SB-8104", "9", "7.65", "9765"), "edi.operate", srcScope)
+	if doc := postedDocument(t, h); doc.Status != "DISPUTED" || len(billing.posts) != 0 {
+		t.Fatalf("held by the dispute: %+v", doc)
+	}
+	// Still open: the sweep leaves it.
+	if rec := do(t, h, http.MethodPost, "/edi/v1/self-billing:sweep", "", "edi.self-billing.reconcile", srcScope); rec.Code != http.StatusOK || len(billing.posts) != 0 {
+		t.Fatalf("sweep with the dispute open: %d %s", rec.Code, rec.Body.String())
+	}
+	open := disputes(t, h, "OPEN")
+	if len(open) != 1 {
+		t.Fatalf("disputes: %+v", open)
+	}
+	if rec := do(t, h, http.MethodPost, "/edi/v1/self-billing/disputes/"+open[0].ID+":resolve", `{"decision":"ACCEPTED","note":"price change agreed"}`, "edi.self-billing.reconcile", srcScope); rec.Code != http.StatusOK {
+		t.Fatalf("resolve: %d %s", rec.Code, rec.Body.String())
+	}
+	if len(billing.posts) != 0 {
+		t.Fatalf("posted by the resolution itself: %+v", billing.posts)
+	}
+	rec := do(t, h, http.MethodPost, "/edi/v1/self-billing:sweep", "", "edi.self-billing.reconcile", srcScope)
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"posted":1`) || len(billing.posts) != 1 {
+		t.Fatalf("sweep after the resolution: %d %s", rec.Code, rec.Body.String())
+	}
+	p := billing.posts[0]
+	if p.DocumentNumber != "SB-8104" || len(p.Lines) != 1 || p.Lines[0].UnitPrice != "9" || p.Lines[0].Tax != "7.65" || p.Lines[0].OrderID != srcOrder || p.Lines[0].OrderLineID != "ol-1" {
+		t.Fatalf("request: %+v", p)
+	}
+	if doc := postedDocument(t, h); doc.Status != "RESOLVED" || doc.BillingNumber != "SB-8104" || doc.PostError != "" {
+		t.Fatalf("document: %+v", doc)
+	}
+	// Once posted, the sweep posts nothing again.
+	do(t, h, http.MethodPost, "/edi/v1/self-billing:sweep", "", "edi.self-billing.reconcile", srcScope)
+	if len(billing.posts) != 1 {
+		t.Fatalf("posted again: %d", len(billing.posts))
+	}
+}
+
+// A dispute rejected keeps our figures and leaves the correction to the customer: a document left with no accepted or matched line has nothing to
+// invoice, and is parked with that reason instead of being retried for ever.
+func TestSelfBilling_ADocumentWithEveryLineRejectedIsNotPosted(t *testing.T) {
+	f, a, h, partner := selfBillSetup(t)
+	billing := &fakeBilling{}
+	a.SelfBilledPoster = billing
+	do(t, h, http.MethodPut, "/edi/v1/partners/"+partner+"/self-billing", selfBillSettings, "edi.admin", srcScope)
+	sendShipment(t, f, h, partner, srcShipment, "SHP-0001", time.Now().AddDate(0, 0, -3))
+	do(t, h, http.MethodPost, "/edi/v1/inbound/x12?environment=TEST", selfBilled810(t, "SB-8105", "9", "7.65", "9765"), "edi.operate", srcScope)
+	open := disputes(t, h, "OPEN")
+	if len(open) != 1 {
+		t.Fatalf("disputes: %+v", open)
+	}
+	do(t, h, http.MethodPost, "/edi/v1/self-billing/disputes/"+open[0].ID+":resolve", `{"decision":"REJECTED","note":"our price stands"}`, "edi.self-billing.reconcile", srcScope)
+	do(t, h, http.MethodPost, "/edi/v1/self-billing:sweep", "", "edi.self-billing.reconcile", srcScope)
+	doc := postedDocument(t, h)
+	if len(billing.posts) != 0 || doc.Status != "RESOLVED" || doc.BillingInvoiceID != "" || !strings.Contains(doc.PostError, "nothing to invoice") || !strings.Contains(doc.PostError, "Parked") {
+		t.Fatalf("document %+v billing %+v", doc, billing.posts)
 	}
 }
 
@@ -234,5 +304,25 @@ func TestSelfBilling_RepeatedFailuresParkAfterTheCap(t *testing.T) {
 	doc := postedDocument(t, h)
 	if !strings.Contains(doc.PostError, "Parked after 8 attempt") {
 		t.Fatalf("after the cap: %+v", doc)
+	}
+}
+
+// A document resolved before disputes were posted automatically is parked by the migration and stays parked, even when the partner's settings are saved.
+func TestSelfBilling_DocumentsResolvedBeforeTheMigrationAreNotPosted(t *testing.T) {
+	f, a, h, partner := selfBillSetup(t)
+	billing := &fakeBilling{}
+	a.SelfBilledPoster = billing
+	do(t, h, http.MethodPut, "/edi/v1/partners/"+partner+"/self-billing", selfBillSettings, "edi.admin", srcScope)
+	sendShipment(t, f, h, partner, srcShipment, "SHP-0001", time.Now().AddDate(0, 0, -3))
+	do(t, h, http.MethodPost, "/edi/v1/inbound/x12?environment=TEST", selfBilled810(t, "SB-8106", "9", "7.65", "9765"), "edi.operate", srcScope)
+	// Stand in for the migration: the document was resolved and parked before the sweep posted such documents.
+	if _, err := lastPool.Exec(context.Background(), `update self_billing_document set status = 'RESOLVED', resolved_before_auto_post = true, post_parked_at = now(), post_error = 'Resolved before disputes were posted automatically'`); err != nil {
+		t.Fatal(err)
+	}
+	do(t, h, http.MethodPost, "/edi/v1/self-billing:sweep", "", "edi.self-billing.reconcile", srcScope)
+	do(t, h, http.MethodPut, "/edi/v1/partners/"+partner+"/self-billing", selfBillSettings, "edi.admin", srcScope)
+	do(t, h, http.MethodPost, "/edi/v1/self-billing:sweep", "", "edi.self-billing.reconcile", srcScope)
+	if doc := postedDocument(t, h); len(billing.posts) != 0 || doc.BillingInvoiceID != "" || !strings.Contains(doc.PostError, "Resolved before") {
+		t.Fatalf("document %+v posts %d", doc, len(billing.posts))
 	}
 }

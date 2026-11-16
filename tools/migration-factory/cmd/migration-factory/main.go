@@ -121,6 +121,33 @@ func purchasingTarget(getenv func(string) string) (*target.Orders, error) {
 	return target.NewPurchasing(cfg), nil
 }
 
+// assetsTarget reads ASSETS_URL (see targetConfig); without it a fixed_assets load answers 503 MIG-1580.
+func assetsTarget(getenv func(string) string) (*target.Staged, error) {
+	cfg, err := targetConfig(getenv, "ASSETS_URL")
+	if err != nil {
+		return nil, err
+	}
+	return target.NewAssets(cfg), nil
+}
+
+// productionTarget reads PRODUCTION_URL (see targetConfig); without it a wip_prod load answers 503 MIG-1580.
+func productionTarget(getenv func(string) string) (*target.Staged, error) {
+	cfg, err := targetConfig(getenv, "PRODUCTION_URL")
+	if err != nil {
+		return nil, err
+	}
+	return target.NewProduction(cfg), nil
+}
+
+// payrollTarget reads PAYROLL_URL (see targetConfig); without it a payroll_ytd load answers 503 MIG-1580.
+func payrollTarget(getenv func(string) string) (*target.Staged, error) {
+	cfg, err := targetConfig(getenv, "PAYROLL_URL")
+	if err != nil {
+		return nil, err
+	}
+	return target.NewPayroll(cfg), nil
+}
+
 // xrefTarget reads MIGRATION_URL (see targetConfig): the migration service whose cross-reference resolves the legacy customers and
 // vendors of an open-items run (H-S8-6, #49) and the items, customers and vendors of an open-orders load. Without it a customer must be on the record or in load.customerIds.
 func xrefTarget(getenv func(string) string) (*target.Xref, error) {
@@ -160,6 +187,18 @@ func run(ctx context.Context, getenv func(string) string) error {
 	if err != nil {
 		return err
 	}
+	assets, err := assetsTarget(getenv)
+	if err != nil {
+		return err
+	}
+	production, err := productionTarget(getenv)
+	if err != nil {
+		return err
+	}
+	payroll, err := payrollTarget(getenv)
+	if err != nil {
+		return err
+	}
 	xref, err := xrefTarget(getenv)
 	if err != nil {
 		return err
@@ -184,7 +223,7 @@ func run(ctx context.Context, getenv func(string) string) error {
 	if addr == "" {
 		addr = ":8080"
 	}
-	srv := api.New(store.New(pool)).WithTarget(receivables).WithPayables(payables).WithInventory(inventory).WithTreasury(treasury).WithSales(sales).WithPurchasing(purchasing).WithXref(xref)
+	srv := api.New(store.New(pool)).WithTarget(receivables).WithPayables(payables).WithInventory(inventory).WithTreasury(treasury).WithSales(sales).WithPurchasing(purchasing).WithAssets(assets).WithProduction(production).WithPayroll(payroll).WithXref(xref)
 	if ledger != nil {
 		srv = srv.WithLedger(ledger)
 	}

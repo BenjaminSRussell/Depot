@@ -68,6 +68,18 @@ spec:
             - name: PURCHASING_URL
               value: {{ .Values.purchasing.url | quote }}
             {{- end }}
+            {{- if .Values.assets.url }}
+            - name: ASSETS_URL
+              value: {{ .Values.assets.url | quote }}
+            {{- end }}
+            {{- if .Values.production.url }}
+            - name: PRODUCTION_URL
+              value: {{ .Values.production.url | quote }}
+            {{- end }}
+            {{- if .Values.payroll.url }}
+            - name: PAYROLL_URL
+              value: {{ .Values.payroll.url | quote }}
+            {{- end }}
             {{- if .Values.migration.url }}
             - name: MIGRATION_URL
               value: {{ .Values.migration.url | quote }}

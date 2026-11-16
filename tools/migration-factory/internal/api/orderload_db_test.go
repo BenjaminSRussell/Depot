@@ -106,7 +106,7 @@ func TestOrderLoad_SalesAndPurchaseLinesGoToTheirServicesAndReconcile(t *testing
 	}
 	for _, f := range []*targettest.FakeOrders{e.sales, e.purch} {
 		for _, c := range f.Calls() {
-			if len(c.Duties) != 1 || !strings.Contains(c.Duties[0], "opening-order.import") {
+			if len(c.Duties) != 1 || !strings.Contains(c.Duties[0], "opening-order.") {
 				t.Fatalf("each token carries one duty of the grant: %+v", c)
 			}
 		}

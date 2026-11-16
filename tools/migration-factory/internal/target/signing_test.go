@@ -95,7 +95,16 @@ func TestServiceGrantForTheFactoryIsSeeded(t *testing.T) {
 	if prc := tenant.ServiceGrantTable()[target.ServiceName]["purchasing"]; !slices.Equal(slices.Sorted(slices.Values(prc)), []string{"procurement.opening-order.import", "procurement.opening-order.read"}) {
 		t.Errorf("the grant for migration-factory -> purchasing must hold exactly the opening order import duties (#49), got %v", prc)
 	}
-	if other := tenant.ServiceGrantTable()[target.ServiceName]; len(other) != 8 {
-		t.Errorf("migration-factory is granted only receivables, payables (opening items), inventory, treasury, sales and purchasing (opening imports), ledger (replay, compensations) and migration (cross-reference read), got %v", other)
+	if assets := tenant.ServiceGrantTable()[target.ServiceName]["assets"]; !slices.Equal(slices.Sorted(slices.Values(assets)), []string{"assets.opening-asset.import", "assets.opening-asset.read", "assets.opening-journal.post"}) {
+		t.Errorf("the grant for migration-factory -> assets must hold exactly the opening asset import duties and the journal post (#49), got %v", assets)
+	}
+	if prod := tenant.ServiceGrantTable()[target.ServiceName]["production"]; !slices.Equal(slices.Sorted(slices.Values(prod)), []string{"production.opening-journal.post", "production.opening-wip.import", "production.opening-wip.read"}) {
+		t.Errorf("the grant for migration-factory -> production must hold exactly the opening WIP import duties and the journal post (#49), got %v", prod)
+	}
+	if pay := tenant.ServiceGrantTable()[target.ServiceName]["payroll"]; !slices.Equal(slices.Sorted(slices.Values(pay)), []string{"payroll.opening-ytd.import", "payroll.opening-ytd.read"}) {
+		t.Errorf("the grant for migration-factory -> payroll must hold exactly the opening year-to-date import duties (#49), got %v", pay)
+	}
+	if other := tenant.ServiceGrantTable()[target.ServiceName]; len(other) != 11 {
+		t.Errorf("migration-factory is granted only receivables, payables (opening items), inventory, treasury, sales, purchasing, assets, production and payroll (opening imports), ledger (replay, compensations) and migration (cross-reference read), got %v", other)
 	}
 }

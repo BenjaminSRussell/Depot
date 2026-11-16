@@ -29,7 +29,23 @@ describe("fact based risk for AP coding proposals", () => {
     const got = await risk(t).assess("passage.ap.invoice.propose_coding", { invoiceId: "inv-1", amount: "1.00" });
     expect(got).toEqual({ vendorHighRisk: false, sodConflict: false, amount: usd("2500.00"), limitUtilisation: 0.25 });
     expect(t.asked.map((a) => a.name)).toEqual(["passage.ap.invoice.get", "passage.ap.vendor.history.list"]);
-    expect(t.asked[1]?.args).toEqual({ vendorId: "v-1" });
+    expect(t.asked[0]?.args).toEqual({ id: "inv-1" });
+    expect(t.asked[1]?.args).toEqual({ vendor: "v-1", limit: 1 });
+  });
+
+  it("reads a received vendor invoice the way payables answers it: gross for the amount, decidedBy (the clerk) for the creator", async () => {
+    const hist = ok({ items: [{ id: "i-0" }] });
+    const same = tools({ "passage.ap.invoice.get": ok({ gross: "2500.00", currency: "USD", vendorId: "v-1", decidedBy: INVOKER }), "passage.ap.vendor.history.list": hist });
+    expect(await risk(same).assess("passage.ap.invoice.propose_coding", { invoiceId: "inv-1" })).toEqual({ vendorHighRisk: false, sodConflict: true, amount: usd("2500.00"), limitUtilisation: 0.25 });
+  });
+
+  it("treats receivedBy and service principals as an unknown creator and fails closed", async () => {
+    const hist = ok({ items: [{ id: "i-0" }] });
+    for (const doc of [{ receivedBy: "u-1" }, { receivedBy: "service:edi", decidedBy: "service:edi" }, { decidedBy: "system:batch" }, {}]) {
+      const got = await risk(tools({ "passage.ap.invoice.get": ok({ gross: "10.00", currency: "USD", vendorId: "v-1", ...doc }), "passage.ap.vendor.history.list": hist })).assess("passage.ap.invoice.propose_coding", { invoiceId: "inv-1" });
+      expect(got.vendorHighRisk).toBe(true);
+      expect(got.unverified).toEqual(["the invoice does not say who created it"]);
+    }
   });
 
   it("flags a vendor with no history, a blocked vendor and a high vendor risk", async () => {

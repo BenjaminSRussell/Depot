@@ -19,8 +19,10 @@ import (
 	"github.com/BenjaminSRussell/passage/platform/httpx"
 	"github.com/BenjaminSRussell/passage/platform/ids"
 	"github.com/BenjaminSRussell/passage/platform/ledgerclient"
+	"github.com/BenjaminSRussell/passage/platform/openingimport"
 	"github.com/BenjaminSRussell/passage/platform/tenant"
 	"github.com/BenjaminSRussell/passage/services/payroll/internal/domain"
+	"github.com/BenjaminSRussell/passage/services/payroll/internal/store"
 )
 
 const (
@@ -38,13 +40,15 @@ type Pinger interface {
 
 // API holds the handlers and their counters.
 type API struct {
-	db           Pinger
-	runs         Runs
-	ledger       ledgerclient.Ledger
-	calculations atomic.Int64
-	failed       atomic.Int64
-	runsCreated  atomic.Int64
-	runsPosted   atomic.Int64
+	db              Pinger
+	runs            Runs
+	opening         store.OpeningImporter
+	openingCounters *openingimport.Counters
+	ledger          ledgerclient.Ledger
+	calculations    atomic.Int64
+	failed          atomic.Int64
+	runsCreated     atomic.Int64
+	runsPosted      atomic.Int64
 }
 
 // New returns the API. db may be nil in tests; readiness then reports ready.
@@ -55,6 +59,7 @@ func (a *API) Register(r chi.Router) {
 	r.Get("/readyz", a.ready)
 	r.With(authz.RequireDuty(dutyCalculate)).Post("/v1/payroll/calculations", a.calculate)
 	a.registerRuns(r)
+	a.registerOpening(r)
 }
 
 // Metrics serves Prometheus text on the admin port.
@@ -64,6 +69,9 @@ func (a *API) Metrics() http.Handler {
 		fmt.Fprintf(w, "# HELP payroll_calculation_failures_total Gross-to-net previews refused.\n# TYPE payroll_calculation_failures_total counter\npayroll_calculation_failures_total %d\n", a.failed.Load())
 		fmt.Fprintf(w, "# HELP payroll_runs_created_total Pay runs stored.\n# TYPE payroll_runs_created_total counter\npayroll_runs_created_total %d\n", a.runsCreated.Load())
 		fmt.Fprintf(w, "# HELP payroll_runs_posted_total Pay runs posted to the general ledger.\n# TYPE payroll_runs_posted_total counter\npayroll_runs_posted_total %d\n", a.runsPosted.Load())
+		if a.openingCounters != nil {
+			a.openingCounters.Write(w, "payroll_opening", "year-to-date")
+		}
 	})
 }
 

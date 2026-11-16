@@ -46,7 +46,7 @@ func readinessFacts(ctx context.Context, tx pgx.Tx, plan domain.Plan) (domain.Re
 		if recv != nil {
 			pf.ReceivablesLoad = *recv
 		}
-		if domain.TargetOfPack(pf.Pack) != "" {
+		if domain.TargetOfPack(pf.Pack) != "" || domain.StagedTargetOfPack(pf.Pack) != "" {
 			loaded = append(loaded, len(f.Packs))
 		}
 		if pf.Pack == domain.PackGLBalances {
@@ -60,7 +60,11 @@ func readinessFacts(ctx context.Context, tx pgx.Tx, plan domain.Plan) (domain.Re
 		return f, err
 	}
 	for _, i := range loaded {
-		if err := tx.QueryRow(ctx, `select exists (select 1 from opening_load where tenant_id = current_setting('passage.tenant_id', true)::uuid and run_id = $1::uuid
+		table := "opening_load"
+		if domain.StagedTargetOfPack(f.Packs[i].Pack) != "" {
+			table = "staged_load"
+		}
+		if err := tx.QueryRow(ctx, `select exists (select 1 from `+table+` where tenant_id = current_setting('passage.tenant_id', true)::uuid and run_id = $1::uuid
 			and status = 'RECONCILED' and rejected = 0 and pending = 0)`, f.Packs[i].RunID).Scan(&f.Packs[i].TargetLoaded); err != nil {
 			return f, err
 		}

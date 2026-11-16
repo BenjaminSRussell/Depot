@@ -69,7 +69,15 @@ func TestAReconciledTargetLoadCountsTheStagedPackAsPosted(t *testing.T) {
 			t.Fatalf("%s loaded: %q", p, why)
 		}
 	}
-	if NotPostedRun(PackFact{Pack: PackFixedAssets, TargetLoaded: true}) == "" {
+	for _, p := range []Pack{PackFixedAssets, PackWIPProd, PackPayrollYTD} {
+		if NotPostedRun(PackFact{Pack: p}) == "" {
+			t.Fatalf("%s is staged until its staged load is reconciled", p)
+		}
+		if why := NotPostedRun(PackFact{Pack: p, TargetLoaded: true}); why != "" {
+			t.Fatalf("%s staged-loaded: %q", p, why)
+		}
+	}
+	if NotPostedRun(PackFact{Pack: PackOpenOrders, TargetLoaded: true}) == "" {
 		t.Fatal("a pack without a target stays staged")
 	}
 }

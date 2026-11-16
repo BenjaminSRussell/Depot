@@ -45,7 +45,7 @@ func declaredOperations(spec string) map[string]bool {
 func servedOperations(t *testing.T) map[string]bool {
 	t.Helper()
 	r := httpx.NewRouter()
-	New(&fakeStore{}, Config{}).Register(r)
+	New(&fakeStore{}, Config{}).WithOpeningWIP(&fakeOpening{}).Register(r)
 	served := map[string]bool{}
 	_ = chi.Walk(r, func(method, route string, _ http.Handler, _ ...func(http.Handler) http.Handler) error {
 		if route == "/healthz" || route == "/readyz" {
@@ -84,7 +84,7 @@ func TestOpenAPIMatchesTheRouter(t *testing.T) {
 	}
 	declared := declaredOperations(string(raw))
 	served := servedOperations(t)
-	if len(served) != 57 {
+	if len(served) != 60 {
 		t.Fatalf("router walk found %d operations: %v", len(served), served)
 	}
 	var problems []string

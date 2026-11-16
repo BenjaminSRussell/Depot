@@ -95,7 +95,7 @@ paths:
         under open_items.receivable and open_items.payable.
         wip_prod, fixed_assets and payroll_ytd take a StagedRunRequest whose `master` lists the items,
         depreciation books or workers the referential rule checks. They are staged in the factory
-        (`staged_opening_line`) and not posted to production, fixed assets or payroll (D1a). A fixed
+        (`staged_opening_line`); POST /migration/runs/{id}/staged-load loads a staged run into production, fixed assets or payroll. A fixed
         asset whose next depreciation, recomputed from the loaded values (SL or DB), is more than 0.01
         off the legacy projection is quarantined with MIG-1507 (BR-49.6); a payroll year whose net is
         not gross - tax - deductions is quarantined (DOMAIN).
@@ -709,6 +709,99 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/OrderLoadDetail"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "409":
+          $ref: "#/components/responses/Problem"
+  /api/v1/migration/runs/{id}/staged-load:
+    post:
+      operationId: loadPackRunStaged
+      summary: Load a LOADED or RECONCILED fixed_assets, wip_prod or payroll_ytd run into assets, production or payroll, and reconcile
+      description: |
+        Sends the run's staged lines to the owning service as opening batches of at most 1000 lines (all or nothing at the target): fixed_assets to assets,
+        POST /v1/assets/opening-assets; wip_prod to production, POST /v1/production/opening-wip; payroll_ytd to payroll, POST /v1/payroll/opening-ytd (one target
+        line per worker, tax year and pay element GROSS, TAX, DEDUCTIONS and NET, so a worker year is four lines). The legacy id is the line reference, so a target stores a
+        line once however often it is sent. Optional extract fields the targets need are read from the staged line: assetClass, assetName and acquisitionDate (fixed_assets),
+        quantityOpen and deliveryDate (wip_prod); a line without them is REJECTED (MIG-LOAD-FIELD-REQUIRED, or MIG-LOAD-FIELD-INVALID for a value the target cannot take) until
+        the load names a default (`assetClass`) or a new extract supplies them. Fixed assets need `depreciatedThrough` (the last month the legacy system depreciated, 2026-12),
+        which places each book's schedule so that exactly its remaining life is left (a declining-balance book is kept in whole years); `journal` post books the opening journal
+        through the assets service (cost and accumulated depreciation on the class accounts, the NBV against the migration clearing account, one call per book and currency
+        to POST /v1/assets/opening-journal, which books only the opening register's transactions; `ledgerId` and `openingDate` required) and `linked` marks the transactions booked without a journal for a ledger whose
+        gl_balances load already holds the asset accounts. wip_prod needs `siteId`, `warehouseId`, `openingDate` and `journal` (`ledgerId` with post): the orders are created Started with the open quantity
+        and, with post, their WIP booked in the ledger through production (POST /v1/production/opening-journal, WIP Dr, migration clearing Cr), so the gl_balances load must leave the WIP account out; linked marks it booked with no entry. `products` (legacy item
+        to product) and `workers` (legacy worker to worker) map what the migration did not load; items and workers are also looked up in the migration service's cross-reference
+        (company|code, else the code), and an id that is already a UUID needs no entry. A refusal that names lines (422 AST-OPB-001, PRD-OPB-001, PAY-OPB-001, or the -004 codes for a
+        reference another batch took) stores those lines as REJECTED with the target's reason and sends the rest again at once; a reference the factory's own earlier batch took counts as loaded.
+        A 5xx, a 429 or a timeout leaves the lines pending (PARTIAL; call again to resume). A refusal of the whole request stops the load as FAILED with 502 MIG-1582, a refused
+        service token is 502 MIG-1581. Once no line is pending the journal is booked (a ledger refusal leaves the load UNRECONCILED with the reason, and a repeat books the rest) and the target's
+        batches for the legal entity are summed for the factory's keys of the company and compared with what the factory loaded: the line count and, per currency, each total
+        (`target.<pack>.*`), exactly. A difference is MISMATCH; totals that cannot be read are UNRECONCILED. A RECONCILED load with nothing rejected counts the pack as posted in the go/no-go.
+        Without ASSETS_URL, PRODUCTION_URL or PAYROLL_URL and a service signing key the answer is 503 MIG-1580. A pack with no staged load, or a run that is neither LOADED nor
+        RECONCILED, is 409 MIG-1564; one load runs at a time per pack and company (409 MIG-1522).
+      x-passage-duty: migration.factory.run
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [legalEntityId]
+              properties:
+                legalEntityId: {type: string, format: uuid}
+                openingDate: {type: string, format: date, description: The cutover date (fixed_assets and wip_prod).}
+                ledgerId: {type: string, format: uuid, description: The ledger the opening journal is booked in (fixed_assets with journal post, wip_prod).}
+                journal: {type: string, enum: [post, linked], description: fixed_assets and wip_prod.}
+                depreciatedThrough: {type: string, pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$', description: fixed_assets only.}
+                assetClass: {type: string, description: The class of an asset whose line names none (fixed_assets).}
+                siteId: {type: string, format: uuid, description: wip_prod only.}
+                warehouseId: {type: string, format: uuid, description: wip_prod only.}
+                products: {type: object, additionalProperties: {type: string, format: uuid}}
+                workers: {type: object, additionalProperties: {type: string, format: uuid}}
+      responses:
+        "200":
+          description: The load after this pass.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StagedLoad"
+        "400":
+          $ref: "#/components/responses/Problem"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "409":
+          $ref: "#/components/responses/Problem"
+        "422":
+          $ref: "#/components/responses/Problem"
+        "502":
+          $ref: "#/components/responses/Problem"
+        "503":
+          $ref: "#/components/responses/Problem"
+    get:
+      operationId: getPackRunStagedLoad
+      summary: Status, reconciliation lines and first rejects of a run's staged load
+      description: |
+        `reconciliation` holds the run's `target.<pack>.*` control totals (factory side as source, the target as target).
+        `rejects` lists up to 50 REJECTED lines with their legacy id. 409 MIG-1583 before the first load.
+      x-passage-duty: migration.factory.view
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: The staged load.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StagedLoadDetail"
         "401":
           $ref: "#/components/responses/Problem"
         "403":
@@ -2346,7 +2439,9 @@ components:
             description: |
               wip_prod reads productionOrder, item, material, labor, overhead; fixed_assets reads asset, book,
               method (SL or DB), usefulLifeMonths, remainingLifeMonths, acquisitionCost, accumulatedDepreciation,
-              salvageValue, nextDepreciation; payroll_ytd reads worker, taxYear, gross, tax, deductions, net.
+              salvageValue, nextDepreciation, and optionally assetClass, assetName and acquisitionDate (which the load into assets needs);
+              wip_prod also reads the optional quantityOpen and deliveryDate (which the load into production needs);
+              payroll_ytd reads worker, taxYear, gross, tax, deductions, net.
               Amounts are decimal strings; a blank amount is zero.
             additionalProperties: true
     BankRunRequest:
@@ -2759,6 +2854,45 @@ components:
                 properties:
                   legacyId: {type: string}
                   orderType: {type: string, enum: [SALES, PURCHASE]}
+                  code: {type: string}
+                  detail: {type: string}
+    StagedLoad:
+      type: object
+      required: [runId, pack, legalEntityId, status, clean, staged, loaded, rejected, pending, attempts, version]
+      properties:
+        runId: {type: string, format: uuid}
+        pack: {type: string, enum: [fixed_assets, wip_prod, payroll_ytd]}
+        legalEntityId: {type: string, format: uuid}
+        status:
+          type: string
+          enum: [STAGED, LOADING, PARTIAL, UNRECONCILED, MISMATCH, RECONCILED, FAILED]
+        clean: {type: boolean, description: RECONCILED with no line pending or rejected.}
+        staged: {type: integer}
+        loaded: {type: integer}
+        rejected: {type: integer}
+        pending: {type: integer}
+        attempts: {type: integer}
+        lastError: {type: string}
+        startedAt: {type: string, format: date-time}
+        finishedAt: {type: string, format: date-time}
+        version: {type: integer}
+    StagedLoadDetail:
+      allOf:
+        - $ref: "#/components/schemas/StagedLoad"
+        - type: object
+          required: [reconciliation, rejects]
+          properties:
+            reconciliation:
+              type: array
+              items:
+                $ref: "#/components/schemas/ControlTotal"
+            rejects:
+              type: array
+              items:
+                type: object
+                required: [legacyId, code, detail]
+                properties:
+                  legacyId: {type: string}
                   code: {type: string}
                   detail: {type: string}
     PayablesLoadDetail:

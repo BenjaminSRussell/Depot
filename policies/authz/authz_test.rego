@@ -1721,7 +1721,7 @@ test_integration_hub_reaches_only_render_and_xref_record if {
 }
 
 test_migration_factory_grant_reaches_only_the_receivables_import if {
-	data.service_grants["migration-factory"] == {"receivables": ["receivables.import.write", "receivables.view"], "payables": ["opening-item.import", "opening-item.import.read"], "inventory": ["inventory.import.write", "inventory.import.read", "inventory.read"], "sales": ["sales.opening-order.import", "sales.opening-order.read"], "purchasing": ["procurement.opening-order.import", "procurement.opening-order.read"], "treasury": ["treasury.import.write", "treasury.import.read"], "ledger": ["ledger.entry.post", "ledger.balance.read", "ledger.ledger.lookup"], "migration": ["migration.xref.read"]}
+	data.service_grants["migration-factory"] == {"receivables": ["receivables.import.write", "receivables.view"], "payables": ["opening-item.import", "opening-item.import.read"], "inventory": ["inventory.import.write", "inventory.import.read", "inventory.read"], "sales": ["sales.opening-order.import", "sales.opening-order.read"], "purchasing": ["procurement.opening-order.import", "procurement.opening-order.read"], "assets": ["assets.opening-asset.import", "assets.opening-asset.read", "assets.opening-journal.post"], "production": ["production.opening-wip.import", "production.opening-wip.read", "production.opening-journal.post"], "payroll": ["payroll.opening-ytd.import", "payroll.opening-ytd.read"], "treasury": ["treasury.import.write", "treasury.import.read"], "ledger": ["ledger.entry.post", "ledger.balance.read", "ledger.ledger.lookup"], "migration": ["migration.xref.read"]}
 	allowed("receivables.import.write", "POST", "/v1/receivables/open-items:batch")
 	allowed("receivables.view", "GET", "/v1/receivables/open-item-imports")
 	not allowed("receivables.view", "POST", "/v1/receivables/open-items:batch")
@@ -3577,6 +3577,36 @@ test_opening_order_import_duties_are_service_only_and_cover_only_their_route if 
 	allowed("procurement.opening-order.read", "GET", "/v1/procurement/opening-orders")
 	not allowed("procurement.opening-order.read", "POST", "/v1/procurement/opening-orders")
 	not allowed("procurement.opening-order.import", "POST", "/v1/procurement/purchase-orders")
+	data.duties["assets.opening-asset.import"].service_only
+	data.duties["assets.opening-asset.read"].service_only
+	allowed("assets.opening-asset.import", "POST", "/v1/assets/opening-assets")
+	not allowed("assets.opening-asset.import", "GET", "/v1/assets/opening-assets")
+	allowed("assets.opening-asset.read", "GET", "/v1/assets/opening-assets")
+	not allowed("assets.opening-asset.read", "POST", "/v1/assets/opening-assets")
+	not allowed("assets.opening-asset.import", "POST", "/v1/assets")
+	data.duties["assets.opening-journal.post"].service_only
+	allowed("assets.opening-journal.post", "POST", "/v1/assets/opening-journal")
+	not allowed("assets.opening-journal.post", "POST", "/v1/assets/gl-postings")
+	not allowed("assets.opening-journal.post", "POST", "/v1/assets/abc/transactions")
+	not allowed("assets.opening-journal.post", "POST", "/v1/assets/depreciation-runs/abc/post")
+	data.duties["production.opening-wip.import"].service_only
+	data.duties["production.opening-wip.read"].service_only
+	allowed("production.opening-wip.import", "POST", "/v1/production/opening-wip")
+	not allowed("production.opening-wip.import", "GET", "/v1/production/opening-wip")
+	allowed("production.opening-wip.read", "GET", "/v1/production/opening-wip")
+	not allowed("production.opening-wip.read", "POST", "/v1/production/opening-wip")
+	not allowed("production.opening-wip.import", "POST", "/v1/production/orders")
+	data.duties["production.opening-journal.post"].service_only
+	allowed("production.opening-journal.post", "POST", "/v1/production/opening-journal")
+	not allowed("production.opening-journal.post", "POST", "/v1/production/gl-postings:run")
+	not allowed("production.opening-journal.post", "DELETE", "/v1/production/journals/abc")
+	data.duties["payroll.opening-ytd.import"].service_only
+	data.duties["payroll.opening-ytd.read"].service_only
+	allowed("payroll.opening-ytd.import", "POST", "/v1/payroll/opening-ytd")
+	not allowed("payroll.opening-ytd.import", "GET", "/v1/payroll/opening-ytd")
+	allowed("payroll.opening-ytd.read", "GET", "/v1/payroll/opening-ytd")
+	not allowed("payroll.opening-ytd.read", "POST", "/v1/payroll/opening-ytd")
+	not allowed("payroll.opening-ytd.import", "POST", "/v1/payroll/runs")
 }
 
 test_prediction_feed_duty_is_service_only_and_the_prediction_service_holds_only_it if {

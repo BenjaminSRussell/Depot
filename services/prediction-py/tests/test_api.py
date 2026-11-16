@@ -22,7 +22,7 @@ def client():
     return TestClient(api.app)
 
 
-def h(tenant=TENANT_A, duties="agents.admin,collections.view", entity=None):
+def h(tenant=TENANT_A, duties="agents.admin,collections.view,org.switcher.all-scope", entity=None):
     out = {"x-passage-tenant": tenant, "x-passage-user": USER, "x-passage-duties": duties}
     if entity is not None:
         out["x-passage-legal-entity"] = entity
@@ -41,6 +41,7 @@ def paid_body(n):
 
 def open_body(n):
     return {
+        "legalEntityId": LE,
         "openInvoices": [
             {"invoiceId": i.invoice_id, "customerId": i.customer_id, "amount": i.amount, "invoiceDate": i.invoice_date.isoformat(), "dueDate": i.due_date.isoformat(),
              "dunningCount": i.dunning_count, "disputes": i.disputes}
@@ -60,7 +61,7 @@ def test_retrain_score_and_read_prediction(client):
     s = client.post("/api/v1/predictions/payment/score", json=open_body(3), headers=h())
     assert s.status_code == 200
     first = s.json()["items"][0]
-    g = client.get(f"/api/v1/ar/invoices/{first['invoiceId']}/prediction", headers=h(duties="collections.view"))
+    g = client.get(f"/api/v1/ar/invoices/{first['invoiceId']}/prediction", headers=h(duties="collections.view,org.switcher.all-scope"))
     assert g.status_code == 200
     assert g.json()["predictedPaymentDate"] == first["predictedPaymentDate"] and g.json()["stale"] is False
 
@@ -77,7 +78,7 @@ def test_identity_and_duties(client):
     nil = h(tenant="00000000-0000-0000-0000-000000000000")
     assert client.get("/api/v1/ar/invoices/x/prediction", headers=nil).status_code == 401
     assert client.get("/api/v1/ar/invoices/x/prediction", headers=h(tenant="not-a-uuid")).status_code == 401
-    denied = client.post("/api/v1/predictions/payment/retrain", json=paid_body(1), headers=h(duties="collections.view"))
+    denied = client.post("/api/v1/predictions/payment/retrain", json=paid_body(1), headers=h(duties="collections.view,org.switcher.all-scope"))
     assert denied.status_code == 403 and denied.json()["code"] == "AGT-0203"
     assert client.get("/api/v1/ar/invoices/x/prediction", headers=h(duties="agents.admin")).status_code == 403
 
@@ -107,7 +108,7 @@ def test_settings_are_per_tenant_and_need_the_admin_duty(client):
     assert client.put("/api/v1/predictions/payment/settings", json={"minRows": 99}, headers=h()).status_code == 400
     assert client.put("/api/v1/predictions/payment/settings", json={"maeMaxDays": 31}, headers=h()).status_code == 400
     assert client.put("/api/v1/predictions/payment/settings", json={"tenantId": TENANT_B}, headers=h()).status_code == 400
-    assert client.put("/api/v1/predictions/payment/settings", json={"minRows": 200}, headers=h(duties="collections.view")).status_code == 403
+    assert client.put("/api/v1/predictions/payment/settings", json={"minRows": 200}, headers=h(duties="collections.view,org.switcher.all-scope")).status_code == 403
     # The tenant's min_rows now applies: 250 paid invoices train a model for A, not for B.
     assert client.post("/api/v1/predictions/payment/retrain", json=paid_body(250), headers=h()).status_code == 201
     assert client.post("/api/v1/predictions/payment/retrain", json=paid_body(250), headers=h(TENANT_B)).status_code == 422
@@ -126,7 +127,7 @@ def test_accuracy_report_reads_predictions_whose_invoices_were_paid(client):
     report = client.get("/api/v1/predictions/payment/accuracy", headers=h()).json()
     assert report["count"] == 1 and report["maeDays"] == "0.00" and report["withinShare"] == "1.0000"
     assert client.get("/api/v1/predictions/payment/accuracy", headers=h(TENANT_B)).json()["count"] == 0
-    assert client.get("/api/v1/predictions/payment/accuracy", headers=h(duties="collections.view")).status_code == 403
+    assert client.get("/api/v1/predictions/payment/accuracy", headers=h(duties="collections.view,org.switcher.all-scope")).status_code == 403
 
 
 LE = "44444444-4444-4444-4444-444444444444"
@@ -136,14 +137,14 @@ def test_the_gateway_routes_are_the_same_handlers_under_v1(client):
     """The gateway rewrites /api/v1/predictions to /v1/predictions (deploy/gateway), so both prefixes answer."""
     assert client.post("/v1/predictions/payment/retrain", json=paid_body(600), headers=h()).status_code == 201
     scored = client.post("/v1/predictions/payment/score", json=open_body(2), headers=h()).json()["items"][0]
-    g = client.get(f"/v1/ar/invoices/{scored['invoiceId']}/prediction", headers=h(duties="collections.view"))
+    g = client.get(f"/v1/ar/invoices/{scored['invoiceId']}/prediction", headers=h(duties="collections.view,org.switcher.all-scope"))
     assert g.status_code == 200 and g.json()["invoiceId"] == scored["invoiceId"]
     assert client.get("/v1/predictions/payment/accuracy", headers=h()).status_code == 200
 
 
 def test_the_dso_tile_reads_the_forecast_of_a_legal_entity(client):
     assert client.get(f"/v1/predictions/payment/dso?legalEntityId={LE}", headers=h(duties="agents.admin")).status_code == 403
-    assert client.get("/v1/predictions/payment/dso", headers=h(duties="collections.view")).status_code == 400
+    assert client.get("/v1/predictions/payment/dso", headers=h(duties="collections.view,org.switcher.all-scope")).status_code == 400
     assert client.get(f"/v1/predictions/payment/dso?legalEntityId={LE}", headers=h(duties="collections.view", entity=LE)).status_code == 404
     client.post("/v1/predictions/payment/retrain", json=paid_body(600), headers=h())
     invoices = synth.open_invoices(25)
@@ -170,3 +171,27 @@ def test_the_dso_of_another_legal_entity_is_not_there_for_a_scoped_caller(client
     # No scope claim: only a caller who holds the all-scope duty may name an entity.
     assert client.get(url, headers=h(duties="collections.view")).status_code == 404
     assert client.get(url, headers=h(duties="collections.view,org.switcher.all-scope")).status_code == 200
+
+
+def test_a_scoped_caller_scores_and_reads_only_its_own_legal_entities(client):
+    other = "00000000-0000-4000-8000-0000000000b2"
+    assert client.post("/api/v1/predictions/payment/retrain", json=paid_body(600), headers=h()).status_code == 201
+    # A caller scoped to one entity stores for it without naming it; the prediction is there for it and for an all-scope caller only.
+    scored = client.post("/api/v1/predictions/payment/score", json=open_body(3), headers=h(entity=LE)).json()["items"][0]
+    url = f"/api/v1/ar/invoices/{scored['invoiceId']}/prediction"
+    assert client.get(url, headers=h(entity=LE)).status_code == 200
+    assert client.get(url, headers=h()).status_code == 200
+    assert client.get(url, headers=h(entity=other)).status_code == 404
+    # Neither a legal entity nor the all-scope duty: nothing of a legal-entity table is visible.
+    assert client.get(url, headers=h(duties="collections.view")).status_code == 404
+    # A caller scoped to several entities names one; naming one outside its scope is not there for it; storing over another entity's invoice is refused.
+    both = f"{LE},{other}"
+    body = {k: v for k, v in open_body(2).items() if k != "legalEntityId"}
+    assert client.post("/api/v1/predictions/payment/score", json=body, headers=h(entity=both)).status_code == 400
+    assert client.post("/api/v1/predictions/payment/score", json=body, headers=h()).status_code == 400  # the all-scope duty does not excuse it
+    assert client.post("/api/v1/predictions/payment/score", json={**body, "legalEntityId": "00000000-0000-4000-8000-0000000000c3"}, headers=h(entity=both)).status_code == 404
+    assert client.post("/api/v1/predictions/payment/score", json={**body, "legalEntityId": other}, headers=h(entity=both)).status_code == 200
+    stolen = client.post("/api/v1/predictions/payment/score", json={**open_body(3), "legalEntityId": other}, headers=h(entity=other))
+    assert stolen.status_code == 403 and stolen.json()["code"] == "PRD-0403"
+    # The accuracy report counts what the caller can see.
+    assert client.get("/api/v1/predictions/payment/accuracy", headers=h(entity=other)).status_code == 200

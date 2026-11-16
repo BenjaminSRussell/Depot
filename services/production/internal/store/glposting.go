@@ -34,6 +34,8 @@ type GLPostRequest struct {
 	LegalEntityID string
 	LedgerID      string
 	OrderID       string
+	// OpeningOnly books only the WIP rows of the opening-wip journals.
+	OpeningOnly bool
 }
 
 type GLBooked struct {
@@ -97,8 +99,8 @@ func (s *Postgres) unbookedGroups(ctx context.Context, tenantID string, in GLPos
 			from production_wip_posting w
 			join production_order o on o.tenant_id = w.tenant_id and o.id = w.order_id
 			left join production_journal j on j.tenant_id = w.tenant_id and j.id = w.journal_id
-			where w.tenant_id = $1 and w.legal_entity_id = $2 and w.journal_entry_id is null and ($3 = '' or w.order_id = $3::uuid)
-			order by w.created_at, w.id`, tenantID, in.LegalEntityID, in.OrderID)
+			where w.tenant_id = $1 and w.legal_entity_id = $2 and w.journal_entry_id is null and ($3 = '' or w.order_id = $3::uuid) and (not $4 or j.journal_type = 'opening-wip')
+			order by w.created_at, w.id`, tenantID, in.LegalEntityID, in.OrderID, in.OpeningOnly)
 		if err != nil {
 			return err
 		}
