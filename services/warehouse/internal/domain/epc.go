@@ -12,12 +12,13 @@ import (
 // SGLN-96 and SGLN-195 (a location), GRAI-96, GRAI-170, GIAI-96 and GIAI-202 (returnable and individual assets),
 // GSRN-96 and GSRNP-96 (a service relation), GDTI-96 and GDTI-174 (a document) and GID-96. Each gives the GS1 key the
 // tag identifies with its check digit, so a read of a pallet's tag is the same SSCC the pallet's label and the receipt
-// carry. The longer schemes hold their serial as 7-bit characters of the GS1 AI encodable set. CPI, SGCN, ITIP and
-// ADI are not decoded.
+// carry. The longer schemes hold their serial as 7-bit characters of the GS1 AI encodable set. CPI-96, CPI-var,
+// SGCN-96, ITIP-110, ITIP-212 and ADI-var are in epc_tds.go (GS1 TDS 2.3). Every other header of TDS table 14-1 is
+// refused naming what it is.
 
 // Codes of RFID reads.
 const (
-	CodeEPCInvalid = "WMS-EPC-INVALID" // the tag data is not a 96-bit EPC of a known scheme
+	CodeEPCInvalid = "WMS-EPC-INVALID" // the tag data is not an EPC of a scheme the warehouse decodes
 )
 
 // EPC is a decoded tag.
@@ -29,9 +30,15 @@ type EPC struct {
 	// Key is the GS1 key the tag identifies: the GTIN-14 of an SGTIN, the SSCC, GLN-13, GRAI-14, GSRN-18 or GDTI-13,
 	// each with its check digit; the GIAI has none. Serial is the SGTIN, GRAI or GDTI serial, and the location
 	// extension of an SGLN, in decimal.
+	// For a CPI it is the component/part identifier (AI 8010), for an SGCN the GCN-13, for an ITIP the GTIN-14 with
+	// piece and total (AI 8006), for an ADI the CAGE code or DoDAAC followed by the part number.
 	Key    string `json:"key"`
 	Serial string `json:"serial,omitempty"`
-	URN    string `json:"urn"`
+	// URN is the pure identity EPC URI and TagURI the EPC tag URI with the coding scheme and filter (GS1 TDS 2.3
+	// section 12). ElementString is the GS1 element string of a CPI, SGCN or ITIP (TDS sections 7.11, 7.12, 7.15).
+	URN           string `json:"urn"`
+	TagURI        string `json:"tagUri"`
+	ElementString string `json:"elementString,omitempty"`
 }
 
 type epcPartition struct{ cpBits, cpDigits, refBits, refDigits int }
@@ -156,12 +163,13 @@ func urnEscape(s string) string {
 }
 
 // DecodeEPC decodes the hexadecimal of an EPC binary encoding: the 96-bit schemes, SGTIN-198, SGLN-195, GRAI-170,
-// GDTI-174, GIAI-202, GSRNP-96 and GID-96. A tag longer than 96 bits may be padded to a whole 16-bit word with zero
-// bits, as readers report the EPC memory. Other lengths and schemes are WMS-EPC-INVALID.
+// GDTI-174, GIAI-202, GSRNP-96, GID-96, CPI-96, CPI-var, SGCN-96, ITIP-110, ITIP-212 and ADI-var. A tag longer than
+// 96 bits may be padded to a whole 16-bit word with zero bits, as readers report the EPC memory. Other lengths and
+// schemes are WMS-EPC-INVALID.
 func DecodeEPC(hex string) (EPC, error) {
 	clean := strings.ToUpper(strings.TrimSpace(hex))
 	if len(clean) < 2 {
-		return EPC{}, epcErr("an EPC is at least 24 hexadecimal characters (96 bits), this has %d", len(clean))
+		return EPC{}, epcErr("an EPC is at least 17 hexadecimal characters (an ADI-var of 68 bits), this has %d", len(clean))
 	}
 	v, ok := new(big.Int).SetString(clean, 16)
 	if !ok {
@@ -169,23 +177,47 @@ func DecodeEPC(hex string) (EPC, error) {
 	}
 	b := epcBits{v: v, width: 4 * len(clean)}
 	header := int(b.at(0, 8).Int64())
+	if d, ok := tdsDecoders[header]; ok {
+		return decodeTDS(d, b, len(clean))
+	}
 	bits := 96
 	sc, known := epcSchemes[header]
 	if known {
 		bits = sc.bits
 	} else if header != gidHeader {
-		return EPC{}, epcErr("EPC header 0x%02X is not a scheme this warehouse decodes (SGTIN, SSCC, SGLN, GRAI, GIAI, GSRN, GSRNP, GDTI, GID)", header)
+		return EPC{}, refuseHeader(header)
 	}
+	if err := checkEPCWidth(b, bits, len(clean)); err != nil {
+		return EPC{}, err
+	}
+	out, err := decodeGS1(b, header, sc)
+	if err != nil {
+		return EPC{}, err
+	}
+	out.TagURI = tagURI(out)
+	return out, nil
+}
+
+// checkEPCWidth checks the length of a fixed-length scheme: its own bits, rounded up to a hexadecimal digit, or
+// padded with zero bits to a whole 16-bit word.
+func checkEPCWidth(b epcBits, bits, hexLen int) error {
 	padded := (bits + 15) / 16 * 16
 	if b.width < bits || b.width > padded {
 		if bits == 96 {
-			return EPC{}, epcErr("an EPC is 24 hexadecimal characters (96 bits), this has %d", len(clean))
+			return epcErr("an EPC is 24 hexadecimal characters (96 bits), this has %d", hexLen)
 		}
-		return EPC{}, epcErr("a %d-bit EPC is %d to %d hexadecimal characters, this has %d", bits, (bits+3)/4, padded/4, len(clean))
+		if (bits+3)/4 == padded/4 {
+			return epcErr("a %d-bit EPC is %d hexadecimal characters, this has %d", bits, padded/4, hexLen)
+		}
+		return epcErr("a %d-bit EPC is %d to %d hexadecimal characters, this has %d", bits, (bits+3)/4, padded/4, hexLen)
 	}
 	if b.width > bits && b.at(bits, b.width-bits).Sign() != 0 {
-		return EPC{}, epcErr("the bits after the %d-bit EPC are not zero", bits)
+		return epcErr("the bits after the %d-bit EPC are not zero", bits)
 	}
+	return nil
+}
+
+func decodeGS1(b epcBits, header int, sc epcScheme) (EPC, error) {
 	if header == gidHeader {
 		manager, class, serial := b.at(8, 28), b.at(36, 24), b.at(60, 36)
 		key := fmt.Sprintf("%s.%s.%s", manager, class, serial)
@@ -261,7 +293,7 @@ func DecodeEPC(hex string) (EPC, error) {
 func EncodeEPC96(header, filter int, companyPrefix, reference string, serial *big.Int) (string, error) {
 	sc, ok := epcSchemes[header]
 	if !ok || sc.bits != 96 {
-		return "", epcErr("header 0x%02X is not a known 96-bit scheme", header)
+		return "", epcErr("header 0x%02X is not a known 96-bit scheme (CPI, SGCN, ITIP and ADI tags are built with EncodeEPCTagURI)", header)
 	}
 	part := -1
 	for i, p := range sc.table {
