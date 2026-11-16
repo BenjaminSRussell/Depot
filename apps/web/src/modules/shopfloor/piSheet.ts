@@ -2,6 +2,7 @@
 // structure of a control recipe: unit procedures, operations, phases and, in each phase, numbered process instructions.
 
 import type { Instruction, InstructionCategory, PIStepSpec, PIStepTemplate, RecipeDocument, SignatureMeaning } from "./api/client";
+import { Dec } from "./piDecimal";
 import { exprProblem, parseExpr } from "./piExpr";
 
 /** Signature meanings (21 CFR 11.50): what the signer states by signing the step. */
@@ -111,6 +112,7 @@ export function documentProblems(doc: RecipeDocument): string[] {
     for (const n of names) {
       const t = n.trim();
       if (t === "" || t.length > 120) out.push(`${where}: a name must be 1 to 120 characters.`);
+      else if (t.includes("/")) out.push(`${where}: the name "${t}" cannot contain a slash.`);
       else if (seen.has(t)) out.push(`${where}: the name "${t}" is used twice.`);
       seen.add(t);
     }
@@ -150,10 +152,16 @@ export function documentProblems(doc: RecipeDocument): string[] {
 
 const VAR_NAME = /^[a-z][a-z0-9_]{0,39}$/;
 
+/** Value names the service writes into recorded steps (domain.ReservedValueNames); a characteristic or var cannot use them. */
+export const RESERVED_VALUE_NAMES = ["comment", "signature-meaning", "signed-by", "readout-source", "readout-edge", "readout-read-at", "readout-claim", "node", "expected", "tolerance", "expression", "timer-seconds", "timer-blocking", "branch-taken", "branch-target"];
+
 /** What the kind of a step needs, as the service checks it: a formula, a node, a duration, a condition and its jump. */
 export function stepKindProblems(ins: Instruction | PIStepSpec, where: string, phaseSteps?: number): string[] {
   const out: string[] = [];
   if (ins.var !== undefined && ins.var !== "" && !VAR_NAME.test(ins.var)) out.push(`${where}: the value name must be lower-case letters, digits and '_', starting with a letter.`);
+  if (ins.var && RESERVED_VALUE_NAMES.includes(ins.var)) out.push(`${where}: "${ins.var}" is a name the service writes into recorded steps; choose another value name.`);
+  if (ins.characteristic?.name && RESERVED_VALUE_NAMES.includes(ins.characteristic.name)) out.push(`${where}: "${ins.characteristic.name}" is a name the service writes into recorded steps; choose another characteristic name.`);
+  if (ins.var && (ins.category === "process-data-request" || ins.category === "inspection-characteristic") && ins.characteristic?.type === "text") out.push(`${where}: a text value cannot be used in a formula; remove the value name.`);
   if (ins.category === "calculation" && ins.expression !== undefined && ins.expression.trim() !== "") {
     const p = exprProblem(ins.expression, "number");
     if (p) out.push(`${where}: ${p}`);
@@ -328,7 +336,7 @@ export function messageFor(recipeId: string, step: RunStep, entry: StepEntry | u
   }
   if (ins.category === "machine-readout" && c && entry) {
     const values: ProcessMessageDraft["values"] = [
-      { name: c.name, type: "numeric", value: String(parseNumber(entry.value) ?? entry.value), min: num(c.min), max: num(c.max), unit: c.unit },
+      { name: c.name, type: "numeric", value: entry.value.trim().replace(",", "."), min: num(c.min), max: num(c.max), unit: c.unit },
       { name: "readout-source", type: "text", value: entry.manual ? "entered-by-hand" : "machine" },
     ];
     if (ins.node) values.push({ name: "node", type: "text", value: ins.node });
@@ -358,17 +366,32 @@ export function messageFor(recipeId: string, step: RunStep, entry: StepEntry | u
 
 // Running the step library's kinds.
 
-/** The values the steps so far produced, by their var, as a calculation or branch reads them. */
-export type StepValues = Record<string, number>;
+/** The values the steps so far produced, by their var, as decimal text (what a calculation or branch reads). */
+export type StepValues = Record<string, string>;
 
-/** What a finished step adds to the values: a setpoint its value, a number entered or read its reading, a calculation its result. */
+/**
+ * What a finished step adds to the values: a setpoint its value, a number entered or read its reading, a calculation its
+ * result. The kiosk adopts the value the service stored (see adoptStored), so these are the values the record is built from.
+ */
 export function valuesAfter(ins: Instruction, entry: StepEntry | undefined, values: StepValues): StepValues {
   if (!ins.var) return values;
-  if (ins.category === "process-parameter-setpoint" && ins.value !== undefined) return { ...values, [ins.var]: ins.value };
+  if (ins.category === "process-parameter-setpoint" && ins.value !== undefined) return { ...values, [ins.var]: Dec.fromNumber(ins.value)?.toString() ?? String(ins.value) };
   if (!entry) return values;
-  if (ins.characteristic?.type === "boolean" && (ins.category === "process-data-request" || ins.category === "inspection-characteristic")) return { ...values, [ins.var]: entry.value === "true" ? 1 : 0 };
-  const n = parseNumber(entry.value);
-  return n === null ? values : { ...values, [ins.var]: n };
+  if (ins.characteristic?.type === "boolean" && (ins.category === "process-data-request" || ins.category === "inspection-characteristic")) return { ...values, [ins.var]: entry.value === "true" ? "1" : "0" };
+  const d = Dec.parse(entry.value.trim().replace(",", "."));
+  return d === null ? values : { ...values, [ins.var]: d.toString() };
+}
+
+/**
+ * The entry a step records once the service has answered: on a retry of a step the service already holds, its stored value
+ * is the one that counts, not what the operator typed this time.
+ */
+export function adoptStored(ins: Instruction, made: StepEntry | undefined, stored: { name: string; value: string }[] | undefined): StepEntry | undefined {
+  if (!stored || !made) return made;
+  const name = ins.category === "calculation" ? ins.var || "calculation" : ins.characteristic?.name;
+  const found = name === undefined ? undefined : stored.find((v) => v.name === name);
+  const comment = stored.find((v) => v.name === "comment");
+  return found ? { ...made, value: found.value, comment: comment ? comment.value : made.comment } : made;
 }
 
 export type CalcResult = { ok: true; value: string } | { ok: false; message: string };
@@ -378,7 +401,7 @@ export function runCalculation(ins: Instruction, values: StepValues): CalcResult
   if (!ins.expression) return { ok: false, message: "This step has no formula." };
   try {
     const r = parseExpr(ins.expression).eval(values);
-    return r.type === "number" ? { ok: true, value: String(r.value) } : { ok: false, message: "The formula is not a number." };
+    return r.type === "number" ? { ok: true, value: r.value } : { ok: false, message: "The formula is not a number." };
   } catch (error) {
     const message = error instanceof Error ? error.message : "The formula could not be worked out.";
     return { ok: false, message: message.startsWith("the step value") ? `${message}: the step that gives it was skipped or has no value.` : message[0]!.toUpperCase() + message.slice(1) + "." };
@@ -401,4 +424,14 @@ export function nextIndex(steps: readonly RunStep[], index: number, jump: boolea
   if (!here || here.instruction.category !== "branch" || !jump) return index + 1;
   const at = steps.findIndex((s) => s.path === here.path && s.instruction.seq === here.instruction.target);
   return at > index ? at : index + 1;
+}
+
+/** Whether a step that names a library template still holds the template's own fields (the sheet sets only position, jump target, value name, setpoint value and materials). */
+export function matchesTemplate(step: Instruction | PIStepSpec, spec: PIStepSpec): boolean {
+  const norm = (x: Instruction | PIStepSpec) => {
+    const { seq: _s, target: _t, var: _v, template: _tp, materials: _m, ...rest } = x as Instruction;
+    if (rest.category === "process-parameter-setpoint") delete rest.value;
+    return JSON.stringify(Object.fromEntries(Object.entries(rest).filter(([, v]) => v !== undefined).sort(([a], [b]) => a.localeCompare(b))));
+  };
+  return norm(step) === norm(spec);
 }

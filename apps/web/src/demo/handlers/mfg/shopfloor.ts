@@ -514,10 +514,10 @@ route("POST", `${BASE}/pi-step-templates/{id}:new-version`, (req) => {
 });
 
 // Machine readouts on the kiosk: the connector's latest reading of a node (the demo answers every node with a plausible value).
-route("GET", `${BASE}/node-readings`, (req) => {
-  const node = req.query.get("node") ?? "";
-  if (!node) return reply.problem(400, "COM-0001", "request failed validation", { node: "is required" });
-  return { node, value: "181.5", nodeType: "Double", readAt: new Date(Date.now() - 4000).toISOString(), ageSeconds: 4 };
+route("POST", `${BASE}/control-recipes/{id}/readouts`, (req) => {
+  const stepKey = ((req.body ?? {}) as { stepKey?: string }).stepKey ?? "";
+  if (!stepKey) return reply.problem(400, "COM-0001", "request failed validation", { stepKey: "is required" });
+  return { node: stepKey, value: "181.5", nodeType: "Double", readAt: new Date(Date.now() - 4000).toISOString(), ageSeconds: 4 };
 });
 route("POST", `${BASE}/edge-nodes/{id}/readings`, () => reply.noContent());
 

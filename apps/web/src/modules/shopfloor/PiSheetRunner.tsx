@@ -2,8 +2,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useAccount } from "../../shell/auth/account";
 import { EntityName } from "../../shell/lookup/EntityName";
 import { Alert, Button, Card, FormField, Input, Select, Textarea } from "../../shell/ui";
-import { getNodeReading, ShopfloorApiError, type Instruction, type RecipeDocument } from "./api/client";
-import { CATEGORY_LABEL, checkEntry, collectsValue, flattenSteps, limitsText, MEANING_LABEL, meaningStatement, messageFor, nextIndex, runBranch, runCalculation, valuesAfter, type ProcessMessageDraft, type StepEntry, type StepValues } from "./piSheet";
+import { claimReadout, ShopfloorApiError, type Instruction, type RecipeDocument } from "./api/client";
+import { adoptStored, CATEGORY_LABEL, checkEntry, collectsValue, flattenSteps, limitsText, MEANING_LABEL, meaningStatement, messageFor, nextIndex, runBranch, runCalculation, valuesAfter, type ProcessMessageDraft, type StepEntry, type StepValues } from "./piSheet";
 import styles from "./pages.module.css";
 
 /** SF-0188: the service wants a sign-in from the last few minutes before it accepts a signature (21 CFR 11.200). */
@@ -20,6 +20,26 @@ function takeResume(recipeId: string, count: number): number {
     return Number.isInteger(n) && n >= 0 && n < count ? n : 0;
   } catch {
     return 0;
+  }
+}
+
+const timersKey = (recipeId: string) => `passage.pi.timers.${recipeId}`;
+
+/** The end times of the timers started so far on this recipe, kept so a reload does not restart a running timer. */
+function loadTimers(recipeId: string): Record<string, number> {
+  try {
+    const parsed: unknown = JSON.parse(localStorage.getItem(timersKey(recipeId)) ?? "{}");
+    return parsed !== null && typeof parsed === "object" ? (parsed as Record<string, number>) : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveTimers(recipeId: string, all: RunningTimer[]) {
+  try {
+    localStorage.setItem(timersKey(recipeId), JSON.stringify(Object.fromEntries(all.map((t) => [t.key, t.endsAt]))));
+  } catch {
+    // Without storage a reload restarts a timer on the kiosk; the service still holds a blocking timer to its own clock.
   }
 }
 
@@ -79,7 +99,8 @@ export function PiSheetRunner({
 }: {
   doc: RecipeDocument;
   recipeId: string;
-  onRecord?(message: ProcessMessageDraft): Promise<void> | void;
+  /** Records the step's message; what it returns is what the service stored, which the runner adopts over what was typed. */
+  onRecord?(message: ProcessMessageDraft): Promise<{ values?: { name: string; value: string }[] } | void> | { values?: { name: string; value: string }[] } | void;
   onComplete?(): Promise<void> | void;
   /** The time source of the timers; tests pass their own. */
   clock?: () => number;
@@ -95,6 +116,7 @@ export function PiSheetRunner({
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
   const [timers, setTimers] = useState<RunningTimer[]>([]);
+  const savedTimers = useRef<Record<string, number> | null>(null);
   const [now, setNow] = useState(() => clock());
   const [reading, setReading] = useState<Reading>({ state: "loading" });
   const [readAgain, setReadAgain] = useState(0);
@@ -105,12 +127,15 @@ export function PiSheetRunner({
   // A timer starts when its step is shown, once; a countdown ticks each second while any timer runs.
   useEffect(() => {
     if (!step || step.instruction.category !== "timer") return;
-    setTimers((all) =>
-      all.some((t) => t.key === step.key)
-        ? all
-        : [...all, { key: step.key, label: step.instruction.text ?? "Timer", endsAt: clock() + (step.instruction.durationSeconds ?? 0) * 1000, blocking: step.instruction.blocking === true }],
-    );
-  }, [step, clock]);
+    savedTimers.current ??= loadTimers(recipeId);
+    const kept = savedTimers.current[step.key];
+    setTimers((all) => {
+      if (all.some((t) => t.key === step.key)) return all;
+      const next = [...all, { key: step.key, label: step.instruction.text ?? "Timer", endsAt: kept ?? clock() + (step.instruction.durationSeconds ?? 0) * 1000, blocking: step.instruction.blocking === true }];
+      saveTimers(recipeId, next);
+      return next;
+    });
+  }, [step, clock, recipeId]);
   const running = timers.some((t) => t.endsAt > now);
   useEffect(() => {
     if (!running && !(ins?.category === "timer")) return;
@@ -123,7 +148,7 @@ export function PiSheetRunner({
     if (!step || step.instruction.category !== "machine-readout") return;
     const controller = new AbortController();
     setReading({ state: "loading" });
-    getNodeReading(step.instruction.node ?? "", controller.signal).then(
+    claimReadout(recipeId, step.key, controller.signal).then(
       (r) => {
         setReading({ state: "ok", readAt: r.readAt });
         setEntry({ value: r.value, comment: "", manual: false });
@@ -136,7 +161,7 @@ export function PiSheetRunner({
       },
     );
     return () => controller.abort();
-  }, [step, readAgain]);
+  }, [step, readAgain, recipeId]);
 
   const calc = ins && ins.category === "calculation" && ins.expression ? runCalculation(ins, values) : null;
   const branch = ins && ins.category === "branch" ? runBranch(ins, values) : null;
@@ -173,11 +198,15 @@ export function PiSheetRunner({
     setBusy(true);
     try {
       const message = messageFor(recipeId, step, made);
+      let stored: { values?: { name: string; value: string }[] } | void = undefined;
       if (message && onRecord && !recorded.current.has(message.sourceMessageId)) {
-        await onRecord(message);
+        stored = await onRecord(message);
         recorded.current.add(message.sourceMessageId);
       }
-      setValues((v) => valuesAfter(ins!, made, v));
+      // What the service stored for the step is what counts: after a reload the operator may type another value, and the
+      // service answers a retry with the first one.
+      const adopted = adoptStored(ins!, made, stored ? stored.values : undefined);
+      setValues((v) => valuesAfter(ins!, adopted, v));
       if (last) {
         await onComplete?.();
         setDone(true);

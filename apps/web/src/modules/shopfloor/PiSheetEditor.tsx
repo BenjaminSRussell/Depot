@@ -1,6 +1,6 @@
 import { Button, FormField, Input, Select } from "../../shell/ui";
 import { listPISteps, type Instruction, type InstructionCategory, type PIStepTemplate, type RecipeDocument, type RecipeOperation, type RecipePhase, type RecipeUnitProcedure } from "./api/client";
-import { CATEGORIES, CATEGORY_LABEL, instructionFromTemplate, moveItem, newInstruction, renumber } from "./piSheet";
+import { CATEGORIES, CATEGORY_LABEL, instructionFromTemplate, matchesTemplate, moveItem, newInstruction, renumber } from "./piSheet";
 import { StepFields } from "./PiStepFields";
 import styles from "./pages.module.css";
 import { useLoad } from "./useLoad";
@@ -125,7 +125,7 @@ function PhaseEditor({
               id={`${id}-${i}`}
               ins={ins}
               readOnly={readOnly}
-              onChange={(next) => setList(list.map((x, k) => (k === i ? next : x)))}
+              onChange={(next) => setList(list.map((x, k) => (k === i ? dropTemplateWhenEdited(x, next) : x)))}
               onMove={(by) => setList(moveItem(list, i, i + by))}
               onRemove={list.length > 1 ? () => setList(list.filter((_, k) => k !== i)) : undefined}
               first={i === 0}
@@ -230,4 +230,19 @@ function InstructionEditor({
       )}
     </div>
   );
+}
+
+/**
+ * A step made from a library template keeps its reference only while it is the template's step: the service refuses a
+ * reference whose step differs from the template version. Editing a copied field makes it the sheet's own step.
+ */
+function dropTemplateWhenEdited(before: Instruction, after: Instruction): Instruction {
+  if (!before.template) return after;
+  const { template: _t, ...own } = after;
+  return matchesTemplate(own as Instruction, withoutTemplate(before)) ? after : (own as Instruction);
+}
+
+function withoutTemplate(ins: Instruction): Instruction {
+  const { template: _t, ...rest } = ins;
+  return rest as Instruction;
 }

@@ -1129,6 +1129,8 @@ const shared: Record<string, ProblemCatalogEntry> = {
   "SF-0195": { message: "The sheet uses a step template version that does not exist, is still a draft, or is another kind of step.", action: "Publish the template first, or pick a published version from the library." },
   "SF-0196": { message: "The machine has not reported a recent value for that node.", action: "Read again in a moment, or enter the reading by hand and say why." },
   "SF-0197": { message: "That PI execution record does not exist.", action: "Go back to the list of records and open it from there." },
+  "SF-0198": { message: "What this step recorded doesn't match the recipe or what the system worked out: a calculation result, a branch decision, a value the step doesn't ask for, a skipped step, a machine reading that wasn't the one given, or a hand-entered reading without a reason.", action: "Reload the PI sheet and do the step again; read the machine again or give a reason for a hand entry." },
+  "SF-0199": { message: "The timer of this step hasn't run out yet on the system's clock.", action: "Wait until the countdown has finished, then continue." },
   "WMS-WORK-NOT-AUTOMATION": { message: "This work isn't held by an automated station, so it can't be handed over from here.", action: "Reload the work to see who holds it now." },
   "WMS-AUTO-ORDER-STATE": { message: "The order isn't in a state where this can be done. The PLC may still hold the move, or the order may already be finished.", action: "Clear the move on the PLC if it is still there, then reload the page and try again." },
   "WMS-RFID-RULE-EXISTS": { message: "This reader already has a rule for that antenna and action.", action: "Edit the existing rule instead." },

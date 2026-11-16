@@ -1749,7 +1749,7 @@ export function newPIStepVersion(template: PIStepTemplate): Promise<PIStepTempla
   return post<PIStepTemplate>(`/pi-step-templates/${encodeURIComponent(template.id)}:new-version`, {});
 }
 
-/** The latest value the edge connector read from a machine node (for a machine-readout step). SF-0196 (404) when it has none lately. */
+/** The reading a machine-readout step is given: the connector's latest value of the node, at most five minutes old. */
 export interface NodeReading {
   node: string;
   value: string;
@@ -1758,8 +1758,12 @@ export interface NodeReading {
   ageSeconds: number;
 }
 
-export function getNodeReading(node: string, signal?: AbortSignal): Promise<NodeReading> {
-  return send<NodeReading>(`/node-readings${query({ node })}`, {}, signal);
+/**
+ * Fetches the reading for a machine-readout step of a kiosk recipe and records it as the step's claim: a value reported as
+ * read from the machine must equal it. SF-0196 (404) when the connector has reported none lately.
+ */
+export function claimReadout(recipeId: string, stepKey: string, signal?: AbortSignal): Promise<NodeReading> {
+  return send<NodeReading>(`/control-recipes/${encodeURIComponent(recipeId)}/readouts`, { method: "POST", body: JSON.stringify({ stepKey }) }, signal);
 }
 
 // ---- PI execution records (FR-25.18) ------------------------------------------------------------------------------------

@@ -10,15 +10,18 @@
 //
 // Functions: abs, min, max, round(x, places), floor, ceil. Names are the `var` of earlier steps.
 
+import { Dec, MAX_ROUND_PLACES } from "./piDecimal";
+
 export const MAX_EXPR_LENGTH = 500;
 const MAX_NODES = 200;
 const MAX_DEPTH = 32;
 
 export type ExprType = "number" | "boolean";
-export type ExprResult = { type: "number"; value: number } | { type: "boolean"; value: boolean };
+/** A number result is decimal text, as the service prints it. */
+export type ExprResult = { type: "number"; value: string } | { type: "boolean"; value: boolean };
 
 type Node =
-  | { k: "num"; v: number }
+  | { k: "num"; v: Dec }
   | { k: "name"; name: string }
   | { k: "not" | "neg"; x: Node }
   | { k: "bin"; op: string; l: Node; r: Node }
@@ -28,7 +31,8 @@ export interface ParsedExpr {
   type: ExprType;
   /** The names the expression reads, sorted and without repeats. */
   names: string[];
-  eval(vars: Readonly<Record<string, number>>): ExprResult;
+  /** vars are decimal text by name. */
+  eval(vars: Readonly<Record<string, string>>): ExprResult;
 }
 
 /** An evaluation that could not finish: a name without a value, or a division by zero. */
@@ -188,7 +192,7 @@ class Parser {
     const t = this.next();
     if (t.kind === "num") {
       this.grow();
-      return [{ k: "num", v: Number(t.text) }, "number"];
+      return [{ k: "num", v: Dec.parse(t.text) as Dec }, "number"];
     }
     if (t.kind === "name" && this.isOp("(")) return this.call(t);
     if (t.kind === "name") {
@@ -231,78 +235,81 @@ class Parser {
     if ((arity >= 0 && args.length !== arity) || (arity < 0 && args.length === 0)) {
       throw new Error(`position ${name.at + 1}: ${name.text} takes ${arity === 1 ? "one value" : arity === 2 ? "two values" : "at least one value"}`);
     }
+    if (name.text === "round") {
+      const places = args[1] as Node;
+      if (places.k === "neg" || (places.k === "num" && (!places.v.isInteger() || places.v.cmp(Dec.of(BigInt(MAX_ROUND_PLACES))) > 0))) {
+        throw new Error(`position ${name.at + 1}: round takes 0 to ${MAX_ROUND_PLACES} decimal places`);
+      }
+    }
     this.grow();
     return [{ k: "call", fn: name.text, args }, "number"];
   }
 }
 
-/** Display and recording form of a computed number: no floating point noise, at most 12 decimals. */
-export function cleanNumber(n: number): number {
-  return Number(n.toFixed(12));
-}
-
-function run(node: Node, vars: Readonly<Record<string, number>>): number | boolean {
+function run(node: Node, vars: Readonly<Record<string, string>>): Dec | boolean {
   switch (node.k) {
     case "num":
       return node.v;
     case "name": {
       // Own properties only: "constructor" or "__proto__" are names without a value, not members of Object.
-      const v = Object.hasOwn(vars, node.name) ? vars[node.name] : undefined;
-      if (v === undefined) throw new ExprEvalError(`the step value ${node.name} is not known`, node.name);
+      const text = Object.hasOwn(vars, node.name) ? vars[node.name] : undefined;
+      const v = text === undefined ? null : Dec.parse(text);
+      if (v === null) throw new ExprEvalError(`the step value ${node.name} is not known`, node.name);
       return v;
     }
     case "neg":
-      return -(run(node.x, vars) as number);
+      return (run(node.x, vars) as Dec).neg();
     case "not":
       return !(run(node.x, vars) as boolean);
     case "call": {
-      const a = node.args.map((x) => run(x, vars) as number);
+      const a = node.args.map((x) => run(x, vars) as Dec);
+      const first = a[0] as Dec;
       switch (node.fn) {
         case "abs":
-          return Math.abs(a[0] as number);
+          return first.abs();
         case "floor":
-          return Math.floor(a[0] as number);
+          return first.floor();
         case "ceil":
-          return Math.ceil(a[0] as number);
+          return first.ceil();
         case "round": {
-          const places = Math.trunc(a[1] as number);
-          const f = 10 ** places;
-          return Math.round((a[0] as number) * f + Number.EPSILON * Math.sign(a[0] as number)) / f;
+          const places = a[1] as Dec;
+          if (!places.isInteger() || places.cmp(Dec.of(0n)) < 0 || places.cmp(Dec.of(BigInt(MAX_ROUND_PLACES))) > 0) throw new ExprEvalError(`round takes 0 to ${MAX_ROUND_PLACES} decimal places`);
+          return first.round(Number(places.n));
         }
         case "min":
-          return Math.min(...a);
+          return a.reduce((m, x) => (x.cmp(m) < 0 ? x : m));
         default:
-          return Math.max(...a);
+          return a.reduce((m, x) => (x.cmp(m) > 0 ? x : m));
       }
     }
     default: {
       const l = run(node.l, vars);
       if (node.op === "&&") return l ? run(node.r, vars) : false;
       if (node.op === "||") return l ? true : run(node.r, vars);
-      const x = l as number;
-      const y = run(node.r, vars) as number;
+      const x = l as Dec;
+      const y = run(node.r, vars) as Dec;
       switch (node.op) {
         case "+":
-          return x + y;
+          return x.add(y);
         case "-":
-          return x - y;
+          return x.sub(y);
         case "*":
-          return x * y;
+          return x.mul(y);
         case "/":
-          if (y === 0) throw new ExprEvalError("division by zero");
-          return x / y;
+          if (y.isZero()) throw new ExprEvalError("division by zero");
+          return x.div(y);
         case "<":
-          return x < y;
+          return x.cmp(y) < 0;
         case "<=":
-          return x <= y;
+          return x.cmp(y) <= 0;
         case ">":
-          return x > y;
+          return x.cmp(y) > 0;
         case ">=":
-          return x >= y;
+          return x.cmp(y) >= 0;
         case "==":
-          return x === y;
+          return x.cmp(y) === 0;
         default:
-          return x !== y;
+          return x.cmp(y) !== 0;
       }
     }
   }
@@ -321,7 +328,7 @@ export function parseExpr(src: string): ParsedExpr {
     names: [...p.names].sort(),
     eval(vars) {
       const v = run(root, vars);
-      return typeof v === "boolean" ? { type: "boolean", value: v } : { type: "number", value: cleanNumber(v) };
+      return typeof v === "boolean" ? { type: "boolean", value: v } : { type: "number", value: v.toString() };
     },
   };
 }

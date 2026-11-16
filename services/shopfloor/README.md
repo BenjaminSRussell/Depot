@@ -692,9 +692,29 @@ text is limited to 500 characters, 200 terms and 32 levels. There is no eval and
 
 `POST /v1/shopfloor/edge-nodes/{id}/readings` (duty `shopfloor.edge.connect`, the bound connector only) stores the latest value
 the connector read from a node (`node_reading`, migration `0034`, one row per edge node and node, a newer reading replaces an older
-one). `GET /v1/shopfloor/node-readings?node=` (duty `shopfloor.controlrecipe.execute`) answers the freshest reading no older than five
-minutes, or SF-0196. The iot-edge connector does not push readings yet (it needs a live OPC-UA server to prove, #213); until it does the
-kiosk offers a hand entry with a reason, recorded as `readout-source: entered-by-hand`.
+one; a reading stamped more than five seconds ahead of the service's clock is refused). `POST /v1/shopfloor/control-recipes/{id}/readouts`
+with `{stepKey}` (duty `shopfloor.controlrecipe.execute`, migration `0036`) hands the kiosk the freshest reading of the node of that
+machine-readout step, judged by when the service received it (at most five minutes), from an edge node at a site of the recipe's resource
+(machine `site_id`; a resource with no machine at a site reads from any edge node of the tenant), and records it as the step's claim
+(`pi_readout_claim`). SF-0196 when there is none. The claim is fixed once a message is recorded for the step. The iot-edge connector does
+not push readings yet (it needs a live OPC-UA server to prove, #213); until it does the kiosk offers a hand entry with a reason.
+
+### The service decides what a kiosk step records (round 5 review)
+
+A kiosk process message whose source id is `<recipe id>:<step key>` (the recipe id is lower-cased; a step key is `unit/operation/phase/seq`,
+and names cannot contain `/`) is checked against the recipe before it is stored, and the values stored are the service's:
+
+- limits, unit, expected value, tolerance and node come from the recipe document, never from the message; a value the step does not ask for is refused (SF-0198);
+- a calculation is computed from the values already stored for the earlier steps; a client result that differs is refused; a branch is decided by the service with the recipe's target, and a `branch-taken` or `branch-target` that disagrees is refused; a step a branch skips takes no message;
+- a machine readout says `readout-source` `machine` or `entered-by-hand`; a hand entry needs a comment; a `machine` value must equal the claim handed out for the step, and the claim id, edge node and reading time are stored with the step;
+- a blocking timer is accepted only after its duration has passed since the later of the recipe's start and the last recorded step (service clock, SF-0199);
+- a message for a signature-request step is a signature: it needs the step-up, and the service fills in `signed-by` and the step's meaning;
+- a retry of a stored message answers with the stored one, so the kiosk adopts what the service holds.
+
+Sealing derives the record again from the recipe and the stored values (messages stored before these checks cannot forge a skipped step,
+a calculation, a tolerance or a signature): a signature step without a signer, a step-up time and the right meaning is `missing` with a
+deviation; a calculation that differs from the service's result, a recorded step a branch skips, a hand entry without a reason and a
+`machine` value without a claim are deviations. A blocking timer is enforced at ingest only.
 
 ### PI execution records (round 5, FR-25.18)
 
@@ -703,7 +723,7 @@ When a kiosk recipe is reported completed, the same transaction seals a record (
 deviation counts, head hash, record hash) and one row per recipe step in document order. A step holds its status (`recorded`,
 `acknowledged` for steps that collect nothing, `skipped` by a branch, `missing`), the values the kiosk recorded for it, the signer,
 the signature meaning and the step-up time already captured on the process message, the comment, and the deviations (out of limits,
-outside a readout tolerance, hand-entered readout, not recorded). The hash of a step is SHA-256 over the previous hash and the step's
+outside a readout tolerance, hand-entered readout, not recorded). The record hash covers the header (including the deviation count and the sheet id) and `:verify` recounts the deviations from the steps. The hash of a step is SHA-256 over the previous hash and the step's
 canonical JSON; the first step chains from a seed bound to the execution and recipe ids; the record hash covers the header and the head
 of the chain. `POST /v1/shopfloor/pi-executions/{id}:verify` (duty `shopfloor.piexecution.verify`) recomputes all of it from what is
 stored and names the first step that does not match. `GET /v1/shopfloor/pi-executions` and `.../{id}` read with `shopfloor.view`. Both
@@ -877,6 +897,8 @@ Problem details use `application/problem+json` with `type` `https://passage.dev/
 | `SF-0195` | 422 | Reserved for a step template reference that cannot be used; today a bad reference is a field error on the sheet (400) naming the instruction |
 | `SF-0196` | 404 | No recent reading of the node from the connector |
 | `SF-0197` | 404 | PI execution record not found |
+| `SF-0198` | 422 | A kiosk step message disagrees with the recipe or with what the service worked out (value not asked for, calculation result, branch decision, skipped step, machine reading that was not the one handed out, hand entry without a reason) |
+| `SF-0199` | 422 | A blocking timer is recorded before it has run out on the service's clock |
 | `SF-0178` | 422 | The control recipe cannot go to that destination, or a write is not a setpoint of the recipe |
 | `idempotency_key_reuse` | 422 | `Idempotency-Key` already used with a different request |
 

@@ -1,8 +1,8 @@
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Instruction, RecipeDocument } from "./api/client";
-import { nextIndex, flattenSteps, runBranch, runCalculation, valuesAfter, checkEntry, messageFor } from "./piSheet";
+import { adoptStored, matchesTemplate, nextIndex, flattenSteps, runBranch, runCalculation, valuesAfter, checkEntry, messageFor, documentProblems } from "./piSheet";
 import { clockText, PiSheetRunner } from "./PiSheetRunner";
 
 const doc = (instructions: Instruction[]): RecipeDocument => ({ procedure: { name: "B", unitProcedures: [{ name: "U", operations: [{ name: "O", phases: [{ name: "P", instructions: instructions.map((x, i) => ({ ...x, seq: i + 1 })) }] }] }] } });
@@ -10,9 +10,12 @@ const num = (name: string): Instruction["characteristic"] => ({ name, type: "num
 const entryStep = (v: string): Instruction => ({ seq: 0, category: "process-data-request", text: `Enter ${v}.`, var: v, characteristic: num(v) });
 
 let reading: { status: number; body: unknown };
+let fetched: { url: string; method: string; body: string }[];
 beforeEach(() => {
+  fetched = [];
+  localStorage.clear();
   reading = { status: 404, body: { code: "SF-0196", detail: "no recent reading" } };
-  vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify(reading.body), { status: reading.status, headers: { "Content-Type": "application/json" } })));
+  vi.stubGlobal("fetch", vi.fn(async (url: string, init: RequestInit = {}) => { fetched.push({ url: String(url), method: init.method ?? "GET", body: String(init.body ?? "") }); return new Response(JSON.stringify(reading.body), { status: reading.status, headers: { "Content-Type": "application/json" } }); }));
 });
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -35,20 +38,35 @@ const type = (label: string, value: string) => fireEvent.change(screen.getByLabe
 describe("running the step library's kinds: rules", () => {
   it("works out a calculation from earlier values and explains one it cannot", () => {
     const calc: Instruction = { seq: 3, category: "calculation", text: "Net", expression: "gross - tare", var: "net" };
-    expect(runCalculation(calc, { gross: 12.5, tare: 0.3 })).toEqual({ ok: true, value: "12.2" });
-    const missing = runCalculation(calc, { gross: 1 });
+    expect(runCalculation(calc, { gross: "12.5", tare: "0.3" })).toEqual({ ok: true, value: "12.2" });
+    const missing = runCalculation(calc, { gross: "1" });
     expect(missing.ok).toBe(false);
     expect(!missing.ok && missing.message).toMatch(/tare is not known.*skipped/);
-    expect(runCalculation({ ...calc, expression: "1 / zero" }, { zero: 0 })).toEqual({ ok: false, message: "Division by zero." });
-    expect(valuesAfter(calc, { value: "12.2", comment: "" }, { gross: 1 })).toEqual({ gross: 1, net: 12.2 });
-    expect(valuesAfter({ ...entryStep("ok"), characteristic: { name: "ok", type: "boolean" } }, { value: "true", comment: "" }, {})).toEqual({ ok: 1 });
-    expect(valuesAfter({ seq: 1, category: "process-parameter-setpoint", value: 72, var: "sp", characteristic: num("Jacket") }, undefined, {})).toEqual({ sp: 72 });
+    expect(runCalculation({ ...calc, expression: "1 / zero" }, { zero: "0" })).toEqual({ ok: false, message: "Division by zero." });
+    expect(valuesAfter(calc, { value: "12.2", comment: "" }, { gross: "1" })).toEqual({ gross: "1", net: "12.2" });
+    expect(valuesAfter({ ...entryStep("ok"), characteristic: { name: "ok", type: "boolean" } }, { value: "true", comment: "" }, {})).toEqual({ ok: "1" });
+    expect(valuesAfter({ seq: 1, category: "process-parameter-setpoint", value: 72, var: "sp", characteristic: num("Jacket") }, undefined, {})).toEqual({ sp: "72" });
+  });
+
+  it("adopts what the service stored over what was typed, and keeps template and name rules", () => {
+    const data = entryStep("gross");
+    expect(adoptStored(data, { value: "10.5", comment: "" }, [{ name: "gross", value: "10" }])).toEqual({ value: "10", comment: "" });
+    expect(adoptStored(data, { value: "10.5", comment: "x" }, undefined)).toEqual({ value: "10.5", comment: "x" });
+    const calc: Instruction = { seq: 2, category: "calculation", text: "c", var: "twice", expression: "gross * 2" };
+    expect(adoptStored(calc, { value: "21", comment: "" }, [{ name: "twice", value: "20" }])?.value).toBe("20");
+    const text: Instruction = { seq: 3, category: "instruction-text", text: "Check." };
+    expect(matchesTemplate({ ...text, seq: 9, template: { code: "A", version: 1 } }, { category: "instruction-text", text: "Check." })).toBe(true);
+    expect(matchesTemplate({ ...text, text: "Skip it." }, { category: "instruction-text", text: "Check." })).toBe(false);
+    const bad = documentProblems(doc([{ seq: 0, category: "process-data-request", text: "x", var: "comment", characteristic: { name: "node", type: "numeric" } }, { seq: 0, category: "process-data-request", text: "y", var: "colour", characteristic: { name: "Colour", type: "text" } }])).join("\n");
+    expect(bad).toMatch(/"comment" is a name the service writes/);
+    expect(bad).toMatch(/"node" is a name the service writes/);
+    expect(bad).toMatch(/a text value cannot be used in a formula/);
   });
 
   it("jumps a branch to its target step and skips the steps between", () => {
     const d = doc([entryStep("t"), { seq: 0, category: "branch", text: "Hot?", condition: "t > 80", target: 4 }, { seq: 0, category: "instruction-text", text: "Cool." }, { seq: 0, category: "instruction-text", text: "Go." }]);
     const steps = flattenSteps(d);
-    expect(runBranch(steps[1]!.instruction, { t: 90 })).toEqual({ ok: true, jump: true });
+    expect(runBranch(steps[1]!.instruction, { t: "90" })).toEqual({ ok: true, jump: true });
     expect(nextIndex(steps, 1, true)).toBe(3);
     expect(nextIndex(steps, 1, false)).toBe(2);
     expect(nextIndex(steps, 0, true)).toBe(1);
@@ -101,6 +119,33 @@ describe("running the step library's kinds: the kiosk", () => {
     expect(recorded[0]!.values.map((v) => v.name)).toEqual(["timer-seconds", "timer-blocking"]);
   });
 
+  it("keeps a running timer across a reload instead of restarting it", async () => {
+    let t = 1_000_000;
+    vi.useFakeTimers({ shouldAdvanceTime: false });
+    const first = mount(doc([{ seq: 0, category: "timer", text: "Cure.", durationSeconds: 300, blocking: true }]), { clock: () => t });
+    expect(first).toBeDefined();
+    expect(screen.getByRole("timer")).toHaveTextContent("5:00 left");
+    cleanup();
+    t += 120_000;
+    mount(doc([{ seq: 0, category: "timer", text: "Cure.", durationSeconds: 300, blocking: true }]), { clock: () => t });
+    expect(screen.getByRole("timer")).toHaveTextContent("3:00 left");
+  });
+
+  it("adopts the service's stored value when a step is recorded again", async () => {
+    let sent = "";
+    const recorded: unknown[] = [];
+    const onRecord = vi.fn(async (m: { values: { name: string; value: string }[] }) => {
+      sent = m.values[0]!.value;
+      recorded.push(m);
+      return { values: [{ name: "gross", value: "10" }] }; // the service answers with the first value it stored
+    });
+    mount(doc([entryStep("gross"), { seq: 0, category: "calculation", text: "Double.", var: "twice", expression: "gross * 2" }]), { onRecord: onRecord as never });
+    type("gross (kg)", "10.5");
+    next();
+    expect(await screen.findByText("Result (twice): 20")).toBeInTheDocument();
+    expect(sent).toBe("10.5");
+  });
+
   it("does not hold the next step for a timer that is not blocking, and shows it running", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: false });
     mount(doc([{ seq: 0, category: "timer", text: "Soak.", durationSeconds: 600, blocking: false }, { seq: 0, category: "instruction-text", text: "Meanwhile." }]), { clock: () => 5_000_000 });
@@ -115,6 +160,9 @@ describe("running the step library's kinds: the kiosk", () => {
     reading = { status: 200, body: { node: "n", value: "181.5", nodeType: "Double", readAt: "2026-11-15T10:00:00Z", ageSeconds: 4 } };
     const recorded = mount(doc([{ seq: 0, category: "machine-readout", text: "Oven.", node: "ns=2;s=Oven.Temp", characteristic: { name: "Temp", type: "numeric", unit: "degC", min: 150, max: 210 } }]));
     await waitFor(() => expect(screen.getByLabelText("Temp (degC)")).toHaveValue("181.5"));
+    const claimCall = fetched.find((f) => f.url.includes("/control-recipes/rec-1/readouts"));
+    expect(claimCall?.method).toBe("POST");
+    expect(JSON.parse(claimCall?.body ?? "{}")).toEqual({ stepKey: "U/O/P/1" });
     expect(screen.getByLabelText("Temp (degC)")).toHaveAttribute("readonly");
     next();
     await waitFor(() => expect(recorded).toHaveLength(1));

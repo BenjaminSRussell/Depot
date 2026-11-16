@@ -1,40 +1,29 @@
 import { describe, expect, it } from "vitest";
+import vectors from "../../../../../services/shopfloor/internal/domain/testdata/expr_vectors.json";
+import { Dec } from "./piDecimal";
 import { ExprEvalError, exprProblem, parseExpr } from "./piExpr";
 
-const vars = { gross: 12.5, tare: 0.3, n: 4, zero: 0 };
-const val = (src: string) => {
-  const r = parseExpr(src).eval(vars);
-  return r.value;
-};
-
-describe("step expressions", () => {
-  it("evaluates what the service evaluates", () => {
-    for (const [src, want] of Object.entries({
-      "gross - tare": 12.2,
-      "0.1 + 0.2": 0.3,
-      "(gross - tare) / n": 3.05,
-      "-gross + 20": 7.5,
-      "2 + 3 * 4": 14,
-      "(2 + 3) * 4": 20,
-      "10 / 4": 2.5,
-      "abs(tare - gross)": 12.2,
-      "min(gross, tare, n)": 0.3,
-      "max(gross, n)": 12.5,
-      "round(gross / 3, 2)": 4.17,
-      "floor(gross)": 12,
-      "ceil(gross)": 13,
-      "gross > 10 && n == 4": true,
-      "gross > 10 and n != 4": false,
-      "not (gross < 10) or zero > 1": true,
-      "zero != 0 && 10 / zero > 2": false,
-      "gross <= 12.5 || 1 / zero > 1": true,
-      "gross >= 12.51": false,
-      "!(gross == 12.5)": false,
-    })) {
-      expect(val(src), src).toBe(want);
+describe("shared expression vectors (the service's evaluator must give the same text)", () => {
+  const vars = vectors.vars as Record<string, string>;
+  it("evaluates every case to the same text as the service", () => {
+    for (const c of vectors.cases) {
+      let got: string;
+      try {
+        const r = parseExpr(c.expr).eval(vars);
+        got = String(r.value);
+      } catch {
+        got = "error";
+      }
+      expect(got, c.expr).toBe(c.want);
     }
   });
 
+  it("refuses every expression the service refuses", () => {
+    for (const src of vectors.refuse) expect(() => parseExpr(src), JSON.stringify(src)).toThrow();
+  });
+});
+
+describe("step expressions", () => {
   it("knows its type and the names it reads", () => {
     const e = parseExpr("b * 2 + a - b");
     expect(e.type).toBe("number");
@@ -46,26 +35,38 @@ describe("step expressions", () => {
   });
 
   it("reports a missing value and a division by zero", () => {
-    expect(() => parseExpr("a + b").eval({ a: 1 })).toThrowError(ExprEvalError);
+    expect(() => parseExpr("a + b").eval({ a: "1" })).toThrowError(ExprEvalError);
     try {
-      parseExpr("a + b").eval({ a: 1 });
+      parseExpr("a + b").eval({ a: "1" });
     } catch (error) {
       expect((error as ExprEvalError).missing).toBe("b");
     }
-    expect(() => parseExpr("1 / x").eval({ x: 0 })).toThrow(/division by zero/);
+    expect(() => parseExpr("1 / x").eval({ x: "0" })).toThrow(/division by zero/);
+    expect(() => parseExpr("a + 1").eval({ a: "not a number" })).toThrowError(ExprEvalError);
   });
 
-  it("refuses everything that is not the grammar", () => {
-    for (const src of [
-      "", "sqrt(4)", "system(1)", "1; 2", "a = 1", '"x"', "a.b", "a[0]", "Gross + 1", "(1 + 2", "1 + 2)", "1 +", "1 + * 2", "1 2", "1.2.3", "2x",
-      "(a > 1) + 2", "a and b", "not a", "(a > 1) == (b > 1)", "1 < a < 3", "round(1)", "abs(1, 2)", "min()", "abs(a > 1)", "${a}", "`a`", "a | b", "a & b",
-      "(".repeat(40) + "1" + ")".repeat(40), "1" + " + 1".repeat(120), "1".repeat(501),
-    ]) {
-      expect(() => parseExpr(src), JSON.stringify(src).slice(0, 40)).toThrow();
-    }
-    // Nothing reaches the global scope: a constructor name is only a name with no value.
+  it("reads names as own values only", () => {
     expect(() => parseExpr("constructor + 1").eval({})).toThrow(ExprEvalError);
     expect(() => parseExpr("__proto__ + 1").eval({})).toThrow(ExprEvalError);
     expect(() => parseExpr("constructor(1)")).toThrow(/not a function/);
+  });
+
+  it("limits round to 0 to 12 places", () => {
+    expect(() => parseExpr("round(1, 13)")).toThrow(/0 to 12/);
+    expect(() => parseExpr("round(1, -1)")).toThrow(/0 to 12/);
+    expect(() => parseExpr("round(x, y)").eval({ x: "1.234", y: "400" })).toThrow(/0 to 12/);
+    expect(() => parseExpr("round(x, y)").eval({ x: "1.234", y: "1.5" })).toThrow(/0 to 12/);
+    expect(parseExpr("round(x, y)").eval({ x: "1.2345", y: "2" })).toEqual({ type: "number", value: "1.23" });
+  });
+});
+
+describe("exact decimals", () => {
+  it("prints the way the service prints", () => {
+    for (const [text, want] of [["12.50", "12.5"], ["007", "7"], ["-0.0", "0"], ["5.", "5"], [".5", "0.5"], ["+3", "3"]] as const) expect(Dec.parse(text)?.toString(), text).toBe(want);
+    for (const bad of ["", "1e3", "1,5", "--1", "abc", "1.2.3"]) expect(Dec.parse(bad), bad).toBeNull();
+    expect(Dec.fromNumber(0.1)?.toString()).toBe("0.1");
+    expect(Dec.fromNumber(72)?.toString()).toBe("72");
+    expect(Dec.fromNumber(1e-7)?.toString()).toBe("0.0000001");
+    expect(Dec.fromNumber(NaN)).toBeNull();
   });
 });
