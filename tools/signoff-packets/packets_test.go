@@ -147,8 +147,15 @@ var cases = map[string]packetCase{
 	"statements": {
 		rows: func(t *testing.T) map[string]int {
 			f := fixture(t, statementsSource)
-			n := len(list(f, "accounts"))
-			return map[string]int{"Journals": len(list(f, "journals")), "Accounts": n, "Trial balance": n + 1, "Statements": 12, "Reconciliation": 12}
+			out := map[string]int{"Journals": len(list(f, "journals")), "Accounts": len(list(f, "accounts")), "Reconciliation": 12}
+			seen := map[string]bool{}
+			for _, r := range csvRows(t, statementsGolden) {
+				if k := r["statement"] + "/" + r["period"] + "/" + r["row"]; !seen[k] {
+					seen[k] = true
+					out[map[string]string{"TB-STD": "Trial balance", "BS-STD": "Balance sheet", "PL-STD": "Income statement", "CF-STD": "Cash flow"}[r["statement"]]]++
+				}
+			}
+			return out
 		},
 		totals: func(t *testing.T, b book) {
 			var amounts []string
@@ -158,17 +165,26 @@ var cases = map[string]packetCase{
 			if got, want := b.sum(t, "Journals", "Amount"), sum(t, amounts...); !got.Equal(want) {
 				t.Errorf("journal amounts %s, fixture %s", got, want)
 			}
-			tb := b["Trial balance"]
-			last := tb.Rows[len(tb.Rows)-1]
-			for c := 2; c < len(last); c++ {
-				if !sum(t, last[c].Text).IsZero() {
-					t.Errorf("trial balance total in %s = %s", tb.Rows[0][c].Text, last[c].Text)
+			// The statement sheets carry the engine's figures unchanged.
+			var plYTD, cfYTD []string
+			for _, r := range csvRows(t, statementsGolden) {
+				switch {
+				case r["statement"] == "PL-STD" && r["column"] == "YTD":
+					plYTD = append(plYTD, r["value"])
+				case r["statement"] == "CF-STD" && r["column"] == "YTD":
+					cfYTD = append(cfYTD, r["value"])
 				}
 			}
-			b.allZero(t, "Statements", "Check (must be 0.00)")
-			b.allZero(t, "Reconciliation", "Trial balance difference")
-			b.allZero(t, "Reconciliation", "Balance sheet difference")
-			b.allZero(t, "Reconciliation", "Cash flow difference")
+			if got, want := b.sum(t, "Income statement", "Year to date"), sum(t, plYTD...); !got.Equal(want) {
+				t.Errorf("income statement year to date %s, engine %s", got, want)
+			}
+			if got, want := b.sum(t, "Cash flow", "Year to date"), sum(t, cfYTD...); !got.Equal(want) {
+				t.Errorf("cash flow year to date %s, engine %s", got, want)
+			}
+			for _, col := range []string{"Net income difference", "Cash difference", "Assets difference", "Engine check: trial balance total",
+				"Engine check: balance sheet", "Engine check: cash flow"} {
+				b.allZero(t, "Reconciliation", col)
+			}
 		},
 	},
 	"costing": {
@@ -309,7 +325,7 @@ var cases = map[string]packetCase{
 			if want := sum(t, taxes...); !got.Equal(want) || !b.sum(t, "Reconciliation", "Tax total").Equal(want) {
 				t.Errorf("tax %s (reconciliation %s), fixture %s", got, b.sum(t, "Reconciliation", "Tax total"), want)
 			}
-			b.allZero(t, "Reconciliation", "Base plus tax not equal to gross")
+			b.allZero(t, "Reconciliation", "Arithmetic check: base plus tax not equal to gross")
 		},
 	},
 	"ebics": {

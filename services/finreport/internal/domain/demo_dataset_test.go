@@ -1,9 +1,13 @@
 package domain
 
 import (
+	"bytes"
+	"encoding/csv"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"os"
+	"strconv"
 	"testing"
 
 	"github.com/shopspring/decimal"
@@ -180,5 +184,59 @@ func TestDemoDataset_StatementsTieToTrialBalanceAndCashFlowReconciles(t *testing
 				t.Fatalf("cash flow does not reconcile: %v", err)
 			}
 		})
+	}
+}
+
+// updateStatements rewrites testdata/demo-fy2026-statements.csv: go test ./internal/domain -run TestDemoDataset_StatementsGolden -update.
+var updateStatements = flag.Bool("update", false, "rewrite testdata/demo-fy2026-statements.csv from the engine")
+
+const statementsGoldenPath = "testdata/demo-fy2026-statements.csv"
+
+// TestDemoDataset_StatementsGolden evaluates TB-STD, BS-STD, PL-STD and CF-STD on the demo year at every period end and
+// compares every cell with testdata/demo-fy2026-statements.csv, the engine output finance signs off in the statement-pack
+// packet (tools/signoff-packets, #512). A change to a definition, a range or the evaluation shows up as a diff here.
+func TestDemoDataset_StatementsGolden(t *testing.T) {
+	js := demoFY2026Journals(t)
+	cal := demoCalendar(t)
+	var buf bytes.Buffer
+	w := csv.NewWriter(&buf)
+	_ = w.Write([]string{"period", "statement", "statement_name", "row", "row_label", "column", "column_label", "value"})
+	for at := 1; at <= 12; at++ {
+		bal := balancesFromJournals(js, at)
+		for _, code := range []string{CodeTBStd, CodeBSStd, CodePLStd, CodeCFStd} {
+			def := standardByCode(t, code)
+			res, err := Evaluate(Input{Definition: def, LedgerID: "L1", CurrencyType: "rpt", Calendar: cal, At: at, Balances: bal})
+			if err != nil {
+				t.Fatalf("%s period %d: %v", code, at, err)
+			}
+			cells := map[[2]string]Cell{}
+			for _, c := range res.Cells {
+				cells[[2]string{c.Row, c.Column}] = c
+			}
+			for _, row := range def.Rows {
+				for _, col := range def.Columns {
+					c, ok := cells[[2]string{row.Code, col.Code}]
+					value := ""
+					if ok && !c.Blank {
+						value = c.Value.StringFixed(2)
+					}
+					_ = w.Write([]string{strconv.Itoa(at), def.Code, def.Name, row.Code, row.Label, col.Code, col.Label, value})
+				}
+			}
+		}
+	}
+	w.Flush()
+	if *updateStatements {
+		if err := os.WriteFile(statementsGoldenPath, buf.Bytes(), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		return
+	}
+	have, err := os.ReadFile(statementsGoldenPath)
+	if err != nil {
+		t.Fatalf("%v (run the test with -update to write it)", err)
+	}
+	if !bytes.Equal(have, buf.Bytes()) {
+		t.Fatalf("%s differs from the engine; run go test ./internal/domain -run TestDemoDataset_StatementsGolden -update and review the change", statementsGoldenPath)
 	}
 }

@@ -142,8 +142,8 @@ func buildTax(root string) ([]*Table, error) {
 		}
 	}
 
-	recon := newTable("Reconciliation", "Tie-out: tax per region and tax code, and price-inclusive lines whose base plus tax is not the gross (must be 0)",
-		"Region", "Tax code", "Rows", "Tax total", "Price-inclusive lines charged", "Base plus tax not equal to gross")
+	recon := newTable("Reconciliation", "Tax per region and tax code, and an arithmetic check: price-inclusive lines whose base plus tax is not the gross (0 by construction of the split)",
+		"Region", "Tax code", "Rows", "Tax total", "Price-inclusive lines charged", "Arithmetic check: base plus tax not equal to gross")
 	keys := make([]codeKey, 0, len(sums))
 	for k := range sums {
 		keys = append(keys, k)

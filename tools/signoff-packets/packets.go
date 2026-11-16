@@ -4,13 +4,13 @@ package main
 var packets = []Packet{
 	{
 		Name: "statements", Title: "Statement pack on the demo fiscal year", Item: "#512 row 1: #15 finance sign-off on the statement pack",
-		Sources: []string{statementsSource},
+		Sources: []string{statementsSource, statementsGolden},
 		Checks: []string{
-			"The trial balance totals 0.00 at every period end (Trial balance, Total row; Reconciliation).",
-			"The balance sheet balances: assets equal liabilities, equity and the year's result (Reconciliation).",
-			"Net income is revenue less cost of sales and operating expenses, year to date (Statements).",
-			"The indirect cash flow (net income, non-cash adjustments, working capital, investing, financing) equals the change in cash in every period (Statements, Check column).",
-			"After the closing entries in period 12 the revenue and expense accounts are 0.00 and the result sits in retained earnings (Trial balance, P12).",
+			"The statements are finreport's own output (TB-STD, BS-STD, PL-STD, CF-STD at every period end, asserted by finreport's tests): the lines and their figures are what finance signs off (statement sheets).",
+			"Net income, the change in cash and total assets agree with the same figures taken straight from the journals (Reconciliation, the three difference columns must be 0.00).",
+			"The engine's own checks are 0.00: trial balance total, balance sheet check and cash flow check (Reconciliation, engine check columns). They are arithmetic checks the engine runs on itself.",
+			"The indirect cash flow sections (operating, investing, financing) sit where finance expects them, with depreciation as a non-cash adjustment (Cash flow).",
+			"After the closing entries in period 12 the revenue and expense lines of the trial balance are 0.00 and the result sits in equity (Trial balance, period 12).",
 		},
 		Build: buildStatements,
 	},
@@ -65,7 +65,7 @@ var packets = []Packet{
 			"The rates of each stack are the published US state, county and city, EU VAT, India GST and Canada GST, HST and PST rates (Scenarios).",
 			"Tax on a price excluding tax is base times rate; a compound tax is charged on the base plus the earlier taxes (Expected sheets).",
 			"Per-document rounding rounds the document's tax once and spreads it over the lines; per-line rounding rounds each line (Expected sheets).",
-			"A price including tax is split so base plus tax is the gross amount (Reconciliation, last column must be 0).",
+			"A price including tax is split into base and tax; the base is the gross less the rounded tax, so the arithmetic check on Reconciliation is 0 by construction: check the tax amounts themselves (Expected sheets).",
 			"A reverse charge books output and input tax of the same amount and charges the buyer nothing (Legs column 2).",
 		},
 		Build: buildTax,
@@ -94,7 +94,7 @@ var packets = []Packet{
 	},
 	{
 		Name: "cashapp", Title: "Cash application on 500 payments", Item: "#512 row 19: #30 decision on the cash-application rule (AC-30.1 at 438 of 500)",
-		Sources: []string{cashAppOpenItems, cashAppAnswerKey, cashAppMatchResults},
+		Sources: []string{cashAppOpenItems, cashAppAnswerKey, cashAppMatchResults, cashAppLockbox, cashAppStatement, cashAppRemittances},
 		Checks: []string{
 			"No payment is auto-applied to invoices other than the answer key's (Reconciliation, Auto-applied wrongly must be 0).",
 			"Read the payments left for a person and why the rule leaves each one (Not auto-applied).",

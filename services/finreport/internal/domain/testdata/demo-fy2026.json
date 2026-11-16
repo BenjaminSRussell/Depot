@@ -1,52 +1,63 @@
 {
- "description": "Demo fiscal year 2026 for the statement pack (#15, AC1): an opening entry in period 0, twelve periods of cent-level sales, collections, purchases, payments, operating expenses and depreciation, an equipment purchase in period 3 and a loan in period 6, and the closing entries in period 12. Every journal is one debit and one credit of the same amount. Read by TestDemoDataset_StatementsTieToTrialBalanceAndCashFlowReconciles and by tools/signoff-packets.",
+ "description": "Demo fiscal year 2026 for the statement pack (#15, AC1): an opening entry in period 0, twelve periods of cent-level sales, collections, purchases, payments, operating expenses and depreciation, an equipment purchase in period 3 and a loan in period 6, and the closing entries in period 12. Every journal is one debit and one credit of the same amount. Each account names its class (cash, asset, liability, equity, revenue, expense) for the reviewer's tie-out. Read by TestDemoDataset_StatementsTieToTrialBalanceAndCashFlowReconciles and by tools/signoff-packets.",
  "ledger": "L1",
  "currencyType": "rpt",
  "fiscalYear": 2026,
  "accounts": [
   {
    "account": "100100",
-   "name": "Cash at bank"
+   "name": "Cash at bank",
+   "class": "cash"
   },
   {
    "account": "110100",
-   "name": "Trade receivables"
+   "name": "Trade receivables",
+   "class": "asset"
   },
   {
    "account": "150100",
-   "name": "Machinery and equipment"
+   "name": "Machinery and equipment",
+   "class": "asset"
   },
   {
    "account": "155100",
-   "name": "Accumulated depreciation"
+   "name": "Accumulated depreciation",
+   "class": "asset"
   },
   {
    "account": "200100",
-   "name": "Trade payables"
+   "name": "Trade payables",
+   "class": "liability"
   },
   {
    "account": "220100",
-   "name": "Bank loan"
+   "name": "Bank loan",
+   "class": "liability"
   },
   {
    "account": "300100",
-   "name": "Share capital"
+   "name": "Share capital",
+   "class": "equity"
   },
   {
    "account": "300900",
-   "name": "Retained earnings"
+   "name": "Retained earnings",
+   "class": "equity"
   },
   {
    "account": "400100",
-   "name": "Revenue"
+   "name": "Revenue",
+   "class": "revenue"
   },
   {
    "account": "500100",
-   "name": "Cost of sales"
+   "name": "Cost of sales",
+   "class": "expense"
   },
   {
    "account": "610100",
-   "name": "Operating expenses"
+   "name": "Operating expenses",
+   "class": "expense"
   }
  ],
  "journals": [

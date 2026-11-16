@@ -9,13 +9,19 @@ import (
 	"github.com/BenjaminSRussell/passage/platform/xlsx"
 )
 
-const statementsSource = "services/finreport/internal/domain/testdata/demo-fy2026.json"
+const (
+	statementsSource = "services/finreport/internal/domain/testdata/demo-fy2026.json"
+	// statementsGolden is finreport's own evaluated output on the demo year: every cell of TB-STD, BS-STD, PL-STD and CF-STD
+	// at every period end, written and asserted by TestDemoDataset_StatementsGolden.
+	statementsGolden = "services/finreport/internal/domain/testdata/demo-fy2026-statements.csv"
+)
 
 type demoYear struct {
 	FiscalYear int `json:"fiscalYear"`
 	Accounts   []struct {
 		Account string `json:"account"`
 		Name    string `json:"name"`
+		Class   string `json:"class"`
 	} `json:"accounts"`
 	Journals []struct {
 		Period  int    `json:"period"`
@@ -26,45 +32,64 @@ type demoYear struct {
 	} `json:"journals"`
 }
 
-// accountRange is a range of the finreport standard definitions' default chart (services/finreport/internal/domain/standard.go).
-type accountRange struct{ from, to string }
+// statementSheets name the sheet of each standard statement, in the order the workbook shows them.
+var statementSheets = []struct{ code, sheet string }{
+	{"TB-STD", "Trial balance"},
+	{"BS-STD", "Balance sheet"},
+	{"PL-STD", "Income statement"},
+	{"CF-STD", "Cash flow"},
+}
 
-func (r accountRange) has(account string) bool { return account >= r.from && account <= r.to }
+// engineOutput is the golden file read back: values by statement, period, row and column.
+type engineOutput struct {
+	name    map[string]string
+	columns map[string][][2]string // statement -> (code, label) in order
+	rows    map[string][][3]string // statement -> (period, row code, row label) in order
+	value   map[[4]string]string
+}
 
-var (
-	rangeCash       = accountRange{"100000", "109999"}
-	rangeReceivable = accountRange{"110000", "149999"}
-	rangePPE        = accountRange{"150000", "154999"}
-	rangeDeprec     = accountRange{"155000", "159999"}
-	rangeOtherNCA   = accountRange{"160000", "199999"}
-	rangePayables   = accountRange{"200000", "219999"}
-	rangeBorrowing  = accountRange{"220000", "229999"}
-	rangeProvisions = accountRange{"230000", "239999"}
-	rangeAccruals   = accountRange{"240000", "299999"}
-	rangeEquity     = accountRange{"300000", "399999"}
-	rangeRevenue    = accountRange{"400000", "499999"}
-	rangeCostOfSale = accountRange{"500000", "599999"}
-	rangeOpex       = accountRange{"600000", "699999"}
-)
-
-func statementClass(account string) string {
-	switch account[0] {
-	case '1':
-		return "Asset"
-	case '2':
-		return "Liability"
-	case '3':
-		return "Equity"
-	case '4':
-		return "Revenue"
-	default:
-		return "Expense"
+func (o engineOutput) get(statement string, period int, row, col string) (decimal.Decimal, error) {
+	v, ok := o.value[[4]string{statement, strconv.Itoa(period), row, col}]
+	if !ok {
+		return decimal.Zero, fmt.Errorf("%s has no %s %s/%s for period %d", statementsGolden, statement, row, col, period)
 	}
+	return dec(v)
+}
+
+func readEngineOutput(root string) (engineOutput, error) {
+	header, records, err := readCSV(root, statementsGolden)
+	if err != nil {
+		return engineOutput{}, err
+	}
+	c, err := columns(statementsGolden, header, "period", "statement", "statement_name", "row", "row_label", "column", "column_label", "value")
+	if err != nil {
+		return engineOutput{}, err
+	}
+	out := engineOutput{name: map[string]string{}, columns: map[string][][2]string{}, rows: map[string][][3]string{}, value: map[[4]string]string{}}
+	seenCol, seenRow := map[[2]string]bool{}, map[[3]string]bool{}
+	for _, r := range records {
+		st := r[c["statement"]]
+		out.name[st] = r[c["statement_name"]]
+		if k := [2]string{st, r[c["column"]]}; !seenCol[k] {
+			seenCol[k] = true
+			out.columns[st] = append(out.columns[st], [2]string{r[c["column"]], r[c["column_label"]]})
+		}
+		if k := [3]string{st, r[c["period"]], r[c["row"]]}; !seenRow[k] {
+			seenRow[k] = true
+			out.rows[st] = append(out.rows[st], [3]string{r[c["period"]], r[c["row"]], r[c["row_label"]]})
+		}
+		out.value[[4]string{st, r[c["period"]], r[c["row"]], r[c["column"]]}] = r[c["value"]]
+	}
+	return out, nil
 }
 
 func buildStatements(root string) ([]*Table, error) {
 	var y demoYear
 	if err := readJSON(root, statementsSource, &y); err != nil {
+		return nil, err
+	}
+	engine, err := readEngineOutput(root)
+	if err != nil {
 		return nil, err
 	}
 	amounts := make([]decimal.Decimal, len(y.Journals))
@@ -78,104 +103,89 @@ func buildStatements(root string) ([]*Table, error) {
 		amounts[i] = a
 		journals.add(integer(j.Period), str(j.Debit), str(j.Credit), money(a), yesNo(j.Closing))
 	}
-	accounts := newTable("Accounts", "Inputs: the accounts and the statement each belongs to by number range", "Account", "Name", "Class")
+	class := map[string]string{}
+	accounts := newTable("Accounts", "Inputs: the accounts and the class the fixture gives each (used only for the tie-out)", "Account", "Name", "Class")
 	for _, a := range y.Accounts {
-		accounts.add(str(a.Account), str(a.Name), str(statementClass(a.Account)))
+		if a.Class == "" {
+			return nil, fmt.Errorf("account %s has no class in %s", a.Account, statementsSource)
+		}
+		class[a.Account] = a.Class
+		accounts.add(str(a.Account), str(a.Name), str(a.Class))
 	}
 
-	// balance is the cumulative debit-less-credit balance of an account up to and including a period (closing entries in).
-	balance := func(account string, upTo int) decimal.Decimal {
+	tables := []*Table{journals, accounts}
+	for _, s := range statementSheets {
+		cols := engine.columns[s.code]
+		if len(cols) == 0 {
+			return nil, fmt.Errorf("%s has no %s", statementsGolden, s.code)
+		}
+		header := []string{"Period", "Row", "Line"}
+		for _, col := range cols {
+			header = append(header, col[1])
+		}
+		t := newTable(s.sheet, "Expected: finreport's "+engine.name[s.code]+" ("+s.code+") as the engine evaluates it at every period end", header...)
+		for _, r := range engine.rows[s.code] {
+			row := []xlsx.Cell{num(r[0]), str(r[1]), str(r[2])}
+			for _, col := range cols {
+				row = append(row, num(engine.value[[4]string{s.code, r[0], r[1], col[0]}]))
+			}
+			t.add(row...)
+		}
+		tables = append(tables, t)
+	}
+
+	// The tie-out compares the engine with figures taken straight from the journals by the fixture's account classes.
+	movement := func(classes map[string]bool, at int, withClosing bool) decimal.Decimal {
 		sum := decimal.Zero
 		for i, j := range y.Journals {
-			if j.Period > upTo {
+			if j.Period < 1 || j.Period > at || (j.Closing && !withClosing) {
 				continue
 			}
-			if j.Debit == account {
+			if classes[class[j.Debit]] {
 				sum = sum.Add(amounts[i])
 			}
-			if j.Credit == account {
+			if classes[class[j.Credit]] {
 				sum = sum.Sub(amounts[i])
 			}
 		}
 		return sum
 	}
-	// movement is the debit-less-credit movement of a range over periods 1 to `at`, closing entries left out (as the cash
-	// flow statement reads it).
-	movement := func(r accountRange, at int) decimal.Decimal {
+	balance := func(classes map[string]bool, at int) decimal.Decimal {
 		sum := decimal.Zero
 		for i, j := range y.Journals {
-			if j.Period < 1 || j.Period > at || j.Closing {
+			if j.Period > at {
 				continue
 			}
-			if r.has(j.Debit) {
+			if classes[class[j.Debit]] {
 				sum = sum.Add(amounts[i])
 			}
-			if r.has(j.Credit) {
+			if classes[class[j.Credit]] {
 				sum = sum.Sub(amounts[i])
 			}
 		}
 		return sum
 	}
-
-	header := []string{"Account", "Name"}
-	for p := 0; p <= 12; p++ {
-		header = append(header, "P"+strconv.Itoa(p))
-	}
-	tb := newTable("Trial balance", "Expected: each account's balance at the end of every period, debit positive; the total is 0.00 in every period", header...)
-	totals := make([]decimal.Decimal, 13)
-	for _, a := range y.Accounts {
-		row := []xlsx.Cell{str(a.Account), str(a.Name)}
-		for p := 0; p <= 12; p++ {
-			b := balance(a.Account, p)
-			totals[p] = totals[p].Add(b)
-			row = append(row, money(b))
-		}
-		tb.add(row...)
-	}
-	totalRow := []xlsx.Cell{str("Total"), str("")}
-	for _, t := range totals {
-		totalRow = append(totalRow, money(t))
-	}
-	tb.add(totalRow...)
-
-	statements := newTable("Statements", "Expected: income statement and indirect cash flow, year to date at each period end (closing entries left out)",
-		"Period", "Revenue", "Cost of sales", "Operating expenses", "Net income", "Non-cash adjustments", "Working capital change",
-		"Operating cash flow", "Investing cash flow", "Financing cash flow", "Net cash flow", "Change in cash", "Check (must be 0.00)")
-	recon := newTable("Reconciliation", "Tie-out: the trial balance totals 0.00, the balance sheet balances and the cash flow equals the change in cash",
-		"Period", "Debit balances", "Credit balances", "Trial balance difference", "Assets", "Liabilities and equity incl. result", "Balance sheet difference",
-		"Net cash flow", "Change in cash", "Cash flow difference")
+	pl := map[string]bool{"revenue": true, "expense": true}
+	cash := map[string]bool{"cash": true}
+	assets := map[string]bool{"cash": true, "asset": true}
+	recon := newTable("Reconciliation", "Tie-out of the engine against the journals: net income, change in cash and total assets; then the engine's own check rows",
+		"Period", "Net income (engine)", "Net income (journals)", "Net income difference",
+		"Change in cash (engine)", "Change in cash (journals)", "Cash difference",
+		"Total assets (engine)", "Total assets (journals)", "Assets difference",
+		"Engine check: trial balance total", "Engine check: balance sheet", "Engine check: cash flow")
 	for at := 1; at <= 12; at++ {
-		revenue := movement(rangeRevenue, at).Neg()
-		cos := movement(rangeCostOfSale, at)
-		opex := movement(rangeOpex, at)
-		ni := revenue.Sub(cos).Sub(opex)
-		adj := movement(rangeDeprec, at).Add(movement(rangeProvisions, at)).Neg()
-		wc := movement(rangeReceivable, at).Add(movement(rangePayables, at)).Add(movement(rangeAccruals, at)).Neg()
-		op := ni.Add(adj).Add(wc)
-		inv := movement(rangePPE, at).Add(movement(rangeOtherNCA, at)).Neg()
-		fin := movement(rangeBorrowing, at).Add(movement(rangeEquity, at)).Neg()
-		net := op.Add(inv).Add(fin)
-		cash := movement(rangeCash, at)
-		statements.add(integer(at), money(revenue), money(cos), money(opex), money(ni), money(adj), money(wc), money(op), money(inv), money(fin),
-			money(net), money(cash), money(net.Sub(cash)))
-
-		debits, credits, assets, other := decimal.Zero, decimal.Zero, decimal.Zero, decimal.Zero
-		for _, a := range y.Accounts {
-			b := balance(a.Account, at)
-			if b.IsPositive() {
-				debits = debits.Add(b)
-			} else {
-				credits = credits.Sub(b)
-			}
-			if a.Account[0] == '1' {
-				assets = assets.Add(b)
-			} else {
-				// Liabilities, equity and the P&L accounts (the year's result until the closing entries move it to equity).
-				other = other.Sub(b)
+		var v [6]decimal.Decimal
+		for i, q := range [][3]string{{"PL-STD", "RES", "YTD"}, {"CF-STD", "CF_NET", "YTD"}, {"BS-STD", "ASSETS", "CUR"}, {"TB-STD", "TOTAL", "CLOSE"},
+			{"BS-STD", "CHK", "CUR"}, {"CF-STD", "CF_CHK", "YTD"}} {
+			if v[i], err = engine.get(q[0], at, q[1], q[2]); err != nil {
+				return nil, err
 			}
 		}
-		recon.add(integer(at), money(debits), money(credits), money(debits.Sub(credits)), money(assets), money(other), money(assets.Sub(other)),
-			money(net), money(cash), money(net.Sub(cash)))
+		ni := movement(pl, at, false).Neg()
+		cashMove := movement(cash, at, true)
+		totalAssets := balance(assets, at)
+		recon.add(integer(at), money(v[0]), money(ni), money(v[0].Sub(ni)), money(v[1]), money(cashMove), money(v[1].Sub(cashMove)),
+			money(v[2]), money(totalAssets), money(v[2].Sub(totalAssets)), money(v[3]), money(v[4]), money(v[5]))
 	}
-	return []*Table{journals, accounts, tb, statements, recon}, nil
+	return append(tables, recon), nil
 }

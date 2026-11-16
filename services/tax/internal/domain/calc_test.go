@@ -475,7 +475,7 @@ const matrixExpectedPath = "../../testdata/matrix500-expected.csv"
 
 func TestMatrix500(t *testing.T) {
 	sets := loadMatrix(t)
-	total := 0
+	total, ran := 0, 0
 	var rows [][]string
 	for _, set := range sets {
 		count := 0
@@ -488,6 +488,7 @@ func TestMatrix500(t *testing.T) {
 							name := fmt.Sprintf("%s/stack%d/amounts%d/incl=%v/%s/%s", set.Region, si, ai, inclusive, rounding, mode)
 							t.Run(name, func(t *testing.T) {
 								rows = append(rows, runScenario(t, name, set, stack, amounts, inclusive, rounding, mode)...)
+								ran++
 							})
 						}
 					}
@@ -501,6 +502,12 @@ func TestMatrix500(t *testing.T) {
 	}
 	if total != 500 {
 		t.Fatalf("matrix has %d scenarios, want 500", total)
+	}
+	// The golden file holds every scenario: a run filtered with -run, or one where a scenario failed, has only part of
+	// the rows, so it neither compares with the file nor rewrites it.
+	if ran != total {
+		t.Logf("%d of %d scenarios ran: %s not compared or rewritten (run the whole TestMatrix500 for that)", ran, total, matrixExpectedPath)
+		return
 	}
 	checkMatrixExpected(t, rows)
 }

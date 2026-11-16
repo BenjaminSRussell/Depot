@@ -15,6 +15,10 @@ const (
 	cashAppOpenItems    = cashAppDir + "/open_items.csv"
 	cashAppAnswerKey    = cashAppDir + "/answer_key.csv"
 	cashAppMatchResults = cashAppDir + "/match_outcomes.csv"
+	// The payments the outcomes were matched from; listed as sources so the cover marks a local edit to them.
+	cashAppLockbox     = cashAppDir + "/lockbox.bai2"
+	cashAppStatement   = cashAppDir + "/statement.camt053.xml"
+	cashAppRemittances = cashAppDir + "/remittances.json"
 )
 
 // cashAppWhy explains, per answer-key category, why the matcher does not auto-apply such a payment without a learned payer

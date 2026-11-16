@@ -2,9 +2,12 @@
 // from fixtures already in the repository, with a cover sheet (what to check, the source fixture, the git commit, the
 // generation date and the sign-off fields), the inputs, the expected results and, where it helps, the totals to tie out.
 //
-//	go run ./tools/signoff-packets -out /tmp/packets            # every packet
-//	go run ./tools/signoff-packets -out /tmp/packets -only tax  # one packet (a comma-separated list works too)
-//	go run ./tools/signoff-packets -list                        # the packets and the #512 item each serves
+// From the repository root (the tool is its own Go module, so go -C runs it from its directory; give -out as an absolute
+// path, a relative one is taken from tools/signoff-packets):
+//
+//	go -C tools/signoff-packets run . -out /tmp/packets            # every packet
+//	go -C tools/signoff-packets run . -out /tmp/packets -only tax  # one packet (a comma-separated list works too)
+//	go -C tools/signoff-packets run . -list                        # the packets and the #512 item each serves
 //
 // The same commit gives byte-identical workbooks apart from the generation date, which -date sets.
 package main
