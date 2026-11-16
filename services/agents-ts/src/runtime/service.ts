@@ -19,6 +19,11 @@ import {
   type RunResult,
 } from "./engine.js";
 import type { McpConnector } from "./mcp.js";
+import type { RunInput, RunSteps } from "./steps.js";
+import type { WorkflowGateway } from "./workflowGateway.js";
+import { STATE_RETENTION_MS, tokenExpiryMs, type RunStateStore } from "../store/runstate.js";
+import { WorkflowRefused } from "./workflowGateway.js";
+import type { DecisionResult } from "../api/decision.js";
 import { createFactRisk } from "./risk.js";
 
 /** What the run service reads from the database beyond the engine's audit and budget ports. */
@@ -55,6 +60,11 @@ export interface RunServiceDeps {
   /** Runs the background work; tests pass a function that collects the promise. */
   spawn?: (work: Promise<unknown>) => void;
   newRunId?: () => string;
+  /**
+   * Set when runs execute as workflows (AGENTS_RUN_ENGINE=temporal): `start` stores the run and starts its workflow
+   * instead of spawning the in-process engine, and approval decisions wake the workflow. Absent: the in-process engine.
+   */
+  workflow?: { steps: RunSteps; state: RunStateStore; gateway: WorkflowGateway };
 }
 
 export interface StartedRun {
@@ -105,6 +115,41 @@ export function createRunService(deps: RunServiceDeps) {
       assertCanStartRun(await deps.store.budgetSnapshot(caller.tenantId, now().toISOString().slice(0, 7)));
 
       const runId = newRunId();
+      const wf = deps.workflow;
+      if (wf !== undefined) {
+        // v1 has no autonomous posting (9.47.1): every agent runs in suggest mode. The prompt can hold PII and the token is a
+        // credential, so both go to the run's own tables and only the run id travels to Temporal.
+        const input: RunInput = {
+          agentId: agent.agentId,
+          agentVersion: agent.version,
+          invokerUserId: caller.userId,
+          duties: [...caller.duties],
+          prompt,
+          policy: { mode: "SUGGEST", autoThreshold: 1, autoAmountLimit: { amount: "0", currency: deps.config.selfApprovalLimit.currency } },
+          selfApprovalLimit: deps.config.selfApprovalLimit,
+          runTokenCap: deps.config.runTokenCap,
+          ...(deps.config.approvalExpiryHours !== undefined ? { approvalExpiryHours: deps.config.approvalExpiryHours } : {}),
+        };
+        // Opportunistic retention for this tenant: expired credentials and finished runs' state past 24 h.
+        await wf.state.sweep(caller.tenantId, STATE_RETENTION_MS).catch(() => 0);
+        await wf.steps.create(caller.tenantId, runId, input, { kind: "starter", userId: caller.userId, duties: input.duties, token }, tokenExpiryMs(token) ?? now().getTime() + 5 * 60_000);
+        // The workflow id comes from the run id, so starting again is the same run. A refusal is final; a timeout or a dropped
+        // connection is unknown (the workflow may have started), so it is tried again before the start is given up.
+        let started = false;
+        for (let attempt = 0; attempt < 3 && !started; attempt += 1) {
+          try {
+            await wf.gateway.start(caller, runId);
+            started = true;
+          } catch (err) {
+            if (err instanceof WorkflowRefused) break;
+          }
+        }
+        if (!started) {
+          await wf.state.discard(caller.tenantId, runId).catch(() => undefined);
+          throw new ApiError(502, "AGT-0214", "the workflow service is unavailable");
+        }
+        return { runId, agentId: agent.agentId, agentVersion: agent.version, status: "RUNNING" };
+      }
       let session;
       try {
         session = await deps.mcp.connect(caller, token, runId);
@@ -155,6 +200,34 @@ export function createRunService(deps: RunServiceDeps) {
         }),
       );
       return { runId, agentId: agent.agentId, agentVersion: agent.version, status: "RUNNING" };
+    },
+
+    /**
+     * After the decision endpoint recorded a decision (workflow mode): keeps the approver's token for the commit call, which
+     * runs as the approver, and wakes the run's workflow. Best effort: the decision is already stored, and the workflow also
+     * re-reads it on a timer, so a failure here only delays the run.
+     */
+    async decided(caller: Principal, token: string, result: DecisionResult): Promise<void> {
+      const wf = deps.workflow;
+      if (wf === undefined) return;
+      try {
+        // The approver's token is kept only for a decision this user gave, on the request the run is waiting on: a replay by
+        // anyone else, or a decision for a run that has ended, stores nothing.
+        if (result.decision === "APPROVED" && result.approverUserId === caller.userId) {
+          const row = await wf.state.load<unknown, { phase?: string; actionId?: string }>(caller.tenantId, result.runId);
+          if (row?.state.phase === "awaiting" && row.state.actionId === result.actionId) {
+            await wf.state.putCredential(caller.tenantId, result.runId, { kind: "approver", userId: caller.userId, duties: [...caller.duties], token }, tokenExpiryMs(token) ?? now().getTime() + 5 * 60_000);
+          }
+        }
+      } catch (err) {
+        process.stderr.write(`${JSON.stringify({ level: "warn", message: "approver session not kept for the run", service: "agents-ts", runId: result.runId, error: String(err) })}\n`);
+      }
+      try {
+        await wf.gateway.approvalDecided(caller, result.runId, result.actionId);
+      } catch (err) {
+        // The run does not depend on the wake: it re-reads the stored decision on its timer.
+        process.stderr.write(`${JSON.stringify({ level: "warn", message: "approval decision not delivered to the workflow", service: "agents-ts", runId: result.runId, error: String(err) })}\n`);
+      }
     },
 
     async view(caller: Principal, runId: string): Promise<RunView> {

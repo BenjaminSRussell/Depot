@@ -1,0 +1,90 @@
+{{- if .Values.consumer.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-consumer
+  labels:
+    app.kubernetes.io/name: prediction-consumer
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: consumer
+spec:
+  replicas: {{ .Values.consumer.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: prediction-consumer
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: prediction-consumer
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/component: consumer
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        fsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      volumes:
+        - name: service-identity
+          secret:
+            secretName: {{ required "sync.signingKeySecret is needed to read receivables" .Values.sync.signingKeySecret }}
+            defaultMode: 0440
+        {{- if .Values.consumer.kafka.secret }}
+        - name: kafka
+          secret:
+            secretName: {{ .Values.consumer.kafka.secret | quote }}
+            defaultMode: 0440
+        {{- end }}
+      containers:
+        - name: consumer
+          image: {{ include "prediction.image" . | quote }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["python", "-m", "prediction.consumer"]
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - { name: service-identity, mountPath: /var/run/passage/service-identity, readOnly: true }
+            {{- if .Values.consumer.kafka.secret }}
+            - { name: kafka, mountPath: /var/run/passage/kafka, readOnly: true }
+            {{- end }}
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef: { name: {{ .Values.databaseSecret | quote }}, key: DATABASE_URL }
+            - name: PREDICTION_MIN_ROWS
+              value: {{ .Values.minRows | quote }}
+            - name: PREDICTION_MAE_MAX_DAYS
+              value: {{ .Values.maeMaxDays | quote }}
+            - name: RECEIVABLES_URL
+              value: {{ required "sync.receivablesUrl is needed to read receivables" .Values.sync.receivablesUrl | quote }}
+            - name: KAFKA_BROKERS
+              value: {{ required "consumer.brokers is needed: the Kafka bootstrap servers" .Values.consumer.brokers | quote }}
+            {{- if .Values.consumer.kafka.secret }}
+            - name: KAFKA_USERNAME
+              value: {{ .Values.consumer.kafka.username | quote }}
+            - name: KAFKA_PASSWORD_FILE
+              value: /var/run/passage/kafka/password
+            - name: KAFKA_TLS_CA_FILE
+              value: /var/run/passage/kafka/ca.crt
+            {{- end }}
+            - name: PREDICTION_KAFKA_GROUP
+              value: {{ .Values.consumer.kafka.group | quote }}
+            {{- if .Values.consumer.topics }}
+            - name: PREDICTION_KAFKA_TOPICS
+              value: {{ join "," .Values.consumer.topics | quote }}
+            {{- end }}
+            - name: PASSAGE_SERVICE_NAME
+              value: prediction
+            - name: PASSAGE_SERVICE_SIGNING_KEY_FILE
+              value: /var/run/passage/service-identity/signing-key
+            {{- if .Values.sync.keyId }}
+            - name: PASSAGE_SERVICE_KEY_ID
+              value: {{ .Values.sync.keyId | quote }}
+            {{- end }}
+          resources:
+            {{- toYaml .Values.consumer.resources | nindent 12 }}
+{{- end }}

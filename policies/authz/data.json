@@ -4105,6 +4105,13 @@
       {"resource": "/api/v1/agents/runs/*", "methods": ["GET"]},
       {"resource": "/api/v1/agents/runs/*/actions", "methods": ["GET"]}
     ]},
+    "agents.run.signal": {"service_only": true, "permissions": [
+      {"resource": "/v1/workflows/agent-runs/*:start", "methods": ["POST"]},
+      {"resource": "/v1/workflows/agent-runs/*:approval-decided", "methods": ["POST"]}
+    ]},
+    "agents.run.workflow": {"service_only": true, "permissions": [
+      {"resource": "/api/v1/agents/runs/*/steps/*", "methods": ["POST"]}
+    ]},
     "platform.global.admin": {"permissions": [{"resource": "/api/v1/agents/kill-switch", "methods": ["GET", "POST"]}]}
   },
   "service_grants": {
@@ -4254,7 +4261,11 @@
       "budgeting": ["budget.plan.workflow"],
       "quality": ["quality.capa.execute"],
       "transport": ["transport.tender.execute"],
-      "party": ["party.approve", "party.merge.execute"]
+      "party": ["party.approve", "party.merge.execute"],
+      "agents": ["agents.run.workflow"]
+    },
+    "agents": {
+      "workflow-ts": ["agents.run.signal"]
     },
     "party": {
       "numbering": ["numbering.sequence.allocate"]

@@ -30,6 +30,15 @@ spec:
       ports:
         - { protocol: TCP, port: 8080 }
     {{- end }}
+    {{- if and (eq .Values.runEngine "temporal") .Values.networkPolicy.workflowPodLabels }}
+    # workflow-ts drives the run steps; every call carries its signed service token, verified by the runtime.
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- toYaml .Values.networkPolicy.workflowPodLabels | nindent 14 }}
+      ports:
+        - { protocol: TCP, port: 8080 }
+    {{- end }}
     - from:
         - namespaceSelector:
             matchLabels:

@@ -77,6 +77,10 @@ export class MemoryStore implements RunStore {
       createdAt: "2026-10-21T00:00:00.000Z",
     });
   }
+  async recordAction(_t: string, a: ActionRecord): Promise<void> {
+    const rows = this.actionRows.get(a.runId) ?? [];
+    if (!rows.some((r) => r.seq === a.seq)) this.actionRows.set(a.runId, [...rows, a]);
+  }
   async runStatus(req: RunRequest): Promise<string | undefined> {
     return this.runs.get(req.runId)?.status;
   }
@@ -84,7 +88,7 @@ export class MemoryStore implements RunStore {
     const r = this.runs.get(req.runId);
     if (r === undefined) throw new Error("no run");
     this.runs.set(req.runId, { ...r, status: result.status, ...(result.code !== undefined ? { code: result.code } : {}), tokensIn: result.tokensIn, tokensOut: result.tokensOut });
-    this.actionRows.set(req.runId, result.actions);
+    if (result.actions.length > 0) this.actionRows.set(req.runId, result.actions);
   }
   async getRun(tenantId: string, runId: string): Promise<StoredRun | undefined> {
     return tenantId === T1 ? this.runs.get(runId) : undefined;

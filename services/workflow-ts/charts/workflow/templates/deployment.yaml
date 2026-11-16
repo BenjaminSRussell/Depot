@@ -57,10 +57,14 @@ spec:
               value: {{ .Values.temporal.taskQueue | quote }}
             - { name: PAYABLES_BASE_URL, value: {{ .Values.payablesUrl | quote }} }
             - { name: ENGINEERING_BASE_URL, value: {{ .Values.engineeringUrl | quote }} }
+            - { name: AGENTS_BASE_URL, value: {{ .Values.agentsUrl | quote }} }
             - { name: QUALITY_BASE_URL, value: {{ .Values.qualityUrl | quote }} }
             - { name: TRANSPORT_BASE_URL, value: {{ .Values.transportUrl | quote }} }
             - { name: PARTY_BASE_URL, value: {{ .Values.partyUrl | quote }} }
             - { name: PASSAGE_SERVICE_NAME, value: workflow-ts }
+{{- if .Values.agentsPublicKeys }}
+            - { name: PASSAGE_SERVICE_PUBLIC_KEYS, value: {{ .Values.agentsPublicKeys | quote }} }
+{{- end }}
 {{- if .Values.serviceIdentity.signingKeySecret }}
             - { name: PASSAGE_SERVICE_SIGNING_KEY_FILE, value: /var/run/passage/service-identity/signing-key }
 {{- if .Values.serviceIdentity.keyId }}

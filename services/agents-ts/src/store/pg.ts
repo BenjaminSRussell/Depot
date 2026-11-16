@@ -108,6 +108,15 @@ const assertTokens = (what: string, n: number, min: number): void => {
   if (!Number.isSafeInteger(n) || n < min) throw new Error(`${what} must be a safe integer of at least ${min}, got ${n}`);
 };
 
+async function insertAction(c: pg.PoolClient, tenantId: string, runMonth: string, a: ActionRecord): Promise<void> {
+  await c.query(
+    `insert into agent_action (tenant_id, run_id, run_month, seq, tool_name, input_json, output_hash, output_json, output_truncated, approver_user_id, decision, decided_at, committed_entity_ref, reason)
+     values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+     on conflict (tenant_id, run_id, seq, run_month) do nothing`,
+    [tenantId, a.runId, runMonth, a.seq, a.toolName, a.inputJson, a.outputHash, a.outputJson, a.outputTruncated, a.approverUserId, a.decision, a.decidedAt, a.committedEntityRef, a.reason],
+  );
+}
+
 /** Postgres store behind the audit and budget ports. Every statement runs in a tenant-scoped transaction under row-level security. */
 export class PgAgentStore implements AuditPort, BudgetPort {
   /** `defaults` null means a tenant month with no configured row cannot run. */
@@ -204,31 +213,30 @@ export class PgAgentStore implements AuditPort, BudgetPort {
         ],
       );
       const runMonth = res.rows[0]?.run_month;
-      if (runMonth === undefined) throw new Error(`run ${result.runId} is not open for audit`);
+      if (runMonth === undefined) {
+        // Already finished (a retried finish after the first one landed) is success; no row at all is an error.
+        const done = await c.query("select 1 from agent_run where tenant_id = $1 and run_id = $2 and status <> 'RUNNING'", [req.tenantId, result.runId]);
+        if (done.rowCount) return;
+        throw new Error(`run ${result.runId} is not open for audit`);
+      }
       for (const a of result.actions) {
         if (a.runId !== result.runId) throw new Error(`action ${a.seq} belongs to run ${a.runId}, not ${result.runId}`);
-        // Every action lands in its run's monthly partition (migration 0006).
-        await c.query(
-          `insert into agent_action (tenant_id, run_id, run_month, seq, tool_name, input_json, output_hash, output_json, output_truncated, approver_user_id, decision, decided_at, committed_entity_ref, reason)
-           values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
-          [
-            req.tenantId,
-            a.runId,
-            runMonth,
-            a.seq,
-            a.toolName,
-            a.inputJson,
-            a.outputHash,
-            a.outputJson,
-            a.outputTruncated,
-            a.approverUserId,
-            a.decision,
-            a.decidedAt,
-            a.committedEntityRef,
-            a.reason,
-          ],
-        );
+        // Every action lands in its run's monthly partition (migration 0006). A row a resumable run already recorded is kept.
+        await insertAction(c, req.tenantId, runMonth, a);
       }
+    });
+  }
+
+  /**
+   * Records one action as its step completes (resumable runs). Idempotent per (run, seq): a step retried after a
+   * restart finds the row and leaves it, so the audit trail never holds a duplicate or loses the first write.
+   */
+  async recordAction(tenantId: string, a: ActionRecord): Promise<void> {
+    await this.withTenant(tenantId, async (c) => {
+      const res = await c.query<{ run_month: string }>("select run_month::text from agent_run where tenant_id = $1 and run_id = $2", [tenantId, a.runId]);
+      const runMonth = res.rows[0]?.run_month;
+      if (runMonth === undefined) throw new Error(`run ${a.runId} is not open for audit`);
+      await insertAction(c, tenantId, runMonth, a);
     });
   }
 
@@ -312,6 +320,9 @@ export class PgAgentStore implements AuditPort, BudgetPort {
     assertTokens("tokensOut", r.tokensOut, 1);
     return this.withTenant(r.tenantId, async (c) => {
       await this.lockBudget(c, r.tenantId, r.month);
+      // One hold per run: a step retried after the hold was taken gets the same hold, not a second one that would be charged in full later.
+      const existing = (await c.query<{ hold_id: string; month: string }>("select hold_id, month from budget_hold where tenant_id = $1 and run_id = $2", [r.tenantId, r.runId])).rows[0];
+      if (existing !== undefined) return { holdId: existing.hold_id, tenantId: r.tenantId, month: existing.month };
       await c.query(
         `with swept as (delete from budget_hold where tenant_id = $1 and expires_at <= now() returning month, tokens_in, tokens_out),
               spent as (select month, sum(tokens_in) as tokens_in, sum(tokens_out) as tokens_out from swept group by month)

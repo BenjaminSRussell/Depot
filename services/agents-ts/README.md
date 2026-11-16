@@ -60,9 +60,57 @@ deterministic in tests.
 | `AGENTS_MODEL`, `AGENTS_COPILOT_MODEL`, `AGENTS_MODEL_OVERRIDES` | Model ids; the overrides are a JSON object of agent id to model id | `claude-sonnet-5-5` |
 | `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` + `AGENTS_OPENAI_BASE_URL`, `AWS_REGION` + `AWS_ACCESS_KEY_ID` + `AWS_SECRET_ACCESS_KEY` | Provider credentials, from a secret; a missing one fails the first run naming the variable | |
 | `AGENTS_RUN_TOKEN_CAP`, `AGENTS_COPILOT_TOKEN_CAP`, `AGENTS_COPILOT_MAX_TURNS` | Per-run and per-chat token caps, chat turns | 20000, 8000, 4 |
+| `AGENTS_RUN_ENGINE`, `AGENTS_WORKFLOW_URL`, `PASSAGE_SERVICE_PUBLIC_KEYS` | `inprocess` (dev fallback: a run is one promise in the pod) or `temporal` (each run is workflow-ts `agentRunWorkflow`, so a run resumes after an approval across pod restarts; needs the workflow URL and workflow-ts's public key, see "Runs as workflows") | `inprocess` |
 | `AGENTS_APPROVAL_EXPIRY_H`, `AGENTS_SELF_APPROVAL_LIMIT`, `AGENTS_SELF_APPROVAL_CURRENCY` | BR-47.3 expiry (1 to 240 hours) and the self-approval limit | 72, 0, USD |
 | `AGENTS_KILLSWITCH_POLL_MS` | How often each pod reads the shared kill switch (100 to 5000) | 1000 |
 | `HTTP_ADDR`, `ADMIN_ADDR`, `MIGRATE_ON_START`, `AGENTS_DB_POOL` | Listeners and database | `0.0.0.0:8080`, `0.0.0.0:9090`, off, 10 |
+
+## Runs as workflows
+
+With `AGENTS_RUN_ENGINE=temporal` (FR-47.4, FR-47.8) `POST /api/v1/agents/{id}/runs` still answers 202 with the run id,
+but the run is a Temporal workflow, `agentRunWorkflow` in `services/workflow-ts` (the only package with the Temporal SDK).
+The run's logic stays here, as idempotent steps (`src/runtime/steps.ts`) over durable state (migration 0007), and the
+workflow drives them as activities through `POST /api/v1/agents/runs/{id}/steps/{begin|plan|resolve|commit|abort}`.
+
+**Service to service.** The two services authenticate each other with signed service tokens (the platform/go/tenant format,
+Ed25519, 60 s, tenant-level, the run's user as actor). workflow-ts calls the step routes here (audience `agents`, grant
+`agents.run.workflow`, verified in `src/api/serviceToken.ts` against `PASSAGE_SERVICE_PUBLIC_KEYS`; the actor must be the user who
+started the run). This service starts and wakes the workflow with its own token (`src/api/serviceSigner.ts`, audience
+`workflow-ts`, grant `agents.run.signal`, key from `PASSAGE_SERVICE_SIGNING_KEY[_FILE]`), verified by workflow-ts. workflow-ts
+trusts `X-Passage-*` headers on its edge routes, so these routes take only the token and are not exposed at the edge; the wake is
+authorized as the agents service, so approvers need no workflow duty. Charts: `workflowUrl` is the `workflows` Service,
+`networkPolicy.workflowPodLabels` admits workflow-ts's pods, and workflow-ts's `agentsUrl` is the `agent-runtime` Service.
+
+1. `create` (the HTTP start, after the duty, kill switch, evaluation and budget checks) stores the input and the caller's
+   token in `agent_run_state` and `agent_run_credential` and starts the workflow with ids only (the workflow id is
+   `agent-run:{tenant}:{run}`, so a start retried after a timeout is the same run; a start that is refused removes the rows).
+2. `begin` reserves the budget hold (one hold per run id) and opens the run. `plan` checks the kill switch, makes the one
+   model call on pseudonymized text and stores the answer, its usage and the proposal's hash **before anything else can fail**
+   (phase `called`), so a retried `plan` never calls the model again; then it applies the gates and risk and either opens the
+   approval request (carrying the proposal hash) or goes straight to commit (AUTO).
+3. The workflow waits for the approval as a signal (`agent-approval-decided`) with a timer for the BR-47.3 expiry. The signal only
+   wakes it: `resolve` reads the stored decision, the source of truth, and with `expire` records REJECTED/EXPIRED for an undecided
+   request (first writer wins against a human). It also re-reads hourly. A lost, refused or late wake never fails the run.
+4. **The commit and the approver's session.** The tools run through the MCP gateway under a user's bearer token, and the platform has
+   no delegated service credential the gateway accepts (workflow-ts's service tokens are verified by the services, not by mcp-ts), so
+   the commit runs as the approver with the token their decision request carried. That token is kept in `agent_run_credential` only
+   when the decision was given by that same user, on the request the run is waiting on; a replay of a decision by anyone else, or
+   a decision for a run that is not waiting, stores nothing. The commit never falls back to the starter's token. Access tokens live
+   five minutes: if the approver's token has expired when the run resumes (`resolve` or `commit`), the run is **put back to awaiting
+   a new approval** (a new request, a fresh window) and the approver is asked again; it does not fail. A commit interrupted by a
+   restart mid-call is never repeated (the run fails and says to check the target), and one that succeeded and then lost its audit
+   write is finished COMMITTED without calling the tool again; the commit checks the proposal against the hash the approval carries.
+5. Every step records its action row with `recordAction`, idempotent per `(run, seq)`; `finishRun` treats a run that is already
+   finished as done, so a retried finish completes. A step that exhausts its retries (hours, for server and network errors) ends
+   the run FAILED through `abort`, which retries without limit, closes the open approval request and purges the credentials.
+6. **Retention (BR-47.7).** When a run ends its credentials are deleted and its prompt, pseudonym map and the model's answer with
+   real values are emptied; `STATE_RETENTION_MS` (24 h) after that the state row is deleted by a sweep that runs for the tenant at
+   each run start, together with any expired credential. Until then the prompt and map sit in plaintext in `agent_run_state` under
+   tenant row-level security; there is no Vault transit in this service (not used anywhere in agents-ts), see NOT-IMPLEMENTED.md.
+
+The in-process engine (`src/runtime/engine.ts`) stays as the dev fallback and is unchanged. Temporal tests are in
+workflow-ts (`test/agentRun.test.ts`, CI only); the steps are tested here with fakes, including failures partway through each
+step (`test/steps.test.ts`, `test/steps-api.test.ts`), and against Postgres (`test/runstate-pg.test.ts`).
 
 ## Run and test
 

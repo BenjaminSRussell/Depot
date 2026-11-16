@@ -17,3 +17,12 @@ spec:
               gateway.envoyproxy.io/owning-gateway-name: passage-api
       ports:
         - { protocol: TCP, port: 8080 }
+{{- if and .Values.agentsPublicKeys .Values.networkPolicy.agentsPodLabels }}
+    # The agents service starts and wakes agent-run workflows; each call carries its signed service token, verified here.
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- toYaml .Values.networkPolicy.agentsPodLabels | nindent 14 }}
+      ports:
+        - { protocol: TCP, port: 8080 }
+{{- end }}
