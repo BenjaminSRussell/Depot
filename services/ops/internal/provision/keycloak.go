@@ -40,6 +40,9 @@ func (k Keycloak) RealmName(t Tenant) (string, error) {
 		return "", err
 	}
 	name := k.prefix() + t.ID
+	if t.Realm != "" {
+		name = t.Realm
+	}
 	if name == "master" || strings.EqualFold(name, k.AdminRealm) {
 		return "", fmt.Errorf("realm name %q would be the admin realm", name)
 	}
@@ -99,10 +102,41 @@ func (k Keycloak) realmBody(t Tenant, realm string) (map[string]any, error) {
 	// provisioning, so the template's are not imported (they would carry another tenant's example endpoints).
 	delete(doc, "identityProviders")
 	delete(doc, "identityProviderMappers")
-	if s := string(raw); strings.Contains(strings.ReplaceAll(s, "REPLACE_WITH_TENANT_ID", ""), "REPLACE_WITH_") {
-		return nil, fmt.Errorf("%w: it still has a REPLACE_WITH_ placeholder other than REPLACE_WITH_TENANT_ID", ErrRealmTemplate)
+	// The service account of passage-services has no tenant_id attribute, so its tid claim is fixed to the tenant, as in the minimal realm.
+	if clients, ok := doc["clients"].([]any); ok {
+		for _, c := range clients {
+			cl, ok := c.(map[string]any)
+			if !ok || cl["clientId"] != "passage-services" {
+				continue
+			}
+			var keep []any
+			for _, m := range asSlice(cl["protocolMappers"]) {
+				if mm, ok := m.(map[string]any); ok && mm["name"] == "tid" {
+					continue
+				}
+				keep = append(keep, m)
+			}
+			cl["protocolMappers"] = append(keep, tidMapper(t.ID))
+		}
+	}
+	out, err := json.Marshal(doc)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrRealmTemplate, err)
+	}
+	if strings.Contains(string(out), "REPLACE_WITH_") {
+		return nil, fmt.Errorf("%w: it still has a REPLACE_WITH_ placeholder (other than REPLACE_WITH_TENANT_ID) outside identityProviders and identityProviderMappers", ErrRealmTemplate)
 	}
 	return doc, nil
+}
+
+func asSlice(v any) []any {
+	s, _ := v.([]any)
+	return s
+}
+
+func tidMapper(tenantID string) map[string]any {
+	return map[string]any{"name": "tid-hardcoded", "protocol": "openid-connect", "protocolMapper": "oidc-hardcoded-claim-mapper",
+		"config": map[string]string{"claim.name": "tid", "claim.value": tenantID, "jsonType.label": "String", "id.token.claim": "true", "access.token.claim": "true"}}
 }
 
 func minimalRealm(t Tenant, realm string) map[string]any {
@@ -127,8 +161,7 @@ func minimalRealm(t Tenant, realm string) map[string]any {
 			"protocolMappers": []map[string]any{
 				{"name": "audience-passage-api", "protocol": "openid-connect", "protocolMapper": "oidc-audience-mapper",
 					"config": map[string]string{"included.custom.audience": "passage-api", "id.token.claim": "false", "access.token.claim": "true"}},
-				{"name": "tid-hardcoded", "protocol": "openid-connect", "protocolMapper": "oidc-hardcoded-claim-mapper",
-					"config": map[string]string{"claim.name": "tid", "claim.value": t.ID, "jsonType.label": "String", "id.token.claim": "true", "access.token.claim": "true"}},
+				tidMapper(t.ID),
 				mapper("le", "legal_entity_id"), mapper("duties", "duties"), mapper("tier", "tier"),
 			},
 		}},
@@ -198,6 +231,9 @@ func (k Keycloak) DeleteRealm(ctx context.Context, t Tenant, dry bool) (string, 
 	case http.StatusNoContent, http.StatusOK:
 		return "deleted realm " + realm, nil
 	case http.StatusNotFound:
+		if t.Realm == "" {
+			return "", fmt.Errorf("keycloak: realm %s does not exist, and the realm created for this tenant was never recorded, so the name is a guess: find the tenant's realm in Keycloak and record it before decommissioning", realm)
+		}
 		return "realm " + realm + " was already absent", nil
 	}
 	return "", fmt.Errorf("keycloak: delete realm %s: status %d %s", realm, st, snippet(b))

@@ -107,6 +107,8 @@ type Provision struct {
 	RequestedBy   string          `json:"requestedBy"`
 	CreatedAt     time.Time       `json:"createdAt"`
 	ProvisionedAt *time.Time      `json:"provisionedAt,omitempty"`
+	// RealmName is the Keycloak realm the realm step created ("" before it, and for tenants provisioned before it was recorded).
+	RealmName string `json:"realmName,omitempty"`
 	// Overdue is true while the provision runs past the 15-minute target (provisioning.timeout_min).
 	Overdue bool `json:"overdue"`
 }
@@ -174,11 +176,11 @@ func (s *Postgres) createProvision(ctx context.Context, key string, req domain.P
 	return p, replay, err
 }
 
-const provisionCols = `customer_tenant::text, name, residency, region, tier, status, requested_by, created_at, provisioned_at`
+const provisionCols = `customer_tenant::text, name, residency, region, tier, status, requested_by, created_at, provisioned_at, coalesce(realm_name, '')`
 
 func scanProvision(row pgx.Row) (Provision, error) {
 	var p Provision
-	err := row.Scan(&p.TenantID, &p.Name, &p.Residency, &p.Region, &p.Tier, &p.Status, &p.RequestedBy, &p.CreatedAt, &p.ProvisionedAt)
+	err := row.Scan(&p.TenantID, &p.Name, &p.Residency, &p.Region, &p.Tier, &p.Status, &p.RequestedBy, &p.CreatedAt, &p.ProvisionedAt, &p.RealmName)
 	p.Plan = domain.ProvisionSteps
 	p.Steps = []ProvisionStep{}
 	p.Overdue = p.Status == domain.ProvisionRunning && time.Since(p.CreatedAt) > domain.DefaultProvisionT
@@ -293,7 +295,7 @@ func (s *Postgres) RecordProvisionStep(ctx context.Context, tenantID, action, st
 			return err
 		}
 		return enqueue(ctx, tx, "tenant", tenantID, EventTenantProvision, tenantID, user, TenantProvisioned{
-			TenantID: tenantID, Name: p.Name, Residency: p.Residency, Region: p.Region, Tier: p.Tier, Realm: "passage-" + tenantID, ProvisionedAt: at.UTC(),
+			TenantID: tenantID, Name: p.Name, Residency: p.Residency, Region: p.Region, Tier: p.Tier, Realm: realmOf(p, tenantID), ProvisionedAt: at.UTC(),
 		})
 	})
 	if err != nil {
@@ -592,4 +594,26 @@ func (s *Postgres) SLOStates(ctx context.Context) (map[string]time.Time, error) 
 		out[svc] = at
 	}
 	return out, rows.Err()
+}
+
+// realmOf is the recorded realm of a provision; tenants provisioned before it was recorded fall back to the default name.
+func realmOf(p Provision, tenantID string) string {
+	if p.RealmName != "" {
+		return p.RealmName
+	}
+	return "passage-" + tenantID
+}
+
+// SetProvisionRealm records the realm the realm step created. A realm already recorded is not changed to another name.
+func (s *Postgres) SetProvisionRealm(ctx context.Context, tenantID, realm, user string) error {
+	return Problem(pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
+		tag, err := tx.Exec(ctx, `update ops_tenant_provision set realm_name = $2 where customer_tenant = $1::uuid and (realm_name is null or realm_name = $2)`, tenantID, realm)
+		if err != nil {
+			return err
+		}
+		if tag.RowsAffected() == 0 {
+			return &domain.Error{Code: domain.CodeProvisionConflict, Detail: "the tenant's realm is already recorded under another name"}
+		}
+		return audit(ctx, tx, user, "tenant.realm.recorded", tenantID, map[string]any{"realm": realm})
+	}))
 }

@@ -22,6 +22,19 @@ type Tenant struct {
 	Residency string
 	Region    string
 	Tier      string
+	// Realm is the Keycloak realm the provision recorded for the tenant ("" when none is recorded); a decommission deletes exactly it.
+	Realm string
+}
+
+// RealmNamer is implemented by a RealmAdmin that can say which realm it will create; the runner reports that name with the realm
+// step (RealmStepReporter), so the API records it and a later decommission deletes that realm and no other.
+type RealmNamer interface {
+	RealmName(t Tenant) (string, error)
+}
+
+// RealmStepReporter is implemented by a Reporter that can carry the realm name with the realm step.
+type RealmStepReporter interface {
+	ReportRealmStep(ctx context.Context, tenantID, status, detail, realm string) error
 }
 
 // RealmAdmin creates and removes the tenant's Keycloak realm.
@@ -191,7 +204,7 @@ func (r *Runner) run(ctx context.Context, t Tenant, order []string, do stepFn, d
 		case r.DryRun:
 			res.Steps = append(res.Steps, StepResult{Action: action, Status: "PLANNED", Detail: detail})
 		default:
-			if err := report(ctx, t.ID, action, "DONE", truncate(detail)); err != nil {
+			if err := r.reportDone(ctx, t, action, detail, licence, report); err != nil {
 				return res, err
 			}
 			res.Steps = append(res.Steps, StepResult{Action: action, Status: "DONE", Detail: detail})
@@ -207,6 +220,22 @@ func (r *Runner) run(ctx context.Context, t Tenant, order []string, do stepFn, d
 		res.Steps = append(res.Steps, StepResult{Action: "license", Status: "DONE", Detail: "the tenant's licence is installed"})
 	}
 	return res, nil
+}
+
+// reportDone reports a DONE step; the provision's realm step carries the realm's name when the adapter and the reporter can.
+func (r *Runner) reportDone(ctx context.Context, t Tenant, action, detail string, provisioning bool, report func(context.Context, string, string, string, string) error) error {
+	if provisioning && action == "realm" {
+		if namer, ok := r.Exec.Realm.(RealmNamer); ok {
+			if rr, ok := r.Reporter.(RealmStepReporter); ok {
+				name, err := namer.RealmName(t)
+				if err != nil {
+					return err
+				}
+				return rr.ReportRealmStep(ctx, t.ID, "DONE", truncate(detail), name)
+			}
+		}
+	}
+	return report(ctx, t.ID, action, "DONE", truncate(detail))
 }
 
 func truncate(s string) string {

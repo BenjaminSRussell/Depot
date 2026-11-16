@@ -143,8 +143,15 @@ spec:
             - name: OPS_PROVISION_DATABASES
               valueFrom:
                 secretKeyRef: { name: {{ .secret }}, key: OPS_PROVISION_DATABASES }
-            - name: OPS_PROVISION_DB_PURGE
-              value: {{ .purge | quote }}
+{{- end }}
+{{- end }}
+{{- with .Values.provisioning.purge }}
+{{- if .secret }}
+            - name: OPS_PURGE_DATABASES
+              valueFrom:
+                secretKeyRef: { name: {{ .secret }}, key: OPS_PURGE_DATABASES }
+            - name: OPS_PURGE_KEEP_TABLES
+              value: {{ join "," .keepTables | quote }}
 {{- end }}
 {{- end }}
 {{- with .Values.provisioning.lakehouse }}

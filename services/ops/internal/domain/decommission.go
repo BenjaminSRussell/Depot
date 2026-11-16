@@ -17,6 +17,10 @@ const (
 	CodeScheduleInvalid          = "OPS-1735"
 	CodeScheduleUnknown          = "OPS-1736"
 	CodeScheduleConflict         = "OPS-1737"
+	CodePurgeNotReady            = "OPS-1738" // the decommission is not DECOMMISSIONED yet
+	CodePurgeNoExport            = "OPS-1739" // no verified export is on record
+	CodePurgeUnknown             = "OPS-1740" // no purge is recorded for the tenant
+	CodePurgeInvalid             = "OPS-1741" // the export id or purge result is malformed
 
 	DecommissionRunning = "DECOMMISSIONING"
 	DecommissionDone    = "DECOMMISSIONED"

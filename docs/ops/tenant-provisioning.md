@@ -62,8 +62,8 @@ touched; `--dry-run` always works and calls nothing.
 
 | Step | Adapter | Configuration | Provision | Decommission |
 |---|---|---|---|---|
-| realm | Keycloak Admin REST API | `OPS_KEYCLOAK_URL`, `OPS_KEYCLOAK_CLIENT_ID/SECRET` (client credentials in `OPS_KEYCLOAK_ADMIN_REALM`, default `master`), optional `OPS_KEYCLOAK_REALM_PREFIX` (`passage-`), `OPS_KEYCLOAK_REALM_TEMPLATE` | Creates realm `passage-<tenant id>` from the template (`deploy/keycloak/realm-passage.json`: `REPLACE_WITH_TENANT_ID` is substituted, the template's example identity providers are dropped, any other `REPLACE_WITH_` is refused) or a built-in minimal realm (security settings, portal roles, the `passage-services` client with the `passage-api` audience mapper and a hard-coded `tid` claim). An existing realm (200 or 409) is DONE | Deletes the realm; absent is DONE |
-| databases | pgx against each service database | `OPS_PROVISION_DATABASES` (JSON of context to connection string, or `@file`), `OPS_PROVISION_DB_PURGE`, `OPS_PROVISION_DB_KEEP_TABLES` (default `identity_tenants`) | See "Decision: databases" | Purges the tenant's rows when purge is enabled; otherwise fails |
+| realm | Keycloak Admin REST API | `OPS_KEYCLOAK_URL`, `OPS_KEYCLOAK_CLIENT_ID/SECRET` (client credentials in `OPS_KEYCLOAK_ADMIN_REALM`, default `master`), optional `OPS_KEYCLOAK_REALM_PREFIX` (`passage-`), `OPS_KEYCLOAK_REALM_TEMPLATE` | Creates realm `<prefix><tenant id>` from the template (`deploy/keycloak/realm-passage.json`: `REPLACE_WITH_TENANT_ID` is substituted, the example identity providers are dropped, a `REPLACE_WITH_` left in what remains is refused, and the `passage-services` client gets a hard-coded `tid` claim because its service account has no `tenant_id` attribute) or a built-in minimal realm (security settings, portal roles, the `passage-services` client with the `passage-api` audience mapper and a hard-coded `tid` claim). An existing realm (200 or 409) is DONE. The realm name is reported with the realm step and recorded by ops (`realmName`) | Deletes exactly the recorded realm; absent is DONE only for a recorded name (a name that was never recorded and does not exist is an error, not a guess) |
+| databases | pgx against each service database | `OPS_PROVISION_DATABASES` (JSON of context to connection string, or `@file`; as `passage_app`) | See "Decision: databases" | DONE with the detail "tenant data retained under the retention policy; purge separately" (nothing is deleted) |
 | kafka-acls | none | none | DONE: "not needed under the shared-topic model" | same |
 | lakehouse | Iceberg REST catalog | `OPS_LAKEHOUSE_CATALOG_URL`, optional `OPS_LAKEHOUSE_CATALOG_PREFIX`, `OPS_LAKEHOUSE_CATALOG_TOKEN`, `OPS_LAKEHOUSE_NAMESPACE_PREFIX` (`tenant_`) | `POST /v1/namespaces` for `tenant_<id with underscores>`; 409 is DONE | `DELETE`; 404 is DONE; a namespace that still has tables (409) fails: the tables are the tenant's data |
 
@@ -72,11 +72,31 @@ Passage is shared-schema (`docs/architecture.md` E.1, E.2): one database per bou
 tenant has no database or schema to create, so the step does not run `CREATE DATABASE`. The tenant's rows (its legal entities in identity, number
 sequences in numbering) are written by those services through their own APIs, not by ops. The databases step therefore proves the tenant can start
 safely: for each configured service database, connected as `passage_app`, it checks the role has neither SUPERUSER nor BYPASSRLS, that every table
-with a `tenant_id` column has row security enabled and forced, and that a session scoped to the new tenant sees no row of another tenant. It writes
-nothing. Decommission is the destructive half: with `OPS_PROVISION_DB_PURGE=true` and a connection role that may delete (not `passage_app`), it
-deletes the tenant's rows table by table in each database inside one transaction (retrying until foreign keys allow every delete; a table that
-refuses, such as an immutable audit table, fails the step and rolls that database back), keeping `identity_tenants`. Without purge enabled the step
-fails rather than report DONE with the data still there.
+with a `tenant_id` column has row security enabled and forced, and that a session scoped to the new tenant sees no row of another tenant. The
+deliberate exceptions are the ones `tools/rlscheck` enforces: both read one list, `platform/go/rlsexempt` (not-forced tables such as
+`service_token_replay`, tables with a documented open SELECT policy), and the platform tenant's rows (the nil UUID, system reference data such as org
+`country`) are not "another tenant". A table the role cannot read at all is skipped. It writes nothing. It is tested against the real migrated
+schemas of org, identity, ledger and agents-ts.
+
+### Decommission keeps the data; the purge is separate and gated
+The decommission's `databases` step reports DONE with "tenant data retained under the retention policy; purge separately": deleting the realm already
+blocks sign-in, and the data may be under the record-class retention (BR-50.9, 10 years in DE/FR). Deleting it is `passage-ops tenant purge`, which:
+
+1. needs the decommission DECOMMISSIONED and a verified export on record: `passage-ops tenant verify-export --tenant <id> --export-id <id> --note <text>`
+   (`PUT /v1/ops/tenants/{id}/export-verification`, duty `ops.tenant.purge`) stores the export id, who verified it and when; the marker is fixed once a
+   purge is requested (OPS-1738, OPS-1739);
+2. asks `POST /v1/ops/tenants/{id}:purge` (audited) and then deletes with its own credentials, `OPS_PURGE_DATABASES` (its own secret: a role that may
+   delete, never the `passage_app` role of the verification) and `OPS_PURGE_KEEP_TABLES` (added to the built-in `identity_tenants`; chart
+   `provisioning.purge.secret` and `provisioning.purge.keepTables`);
+3. runs each database's deletes in one transaction scoped to the tenant, in foreign-key order, then counts the tenant's remaining rows in every purged
+   table in the same transaction. A table whose policy hid rows from the DELETE (it affects zero rows without an error) leaves rows behind and fails the purge;
+4. skips, and names as retained, tables that are listed, that have a BEFORE DELETE trigger (append-only ledger and audit tables) or that the role has no
+   DELETE grant on, and lists tables keyed by a tenant column not named `tenant_id` (`report_tenant`, `customer_tenant`: platform state) without purging them;
+5. prepares every database first and commits only if every one is clean. If any fails, every transaction is rolled back and the failed databases are
+   named. The commits themselves are sequential (databases cannot commit atomically): a failing commit reports the databases already committed, and a rerun
+   finishes the rest;
+6. reports DONE or FAILED with the per-database detail to `PUT .../purge-result` (audited as `tenant.purge.completed` or `tenant.purge.failed`).
+   `--dry-run` prints the plan and touches nothing.
 
 ### Decision: Kafka
 Entity topics are shared and keyed by tenant (architecture C.2, decision D6, Q5), so a per-tenant ACL on them is impossible. External consumers read

@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -207,9 +208,13 @@ func (a *API) getProvision(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, http.StatusOK, rec)
 }
 
+var realmNamePattern = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{1,62}$`)
+
 type provisionStepBody struct {
 	Status string `json:"status"`
 	Detail string `json:"detail"`
+	// Realm is the Keycloak realm the realm step created; it is recorded so a decommission deletes exactly that realm.
+	Realm string `json:"realm,omitempty"`
 }
 
 func (a *API) provisionStep(w http.ResponseWriter, r *http.Request) {
@@ -235,6 +240,18 @@ func (a *API) provisionStep(w http.ResponseWriter, r *http.Request) {
 	if len(body.Detail) > 2000 {
 		httpx.Fail(w, r, validation("detail", "at most 2000 characters"))
 		return
+	}
+	if body.Realm != "" {
+		if action != "realm" || !realmNamePattern.MatchString(body.Realm) {
+			httpx.Fail(w, r, validation("realm", "only the realm step carries a realm name (lowercase letters, digits and hyphens, 2 to 63 characters)"))
+			return
+		}
+	}
+	if body.Realm != "" && body.Status == "DONE" {
+		if err := a.store.SetProvisionRealm(r.Context(), id, body.Realm, p.UserID); err != nil {
+			httpx.Fail(w, r, err)
+			return
+		}
 	}
 	rec, err := a.store.RecordProvisionStep(r.Context(), id, action, body.Status, body.Detail, p.UserID)
 	if err != nil {

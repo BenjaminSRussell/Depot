@@ -90,8 +90,12 @@ provisioning:
     realmTemplate: ""       # path to a mounted realm JSON (deploy/keycloak/realm-passage.json); empty uses the built-in minimal realm
     secret: ""              # Secret with OPS_KEYCLOAK_CLIENT_ID and OPS_KEYCLOAK_CLIENT_SECRET (a client-credentials admin client)
   databases:
-    secret: ""              # Secret with OPS_PROVISION_DATABASES: JSON {"ledger": "postgres://passage_app...", ...}
-    purge: false            # decommission deletes the tenant's rows; needs a role that may delete in the connection strings
+    secret: ""              # Secret with OPS_PROVISION_DATABASES: JSON {"ledger": "postgres://passage_app...", ...} (the verification, as passage_app)
+  # `passage-ops tenant purge` deletes a decommissioned tenant's rows after its export is verified. Its credentials are separate from the
+  # verification ones: a role that may delete (not passage_app), one connection string per context database.
+  purge:
+    secret: ""              # Secret with OPS_PURGE_DATABASES; empty turns the purge command off
+    keepTables: []          # table names never purged, in addition to the built-in identity_tenants
   lakehouse:
     catalogUrl: ""          # Iceberg REST catalog base URL
     catalogPrefix: ""
