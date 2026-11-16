@@ -1,0 +1,11 @@
+# supplier-portal in stage: served from supplier.stage.passage.dev, signing in against the realm on idp.stage.passage.dev.
+# The client secret (supplier-portal-oidc) and the Ed25519 signing seed (supplier-portal-signing) are created outside Git
+# (#213). One replica until sessionStore.url names a shared Valkey (the chart refuses more without it).
+oidc:
+  issuer: https://idp.stage.passage.dev/realms/passage
+  redirectUri: https://supplier.stage.passage.dev/bff/callback
+appOrigin: https://supplier.stage.passage.dev
+# No clamd in stage yet: uploads are accepted unscanned, as in dev. Set scan.clamavAddr (and drop this) before stage holds
+# real supplier documents.
+scan:
+  allowUnscanned: true

@@ -76,6 +76,25 @@ registered in Argo CD as `stage`, provide the `passage-stage-ca` ClusterIssuer
 and `hello-ledger-db` Secret outside Git, and use a trusted certificate issuer
 for real deployments.
 
+### The other services in stage
+
+Every service with a dev Application has a stage one, generated from dev by
+`python3 deploy/scripts/stage_apps.py`: the `services-stage` ApplicationSet
+(`deploy/envs/stage/apps/services.yaml`, the dev element list) and
+`<name>-stage` for fx, identity, org and receiving. Each Application is named
+`<name>-stage` but keeps the dev Helm release name, targets the cluster
+registered as `stage`, reads `deploy/envs/stage/values/<name>.yaml` (stage
+hostnames, the stage realm and issuer, two replicas where the chart default is
+one), and syncs automatically like `hello-ledger-stage`. Do not edit the
+generated files; change dev or the script and rerun it
+(`test_argocd_apps.py` fails when they are stale). The image digest is the zero
+placeholder until the service's image is built and signed (the `image` matrix in
+`ci.yml` covers hello-ledger, fx, receiving and org); pin it in the dev and
+stage files by a reviewed PR. `stage_release.py` promotes and rolls back only
+hello-ledger. Each service's database Secret and the shared infrastructure
+(Postgres, Kafka, Keycloak, Temporal, the gateway and its overlay with stage
+hostnames, Envoy Gateway and monitoring) are not yet Applications in stage.
+
 ## Promote or roll back prod
 
 Prod is the Argo CD root application at `deploy/argocd/root-prod.yaml`, reading
