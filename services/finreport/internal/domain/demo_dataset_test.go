@@ -1,7 +1,9 @@
 package domain
 
 import (
+	"encoding/json"
 	"fmt"
+	"os"
 	"testing"
 
 	"github.com/shopspring/decimal"
@@ -17,42 +19,35 @@ type demoJournal struct {
 
 func cents(v int64) decimal.Decimal { return decimal.New(v, -2) }
 
-func demoFY2026Journals() []demoJournal {
-	js := []demoJournal{{0, "100100", "300100", cents(500000000), false}}
-	revenue := decimal.Zero
-	for p := 1; p <= 12; p++ {
-		sale := cents(10000037 + int64(p)*111111)
-		collect := cents(8000013 + int64(p)*50007)
-		revenue = revenue.Add(sale)
-		cogs := cents(4000041 + int64(p)*22222)
-		opex := cents(1200005 + int64(p)*333)
-		js = append(js,
-			demoJournal{p, "110100", "400100", sale, false},
-			demoJournal{p, "100100", "110100", collect, false},
-			demoJournal{p, "500100", "200100", cogs, false},
-			demoJournal{p, "200100", "100100", cents(3000029), false},
-			demoJournal{p, "610100", "100100", opex, false},
-			demoJournal{p, "610100", "155100", cents(2083333), false})
-		switch p {
-		case 3:
-			js = append(js, demoJournal{p, "150100", "100100", cents(25000099), false})
-		case 6:
-			js = append(js, demoJournal{p, "100100", "220100", cents(10000000), false})
-		}
+// demoFY2026Journals reads the demo fiscal year from testdata/demo-fy2026.json, the file the sign-off packet
+// (tools/signoff-packets, #512) shows the reviewer: an opening entry in period 0, twelve periods of postings, an
+// equipment purchase in period 3, a loan in period 6 and the closing entries in period 12.
+func demoFY2026Journals(t *testing.T) []demoJournal {
+	t.Helper()
+	raw, err := os.ReadFile("testdata/demo-fy2026.json")
+	if err != nil {
+		t.Fatal(err)
 	}
-	cogsTotal, opexTotal := decimal.Zero, decimal.Zero
-	for _, j := range js {
-		switch j.debit {
-		case "500100":
-			cogsTotal = cogsTotal.Add(j.amount)
-		case "610100":
-			opexTotal = opexTotal.Add(j.amount)
-		}
+	var file struct {
+		Journals []struct {
+			Period  int             `json:"period"`
+			Debit   string          `json:"debit"`
+			Credit  string          `json:"credit"`
+			Amount  decimal.Decimal `json:"amount"`
+			Closing bool            `json:"closing"`
+		} `json:"journals"`
 	}
-	return append(js,
-		demoJournal{12, "400100", "300900", revenue, true},
-		demoJournal{12, "300900", "500100", cogsTotal, true},
-		demoJournal{12, "300900", "610100", opexTotal, true})
+	if err := json.Unmarshal(raw, &file); err != nil {
+		t.Fatal(err)
+	}
+	if len(file.Journals) != 78 {
+		t.Fatalf("demo dataset has %d journals, want 78", len(file.Journals))
+	}
+	js := make([]demoJournal, 0, len(file.Journals))
+	for _, j := range file.Journals {
+		js = append(js, demoJournal{j.Period, j.Debit, j.Credit, j.Amount, j.Closing})
+	}
+	return js
 }
 
 func balancesFromJournals(js []demoJournal, upTo int) []Balance {
@@ -122,7 +117,7 @@ func requireValue(t *testing.T, res Result, row, col string, want decimal.Decima
 // the balance sheet check is 0.00, the P&L result equals the journal result, and
 // the cash flow net equals the change in cash taken from the journals.
 func TestDemoDataset_StatementsTieToTrialBalanceAndCashFlowReconciles(t *testing.T) {
-	js := demoFY2026Journals()
+	js := demoFY2026Journals(t)
 	cal := demoCalendar(t)
 	for at := 1; at <= 12; at++ {
 		t.Run(fmt.Sprintf("period_%02d", at), func(t *testing.T) {

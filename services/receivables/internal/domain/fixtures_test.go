@@ -1,7 +1,13 @@
 package domain
 
 import (
+	"bytes"
+	"encoding/csv"
+	"flag"
+	"os"
+	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -14,8 +20,50 @@ import (
 // pool it is matched against (its legal entity and currency, and its customer
 // when the payer is known).
 type cashAppPayment struct {
-	key, legalEntity, currency, customer string
-	pay                                  Payment
+	key, source, legalEntity, currency, customer string
+	pay                                          Payment
+}
+
+// updateOutcomes rewrites testdata/cash-app-500/match_outcomes.csv: go test ./internal/domain -run TestCashApp500 -update.
+var updateOutcomes = flag.Bool("update", false, "rewrite testdata/cash-app-500/match_outcomes.csv from the matcher")
+
+// checkMatchOutcomes compares the matcher's decision for each payment with testdata/cash-app-500/match_outcomes.csv, the
+// list the AC-30.1 decision in the sign-off packet is read from (tools/signoff-packets, #512).
+func checkMatchOutcomes(t *testing.T, rows [][]string) {
+	t.Helper()
+	path := filepath.Join(fixtures.Dir("cash-app-500"), "match_outcomes.csv")
+	var buf bytes.Buffer
+	w := csv.NewWriter(&buf)
+	_ = w.Write([]string{"payment_key", "source", "currency", "amount", "value_date", "references", "short_pay_reason", "payer_known", "decision", "top_score", "top_rules", "top_documents"})
+	_ = w.WriteAll(rows)
+	if *updateOutcomes {
+		if err := os.WriteFile(path, buf.Bytes(), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		return
+	}
+	have, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("%v (run the test with -update to write it)", err)
+	}
+	if !bytes.Equal(have, buf.Bytes()) {
+		t.Fatalf("%s differs from the matcher; run go test ./internal/domain -run TestCashApp500 -update and review the change", path)
+	}
+}
+
+func outcomeRow(p cashAppPayment, res Result) []string {
+	refs := make([]string, 0, len(p.pay.Remittance))
+	for _, l := range p.pay.Remittance {
+		refs = append(refs, l.Reference)
+	}
+	score, rules, docs := "", "", ""
+	if len(res.Top) > 0 {
+		top := append([]string(nil), res.Top[0].ItemIDs...)
+		sort.Strings(top)
+		score, rules, docs = strconv.Itoa(res.Top[0].Score), strings.Join(res.Top[0].Rules, " "), strings.Join(top, " ")
+	}
+	return []string{p.key, p.source, p.currency, p.pay.Amount.StringFixed(2), p.pay.ValueDate.Format("2006-01-02"), strings.Join(refs, " "),
+		p.pay.ShortPayReason, strconv.FormatBool(p.customer != ""), string(res.Decision), score, rules, docs}
 }
 
 // loadCashAppPayments reads the 500 payments through the production parsers:
@@ -34,7 +82,7 @@ func loadCashAppPayments(t *testing.T, fx fixtures.CashApp) []cashAppPayment {
 		if c.CustomerRef != "" {
 			p.Remittance = []RemittanceLine{{Reference: c.CustomerRef, Amount: c.Amount}}
 		}
-		out = append(out, cashAppPayment{key: c.BankRef, legalEntity: fixtures.LegalEntityUS, currency: c.Currency, pay: p})
+		out = append(out, cashAppPayment{key: c.BankRef, source: "LOCKBOX", legalEntity: fixtures.LegalEntityUS, currency: c.Currency, pay: p})
 	}
 	stmt, err := ParseCAMT053(fx.Statement)
 	if err != nil {
@@ -45,14 +93,14 @@ func loadCashAppPayments(t *testing.T, fx fixtures.CashApp) []cashAppPayment {
 		if c.RemittanceRef != "" {
 			p.Remittance = []RemittanceLine{{Reference: c.RemittanceRef, Amount: c.Amount}}
 		}
-		out = append(out, cashAppPayment{key: c.Reference, legalEntity: fixtures.LegalEntityDE, currency: c.Currency, pay: p})
+		out = append(out, cashAppPayment{key: c.Reference, source: "CAMT053", legalEntity: fixtures.LegalEntityDE, currency: c.Currency, pay: p})
 	}
 	for _, r := range fx.Remittances {
 		p := Payment{Amount: r.Amount, ValueDate: day(r.ValueDate), ShortPayReason: r.ShortPayReason}
 		for _, l := range r.Lines {
 			p.Remittance = append(p.Remittance, RemittanceLine{Reference: l.Reference, Amount: l.Amount})
 		}
-		out = append(out, cashAppPayment{key: r.Key, legalEntity: r.LegalEntityID, currency: r.Currency, customer: r.CustomerID, pay: p})
+		out = append(out, cashAppPayment{key: r.Key, source: "REMITTANCE", legalEntity: r.LegalEntityID, currency: r.Currency, customer: r.CustomerID, pay: p})
 	}
 	return out
 }
@@ -95,6 +143,7 @@ func TestCashApp500_AutoMatchesWithNoFalseMatch(t *testing.T) {
 	type tally struct{ total, auto, wrong int }
 	byCategory := map[string]*tally{}
 	correct, wrong := 0, 0
+	var outcomes [][]string
 	for _, p := range payments {
 		answer, ok := fx.Key[p.key]
 		if !ok {
@@ -107,6 +156,7 @@ func TestCashApp500_AutoMatchesWithNoFalseMatch(t *testing.T) {
 			}
 		}
 		res := Match(p.pay, candidates)
+		outcomes = append(outcomes, outcomeRow(p, res))
 		tl := byCategory[answer.Category]
 		if tl == nil {
 			tl = &tally{}
@@ -125,6 +175,7 @@ func TestCashApp500_AutoMatchesWithNoFalseMatch(t *testing.T) {
 			t.Errorf("FALSE MATCH %s (%s): auto-applied to %v, answer key %v", p.key, answer.Category, res.Top[0].ItemIDs, answer.Documents)
 		}
 	}
+	checkMatchOutcomes(t, outcomes)
 	for cat, tl := range byCategory {
 		t.Logf("%-18s %3d payments, %3d auto-applied correctly, %d wrongly", cat, tl.total, tl.auto, tl.wrong)
 	}

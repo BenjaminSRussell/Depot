@@ -1,12 +1,16 @@
 package domain_test
 
 import (
+	"bytes"
+	"encoding/csv"
 	"encoding/json"
 	"errors"
+	"flag"
 	"fmt"
 	"math/big"
 	"os"
 	"sort"
+	"strconv"
 	"testing"
 
 	"github.com/shopspring/decimal"
@@ -464,9 +468,15 @@ func loadMatrix(t *testing.T) []scenarioSet {
 	return file.Sets
 }
 
+// updateMatrix rewrites testdata/matrix500-expected.csv from the oracle: go test ./internal/domain -run TestMatrix500 -update.
+var updateMatrix = flag.Bool("update", false, "rewrite testdata/matrix500-expected.csv from the oracle")
+
+const matrixExpectedPath = "../../testdata/matrix500-expected.csv"
+
 func TestMatrix500(t *testing.T) {
 	sets := loadMatrix(t)
 	total := 0
+	var rows [][]string
 	for _, set := range sets {
 		count := 0
 		for si, stack := range set.Stacks {
@@ -477,7 +487,7 @@ func TestMatrix500(t *testing.T) {
 							count++
 							name := fmt.Sprintf("%s/stack%d/amounts%d/incl=%v/%s/%s", set.Region, si, ai, inclusive, rounding, mode)
 							t.Run(name, func(t *testing.T) {
-								runScenario(t, set, stack, amounts, inclusive, rounding, mode)
+								rows = append(rows, runScenario(t, name, set, stack, amounts, inclusive, rounding, mode)...)
 							})
 						}
 					}
@@ -492,9 +502,34 @@ func TestMatrix500(t *testing.T) {
 	if total != 500 {
 		t.Fatalf("matrix has %d scenarios, want 500", total)
 	}
+	checkMatrixExpected(t, rows)
 }
 
-func runScenario(t *testing.T, set scenarioSet, stack []specJSON, amounts []string, inclusive bool, rounding, mode string) {
+// checkMatrixExpected compares the oracle's answers with testdata/matrix500-expected.csv, the expected tax the accountant
+// reviews in the sign-off packet (tools/signoff-packets, #512). The engine is checked against the oracle above, so the file,
+// the oracle and the engine agree.
+func checkMatrixExpected(t *testing.T, rows [][]string) {
+	t.Helper()
+	var buf bytes.Buffer
+	w := csv.NewWriter(&buf)
+	_ = w.Write([]string{"scenario", "region", "currency", "stack", "price_includes_tax", "rounding", "mode", "line", "gross", "base", "tax_code", "rate_pct", "compound_seq", "tax", "legs"})
+	_ = w.WriteAll(rows)
+	if *updateMatrix {
+		if err := os.WriteFile(matrixExpectedPath, buf.Bytes(), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		return
+	}
+	have, err := os.ReadFile(matrixExpectedPath)
+	if err != nil {
+		t.Fatalf("%v (run the test with -update to write it)", err)
+	}
+	if !bytes.Equal(have, buf.Bytes()) {
+		t.Fatalf("%s differs from the oracle; run go test ./internal/domain -run TestMatrix500 -update and review the change", matrixExpectedPath)
+	}
+}
+
+func runScenario(t *testing.T, name string, set scenarioSet, stack []specJSON, amounts []string, inclusive bool, rounding, mode string) [][]string {
 	t.Helper()
 	specs := make([]spec, len(stack))
 	for i, sj := range stack {
@@ -522,6 +557,24 @@ func runScenario(t *testing.T, set scenarioSet, stack []specJSON, amounts []stri
 	}
 	charged := mode == "domestic" || mode == "rate_history"
 	want := oracle(ratsOf(t, amounts), inclusive, charged, rounding == domain.RoundPerDocument, specs, set.Exp)
+	var rows [][]string
+	legs := "1"
+	if mode == "reverse_charge" {
+		legs = "2"
+	}
+	stackName := ""
+	for i, s := range specs {
+		if i > 0 {
+			stackName += " + "
+		}
+		stackName += s.name + " " + s.pct + "%"
+	}
+	for i, gross := range amounts {
+		for j, s := range specs {
+			rows = append(rows, []string{name, set.Region, set.Currency, stackName, strconv.FormatBool(inclusive), rounding, mode,
+				strconv.Itoa(i + 1), gross, want.bases[i].FloatString(set.Exp), s.name, s.pct, strconv.Itoa(s.seq), want.taxes[i][j].FloatString(set.Exp), legs})
+		}
+	}
 	for i, line := range res.Lines {
 		mustEqual(t, "base", line.Base, want.bases[i].FloatString(set.Exp))
 		wantTaxes := want.taxes[i]
@@ -542,6 +595,7 @@ func runScenario(t *testing.T, set scenarioSet, stack []specJSON, amounts []stri
 			mustEqual(t, "tax "+line.Taxes[j].Code, line.Taxes[j].TaxAmount, w.FloatString(set.Exp))
 		}
 	}
+	return rows
 }
 
 func TestInclusive_RoundTrip(t *testing.T) {
