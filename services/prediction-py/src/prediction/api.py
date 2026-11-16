@@ -144,8 +144,8 @@ class SettingsRequest(BaseModel):
 
 class ScoreRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    # The legal entity the invoices belong to. A caller scoped to exactly one legal entity may leave it out; a caller scoped to several must name
-    # one of them; a caller with the all-scope duty may leave it out (the predictions then belong to no entity and only such callers see them).
+    # The legal entity the invoices belong to. A caller scoped to exactly one legal entity may leave it out; every other caller (several entities, or the
+    # all-scope duty) must name one.
     legalEntityId: str | None = None
     openInvoices: list[InvoiceIn] = Field(min_length=1, max_length=MAX_OPEN)
 
@@ -227,8 +227,8 @@ def score(body: ScoreRequest, who: Annotated[Caller, Depends(caller)]) -> JSONRe
             raise Problem(404, "AGT-0404", "no such legal entity")
     elif len(who.legal_entities) == 1:
         entity = next(iter(who.legal_entities))
-    elif who.entities() is not None:
-        raise Problem(400, "PRD-0400", "legalEntityId is required for a caller scoped to several legal entities, or to none")
+    if entity is None:
+        raise Problem(400, "PRD-0400", "legalEntityId is required unless the caller is scoped to exactly one legal entity")
     preds = service.score(who.tenant_id, [_open(i) for i in body.openInvoices], entity, who.entities())
     return JSONResponse({"items": [_prediction_json(p) for p in preds]})
 

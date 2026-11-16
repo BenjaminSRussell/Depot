@@ -74,6 +74,7 @@ class Repository(Protocol):
     def save_invoice_facts(self, tenant_id: str, legal_entity_id: str, invoices: list[OpenInvoice]) -> None: ...
     def dso(self, tenant_id: str, legal_entity_id: str) -> Dso | None: ...
     def mark_reversed(self, tenant_id: str, invoice_ids: list[str], entities: Entities = None) -> int: ...
+    def claim_unowned(self, tenant_id: str, legal_entity_id: str, invoice_ids: list[str]) -> int: ...
 
 
 class InMemoryRepository:
@@ -162,6 +163,14 @@ class InMemoryRepository:
         for inv in invoices:
             self._facts[(tenant_id, inv.invoice_id)] = (legal_entity_id, inv.invoice_date, inv.amount)
             self._entity[(tenant_id, inv.invoice_id)] = legal_entity_id
+
+    def claim_unowned(self, tenant_id: str, legal_entity_id: str, invoice_ids: list[str]) -> int:
+        n = 0
+        for i in invoice_ids:
+            if i in self._predictions.get(tenant_id, {}) and self._entity.get((tenant_id, i)) is None:
+                self._entity[(tenant_id, i)] = legal_entity_id
+                n += 1
+        return n
 
     def mark_reversed(self, tenant_id: str, invoice_ids: list[str], entities: Entities = None) -> int:
         known = [i for i in invoice_ids if i in self._predictions.get(tenant_id, {}) and (tenant_id, i) not in self._reversed and visible(self._entity.get((tenant_id, i)), entities)]

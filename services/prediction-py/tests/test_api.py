@@ -41,6 +41,7 @@ def paid_body(n):
 
 def open_body(n):
     return {
+        "legalEntityId": LE,
         "openInvoices": [
             {"invoiceId": i.invoice_id, "customerId": i.customer_id, "amount": i.amount, "invoiceDate": i.invoice_date.isoformat(), "dueDate": i.due_date.isoformat(),
              "dunningCount": i.dunning_count, "disputes": i.disputes}
@@ -185,11 +186,12 @@ def test_a_scoped_caller_scores_and_reads_only_its_own_legal_entities(client):
     assert client.get(url, headers=h(duties="collections.view")).status_code == 404
     # A caller scoped to several entities names one; naming one outside its scope is not there for it; storing over another entity's invoice is refused.
     both = f"{LE},{other}"
-    body = open_body(2)
+    body = {k: v for k, v in open_body(2).items() if k != "legalEntityId"}
     assert client.post("/api/v1/predictions/payment/score", json=body, headers=h(entity=both)).status_code == 400
+    assert client.post("/api/v1/predictions/payment/score", json=body, headers=h()).status_code == 400  # the all-scope duty does not excuse it
     assert client.post("/api/v1/predictions/payment/score", json={**body, "legalEntityId": "00000000-0000-4000-8000-0000000000c3"}, headers=h(entity=both)).status_code == 404
     assert client.post("/api/v1/predictions/payment/score", json={**body, "legalEntityId": other}, headers=h(entity=both)).status_code == 200
-    stolen = client.post("/api/v1/predictions/payment/score", json=open_body(3), headers=h(entity=other))
+    stolen = client.post("/api/v1/predictions/payment/score", json={**open_body(3), "legalEntityId": other}, headers=h(entity=other))
     assert stolen.status_code == 403 and stolen.json()["code"] == "PRD-0403"
     # The accuracy report counts what the caller can see.
     assert client.get("/api/v1/predictions/payment/accuracy", headers=h(entity=other)).status_code == 200

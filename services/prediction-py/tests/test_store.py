@@ -297,3 +297,22 @@ def test_the_database_hides_other_legal_entities_and_sessions_without_a_scope(pg
                 conn.execute("select set_config('passage.tenant_id', %s, true), set_config('passage.legal_entity_scopes', %s, true)", (t, le2))
                 conn.execute("insert into prediction_sync (tenant_id, legal_entity_id) values (%s, %s)", (t, le))
     assert repo.sync_state(t, le2) == SyncState() and repo.sync_state(t, le).open_watermark == NOW
+
+
+def test_predictions_with_no_entity_are_claimed_by_the_entity_the_feed_says_they_belong_to(make_repo):
+    t, le, le2 = tenant(), str(uuid.uuid4()), str(uuid.uuid4())
+    s = svc(make_repo())
+    s.retrain(t, synth.paid_invoices(400))
+    invoices = synth.open_invoices(4)
+    first = s.score(t, invoices)  # stored for no entity (as before the entity was kept)
+    repo = make_repo()
+    ids = [p.invoice_id for p in first]
+    # An entity-scoped session cannot see them and cannot overwrite them: that is what stopped the sync.
+    assert repo.prediction(t, ids[0], [le]) is None
+    with pytest.raises(PredictionError):
+        repo.save_predictions(t, first, le, [le])
+    # The sync claims the unowned ones for its entity first; then it scores them as usual.
+    assert repo.claim_unowned(t, le, ids) == 4 and repo.claim_unowned(t, le2, ids) == 0
+    assert repo.prediction(t, ids[0], [le]) is not None and repo.prediction(t, ids[0], [le2]) is None
+    s.score(t, invoices, le, [le])
+    assert repo.prediction(t, ids[0], [le]) is not None

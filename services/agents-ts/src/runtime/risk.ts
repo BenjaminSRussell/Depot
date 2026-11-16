@@ -9,7 +9,7 @@ import type { RiskAssessment, RiskPort, ToolPort } from "./engine.js";
  *
  * What the source tools answer (the contract this reads, per tool):
  * - passage.ap.invoice.get (payables `GET /v1/payables/vendor-invoice-intake/{id}`, called with `id`): `total`, `amount` or `gross` as a decimal
- *   string or `{amount, currency}` (with `currency`), `vendorId`, `createdBy` or `receivedBy`, optionally `vendorBlocked` (true) or
+ *   string or `{amount, currency}` (with `currency`), `vendorId`, `createdBy` or `decidedBy` (the clerk who posted or resolved a received invoice; `receivedBy` and `service:`/`system:` principals count as unknown), optionally `vendorBlocked` (true) or
  *   `vendorRisk` ("HIGH").
  * - passage.ap.vendor.history.list (payables `GET /v1/payables/open-items`, called with `vendor` and `limit`): `items`, the vendor's earlier
  *   invoices; a vendor with none is unproven and counts as high risk.
@@ -92,7 +92,11 @@ export function createFactRisk(deps: FactRiskDeps): RiskPort {
       if (!history.doc) reasons.push(history.reason ?? "the vendor history could not be read");
       else if (!Array.isArray(history.doc.items) || history.doc.items.length === 0) vendorHighRisk = true;
     }
-    const createdBy = text(inv.doc.createdBy) ?? text(inv.doc.receivedBy);
+    // The creator is the human who created the invoice (`createdBy`) or who posted or resolved the received invoice (`decidedBy`). `receivedBy` is
+    // whoever delivered it (a service principal for an electronic invoice), never a person to compare, so it is not read; a service or system
+    // principal is "unknown" and keeps the proposal high-risk (fail closed).
+    const rawCreator = text(inv.doc.createdBy) ?? text(inv.doc.decidedBy);
+    const createdBy = rawCreator !== undefined && !/^(service|system):/i.test(rawCreator) ? rawCreator : undefined;
     if (createdBy === undefined) reasons.push("the invoice does not say who created it");
     const out: RiskAssessment = { vendorHighRisk: vendorHighRisk || reasons.length > 0, sodConflict: createdBy !== undefined && createdBy === deps.invokerUserId };
     if (reasons.length > 0) out.unverified = reasons;

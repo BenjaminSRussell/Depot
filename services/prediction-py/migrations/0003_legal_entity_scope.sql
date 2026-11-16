@@ -2,7 +2,7 @@
 -- entity a sync job runs for, or the caller's X-Passage-Legal-Entity: '*' for a caller who holds the all-scope duty), so payment_prediction
 -- and prediction_sync get the restrictive policy every other service has: a session sees a row when its scope is '*' or lists the row's
 -- legal entity. A session that sets no scope (an unset setting reads as NULL) sees and writes nothing. A prediction stored before the
--- sync fed the entity has a NULL legal_entity_id and is visible only to a '*' session; the next sync pass of its entity stamps it.
+-- sync fed the entity has a NULL legal_entity_id and is visible only to a '*' session; the sync claims such rows for the entity the receivables feed names, in a '*' session (PgRepository.claim_unowned), before it scores them. The service has no receivables data to backfill from here.
 ALTER TABLE payment_prediction ENABLE ROW LEVEL SECURITY;
 ALTER TABLE payment_prediction FORCE ROW LEVEL SECURITY;
 CREATE POLICY payment_prediction_legal_entity_scope ON payment_prediction AS RESTRICTIVE

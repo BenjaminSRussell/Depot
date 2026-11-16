@@ -46,6 +46,7 @@ def _score_all(service: PredictionService, tenant_id: str, legal_entity_id: str,
     n = 0
     for i in range(0, len(invoices), SCORE_BATCH):
         batch = invoices[i : i + SCORE_BATCH]
+        service.repo.claim_unowned(tenant_id, legal_entity_id, [inv.invoice_id for inv in batch])
         service.score(tenant_id, batch, legal_entity_id, [legal_entity_id])
         service.repo.save_invoice_facts(tenant_id, legal_entity_id, batch)
         n += len(batch)
@@ -94,7 +95,7 @@ def weekly(service: PredictionService, feed: ReceivablesFeed, tenant_id: str, le
             reversed_, rev_mark = _read(feed, tenant_id, le, "reversed", None)
             service.repo.mark_reversed(tenant_id, [i.invoice_id for i in reversed_], [le])
             service.repo.save_sync_state(tenant_id, le, SyncState(open_mark, paid_marks.get(le), rev_mark, now))
-        except (FeedError, SignerError, ValueError) as exc:
+        except (FeedError, SignerError, ValueError, PredictionError) as exc:
             rep.errors.append(f"{le}: {exc}")
     return rep
 
@@ -116,7 +117,7 @@ def delta(service: PredictionService, feed: ReceivablesFeed, tenant_id: str, leg
             opened, open_mark = _read(feed, tenant_id, le, "open", state.open_watermark, overlap=True)
             rep.scored += _score_all(service, tenant_id, le, opened)
             service.repo.save_sync_state(tenant_id, le, SyncState(open_mark, paid_mark, rev_mark, state.last_retrain_at))
-        except (FeedError, SignerError, ValueError) as exc:
+        except (FeedError, SignerError, ValueError, PredictionError) as exc:
             rep.errors.append(f"{le}: {exc}")
     return rep
 

@@ -205,6 +205,18 @@ class PgRepository:
             return None
         return Dso(round(float(r[0]), 1), int(r[1]), f"{r[2]:.2f}", f"{r[3]:.4f}", r[4])
 
+    def claim_unowned(self, tenant_id: str, legal_entity_id: str, invoice_ids: list[str]) -> int:
+        """Gives the predictions of these invoices that belong to no legal entity (stored before the entity was kept, or by an all-scope caller)
+        the entity the receivables feed says they are of. Only the predictions with no entity are touched, and it runs in a '*' session because
+        a session scoped to an entity cannot see them; the invoice ids come from that entity's own receivables read."""
+        if not invoice_ids:
+            return 0
+        str(uuid.UUID(legal_entity_id))
+        with self._tenant(tenant_id, None) as c:
+            return c.execute(
+                "update payment_prediction set legal_entity_id = %s where invoice_id = any(%s) and legal_entity_id is null", (legal_entity_id, invoice_ids)
+            ).rowcount
+
     def mark_reversed(self, tenant_id: str, invoice_ids: list[str], entities: Entities = None) -> int:
         """Takes reversed invoices out of the DSO forecast; their predictions stay for the record."""
         if not invoice_ids:

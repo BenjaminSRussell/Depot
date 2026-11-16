@@ -232,7 +232,7 @@ components:
       additionalProperties: false
       required: [openInvoices]
       properties:
-        legalEntityId: {type: string, format: uuid, description: "The legal entity the invoices belong to. A caller scoped to one legal entity (X-Passage-Legal-Entity) may leave it out; one scoped to several must name one of them (400); one with the all-scope duty may leave it out, and the predictions then belong to no entity and only such callers see them."}
+        legalEntityId: {type: string, format: uuid, description: "The legal entity the invoices belong to. A caller scoped to one legal entity (X-Passage-Legal-Entity) may leave it out; one scoped to several must name one of them (400); a caller with the all-scope duty must name one too (400 otherwise), so no prediction belongs to no entity."}
         openInvoices: {type: array, minItems: 1, maxItems: 5000, items: {$ref: "#/components/schemas/Invoice"}}
     Model:
       type: object
