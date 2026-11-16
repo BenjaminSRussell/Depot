@@ -36,7 +36,7 @@ export function KioskPiPage() {
   }
 
   async function record(r: ControlRecipeDetail, message: ProcessMessageDraft) {
-    await createProcessMessage({
+    const out = await createProcessMessage({
       source: "kiosk",
       sourceMessageId: message.sourceMessageId,
       categoryCode: message.categoryCode,
@@ -45,6 +45,7 @@ export function KioskPiPage() {
       occurredAt: new Date().toISOString(),
       values: message.values,
     });
+    return { values: out.message.values };
   }
 
   return (

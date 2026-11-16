@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -122,6 +123,9 @@ func (a *API) createProcessMessage(w http.ResponseWriter, r *http.Request) {
 		OrderID: req.OrderID, PhasePath: req.PhasePath, OccurredAt: req.OccurredAt, Values: req.Values}
 	if fields := in.FieldErrors(); len(fields) > 0 {
 		validationFailed(w, r, fields)
+		return
+	}
+	if ok := a.checkRecipeStep(w, r, &in); !ok {
 		return
 	}
 	if ok := a.checkSignature(w, r, &in); !ok {
@@ -437,7 +441,9 @@ func (a *API) checkSignature(w http.ResponseWriter, r *http.Request, in *domain.
 			signed, signedAt = true, i
 		}
 	}
-	if !signed && meaningAt < 0 {
+	// A message for a signature step of a recipe is a signature even when it does not say so: the service fills in who signed
+	// and the step's meaning, after the same step-up check, so a step cannot be recorded as done without one.
+	if !signed && meaningAt < 0 && !a.namesSignatureStep(r, in) {
 		return true
 	}
 	// A retry of a signature already stored is answered from the store, whatever the age of the sign-in now (the person is
@@ -506,5 +512,102 @@ func (a *API) checkSignature(w http.ResponseWriter, r *http.Request, in *domain.
 	if in.Values[meaningAt].Value != want {
 		return refuse("the step is signed as " + want + ", not " + in.Values[meaningAt].Value)
 	}
+	return true
+}
+
+// namesSignatureStep reports whether a kiosk message's source id names a signature-request step of a recipe of its order.
+func (a *API) namesSignatureStep(r *http.Request, in *domain.NewMessage) bool {
+	if in.Source != "kiosk" {
+		return false
+	}
+	recipeID, key, found := strings.Cut(in.SourceMessageID, ":")
+	if !found || !ids.Valid(recipeID) {
+		return false
+	}
+	rc, err := a.store.GetControlRecipe(r.Context(), strings.ToLower(recipeID))
+	if err != nil || !strings.EqualFold(rc.OrderID, in.OrderID) {
+		return false
+	}
+	var doc domain.RecipeDoc
+	if json.Unmarshal(rc.Recipe, &doc) != nil {
+		return false
+	}
+	step, ok := doc.SignatureStep(key)
+	return ok && step.Category == domain.InstSignature
+}
+
+// checkRecipeStep makes what a kiosk records for a recipe step the service's own (FR-25.18). A message whose source id
+// is "<control recipe id>:<step key>" is checked against the recipe: limits, units, expected value, tolerance and node
+// are the document's; a branch decision and a calculation result are the service's evaluation from the values already
+// recorded and a client value that disagrees is refused (SF-0198); a step a branch skips takes no message; a hand-entered
+// reading needs a reason, a reading reported as read from the machine must equal the one the service handed out for the
+// step (and its edge node and time are recorded); a blocking timer is recorded only after it has run out on the
+// service's clock (SF-0199). A retry of a message already stored answers with the stored one. Messages that name no
+// recipe step of their order are left alone. It reports whether to go on.
+func (a *API) checkRecipeStep(w http.ResponseWriter, r *http.Request, in *domain.NewMessage) bool {
+	if in.Source != "kiosk" {
+		return true
+	}
+	idPart, key, found := strings.Cut(in.SourceMessageID, ":")
+	if !found || !ids.Valid(idPart) {
+		return true
+	}
+	recipeID := strings.ToLower(idPart)
+	in.SourceMessageID = recipeID + ":" + key
+	if a.replayStoredMessage(w, r, *in) {
+		return false
+	}
+	data, err := a.store.PIStepData(r.Context(), recipeID)
+	if err != nil {
+		var p *httpx.Problem
+		if errors.As(err, &p) && p.Status == http.StatusNotFound {
+			return true
+		}
+		a.fail(w, r, "read the recipe of a step message", err)
+		return false
+	}
+	if data.Recipe.Destination != domain.DestKiosk || !strings.EqualFold(data.Recipe.OrderID, in.OrderID) {
+		return true
+	}
+	var doc domain.RecipeDoc
+	if err := json.Unmarshal(data.Recipe.Recipe, &doc); err != nil {
+		a.fail(w, r, "read the recipe of a step message", err)
+		return false
+	}
+	recorded := map[string][]domain.Characteristic{}
+	var since time.Time = data.StartedAt
+	for _, m := range data.Messages {
+		if _, k, ok := strings.Cut(m.SourceMessageID, ":"); ok {
+			recorded[k] = m.Values
+		}
+		if m.ReceivedAt.After(since) {
+			since = m.ReceivedAt
+		}
+	}
+	sc, ok := domain.ContextFor(doc, key, recorded)
+	if !ok || sc.Step().Category == domain.InstSignature {
+		return true // not a step of the recipe, or a signature, which checkSignature decides
+	}
+	res := domain.CheckStepMessage(sc, in.Values)
+	if res.Refusal != "" {
+		httpx.Fail(w, r, httpx.NewProblem(http.StatusUnprocessableEntity, res.Code, res.Refusal))
+		return false
+	}
+	if res.NeedsClaim {
+		claim, have := data.Claims[key]
+		if !have || !claim.Value.Equal(res.Primary) {
+			httpx.Fail(w, r, httpx.NewProblem(http.StatusUnprocessableEntity, domain.CodeStepMessage, "a reading reported as read from the machine must be the reading the service handed out for this step: fetch it again, or enter it by hand with a reason"))
+			return false
+		}
+		res.Values = append(res.Values,
+			domain.Characteristic{Name: "readout-claim", Type: "text", Value: claim.ID},
+			domain.Characteristic{Name: "readout-edge", Type: "text", Value: claim.EdgeID},
+			domain.Characteristic{Name: "readout-read-at", Type: "text", Value: domain.ExecTime(claim.ReadAt)})
+	}
+	if res.BlockingSeconds > 0 && !domain.TimerElapsed(since, a.now(), res.BlockingSeconds) {
+		httpx.Fail(w, r, httpx.NewProblem(http.StatusUnprocessableEntity, domain.CodeTimerRunning, "the timer of this step has not run out yet: it runs "+strconv.Itoa(res.BlockingSeconds)+" seconds from the step before it"))
+		return false
+	}
+	in.Values = res.Values
 	return true
 }

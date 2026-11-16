@@ -35,10 +35,15 @@ const (
 	InstMaterials   = "material-list"
 	InstSignature   = "signature-request"
 	InstSequence    = "sequence-definition"
+	// The step library's kinds (round 5): a value read from a machine tag, a countdown, and a conditional jump. They run
+	// at the kiosk; a process control destination reads setpoints only.
+	InstReadout = "machine-readout"
+	InstTimer   = "timer"
+	InstBranch  = "branch"
 )
 
 var instructionCategories = map[string]bool{InstText: true, InstSetpoint: true, InstDataRequest: true, InstCalculation: true,
-	InstInspection: true, InstMaterials: true, InstSignature: true, InstSequence: true}
+	InstInspection: true, InstMaterials: true, InstSignature: true, InstSequence: true, InstReadout: true, InstTimer: true, InstBranch: true}
 
 // Control recipe statuses.
 const (
@@ -90,6 +95,29 @@ type Instruction struct {
 	// verified, reviewed or approved. The kiosk shows it to the signer and records it with the signature; a step
 	// without one is signed as performed.
 	Meaning string `json:"meaning,omitempty"`
+	// Var names the value this step produces (a setpoint, an entered or read value, or a calculation's result) so a later
+	// calculation or branch can use it: a lower-case identifier, unique in the recipe.
+	Var string `json:"var,omitempty"`
+	// Template is the step library entry this step was made from, by code and published version. The step's own fields are
+	// the copy made then, so a later version of the template never changes a sheet or a recipe.
+	Template *TemplateRef `json:"template,omitempty"`
+	// Expression is a calculation's formula over the Var of earlier steps (see ParseExpr).
+	Expression string `json:"expression,omitempty"`
+	// Tolerance is the most a machine-readout may differ from Value, its expected reading, before the operator must say why.
+	Tolerance *float64 `json:"tolerance,omitempty"`
+	// DurationSeconds and Blocking describe a timer: how long it runs, and whether the next step waits for it.
+	DurationSeconds int  `json:"durationSeconds,omitempty"`
+	Blocking        bool `json:"blocking,omitempty"`
+	// Condition and Target describe a branch: when the condition (see ParseExpr) is true the kiosk goes on at the step of
+	// this phase numbered Target, which is after the branch, and the steps between are skipped.
+	Condition string `json:"condition,omitempty"`
+	Target    int    `json:"target,omitempty"`
+}
+
+// TemplateRef names a version of a PI step template.
+type TemplateRef struct {
+	Code    string `json:"code"`
+	Version int    `json:"version"`
 }
 
 // Signature meanings of a signature-request step.
@@ -162,6 +190,7 @@ func (d RecipeDoc) FieldErrors(destination string) map[string]string {
 	}
 	instructions, setpoints := 0, 0
 	seenUP := map[string]bool{}
+	sc := newVarScope()
 	for ui, up := range p.UnitProcedures {
 		upPath := fmt.Sprintf("recipe.procedure.unitProcedures[%d]", ui)
 		checkName(f, upPath, up.Name, seenUP)
@@ -185,12 +214,15 @@ func (d RecipeDoc) FieldErrors(destination string) map[string]string {
 					f[phPath+".instructions"] = fmt.Sprintf("must hold 1 to %d instructions", maxInstructions)
 					continue
 				}
+				sc.startPhase(phPath, ph.Instructions)
 				for ii, in := range ph.Instructions {
 					instructions++
 					if in.Category == InstSetpoint {
 						setpoints++
 					}
-					checkInstruction(f, fmt.Sprintf("%s.instructions[%d]", phPath, ii), ii+1, in, destination)
+					path := fmt.Sprintf("%s.instructions[%d]", phPath, ii)
+					checkInstruction(f, path, ii+1, in, destination)
+					sc.check(f, path, ii+1, len(ph.Instructions), in)
 				}
 			}
 		}
@@ -209,6 +241,8 @@ func checkName(f map[string]string, path, name string, seen map[string]bool) {
 	switch {
 	case n == "" || len(n) > 120:
 		f[path+".name"] = "must be 1 to 120 characters"
+	case strings.Contains(n, "/"):
+		f[path+".name"] = "cannot contain '/': names form the key of each step"
 	case seen[n]:
 		f[path+".name"] = "is used twice at this level"
 	}
@@ -232,8 +266,9 @@ func checkInstruction(f map[string]string, path string, want int, in Instruction
 	case !ValidMeaning(in.Meaning):
 		f[path+".meaning"] = "must be performed, verified, reviewed or approved"
 	}
+	checkStepKind(f, path, in, destination)
 	switch in.Category {
-	case InstText, InstSignature, InstMaterials, InstSequence, InstCalculation:
+	case InstText, InstSignature, InstMaterials, InstSequence, InstCalculation, InstTimer, InstBranch:
 		if strings.TrimSpace(in.Text) == "" {
 			f[path+".text"] = "is required for this category"
 		}
@@ -242,7 +277,7 @@ func checkInstruction(f map[string]string, path string, want int, in Instruction
 		} else if len(in.Materials) > 0 {
 			f[path+".materials"] = "applies to a material-list instruction only"
 		}
-	case InstSetpoint, InstDataRequest, InstInspection:
+	case InstSetpoint, InstDataRequest, InstInspection, InstReadout:
 		c := in.Char
 		if c == nil || strings.TrimSpace(c.Name) == "" || len(c.Name) > 120 {
 			f[path+".characteristic"] = "needs a name of 1 to 120 characters"
@@ -256,6 +291,12 @@ func checkInstruction(f map[string]string, path string, want int, in Instruction
 		}
 		if in.Category == InstSetpoint {
 			checkSetpoint(f, path, in, destination)
+		}
+		if in.Category == InstReadout && c.Type != "numeric" {
+			f[path+".characteristic.type"] = "a machine readout must be numeric"
+		}
+		if in.Category == InstReadout && strings.TrimSpace(in.Node) == "" {
+			f[path+".node"] = "is required: the node or tag the value is read from"
 		}
 		if in.Category == InstDataRequest && destination != DestKiosk && strings.TrimSpace(in.Node) == "" {
 			f[path+".node"] = "is required to read the value from a process control system"

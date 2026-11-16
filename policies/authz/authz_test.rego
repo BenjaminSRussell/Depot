@@ -3003,6 +3003,54 @@ test_pi_sheet_duties if {
 	not allowed("shopfloor.pisheet.maintain", "POST", "/v1/shopfloor/control-recipes:from-pi-sheet")
 }
 
+# The PI category master (#25): maintaining needs its own duty, reading the view duty.
+test_pi_category_duties if {
+	allowed("shopfloor.picategory.maintain", "POST", "/v1/shopfloor/pi-categories")
+	allowed("shopfloor.picategory.maintain", "PUT", "/v1/shopfloor/pi-categories/0195f0a0-0000-7000-8000-0000000000c1")
+	not allowed("shopfloor.picategory.maintain", "GET", "/v1/shopfloor/pi-categories")
+	allowed("shopfloor.view", "GET", "/v1/shopfloor/pi-categories")
+	allowed("shopfloor.view", "GET", "/v1/shopfloor/pi-categories/0195f0a0-0000-7000-8000-0000000000c1")
+	not allowed("shopfloor.view", "POST", "/v1/shopfloor/pi-categories")
+	not allowed("shopfloor.view", "PUT", "/v1/shopfloor/pi-categories/0195f0a0-0000-7000-8000-0000000000c1")
+}
+
+# The PI step library (#25): drafting, publishing and versioning need the step maintain duty, reading the view duty.
+test_pi_step_library_duties if {
+	allowed("shopfloor.pistep.maintain", "POST", "/v1/shopfloor/pi-step-templates")
+	allowed("shopfloor.pistep.maintain", "PUT", "/v1/shopfloor/pi-step-templates/0195f0a0-0000-7000-8000-0000000000d1")
+	allowed("shopfloor.pistep.maintain", "POST", "/v1/shopfloor/pi-step-templates/0195f0a0-0000-7000-8000-0000000000d1:publish")
+	allowed("shopfloor.pistep.maintain", "POST", "/v1/shopfloor/pi-step-templates/0195f0a0-0000-7000-8000-0000000000d1:new-version")
+	not allowed("shopfloor.pistep.maintain", "GET", "/v1/shopfloor/pi-step-templates")
+	not allowed("shopfloor.pistep.maintain", "POST", "/v1/shopfloor/pi-sheets")
+	not allowed("shopfloor.pisheet.maintain", "POST", "/v1/shopfloor/pi-step-templates")
+	allowed("shopfloor.view", "GET", "/v1/shopfloor/pi-step-templates")
+	allowed("shopfloor.view", "GET", "/v1/shopfloor/pi-step-templates/0195f0a0-0000-7000-8000-0000000000d1")
+	not allowed("shopfloor.view", "POST", "/v1/shopfloor/pi-step-templates")
+	not allowed("shopfloor.view", "POST", "/v1/shopfloor/pi-step-templates/0195f0a0-0000-7000-8000-0000000000d1:publish")
+}
+
+# Machine readouts on the kiosk (#25): the connector reports node readings, the kiosk operator reads the latest.
+test_node_reading_duties if {
+	allowed("shopfloor.edge.connect", "POST", "/v1/shopfloor/edge-nodes/n1/readings")
+	not allowed("shopfloor.view", "POST", "/v1/shopfloor/edge-nodes/n1/readings")
+	allowed("shopfloor.controlrecipe.execute", "POST", "/v1/shopfloor/control-recipes/r1/readouts")
+	not allowed("shopfloor.view", "POST", "/v1/shopfloor/control-recipes/r1/readouts")
+	not allowed("shopfloor.edge.connect", "POST", "/v1/shopfloor/control-recipes/r1/readouts")
+}
+
+# PI execution records (#25): read with the view duty, verified with their own duty, written by no client.
+test_pi_execution_duties if {
+	allowed("shopfloor.view", "GET", "/v1/shopfloor/pi-executions")
+	allowed("shopfloor.view", "GET", "/v1/shopfloor/pi-executions/0195f0a0-0000-7000-8000-0000000000e1")
+	not allowed("shopfloor.view", "POST", "/v1/shopfloor/pi-executions/0195f0a0-0000-7000-8000-0000000000e1:verify")
+	allowed("shopfloor.piexecution.verify", "POST", "/v1/shopfloor/pi-executions/0195f0a0-0000-7000-8000-0000000000e1:verify")
+	not allowed("shopfloor.piexecution.verify", "GET", "/v1/shopfloor/pi-executions")
+	not allowed("shopfloor.view", "POST", "/v1/shopfloor/pi-executions")
+	not allowed("shopfloor.piexecution.verify", "POST", "/v1/shopfloor/pi-executions")
+	not allowed("shopfloor.view", "PUT", "/v1/shopfloor/pi-executions/0195f0a0-0000-7000-8000-0000000000e1")
+	not allowed("shopfloor.view", "DELETE", "/v1/shopfloor/pi-executions/0195f0a0-0000-7000-8000-0000000000e1")
+}
+
 # RFID ingest and warehouse automation (#32): readers and the PLC connector hold their own duties, people read, and
 # a supervisor gives transport work to a PLC.
 test_warehouse_rfid_and_automation_duties if {

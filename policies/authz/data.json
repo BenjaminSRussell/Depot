@@ -3782,14 +3782,18 @@
       {"resource": "/v1/shopfloor/edge-nodes/*:heartbeat", "methods": ["POST"]},
       {"resource": "/v1/shopfloor/edge-nodes/*:renew-certificate", "methods": ["POST"]},
       {"resource": "/v1/shopfloor/edge-nodes/*/control-recipes", "methods": ["GET"]},
-      {"resource": "/v1/shopfloor/edge-nodes/*/control-recipes/*:report", "methods": ["POST"]}
+      {"resource": "/v1/shopfloor/edge-nodes/*/control-recipes/*:report", "methods": ["POST"]},
+      {"resource": "/v1/shopfloor/edge-nodes/*/readings", "methods": ["POST"]}
     ]},
     "shopfloor.controlrecipe.create": {"permissions": [
       {"resource": "/v1/shopfloor/control-recipes", "methods": ["POST"]},
       {"resource": "/v1/shopfloor/control-recipes/*:resend", "methods": ["POST"]},
       {"resource": "/v1/shopfloor/control-recipes:from-pi-sheet", "methods": ["POST"]}
     ]},
-    "shopfloor.controlrecipe.execute": {"permissions": [{"resource": "/v1/shopfloor/control-recipes/*:report", "methods": ["POST"]}]},
+    "shopfloor.controlrecipe.execute": {"permissions": [
+      {"resource": "/v1/shopfloor/control-recipes/*:report", "methods": ["POST"]},
+      {"resource": "/v1/shopfloor/control-recipes/*/readouts", "methods": ["POST"]}
+    ]},
     "shopfloor.job.sync": {"flag": true, "permissions": []},
     "shopfloor.job.schedule": {"permissions": [{"resource": "/v1/shopfloor/jobs", "methods": ["POST"]}]},
     "shopfloor.job.reopen": {"permissions": [{"resource": "/v1/shopfloor/jobs/*:reopen", "methods": ["POST"]}]},
@@ -3850,7 +3854,24 @@
       {"resource": "/v1/shopfloor/pi-sheets/*:new-version", "methods": ["POST"]},
       {"resource": "/v1/shopfloor/pi-sheets/*:obsolete", "methods": ["POST"]}
     ]},
+    "shopfloor.picategory.maintain": {"permissions": [
+      {"resource": "/v1/shopfloor/pi-categories", "methods": ["POST"]},
+      {"resource": "/v1/shopfloor/pi-categories/*", "methods": ["PUT"]}
+    ]},
+    "shopfloor.piexecution.verify": {"permissions": [{"resource": "/v1/shopfloor/pi-executions/*:verify", "methods": ["POST"]}]},
+    "shopfloor.pistep.maintain": {"permissions": [
+      {"resource": "/v1/shopfloor/pi-step-templates", "methods": ["POST"]},
+      {"resource": "/v1/shopfloor/pi-step-templates/*", "methods": ["PUT"]},
+      {"resource": "/v1/shopfloor/pi-step-templates/*:publish", "methods": ["POST"]},
+      {"resource": "/v1/shopfloor/pi-step-templates/*:new-version", "methods": ["POST"]}
+    ]},
     "shopfloor.view": {"permissions": [
+      {"resource": "/v1/shopfloor/pi-executions", "methods": ["GET"]},
+      {"resource": "/v1/shopfloor/pi-executions/*", "methods": ["GET"]},
+      {"resource": "/v1/shopfloor/pi-step-templates", "methods": ["GET"]},
+      {"resource": "/v1/shopfloor/pi-step-templates/*", "methods": ["GET"]},
+      {"resource": "/v1/shopfloor/pi-categories", "methods": ["GET"]},
+      {"resource": "/v1/shopfloor/pi-categories/*", "methods": ["GET"]},
       {"resource": "/v1/shopfloor/andon-settings", "methods": ["GET"]},
       {"resource": "/v1/shopfloor/edge-nodes/*/certificates", "methods": ["GET"]},
       {"resource": "/v1/shopfloor/pi-sheets", "methods": ["GET"]},
