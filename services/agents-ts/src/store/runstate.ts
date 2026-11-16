@@ -24,7 +24,16 @@ export interface RunStateStore {
   /** The credential if it is still unexpired; undefined otherwise. */
   credential(tenantId: string, runId: string, kind: RunCredential["kind"]): Promise<RunCredential | undefined>;
   purgeCredentials(tenantId: string, runId: string): Promise<void>;
+  /** Drops the raw prompt and the pseudonym map of a finished run (BR-47.7). */
+  scrub(tenantId: string, runId: string): Promise<void>;
+  /** Removes a run's state and credentials (a start that failed). */
+  discard(tenantId: string, runId: string): Promise<void>;
+  /** The tenant's retention sweep: finished runs' state older than `olderThanMs` and every expired credential. Returns rows removed. */
+  sweep(tenantId: string, olderThanMs: number): Promise<number>;
 }
+
+/** Finished runs keep nothing but their outcome for this long (BR-47.7: the pseudonym map lives 24 h). */
+export const STATE_RETENTION_MS = 24 * 3_600_000;
 
 /** The `exp` claim (ms) of a JWT already verified by the API layer; absent when unreadable. */
 export function tokenExpiryMs(token: string): number | undefined {
@@ -77,6 +86,34 @@ export class PgRunStateStore implements RunStateStore {
         )
       ).rows[0];
       return r === undefined ? undefined : { kind, userId: r.user_id, duties: r.duties === "" ? [] : r.duties.split(","), token: r.token };
+    });
+  }
+
+  async scrub(tenantId: string, runId: string): Promise<void> {
+    await this.store.withTenant(tenantId, (c) =>
+      c.query(
+        `update agent_run_state set input = jsonb_set(input, '{prompt}', '""'), pseudonyms = '{"entries":[],"counters":{}}'::jsonb, updated_at = now()
+          where tenant_id = $1 and run_id = $2`,
+        [tenantId, runId],
+      ),
+    );
+  }
+
+  async discard(tenantId: string, runId: string): Promise<void> {
+    await this.store.withTenant(tenantId, async (c) => {
+      await c.query("delete from agent_run_credential where tenant_id = $1 and run_id = $2", [tenantId, runId]);
+      await c.query("delete from agent_run_state where tenant_id = $1 and run_id = $2", [tenantId, runId]);
+    });
+  }
+
+  async sweep(tenantId: string, olderThanMs: number): Promise<number> {
+    return this.store.withTenant(tenantId, async (c) => {
+      const creds = await c.query("delete from agent_run_credential where tenant_id = $1 and expires_at <= now()", [tenantId]);
+      const states = await c.query(
+        "delete from agent_run_state where tenant_id = $1 and state->>'phase' = 'done' and updated_at < now() - $2 * interval '1 millisecond'",
+        [tenantId, olderThanMs],
+      );
+      return (creds.rowCount ?? 0) + (states.rowCount ?? 0);
     });
   }
 

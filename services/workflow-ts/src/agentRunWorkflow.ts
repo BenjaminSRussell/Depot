@@ -1,4 +1,4 @@
-import { ActivityFailure, condition, defineQuery, defineSignal, proxyActivities, setHandler } from "@temporalio/workflow";
+import { ActivityFailure, type RetryPolicy, condition, defineQuery, defineSignal, proxyActivities, setHandler } from "@temporalio/workflow";
 import type { AgentRunActivities, AgentRunRef, AgentStepOutcome } from "./agentRunActivities.js";
 
 /**
@@ -33,17 +33,22 @@ export interface AgentApprovalWake {
 export const agentApprovalDecidedSignal = defineSignal<[wake: AgentApprovalWake]>("agent-approval-decided");
 export const agentRunStateQuery = defineQuery<AgentRunState>("agent-run-state");
 
-export function agentRunWorkflowId(runId: string): string {
-  return `agent-run:${runId}`;
+/** The tenant is part of the id, so one tenant can never start, or signal, another tenant's run. */
+export function agentRunWorkflowId(tenantId: string, runId: string): string {
+  return `agent-run:${tenantId}:${runId}`;
 }
 
 /** While waiting, the stored decision is re-read this often, so a signal that never arrived delays a run by at most this long. */
 export const AGENT_APPROVAL_RECHECK_MS = 60 * 60 * 1000;
 
-const activities = proxyActivities<AgentRunActivities>({
-  startToCloseTimeout: "5 minutes",
-  retry: { initialInterval: "2 seconds", maximumInterval: "1 minute", maximumAttempts: 6, nonRetryableErrorTypes: ["ServiceCallRejected"] },
-});
+// Server and network errors are retried without an attempt limit inside a window (as ecoApprovalWorkflow does), a refusal is not. `plan`
+// is safe to retry: it resumes from what it stored and never calls the model twice.
+const retry: RetryPolicy = { initialInterval: "2 seconds", maximumInterval: "1 minute", nonRetryableErrorTypes: ["ServiceCallRejected"] };
+const activities = proxyActivities<AgentRunActivities>({ startToCloseTimeout: "5 minutes", scheduleToCloseTimeout: "1 hour", retry });
+// The wait re-reads the stored decision hourly; an outage of the agents service or its database at that moment is ridden out for hours.
+const waiting = proxyActivities<Pick<AgentRunActivities, "agentResolve">>({ startToCloseTimeout: "1 minute", scheduleToCloseTimeout: "12 hours", retry });
+// Ending a run must not fail for the same outage that made it end: abort retries until it lands.
+const ending = proxyActivities<Pick<AgentRunActivities, "agentAbort">>({ startToCloseTimeout: "1 minute", retry: { initialInterval: "2 seconds", maximumInterval: "5 minutes" } });
 
 export function validateAgentRunInput(input: AgentRunInput): void {
   if (!input.tenantId || !input.runId || !input.actor) throw new TypeError("tenantId, runId and actor are required");
@@ -65,7 +70,7 @@ export async function agentRunWorkflow(input: AgentRunInput): Promise<AgentRunSt
       return await run();
     } catch (error) {
       if (!(error instanceof ActivityFailure)) throw error;
-      return activities.agentAbort({ ...ref, reason: (error.cause?.message ?? error.message).slice(0, 300) });
+      return ending.agentAbort({ ...ref, reason: (error.cause?.message ?? error.message).slice(0, 300) });
     }
   };
 
@@ -82,7 +87,7 @@ export async function agentRunWorkflow(input: AgentRunInput): Promise<AgentRunSt
         const left = deadline - Date.now();
         if (left > 0 && !woken) await condition(() => woken, Math.min(left, AGENT_APPROVAL_RECHECK_MS));
         woken = false;
-        out = await step(() => activities.agentResolve({ ...ref, expire: Date.now() >= deadline }));
+        out = await step(() => waiting.agentResolve({ ...ref, expire: Date.now() >= deadline }));
         if (out.next !== "await_approval") break;
       }
     } else {

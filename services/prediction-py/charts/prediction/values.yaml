@@ -33,15 +33,22 @@ sync:
 # Recompute on receivables events (#47, BR-47.12): consumes the receivables payment, credit settlement, dispute, dunning letter,
 # deduction, down payment and opening-item events and rescores the invoices they touch right away, instead of at the next delta. Each
 # event is recorded in consumer_inbox, so a redelivery is not handled twice. It reads receivables with the same address, service identity
-# and key as `sync` (set those too), so the delta CronJob keeps running as the safety net. Off by default: it needs a broker.
+# and key as `sync` (set those too), so the delta CronJob keeps running as the safety net. Off by default: it needs a broker, and
+# receivables' outbox published to passage.receivables.* (no outbox connector for receivables exists in deploy/kafka/connect.yaml yet).
 consumer:
   enabled: false
   # Kafka bootstrap servers, comma separated.
   brokers: ""
-  group: prediction
   # Empty means the receivables topics the consumer handles (src/prediction/consumer.py DEFAULT_TOPICS).
   topics: []
   replicaCount: 1
+  # SCRAM-SHA-512 over TLS, as the cluster requires (deploy/kafka/kafka.yaml). The secret holds the KafkaUser's `password` and the
+  # cluster CA as `ca.crt`; deploy/kafka/prediction-consumer.yaml creates the user with read ACLs on the receivables topics and the group.
+  # Without a secret the consumer uses the plain listener (dev only).
+  kafka:
+    username: prediction-consumer
+    group: prediction
+    secret: ""
   resources:
     requests: { cpu: 100m, memory: 256Mi }
     limits: { cpu: 500m, memory: 512Mi }

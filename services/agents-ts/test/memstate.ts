@@ -28,4 +28,17 @@ export class MemState implements RunStateStore {
   async purgeCredentials(t: string, r: string) {
     for (const k of [...this.creds.keys()]) if (k.startsWith(`${t}/${r}/`)) this.creds.delete(k);
   }
+  async scrub(t: string, r: string) {
+    const row = this.rows.get(`${t}/${r}`);
+    if (row === undefined) return;
+    (row.input as { prompt: string }).prompt = "";
+    row.pseudonyms = { entries: [], counters: {} };
+  }
+  async discard(t: string, r: string) {
+    this.rows.delete(`${t}/${r}`);
+    await this.purgeCredentials(t, r);
+  }
+  async sweep() {
+    return 0;
+  }
 }

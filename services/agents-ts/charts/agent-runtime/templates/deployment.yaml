@@ -98,6 +98,14 @@ spec:
               value: {{ .Values.workflowUrl | quote }}
             - name: PASSAGE_SERVICE_PUBLIC_KEYS
               value: {{ required "servicePublicKeys is required when runEngine is temporal" .Values.servicePublicKeys | quote }}
+            - name: PASSAGE_SERVICE_NAME
+              value: agents
+            - name: PASSAGE_SERVICE_SIGNING_KEY_FILE
+              value: /var/run/passage/service-identity/signing-key
+            {{- if .Values.serviceIdentity.keyId }}
+            - name: PASSAGE_SERVICE_KEY_ID
+              value: {{ .Values.serviceIdentity.keyId | quote }}
+            {{- end }}
             {{- end }}
             - name: AGENTS_KILLSWITCH_POLL_MS
               value: {{ .Values.killSwitchPollMs | quote }}
@@ -130,15 +138,28 @@ spec:
             httpGet: { path: /readyz, port: http }
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
-          {{- if .Values.auth.jwksConfigMap.name }}
+          {{- if or .Values.auth.jwksConfigMap.name (eq .Values.runEngine "temporal") }}
           volumeMounts:
+            {{- if .Values.auth.jwksConfigMap.name }}
             - { name: jwks, mountPath: /etc/passage/jwks, readOnly: true }
+            {{- end }}
+            {{- if eq .Values.runEngine "temporal" }}
+            - { name: service-identity, mountPath: /var/run/passage/service-identity, readOnly: true }
+            {{- end }}
           {{- end }}
-      {{- if .Values.auth.jwksConfigMap.name }}
+      {{- if or .Values.auth.jwksConfigMap.name (eq .Values.runEngine "temporal") }}
       volumes:
+        {{- if .Values.auth.jwksConfigMap.name }}
         - name: jwks
           configMap:
             name: {{ .Values.auth.jwksConfigMap.name | quote }}
             items:
               - { key: {{ .Values.auth.jwksConfigMap.key | quote }}, path: jwks.json }
+        {{- end }}
+        {{- if eq .Values.runEngine "temporal" }}
+        - name: service-identity
+          secret:
+            secretName: {{ required "serviceIdentity.signingKeySecret is required when runEngine is temporal" .Values.serviceIdentity.signingKeySecret }}
+            defaultMode: 0440
+        {{- end }}
       {{- end }}

@@ -54,9 +54,17 @@ Each event names its tenant, legal entity and the open items it changed; the rec
 again. One pass serves all events of a batch for the same entity. Each event is recorded in `consumer_inbox` (migration 0004,
 the table of the Go services' `eventing.PgInbox`) inside the transaction around its recompute: a redelivered event is skipped, a
 recompute that fails leaves no record, nothing is committed, and the batch is read again after a backoff (1 s growing to 30 s).
-Offsets are committed after the batch. A malformed message is logged and skipped. The 15-minute delta CronJob keeps running as the
+Offsets are committed after the batch. A malformed message is logged and skipped. A recompute that can never succeed (receivables
+answers 4xx other than 408 and 429, unreadable data, a bad id) is recorded in `consumer_inbox` as `failed` with its reason, logged and
+counted (`prediction_consumer_permanent_failures_total` in the log line's `metric` field) and skipped, so one entity cannot block the
+partition; a transient failure (5xx, timeout) is retried with backoff. The inbox row and the recompute are not one transaction (the
+recompute writes through its own idempotent upserts), so delivery is at least once and a crash in between can repeat a recompute and its
+`payment.scored` events. The 15-minute delta CronJob keeps running as the
 safety net. Needs `KAFKA_BROKERS`, `RECEIVABLES_URL` and the service signing key (the same as the sync jobs); optional
-`PREDICTION_KAFKA_GROUP` and `PREDICTION_KAFKA_TOPICS`. Tests: `tests/test_consumer.py` with a fake source and a fake Kafka client.
+`PREDICTION_KAFKA_GROUP` and `PREDICTION_KAFKA_TOPICS`; SCRAM-SHA-512 over TLS with `KAFKA_USERNAME`, `KAFKA_PASSWORD_FILE` and
+`KAFKA_TLS_CA_FILE` (chart `consumer.kafka.secret`; `deploy/kafka/prediction-consumer.yaml` is the KafkaUser with read ACLs on the seven
+topics and the group `prediction`). **Prerequisite not built:** receivables has no outbox connector in `deploy/kafka/connect.yaml`, so
+the `passage.receivables.*` topics do not exist (`auto.create.topics.enable` is false) and no event reaches the consumer until one is added. Tests: `tests/test_consumer.py` with a fake source and a fake Kafka client.
 
 ## Run and test
 

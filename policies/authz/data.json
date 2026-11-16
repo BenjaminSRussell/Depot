@@ -4078,13 +4078,13 @@
     "compliance.erasure.request": {"permissions": [{"resource": "/v1/privacy/erasures", "methods": ["POST"]}]},
     "compliance.retention.read": {"permissions": [{"resource": "/v1/privacy/retention-policies", "methods": ["GET"]}]},
     "receiving.payee.erase": {"permissions": [{"resource": "/v1/receiving/one-time-payees:erase", "methods": ["POST"]}]},
-    "agents.invoke": {"permissions": [
-      {"resource": "/api/v1/agents/*/runs", "methods": ["POST"]},
-      {"resource": "/v1/workflows/agent-runs/*:start", "methods": ["POST"]}
-    ]},
+    "agents.invoke": {"permissions": [{"resource": "/api/v1/agents/*/runs", "methods": ["POST"]}]},
     "agents.run.read": {"permissions": [
       {"resource": "/api/v1/agents/runs/*", "methods": ["GET"]},
-      {"resource": "/api/v1/agents/runs/*/actions", "methods": ["GET"]},
+      {"resource": "/api/v1/agents/runs/*/actions", "methods": ["GET"]}
+    ]},
+    "agents.run.signal": {"service_only": true, "permissions": [
+      {"resource": "/v1/workflows/agent-runs/*:start", "methods": ["POST"]},
       {"resource": "/v1/workflows/agent-runs/*:approval-decided", "methods": ["POST"]}
     ]},
     "agents.run.workflow": {"service_only": true, "permissions": [
@@ -4241,6 +4241,9 @@
       "transport": ["transport.tender.execute"],
       "party": ["party.approve", "party.merge.execute"],
       "agents": ["agents.run.workflow"]
+    },
+    "agents": {
+      "workflow-ts": ["agents.run.signal"]
     },
     "party": {
       "numbering": ["numbering.sequence.allocate"]

@@ -230,3 +230,95 @@ def test_main_needs_its_environment():
     from prediction.consumer import main
 
     assert main(["consumer"], {}.get) == 2
+
+
+class Failing:
+    """A recompute that fails permanently for one legal entity and works for the others."""
+
+    def __init__(self, bad: set[str], permanent: bool = True) -> None:
+        self.bad, self.permanent, self.calls = bad, permanent, []  # type: ignore[var-annotated]
+
+    def __call__(self, _service, _feed, tenant, entities):  # type: ignore[no-untyped-def]
+        self.calls.append(entities[0])
+        if entities[0] in self.bad:
+            msg = f"{entities[0]}: receivables answered 403 for the open invoice feed"
+            return Report(tenant, errors=[msg], permanent=[msg] if self.permanent else [])
+        return Report(tenant, scored=1)
+
+
+def test_an_event_whose_recompute_can_never_succeed_is_recorded_failed_and_skipped_so_it_cannot_block_the_partition():
+    from prediction.consumer import METRICS
+
+    fail = Failing({LE})
+    consumer, repo = consumer_with(Spy())
+    consumer._recompute = fail  # type: ignore[assignment]
+    bad, bad2, good = applied([str(uuid.uuid4())], id_="bad-1"), applied([str(uuid.uuid4())], id_="bad-2"), applied([str(uuid.uuid4())], id_="good-1", le=LE2)
+    before = METRICS["prediction_consumer_permanent_failures_total"]
+    source = FakeSource([[bad, bad2, good]])
+    rep = run_once(source, consumer)
+    assert rep is not None and (rep.failed, rep.handled, rep.recomputes) == (2, 1, 1)
+    assert fail.calls == [LE, LE2]  # one attempt for the bad entity, the healthy one still recomputed
+    assert source.commits == 1 and source.rewinds == 0  # the batch moves on
+    assert repo.inbox_entry(TENANT, CONSUMER, "bad-1")[0] == "failed" and "403" in repo.inbox_entry(TENANT, CONSUMER, "bad-1")[1]  # type: ignore[index]
+    assert repo.inbox_entry(TENANT, CONSUMER, "good-1") == ("done", None)
+    assert METRICS["prediction_consumer_permanent_failures_total"] == before + 2
+    # A redelivery of the failed event is a duplicate, not another attempt.
+    assert consumer.process([decode(bad)]).duplicates == 1  # type: ignore[list-item]
+
+
+def test_a_transient_failure_is_retried_and_only_a_transient_one_holds_the_batch():
+    fail = Failing({LE}, permanent=False)
+    consumer, repo = consumer_with(Spy())
+    consumer._recompute = fail  # type: ignore[assignment]
+    source = FakeSource([[applied([str(uuid.uuid4())], id_="t-1")]])
+    with pytest.raises(RecomputeFailed):
+        run_once(source, consumer)
+    assert source.commits == 0 and source.rewinds == 1 and repo.inbox_entry(TENANT, CONSUMER, "t-1") is None
+    fail.bad = set()
+    assert consumer.process([decode(applied([str(uuid.uuid4())], id_="t-1"))]).handled == 1  # type: ignore[list-item]
+
+
+def test_the_feed_tells_permanent_refusals_from_transient_ones():
+    import httpx
+
+    from prediction.receivables import FeedError, ReceivablesFeed
+    from prediction.signer import ServiceSigner
+    from test_sync import KEY
+
+    def feed(status: int) -> ReceivablesFeed:
+        return ReceivablesFeed("http://r", ServiceSigner(KEY), httpx.Client(transport=httpx.MockTransport(lambda _r: httpx.Response(status, json={}))))
+
+    for status, permanent in ((403, True), (404, True), (422, True), (408, False), (429, False), (500, False), (503, False)):
+        with pytest.raises(FeedError) as exc:
+            list(feed(status).read(TENANT, LE, "open", None))
+        assert exc.value.permanent is permanent, status
+    unreadable = ReceivablesFeed("http://r", ServiceSigner(KEY), httpx.Client(transport=httpx.MockTransport(lambda _r: httpx.Response(200, json={"nope": 1}))))
+    with pytest.raises(FeedError) as exc:
+        list(unreadable.read(TENANT, LE, "open", None))
+    assert exc.value.permanent is True
+
+
+def test_delta_reports_which_errors_are_permanent():
+    from prediction.sync import delta
+
+    fake, feed, service, _repo = setup()
+    fake.fail = 403
+    rep = delta(service, feed, TENANT, [LE])
+    assert rep.errors and rep.permanent == rep.errors
+    fake.fail = 503
+    rep = delta(service, feed, TENANT, [LE])
+    assert rep.errors and rep.permanent == []
+    rep = delta(service, feed, TENANT, ["not-a-uuid"])
+    assert rep.permanent == rep.errors
+
+
+def test_kafka_security_follows_the_cluster_scram_over_tls_and_the_workflow_consumer_names():
+    from prediction.consumer import kafka_security
+
+    env = {"KAFKA_USERNAME": "prediction-consumer", "KAFKA_PASSWORD_FILE": "/p", "KAFKA_TLS_CA_FILE": "/ca.crt"}
+    assert kafka_security(env.get, lambda path: "s3cret\n") == {
+        "security_protocol": "SASL_SSL", "sasl_mechanism": "SCRAM-SHA-512", "sasl_plain_username": "prediction-consumer", "sasl_plain_password": "s3cret", "ssl_cafile": "/ca.crt",
+    }
+    assert kafka_security({}.get) == {}
+    with pytest.raises(ValueError):
+        kafka_security({"KAFKA_USERNAME": "u"}.get)

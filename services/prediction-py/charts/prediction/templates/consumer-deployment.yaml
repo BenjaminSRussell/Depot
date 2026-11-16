@@ -30,6 +30,12 @@ spec:
           secret:
             secretName: {{ required "sync.signingKeySecret is needed to read receivables" .Values.sync.signingKeySecret }}
             defaultMode: 0440
+        {{- if .Values.consumer.kafka.secret }}
+        - name: kafka
+          secret:
+            secretName: {{ .Values.consumer.kafka.secret | quote }}
+            defaultMode: 0440
+        {{- end }}
       containers:
         - name: consumer
           image: {{ include "prediction.image" . | quote }}
@@ -42,6 +48,9 @@ spec:
               drop: [ALL]
           volumeMounts:
             - { name: service-identity, mountPath: /var/run/passage/service-identity, readOnly: true }
+            {{- if .Values.consumer.kafka.secret }}
+            - { name: kafka, mountPath: /var/run/passage/kafka, readOnly: true }
+            {{- end }}
           env:
             - name: DATABASE_URL
               valueFrom:
@@ -54,8 +63,16 @@ spec:
               value: {{ required "sync.receivablesUrl is needed to read receivables" .Values.sync.receivablesUrl | quote }}
             - name: KAFKA_BROKERS
               value: {{ required "consumer.brokers is needed: the Kafka bootstrap servers" .Values.consumer.brokers | quote }}
+            {{- if .Values.consumer.kafka.secret }}
+            - name: KAFKA_USERNAME
+              value: {{ .Values.consumer.kafka.username | quote }}
+            - name: KAFKA_PASSWORD_FILE
+              value: /var/run/passage/kafka/password
+            - name: KAFKA_TLS_CA_FILE
+              value: /var/run/passage/kafka/ca.crt
+            {{- end }}
             - name: PREDICTION_KAFKA_GROUP
-              value: {{ .Values.consumer.group | quote }}
+              value: {{ .Values.consumer.kafka.group | quote }}
             {{- if .Values.consumer.topics }}
             - name: PREDICTION_KAFKA_TOPICS
               value: {{ join "," .Values.consumer.topics | quote }}

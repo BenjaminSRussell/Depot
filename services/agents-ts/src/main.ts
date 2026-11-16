@@ -15,6 +15,7 @@ import { createMcpConnector } from "./runtime/mcp.js";
 import { createVerifier, parsePublicKeys } from "./api/serviceToken.js";
 import { createRunSteps } from "./runtime/steps.js";
 import { createWorkflowGateway } from "./runtime/workflowGateway.js";
+import { serviceSignerFromEnv } from "./api/serviceSigner.js";
 import { PgRunStateStore } from "./store/runstate.js";
 import { createRunService } from "./runtime/service.js";
 import { createAdminServer, createRequestHandler, listen, Metrics } from "./server.js";
@@ -61,6 +62,8 @@ async function main(): Promise<void> {
   partitionTimer.unref();
   // AGENTS_RUN_ENGINE=temporal: runs are workflows (workflow-ts) that call these steps; the in-process engine stays the dev default.
   const approvalHours = cfg.approvalExpiryHours ?? 72;
+  const serviceSigner = cfg.runEngine === "temporal" ? serviceSignerFromEnv(process.env, (path) => readFileSync(path, "utf8")) : undefined;
+  if (cfg.runEngine === "temporal" && serviceSigner === undefined) throw new Error("AGENTS_RUN_ENGINE=temporal needs PASSAGE_SERVICE_SIGNING_KEY or PASSAGE_SERVICE_SIGNING_KEY_FILE: agents signs its calls to workflow-ts");
   const stepsService =
     cfg.runEngine === "temporal"
       ? createRunSteps({
@@ -77,7 +80,7 @@ async function main(): Promise<void> {
       : undefined;
   const runs = createRunService({
     ...(stepsService !== undefined && cfg.workflowUrl !== undefined
-      ? { workflow: { steps: stepsService, state: new PgRunStateStore(store), gateway: createWorkflowGateway({ baseUrl: cfg.workflowUrl }) } }
+      ? { workflow: { steps: stepsService, state: new PgRunStateStore(store), gateway: createWorkflowGateway({ baseUrl: cfg.workflowUrl, signer: serviceSigner! }) } }
       : {}),
     agents,
     evalPassed: (agent) => versions.evalPassed(agent),

@@ -77,6 +77,8 @@ class Repository(Protocol):
     def mark_reversed(self, tenant_id: str, invoice_ids: list[str], entities: Entities = None) -> int: ...
     def claim_unowned(self, tenant_id: str, legal_entity_id: str, invoice_ids: list[str]) -> int: ...
     def inbox_once(self, tenant_id: str, consumer: str, event_id: str) -> AbstractContextManager[bool]: ...
+    def inbox_outcome(self, tenant_id: str, consumer: str, event_id: str, outcome: str, detail: str) -> None: ...
+    def inbox_entry(self, tenant_id: str, consumer: str, event_id: str) -> tuple[str, str | None] | None: ...
 
 
 class InMemoryRepository:
@@ -91,7 +93,7 @@ class InMemoryRepository:
         # (tenant, invoice) -> the legal entity a prediction was stored for, or None when it was stored for none.
         self._entity: dict[tuple[str, str], str | None] = {}
         self._reversed: set[tuple[str, str]] = set()
-        self._inbox: set[tuple[str, str, str]] = set()
+        self._inbox: dict[tuple[str, str, str], tuple[str, str | None]] = {}
         # prediction.payment.scored events, as the Postgres repository writes them to the outbox.
         self.events: list[tuple[str, dict[str, object]]] = []
 
@@ -174,12 +176,18 @@ class InMemoryRepository:
         if key in self._inbox:
             yield False
             return
-        self._inbox.add(key)
+        self._inbox[key] = ("done", None)
         try:
             yield True
         except BaseException:
-            self._inbox.discard(key)
+            self._inbox.pop(key, None)
             raise
+
+    def inbox_outcome(self, tenant_id: str, consumer: str, event_id: str, outcome: str, detail: str) -> None:
+        self._inbox[(tenant_id, consumer, event_id)] = (outcome, detail)
+
+    def inbox_entry(self, tenant_id: str, consumer: str, event_id: str) -> tuple[str, str | None] | None:
+        return self._inbox.get((tenant_id, consumer, event_id))
 
     def claim_unowned(self, tenant_id: str, legal_entity_id: str, invoice_ids: list[str]) -> int:
         n = 0

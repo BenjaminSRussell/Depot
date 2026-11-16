@@ -109,9 +109,14 @@ TEMPORAL_ADDRESS=localhost:7233 npm start
 `agentRunWorkflow` (`src/agentRunWorkflow.ts`) drives an AI agent run whose logic lives in services/agents-ts
 (`AGENTS_RUN_ENGINE=temporal` there): activities `agentBegin`, `agentPlan`, `agentResolve`, `agentCommit` and `agentAbort`
 (`src/agentRunActivities.ts`) call the agents run-step routes with a tenant-level service token for the user who started the
-run (audience `agents`, duty `agents.run.workflow`, `AGENTS_BASE_URL`). The approval wait is the signal
-`agent-approval-decided` with a timer for the expiry the agents service reports; the signal only wakes the workflow, which
-reads the stored decision. `POST /v1/workflows/agent-runs/{runId}:start` (duty `agents.invoke`) starts it with ids only and
-`POST /v1/workflows/agent-runs/{runId}:approval-decided` (duty `agents.run.read`) wakes it; agents calls both with the
-caller's edge identity. Workflow id `agent-run:{runId}`. Tests: `test/agentRun.test.ts` (Temporal time-skipping, CI only),
-`test/agentRunActivities.test.ts` and `test/agentRunApi.test.ts`.
+run (audience `agents`, duty `agents.run.workflow`, `AGENTS_BASE_URL`, the `agent-runtime` Service). Server and network errors are
+retried without an attempt limit inside a window (1 h for the steps, 12 h for the hourly re-read, none for `agentAbort`); a refusal
+ends the run FAILED through `agentAbort`. The approval wait is the signal `agent-approval-decided` with a timer for the expiry the
+agents service reports; the signal only wakes the workflow, which reads the stored decision, and a commit that finds the approver's
+session expired comes back as a new approval request, which the workflow waits on in turn.
+
+The routes `POST /v1/workflows/agent-runs/{runId}:start` and `:approval-decided` accept only a service token signed by the agents
+service (issuer `agents`, grant `agents.run.signal`, verified in `src/agentsToken.ts` against `PASSAGE_SERVICE_PUBLIC_KEYS`, chart
+`agentsPublicKeys`); without keys they answer 404. They ignore `X-Passage-*` headers and are not exposed at the edge. The workflow
+id is `agent-run:{tenantId}:{runId}`. Tests: `test/agentRun.test.ts` (Temporal time-skipping, CI only), `test/agentRunActivities.test.ts`
+and `test/agentRunApi.test.ts`.

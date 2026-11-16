@@ -17,6 +17,8 @@ export interface NewApproval {
   expiryHours?: number;
   /** The PII-free proposal shown in the inbox: tool, arguments with pseudonyms, confidence. */
   proposalJson: string;
+  /** sha256 of the model's proposal; the commit refuses a proposal that does not match it. */
+  proposalHash?: string;
   /** With these the request is announced to the shared inbox (`agent.approval.requested`) in the same transaction. */
   confidence?: number;
   riskScore?: number;
@@ -49,6 +51,7 @@ interface Row {
   code: "AGT-0208" | null;
   approver_user_id: string | null;
   decided_at: Date | null;
+  proposal_hash: string | null;
 }
 
 const asDecision = (r: Row): RecordedDecision | undefined =>
@@ -73,17 +76,22 @@ export class PgApprovalStore implements ApprovalStore {
   async open(a: NewApproval): Promise<string> {
     // A step retried after a restart finds the request it already opened for this run and seq.
     const existing = await this.store.withTenant(a.tenantId, async (c) =>
-      (await c.query<{ action_id: string }>("select action_id from approval_request where tenant_id = $1 and run_id = $2 and seq = $3", [a.tenantId, a.runId, a.seq])).rows[0],
+      (await c.query<{ action_id: string; proposal_hash: string | null }>("select action_id, proposal_hash from approval_request where tenant_id = $1 and run_id = $2 and seq = $3", [a.tenantId, a.runId, a.seq])).rows[0],
     );
-    if (existing !== undefined) return existing.action_id;
+    if (existing !== undefined) {
+      if (a.proposalHash !== undefined && existing.proposal_hash !== null && existing.proposal_hash !== a.proposalHash) {
+        throw new Error("an approval request for this step already exists for a different proposal");
+      }
+      return existing.action_id;
+    }
     const actionId = randomUUID();
     await this.store.withTenant(a.tenantId, (c) =>
       c.query(
         `insert into approval_request (tenant_id, action_id, run_id, seq, tool_name, invoker_user_id, approval_duty, amount, currency,
-            self_approval_limit, self_approval_currency, expiry_hours, proposal_json)
-         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+            self_approval_limit, self_approval_currency, expiry_hours, proposal_json, proposal_hash)
+         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
         [a.tenantId, actionId, a.runId, a.seq, a.tool, a.invokerUserId, a.approvalDuty, a.amount.amount, a.amount.currency,
-          a.selfApprovalLimit.amount, a.selfApprovalLimit.currency, a.expiryHours ?? null, a.proposalJson],
+          a.selfApprovalLimit.amount, a.selfApprovalLimit.currency, a.expiryHours ?? null, a.proposalJson, a.proposalHash ?? null],
       ).then(async () => {
         if (a.confidence === undefined) return;
         // The announcement is written with the request, so the inbox never misses a request that was stored (transactional outbox).
@@ -118,6 +126,7 @@ export class PgApprovalStore implements ApprovalStore {
       approvalDuty: row.approval_duty,
       amount: { amount: row.amount, currency: row.currency },
       selfApprovalLimit: { amount: row.self_approval_limit, currency: row.self_approval_currency },
+      ...(row.proposal_hash !== null ? { proposalHash: row.proposal_hash } : {}),
       ...(decided !== undefined ? { decided } : {}),
     };
   }

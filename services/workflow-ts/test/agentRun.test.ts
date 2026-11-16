@@ -37,7 +37,7 @@ describe("agent run workflow", () => {
   }
 
   const startRun = (taskQueue: string) =>
-    environment.client.workflow.start(agentRunWorkflow, { workflowId: `${agentRunWorkflowId(input.runId)}:${taskQueue}`, taskQueue, args: [input] });
+    environment.client.workflow.start(agentRunWorkflow, { workflowId: `${agentRunWorkflowId(input.tenantId, input.runId)}:${taskQueue}`, taskQueue, args: [input] });
 
   async function until(check: () => boolean | Promise<boolean>): Promise<void> {
     for (let i = 0; i < 200 && !(await check()); i += 1) await new Promise((r) => setTimeout(r, 50));
@@ -142,6 +142,62 @@ describe("agent run workflow", () => {
     expect(result.outcome?.status).toBe("FAILED");
     expect(fake.calls).toMatchObject({ plan: 1, abort: 1, commit: 0 });
     expect(fake.aborted).toContain("422");
+  }, 60_000);
+
+  it("a plan that fails with a server error is retried until it lands, and the run is not failed", async () => {
+    const { fake, taskQueue } = await fresh();
+    fake.transient.plan = 3;
+    const result = await (await worker(fake, taskQueue)).runUntil(async () => {
+      const handle = await startRun(taskQueue);
+      await until(async () => (await handle.query(agentRunStateQuery)).status === "awaiting_approval");
+      fake.decision = { decision: "APPROVED" };
+      await handle.signal(agentApprovalDecidedSignal, { actionId: "action-1" });
+      return handle.result();
+    });
+    expect(fake.calls.plan).toBe(4);
+    expect(result.outcome).toEqual({ status: "COMMITTED" });
+    expect(fake.calls.abort).toBe(0);
+  }, 60_000);
+
+  it("an outage during the hourly re-read is ridden out, and abort retries until it lands", async () => {
+    const { fake, taskQueue } = await fresh();
+    fake.transient.resolve = 5;
+    fake.transient.abort = 3;
+    fake.refuse = undefined;
+    const result = await (await worker(fake, taskQueue)).runUntil(async () => {
+      const handle = await startRun(taskQueue);
+      await until(async () => (await handle.query(agentRunStateQuery)).status === "awaiting_approval");
+      fake.decision = { decision: "APPROVED" };
+      return handle.result();
+    });
+    expect(result.outcome).toEqual({ status: "COMMITTED" });
+  }, 60_000);
+
+  it("abort is retried through its own outage after a step is refused", async () => {
+    const { fake, taskQueue } = await fresh();
+    fake.refuse = { step: "plan", status: 422 };
+    fake.transient.abort = 4;
+    const result = await (await worker(fake, taskQueue)).runUntil(async () => (await startRun(taskQueue)).result());
+    expect(result.outcome?.status).toBe("FAILED");
+    expect(fake.calls.abort).toBe(5);
+  }, 60_000);
+
+  it("an approval whose session expired is asked for again: the workflow waits on the new request and commits after the second approval", async () => {
+    const { fake, taskQueue } = await fresh();
+    fake.reapproveOnce = true;
+    const result = await (await worker(fake, taskQueue)).runUntil(async () => {
+      const handle = await startRun(taskQueue);
+      await until(async () => (await handle.query(agentRunStateQuery)).status === "awaiting_approval");
+      fake.decision = { decision: "APPROVED" };
+      await handle.signal(agentApprovalDecidedSignal, { actionId: "action-1" });
+      await until(async () => (await handle.query(agentRunStateQuery)).actionId === "action-2");
+      expect(fake.commitsPosted).toBe(0);
+      fake.decision = { decision: "APPROVED" };
+      await handle.signal(agentApprovalDecidedSignal, { actionId: "action-2" });
+      return handle.result();
+    });
+    expect(result.outcome).toEqual({ status: "COMMITTED" });
+    expect(fake.commitsPosted).toBe(1);
   }, 60_000);
 
   it("rejects an input without ids", () => {

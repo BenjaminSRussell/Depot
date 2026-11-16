@@ -52,12 +52,23 @@ class PgRepository:
 
     @contextmanager
     def inbox_once(self, tenant_id: str, consumer: str, event_id: str) -> Iterator[bool]:
-        """Records the event in consumer_inbox and yields True when it was new, False when it was seen before (the eventing.PgInbox contract).
-        The row is written inside the tenant transaction that surrounds the block: a block that raises rolls the row back, so the event
-        is handled again on redelivery, and a concurrent delivery of the same event waits for this one's outcome."""
+        """Records the event in consumer_inbox and yields True when it was new, False when it was seen before. The row is written in a
+        transaction that surrounds the block: a block that raises rolls the row back, so the event is handled again on redelivery, and a
+        concurrent delivery of the same event waits for this one's outcome. The block's own writes (the recompute) go through their own
+        transactions and are idempotent upserts, so unlike Go's PgInbox.Once the row and the effect are not one transaction: a crash after
+        the effect and before this commit repeats the effect (at-least-once)."""
         with self._tenant(tenant_id) as c:
             cur = c.execute("insert into consumer_inbox (tenant_id, consumer, event_id) values (%s, %s, %s) on conflict do nothing", (tenant_id, consumer, event_id))
             yield cur.rowcount == 1
+
+    def inbox_outcome(self, tenant_id: str, consumer: str, event_id: str, outcome: str, detail: str) -> None:
+        with self._tenant(tenant_id) as c:
+            c.execute("update consumer_inbox set outcome = %s, detail = %s where tenant_id = %s and consumer = %s and event_id = %s", (outcome, detail[:500], tenant_id, consumer, event_id))
+
+    def inbox_entry(self, tenant_id: str, consumer: str, event_id: str) -> tuple[str, str | None] | None:
+        with self._tenant(tenant_id) as c:
+            row = c.execute("select outcome, detail from consumer_inbox where tenant_id = %s and consumer = %s and event_id = %s", (tenant_id, consumer, event_id)).fetchone()
+        return None if row is None else (row[0], row[1])
 
     def ping(self) -> None:
         with psycopg.connect(self.url, connect_timeout=2) as conn:

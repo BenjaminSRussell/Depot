@@ -118,15 +118,19 @@ async function handleStep(steps: NonNullable<AgentsApiBase["steps"]>, req: Incom
   const raw = req.headers[SERVICE_TOKEN_HEADER];
   const token = Array.isArray(raw) ? raw[0] : raw;
   let tenantId: string;
+  let actor: string;
   try {
     const claims = steps.verifier.verify(token ?? "");
     if (!claims.duties.includes("agents.run.workflow")) throw new ServiceTokenError("no run duty");
     tenantId = claims.tid.toLowerCase();
+    actor = claims.act;
   } catch {
     throw new ApiError(401, "AGT-0401", "a valid service token is required");
   }
   const obj = typeof body === "object" && body !== null && !Array.isArray(body) ? (body as Record<string, unknown>) : {};
   try {
+    // The token names the user who started the run as its actor; a token for another user's run is refused.
+    await steps.service.assertActor(tenantId, runId, actor);
     switch (step) {
       case "begin":
         return await steps.service.begin(tenantId, runId);

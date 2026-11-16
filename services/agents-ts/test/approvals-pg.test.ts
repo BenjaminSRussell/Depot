@@ -88,10 +88,17 @@ describe.runIf(ownerUrl)("persisted approvals in Postgres", () => {
     await expect(
       approvals.open({ tenantId: TENANT, runId: "no-such-run", seq: 1, tool: "t", invokerUserId: INVOKER, approvalDuty: "d", amount: usd("1"), selfApprovalLimit: usd("1"), proposalJson: "{}" }),
     ).rejects.toThrow();
-    const { runId } = await openOne();
-    await expect(
-      approvals.open({ tenantId: TENANT, runId, seq: 1, tool: "t", invokerUserId: INVOKER, approvalDuty: "d", amount: usd("1"), selfApprovalLimit: usd("1"), proposalJson: "{}" }),
-    ).rejects.toThrow();
+  });
+
+  it("opening the same run and seq again returns the first request, and refuses a different proposal for it", async () => {
+    n += 1;
+    const runId = `run-reopen-${n}`;
+    await fx.store.startRun(makeRequest({ runId }));
+    const base = { tenantId: TENANT, runId, seq: 1, tool: "t", invokerUserId: INVOKER, approvalDuty: "d", amount: usd("1"), selfApprovalLimit: usd("1"), proposalJson: "{}", proposalHash: "h1" };
+    const first = await approvals.open(base);
+    expect(await approvals.open(base)).toBe(first);
+    await expect(approvals.open({ ...base, proposalHash: "h2" })).rejects.toThrow(/different proposal/);
+    expect((await approvals.find(TENANT, runId, first))?.proposalHash).toBe("h1");
   });
 
   it("the persisted port waits for a human decision recorded in the database", async () => {

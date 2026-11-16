@@ -35,12 +35,19 @@ copilot: { tokenCap: 8000, maxTurns: 4 }
 approvalExpiryHours: ""
 # How a run executes. inprocess (the default, for dev): one promise in the pod that took the request, lost with the pod.
 # temporal (production): each run is a workflow in workflow-ts (agentRunWorkflow) that calls this service's run steps,
-# so a run waiting for an approval resumes after a restart. Needs workflowUrl, and servicePublicKeys holding workflow-ts's
-# Ed25519 public key as "workflow-ts=<base64>" (comma separated for more callers). Add workflow-ts's pod labels to
-# networkPolicy.ingressPodLabels so it can reach the run-step routes.
+# so a run waiting for an approval resumes after a restart. The two services authenticate each other with signed service
+# tokens (platform/go/tenant format): workflow-ts calls the run-step routes here, verified against servicePublicKeys (workflow-ts's
+# Ed25519 public key as "workflow-ts=<base64>", comma separated for more callers), and this service starts and wakes the workflow
+# with a token signed by the key in serviceIdentity.signingKeySecret; its public key goes in workflow-ts's agentsPublicKeys as
+# "agents=<base64>". workflowUrl is the workflow-ts Service (named `workflows`). workflow-ts's pods are admitted to the API port by
+# networkPolicy.workflowPodLabels (the same namespace).
 runEngine: inprocess
-workflowUrl: http://workflow.passage.svc.cluster.local:8080
+workflowUrl: http://workflows.passage.svc:8080
 servicePublicKeys: ""
+serviceIdentity:
+  # Secret with the key `signing-key` (the base64 32-byte Ed25519 seed of the service `agents`).
+  signingKeySecret: ""
+  keyId: ""
 # Above this amount an approver who started the run may not approve it (wave-48 SoD limit).
 selfApprovalLimit: { amount: "0", currency: USD }
 # An agent runs only when the newest eval_run of its exact definition passed (AGT-0204 otherwise). The eval pipeline
@@ -63,6 +70,8 @@ auth:
 # copilot BFF, pods matching one of ingressPodLabels in this namespace. Nothing else in the namespace is admitted, and
 # with both lists empty no one reaches the API. metricsNamespace may reach only the admin port.
 networkPolicy:
+  # Pods that may call the run-step routes when runEngine is temporal (workflow-ts's pods, same namespace).
+  workflowPodLabels: { app.kubernetes.io/name: workflow }
   metricsNamespace: observability
   ingressNamespaces: []
   # For example: [{ app.kubernetes.io/name: copilot-bff }]

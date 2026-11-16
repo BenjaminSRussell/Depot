@@ -39,11 +39,56 @@ describe.runIf(ownerUrl)("resumable run state in Postgres", () => {
     expect(resumed.redact(`again ${iban}`)).toContain("[IBAN-1]"); // the same value keeps its pseudonym
   });
 
-  it("is tenant-isolated", async () => {
+  it("is tenant-isolated by row-level security, not by the queries' own tenant filter", async () => {
     await state.create(TENANT, "r-iso", {}, {});
-    expect(await state.load(OTHER, "r-iso")).toBeUndefined();
     await state.putCredential(TENANT, "r-iso", { kind: "starter", userId: INVOKER, duties: ["a"], token: "t" }, Date.now() + 60_000);
-    expect(await state.credential(OTHER, "r-iso", "starter")).toBeUndefined();
+    // Queries with no tenant filter at all, as the application role (passage_app when configured): another tenant sees nothing.
+    const seen = await fx.store.withTenant(OTHER, async (c) => [
+      (await c.query("select * from agent_run_state")).rowCount,
+      (await c.query("select * from agent_run_credential")).rowCount,
+    ]);
+    expect(seen).toEqual([0, 0]);
+    await expect(
+      fx.store.withTenant(OTHER, (c) => c.query("insert into agent_run_credential (tenant_id, run_id, kind, user_id, duties, token, expires_at) values ($1, 'r-iso', 'approver', 'u', '', 't', now())", [TENANT])),
+    ).rejects.toThrow(/row-level security/);
+    await expect(fx.store.withTenant(OTHER, (c) => c.query("delete from agent_run_state"))).resolves.toMatchObject({ rowCount: 0 });
+    expect(await state.load(TENANT, "r-iso")).toBeDefined();
+  });
+
+  it("scrub empties the prompt and the pseudonym map, discard removes the run, sweep removes expired credentials and finished state past retention", async () => {
+    const pseudo = new Pseudonymizer(TENANT, 86_400_000, () => Date.UTC(2026, 9, 21));
+    pseudo.redact(`pay ${iban}`);
+    await state.create(TENANT, "r-scrub", { prompt: `pay ${iban}`, other: 1 }, { phase: "begun" });
+    await state.save(TENANT, "r-scrub", { phase: "begun" }, pseudo.snapshot());
+    await state.scrub(TENANT, "r-scrub");
+    const row = (await state.load<{ prompt: string; other: number }, unknown>(TENANT, "r-scrub"))!;
+    expect(row.input).toEqual({ prompt: "", other: 1 });
+    expect(row.pseudonyms.entries).toEqual([]);
+
+    await state.putCredential(TENANT, "r-scrub", { kind: "starter", userId: INVOKER, duties: [], token: "t" }, Date.now() - 1000);
+    await state.create(TENANT, "r-old", {}, { phase: "done" });
+    await state.create(TENANT, "r-live", {}, { phase: "awaiting" });
+    await fx.owner.query("update agent_run_state set updated_at = now() - interval '2 days' where tenant_id = $1 and run_id in ('r-old', 'r-live')", [TENANT]);
+    expect(await state.sweep(TENANT, 24 * 3_600_000)).toBe(2); // the expired credential and the old finished state
+    expect(await state.load(TENANT, "r-old")).toBeUndefined();
+    expect(await state.load(TENANT, "r-live")).toBeDefined(); // a run still waiting keeps its state
+    await state.discard(TENANT, "r-live");
+    expect(await state.load(TENANT, "r-live")).toBeUndefined();
+  });
+
+  it("reserve is idempotent per run and a finish that already landed is success", async () => {
+    n += 1;
+    const runId = `r-hold-${n}`;
+    await fx.store.startRun(makeRequest({ runId }));
+    const ask = { tenantId: TENANT, agentId: "ap_coding", runId, month: "2026-10", tokensIn: 1000, tokensOut: 1000, ttlMs: 60_000 };
+    const first = await fx.store.reserve(ask);
+    expect(await fx.store.reserve(ask)).toEqual(first);
+    const holds = await fx.owner.query("select count(*)::int as n from budget_hold where run_id = $1", [runId]);
+    expect(holds.rows[0].n).toBe(1);
+    const result = { runId, status: "FAILED" as const, actions: [], tokensIn: 0, tokensOut: 0, estimated: false, budgetState: "OK" as const, displayText: "" };
+    await fx.store.finishRun(makeRequest({ runId }), result);
+    await expect(fx.store.finishRun(makeRequest({ runId }), result)).resolves.toBeUndefined();
+    await expect(fx.store.finishRun(makeRequest({ runId: "never-started" }), { ...result, runId: "never-started" })).rejects.toThrow(/not open/);
   });
 
   it("a credential is read only while unexpired, per kind, and is purged with the run", async () => {

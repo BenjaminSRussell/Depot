@@ -345,3 +345,14 @@ def test_the_application_role_may_only_read_and_insert_inbox_rows(pg_schema):
         c.execute("insert into consumer_inbox (tenant_id, consumer, event_id) values (%s, 'c', 'e')", (t,))
         with pytest.raises(psycopg.errors.InsufficientPrivilege):
             c.execute("delete from consumer_inbox")
+
+
+def test_the_consumer_inbox_records_an_outcome_and_keeps_it_across_a_restart(make_repo):
+    t = tenant()
+    repo = make_repo()
+    with repo.inbox_once(t, "c", "e1") as first:
+        assert first
+    assert repo.inbox_entry(t, "c", "e1") == ("done", None)
+    repo.inbox_outcome(t, "c", "e1", "failed", "receivables answered 403")
+    assert make_repo().inbox_entry(t, "c", "e1") == ("failed", "receivables answered 403")
+    assert make_repo().inbox_entry(tenant(), "c", "e1") is None

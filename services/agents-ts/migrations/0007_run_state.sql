@@ -2,6 +2,7 @@
 -- pseudonym map live here, so a run that waits days for an approval resumes on any pod with its values restored.
 -- agent_run_credential holds the bearer token a step acts with (the caller's at start, the approver's at decision)
 -- so no token enters Temporal history; a row is read only while the token is unexpired and is deleted when the run ends.
+-- The prompt and the pseudonym map hold real values: they are emptied when the run finishes and the row is removed after 24 h.
 -- Tenant row-level security as in 0001.
 
 CREATE TABLE IF NOT EXISTS agent_run_state (
@@ -36,10 +37,14 @@ CREATE POLICY agent_run_credential_tenant_access ON agent_run_credential AS PERM
   USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
   WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
 
+-- A request is bound to the proposal it was opened for: the commit refuses a proposal whose hash differs.
+ALTER TABLE approval_request ADD COLUMN IF NOT EXISTS proposal_hash text;
+
 DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON agent_run_state TO passage_app';
+    -- DELETE: the retention sweep (finished runs' state after 24 h, BR-47.7) and a start that failed.
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON agent_run_state TO passage_app';
     EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON agent_run_credential TO passage_app';
   END IF;
 END

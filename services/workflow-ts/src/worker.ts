@@ -4,6 +4,7 @@ import { createServer } from "node:http";
 import { Client, Connection } from "@temporalio/client";
 import { NativeConnection, Worker } from "@temporalio/worker";
 import { createDecisionHandler } from "./decisionApi.js";
+import { createVerifier, parsePublicKeys } from "./agentsToken.js";
 import { buildActivities } from "./activityRegistry.js";
 import { jsonLine } from "./logging/pseudonymize.js";
 import { eventConsumerConfigFromEnv, startEventConsumer, type RunningEventConsumer } from "./eventConsumer.js";
@@ -26,7 +27,7 @@ const worker = await Worker.create({
 
 const clientConnection = await Connection.connect({ address });
 const client = new Client({ connection: clientConnection, namespace: process.env.TEMPORAL_NAMESPACE ?? "passage" });
-const decisions = createServer(createDecisionHandler(client, { taskQueue })).listen(Number(process.env.HTTP_PORT ?? 8080));
+const decisions = createServer(createDecisionHandler(client, { taskQueue, ...(process.env.PASSAGE_SERVICE_PUBLIC_KEYS ? { agentsVerifier: createVerifier({ keys: parsePublicKeys(process.env.PASSAGE_SERVICE_PUBLIC_KEYS) }) } : {}) })).listen(Number(process.env.HTTP_PORT ?? 8080));
 // Starts tenderWorkflow on transport's load.released and signals it on tender.accepted and tender.declined (#426).
 const consumerConfig = eventConsumerConfigFromEnv(process.env);
 const events: RunningEventConsumer | null = consumerConfig ? await startEventConsumer(consumerConfig, client, taskQueue, warn) : null;
