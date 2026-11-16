@@ -44,6 +44,20 @@ Env: `DATABASE_URL` (role `passage_app`; without it the process keeps everything
 runs), `MIGRATE_ON_START` (`true` runs the migrations as the owner role at start), `PREDICTION_MIN_ROWS`,
 `PREDICTION_MAE_MAX_DAYS` (service defaults).
 
+## Recompute on receivables events
+
+`python -m prediction.consumer` (src/prediction/consumer.py; chart `consumer`, off by default) consumes the receivables payment,
+credit settlement, dispute, dunning letter, deduction, down payment and opening-item events (CloudEvents on
+`passage.receivables.*`, structured or binary mode) from Kafka in the group `prediction`, and rescores the invoices they touch.
+Each event names its tenant, legal entity and the open items it changed; the recompute is the sync delta for that entity
+(`prediction.sync.delta`), so the invoices the event names, and anything else changed since the entity's watermark, are scored
+again. One pass serves all events of a batch for the same entity. Each event is recorded in `consumer_inbox` (migration 0004,
+the table of the Go services' `eventing.PgInbox`) inside the transaction around its recompute: a redelivered event is skipped, a
+recompute that fails leaves no record, nothing is committed, and the batch is read again after a backoff (1 s growing to 30 s).
+Offsets are committed after the batch. A malformed message is logged and skipped. The 15-minute delta CronJob keeps running as the
+safety net. Needs `KAFKA_BROKERS`, `RECEIVABLES_URL` and the service signing key (the same as the sync jobs); optional
+`PREDICTION_KAFKA_GROUP` and `PREDICTION_KAFKA_TOPICS`. Tests: `tests/test_consumer.py` with a fake source and a fake Kafka client.
+
 ## Run and test
 
 ```

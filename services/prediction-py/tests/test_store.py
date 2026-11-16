@@ -316,3 +316,32 @@ def test_predictions_with_no_entity_are_claimed_by_the_entity_the_feed_says_they
     assert repo.prediction(t, ids[0], [le]) is not None and repo.prediction(t, ids[0], [le2]) is None
     s.score(t, invoices, le, [le])
     assert repo.prediction(t, ids[0], [le]) is not None
+
+
+def test_the_consumer_inbox_dedupes_per_tenant_and_a_failed_block_leaves_no_record(make_repo):
+    t, other = tenant(), tenant()
+    repo = make_repo()
+    with repo.inbox_once(t, "prediction-receivables", "evt-1") as first:
+        assert first
+    with make_repo().inbox_once(t, "prediction-receivables", "evt-1") as again:  # a restart sees the record
+        assert not again
+    with repo.inbox_once(other, "prediction-receivables", "evt-1") as elsewhere, repo.inbox_once(t, "another-consumer", "evt-1") as other_consumer:
+        assert elsewhere and other_consumer
+    with pytest.raises(RuntimeError):
+        with repo.inbox_once(t, "prediction-receivables", "evt-2") as first:
+            assert first
+            raise RuntimeError("the recompute failed")
+    with repo.inbox_once(t, "prediction-receivables", "evt-2") as retried:
+        assert retried  # nothing was recorded, so the redelivered event is handled
+
+
+def test_the_application_role_may_only_read_and_insert_inbox_rows(pg_schema):
+    import psycopg
+
+    app_url, _owner = pg_schema
+    t = tenant()
+    with psycopg.connect(app_url) as c, c.transaction():
+        c.execute("select set_config('passage.tenant_id', %s, true)", (t,))
+        c.execute("insert into consumer_inbox (tenant_id, consumer, event_id) values (%s, 'c', 'e')", (t,))
+        with pytest.raises(psycopg.errors.InsufficientPrivilege):
+            c.execute("delete from consumer_inbox")

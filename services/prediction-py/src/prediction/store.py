@@ -50,6 +50,15 @@ class PgRepository:
                 conn.execute("select set_config('passage.tenant_id', %s, true), set_config('passage.legal_entity_scopes', %s, true)", (tenant_id, scopes))
                 yield conn
 
+    @contextmanager
+    def inbox_once(self, tenant_id: str, consumer: str, event_id: str) -> Iterator[bool]:
+        """Records the event in consumer_inbox and yields True when it was new, False when it was seen before (the eventing.PgInbox contract).
+        The row is written inside the tenant transaction that surrounds the block: a block that raises rolls the row back, so the event
+        is handled again on redelivery, and a concurrent delivery of the same event waits for this one's outcome."""
+        with self._tenant(tenant_id) as c:
+            cur = c.execute("insert into consumer_inbox (tenant_id, consumer, event_id) values (%s, %s, %s) on conflict do nothing", (tenant_id, consumer, event_id))
+            yield cur.rowcount == 1
+
     def ping(self) -> None:
         with psycopg.connect(self.url, connect_timeout=2) as conn:
             conn.execute("select 1")
