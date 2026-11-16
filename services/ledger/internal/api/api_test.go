@@ -56,6 +56,9 @@ type fakeStore struct {
 	created        bool
 	// balanceFilter is the last trial balance filter the handler passed down.
 	balanceFilter store.BalanceFilter
+	// partners is what PartnerBalances returns and partnerFilter the filter the handler passed down.
+	partners      store.PartnerBalances
+	partnerFilter store.PartnerBalanceFilter
 	// trial is what TrialBalance returns.
 	trial store.TrialBalance
 	// linePages, when set, are served one per ListLines call (the last repeats) instead of linePage.
@@ -187,6 +190,11 @@ func (f *fakeStore) ValidateEntry(_ context.Context, in store.PostInput) (domain
 func (f *fakeStore) TrialBalance(_ context.Context, bf store.BalanceFilter) (store.TrialBalance, error) {
 	f.balanceFilter = bf
 	return f.trial, f.err
+}
+
+func (f *fakeStore) PartnerBalances(_ context.Context, pf store.PartnerBalanceFilter) (store.PartnerBalances, error) {
+	f.partnerFilter = pf
+	return f.partners, f.err
 }
 
 func (f *fakeStore) RebuildBalances(context.Context, string) (store.RebuildResult, error) {

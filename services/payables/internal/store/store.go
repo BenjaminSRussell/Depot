@@ -72,6 +72,9 @@ type OpenItem struct {
 	// PayeeWorkerID is the HR worker an expense reimbursement pays; VendorID is the vendor the
 	// employee-vendor register maps them to, or the worker id itself while no mapping exists.
 	PayeeWorkerID string `json:"payeeWorkerId,omitempty"`
+	// TradingPartnerID is the legal entity on the other side of an auto-posted intercompany vendor invoice (#40), when its entry named
+	// it; the payment run names it on this item's control debit. Not part of the JSON model.
+	TradingPartnerID string `json:"-"`
 	// OpeningReference is the legacy item reference of an item loaded at cutover (dueDateSource OPENING); empty otherwise.
 	OpeningReference string `json:"openingReference,omitempty"`
 }
@@ -170,12 +173,12 @@ func (s *Postgres) CreateFromInvoice(ctx context.Context, in OpenItem) (OpenItem
 func createFromInvoice(ctx context.Context, tx pgx.Tx, tenantID, dueSource string, in OpenItem) (out OpenItem, created bool, err error) {
 	err = func() error {
 		row := tx.QueryRow(ctx, `insert into ap_open_item (tenant_id, id, legal_entity_id, vendor_id, source_invoice_id, invoice_number,
-			invoice_date, due_date, due_date_source, currency, amount, open_amount, discount_date, discount_amount, status, vendor_group_id, payee_unverified, vendor_group_code, payee_worker_id)
-			values ($1, $2, $3, $4, $5, $6, $7, $8, $13, $9, $10, $10, $11, $12, 'OPEN', $14::uuid, $15, $16, $17::uuid)
+			invoice_date, due_date, due_date_source, currency, amount, open_amount, discount_date, discount_amount, status, vendor_group_id, payee_unverified, vendor_group_code, payee_worker_id, trading_partner_id)
+			values ($1, $2, $3, $4, $5, $6, $7, $8, $13, $9, $10, $10, $11, $12, 'OPEN', $14::uuid, $15, $16, $17::uuid, nullif($18, '')::uuid)
 			on conflict (tenant_id, source_invoice_id) do nothing
 			returning `+columns,
 			tenantID, ids.New(), in.LegalEntityID, in.VendorID, in.SourceInvoiceID, in.InvoiceNumber, in.InvoiceDate, in.DueDate,
-			in.Currency, in.Amount.String(), in.DiscountDate, in.DiscountAmount.String(), dueSource, nullable(in.VendorGroupID), in.PayeeUnverified, nullable(in.VendorGroupCode), nullable(in.PayeeWorkerID))
+			in.Currency, in.Amount.String(), in.DiscountDate, in.DiscountAmount.String(), dueSource, nullable(in.VendorGroupID), in.PayeeUnverified, nullable(in.VendorGroupCode), nullable(in.PayeeWorkerID), in.TradingPartnerID)
 		var err error
 		out, err = scan(row)
 		if err == nil {

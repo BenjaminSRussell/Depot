@@ -114,7 +114,10 @@ type Data struct {
 	Price                 string `json:"price"`
 	Tax                   string `json:"tax"`
 	BorrowerLegalEntityID string `json:"borrowerLegalEntityId"`
-	VendorAccount         string `json:"vendorAccount"`
+	// LenderLegalEntityID is the other side of the vendor invoice; the entry names it as the trading partner on the cost and control
+	// lines (#40).
+	LenderLegalEntityID string `json:"lenderLegalEntityId"`
+	VendorAccount       string `json:"vendorAccount"`
 	// AutoPostInvoice is the pairing's opt-in to post the vendor invoice without review.
 	AutoPostInvoice bool `json:"autoPostInvoice"`
 }
@@ -220,6 +223,15 @@ func EntryLines(p EntityProfile, in store.VendorInvoiceIntake, text string) ([]d
 	return lines, nil
 }
 
+// PartnerOf is the trading partner an auto-posted entry names on its cost and control lines: the lender's legal entity, or "" when the
+// event carries none or it is the borrower's own legal entity (the ledger refuses a partner equal to its own entity).
+func PartnerOf(d Data) string {
+	if ids.Valid(d.LenderLegalEntityID) && d.LenderLegalEntityID != d.BorrowerLegalEntityID {
+		return d.LenderLegalEntityID
+	}
+	return ""
+}
+
 // park leaves the intake row RECEIVED with the reason an auto-post was refused, so a clerk sees it on the worklist and posts it by
 // hand. Nothing is dead-lettered: the event is done, and the row is the one recovery path.
 func park(ctx context.Context, s Store, in store.VendorInvoiceIntake, reason string) (store.VendorInvoiceIntake, error) {
@@ -275,6 +287,13 @@ func autoPost(ctx context.Context, s Store, auto *AutoPost, d Data, in store.Ven
 	if err != nil {
 		return park(ctx, s, in, err.Error())
 	}
+	if partner := PartnerOf(d); partner != "" {
+		for i := range lines {
+			if lines[i].Account == profile.ExpenseAccount || lines[i].Account == profile.ControlAccount {
+				lines[i].TradingPartnerID = partner
+			}
+		}
+	}
 	now := time.Now
 	if auto.Now != nil {
 		now = auto.Now
@@ -312,7 +331,7 @@ func autoPost(ctx context.Context, s Store, auto *AutoPost, d Data, in store.Ven
 		return park(ctx, s, in, "the row has no invoice date")
 	}
 	if _, _, err := s.CreateFromInvoice(ctx, store.OpenItem{LegalEntityID: in.LegalEntityID, VendorID: in.VendorID, SourceInvoiceID: in.ID, InvoiceNumber: in.InvoiceNumber,
-		InvoiceDate: in.InvoiceDate, DueDate: invoiceDate.AddDate(0, 0, days).Format(time.DateOnly), DueDateSource: store.DueDateDefaulted, Currency: in.Currency, Amount: in.Gross}); err != nil {
+		InvoiceDate: in.InvoiceDate, DueDate: invoiceDate.AddDate(0, 0, days).Format(time.DateOnly), DueDateSource: store.DueDateDefaulted, Currency: in.Currency, Amount: in.Gross, TradingPartnerID: PartnerOf(d)}); err != nil {
 		if errors.Is(err, store.ErrConflictingReplay) {
 			return in, eventing.Permanent(err)
 		}

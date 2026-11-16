@@ -66,7 +66,9 @@ type invoicePostedData struct {
 	InvoiceDate    string        `json:"invoice_date"`
 	DueDate        string        `json:"due_date"`
 	Totals         billingTotals `json:"totals"`
-	Installments   []struct {
+	// TradingPartnerID is the other side of an intercompany invoice (#40).
+	TradingPartnerID string `json:"trading_partner_id"`
+	Installments     []struct {
 		No      int    `json:"no"`
 		Amount  string `json:"amount"`
 		DueDate string `json:"due_date"`
@@ -168,7 +170,7 @@ func openInvoice(ctx context.Context, s BillingStore, evt events.Event) error {
 		return eventing.Permanent(fmt.Errorf("invoice.posted %s: %w", d.Number, err))
 	}
 	return apply(ctx, s, evt, store.BillingDocument{SourceType: "INVOICE", ID: c["invoice_id"], Number: d.Number, LegalEntityID: c["legal_entity_id"],
-		CustomerID: c["customer"], Currency: d.Currency, DocumentDate: d.InvoiceDate, Items: items}, d.Number)
+		CustomerID: c["customer"], Currency: d.Currency, DocumentDate: d.InvoiceDate, Items: items, TradingPartnerID: d.TradingPartnerID}, d.Number)
 }
 
 func openCreditNote(ctx context.Context, s BillingStore, evt events.Event) error {

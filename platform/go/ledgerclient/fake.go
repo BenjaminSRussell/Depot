@@ -125,6 +125,11 @@ func (f *Fake) store(op string, e Entry, reversalOf string) (string, error) {
 		}
 		return f.entries[i].ID, nil
 	}
+	for _, l := range e.Lines {
+		if l.TradingPartnerID != "" && l.TradingPartnerID == e.LegalEntityID {
+			return "", &Error{Op: op, Status: http.StatusUnprocessableEntity, Code: "LEDGER_TRADING_PARTNER_INVALID"}
+		}
+	}
 	id := ids.New()
 	f.byKey[key] = len(f.entries)
 	f.entries = append(f.entries, Stored{ID: id, ReversalOf: reversalOf, PostedBy: f.service, Entry: e})
@@ -134,7 +139,7 @@ func (f *Fake) store(op string, e Entry, reversalOf string) (string, error) {
 func sameEntry(a, b Entry) bool {
 	return a.LedgerID == b.LedgerID && a.DocumentID == b.DocumentID && a.PostingDate == b.PostingDate && a.Currency == b.Currency &&
 		slices.EqualFunc(a.Lines, b.Lines, func(x, y Line) bool {
-			return x.Account == y.Account && x.Credit == y.Credit && x.Amount.Equal(y.Amount)
+			return x.Account == y.Account && x.Credit == y.Credit && x.Amount.Equal(y.Amount) && x.TradingPartnerID == y.TradingPartnerID
 		})
 }
 

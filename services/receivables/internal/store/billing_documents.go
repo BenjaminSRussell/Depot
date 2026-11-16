@@ -40,6 +40,9 @@ type BillingDocument struct {
 	Currency       string
 	DocumentDate   string
 	Items          []domain.PlannedItem
+	// TradingPartnerID is the legal entity on the other side of an intercompany invoice (#40); the store remembers it for the customer
+	// so the ledger journals of the customer's payments name it.
+	TradingPartnerID string
 }
 
 // ErrOriginalInvoiceNotFound is a credit note whose invoice has no open items in its legal entity (yet). The caller retries,
@@ -90,16 +93,31 @@ func (s *Postgres) ApplyBillingDocument(ctx context.Context, d BillingDocument) 
 		if taken {
 			return numberTaken()
 		}
+		// The partner of an intercompany invoice goes on each of its items; a credit note's credit item has its invoice's.
+		partner := ""
+		switch {
+		case d.SourceType == "INVOICE" && d.TradingPartnerID != "" && d.TradingPartnerID != d.LegalEntityID:
+			partner = d.TradingPartnerID
+		case d.OriginalID != "":
+			var inherited *string
+			if err := tx.QueryRow(ctx, `select trading_partner_id::text from open_item where source_type = 'INVOICE' and source_doc_id = $1::uuid and trading_partner_id is not null limit 1`,
+				d.OriginalID).Scan(&inherited); err != nil && !errors.Is(err, pgx.ErrNoRows) {
+				return err
+			}
+			if inherited != nil {
+				partner = *inherited
+			}
+		}
 		for _, it := range d.Items {
 			var original any
 			if d.OriginalID != "" {
 				original = d.OriginalID
 			}
 			if _, err := tx.Exec(ctx, `insert into open_item (tenant_id, id, legal_entity_id, customer_id, source_type, document_number,
-				document_date, due_date, currency, amount, open_amount, status, source_doc_id, installment_no, original_doc_id)
-				values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $10, 'OPEN', $11, $12, $13)`,
+				document_date, due_date, currency, amount, open_amount, status, source_doc_id, installment_no, original_doc_id, trading_partner_id)
+				values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $10, 'OPEN', $11, $12, $13, nullif($14, '')::uuid)`,
 				p.TenantID, ids.New(), d.LegalEntityID, d.CustomerID, d.SourceType, it.DocumentNumber, d.DocumentDate, it.DueDate,
-				d.Currency, it.Amount.String(), d.ID, it.InstallmentNo, original); err != nil {
+				d.Currency, it.Amount.String(), d.ID, it.InstallmentNo, original, partner); err != nil {
 				return err
 			}
 			created++

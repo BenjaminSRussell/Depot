@@ -434,6 +434,7 @@ today:
 | `LEDGER_LOOKUP_TABLE_INVALID` | A lookup table definition or row is invalid for the ledger |
 | `LEDGER_UNBALANCED` | Debits do not equal credits in the ledger currency (BR-11.1) |
 | `LEDGER_LINE_EMPTY` | Entry has no lines, or a zero-amount line without text or quantity (BR-11.2) |
+| `LEDGER_TRADING_PARTNER_INVALID` | A line's `tradingPartnerId` is not a UUID, is the legal entity of the ledger, or is not a legal entity of the tenant that owns a ledger (#40) |
 | `LEDGER_QUANTITY_INVALID` | Statistical `quantity` is negative, over 6 decimals or too large, or `quantity` and `unit` (A-Z, 0-9, up to 10) are not set together (BR-11.2) |
 | `LEDGER_LINE_LIMIT` | More than 10,000 lines (FR-11.5); 422 problem: more batch lines than the journal name's `linesLimit` (FR-11.9) |
 | `LEDGER_AMOUNT_SCALE` | Amount has more decimals than the currency allows (BR-11.3) |

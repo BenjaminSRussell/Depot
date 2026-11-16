@@ -370,3 +370,61 @@ type unsignedLedger struct{}
 
 func (unsignedLedger) Post(context.Context, ledger.Entry) (string, error) { return "", nil }
 func (unsignedLedger) Signed() bool                                       { return false }
+
+// #40: the auto-posted entry names the lender's legal entity as the trading partner on the cost and control lines, not on tax, so
+// the consolidation reads the borrower's payable per counterparty. A lender that is the borrower's own entity names none.
+func TestHandle_AutoPostNamesTheLenderAsTradingPartner(t *testing.T) {
+	s, _ := migratedStore(t)
+	led := newFakeLedger()
+	le, vendor, lender := ids.New(), ids.New(), ids.New()
+	auto := autoFor(led, map[string]iccharge.EntityProfile{le: profileFor("L-B")})
+	data := autoCharge(le, vendor)
+	data["lenderLegalEntityId"] = lender
+	if _, err := iccharge.Handle(consumerCtx(t), s, auto, event(t, data, publishedSource)); err != nil {
+		t.Fatal(err)
+	}
+	e := led.entries["payables-iccharge:"+data["id"].(string)+":1"]
+	got := map[string]string{}
+	for _, l := range e.Lines {
+		got[l.Account] = l.TradingPartnerID
+	}
+	if got["6200"] != lender || got["2100"] != lender || got["1400"] != "" {
+		t.Fatalf("partners by account %v, want cost and control lines to name %s and input tax none", got, lender)
+	}
+	if p := iccharge.PartnerOf(iccharge.Data{BorrowerLegalEntityID: le, LenderLegalEntityID: le}); p != "" {
+		t.Fatalf("a lender that is the borrower's own entity must name no partner, got %q", p)
+	}
+}
+
+// #40: the open item of an auto-posted charge keeps the lender as its trading partner, for the payment run; a charge left to review opens
+// nothing, so the clerk's invoice and its payment stay untagged.
+func TestHandle_AutoPostedOpenItemKeepsThePartnerForThePaymentRun(t *testing.T) {
+	s, admin := migratedStore(t)
+	led := newFakeLedger()
+	le, vendor, lender := ids.New(), ids.New(), ids.New()
+	auto := autoFor(led, map[string]iccharge.EntityProfile{le: profileFor("L-B")})
+	data := autoCharge(le, vendor)
+	data["lenderLegalEntityId"] = lender
+	first, err := iccharge.Handle(consumerCtx(t), s, auto, event(t, data, publishedSource))
+	if err != nil || first.Status != "POSTED" {
+		t.Fatalf("auto-post: %+v %v", first, err)
+	}
+	var partner *string
+	if err := admin.QueryRow(context.Background(), `select trading_partner_id::text from ap_open_item where source_invoice_id = $1`, first.ID).Scan(&partner); err != nil {
+		t.Fatal(err)
+	}
+	if partner == nil || *partner != lender {
+		t.Fatalf("open item partner = %v, want %s", partner, lender)
+	}
+	// Review mode: the row waits for a clerk and no open item exists, so nothing is tagged.
+	review := autoCharge(le, ids.New())
+	review["autoPostInvoice"], review["lenderLegalEntityId"] = false, lender
+	row, err := iccharge.Handle(consumerCtx(t), s, nil, event(t, review, publishedSource))
+	if err != nil || row.Status != "RECEIVED" {
+		t.Fatalf("review: %+v %v", row, err)
+	}
+	var n int
+	if err := admin.QueryRow(context.Background(), `select count(*) from ap_open_item where source_invoice_id = $1`, row.ID).Scan(&n); err != nil || n != 0 {
+		t.Fatalf("review mode opened %d items: %v", n, err)
+	}
+}

@@ -35,6 +35,8 @@ const (
 	ManualSourceType   = "manual_journal"
 )
 
+var tradingPartnerRe = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
+
 var dimValueRe = regexp.MustCompile(`^[A-Za-z0-9._-]{1,20}$`)
 
 // unitRe is a unit of measure code on a statistical line (BR-11.2).
@@ -98,7 +100,13 @@ type Rules struct {
 	Structures []Structure
 	// DimensionValues are the registered values, keyed by ValueKey (FR-11.2).
 	DimensionValues map[string]DimensionValue
+	// LegalEntityID is the legal entity that owns the ledger; a line's trading partner must be another legal entity (#40).
+	LegalEntityID string
 }
+
+// CodeTradingPartnerInvalid is the violation code for a trading partner that is not a UUID, is the ledger's own legal entity or is
+// not a legal entity of the tenant (#40).
+const CodeTradingPartnerInvalid = "LEDGER_TRADING_PARTNER_INVALID"
 
 // IsManualSource reports whether a source system/type pair is a manual journal.
 func IsManualSource(system, sourceType string) bool {
@@ -119,6 +127,9 @@ type LineInput struct {
 	// a zero Quantity means none, and then Unit must be empty.
 	Quantity decimal.Decimal
 	Unit     string
+	// TradingPartner is the legal entity on the other side of an intercompany line, as a lower case UUID; empty when the line has
+	// none. It is not a dimension: it does not enter the combination hash or the balance projection.
+	TradingPartner string
 	// DerivedBy lists the derivation step ids that filled dimensions (FR-11.22).
 	DerivedBy []string
 	// RoundingAdjustment marks the line that absorbed a currency translation rounding difference (BR-12.4).
@@ -135,10 +146,12 @@ type ValidLine struct {
 	Text          string
 	SourceLineRef string
 	// Quantity and Unit are the statistical quantity of the line (BR-11.2).
-	Quantity      decimal.Decimal
-	Unit          string
-	CombinationID []byte
-	DisplayName   string
+	Quantity decimal.Decimal
+	Unit     string
+	// TradingPartner is the counterparty legal entity of the line (#40); empty when none.
+	TradingPartner string
+	CombinationID  []byte
+	DisplayName    string
 	// StructureID is the account structure version that validated the line.
 	StructureID string
 	// DerivedBy lists the derivation step ids that filled dimensions (FR-11.22).
@@ -240,6 +253,16 @@ func ValidateEntry(r Rules, accounts map[string]Account, postingDate, today time
 			fail("LEDGER_AMOUNT_SCALE", "lines.amount.value", fmt.Sprintf("amount %s has more decimals than %s allows (%d)", in.Amount.String(), r.Currency, minor))
 			ok = false
 		}
+		if in.TradingPartner != "" {
+			switch {
+			case !tradingPartnerRe.MatchString(in.TradingPartner):
+				fail(CodeTradingPartnerInvalid, "lines.tradingPartnerId", "the trading partner must be a legal entity id (a lower case UUID)")
+				ok = false
+			case in.TradingPartner == r.LegalEntityID:
+				fail(CodeTradingPartnerInvalid, "lines.tradingPartnerId", "the trading partner must differ from the legal entity of the ledger")
+				ok = false
+			}
+		}
 		if in.Amount.IsZero() && in.Text == "" && in.Quantity.IsZero() {
 			fail("LEDGER_LINE_EMPTY", "lines.amount.value", "line has no amount, no quantity and no text")
 			ok = false
@@ -320,7 +343,7 @@ func ValidateEntry(r Rules, accounts map[string]Account, postingDate, today time
 		}
 		id, display := CombinationIDFor(structureID, r.DimensionAttributes, r.ChartCode, acct.Number, dims)
 		res.Lines = append(res.Lines, ValidLine{Index: idx, Account: acct, Dimensions: dims, Side: in.Side,
-			Amount: in.Amount, Text: in.Text, SourceLineRef: in.SourceLineRef, Quantity: in.Quantity, Unit: in.Unit, CombinationID: id, DisplayName: display,
+			Amount: in.Amount, Text: in.Text, SourceLineRef: in.SourceLineRef, Quantity: in.Quantity, Unit: in.Unit, TradingPartner: in.TradingPartner, CombinationID: id, DisplayName: display,
 			StructureID: structureID, DerivedBy: in.DerivedBy, RoundingAdjustment: in.RoundingAdjustment})
 	}
 	if !res.Debit.Equal(res.Credit) {

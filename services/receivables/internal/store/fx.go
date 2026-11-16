@@ -159,6 +159,14 @@ type settlementPricing struct {
 	itemCurrency          string
 	paymentRate, itemRate decimal.Decimal
 	fx                    domain.RealizedFX
+	// partner is the trading partner of the settled item (#40); empty for an ordinary item.
+	partner string
+}
+
+// fxDiff is one realized exchange difference (positive a gain) and the trading partner of the item it came from.
+type fxDiff struct {
+	amount  decimal.Decimal
+	partner string
 }
 
 // rate reads one rate, treating the functional currency as 1 without a call.
@@ -285,29 +293,45 @@ func (s *Postgres) priceCrossCurrency(ctx context.Context, book rateBook, set FX
 // functional currency: gains Dr 1200 / Cr the gain account, losses Dr the loss account / Cr 1200. A payment whose settlements
 // net to nothing owes none.
 func realizedFXJournal(ctx context.Context, tx pgx.Tx, tenantID string, set FXSetting, pay Payment, prices []settlementPricing) error {
-	diffs := make([]decimal.Decimal, len(prices))
+	diffs := make([]fxDiff, len(prices))
 	for i, p := range prices {
-		diffs[i] = p.fx.Difference
+		diffs[i] = fxDiff{amount: p.fx.Difference, partner: p.partner}
 	}
 	return fxJournal(ctx, tx, tenantID, set, pay.LegalEntityID, pay.ID, "fx:"+pay.ID+":"+strconv.Itoa(pay.Version), "PAY-"+pay.ID, diffs)
 }
 
-// fxJournal owes the ledger realized exchange differences (positive a gain) as one journal in the functional currency.
-func fxJournal(ctx context.Context, tx pgx.Tx, tenantID string, set FXSetting, legalEntityID, sourceID, sourceKey, documentID string, diffs []decimal.Decimal) error {
-	gain, loss := decimal.Zero, decimal.Zero
+// fxJournal owes the ledger realized exchange differences (positive a gain) as one journal in the functional currency. The receivable
+// line of an intercompany item names its trading partner, so the difference lowers or raises the tagged receivable (#40); the
+// differences of items with different partners are separate line pairs.
+func fxJournal(ctx context.Context, tx pgx.Tx, tenantID string, set FXSetting, legalEntityID, sourceID, sourceKey, documentID string, diffs []fxDiff) error {
+	var order []string
+	gains, losses := map[string]decimal.Decimal{}, map[string]decimal.Decimal{}
+	seen := map[string]bool{}
 	for _, d := range diffs {
-		if d.IsPositive() {
-			gain = gain.Add(d)
+		if !seen[d.partner] {
+			seen[d.partner] = true
+			order = append(order, d.partner)
+		}
+		if d.amount.IsPositive() {
+			gains[d.partner] = gains[d.partner].Add(d.amount)
 		} else {
-			loss = loss.Add(d.Neg())
+			losses[d.partner] = losses[d.partner].Add(d.amount.Neg())
 		}
 	}
-	var lines []journalLine
-	if gain.IsPositive() {
-		lines = append(lines, debit(domain.AccountReceivable, gain, "Realized exchange gain"), credit(set.GainAccount, gain, "Realized exchange gain"))
+	tagged := func(l journalLine, partner string) journalLine {
+		l.TradingPartnerID = partner
+		return l
 	}
-	if loss.IsPositive() {
-		lines = append(lines, debit(set.LossAccount, loss, "Realized exchange loss"), credit(domain.AccountReceivable, loss, "Realized exchange loss"))
+	var lines []journalLine
+	for _, p := range order {
+		if g := gains[p]; g.IsPositive() {
+			lines = append(lines, tagged(debit(domain.AccountReceivable, g, "Realized exchange gain"), p), credit(set.GainAccount, g, "Realized exchange gain"))
+		}
+	}
+	for _, p := range order {
+		if l := losses[p]; l.IsPositive() {
+			lines = append(lines, debit(set.LossAccount, l, "Realized exchange loss"), tagged(credit(domain.AccountReceivable, l, "Realized exchange loss"), p))
+		}
 	}
 	return enqueueJournal(ctx, tx, tenantID, journalSpec{LegalEntityID: legalEntityID, SourceType: JournalRealizedFX, SourceID: sourceID,
 		SourceKey: sourceKey, DocumentID: documentID, PostingDate: today(), Currency: set.FunctionalCurrency, Lines: lines})

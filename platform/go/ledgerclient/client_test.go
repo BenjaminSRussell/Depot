@@ -394,3 +394,72 @@ func TestJournalLines_RejectsAnUnreadableAmountAndALedgerError(t *testing.T) {
 		t.Fatalf("err %v", err)
 	}
 }
+
+func TestPartnerBalances_ReadsRowsPerCounterparty(t *testing.T) {
+	var query map[string][]string
+	c, _ := newClientAs(t, "consolidation", func(w http.ResponseWriter, r *http.Request) {
+		query = r.URL.Query()
+		if r.URL.Path != "/v1/ledger/balances/by-partner" {
+			t.Errorf("path %s", r.URL.Path)
+		}
+		_, _ = w.Write([]byte(`{"currency":"USD","rows":[{"account":"1300","tradingPartnerId":"` + entityID + `","debit":"100.00","credit":"40.00"}]}`))
+	})
+	got, err := c.PartnerBalances(principalCtx(), ledgerclient.PartnerBalanceQuery{LegalEntityID: entityID, LedgerID: ledgerID, PeriodTo: "2026-09"})
+	if err != nil || got.Currency != "USD" || len(got.Rows) != 1 || !got.Rows[0].Net().Equal(decimal.RequireFromString("60")) ||
+		query["period_to"][0] != "2026-09" || query["ledger"][0] != ledgerID {
+		t.Fatalf("partner balances %+v query %v err %v", got, query, err)
+	}
+}
+
+func TestPost_SendsTheTradingPartner(t *testing.T) {
+	var body string
+	c, _ := newClientAs(t, "intercompany", func(w http.ResponseWriter, r *http.Request) {
+		raw, _ := io.ReadAll(r.Body)
+		body = string(raw)
+		_, _ = w.Write([]byte(`{"entries":[{"id":"` + entityID + `"}]}`))
+	})
+	_, err := c.Post(principalCtx(), ledgerclient.Entry{LegalEntityID: entityID, LedgerID: ledgerID, DocumentID: "d", PostingDate: "2026-03-01", Currency: "USD", IdempotencyKey: "k",
+		Lines: []ledgerclient.Line{{Account: "1300", Amount: decimal.NewFromInt(5), TradingPartnerID: ledgerID}, {Account: "4900", Credit: true, Amount: decimal.NewFromInt(5)}}})
+	if err != nil || strings.Count(body, `"tradingPartnerId"`) != 1 || !strings.Contains(body, `"tradingPartnerId":"`+ledgerID+`"`) {
+		t.Fatalf("body %s err %v", body, err)
+	}
+}
+
+// A ledger that predates the trading partner refuses the field as unknown (400 COM-0001, "unknown field"); the client posts once more
+// without it, so an intercompany journal is not compensated during a rollout that deploys a poster first. Any other 400, the upgraded
+// ledger's own refusal of a bad partner value included, is not retried.
+func TestPost_RetriesWithoutTheTradingPartnerOnlyWhenAnOldLedgerRefusesTheField(t *testing.T) {
+	entry := func(partner string) ledgerclient.Entry {
+		return ledgerclient.Entry{LegalEntityID: entityID, LedgerID: ledgerID, DocumentID: "d", PostingDate: "2026-03-01", Currency: "USD", IdempotencyKey: "k",
+			Lines: []ledgerclient.Line{{Account: "1300", Amount: decimal.NewFromInt(5), TradingPartnerID: partner}, {Account: "4900", Credit: true, Amount: decimal.NewFromInt(5)}}}
+	}
+	for _, c := range []struct {
+		name, detail string
+		wantCalls    int
+		wantErr      bool
+	}{
+		{"old ledger", `malformed JSON body: json: unknown field \"tradingPartnerId\"`, 2, false},
+		{"bad partner value", `lines[1].tradingPartnerId must be a legal entity id (UUID)`, 1, true},
+		{"other validation error", `lines[0].account is required and must be at most 20 characters`, 1, true},
+		{"other unknown field", `malformed JSON body: json: unknown field \"optionalDimensions\"`, 1, true},
+	} {
+		var bodies []string
+		cl, _ := newClientAs(t, "intercompany", func(w http.ResponseWriter, r *http.Request) {
+			raw, _ := io.ReadAll(r.Body)
+			bodies = append(bodies, string(raw))
+			if strings.Contains(string(raw), `"tradingPartnerId"`) || c.wantCalls == 1 {
+				w.WriteHeader(http.StatusBadRequest)
+				_, _ = w.Write([]byte(`{"code":"COM-0001","detail":"` + c.detail + `"}`))
+				return
+			}
+			_, _ = w.Write([]byte(`{"entries":[{"id":"` + entityID + `"}]}`))
+		})
+		id, err := cl.Post(principalCtx(), entry(ledgerID))
+		if (err != nil) != c.wantErr || len(bodies) != c.wantCalls {
+			t.Fatalf("%s: id %q err %v calls %d, want %d calls, error %v", c.name, id, err, len(bodies), c.wantCalls, c.wantErr)
+		}
+		if c.wantCalls == 2 && (id != entityID || strings.Contains(bodies[1], "tradingPartnerId")) {
+			t.Fatalf("%s: the retry must carry no partner: %v", c.name, bodies)
+		}
+	}
+}

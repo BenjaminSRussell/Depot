@@ -11,6 +11,7 @@ import (
 	"github.com/shopspring/decimal"
 
 	"github.com/BenjaminSRussell/passage/platform/dbx"
+	"github.com/BenjaminSRussell/passage/platform/ids"
 	"github.com/BenjaminSRussell/passage/platform/ledgerclient"
 	"github.com/BenjaminSRussell/passage/services/receivables/internal/domain"
 )
@@ -305,5 +306,75 @@ func TestBankAccountMapping_CamtStatementAccountBooksToItsLedgerAccount(t *testi
 		return tx.QueryRow(ctx, `select lines from gl_journal where source_id = $1`, batch.Payments[0].ID).Scan(&raw)
 	}); err != nil || !strings.Contains(string(raw), `"account": "1015"`) || strings.Contains(string(raw), `"account": "1000"`) {
 		t.Fatalf("journal lines = %s (%v)", raw, err)
+	}
+}
+
+// #40: a payment names the trading partner per settled item. A customer with an intercompany invoice and an ordinary one pays both: the
+// receivable credit is split, the intercompany part carries the partner and the ordinary part none; an unapply and a credit note follow
+// the item. An invoice without a partner never tags anything, whoever the customer is.
+func TestGLJournal_PaymentNamesThePartnerPerSettledItem(t *testing.T) {
+	s, gl, _ := rmaSetup(t)
+	ctx := tenantCtx(1)
+	plain := seedInvoice(t, s, ctx)
+	partner := ids.New()
+	items, err := domain.PlanInvoiceItems("INV-IC-1", "USD", amt("500.00"), "2027-04-01", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.ApplyBillingDocument(ctx, BillingDocument{SourceType: "INVOICE", ID: ids.New(), Number: "INV-IC-1", LegalEntityID: legalEntity, CustomerID: plain.CustomerID,
+		Currency: "USD", DocumentDate: "2027-03-01", Items: items, TradingPartnerID: partner}); err != nil {
+		t.Fatal(err)
+	}
+	listed, err := s.ListOpenItems(ctx, OpenItemFilter{CustomerID: plain.CustomerID, Q: "INV-IC-1"}, 10)
+	if err != nil || len(listed) != 1 {
+		t.Fatalf("listing the intercompany item: %v %v", listed, err)
+	}
+	ic := listed[0]
+	cust := plain.CustomerID
+	pay, err := s.CreatePayment(ctx, Payment{LegalEntityID: legalEntity, CustomerID: &cust, PaymentMode: "ACH", Source: "MANUAL",
+		Amount: amt("1500.00"), UnappliedAmount: amt("1500.00"), Currency: "USD", ReceivedDate: "2027-03-08", ValueDate: "2027-03-08"}, "gl-ic-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	plan := ApplyRequest{Allocations: []domain.Allocation{{OpenItemID: plain.ID, Amount: amt("1000.00")}, {OpenItemID: ic.ID, Amount: amt("500.00")}}, Residual: decimal.Zero}
+	applied, err := s.ApplyPayment(ctx, pay.ID, pay.Version, plan, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.UnapplyPayment(ctx, pay.ID, applied.Payment.Version, "wrong customer"); err != nil {
+		t.Fatalf("unapply: %v", err)
+	}
+	if res, err := s.PostDueJournals(ctx, time.Now().UTC(), 50); err != nil || res.Failed != 0 {
+		t.Fatalf("sweep: %+v %v", res, err)
+	}
+	type split struct{ plainAmt, icAmt string }
+	got := map[string]*split{}
+	for _, e := range gl.Entries() {
+		if e.SourceType != "receivables-"+JournalPaymentApply && e.SourceType != "receivables-"+JournalPaymentUnapply {
+			continue
+		}
+		g := got[e.SourceType]
+		if g == nil {
+			g = &split{}
+			got[e.SourceType] = g
+		}
+		for _, l := range e.Lines {
+			if l.Account != "1200" {
+				continue
+			}
+			switch l.TradingPartnerID {
+			case "":
+				g.plainAmt = l.Amount.String()
+			case partner:
+				g.icAmt = l.Amount.String()
+			default:
+				t.Errorf("unexpected partner %s", l.TradingPartnerID)
+			}
+		}
+	}
+	for _, st := range []string{"receivables-" + JournalPaymentApply, "receivables-" + JournalPaymentUnapply} {
+		if g := got[st]; g == nil || g.plainAmt != "1000" || g.icAmt != "500" {
+			t.Errorf("%s receivable split = %+v, want 1000 untagged and 500 naming the partner", st, g)
+		}
 	}
 }

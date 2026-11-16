@@ -45,6 +45,8 @@ type Store interface {
 	GetEntry(ctx context.Context, id string) (Entry, error)
 	ValidateEntry(ctx context.Context, in PostInput) (domain.Result, error)
 	TrialBalance(ctx context.Context, f BalanceFilter) (TrialBalance, error)
+	// PartnerBalances reads the intercompany balances by account and trading partner (#40).
+	PartnerBalances(ctx context.Context, f PartnerBalanceFilter) (PartnerBalances, error)
 	RebuildBalances(ctx context.Context, ledgerID string) (RebuildResult, error)
 	ListReasonCodes(ctx context.Context) ([]ReasonCode, error)
 	GetReasonCode(ctx context.Context, code string) (ReasonCode, error)
@@ -182,7 +184,7 @@ type Ledger struct {
 
 // Rules returns the posting rules this ledger imposes.
 func (l Ledger) Rules() domain.Rules {
-	r := domain.Rules{ChartCode: l.ChartCode, Currency: l.Currency, DimensionAttributes: l.DimensionAttributes, FutureDays: l.FuturePostingDays}
+	r := domain.Rules{ChartCode: l.ChartCode, Currency: l.Currency, DimensionAttributes: l.DimensionAttributes, FutureDays: l.FuturePostingDays, LegalEntityID: l.LegalEntityID}
 	if l.FirstOpenDate != nil {
 		if d, err := time.Parse(time.DateOnly, *l.FirstOpenDate); err == nil {
 			r.FirstOpenDate = &d
@@ -323,8 +325,10 @@ type Line struct {
 	Text                   string            `json:"text,omitempty"`
 	SourceLineRef          string            `json:"sourceLineRef,omitempty"`
 	// Quantity and Unit are the statistical quantity of the line (BR-11.2).
-	Quantity         string  `json:"quantity,omitempty"`
-	Unit             string  `json:"unit,omitempty"`
+	Quantity string `json:"quantity,omitempty"`
+	Unit     string `json:"unit,omitempty"`
+	// TradingPartnerID is the counterparty legal entity of an intercompany line (#40).
+	TradingPartnerID string  `json:"tradingPartnerId,omitempty"`
 	ReversalOfLineID *string `json:"reversalOfLineId,omitempty"`
 	NegativePosting  bool    `json:"negativePosting,omitempty"`
 	// DerivedByStepIDs names the derivation steps that filled dimensions on the line (FR-11.22).

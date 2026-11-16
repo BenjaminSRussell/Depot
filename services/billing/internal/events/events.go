@@ -73,6 +73,9 @@ type InvoicePostedData struct {
 	Installments     []InvoicePostedInstallment `json:"installments"`
 	JournalPostingID *string                    `json:"journal_posting_id"`
 	Intercompany     bool                       `json:"intercompany"`
+	// TradingPartnerID is the legal entity on the other side of an intercompany invoice (#40); receivables remembers it for the customer so
+	// the receipt of payments names it on the ledger. Omitted on an ordinary invoice.
+	TradingPartnerID string `json:"trading_partner_id,omitempty"`
 }
 
 // CreditNotePostedLine is one credited line with the original line it reverses.

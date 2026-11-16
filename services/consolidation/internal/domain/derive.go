@@ -71,6 +71,10 @@ type DeriveInput struct {
 	// OpeningRates fills the opening rate of a currency the previous collection did not give.
 	OpeningRates map[string]decimal.Decimal
 	IC           map[string]ICOverride
+	// PartnerLines are the intercompany balances of the collection per trading partner (#40). A subsidiary with partner lines between
+	// it and its holders takes its sales, cost, receivable and payable from them, and its unrealised profit is estimated from them when
+	// no layers or unsold share exist.
+	PartnerLines []PartnerLine
 	// Layers are the IC receipt layers still held at the end of the period, by the id of the subsidiary that sold them. A unit with
 	// layers has its E3 unrealized profit summed over them instead of from the unsold share.
 	Layers map[string][]ICLayer
@@ -126,6 +130,7 @@ func DeriveRun(in DeriveInput) (Derived, error) {
 	}
 	one := decimal.NewFromInt(1)
 	var out Derived
+	covered := map[[2]string]bool{}
 	for _, u := range in.Units {
 		pct := u.PercentOn(end)
 		if !pct.IsPositive() {
@@ -204,7 +209,23 @@ func DeriveRun(in DeriveInput) (Derived, error) {
 		if err := readPairAccounts(&pair, in, u, terms, end); err != nil {
 			return Derived{}, fail(CodeRunFromCollection, err.Error())
 		}
+		resolved := applyPartnerFlows(&pair, in, u, terms, end)
+		partnered := resolved.Applied
+		out.Warnings = append(out.Warnings, resolved.Warnings...)
+		if partnered {
+			for _, h := range u.Holdings {
+				if inForce(OwnershipInterval{From: h.From, To: h.To, Percent: h.Percent}, end) {
+					a, b := h.HolderUnitID, u.ID
+					if a > b {
+						a, b = b, a
+					}
+					covered[[2]string{a, b}] = true
+				}
+			}
+		}
+		statedShare := false
 		if o, ok := in.IC[u.ID]; ok {
+			statedShare = o.UnsoldShare != nil
 			if terms.ICReceivableAccount != "" && o.ICReceivable != nil {
 				return Derived{}, fail(CodeRunFromCollection, "its IC receivable is read from account "+terms.ICReceivableAccount+" of its ledger; leave icReceivable out of the request")
 			}
@@ -216,17 +237,48 @@ func DeriveRun(in DeriveInput) (Derived, error) {
 					*dst = *v
 				}
 			}
+			// A request amount replaces what the ledgers gave, including the group-currency amounts of a parent's sales that came per
+			// trading partner: the request's amount is in the unit's currency like every ic amount.
+			if o.ICSales != nil {
+				pair.ICSalesGroup = nil
+			}
+			if o.ICCost != nil {
+				pair.ICCostGroup = nil
+			}
+			if o.ICReceivable != nil {
+				pair.ReceivableGroup = nil
+			}
+			if o.PayableGroup != nil {
+				pair.PayableUnit = nil
+			}
 			set(&pair.ICSales, o.ICSales)
 			set(&pair.ICCost, o.ICCost)
 			set(&pair.UnsoldShare, o.UnsoldShare)
 			set(&pair.ICReceivable, o.ICReceivable)
 			set(&pair.PayableGroup, o.PayableGroup)
+			if partnered && (o.ICSales != nil || o.ICCost != nil) {
+				// E1 and E3 must rest on the same figures: the estimate is made from the sales and cost the request gave.
+				f := resolved.Flows
+				if o.ICSales != nil {
+					f.salesGroup = round(o.ICSales.Mul(pair.Rates.Average), in.GroupCurrency)
+				}
+				if o.ICCost != nil {
+					f.costGroup, f.costKnown = round(o.ICCost.Mul(pair.Rates.Average), in.GroupCurrency), true
+				}
+				profit, inventory, margin, ok := UnrealizedFromPartners(f, in.GroupCurrency)
+				resolved.Estimate, resolved.EstimateOK, resolved.CostKnown = profitEstimate{Profit: profit, Inventory: inventory, MarginPct: margin}, ok, f.costKnown
+			}
 		}
-		if layers := in.Layers[u.ID]; len(layers) > 0 {
+		layers := in.Layers[u.ID]
+		if len(layers) > 0 {
 			// The seller's margin is the fallback for a layer with no group cost (BR-40.7).
 			margin := decimal.Zero
-			if pair.ICSales.IsPositive() {
-				margin = pair.ICSales.Sub(pair.ICCost).Div(pair.ICSales).Mul(decimal.NewFromInt(100)).Round(4)
+			sales, cost := pair.ICSales, pair.ICCost
+			if pair.ICSalesGroup != nil && pair.ICCostGroup != nil {
+				sales, cost = *pair.ICSalesGroup, *pair.ICCostGroup
+			}
+			if sales.IsPositive() {
+				margin = sales.Sub(cost).Div(sales).Mul(decimal.NewFromInt(100)).Round(4)
 				if margin.IsNegative() {
 					margin = decimal.Zero
 				}
@@ -237,12 +289,30 @@ func DeriveRun(in DeriveInput) (Derived, error) {
 			}
 			total := profits.Total
 			pair.UnrealizedProfit = &total
+			pair.UnrealizedProfitGroup = nil
 			if w := profits.Warning(); w != nil {
 				out.Warnings = append(out.Warnings, "unit "+u.ID+": "+w.Error())
 			}
 		}
+		switch {
+		case partnered && len(layers) == 0 && statedShare && pair.ICSalesGroup != nil && pair.ICCostGroup != nil && resolved.CostKnown:
+			// A stated unsold share of a parent's sales to this subsidiary applies to the margin of those sales, in the group currency.
+			p := round(pair.ICSalesGroup.Sub(*pair.ICCostGroup).Mul(pair.UnsoldShare), in.GroupCurrency)
+			pair.UnrealizedProfitGroup = &p
+		case partnered && len(layers) == 0 && statedShare && pair.ICSalesGroup != nil && pair.UnsoldShare.IsPositive():
+			// The seller's cost is unknown: with none, the margin is not 100 percent, it is not known, so nothing is eliminated.
+			out.Warnings = append(out.Warnings, (&Error{Code: CodeProfitEstimated, Detail: "unit " + u.ID +
+				": the unsold share cannot be applied to the parent's sales because the seller's cost of sales is unknown (no ic_cost line with a partner and no ic_cost account total); no unrealised profit is eliminated"}).Error())
+		case partnered && len(layers) == 0 && !statedShare && resolved.EstimateOK && (resolved.Estimate.Profit.IsPositive() || resolved.Estimate.Inventory.IsPositive()):
+			est := resolved.Estimate
+			pair.UnrealizedProfitGroup = decPtr(est.Profit)
+			out.Warnings = append(out.Warnings, (&Error{Code: CodeProfitEstimated, Detail: fmt.Sprintf(
+				"unit %s: unrealised profit %s %s estimated from the trading partner balances: closing intercompany inventory %s at the seller's margin of %s percent; give receipt layers or an unsold share for an exact figure",
+				u.ID, est.Profit.StringFixed(2), in.GroupCurrency, est.Inventory.StringFixed(2), est.MarginPct.String())}).Error())
+		}
 		out.Units = append(out.Units, RunUnit{ID: u.ID, Pair: pair, OpeningNetAssets: opening, ClosingNetAssets: closing})
 	}
+	out.Warnings = append(out.Warnings, outsidePairWarnings(in, covered)...)
 	if len(out.Units) == 0 && len(out.Associates) == 0 {
 		return Derived{}, &Error{Code: CodeRunFromCollection, Detail: "the group holds no unit on the last day of " + in.Period + ", so there is nothing to consolidate"}
 	}

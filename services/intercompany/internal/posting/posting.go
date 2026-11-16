@@ -188,10 +188,26 @@ func ShiftNote(pairID string, original, posted time.Time) string {
 	return fmt.Sprintf("Intercompany %s (dated %s, posted %s because that period is closed)", pairID, original.Format(dateLayout), posted.Format(dateLayout))
 }
 
+// Counterparty returns the legal entity on the other side of an entity's entry: the legal entity of the other entry of a pair journal.
+// A journal that touches more or fewer than two entities has no single counterparty, and an entry of two entity codes that share a
+// legal entity has none either (the ledger refuses a partner equal to its own entity), so it returns "".
+func Counterparty(rec domain.JournalRecord, e domain.PostedEntry) string {
+	if len(rec.Entries) != 2 {
+		return ""
+	}
+	for _, o := range rec.Entries {
+		if o.Entity != e.Entity && o.Target.LegalEntityID != e.Target.LegalEntityID {
+			return o.Target.LegalEntityID
+		}
+	}
+	return ""
+}
+
 func ledgerEntry(rec domain.JournalRecord, e domain.PostedEntry, date, original time.Time) ledgerclient.Entry {
 	lines := make([]ledgerclient.Line, 0, len(e.Legs))
+	partner := Counterparty(rec, e)
 	for _, l := range e.Legs {
-		lines = append(lines, ledgerclient.Line{Account: l.Account, Credit: l.Side == domain.Credit, Amount: l.Amount.Value, Text: ShiftNote(rec.PairID, original, date)})
+		lines = append(lines, ledgerclient.Line{Account: l.Account, Credit: l.Side == domain.Credit, Amount: l.Amount.Value, Text: ShiftNote(rec.PairID, original, date), TradingPartnerID: partner})
 	}
 	return ledgerclient.Entry{LegalEntityID: e.Target.LegalEntityID, LedgerID: e.Target.LedgerID, DocumentID: rec.PairID, PostingDate: date.Format(dateLayout),
 		Currency: e.Currency, IdempotencyKey: "ic:" + rec.PairID + ":" + e.Entity, SourceType: SourceType, Lines: lines}

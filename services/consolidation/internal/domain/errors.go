@@ -28,6 +28,13 @@ const (
 	CodeRunNotFound      = "CNS-0921"
 	CodeIdempotencyReuse = "CNS-0922"
 	CodeRunScope         = "CNS-0923"
+	// CodeProfitEstimated warns that the unrealised profit in inventory came from the partner balances, not from receipt layers or
+	// a stated unsold share; it is not in the PRD catalog and is listed in NOT-IMPLEMENTED.md.
+	CodeProfitEstimated = "CNS-0933"
+	// CodeICOutsidePairs warns that intercompany balances sit between two units that are not a holder and its subsidiary.
+	CodeICOutsidePairs = "CNS-0934"
+	// CodeICUntagged warns that intercompany balances without a trading partner on their ledger lines were found and how the run took them.
+	CodeICUntagged = "CNS-0935"
 )
 
 func invalid(detail string) error { return &Error{Code: CodeInvalid, Detail: detail} }

@@ -36,6 +36,8 @@ nothing is stored or published.
 | Area | Code | Status |
 |---|---|---|
 | Unrealized profit per IC receipt layer (remaining quantity × (Legal − Group unit cost)), seller-margin fallback when the group cost is unknown with the CNS-0908 warning, each layer listed with its id and basis, FR-40.16 / BR-40.7, AC-40.12 (800.00) | `internal/domain/layers.go` | built, unit tests |
+| Trading partner dimension (#40): the ledger's lines carry the counterparty legal entity (`tradingPartnerId`), `GET /v1/ledger/balances/by-partner` reads the balances per account and partner, a collection stores the intercompany part of each unit per counterparty (`partnerLines`, a memo of the collected balances, migration `0007`) for the accounts mapped with an `ic_*` role, and a run reads each holder-subsidiary pair's sales, cost, receivable and payable from them, so a parent that sells to several subsidiaries is eliminated per pair (E1, E2, E3), each with its own margin | `internal/domain/partner.go`, `internal/api/collections.go` | built, tests (`partner_test.go`, `partner_runs_test.go`) |
+| Unrealised profit in the buyer's inventory without receipt layers (IFRS 10 B86(c), IAS 28.28): closing intercompany inventory per buyer and seller (the buyer's `ic_inventory` balance with that seller, else `ic_purchases` less `ic_cogs`, capped at what the seller sold) times the seller's margin on its sales to that buyer; layers and a stated unsold share win over it, and the run says it estimated (CNS-0933) | `internal/domain/partner.go` (`UnrealizedFromPartners`) | built, tests; an estimate, see NOT-IMPLEMENTED |
 | Profit-in-inventory preview `POST /v1/consol/profit-in-inventory:preview` | `internal/api/slice2.go` | built, tests |
 | Equity method (share of profit, dividends, closing carrying amount; a share of losses stops at a zero carrying amount, IAS 28.38), FR-40.18, AC-40.14 (60,000.00 / 340,000.00) | `internal/domain/equity.go` | built, unit tests |
 | Equity-method preview `POST /v1/consol/equity-method:preview` | `internal/api/slice2.go` | built, tests |
@@ -158,6 +160,8 @@ Problem details use `type: https://passage.dev/problems/<code>`.
 | CNS-0905 | Two-sided IC difference above the threshold; returned per pair by the IC difference preview and the task ends in Error (BR-40.15) |
 | CNS-0906 | A validation rule failed for a unit; returned per rule by the validation preview (FR-40.20) |
 | CNS-0908 | Group cost unknown for some layers; margin fallback used (warning in the profit-in-inventory preview) |
+| CNS-0935 | Warning of a run over a collection: intercompany balances of a pair carry no trading partner on part of their ledger lines (the tagged total differs from the account total); the run says which figure it used. Not in the PRD catalog |
+| CNS-0933 / CNS-0934 | Warnings of a run over a collection: the unrealised profit of a subsidiary was estimated from the trading partner balances (no layers, no unsold share) / intercompany balances sit between two units that are not a holder and its subsidiary, so no elimination covers them. Not in the PRD catalog |
 | CNS-0909 | Top-side journal at or above the approval threshold needs approval (warning in the group journal check) |
 | CNS-0910 | Move from an existing equity interest to control is a step acquisition, not supported (domain guard) |
 | CNS-0924 / CNS-0925 / CNS-0926 | No group or unit with that id (404) / a group with that code exists (409) / the entity is already a unit of the group (409). Not in the PRD catalog |

@@ -211,6 +211,31 @@ func (s *Postgres) ReverseCreditSettlement(ctx context.Context, batchID, reason 
 				return err
 			}
 		}
+		// The reclass between trading partners a settlement owed is mirrored line by line (#40).
+		for _, prefix := range []string{"credit-reclass:", "credit-reclass-fx:"} {
+			var raw []byte
+			var currency string
+			err := tx.QueryRow(ctx, `select currency::text, lines from gl_journal where tenant_id = $1 and legal_entity_id = $2 and source_key = $3`,
+				p.TenantID, legalEntity, prefix+batchID).Scan(&currency, &raw)
+			if errors.Is(err, pgx.ErrNoRows) {
+				continue
+			}
+			if err != nil {
+				return err
+			}
+			var lines []journalLine
+			if err := json.Unmarshal(raw, &lines); err != nil {
+				return err
+			}
+			for i := range lines {
+				lines[i].Credit = !lines[i].Credit
+				lines[i].Text = "Reversal: " + lines[i].Text
+			}
+			if err := insertJournal(ctx, tx, p.TenantID, journalSpec{LegalEntityID: legalEntity, SourceType: JournalCreditReclass, SourceID: creditItem.ID,
+				SourceKey: prefix + "reversal:" + batchID, DocumentID: "CS-" + batchID + "-RECLASS-REVERSAL", PostingDate: today(), Currency: currency}, lines); err != nil {
+				return err
+			}
+		}
 		event.Total, event.RealizedFX = total, out.RealizedFX
 		return enqueue(ctx, tx, "creditsettlement", out.ReversalBatchID, rcvevents.CreditSettlementReversed, p.TenantID, event)
 	})

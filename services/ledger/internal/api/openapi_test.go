@@ -79,6 +79,7 @@ func TestOpenAPI_MatchesRoutes(t *testing.T) {
 		"GET /v1/ledger/journal-lines":                                              dutyRead,
 		"POST /v1/ledger/validate":                                                  dutyPost,
 		"GET /v1/ledger/balances":                                                   dutyBalanceRead,
+		"GET /v1/ledger/balances/by-partner":                                        dutyBalanceRead,
 		"POST /v1/ledger/balances:rebuild":                                          dutyRebuild,
 		"GET /v1/ledger/reason-codes":                                               dutyRead,
 		"GET /v1/ledger/reason-codes/{code}":                                        dutyRead,

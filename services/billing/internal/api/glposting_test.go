@@ -994,3 +994,48 @@ func TestParseGLProfiles_TenantIDIsOptionalAndMustBeAUUID(t *testing.T) {
 		t.Error("a tenantId that is not a UUID was accepted")
 	}
 }
+
+// #40: an invoice with a trading partner names it on the receivable and revenue lines, not on tax, and a credit note keeps it.
+func TestGLPostings_IntercompanyInvoiceNamesTheTradingPartner(t *testing.T) {
+	g := newGLRig(t, true)
+	id := g.invoice(t, gridLine{"500.00", "4000", "DE19", ""})
+	partner := ids.New()
+	if _, err := g.admin.Exec(context.Background(), `update invoice set trading_partner_id = $2::uuid where id = $1::uuid`, id, partner); err != nil {
+		t.Fatalf("set partner: %v", err)
+	}
+	if out := g.book(t, http.StatusOK, ""); len(out.Items) != 1 {
+		t.Fatalf("booked %+v", out)
+	}
+	got := map[string]string{}
+	for _, l := range g.entryFor(t, id).Lines {
+		got[l.Account] = l.TradingPartnerID
+	}
+	if got["1200"] != partner || got["4000"] != partner || got["2300"] != "" {
+		t.Fatalf("partners by account %v, want the receivable and revenue lines to name %s and tax none", got, partner)
+	}
+	rec := do(g.handler, http.MethodPost, "/v1/billing/credit-notes", "cn-ic", creditBody(id, "2027-03-20", ""))
+	var cn struct {
+		ID string `json:"id"`
+	}
+	decode(t, rec, &cn)
+	if rec.Code != http.StatusCreated || do(g.handler, http.MethodPost, "/v1/billing/credit-notes/"+cn.ID+":post", "", "").Code != http.StatusOK {
+		t.Fatalf("credit note %d %s", rec.Code, rec.Body)
+	}
+	if out := g.book(t, http.StatusOK, ""); len(out.Items) != 1 {
+		t.Fatalf("credit note booking %+v", out)
+	}
+	for _, l := range g.entryFor(t, cn.ID).Lines {
+		if (l.Account == "1200" || l.Account == "4000") && l.TradingPartnerID != partner {
+			t.Errorf("credit note line %s names partner %q, want %s", l.Account, l.TradingPartnerID, partner)
+		}
+	}
+	pb, err := g.fake.PartnerBalances(context.Background(), ledgerclient.PartnerBalanceQuery{LedgerID: g.ledgerID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, r := range pb.Rows {
+		if (r.Account == "1200" || r.Account == "4000") && !r.Net().IsZero() {
+			t.Errorf("after the full credit note %s with partner nets %s, want 0", r.Account, r.Net())
+		}
+	}
+}

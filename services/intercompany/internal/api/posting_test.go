@@ -357,3 +357,28 @@ func TestPostCharge_ARefusedSideCompensatesTheChargeToo(t *testing.T) {
 		t.Fatalf("stored = %+v", c)
 	}
 }
+
+// #40: every line of an intercompany entry names the other legal entity of the pair, so the consolidation can attribute the balances.
+func TestPostJournal_LinesCarryTheTradingPartner(t *testing.T) {
+	h, fake := postingAPI(t)
+	if rec := postAs(h, http.MethodPost, "/v1/interco/journals", "j-partner", journalBodyFor("USD", "")); rec.Code != http.StatusCreated {
+		t.Fatalf("post = %d %s", rec.Code, rec.Body.String())
+	}
+	want := map[string]string{leA: leB, leB: leA}
+	for _, e := range fake.Entries() {
+		for _, l := range e.Lines {
+			if l.TradingPartnerID != want[e.LegalEntityID] {
+				t.Errorf("a line of %s names partner %q, want %q", e.LegalEntityID, l.TradingPartnerID, want[e.LegalEntityID])
+			}
+		}
+	}
+	pb, err := fake.PartnerBalances(context.Background(), ledgerclient.PartnerBalanceQuery{LedgerID: "L-A"})
+	if err != nil || len(pb.Rows) == 0 {
+		t.Fatalf("partner balances of A: %+v %v", pb, err)
+	}
+	for _, r := range pb.Rows {
+		if r.TradingPartnerID != leB {
+			t.Errorf("A has a row with partner %s, want only %s", r.TradingPartnerID, leB)
+		}
+	}
+}

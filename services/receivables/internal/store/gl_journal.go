@@ -49,6 +49,9 @@ type journalLine struct {
 	Credit  bool            `json:"credit"`
 	Amount  decimal.Decimal `json:"amount"`
 	Text    string          `json:"text,omitempty"`
+	// TradingPartnerID is the counterparty legal entity of an intercompany line (#40), set on the receivable credit of a payment from an
+	// intercompany customer so the payment lowers the tagged receivable.
+	TradingPartnerID string `json:"tradingPartnerId,omitempty"`
 }
 
 // journalSpec is a journal receivables owes the ledger, stored in the transaction of its cause.
@@ -139,11 +142,58 @@ func applyJournal(ctx context.Context, tx pgx.Tx, tenantID string, pay Payment, 
 	for _, a := range allocs {
 		cash, disc, off = cash.Add(a.Amount), disc.Add(a.CashDiscount), off.Add(a.WriteOff)
 	}
+	// What a payment settles of an intercompany invoice lowers the receivable that the invoice raised with the borrower named (#40), item by
+	// item: a payment that settles items with different partners, or one ordinary item, credits one receivable line per partner.
+	ids := make([]string, 0, len(allocs))
+	for _, a := range allocs {
+		ids = append(ids, a.OpenItemID)
+	}
+	partners, err := itemPartners(ctx, tx, ids)
+	if err != nil {
+		return err
+	}
+	var order []string
+	byPartner := map[string]decimal.Decimal{}
+	for _, a := range allocs {
+		p := partners[a.OpenItemID]
+		if _, seen := byPartner[p]; !seen {
+			order = append(order, p)
+		}
+		byPartner[p] = byPartner[p].Add(a.Amount).Add(a.CashDiscount).Add(a.WriteOff)
+	}
+	lines := []journalLine{debit(domain.AccountUnappliedCash, cash, "Payment applied"), debit(domain.AccountCashDiscount, disc, "Cash discount taken"),
+		debit(domain.AccountWriteOff, off, "Write-off")}
+	if len(order) == 0 {
+		lines = append(lines, credit(domain.AccountReceivable, cash.Add(disc).Add(off), "Open items settled"))
+	}
+	for _, p := range order {
+		l := credit(domain.AccountReceivable, byPartner[p], "Open items settled")
+		l.TradingPartnerID = p
+		lines = append(lines, l)
+	}
 	return enqueueJournal(ctx, tx, tenantID, journalSpec{LegalEntityID: pay.LegalEntityID, SourceType: JournalPaymentApply, SourceID: pay.ID,
-		SourceKey: fmt.Sprintf("apply:%s:%d", pay.ID, pay.Version), DocumentID: "PAY-" + pay.ID, PostingDate: today(), Currency: pay.Currency,
-		Lines: []journalLine{
-			debit(domain.AccountUnappliedCash, cash, "Payment applied"), debit(domain.AccountCashDiscount, disc, "Cash discount taken"),
-			debit(domain.AccountWriteOff, off, "Write-off"), credit(domain.AccountReceivable, cash.Add(disc).Add(off), "Open items settled")}})
+		SourceKey: fmt.Sprintf("apply:%s:%d", pay.ID, pay.Version), DocumentID: "PAY-" + pay.ID, PostingDate: today(), Currency: pay.Currency, Lines: lines})
+}
+
+// itemPartners maps the open items that carry a trading partner (an intercompany invoice's items) to it; the others are absent (#40).
+func itemPartners(ctx context.Context, tx pgx.Tx, itemIDs []string) (map[string]string, error) {
+	out := map[string]string{}
+	if len(itemIDs) == 0 {
+		return out, nil
+	}
+	rows, err := tx.Query(ctx, `select id::text, trading_partner_id::text from open_item where id = any($1::uuid[]) and trading_partner_id is not null`, itemIDs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id, partner string
+		if err := rows.Scan(&id, &partner); err != nil {
+			return nil, err
+		}
+		out[id] = partner
+	}
+	return out, rows.Err()
 }
 
 // downPaymentJournal owes the ledger the postings a down payment or deposit move carries on its event.
@@ -403,7 +453,7 @@ func (s *Postgres) postJournalToLedger(ctx context.Context, v GLJournalView, led
 	}
 	out := make([]ledgerclient.Line, 0, len(lines))
 	for _, l := range lines {
-		out = append(out, ledgerclient.Line{Account: l.Account, Credit: l.Credit, Amount: l.Amount, Text: l.Text})
+		out = append(out, ledgerclient.Line{Account: l.Account, Credit: l.Credit, Amount: l.Amount, Text: l.Text, TradingPartnerID: l.TradingPartnerID})
 	}
 	return s.ledger.Post(ctx, ledgerclient.Entry{LegalEntityID: v.LegalEntityID, LedgerID: ledgerID, DocumentID: v.DocumentID,
 		PostingDate: v.PostingDate, Currency: v.Currency, IdempotencyKey: fmt.Sprintf("gl-journal:%s:%s", v.LegalEntityID, v.ID),

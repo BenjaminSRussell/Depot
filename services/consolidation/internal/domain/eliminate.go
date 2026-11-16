@@ -74,6 +74,23 @@ type Pair struct {
 	UnrealizedProfit *decimal.Decimal
 	// Dividend is the dividend the subsidiary declared in the period (unit currency); a positive amount makes E6.
 	Dividend decimal.Decimal
+
+	// The fields below carry amounts that come per trading partner from the seller's own ledger (#40). A parent that sells to several
+	// subsidiaries keeps its sales, cost and receivable in the group currency, so they are not translated again; each is nil when the
+	// pair has none and the unit-currency fields above apply.
+	//
+	// ICSalesGroup and ICCostGroup replace ICSales and ICCost in E1; ReceivableGroup replaces ICReceivable x closing rate and
+	// PayableUnit (the subsidiary's payable to the parent, unit currency) replaces PayableGroup in E2; UnrealizedProfitGroup is the
+	// E3 profit already in the group currency.
+	ICSalesGroup          *decimal.Decimal
+	ICCostGroup           *decimal.Decimal
+	ReceivableGroup       *decimal.Decimal
+	PayableUnit           *decimal.Decimal
+	UnrealizedProfitGroup *decimal.Decimal
+	// ReverseReceivableGroup and ReversePayableGroup are the other direction of the pair (the buyer's receivable from the seller and the
+	// seller's payable to the buyer, for example an intercompany loan), group currency as collected; E2 eliminates them as well.
+	ReverseReceivableGroup *decimal.Decimal
+	ReversePayableGroup    *decimal.Decimal
 }
 
 // Eliminate builds the entries for E1–E5 and checks that every rule balances.
@@ -88,6 +105,9 @@ func Eliminate(p Pair) ([]Entry, error) {
 
 	// E1: intercompany revenue against intercompany COGS at the average rate.
 	rev := round(p.ICSales.Mul(p.Rates.Average), cur)
+	if p.ICSalesGroup != nil {
+		rev = round(*p.ICSalesGroup, cur)
+	}
 	out = leg(out, RuleE1, AcctICRevenue, rev)
 	out = leg(out, RuleE1, AcctICCOGS, rev.Neg())
 
@@ -95,18 +115,39 @@ func Eliminate(p Pair) ([]Entry, error) {
 	// loss (IAS 21.45) unless the balance is part of a net investment (IAS 21.32).
 	ap := round(p.PayableGroup, cur)
 	ar := round(p.ICReceivable.Mul(p.Rates.Closing), cur)
+	if p.PayableUnit != nil {
+		ap = round(p.PayableUnit.Mul(p.Rates.Closing), cur)
+	}
+	if p.ReceivableGroup != nil {
+		ar = round(*p.ReceivableGroup, cur)
+	}
 	out = leg(out, RuleE2, AcctICPayable, ap)
 	out = leg(out, RuleE2, AcctICReceivable, ar.Neg())
 	out = leg(out, RuleE2, p.icDifferenceAccount(), ar.Sub(ap))
+	if p.ReverseReceivableGroup != nil || p.ReversePayableGroup != nil {
+		var rr, rp decimal.Decimal
+		if p.ReverseReceivableGroup != nil {
+			rr = round(*p.ReverseReceivableGroup, cur)
+		}
+		if p.ReversePayableGroup != nil {
+			rp = round(*p.ReversePayableGroup, cur)
+		}
+		out = leg(out, RuleE2, AcctICPayable, rp)
+		out = leg(out, RuleE2, AcctICReceivable, rr.Neg())
+		out = leg(out, RuleE2, p.icDifferenceAccount(), rr.Sub(rp))
+	}
 
 	// E3: unrealized profit in closing inventory at the average rate. Upstream
 	// profit is shared with the NCI; downstream profit belongs to the parent.
-	if p.UnsoldShare.IsPositive() || (p.UnrealizedProfit != nil && p.UnrealizedProfit.IsPositive()) {
+	if p.UnsoldShare.IsPositive() || (p.UnrealizedProfit != nil && p.UnrealizedProfit.IsPositive()) || (p.UnrealizedProfitGroup != nil && p.UnrealizedProfitGroup.IsPositive()) {
 		profit := p.ICSales.Sub(p.ICCost).Mul(p.UnsoldShare)
 		if p.UnrealizedProfit != nil {
 			profit = *p.UnrealizedProfit
 		}
 		up := round(profit.Mul(p.Rates.Average), cur)
+		if p.UnrealizedProfitGroup != nil {
+			up = round(*p.UnrealizedProfitGroup, cur)
+		}
 		out = leg(out, RuleE3, AcctCOGS, up)
 		out = leg(out, RuleE3, AcctInventory, up.Neg())
 		if p.SellerIsSubsidiary {
@@ -220,6 +261,8 @@ func (p Pair) validate() error {
 		return invalid("unrealized profit must not be negative")
 	case p.Dividend.IsNegative():
 		return invalid("dividend must not be negative")
+	case negative(p.ICSalesGroup) || negative(p.ICCostGroup) || negative(p.ReceivableGroup) || negative(p.PayableUnit) || negative(p.UnrealizedProfitGroup):
+		return invalid("IC amounts per trading partner must not be negative")
 	case p.FXGainLossAccount != "" && (!codePattern.MatchString(p.FXGainLossAccount) || reservedAccounts[p.FXGainLossAccount]):
 		return invalid("FX gain or loss account must be 1 to 64 letters, digits or . _ : - and not an elimination or CTA account")
 	case p.InvestmentCost.IsNegative():
@@ -229,6 +272,8 @@ func (p Pair) validate() error {
 	}
 	return nil
 }
+
+func negative(d *decimal.Decimal) bool { return d != nil && d.IsNegative() }
 
 func round(d decimal.Decimal, currency string) decimal.Decimal {
 	return money.Amount{Value: d, Currency: currency}.Round().Value

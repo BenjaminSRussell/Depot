@@ -144,6 +144,11 @@ func postToLedger(ctx context.Context, tx pgx.Tx, tenantID string, ledger Ledger
 	}
 	res := domain.ValidateEntry(rules, accounts, in.PostingDate, in.Today, derived)
 	res.Violations = append(res.Violations, splitViol...)
+	partnerViol, err := partnerViolations(ctx, tx, tenantID, res.Lines)
+	if err != nil {
+		return Entry{}, nil, err
+	}
+	res.Violations = append(res.Violations, partnerViol...)
 	outcome, err := applyValidationRules(ctx, tx, tenantID, ledger, in, accounts, derived)
 	if err != nil {
 		return Entry{}, nil, err
@@ -340,7 +345,7 @@ func reverseEntryTx(ctx context.Context, tx pgx.Tx, tenantID string, in ReverseI
 func reversalLines(ctx context.Context, tx pgx.Tx, tenantID, entryID string, negative bool) ([]writeLine, error) {
 	rows, err := tx.Query(ctx, `select l.id, l.main_account_id, a.account_number, l.dimension_combination_id, l.debit_credit, l.amount_acct::text,
 			coalesce(l.line_text, ''), coalesce(l.source_line_ref, ''), c.display_name, c.dimensions, l.negative_posting,
-			coalesce(l.quantity::text, ''), coalesce(l.unit, '')
+			coalesce(l.quantity::text, ''), coalesce(l.unit, ''), coalesce(l.trading_partner_id::text, '')
 		from journal_line l
 		join main_account a on a.tenant_id = l.tenant_id and a.id = l.main_account_id
 		join dimension_combination c on c.tenant_id = l.tenant_id and c.id = l.dimension_combination_id
@@ -351,11 +356,11 @@ func reversalLines(ctx context.Context, tx pgx.Tx, tenantID, entryID string, neg
 	defer rows.Close()
 	var out []writeLine
 	for rows.Next() {
-		var origID, accountID, accountNumber, side, amountText, text, ref, display, qtyText, unit string
+		var origID, accountID, accountNumber, side, amountText, text, ref, display, qtyText, unit, partner string
 		var combo []byte
 		var dims map[string]string
 		var origNegative bool
-		if err := rows.Scan(&origID, &accountID, &accountNumber, &combo, &side, &amountText, &text, &ref, &display, &dims, &origNegative, &qtyText, &unit); err != nil {
+		if err := rows.Scan(&origID, &accountID, &accountNumber, &combo, &side, &amountText, &text, &ref, &display, &dims, &origNegative, &qtyText, &unit, &partner); err != nil {
 			return nil, err
 		}
 		amount, err := decimal.NewFromString(amountText)
@@ -371,7 +376,7 @@ func reversalLines(ctx context.Context, tx pgx.Tx, tenantID, entryID string, neg
 		orig := origID
 		out = append(out, writeLine{id: ids.New(), reversalOfLineID: &orig, valid: domain.ValidLine{
 			Index: len(out), Account: domain.Account{ID: accountID, Number: accountNumber}, Dimensions: dims, Side: domain.ReversalSide(side),
-			Amount: amount, Text: text, SourceLineRef: ref, Quantity: qty, Unit: unit, CombinationID: combo, DisplayName: display,
+			Amount: amount, Text: text, SourceLineRef: ref, Quantity: qty, Unit: unit, TradingPartner: partner, CombinationID: combo, DisplayName: display,
 			Negative: negative && !origNegative,
 		}})
 	}
@@ -446,12 +451,13 @@ func writeEntry(ctx context.Context, tx pgx.Tx, tenantID string, ne newEntry) (E
 	}
 	for i, wl := range ne.lines {
 		batch.Queue(`insert into journal_line (tenant_id, id, legal_entity_id, entry_id, line_number, main_account_id, dimension_combination_id,
-				debit_credit, currency_txn, amount_txn, amount_acct, negative_posting, line_text, source_line_ref, reversal_of_line_id, derived_by_step_ids, rounding_adjustment, quantity, unit)
+				debit_credit, currency_txn, amount_txn, amount_acct, negative_posting, line_text, source_line_ref, reversal_of_line_id, derived_by_step_ids, rounding_adjustment, quantity, unit,
+				trading_partner_id)
 			values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::text::numeric, $10::text::numeric, $14, nullif($11, ''), nullif($12, ''), $13, $15::text[]::uuid[], $16,
-				nullif($17, '')::numeric, nullif($18, ''))`,
+				nullif($17, '')::numeric, nullif($18, ''), nullif($19, '')::uuid)`,
 			tenantID, wl.id, l.LegalEntityID, entryID, i+1, wl.valid.Account.ID, wl.valid.CombinationID,
 			wl.valid.Side, l.Currency, wl.valid.Amount.String(), wl.valid.Text, wl.valid.SourceLineRef, wl.reversalOfLineID,
-			wl.valid.Negative, derivedBy(wl.valid.DerivedBy), wl.valid.RoundingAdjustment, quantityText(wl.valid.Quantity), wl.valid.Unit)
+			wl.valid.Negative, derivedBy(wl.valid.DerivedBy), wl.valid.RoundingAdjustment, quantityText(wl.valid.Quantity), wl.valid.Unit, wl.valid.TradingPartner)
 	}
 	valid := make([]domain.ValidLine, 0, len(ne.lines))
 	for _, wl := range ne.lines {
@@ -539,7 +545,7 @@ func lineView(wl writeLine, number int, currency string) Line {
 		ID: wl.id, LineNumber: number, Account: v.Account.Number, DimensionCombinationID: hex.EncodeToString(v.CombinationID),
 		DisplayName: v.DisplayName, Dimensions: v.Dimensions, DebitCredit: v.Side,
 		Amount: v.Amount.StringFixed(money.MinorUnits(currency)), Text: v.Text, SourceLineRef: v.SourceLineRef,
-		Quantity: quantityView(v.Quantity), Unit: v.Unit,
+		Quantity: quantityView(v.Quantity), Unit: v.Unit, TradingPartnerID: v.TradingPartner,
 		ReversalOfLineID: wl.reversalOfLineID, NegativePosting: v.Negative, DerivedByStepIDs: v.DerivedBy, RoundingAdjustment: v.RoundingAdjustment,
 	}
 }
@@ -623,7 +629,7 @@ func loadEntryTx(ctx context.Context, tx pgx.Tx, tenantID, id string) (Entry, er
 func loadLines(ctx context.Context, tx pgx.Tx, tenantID, entryID, currency string) ([]Line, error) {
 	rows, err := tx.Query(ctx, `select l.id, l.line_number, a.account_number, l.dimension_combination_id, c.display_name, c.dimensions,
 			l.debit_credit, l.amount_acct::text, coalesce(l.line_text, ''), coalesce(l.source_line_ref, ''), l.reversal_of_line_id::text,
-			l.negative_posting, l.derived_by_step_ids::text[], l.rounding_adjustment, coalesce(l.quantity::text, ''), coalesce(l.unit, '')
+			l.negative_posting, l.derived_by_step_ids::text[], l.rounding_adjustment, coalesce(l.quantity::text, ''), coalesce(l.unit, ''), coalesce(l.trading_partner_id::text, '')
 		from journal_line l
 		join main_account a on a.tenant_id = l.tenant_id and a.id = l.main_account_id
 		join dimension_combination c on c.tenant_id = l.tenant_id and c.id = l.dimension_combination_id
@@ -638,7 +644,7 @@ func loadLines(ctx context.Context, tx pgx.Tx, tenantID, entryID, currency strin
 		var combo []byte
 		var amountText string
 		if err := rows.Scan(&ln.ID, &ln.LineNumber, &ln.Account, &combo, &ln.DisplayName, &ln.Dimensions, &ln.DebitCredit,
-			&amountText, &ln.Text, &ln.SourceLineRef, &ln.ReversalOfLineID, &ln.NegativePosting, &ln.DerivedByStepIDs, &ln.RoundingAdjustment, &ln.Quantity, &ln.Unit); err != nil {
+			&amountText, &ln.Text, &ln.SourceLineRef, &ln.ReversalOfLineID, &ln.NegativePosting, &ln.DerivedByStepIDs, &ln.RoundingAdjustment, &ln.Quantity, &ln.Unit, &ln.TradingPartnerID); err != nil {
 			return nil, err
 		}
 		amount, err := decimal.NewFromString(amountText)
@@ -687,6 +693,11 @@ func (s *Postgres) ValidateEntry(ctx context.Context, in PostInput) (domain.Resu
 		res = domain.ValidateEntry(rules, accounts, in.PostingDate, in.Today, lines)
 		res.Derivation = traces
 		res.Violations = append(res.Violations, splitViol...)
+		partnerViol, err := partnerViolations(ctx, tx, p.TenantID, res.Lines)
+		if err != nil {
+			return err
+		}
+		res.Violations = append(res.Violations, partnerViol...)
 		res.Splitting = splits
 		outcome, err := applyValidationRules(ctx, tx, p.TenantID, ledger, in, accounts, lines)
 		if err != nil {

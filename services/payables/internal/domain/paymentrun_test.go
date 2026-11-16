@@ -173,3 +173,31 @@ func TestRunJournal_ControlDebitsCarryTheVendorGroupCodePerItem(t *testing.T) {
 		t.Fatalf("with the dimension off the control debit stays one untagged line: %+v", off)
 	}
 }
+
+// #40: a payment names the trading partner per settled item. One vendor with an auto-posted intercompany invoice (item i3, tagged) and an
+// ordinary one (i2) gets two control debits, only the first naming the lender; a vendor's item without a partner stays untagged, and the
+// bank line names none.
+func TestRunJournal_NamesThePartnerPerSettledItem(t *testing.T) {
+	groups := twoGroups()
+	groups[1].Lines = append(groups[1].Lines, domain.ProposalLine{OpenItemID: "i3", OpenAmount: d("100"), Pay: d("100"), Rate: d("1"), Valued: d("100")})
+	groups[1].Net, groups[1].Valued = d("600"), d("600")
+	partner := "0c5d3b0e-6b0a-4c43-9d57-3c1a3a7a1d11"
+	lines := domain.RunJournal("USD", groups, "2000", "1010", "4900", "", domain.VendorGroupDims{Partners: map[string]string{"i3": partner}})
+	got := map[string]string{}
+	for _, l := range lines {
+		if l.Account == "2000" && l.Text == "vendor "+groups[1].VendorID {
+			got[l.TradingPartnerID] = l.Amount.String()
+		} else if l.TradingPartnerID != "" {
+			t.Errorf("partner on a line that is not a control debit: %+v", l)
+		}
+	}
+	if got[partner] != "100" || got[""] != "500" || len(got) != 2 {
+		t.Fatalf("control debits of the second vendor by partner = %v, want 100 for the lender and 500 untagged", got)
+	}
+	// The first vendor has no tagged item: one untagged line, as before.
+	for _, l := range lines {
+		if l.Text == "vendor "+groups[0].VendorID && l.TradingPartnerID != "" {
+			t.Errorf("untagged vendor named a partner: %+v", l)
+		}
+	}
+}

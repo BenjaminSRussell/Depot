@@ -271,7 +271,7 @@ func withUnit(unit string, err error) error {
 
 // RulesVersion names the elimination and translation rules a run was computed
 // with. It is part of the inputs hash, so a rule change never matches an older run.
-const RulesVersion = "consol-rules-4"
+const RulesVersion = "consol-rules-5"
 
 const hashScale = 6
 
@@ -298,6 +298,15 @@ type canonicalUnit struct {
 	ClosingNetAssets string `json:"closingNetAssets"`
 	Dividend         string `json:"dividend"`
 	UnrealizedProfit string `json:"unrealizedProfit"`
+	// The amounts that came per trading partner (#40); "none" when the pair has none. They change E1, E2 and E3 without changing the
+	// fields above, so they are part of the inputs hash.
+	ICSalesGroup           string `json:"icSalesGroup"`
+	ICCostGroup            string `json:"icCostGroup"`
+	ReceivableGroup        string `json:"receivableGroup"`
+	PayableUnit            string `json:"payableUnit"`
+	UnrealizedProfitGroup  string `json:"unrealizedProfitGroup"`
+	ReverseReceivableGroup string `json:"reverseReceivableGroup"`
+	ReversePayableGroup    string `json:"reversePayableGroup"`
 }
 
 type canonicalAssociate struct {
@@ -345,6 +354,15 @@ func (in RunInput) Canonical() ([]byte, error) {
 		if p.UnrealizedProfit != nil {
 			units[len(units)-1].UnrealizedProfit = f(*p.UnrealizedProfit)
 		}
+		opt := func(d *decimal.Decimal) string {
+			if d == nil {
+				return "none"
+			}
+			return f(*d)
+		}
+		cu := &units[len(units)-1]
+		cu.ICSalesGroup, cu.ICCostGroup, cu.ReceivableGroup, cu.PayableUnit = opt(p.ICSalesGroup), opt(p.ICCostGroup), opt(p.ReceivableGroup), opt(p.PayableUnit)
+		cu.UnrealizedProfitGroup, cu.ReverseReceivableGroup, cu.ReversePayableGroup = opt(p.UnrealizedProfitGroup), opt(p.ReverseReceivableGroup), opt(p.ReversePayableGroup)
 	}
 	sort.Slice(units, func(i, j int) bool { return units[i].ID < units[j].ID })
 	var assoc []canonicalAssociate

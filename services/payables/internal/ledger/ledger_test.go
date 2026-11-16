@@ -473,3 +473,45 @@ func TestEntryForDocument_FollowsNextCursorToTheRunsEntry(t *testing.T) {
 		t.Fatalf("id %q err %v cursors %v", id, err, cursors)
 	}
 }
+
+// A ledger that predates the trading partner refuses the field as unknown (400 COM-0001): the entry is posted once more without it. Any
+// other 400, a bad partner value included, is not retried.
+func TestPost_RetriesWithoutTheTradingPartnerOnlyOnAnOldLedgersUnknownField(t *testing.T) {
+	for _, c := range []struct {
+		name, detail string
+		wantCalls    int
+		wantErr      bool
+	}{
+		{"old ledger", `malformed JSON body: json: unknown field \"tradingPartnerId\"`, 2, false},
+		{"bad partner value", `lines[0].tradingPartnerId must be a legal entity id (UUID)`, 1, true},
+		{"other validation error", `lines[0].account is required`, 1, true},
+	} {
+		var bodies []string
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			raw := new(strings.Builder)
+			buf := make([]byte, 4096)
+			for {
+				n, err := r.Body.Read(buf)
+				raw.Write(buf[:n])
+				if err != nil {
+					break
+				}
+			}
+			bodies = append(bodies, raw.String())
+			if strings.Contains(raw.String(), "tradingPartnerId") || c.wantCalls == 1 {
+				w.WriteHeader(http.StatusBadRequest)
+				_, _ = w.Write([]byte(`{"code":"COM-0001","detail":"` + c.detail + `"}`))
+				return
+			}
+			w.WriteHeader(http.StatusCreated)
+			_, _ = w.Write([]byte(`{"entries":[{"id":"entry-9"}]}`))
+		}))
+		e := postEntry()
+		e.Lines[0].TradingPartnerID = "0c5d3b0e-6b0a-4c43-9d57-3c1a3a7a1d11"
+		id, err := postClient(srv.URL).Post(postCtx(), e)
+		srv.Close()
+		if (err != nil) != c.wantErr || len(bodies) != c.wantCalls || (c.wantCalls == 2 && (id != "entry-9" || strings.Contains(bodies[1], "tradingPartnerId"))) {
+			t.Fatalf("%s: id %q err %v calls %d", c.name, id, err, len(bodies))
+		}
+	}
+}
