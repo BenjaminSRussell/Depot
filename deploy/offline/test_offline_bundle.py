@@ -141,7 +141,10 @@ class BuildVerifyInstallTests(unittest.TestCase):
         self.assertTrue(archive.exists() and Path(str(archive) + ".sig").exists())
         copies = runner.ran("skopeo", "copy")
         self.assertTrue(copies)
-        self.assertTrue(all(any(DIGEST_A[7:] in a or DIGEST_B[7:] in a for a in c) for c in copies), "images are copied by digest")
+        # A tag is resolved to the digest skopeo reports; a reference already pinned by digest (extra-images.txt) keeps its own.
+        pinned = {re.search(r"@sha256:([0-9a-f]{64})$", r).group(1) for r in ob.extra_images() if ob.DIGEST.search(r)}
+        self.assertTrue(all(any(DIGEST_A[7:] in a or DIGEST_B[7:] in a or any(d in a for d in pinned) for a in c) for c in copies),
+                        "images are copied by digest")
         self.assertEqual(len(runner.ran("cosign", "save")), len(copies) // 2, "two copies per image: into staging, then to the OCI layout")
         manifest = json.loads((self.tmp / "stage" / "manifest.json").read_text())
         self.assertTrue(all(ob.DIGEST.search(i["pinned"]) for i in manifest["images"]))
@@ -392,6 +395,43 @@ class ArgoCDTests(unittest.TestCase):
         self.assertIn("- repoURL: https://git.enclave/p.git", out)
         self.assertNotIn("github", out)
 
+    def test_an_oci_chart_source_becomes_the_enclave_registry_too(self) -> None:
+        text = "sources:\n  - repoURL: docker.io/envoyproxy\n    chart: gateway-helm\n  - repoURL: oci://ghcr.io/x/charts\n    chart: y\n"
+        out = ob.rewrite_repo_urls(text, "https://git.enclave/p.git", "reg:5000")
+        self.assertEqual(out.count("repoURL: reg:5000/charts"), 2)
+        self.assertNotIn("docker.io", out)
+
+
+class OCIChartTests(unittest.TestCase):
+    """#213: Envoy Gateway's gateway-helm and kube-prometheus-stack are pulled from OCI registries."""
+
+    def test_oci_charts_are_listed_and_pulled_by_oci_reference(self) -> None:
+        charts = {c["chart"]: c for c in ob.third_party_charts()}
+        self.assertEqual(charts["gateway-helm"]["repo"], "docker.io/envoyproxy")
+        self.assertEqual(charts["kube-prometheus-stack"]["repo"], "ghcr.io/prometheus-community/charts")
+        tmp = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, tmp, True)
+        runner = FakeRunner()
+        archive = ob.pull_chart(charts["gateway-helm"], {}, tmp, runner)
+        (pull,) = runner.ran("helm", "pull")
+        self.assertEqual(pull[2], "oci://docker.io/envoyproxy/gateway-helm")
+        self.assertNotIn("--repo", pull)
+        self.assertEqual(pull[pull.index("--version") + 1], charts["gateway-helm"]["version"])
+        self.assertTrue(archive.exists())
+        self.assertTrue(ob.is_oci("oci://ghcr.io/x") and ob.is_oci("docker.io/envoyproxy"))
+        self.assertFalse(ob.is_oci("https://kyverno.github.io/kyverno"))
+
+    def test_the_envoy_gateway_images_follow_the_pinned_chart_version(self) -> None:
+        refs = set(ob.extra_images())
+        version = {c["chart"]: c["version"] for c in ob.third_party_charts()}["gateway-helm"]
+        self.assertIn(f"docker.io/envoyproxy/gateway:{version}", refs)
+        self.assertTrue(any(r.startswith("docker.io/envoyproxy/ratelimit:") for r in refs))
+        self.assertTrue(any(r.startswith("docker.io/envoyproxy/envoy:distroless-v") for r in refs))
+        # The rate-limit store's image is pinned by the same digest in its manifest and in the bundle list.
+        manifest = (ob.DEPLOY / "envoy-gateway" / "ratelimit-valkey.yaml").read_text(encoding="utf-8")
+        (digest,) = re.findall(r"image: docker\.io/valkey/valkey:[^@\s]+@(sha256:[0-9a-f]{64})", manifest)
+        self.assertIn(f"docker.io/valkey/valkey@{digest}", refs)
+
 
 class OfflinePolicyTests(unittest.TestCase):
     POLICY = ob.OFFLINE_POLICIES / "verify-signed-images.yaml"
@@ -477,10 +517,11 @@ class ThirdPartyImageTests(unittest.TestCase):
     def test_chart_images_renders_each_chart_with_the_repositorys_values(self) -> None:
         runner = FakeRunner()
         found = ob.chart_images(runner, Path(tempfile.mkdtemp()))
-        self.assertEqual(set(found), {"kyverno", "temporal", "strimzi-kafka-operator", "cert-manager", "argo-cd"})
+        self.assertEqual(set(found), {"kyverno", "temporal", "strimzi-kafka-operator", "cert-manager", "argo-cd", "gateway-helm",
+                                      "kube-prometheus-stack"})
         self.assertIn("docker.io/library/postgres:17", found["kyverno"])
         renders = runner.ran("helm", "template")
-        self.assertEqual(len(renders), 5)
+        self.assertEqual(len(renders), 7)
         for c in renders:
             self.assertEqual("-f" in c, "temporal" in c[3], c)
 

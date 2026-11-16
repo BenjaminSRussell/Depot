@@ -59,7 +59,14 @@ BACKBONE_ORDER = [
 ]
 WAVE = "argocd.argoproj.io/sync-wave"
 # Custom-resource API groups and the dev Application that installs their CRDs and controller.
-CRD_PROVIDERS = {"kafka.strimzi.io": "strimzi-operator"}
+CRD_PROVIDERS = {
+    "kafka.strimzi.io": "strimzi-operator",
+    "gateway.networking.k8s.io": "envoy-gateway",
+    "gateway.envoyproxy.io": "envoy-gateway",
+    "monitoring.coreos.com": "kube-prometheus-stack",
+}
+# Third-party charts the dev cluster installs from an OCI registry (Argo CD writes the registry path without a scheme).
+OCI_CHARTS = {"gateway-helm": "docker.io/envoyproxy", "kube-prometheus-stack": "ghcr.io/prometheus-community/charts"}
 CONNECT_SECRET_REF = re.compile(r"\$\{secrets:([^/}]+)/([^:}]+):([^}]+)\}")
 MANIFEST_SUFFIXES = (".yaml", ".yml", ".json")
 # Secrets that dev workloads read but no ExternalSecret writes yet: (namespace, name) -> where that is documented.
@@ -802,6 +809,34 @@ class ArgoApplicationsTest(unittest.TestCase):
         sources_allowed = [f for rule in policy["spec"]["ingress"] for f in rule["from"]]
         self.assertEqual(sources_allowed, [{"podSelector": {"matchLabels": {"app.kubernetes.io/name": "apicurio-registry"}}}])
 
+    def test_crd_providers_install_their_crds_from_a_pinned_chart(self):
+        dev = self.dev_apps()
+        for name in sorted(set(CRD_PROVIDERS.values())):
+            with self.subTest(app=name):
+                self.assertIn(name, dev, f"no dev Application {name} installs CRDs other dev Applications use")
+                opts = dev[name]["spec"]["syncPolicy"].get("syncOptions", [])
+                self.assertIn("ServerSideApply=true", opts, f"{name}: CRDs are too large for client-side apply")
+                self.assertIn("CreateNamespace=true", opts, name)
+        for chart, repo in OCI_CHARTS.items():
+            with self.subTest(chart=chart):
+                (src,) = [s for app in dev.values() for s in sources(app) if s.get("chart") == chart]
+                self.assertEqual(src["repoURL"], repo, f"{chart}: OCI registry path without a scheme")
+                self.assertRegex(src["targetRevision"], SEMVER)
+
+    def test_prometheus_selects_every_monitor_and_grafana_loads_the_slo_dashboard(self):
+        # #213 row 48: once kube-prometheus-stack runs, a chart's serviceMonitor and alerts flags must take effect without a
+        # release label, and the observability chart's dashboard ConfigMap must carry the label the Grafana sidecar watches.
+        (src,) = [s for s in sources(self.dev_apps()["kube-prometheus-stack"]) if s.get("chart") == "kube-prometheus-stack"]
+        values = src["helm"]["valuesObject"]
+        spec = values["prometheus"]["prometheusSpec"]
+        for key in ("serviceMonitorSelectorNilUsesHelmValues", "podMonitorSelectorNilUsesHelmValues", "ruleSelectorNilUsesHelmValues"):
+            self.assertIs(spec[key], False, key)
+        sidecar = values["grafana"]["sidecar"]["dashboards"]
+        self.assertEqual(sidecar["searchNamespace"], "ALL")
+        dashboards = (REPO / "deploy/observability/charts/observability/templates/dashboards.yaml").read_text()
+        self.assertIn(f'{sidecar["label"]}: "{sidecar["labelValue"]}"', dashboards)
+        self.assertLess(wave(self.dev_apps()["kube-prometheus-stack"]), wave(self.dev_apps()["observability"]))
+
     @unittest.skipUnless(shutil.which("helm"), "helm not on PATH")
     def test_dev_charts_render_digest_pinned(self):
         for env, path, app in self.apps:
@@ -813,6 +848,11 @@ class ArgoApplicationsTest(unittest.TestCase):
                     continue
                 with self.subTest(app=name, env=env):
                     docs = render(app, src)
+                    if env == "dev":
+                        for d in docs:
+                            provider = CRD_PROVIDERS.get(d["apiVersion"].split("/")[0])
+                            if provider:
+                                self.assertGreater(wave(app), wave(self.dev_apps()[provider]), f"{name}: {d['kind']} before its CRD")
                     images = [i for d in docs for i in pod_images(d)]
                     self.assertTrue(images or name == "observability", f"{name}: no workloads rendered")
                     if (env, name) not in LOCAL_IMAGE_APPS:

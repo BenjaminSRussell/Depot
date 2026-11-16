@@ -27,3 +27,26 @@ quay.io/jetstack/cert-manager-startupapicheck:v1.21.3
 # read here (the chart repositories were unreachable). On the connected build machine run
 # `python3 deploy/offline/offline_bundle.py chart-images --write` to add them; provenance.json already has the publisher entries
 # (reg.kyverno.io, ghcr.io/kyverno, docker.io/temporalio, quay.io/argoproj, ghcr.io/dexidp, the Redis image).
+
+# gateway-helm v1.4.6 (deploy/envs/dev/apps/envoy-gateway.yaml, OCI chart docker.io/envoyproxy/gateway-helm). The controller
+# (also its certgen Job and the shutdown manager) and the rate-limit service, from `helm template` of the chart, and the Envoy
+# proxy image, which the controller starts for each Gateway and the chart does not render: DefaultEnvoyProxyImage in
+# envoyproxy/gateway api/v1alpha1/shared_types.go at v1.4.6. Re-check all three when the chart version changes.
+docker.io/envoyproxy/gateway:v1.4.6
+docker.io/envoyproxy/ratelimit:e74a664a
+docker.io/envoyproxy/envoy:distroless-v1.34.10
+
+# kube-prometheus-stack 92.16.2 (deploy/envs/dev/apps/kube-prometheus-stack.yaml, OCI chart ghcr.io/prometheus-community/charts)
+# with the values that Application sets (node-exporter off, the admission webhook certificate from cert-manager, so no
+# certgen Job). Read from the chart's values.yaml and its subcharts' (kube-state-metrics 8.8.0, grafana 14.2.0) at their
+# release tags, because the chart archive could not be downloaded here: re-check with `offline_bundle.py chart-images` on the
+# connected build machine, and whenever the chart version changes. The operator image tag is the chart's appVersion.
+quay.io/prometheus-operator/prometheus-operator:v0.94.2
+quay.io/prometheus-operator/prometheus-config-reloader:v0.94.2
+quay.io/prometheus/prometheus:v3.15.1-distroless
+quay.io/prometheus/alertmanager:v0.34.2
+docker.io/grafana/grafana:13.3.0-distroless
+quay.io/kiwigrid/k8s-sidecar:2.14.1
+registry.k8s.io/kube-state-metrics/kube-state-metrics:v2.20.0
+# The rate-limit counter store deploy/envoy-gateway/ratelimit-valkey.yaml runs (valkey 8.1.9-alpine, pinned there by digest).
+docker.io/valkey/valkey@sha256:4934d214fd7e091d4ee77b398945b3fd62c6dd0ac71d8b79e2e3cbad8364f3b1
