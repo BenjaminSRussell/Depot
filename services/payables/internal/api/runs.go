@@ -51,8 +51,8 @@ type RunStore interface {
 	RunFileConfig(ctx context.Context, id string) ([]byte, error)
 	InvoiceNumbers(ctx context.Context, proposalID string) (map[string]string, error)
 	VendorGroupCodes(ctx context.Context, proposalID string) (map[string]string, error)
-	// VendorPartners maps the vendor of each group of the proposal to its intercompany partner legal entity (#40); ordinary vendors are absent.
-	VendorPartners(ctx context.Context, proposalID string) (map[string]string, error)
+	// OpenItemPartners maps each proposal line's open item that an auto-posted intercompany invoice opened to its partner legal entity (#40).
+	OpenItemPartners(ctx context.Context, proposalID string) (map[string]string, error)
 	SaveRunFile(ctx context.Context, id string, f store.RunFile) (store.PaymentRun, error)
 	RecordJournal(ctx context.Context, id, entryID string) (store.PaymentRun, error)
 	RecordJournalWithWithholding(ctx context.Context, id, entryID, legalEntityID string, withholding []byte) (store.PaymentRun, error)
@@ -492,8 +492,8 @@ func (a *API) postRunJournal(w http.ResponseWriter, r *http.Request) {
 		withholdingAccount = *run.WithholdingAccount
 	}
 	dims := domain.VendorGroupDims{Attribute: a.vendorGroupDim}
-	if dims.Partners, err = a.runs.store.VendorPartners(ctx, proposal.ID); err != nil {
-		a.fault(w, r, "payment run vendor partners failed", err)
+	if dims.Partners, err = a.runs.store.OpenItemPartners(ctx, proposal.ID); err != nil {
+		a.fault(w, r, "payment run item partners failed", err)
 		return
 	}
 	if dims.Attribute != "" {

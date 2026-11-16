@@ -142,22 +142,58 @@ func applyJournal(ctx context.Context, tx pgx.Tx, tenantID string, pay Payment, 
 	for _, a := range allocs {
 		cash, disc, off = cash.Add(a.Amount), disc.Add(a.CashDiscount), off.Add(a.WriteOff)
 	}
-	// An intercompany customer's payment lowers the receivable that the invoice raised with the borrower named (#40).
-	partner := ""
-	if pay.CustomerID != nil {
-		err := tx.QueryRow(ctx, `select partner_legal_entity_id::text from ar_customer_partner where legal_entity_id = $1::uuid and customer_id = $2::uuid`,
-			pay.LegalEntityID, *pay.CustomerID).Scan(&partner)
-		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
-			return err
-		}
+	// What a payment settles of an intercompany invoice lowers the receivable that the invoice raised with the borrower named (#40), item by
+	// item: a payment that settles items with different partners, or one ordinary item, credits one receivable line per partner.
+	ids := make([]string, 0, len(allocs))
+	for _, a := range allocs {
+		ids = append(ids, a.OpenItemID)
 	}
-	receivable := credit(domain.AccountReceivable, cash.Add(disc).Add(off), "Open items settled")
-	receivable.TradingPartnerID = partner
+	partners, err := itemPartners(ctx, tx, ids)
+	if err != nil {
+		return err
+	}
+	var order []string
+	byPartner := map[string]decimal.Decimal{}
+	for _, a := range allocs {
+		p := partners[a.OpenItemID]
+		if _, seen := byPartner[p]; !seen {
+			order = append(order, p)
+		}
+		byPartner[p] = byPartner[p].Add(a.Amount).Add(a.CashDiscount).Add(a.WriteOff)
+	}
+	lines := []journalLine{debit(domain.AccountUnappliedCash, cash, "Payment applied"), debit(domain.AccountCashDiscount, disc, "Cash discount taken"),
+		debit(domain.AccountWriteOff, off, "Write-off")}
+	if len(order) == 0 {
+		lines = append(lines, credit(domain.AccountReceivable, cash.Add(disc).Add(off), "Open items settled"))
+	}
+	for _, p := range order {
+		l := credit(domain.AccountReceivable, byPartner[p], "Open items settled")
+		l.TradingPartnerID = p
+		lines = append(lines, l)
+	}
 	return enqueueJournal(ctx, tx, tenantID, journalSpec{LegalEntityID: pay.LegalEntityID, SourceType: JournalPaymentApply, SourceID: pay.ID,
-		SourceKey: fmt.Sprintf("apply:%s:%d", pay.ID, pay.Version), DocumentID: "PAY-" + pay.ID, PostingDate: today(), Currency: pay.Currency,
-		Lines: []journalLine{
-			debit(domain.AccountUnappliedCash, cash, "Payment applied"), debit(domain.AccountCashDiscount, disc, "Cash discount taken"),
-			debit(domain.AccountWriteOff, off, "Write-off"), receivable}})
+		SourceKey: fmt.Sprintf("apply:%s:%d", pay.ID, pay.Version), DocumentID: "PAY-" + pay.ID, PostingDate: today(), Currency: pay.Currency, Lines: lines})
+}
+
+// itemPartners maps the open items that carry a trading partner (an intercompany invoice's items) to it; the others are absent (#40).
+func itemPartners(ctx context.Context, tx pgx.Tx, itemIDs []string) (map[string]string, error) {
+	out := map[string]string{}
+	if len(itemIDs) == 0 {
+		return out, nil
+	}
+	rows, err := tx.Query(ctx, `select id::text, trading_partner_id::text from open_item where id = any($1::uuid[]) and trading_partner_id is not null`, itemIDs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id, partner string
+		if err := rows.Scan(&id, &partner); err != nil {
+			return nil, err
+		}
+		out[id] = partner
+	}
+	return out, rows.Err()
 }
 
 // downPaymentJournal owes the ledger the postings a down payment or deposit move carries on its event.

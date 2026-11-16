@@ -425,30 +425,41 @@ func TestPost_SendsTheTradingPartner(t *testing.T) {
 	}
 }
 
-// A ledger that predates the trading partner refuses the field with 400 COM-0001; the client posts once more without it, so an
-// intercompany journal is not compensated during a rollout that deploys a poster first.
-func TestPost_RetriesWithoutTheTradingPartnerWhenAnOldLedgerRefusesIt(t *testing.T) {
-	var bodies []string
-	c, _ := newClientAs(t, "intercompany", func(w http.ResponseWriter, r *http.Request) {
-		raw, _ := io.ReadAll(r.Body)
-		bodies = append(bodies, string(raw))
-		if strings.Contains(string(raw), `"tradingPartnerId"`) {
-			w.WriteHeader(http.StatusBadRequest)
-			_, _ = w.Write([]byte(`{"code":"COM-0001"}`))
-			return
-		}
-		_, _ = w.Write([]byte(`{"entries":[{"id":"` + entityID + `"}]}`))
-	})
-	e := ledgerclient.Entry{LegalEntityID: entityID, LedgerID: ledgerID, DocumentID: "d", PostingDate: "2026-03-01", Currency: "USD", IdempotencyKey: "k",
-		Lines: []ledgerclient.Line{{Account: "1300", Amount: decimal.NewFromInt(5), TradingPartnerID: ledgerID}, {Account: "4900", Credit: true, Amount: decimal.NewFromInt(5)}}}
-	id, err := c.Post(principalCtx(), e)
-	if err != nil || id != entityID || len(bodies) != 2 || strings.Contains(bodies[1], "tradingPartnerId") {
-		t.Fatalf("id %q err %v bodies %v", id, err, bodies)
+// A ledger that predates the trading partner refuses the field as unknown (400 COM-0001, "unknown field"); the client posts once more
+// without it, so an intercompany journal is not compensated during a rollout that deploys a poster first. Any other 400, the upgraded
+// ledger's own refusal of a bad partner value included, is not retried.
+func TestPost_RetriesWithoutTheTradingPartnerOnlyWhenAnOldLedgerRefusesTheField(t *testing.T) {
+	entry := func(partner string) ledgerclient.Entry {
+		return ledgerclient.Entry{LegalEntityID: entityID, LedgerID: ledgerID, DocumentID: "d", PostingDate: "2026-03-01", Currency: "USD", IdempotencyKey: "k",
+			Lines: []ledgerclient.Line{{Account: "1300", Amount: decimal.NewFromInt(5), TradingPartnerID: partner}, {Account: "4900", Credit: true, Amount: decimal.NewFromInt(5)}}}
 	}
-	// An entry with no partner that is refused with the same code is not retried.
-	bodies = nil
-	e.Lines[0].TradingPartnerID = ""
-	if _, err := c.Post(principalCtx(), e); err != nil || len(bodies) != 1 {
-		t.Fatalf("plain entry: %v bodies %d", err, len(bodies))
+	for _, c := range []struct {
+		name, detail string
+		wantCalls    int
+		wantErr      bool
+	}{
+		{"old ledger", `malformed JSON body: json: unknown field \"tradingPartnerId\"`, 2, false},
+		{"bad partner value", `lines[1].tradingPartnerId must be a legal entity id (UUID)`, 1, true},
+		{"other validation error", `lines[0].account is required and must be at most 20 characters`, 1, true},
+		{"other unknown field", `malformed JSON body: json: unknown field \"optionalDimensions\"`, 1, true},
+	} {
+		var bodies []string
+		cl, _ := newClientAs(t, "intercompany", func(w http.ResponseWriter, r *http.Request) {
+			raw, _ := io.ReadAll(r.Body)
+			bodies = append(bodies, string(raw))
+			if strings.Contains(string(raw), `"tradingPartnerId"`) || c.wantCalls == 1 {
+				w.WriteHeader(http.StatusBadRequest)
+				_, _ = w.Write([]byte(`{"code":"COM-0001","detail":"` + c.detail + `"}`))
+				return
+			}
+			_, _ = w.Write([]byte(`{"entries":[{"id":"` + entityID + `"}]}`))
+		})
+		id, err := cl.Post(principalCtx(), entry(ledgerID))
+		if (err != nil) != c.wantErr || len(bodies) != c.wantCalls {
+			t.Fatalf("%s: id %q err %v calls %d, want %d calls, error %v", c.name, id, err, len(bodies), c.wantCalls, c.wantErr)
+		}
+		if c.wantCalls == 2 && (id != entityID || strings.Contains(bodies[1], "tradingPartnerId")) {
+			t.Fatalf("%s: the retry must carry no partner: %v", c.name, bodies)
+		}
 	}
 }

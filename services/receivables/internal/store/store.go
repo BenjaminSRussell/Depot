@@ -711,12 +711,21 @@ func (s *Postgres) ApplyPayment(ctx context.Context, id string, version int, req
 		}
 		prices := map[string]settlementPricing{}
 		var priced []settlementPricing
+		allocIDs := make([]string, 0, len(allocs))
+		for _, a := range allocs {
+			allocIDs = append(allocIDs, a.OpenItemID)
+		}
+		partners, err := itemPartners(ctx, tx, allocIDs)
+		if err != nil {
+			return err
+		}
 		for _, a := range allocs {
 			if item, ok := crossItems[a.OpenItemID]; ok {
 				price, err := s.priceCrossCurrency(ctx, book, *fxSet, pay, item, a)
 				if err != nil {
 					return err
 				}
+				price.partner = partners[a.OpenItemID]
 				prices[a.OpenItemID] = price
 				priced = append(priced, price)
 			}

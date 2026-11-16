@@ -74,6 +74,8 @@ type balancesBody struct {
 type StatusError struct {
 	Status int
 	Code   string
+	// Detail is the problem's detail text, read only to tell an older ledger's refusal of an unknown field.
+	Detail string
 }
 
 func (e *StatusError) Error() string { return fmt.Sprintf("ledger: unexpected status %d", e.Status) }
@@ -359,7 +361,7 @@ func (c *Client) Signed() bool { return c.signer != nil }
 func (c *Client) Post(ctx context.Context, e Entry) (string, error) {
 	id, err := c.post(ctx, e)
 	var status *StatusError
-	if errors.As(err, &status) && status.Status == http.StatusBadRequest && status.Code == "COM-0001" && hasPartner(e) {
+	if errors.As(err, &status) && status.Status == http.StatusBadRequest && status.Code == "COM-0001" && strings.Contains(status.Detail, `unknown field "tradingPartnerId"`) && hasPartner(e) {
 		// A ledger that predates the trading partner (#40) refuses the unknown field. Post without it rather than park the entry; the
 		// consolidation reads such lines as untagged.
 		slog.WarnContext(ctx, "ledger refused tradingPartnerId; posting without it", "key", e.IdempotencyKey, "correlationId", middleware.GetReqID(ctx))
@@ -427,10 +429,11 @@ func (c *Client) post(ctx context.Context, e Entry) (string, error) {
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
 		slog.ErrorContext(ctx, "ledger rejected the entry", "status", resp.StatusCode, "key", e.IdempotencyKey, "correlationId", middleware.GetReqID(ctx))
 		var problem struct {
-			Code string `json:"code"`
+			Code   string `json:"code"`
+			Detail string `json:"detail"`
 		}
 		_ = json.Unmarshal(raw, &problem)
-		return "", &StatusError{Status: resp.StatusCode, Code: problem.Code}
+		return "", &StatusError{Status: resp.StatusCode, Code: problem.Code, Detail: problem.Detail}
 	}
 	var result entryResult
 	if err := json.Unmarshal(raw, &result); err != nil || len(result.Entries) == 0 || result.Entries[0].ID == "" {

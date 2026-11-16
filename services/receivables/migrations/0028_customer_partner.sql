@@ -1,28 +1,8 @@
--- #40: the legal entity on the other side of an intercompany customer. Recorded when billing's invoice.posted names a trading partner,
--- it lets the ledger journal of a payment application name that partner on the receivable credit, so a payment lowers the tagged
--- receivable in the partner balances like the invoice raised it.
-CREATE TABLE IF NOT EXISTS ar_customer_partner (
-  tenant_id uuid NOT NULL,
-  legal_entity_id uuid NOT NULL,
-  customer_id uuid NOT NULL,
-  partner_legal_entity_id uuid NOT NULL CHECK (partner_legal_entity_id <> legal_entity_id),
-  updated_at timestamptz NOT NULL DEFAULT now(),
-  PRIMARY KEY (tenant_id, legal_entity_id, customer_id)
-);
-
-ALTER TABLE ar_customer_partner ENABLE ROW LEVEL SECURITY;
-ALTER TABLE ar_customer_partner FORCE ROW LEVEL SECURITY;
-CREATE POLICY ar_customer_partner_tenant_access ON ar_customer_partner AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
-CREATE POLICY ar_customer_partner_legal_entity_scope ON ar_customer_partner AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
-
-DO $$
-BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON ar_customer_partner TO passage_app';
-  END IF;
-END
-$$;
+-- #40: the legal entity on the other side of an intercompany invoice, kept on each of its open items (and on the credit items of its credit
+-- notes). Billing's invoice.posted names it as trading_partner_id when the lender's invoice of an intercompany charge was booked with the
+-- partner on its receivable line. The ledger journals of a payment application, an unapply and the realized exchange difference of an
+-- item then name the same partner on the receivable line, item by item, so a payment lowers the tagged receivable the invoice raised.
+-- An ordinary invoice, a dunning fee and interest have none and their lines stay untagged. A nullable column without a default is a
+-- catalogue-only change; open_item keeps its RLS and grants.
+ALTER TABLE open_item ADD COLUMN IF NOT EXISTS trading_partner_id uuid;
+ALTER TABLE open_item ADD CONSTRAINT open_item_trading_partner_check CHECK (trading_partner_id IS NULL OR trading_partner_id <> legal_entity_id) NOT VALID;

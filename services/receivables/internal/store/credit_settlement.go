@@ -180,7 +180,7 @@ func (s *Postgres) SettleCredit(ctx context.Context, req CreditSettlementRequest
 		if total.GreaterThan(room) {
 			return settleInvalid(fmt.Sprintf("the debits total %s, more than credit %s holds open (%s)", total, credit.DocumentNumber, room))
 		}
-		var diffs []decimal.Decimal
+		var diffs []fxDiff
 		for _, m := range moves {
 			newOpen := m.item.OpenAmount.Sub(m.itemAmount)
 			status := domain.ApplyStatus(newOpen)
@@ -207,7 +207,11 @@ func (s *Postgres) SettleCredit(ctx context.Context, req CreditSettlementRequest
 				}
 				ia, fx := m.itemAmount, m.price.fx.Difference
 				line.ItemCurrency, line.ItemAmount, line.RealizedFX = m.item.Currency, &ia, &fx
-				diffs = append(diffs, fx)
+				partners, err := itemPartners(ctx, tx, []string{m.item.ID})
+				if err != nil {
+					return err
+				}
+				diffs = append(diffs, fxDiff{amount: fx, partner: partners[m.item.ID]})
 			}
 			out.Settlements = append(out.Settlements, line)
 		}
