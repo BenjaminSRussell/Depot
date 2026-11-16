@@ -42,6 +42,12 @@ interface Entry {
   expiresAt: number;
 }
 
+/** The pseudonym map as stored with a run that waits for approval, so a resumed run restores values the same way (FR-47.4). */
+export interface PseudonymSnapshot {
+  entries: Array<{ category: PiiCategory; value: string; pseudonym: string; expiresAt: number }>;
+  counters: Partial<Record<PiiCategory, number>>;
+}
+
 /**
  * Replaces PII with stable pseudonyms per (tenant, value) for `ttlMs`
  * (BR-47.7). The mapping lives only in this in-memory instance; the caller
@@ -57,6 +63,26 @@ export class Pseudonymizer {
     private readonly ttlMs: number,
     private readonly now: () => number,
   ) {}
+
+  /** The live mappings and counters, for persisting between the steps of a resumable run. */
+  snapshot(): PseudonymSnapshot {
+    this.sweep();
+    const entries: PseudonymSnapshot["entries"] = [];
+    for (const [key, entry] of this.byValue) {
+      const [, category = "", value = ""] = key.split("\u0000");
+      entries.push({ category: category as PiiCategory, value, pseudonym: entry.pseudonym, expiresAt: entry.expiresAt });
+    }
+    return { entries, counters: { ...this.counters } };
+  }
+
+  /** Loads a snapshot taken by `snapshot()`; mappings already past their TTL are dropped by the next sweep. */
+  load(snapshot: PseudonymSnapshot): void {
+    for (const e of snapshot.entries) {
+      this.byValue.set(`${this.tenantId}\u0000${e.category}\u0000${e.value}`, { pseudonym: e.pseudonym, expiresAt: e.expiresAt });
+      this.byPseudonym.set(e.pseudonym, e.value);
+    }
+    Object.assign(this.counters, snapshot.counters);
+  }
 
   redact(text: string): string {
     let out = text;

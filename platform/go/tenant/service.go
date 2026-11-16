@@ -228,6 +228,11 @@ var serviceGrants = map[string]map[string][]string{
 		"quality":     {"quality.capa.execute"},
 		"transport":   {"transport.tender.execute"},
 		"party":       {"party.approve", "party.merge.execute"},
+		"agents":      {"agents.run.workflow"},
+	},
+	// agents starts and wakes an agent run's workflow in workflow-ts on behalf of the run's user (#47).
+	"agents": {
+		"workflow-ts": {"agents.run.signal"},
 	},
 	"party": {
 		"numbering": {"numbering.sequence.allocate"},

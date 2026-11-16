@@ -8,6 +8,9 @@ info:
     dev.passage.prediction.payment.scored.v1 row per invoice to this service's outbox in the scoring transaction
     (src/prediction/store.py). The relay connector for this outbox is not deployed yet (NOT-IMPLEMENTED.md), so
     `channels` and `operations` stay empty until it is.
+    The service also consumes receivables events (payment, credit settlement, dispute, dunning letter, deduction, down payment and
+    opening-item events, see the receivables asyncapi) to rescore the invoices they touch, with consumer_inbox dedupe
+    (src/prediction/consumer.py).
 defaultContentType: application/cloudevents+json
 channels: {}
 operations: {}

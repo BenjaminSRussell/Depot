@@ -3111,6 +3111,29 @@ test_inventory_truck_stock if {
 	not allowed("inventory.transfer.post", "POST", "/v1/inventory/truck-stock:replenish")
 }
 
+# Agent runs as workflows (#47, FR-47.4): workflow-ts starts and wakes a run's workflow on behalf of the caller, and drives the run
+# steps with a service-only duty that opens nothing else in agents.
+test_agent_run_workflow_routes if {
+	data.service_grants["workflow-ts"].agents == ["agents.run.workflow"]
+	data.service_grants.agents["workflow-ts"] == ["agents.run.signal"]
+	data.duties["agents.run.workflow"].service_only
+	data.duties["agents.run.signal"].service_only
+	allowed("agents.run.workflow", "POST", "/api/v1/agents/runs/r1/steps/plan")
+	allowed("agents.run.workflow", "POST", "/api/v1/agents/runs/r1/steps/commit")
+	not allowed("agents.run.workflow", "GET", "/api/v1/agents/runs/r1")
+	not allowed("agents.run.workflow", "POST", "/api/v1/agents/ap_coding/runs")
+	not allowed("agents.run.workflow", "POST", "/api/v1/agents/runs/r1/actions/a1/decision")
+	not allowed("agents.run.read", "POST", "/api/v1/agents/runs/r1/steps/plan")
+	not allowed("agents.invoke", "POST", "/api/v1/agents/runs/r1/steps/plan")
+	allowed("agents.run.signal", "POST", "/v1/workflows/agent-runs/r1:start")
+	allowed("agents.run.signal", "POST", "/v1/workflows/agent-runs/r1:approval-decided")
+	not allowed("agents.run.signal", "POST", "/api/v1/agents/runs/r1/steps/plan")
+	not allowed("agents.run.signal", "POST", "/api/v1/agents/ap_coding/runs")
+	# No user duty reaches the workflow routes: they are not exposed at the edge, and approvers need nothing for the wake-up.
+	not allowed("agents.invoke", "POST", "/v1/workflows/agent-runs/r1:start")
+	not allowed("agents.run.read", "POST", "/v1/workflows/agent-runs/r1:approval-decided")
+}
+
 # Agent runtime surface (#47): starting a run, reading runs and the copilot chat are separate duties.
 test_agent_run_duties_open_only_their_routes if {
 	allowed("agents.invoke", "POST", "/api/v1/agents/ap_coding/runs")

@@ -40,6 +40,15 @@ class Report:
     actuals: int = 0
     skipped: str = ""
     errors: list[str] = field(default_factory=list)
+    # The errors that trying again cannot cure (a refusal by receivables, bad data); a caller that retries only retries when some are not here.
+    permanent: list[str] = field(default_factory=list)
+
+
+def _fail(rep: Report, label: str, exc: Exception) -> None:
+    text = f"{label}: {exc}" if label else str(exc)
+    rep.errors.append(text)
+    if not (isinstance(exc, FeedError) and not exc.permanent):
+        rep.permanent.append(text)
 
 
 def _score_all(service: PredictionService, tenant_id: str, legal_entity_id: str, invoices: list[OpenInvoice]) -> int:
@@ -118,7 +127,7 @@ def delta(service: PredictionService, feed: ReceivablesFeed, tenant_id: str, leg
             rep.scored += _score_all(service, tenant_id, le, opened)
             service.repo.save_sync_state(tenant_id, le, SyncState(open_mark, paid_mark, rev_mark, state.last_retrain_at))
         except (FeedError, SignerError, ValueError, PredictionError) as exc:
-            rep.errors.append(f"{le}: {exc}")
+            _fail(rep, le, exc)
     return rep
 
 

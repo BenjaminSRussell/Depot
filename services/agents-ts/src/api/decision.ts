@@ -22,6 +22,8 @@ export interface ApprovalRequest {
   approvalDuty: string;
   amount: Money;
   selfApprovalLimit: Money;
+  /** sha256 of the proposal the request was opened for (workflow runs). */
+  proposalHash?: string;
   /** Set once the action is decided; a decided action is never decided again. */
   decided?: RecordedDecision;
 }

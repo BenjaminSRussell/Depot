@@ -7,10 +7,11 @@ import { APPROVER, FakeApprovals, FakeTools, makeDeps, makeRequest, postDescript
 import { fixture, ownerUrl, type Fixture } from "./pgHelper.js";
 
 const tenant = (n: number): string => `00000000-0000-7000-8000-${String(n).padStart(12, "0")}`;
+let askN = 0;
 const ask = (tenantId: string, tokens: number, over: Partial<BudgetRequest> = {}): BudgetRequest => ({
   tenantId,
   agentId: "ap_coding",
-  runId: "run-x",
+  runId: `run-x-${(askN += 1)}`,
   month: "2026-10",
   tokensIn: tokens,
   tokensOut: tokens,

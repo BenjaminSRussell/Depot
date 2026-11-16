@@ -1,6 +1,9 @@
 import type { IncomingMessage, RequestListener, ServerResponse } from "node:http";
-import { WorkflowNotFoundError, type Client } from "@temporalio/client";
+import { WorkflowExecutionAlreadyStartedError, WorkflowNotFoundError, type Client } from "@temporalio/client";
 import {
+  agentApprovalDecidedSignal,
+  agentRunWorkflow,
+  agentRunWorkflowId,
   approvalDecisionSignal,
   budgetPlanDecisionSignal,
   budgetPlanStateQuery,
@@ -17,6 +20,7 @@ import {
   partyMergeRequestId,
 } from "./workflows.js";
 import { inLegalEntityScope } from "./serviceToken.js";
+import type { ServiceTokenVerifier } from "./agentsToken.js";
 
 export const ECO_DECIDE_DUTY = "engineering.eco.approve";
 export const BUDGET_PLAN_DECIDE_DUTY = "budget.plan.decide";
@@ -37,6 +41,7 @@ const ECO_ROUTE = /^\/v1\/workflows\/eco-approvals\/([^/:]+):(approve|reject)$/;
 const PLAN_ROUTE = /^\/v1\/workflows\/budget-plans\/([^/:]+)(?:\/stages\/(review|approve):sign-off|:(reject))$/;
 const CAPA_ROUTE = /^\/v1\/workflows\/capa\/([^/:]+):(step-done|effectiveness)$/;
 const PARTY_ROUTE = /^\/v1\/workflows\/party-changes\/([^/:]+):(approve|reject|delegate)$/;
+const AGENT_RUN_ROUTE = /^\/v1\/workflows\/agent-runs\/([^/:]+):(start|approval-decided)$/;
 const MERGE_ROUTE = /^\/v1\/workflows\/party-merges\/([^/:]+):(approve|reject|delegate)$/;
 
 interface Principal {
@@ -56,13 +61,20 @@ class Refusal extends Error {
   }
 }
 
-export function createDecisionHandler(client: Pick<Client, "workflow">): RequestListener {
+export interface DecisionOptions {
+  /** The task queue agent-run workflows start on (the one this worker polls). */
+  taskQueue?: string;
+  /** Verifies the agents service's tokens on the agent-run routes; without it those routes answer 404. */
+  agentsVerifier?: ServiceTokenVerifier;
+}
+
+export function createDecisionHandler(client: Pick<Client, "workflow">, options: DecisionOptions = {}): RequestListener {
   return (request, response) => {
-    handle(client, request, response).catch(() => reply(response, new Refusal(502, "WF-0502", "the workflow service could not be reached")));
+    handle(client, request, response, options).catch(() => reply(response, new Refusal(502, "WF-0502", "the workflow service could not be reached")));
   };
 }
 
-async function handle(client: Pick<Client, "workflow">, request: IncomingMessage, response: ServerResponse): Promise<void> {
+async function handle(client: Pick<Client, "workflow">, request: IncomingMessage, response: ServerResponse, options: DecisionOptions): Promise<void> {
   const path = (request.url ?? "").split("?")[0] ?? "";
   if (path === "/healthz" || path === "/readyz") return void response.writeHead(200).end();
   const eco = ECO_ROUTE.exec(path);
@@ -70,9 +82,14 @@ async function handle(client: Pick<Client, "workflow">, request: IncomingMessage
   const plan = PLAN_ROUTE.exec(path);
   const party = PARTY_ROUTE.exec(path);
   const merge = MERGE_ROUTE.exec(path);
-  if (!eco && !capa && !party && !merge && !plan) return reply(response, new Refusal(404, "COM-0404", "no such route"));
+  const agentRun = AGENT_RUN_ROUTE.exec(path);
+  if (!eco && !capa && !party && !merge && !plan && !agentRun) return reply(response, new Refusal(404, "COM-0404", "no such route"));
   if (request.method !== "POST") return reply(response, new Refusal(405, "COM-0405", "POST only"));
   try {
+    if (agentRun) {
+      await agentRunRoute(client, request, agentRun[1]!, agentRun[2] as "start" | "approval-decided", options);
+      return void response.writeHead(202, { "Content-Type": "application/json" }).end(JSON.stringify({ accepted: true }));
+    }
     const principal = principalOf(request);
     const body = await readJson(request);
     if (party) await decidePartyChange(client, principal, party[1]!, party[2] as "approve" | "reject" | "delegate", body);
@@ -139,6 +156,46 @@ async function stateOf<T extends { tenantId: string; legalEntityId: string }>(re
   if (state.tenantId !== principal.tenantId) throw new Refusal(404, "WF-0404", "no workflow is running for this record");
   if (!inLegalEntityScope(principal.scope, state.legalEntityId)) throw new Refusal(403, "AUTH-0003", "the record belongs to a legal entity outside your scope");
   return state;
+}
+
+/**
+ * `:start` begins the run's workflow for a run the agents service has already stored (idempotent: a second start is the same run);
+ * `:approval-decided` wakes it after the agents service recorded a decision. Neither carries a decision, so neither can approve
+ * anything. Both take only a signed service token from the agents service (grant agents.run.signal), never the X-Passage-*
+ * headers: this port trusts those headers from the edge, so a pod that reaches it must not be able to claim an identity here.
+ * They are not exposed at the edge. The token's tenant and actor are the run's; the workflow id carries the tenant.
+ */
+async function agentRunRoute(client: Pick<Client, "workflow">, request: IncomingMessage, runId: string, action: "start" | "approval-decided", options: DecisionOptions): Promise<void> {
+  if (!options.agentsVerifier) throw new Refusal(404, "COM-0404", "no such route");
+  const raw = request.headers["x-passage-service-token"];
+  let claims;
+  try {
+    claims = options.agentsVerifier.verify(String(Array.isArray(raw) ? raw[0] : raw ?? ""));
+  } catch {
+    throw new Refusal(401, "AUTH-0001", "a valid service token from the agents service is required");
+  }
+  const body = await readJson(request);
+  if (action === "start") {
+    if (!options.taskQueue) throw new Refusal(502, "WF-0502", "this worker does not start agent runs");
+    try {
+      await client.workflow.start(agentRunWorkflow, {
+        workflowId: agentRunWorkflowId(claims.tid, runId),
+        taskQueue: options.taskQueue,
+        args: [{ tenantId: claims.tid, runId, actor: claims.act }],
+      });
+    } catch (error) {
+      if (!(error instanceof WorkflowExecutionAlreadyStartedError)) throw error;
+    }
+    return;
+  }
+  const actionId = text(body, "actionId", 64, true)!;
+  const handle = client.workflow.getHandle(agentRunWorkflowId(claims.tid, runId));
+  try {
+    await handle.signal(agentApprovalDecidedSignal, { actionId });
+  } catch (error) {
+    if (error instanceof WorkflowNotFoundError) throw new Refusal(404, "WF-0404", "no workflow is running for this run");
+    throw error;
+  }
 }
 
 async function decideEco(client: Pick<Client, "workflow">, principal: Principal, ecoId: string, action: "approve" | "reject", body: Record<string, unknown>): Promise<void> {

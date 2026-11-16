@@ -189,6 +189,7 @@ describe("api/openapi.yaml matches the router", () => {
       "GET /api/v1/agents/runs/{runId}/actions",
       "POST /api/v1/agents/kill-switch",
       "POST /api/v1/agents/runs/{runId}/actions/{actionId}/decision",
+      "POST /api/v1/agents/runs/{runId}/steps/{step}",
       "POST /api/v1/agents/{agentId}/runs",
       "POST /api/v1/copilot/chat",
       "POST /api/v1/knowledge/chunks",
@@ -204,6 +205,7 @@ describe("api/openapi.yaml matches the router", () => {
       runs: {} as RunService,
       copilot: {} as CopilotService,
       knowledge: {} as KnowledgeService,
+      steps: { service: {} as never, verifier: { verify: () => { throw new Error("no"); } } },
     });
     const s = createServer((req, res) => void handler(req, res));
     await new Promise<void>((resolve) => s.listen(0, "127.0.0.1", resolve));
@@ -211,7 +213,7 @@ describe("api/openapi.yaml matches the router", () => {
       const base = `http://127.0.0.1:${(s.address() as AddressInfo).port}`;
       for (const op of documentedOperations()) {
         const [method, template] = op.split(" ") as [string, string];
-        const url = template.replace("{runId}", RUN).replace("{actionId}", ACT).replace("{agentId}", "ap_coding");
+        const url = template.replace("{runId}", RUN).replace("{actionId}", ACT).replace("{agentId}", "ap_coding").replace("{step}", "plan");
         // Anonymous: a served route answers 401, an unserved one 404 or 405.
         const res = await fetch(`${base}${url}`, { method, ...(method === "GET" ? {} : { body: "{}" }) });
         expect(res.status, op).toBe(401);

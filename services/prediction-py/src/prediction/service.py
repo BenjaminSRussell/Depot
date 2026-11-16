@@ -3,9 +3,10 @@ in-memory one below serves tests and a process started without DATABASE_URL."""
 
 from __future__ import annotations
 
+from contextlib import AbstractContextManager, contextmanager
 from dataclasses import dataclass, replace
 from datetime import date, datetime
-from typing import Callable, Protocol, Sequence
+from typing import Callable, Iterator, Protocol, Sequence
 
 from prediction.domain import (
     CODE_UNAVAILABLE,
@@ -75,6 +76,9 @@ class Repository(Protocol):
     def dso(self, tenant_id: str, legal_entity_id: str) -> Dso | None: ...
     def mark_reversed(self, tenant_id: str, invoice_ids: list[str], entities: Entities = None) -> int: ...
     def claim_unowned(self, tenant_id: str, legal_entity_id: str, invoice_ids: list[str]) -> int: ...
+    def inbox_once(self, tenant_id: str, consumer: str, event_id: str) -> AbstractContextManager[bool]: ...
+    def inbox_outcome(self, tenant_id: str, consumer: str, event_id: str, outcome: str, detail: str) -> None: ...
+    def inbox_entry(self, tenant_id: str, consumer: str, event_id: str) -> tuple[str, str | None] | None: ...
 
 
 class InMemoryRepository:
@@ -89,6 +93,7 @@ class InMemoryRepository:
         # (tenant, invoice) -> the legal entity a prediction was stored for, or None when it was stored for none.
         self._entity: dict[tuple[str, str], str | None] = {}
         self._reversed: set[tuple[str, str]] = set()
+        self._inbox: dict[tuple[str, str, str], tuple[str, str | None]] = {}
         # prediction.payment.scored events, as the Postgres repository writes them to the outbox.
         self.events: list[tuple[str, dict[str, object]]] = []
 
@@ -163,6 +168,26 @@ class InMemoryRepository:
         for inv in invoices:
             self._facts[(tenant_id, inv.invoice_id)] = (legal_entity_id, inv.invoice_date, inv.amount)
             self._entity[(tenant_id, inv.invoice_id)] = legal_entity_id
+
+    @contextmanager
+    def inbox_once(self, tenant_id: str, consumer: str, event_id: str) -> Iterator[bool]:
+        """True the first time an event is seen; the record is kept only if the block ends without raising (same as the Postgres inbox)."""
+        key = (tenant_id, consumer, event_id)
+        if key in self._inbox:
+            yield False
+            return
+        self._inbox[key] = ("done", None)
+        try:
+            yield True
+        except BaseException:
+            self._inbox.pop(key, None)
+            raise
+
+    def inbox_outcome(self, tenant_id: str, consumer: str, event_id: str, outcome: str, detail: str) -> None:
+        self._inbox[(tenant_id, consumer, event_id)] = (outcome, detail)
+
+    def inbox_entry(self, tenant_id: str, consumer: str, event_id: str) -> tuple[str, str | None] | None:
+        return self._inbox.get((tenant_id, consumer, event_id))
 
     def claim_unowned(self, tenant_id: str, legal_entity_id: str, invoice_ids: list[str]) -> int:
         n = 0

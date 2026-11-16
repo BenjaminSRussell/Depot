@@ -19,7 +19,14 @@ MAX_PAGES = 2000
 
 
 class FeedError(Exception):
-    """The feed could not be read completely; the caller keeps its watermark and tries again."""
+    """The feed could not be read completely; the caller keeps its watermark and tries again.
+
+    `permanent` is True when trying again cannot help (receivables refused the request with a 4xx other than 408 and 429, or answered with
+    something unreadable); a 5xx, a timeout or a dropped connection is transient."""
+
+    def __init__(self, message: str, permanent: bool = False) -> None:
+        super().__init__(message)
+        self.permanent = permanent
 
 
 @dataclass(frozen=True)
@@ -60,14 +67,14 @@ class ReceivablesFeed:
             except httpx.HTTPError as exc:
                 raise FeedError(f"receivables is not reachable: {exc}") from exc
             if res.status_code != 200:
-                raise FeedError(f"receivables answered {res.status_code} for the {state} invoice feed")
+                raise FeedError(f"receivables answered {res.status_code} for the {state} invoice feed", permanent=400 <= res.status_code < 500 and res.status_code not in (408, 429))
             try:
                 body = res.json()
                 rows = body["items"]
                 invoices = [_invoice(r, state == "paid") for r in rows]
                 last = datetime.fromisoformat(rows[-1]["updatedAt"]) if rows else None
             except (ValueError, KeyError, TypeError) as exc:
-                raise FeedError(f"the {state} invoice feed is not readable: {exc}") from exc
+                raise FeedError(f"the {state} invoice feed is not readable: {exc}", permanent=True) from exc
             yield Page(invoices, last)
             cursor = body.get("nextCursor") or ""
             if not cursor:
