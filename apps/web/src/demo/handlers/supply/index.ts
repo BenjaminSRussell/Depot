@@ -4,6 +4,7 @@ import "./purchasing";
 import "./rfqs";
 import "./warehouse";
 import "./inventory";
+import "./transactions";
 import "./receiving";
 import "./payables";
 import "./apInvoices";

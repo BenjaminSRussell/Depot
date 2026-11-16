@@ -34,7 +34,9 @@ type TransactionFilter struct {
 	// Dims keeps the transactions whose dimension set holds every named
 	// dimension at the given value: the drill-down from an on-hand row. An
 	// empty map does not filter.
-	Dims   map[string]string
+	Dims map[string]string
+	// Q keeps the transactions whose reference contains it, ignoring case (the transaction lookup).
+	Q      string
 	From   *time.Time
 	To     *time.Time
 	Cursor string
@@ -106,8 +108,9 @@ func (s *Postgres) ListTransactions(ctx context.Context, f TransactionFilter) ([
 			  and ($9 = '' or t.id = nullif($9, '')::uuid)
 			  and ($10 = '' or t.legal_entity_id = nullif($10, '')::uuid)
 			  and ($11 = '{}' or d.dims @> $11::jsonb)
+			  and ($12 = '' or strpos(lower(coalesce(o.reference_number, '')), lower($12)) > 0)
 			order by t.id desc
-			limit $8`, p.TenantID, f.ProductID, string(f.Status), f.SourceType, f.From, f.To, cursor, limit, f.ID, f.LegalEntityID, string(dims))
+			limit $8`, p.TenantID, f.ProductID, string(f.Status), f.SourceType, f.From, f.To, cursor, limit, f.ID, f.LegalEntityID, string(dims), f.Q)
 		if err != nil {
 			return err
 		}

@@ -77,6 +77,23 @@ route("GET", `${BASE}/orders`, ({ query }) => {
   return { items: (limit > 0 ? rows.slice(0, limit) : rows).map(summary) };
 });
 
+/** The lines of every order for the line pickers of other services' forms. */
+function orderLines() {
+  return orders
+    .all()
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    .flatMap((o) =>
+      o.lines.map((l) => ({ id: l.id, orderId: o.id, orderNumber: o.orderNumber, lineNo: l.lineNo, productId: l.productId, quantity: l.quantity, unit: l.unit, lineStatus: l.lineStatus })),
+    );
+}
+
+route("GET", `${BASE}/order-lines`, ({ query }) => ({
+  items: orderLines()
+    .filter((l) => (!query.get("orderId") || l.orderId === query.get("orderId")) && matchesQ(query, l.orderNumber))
+    .slice(0, Number(query.get("limit") ?? 50)),
+}));
+route("GET", `${BASE}/order-lines/{id}`, ({ params }) => orderLines().find((l) => l.id === params.id) ?? reply.problem(404, "SLS-0100", "Order line not found"));
+
 route("POST", `${BASE}/orders`, ({ body }) => {
   const input = body as NewOrder;
   const errors: Record<string, string> = {};

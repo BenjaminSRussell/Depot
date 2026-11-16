@@ -95,6 +95,11 @@ on the existing endpoints:
   failure FAILED and moves to the next cron slot, and writes
   `dev.passage.analytics.report.delivered.v1` with a delivered attempt.
   `GET /v1/analytics/schedules/{id}/deliveries?status=` lists the attempts.
+- Saved explorer queries (#500, migration 0006): `POST/GET /v1/analytics/saved-queries` and `GET/DELETE /v1/analytics/saved-queries/{id}`
+  keep a named query per user (metrics, dimensions and a look-back of 1 to 1826 days, so the range stays current). The list and
+  reads are the caller's own (`q`, `name`, `limit`), a name is unique per user (`ANA-0115`), create takes an `Idempotency-Key`,
+  and the metrics and dimensions are checked against the published catalog like a query plan. Duty `analytics.view` or
+  `analytics.author`. A schedule with target type `QUERY` names a saved query by id.
   The every-minute job that calls `DispatchDue` for each tenant and the PDF/XLSX
   renderers and destination adapters are later slices.
 - **Catalog lineage (FR-46.12).** `lineage_edge` (source feeds target),

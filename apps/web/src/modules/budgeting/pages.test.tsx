@@ -5,6 +5,7 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { checkAxeAA } from "../../shell/a11y";
 import type { Balance, CheckOutcome, Encumbrance, RegisterEntry, Rule } from "./api/client";
+import { setLookupFetcher } from "../../shell/lookup/entities";
 import { BudgetCheckPage, CheckDetailPage } from "./CheckPage";
 import { EncumbrancePage } from "./EncumbrancePage";
 import { RegisterEntryPage } from "./RegisterEntryPage";
@@ -289,6 +290,33 @@ describe("BudgetCheckPage", () => {
     fireEvent.change(screen.getByLabelText("Amount"), { target: { value: "1" } });
     fireEvent.click(screen.getByRole("button", { name: "Run check" }));
     expect(await screen.findByText(/already reserved against another control combination/)).toBeInTheDocument();
+  });
+
+  it("re-checks a document picked by its number with its own line ids", async () => {
+    const PO = "77777777-7777-4777-8777-777777777777";
+    const PO_LINE = "88888888-8888-4888-8888-888888888888";
+    const doc = { id: PO, number: "BD-000014", documentType: "Requisition", legalEntityId: LE, lineCount: 1, updatedAt: "2026-10-01T08:00:00Z" };
+    const fetchMock = stubRoutes({
+      "GET /api/v1/budget/control-rules": () => json(200, { items: [rule] }),
+      "GET /api/v1/budget/documents?": () => json(200, { items: [doc] }),
+      [`GET /api/v1/budget/documents/${PO}`]: () => json(200, doc),
+      "GET /api/v1/budget/document-lines": () => json(200, { items: [{ id: PO_LINE, documentId: PO, documentNumber: "BD-000014", lineNo: 1, dimensionKey: "dept-10", spanKey: "FY2026", amount: "9000" }] }),
+      "POST /api/v1/budget/checks": () => json(200, { ...failed, documentId: PO }),
+    });
+    setLookupFetcher(null);
+    at(`/budgeting/check?rule=${R1}`);
+    await screen.findByRole("option", { name: /DEPT v1/ });
+    expect(screen.queryByText(/[0-9a-f]{8}-[0-9a-f]{4}-/)).toBeNull();
+    fireEvent.change(screen.getByLabelText("Document"), { target: { value: "BD-0" } });
+    fireEvent.click(await screen.findByRole("option", { name: /BD-000014/ }));
+    await waitFor(() => expect(screen.getByLabelText("Dimension")).toHaveValue("dept-10"));
+    expect(screen.getByLabelText("Document type")).toHaveValue("Requisition");
+    expect(screen.getByLabelText("Amount")).toHaveValue("9000");
+    fireEvent.change(screen.getByLabelText("Amount"), { target: { value: "9500" } });
+    fireEvent.click(screen.getByRole("button", { name: "Run check" }));
+    await findTable({ name: "Check lines" });
+    const body = JSON.parse(calls(fetchMock, "POST", "/checks")[0][1].body as string);
+    expect(body).toMatchObject({ documentId: PO, documentType: "Requisition", lines: [{ lineId: PO_LINE, amount: "9500" }] });
   });
 
   it("shows a recorded check", async () => {

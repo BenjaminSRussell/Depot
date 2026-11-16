@@ -1,7 +1,9 @@
 import { useRef, useState, type FormEvent } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { Alert, Button, Card, DataTable, FormField, Input, PageHeader, Select, Skeleton, type DataTableColumn } from "../../shell/ui";
-import { checkBudget, describeError, getCheck, listRules, type CheckLineOutcome, type CheckOutcome } from "./api/client";
+import { checkBudget, describeError, getBudgetDocument, getCheck, listBudgetDocumentLines, listRules, type CheckLineOutcome, type CheckOutcome } from "./api/client";
+import { EntityLookup } from "../../shell/lookup/EntityLookup";
+import { EntityName } from "../../shell/lookup/EntityName";
 import { blockedLineIds, DOCUMENT_TYPES, formatAmount, overPercentLabel, UUID, validateCheckRows, type CheckRow, type DocumentType } from "./logic";
 import styles from "./pages.module.css";
 import { dash, Detail, formatDateTime, LoadError, ResultBadge } from "./parts";
@@ -35,8 +37,8 @@ function CheckResult({ outcome }: { outcome: CheckOutcome }) {
           <Detail term="Result">
             <ResultBadge result={outcome.result} />
           </Detail>
-          <Detail term="Document" mono>
-            {outcome.documentId}
+          <Detail term="Document">
+            <EntityName entity="budgetDocument" id={outcome.documentId} fallback="Not registered" />
           </Detail>
           <Detail term="Document type">{outcome.documentType}</Detail>
           <Detail term="Blocked lines">{blocked}</Detail>
@@ -57,7 +59,10 @@ export function BudgetCheckPage() {
   const [params] = useSearchParams();
   const rules = useLoad((signal) => listRules(undefined, signal), "rules");
   const [ruleVersionId, setRuleVersionId] = useState(params.get("rule") ?? "");
-  const [documentId, setDocumentId] = useState<string>(() => crypto.randomUUID());
+  // A new document gets a fresh id; picking one already checked re-checks it with its own line ids.
+  const [newDocumentId, setNewDocumentId] = useState<string>(() => crypto.randomUUID());
+  const [picked, setPicked] = useState("");
+  const documentId = picked || newDocumentId;
   const [documentType, setDocumentType] = useState<DocumentType>("PurchaseOrder");
   const [rows, setRows] = useState<CheckRow[]>([emptyRow()]);
   const [errors, setErrors] = useState<string[]>([]);
@@ -70,6 +75,22 @@ export function BudgetCheckPage() {
     setRows((current) => current.map((r, i) => (i === index ? { ...r, ...patch } : r)));
   }
 
+  async function pickDocument(id: string) {
+    setPicked(id);
+    setOutcome(null);
+    if (!id) {
+      setRows([emptyRow()]);
+      return;
+    }
+    try {
+      const [doc, lines] = await Promise.all([getBudgetDocument(id), listBudgetDocumentLines(id)]);
+      if (doc.documentType !== "Reservation") setDocumentType(doc.documentType);
+      setRows(lines.items.length > 0 ? lines.items.map((l) => ({ lineId: l.id, dimensionKey: l.dimensionKey, spanKey: l.spanKey, amount: l.amount })) : [emptyRow()]);
+    } catch (err) {
+      setFailure(describeError(err, "The document's lines could not be loaded."));
+    }
+  }
+
   async function submit(e: FormEvent) {
     e.preventDefault();
     setFailure(null);
@@ -77,7 +98,6 @@ export function BudgetCheckPage() {
     const valid = validateCheckRows(clean);
     const found = valid.ok ? [] : [...valid.errors];
     if (!UUID.test(ruleVersionId)) found.unshift("Choose a control rule version.");
-    if (!UUID.test(documentId.trim())) found.unshift("The document id must be a UUID.");
     setErrors(found);
     if (found.length > 0) return;
     const input = { ruleVersionId, documentId: documentId.trim(), documentType, lines: clean };
@@ -115,8 +135,8 @@ export function BudgetCheckPage() {
               </Select>
             )}
           </FormField>
-          <FormField id="check-document" label="Document id" hint="Keep the same id and line ids to re-check a revised document.">
-            {(c) => <Input {...c} className={styles.mono} value={documentId} onChange={(e) => setDocumentId(e.target.value)} />}
+          <FormField id="check-document" label="Document" optional hint="Leave empty to check a new document. Pick one already checked to re-check a revised document with its lines.">
+            {(c) => <EntityLookup {...c} entity="budgetDocument" value={picked} onChange={(e) => void pickDocument(e.target.value)} />}
           </FormField>
           <FormField id="check-type" label="Document type">
             {(c) => (
@@ -132,7 +152,7 @@ export function BudgetCheckPage() {
           {rows.map((row, i) => (
             <fieldset key={row.lineId} className={styles.lineSet}>
               <legend className={styles.legend}>
-                Line {i + 1} <span className={styles.mono}>{row.lineId}</span>
+                Line {i + 1}
               </legend>
               <FormField id={`check-dim-${i}`} label="Dimension">
                 {(c) => <Input {...c} className={styles.mono} value={row.dimensionKey} onChange={(e) => updateRow(i, { dimensionKey: e.target.value })} />}
@@ -158,7 +178,8 @@ export function BudgetCheckPage() {
             <Button
               variant="ghost"
               onClick={() => {
-                setDocumentId(crypto.randomUUID());
+                setPicked("");
+                setNewDocumentId(crypto.randomUUID());
                 setRows([emptyRow()]);
                 setOutcome(null);
               }}

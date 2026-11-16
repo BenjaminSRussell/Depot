@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -354,5 +355,79 @@ func TestListFreightBills_FiltersByStatusAndCarrier(t *testing.T) {
 	byCarrier, err := s.ListFreightBills(ctx, store.FreightBillFilter{CarrierID: b})
 	if err != nil || len(byCarrier) != 1 || byCarrier[0].CarrierID != b {
 		t.Fatalf("by carrier = %+v, %v", byCarrier, err)
+	}
+}
+
+func TestCarrierServices_CreateListSearchAndTenantScope(t *testing.T) {
+	s, _ := setup(t)
+	ctx := tenantCtx(1)
+	carrier := ids.New()
+	ground, err := s.CreateCarrierService(ctx, domain.CarrierService{CarrierID: carrier, Code: "GROUND", Name: "Ground", Mode: "PARCEL"}, store.Idem{Key: "svc-1", Fingerprint: "a"})
+	if err != nil || !ground.Active {
+		t.Fatalf("create = %+v, %v", ground, err)
+	}
+	replay, err := s.CreateCarrierService(ctx, domain.CarrierService{CarrierID: carrier, Code: "GROUND", Name: "Ground", Mode: "PARCEL"}, store.Idem{Key: "svc-1", Fingerprint: "a"})
+	if err != nil || replay.ID != ground.ID {
+		t.Fatalf("replay = %+v, %v", replay, err)
+	}
+	if _, err := s.CreateCarrierService(ctx, domain.CarrierService{CarrierID: carrier, Code: "GROUND", Name: "Other", Mode: "LTL"}, store.Idem{Key: "svc-1", Fingerprint: "b"}); problemCode(t, err) != store.CodeIdempotencyReuse {
+		t.Fatalf("reused key: %v", err)
+	}
+	if _, err := s.CreateCarrierService(ctx, domain.CarrierService{CarrierID: carrier, Code: "GROUND", Name: "Dup", Mode: "PARCEL"}, store.Idem{}); problemCode(t, err) != domain.CodeCarrierServiceExists {
+		t.Fatalf("duplicate code: %v", err)
+	}
+	if _, err := s.CreateCarrierService(ctx, domain.CarrierService{CarrierID: carrier, Code: "2DAY", Name: "Two day air", Mode: "PARCEL"}, store.Idem{}); err != nil {
+		t.Fatal(err)
+	}
+	found, err := s.ListCarrierServices(ctx, store.CarrierServiceFilter{Q: "air"})
+	if err != nil || len(found) != 1 || found[0].Code != "2DAY" {
+		t.Fatalf("search = %+v, %v", found, err)
+	}
+	exact, _ := s.ListCarrierServices(ctx, store.CarrierServiceFilter{Code: "GROUND", CarrierID: carrier})
+	if len(exact) != 1 || exact[0].ID != ground.ID {
+		t.Fatalf("exact = %+v", exact)
+	}
+	if other, _ := s.ListCarrierServices(tenantCtx(2), store.CarrierServiceFilter{}); len(other) != 0 {
+		t.Fatalf("another tenant sees %d services", len(other))
+	}
+	if _, err := s.GetCarrierService(tenantCtx(2), ground.ID); problemCode(t, err) != domain.CodeNotFound {
+		t.Fatalf("cross-tenant get: %v", err)
+	}
+}
+
+func TestFreightBills_HaveNumbersThatSearch(t *testing.T) {
+	s, admin := setup(t)
+	ctx := tenantCtx(1)
+	bill, err := s.CreateFreightBill(ctx, billOn(t, s, ctx, ids.New(), "10"), store.Idem{})
+	if err != nil || !strings.HasPrefix(bill.Number, "FB-") || len(bill.Number) != 9 {
+		t.Fatalf("bill number = %q, %v", bill.Number, err)
+	}
+	for _, f := range []store.FreightBillFilter{{Number: bill.Number}, {Q: strings.ToLower(bill.Number[3:])}, {LoadID: bill.LoadID, Limit: 5}} {
+		list, err := s.ListFreightBills(ctx, f)
+		if err != nil || len(list) != 1 || list[0].ID != bill.ID {
+			t.Fatalf("filter %+v = %+v, %v", f, list, err)
+		}
+	}
+	// Numbers count per tenant and never cut off: another tenant starts at 1, and a counter past 999999 widens the number.
+	other := tenantCtx(2)
+	first, err := s.CreateFreightBill(other, billOn(t, s, other, ids.New(), "10"), store.Idem{})
+	if err != nil || first.Number != "FB-000001" {
+		t.Fatalf("another tenant's first bill = %q, %v", first.Number, err)
+	}
+	if _, err := admin.Exec(context.Background(), `update freight_bill_counter set last_number = 1000000 where tenant_id = $1`, testkit.TenantID(1)); err != nil {
+		t.Fatal(err)
+	}
+	wide, err := s.CreateFreightBill(ctx, billOn(t, s, ctx, ids.New(), "10"), store.Idem{})
+	if err != nil || wide.Number != "FB-1000001" {
+		t.Fatalf("past a million = %q, %v", wide.Number, err)
+	}
+	if list, _ := s.ListFreightBills(ctx, store.FreightBillFilter{Number: "FB-1000001"}); len(list) != 1 {
+		t.Fatalf("wide number matched %d bills", len(list))
+	}
+	if list, _ := s.ListFreightBills(ctx, store.FreightBillFilter{Q: "%"}); len(list) != 0 {
+		t.Fatalf("a percent sign matched %d bills", len(list))
+	}
+	if list, _ := s.ListFreightBills(ctx, store.FreightBillFilter{Number: "FB-999999"}); len(list) != 0 {
+		t.Fatalf("unknown number matched %d bills", len(list))
 	}
 }

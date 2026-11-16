@@ -206,8 +206,8 @@ describe("ReservationDetailPage", () => {
     expect(await screen.findByText("Nothing consumed yet")).toBeInTheDocument();
     expect(pageViolations(container)).toEqual([]);
 
-    fireEvent.change(screen.getByLabelText("Document id"), { target: { value: PO } });
-    fireEvent.change(screen.getByLabelText("Document line id"), { target: { value: POL } });
+    fireEvent.change(screen.getByLabelText("Document"), { target: { value: PO } });
+    fireEvent.change(screen.getByLabelText("Document line"), { target: { value: POL } });
     fireEvent.change(screen.getByLabelText("Amount"), { target: { value: "20000.01" } });
     fireEvent.click(screen.getByRole("button", { name: "Consume" }));
     expect(await screen.findByText("At most 20000.00 remains on this line.")).toBeInTheDocument();

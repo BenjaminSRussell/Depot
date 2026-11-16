@@ -47,6 +47,10 @@ type fakeStore struct {
 	samples     []domain.Sample
 	sampleKeys  map[string]domain.Sample
 	s5          fakeSlice5
+	outcomes    map[string]domain.Outcome
+	outFilter   store.OutcomeFilter
+	// strictOutcomes makes a test group refuse passing outcomes that are not registered; by default any UUID passes.
+	strictOutcomes bool
 }
 
 func newFake() *fakeStore {
@@ -124,6 +128,83 @@ func (f *fakeStore) GetDecision(_ context.Context, orderID string) (domain.Decis
 		}
 	}
 	return domain.Decision{}, false, nil
+}
+
+func (f *fakeStore) CreateOutcome(_ context.Context, in domain.Outcome, _ string) (domain.Outcome, bool, error) {
+	for _, o := range f.outcomes {
+		if o.Code == in.Code {
+			return domain.Outcome{}, false, httpx.NewProblem(http.StatusConflict, domain.CodeOutcomeDupe, "an outcome with this code already exists")
+		}
+	}
+	if f.outcomes == nil {
+		f.outcomes = map[string]domain.Outcome{}
+	}
+	in.ID = ids.New()
+	f.outcomes[in.ID] = in
+	return in, true, nil
+}
+
+func (f *fakeStore) GetOutcome(_ context.Context, id string) (domain.Outcome, error) {
+	o, ok := f.outcomes[id]
+	if !ok {
+		return o, httpx.NewProblem(http.StatusNotFound, domain.CodeOutcomeMissing, "outcome not found")
+	}
+	return o, nil
+}
+
+func (f *fakeStore) ListOutcomes(_ context.Context, filter store.OutcomeFilter) ([]domain.Outcome, error) {
+	f.outFilter = filter
+	out := []domain.Outcome{}
+	for _, o := range f.outcomes {
+		out = append(out, o)
+	}
+	return out, nil
+}
+
+func (f *fakeStore) UpdateOutcome(_ context.Context, id string, version int, name *string, active *bool) (domain.Outcome, error) {
+	o, ok := f.outcomes[id]
+	if !ok {
+		return o, httpx.NewProblem(http.StatusNotFound, domain.CodeOutcomeMissing, "outcome not found")
+	}
+	if o.Version != version {
+		return o, httpx.NewProblem(http.StatusPreconditionFailed, store.CodeVersionConflict, "stale")
+	}
+	if name != nil {
+		o.Name = *name
+	}
+	if active != nil {
+		o.Active = *active
+	}
+	o.Version++
+	f.outcomes[id] = o
+	return o, nil
+}
+
+func (f *fakeStore) ResolveOutcomeRefs(_ context.Context, refs []string) (map[string]string, error) {
+	out := map[string]string{}
+	for _, ref := range refs {
+		for _, o := range f.outcomes {
+			if o.ID == ref || (o.Active && o.Code == strings.ToUpper(ref)) {
+				out[ref] = o.ID
+			}
+		}
+		if _, ok := out[ref]; !ok && !f.strictOutcomes && ids.Valid(ref) {
+			out[ref] = ref
+		}
+	}
+	return out, nil
+}
+
+func (f *fakeStore) OutcomeIDsByCode(_ context.Context, codes []string) (map[string]string, error) {
+	out := map[string]string{}
+	for _, o := range f.outcomes {
+		for _, c := range codes {
+			if o.Code == c && o.Active {
+				out[c] = o.ID
+			}
+		}
+	}
+	return out, nil
 }
 
 func (f *fakeStore) CreateInstrument(_ context.Context, in domain.Instrument, _ string) (domain.Instrument, bool, error) {

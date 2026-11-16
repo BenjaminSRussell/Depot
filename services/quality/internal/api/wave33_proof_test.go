@@ -102,11 +102,19 @@ func TestTriggerFixture_AC331(t *testing.T) {
 		t.Fatalf("fixture has %d receipts, want 60 (and 40 RAFs)", receipts)
 	}
 
+	// Passing outcomes are registered outcomes.
+	oc := call(h, reqSpec{method: http.MethodPost, path: "/v1/quality/outcomes", body: `{"code":"OK","name":"Fine"}`, duties: allDuties, key: ids.New()})
+	var outcome struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(oc.Body.Bytes(), &outcome); err != nil || oc.Code != http.StatusCreated {
+		t.Fatalf("register outcome: %d %s", oc.Code, oc.Body)
+	}
 	groupID := map[string]string{}
 	codeOf := map[string]string{}
 	for _, code := range fx.TestGroups {
 		body, _ := json.Marshal(map[string]any{"code": code, "tests": []map[string]any{{
-			"testId": ids.New(), "name": "appearance", "kind": "ATTRIBUTE", "required": true, "passingOutcomeIds": []string{ids.New()},
+			"testId": ids.New(), "name": "appearance", "kind": "ATTRIBUTE", "required": true, "passingOutcomeIds": []string{outcome.ID},
 		}}})
 		rec := call(h, reqSpec{method: http.MethodPost, path: "/v1/quality/test-groups", body: string(body), duties: allDuties, key: ids.New()})
 		if rec.Code != http.StatusCreated {

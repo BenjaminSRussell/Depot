@@ -302,6 +302,7 @@ paths:
         legalEntity only narrows: a caller sees no rows outside its legal-entity scope.
       x-passage-duty: inventory.read
       parameters:
+        - { name: q, in: query, description: Only transactions whose reference contains it, ignoring case (the transaction lookup), schema: { type: string, maxLength: 100 } }
         - { name: product, in: query, schema: { type: string, format: uuid } }
         - { name: legalEntity, in: query, description: Only transactions of this legal entity, schema: { type: string, format: uuid } }
         - { name: site, in: query, description: Only transactions whose dimension set has this site, schema: { type: string, maxLength: 100 } }

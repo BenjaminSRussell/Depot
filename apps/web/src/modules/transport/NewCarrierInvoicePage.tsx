@@ -25,7 +25,7 @@ export function validateInvoice(v: Values): { errors: Record<string, string>; in
   const number = v.invoiceNo.trim();
   if (number.length < 1 || number.length > 40) errors.invoiceNo = "Enter the carrier's invoice number, up to 40 characters.";
   if (!DATE.test(v.invoiceDate)) errors.invoiceDate = "Enter the invoice date.";
-  if (v.freightBillId.trim() !== "" && !UUID.test(v.freightBillId.trim())) errors.freightBillId = "Enter the freight bill id as a lower-case UUID, or leave it empty.";
+  if (v.freightBillId.trim() !== "" && !UUID.test(v.freightBillId.trim())) errors.freightBillId = "Choose the freight bill from the list, or leave it empty.";
   if (!CURRENCY.test(v.currency)) errors.currency = "Enter a three-letter currency code such as USD.";
   if (Object.keys(errors).length > 0) return { errors };
   const input: NewCarrierInvoice = {
@@ -43,7 +43,7 @@ export function validateInvoice(v: Values): { errors: Record<string, string>; in
 const conflictText: Record<string, { field: keyof Values; text: string }> = {
   "TMS-0108": { field: "invoiceNo", text: "This invoice number is already registered for the carrier." },
   "TMS-0111": { field: "freightBillId", text: "This freight bill already has a carrier invoice." },
-  "TMS-0100": { field: "freightBillId", text: "No freight bill with this id exists." },
+  "TMS-0100": { field: "freightBillId", text: "This freight bill no longer exists. Choose another." },
 };
 
 /** Register a carrier invoice; with a freight bill it is matched at once (FR-34.7, BR-34.4). */
@@ -84,7 +84,7 @@ export function NewCarrierInvoicePage() {
     }
   }
 
-  const text = (id: Exclude<keyof Values, "lines" | "source">, label: string, hint?: string, optional?: boolean, extra?: Record<string, unknown>) => (
+  const text = (id: Exclude<keyof Values, "lines" | "source" | "freightBillId" | "carrierId">, label: string, hint?: string, optional?: boolean, extra?: Record<string, unknown>) => (
     <FormField id={`invoice-${id}`} label={label} hint={hint} optional={optional} error={errors[id]}>
       {(control) => (
         <Input
@@ -118,7 +118,17 @@ export function NewCarrierInvoicePage() {
               </Select>
             )}
           </FormField>
-          {text("freightBillId", "Freight bill id", "The bill to match against; leave empty if you do not know it.", true, { className: styles.mono })}
+          <LookupFormField
+            id="invoice-freightBillId"
+            label="Freight bill"
+            entity="freightBill"
+            optional
+            hint="The bill to match against; leave empty if you do not know it."
+            scope={{ carrierId: values.carrierId || undefined }}
+            value={values.freightBillId}
+            error={errors.freightBillId}
+            onChange={(freightBillId) => setValues({ ...values, freightBillId })}
+          />
           {text("currency", "Currency", "Must be the freight bill's currency.", false, { maxLength: 3, className: styles.mono })}
           <ChargeLinesEditor field="lines" legend="Invoiced charges" lines={values.lines} errors={errors} onChange={(lines) => setValues({ ...values, lines })} />
           {failure ? (

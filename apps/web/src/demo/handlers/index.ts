@@ -22,5 +22,6 @@ import "./technician";
 import "./analytics";
 import "./b2b";
 import "./ops";
+import "./transport";
 import "./party";
 import "./migration";

@@ -1,7 +1,7 @@
 // Quality service (/api/v1/quality) for the demo: quality orders with their test groups, results and usage decisions.
 // The quality screens show the first eight characters of order ids, so order ids here are readable codes (QO-24007);
 // items, sites and warehouses carry the real ids of company.ts.
-import type { Decision, DecisionLine, Instrument, NewOrder, Order, OrderView, Result, TestGroup } from "../../../modules/quality/api/client";
+import type { Decision, DecisionLine, Instrument, NewOrder, Order, OrderView, Outcome, Result, TestGroup } from "../../../modules/quality/api/client";
 import { reply, route } from "../../backend";
 import { USER, PLANT, WH_FG, WH_RAW, itemByNumber } from "../../company";
 import { at, dec, table, uid } from "../../store";
@@ -107,6 +107,7 @@ function buildResults(s: Spec, group: TestGroup): Result[] {
         retestNo: 0,
         value: v.value,
         outcomeId: v.outcomeId,
+        outcomeCode: v.outcomeId,
         passed: v.passed,
         instrumentId: instrumentFor(test.testId),
         recordedBy: ti % 2 ? "Priya Natarajan" : USER.name,
@@ -235,10 +236,46 @@ route("POST", `${BASE}/quality-orders`, (req) => {
   return reply.created(order, { ETag: '"1"' });
 });
 
+// The outcome master: the demo's outcome ids are their own codes, so results and test groups keep reading as before.
+const outcomes = table<Outcome & { id: string }>([
+  { id: "PASS", code: "PASS", name: "No visible defect", active: true, version: 1 },
+  { id: "FAIL", code: "FAIL", name: "Defect found", active: true, version: 1 },
+  { id: "COSMETIC", code: "COSMETIC", name: "Cosmetic blemish only", active: true, version: 2 },
+  { id: "LEGACY", code: "LEGACY", name: "Old finish rating", active: false, version: 3 },
+]);
+
+route("GET", `${BASE}/outcomes`, ({ query }) => {
+  const q = (query.get("q") ?? "").trim().toLowerCase();
+  const rows = outcomes
+    .all()
+    .filter((o) => (query.get("active") !== "true" || o.active) && (!query.get("code") || o.code === query.get("code")!.toUpperCase()) && (q === "" || o.code.toLowerCase().includes(q) || o.name.toLowerCase().includes(q)))
+    .sort((a, b) => a.code.localeCompare(b.code));
+  return { items: rows.slice(0, Number(query.get("limit") ?? 100)) };
+});
+route("POST", `${BASE}/outcomes`, ({ body }) => {
+  const input = body as { code?: string; name?: string };
+  const code = (input.code ?? "").trim().toUpperCase();
+  if (outcomes.all().some((o) => o.code === code)) return reply.problem(409, "QM-0191", "an outcome with this code already exists");
+  const row = outcomes.insert({ id: crypto.randomUUID(), code, name: (input.name ?? "").trim(), active: true, version: 1 });
+  return reply.versioned(row, 1, 201);
+});
+route("GET", `${BASE}/outcomes/{id}`, ({ params }) => {
+  const o = outcomes.get(params.id);
+  return o ? reply.versioned(o, o.version) : reply.problem(404, "QM-0190", "outcome not found");
+});
+route("PATCH", `${BASE}/outcomes/{id}`, ({ params, body, headers }) => {
+  const o = outcomes.get(params.id);
+  if (!o) return reply.problem(404, "QM-0190", "outcome not found");
+  if (headers.get("If-Match") !== `"${o.version}"`) return reply.problem(412, "conflict_version", "the outcome changed; reload it");
+  const patch = body as { name?: string; active?: boolean };
+  const next = outcomes.update(o.id, { ...(patch.name !== undefined ? { name: patch.name.trim() } : {}), ...(patch.active !== undefined ? { active: patch.active } : {}), version: o.version + 1 })!;
+  return reply.versioned(next, next.version);
+});
+
 route("POST", `${BASE}/quality-orders/{id}/results`, (req) => {
   const v = views.get(req.params.id);
   if (!v) return reply.problem(404, "QUAL-0404", "Quality order not found.");
-  const incoming = (req.body as { results: Result[] }).results.map((r) => ({ ...r, retestNo: r.retestNo ?? 0, passed: r.outcomeId ? r.outcomeId === "PASS" : isInSpec(v, r), recordedBy: USER.name, recordedAt: at(0) }));
+  const incoming = (req.body as { results: Result[] }).results.map((r) => ({ ...r, retestNo: r.retestNo ?? 0, outcomeCode: r.outcomeId, passed: r.outcomeId ? r.outcomeId === "PASS" : isInSpec(v, r), recordedBy: USER.name, recordedAt: at(0) }));
   const results = [...v.results, ...incoming];
   const evaluation = evaluate(v.testGroup, results, Number(v.sampleQty));
   evaluation.passed = evaluation.missingRequired.length === 0 ? evaluation.defectiveSamples < v.rejectNo : false;

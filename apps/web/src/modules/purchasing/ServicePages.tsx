@@ -196,7 +196,7 @@ export function validateSpec(f: SpecForm): Errors {
   if (!decimalPattern.test(f.valueLimit.trim()) || !hasScale(f.valueLimit.trim())) e.valueLimit = "Enter the limit as a decimal; 0 allows no unplanned services.";
   if (!decimalPattern.test(f.expectedValue.trim()) || !hasScale(f.expectedValue.trim())) e.expectedValue = "Enter a decimal value.";
   else if (!e.valueLimit && Number(f.expectedValue) > Number(f.valueLimit)) e.expectedValue = "The expected value cannot be above the limit.";
-  if (f.contractAgreementLineId.trim() !== "" && !uuidPattern.test(f.contractAgreementLineId.trim())) e.contractAgreementLineId = "Enter a UUID or leave blank.";
+  if (f.contractAgreementLineId.trim() !== "" && !uuidPattern.test(f.contractAgreementLineId.trim())) e.contractAgreementLineId = "Choose the agreement line, or leave it blank.";
   return e;
 }
 
@@ -440,7 +440,7 @@ export function ServiceSpecPage() {
                 { label: "Planned services", value: `${spec.plannedTotal} ${spec.currency}`, mono: true },
                 { label: "Unplanned limit", value: `${spec.valueLimit} ${spec.currency}`, mono: true },
                 { label: "Expected unplanned", value: `${spec.expectedValue} ${spec.currency}`, mono: true },
-                { label: "Contract line", value: spec.contractAgreementLineId ? <ShortId id={spec.contractAgreementLineId} /> : dash },
+                { label: "Contract line", value: spec.contractAgreementLineId ? <Named entity="agreementLine" id={spec.contractAgreementLineId} /> : dash },
                 { label: "Contract remaining", value: spec.contractRemaining !== undefined ? `${spec.contractRemaining} ${spec.currency}` : dash, mono: true },
                 { label: "Copied from model", value: spec.modelId ? <ShortId id={spec.modelId} /> : dash },
               ]}
@@ -509,8 +509,16 @@ export function ServiceSpecPage() {
               <FormField id="svc-expected" label={`Expected unplanned (${order.currency})`} error={errors.expectedValue}>
                 {(c) => <Input {...c} inputMode="decimal" value={form.expectedValue} onChange={(e) => setForm({ ...form, expectedValue: e.target.value })} />}
               </FormField>
-              <FormField id="svc-contract" label="Contract agreement line id" optional hint="An agreement line of the same vendor whose remaining value also bounds unplanned work" error={errors.contractAgreementLineId}>
-                {(c) => <Input {...c} value={form.contractAgreementLineId} onChange={(e) => setForm({ ...form, contractAgreementLineId: e.target.value })} />}
+              <FormField id="svc-contract" label="Contract agreement line" optional hint="An agreement line of the same vendor whose remaining value also bounds unplanned work" error={errors.contractAgreementLineId}>
+                {(c) => (
+                  <EntityLookup
+                    entity="agreementLine"
+                    scope={{ vendorId: order.vendorId }}
+                    {...c}
+                    value={form.contractAgreementLineId}
+                    onChange={(e) => setForm({ ...form, contractAgreementLineId: e.target.value })}
+                  />
+                )}
               </FormField>
               <FormField id="svc-model" label="Outline from" hint="A model copies its outline into this line" error={errors.modelId}>
                 {(c) => (

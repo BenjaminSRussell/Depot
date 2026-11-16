@@ -98,8 +98,8 @@ function fillForm() {
   fill("Sales order", ORDER);
   fill("Slip date", "2027-03-09");
   fill("Slip charge", "12.50");
-  fill("Slip line id", SLIP_LINE);
-  fill("Order line id", ORDER_LINE);
+  fill("Slip line", SLIP_LINE);
+  fill("Order line", ORDER_LINE);
   fill("Product", PRODUCT);
   fill("Description", "Widget");
   fill("Shipped quantity", "2");
@@ -209,10 +209,32 @@ describe("Invoice shipments", () => {
     fireEvent.click(screen.getByRole("button", { name: "Add packing slip" }));
     expect(screen.getAllByLabelText("Packing slip")).toHaveLength(2);
     fireEvent.click(screen.getByRole("button", { name: "Add line to slip 2" }));
-    expect(screen.getAllByLabelText("Slip line id")).toHaveLength(3);
+    expect(screen.getAllByLabelText("Slip line")).toHaveLength(3);
     fireEvent.click(screen.getByRole("button", { name: "Remove packing slip 1" }));
     expect(screen.getAllByLabelText("Packing slip")).toHaveLength(1);
-    expect(screen.getAllByLabelText("Slip line id")).toHaveLength(2);
+    expect(screen.getAllByLabelText("Slip line")).toHaveLength(2);
+  });
+
+  it("keeps the second slip's choices when the first slip is removed", async () => {
+    renderAt("/billing/proposals/new");
+    fireEvent.click(screen.getByRole("button", { name: "Add packing slip" }));
+    const slipB = "33333333-3333-4333-8333-333333333333";
+    const orderB = "44444444-4444-4444-8444-444444444444";
+    const lineB = "55555555-5555-4555-8555-555555555555";
+    const orderLineB = "66666666-6666-4666-8666-666666666666";
+    const type = (label: string, index: number, value: string) => fireEvent.change(screen.getAllByLabelText(label)[index], { target: { value } });
+    type("Packing slip", 0, SLIP);
+    type("Sales order", 0, ORDER);
+    type("Packing slip", 1, slipB);
+    type("Sales order", 1, orderB);
+    type("Slip line", 1, lineB);
+    type("Order line", 1, orderLineB);
+    fireEvent.click(screen.getByRole("button", { name: "Remove packing slip 1" }));
+    await waitFor(() => expect(screen.getAllByLabelText("Packing slip")).toHaveLength(1));
+    const shown = { "Packing slip": "Selected packing slip", "Sales order": "Selected sales order", "Slip line": "Selected packing slip line", "Order line": "Selected order line" };
+    for (const [label, text] of Object.entries(shown)) {
+      expect((screen.getByLabelText(label) as HTMLInputElement).value).toBe(text);
+    }
   });
 });
 

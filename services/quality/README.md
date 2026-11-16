@@ -184,6 +184,9 @@ Contract: `api/openapi.yaml`. Events: `events/asyncapi.yaml`.
 | POST | `/v1/quality/test-groups` | quality.setup.maintain |
 | GET | `/v1/quality/instruments?dueWithinDays=&limit=` | quality.view |
 | POST | `/v1/quality/instruments` | quality.setup.maintain |
+| POST | `/v1/quality/outcomes` | quality.setup.maintain |
+| GET | `/v1/quality/outcomes?q=&code=&active=&limit=`, `/v1/quality/outcomes/{id}` | quality.view |
+| PATCH | `/v1/quality/outcomes/{id}` (`If-Match`) | quality.setup.maintain |
 | POST | `/v1/quality/instruments/{id}:calibrate` | quality.setup.maintain |
 | GET | `/v1/quality/associations` | quality.view |
 | POST | `/v1/quality/associations` | quality.setup.maintain |

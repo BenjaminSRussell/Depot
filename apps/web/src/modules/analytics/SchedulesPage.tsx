@@ -136,7 +136,7 @@ function splitTargets(raw: string): string[] {
 export function validateSchedule(d: Draft): DraftErrors {
   const errors: DraftErrors = {};
   if (d.name.trim() === "" || d.name.trim().length > 120) errors.name = "Enter a name of up to 120 characters.";
-  if (!TARGET_ID.test(d.targetId)) errors.targetId = d.targetType === "DASHBOARD" ? "Choose the dashboard." : "Enter the saved query id.";
+  if (!TARGET_ID.test(d.targetId)) errors.targetId = d.targetType === "DASHBOARD" ? "Choose the dashboard." : "Choose the saved query.";
   if (d.cron.trim().split(/\s+/).length !== 5) errors.cron = "Use five fields: minute, hour, day of month, month and day of week.";
   if (d.timezone.trim() === "") errors.timezone = "Enter a time zone such as Europe/Berlin.";
   const targets = splitTargets(d.targets);
@@ -224,9 +224,7 @@ export function ScheduleCreatePage() {
           {draft.targetType === "DASHBOARD" ? (
             <LookupFormField id="schedule-target-id" label="Dashboard" entity="dashboard" value={draft.targetId} error={errors.targetId} onChange={(targetId) => set("targetId", targetId)} />
           ) : (
-            <FormField id="schedule-target-id" label="Saved query id" hint="Saved explorer queries have no list yet; copy the id from the explorer." error={errors.targetId}>
-              {(control) => <Input {...control} className={styles.mono} invalid={invalid("targetId")} value={draft.targetId} onChange={(e) => set("targetId", e.target.value)} />}
-            </FormField>
+            <LookupFormField id="schedule-target-id" label="Saved query" entity="savedQuery" hint="One of your saved explorer queries. Save one from the explorer." value={draft.targetId} error={errors.targetId} onChange={(targetId) => set("targetId", targetId)} />
           )}
           <FormField id="schedule-format" label="Format">
             {(control) => (
@@ -433,7 +431,7 @@ function Deliveries({ schedule }: { schedule: Schedule }) {
   );
 }
 
-/** A schedule's report: a dashboard by its title; a saved explorer query by its key (queries have no list to name them from). */
+/** A schedule's report: a dashboard by its title; a saved explorer query by its name (another user's query reads as unavailable). */
 function ScheduleTarget({ type, id }: { type: string; id: string }) {
   return type === "DASHBOARD" ? (
     <>
@@ -441,6 +439,9 @@ function ScheduleTarget({ type, id }: { type: string; id: string }) {
       <EntityName entity="dashboard" id={id} />
     </>
   ) : (
-    <>{`Saved query ${id}`}</>
+    <>
+      {"Saved query "}
+      <EntityName entity="savedQuery" id={id} fallback="of another user" />
+    </>
   );
 }

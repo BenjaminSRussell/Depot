@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { checkAxeAA } from "../../shell/a11y";
 import type { CarrierInvoice, FreightBill, FreightBillDetail, Quote, RateCard } from "./api/client";
 import transport from "./module";
+import { setLookupFetcher } from "../../shell/lookup/entities";
 
 const CARRIER = "0195f0a0-0000-7000-8000-0000000000c1";
 const CARRIER_B = "0195f0a0-0000-7000-8000-0000000000c2";
@@ -83,6 +84,7 @@ const card: RateCard = {
 
 const bill = (extra: Partial<FreightBill> = {}): FreightBill => ({
   id: BILL,
+  billNumber: "FB-000042",
   loadId: LOAD,
   carrierId: CARRIER,
   currency: "USD",
@@ -157,7 +159,7 @@ describe("Rate cards", () => {
 describe("New rate card", () => {
   function fillCard() {
     fill("Carrier", CARRIER);
-    fill("Service id", SERVICE);
+    fill("Carrier service", SERVICE);
     fill("Valid from", "2026-01-01");
     fill("Row 1 rate", "0.50");
   }
@@ -218,12 +220,32 @@ describe("Rate shop", () => {
   const none: Quote = { carrierId: CARRIER_B, serviceId: SERVICE, currency: "USD", status: "NO_VALID_RATE_CARD", total: "0", charges: [], trace: [] };
 
   function fillShipment() {
-    fill("Shipment id", LOAD);
+    fill("Shipment", LOAD);
     fill("Origin zone", "chi");
     fill("Destination zone", "dal");
     fill("Weight (kg)", "80");
     fill("Ship date", "2026-06-01");
   }
+
+  it("picks the shipment from the list that matches its kind and clears the choice when the kind changes", async () => {
+    const asked: string[] = [];
+    setLookupFetcher(async (url) => {
+      asked.push(url);
+      return new Response(JSON.stringify({ items: [] }), { status: 200, headers: { "Content-Type": "application/json" } });
+    });
+    renderAt("/transport/rate-shop");
+    fill("Shipment", LOAD);
+    fireEvent.change(screen.getByLabelText("Shipment kind"), { target: { value: "TRANSFER" } });
+    const before = asked.length;
+    expect((screen.getByLabelText("Shipment") as HTMLInputElement).value).toBe("");
+    fill("Shipment", "TO-1");
+    await waitFor(() => expect(asked.some((u) => u.includes("/api/v1/inventory/transfer-orders"))).toBe(true));
+    fireEvent.change(screen.getByLabelText("Shipment kind"), { target: { value: "INBOUND" } });
+    fill("Shipment", "1Z");
+    await waitFor(() => expect(asked.some((u) => u.includes("/api/v1/receiving/asns"))).toBe(true));
+    expect(asked.slice(before).some((u) => u.includes("/api/v1/fulfillment/shipments"))).toBe(false);
+    setLookupFetcher(null);
+  });
 
   it("ranks the options, marks the cheapest and opens its explain trace", async () => {
     handler = (url) => (url.pathname.endsWith(":rate") ? json(200, { shipmentId: LOAD, options: [ok(CARRIER, "47.4"), none], chosen: ok(CARRIER, "47.4") }) : undefined);
@@ -234,7 +256,7 @@ describe("Rate shop", () => {
     const table = screen.getByRole("table", { name: "Rate options" });
     expect(table).toHaveTextContent("Cheapest");
     expect(table).toHaveTextContent("No valid rate card");
-    expect(screen.getByRole("status")).toHaveTextContent("1 of 2 carrier services rated.");
+    expect(screen.getByText("1 of 2 carrier services rated.")).toBeInTheDocument();
     const trace = screen.getByRole("list", { name: "Explain trace" });
     expect(trace).toHaveTextContent("chargeable_weight");
     expect(trace).toHaveTextContent("minimum charge 15 not reached = 40.00");
@@ -255,7 +277,7 @@ describe("Rate shop", () => {
   it("validates before calling and reports a failed call", async () => {
     renderAt("/transport/rate-shop");
     fireEvent.click(screen.getByRole("button", { name: "Rate shop" }));
-    expect(await screen.findByText("Enter the shipment id as a lower-case UUID.")).toBeInTheDocument();
+    expect(await screen.findByText("Choose the shipment.")).toBeInTheDocument();
     expect(calls).toHaveLength(0);
     handler = () => json(403, { code: "AUTH-0003", detail: "missing duty transport.rate-card.maintain" });
     fillShipment();
@@ -276,7 +298,7 @@ describe("Freight bills", () => {
     fireEvent.change(screen.getByLabelText("Match status"), { target: { value: "VARIANCE" } });
     await waitFor(() => expect(calls.at(-1)?.url.searchParams.get("matchStatus")).toBe("VARIANCE"));
     handler = (url) => (url.pathname === `/api/v1/transport/freight-bills/${BILL}` ? json(200, bill()) : json(200, { items: [bill()] }));
-    fireEvent.click(await screen.findByRole("button", { name: BILL.slice(0, 8) + "…" }));
+    fireEvent.click(await screen.findByRole("button", { name: "FB-000042" }));
     expect(screen.getByTestId("location")).toHaveTextContent(`/transport/freight-bills/${BILL}`);
     expect(await screen.findByText("No carrier invoice yet")).toBeInTheDocument();
   });
@@ -361,12 +383,16 @@ describe("Freight bill detail", () => {
 
 describe("Carrier invoices", () => {
   it("lists invoices with their bill link and filters the exception queue", async () => {
-    handler = () => json(200, { items: [invoice(), invoice({ id: "x", invoiceNo: "INV-2", freightBillId: undefined, matchStatus: "UNEXPECTED_INVOICE", varianceTotal: undefined })] });
+    handler = (url) =>
+      url.pathname === `/api/v1/transport/freight-bills/${BILL}`
+        ? json(200, bill())
+        : json(200, { items: [invoice(), invoice({ id: "x", invoiceNo: "INV-2", freightBillId: undefined, matchStatus: "UNEXPECTED_INVOICE", varianceTotal: undefined })] });
+    setLookupFetcher(null);
     const { container } = renderAt("/transport/carrier-invoices");
     const table = await findTable({ name: "Carrier invoices" });
     await waitFor(() => expect(table).toHaveTextContent("INV-2"));
     expect(table).toHaveTextContent("Unexpected invoice");
-    expect(within(table).getByRole("link", { name: BILL.slice(0, 8) + "…" })).toHaveAttribute("href", `/transport/freight-bills/${BILL}`);
+    expect(await within(table).findByRole("link", { name: /FB-000042/ })).toHaveAttribute("href", `/transport/freight-bills/${BILL}`);
     expect(pageViolations(container)).toEqual([]);
     fireEvent.change(screen.getByLabelText("Match status"), { target: { value: "UNEXPECTED_INVOICE" } });
     await waitFor(() => expect(calls.at(-1)?.url.searchParams.get("matchStatus")).toBe("UNEXPECTED_INVOICE"));
@@ -376,7 +402,7 @@ describe("Carrier invoices", () => {
     handler = (_url, init) =>
       init.method === "POST" ? json(201, { invoice: invoice(), freightBill: bill({ matchStatus: "VARIANCE" }) }) : json(200, bill({ matchStatus: "VARIANCE" }));
     renderAt(`/transport/carrier-invoices/new?freightBillId=${BILL}&carrierId=${CARRIER}&currency=USD`);
-    expect(screen.getByLabelText("Freight bill id")).toHaveValue(BILL);
+    expect(screen.getByLabelText("Freight bill")).toHaveAttribute("data-value", BILL);
     expect(screen.getByLabelText("Carrier")).toHaveAttribute("data-value", CARRIER);
     fill("Invoice number", " INV-1 ");
     fill("Invoice date", "2026-10-27");

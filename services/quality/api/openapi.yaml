@@ -141,6 +141,110 @@ paths:
         "401": { $ref: "#/components/responses/Problem" }
         "403": { $ref: "#/components/responses/Problem" }
         "404": { $ref: "#/components/responses/Problem" }
+  /v1/quality/outcomes:
+    get:
+      tags: [setup]
+      operationId: listOutcomes
+      x-passage-duty: quality.view
+      summary: Attribute outcomes by code
+      description: The master test groups list as passing outcomes and results record. q matches part of the code or name, code is exact, active=true leaves retired outcomes out.
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - { name: q, in: query, schema: { type: string, maxLength: 100 } }
+        - { name: code, in: query, schema: { type: string } }
+        - { name: active, in: query, schema: { type: boolean } }
+      responses:
+        "200":
+          description: List
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/Outcome" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+    post:
+      tags: [setup]
+      operationId: createOutcome
+      x-passage-duty: quality.setup.maintain
+      summary: Register an attribute outcome
+      description: A code already in use is QM-0191.
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/OutcomeRequest" }
+      responses:
+        "201":
+          description: Created
+          headers:
+            ETag: { schema: { type: string } }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Outcome" }
+        "200":
+          description: Idempotent replay
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Outcome" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+  /v1/quality/outcomes/{id}:
+    get:
+      tags: [setup]
+      operationId: getOutcome
+      x-passage-duty: quality.view
+      summary: One outcome
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: The outcome
+          headers:
+            ETag: { schema: { type: string } }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Outcome" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+    patch:
+      tags: [setup]
+      operationId: updateOutcome
+      x-passage-duty: quality.setup.maintain
+      summary: Rename or retire an outcome
+      description: A retired outcome stays on the results and test groups that name it and is left out of pick lists; results can no longer name it by code.
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/OutcomePatch" }
+      responses:
+        "200":
+          description: Updated
+          headers:
+            ETag: { schema: { type: string } }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Outcome" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "412": { $ref: "#/components/responses/Problem" }
+        "428": { $ref: "#/components/responses/Problem" }
   /v1/quality/instruments:
     get:
       tags: [setup]
@@ -1358,6 +1462,26 @@ components:
         name: { type: string, minLength: 1, maxLength: 120 }
         calibrationIntervalDays: { type: integer, minimum: 1, maximum: 3650 }
         lastCalibratedAt: { type: string, format: date-time }
+    OutcomeRequest:
+      type: object
+      required: [code, name]
+      properties:
+        code: { type: string, description: "2 to 32 characters of A-Z, 0-9, _ or -; stored upper-case." }
+        name: { type: string, maxLength: 120 }
+    OutcomePatch:
+      type: object
+      properties:
+        name: { type: string, maxLength: 120 }
+        active: { type: boolean }
+    Outcome:
+      type: object
+      required: [id, code, name, active, version]
+      properties:
+        id: { type: string, format: uuid }
+        code: { type: string }
+        name: { type: string }
+        active: { type: boolean }
+        version: { type: integer }
     Instrument:
       type: object
       properties:
@@ -1465,6 +1589,7 @@ components:
         retestNo: { type: integer }
         value: { $ref: "#/components/schemas/Decimal" }
         outcomeId: { type: string, format: uuid }
+        outcomeCode: { type: string, description: "Code of the outcome in the master; absent for an outcome id that predates the master." }
         passed: { type: boolean }
         instrumentId: { type: string, format: uuid }
         recordedBy: { type: string }
@@ -1503,6 +1628,7 @@ components:
         retestNo: { type: integer, minimum: 0, default: 0 }
         value: { $ref: "#/components/schemas/Decimal" }
         outcomeId: { type: string, format: uuid }
+        outcomeCode: { type: string, description: "The outcome by master code instead of id; the id wins when both are sent. An unregistered or retired code is QM-0192." }
         instrumentId: { type: string, format: uuid }
     ResultsRequest:
       type: object

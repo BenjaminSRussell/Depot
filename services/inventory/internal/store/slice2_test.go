@@ -3,6 +3,7 @@ package store_test
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -286,6 +287,13 @@ func TestBlockingMovesStockOutOfAvailability(t *testing.T) {
 	txns, err := s.ListTransactions(ctx, store.TransactionFilter{ProductID: product, SourceType: "BLOCKING", Limit: 10})
 	if err != nil || len(txns) != 4 || txns[0].Reference != b.ID || txns[0].JournalID != "" {
 		t.Fatalf("transaction inquiry of blocking legs: %v %+v", err, txns)
+	}
+	// The reference search finds the legs by part of the reference, ignoring case, and nothing for other text.
+	if found, err := s.ListTransactions(ctx, store.TransactionFilter{ProductID: product, Q: strings.ToUpper(b.ID[:8]), Limit: 10}); err != nil || len(found) != 4 {
+		t.Fatalf("reference search: %v %d", err, len(found))
+	}
+	if none, err := s.ListTransactions(ctx, store.TransactionFilter{ProductID: product, Q: "no-such-reference", Limit: 10}); err != nil || len(none) != 0 {
+		t.Fatalf("reference search for nothing: %v %d", err, len(none))
 	}
 	if c, r := outboxCount(t, admin, "dev.passage.inventory.blocking.created.v1"), outboxCount(t, admin, "dev.passage.inventory.blocking.released.v1"); c != 1 || r != 1 {
 		t.Fatalf("blocking events created=%d released=%d", c, r)

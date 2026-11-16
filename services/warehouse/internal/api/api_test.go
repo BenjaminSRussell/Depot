@@ -392,6 +392,7 @@ func TestOpenAPIDocumentsEveryOperation(t *testing.T) {
 		"POST /v1/warehouse/locations:bulk":                          dutySetupMaintain,
 		"GET /v1/warehouse/locations":                                dutySetupView,
 		"POST /v1/warehouse/location-directives":                     dutySetupMaintain,
+		"GET /v1/warehouse/locations/{id}":                           dutySetupView,
 		"GET /v1/warehouse/location-directives":                      dutySetupView,
 		"POST /v1/warehouse/work":                                    dutyWorkSupervise,
 		"GET /v1/warehouse/work":                                     dutyInquiry,
