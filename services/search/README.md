@@ -15,15 +15,17 @@ entity on `po.cancelled`, the survivor on `party.merged`, and a source version o
 callbacks. The flag duty `search.index.write` only names the `search-index` service principal the consumer runs as; it
 grants no route.
 
-Subscribed topics are `passage.<context>.<outbox aggregate type>`: `passage.party.party`, `passage.product.product`,
-`passage.procurement.purchase_order`, `passage.receiving.receipt`, `passage.receiving.vendorinvoice`, `passage.sales.order`,
+Subscribed topics are the source services' channels: `passage.party.party`, `passage.product.product`,
+`passage.procurement.po` (purchasing's `po.confirmed` and `po.cancelled`; outbox-purchasing routes by event type, not by the
+`purchase_order` aggregate type), `passage.receiving.receipt`, `passage.receiving.vendorinvoice`, `passage.sales.order`,
 `passage.fulfillment.shipment`, `passage.billing.invoice` and `passage.hr.worker`. Sales `order.confirmed` and fulfillment `packingslip.posted` gained
 `order_number` and `legal_entity_id` (additive). Documents are indexed under their legal entity; a caller searches a type
 with any one of its read duties. A test ties each suffix to the aggregate type the source service enqueues.
 
-Production is the exception to the topic rule: it writes every event under one aggregate type (`production_order`) and
-names its topics after the event type's entity, so its orders are read from `passage.production.order`, the channel in
-its AsyncAPI document and the one scheduling reads. A test ties that topic to the channel address and the event types.
+Production and purchasing are exceptions to the aggregate-type rule: production writes every event under one aggregate type
+(`production_order`) and purchasing writes purchase orders under `purchase_order`, but both connectors route by the event type's
+entity, so orders are read from `passage.production.order` and `passage.procurement.po`, the channels in their AsyncAPI documents.
+A test ties those topics to the channel address and the event types.
 `order.created` gained `legalEntityId` and `status`, and `order.statuschanged` gained `orderNumber` and `legalEntityId`
 (additive), so a status event indexes the order without the create. The status is stored in the upper snake case the
 other types use (`ReportedAsFinished` becomes `REPORTED_AS_FINISHED`). A production order has no subtitle: its delivery

@@ -20,9 +20,11 @@ import (
 const (
 	ConsumerName = "search-index"
 
-	PartyTopic          = "passage.party.party"
-	ProductTopic        = "passage.product.product"
-	PurchaseOrderTopic  = "passage.procurement.purchase_order"
+	PartyTopic   = "passage.party.party"
+	ProductTopic = "passage.product.product"
+	// PurchaseOrderTopic is purchasing's po channel, not its outbox aggregate
+	// type (purchase_order): outbox-purchasing routes by the event type's entity.
+	PurchaseOrderTopic  = "passage.procurement.po"
 	ReceiptTopic        = "passage.receiving.receipt"
 	VendorInvoiceTopic  = "passage.receiving.vendorinvoice"
 	SalesOrderTopic     = "passage.sales.order"

@@ -167,8 +167,6 @@ func TestEverySubscribedTopicMatchesTheSourceOutboxAggregate(t *testing.T) {
 		{PartyTopic, "../../../party/internal/domain/merge.go", `AggregateParty\s*=\s*"([a-z_]+)"`},
 		{ProductTopic, "../../../product/internal/store/store.go", `emit\(ctx, tx, pevents\.ProductCreated, "([a-z_]+)"`},
 		{ProductTopic, "../../../product/internal/store/store.go", `emit\(ctx, tx, pevents\.ProductUpdated, "([a-z_]+)"`},
-		{PurchaseOrderTopic, "../../../purchasing/internal/store/po_lifecycle.go", `enqueue\(ctx, tx, "([a-z_]+)", po\.ID, purchasingevents\.POConfirmed`},
-		{PurchaseOrderTopic, "../../../purchasing/internal/store/po_lifecycle.go", `enqueue\(ctx, tx, "([a-z_]+)", cur\.ID, purchasingevents\.POCancelled`},
 		{ReceiptTopic, "../../../receiving/internal/store/receipts.go", `receiptAggregate\s*=\s*"([a-z_]+)"`},
 		{VendorInvoiceTopic, "../../../receiving/internal/store/invoices.go", `invoiceAggregate\s*=\s*"([a-z_]+)"`},
 		{SalesOrderTopic, "../../../sales/internal/store/store.go", `enqueue\(ctx, tx, "([a-z_]+)", o\.ID, salesevents\.OrderConfirmed`},
@@ -193,9 +191,13 @@ func TestEverySubscribedTopicMatchesTheSourceOutboxAggregate(t *testing.T) {
 // Production writes every event under one outbox aggregate type and names its
 // topics after the event type's entity (its AsyncAPI channels; scheduling reads
 // the same order channel), so the order topic is tied to the channel address
-// and the event type. HR's worker channel is checked the same way.
+// and the event type. HR's worker channel is checked the same way, and so is
+// purchasing's po channel: purchasing writes purchase orders under aggregate
+// type purchase_order, but outbox-purchasing routes by the event type's entity.
 func TestProductionAndWorkerTopicsMatchTheSourceChannels(t *testing.T) {
 	for _, tc := range []struct{ topic, eventType, file string }{
+		{PurchaseOrderTopic, PurchaseOrderConfirmed, "../../../purchasing/events/asyncapi.yaml"},
+		{PurchaseOrderTopic, PurchaseOrderCancelled, "../../../purchasing/events/asyncapi.yaml"},
 		{ProductionOrderTopic, ProductionOrderCreatedType, "../../../production/events/asyncapi.yaml"},
 		{ProductionOrderTopic, ProductionOrderStatusChangedType, "../../../production/events/asyncapi.yaml"},
 		{WorkerTopic, WorkerCreatedType, "../../../hr/events/asyncapi.yaml"},
