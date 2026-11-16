@@ -20,6 +20,18 @@ The Gateway has two listeners. `https` (443, TLS terminate, Secret `passage-api-
 
 DNS health checks read `GET /healthz/region` of each region without a Passage token, so it cannot sit behind the JWT SecurityPolicy that targets Gateway `passage-api`. It has a Gateway of its own, `passage-region`, like the AS2 edge: `region-gateway.yaml` holds the Gateway (one HTTPS listener `region-https`, hostname `region.dev.passage.dev`), its Certificate, HTTPRoute `ops-region-health` (the exact path `/healthz/region`, `GET`, to Service `ops` port 8080 and nothing else), a ClientTrafficPolicy that strips the identity headers and requires TLS 1.2, and a per-address rate limit. The answer names the region and its role (`200` while PRIMARY, `503` with `Retry-After: 30` otherwise). `test_gateway.py` (`RegionHealthEdge`) checks that no SecurityPolicy reaches it and nothing else is routed there. Per region, override the hostname in the environment's overlay (`region.<env>.passage.dev`).
 
+## Customer and supplier portal edge (#30, #511)
+
+The portals sign in with their own Keycloak clients and keep a cookie session in their BFF, so their requests carry no Passage JWT and cannot pass the JWT SecurityPolicy on `passage-api`. They have a Gateway of their own, `passage-portals` (`portal-gateway.yaml`):
+
+- Two HTTPS listeners, `customer-https` (`customer.dev.passage.dev`, Secret `passage-portal-customer-tls`) and `supplier-https` (`supplier.dev.passage.dev`, Secret `passage-portal-supplier-tls`), with cert-manager Certificates from ClusterIssuer `passage-local-ca` in dev. No plain-HTTP listener.
+- HTTPRoutes `customer-portal` and `supplier-portal`, one per listener, to the BFF Services `customer-portal:8080` and `supplier-portal:8080` (release names from `deploy/envs/dev/apps/services.yaml`), for the path prefixes `/bff/` and `/api/v1/` only; the BFFs' health checks stay inside the cluster.
+- `ClientTrafficPolicy/passage-portals-client`: TLS 1.2 or newer, and every `X-Passage-*` header removed in `earlyRequestHeaders` (including `X-Passage-LegalEntity-Scope`, which only the API gateway passes through).
+- `SecurityPolicy/passage-portal-{customer,supplier}-cors`: CORS for the portal's own origin only, with credentials, so no other site can read a portal answer with the session cookie or send a preflighted request; the BFF also checks `Origin` and the CSRF token. No JWT, OIDC or ext-auth filter.
+- `BackendTrafficPolicy/passage-portals-limits`: a global limit of 1200 requests a minute per client address (IPv4 and IPv6, `sourceCIDR` Distinct), on top of the BFFs' per-session limits. Like the AS2 limit it needs the real client address at Envoy.
+
+Open: the portal apps' static files are not served here (no image hosts them yet; they would be a second backend on the same listeners, with `sw.js` served `Cache-Control: no-cache`). WAF rules are not expressible in Envoy Gateway. For stage and prod, override the hostnames (`customer.<env>.passage.dev`) and the issuer in the environment's overlay, together with the portals' `appOrigin` and `oidc.redirectUri`. `test_gateway.py` (`PortalEdge`) checks the listeners, certificates, routes, the absence of any JWT policy, CORS, header removal and the rate limit.
+
 ## AS2 edge (#483)
 
 Trading partners post AS2 messages and asynchronous MDNs to the edi AS2 listener without a Passage token: edi authenticates each request by its AS2 signature against the partner certificate pinned on the transport (see `services/edi/README.md`, "AS2 listener security"). They come in through a second Gateway, `passage-as2`, so the JWT SecurityPolicy, which targets Gateway `passage-api`, cannot apply to them, and the API routes cannot be reached without a token through it:
@@ -51,7 +63,7 @@ iot-edge connectors redeem a one-time enrollment token without a session and the
 ## Assumptions to confirm with #80 and #213
 
 - Claim names `tid` (matches `services/identity/jwt.go`), `le`, `duties`, `tier` are the Keycloak mapper outputs.
-- The Envoy Gateway v1.4+ install (#213) provides the CRDs, `ClientTrafficPolicy.headers.earlyRequestHeaders` support, and a global rate-limit service backed by Valkey. The Argo CD app `deploy/envs/dev/apps/gateway.yaml` is annotated `passage.dev/requires` and uses `SkipDryRunOnMissingResource` so it can sync once the CRDs exist.
+- The Envoy Gateway install provides the CRDs, `ClientTrafficPolicy.headers.earlyRequestHeaders` support, and the global rate-limit service. It is the Argo CD app `deploy/envs/dev/apps/envoy-gateway.yaml` (OCI chart `docker.io/envoyproxy/gateway-helm`, pinned v1.4.6, sync wave 0, ServerSideApply for the CRDs); its values point `config.envoyGateway.rateLimit` at the Valkey in `deploy/envoy-gateway/ratelimit-valkey.yaml` (counters only, no persistence), which every `Global` rate limit here needs. `deploy/envs/dev/apps/gateway.yaml` syncs at wave 1 and keeps `SkipDryRunOnMissingResource` for the first sync. Upgrading past v1.4 means vendoring that version's CRDs into `deploy/third_party` too (`test_gateway.py` checks). Live proof (forged headers stripped, missing token 401, rate limits) is on #213.
 - Services are still reachable inside the cluster without the gateway; restricting that is item 2 of #82.
 - Host-to-tenant matching (a request host must resolve to the token's tenant) is deferred until the tenant registry in #83 exists.
 
