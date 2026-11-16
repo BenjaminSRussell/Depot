@@ -17,6 +17,7 @@ spec:
           repository: ghcr.io/benjaminsrussell/hello-ledger
           digest: sha256:0000000000000000000000000000000000000000000000000000000000000000
         migrateOnStart: true
+        replicaCount: 2
         ingress:
           enabled: true
           host: stage.passage.dev

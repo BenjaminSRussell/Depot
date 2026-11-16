@@ -569,18 +569,38 @@ jobs:
           sudo tar -xzf kyverno-cli.tar.gz -C /usr/local/bin kyverno
       - run: make -C deploy test-policies
 
+  # One leg per deployable Go service image. Every leg runs on a main push whenever the `go` filter in
+  # gate.yml matches (platform/go/** or services/**), so a change to a service, or to the shared platform
+  # module it compiles in, rebuilds and re-signs its image. The image names match the repositories the
+  # dev Argo apps (deploy/envs/dev/apps/{hello-ledger,fx,receiving,org}.yaml) and Kyverno's
+  # verify-signed-images policy (ghcr.io/benjaminsrussell/*) expect. To add a service, add a leg here.
   image:
     if: inputs.go && github.event_name != 'pull_request'
     needs: [go, lint, charts]
+    name: image (${{ matrix.name }})
     runs-on: ubuntu-24.04
     permissions:
       contents: read
       packages: write
       id-token: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: hello-ledger
+            dockerfile: services/platform-health/Dockerfile
+          - name: fx
+            dockerfile: services/fx/Dockerfile
+          - name: receiving
+            dockerfile: services/receiving/Dockerfile
+          - name: org
+            dockerfile: services/org/Dockerfile
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - id: image
-        run: echo "name=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/hello-ledger" >> "$GITHUB_OUTPUT"
+        env:
+          IMAGE: ${{ matrix.name }}
+        run: echo "name=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/${IMAGE}" >> "$GITHUB_OUTPUT"
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069
       - uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550
         with:
@@ -591,12 +611,12 @@ jobs:
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc
         with:
           context: .
-          file: services/platform-health/Dockerfile
+          file: ${{ matrix.dockerfile }}
           push: true
           tags: ${{ steps.image.outputs.name }}:${{ github.sha }}
           provenance: mode=max
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=image-${{ matrix.name }}
+          cache-to: type=gha,mode=max,scope=image-${{ matrix.name }}
       - uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c
         with:
           image: ${{ steps.image.outputs.name }}@${{ steps.build.outputs.digest }}
@@ -620,6 +640,12 @@ jobs:
         run: |
           cosign sign --yes "$IMAGE_REF"
           cosign attest --yes --type spdxjson --predicate sbom.spdx.json "$IMAGE_REF"
+      - name: Record the signed digest
+        env:
+          IMAGE: ${{ matrix.name }}
+          IMAGE_REF: ${{ steps.image.outputs.name }}@${{ steps.build.outputs.digest }}
+        run: |
+          echo "${IMAGE}: \`${IMAGE_REF}\`" >> "$GITHUB_STEP_SUMMARY"
 
   # passage-cloudevents-enricher SMT (deploy/kafka-connect/enricher): unit tests plus the chain test that
   # runs Debezium's EventRouter with the deploy/kafka/connect.yaml settings. The runner's default JDK is 17.

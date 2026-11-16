@@ -8,9 +8,11 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"math/rand/v2"
 	"os"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -45,13 +47,13 @@ func Connect(ctx context.Context, url string) (*pgxpool.Pool, error) {
 // leftover before it builds (see ledger 0032).
 const NoTransactionMarker = "-- dbx:no-transaction"
 
-func migrateNoTx(ctx context.Context, pool *pgxpool.Pool, name, body string) error {
+func migrateNoTx(ctx context.Context, conn *pgx.Conn, name, body string) error {
 	for _, stmt := range splitStatements(body) {
-		if _, err := pool.Exec(ctx, stmt); err != nil {
+		if _, err := conn.Exec(ctx, stmt); err != nil {
 			return fmt.Errorf("migration %s: %w", name, err)
 		}
 	}
-	_, err := pool.Exec(ctx, `insert into schema_migrations(name) values($1)`, name)
+	_, err := conn.Exec(ctx, `insert into schema_migrations(name) values($1)`, name)
 	return err
 }
 
@@ -91,8 +93,65 @@ func splitStatements(body string) []string {
 	return out
 }
 
+// Migrate holds a session advisory lock for the whole run, keyed on the database and the connection's current schema, so
+// replicas that start together with migrate-on-start take turns: the first applies the pending files, the others then find
+// them recorded and apply nothing. Every statement runs on the connection that holds the lock. The others wait by polling
+// (waitForMigrateLock), never inside Postgres, so a CREATE INDEX CONCURRENTLY of the holder is not deadlocked by them.
 func Migrate(ctx context.Context, pool *pgxpool.Pool, migrations fs.FS) error {
-	if _, err := pool.Exec(ctx, `create table if not exists schema_migrations (name text primary key, applied_at timestamptz not null default now())`); err != nil {
+	c, err := pool.Acquire(ctx)
+	if err != nil {
+		return err
+	}
+	defer c.Release()
+	conn := c.Conn()
+	var key int64
+	if err := conn.QueryRow(ctx, `select hashtextextended('passage.dbx.migrate:' || current_schema(), 0)`).Scan(&key); err != nil {
+		return err
+	}
+	if err := waitForMigrateLock(ctx, conn, key); err != nil {
+		return err
+	}
+	defer func() {
+		// Never hand a connection that may still hold the lock back to the pool: close it when the unlock fails.
+		if _, err := conn.Exec(context.WithoutCancel(ctx), `select pg_advisory_unlock($1)`, key); err != nil {
+			_ = conn.Close(context.WithoutCancel(ctx))
+		}
+	}()
+	return migrate(ctx, conn, migrations)
+}
+
+// waitForMigrateLock takes the migration lock by polling pg_try_advisory_lock, sleeping in Go between polls. It never waits
+// inside Postgres: a statement blocked in pg_advisory_lock holds a snapshot, and the lock holder's CREATE INDEX CONCURRENTLY
+// (a dbx:no-transaction migration) waits for every older snapshot, so the two would deadlock and the index build would abort.
+// Each poll is a statement of microseconds, which CREATE INDEX CONCURRENTLY waits out at once.
+func waitForMigrateLock(ctx context.Context, conn *pgx.Conn, key int64) error {
+	for {
+		var got bool
+		if err := conn.QueryRow(ctx, `select pg_try_advisory_lock($1)`, key).Scan(&got); err != nil {
+			return err
+		}
+		if got {
+			return nil
+		}
+		wait := migrateLockPoll + time.Duration(rand.Int64N(int64(migrateLockJitter)))
+		timer := time.NewTimer(wait)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return ctx.Err()
+		case <-timer.C:
+		}
+	}
+}
+
+// The wait between two tries of the migration lock: migrateLockPoll plus up to migrateLockJitter, so replicas spread out.
+const (
+	migrateLockPoll   = 100 * time.Millisecond
+	migrateLockJitter = 150 * time.Millisecond
+)
+
+func migrate(ctx context.Context, conn *pgx.Conn, migrations fs.FS) error {
+	if _, err := conn.Exec(ctx, `create table if not exists schema_migrations (name text primary key, applied_at timestamptz not null default now())`); err != nil {
 		return err
 	}
 	entries, err := fs.ReadDir(migrations, ".")
@@ -108,7 +167,7 @@ func Migrate(ctx context.Context, pool *pgxpool.Pool, migrations fs.FS) error {
 	sort.Strings(names)
 	for _, name := range names {
 		var exists bool
-		if err := pool.QueryRow(ctx, `select exists(select 1 from schema_migrations where name=$1)`, name).Scan(&exists); err != nil {
+		if err := conn.QueryRow(ctx, `select exists(select 1 from schema_migrations where name=$1)`, name).Scan(&exists); err != nil {
 			return err
 		}
 		if exists {
@@ -119,12 +178,12 @@ func Migrate(ctx context.Context, pool *pgxpool.Pool, migrations fs.FS) error {
 			return err
 		}
 		if strings.HasPrefix(string(body), NoTransactionMarker) {
-			if err := migrateNoTx(ctx, pool, name, string(body)); err != nil {
+			if err := migrateNoTx(ctx, conn, name, string(body)); err != nil {
 				return err
 			}
 			continue
 		}
-		tx, err := pool.Begin(ctx)
+		tx, err := conn.Begin(ctx)
 		if err != nil {
 			return err
 		}

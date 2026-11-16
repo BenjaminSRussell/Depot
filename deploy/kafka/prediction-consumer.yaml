@@ -1,9 +1,9 @@
 # The payment-prediction consumer (#47, `python -m prediction.consumer`, group prediction) rescores invoices on receivables' payment,
 # credit settlement, dispute, dunning letter, deduction, down payment and opening-item events. The chart's consumer.kafka.username names this
 # user. Literal ACLs: it reads only those seven receivables topics and uses only its own group; it writes nothing (a refused event is
-# recorded in the service's consumer_inbox, not on a dead-letter topic). The topics are created by an outbox connector for receivables'
-# database, which does not exist in connect.yaml yet: until it is added no event reaches this consumer, which stays off in dev
-# (prediction chart consumer.enabled=false).
+# recorded in the service's consumer_inbox, not on a dead-letter topic). The topics are written by outbox-receivables
+# (deploy/kafka/connect.yaml, routed by event type, #213); the consumer stays off in dev (prediction chart consumer.enabled=false) until
+# that connector runs on the cluster.
 apiVersion: kafka.strimzi.io/v1beta2
 kind: KafkaUser
 metadata:
