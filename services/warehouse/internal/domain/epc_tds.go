@@ -110,6 +110,7 @@ func decodeTDS(d tdsDecoder, b epcBits, hexLen int) (EPC, error) {
 	}
 	out.Scheme = d.name
 	out.TagURI = tagURI(out)
+	out.Hex = canonicalHex(b, used)
 	return out, nil
 }
 
@@ -272,7 +273,9 @@ func decodeITIP(b epcBits, long bool) (EPC, int, error) {
 // decodeADIVar follows table 14-30: a 6-bit filter, the CAGE code or DoDAAC (14.4.7), then the part number (0 to 32
 // characters) and the serial (1 to 30), each in 6-bit characters ended by 000000 (14.4.8). "#" may only be the first
 // character of the serial. The ADI is not a GS1 key: there is no element string, the company prefix is the CAGE code
-// or DoDAAC, and the key is it followed by the part number.
+// or DoDAAC, and the key is the URN body before the serial (CAGE code or DoDAAC, a dot, the part number unescaped), or
+// the CAGE code or DoDAAC alone when there is no part number. The dot keeps CAGE 2S194 with part A1 apart from DoDAAC
+// 2S194A with part 1.
 func decodeADIVar(b epcBits) (EPC, int, error) {
 	c := &epcCursor{b: b, pos: 8}
 	f, err := c.take(6)
@@ -306,7 +309,11 @@ func decodeADIVar(b epcBits) (EPC, int, error) {
 		return EPC{}, 0, epcErr("\"#\" may only be the first character of an ADI serial, followed by at least one more")
 	}
 	d := cage.String()
-	return EPC{Filter: int(f.Int64()), CompanyPrefix: d, Key: d + partNo, Serial: serial,
+	key := d
+	if partNo != "" {
+		key = d + "." + partNo
+	}
+	return EPC{Filter: int(f.Int64()), CompanyPrefix: d, Key: key, Serial: serial,
 		URN: fmt.Sprintf("urn:epc:id:adi:%s.%s.%s", d, sixBitEscape(partNo), sixBitEscape(serial))}, c.pos, nil
 }
 

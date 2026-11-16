@@ -31,7 +31,8 @@ type EPC struct {
 	// each with its check digit; the GIAI has none. Serial is the SGTIN, GRAI or GDTI serial, and the location
 	// extension of an SGLN, in decimal.
 	// For a CPI it is the component/part identifier (AI 8010), for an SGCN the GCN-13, for an ITIP the GTIN-14 with
-	// piece and total (AI 8006), for an ADI the CAGE code or DoDAAC followed by the part number.
+	// piece and total (AI 8006), for an ADI the CAGE code or DoDAAC, a dot and the part number (the CAGE code or
+	// DoDAAC alone when there is no part number), so a 5-character CAGE code and a 6-character DoDAAC stay apart.
 	Key    string `json:"key"`
 	Serial string `json:"serial,omitempty"`
 	// URN is the pure identity EPC URI and TagURI the EPC tag URI with the coding scheme and filter (GS1 TDS 2.3
@@ -39,6 +40,17 @@ type EPC struct {
 	URN           string `json:"urn"`
 	TagURI        string `json:"tagUri"`
 	ElementString string `json:"elementString,omitempty"`
+	// Hex is the canonical binary encoding: the tag's own bits padded with zero bits to a whole 16-bit word, as
+	// EncodeEPCString and EncodeEPCTagURI write it. A reader may report a tag with less or more padding (TDS 14.4
+	// steps 3 and 4: padding is not part of the EPC); every spelling of one tag has the same Hex.
+	Hex string `json:"hex"`
+}
+
+// canonicalHex gives the first used bits of a tag padded with zero bits to a whole 16-bit word.
+func canonicalHex(b epcBits, used int) string {
+	padded := (used + 15) / 16 * 16
+	v := new(big.Int).Lsh(b.at(0, used), uint(padded-used))
+	return fmt.Sprintf("%0*X", padded/4, v)
 }
 
 type epcPartition struct{ cpBits, cpDigits, refBits, refDigits int }
@@ -195,6 +207,7 @@ func DecodeEPC(hex string) (EPC, error) {
 		return EPC{}, err
 	}
 	out.TagURI = tagURI(out)
+	out.Hex = canonicalHex(b, bits)
 	return out, nil
 }
 

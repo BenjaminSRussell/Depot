@@ -30,7 +30,7 @@ func TestDecodeEPC_TDS23AnnexE3Examples(t *testing.T) {
 		// The annex writes this 146-bit tag in 37 hexadecimal characters (padded to a hex digit); the encoder pads to a
 		// 16-bit word as readers report EPC memory, so it adds three zero digits.
 		{"3B0E0CF5E76C9047759AD00373DC7602E7200", "ADI-var", "urn:epc:id:adi:35962.PQ7VZ4.M37GXB92", "urn:epc:tag:adi-var:3.35962.PQ7VZ4.M37GXB92",
-			"", "35962PQ7VZ4", "M37GXB92", 3, "3B0E0CF5E76C9047759AD00373DC7602E7200000"},
+			"", "35962.PQ7VZ4", "M37GXB92", 3, "3B0E0CF5E76C9047759AD00373DC7602E7200000"},
 		{"4076451FD40C0E40820000000F54", "ITIP-110", "urn:epc:id:itip:9521141.012345.01.02.981", "urn:epc:tag:itip-110:3.9521141.012345.01.02.981",
 			"(8006)095211411234540102(21)981", "095211411234540102", "981", 3, ""},
 		{"4176451FD40C0E4082DBDD8B36600000000000000000000000000000", "ITIP-212", "urn:epc:id:itip:9521141.012345.01.02.mw133",
@@ -51,7 +51,73 @@ func TestDecodeEPC_TDS23AnnexE3Examples(t *testing.T) {
 		if again, err := DecodeEPC(want); err != nil || again.TagURI != tc.tag {
 			t.Errorf("%s: the encoder's padded form decodes to %+v %v", tc.scheme, again, err)
 		}
+		if got.Hex != want {
+			t.Errorf("%s: canonical hex %s, want the encoder's %s", tc.scheme, got.Hex, want)
+		}
 	}
+}
+
+// One tag reported with more or less padding (TDS 14.4 steps 3 and 4) has one canonical hex: its bits padded to a
+// whole 16-bit word, what the encoders write.
+func TestDecodeEPC_CanonicalHexOfEveryPadding(t *testing.T) {
+	sgtin198, _ := EncodeEPCString(0x36, 3, "0614141", "712345", "32a/b")
+	for _, tc := range []struct {
+		name, canonical string
+		shortest        int
+	}{
+		{"ADI-var (146 bits)", "3B0E0CF5E76C9047759AD00373DC7602E7200000", 37},
+		{"CPI-var (132 bits)", "3D76451FD75411DEF6B4CC00000003039000", 33},
+		{"ITIP-212", "4176451FD40C0E4082DBDD8B36600000000000000000000000000000", 53},
+		{"SGTIN-198", sgtin198, 50},
+		{"SGTIN-96", "3074257BF7194E4000001A85", 24},
+	} {
+		var key string
+		for n := tc.shortest; n <= len(tc.canonical); n++ {
+			got, err := DecodeEPC(strings.ToLower(tc.canonical[:n]))
+			if err != nil || got.Hex != tc.canonical {
+				t.Errorf("%s in %d characters: %q %v", tc.name, n, got.Hex, err)
+			}
+			if key != "" && got.Key != key {
+				t.Errorf("%s in %d characters: key %s, was %s", tc.name, n, got.Key, key)
+			}
+			key = got.Key
+		}
+	}
+}
+
+// A 5-character CAGE code with a part number and a 6-character DoDAAC with a shorter one are different ADIs (sections
+// 6.3.17 and 6.3.18; the 100000 lead of 14.3.7 keeps them apart in binary), and their keys keep the boundary.
+func TestDecodeEPC_ADIKeyKeepsTheCAGEBoundary(t *testing.T) {
+	cage, err := DecodeEPC("3B020C93C79D01C40D40") // urn:epc:tag:adi-var:0.2S194.A1.5
+	if err != nil {
+		t.Fatal(err)
+	}
+	dodaac, err := DecodeEPC("3B0324F1E74071035000") // urn:epc:tag:adi-var:0.2S194A.1.5
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cage.URN != "urn:epc:id:adi:2S194.A1.5" || dodaac.URN != "urn:epc:id:adi:2S194A.1.5" {
+		t.Fatalf("URNs %s and %s", cage.URN, dodaac.URN)
+	}
+	if cage.Key != "2S194.A1" || dodaac.Key != "2S194A.1" || cage.Key == dodaac.Key {
+		t.Fatalf("keys %q and %q", cage.Key, dodaac.Key)
+	}
+	// With no part number the key is the CAGE code or DoDAAC alone; it cannot meet a key with a part number.
+	if none, err := DecodeEPC(mustTag(t, "urn:epc:tag:adi-var:0.2S194..1")); err != nil || none.Key != "2S194" {
+		t.Fatalf("no part number: %+v %v", none, err)
+	}
+	if part, err := DecodeEPC(mustTag(t, "urn:epc:tag:adi-var:0.W81X9C.3KL984PX1.2WMA52")); err != nil || part.Key != "W81X9C.3KL984PX1" {
+		t.Fatalf("§6.3.18 example: %+v %v", part, err)
+	}
+}
+
+func mustTag(t *testing.T, uri string) string {
+	t.Helper()
+	h, err := EncodeEPCTagURI(uri)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return h
 }
 
 // The examples of TDS 2.3 sections 6.3 and 7, which give pure identity URIs and element strings but no binary

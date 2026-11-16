@@ -1344,11 +1344,20 @@ components:
                   filter: { type: integer }
                   partition: { type: integer }
                   companyPrefix: { type: string, description: The GS1 company prefix, or the CAGE code or DoDAAC of an ADI. }
-                  key: { type: string }
+                  key:
+                    type: string
+                    description: >
+                      The GS1 key (with its check digit); for an ADI the CAGE code or DoDAAC, a dot and the part number
+                      (the CAGE code or DoDAAC alone when there is no part number).
                   serial: { type: string }
                   urn: { type: string, description: The pure identity EPC URI. }
                   tagUri: { type: string, description: The EPC tag URI, with the coding scheme and filter. }
                   elementString: { type: string, description: The GS1 element string of a CPI, SGCN or ITIP. }
+                  hex:
+                    type: string
+                    description: >
+                      The canonical binary encoding, the tag's bits padded with zero bits to a whole 16-bit word. Every
+                      padding a reader may report gives the same value; reads are stored and deduplicated on it.
               receiptId: { type: string, format: uuid }
               lineNo: { type: integer }
               actions:
