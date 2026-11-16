@@ -1108,7 +1108,7 @@ test_party_vendor_requests_are_decided_by_their_own_duty if {
 # The customer portal service (#30) acts for one customer and holds only service-only customer-portal duties (plus the
 # service-only name and legal-entity reads below), each opening only its own customer-portal routes: no staff route and no
 # other service's route. Every duty is a read except the two writes a customer makes for itself, an order and a return.
-customer_portal_writes := {"sales.customer-portal.order", "sales.customer-portal.return"}
+customer_portal_writes := {"sales.customer-portal.order", "sales.customer-portal.return", "receivables.customer-portal.pay"}
 
 portal_method_ok(_, perm) if perm.methods == ["GET"]
 
@@ -1127,7 +1127,7 @@ test_customer_portal_holds_only_service_only_customer_duties if {
 			}
 		}
 	}
-	data.service_grants["customer-portal"].receivables == ["receivables.customer-portal.read"]
+	data.service_grants["customer-portal"].receivables == ["receivables.customer-portal.read", "receivables.customer-portal.pay"]
 	data.service_grants["customer-portal"].billing == ["billing.customer-portal.read"]
 	data.service_grants["customer-portal"].sales == ["sales.customer-portal.read", "sales.customer-portal.order", "sales.customer-portal.return"]
 	data.service_grants["customer-portal"].party == ["party.customer-portal.read"]
@@ -1209,6 +1209,26 @@ test_receivables_customer_portal_duty_opens_only_customer_routes if {
 	not allowed("receivables.customer-portal.read", "POST", "/v1/receivables/payments")
 	not allowed("receivables.customer-portal.read", "GET", "/v1/billing/customer-portal/invoices")
 	not allowed("receivables.view", "GET", "/v1/receivables/customer-portal/open-items")
+}
+
+# Card and ACH payments from the customer portal (#30): the portal starts a payment of its own customer's open items and reads
+# its status; the pay duty opens only that one POST, and staff read the gateway payments with receivables.view.
+test_receivables_customer_portal_pay_opens_only_payment_intents if {
+	data.duties["receivables.customer-portal.pay"].service_only
+	allowed("receivables.customer-portal.pay", "POST", "/v1/receivables/customer-portal/payment-intents")
+	not allowed("receivables.customer-portal.pay", "GET", "/v1/receivables/customer-portal/payment-intents")
+	not allowed("receivables.customer-portal.pay", "POST", "/v1/receivables/payments")
+	not allowed("receivables.customer-portal.pay", "POST", "/v1/receivables/payments/p1:apply")
+	not allowed("receivables.customer-portal.pay", "GET", "/v1/receivables/customer-portal/open-items")
+	allowed("receivables.customer-portal.read", "GET", "/v1/receivables/customer-portal/payment-intents")
+	allowed("receivables.customer-portal.read", "GET", "/v1/receivables/customer-portal/payment-intents/pi1")
+	not allowed("receivables.customer-portal.read", "POST", "/v1/receivables/customer-portal/payment-intents")
+	not allowed("receivables.view", "POST", "/v1/receivables/customer-portal/payment-intents")
+	not allowed("receivables.payment.post", "POST", "/v1/receivables/customer-portal/payment-intents")
+	allowed("receivables.view", "GET", "/v1/receivables/gateway-payments")
+	allowed("receivables.view", "GET", "/v1/receivables/gateway-payments/g1")
+	not allowed("receivables.customer-portal.read", "GET", "/v1/receivables/gateway-payments")
+	not allowed("receivables.view", "POST", "/v1/receivables/gateway-payments")
 }
 
 test_billing_customer_portal_duty_opens_only_customer_invoices if {

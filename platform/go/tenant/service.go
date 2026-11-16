@@ -325,9 +325,10 @@ var serviceGrants = map[string]map[string][]string{
 	},
 	// The customer portal BFF acts for one customer contact at a time (#30). Every token it signs carries the customer id (cus)
 	// from the contact's verified session, and the target service scopes every read to that customer. Only customer-portal
-	// duties, which no human role holds, are granted: reads, and the two writes a customer makes for itself (an order and a return).
+	// duties, which no human role holds, are granted: reads, the two writes a customer makes for itself (an order and a return), and
+	// starting a card or ACH payment of the customer's own open items (#30, the provider collects the card or bank details).
 	"customer-portal": {
-		"receivables": {"receivables.customer-portal.read"},
+		"receivables": {"receivables.customer-portal.read", "receivables.customer-portal.pay"},
 		"billing":     {"billing.customer-portal.read"},
 		"sales":       {"sales.customer-portal.read", "sales.customer-portal.order", "sales.customer-portal.return"},
 		"party":       {"party.customer-portal.read"},

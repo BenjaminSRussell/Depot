@@ -255,6 +255,160 @@ paths:
         "403": { $ref: "#/components/responses/Problem" }
         "409": { $ref: "#/components/responses/Problem" }
         "422": { $ref: "#/components/responses/Problem" }
+  /v1/receivables/customer-portal/payment-intents:
+    get:
+      operationId: customerPortalListPaymentIntents
+      summary: The signed-in customer's card and bank account payments from the portal, newest first (customer portal)
+      x-passage-duty: receivables.customer-portal.read
+      parameters:
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 500, default: 500 } }
+      responses:
+        "200":
+          description: The customer's portal payments with their status; never a client secret
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/PortalIntent" }
+        "403": { $ref: "#/components/responses/Problem" }
+    post:
+      operationId: customerPortalCreatePaymentIntent
+      summary: Start a card or bank account (ACH) payment of the customer's own open items (customer portal)
+      description: >
+        The customer and the legal entity are the token's. Every item must be the customer's own open
+        debit in one currency; the amount on each is above zero, in the currency's minor unit and at
+        most what is still open on it less what an ACH payment still processing claims (AR-0019, no
+        overpayment; less is a partial payment). ACH is in USD only. Receivables records the attempt,
+        asks the payment provider (Stripe) for a PaymentIntent with an Idempotency-Key derived from the
+        attempt id, and answers only its client secret and publishable key for the provider's hosted
+        Payment Element: card and bank details never reach Passage. The status changes only on the
+        provider's signature-verified webhook. The same Idempotency-Key and body answers the same
+        payment (and client secret).
+      x-passage-duty: receivables.customer-portal.pay
+      parameters:
+        - { $ref: "#/components/parameters/IdempotencyKey" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PortalIntentRequest" }
+      responses:
+        "200":
+          description: A replay of the same payment; the client secret is set while the payment still needs the customer
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PortalIntent" }
+        "201":
+          description: The payment, with the client secret and publishable key of the provider's hosted element
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PortalIntent" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+        "502": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Problem" }
+  /v1/receivables/customer-portal/payment-intents/{id}:
+    get:
+      operationId: customerPortalGetPaymentIntent
+      summary: One of the customer's portal payments with its status (customer portal)
+      x-passage-duty: receivables.customer-portal.read
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: The payment; another customer's reads as not found
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PortalIntent" }
+        "404": { $ref: "#/components/responses/Problem" }
+  /v1/receivables/gateway-payments:
+    get:
+      operationId: listGatewayPayments
+      summary: Card and ACH payments customers made in the portal, newest first
+      x-passage-duty: receivables.view
+      parameters:
+        - { name: status, in: query, schema: { type: string, enum: [REQUIRES_PAYMENT, PROCESSING, SUCCEEDED, FAILED, REFUNDED, DISPUTED] } }
+        - { name: customer, in: query, schema: { type: string, format: uuid } }
+        - { name: payment, in: query, description: The receivables payment a succeeded one became, schema: { type: string, format: uuid } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 500, default: 500 } }
+      responses:
+        "200":
+          description: The gateway payments with their items
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/GatewayPayment" }
+        "400": { $ref: "#/components/responses/Problem" }
+  /v1/receivables/gateway-payments/{id}:
+    get:
+      operationId: getGatewayPayment
+      summary: One gateway payment with its items and the provider webhook events handled for it
+      x-passage-duty: receivables.view
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: The gateway payment
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GatewayPayment" }
+        "404": { $ref: "#/components/responses/Problem" }
+  /webhooks/v1/stripe:
+    servers:
+      - url: https://payments-webhook.{env}.passage.dev
+        description: The payment webhook listener (RECEIVABLES_WEBHOOK_ADDR), reached by Stripe without a Passage token
+        variables:
+          env: { default: dev }
+    post:
+      operationId: stripeWebhook
+      summary: Receive a Stripe webhook event for a portal payment
+      description: >
+        Called by Stripe, not by Passage users: there is no JWT and X-Passage-* headers are ignored. The
+        Stripe-Signature header (HMAC-SHA256 over the timestamp and the raw body with the endpoint's
+        signing secret) is verified before anything is parsed and its timestamp must be within 5 minutes.
+        The PaymentIntent selects the attempt (tenant and legal entity come from it); the event id makes a
+        redelivery or a replay a no-op. Handled - payment_intent.succeeded (records a PORTAL payment and
+        applies it to the chosen items), payment_intent.processing (ACH on its way), payment_intent.payment_failed,
+        charge.refunded and charge.dispute.created (a chargeback or an ACH return; a full one reverses the
+        payment through unapply and receipt reversal, a partial one is flagged for review). Other events
+        and PaymentIntents Passage did not create are acknowledged and ignored.
+      security: []
+      x-passage-duty: none (Stripe authenticated by the Stripe-Signature HMAC)
+      parameters:
+        - { name: Stripe-Signature, in: header, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, description: A Stripe event object }
+      responses:
+        "200":
+          description: Handled, a duplicate, or ignored; the body names the outcome
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string }
+        "400":
+          description: The signature does not verify, is older than 5 minutes, or the event is unreadable
+        "404":
+          description: Card payments are not set up on this deployment
+        "500":
+          description: A transient failure; Stripe redelivers and every step is idempotent
+        "503":
+          description: The attempt lookup is unavailable; Stripe redelivers
   /v1/receivables/payments/{id}:
     get:
       operationId: getPayment
@@ -2761,6 +2915,90 @@ components:
         sourceType: { type: string }
         cashDiscountDate: { type: string, format: date }
         cashDiscountAmount: { $ref: "#/components/schemas/Money" }
+    PortalIntentRequest:
+      type: object
+      required: [method, allocations]
+      properties:
+        method: { type: string, enum: [CARD, ACH] }
+        allocations:
+          type: array
+          minItems: 1
+          maxItems: 50
+          items:
+            type: object
+            required: [openItemId, amount]
+            properties:
+              openItemId: { type: string, format: uuid }
+              amount: { $ref: "#/components/schemas/Money" }
+    PortalIntent:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        provider: { type: string, enum: [STRIPE, ADYEN] }
+        method: { type: string, enum: [CARD, ACH] }
+        status: { type: string, enum: [REQUIRES_PAYMENT, PROCESSING, SUCCEEDED, FAILED, REFUNDED, DISPUTED] }
+        amount: { $ref: "#/components/schemas/Money" }
+        currency: { type: string }
+        cardBrand: { type: string }
+        last4: { type: string, description: Last four digits of the card or bank account; nothing more is stored }
+        bankName: { type: string }
+        failureMessage: { type: string, description: Why the payment failed, in plain language }
+        createdAt: { type: string, format: date-time }
+        allocations:
+          type: array
+          items:
+            type: object
+            properties:
+              documentNumber: { type: string }
+              amount: { $ref: "#/components/schemas/Money" }
+        clientSecret: { type: string, description: The PaymentIntent client secret for the hosted element; only on the create answer, never stored }
+        publishableKey: { type: string }
+        stripeAccount: { type: string, description: The Stripe Connect account of the legal entity, when there is one }
+    GatewayPayment:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        legalEntityId: { type: string, format: uuid }
+        customerId: { type: string, format: uuid }
+        provider: { type: string, enum: [STRIPE, ADYEN] }
+        providerAccount: { type: string }
+        providerIntentId: { type: string }
+        method: { type: string, enum: [CARD, ACH] }
+        amount: { $ref: "#/components/schemas/Money" }
+        currency: { type: string }
+        status: { type: string, enum: [REQUIRES_PAYMENT, PROCESSING, SUCCEEDED, FAILED, REFUNDED, DISPUTED] }
+        cardBrand: { type: string }
+        last4: { type: string }
+        cardExpMonth: { type: integer }
+        cardExpYear: { type: integer }
+        bankName: { type: string }
+        failureCode: { type: string }
+        failureMessage: { type: string }
+        paymentId: { type: string, format: uuid, description: The receivables payment a succeeded one became }
+        refundedAmount: { $ref: "#/components/schemas/Money" }
+        needsReview: { type: boolean }
+        reviewReason: { type: string }
+        version: { type: integer }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        allocations:
+          type: array
+          items:
+            type: object
+            properties:
+              openItemId: { type: string, format: uuid }
+              documentNumber: { type: string }
+              amount: { $ref: "#/components/schemas/Money" }
+        events:
+          type: array
+          items:
+            type: object
+            properties:
+              eventId: { type: string }
+              eventType: { type: string }
+              outcome: { type: string }
+              occurredAt: { type: string, format: date-time }
+              processedAt: { type: string, format: date-time }
     PortalPayment:
       type: object
       properties:

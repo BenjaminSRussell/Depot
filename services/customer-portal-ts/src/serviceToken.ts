@@ -13,7 +13,7 @@ export const SERVICE_NAME = "customer-portal";
 
 /** The duties this service holds on each target. Mirrors platform/go/tenant `serviceGrants` and policies/authz/data.json. */
 export const SERVICE_GRANTS = {
-  receivables: ["receivables.customer-portal.read"],
+  receivables: ["receivables.customer-portal.read", "receivables.customer-portal.pay"],
   billing: ["billing.customer-portal.read"],
   sales: ["sales.customer-portal.read", "sales.customer-portal.order", "sales.customer-portal.return"],
   party: ["party.customer-portal.read"],

@@ -32,7 +32,8 @@ func specOperations(spec string) map[string]bool {
 			out[op] = out[op] || false
 		case op != "" && strings.HasPrefix(line, "      x-passage-duty: "):
 			out[op] = true
-		case line == "components:":
+		case line == "components:", strings.HasPrefix(line, "  /") && strings.HasSuffix(line, ":"):
+			// components, or a path outside /v1/receivables (the payment webhook listener's), which the router does not serve.
 			path, op = "", ""
 		}
 	}
