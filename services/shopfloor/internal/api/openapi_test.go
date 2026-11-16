@@ -171,7 +171,7 @@ func TestOpenAPIDocumentsEveryOperation(t *testing.T) {
 		"/v1/shopfloor/pi-categories/{id} get":                                     DutyView,
 		"/v1/shopfloor/pi-categories/{id} put":                                     DutyPICategoryMaintain,
 		"/v1/shopfloor/edge-nodes/{id}/readings post":                              DutyEdgeConnect,
-		"/v1/shopfloor/node-readings get":                                          DutyControlRecipeExecute,
+		"/v1/shopfloor/control-recipes/{id}/readouts post":                         DutyControlRecipeExecute,
 		"/v1/shopfloor/pi-executions get":                                          DutyView,
 		"/v1/shopfloor/pi-executions/{id} get":                                     DutyView,
 		"/v1/shopfloor/pi-executions/{id}:verify post":                             DutyPIExecutionVerify,

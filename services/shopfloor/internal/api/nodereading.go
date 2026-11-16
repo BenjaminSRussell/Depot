@@ -19,9 +19,12 @@ const NodeReadingMaxAge = 5 * time.Minute
 
 const maxReadings = 200
 
+// readingSkew is how far ahead of the service's clock a connector's reading time may be.
+const readingSkew = 5 * time.Second
+
 func (a *API) registerNodeReadings(r chi.Router) {
 	r.With(authz.RequireDuty(DutyEdgeConnect)).Post("/v1/shopfloor/edge-nodes/{id}/readings", a.reportNodeReadings)
-	r.With(authz.RequireDuty(DutyControlRecipeExecute)).Get("/v1/shopfloor/node-readings", a.getNodeReading)
+	r.With(authz.RequireDuty(DutyControlRecipeExecute)).Post("/v1/shopfloor/control-recipes/{id}/readouts", a.claimReadout)
 }
 
 type readingRequest struct {
@@ -64,6 +67,10 @@ func (a *API) reportNodeReadings(w http.ResponseWriter, r *http.Request) {
 		if rd.At != nil {
 			at = rd.At.UTC()
 		}
+		if at.After(a.now().Add(readingSkew)) {
+			f["readings"] = "a reading cannot be from the future: check the connector's clock"
+			break
+		}
 		in = append(in, store.NodeReadingIn{Node: strings.TrimSpace(rd.Node), Value: rd.Value, NodeType: rd.NodeType, At: at})
 	}
 	if len(f) > 0 {
@@ -77,18 +84,32 @@ func (a *API) reportNodeReadings(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func (a *API) getNodeReading(w http.ResponseWriter, r *http.Request) {
+type readoutRequest struct {
+	StepKey string `json:"stepKey"`
+}
+
+// claimReadout gives a kiosk the connector's latest reading of the node of a machine-readout step of its recipe, and
+// records it as the step's claim (see store.ClaimReadout).
+func (a *API) claimReadout(w http.ResponseWriter, r *http.Request) {
 	if !validTenant(w, r) {
 		return
 	}
-	node := strings.TrimSpace(r.URL.Query().Get("node"))
-	if node == "" || len(node) > 300 {
-		validationFailed(w, r, map[string]string{"node": "is required: the node or tag to read, at most 300 characters"})
+	id, ok := pathID(w, r, store.CodeRecipeNotFound, "control recipe")
+	if !ok {
 		return
 	}
-	out, err := a.store.LatestNodeReading(r.Context(), node, NodeReadingMaxAge, a.now())
+	var req readoutRequest
+	if err := httpx.Decode(r, &req); err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+	if k := strings.TrimSpace(req.StepKey); k == "" || len(k) > 400 {
+		validationFailed(w, r, map[string]string{"stepKey": "is required: the key of the machine-readout step"})
+		return
+	}
+	out, err := a.store.ClaimReadout(r.Context(), id, req.StepKey, NodeReadingMaxAge, a.now())
 	if err != nil {
-		a.fail(w, r, "read node", err)
+		a.fail(w, r, "claim readout", err)
 		return
 	}
 	httpx.JSON(w, http.StatusOK, out)

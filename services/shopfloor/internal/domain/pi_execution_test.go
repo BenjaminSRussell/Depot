@@ -20,7 +20,7 @@ func execDoc() RecipeDoc {
 func execMessages(at time.Time) []ExecMessage {
 	ten := "10"
 	return []ExecMessage{
-		{SourceMessageID: "R1:U/O/P/2", OccurredAt: at, Values: []Characteristic{{Name: "Temp", Type: "numeric", Value: "90", Max: &ten, OutOfLimit: true}, {Name: "comment", Type: "text", Value: "probe was cold"}}},
+		{SourceMessageID: "R1:U/O/P/2", OccurredAt: at, Values: []Characteristic{{Name: "Temp", Type: "numeric", Value: "150", Max: &ten}, {Name: "comment", Type: "text", Value: "probe was cold"}}},
 		{SourceMessageID: "r1:U/O/P/3", OccurredAt: at, Values: []Characteristic{{Name: "branch-taken", Type: "boolean", Value: "true"}, {Name: "branch-target", Type: "numeric", Value: "5"}}},
 		{SourceMessageID: "R1:U/O/P/5", OccurredAt: at, Values: []Characteristic{{Name: "Oven", Type: "numeric", Value: "190"}, {Name: "readout-source", Type: "text", Value: "entered-by-hand"}, {Name: "expected", Type: "numeric", Value: "180"}, {Name: "tolerance", Type: "numeric", Value: "5"}}},
 		{SourceMessageID: "other:U/O/P/1", OccurredAt: at},
@@ -58,7 +58,13 @@ func sealed(t *testing.T) (ExecHeader, string, []ExecStep) {
 	t.Helper()
 	at := time.Date(2026, 11, 15, 10, 0, 0, 0, time.UTC)
 	steps := BuildExecutionSteps("r1", execDoc(), execMessages(at))
-	h := ExecHeader{ID: "e1", RecipeID: "r1", OrderID: "o1", ResourceID: "res", SheetCode: "CHARGE", SheetVersion: 2, ExecutedBy: "operator-1", StartedAt: ExecTime(at), CompletedAt: ExecTime(at.Add(time.Hour)), StepCount: len(steps)}
+	dev := 0
+	for _, s := range steps {
+		if s.Deviation {
+			dev++
+		}
+	}
+	h := ExecHeader{ID: "e1", RecipeID: "r1", OrderID: "o1", ResourceID: "res", SheetCode: "CHARGE", SheetVersion: 2, SheetID: "sheet-1", DeviationCount: dev, ExecutedBy: "operator-1", StartedAt: ExecTime(at), CompletedAt: ExecTime(at.Add(time.Hour)), StepCount: len(steps)}
 	h.HeadHash = ChainSteps(ChainSeed(h.ID, h.RecipeID), steps)
 	return h, RecordHash(h), steps
 }
@@ -102,6 +108,16 @@ func TestExecutionChain_VerifiesAndDetectsTampering(t *testing.T) {
 		}
 	}
 	// A header change (who executed it) or a replaced record hash is caught by the record hash.
+	for name, mod := range map[string]func(*ExecHeader){
+		"the deviation count": func(x *ExecHeader) { x.DeviationCount = 0 },
+		"the sheet":           func(x *ExecHeader) { x.SheetID = "sheet-2" },
+	} {
+		hh := h
+		mod(&hh)
+		if r := VerifyChain(hh, rec, steps); r.Valid || r.BrokenAtSeq == nil || *r.BrokenAtSeq != 0 {
+			t.Errorf("a changed %s: %+v", name, r)
+		}
+	}
 	h2 := h
 	h2.ExecutedBy = "someone-else"
 	if r := VerifyChain(h2, rec, steps); r.Valid || r.BrokenAtSeq == nil || *r.BrokenAtSeq != 0 {

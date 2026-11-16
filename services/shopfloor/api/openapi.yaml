@@ -4071,7 +4071,7 @@ paths:
       summary: Report the latest values the connector read from machine nodes
       description: |
         The connector reports node values (same node and OPC-UA data type vocabulary as its setpoint readback) so a kiosk PI
-        sheet's machine-readout step can fetch them. A reading older than the stored one for the node is ignored. Only the
+        sheet's machine-readout step can fetch them. A reading older than the stored one for the node is ignored, and one stamped more than a few seconds ahead of the service's clock is refused (400). Only the
         node's bound connector may report (SF-0154, 403).
       x-passage-duty: shopfloor.edge.connect
       parameters:
@@ -4085,14 +4085,22 @@ paths:
         "401": { $ref: "#/components/responses/Problem" }
         "403": { $ref: "#/components/responses/Problem" }
         "404": { $ref: "#/components/responses/Problem" }
-  /v1/shopfloor/node-readings:
-    get:
-      operationId: getNodeReading
-      summary: The latest recent reading of a machine node
-      description: The freshest reading of the node no older than five minutes, for a machine-readout step. SF-0196 (404) when the connector has reported none.
+  /v1/shopfloor/control-recipes/{id}/readouts:
+    post:
+      operationId: claimReadout
+      summary: Fetch the connector's reading for a machine-readout step of a kiosk recipe
+      description: |
+        Returns the freshest reading (by when the service received it, at most five minutes ago) of the node of the step, from an
+        edge node at a site of the recipe's resource, and records it as the step's claim. A value the kiosk then reports as
+        read from the machine must equal it, and the sealed record names the edge node and the time of the value. The
+        claim is fixed once a message is recorded for the step. SF-0196 (404) when there is no recent reading; SF-0198 (422)
+        when the step is not a machine readout of the recipe.
       x-passage-duty: shopfloor.controlrecipe.execute
       parameters:
-        - { name: node, in: query, required: true, schema: { type: string } }
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, required: [stepKey], properties: { stepKey: { type: string, description: "unit procedure/operation/phase/seq" } } } } }
       responses:
         "200":
           description: The reading.
@@ -4101,6 +4109,7 @@ paths:
         "401": { $ref: "#/components/responses/Problem" }
         "403": { $ref: "#/components/responses/Problem" }
         "404": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
   /v1/shopfloor/pi-executions:
     get:
       operationId: listPIExecutions

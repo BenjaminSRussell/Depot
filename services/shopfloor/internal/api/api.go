@@ -129,7 +129,8 @@ type Store interface {
 	PublishPIStep(ctx context.Context, id string, rev int, by string) (store.PIStepTemplate, error)
 	NewPIStepVersion(ctx context.Context, id string, by string) (store.PIStepTemplate, error)
 	ReportNodeReadings(ctx context.Context, edgeID, subject string, in []store.NodeReadingIn) error
-	LatestNodeReading(ctx context.Context, node string, maxAge time.Duration, now time.Time) (store.NodeReading, error)
+	ClaimReadout(ctx context.Context, recipeID, stepKey string, maxAge time.Duration, now time.Time) (store.NodeReading, error)
+	PIStepData(ctx context.Context, recipeID string) (store.PIStepData, error)
 	ListPIExecutions(ctx context.Context, f store.PIExecutionFilter) ([]store.PIExecution, error)
 	GetPIExecution(ctx context.Context, id string) (store.PIExecutionDetail, error)
 	VerifyPIExecution(ctx context.Context, id string) (domain.VerifyResult, error)

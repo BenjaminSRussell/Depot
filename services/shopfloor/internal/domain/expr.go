@@ -31,6 +31,8 @@ const (
 	MaxExprLen   = 500
 	maxExprNodes = 200
 	maxExprDepth = 32
+	// MaxRoundPlaces is the most decimal places round() takes (0 to 12), as division is carried to 12.
+	MaxRoundPlaces = 12
 )
 
 // ExprType is the type an expression has: a number or a truth.
@@ -192,7 +194,11 @@ func (n callNode) eval(vars map[string]decimal.Decimal) (ExprValue, error) {
 	case "ceil":
 		return num(args[0].Ceil())
 	case "round":
-		return num(args[0].Round(int32(args[1].IntPart())))
+		places := args[1]
+		if !places.IsInteger() || places.IsNegative() || places.GreaterThan(decimal.NewFromInt(MaxRoundPlaces)) {
+			return ExprValue{}, fmt.Errorf("round takes 0 to %d decimal places", MaxRoundPlaces)
+		}
+		return num(args[0].Round(int32(places.IntPart())))
 	case "min":
 		m := args[0]
 		for _, a := range args[1:] {
@@ -536,6 +542,13 @@ func (p *exprParser) call(name token) (exprNode, ExprType, error) {
 	p.next() // )
 	if (arity >= 0 && len(args) != arity) || (arity < 0 && len(args) == 0) {
 		return nil, 0, fmt.Errorf("position %d: %s takes %s", name.at+1, name.text, map[int]string{1: "one value", 2: "two values", -1: "at least one value"}[arity])
+	}
+	if name.text == "round" {
+		lit, isLit := args[1].(numNode)
+		_, negated := args[1].(unaryNode)
+		if negated || (isLit && (!lit.v.IsInteger() || lit.v.GreaterThan(decimal.NewFromInt(MaxRoundPlaces)))) {
+			return nil, 0, fmt.Errorf("position %d: round takes 0 to %d decimal places", name.at+1, MaxRoundPlaces)
+		}
 	}
 	return callNode{name.text, args}, ExprNumber, p.grow()
 }

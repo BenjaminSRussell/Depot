@@ -225,6 +225,11 @@ func TestPIStepLibraryLifecycleOnADatabase(t *testing.T) {
 			t.Errorf("a direct change of %s was not refused: %v", name, err)
 		}
 	}
+	// A step that names a version but is not that version's step is refused: the copy drifted from the template.
+	drift := strings.Replace(sheet("SH-DRIFT", 1), `"text":"Let the resin cure."`, `"text":"Skip the cure."`, 1)
+	if rec, _ := send(http.MethodPost, "/v1/shopfloor/pi-sheets", drift, ""); rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "differs from step template CURE-HOLD version 1") {
+		t.Fatalf("a drifted copy: %d %s", rec.Code, rec.Body)
+	}
 	// A sheet refers to the published version by code and version; the reference is kept in its document.
 	rec, _ = send(http.MethodPost, "/v1/shopfloor/pi-sheets", sheet("SH-CURE", 1), "")
 	if rec.Code != http.StatusCreated || !strings.Contains(rec.Body.String(), `"template":{"code":"CURE-HOLD","version":1}`) {

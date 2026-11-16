@@ -3029,9 +3029,9 @@ test_pi_step_library_duties if {
 test_node_reading_duties if {
 	allowed("shopfloor.edge.connect", "POST", "/v1/shopfloor/edge-nodes/n1/readings")
 	not allowed("shopfloor.view", "POST", "/v1/shopfloor/edge-nodes/n1/readings")
-	allowed("shopfloor.controlrecipe.execute", "GET", "/v1/shopfloor/node-readings")
-	not allowed("shopfloor.view", "GET", "/v1/shopfloor/node-readings")
-	not allowed("shopfloor.edge.connect", "GET", "/v1/shopfloor/node-readings")
+	allowed("shopfloor.controlrecipe.execute", "POST", "/v1/shopfloor/control-recipes/r1/readouts")
+	not allowed("shopfloor.view", "POST", "/v1/shopfloor/control-recipes/r1/readouts")
+	not allowed("shopfloor.edge.connect", "POST", "/v1/shopfloor/control-recipes/r1/readouts")
 }
 
 # PI execution records (#25): read with the view duty, verified with their own duty, written by no client.

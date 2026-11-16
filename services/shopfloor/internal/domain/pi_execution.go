@@ -32,6 +32,7 @@ type ExecMessage struct {
 	Values          []Characteristic
 	SignerUser      string
 	SignerAuthTime  *time.Time
+	ReceivedAt      time.Time
 }
 
 // ExecStep is one step of an execution record. Hash covers PrevHash and every other field.
@@ -61,63 +62,43 @@ func execTime(t time.Time) string { return t.UTC().Format(time.RFC3339Nano) }
 func StepKey(up, op, ph string, seq int) string { return fmt.Sprintf("%s/%s/%s/%d", up, op, ph, seq) }
 
 // BuildExecutionSteps lists every step of the recipe in order with what the kiosk recorded for it. messages are those with
-// the source id "<recipe id>:<step key>".
+// the source id "<recipe id>:<step key>". The record is the service's reading of them: which steps a branch skipped, whether
+// a calculation matches its inputs, limits, expected values and tolerances all come from the recipe document and the
+// service's own evaluation, never from the values the kiosk sent, and a signature step without a signature is missing.
 func BuildExecutionSteps(recipeID string, doc RecipeDoc, messages []ExecMessage) []ExecStep {
 	byKey := map[string]ExecMessage{}
+	recorded := map[string][]Characteristic{}
 	for _, m := range messages {
 		if id, key, ok := strings.Cut(m.SourceMessageID, ":"); ok && strings.EqualFold(id, recipeID) {
 			byKey[key] = m
+			recorded[key] = m.Values
 		}
 	}
 	var out []ExecStep
-	for _, up := range doc.Procedure.UnitProcedures {
-		for _, op := range up.Operations {
-			for _, ph := range op.Phases {
-				path := strings.Join([]string{doc.Procedure.Name, up.Name, op.Name, ph.Name}, "/")
-				skipped := map[int]bool{}
-				for _, in := range ph.Instructions {
-					key := StepKey(up.Name, op.Name, ph.Name, in.Seq)
-					m, has := byKey[key]
-					s := ExecStep{Key: key, PhasePath: path, Kind: in.Category, Text: in.Text, Template: in.Template, Values: []Characteristic{}, DeviationReasons: []string{}}
-					switch {
-					case has:
-						s.Status = ExecRecorded
-						s.Values = append(s.Values, m.Values...)
-						s.OccurredAt = execTime(m.OccurredAt)
-						s.SignerUser = m.SignerUser
-						if m.SignerAuthTime != nil {
-							s.SignerAuthTime = execTime(*m.SignerAuthTime)
-						}
-						if in.Category == InstBranch {
-							var taken bool
-							var target int
-							for _, v := range m.Values {
-								switch v.Name {
-								case "branch-taken":
-									taken = v.Value == "true"
-								case "branch-target":
-									fmt.Sscan(v.Value, &target)
-								}
-							}
-							if taken {
-								for n := in.Seq + 1; n < target; n++ {
-									skipped[n] = true
-								}
-							}
-						}
-					case skipped[in.Seq]:
-						s.Status = ExecSkipped
-					case passesWithoutData(in):
-						s.Status = ExecAcknowledged
-					default:
-						s.Status = ExecMissing
-					}
-					s.annotate(in)
-					out = append(out, s)
-				}
+	walkRecipe(doc, recorded, func(v *stepVisit) bool {
+		in := v.In
+		m, has := byKey[v.Key]
+		s := ExecStep{Key: v.Key, PhasePath: v.PhasePath, Kind: in.Category, Text: in.Text, Template: in.Template, Values: []Characteristic{}, DeviationReasons: []string{}}
+		switch {
+		case has:
+			s.Status = ExecRecorded
+			s.Values = append(s.Values, m.Values...)
+			s.OccurredAt = execTime(m.OccurredAt)
+			s.SignerUser = m.SignerUser
+			if m.SignerAuthTime != nil {
+				s.SignerAuthTime = execTime(*m.SignerAuthTime)
 			}
+		case v.Skipped:
+			s.Status = ExecSkipped
+		case passesWithoutData(in):
+			s.Status = ExecAcknowledged
+		default:
+			s.Status = ExecMissing
 		}
-	}
+		s.annotate(v, has, m)
+		out = append(out, s)
+		return true
+	})
 	for i := range out {
 		out[i].Seq = i + 1
 	}
@@ -134,43 +115,79 @@ func passesWithoutData(in Instruction) bool {
 	return false
 }
 
-// annotate reads comment, signature and deviations out of the recorded values.
-func (s *ExecStep) annotate(in Instruction) {
-	var primary, expected, tolerance *decimal.Decimal
-	for _, v := range s.Values {
-		switch v.Name {
-		case "comment":
-			s.Comment = v.Value
-		case "signature-meaning":
-			s.SignatureMeaning = v.Value
-		case "readout-source":
-			if v.Value == "entered-by-hand" {
-				s.DeviationReasons = append(s.DeviationReasons, "the machine reading was entered by hand")
-			}
-		case "expected", "tolerance":
-			if d, err := decimal.NewFromString(v.Value); err == nil {
-				if v.Name == "expected" {
-					expected = &d
-				} else {
-					tolerance = &d
+// annotate reads comment and signature out of the recorded values and judges the step against the recipe.
+func (s *ExecStep) annotate(v *stepVisit, has bool, m ExecMessage) {
+	in := v.In
+	add := func(r string) { s.DeviationReasons = append(s.DeviationReasons, r) }
+	if c, ok := valueNamed(s.Values, "comment"); ok {
+		s.Comment = c.Value
+	}
+	if c, ok := valueNamed(s.Values, "signature-meaning"); ok {
+		s.SignatureMeaning = c.Value
+	}
+	if has && v.Skipped {
+		add("recorded for a step a branch skips")
+	}
+	if has && in.Char != nil {
+		if p, ok := valueNamed(s.Values, in.Char.Name); ok && p.Type == "numeric" {
+			if d, err := decimal.NewFromString(p.Value); err == nil {
+				if (in.Char.Min != nil && d.LessThan(decimal.NewFromFloat(*in.Char.Min))) || (in.Char.Max != nil && d.GreaterThan(decimal.NewFromFloat(*in.Char.Max))) {
+					add(in.Char.Name + " is outside its limits")
 				}
-			}
-		default:
-			if primary == nil && v.Type == "numeric" && in.Char != nil && v.Name == in.Char.Name {
-				if d, err := decimal.NewFromString(v.Value); err == nil {
-					primary = &d
+				if in.Category == InstReadout && in.Value != nil && in.Tolerance != nil && d.Sub(decimal.NewFromFloat(*in.Value)).Abs().GreaterThan(decimal.NewFromFloat(*in.Tolerance)) {
+					add("the reading is outside its tolerance")
 				}
-			}
-			if v.OutOfLimit {
-				s.DeviationReasons = append(s.DeviationReasons, v.Name+" is outside its limits")
+				if in.Category == InstSetpoint && in.Value != nil && !d.Equal(decimal.NewFromFloat(*in.Value)) {
+					add("the recorded setpoint differs from the recipe's")
+				}
 			}
 		}
 	}
-	if primary != nil && expected != nil && tolerance != nil && primary.Sub(*expected).Abs().GreaterThan(*tolerance) {
-		s.DeviationReasons = append(s.DeviationReasons, "the reading is outside its tolerance")
+	if has && in.Category == InstReadout {
+		src, _ := valueNamed(s.Values, "readout-source")
+		switch {
+		case src.Value == ReadoutHand:
+			add("the machine reading was entered by hand")
+			if strings.TrimSpace(s.Comment) == "" {
+				add("no reason was given for the hand entry")
+			}
+		case src.Value == ReadoutMachine:
+			if _, ok := valueNamed(s.Values, "readout-claim"); !ok {
+				add("no machine reading is on record for this value")
+			}
+		default:
+			add("the source of the reading is not recorded")
+		}
 	}
-	if s.Status == ExecMissing {
-		s.DeviationReasons = append(s.DeviationReasons, "the step was not recorded")
+	if has && in.Category == InstCalculation && in.Expression != "" {
+		name := in.Var
+		if name == "" {
+			name = "calculation"
+		}
+		got, ok := valueNamed(s.Values, name)
+		d, err := decimal.NewFromString(got.Value)
+		switch {
+		case v.Calc == nil:
+			add("the calculation cannot be reproduced: " + v.CalcErr)
+		case !ok || err != nil || !d.Equal(*v.Calc):
+			add("the recorded result differs from the service's calculation")
+		}
+	}
+	if has && in.Category == InstBranch {
+		got, _ := valueNamed(s.Values, "branch-taken")
+		if v.JumpErr != "" || got.Value != fmt.Sprint(v.Jump) {
+			add("the recorded branch decision differs from the service's evaluation")
+		}
+	}
+	if in.Category == InstSignature && has {
+		signed := m.SignerUser != "" && m.SignerAuthTime != nil && s.SignatureMeaning == MeaningOf(in)
+		if !signed {
+			s.Status = ExecMissing
+			add("the step was not signed with the required meaning by a signed-in person")
+		}
+	}
+	if s.Status == ExecMissing && len(s.DeviationReasons) == 0 {
+		add("the step was not recorded")
 	}
 	s.Deviation = len(s.DeviationReasons) > 0
 }
@@ -211,7 +228,10 @@ type ExecHeader struct {
 	StartedAt    string `json:"startedAt"`
 	CompletedAt  string `json:"completedAt"`
 	StepCount    int    `json:"stepCount"`
-	HeadHash     string `json:"headHash"`
+	// DeviationCount and SheetID are covered by the record hash; verification recounts the deviations from the steps.
+	DeviationCount int    `json:"deviationCount"`
+	SheetID        string `json:"sheetId"`
+	HeadHash       string `json:"headHash"`
 }
 
 // RecordHash is the SHA-256 of the canonical header, which includes the head of the chain.
@@ -257,6 +277,15 @@ func VerifyChain(h ExecHeader, storedRecordHash string, steps []ExecStep) Verify
 	}
 	if len(steps) != h.StepCount {
 		return broken(len(steps)+1, fmt.Sprintf("the record has %d steps, it was sealed with %d", len(steps), h.StepCount))
+	}
+	deviations := 0
+	for _, st := range steps {
+		if st.Deviation {
+			deviations++
+		}
+	}
+	if deviations != h.DeviationCount {
+		return broken(0, fmt.Sprintf("the record counts %d deviations, its steps hold %d", h.DeviationCount, deviations))
 	}
 	h.HeadHash = prev
 	if RecordHash(h) != storedRecordHash {

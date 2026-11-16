@@ -241,6 +241,8 @@ func checkName(f map[string]string, path, name string, seen map[string]bool) {
 	switch {
 	case n == "" || len(n) > 120:
 		f[path+".name"] = "must be 1 to 120 characters"
+	case strings.Contains(n, "/"):
+		f[path+".name"] = "cannot contain '/': names form the key of each step"
 	case seen[n]:
 		f[path+".name"] = "is used twice at this level"
 	}

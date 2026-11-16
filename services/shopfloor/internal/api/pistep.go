@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -255,6 +256,11 @@ func (a *API) templateRefFields(ctx context.Context, doc domain.RecipeDoc, f map
 			f[path+".template"] = fmt.Sprintf("step template %s version %d is a draft; publish it before a sheet uses it", t.Code, t.Version)
 		case t.Kind != in.Category:
 			f[path+".template"] = fmt.Sprintf("step template %s is a %s step, not a %s step", t.Code, t.Kind, in.Category)
+		default:
+			var spec domain.Instruction
+			if err := json.Unmarshal(t.Spec, &spec); err == nil && domain.TemplateDrift(in, spec) {
+				f[path+".template"] = fmt.Sprintf("the step differs from step template %s version %d; take the template as it is, or remove the reference and keep your own step", t.Code, t.Version)
+			}
 		}
 	})
 	return nil

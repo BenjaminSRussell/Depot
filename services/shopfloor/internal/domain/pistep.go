@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"encoding/json"
 	"fmt"
 	"regexp"
 	"strings"
@@ -27,11 +28,20 @@ func checkStepKind(f map[string]string, path string, in Instruction, destination
 		} else if _, reserved := ExprFunctions[in.Var]; reserved || in.Var == "and" || in.Var == "or" || in.Var == "not" {
 			f[path+".var"] = "is a word expressions use; choose another name"
 		}
+		if ReservedValueName(in.Var) {
+			f[path+".var"] = "is a name the service writes into recorded steps; choose another name"
+		}
 		switch in.Category {
 		case InstSetpoint, InstDataRequest, InstInspection, InstReadout, InstCalculation:
+			if (in.Category == InstDataRequest || in.Category == InstInspection) && in.Char != nil && in.Char.Type == "text" {
+				f[path+".var"] = "applies to a number or yes/no value; a text value cannot be used in a formula"
+			}
 		default:
 			f[path+".var"] = "applies to a step that produces a value: a setpoint, a data request, an inspection, a machine readout or a calculation"
 		}
+	}
+	if in.Char != nil && ReservedValueName(in.Char.Name) {
+		f[path+".characteristic.name"] = "is a name the service writes into recorded steps; choose another name"
 	}
 	if in.Template != nil && (!templateCode.MatchString(in.Template.Code) || in.Template.Version < 1) {
 		f[path+".template"] = "must name a step template by its code and a version of 1 or more"
@@ -218,4 +228,20 @@ func (d RecipeDoc) WalkInstructions(fn func(path string, in Instruction)) {
 			}
 		}
 	}
+}
+
+// TemplateDrift reports whether a step that names a template differs from the template's spec in a field it copied. The
+// fields a sheet sets where it uses the step are left out: its position, a branch's target, the var, a setpoint's value
+// and the material lines. A step that drifted is no longer the template's step, so the reference is refused.
+func TemplateDrift(step, spec Instruction) bool {
+	norm := func(in Instruction) string {
+		in.Seq, in.Target, in.Var, in.Template = 0, 0, "", nil
+		if in.Category == InstSetpoint {
+			in.Value = nil
+		}
+		in.Materials = nil
+		b, _ := json.Marshal(in)
+		return string(b)
+	}
+	return norm(step) != norm(spec)
 }

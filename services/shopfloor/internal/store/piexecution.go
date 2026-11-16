@@ -67,7 +67,10 @@ func scanPIExec(row pgx.Row) (PIExecution, error) {
 
 func (e PIExecution) header() domain.ExecHeader {
 	h := domain.ExecHeader{ID: e.ID, RecipeID: e.RecipeID, OrderID: e.OrderID, ResourceID: e.ResourceID, ExecutedBy: e.ExecutedBy,
-		StartedAt: domain.ExecTime(e.StartedAt), CompletedAt: domain.ExecTime(e.CompletedAt), StepCount: e.StepCount, HeadHash: e.HeadHash}
+		StartedAt: domain.ExecTime(e.StartedAt), CompletedAt: domain.ExecTime(e.CompletedAt), StepCount: e.StepCount, DeviationCount: e.DeviationCount, HeadHash: e.HeadHash}
+	if e.PISheetID != nil {
+		h.SheetID = *e.PISheetID
+	}
 	if e.SheetCode != nil {
 		h.SheetCode = *e.SheetCode
 	}
@@ -99,27 +102,8 @@ func sealExecution(ctx context.Context, tx pgx.Tx, tenantID string, c ControlRec
 	if err := tx.QueryRow(ctx, `select coalesce((select min(at) from control_recipe_event where tenant_id = $1 and recipe_id = $2 and to_status = 'in-execution'), now()), now()`, tenantID, c.ID).Scan(&started, &completed); err != nil {
 		return err
 	}
-	rows, err := tx.Query(ctx, `select source_message_id, occurred_at, characteristics, coalesce(signer_user, ''), signer_auth_time from process_message
-		where tenant_id = $1 and source = 'kiosk' and order_id = $2 and deleted_at is null and source_message_id like $3 order by occurred_at, id`, tenantID, c.OrderID, c.ID+":%")
+	msgs, err := loadExecMessages(ctx, tx, tenantID, c)
 	if err != nil {
-		return err
-	}
-	var msgs []domain.ExecMessage
-	for rows.Next() {
-		var m domain.ExecMessage
-		var raw []byte
-		if err := rows.Scan(&m.SourceMessageID, &m.OccurredAt, &raw, &m.SignerUser, &m.SignerAuthTime); err != nil {
-			rows.Close()
-			return err
-		}
-		if err := json.Unmarshal(raw, &m.Values); err != nil {
-			rows.Close()
-			return err
-		}
-		msgs = append(msgs, m)
-	}
-	rows.Close()
-	if err := rows.Err(); err != nil {
 		return err
 	}
 	steps := domain.BuildExecutionSteps(c.ID, doc, msgs)
@@ -132,6 +116,7 @@ func sealExecution(ctx context.Context, tx pgx.Tx, tenantID string, c ControlRec
 			exec.DeviationCount++
 		}
 	}
+	// The deviation count and the sheet are part of what the record hash covers.
 	exec.RecordHash = domain.RecordHash(exec.header())
 	if _, err := tx.Exec(ctx, `insert into pi_execution (tenant_id, id, recipe_id, order_id, resource_id, pi_sheet_id, sheet_code, sheet_version, executed_by, started_at, completed_at, step_count, deviation_count, head_hash, record_hash)
 		values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
@@ -149,6 +134,29 @@ func sealExecution(ctx context.Context, tx pgx.Tx, tenantID string, c ControlRec
 		}
 	}
 	return nil
+}
+
+// loadExecMessages reads the process messages a kiosk recorded for the steps of a recipe, oldest first.
+func loadExecMessages(ctx context.Context, tx pgx.Tx, tenantID string, c ControlRecipe) ([]domain.ExecMessage, error) {
+	rows, err := tx.Query(ctx, `select source_message_id, occurred_at, characteristics, coalesce(signer_user, ''), signer_auth_time, received_at from process_message
+		where tenant_id = $1 and source = 'kiosk' and order_id = $2 and deleted_at is null and lower(source_message_id) like lower($3) order by occurred_at, id`, tenantID, c.OrderID, c.ID+":%")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var msgs []domain.ExecMessage
+	for rows.Next() {
+		var m domain.ExecMessage
+		var raw []byte
+		if err := rows.Scan(&m.SourceMessageID, &m.OccurredAt, &raw, &m.SignerUser, &m.SignerAuthTime, &m.ReceivedAt); err != nil {
+			return nil, err
+		}
+		if err := json.Unmarshal(raw, &m.Values); err != nil {
+			return nil, err
+		}
+		msgs = append(msgs, m)
+	}
+	return msgs, rows.Err()
 }
 
 func piExecNotFound() error {

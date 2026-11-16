@@ -210,7 +210,7 @@ func (s *Postgres) PublishPIStep(ctx context.Context, id string, rev int, by str
 		if t.Rev != rev {
 			return versionMismatch("PI step template")
 		}
-		if _, err := tx.Exec(ctx, `update pi_step_template set status = 'superseded', rev = rev + 1, updated_by = $3, updated_at = now() where code = $1 and status = 'published' and id <> $2`, t.Code, id, by); err != nil {
+		if _, err := tx.Exec(ctx, `update pi_step_template set status = 'superseded', updated_by = $3, updated_at = now() where code = $1 and status = 'published' and id <> $2`, t.Code, id, by); err != nil {
 			return err
 		}
 		out, err = scanPIStep(tx.QueryRow(ctx, `update pi_step_template set status = 'published', rev = rev + 1, updated_by = $2, updated_at = now(), published_by = $2, published_at = now() where id = $1 returning `+piStepCols, id, by))

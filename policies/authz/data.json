@@ -3783,7 +3783,7 @@
     ]},
     "shopfloor.controlrecipe.execute": {"permissions": [
       {"resource": "/v1/shopfloor/control-recipes/*:report", "methods": ["POST"]},
-      {"resource": "/v1/shopfloor/node-readings", "methods": ["GET"]}
+      {"resource": "/v1/shopfloor/control-recipes/*/readouts", "methods": ["POST"]}
     ]},
     "shopfloor.job.sync": {"flag": true, "permissions": []},
     "shopfloor.job.schedule": {"permissions": [{"resource": "/v1/shopfloor/jobs", "methods": ["POST"]}]},
