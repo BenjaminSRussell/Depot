@@ -88,7 +88,8 @@ export async function agentRunWorkflow(input: AgentRunInput): Promise<AgentRunSt
         if (left > 0 && !woken) await condition(() => woken, Math.min(left, AGENT_APPROVAL_RECHECK_MS));
         woken = false;
         out = await step(() => waiting.agentResolve({ ...ref, expire: Date.now() >= deadline }));
-        if (out.next !== "await_approval") break;
+        // A new approval request (re-approval after an expired session) re-enters the wait with its own id and deadline.
+        if (out.next !== "await_approval" || out.actionId !== state.actionId) break;
       }
     } else {
       state.status = "committing";
