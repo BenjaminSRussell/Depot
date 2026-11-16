@@ -31,3 +31,9 @@ fieldset { border: 1px solid var(--line); margin: 0.75rem 0; }
 dl { display: grid; grid-template-columns: max-content 1fr; gap: 0.25rem 1rem; }
 dd { margin: 0; }
 h2 { margin: 1.5rem 0 0.5rem; }
+.payment-element { max-width: 32rem; margin: 1rem 0; padding: 1rem; border: 1px solid var(--line); border-radius: 0.5rem; }
+.demo-element { background: color-mix(in srgb, var(--accent) 6%, transparent); }
+fieldset { margin: 1rem 0; border: 1px solid var(--line); border-radius: 0.5rem; max-width: 32rem; }
+fieldset label { display: block; margin: 0.25rem 0; }
+fieldset small { color: var(--muted); }
+input[type="radio"], input[type="checkbox"] { min-height: auto; padding: 0; width: 1.25rem; height: 1.25rem; vertical-align: middle; margin: 0 0.5rem 0 0; }
