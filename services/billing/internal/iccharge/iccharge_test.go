@@ -2,6 +2,7 @@ package iccharge_test
 
 import (
 	"context"
+	"encoding/json"
 	"strings"
 	"testing"
 	"time"
@@ -66,6 +67,27 @@ func TestHandle_RaisesTheLendersProposalOnceWithTheChargesTax(t *testing.T) {
 	again, err := iccharge.Handle(consumerCtx(t), s, cfg, published(t, data))
 	if err != nil || again.ID != first.ID {
 		t.Fatalf("redelivery = %s, %v; want %s", again.ID, err, first.ID)
+	}
+}
+
+// #40: the proposal names the borrower's legal entity as the trading partner, and none when it is the lender itself.
+func TestProposal_NamesTheBorrowerAsTradingPartner(t *testing.T) {
+	cfg := iccharge.Config{RevenueAccount: "4900", TaxCode: "STD", PaymentTermDays: 30}
+	le, customer, borrower := ids.New(), ids.New(), ids.New()
+	data := charge(le, customer)
+	data["borrowerLegalEntityId"] = borrower
+	raw, _ := json.Marshal(data)
+	var d iccharge.Data
+	if err := json.Unmarshal(raw, &d); err != nil {
+		t.Fatal(err)
+	}
+	inv, _, _, err := iccharge.Proposal(d, cfg)
+	if err != nil || inv.TradingPartnerID != borrower {
+		t.Fatalf("partner %q, err %v; want %s", inv.TradingPartnerID, err, borrower)
+	}
+	d.BorrowerLegalEntityID = le
+	if inv, _, _, err = iccharge.Proposal(d, cfg); err != nil || inv.TradingPartnerID != "" {
+		t.Fatalf("a borrower that is the lender's own legal entity is no partner: %q %v", inv.TradingPartnerID, err)
 	}
 }
 

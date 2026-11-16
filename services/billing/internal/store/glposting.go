@@ -84,6 +84,8 @@ type GLDocument struct {
 	Charges     decimal.Decimal
 	Tax         decimal.Decimal
 	Lines       []GLLine
+	// TradingPartnerID is the counterparty legal entity of an intercompany invoice or of the invoice a credit note credits (#40).
+	TradingPartnerID string
 	// Held is the booking an earlier attempt sent to the ledger without a verdict; a retry posts it again unchanged, so the
 	// ledger key never meets a different entry and later documents of the contract count it as consumed.
 	Held *GLHeld
@@ -140,8 +142,18 @@ func (s *Postgres) DueGLDocuments(ctx context.Context, legalEntityID string, now
 			d := GLDocument{ID: inv.ID, Number: inv.Number, CreditNote: inv.Type == domain.TypeCreditNote, Currency: inv.Currency,
 				PostingDate: inv.PostingDate.Format(dateLayout), Gross: inv.Totals.Gross, Charges: inv.Totals.Charges, Tax: inv.Totals.Tax}
 			var split, contract []byte
+			var partner *string
 			if err := tx.QueryRow(ctx, `select gl_split, gl_contract from invoice where id = $1::uuid`, id).Scan(&split, &contract); err != nil {
 				return err
+			}
+			// A credit note keeps the partner of the invoice it credits, so the pair nets out in the partner balances.
+			if err := tx.QueryRow(ctx, `select coalesce(i.trading_partner_id, o.trading_partner_id)::text
+				from invoice i left join invoice o on o.tenant_id = i.tenant_id and o.id = i.original_invoice_id where i.id = $1::uuid`, id).Scan(&partner); err != nil {
+				return err
+			}
+			d.TradingPartnerID = ""
+			if partner != nil {
+				d.TradingPartnerID = *partner
 			}
 			if split != nil {
 				d.Held = &GLHeld{}

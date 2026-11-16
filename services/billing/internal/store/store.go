@@ -155,6 +155,9 @@ type Invoice struct {
 	CounterpartyCountry string
 	CounterpartyVATID   string
 	SupplyKind          string
+	// TradingPartnerID is the legal entity on the other side of an intercompany invoice (#40); empty on an ordinary invoice. The GL
+	// posting names it on the receivable and revenue lines.
+	TradingPartnerID string
 }
 
 // ProposalBatch is one POST /v1/billing/proposals request: its key, the hash of
@@ -407,13 +410,13 @@ func writeProposal(ctx context.Context, tx pgx.Tx, inv Invoice) error {
 	}
 	_, err := tx.Exec(ctx, `insert into invoice (tenant_id, id, legal_entity_id, customer_id, invoice_account_id, invoice_type, status,
 		invoice_date, due_date, payment_term_days, currency, net_amount, charge_amount, tax_amount, gross_amount, idempotency_key, request_hash,
-		original_invoice_id, credit_reason, proposal_batch_id, proposal_batch_seq, counterparty_country, counterparty_vat_id, supply_kind)
-		values ($1, $2, $3, $4, $5, $6, 'PROPOSAL', $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23)`,
+		original_invoice_id, credit_reason, proposal_batch_id, proposal_batch_seq, counterparty_country, counterparty_vat_id, supply_kind, trading_partner_id)
+		values ($1, $2, $3, $4, $5, $6, 'PROPOSAL', $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24)`,
 		p.TenantID, inv.ID, inv.LegalEntityID, inv.CustomerID, inv.InvoiceAccountID, inv.Type,
 		inv.InvoiceDate.Format(dateLayout), inv.DueDate.Format(dateLayout), inv.PaymentTermDays, inv.Currency,
 		inv.Totals.Net.String(), inv.Totals.Charges.String(), inv.Totals.Tax.String(), inv.Totals.Gross.String(),
 		inv.IdempotencyKey, inv.RequestHash, nullable(inv.OriginalInvoiceID), nullable(inv.Reason),
-		nullable(inv.ProposalBatchID), batchSeq, nullable(inv.CounterpartyCountry), nullable(inv.CounterpartyVATID), nullable(inv.SupplyKind))
+		nullable(inv.ProposalBatchID), batchSeq, nullable(inv.CounterpartyCountry), nullable(inv.CounterpartyVATID), nullable(inv.SupplyKind), nullable(inv.TradingPartnerID))
 	if err != nil {
 		return err
 	}

@@ -86,7 +86,9 @@ type Data struct {
 	Tax                 string `json:"tax"`
 	TaxCode             string `json:"taxCode"`
 	LenderLegalEntityID string `json:"lenderLegalEntityId"`
-	CustomerAccount     string `json:"customerAccount"`
+	// BorrowerLegalEntityID is the other side of the invoice; the GL posting names it as the trading partner (#40).
+	BorrowerLegalEntityID string `json:"borrowerLegalEntityId"`
+	CustomerAccount       string `json:"customerAccount"`
 	// AutoPostInvoice is the pairing's opt-in to post the proposal without review.
 	AutoPostInvoice bool `json:"autoPostInvoice"`
 }
@@ -160,6 +162,9 @@ func Proposal(d Data, cfg Config) (store.Invoice, domain.Line, decimal.Decimal, 
 	inv := store.Invoice{ID: ids.New(), LegalEntityID: d.LenderLegalEntityID, CustomerID: d.CustomerAccount, InvoiceAccountID: d.CustomerAccount,
 		Type: domain.TypeFreeText, Status: domain.StatusProposal, Currency: d.Currency, InvoiceDate: date,
 		DueDate: date.AddDate(0, 0, cfg.PaymentTermDays), PaymentTermDays: cfg.PaymentTermDays, IdempotencyKey: Key(d), RequestHash: Key(d)}
+	if ids.Valid(d.BorrowerLegalEntityID) && d.BorrowerLegalEntityID != d.LenderLegalEntityID {
+		inv.TradingPartnerID = d.BorrowerLegalEntityID
+	}
 	return inv, line, tax.RoundBank(money.MinorUnits(d.Currency)), nil
 }
 
