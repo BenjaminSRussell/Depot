@@ -163,6 +163,31 @@ describe("paying invoices", () => {
   });
 });
 
+describe("leaving the payment step", () => {
+  it("cancels the abandoned payment so the invoices are free again, and goes back to the amounts", async () => {
+    window.Stripe = (() => ({ elements: () => ({ create: () => ({ mount: vi.fn(), destroy: vi.fn() }) }), confirmPayment: vi.fn() })) as unknown as StripeFactory;
+    routes["POST /api/v1/payment-intents"] = intent;
+    routes[`POST /api/v1/payment-intents/${G}/cancel`] = { ...intent, status: "FAILED", clientSecret: undefined };
+    const user = userEvent.setup();
+    at(`/pay?items=${A}`, <Pay />);
+    await user.click(await screen.findByRole("button", { name: "Continue to payment details" }));
+    await user.click(await screen.findByRole("button", { name: "Change the amounts" }));
+    expect(await screen.findByRole("button", { name: "Continue to payment details" })).toBeInTheDocument();
+    const cancel = calls.find((c) => c.url === `/api/v1/payment-intents/${G}/cancel`)!;
+    expect(cancel.method).toBe("POST");
+    expect(cancel.headers["idempotency-key"]).toMatch(/^p-/);
+  });
+
+  it("says so when the payment form cannot be shown, instead of loading forever", async () => {
+    routes["POST /api/v1/payment-intents"] = { ...intent, publishableKey: undefined };
+    const user = userEvent.setup();
+    at(`/pay?items=${A}`, <Pay />);
+    await user.click(await screen.findByRole("button", { name: "Continue to payment details" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("The secure payment form is not available right now.");
+    expect(screen.queryByText("Loading the secure payment form…")).toBeNull();
+  });
+});
+
 describe("payment status", () => {
   it("reads processing, paid and failed from the service in plain language", async () => {
     routes[`GET /api/v1/payment-intents/${G}`] = { ...intent, method: "ACH", status: "PROCESSING", bankName: "STRIPE TEST BANK", last4: "6789" };

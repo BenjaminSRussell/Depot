@@ -35,6 +35,8 @@ Stripe PaymentIntent and answer its client secret. Only then is Stripe.js loaded
 from the browser to Stripe and never reach Passage (PCI SAQ A). The serving edge's Content-Security-Policy, when one is added, must allow
 `https://js.stripe.com` for scripts and frames and `https://api.stripe.com` for connections. After `confirmPayment` (or a 3-D Secure
 redirect back to `/pay/:id`) the page reads the payment from receivables, which changes it only on Stripe's signature-verified webhook.
+While a payment waits for the customer it holds its invoices; "Change the amounts" cancels it (`POST /api/v1/payment-intents/:id/cancel`)
+so they can be paid again. When the payment form cannot be shown (no publishable key) the page says so.
 
 The demo build (`npx vite build --mode demo`) answers the BFF in the browser (`src/demo.ts`, Harlan Agricultural Co-op buying from
 Cedar Ridge Pumps) and replaces the Payment Element with a stub: a card payment is paid at once and a bank account payment stays processing,

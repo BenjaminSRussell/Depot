@@ -128,6 +128,14 @@ function handle(method: string, url: URL, body: unknown): Answer | undefined {
   }
   if (method === "POST") {
     if (p === "/api/v1/payment-intents") return createIntent(body);
+    const cancel = /^\/api\/v1\/payment-intents\/([^/]+)\/cancel$/.exec(p);
+    if (cancel) {
+      const found = intents.find((x) => x.id === cancel[1]);
+      if (!found) return problem(404, "AR-GATEWAY-NOT-FOUND", "Payment not found");
+      if (found.status !== "REQUIRES_PAYMENT") return problem(409, "AR-GATEWAY-STATE", "the payment is already under way and cannot be cancelled");
+      found.status = "FAILED";
+      return ok(portalView(found));
+    }
     const confirm = /^\/demo\/payment-intents\/([^/]+)\/confirm$/.exec(p);
     if (confirm) return confirmIntent(confirm[1] as string);
     if (p === "/bff/logout") return ok({ logoutUrl: "/" });

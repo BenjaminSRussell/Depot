@@ -1047,6 +1047,8 @@ const p2pMore: Record<string, ProblemCatalogEntry> = {
   "AR-GATEWAY-OFF": { message: "Card and bank account payments aren't set up for this company.", action: "Pay by bank transfer, or ask your contact to set up card payments." },
   "AR-GATEWAY-UNAVAILABLE": { message: "The payment service couldn't be reached.", action: "Try again in a minute." },
   "AR-GATEWAY-REFUSED": { message: "The payment service refused the payment.", action: "Change the amount or try another payment method." },
+  "AR-GATEWAY-AMOUNT": { message: "The amount can't be charged by card or bank in this currency.", action: "Change the amount, for example to steps of 0.010 for a three-decimal currency." },
+  "AR-GATEWAY-STATE": { message: "This payment is already under way and can't be cancelled.", action: "Open the payment to see where it stands." },
   "AR-CREDIT-SETTLEMENT-NOT-FOUND": { message: "That credit settlement doesn't exist.", action: "Reload the list of credit settlements." },
   "AR-CREDIT-SETTLEMENT-REVERSED": { message: "This credit settlement was already reversed.", action: "Reload the list; the invoice and the credit are already open again." },
   "AR-SETTLE-NOT-CREDIT": { message: "This open item isn't an open credit.", action: "Choose a credit note or an unapplied credit that still has an open amount." },

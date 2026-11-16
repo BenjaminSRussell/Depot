@@ -115,6 +115,17 @@ function PayForm({ items, preselected }: { items: OpenItem[]; preselected: Set<s
     setError("");
   }
 
+  /** Back to the amounts: the abandoned payment is cancelled so it stops holding the invoices. One under way opens its status. */
+  async function back(abandoned: PortalPayment) {
+    try {
+      await post(`/api/v1/payment-intents/${abandoned.id}/cancel`, {}, newSubmitKey());
+      setIntent(null);
+      key.current = newSubmitKey();
+    } catch {
+      navigate(`/pay/${abandoned.id}`);
+    }
+  }
+
   async function submit(e: FormEvent) {
     e.preventDefault();
     setTried(true);
@@ -141,7 +152,7 @@ function PayForm({ items, preselected }: { items: OpenItem[]; preselected: Set<s
           You are paying {display(intent.amount, intent.currency)} for {intent.allocations.map((a) => a.documentNumber).join(", ")}
           {intent.method === "ACH" ? " from a US bank account." : " by card."}
         </p>
-        <PaymentStep intent={intent} onBack={() => { setIntent(null); key.current = newSubmitKey(); }} />
+        <PaymentStep intent={intent} onBack={() => void back(intent)} />
       </section>
     );
   }
@@ -214,6 +225,10 @@ function StripePayment({ intent, onBack }: { intent: PortalPayment; onBack: () =
   useEffect(() => {
     let live = true;
     let element: { destroy(): void } | null = null;
+    if (!intent.clientSecret || !intent.publishableKey) {
+      setError("The secure payment form is not available right now. Try again later or pay by bank transfer.");
+      return;
+    }
     loadStripeJs().then(
       (Stripe) => {
         if (!live || !mountRef.current || !intent.clientSecret || !intent.publishableKey) return;
