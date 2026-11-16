@@ -15,8 +15,12 @@ test checks, without a cluster:
 - every consumer KafkaUser in deploy/kafka is the username of a chart's consumer, reads its group and writes only
   dead-letter topics a synced KafkaTopic creates; the inventory postings consumer's ACLs are exactly the topics,
   group and dead-letter topic its code uses (#480); an outbox connector that routes by event type (outbox-sales,
-  outbox-fulfillment) sends every message of its service's AsyncAPI to that message's channel, and the debezium
-  user's literal ACLs under its prefix are exactly those channels;
+  outbox-fulfillment and the others) sends every message of its service's AsyncAPI to that message's channel, the
+  debezium user's literal ACLs under its prefix are exactly those channels, and every event type of that context the
+  service defines in Go is a declared message;
+- every outbox connector has, in dev, its database and REPLICATION role (dev Postgres init or a deploy/postgres
+  release), one Vault key read by both sides, its publication and outbox grant in the service's migrations, its
+  ExternalSecret and Role entry, and debezium write ACLs; every topic a consumer KafkaUser reads has a producer (#213);
 - if helm is on PATH, every dev and local Application whose source is a chart in this repo renders with its
   values, and outside local every container image is pinned by digest; Temporal's persistence values name the
   Service and Secret its database chart renders;
@@ -230,6 +234,38 @@ def pod_containers(doc):
 
 def pod_images(doc):
     return [c["image"] for c in pod_containers(doc)]
+
+
+EVENT_LITERAL = re.compile(r"""["'`](dev\.passage\.[a-z0-9-]+(?:\.[a-z0-9-]+)+)["'`]""")
+EVENT_TYPE_CALL = re.compile(r'events\.Type\(\s*("[a-z0-9]+"|Context)\s*,\s*"([^"]+)"\s*,\s*"([^"]+)"\s*,\s*(\d+)\s*\)')
+PLATFORM_IMPORT = re.compile(r'"github\.com/BenjaminSRussell/passage/platform/([a-z0-9_/]+)"')
+
+
+def service_event_types(service):
+    """Every CloudEvents type a service names in its non-test Go, Python or TypeScript sources and in the platform/go
+    packages its Go code imports: quoted literals and events.Type(...) calls (Context is the service's own context)."""
+    root = REPO / "services" / service
+    own = re.findall(r'\bContext\s*=\s*"([a-z0-9]+)"', "".join(f.read_text() for f in (root / "internal/events").glob("*.go")))
+    files, packages = [], set()
+    for f in root.rglob("*"):
+        if f.suffix not in (".go", ".py", ".ts") or "node_modules" in f.parts or "tests" in f.parts \
+                or f.name.endswith(("_test.go", ".test.ts")) or f.name.startswith("test_"):
+            continue
+        files.append(f)
+    for f in files:
+        if f.suffix == ".go":
+            packages |= set(PLATFORM_IMPORT.findall(f.read_text(errors="ignore")))
+    for package in sorted(packages):
+        files += [f for f in (REPO / "platform/go" / package).glob("*.go") if not f.name.endswith("_test.go")]
+    types = set()
+    for f in files:
+        src = f.read_text(errors="ignore")
+        types |= set(EVENT_LITERAL.findall(src))
+        for ctx, entity, verb, version in EVENT_TYPE_CALL.findall(src):
+            context = ctx.strip('"') if ctx != "Context" else (own[0] if own else None)
+            if context:
+                types.add(f"dev.passage.{context}.{entity}.{verb}.v{version}")
+    return types
 
 
 class ArgoApplicationsTest(unittest.TestCase):
@@ -470,8 +506,9 @@ class ArgoApplicationsTest(unittest.TestCase):
         # The inventory postings consumer (#480): its KafkaUser reads exactly the topics and group the code subscribes
         # to and writes the dead-letter topic the code parks on.
         api = (REPO / "services/inventory/internal/api/postings_consumer.go").read_text()
+        truck = (REPO / "services/inventory/internal/api/truck_consumer.go").read_text()
         cmd = (REPO / "services/inventory/cmd/inventory/consumer.go").read_text()
-        source_topics = set(re.findall(r'^\s+\w+Topic\s+=\s+"([^"]+)"', api, re.M))
+        source_topics = set(re.findall(r'^\s+\w+Topic\s+=\s+"([^"]+)"', api + truck, re.M))
         (group,) = re.findall(r'PostingsConsumerName\s+=\s+"([^"]+)"', api)
         (dlq,) = re.findall(r'postingsDeadLetterTopic\s+=\s+"([^"]+)"', cmd)
         values = yaml.safe_load((REPO / "services/inventory/charts/inventory/values.yaml").read_text())
@@ -480,7 +517,11 @@ class ArgoApplicationsTest(unittest.TestCase):
         self.assertEqual(kafka["group"], group)
         self.assertIn(kafka["username"], users, "deploy/kafka/inventory-consumer.yaml")
         granted = users[kafka["username"]]
-        self.assertEqual(source_topics, {"passage.receiving.receipt", "passage.sales.orderprogress", "passage.fulfillment.packingslip"})
+        self.assertEqual(source_topics, {"passage.receiving.receipt", "passage.sales.orderprogress", "passage.fulfillment.packingslip",
+                                         "passage.service.workorder.completed"})
+        subscribed = re.search(r"\[\]string\{(api\.\w+Topic(?:, api\.\w+Topic)*)\}", cmd)
+        self.assertIsNotNone(subscribed, "the postings consumer's topic list")
+        self.assertEqual(len(source_topics), len(subscribed.group(1).split(",")), "the consumer subscribes to every source topic")
         want = {("topic", t): {"Read", "Describe"} for t in source_topics}
         want[("topic", dlq)] = {"Write", "Describe"}
         want[("group", group)] = {"Read", "Describe"}
@@ -632,18 +673,28 @@ class ArgoApplicationsTest(unittest.TestCase):
                 self.assertEqual(cfg["topic.prefix"] + ".", prefix)
                 spec = yaml.safe_load((REPO / f"services/{service}/events/asyncapi.yaml").read_text())
                 messages = spec["components"]["messages"]
-                channels = set()
+                channels, declared = set(), set()
                 for channel in spec["channels"].values():
                     if not channel["address"].startswith(prefix):
                         continue
                     channels.add(channel["address"])
                     for ref in channel["messages"].values():
-                        typ = messages[ref["$ref"].rsplit("/", 1)[1]]["name"]
+                        message = messages[ref["$ref"].rsplit("/", 1)[1]]
+                        # Some specs name a message by its verb and carry the CloudEvents type in x-passage-type.
+                        typ = message.get("x-passage-type") or message["name"]
+                        declared.add(typ)
                         m = regex.fullmatch(typ)
                         self.assertIsNotNone(m, f"{name}: {typ} does not match the route")
                         self.assertEqual(replacement.replace("${routedByValue}", m["routedByValue"]), channel["address"], typ)
                 self.assertEqual({t for t in writable if t.startswith(prefix)}, channels,
                                  f"{name}: debezium literal ACLs under {prefix} differ from the AsyncAPI channels")
+                # A type the service writes that the regex does not route keeps its own name as the topic, which no ACL
+                # allows, and fails the connector task for every later event; so every type of the topic's context the
+                # service or a platform/go package it imports defines (expense's report.approved lives in
+                # platform/go/reimbursement) must be a declared message.
+                context = cfg["topic.prefix"].removeprefix("passage.")
+                defined = {typ for typ in service_event_types(service) if typ.startswith(f"dev.passage.{context}.")}
+                self.assertEqual(set(), defined - declared, f"{name}: event types defined in code but not in the AsyncAPI")
                 routed |= channels
         self.assertLessEqual({"passage.sales.orderprogress", "passage.fulfillment.packingslip"}, routed)
 
@@ -784,6 +835,173 @@ class ArgoApplicationsTest(unittest.TestCase):
         self.assertIn("debezium-cdc-ops", role["rules"][0]["resourceNames"])
         for migration in ("0007_cdc_publication.sql", "0008_cdc_role_grants.sql"):
             self.assertTrue((REPO / "services/ops/migrations" / migration).exists(), migration)
+
+    def test_every_outbox_connector_is_provisioned_end_to_end(self):
+        # Every KafkaConnector in connect.yaml needs, in dev (#213): its database and REPLICATION role (created by the shared
+        # dev Postgres init in postgres.yaml, or by a deploy/postgres release on its own host), the same Vault password on
+        # both sides, the publication and the role's SELECT on outbox in its service's migrations, the ExternalSecret Connect
+        # reads with its Role entry, and a debezium write ACL for every channel its service's AsyncAPI declares under the
+        # prefix it routes to. A consumer KafkaUser that reads a topic no connector may write never receives an event.
+        docs = load_docs(DEPLOY / "kafka/connect.yaml")
+        (debezium,) = [d for d in docs if d["kind"] == "KafkaUser" and d["metadata"]["name"] == "debezium"]
+        acls = [a["resource"] for a in debezium["spec"]["authorization"]["acls"]
+                if a["resource"]["type"] == "topic" and "Write" in a["operations"]]
+
+        def writable(topic):
+            return any(topic == r["name"] if r.get("patternType", "literal") == "literal" else topic.startswith(r["name"])
+                       for r in acls)
+        kafka_secrets = [d for f in manifests(DEPLOY / "envs/dev/kafka-secrets") for d in load_docs(f)]
+        external = {d["metadata"]["name"]: d for d in kafka_secrets if d["kind"] == "ExternalSecret"}
+        (role,) = [d for d in kafka_secrets if d["kind"] == "Role" and d["metadata"]["name"] == "passage-connect-read-debezium-cdc"]
+        readable = set(role["rules"][0]["resourceNames"])
+        pg = self.dev_postgres()
+        pg_ns = pg[("Deployment", "postgres")]["metadata"]["namespace"]
+        scripts = list(pg[("ConfigMap", "postgres-init")]["data"].values())
+        (container,) = pod_containers(pg[("Deployment", "postgres")])
+        env = {e["name"]: e["valueFrom"]["secretKeyRef"] for e in container["env"] if "valueFrom" in e}
+        pg_vault = {(es_output(d)[1], item["secretKey"]): item["remoteRef"]["key"]
+                    for (kind, _), d in pg.items() if kind == "ExternalSecret" for item in d["spec"]["data"]}
+        own_hosts = {app["spec"]["destination"]["namespace"]: src["helm"]
+                     for env_name, _, app in self.apps if env_name == "dev"
+                     for src in sources(app) if src.get("path") == "deploy/postgres"}
+        connectors = [d for d in docs if d["kind"] == "KafkaConnector"]
+        self.assertEqual(len(connectors), len({c["spec"]["config"]["slot.name"] for c in connectors}), "slot names must be unique")
+        self.assertEqual(len(connectors), len({c["spec"]["config"]["publication.name"] for c in connectors}))
+        for connector in connectors:
+            name, cfg = connector["metadata"]["name"], connector["spec"]["config"]
+            with self.subTest(connector=name):
+                service = name.removeprefix("outbox-")
+                db, pub = cfg["database.dbname"], cfg["publication.name"]
+                self.assertEqual("disabled", cfg["publication.autocreate.mode"], "the publication comes from the migrations")
+                self.assertEqual("public.outbox", cfg["table.include.list"])
+                (user_ref,) = CONNECT_SECRET_REF.findall(cfg["database.user"])
+                (pass_ref,) = CONNECT_SECRET_REF.findall(cfg["database.password"])
+                self.assertEqual(user_ref[:2], pass_ref[:2])
+                secret = user_ref[1]
+                self.assertIn(secret, external, f"no ExternalSecret in deploy/envs/dev/kafka-secrets writes {secret}")
+                self.assertIn(secret, readable, f"Role passage-connect-read-debezium-cdc does not name {secret}")
+                es = external[secret]
+                cdc_role = es["spec"]["target"]["template"]["data"]["username"]
+                (vault,) = [item["remoteRef"]["key"] for item in es["spec"]["data"]]
+                host_ns = cfg["database.hostname"].split(".")[1]
+                if host_ns == pg_ns:
+                    created = [s for s in scripts if f"'CREATE DATABASE {db}'" in s or f"'CREATE DATABASE {db} " in s]
+                    self.assertTrue(created, f"the dev Postgres init (postgres.yaml) never creates {db}")
+                    (script,) = [s for s in scripts if f"CREATE ROLE {cdc_role} " in s] or [None]
+                    self.assertIsNotNone(script, f"the dev Postgres init never creates the CDC role {cdc_role}")
+                    self.assertIn(f"CREATE ROLE {cdc_role} LOGIN NOSUPERUSER NOBYPASSRLS REPLICATION PASSWORD :'cdc_password';", script)
+                    self.assertTrue(any(re.search(rf"GRANT CONNECT ON DATABASE {db} TO [^;]*\b{cdc_role}\b", s) for s in scripts),
+                                    f"{cdc_role} has no CONNECT on {db}")
+                    self.assertTrue(any(f"REVOKE CONNECT ON DATABASE {db} FROM PUBLIC;" in s for s in scripts), db)
+                    (password_env,) = re.findall(r'-v cdc_password="\$(\w+)"', script)
+                    ref = env.get(password_env)
+                    self.assertIsNotNone(ref, f"the dev Postgres container has no {password_env}")
+                    self.assertEqual(vault, pg_vault.get((ref["name"], ref["key"])),
+                                     f"{cdc_role}: the dev Postgres and Connect read different Vault keys")
+                else:
+                    helm = own_hosts.get(host_ns)
+                    self.assertIsNotNone(helm, f"no dev deploy/postgres release runs in {host_ns}")
+                    values = helm.get("valuesObject") or {}
+                    self.assertEqual(db, values.get("database"))
+                    self.assertTrue((values.get("cdc") or {}).get("enabled", True), f"{host_ns}: cdc disabled")
+                    self.assertEqual("debezium_cdc", cdc_role, "the deploy/postgres chart creates debezium_cdc")
+                    self.assertEqual(f"passage/dev/{helm['releaseName']}-postgres/cdc-password", vault)
+                migrations = "\n".join(p.read_text() for p in sorted((REPO / f"services/{service}/migrations").glob("*.sql")))
+                self.assertRegex(migrations, rf"CREATE PUBLICATION {pub}\b", f"services/{service}/migrations never creates {pub}")
+                self.assertRegex(migrations, rf"ALTER PUBLICATION {pub} ADD TABLE")
+                self.assertRegex(migrations, rf"GRANT SELECT ON outbox TO {cdc_role}\b", f"{cdc_role} cannot read the outbox")
+                prefix = cfg["transforms.outbox.route.topic.replacement"].split("${", 1)[0]
+                self.assertTrue(any(r["name"].startswith(prefix) or prefix.startswith(r["name"]) for r in acls),
+                                f"{name}: no ACL lets the debezium user write under {prefix}")
+                if cfg["transforms.outbox.route.by.field"] == "type":
+                    # Routed by event type, a channel is the topic its events land on (the regex is checked against
+                    # every message in test_type_routed_outbox_connectors_match_their_asyncapi_channels).
+                    spec = yaml.safe_load((REPO / f"services/{service}/events/asyncapi.yaml").read_text())
+                    channels = {c["address"] for c in spec["channels"].values() if c["address"].startswith(prefix)}
+                    self.assertTrue(channels, f"{name}: its AsyncAPI declares no channel under {prefix}")
+                    self.assertEqual([], sorted(t for t in channels if not writable(t)),
+                                     f"{name}: AsyncAPI channels the debezium user may not write")
+        # Each connector holds one logical replication slot and one walsender on its Postgres: the shared dev Postgres must
+        # allow at least as many as the connectors pointing at it, and a deploy/postgres release (limits in its
+        # StatefulSet template) serves one connector each.
+
+        def setting(args, name):
+            values = [int(a.split("=", 1)[1]) for a in args if str(a).startswith(name + "=")]
+            return values[-1] if values else 10  # PostgreSQL's default for both
+        per_host = {}
+        for connector in connectors:
+            per_host.setdefault(connector["spec"]["config"]["database.hostname"].split(".")[1], []).append(connector["metadata"]["name"])
+        args = container.get("args") or []
+        chart = (DEPLOY / "postgres/templates/statefulset.yaml").read_text()
+        chart_args = [m.group(0) for m in re.finditer(r"max_(?:replication_slots|wal_senders)=\d+", chart)]
+        for ns, names in per_host.items():
+            with self.subTest(postgres=ns):
+                limits = args if ns == pg_ns else chart_args
+                for name in ("max_replication_slots", "max_wal_senders"):
+                    self.assertLessEqual(len(names), setting(limits, name),
+                                         f"{len(names)} connectors on postgres.{ns}.svc exceed its {name}")
+        # Every topic a consumer reads is one an outbox connector may write (dead-letter topics are written by consumers).
+        for path in manifests(DEPLOY / "kafka"):
+            if not path.name.endswith("-consumer.yaml"):
+                continue
+            for doc in load_docs(path):
+                if doc.get("kind") != "KafkaUser":
+                    continue
+                read = {a["resource"]["name"] for a in doc["spec"]["authorization"]["acls"]
+                        if a["resource"]["type"] == "topic" and "Read" in a["operations"]}
+                with self.subTest(consumer=doc["metadata"]["name"]):
+                    self.assertEqual([], sorted(t for t in read if not t.endswith(".dlq") and not writable(t)),
+                                     f"{path.name}: topics no outbox connector writes")
+
+    # Event types a consumer service names but does not subscribe to, so they need no read ACL: (service, type) -> why.
+    UNSUBSCRIBED_HANDLERS = {
+        ("payables", "dev.passage.expense.report.approved.v1"):
+            "consumer.HandleExpenseReportApproved is not wired: `payables consume` reads only passage.interco.chargeinvoice",
+        ("workflow-ts", "dev.passage.party.change.requested.v1"):
+            "changeRequested.ts maps it, but eventConsumer.ts subscribes only to the tender and budget plan topics",
+        ("workflow-ts", "dev.passage.party.merge.requested.v1"):
+            "changeRequested.ts maps it, but eventConsumer.ts subscribes only to the tender and budget plan topics",
+    }
+
+    def test_consumer_event_types_route_to_topics_they_read(self):
+        # An ACL on a topic some connector writes is not enough (#213): every event type a consumer service names that a
+        # type-routed outbox connector of another service publishes is routed through that connector's regex, and the
+        # topic it lands on must be one the consumer's KafkaUser reads. This caught search reading packing slips from
+        # passage.fulfillment.shipment while outbox-fulfillment writes them to passage.fulfillment.packingslip.
+        docs = load_docs(DEPLOY / "kafka/connect.yaml")
+        routers = [(d["metadata"]["name"].removeprefix("outbox-"),
+                    re.compile(d["spec"]["config"]["transforms.outbox.route.topic.regex"].replace("(?<", "(?P<")),
+                    d["spec"]["config"]["transforms.outbox.route.topic.replacement"])
+                   for d in docs if d["kind"] == "KafkaConnector"
+                   and d["spec"]["config"].get("transforms.outbox.route.by.field") == "type"]
+        services_by_user = {}
+        for values_file in sorted(REPO.glob("services/*/charts/*/values.yaml")):
+            values = yaml.safe_load(values_file.read_text()) or {}
+            kafka = ((values.get("consumer") or {}).get("kafka")) or values.get("kafka")
+            if isinstance(kafka, dict) and kafka.get("username"):
+                services_by_user.setdefault(kafka["username"], set()).add(values_file.relative_to(REPO).parts[1])
+        checked = set()
+        for path in manifests(DEPLOY / "kafka"):
+            if not path.name.endswith("-consumer.yaml"):
+                continue
+            for doc in load_docs(path):
+                if doc.get("kind") != "KafkaUser":
+                    continue
+                user = doc["metadata"]["name"]
+                read = {a["resource"]["name"] for a in doc["spec"]["authorization"]["acls"]
+                        if a["resource"]["type"] == "topic" and "Read" in a["operations"]}
+                for service in sorted(services_by_user.get(user, ())):
+                    for typ in sorted(service_event_types(service)):
+                        for producer, regex, replacement in routers:
+                            m = regex.fullmatch(typ)
+                            if producer == service or not m or (service, typ) in self.UNSUBSCRIBED_HANDLERS:
+                                continue
+                            topic = replacement.replace("${routedByValue}", m["routedByValue"])
+                            checked.add((user, topic))
+                            with self.subTest(consumer=user, type=typ):
+                                self.assertIn(topic, read, f"{typ} lands on {topic} (outbox-{producer}), which {user} does not read")
+        self.assertIn(("search-consumer", "passage.fulfillment.packingslip"), checked)
+        self.assertIn(("intercompany-consumer", "passage.expense.report"), checked)
 
     @unittest.skipUnless(shutil.which("helm"), "helm not on PATH")
     def test_temporal_values_match_its_database(self):

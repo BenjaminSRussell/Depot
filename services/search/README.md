@@ -15,15 +15,17 @@ entity on `po.cancelled`, the survivor on `party.merged`, and a source version o
 callbacks. The flag duty `search.index.write` only names the `search-index` service principal the consumer runs as; it
 grants no route.
 
-Subscribed topics are `passage.<context>.<outbox aggregate type>`: `passage.party.party`, `passage.product.product`,
-`passage.procurement.purchase_order`, `passage.receiving.receipt`, `passage.receiving.vendorinvoice`, `passage.sales.order`,
-`passage.fulfillment.shipment`, `passage.billing.invoice` and `passage.hr.worker`. Sales `order.confirmed` and fulfillment `packingslip.posted` gained
-`order_number` and `legal_entity_id` (additive). Documents are indexed under their legal entity; a caller searches a type
-with any one of its read duties. A test ties each suffix to the aggregate type the source service enqueues.
+Subscribed topics are the source services' channels: `passage.party.party`, `passage.product.product`,
+`passage.procurement.po`, `passage.receiving.receipt`, `passage.receiving.vendorinvoice`, `passage.sales.order`,
+`passage.fulfillment.packingslip`, `passage.billing.invoice`, `passage.production.order` and `passage.hr.worker`. Sales
+`order.confirmed` and fulfillment `packingslip.posted` gained `order_number` and `legal_entity_id` (additive). Documents are
+indexed under their legal entity; a caller searches a type with any one of its read duties.
 
-Production is the exception to the topic rule: it writes every event under one aggregate type (`production_order`) and
-names its topics after the event type's entity, so its orders are read from `passage.production.order`, the channel in
-its AsyncAPI document and the one scheduling reads. A test ties that topic to the channel address and the event types.
+Receiving and billing route by outbox aggregate type, so a test ties those topics to the aggregate type the source enqueues.
+Party, product, purchasing, sales, fulfillment, production and HR route by the event type's entity (`deploy/kafka/connect.yaml`),
+which is not always the aggregate type: production writes every event under `production_order`, purchasing writes purchase
+orders under `purchase_order` and fulfillment writes packing slips under `shipment`. A second test ties each of those topics
+to the event types the index handles and to a channel address in the source's AsyncAPI.
 `order.created` gained `legalEntityId` and `status`, and `order.statuschanged` gained `orderNumber` and `legalEntityId`
 (additive), so a status event indexes the order without the create. The status is stored in the upper snake case the
 other types use (`ReportedAsFinished` becomes `REPORTED_AS_FINISHED`). A production order has no subtitle: its delivery

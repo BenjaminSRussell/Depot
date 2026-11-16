@@ -20,13 +20,18 @@ import (
 const (
 	ConsumerName = "search-index"
 
-	PartyTopic          = "passage.party.party"
-	ProductTopic        = "passage.product.product"
-	PurchaseOrderTopic  = "passage.procurement.purchase_order"
-	ReceiptTopic        = "passage.receiving.receipt"
-	VendorInvoiceTopic  = "passage.receiving.vendorinvoice"
-	SalesOrderTopic     = "passage.sales.order"
-	ShipmentTopic       = "passage.fulfillment.shipment"
+	PartyTopic   = "passage.party.party"
+	ProductTopic = "passage.product.product"
+	// PurchaseOrderTopic is purchasing's po channel, not its outbox aggregate
+	// type (purchase_order): outbox-purchasing routes by the event type's entity.
+	PurchaseOrderTopic = "passage.procurement.po"
+	ReceiptTopic       = "passage.receiving.receipt"
+	VendorInvoiceTopic = "passage.receiving.vendorinvoice"
+	SalesOrderTopic    = "passage.sales.order"
+	// PackingSlipTopic is fulfillment's packingslip channel: outbox-fulfillment
+	// routes by the event type's entity, so packingslip.posted and .cancelled
+	// land there although fulfillment writes them under aggregate type shipment.
+	PackingSlipTopic    = "passage.fulfillment.packingslip"
 	BillingInvoiceTopic = "passage.billing.invoice"
 	// ProductionOrderTopic is production's order channel, not its outbox
 	// aggregate type: production writes every event under one aggregate type

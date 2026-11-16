@@ -242,7 +242,7 @@ Slice 33 adds RFQ types, draft edits and amendments (FR-17.19; migration 0033: `
 |---|---|---|
 | Idempotency table | Own `idempotency_keys` (tenant, key, request hash, resource id) | Replays return the stored resource instead of a stored response body, so the kernel's `dbx.IdempotencyDDL` columns (`response_status`, `response_body`) are not used. Consistent with how `services/org` keys replays to the resource. |
 | `/v1/procurement/openapi.yaml`, `/asyncapi.yaml` serving endpoints | **Later slice of PSG-17** | Specs ship as files. |
-| Outbox relay / Debezium connector | **Handoff** to the eventing backbone (deploy) | The service writes outbox rows in the business transaction. |
+| Live outbox relay | **Live step** (#213) | `outbox-purchasing` in `deploy/kafka/connect.yaml` routes by event type to the `passage.procurement.*` channels; migrations 0038 and 0039 publish the outbox to `debezium_cdc_purchasing`; the dev Postgres creates `passage_purchasing` and that role. Running it needs the Vault key `passage/<env>/purchasing-postgres/cdc-password` and the connector synced on a cluster. |
 | Helm umbrella / Argo CD application, CloudNativePG `procurement-db` | **Handoff** to `deploy/` | Chart ships in `charts/purchasing`. |
 | Demo vendors with price lists, demo plant purchasing policy (ticket "Deploy") | **Handoff** to wave 7 (vendors) and the seed owner | Seed data lives outside this wave's paths. |
 | Vendor, product and legal-entity pickers in the web forms | **Handoff** to waves 6–8 web modules | Forms take UUIDs until shared pickers exist. |

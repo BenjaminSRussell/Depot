@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -23,6 +24,41 @@ const EnvURL = "PASSAGE_TEST_DATABASE_URL"
 // EnvAppURL is the application-role database URL used by RLS integration tests.
 const EnvAppURL = "PASSAGE_TEST_APP_DATABASE_URL"
 
+// sharedExtensions runs sharedExtensionsSQL once per test binary.
+var sharedExtensions sync.Once
+
+// sharedExtensionsSQL puts btree_gist in public before any migration runs. Some
+// services' first migration (hr, identity, scheduling) creates it unqualified,
+// which lands in the first schema of the search_path: under DB that is the
+// test's throwaway schema, and dropping that schema on cleanup drops the
+// extension under every test running in parallel ("referenced operator class
+// was concurrently dropped"). With the extension already in public, those
+// migrations' IF NOT EXISTS is a no-op. An extension a crashed run left in a
+// throwaway schema is moved to public. Concurrent test binaries race on
+// pg_extension's unique index; the loser finds the winner's extension.
+const sharedExtensionsSQL = `DO $$
+DECLARE
+  ext_schema name;
+BEGIN
+  SELECT n.nspname INTO ext_schema
+    FROM pg_extension e JOIN pg_namespace n ON n.oid = e.extnamespace
+   WHERE e.extname = 'btree_gist';
+  IF ext_schema IS NULL THEN
+    BEGIN
+      CREATE EXTENSION IF NOT EXISTS btree_gist WITH SCHEMA public;
+    EXCEPTION WHEN unique_violation OR duplicate_object THEN
+      NULL;
+    END;
+  ELSIF ext_schema <> 'public' THEN
+    BEGIN
+      ALTER EXTENSION btree_gist SET SCHEMA public;
+    EXCEPTION WHEN insufficient_privilege OR duplicate_object THEN
+      NULL;
+    END;
+  END IF;
+END
+$$`
+
 // DB returns a pool whose search_path is a throwaway schema, dropped on cleanup.
 func DB(t *testing.T) *pgxpool.Pool {
 	t.Helper()
@@ -37,6 +73,11 @@ func DB(t *testing.T) *pgxpool.Pool {
 	if err != nil {
 		t.Fatal(err)
 	}
+	sharedExtensions.Do(func() {
+		if _, err := admin.Exec(ctx, sharedExtensionsSQL); err != nil {
+			t.Logf("testkit: shared extensions not ensured in public: %v", err)
+		}
+	})
 	if _, err := admin.Exec(ctx, "create schema "+schema); err != nil {
 		t.Fatal(err)
 	}
