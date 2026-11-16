@@ -46,6 +46,7 @@
     {"to": "/analytics/schedules", "module": "analytics", "label": "Scheduled reports", "area": "administration", "decision": "keep"},
     {"to": "/analytics/lineage", "module": "analytics", "label": "Lineage", "area": "administration", "decision": "advanced"},
     {"to": "/analytics/archive", "module": "analytics", "label": "Archive partitions", "area": "administration", "decision": "advanced"},
+    {"to": "/analytics/ux", "module": "analytics", "label": "UX telemetry", "area": "administration", "decision": "advanced"},
     {"to": "/document-design", "module": "document-design", "label": "Document design", "area": "administration", "decision": "advanced"},
     {"to": "/ap-invoices", "module": "ap-invoices", "label": "Vendor invoices", "area": "finance", "decision": "keep", "taskLabel": "Find a vendor invoice"},
     {"to": "/ap-invoices/grir", "module": "ap-invoices", "label": "GR/IR open items", "area": "finance", "decision": "keep", "taskLabel": "Match receipts to invoices"},

@@ -73,6 +73,16 @@ Open **Company setup**, then **Demo company**, to fill a trial tenant with a sam
 
 Only a tenant administrator whose access covers every legal entity can load or reset the demo company.
 
+## See where people get stuck
+
+Open **Analytics**, then **UX telemetry**. You need the duty to view UX telemetry.
+
+1. Choose the flow: **Procure to pay** or **Tenant onboarding**. Choose the first and last day, and a release if you only want one.
+2. Select **Show telemetry**. The funnel lists each step with the sessions that reached it, the share of the first step, the share of the step before, and how many dropped off.
+3. Below the funnel, read the fields that fail checks, the searches that found nothing and the forms people left without saving. Use **Workspace** to look at one area only.
+
+Counts are by browser session. Passage does not keep names, and it drops search text that looks like an email address or a long number.
+
 ## Common messages
 
 | Message | What to do |

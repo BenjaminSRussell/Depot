@@ -132,7 +132,7 @@ The web app reports how people move through its flows so the team can see where 
 - `GET /v1/analytics/ux-funnels?flow=&from=&to=&release=` (duty `analytics.ux.view`) returns the sessions that reached each step, the share that went on from the previous step, and the median seconds from a session's first event to its last step. For `onboarding` that last number is the time to first transaction.
 - `GET /v1/analytics/ux-signals?from=&to=&release=` returns the 20 most frequent validation errors, no-result searches and abandoned forms.
 - Privacy: an event holds a random per-tab session id and the release, never a user id or a record id. A search query with an at sign or seven or more digits is dropped and counted in `dropped`; the rest is lower-cased and cut to 80 characters. Fields are names, never values, and routes are templates without a query string. The table (`ux_event`, migration 0005) is write-once for the application role. Retention is an operations job on `received_at` (13 months). The web app sends nothing when the person has opted out (Home page, "Help improve Passage") or does not hold the record duty.
-- Assign `analytics.ux.record` to every role that uses the web app, and `analytics.ux.view` to the people who read the funnels. Dashboards over the funnels are tracked in #213.
+- Assign `analytics.ux.record` to every role that uses the web app, and `analytics.ux.view` to the people who read the funnels. The web page `/analytics/ux` (UX telemetry) reads both funnels and the signals.
 
 ## Nightly revenue reconciliation (FR-46.13)
 

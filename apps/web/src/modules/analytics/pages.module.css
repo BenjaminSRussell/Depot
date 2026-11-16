@@ -142,3 +142,19 @@
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
+
+/* UX telemetry funnel: a bar per step, its length the share of the first step's sessions. */
+.funnelBar {
+  display: block;
+  min-width: 8rem;
+  height: 0.75rem;
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-muted);
+  overflow: hidden;
+}
+
+.funnelFill {
+  display: block;
+  height: 100%;
+  background: var(--color-accent);
+}

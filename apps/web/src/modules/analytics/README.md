@@ -21,6 +21,7 @@ Wave 46 (PSG-46), slices 1 to 4. Screens over `services/analytics/api/openapi.ya
 | `/analytics/lineage?asset=&depth=` | Upstream and downstream assets with hops, walk to a neighbour; record an edge | `GET /api/v1/catalog/lineage/{asset_fqn}`, `POST /api/v1/catalog/lineage/edges` | analytics.catalog.view, analytics.catalog.steward (record) |
 | `/analytics/archive` | Archive partitions by domain, period and status, verification-failure banner | `GET /api/v1/archive/partitions` | analytics.archive.admin |
 | `/analytics/archive/:id` | Partition counts, hashes, legal hold; restore for 30 days after confirmation | `GET /api/v1/archive/partitions/{id}`, `POST .../restore` | analytics.archive.admin |
+| `/analytics/ux` | UX telemetry (#510): the procure-to-pay or onboarding funnel for a period and release (sessions per step, share of the first step, conversion from the previous step, drop-off, median time to finish) and the friction signals (validation errors, no-result searches, unsaved forms) by page and workspace name, narrowed by workspace | `GET /api/v1/analytics/ux-funnels`, `GET /api/v1/analytics/ux-signals` | analytics.ux.view |
 
 - `module.ts` exports the module contract; the shell discovers it.
 - `api/client.ts` calls the API with `fetch` and validates every response with
@@ -44,7 +45,7 @@ variant explorer, pipeline health and the document designer (see
 ## Needs
 
 - The shell (wave 5) must send the `analytics.view`, `analytics.finance.view`,
-  `analytics.catalog.steward`, `analytics.catalog.view`, `analytics.author`, `analytics.export` and
-  `analytics.archive.admin` duties to the API
+  `analytics.catalog.steward`, `analytics.catalog.view`, `analytics.author`, `analytics.export`,
+  `analytics.archive.admin` and `analytics.ux.view` duties to the API
   through the BFF. Pages do not check duties; nav entries are hidden by
   duty.

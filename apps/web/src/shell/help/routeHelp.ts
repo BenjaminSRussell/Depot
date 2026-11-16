@@ -1032,6 +1032,18 @@ export const routeHelp: readonly RouteHelp[] = [
     guide: "ar-clerk.md#look-at-what-is-owed",
   },
   {
+    patterns: ["/analytics/ux"],
+    title: "UX telemetry",
+    purpose: "How far people get through buying and paying, and through setting up a company, and where they stop.",
+    howTo: [
+      "Choose the flow, the dates and, if you want, a release, then select Show telemetry.",
+      "Read the funnel: each step shows the sessions that reached it and how many dropped off before it.",
+      "Use Workspace to narrow the fields that fail checks and the forms left unsaved.",
+      "Use the searches that found nothing to spot missing records or names people expect.",
+    ],
+    guide: "tenant-admin.md#see-where-people-get-stuck",
+  },
+  {
     patterns: ["/receivables/*"],
     title: "Receivables set-up and reports",
     purpose: "Pages that support getting paid.",

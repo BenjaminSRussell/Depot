@@ -112,6 +112,7 @@ describe("analytics module", () => {
       "/analytics/schedules": "analytics.author",
       "/analytics/lineage": "analytics.catalog.view",
       "/analytics/archive": "analytics.archive.admin",
+      "/analytics/ux": "analytics.ux.view",
     });
     // Every nav entry resolves to a route.
     for (const n of analytics.nav) expect(analytics.routes.some((r) => r.path === n.to)).toBe(true);
