@@ -55,6 +55,37 @@ Regions the values do not state (the database and, without `objectStore.region`,
 are derived from `region.id` and marked `derived`. Violation kinds: `outside-residency` (an EU tenant whose backup is in a US region),
 `placement`, `unplaced`, `no-region-values`, `unknown-residency`. See the tool's docstring for the exact rules.
 
+## Real adapters (`services/ops/internal/provision`, #50)
+`passage-ops tenant provision|decommission` builds each system's adapter from the `OPS_*` environment (chart values `provisioning.*`, secrets from
+`secretKeyRef`). A system with no configuration stays on the logging adapter and a real run is refused, naming what is missing, before the API is
+touched; `--dry-run` always works and calls nothing.
+
+| Step | Adapter | Configuration | Provision | Decommission |
+|---|---|---|---|---|
+| realm | Keycloak Admin REST API | `OPS_KEYCLOAK_URL`, `OPS_KEYCLOAK_CLIENT_ID/SECRET` (client credentials in `OPS_KEYCLOAK_ADMIN_REALM`, default `master`), optional `OPS_KEYCLOAK_REALM_PREFIX` (`passage-`), `OPS_KEYCLOAK_REALM_TEMPLATE` | Creates realm `passage-<tenant id>` from the template (`deploy/keycloak/realm-passage.json`: `REPLACE_WITH_TENANT_ID` is substituted, the template's example identity providers are dropped, any other `REPLACE_WITH_` is refused) or a built-in minimal realm (security settings, portal roles, the `passage-services` client with the `passage-api` audience mapper and a hard-coded `tid` claim). An existing realm (200 or 409) is DONE | Deletes the realm; absent is DONE |
+| databases | pgx against each service database | `OPS_PROVISION_DATABASES` (JSON of context to connection string, or `@file`), `OPS_PROVISION_DB_PURGE`, `OPS_PROVISION_DB_KEEP_TABLES` (default `identity_tenants`) | See "Decision: databases" | Purges the tenant's rows when purge is enabled; otherwise fails |
+| kafka-acls | none | none | DONE: "not needed under the shared-topic model" | same |
+| lakehouse | Iceberg REST catalog | `OPS_LAKEHOUSE_CATALOG_URL`, optional `OPS_LAKEHOUSE_CATALOG_PREFIX`, `OPS_LAKEHOUSE_CATALOG_TOKEN`, `OPS_LAKEHOUSE_NAMESPACE_PREFIX` (`tenant_`) | `POST /v1/namespaces` for `tenant_<id with underscores>`; 409 is DONE | `DELETE`; 404 is DONE; a namespace that still has tables (409) fails: the tables are the tenant's data |
+
+### Decision: databases
+Passage is shared-schema (`docs/architecture.md` E.1, E.2): one database per bounded context, `tenant_id` first in every table, row-level security. A
+tenant has no database or schema to create, so the step does not run `CREATE DATABASE`. The tenant's rows (its legal entities in identity, number
+sequences in numbering) are written by those services through their own APIs, not by ops. The databases step therefore proves the tenant can start
+safely: for each configured service database, connected as `passage_app`, it checks the role has neither SUPERUSER nor BYPASSRLS, that every table
+with a `tenant_id` column has row security enabled and forced, and that a session scoped to the new tenant sees no row of another tenant. It writes
+nothing. Decommission is the destructive half: with `OPS_PROVISION_DB_PURGE=true` and a connection role that may delete (not `passage_app`), it
+deletes the tenant's rows table by table in each database inside one transaction (retrying until foreign keys allow every delete; a table that
+refuses, such as an immutable audit table, fails the step and rolls that database back), keeping `identity_tenants`. Without purge enabled the step
+fails rather than report DONE with the data still there.
+
+### Decision: Kafka
+Entity topics are shared and keyed by tenant (architecture C.2, decision D6, Q5), so a per-tenant ACL on them is impossible. External consumers read
+egress topics `passage.egress.<tenantSlug>.<context>` that integration creates, with the KafkaUser, when the tenant subscribes
+(`POST /v1/integration/event-egress/{context}:subscribe`). Provisioning has nothing to do, and says why in the step detail.
+
+Not verified live: no real Keycloak, catalog or tenant database was available (#213); the adapters are tested against `httptest` fakes and a local
+Postgres.
+
 ## Decommission: `POST /api/v1/ops/tenants/{id}:decommission` (suspended tenants only)
 1. Export all tenant data encrypted, retained for the longest applicable record-class minimum from the
    tenant's country packs (DE/FR: 10 years) unless the customer takes custody and signs a release (BR-50.9).

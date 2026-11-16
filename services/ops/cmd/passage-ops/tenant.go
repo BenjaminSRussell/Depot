@@ -21,6 +21,7 @@ import (
 //
 //	passage-ops tenant provision --tenant <id> [--dry-run]
 //	passage-ops tenant decommission --tenant <id> --reason <text> [--dry-run]
+//
 // provisionersFromEnv is the real adapters of the systems whose OPS_* configuration is present (provision.FromEnv).
 func provisionersFromEnv(getenv func(string) string) (provision.Executors, []string, error) {
 	return provision.FromEnv(getenv, slog.Default(), nil)

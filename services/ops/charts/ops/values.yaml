@@ -78,3 +78,22 @@ lagReporter:
   applicationName: "%"
 # Where every service of this release's cluster reads the region role from (global.regionFenceUrl in the service charts):
 # the ops /healthz/region of this region, for example http://ops.<namespace>.svc/healthz/region.
+
+# Real tenant provisioning adapters for `passage-ops tenant provision|decommission` (run it with `kubectl exec deploy/ops -- passage-ops tenant ...`).
+# A system with no configuration stays on the logging adapter, and a real run is refused until all three are set (--dry-run always works).
+# Kafka needs nothing: under the shared-topic model there is no per-tenant ACL or topic (docs/ops/tenant-provisioning.md).
+provisioning:
+  keycloak:
+    url: ""                 # https://keycloak.example (no /admin suffix)
+    adminRealm: master
+    realmPrefix: passage-
+    realmTemplate: ""       # path to a mounted realm JSON (deploy/keycloak/realm-passage.json); empty uses the built-in minimal realm
+    secret: ""              # Secret with OPS_KEYCLOAK_CLIENT_ID and OPS_KEYCLOAK_CLIENT_SECRET (a client-credentials admin client)
+  databases:
+    secret: ""              # Secret with OPS_PROVISION_DATABASES: JSON {"ledger": "postgres://passage_app...", ...}
+    purge: false            # decommission deletes the tenant's rows; needs a role that may delete in the connection strings
+  lakehouse:
+    catalogUrl: ""          # Iceberg REST catalog base URL
+    catalogPrefix: ""
+    namespacePrefix: tenant_
+    secret: ""              # optional Secret with OPS_LAKEHOUSE_CATALOG_TOKEN
