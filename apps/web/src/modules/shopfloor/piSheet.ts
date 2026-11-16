@@ -245,12 +245,14 @@ export function flattenSteps(doc: RecipeDocument): RunStep[] {
 
 /** The value a step collects: the entry a person makes. Categories that only ask for an acknowledgement collect none. */
 export function collectsValue(ins: Instruction): boolean {
-  return ins.category === "process-data-request" || ins.category === "inspection-characteristic" || ins.category === "signature-request";
+  return ins.category === "process-data-request" || ins.category === "inspection-characteristic" || ins.category === "signature-request" || ins.category === "machine-readout";
 }
 
 export interface StepEntry {
   value: string;
   comment: string;
+  /** A machine readout the operator typed because the connector had no recent reading. */
+  manual?: boolean;
 }
 
 export function parseNumber(text: string): number | null {
@@ -266,6 +268,15 @@ export function checkEntry(ins: Instruction, entry: StepEntry): EntryCheck {
   if (ins.category === "signature-request") {
     if (entry.value.trim() === "") return { ok: false, message: "Type your name to sign." };
     return entry.comment === "confirmed" ? { ok: true, outOfLimit: false } : { ok: false, message: `Confirm the statement "${meaningStatement(ins.meaning)}" to sign.` };
+  }
+  if (ins.category === "machine-readout") {
+    const n = parseNumber(entry.value);
+    if (n === null) return { ok: false, message: entry.manual ? "Enter the reading." : "Wait for the reading, or enter it by hand." };
+    const c = ins.characteristic;
+    const out = (c?.min !== undefined && n < c.min) || (c?.max !== undefined && n > c.max) || (ins.value !== undefined && ins.tolerance !== undefined && Math.abs(n - ins.value) > ins.tolerance);
+    // A value typed in because the machine gave none is the operator's word, so it always needs a comment.
+    if ((out || entry.manual) && entry.comment.trim() === "") return { ok: false, message: entry.manual ? "Say why the reading was entered by hand." : "The reading is outside its limits or tolerance. Say why in the comment to go on." };
+    return { ok: true, outOfLimit: out };
   }
   if (ins.category !== "process-data-request" && ins.category !== "inspection-characteristic") return { ok: true, outOfLimit: false };
   const c = ins.characteristic;
@@ -315,6 +326,25 @@ export function messageFor(recipeId: string, step: RunStep, entry: StepEntry | u
     if (entry.comment.trim() !== "") values.push({ name: "comment", type: "text", value: entry.comment.trim() });
     return { ...base, categoryCode: ins.category === "inspection-characteristic" ? "quality-result" : "process-data", values };
   }
+  if (ins.category === "machine-readout" && c && entry) {
+    const values: ProcessMessageDraft["values"] = [
+      { name: c.name, type: "numeric", value: String(parseNumber(entry.value) ?? entry.value), min: num(c.min), max: num(c.max), unit: c.unit },
+      { name: "readout-source", type: "text", value: entry.manual ? "entered-by-hand" : "machine" },
+    ];
+    if (ins.node) values.push({ name: "node", type: "text", value: ins.node });
+    if (ins.value !== undefined && ins.tolerance !== undefined) values.push({ name: "expected", type: "numeric", value: String(ins.value) }, { name: "tolerance", type: "numeric", value: String(ins.tolerance) });
+    if (entry.comment.trim() !== "") values.push({ name: "comment", type: "text", value: entry.comment.trim() });
+    return { ...base, categoryCode: "process-data", values };
+  }
+  if (ins.category === "calculation" && ins.expression && entry && entry.value !== "") {
+    return { ...base, categoryCode: "process-data", values: [{ name: ins.var || "calculation", type: "numeric", value: entry.value }, { name: "expression", type: "text", value: ins.expression }] };
+  }
+  if (ins.category === "timer" && entry) {
+    return { ...base, categoryCode: "process-data", values: [{ name: "timer-seconds", type: "numeric", value: String(ins.durationSeconds ?? 0) }, { name: "timer-blocking", type: "boolean", value: String(ins.blocking === true) }] };
+  }
+  if (ins.category === "branch" && entry) {
+    return { ...base, categoryCode: "process-data", values: [{ name: "branch-taken", type: "boolean", value: entry.value }, { name: "branch-target", type: "numeric", value: String(ins.target ?? 0) }] };
+  }
   if (ins.category === "signature-request" && entry && entry.value.trim() !== "") {
     return {
       ...base,
@@ -324,4 +354,51 @@ export function messageFor(recipeId: string, step: RunStep, entry: StepEntry | u
     };
   }
   return null;
+}
+
+// Running the step library's kinds.
+
+/** The values the steps so far produced, by their var, as a calculation or branch reads them. */
+export type StepValues = Record<string, number>;
+
+/** What a finished step adds to the values: a setpoint its value, a number entered or read its reading, a calculation its result. */
+export function valuesAfter(ins: Instruction, entry: StepEntry | undefined, values: StepValues): StepValues {
+  if (!ins.var) return values;
+  if (ins.category === "process-parameter-setpoint" && ins.value !== undefined) return { ...values, [ins.var]: ins.value };
+  if (!entry) return values;
+  if (ins.characteristic?.type === "boolean" && (ins.category === "process-data-request" || ins.category === "inspection-characteristic")) return { ...values, [ins.var]: entry.value === "true" ? 1 : 0 };
+  const n = parseNumber(entry.value);
+  return n === null ? values : { ...values, [ins.var]: n };
+}
+
+export type CalcResult = { ok: true; value: string } | { ok: false; message: string };
+
+/** A calculation step's result from the values so far; a formula that cannot be worked out says why. */
+export function runCalculation(ins: Instruction, values: StepValues): CalcResult {
+  if (!ins.expression) return { ok: false, message: "This step has no formula." };
+  try {
+    const r = parseExpr(ins.expression).eval(values);
+    return r.type === "number" ? { ok: true, value: String(r.value) } : { ok: false, message: "The formula is not a number." };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "The formula could not be worked out.";
+    return { ok: false, message: message.startsWith("the step value") ? `${message}: the step that gives it was skipped or has no value.` : message[0]!.toUpperCase() + message.slice(1) + "." };
+  }
+}
+
+/** Whether a branch step jumps, from the values so far. */
+export function runBranch(ins: Instruction, values: StepValues): { ok: true; jump: boolean } | { ok: false; message: string } {
+  try {
+    const r = parseExpr(ins.condition ?? "").eval(values);
+    return r.type === "boolean" ? { ok: true, jump: r.value } : { ok: false, message: "The condition is not true or false." };
+  } catch (error) {
+    return { ok: false, message: (error instanceof Error ? error.message : "The condition could not be worked out") + "." };
+  }
+}
+
+/** The index of the step that follows steps[index]: the next one, or for a branch whose condition is true the target step of its phase. */
+export function nextIndex(steps: readonly RunStep[], index: number, jump: boolean): number {
+  const here = steps[index];
+  if (!here || here.instruction.category !== "branch" || !jump) return index + 1;
+  const at = steps.findIndex((s) => s.path === here.path && s.instruction.seq === here.instruction.target);
+  return at > index ? at : index + 1;
 }

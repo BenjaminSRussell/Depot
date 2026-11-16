@@ -3025,6 +3025,15 @@ test_pi_step_library_duties if {
 	not allowed("shopfloor.view", "POST", "/v1/shopfloor/pi-step-templates/0195f0a0-0000-7000-8000-0000000000d1:publish")
 }
 
+# Machine readouts on the kiosk (#25): the connector reports node readings, the kiosk operator reads the latest.
+test_node_reading_duties if {
+	allowed("shopfloor.edge.connect", "POST", "/v1/shopfloor/edge-nodes/n1/readings")
+	not allowed("shopfloor.view", "POST", "/v1/shopfloor/edge-nodes/n1/readings")
+	allowed("shopfloor.controlrecipe.execute", "GET", "/v1/shopfloor/node-readings")
+	not allowed("shopfloor.view", "GET", "/v1/shopfloor/node-readings")
+	not allowed("shopfloor.edge.connect", "GET", "/v1/shopfloor/node-readings")
+}
+
 # RFID ingest and warehouse automation (#32): readers and the PLC connector hold their own duties, people read, and
 # a supervisor gives transport work to a PLC.
 test_warehouse_rfid_and_automation_duties if {

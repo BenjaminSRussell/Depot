@@ -1748,3 +1748,16 @@ export function publishPIStep(template: PIStepTemplate): Promise<PIStepTemplate>
 export function newPIStepVersion(template: PIStepTemplate): Promise<PIStepTemplate> {
   return post<PIStepTemplate>(`/pi-step-templates/${encodeURIComponent(template.id)}:new-version`, {});
 }
+
+/** The latest value the edge connector read from a machine node (for a machine-readout step). SF-0196 (404) when it has none lately. */
+export interface NodeReading {
+  node: string;
+  value: string;
+  nodeType: string;
+  readAt: string;
+  ageSeconds: number;
+}
+
+export function getNodeReading(node: string, signal?: AbortSignal): Promise<NodeReading> {
+  return send<NodeReading>(`/node-readings${query({ node })}`, {}, signal);
+}
