@@ -4101,6 +4101,57 @@ paths:
         "401": { $ref: "#/components/responses/Problem" }
         "403": { $ref: "#/components/responses/Problem" }
         "404": { $ref: "#/components/responses/Problem" }
+  /v1/shopfloor/pi-executions:
+    get:
+      operationId: listPIExecutions
+      summary: List PI execution records, newest first
+      description: |
+        The sealed record of each PI sheet a kiosk finished (FR-25.18). Records are written by the service in the transaction
+        that completes a kiosk control recipe; nothing creates or edits one through the API.
+      x-passage-duty: shopfloor.view
+      parameters:
+        - { name: orderId, in: query, schema: { type: string, format: uuid } }
+        - { name: recipeId, in: query, schema: { type: string, format: uuid } }
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: Records.
+          content: { application/json: { schema: { type: object, required: [items], properties: { items: { type: array, items: { $ref: "#/components/schemas/PIExecution" } } } } } }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+  /v1/shopfloor/pi-executions/{id}:
+    get:
+      operationId: getPIExecution
+      summary: One PI execution record with its steps
+      description: Every step of the recipe in order with what was entered or read, the signer and signature meaning, the deviations, and its place in the SHA-256 hash chain.
+      x-passage-duty: shopfloor.view
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: The record.
+          content: { application/json: { schema: { $ref: "#/components/schemas/PIExecutionDetail" } } }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+  /v1/shopfloor/pi-executions/{id}:verify:
+    post:
+      operationId: verifyPIExecution
+      summary: Recompute the hash chain of a PI execution record
+      description: |
+        Recomputes every step hash from the stored steps, the chain from its seed and the record hash, and reports the first
+        step that does not match (`brokenAtSeq`, 0 for the header). Read only.
+      x-passage-duty: shopfloor.piexecution.verify
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: The outcome.
+          content: { application/json: { schema: { $ref: "#/components/schemas/PIExecutionVerification" } } }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
 components:
   parameters:
     IfMatch:
@@ -4321,6 +4372,62 @@ components:
         updatedAt: { type: string, format: date-time }
         publishedBy: { type: [string, "null"] }
         publishedAt: { type: [string, "null"], format: date-time }
+    PIExecution:
+      type: object
+      required: [id, recipeId, orderId, resourceId, executedBy, startedAt, completedAt, stepCount, deviationCount, headHash, recordHash, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        recipeId: { type: string, format: uuid }
+        orderId: { type: string, format: uuid }
+        resourceId: { type: string, format: uuid }
+        piSheetId: { type: [string, "null"], format: uuid }
+        sheetCode: { type: [string, "null"] }
+        sheetVersion: { type: [integer, "null"] }
+        executedBy: { type: string, description: The caller that completed the recipe. }
+        startedAt: { type: string, format: date-time }
+        completedAt: { type: string, format: date-time }
+        stepCount: { type: integer }
+        deviationCount: { type: integer }
+        headHash: { type: string, description: SHA-256 of the last step of the chain. }
+        recordHash: { type: string, description: SHA-256 of the header including the head hash; an archive copy is checked against it. }
+        createdAt: { type: string, format: date-time }
+    PIExecutionStep:
+      type: object
+      required: [seq, key, phasePath, kind, status, values, deviation, deviationReasons, prevHash, hash]
+      properties:
+        seq: { type: integer }
+        key: { type: string }
+        phasePath: { type: string }
+        kind: { type: string }
+        text: { type: string }
+        template: { type: [object, "null"], properties: { code: { type: string }, version: { type: integer } } }
+        status: { type: string, enum: [recorded, acknowledged, skipped, missing] }
+        values: { type: array, items: { type: object, additionalProperties: true } }
+        occurredAt: { type: string }
+        signerUser: { type: string }
+        signerAuthTime: { type: string }
+        signatureMeaning: { type: string }
+        comment: { type: string }
+        deviation: { type: boolean }
+        deviationReasons: { type: array, items: { type: string } }
+        prevHash: { type: string }
+        hash: { type: string }
+    PIExecutionDetail:
+      allOf:
+        - $ref: "#/components/schemas/PIExecution"
+        - type: object
+          required: [steps]
+          properties:
+            steps: { type: array, items: { $ref: "#/components/schemas/PIExecutionStep" } }
+    PIExecutionVerification:
+      type: object
+      required: [valid, checkedSteps, brokenAtSeq, reason, recordHash]
+      properties:
+        valid: { type: boolean }
+        checkedSteps: { type: integer }
+        brokenAtSeq: { type: [integer, "null"], description: The first step that does not match; 0 when the header does not. }
+        reason: { type: string }
+        recordHash: { type: string }
     NewWorker:
       type: object
       required: [partyId, name, costRate, currency]

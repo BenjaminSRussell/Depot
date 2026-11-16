@@ -614,6 +614,7 @@
     {"to": "/shopfloor/edge-nodes", "module": "shopfloor", "label": "Edge fleet", "area": "manufacturing", "decision": "advanced"},
     {"to": "/shopfloor/pi-sheets", "module": "shopfloor", "label": "PI sheets", "area": "manufacturing", "decision": "advanced"},
     {"to": "/shopfloor/pi-step-templates", "module": "shopfloor", "label": "PI step library", "area": "manufacturing", "decision": "advanced"},
+    {"to": "/shopfloor/pi-executions", "module": "shopfloor", "label": "PI execution records", "area": "manufacturing", "decision": "advanced"},
     {"to": "/shopfloor/pi-categories", "module": "shopfloor", "label": "PI categories", "area": "manufacturing", "decision": "advanced"},
     {"to": "/shopfloor/process-messages", "module": "shopfloor", "label": "Process messages", "area": "manufacturing", "decision": "advanced"},
     {"to": "/shopfloor/control-recipes", "module": "shopfloor", "label": "Control recipes", "area": "manufacturing", "decision": "advanced"},

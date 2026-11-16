@@ -3821,6 +3821,7 @@
       {"resource": "/v1/shopfloor/pi-categories", "methods": ["POST"]},
       {"resource": "/v1/shopfloor/pi-categories/*", "methods": ["PUT"]}
     ]},
+    "shopfloor.piexecution.verify": {"permissions": [{"resource": "/v1/shopfloor/pi-executions/*:verify", "methods": ["POST"]}]},
     "shopfloor.pistep.maintain": {"permissions": [
       {"resource": "/v1/shopfloor/pi-step-templates", "methods": ["POST"]},
       {"resource": "/v1/shopfloor/pi-step-templates/*", "methods": ["PUT"]},
@@ -3828,6 +3829,8 @@
       {"resource": "/v1/shopfloor/pi-step-templates/*:new-version", "methods": ["POST"]}
     ]},
     "shopfloor.view": {"permissions": [
+      {"resource": "/v1/shopfloor/pi-executions", "methods": ["GET"]},
+      {"resource": "/v1/shopfloor/pi-executions/*", "methods": ["GET"]},
       {"resource": "/v1/shopfloor/pi-step-templates", "methods": ["GET"]},
       {"resource": "/v1/shopfloor/pi-step-templates/*", "methods": ["GET"]},
       {"resource": "/v1/shopfloor/pi-categories", "methods": ["GET"]},

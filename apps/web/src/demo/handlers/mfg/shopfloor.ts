@@ -1,6 +1,6 @@
 // Shop floor service (/api/v1/shopfloor) for the demo: machines, the andon board and OEE.
 // Resources and sites carry the real ids of company.ts; the screens show their names.
-import type { Andon, AndonSettings, AndonSiteSettings, AndonThresholds, ControlRecipeDetail, Downtime, EdgeCertificate, EdgeConfigVersion, EdgeNode, Job, Machine, OeeBucket, OeeTile, PICategory, PISheet, PIStepSpec, PIStepTemplate, RecipeDocument } from "../../../modules/shopfloor/api/client";
+import type { Andon, AndonSettings, AndonSiteSettings, AndonThresholds, ControlRecipeDetail, Downtime, EdgeCertificate, EdgeConfigVersion, EdgeNode, Job, Machine, OeeBucket, OeeTile, PICategory, PIExecution, PIExecutionDetail, PIExecutionStep, PISheet, PIStepSpec, PIStepTemplate, RecipeDocument } from "../../../modules/shopfloor/api/client";
 import { reply, route } from "../../backend";
 import { DC, PLANT, resourceByCode } from "../../company";
 import { at, table, uid } from "../../store";
@@ -520,6 +520,38 @@ route("GET", `${BASE}/node-readings`, (req) => {
   return { node, value: "181.5", nodeType: "Double", readAt: new Date(Date.now() - 4000).toISOString(), ageSeconds: 4 };
 });
 route("POST", `${BASE}/edge-nodes/{id}/readings`, () => reply.noContent());
+
+// PI execution records (FR-25.18): sealed runs of kiosk sheets. The demo seals nothing new; it serves two finished runs.
+const K_PI_EXEC = 396;
+const hex = (n: number) => (n.toString(16).padStart(2, "0")).repeat(32);
+const execStep = (seq: number, over: Partial<PIExecutionStep>): PIExecutionStep => ({
+  seq, key: `Assembly/Fit/Bearings/${seq}`, phasePath: "Pump assembly/Assembly/Fit/Bearings", kind: "instruction-text", text: "", template: null, status: "recorded", values: [], occurredAt: at(-1.2), signerUser: "", signerAuthTime: "",
+  signatureMeaning: "", comment: "", deviation: false, deviationReasons: [], prevHash: hex(seq), hash: hex(seq + 1), ...over,
+});
+const execRows: PIExecutionDetail[] = [
+  {
+    id: uid(K_PI_EXEC, 1), recipeId: uid(234, 2), orderId: orders.all()[0]?.id ?? uid(234, 2), resourceId: resourceByCode("ASM-01").id, piSheetId: uid(388, 1), sheetCode: "PUMP-ASSY", sheetVersion: 2, executedBy: ME.id,
+    startedAt: at(-1.3), completedAt: at(-1), stepCount: 4, deviationCount: 1, headHash: hex(5), recordHash: hex(9), createdAt: at(-1),
+    steps: [
+      execStep(1, { text: "Check the housing is clean.", status: "acknowledged", occurredAt: "" }),
+      execStep(2, { kind: "process-data-request", text: "Record the bearing clearance.", values: [{ name: "Clearance", type: "numeric", value: "0.19", unit: "mm", min: "0.05", max: "0.15", outOfLimit: true }, { name: "comment", type: "text", value: "Gauge re-zeroed, second reading taken" }], comment: "Gauge re-zeroed, second reading taken", deviation: true, deviationReasons: ["Clearance is outside its limits"] }),
+      execStep(3, { kind: "timer", text: "Let the sealant cure.", values: [{ name: "timer-seconds", type: "numeric", value: "600" }, { name: "timer-blocking", type: "boolean", value: "true" }] }),
+      execStep(4, { kind: "signature-request", text: "Sign the fit.", signerUser: ME.id, signerAuthTime: at(-1.1), signatureMeaning: "verified", values: [{ name: "signature-meaning", type: "text", value: "verified" }] }),
+    ],
+  },
+  {
+    id: uid(K_PI_EXEC, 2), recipeId: uid(234, 1), orderId: orders.all()[1]?.id ?? uid(234, 1), resourceId: resourceByCode("TST-01").id, piSheetId: null, sheetCode: null, sheetVersion: null, executedBy: byUsername("omar.siddiqui").id,
+    startedAt: at(-3.3), completedAt: at(-3), stepCount: 2, deviationCount: 0, headHash: hex(7), recordHash: hex(8), createdAt: at(-3),
+    steps: [execStep(1, { kind: "machine-readout", text: "Oven temperature.", values: [{ name: "Oven temperature", type: "numeric", value: "181.5", unit: "degC" }, { name: "readout-source", type: "text", value: "machine" }] }), execStep(2, { text: "Release the load.", status: "acknowledged", occurredAt: "" })],
+  },
+];
+const execHeader = ({ steps: _steps, ...row }: PIExecutionDetail): PIExecution => row;
+route("GET", `${BASE}/pi-executions`, (req) => ({ items: execRows.filter((x) => (!req.query.get("orderId") || x.orderId === req.query.get("orderId")) && (!req.query.get("recipeId") || x.recipeId === req.query.get("recipeId"))).map(execHeader) }));
+route("GET", `${BASE}/pi-executions/{id}`, (req) => execRows.find((x) => x.id === req.params.id) ?? reply.problem(404, "SF-0197", "PI execution record not found."));
+route("POST", `${BASE}/pi-executions/{id}:verify`, (req) => {
+  const row = execRows.find((x) => x.id === req.params.id);
+  return row ? { valid: true, checkedSteps: row.stepCount, brokenAtSeq: null, reason: "", recordHash: row.recordHash } : reply.problem(404, "SF-0197", "PI execution record not found.");
+});
 
 // ---- Andon thresholds: the tenant's, and the Dallas site's own -----------------------------------------------------
 

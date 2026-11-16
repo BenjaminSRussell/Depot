@@ -331,7 +331,14 @@ func (s *Postgres) ReportControlRecipe(ctx context.Context, id, to string, errTe
 			return httpx.NewProblem(http.StatusUnprocessableEntity, CodeRecipeDestination, "this control recipe goes to a process control system; its connector reports its status")
 		}
 		out, err = applyRecipeStatus(ctx, tx, p.TenantID, c, to, errText, actor)
-		return err
+		if err != nil {
+			return err
+		}
+		// A finished kiosk sheet is sealed as an execution record in the same transaction (FR-25.18).
+		if to == domain.RecipeCompleted {
+			return sealExecution(ctx, tx, p.TenantID, out, actor)
+		}
+		return nil
 	})
 	return out, err
 }

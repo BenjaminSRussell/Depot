@@ -1761,3 +1761,72 @@ export interface NodeReading {
 export function getNodeReading(node: string, signal?: AbortSignal): Promise<NodeReading> {
   return send<NodeReading>(`/node-readings${query({ node })}`, {}, signal);
 }
+
+// ---- PI execution records (FR-25.18) ------------------------------------------------------------------------------------
+
+export const DUTY_PI_EXECUTION_VERIFY = "shopfloor.piexecution.verify";
+
+export interface PIExecution {
+  id: string;
+  recipeId: string;
+  orderId: string;
+  resourceId: string;
+  piSheetId: string | null;
+  sheetCode: string | null;
+  sheetVersion: number | null;
+  executedBy: string;
+  startedAt: string;
+  completedAt: string;
+  stepCount: number;
+  deviationCount: number;
+  headHash: string;
+  recordHash: string;
+  createdAt: string;
+}
+
+export type PIExecutionStepStatus = "recorded" | "acknowledged" | "skipped" | "missing";
+
+export interface PIExecutionStep {
+  seq: number;
+  key: string;
+  phasePath: string;
+  kind: InstructionCategory;
+  text: string;
+  template: { code: string; version: number } | null;
+  status: PIExecutionStepStatus;
+  values: { name: string; type: string; value: string; unit?: string | null; min?: string | null; max?: string | null; outOfLimit?: boolean }[];
+  occurredAt: string;
+  signerUser: string;
+  signerAuthTime: string;
+  signatureMeaning: string;
+  comment: string;
+  deviation: boolean;
+  deviationReasons: string[];
+  prevHash: string;
+  hash: string;
+}
+
+export interface PIExecutionDetail extends PIExecution {
+  steps: PIExecutionStep[];
+}
+
+export interface PIExecutionVerification {
+  valid: boolean;
+  checkedSteps: number;
+  brokenAtSeq: number | null;
+  reason: string;
+  recordHash: string;
+}
+
+export function listPIExecutions(filter: { orderId?: string; recipeId?: string } = {}, signal?: AbortSignal): Promise<PIExecution[]> {
+  return items<PIExecution>(`/pi-executions${query({ orderId: filter.orderId, recipeId: filter.recipeId })}`, signal);
+}
+
+export function getPIExecution(id: string, signal?: AbortSignal): Promise<PIExecutionDetail> {
+  return send<PIExecutionDetail>(`/pi-executions/${encodeURIComponent(id)}`, {}, signal);
+}
+
+/** Recomputes the record's hash chain on the service. */
+export function verifyPIExecution(id: string): Promise<PIExecutionVerification> {
+  return post<PIExecutionVerification>(`/pi-executions/${encodeURIComponent(id)}:verify`, {});
+}

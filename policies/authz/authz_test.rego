@@ -3034,6 +3034,19 @@ test_node_reading_duties if {
 	not allowed("shopfloor.edge.connect", "GET", "/v1/shopfloor/node-readings")
 }
 
+# PI execution records (#25): read with the view duty, verified with their own duty, written by no client.
+test_pi_execution_duties if {
+	allowed("shopfloor.view", "GET", "/v1/shopfloor/pi-executions")
+	allowed("shopfloor.view", "GET", "/v1/shopfloor/pi-executions/0195f0a0-0000-7000-8000-0000000000e1")
+	not allowed("shopfloor.view", "POST", "/v1/shopfloor/pi-executions/0195f0a0-0000-7000-8000-0000000000e1:verify")
+	allowed("shopfloor.piexecution.verify", "POST", "/v1/shopfloor/pi-executions/0195f0a0-0000-7000-8000-0000000000e1:verify")
+	not allowed("shopfloor.piexecution.verify", "GET", "/v1/shopfloor/pi-executions")
+	not allowed("shopfloor.view", "POST", "/v1/shopfloor/pi-executions")
+	not allowed("shopfloor.piexecution.verify", "POST", "/v1/shopfloor/pi-executions")
+	not allowed("shopfloor.view", "PUT", "/v1/shopfloor/pi-executions/0195f0a0-0000-7000-8000-0000000000e1")
+	not allowed("shopfloor.view", "DELETE", "/v1/shopfloor/pi-executions/0195f0a0-0000-7000-8000-0000000000e1")
+}
+
 # RFID ingest and warehouse automation (#32): readers and the PLC connector hold their own duties, people read, and
 # a supervisor gives transport work to a PLC.
 test_warehouse_rfid_and_automation_duties if {

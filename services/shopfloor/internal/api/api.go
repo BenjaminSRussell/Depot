@@ -130,6 +130,9 @@ type Store interface {
 	NewPIStepVersion(ctx context.Context, id string, by string) (store.PIStepTemplate, error)
 	ReportNodeReadings(ctx context.Context, edgeID, subject string, in []store.NodeReadingIn) error
 	LatestNodeReading(ctx context.Context, node string, maxAge time.Duration, now time.Time) (store.NodeReading, error)
+	ListPIExecutions(ctx context.Context, f store.PIExecutionFilter) ([]store.PIExecution, error)
+	GetPIExecution(ctx context.Context, id string) (store.PIExecutionDetail, error)
+	VerifyPIExecution(ctx context.Context, id string) (domain.VerifyResult, error)
 	ResolvePISteps(ctx context.Context, refs []domain.TemplateRef) (map[domain.TemplateRef]store.PIStepTemplate, error)
 	CreateControlRecipe(ctx context.Context, in store.ControlRecipeInput, createdBy string, idem store.Idem) (store.ControlRecipe, error)
 	ListControlRecipes(ctx context.Context, f store.RecipeFilter) ([]store.ControlRecipe, error)
@@ -355,6 +358,7 @@ func (a *API) Register(r chi.Router) {
 	a.registerPICategories(r)
 	a.registerPISteps(r)
 	a.registerNodeReadings(r)
+	a.registerPIExecutions(r)
 	r.With(authz.RequireDuty(DutySetup)).Post("/v1/shopfloor/workers", a.createWorker)
 	r.With(authz.RequireDuty(DutyView)).Get("/v1/shopfloor/workers", a.listWorkers)
 	r.With(authz.RequireDuty(DutyView)).Get("/v1/shopfloor/workers/{id}", a.getWorker)
