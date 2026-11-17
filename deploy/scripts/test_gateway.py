@@ -390,7 +390,8 @@ class GeneratedApiRoutes(unittest.TestCase):
             for doc in yaml.safe_load_all(path.read_text()):
                 if doc and doc.get("kind") == "ApplicationSet":
                     for element in doc["spec"]["generators"][0]["list"]["elements"]:
-                        stage_ns[element["name"]] = element["namespace"]
+                        if "name" in element:  # namespace-default-deny-stage lists namespaces only
+                            stage_ns[element["name"]] = element["namespace"]
                 elif doc and doc.get("kind") == "Application":  # identity-stage, receiving-stage, ...
                     stage_ns[doc["metadata"]["name"].removesuffix("-stage")] = doc["spec"]["destination"]["namespace"]
         dev = {(r, k): (url, t) for r, k, url, t in gen.portal_upstreams()}

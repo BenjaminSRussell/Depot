@@ -200,9 +200,9 @@ A rejected URL is "no response". `test/ssrf.test.ts` covers each range with a st
   outbox `aggregate_type` is the type's entity, so the relay topic is `depot.hub.<entity>`
   (`events.Topic`). Delivering one of the hub's own `webhook.*` events writes no outcome event.
 - `charts/integration-hub`: deployment (numeric non-root user), service, DB URL secret,
-  Kafka values, `fieldCrypt.keysSecret` / `fieldCrypt.currentKeyId`, a NetworkPolicy
-  (ingress to :8080 from the edge gateway only, :9090 from monitoring; egress to DNS,
-  Postgres, Kafka and public https), ServiceMonitor toggle. `Dockerfile` runs `node src/main.ts` (Node 24
+  Kafka values, `fieldCrypt.keysSecret` / `fieldCrypt.currentKeyId`, an egress NetworkPolicy
+  (DNS, Postgres, Kafka and public https; ingress is the generated default-deny policy: :8080 from the
+  edge gateway only, :9090 from Prometheus), ServiceMonitor toggle. `Dockerfile` runs `node src/main.ts` (Node 24
   strips types; no build step).
 
 Configuration: `DATABASE_URL` (required), `MIGRATE_ON_START=true`, `HUB_POLL_INTERVAL_MS`,

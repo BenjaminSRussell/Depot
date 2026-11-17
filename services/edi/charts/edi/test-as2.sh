@@ -17,7 +17,9 @@ check() {
   ruby -ryaml -e '
     label, code = ARGV
     docs = YAML.load_stream(STDIN.read).compact
-    policy = docs.find { |d| d["kind"] == "NetworkPolicy" }
+    policy = docs.find { |d| d["kind"] == "NetworkPolicy" && d["metadata"]["name"] == "edi" }
+    ingress = docs.find { |d| d["kind"] == "NetworkPolicy" && d["metadata"]["name"] == "edi-ingress" }
+    api_rules = ingress ? (ingress.dig("spec", "ingress") || []) : []
     deployment = docs.find { |d| d["kind"] == "Deployment" }
     env = (deployment.dig("spec", "template", "spec", "containers", 0, "env") || []).to_h { |e| [e["name"], e["value"]] }
     rules = policy ? (policy.dig("spec", "ingress") || []) : []
@@ -30,12 +32,14 @@ check() {
   ' "$label" "$code" <<<"$rendered"
 }
 
-# Defaults: no AS2 listener, so no AS2 port, Service or rule; the API and metrics ports stay open as before.
+# Defaults: no AS2 listener, so no AS2 port, Service or policy; the generated default-deny policy restricts the API and
+# metrics ports (every rule names its sources, and none admits 8081).
 check defaults "$(render)" '
-  raise "no NetworkPolicy" unless policy
+  raise "AS2 policy without the listener" if policy
   raise "AS2 Service rendered" if docs.any? { |d| d["kind"] == "Service" && d["metadata"]["name"] == "edi-as2" }
-  raise "AS2 rule without the listener" unless rules.size == 1
-  raise "API rule restricted by default" if rules[0].key?("from")
+  raise "no generated ingress policy" unless ingress
+  raise "an API or metrics rule admits every source" if api_rules.empty? || api_rules.any? { |r| (r["from"] || []).empty? }
+  raise "the generated policy admits 8081" if api_rules.any? { |r| r["ports"].any? { |p| p["port"] == 8081 } }
   raise "EDI_AS2_ADDR set" if env.key?("EDI_AS2_ADDR")
 '
 
@@ -53,7 +57,7 @@ check as2-enabled "$as2" '
     raise "peer is not the depot-as2 gateway: #{labels}" unless labels["gateway.envoyproxy.io/owning-gateway-name"] == "depot-as2" &&
       labels["gateway.envoyproxy.io/owning-gateway-namespace"] == "hello-ledger"
   end
-  raise "8081 also admitted by the API rule" unless rule_for.(8080).none? { |r| r["ports"].any? { |p| p["port"] == 8081 } }
+  raise "8081 also admitted by the API rule" if api_rules.any? { |r| r["ports"].any? { |p| p["port"] == 8081 } }
   svc = docs.find { |d| d["kind"] == "Service" && d["metadata"]["name"] == "edi-as2" }
   raise "no edi-as2 Service on 8081" unless svc && svc.dig("spec", "ports", 0, "port") == 8081
   { "EDI_AS2_ADDR" => ":8081", "EDI_AS2_RATE_PER_MINUTE" => "120", "EDI_AS2_RATE_BURST" => "60", "EDI_AS2_MDN_TIMEOUT_MINUTES" => "1440" }.each do |k, v|

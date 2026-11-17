@@ -135,14 +135,21 @@ class PaymentsWebhookEdge(unittest.TestCase):
         self.assertNotEqual(missing.returncode, 0)
         self.assertIn("publishableKey", missing.stderr)
         out = subprocess.run(base + ["--set", "payments.publishableKey=pk_test_x"], check=True, capture_output=True, text=True).stdout
-        (policy,) = [d for d in yaml.safe_load_all(out) if d and d["kind"] == "NetworkPolicy"]
+        policies = {d["metadata"]["name"]: d for d in yaml.safe_load_all(out) if d and d["kind"] == "NetworkPolicy"}
+        self.assertEqual(set(policies), {"receivables-receivables", "receivables-ingress"})
+        policy = policies["receivables-receivables"]
         webhook = [r for r in policy["spec"]["ingress"] if r["ports"] == [{"protocol": "TCP", "port": 8081}]]
         self.assertEqual(len(webhook), 1)
+        self.assertEqual(len(policy["spec"]["ingress"]), 1, "the webhook policy admits only the webhook port")
         (peer,) = webhook[0]["from"]
         self.assertEqual(peer["podSelector"]["matchLabels"]["gateway.envoyproxy.io/owning-gateway-name"], GATEWAY)
         self.assertEqual(peer["namespaceSelector"]["matchLabels"], {"kubernetes.io/metadata.name": "envoy-gateway-system"})
+        # The generated default-deny policy (D1) never admits the token-less webhook port.
+        ports = {p["port"] for r in policies["receivables-ingress"]["spec"]["ingress"] for p in r["ports"]}
+        self.assertNotIn(8081, ports)
         off = subprocess.run(["helm", "template", "receivables", str(CHART)], check=True, capture_output=True, text=True).stdout
-        self.assertNotIn("kind: NetworkPolicy", off)
+        names = [d["metadata"]["name"] for d in yaml.safe_load_all(off) if d and d["kind"] == "NetworkPolicy"]
+        self.assertEqual(names, ["receivables-ingress"], "the webhook policy renders only with payments.provider")
 
 
 if __name__ == "__main__":

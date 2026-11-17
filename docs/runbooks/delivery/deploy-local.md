@@ -25,10 +25,30 @@ Trust the local CA to remove the browser warning:
 kubectl -n cert-manager get secret depot-local-ca -o jsonpath='{.data.ca\.crt}' | base64 -d > depot-local-ca.crt
 ```
 
+## Network policies
+
+Every service chart ships a default-deny ingress NetworkPolicy (`<release>-ingress`, D1, B-01a): only the Envoy
+Gateway, the services that call it and Prometheus get in. k3d's k3s enforces NetworkPolicy with its built-in controller,
+so the policies apply locally too; hello-ledger's also admits k3s' Traefik (namespace `kube-system`) for the smoke
+Ingress. `kubectl port-forward` is not filtered by NetworkPolicy, so the port-forward above keeps working. A cluster
+created with `--disable-network-policy` (or another CNI without NetworkPolicy support, such as plain flannel) silently
+ignores the policies: check with `kubectl -n hello-ledger run probe --rm -it --restart=Never --image=curlimages/curl --
+curl -m 5 -s -o /dev/null -w '%{http_code}' http://hello-ledger:8080/healthz`, which must time out. After changing the
+grant table (`policies/authz/data.json`), a chart's `*_URL` clients or an HTTPRoute in `deploy/gateway`, run
+`python3 deploy/scripts/gen_networkpolicies.py` (`--explain` prints each service's callers and why).
+
+Installing the services into another namespace than the Argo CD Applications use: a peer that runs in the same namespace as
+its target in dev is matched in whatever namespace the release is installed in, but a peer in another dev namespace (batch,
+metadata) is matched by that namespace's name, and the Gateway pods and Prometheus by `ingressPolicy.gateway` and
+`ingressPolicy.prometheus`; override those values (and the namespaces of the namespace-default-deny ApplicationSet) for the
+other layout. `global.regionFenceUrl` must go through Gateway `depot-region`
+(`https://region.<env>.depot.dev/healthz/region`); the charts refuse to render with the ops Service URL.
+
 ## Troubleshoot
 
 | Symptom | Check |
 |---|---|
+| a service gets connection timeouts calling a peer | the caller is not in the peer's `ingressPolicy.peers`: add the `*_URL` client or grant, rerun `python3 deploy/scripts/gen_networkpolicies.py` |
 | `tofu apply` fails on provider | `provider_kind` other than `k3d` is not implemented |
 | pod `CreateContainerConfigError` | Secret `hello-ledger-db` missing in namespace `hello-ledger` |
 | Argo app `Unknown` | the revision is not pushed to GitHub, or the repository is private and needs credentials in Argo CD |

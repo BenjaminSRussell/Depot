@@ -64,7 +64,8 @@ Environment of the CLI: `OPS_KUBE_REGIONS` (JSON or `@file`: per region `server`
 
 Fenced region (BR-50.2, OPS-1703): every Go service built on `platform/go/httpx` answers 503 `Retry-After: 30` while its region is FENCED,
 except `/healthz`, `/readyz`, `/healthz/region` and `/metrics`. It is off unless `global.regionFenceUrl` (env `DEPOT_REGION_FENCE_URL`, the ops
-`/healthz/region` of this region) or `DEPOT_REGION_FENCE_FILE` is set; one background poll (default 5 s, `DEPOT_REGION_FENCE_INTERVAL`) caches the
+`/healthz/region` of this region through Gateway `depot-region`, `https://region.<env>.depot.dev/healthz/region`; every chart refuses to render
+with the ops Service itself, because ops' NetworkPolicy admits only the gateways to its API port) or `DEPOT_REGION_FENCE_FILE` is set; one background poll (default 5 s, `DEPOT_REGION_FENCE_INTERVAL`) caches the
 role, so no request waits on it, and an unreadable source keeps the last state. This service opts out (`httpx.DisableFence`) so it can run the rejoin.
 `GET /healthz/region` reaches DNS health checks through the `depot-region` Gateway (`deploy/gateway/region-gateway.yaml`), which has no JWT.
 

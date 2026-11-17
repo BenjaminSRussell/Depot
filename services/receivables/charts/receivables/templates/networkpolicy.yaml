@@ -3,8 +3,8 @@
 {{- fail "networkPolicy.webhookGateway.namespaces and podLabels must be set when payments.provider is set: the webhook port is only admitted to the payment webhook edge's proxies" }}
 {{- end }}
 # The payment webhook listener takes no Depot token (#30), so its port is reachable only from the payment webhook edge's Envoy
-# proxies (Gateway depot-payments-webhook), never from other pods or the depot-api gateway. The API and admin ports keep
-# the access they have without a policy unless apiFrom narrows them.
+# proxies (Gateway depot-payments-webhook), never from other pods or the depot-api gateway. The API and admin ports are
+# covered by the generated default-deny policy (networkpolicy-ingress.yaml).
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -19,13 +19,6 @@ spec:
       app.kubernetes.io/instance: {{ .Release.Name }}
   policyTypes: [Ingress]
   ingress:
-    - ports:
-        - { protocol: TCP, port: {{ .Values.service.port }} }
-        - { protocol: TCP, port: {{ .Values.service.adminPort }} }
-      {{- with .Values.networkPolicy.apiFrom }}
-      from:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
     - ports:
         - { protocol: TCP, port: {{ .Values.payments.webhookPort }} }
       from:

@@ -1,9 +1,6 @@
 # agent-runtime in stage: callers' bearer tokens are verified against the stage realm and the key set the stage edge gateway
-# uses (ConfigMap depot-stage-jwks, which the stage gateway overlay provides; not built yet, #213). Only the edge
-# gateway's namespace reaches the API.
+# uses (ConfigMap depot-stage-jwks, which the stage gateway overlay provides; not built yet, #213).
 auth:
   issuer: https://idp.stage.depot.dev/realms/stage
   audience: depot-api
   jwksConfigMap: { name: depot-stage-jwks, key: jwks }
-networkPolicy:
-  ingressNamespaces: [envoy-gateway-system]

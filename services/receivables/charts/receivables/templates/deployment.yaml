@@ -65,6 +65,18 @@ spec:
             - name: FX_URL
               value: {{ .Values.fxUrl | quote }}
             {{- end }}
+            {{- with .Values.ledgerUrl }}
+            - name: LEDGER_URL
+              value: {{ . | quote }}
+            {{- end }}
+            {{- with .Values.billingUrl }}
+            - name: BILLING_URL
+              value: {{ . | quote }}
+            {{- end }}
+            {{- with .Values.taxUrl }}
+            - name: TAX_URL
+              value: {{ . | quote }}
+            {{- end }}
             {{- if .Values.autoApply.tenantIds }}
             - name: RECEIVABLES_AUTO_APPLY_TENANT_IDS
               value: {{ join "," .Values.autoApply.tenantIds | quote }}
