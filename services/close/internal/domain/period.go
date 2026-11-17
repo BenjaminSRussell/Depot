@@ -116,33 +116,114 @@ func decideRow(row Row, module Module, group string) (Status, error) {
 	}
 }
 
-func ValidateTransition(rows []Row, to Status, module Module) error {
-	var current Status = StatusNeverOpened
+// CurrentStatus returns the status a transition of module starts from and
+// whether the module has a row of its own. A module without a row is governed
+// by the ALL row (FR-14.1, as in Resolve); with no ALL row either it is never
+// opened.
+func CurrentStatus(rows []Row, module Module) (Status, bool) {
+	inherited := StatusNeverOpened
 	for _, r := range rows {
-		if r.Module == module {
-			current = r.Status
+		switch r.Module {
+		case module:
+			return r.Status, true
+		case ModuleAll:
+			inherited = r.Status
 		}
+	}
+	return inherited, false
+}
+
+func ValidateTransition(rows []Row, to Status, module Module) error {
+	current, own := CurrentStatus(rows, module)
+	where := "module " + string(module) + " "
+	if !own && module != ModuleAll && current != StatusNeverOpened {
+		where += "(through all, it has no row of its own) "
 	}
 	switch {
 	case to != StatusOpen && to != StatusOnHold && to != StatusClosed && to != StatusPermanentlyClosed:
-		return fail(CodeInvalidTransition, "unknown target status "+string(to))
+		return fail(CodeInvalidTransition, "unknown target status "+string(to)+"; use open, on_hold, closed or permanently_closed")
 	case current == StatusPermanentlyClosed:
-		return fail(CodeInvalidTransition, "permanently closed periods cannot change")
+		return fail(CodeInvalidTransition, where+"is permanently closed; permanently closed periods cannot change")
 	case current == StatusClosed && to != StatusPermanentlyClosed:
-		return fail(CodeInvalidTransition, "closed periods change only through the reopen workflow")
+		return fail(CodeInvalidTransition, where+"is closed; closed periods change only through the reopen workflow, so request a reopen")
 	case current == StatusNeverOpened && to != StatusOpen:
-		return fail(CodeInvalidTransition, "a never opened period must be opened first")
-	case current == to:
-		return fail(CodeInvalidTransition, "period is already "+string(to))
+		return fail(CodeInvalidTransition, where+"was never opened; a never opened period must be opened first")
+	case current == to && own:
+		// A module without a row may take a row of its own with the status it
+		// inherits from ALL, so it keeps that status when ALL moves on.
+		return fail(CodeInvalidTransition, where+"is already "+string(to))
 	}
-	if (to == StatusClosed || to == StatusPermanentlyClosed) && (module == ModuleGL || module == ModuleAll) {
+	if to == StatusOpen || to == StatusOnHold {
+		// FR-14.2, GL closes last: once GL is closed nothing may take postings
+		// again without a GL reopen. ALL and every subledger without a row of its
+		// own follow the ALL row, which may still be on hold when GL closes
+		// (BR-14.2), so neither may be opened or held again.
+		if gl, _ := CurrentStatus(rows, ModuleGL); module != ModuleGL && (module == ModuleAll || !own) && (gl == StatusClosed || gl == StatusPermanentlyClosed) {
+			subject := "module " + string(module) + " has no row of its own and"
+			if module == ModuleAll {
+				subject = "all"
+			}
+			return fail(CodeInvalidTransition, "cannot move "+string(module)+" to "+string(to)+": the general ledger is "+string(gl)+", so "+subject+" cannot take postings again; request a reopen of gl first")
+		}
+		return nil
+	}
+	switch module {
+	case ModuleAll:
+		// FR-14.2: closing ALL requires every module row, GL included, to be
+		// closed or absent. An absent module is governed by the ALL row itself.
 		for _, r := range rows {
-			if r.Module != ModuleGL && r.Module != ModuleAll && r.Status != StatusClosed && r.Status != StatusPermanentlyClosed {
-				return fail(CodeInvalidTransition, "module "+string(r.Module)+" is still "+string(r.Status)+"; close it before the general ledger")
+			if r.Module != ModuleAll && postable(r.Status) {
+				return fail(CodeInvalidTransition, "cannot close all: module "+string(r.Module)+" is still "+string(r.Status)+"; close "+string(r.Module)+" first"+glLast(r.Module))
+			}
+		}
+	case ModuleGL:
+		// FR-14.2: GL closes last. A subledger without a row of its own is
+		// governed by the ALL row (FR-14.1); ALL on hold already stops its
+		// postings (BR-14.1, the BR-14.2 reference matrix holds ALL while GL
+		// closes), so only an open ALL row blocks the GL close.
+		for _, r := range rows {
+			if r.Module != ModuleGL && r.Module != ModuleAll && postable(r.Status) {
+				return fail(CodeInvalidTransition, "cannot close gl: module "+string(r.Module)+" is still "+string(r.Status)+"; close "+string(r.Module)+" before the general ledger")
+			}
+		}
+		for _, m := range SubledgerModules() {
+			if r := Resolve(rows, m); r.Module == ModuleAll && r.Status == StatusOpen {
+				return fail(CodeInvalidTransition, "cannot close gl: module "+string(m)+" has no row of its own and all is still open; put all on hold or close "+string(m)+" before the general ledger")
 			}
 		}
 	}
 	return nil
+}
+
+func glLast(m Module) string {
+	if m == ModuleGL {
+		return " (after every subledger)"
+	}
+	return ""
+}
+
+// Modules returns every module of the period-control matrix (FR-14.1).
+func Modules() []Module {
+	return append([]Module{ModuleAll, ModuleGL}, SubledgerModules()...)
+}
+
+// SubledgerModules returns the modules that must be closed before the general
+// ledger (FR-14.2). GL and ALL are not subledgers.
+func SubledgerModules() []Module {
+	return []Module{
+		ModuleAP, ModuleAR, ModuleInventory, ModuleAssets, ModuleCash, ModuleProduction,
+		ModuleProjects, ModuleTax, ModuleBank, ModulePayroll,
+	}
+}
+
+// postable reports whether postings can still reach a module in this status
+// (BR-14.1): open always, on_hold for the allowed group. Closed, permanently
+// closed and never opened modules accept no postings, so they do not block a
+// close. A never_opened row is never stored (the status CHECK in
+// migrations/0001_period_status.sql allows only open, on_hold, closed and
+// permanently_closed); a module is never opened only by having no row.
+func postable(s Status) bool {
+	return s == StatusOpen || s == StatusOnHold
 }
 
 type Span struct {

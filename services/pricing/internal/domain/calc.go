@@ -19,20 +19,35 @@ func DefaultSmartBands() []SmartBand {
 	}
 }
 
-// SmartRound rounds v up to the next price point of its band (AC-26.10: 7.7805 -> 7.99).
+// SmartRound rounds v up to the lowest price point at or above v that ends in
+// the ending of its own band (FR-26.7; AC-26.10: 7.7805 -> 7.99). Rounding up can
+// carry the candidate past its band's upper edge (9.995 -> 10.99, 99.96 ->
+// 100.95), so the band is re-selected and the candidate recomputed in the next
+// band from that band's lower edge: 9.995 -> 10.95, 99.96 -> 100. Zero stays
+// zero: a 100% discount yields 0.00 (BR-26.10), not the first price point.
 func SmartRound(v decimal.Decimal, bands []SmartBand) decimal.Decimal {
-	band := bands[len(bands)-1]
-	for _, b := range bands {
+	if v.IsZero() {
+		return v
+	}
+	i := len(bands) - 1
+	for j, b := range bands {
 		if b.Unbounded || v.LessThan(b.UpTo) {
-			band = b
+			i = j
 			break
 		}
 	}
-	candidate := v.Floor().Add(band.Ending)
-	if candidate.LessThan(v) {
-		candidate = candidate.Add(decimal.NewFromInt(1))
+	from := v
+	for ; ; i++ {
+		band := bands[i]
+		candidate := from.Floor().Add(band.Ending)
+		if candidate.LessThan(from) {
+			candidate = candidate.Add(decimal.NewFromInt(1))
+		}
+		if band.Unbounded || candidate.LessThan(band.UpTo) || i == len(bands)-1 {
+			return candidate
+		}
+		from = band.UpTo // v is below this edge, so the next band starts here
 	}
-	return candidate
 }
 
 // Tier is one step of a rebate or vendor rebate schedule (BR-26.8). A tier pays
