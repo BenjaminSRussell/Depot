@@ -1448,6 +1448,31 @@ spec:
         key: depot/dev/treasury-postgres/cdc-password
         property: value
 ---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: debezium-cdc-migration-factory
+  namespace: kafka
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: depot
+  target:
+    name: debezium-cdc-migration-factory
+    creationPolicy: Owner
+    template:
+      data:
+        username: debezium_cdc_migration_factory
+        password: "{{ .password }}"
+  data:
+    - secretKey: password
+      remoteRef:
+        key: depot/dev/migration-factory-postgres/cdc-password
+        property: value
+---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
@@ -1456,7 +1481,7 @@ metadata:
 rules:
   - apiGroups: [""]
     resources: [secrets]
-    resourceNames: [debezium-cdc-metadata, debezium-cdc-batch, debezium-cdc-receiving, debezium-cdc-eam, debezium-cdc-transport, debezium-cdc-sales, debezium-cdc-fulfillment, debezium-cdc-budgeting, debezium-cdc-billing, debezium-cdc-fieldservice, debezium-cdc-warehouse, debezium-cdc-intercompany, debezium-cdc-ops, debezium-cdc-receivables, debezium-cdc-expense, debezium-cdc-projects, debezium-cdc-party, debezium-cdc-product, debezium-cdc-purchasing, debezium-cdc-production, debezium-cdc-hr, debezium-cdc-agents-ts, debezium-cdc-analytics, debezium-cdc-assets, debezium-cdc-audit, debezium-cdc-close, debezium-cdc-compliance, debezium-cdc-consolidation, debezium-cdc-costacct, debezium-cdc-costing, debezium-cdc-edi, debezium-cdc-engineering, debezium-cdc-finreport, debezium-cdc-fx, debezium-cdc-identity, debezium-cdc-integration-hub-ts, debezium-cdc-inventory, debezium-cdc-lean, debezium-cdc-ledger, debezium-cdc-migration, debezium-cdc-mobile, debezium-cdc-numbering, debezium-cdc-org, debezium-cdc-payables, debezium-cdc-payroll, debezium-cdc-planning, debezium-cdc-platform-health, debezium-cdc-prediction-py, debezium-cdc-pricing, debezium-cdc-print, debezium-cdc-processmfg, debezium-cdc-productcost, debezium-cdc-quality, debezium-cdc-revrec, debezium-cdc-scheduling, debezium-cdc-shopfloor, debezium-cdc-tax, debezium-cdc-treasury]
+    resourceNames: [debezium-cdc-metadata, debezium-cdc-batch, debezium-cdc-receiving, debezium-cdc-eam, debezium-cdc-transport, debezium-cdc-sales, debezium-cdc-fulfillment, debezium-cdc-budgeting, debezium-cdc-billing, debezium-cdc-fieldservice, debezium-cdc-warehouse, debezium-cdc-intercompany, debezium-cdc-ops, debezium-cdc-receivables, debezium-cdc-expense, debezium-cdc-projects, debezium-cdc-party, debezium-cdc-product, debezium-cdc-purchasing, debezium-cdc-production, debezium-cdc-hr, debezium-cdc-agents-ts, debezium-cdc-analytics, debezium-cdc-assets, debezium-cdc-audit, debezium-cdc-close, debezium-cdc-compliance, debezium-cdc-consolidation, debezium-cdc-costacct, debezium-cdc-costing, debezium-cdc-edi, debezium-cdc-engineering, debezium-cdc-finreport, debezium-cdc-fx, debezium-cdc-identity, debezium-cdc-integration-hub-ts, debezium-cdc-inventory, debezium-cdc-lean, debezium-cdc-ledger, debezium-cdc-migration, debezium-cdc-mobile, debezium-cdc-numbering, debezium-cdc-org, debezium-cdc-payables, debezium-cdc-payroll, debezium-cdc-planning, debezium-cdc-platform-health, debezium-cdc-prediction-py, debezium-cdc-pricing, debezium-cdc-print, debezium-cdc-processmfg, debezium-cdc-productcost, debezium-cdc-quality, debezium-cdc-revrec, debezium-cdc-scheduling, debezium-cdc-shopfloor, debezium-cdc-tax, debezium-cdc-treasury, debezium-cdc-migration-factory]
     verbs: [get]
 ---
 apiVersion: rbac.authorization.k8s.io/v1

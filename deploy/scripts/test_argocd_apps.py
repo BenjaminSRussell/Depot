@@ -240,18 +240,64 @@ def pod_images(doc):
 
 
 EVENT_LITERAL = re.compile(r"""["'`](dev\.depot\.[a-z0-9-]+(?:\.[a-z0-9-]+)+)["'`]""")
-EVENT_TYPE_CALL = re.compile(r'events\.Type\(\s*("[a-z0-9]+"|Context)\s*,\s*"([^"]+)"\s*,\s*"([^"]+)"\s*,\s*(\d+)\s*\)')
+EVENT_TYPE_OPEN = re.compile(r"\bevents\.Type\(")
+EVENT_TYPE_CALL = re.compile(r'events\.Type\(\s*("[a-z0-9]+"|(?:\w+\.)?\w+)\s*,\s*"([^"]+)"\s*,\s*"([^"]+)"\s*,\s*(\d+)\s*\)')
+CONTEXT_CONST = re.compile(r'\b(\w*Context)\s*=\s*"([a-z0-9]+)"')
 PLATFORM_IMPORT = re.compile(r'"github\.com/BenjaminSRussell/depot/platform/([a-z0-9_/]+)"')
+STRING_ARG = re.compile(r'"([a-z]+)"')
 
 
-def service_event_types(service):
-    """Every CloudEvents type a service names in its non-test Go, Python or TypeScript sources and in the platform/go
-    packages its Go code imports: quoted literals and events.Type(...) calls (Context is the service's own context)."""
+def service_root(service):
+    """services/<service>, or tools/<service> for a deployable under tools/ (migration-factory)."""
     root = REPO / "services" / service
-    own = re.findall(r'\bContext\s*=\s*"([a-z0-9]+)"', "".join(f.read_text() for f in (root / "internal/events").glob("*.go")))
+    return root if root.is_dir() else REPO / "tools" / service
+
+
+def identity_record_types(files):
+    """The types services/identity's record() builds at run time, events.Type("identity", entityType, verb, 1), from its
+    call sites: record(ctx, tx, tenant, actor, "<entity>", id, "<verb>", data), and recordUser / recordGroup with a
+    literal verb (entities user and scimgroup). A call site whose entity or verb is not a literal, outside those two
+    wrappers, is returned as unresolved, so a new entity cannot reach the outbox without a channel and an ACL."""
+    types, unresolved = set(), []
+    for f in files:
+        if f.suffix != ".go":
+            continue
+        for line in f.read_text().split("\n"):
+            for name in ("record", "recordUser", "recordGroup"):
+                for m in re.finditer(rf"\b{name}\(([^\n]*)", line):
+                    if f"func {name}(" in line:
+                        continue
+                    args = [a.strip() for a in m.group(1).split(",")]
+                    if name == "record" and len(args) >= 7 and STRING_ARG.fullmatch(args[4]) and STRING_ARG.fullmatch(args[6]):
+                        types.add(f"dev.depot.identity.{args[4][1:-1]}.{args[6][1:-1]}.v1")
+                    elif name == "record" and len(args) >= 7 and args[4] in ('"user"', '"scimgroup"') and args[6] == "verb":
+                        pass  # the bodies of recordUser and recordGroup: their callers' verbs are read below
+                    elif name != "record" and len(args) >= 5 and STRING_ARG.fullmatch(args[4]):
+                        entity = "user" if name == "recordUser" else "scimgroup"
+                        types.add(f"dev.depot.identity.{entity}.{args[4][1:-1]}.v1")
+                    else:
+                        unresolved.append(f"services/identity/{f.name}: {name}({m.group(1)[:80]}")
+    return types, unresolved
+
+
+# events.Type(...) calls whose arguments are not literals (or a *Context constant), and the resolver that finds their types
+# instead: (service, file name) -> function of the service's scanned files returning (types, unresolved call sites).
+RUNTIME_EVENT_TYPES = {
+    ("identity", "admin_common.go"): identity_record_types,
+}
+# events.Type(...) calls the scanner cannot resolve that write nothing to an outbox: path from the repo root -> why.
+UNRESOLVED_EVENT_TYPE_CALLS_OK = {
+    "services/receiving/internal/api/events.go":
+        "newEvent(context, entity, verb, ...) wraps events.Type for literal callers; outbox-receiving routes by aggregate_type, "
+        "so the event type does not pick the topic",
+}
+
+
+def _event_type_scan(service):
+    root = service_root(service)
     files, packages = [], set()
     for f in root.rglob("*"):
-        if f.suffix not in (".go", ".py", ".ts") or "node_modules" in f.parts or "tests" in f.parts \
+        if f.suffix not in (".go", ".py", ".ts") or {"node_modules", "tests", "test", "testdata"} & set(f.parts) \
                 or f.name.endswith(("_test.go", ".test.ts")) or f.name.startswith("test_"):
             continue
         files.append(f)
@@ -260,15 +306,58 @@ def service_event_types(service):
             packages |= set(PLATFORM_IMPORT.findall(f.read_text(errors="ignore")))
     for package in sorted(packages):
         files += [f for f in (REPO / "platform/go" / package).glob("*.go") if not f.name.endswith("_test.go")]
-    types = set()
+    # *Context constants: the one in the call's own directory wins, else a value unique across the scanned files.
+    consts_by_dir, consts = {}, {}
+    for f in files:
+        if f.suffix == ".go":
+            for name, value in CONTEXT_CONST.findall(f.read_text(errors="ignore")):
+                consts_by_dir.setdefault(f.parent, {})[name] = value
+                consts.setdefault(name, set()).add(value)
+    types, unresolved = set(), []
     for f in files:
         src = f.read_text(errors="ignore")
         types |= set(EVENT_LITERAL.findall(src))
-        for ctx, entity, verb, version in EVENT_TYPE_CALL.findall(src):
-            context = ctx.strip('"') if ctx != "Context" else (own[0] if own else None)
-            if context:
-                types.add(f"dev.depot.{context}.{entity}.{verb}.v{version}")
-    return types
+        if f.suffix != ".go":
+            continue
+        resolved_at = set()
+        for m in EVENT_TYPE_CALL.finditer(src):
+            ctx, entity, verb, version = m.groups()
+            name = ctx.rsplit(".", 1)[-1]
+            if ctx.startswith('"'):
+                context = ctx[1:-1]
+            elif "." not in ctx and name in consts_by_dir.get(f.parent, {}):
+                context = consts_by_dir[f.parent][name]
+            elif len(consts.get(name, ())) == 1:
+                (context,) = consts[name]
+            else:
+                continue
+            resolved_at.add(m.start())
+            types.add(f"dev.depot.{context}.{entity}.{verb}.v{version}")
+        rel = f.relative_to(REPO).as_posix()
+        for m in EVENT_TYPE_OPEN.finditer(src):
+            if m.start() in resolved_at or rel in UNRESOLVED_EVENT_TYPE_CALLS_OK:
+                continue
+            resolver = RUNTIME_EVENT_TYPES.get((service, f.name))
+            if resolver:
+                more, bad = resolver(files)
+                types |= more
+                unresolved += bad
+            else:
+                line = src.count("\n", 0, m.start()) + 1
+                unresolved.append(f"{rel}:{line}: {src[m.start():src.find(chr(10), m.start())].strip()[:100]}")
+    return types, sorted(set(unresolved))
+
+
+def service_event_types(service):
+    """Every CloudEvents type a service names in its non-test Go, Python or TypeScript sources and in the platform/go
+    packages its Go code imports: quoted literals, and events.Type(...) calls whose context is a literal or a *Context
+    constant (identity's runtime-built types come from RUNTIME_EVENT_TYPES)."""
+    return _event_type_scan(service)[0]
+
+
+def unresolved_event_type_calls(service):
+    """events.Type(...) calls of a service that the scanner cannot turn into a type and no resolver covers."""
+    return _event_type_scan(service)[1]
 
 
 JAVA_GROUP_REF = re.compile(r"\$(\d+)|\$\{(\w+)\}")
@@ -296,7 +385,7 @@ def outbox_route(cfg, typ):
 
 
 def asyncapi(service):
-    path = REPO / f"services/{service}/events/asyncapi.yaml"
+    path = service_root(service) / "events/asyncapi.yaml"
     return yaml.safe_load(path.read_text()) if path.is_file() else None
 
 
@@ -311,9 +400,11 @@ def outbox_prefixes(cfg, spec):
 
 
 def outbox_services():
-    """Every service whose migrations create an outbox table -> the schema of that table."""
+    """Every service whose migrations create an outbox table -> the schema of that table. Deployables under tools/ (a
+    directory with migrations and a Helm chart, such as tools/migration-factory) count as services."""
     found = {}
-    for path in sorted(REPO.glob("services/*/migrations/*.sql")):
+    tools = [p for p in sorted(REPO.glob("tools/*/migrations/*.sql")) if any((p.parents[1] / "charts").glob("*/Chart.yaml"))]
+    for path in sorted(REPO.glob("services/*/migrations/*.sql")) + tools:
         for schema in OUTBOX_TABLE.findall(path.read_text()):
             found.setdefault(path.parts[-3], schema.lower() or "public")
     return found
@@ -705,8 +796,6 @@ class ArgoApplicationsTest(unittest.TestCase):
     UNWRITTEN_EVENT_TYPES = {
         ("payables", "dev.depot.payables.invoice.posted.v1"):
             "consumer/invoiceposted.go reads it (receiving's invoice handoff); payables writes no invoice.posted",
-        ("agents-ts", "dev.depot.agent.run.completed.v1"):
-            "src/domain/events.ts builds it but nothing writes it to the outbox yet (services/agents-ts/NOT-IMPLEMENTED.md)",
     }
 
     def test_type_routed_outbox_connectors_match_their_asyncapi_channels(self):
@@ -729,7 +818,7 @@ class ArgoApplicationsTest(unittest.TestCase):
             with self.subTest(connector=name):
                 service = name.removeprefix("outbox-")
                 spec = asyncapi(service)
-                self.assertIsNotNone(spec, f"{name}: services/{service}/events/asyncapi.yaml is missing")
+                self.assertIsNotNone(spec, f"{name}: {service_root(service).relative_to(REPO)}/events/asyncapi.yaml is missing")
                 prefixes = outbox_prefixes(cfg, spec)
                 self.assertTrue(prefixes, f"{name}: no topic prefix")
                 for prefix in prefixes:
@@ -922,6 +1011,52 @@ class ArgoApplicationsTest(unittest.TestCase):
         self.assertEqual([], sorted(connectors - set(services)),
                          "outbox-<service> connectors in deploy/kafka/connect.yaml whose service's migrations create no outbox table")
 
+    def test_outbox_writers_store_cloudevents_envelopes(self):
+        # Every connector relays the outbox payload as the Kafka value, and its CloudEventsEnricher rejects a payload without
+        # a CloudEvents type, id, time and specversion 1.0, which stops the connector for every later row (B-05a review: agents-ts
+        # and prediction-py wrote bare data). platform/go/outbox.Enqueue writes an events.Event; a raw insert must too: in Go
+        # one built by events.New, in TypeScript or Python one built by an *envelope function that sets specversion.
+        raw_insert = re.compile(r"insert\s+into\s+(?:\w+\.)?outbox\s*\(", re.I)
+        checked = set()
+        for d in load_docs(DEPLOY / "kafka/connect.yaml"):
+            if d["kind"] != "KafkaConnector":
+                continue
+            service = d["metadata"]["name"].removeprefix("outbox-")
+            root = service_root(service)
+            sources = [f for f in root.rglob("*") if f.suffix in (".go", ".ts", ".py") and not ({"node_modules", "test", "tests", "testdata"} & set(f.parts))
+                       and not f.name.endswith(("_test.go", ".test.ts")) and not f.name.startswith("test_")]
+            for f in sources:
+                src = f.read_text(errors="ignore")
+                if not raw_insert.search(src):
+                    continue
+                checked.add(f.relative_to(REPO).as_posix())
+                with self.subTest(file=f.relative_to(REPO).as_posix()):
+                    if f.suffix == ".go":
+                        self.assertIn("events.New(", src, "a raw outbox insert must store an events.Event built by events.New")
+                        continue
+                    builders = set(re.findall(r"\b(\w*[eE]nvelope)\(", src))
+                    defined = [g for g in sources for name in builders
+                               if re.search(rf"\b(?:def|function)\s+{name}\b", g.read_text(errors="ignore")) and "specversion" in g.read_text(errors="ignore")]
+                    self.assertTrue(defined, "a raw outbox insert must store the envelope an *envelope function builds (with specversion)")
+        self.assertLessEqual({"services/agents-ts/src/store/outbox.ts", "services/prediction-py/src/prediction/store.py",
+                              "services/integration-hub-ts/src/events.ts"}, checked)
+
+    def test_outbox_services_build_only_event_types_the_scanner_resolves(self):
+        # The type checks above see only types the scanner can read. An events.Type(...) call with a context it cannot
+        # resolve (a constant it does not know, or entity and verb built at run time) would publish types no check sees,
+        # which route to topics without an ACL and stop the connector. Each such call needs a resolver in
+        # RUNTIME_EVENT_TYPES or an entry in UNRESOLVED_EVENT_TYPE_CALLS_OK saying why it is safe.
+        for d in load_docs(DEPLOY / "kafka/connect.yaml"):
+            if d["kind"] == "KafkaConnector":
+                service = d["metadata"]["name"].removeprefix("outbox-")
+                with self.subTest(service=service):
+                    self.assertEqual([], unresolved_event_type_calls(service), "events.Type calls the scanner cannot resolve")
+        for path in UNRESOLVED_EVENT_TYPE_CALLS_OK:
+            self.assertIn("events.Type(", (REPO / path).read_text(), f"stale UNRESOLVED_EVENT_TYPE_CALLS_OK entry {path}")
+        types, unresolved = identity_record_types(sorted(f for f in (REPO / "services/identity").glob("*.go") if not f.name.endswith("_test.go")))
+        self.assertEqual([], unresolved)
+        self.assertIn("dev.depot.identity.tenant.created.v1", types)
+
     def test_every_outbox_connector_is_provisioned_end_to_end(self):
         # Every KafkaConnector in connect.yaml needs, in dev (#213): its database and REPLICATION role (created by the shared
         # dev Postgres init in postgres.yaml, or by a deploy/postgres release on its own host), the same Vault password on
@@ -995,15 +1130,15 @@ class ArgoApplicationsTest(unittest.TestCase):
                     self.assertTrue((values.get("cdc") or {}).get("enabled", True), f"{host_ns}: cdc disabled")
                     self.assertEqual("debezium_cdc", cdc_role, "the deploy/postgres chart creates debezium_cdc")
                     self.assertEqual(f"depot/dev/{helm['releaseName']}-postgres/cdc-password", vault)
-                migrations = "\n".join(p.read_text() for p in sorted((REPO / f"services/{service}/migrations").glob("*.sql")))
-                self.assertRegex(migrations, rf"CREATE PUBLICATION {pub}\b", f"services/{service}/migrations never creates {pub}")
+                migrations = "\n".join(p.read_text() for p in sorted((service_root(service) / "migrations").glob("*.sql")))
+                self.assertRegex(migrations, rf"CREATE PUBLICATION {pub}\b", f"{service_root(service).relative_to(REPO)}/migrations never creates {pub}")
                 self.assertRegex(migrations, rf"ALTER PUBLICATION {pub} ADD TABLE")
                 self.assertRegex(migrations, rf"GRANT SELECT ON (?:\w+\.)?outbox TO {cdc_role}\b", f"{cdc_role} cannot read the outbox")
                 if cfg["transforms.outbox.route.by.field"] == "type":
                     # Routed by event type, a channel is the topic its events land on (the route is checked against
                     # every message in test_type_routed_outbox_connectors_match_their_asyncapi_channels).
                     spec = asyncapi(service)
-                    self.assertIsNotNone(spec, f"{name}: services/{service}/events/asyncapi.yaml is missing")
+                    self.assertIsNotNone(spec, f"{name}: {service_root(service).relative_to(REPO)}/events/asyncapi.yaml is missing")
                     prefixes = tuple(sorted(outbox_prefixes(cfg, spec)))
                     channels = {c["address"] for c in (spec.get("channels") or {}).values() if c["address"].startswith(prefixes)}
                     if not channels:

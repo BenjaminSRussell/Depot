@@ -59,25 +59,38 @@ Kafka Connect reads too (`debezium-cdc-<service>` in `deploy/envs/dev/kafka-secr
 - For the `95-<service>-db.sh` services the key is optional: billing, budgeting, warehouse, intercompany, fieldservice,
   ops, receivables, expense, projects, party, product, purchasing, production, hr, and (B-05a) agents-ts, analytics,
   assets, audit, close, compliance, consolidation, costacct, costing, edi, engineering, finreport, identity,
-  integration-hub-ts, inventory, lean, ledger, migration, mobile, numbering, payables, payroll, planning, platform-health,
-  prediction-py, pricing, print, processmfg, productcost, quality, revrec, scheduling, shopfloor, tax and treasury.
+  integration-hub-ts, inventory, lean, ledger, migration, migration-factory (tools/migration-factory), mobile, numbering,
+  payables, payroll, planning, platform-health, prediction-py, pricing, print, processmfg, productcost, quality, revrec,
+  scheduling, shopfloor, tax and treasury.
   Without it the pod still starts, the database is created, and the init log says `debezium_cdc_<service> not created`;
   that connector fails to log in. fx and org use `95-fx-cdc.sh` and `95-org-cdc.sh`, which create only the role
   (their databases come from `30-fx-db.sh` and `40-org-db.sh`). A hyphen in the service name becomes an underscore in
   the role, database and slot (`debezium_cdc_agents_ts`), not in the Vault key or the Secrets
   (`depot/dev/agents-ts-postgres/cdc-password`, `agents-ts-cdc`, `debezium-cdc-agents-ts`); agents-ts, integration-hub-ts
   and prediction-py use the databases their charts name (`depot_agents`, `depot_integration_hub`, `depot_prediction`).
+- A connector reads the database named in its `database.dbname`, which the 95- script creates. It only sees the
+  service's events if the service writes to that same database: when you give a service its `DATABASE_URL` Secret in dev,
+  point it at the connector's database (`depot_<service>`, or the chart's name above), or change `database.dbname`
+  and the 95- script with it. The publication comes from the service's migrations, so until the service has migrated
+  the connector's database the connector fails with a missing publication; if the service migrates another database
+  as well, its events land there and are never relayed.
 - To enable one: write the key (URL-safe hex, property `value`), wait for the ExternalSecrets `<service>-cdc`
   (namespace `hello-ledger`) and `debezium-cdc-<service>` (namespace `kafka`) to sync, then restart the Postgres pod:
   `kubectl -n hello-ledger rollout restart deploy/postgres`. Init scripts run only on an empty data directory, which is
   an emptyDir, so the restart recreates every dev database.
 - The receiving, eam, transport, sales and fulfillment keys stay required: a missing one keeps the pod in
   `CreateContainerConfigError`.
-- The Postgres allows 64 replication slots and walsenders, one each per connector (56 connectors point at it); raise
+- The Postgres allows 64 replication slots and walsenders, one each per connector (57 connectors point at it); raise
   `max_replication_slots` and `max_wal_senders` in its args before adding connectors past that
-  (`deploy/scripts/test_argocd_apps.py` checks). Every service whose migrations create an outbox table has a connector
-  (the same test fails on one that does not), so a new service with an outbox adds its 95- script, its two ExternalSecrets
-  and its connector together.
+  (`deploy/scripts/test_argocd_apps.py` checks). Every service (and deployable under `tools/`) whose migrations create an
+  outbox table has a connector (the same test fails on one that does not), so a new service with an outbox adds its 95-
+  script, its two ExternalSecrets and its connector together.
+- A slot keeps at most 4GB of WAL (`max_slot_wal_keep_size`). A connector that is stopped or keeps failing, or whose
+  database is quiet while others write, can fall that far behind; Postgres then invalidates its slot and the connector
+  fails with a replication slot error. Recover it by dropping the slot
+  (`select pg_drop_replication_slot('depot_outbox_<service>')` as `depot`) and restarting the connector; events written
+  in the gap are not relayed (dev only). The Postgres requests 1Gi of memory with a 3Gi limit, and its data emptyDir
+  is capped at 20Gi.
 
 ## Tear down
 

@@ -8,20 +8,27 @@ info:
     services' events. `src/domain/events.ts` builds and validates the payloads
     of four events (run.completed, approval.requested, budget.threshold,
     killswitch.changed); the schemas below mirror those payloads. Three are
-    written to the outbox inside the business transaction and relayed by the
-    `outbox-agents-ts` connector (deploy/kafka/connect.yaml), which routes
+    written to the outbox inside the business transaction, as CloudEvents
+    envelopes (src/store/outbox.ts), and relayed by the `outbox-agents-ts`
+    connector (deploy/kafka/connect.yaml), which routes
     dev.depot.agent.<entity>.<verb>.v<n> to depot.agent.<entity>:
     approval.requested (src/store/approvals.ts), budget.threshold
     (`PgAgentStore.settle`) and killswitch.changed (`POST
-    /api/v1/agents/kill-switch`, src/store/killswitch.ts). Only those have a
-    channel. run.completed is built but not written yet (see
-    NOT-IMPLEMENTED.md) and `version.promoted` is still planned; each gets its
-    channel with the wiring. Agent workers do not consume killswitch.changed
+    /api/v1/agents/kill-switch`, src/store/killswitch.ts). run.completed is
+    built but not written yet (see NOT-IMPLEMENTED.md); its channel
+    depot.agent.run and the connector's ACL already exist, so the wiring needs
+    no deploy change. `version.promoted` is still planned. Agent workers do not consume killswitch.changed
     (they poll kill_switch_change); `KillSwitchFeed`
     (src/runtime/killswitch-feed.ts) parses exactly the KillSwitchChangedData
     schema below for a consumer outside this service.
 defaultContentType: application/cloudevents+json
 channels:
+  runCompleted:
+    address: depot.agent.run
+    description: Outbox relay topic for finished runs. Nothing writes run.completed to the outbox yet (NOT-IMPLEMENTED.md).
+    messages:
+      runCompleted:
+        $ref: "#/components/messages/RunCompleted"
   approvalRequested:
     address: depot.agent.approval
     description: Outbox relay topic for approval requests raised at an approval gate (FR-47.8).
@@ -41,6 +48,13 @@ channels:
       killSwitchChanged:
         $ref: "#/components/messages/KillSwitchChanged"
 operations:
+  publishRunCompleted:
+    action: send
+    channel:
+      $ref: "#/channels/runCompleted"
+    summary: Emitted at run end once the run engine writes it to the outbox (not wired yet).
+    messages:
+      - $ref: "#/channels/runCompleted/messages/runCompleted"
   publishApprovalRequested:
     action: send
     channel:
@@ -64,6 +78,12 @@ operations:
       - $ref: "#/channels/killSwitchChanged/messages/killSwitchChanged"
 components:
   messages:
+    RunCompleted:
+      name: dev.depot.agent.run.completed.v1
+      summary: A run finished
+      contentType: application/cloudevents+json
+      payload:
+        $ref: "#/components/schemas/RunCompletedData"
     ApprovalRequested:
       name: dev.depot.agent.approval.requested.v1
       summary: A run reached an approval gate

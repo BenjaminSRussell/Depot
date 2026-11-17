@@ -1183,6 +1183,27 @@ spec:
         key: depot/dev/treasury-postgres/cdc-password
         property: value
 ---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: migration-factory-cdc
+  namespace: hello-ledger
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: depot
+  target:
+    name: migration-factory-cdc
+    creationPolicy: Owner
+  data:
+    - secretKey: CDC_PASSWORD
+      remoteRef:
+        key: depot/dev/migration-factory-postgres/cdc-password
+        property: value
+---
 # eam's DATABASE_URL (chart value database.secretName eam-database, key url): its own login role
 # depot_eam_app in depot_eam, created by 60-eam-db.sh with the same Vault password (APP_PASSWORD). The
 # password goes into the URL as is, so it must be URL-safe (hex, like the other dev passwords).
@@ -2134,6 +2155,22 @@ data:
     GRANT CONNECT ON DATABASE depot_treasury TO debezium_cdc_treasury;
     SQL
     fi
+  95-migration-factory-db.sh: |
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" <<'SQL'
+    SELECT 'CREATE DATABASE depot_migration_factory' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'depot_migration_factory')\gexec
+    REVOKE CONNECT ON DATABASE depot_migration_factory FROM PUBLIC;
+    GRANT CONNECT, CREATE ON DATABASE depot_migration_factory TO depot_app;
+    \c depot_migration_factory
+    GRANT ALL ON SCHEMA public TO depot_app;
+    SQL
+    if [ -z "$CDC_MIGRATION_FACTORY_PASSWORD" ]; then
+      echo "95-migration-factory-db.sh: CDC_MIGRATION_FACTORY_PASSWORD is empty (Vault depot/dev/migration-factory-postgres/cdc-password not written); debezium_cdc_migration_factory not created"
+    else
+    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v cdc_password="$CDC_MIGRATION_FACTORY_PASSWORD" <<'SQL'
+    CREATE ROLE debezium_cdc_migration_factory LOGIN NOSUPERUSER NOBYPASSRLS REPLICATION PASSWORD :'cdc_password';
+    GRANT CONNECT ON DATABASE depot_migration_factory TO debezium_cdc_migration_factory;
+    SQL
+    fi
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -2153,7 +2190,7 @@ spec:
         app.kubernetes.io/name: postgres
       annotations:
         # initdb scripts run only on an empty PGDATA; bump this whenever postgres-init changes so the pod restarts
-        depot.dev/init-rev: "11"
+        depot.dev/init-rev: "12"
     spec:
       securityContext:
         runAsNonRoot: true
@@ -2165,9 +2202,20 @@ spec:
       containers:
         - name: postgres
           image: postgres:17-alpine@sha256:eee6c6e1b0894fa4fe0075eb054af9fd1cf39a35321c2d4110626cfe506411fb
-          # One logical slot and one walsender per outbox connector on this Postgres (deploy/kafka/connect.yaml: 56 of
+          # One logical slot and one walsender per outbox connector on this Postgres (deploy/kafka/connect.yaml: 57 of
           # them), with headroom; deploy/scripts/test_argocd_apps.py fails when the connectors outgrow these limits.
-          args: [-c, wal_level=logical, -c, max_replication_slots=64, -c, max_wal_senders=64]
+          # max_slot_wal_keep_size caps the WAL a lagging or stopped connector's slot can hold at 4GB: past it Postgres
+          # invalidates that slot (the connector must then be reset, see docs/runbooks/delivery/deploy-local.md) instead of
+          # filling the data volume. A slot on a quiet database also lags while other databases write, because nothing
+          # in its own database moves its confirmed position. logical_decoding_work_mem bounds each walsender's
+          # decoding memory, so 57 walsenders stay inside the memory limit below.
+          args: [-c, wal_level=logical, -c, max_replication_slots=64, -c, max_wal_senders=64, -c, max_slot_wal_keep_size=4GB,
+                 -c, logical_decoding_work_mem=16MB]
+          # Sized for the walsenders: 57 x (16MB decoding memory + a backend of a few MB) is about 1.2GiB at worst, plus
+          # shared_buffers and the service backends.
+          resources:
+            requests: { cpu: 250m, memory: 1Gi, ephemeral-storage: 2Gi }
+            limits: { memory: 3Gi, ephemeral-storage: 20Gi }
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
@@ -2350,6 +2398,9 @@ spec:
             - name: CDC_TREASURY_PASSWORD
               valueFrom:
                 secretKeyRef: { name: treasury-cdc, key: CDC_PASSWORD, optional: true }
+            - name: CDC_MIGRATION_FACTORY_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: migration-factory-cdc, key: CDC_PASSWORD, optional: true }
             - name: EAM_APP_PASSWORD
               valueFrom:
                 secretKeyRef: { name: eam-database, key: APP_PASSWORD }
@@ -2371,7 +2422,8 @@ spec:
         - name: init
           configMap: { name: postgres-init, defaultMode: 365 }
         - name: data
-          emptyDir: {}
+          # Up to 4GB of WAL kept for slots (max_slot_wal_keep_size), max_wal_size and the dev databases.
+          emptyDir: { sizeLimit: 20Gi }
 ---
 apiVersion: v1
 kind: Service

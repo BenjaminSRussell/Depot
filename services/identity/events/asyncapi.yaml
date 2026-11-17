@@ -1,13 +1,18 @@
 asyncapi: 3.0.0
 info:
   title: Depot identity events
-  version: 0.1.0
+  version: 0.2.0
   description: |
     CloudEvents 1.0 envelope; the schemas below are the data member. `record` (admin_common.go) writes each event to the
-    identity_audit table and the outbox in one transaction, with aggregate type and entity id: SCIM users
-    (scim_users.go), SCIM groups (scim_groups.go) and role assignments (tenants_api.go, and scim_users.go when a
-    deprovisioned user's assignments end). The `outbox-identity` connector (deploy/kafka/connect.yaml) routes
-    dev.depot.identity.<entity>.<verb>.v<n> to depot.identity.<entity>. No consumer reads these topics yet.
+    identity_audit table and the outbox in one transaction, with the entity as aggregate type and its id as key. It builds
+    the type at run time, dev.depot.identity.<entity>.<verb>.v1, from the entity and verb each call site passes; every
+    call site is listed here and deploy/scripts/test_argocd_apps.py fails on one that is not: SCIM users (scim_users.go),
+    SCIM groups (scim_groups.go), role assignments (role_assignments_api.go, tenants_api.go, and scim_users.go when a
+    deprovisioned user's assignments end), customer contacts (customer_contacts_api.go), Keycloak deprovisioning retries
+    (keycloak_deprovision_api.go), legal entities (legal_entities_api.go), tenant features, setup steps and workspaces
+    (tenant_features_api.go, tenant_setup_api.go) and tenants (tenants_api.go). The `outbox-identity` connector
+    (deploy/kafka/connect.yaml) routes dev.depot.identity.<entity>.<verb>.v<n> to depot.identity.<entity>. No consumer
+    reads these topics yet.
 defaultContentType: application/cloudevents+json
 channels:
   user:
@@ -40,6 +45,52 @@ channels:
         $ref: "#/components/messages/RoleAssignmentAssigned"
       roleAssignmentEnded:
         $ref: "#/components/messages/RoleAssignmentEnded"
+  customerContact:
+    address: depot.identity.customercontact
+    description: Outbox relay topic for customer portal contacts, keyed by contact id.
+    messages:
+      customerContactInvited:
+        $ref: "#/components/messages/CustomerContactInvited"
+      customerContactRemapped:
+        $ref: "#/components/messages/CustomerContactRemapped"
+      customerContactDisabled:
+        $ref: "#/components/messages/CustomerContactDisabled"
+  keycloakDeprovision:
+    address: depot.identity.keycloakdeprovision
+    description: Outbox relay topic for retried Keycloak deprovisionings, keyed by deprovisioning id.
+    messages:
+      keycloakDeprovisionRetried:
+        $ref: "#/components/messages/KeycloakDeprovisionRetried"
+  legalEntity:
+    address: depot.identity.legalentity
+    description: Outbox relay topic for the tenant's legal entities, keyed by legal entity id.
+    messages:
+      legalEntityCreated:
+        $ref: "#/components/messages/LegalEntityCreated"
+  tenantFeatures:
+    address: depot.identity.tenantfeatures
+    description: Outbox relay topic for feature flag changes, keyed by tenant id.
+    messages:
+      tenantFeaturesUpdated:
+        $ref: "#/components/messages/TenantFeaturesUpdated"
+  tenantSetup:
+    address: depot.identity.tenantsetup
+    description: Outbox relay topic for setup checklist steps, keyed by tenant id.
+    messages:
+      tenantSetupUpdated:
+        $ref: "#/components/messages/TenantSetupUpdated"
+  tenantWorkspaces:
+    address: depot.identity.tenantworkspaces
+    description: Outbox relay topic for the tenant's workspace layout, keyed by tenant id.
+    messages:
+      tenantWorkspacesUpdated:
+        $ref: "#/components/messages/TenantWorkspacesUpdated"
+  tenant:
+    address: depot.identity.tenant
+    description: Outbox relay topic for tenant creation, keyed by tenant id.
+    messages:
+      tenantCreated:
+        $ref: "#/components/messages/TenantCreated"
 operations:
   publishUser:
     action: send
@@ -64,10 +115,61 @@ operations:
     action: send
     channel:
       $ref: "#/channels/roleAssignment"
-    summary: A role is assigned to a user, or an assignment ends (the user was deprovisioned).
+    summary: A role is assigned to a user (admin API or tenant creation), or an assignment ends (admin API or deprovisioning).
     messages:
       - $ref: "#/channels/roleAssignment/messages/roleAssignmentAssigned"
       - $ref: "#/channels/roleAssignment/messages/roleAssignmentEnded"
+  publishCustomerContact:
+    action: send
+    channel:
+      $ref: "#/channels/customerContact"
+    summary: A customer contact is invited, remapped to another customer or legal entities, or disabled.
+    messages:
+      - $ref: "#/channels/customerContact/messages/customerContactInvited"
+      - $ref: "#/channels/customerContact/messages/customerContactRemapped"
+      - $ref: "#/channels/customerContact/messages/customerContactDisabled"
+  publishKeycloakDeprovision:
+    action: send
+    channel:
+      $ref: "#/channels/keycloakDeprovision"
+    summary: A tenant administrator retries a failed Keycloak deprovisioning.
+    messages:
+      - $ref: "#/channels/keycloakDeprovision/messages/keycloakDeprovisionRetried"
+  publishLegalEntity:
+    action: send
+    channel:
+      $ref: "#/channels/legalEntity"
+    summary: A legal entity is created.
+    messages:
+      - $ref: "#/channels/legalEntity/messages/legalEntityCreated"
+  publishTenantFeatures:
+    action: send
+    channel:
+      $ref: "#/channels/tenantFeatures"
+    summary: Feature flags of the tenant change.
+    messages:
+      - $ref: "#/channels/tenantFeatures/messages/tenantFeaturesUpdated"
+  publishTenantSetup:
+    action: send
+    channel:
+      $ref: "#/channels/tenantSetup"
+    summary: A setup checklist step changes status.
+    messages:
+      - $ref: "#/channels/tenantSetup/messages/tenantSetupUpdated"
+  publishTenantWorkspaces:
+    action: send
+    channel:
+      $ref: "#/channels/tenantWorkspaces"
+    summary: The tenant's workspace layout is stored or reset.
+    messages:
+      - $ref: "#/channels/tenantWorkspaces/messages/tenantWorkspacesUpdated"
+  publishTenant:
+    action: send
+    channel:
+      $ref: "#/channels/tenant"
+    summary: An operator creates a tenant.
+    messages:
+      - $ref: "#/channels/tenant/messages/tenantCreated"
 components:
   messages:
     UserProvisioned:
@@ -115,6 +217,99 @@ components:
       summary: A role assignment ended
       contentType: application/cloudevents+json
       payload: { $ref: "#/components/schemas/RoleAssignmentData" }
+    CustomerContactInvited:
+      name: dev.depot.identity.customercontact.invited.v1
+      summary: A customer contact was invited to the portal
+      contentType: application/cloudevents+json
+      payload: { $ref: "#/components/schemas/CustomerContactData" }
+    CustomerContactRemapped:
+      name: dev.depot.identity.customercontact.remapped.v1
+      summary: A customer contact was mapped to another customer or other legal entities
+      contentType: application/cloudevents+json
+      payload: { $ref: "#/components/schemas/CustomerContactRemappedData" }
+    CustomerContactDisabled:
+      name: dev.depot.identity.customercontact.disabled.v1
+      summary: A customer contact was disabled
+      contentType: application/cloudevents+json
+      payload: { $ref: "#/components/schemas/CustomerContactData" }
+    KeycloakDeprovisionRetried:
+      name: dev.depot.identity.keycloakdeprovision.retried.v1
+      summary: A failed Keycloak deprovisioning was queued again
+      contentType: application/cloudevents+json
+      payload:
+        type: object
+        required: [deprovisionId, userId, previousState, previousAttempts, lastError]
+        additionalProperties: false
+        properties:
+          deprovisionId: { type: string, format: uuid }
+          userId: { type: string, format: uuid }
+          previousState: { type: string }
+          previousAttempts: { type: integer, minimum: 0 }
+          lastError: { type: string, description: "Empty when the last attempt recorded no error." }
+    LegalEntityCreated:
+      name: dev.depot.identity.legalentity.created.v1
+      summary: A legal entity was created
+      contentType: application/cloudevents+json
+      payload:
+        type: object
+        required: [legalEntityId, code, displayName, status, createdAt]
+        additionalProperties: false
+        properties:
+          legalEntityId: { type: string, format: uuid }
+          code: { type: string }
+          displayName: { type: string }
+          status: { type: string }
+          createdAt: { type: string, format: date-time }
+    TenantFeaturesUpdated:
+      name: dev.depot.identity.tenantfeatures.updated.v1
+      summary: Feature flags of the tenant changed
+      contentType: application/cloudevents+json
+      payload:
+        type: object
+        required: [changes]
+        additionalProperties: false
+        properties:
+          changes:
+            type: object
+            description: Each feature key whose state changed, and whether it is now enabled.
+            additionalProperties: { type: boolean }
+    TenantSetupUpdated:
+      name: dev.depot.identity.tenantsetup.updated.v1
+      summary: A setup checklist step changed status
+      contentType: application/cloudevents+json
+      payload:
+        type: object
+        required: [step, status]
+        additionalProperties: false
+        properties:
+          step: { type: string }
+          status: { type: string, enum: [todo, done, skipped] }
+    TenantWorkspacesUpdated:
+      name: dev.depot.identity.tenantworkspaces.updated.v1
+      summary: The tenant's workspace layout was stored or reset
+      contentType: application/cloudevents+json
+      payload:
+        type: object
+        required: [reset]
+        additionalProperties: false
+        properties:
+          reset: { type: boolean, description: "True when the layout was reset to the default." }
+    TenantCreated:
+      name: dev.depot.identity.tenant.created.v1
+      summary: A tenant was created
+      contentType: application/cloudevents+json
+      payload:
+        type: object
+        required: [tenantId, realmName, displayName, status, createdAt, residency]
+        additionalProperties: false
+        properties:
+          tenantId: { type: string, format: uuid }
+          realmName: { type: string }
+          displayName: { type: string }
+          status: { type: string }
+          createdAt: { type: string, format: date-time }
+          residency: { type: string, enum: [EU, US, UK, GLOBAL] }
+          region: { type: string, description: "Absent for a tenant created before regions were recorded." }
   schemas:
     UserData:
       type: object
@@ -149,3 +344,23 @@ components:
         reason: { type: string }
         grantedBy: { type: string }
         createdAt: { type: string, format: date-time }
+    CustomerContactData:
+      type: object
+      required: [contactId, customerId, legalEntityIds, status]
+      additionalProperties: false
+      properties:
+        contactId: { type: string, format: uuid }
+        customerId: { type: string, format: uuid }
+        legalEntityIds: { type: array, items: { type: string, format: uuid } }
+        status: { type: string }
+    CustomerContactRemappedData:
+      type: object
+      required: [contactId, customerId, legalEntityIds, status, previousCustomerId, previousLegalEntityIds]
+      additionalProperties: false
+      properties:
+        contactId: { type: string, format: uuid }
+        customerId: { type: string, format: uuid }
+        legalEntityIds: { type: array, items: { type: string, format: uuid } }
+        status: { type: string }
+        previousCustomerId: { type: string, format: uuid }
+        previousLegalEntityIds: { type: array, items: { type: string, format: uuid } }

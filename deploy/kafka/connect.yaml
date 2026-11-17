@@ -345,6 +345,8 @@ spec:
       - resource: {type: topic, name: depot.hr.review, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
       # agents-ts: one literal per AsyncAPI channel of services/agents-ts/events/asyncapi.yaml (outbox-agents-ts routes by event type).
+      - resource: {type: topic, name: depot.agent.run, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
       - resource: {type: topic, name: depot.agent.approval, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
       - resource: {type: topic, name: depot.agent.budget, patternType: literal}
@@ -485,6 +487,20 @@ spec:
       - resource: {type: topic, name: depot.identity.scimgroup, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
       - resource: {type: topic, name: depot.identity.roleassignment, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.identity.customercontact, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.identity.keycloakdeprovision, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.identity.legalentity, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.identity.tenantfeatures, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.identity.tenantsetup, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.identity.tenantworkspaces, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.identity.tenant, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
       # integration-hub-ts: one literal per AsyncAPI channel of services/integration-hub-ts/events/asyncapi.yaml (outbox-integration-hub-ts routes by event type).
       - resource: {type: topic, name: depot.hub.subscription, patternType: literal}
@@ -781,6 +797,21 @@ spec:
       - resource: {type: topic, name: depot.treasury.reconciliation, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
       - resource: {type: topic, name: depot.treasury.cashdesk, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      # migration-factory: one literal per AsyncAPI channel of tools/migration-factory/events/asyncapi.yaml (outbox-migration-factory routes by event type).
+      - resource: {type: topic, name: depot.migration.pack, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.migration.parallelrun, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.cutover.step, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.cutover.plan, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.cutover.decision, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.migration.tolerance, patternType: literal}
+        operations: [Create, Describe, Write, DescribeConfigs]
+      - resource: {type: topic, name: depot.migration.coexistence, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
       - resource: {type: topic, name: depot-connect-, patternType: prefix}
         operations: [Create, Describe, Read, Write, DescribeConfigs]
@@ -2001,8 +2032,9 @@ spec:
 ---
 # Agents-ts routes by event type: dev.depot.agent.<entity>.<verb>.v<n> goes to depot.agent.<entity>, the AsyncAPI channels in
 # services/agents-ts/events/asyncapi.yaml (3 of them).
-# Also: only approval.requested, budget.threshold and killswitch.changed are written to the outbox; run.completed is built but not
-# written yet (services/agents-ts/NOT-IMPLEMENTED.md).
+# Also: approval.requested, budget.threshold and killswitch.changed are written to the outbox as CloudEvents envelopes
+# (src/store/outbox.ts); run.completed is built but not written yet (services/agents-ts/NOT-IMPLEMENTED.md), and its channel
+# depot.agent.run and ACL are here already so wiring it needs no deploy change.
 # A type that does not match keeps its own name as the topic, which no ACL allows, so the task fails instead of writing
 # elsewhere. The ACLs above are literal per channel (a new entity needs an entry); deploy/scripts/test_argocd_apps.py routes every
 # message of the AsyncAPI through the route, compares the ACLs with the channels and checks every type the service defines in code.
@@ -3414,8 +3446,11 @@ spec:
 ---
 # Platform-health routes by event type: dev.depot.platform.<entity>.<verb>.v<n> goes to depot.platform.<entity>, the AsyncAPI channels in
 # services/platform-health/events/asyncapi.yaml (1 of them).
-# Also: it publishes release.promoted and release.rolledback under the platform context (tenant ids.Nil: platform-wide); the
-# depot.platform. prefix ACL of outbox-batch already covers depot.platform.release, which also has its own literal entry.
+# Also: it publishes release.promoted and release.rolledback under the platform context (tenant ids.Nil: platform-wide).
+# Accepted exception: it shares the depot.platform. topic space with outbox-batch, whose prefix ACL already lets the debezium
+# user write depot.platform.release. The literal entry above is kept on purpose: deploy/scripts/test_argocd_apps.py compares
+# the literal ACLs under each prefix with the channels of the type-routed connectors writing there, and the entry keeps
+# platform-health's channel writable if batch's prefix ACL is ever narrowed.
 # A type that does not match keeps its own name as the topic, which no ACL allows, so the task fails instead of writing
 # elsewhere. The ACLs above are literal per channel (a new entity needs an entry); deploy/scripts/test_argocd_apps.py routes every
 # message of the AsyncAPI through the route, compares the ACLs with the channels and checks every type the service defines in code.
@@ -4127,6 +4162,64 @@ spec:
     transforms.rename.type: org.apache.kafka.connect.transforms.RegexRouter
     transforms.rename.regex: 'depot\.treasury\.cashdesk(?:day|entry)'
     transforms.rename.replacement: depot.treasury.cashdesk
+    transforms.enrich.type: dev.depot.connect.cloudevents.CloudEventsEnricher
+    transforms.enrich.source.default: depot
+    transforms.enrich.dataschema.template: https://schemas.depot.dev/{type}.json
+    key.converter: org.apache.kafka.connect.storage.StringConverter
+    value.converter: org.apache.kafka.connect.json.JsonConverter
+    value.converter.schemas.enable: false
+    producer.override.acks: all
+    producer.override.enable.idempotence: true
+---
+# Migration-factory routes by event type: dev.depot.<context>.<entity>.<verb>.v<n> goes to depot.<context>.<entity>, the AsyncAPI
+# channels in tools/migration-factory/events/asyncapi.yaml.
+# Also: it publishes under the migration and cutover contexts, so the route keeps <context>.<entity>; it shares
+# depot.migration. with outbox-migration (different channels). The service lives under tools/migration-factory.
+# A type that does not match keeps its own name as the topic, which no ACL allows, so the task fails instead of writing
+# elsewhere. The ACLs above are literal per channel (a new entity needs an entry); deploy/scripts/test_argocd_apps.py routes every
+# message of the AsyncAPI through the route, compares the ACLs with the channels and checks every type the service defines in code.
+# snapshot.mode no_data: pgoutput streaming ignores RLS, so the CDC role needs neither BYPASSRLS nor a snapshot read of the forced-RLS outbox.
+# debezium_cdc_migration_factory has REPLICATION; the dev Postgres init (95-migration-factory-db.sh) creates depot_migration_factory and that role,
+# grants it CONNECT there only and revokes CONNECT from PUBLIC. The publication and the role's SELECT on outbox are
+# the service's migrations 0033 and 0034.
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaConnector
+metadata:
+  name: outbox-migration-factory
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: depot-connect
+spec:
+  class: io.debezium.connector.postgresql.PostgresConnector
+  tasksMax: 1
+  config:
+    plugin.name: pgoutput
+    database.hostname: postgres.hello-ledger.svc
+    database.port: 5432
+    database.user: ${secrets:kafka/debezium-cdc-migration-factory:username}
+    database.password: ${secrets:kafka/debezium-cdc-migration-factory:password}
+    database.dbname: depot_migration_factory
+    topic.prefix: depot.migrationfactory
+    slot.name: depot_outbox_migration_factory
+    publication.name: depot_outbox_migration_factory
+    publication.autocreate.mode: disabled
+    table.include.list: public.outbox
+    snapshot.mode: no_data
+    tombstones.on.delete: false
+    topic.creation.default.replication.factor: 3
+    topic.creation.default.partitions: 12
+    topic.creation.default.cleanup.policy: delete
+    topic.creation.default.retention.ms: 604800000
+    transforms: outbox,enrich
+    transforms.outbox.type: io.debezium.transforms.outbox.EventRouter
+    transforms.outbox.table.field.event.id: id
+    transforms.outbox.table.field.event.key: aggregate_id
+    transforms.outbox.table.field.event.payload: payload
+    transforms.outbox.route.by.field: type
+    transforms.outbox.route.topic.regex: 'dev\.depot\.(?<routedByValue>(?:migration|cutover)\.[a-z][a-z0-9]*)\.[a-z][a-z0-9]*\.v[0-9]+'
+    transforms.outbox.route.topic.replacement: depot.${routedByValue}
+    transforms.outbox.table.expand.json.payload: true
+    transforms.outbox.table.fields.additional.placement: tenant_id:header:tenantid
     transforms.enrich.type: dev.depot.connect.cloudevents.CloudEventsEnricher
     transforms.enrich.source.default: depot
     transforms.enrich.dataschema.template: https://schemas.depot.dev/{type}.json
