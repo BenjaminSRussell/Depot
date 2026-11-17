@@ -194,7 +194,7 @@ WAVES = [
  ('5', 'P1: History and audit page, shipments/production stock, FX, gap-free numbers', ['B-23', 'B-14', 'B-17', 'B-35']),
  ('6', 'P1: audited actions, close first cut, planning, subledger tie-outs, product blocks', ['B-24', 'B-25', 'B-16', 'B-52', 'B-39']),
  ('7', 'P1: missing postings, dimension security, defaults, kiosk, remaining audit ingestion', ['B-18', 'B-19', 'B-26', 'B-29', 'B-36']),
- ('8', 'P1: names-not-ids, handheld first cut, changeover tie-break; P2: tracked jobs', ['B-27', 'B-30', 'B-56', 'B-34']),
+ ('8', 'P1: names-not-ids, handheld first cut; P2: tracked jobs', ['B-27', 'B-30', 'B-34']),
  ('9', 'P1: bulk actions; P2: intercompany and variances, master data', ['B-28', 'B-40', 'B-43']),
  ('10', 'P2: audited actions everywhere, warehouse complete, payments, production readiness', ['B-54', 'B-37', 'B-41', 'B-48']),
  ('11', 'P2: grid and forms, time/pay/bill, plant seams, P2P/AR controls, posting key', ['B-31', 'B-38', 'B-44', 'B-45', 'B-47ab']),
@@ -434,7 +434,7 @@ for a, src, ev, iss in [
  ('FR-23.5 dispatch ties on uuid, not order number', 'run-1 README; waves-21-30.md; gate 9', 'services/scheduling/internal/domain/schedule.go:466', 'B-08b (built 05105af3)'),
  ('Audit service takes the actor from the request body', 'run-1 README', 'services/audit/internal/api/api.go:119-123', 'B-06'),
  ('FR-8.10 product block flags not enforced', 'run-1 README', 'services/product/migrations/0001_init.sql:88-91', 'B-39'),
- ('BR-23.12 changeover ties on uuid, not order number', 'found after the audit (stage 5)', 'services/scheduling/internal/domain/setup.go:231', 'B-56'),
+ ('BR-23.12 changeover ties on uuid, not order number', 'found after the audit (stage 5)', 'services/scheduling/internal/domain/setup.go:231', 'B-08b (same PR as FR-23.5)'),
  ('FR-14.1 closed-period race (30 s cache outside the posting transaction)', 'backlog review R-04; waves-11-20.md', 'services/ledger/internal/closeperiods/closeperiods.go', 'B-08c'),
  ('Kernel takes the legal-entity selection as scope with no `le` claim (RR-01)', 'architecture re-review', 'platform/go/tenant/tenant.go:241-243', 'B-03 part a'),
  ('FR-3.4 generated entities do not increment version', 'final audit pass', 'services/metadata/internal/gen/migration.go', 'B-43'),
@@ -479,7 +479,7 @@ for w, name, bs in WAVES:
 E.append('\n## Owner-gated batch (floating)\n\n| Batch | Pri | Gate | Rule | Files touched |\n|---|---|---|---|---|')
 E.append(f"| **B-03c** {title_of('B-03c')} | P0 | {GATES_IN_PLAN['B-03c']} | Starts in the first open wave after the owner decision; rebases after B-04, B-12 and B-22; touches only the le mapper, the membership check, the Envoy forwarding and the company switcher; part a has already shipped (RR-01) | {', '.join('`' + f + '`' for f in files_of('B-03c'))} |")
 E.append('\n## Milestones the waves reach\n\n| After wave | What is true |\n|---|---|')
-for a, b in [('1', 'The known code defects are fixed (FR-14.2, FR-26.7, FR-23.5, FR-14.1 race); audit actor verified; kernel refuses a selection without an `le` claim; events flow (live proof #213)'),
+for a, b in [('1', 'The known code defects are fixed (FR-14.2, FR-26.7, FR-23.5, BR-23.12, FR-14.1 race); audit actor verified; kernel refuses a selection without an `le` claim; events flow (live proof #213)'),
              ('2', 'No forged identity path in Kubernetes; routes and real tokens; company scope enforced in OPA and RLS; A7 audit chain running'),
              ('4', 'All P0 issues merged except B-03c (owner-gated, #512): stage and prod deployable (live proof #213), one enforcement model with decision logs, key custody'),
              ('6', 'UX M1 and M2 "Who, when, why" (slices 0–4) once the A7 contract tests pass; P2P and O2C stock moves; FX correct; subledgers tie out'),

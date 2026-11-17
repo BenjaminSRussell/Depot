@@ -388,25 +388,32 @@ ISSUES.append(dict(
     id='B-08b',
     epic='E3',
     prio='P0',
-    prio_reason='Correctness defect (README defect FR-23.5).',
-    size='S',
-    title='Fix the dispatch tie-break: orders tied on due date and priority go in order-number order, not uuid order (FR-23.5 defect)',
+    prio_reason='Correctness defects (README defect FR-23.5; BR-23.12 found after the audit).',
+    size='S (two tie-break fixes, one PR)',
+    title='Fix the scheduling tie-breaks: dispatch (FR-23.5) and changeover sequencing (BR-23.12) break ties on order number, not order uuid',
     labels=['area:scheduling', 'defect'],
-    status='Built in commit 05105af3 (not yet merged): this batch is its review and merge.',
+    status='FR-23.5 built in commit 05105af3 (not yet merged); the BR-23.12 fix is being added to the same PR. This batch is its review and merge.',
     problem=('Planners expect orders with the same due date and priority to be dispatched in order-number order. `orderPlan` broke such ties on '
  '`strings.Compare(a.OrderID, b.OrderID)` (`services/scheduling/internal/domain/schedule.go:466`), a random uuid, and `Operation` carried no order number, so '
- 'the shop-floor sequence changed from run to run for no visible reason.'),
+ 'the shop-floor sequence changed from run to run for no visible reason. The same fault sits in changeover sequencing: BR-23.12 says ties go "earliest due '
+ 'date, then order number", but `nearer` (`services/scheduling/internal/domain/setup.go:231`, used by `SequenceNearest`) falls back to `a.OrderID < '
+ 'b.OrderID`, and `SetupOrder` has no order-number field, so tied orders in a campaign come out in random order. Found after the stage-1 audit; the FR-23.15 '
+ 'row does not record it.'),
     scope_in=['`Operation` carries `OrderNumber`; `orderPlan` sorts by (due date, priority, order number, order id); an order without a number sorts after numbered ones',
  "Migration 0025 (nullable `scheduling_operation.order_number`, expand-only); `POST /operations` stores it; the production-order import writes the event's "
- 'number'],
-    scope_out=['Changeover sequencing tie-break BR-23.12 (B-56, reuses this field)'],
+ 'number',
+ "BR-23.12: `SetupOrder` carries `OrderNumber` (from the operation's order number added above); `nearer` ties on order number, uuid only as the last resort"],
+    scope_out=['Setup matrix per resource group (FR-23.15 gap, run 2)'],
     ac=['`services/scheduling/internal/domain/schedule_test.go`: two orders with equal due date and priority whose uuid order differs from their number order are '
  'sequenced by order number; an unnumbered order sorts after numbered ones; uuid breaks what is still tied',
  '`services/scheduling/internal/store/ordernumber_test.go` and `internal/api/ordernumber_test.go`: an imported or posted operation keeps its order number',
+ '`services/scheduling/internal/domain/setup_test.go`: two orders with equal changeover minutes and due date whose uuid order differs from their number order '
+ 'are sequenced by order number; AC-23.11 still passes (B then C, 50 changeover minutes)',
  'FR-23.5 row re-audited after merge (stage 7)'],
     frs=[('FR-23.5', 'ties broken on order number, not uuid')],
     friction=[],
-    rel=[],
+    rel=['FR-23.14', 'FR-23.15'],
+    defects=['FR-23.5', 'BR-23.12'],
     dids=[],
     adr=[],
     ux=[],
@@ -425,7 +432,9 @@ ISSUES.append(dict(
  'services/scheduling/migrations/0025_operation_order_number.sql (new)',
  'services/scheduling/api/openapi.yaml',
  'services/scheduling/README.md',
- 'CHANGELOG.md'],
+ 'CHANGELOG.md',
+ 'services/scheduling/internal/domain/setup.go',
+ 'services/scheduling/internal/domain/setup_test.go'],
 ))
 
 ISSUES.append(dict(
@@ -2597,39 +2606,6 @@ ISSUES.append(dict(
     gates=[],
     blocked='Gated entirely on the product-owner decision (#512); blocks nothing else.',
     files=['services/sales/internal/** (templates)', 'apps/web/src/modules/sales/**'],
-))
-
-ISSUES.append(dict(
-    id='B-56',
-    epic='E3',
-    prio='P1',
-    prio_reason=('Correctness defect found after the audit (BR-23.12). P1, not P0: it changes the order of tied campaign jobs, not amounts or access; it reuses B-08b and is '
- 'small.'),
-    size='S',
-    title='Fix changeover sequencing tie-break: equal changeover and due date go by order number, not uuid (BR-23.12 defect)',
-    labels=['area:scheduling', 'defect'],
-    problem=('Changeover sequencing (BR-23.12) must break ties on changeover minutes, then earliest due date, then order number. `nearer` '
- '(`services/scheduling/internal/domain/setup.go:231`, used by `SequenceNearest`) falls back to `a.OrderID < b.OrderID`, a uuid, and `SetupOrder` has no '
- 'order-number field, so tied orders in a campaign come out in random order between runs. Found after the stage-1 audit; the FR-23.15 audit row does not '
- 'record it.'),
-    scope_in=["`SetupOrder` carries `OrderNumber`, filled from the scheduling operation's order number added by B-08b (migration 0025)",
- '`nearer` ties on order number, uuid only as the last resort'],
-    scope_out=['Setup matrix per resource group (FR-23.15 gap, run 2)'],
-    ac=['`services/scheduling/internal/domain/setup_test.go`: two orders with equal changeover minutes and due date whose uuid order differs from their number order '
- 'are sequenced by order number',
- 'AC-23.11 still passes (B then C with 50 changeover minutes)'],
-    frs=[],
-    friction=[],
-    rel=['FR-23.15', 'FR-23.14'],
-    defects=['BR-23.12'],
-    dids=[],
-    adr=[],
-    ux=[],
-    slices=[],
-    deps=['B-08b'],
-    gates=[],
-    blocked='None.',
-    files=['services/scheduling/internal/domain/setup.go', 'services/scheduling/internal/domain/setup_test.go', 'services/scheduling/internal/api/campaign.go'],
 ))
 
 ADR_BULLETS = {('0004', 1): 'B-48',
