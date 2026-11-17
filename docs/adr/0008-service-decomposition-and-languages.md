@@ -1,0 +1,64 @@
+# ADR-0008: About sixty Go services per capability, TypeScript only at the edges
+
+**Status:** Accepted — 2026-11-17 (records a decision already made in code; SDLC run 1, stage 2, deviation D5)
+**Evidence:** `docs/sdlc/run-1/architecture-delta.md` fact 2, §1, §2.1, §4 D5, §5 C1
+
+## Context
+
+ADR-0001 put ledgers and engines in Go, workflow, integration and BFFs in TypeScript, and numerical work in Python. The
+architecture (§1, §3.2) turned that into 31 images in 15 bounded contexts: 10 Go, 15 TypeScript and 6 Python, with
+`party-ts`, `procurement-ts`, `sales-ts`, `workforce-ts`, `projects-ts`, `platform-ts` and three BFFs among them.
+
+The repository has 71 service directories under `services/` (`ls services`):
+
+- **58 Go services**, one per business capability rather than one per context. The ledger context alone is split
+  into `ledger`, `fx`, `tax`, `close`, `consolidation`, `finreport`, `budgeting`, `costacct` and `intercompany`;
+  platform into `identity`, `metadata`, `numbering`, `audit`, `batch`, `org`, `compliance`, `ops`, `localization`,
+  `search`, `print` and `platform-health`. Party, projects, procurement (`purchasing`, `receiving`, `payables`),
+  workforce (`hr`, `payroll`, `expense`) and analytics are Go, where the design had TypeScript.
+- **7 TypeScript services**: `workflow-ts` (the one Temporal worker), `integration-hub-ts`, `agents-ts`, `mcp-ts`,
+  `carrier-gateway-ts`, and the two portal BFFs `customer-portal-ts` and `supplier-portal-ts`.
+- **6 Python services**: `configurator-py`, `scheduler-py`, `forecast-py`, `routing-py`, `dispatch-py` and
+  `prediction-py`, all stateless except `prediction-py`.
+
+69 of them have a Helm chart (not `dispatch-py`, `routing-py`), each its own database where it keeps state, and its
+own OpenAPI under its own prefix (`/v1/receiving`, `/v1/consol`, `/v1/controlling` and so on). Only `ledger`,
+`inventory`, `treasury`, `party`, `product`, `sales`, `warehouse` and `projects` keep a designed deployable's name.
+
+## Decision
+
+1. **The deployable is a capability service, not a bounded context.** A context (ledger, inventory, procurement, ...)
+   is a group of services that share a domain language; each service owns its own database, OpenAPI document,
+   AsyncAPI document, chart and `NOT-IMPLEMENTED.md`. The 15 contexts stay as the grouping in the architecture.
+2. **Go is the default language for services**, including master data (party), procurement, workforce, projects and
+   analytics. One kernel, `platform/go`, serves them all.
+3. **TypeScript is used where the TypeScript ecosystem is the reason**: the Temporal worker (`workflow-ts`), the
+   portal BFFs, the MCP gateway and agent runtime, the integration hub and the carrier gateway. There is no shared
+   TypeScript kernel; each TS service keeps its own small helpers, and the cross-language contract (service tokens,
+   log pseudonyms) is pinned by shared test vectors.
+4. **Python is used for numerical and ML work only**, as stateless HTTP solvers called by their owning Go service.
+5. **API prefix per service.** Each service owns `/v1/<service-prefix>/...`; Envoy rewrites `/api/v1/<svc>` to
+   `/v1/<svc>` per HTTPRoute (`deploy/gateway/README.md`). The per-service OpenAPI and AsyncAPI files, not the
+   architecture's catalogue, are the source of truth for endpoints and topics.
+
+## Alternatives rejected
+
+- **Thirty-one context deployables** (the design). Fewer images, but each Go deployable would hold eight or more
+  capabilities and their migrations, and TypeScript would be split from Go inside the same context.
+- **Merging services back into contexts now.** Every service already has its own database, chart, Argo application
+  and tests; merging would be a large migration with no user-visible gain before v1.0.
+
+## Consequences
+
+- Smaller blast radius per change and per database, and parallel delivery per capability.
+- More moving parts: about 60 databases, 69 charts and Argo applications, and many synchronous peer calls (for
+  example 19 services call `ledger.Post`, hr and party call `numbering`). Each peer call is a latency and
+  availability dependency.
+- Cross-cutting behaviour that a TypeScript kernel would have provided (idempotency, problem details, service tokens)
+  is copied per TS service.
+- The architecture's endpoint (§5) and topic (events §4.2) catalogues describe a target shape that no longer maps to
+  code; they are marked as target and the specs are authoritative.
+- Backlog: generate the as-built service inventory (service, context, language, database, API prefix, published and consumed topics) from `services/*` into `docs/` in CI, so it cannot drift again (D5, D6).
+- Backlog: recompile `docs/architecture.compiled` so its components reflect the capability services (D27; stage 3).
+- Backlog: give `dispatch-py` and `routing-py` charts and Argo applications, or mark them as not deployable (D5).
+- Backlog: extract a small shared TypeScript package for service tokens, problem details and idempotency, or add conformance tests that every TS service must pass (D11, D12).
