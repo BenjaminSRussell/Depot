@@ -1,0 +1,10 @@
+# workflow in dev. The tender and budget plan trigger (kafka.*, KafkaUser workflow-ts-consumer) stays off: dev gives the worker
+# no serviceIdentity.signingKeySecret, so it registers no activities and every tenderWorkflow or budgetPlanWorkflow the trigger
+# started would stall, and budgeting has no dev database to record a plan decision in (deploy/scripts/test_kafka_consumers.py,
+# DEV_OFF). To turn it on: a signing key, then kafka.brokers depot-kafka-bootstrap.kafka.svc:9093 and kafka.secret
+# workflow-ts-consumer-kafka with its copy in deploy/envs/dev/kafka-consumer-credentials (deploy/kafka/README.md).
+#
+# The activities call transport and budgeting, which dev releases in hello-ledger (the chart defaults name a `depot`
+# namespace that dev does not have); both services' ingress policies admit the workflow pods.
+transportUrl: http://transport.hello-ledger.svc:8080
+budgetingUrl: http://budgeting.hello-ledger.svc:8080

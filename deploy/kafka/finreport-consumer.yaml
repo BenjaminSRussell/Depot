@@ -1,0 +1,37 @@
+# The finreport balance consumer (`finreport consume`, group reporting-balances) folds the ledger's journal.posted into
+# the reporting balances and parks what it cannot apply on depot.ledger.journal.dlq. The chart's consumer.kafka.username
+# names this user. Literal ACLs: the user reads only the ledger's journal topic (outbox-ledger in connect.yaml writes it)
+# and writes only its dead-letter topic (B-05b, D34; deploy/scripts/test_kafka_consumers.py derives both from the code).
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaUser
+metadata:
+  name: finreport-consumer
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: depot
+spec:
+  authentication:
+    type: scram-sha-512
+  authorization:
+    type: simple
+    acls:
+      - resource: {type: topic, name: depot.ledger.journal, patternType: literal}
+        operations: [Read, Describe]
+      - resource: {type: topic, name: depot.ledger.journal.dlq, patternType: literal}
+        operations: [Write, Describe]
+      - resource: {type: group, name: reporting-balances, patternType: literal}
+        operations: [Read, Describe]
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  name: depot-ledger-journal-dlq
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: depot
+spec:
+  topicName: depot.ledger.journal.dlq
+  partitions: 3
+  replicas: 3
+  config:
+    retention.ms: 2592000000

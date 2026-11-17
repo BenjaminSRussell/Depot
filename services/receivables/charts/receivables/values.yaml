@@ -119,6 +119,8 @@ alerts:
 # like the other consumers in dev, until it is turned on per environment (billing's
 # outbox connector, which creates depot.billing.invoice, is not deployed yet).
 podSecurityContext:
+  # Group of the 0440 Kafka credentials and other mounted Secrets, for the nonroot user (D34).
+  fsGroup: 65532
   runAsNonRoot: true
   seccompProfile:
     type: RuntimeDefault

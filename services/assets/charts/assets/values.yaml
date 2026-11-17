@@ -34,6 +34,8 @@ serviceMonitor:
 
 podSecurityContext:
   runAsNonRoot: true
+  # The image runs as nonroot (65532); fsGroup lets it read the 0440 service-identity key mount.
+  fsGroup: 65532
   seccompProfile:
     type: RuntimeDefault
 

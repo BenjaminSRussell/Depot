@@ -145,8 +145,8 @@ spec:
       - ServerSideApply=true
       - SkipDryRunOnMissingResource=true
 ---
-# KafkaUsers and dead-letter KafkaTopics of the event consumers (receiving ERS, scheduling downtime, workflow-ts
-# tender, inventory postings, revrec credit notes, receivables billing). The User and
+# KafkaUsers and dead-letter KafkaTopics of every event consumer (deploy/kafka/<user>.yaml, one user per consumer block of
+# a chart; deploy/scripts/test_kafka_consumers.py derives each user's ACLs from the consumer's code, D34). The User and
 # Topic Operators run with the Kafka cluster, so this follows kafka-cluster; the consumers sync with the services
 # ApplicationSet (wave 2).
 apiVersion: argoproj.io/v1alpha1
@@ -176,4 +176,33 @@ spec:
       backoff: { duration: 30s, factor: 2, maxDuration: 5m }
     syncOptions:
       - ServerSideApply=true
+      - SkipDryRunOnMissingResource=true
+---
+# Copies of the Kafka credentials of the consumers dev turns on, in their namespace (D34, B-05b): a SecretStore that reads
+# the User Operator's Secrets in kafka, and one ExternalSecret per consumer. After kafka-consumer-users, so the KafkaUsers
+# exist; the consumers sync with the services ApplicationSet (wave 2) and wait for their Secret.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: kafka-consumer-credentials
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/BenjaminSRussell/Depot.git
+    targetRevision: main
+    path: deploy/envs/dev/kafka-consumer-credentials
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: hello-ledger
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    retry:
+      limit: 5
+      backoff: { duration: 30s, factor: 2, maxDuration: 5m }
+    syncOptions:
       - SkipDryRunOnMissingResource=true

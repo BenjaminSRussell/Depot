@@ -4313,3 +4313,53 @@ spec:
   config:
     retention.ms: 2592000000
     cleanup.policy: delete
+---
+# Source topics of the consumers dev turns on (D34, B-05b), declared so they exist before the first event: topic
+# auto-creation is off, and an outbox relay creates a topic only when it relays that topic's first event, so a consumer
+# that subscribes earlier would find no topic. Same settings as the relays' topic creation (12 partitions, 3 replicas,
+# 7 days); a relay leaves an existing topic alone. deploy/scripts/test_kafka_consumers.py requires one for every topic of
+# a consumer that is on in dev.
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  name: depot-receiving-receipt
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: depot
+spec:
+  topicName: depot.receiving.receipt
+  partitions: 12
+  replicas: 3
+  config:
+    retention.ms: 604800000
+    cleanup.policy: delete
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  name: depot-receiving-ersselfbill
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: depot
+spec:
+  topicName: depot.receiving.ersselfbill
+  partitions: 12
+  replicas: 3
+  config:
+    retention.ms: 604800000
+    cleanup.policy: delete
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  name: depot-privacy-erasure
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: depot
+spec:
+  topicName: depot.privacy.erasure
+  partitions: 12
+  replicas: 3
+  config:
+    retention.ms: 604800000
+    cleanup.policy: delete

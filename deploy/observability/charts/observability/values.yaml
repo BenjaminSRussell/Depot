@@ -23,6 +23,20 @@ alertWebhook:
   url: http://alert-bridge.observability.svc:8080/alerts
   tokenSecret: alert-webhook
   tokenKey: token
+# DepotAuthzDenySpike (B-04): fires when a source's denials for one reason exceed denyRatePerSecond and denySpikeFactor
+# times their rate in the hour before, for 10 minutes. The absolute floor keeps a quiet service's first few denials quiet.
+# DepotAuthzOPAUnavailable fires while no ext_authz OPA replica is ready. On by default (stage, prod); off where identity
+# serves no policy bundle (bundle.enabled off, dev), where the OPA is never ready.
+authz:
+  denyRatePerSecond: 0.5
+  denySpikeFactor: 5
+  severity: warning
+  opaUnavailableAlert: true
+# Labels on the PrometheusRule. kube-prometheus-stack's default ruleSelector (ruleSelectorNilUsesHelmValues true) matches
+# release=<its release name>; dev selects every rule, and the label keeps the rules selected under the default too.
+prometheusRule:
+  labels:
+    release: kube-prometheus-stack
 slo:
   availability: "99.9"
   latencyP95Ms: 50

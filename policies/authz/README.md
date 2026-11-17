@@ -99,6 +99,42 @@ The PEP must pass the decoded `r.URL.Path` with no query string, or the route te
 
 `"flag": true` duties (for example `ledger.journal.postdirect`, `budget.override`, `org.hierarchy.backdate`) are checked in a handler on a route another duty already opens. They carry no route permissions. `tax.code.maintain` is a flag until a tax-code read route is mounted. A duty can own routes and still be checked in handlers: `inventory.count.approve` opens `count-sheets/*:approve` and `count-sheets/*/lines/*:recount`, and the inventory handlers also read it with `HasDuty` for over-tolerance `:post`, marking open tags MISSING on `:transfer-tags`, and unmasking blind counts.
 
+## Gateway enforcement (B-04, ADR-0017)
+
+Every gateway asks this policy, so the three enforce one model:
+
+- devgateway and `depot-server` query `data.authz.decision` through `identity.RequireOPAForGateway`, with the verified
+  subject, the method and the request path without `/api`;
+- Envoy's ext_authz OPA (`deploy/gateway/authz-opa.yaml`) queries `data.authz.envoy`.
+
+`data.authz.envoy` takes the OPA-Envoy plugin's input. It reads the subject from the `x-depot-tenant`, `x-depot-user`
+and `x-depot-legal-entity` headers, which the JWT filter set from the verified token after Envoy removed the client's
+copies. It maps the public path to the path the service receives (`gateway_resource`: `/api` removed, or the service
+base of a D22 prefix from `gateway_service_bases`) and calls `decision`. A path with any percent-encoding is not canonical
+and is refused with 400, as on the single-host gateways. It answers with `allowed`, the deny status and problem body, and
+`record`, the allow/deny record (`platform/go/README.md`).
+
+Every routed prefix's service base needs at least one duty permission under it, or Envoy refuses that service to
+everyone. `mcp.copilot.use` grants `POST /mcp`, the path mcp-ts serves and Envoy decides on. `gateway_test.rego` checks
+the rewritten bases, and `deploy/scripts/test_gateway.py` checks every generated route.
+
+`decision` names the granting duty on an allow (`{"allow": true, "duty": ...}`), so every record says which duty
+allowed a request. `log_pseudonym` and `log_subject` compute the record's subject as `logpseudo.Subject` does, under
+the dedicated key `DEPOT_LOG_PSEUDONYM_KEY` the OPA is given (`opa.runtime().env`); without it the subject is
+`[redacted]`. The decision-log mask is not in this package: the ext_authz OPA loads it locally (`data.system.log.mask`),
+so a bundle cannot turn it off.
+
+`testdata/route_table.json` is the shared route table. Each row is method, public path, tenant-wide duties,
+legal-entity-scoped duties, the token's legal entity and the expected answer (with `status` 400 for an encoded path,
+and `token_duties_only` for a machine caller whose duties are only in its token). Three suites run it:
+
+- `gateway_test.rego` runs it against `data.authz.envoy`;
+- `services/identity/cmd/devgateway` and `tools/depot-server` (`route_table_test.go`, through
+  `services/identity/authztest`) run it end to end against `opa run` on this directory.
+
+A row is a browser path outside the D22 prefixes, because the single-host gateways serve neither the partner paths nor
+the D22 rewrites.
+
 ## Tests
 
 `opa test --timeout 120s policies/authz -v` (the default 5 s per-test timeout is too short for the larger duty catalogue), then `cd services/identity && go test ./... -count=1` (needs `opa` on PATH).

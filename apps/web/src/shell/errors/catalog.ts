@@ -787,6 +787,8 @@ const ledgerPostingGaps: Record<string, ProblemCatalogEntry> = {
   LEDGER_OPEN_ITEM_ACCOUNT_REQUIRED: { message: "An open item needs an account that tracks open items.", action: "Choose an open-item account." },
   LEDGER_OPEN_ITEM_NOT_FOUND: { message: "We couldn't find that open item.", action: "Reload the page to see the open items." },
   LEDGER_PERIOD_CHECK: { message: "The accounting period couldn't be checked for this posting.", action: TRY_LATER },
+  LEDGER_PERIOD_LOCK_BUSY: { message: "Postings were still being saved, so the period's status didn't change.", action: TRY_LATER },
+  LEDGER_PERIOD_LOCK_STALE: { message: "The ledger already has a newer status for this period.", action: "Reload the page to see the period's current status." },
   LEDGER_PERIOD_STATUS_UNAVAILABLE: { message: "The accounting period status isn't available right now.", action: TRY_LATER },
   LEDGER_QUANTITY_INVALID: { message: "A line quantity isn't valid.", action: "Enter a quantity the account allows." },
   LEDGER_TRADING_PARTNER_INVALID: { message: "A line names a trading partner that isn't a legal entity of this company group, or is the entity that owns the ledger.", action: "Choose the other legal entity of the intercompany transaction, or leave the trading partner empty." },

@@ -12,6 +12,7 @@ test checks, without a cluster:
   plain-directory source is applied by some dev Application and parses; Strimzi custom resources sync after the
   operator and name an existing Kafka or KafkaConnect; their Secret references (KafkaConnector
   `${secrets:ns/name:key}`, workload secretKeyRef) are written by an ExternalSecret that a dev Application syncs;
+- (test_kafka_consumers.py checks each consumer's ACLs against its code and the dev enablement, D34)
 - every consumer KafkaUser in deploy/kafka is the username of a chart's consumer, reads its group and writes only
   dead-letter topics a synced KafkaTopic creates; the inventory postings consumer's ACLs are exactly the topics,
   group and dead-letter topic its code uses (#480); an outbox connector that routes by event type (outbox-sales,
@@ -79,7 +80,7 @@ BACKBONE_ORDER = [
     {"strimzi-operator"},
     {"kafka-cluster", "apicurio-postgres", "debezium-cdc-secrets", "temporal-postgres"},
     {"apicurio-registry", "kafka-consumer-users", "temporal"},
-    {"debezium-connect"},
+    {"debezium-connect", "kafka-consumer-credentials"},
 ]
 WAVE = "argocd.argoproj.io/sync-wave"
 # Custom-resource API groups and the dev Application that installs their CRDs and controller.
@@ -98,6 +99,12 @@ MANIFEST_SUFFIXES = (".yaml", ".yml", ".json")
 UNMANAGED_SECRETS = {
     ("hello-ledger", "keycloak-db"): "deploy/keycloak/README.md (created by hand, #80)",
     ("hello-ledger", "keycloak-admin"): "deploy/keycloak/README.md (created by hand, #80)",
+    # The ext_authz OPA's copy of identity's bundle token, CA and public key (B-04); identity's bundle secrets are not
+    # managed either (bundle.enabled is off in dev).
+    ("hello-ledger", "depot-authz-opa-bundle"): "deploy/gateway/README.md, Authorization (created by hand with identity's bundle key)",
+    # The dedicated log pseudonymization key the ext_authz OPA pseudonymizes its records' subject under (B-04); optional:
+    # without it the subject is "[redacted]".
+    ("hello-ledger", "depot-log-pseudonym"): "deploy/gateway/README.md, Authorization (optional, created by hand)",
 }
 # Service databases in the shared dev Postgres (deploy/envs/dev/apps/postgres.yaml) whose DATABASE_URL Secret an
 # ExternalSecret in that file writes: dev Application -> (database, login role, Secret, key the chart reads).
@@ -168,6 +175,22 @@ def charts():
             continue  # subchart, rendered by its parent
         found.add(rel)
     return found
+
+
+def consumer_blocks():
+    """(values file, block) for every Kafka consumer block of a chart: a mapping with `username` under `kafka`, or one with
+    `brokers` (pricing's cacheConsumer). deploy/scripts/test_kafka_consumers.py finds the blocks by the same rule."""
+    out = []
+
+    def walk(node, path, values_file):
+        if isinstance(node, dict):
+            if "username" in node and (path and path[-1] == "kafka" or "brokers" in node):
+                out.append((values_file, node))
+            for k, v in node.items():
+                walk(v, path + [k], values_file)
+    for values_file in sorted(REPO.glob("services/*/charts/*/values.yaml")) + sorted(REPO.glob("tools/*/charts/*/values.yaml")):
+        walk(yaml.safe_load(values_file.read_text()) or {}, [], values_file)
+    return out
 
 
 def wave(app):
@@ -643,11 +666,8 @@ class ArgoApplicationsTest(unittest.TestCase):
         # and writes only dead-letter topics that a synced KafkaTopic creates.
         users, topics = self.synced_kafka_resources()
         charts_by_user = {}
-        for values_file in sorted(REPO.glob("services/*/charts/*/values.yaml")):
-            values = yaml.safe_load(values_file.read_text()) or {}
-            kafka = ((values.get("consumer") or {}).get("kafka")) or values.get("kafka")
-            if isinstance(kafka, dict) and kafka.get("username"):
-                charts_by_user.setdefault(kafka["username"], []).append((values_file, kafka))
+        for values_file, kafka in consumer_blocks():
+            charts_by_user.setdefault(kafka["username"], []).append((values_file, kafka))
         for path in manifests(DEPLOY / "kafka"):
             if not path.name.endswith("-consumer.yaml"):
                 continue
@@ -659,8 +679,9 @@ class ArgoApplicationsTest(unittest.TestCase):
                     self.assertIn(name, charts_by_user, f"{path.name}: no chart names consumer username {name}")
                     granted = users[name]
                     for values_file, kafka in charts_by_user[name]:
-                        self.assertIn("Read", granted.get(("group", kafka.get("group")), set()),
-                                      f"{name}: no Read on group {kafka.get('group')} ({values_file.relative_to(REPO)})")
+                        if kafka.get("group"):  # pricing's per-pod groups have no chart value (test_kafka_consumers.py)
+                            self.assertIn("Read", granted.get(("group", kafka["group"]), set()),
+                                          f"{name}: no Read on group {kafka['group']} ({values_file.relative_to(REPO)})")
                         if kafka.get("dlqTopic"):
                             self.assertIn("Write", granted.get(("topic", kafka["dlqTopic"]), set()), f"{name}: dlqTopic")
                     for (kind, resource), ops in granted.items():
@@ -1301,6 +1322,10 @@ class ArgoApplicationsTest(unittest.TestCase):
             "changeRequested.ts maps it, but eventConsumer.ts subscribes only to the tender and budget plan topics",
         ("workflow-ts", "dev.depot.party.merge.requested.v1"):
             "changeRequested.ts maps it, but eventConsumer.ts subscribes only to the tender and budget plan topics",
+        ("integration-hub-ts", "dev.depot.cutover.plan.rolledback.v1"):
+            "the coexistence sweep acts on it only when kafka.topics lists depot.cutover.plan; the chart default does not",
+        ("integration-hub-ts", "dev.depot.migration.coexistence.changed.v1"):
+            "the coexistence sweep acts on it only when kafka.topics lists depot.migration.coexistence; the chart default does not",
     }
 
     def test_consumer_event_types_route_to_topics_they_read(self):
@@ -1325,30 +1350,31 @@ class ArgoApplicationsTest(unittest.TestCase):
                          for ref in c["messages"].values()}
             routers.append((producer, cfg, published))
         services_by_user = {}
-        for values_file in sorted(REPO.glob("services/*/charts/*/values.yaml")):
-            values = yaml.safe_load(values_file.read_text()) or {}
-            kafka = ((values.get("consumer") or {}).get("kafka")) or values.get("kafka")
-            if isinstance(kafka, dict) and kafka.get("username"):
-                services_by_user.setdefault(kafka["username"], set()).add(values_file.relative_to(REPO).parts[1])
+        for values_file, kafka in consumer_blocks():
+            services_by_user.setdefault(kafka["username"], set()).add(values_file.relative_to(REPO).parts[1])
+        user_docs = [doc for path in manifests(DEPLOY / "kafka") if path.name.endswith("-consumer.yaml")
+                     for doc in load_docs(path) if doc.get("kind") == "KafkaUser"]
+        # A service with several consumers (production's planned order intake and shop-floor job cards) has a user for each;
+        # an event type its code names must land on a topic one of them reads.
+        read_by_service = {}
+        for doc in user_docs:
+            for service in services_by_user.get(doc["metadata"]["name"], ()):
+                read_by_service.setdefault(service, set()).update(
+                    a["resource"]["name"] for a in doc["spec"]["authorization"]["acls"]
+                    if a["resource"]["type"] == "topic" and "Read" in a["operations"])
         checked = set()
-        for path in manifests(DEPLOY / "kafka"):
-            if not path.name.endswith("-consumer.yaml"):
-                continue
-            for doc in load_docs(path):
-                if doc.get("kind") != "KafkaUser":
-                    continue
-                user = doc["metadata"]["name"]
-                read = {a["resource"]["name"] for a in doc["spec"]["authorization"]["acls"]
-                        if a["resource"]["type"] == "topic" and "Read" in a["operations"]}
-                for service in sorted(services_by_user.get(user, ())):
-                    for typ in sorted(service_event_types(service)):
-                        for producer, cfg, published in routers:
-                            matched, topic = outbox_route(cfg, typ)
-                            if producer == service or not matched or typ not in published or (service, typ) in self.UNSUBSCRIBED_HANDLERS:
-                                continue
-                            checked.add((user, topic))
-                            with self.subTest(consumer=user, type=typ):
-                                self.assertIn(topic, read, f"{typ} lands on {topic} (outbox-{producer}), which {user} does not read")
+        for doc in user_docs:
+            user = doc["metadata"]["name"]
+            for service in sorted(services_by_user.get(user, ())):
+                read = read_by_service[service]
+                for typ in sorted(service_event_types(service)):
+                    for producer, cfg, published in routers:
+                        matched, topic = outbox_route(cfg, typ)
+                        if producer == service or not matched or typ not in published or (service, typ) in self.UNSUBSCRIBED_HANDLERS:
+                            continue
+                        checked.add((user, topic))
+                        with self.subTest(consumer=user, type=typ):
+                            self.assertIn(topic, read, f"{typ} lands on {topic} (outbox-{producer}), which {service}'s users do not read")
         self.assertIn(("search-consumer", "depot.fulfillment.packingslip"), checked)
         self.assertIn(("intercompany-consumer", "depot.expense.report"), checked)
 
@@ -1435,6 +1461,50 @@ class ArgoApplicationsTest(unittest.TestCase):
         self.assertEqual(sidecar["searchNamespace"], "ALL")
         dashboards = (REPO / "deploy/observability/charts/observability/templates/dashboards.yaml").read_text()
         self.assertIn(f'{sidecar["label"]}: "{sidecar["labelValue"]}"', dashboards)
+
+    @unittest.skipUnless(shutil.which("helm"), "helm not on PATH")
+    def test_every_alert_is_in_a_prometheusrule_the_dev_prometheus_selects(self):
+        # kube-prometheus-stack loads rules only from PrometheusRule objects its ruleSelector matches; a ConfigMap of rules
+        # is never loaded (B-04 re-review N1). Every alert of the observability chart must be in such a rule, rendered with
+        # the values the dev Application gives the chart, and DepotAuthzOPAUnavailable only where the OPA can be ready.
+        dev = self.dev_apps()
+        (stack,) = [s for s in sources(dev["kube-prometheus-stack"]) if s.get("chart") == "kube-prometheus-stack"]
+        spec = stack["helm"]["valuesObject"]["prometheus"]["prometheusSpec"]
+        if spec.get("ruleSelectorNilUsesHelmValues", True) is False and not spec.get("ruleSelector"):
+            selector = {}  # the operator selects every PrometheusRule
+        else:
+            selector = spec.get("ruleSelector", {}).get("matchLabels", {"release": stack["helm"].get("releaseName", "kube-prometheus-stack")})
+        # The chart's labels also satisfy the stack's default selector, so a stack without the dev override still loads them.
+        default_selector = {"release": stack["helm"].get("releaseName", "kube-prometheus-stack")}
+        chart_dir = REPO / "deploy/observability/charts/observability"
+        template = (chart_dir / "templates/alerts.yaml").read_text()
+        alerts = set(re.findall(r"- alert: (\w+)", template))
+        self.assertIn("DepotAuthzOPAUnavailable", alerts)
+        (obs_src,) = sources(dev["observability"])
+        obs_ns = dev["observability"]["spec"]["destination"]["namespace"]
+        self.assertEqual(obs_ns, dev["kube-prometheus-stack"]["spec"]["destination"]["namespace"])
+
+        def rendered_alerts(values):
+            with tempfile.NamedTemporaryFile("w", suffix=".yaml") as f:
+                yaml.safe_dump(values, f)
+                f.flush()
+                out = subprocess.run(["helm", "template", "observability", str(chart_dir), "-f", f.name],
+                                     check=True, capture_output=True, text=True).stdout
+            docs = [d for d in yaml.safe_load_all(out) if d]
+            for d in docs:
+                self.assertNotIn("groups:", yaml.safe_dump(d.get("data", {})) if d["kind"] == "ConfigMap" else "",
+                                 f"{d['metadata']['name']}: alert rules in a ConfigMap are never loaded")
+            found = set()
+            for rule in (d for d in docs if d["kind"] == "PrometheusRule"):
+                labels = rule["metadata"].get("labels", {})
+                for sel in (selector, default_selector):
+                    self.assertLessEqual(sel.items(), labels.items(), f"{rule['metadata']['name']}: not selected by {sel}")
+                found |= {r["alert"] for g in rule["spec"]["groups"] for r in g["rules"] if "alert" in r}
+            return found
+
+        self.assertEqual(rendered_alerts({}), alerts, "chart defaults (stage, prod)")
+        self.assertEqual(rendered_alerts(obs_src["helm"].get("valuesObject", {})), alerts - {"DepotAuthzOPAUnavailable", "DepotAuthzEnvoyCheckErrors"},
+                         "dev: identity serves no bundle, so the OPA unavailability and Envoy check-error alerts are off")
 
     def test_the_monitoring_stack_cannot_block_the_dev_bootstrap(self):
         # root-dev waits for each wave to be Healthy (deploy/tofu/cluster/main.tf). The CRDs come early from their own chart;

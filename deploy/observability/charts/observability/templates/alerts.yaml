@@ -1,11 +1,17 @@
-apiVersion: v1
-kind: ConfigMap
+{{- /* The alerting rules, as a PrometheusRule: kube-prometheus-stack's Prometheus loads rules only from PrometheusRule
+       objects its ruleSelector matches (deploy/envs/dev/apps/kube-prometheus-stack.yaml selects every one; prometheusRule.labels
+       carries the release label its default selector would need). deploy/scripts/test_argocd_apps.py checks that every alert
+       is in a rule the selector matches, and CI runs promtool check rules on the rendered groups. */}}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
 metadata:
   name: {{ .Release.Name }}-alerts
   labels:
     app.kubernetes.io/name: observability
-data:
-  depot-slo.yaml: |-
+    {{- with .Values.prometheusRule.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
     groups:
       - name: depot.slo
         rules:
@@ -23,6 +29,76 @@ data:
               severity: {{ .Values.pagerDuty.severity | quote }}
             annotations:
               summary: p95 latency exceeds the Depot SLO
+      # Authorization denials (B-04, D36): depot_authz_denied_total{source,duty,reason} from authz.Require, RequireDuty and
+      # RequireAnyDuty in every Go service (httpx's shared /metrics). A spike is a misconfigured role or token mapper after a
+      # release, or someone probing routes they hold no duty for; the authz.decision records (log_class audit.other, same
+      # request id) say who and what. On the Envoy path a refused request never reaches a service: Envoy's own ext_authz
+      # counters (envoy_cluster_ext_authz_denied and _error, per route cluster, scraped by deploy/gateway/envoy-podmonitor.yaml)
+      # count it, and the Envoy OPA's decision log holds its record (subject pseudonymized under DEPOT_LOG_PSEUDONYM_KEY).
+      - name: depot.authz
+        rules:
+          - alert: DepotAuthzDenySpike
+            # Above the floor, unless within the factor of the hour before (a source or reason with no history fires).
+            expr: >-
+              sum by (source, reason) (rate(depot_authz_denied_total[5m])) > {{ .Values.authz.denyRatePerSecond }}
+              unless
+              sum by (source, reason) (rate(depot_authz_denied_total[5m]))
+                <= {{ .Values.authz.denySpikeFactor }} * sum by (source, reason) (rate(depot_authz_denied_total[1h] offset 1h))
+            for: 10m
+            labels:
+              severity: {{ .Values.authz.severity | quote }}
+            annotations:
+              summary: Authorization denials in {{ "{{" }} $labels.source {{ "}}" }} ({{ "{{" }} $labels.reason {{ "}}" }}) spiked above {{ .Values.authz.denySpikeFactor }}x the previous hour
+          # The same rule for the requests Envoy refuses (OPA's 403 and 400), summed over the depot-api routes.
+          - alert: DepotAuthzEnvoyDenySpike
+            expr: >-
+              sum(rate(envoy_cluster_ext_authz_denied[5m])) > {{ .Values.authz.denyRatePerSecond }}
+              unless
+              sum(rate(envoy_cluster_ext_authz_denied[5m]))
+                <= {{ .Values.authz.denySpikeFactor }} * sum(rate(envoy_cluster_ext_authz_denied[1h] offset 1h))
+            for: 10m
+            labels:
+              severity: {{ .Values.authz.severity | quote }}
+              source: envoy
+            annotations:
+              summary: Requests refused by the Envoy ext_authz OPA spiked above {{ .Values.authz.denySpikeFactor }}x the previous hour
+          # Envoy could not get an answer from OPA (unreachable, timed out, not ready): it fails closed and answers a bare 403
+          # with no body and no record, which a client reads as "not authorized".
+          {{- if .Values.authz.opaUnavailableAlert }}
+          - alert: DepotAuthzEnvoyCheckErrors
+            expr: sum(rate(envoy_cluster_ext_authz_error[5m])) > 0
+            for: 5m
+            labels:
+              severity: {{ .Values.authz.severity | quote }}
+              source: envoy
+            annotations:
+              summary: Envoy's ext_authz checks are failing, so every depot-api request is refused with 403
+          {{- end }}
+          # No ext_authz OPA replica is ready (no bundle from identity, Secret depot-authz-opa-bundle missing, a bundle that
+          # cannot answer data.authz.envoy): every request through Envoy is refused. Off where identity serves no bundle
+          # (authz.opaUnavailableAlert false in dev, where bundle.enabled is off), so it does not fire for good there.
+          {{- if .Values.authz.opaUnavailableAlert }}
+          - alert: DepotAuthzOPAUnavailable
+            expr: max(kube_deployment_status_replicas_available{namespace="hello-ledger",deployment="depot-authz-opa"}) < 1 or absent(kube_deployment_status_replicas_available{namespace="hello-ledger",deployment="depot-authz-opa"})
+            for: 5m
+            labels:
+              severity: {{ .Values.authz.severity | quote }}
+              source: envoy
+            annotations:
+              summary: No depot-authz-opa replica is available, so Envoy refuses every depot-api request
+          {{- end }}
+      # A kafkajs consumer (integration-hub-ts) that has not run for 15 minutes keeps retrying its start in the
+      # background while the pod stays Ready: a wrong SCRAM password, a missing CA file or ACL, a topic that never came
+      # (D34, B-05b). kafka_consumer_start_failures_total and the service's log say why.
+      - name: depot.kafka
+        rules:
+          - alert: DepotKafkaConsumerNotRunning
+            expr: kafka_consumer_running == 0
+            for: 15m
+            labels:
+              severity: {{ .Values.pagerDuty.severity | quote }}
+            annotations:
+              summary: A Kafka consumer has not been running for 15 minutes and keeps retrying its start
 {{- /* global.pagerDutyAllowed comes from the cloud profile (#599): a profile whose egress allowlist has no PagerDuty
        (gcc, gcc-high, dod, china) renders no paging receiver; route alerts to an in-boundary receiver instead. */}}
 {{- if and .Values.pagerDuty.enabled (ne (toString ((.Values.global | default dict).pagerDutyAllowed)) "false") }}

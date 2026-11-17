@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/BenjaminSRussell/depot/platform/logpseudo"
 	"github.com/BenjaminSRussell/depot/services/identity"
 )
 
@@ -74,6 +75,12 @@ func runServe(ctx context.Context, getenv func(string) string, log *slog.Logger)
 	ApplyGatewaySecret(procs, secret)
 
 	sup := NewSupervisor(ExecRunner{Logs: serviceLogs(filepath.Join(cfg.DataDir, "logs"))}, readyProber(), log)
+	// The gateway's authorization records pseudonymize their subject under the dedicated pseudonymization key
+	// (DEPOT_LOG_PSEUDONYM_KEY or _FILE); without one every subject is redacted. The supervisor never reads the
+	// field-encryption keys for it (subjectKeyEnv), and passes neither to its children (childEnv).
+	if err := logpseudo.LoadSubjectKey(subjectKeyEnv(getenv)); err != nil {
+		log.Warn("authorization records will carry no subject pseudonym", "err", err)
+	}
 	guard, err := buildGuard(cfg)
 	if err != nil {
 		return err
@@ -232,6 +239,6 @@ func buildGuard(cfg Config) (Guard, error) {
 		return nil, fmt.Errorf("opa client: %w", err)
 	}
 	return func(next http.Handler) http.Handler {
-		return verifier.Middleware(identity.RequireOPAForRequest(opa)(next))
+		return verifier.Middleware(identity.RequireOPAForGateway(opa, gatewayName)(next))
 	}, nil
 }

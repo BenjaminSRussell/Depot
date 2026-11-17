@@ -165,7 +165,8 @@ func Fail(w http.ResponseWriter, r *http.Request, err error) {
 //
 // Under the eu-data-boundary overlay, or with LOG_PSEUDONYMIZE=true, Serve also wraps the default slog handler so
 // user and person identifiers and email addresses are replaced by tenant-keyed pseudonyms before logs are exported
-// (platform/go/logpseudo, #605); a bad profile or key configuration stops the service rather than log raw values.
+// (platform/go/logpseudo, #605); a bad profile or key configuration stops the service rather than log raw values. It
+// always loads the key the authorization decision record pseudonymizes its subject under (logpseudo.LoadSubjectKey).
 func Serve(ctx context.Context, addr string, h http.Handler) error {
 	if err := cloudprofile.CheckFIPS(os.Getenv); err != nil {
 		return err
@@ -173,6 +174,11 @@ func Serve(ctx context.Context, addr string, h http.Handler) error {
 	defer stopProcessFence()
 	if _, err := logpseudo.Install(os.Getenv); err != nil {
 		return err
+	}
+	// The authorization decision record (platform/go/authz) pseudonymizes its subject under fieldcrypt's key whatever the
+	// profile says; a key that cannot be read leaves every subject redacted rather than stopping the service.
+	if err := logpseudo.LoadSubjectKey(os.Getenv); err != nil {
+		slog.Warn("authorization records will carry no subject pseudonym", "err", err)
 	}
 	srv := &http.Server{Addr: addr, Handler: h, ReadHeaderTimeout: 10 * time.Second}
 	ctx, stop := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)

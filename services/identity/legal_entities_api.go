@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -15,6 +16,7 @@ import (
 	"github.com/BenjaminSRussell/depot/platform/dbx"
 	"github.com/BenjaminSRussell/depot/platform/httpx"
 	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
 )
 
 const (
@@ -56,6 +58,12 @@ type legalEntityLookup struct {
 func (a *LegalEntitiesAPI) lookup(w http.ResponseWriter, r *http.Request) {
 	p, ok := principal(w, r)
 	if !ok {
+		return
+	}
+	// Only a verified service token from a service the grant table gives this duty: a header identity carrying the
+	// duty (the token's duties claim through Envoy) is refused, so the lookup stays a service-to-service read.
+	if !serviceGranted(p.Service, dutyLookupLegalEntity) {
+		httpx.Fail(w, r, httpx.NewProblem(http.StatusForbidden, codeForbidden, "the legal-entity lookup is for services granted "+dutyLookupLegalEntity))
 		return
 	}
 	id, valid := ids.Canonical(chi.URLParam(r, "id"))
@@ -209,4 +217,13 @@ func (a *LegalEntitiesAPI) get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.JSON(w, http.StatusOK, found)
+}
+
+// serviceGranted reports whether service (a verified service token's issuer; empty for a header identity) is granted
+// duty on identity in the platform's service grant table.
+func serviceGranted(service, duty string) bool {
+	if service == "" {
+		return false
+	}
+	return slices.Contains(tenant.ServiceGrantTable()[service]["identity"], duty)
 }

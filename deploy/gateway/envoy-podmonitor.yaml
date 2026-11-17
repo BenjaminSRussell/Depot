@@ -1,0 +1,29 @@
+# Scrapes the ext_authz counters of Gateway depot-api's Envoy pods (B-04, ADR-0017), so a request Envoy refuses is counted
+# although it never reaches a service. Envoy's ext_authz HTTP filter counts under cluster.<route target cluster>.ext_authz.
+# (ok, denied, error, failure_mode_allowed); Envoy Gateway serves Envoy's Prometheus endpoint on the proxy's "metrics" port
+# (19001, /stats/prometheus), where they read envoy_cluster_ext_authz_denied{envoy_cluster_name="httproute/..."}. Only those
+# series are kept: no user, tenant or path label exists on them. Alerts DepotAuthzEnvoyDenySpike and
+# DepotAuthzEnvoyCheckErrors (deploy/observability, depot.authz) read them. kube-prometheus-stack selects every PodMonitor
+# in the cluster (deploy/envs/dev/apps/kube-prometheus-stack.yaml). No live Envoy runs in CI, so the series names are
+# checked against Envoy's documented stats, not a scrape (#213).
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: depot-api-envoy-ext-authz
+  namespace: hello-ledger
+  labels:
+    app.kubernetes.io/part-of: depot-gateway
+spec:
+  namespaceSelector:
+    matchNames: [envoy-gateway-system]
+  selector:
+    matchLabels:
+      gateway.envoyproxy.io/owning-gateway-name: depot-api
+      gateway.envoyproxy.io/owning-gateway-namespace: hello-ledger
+  podMetricsEndpoints:
+    - port: metrics
+      path: /stats/prometheus
+      metricRelabelings:
+        - sourceLabels: [__name__]
+          regex: envoy_cluster_ext_authz_.+
+          action: keep

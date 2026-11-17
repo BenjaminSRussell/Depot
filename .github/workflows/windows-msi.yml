@@ -66,6 +66,10 @@ jobs:
         with:
           go-version: '1.26'
           cache-dependency-path: '**/go.sum'
+      # The gateway runs the B-04 route table against a real OPA (route_table_test.go).
+      - uses: open-policy-agent/setup-opa@b2b258e089860efaadaaf71bf6e3aecb4a3eeff1
+        with:
+          version: 1.21.4
       - name: vet and test
         working-directory: tools/depot-server
         run: |

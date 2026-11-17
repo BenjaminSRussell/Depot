@@ -21,6 +21,15 @@ spec:
     spec:
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- if .Values.cacheConsumer.enabled }}
+      # The cache consumer's KafkaUser credentials (deploy/kafka/pricing-consumer.yaml): the SCRAM password and the
+      # cluster CA, mounted as files like every other consumer's.
+      volumes:
+        - name: kafka
+          secret:
+            secretName: {{ required "cacheConsumer.secret is required when cacheConsumer.enabled" .Values.cacheConsumer.secret }}
+            defaultMode: 0440
+      {{- end }}
       containers:
         - name: pricing
           {{- if .Values.image.digest }}
@@ -69,12 +78,15 @@ spec:
               value: {{ required "cacheConsumer.brokers is required when cacheConsumer.enabled" .Values.cacheConsumer.brokers | quote }}
             - name: KAFKA_USERNAME
               value: {{ .Values.cacheConsumer.username | quote }}
-            - name: KAFKA_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: {{ required "cacheConsumer.secret is required when cacheConsumer.enabled" .Values.cacheConsumer.secret }}
-                  key: password
+            - name: KAFKA_PASSWORD_FILE
+              value: /var/run/depot/kafka/password
+            - name: KAFKA_TLS_CA_FILE
+              value: /var/run/depot/kafka/ca.crt
             {{- end }}
+          {{- if .Values.cacheConsumer.enabled }}
+          volumeMounts:
+            - { name: kafka, mountPath: /var/run/depot/kafka, readOnly: true }
+          {{- end }}
           startupProbe:
             httpGet:
               path: /healthz
