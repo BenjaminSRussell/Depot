@@ -338,7 +338,9 @@ type WorkerAssignedData struct {
 	PayAgreementID *string `json:"payAgreementId"`
 	// DefaultResourceID is the resource whose jobs the worker's dispatch list shows.
 	DefaultResourceID *string `json:"defaultResourceId"`
-	AssignedBy        string  `json:"assignedBy"`
+	// LegalEntityID is the legal entity that employs the worker (B-03b); null until assigned.
+	LegalEntityID *string `json:"legalEntityId"`
+	AssignedBy    string  `json:"assignedBy"`
 }
 
 // WorkerSavedData is the payload of dev.depot.shopfloor.worker.saved.v1, published when a

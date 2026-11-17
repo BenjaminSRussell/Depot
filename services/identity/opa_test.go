@@ -157,7 +157,7 @@ func TestRequireOPASendsTheVerifiedLegalEntityClaim(t *testing.T) {
 	}{
 		"one legal entity":         {le: "00000000-0000-0000-0000-0000000000a1", want: "00000000-0000-0000-0000-0000000000a1"},
 		"a comma list":             {le: " a1,b2 ", want: "a1,b2"},
-		"an array claim":           {le: []string{"a1", "b2"}, want: "a1,b2"},
+		"an array claim":           {le: []string{"a1", "b2"}, want: ""},
 		"no claim":                 {want: ""},
 		"a claim of another shape": {le: map[string]string{"x": "y"}, want: ""},
 	} {
@@ -199,5 +199,35 @@ func TestRequireOPASendsTheVerifiedLegalEntityClaim(t *testing.T) {
 				t.Fatalf("OPA subject = %+v, want legal entity %q", sent, tc.want)
 			}
 		})
+	}
+}
+
+// B-03b review: RequireOPA tells the policy the verified token's claim even when a middleware between the verifier and
+// RequireOPA put another legal entity on the principal.
+func TestRequireOPAIgnoresALegalEntityPutOnThePrincipal(t *testing.T) {
+	var sent opaSubject
+	opa := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Input opaInput `json:"input"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		sent = body.Input.Subject
+		_, _ = w.Write([]byte(`{"result":{"allow":true}}`))
+	}))
+	defer opa.Close()
+	client, err := NewOPAClient(opa.URL, opa.Client())
+	if err != nil {
+		t.Fatal(err)
+	}
+	handler := RequireOPA(client, http.MethodGet, "/v1/identity/users")(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) }))
+	for claim, want := range map[string]string{"le-a": "le-a", "": ""} {
+		req := httptest.NewRequest(http.MethodGet, "/v1/identity/users", nil)
+		ctx := tenant.With(req.Context(), tenant.Principal{TenantID: "t", UserID: "u", LegalEntityID: "injected"})
+		ctx = context.WithValue(context.WithValue(ctx, verifiedPrincipalKey{}, true), verifiedLegalEntityKey{}, claim)
+		resp := httptest.NewRecorder()
+		handler.ServeHTTP(resp, req.WithContext(ctx))
+		if resp.Code != http.StatusNoContent || sent.LegalEntityID != want {
+			t.Fatalf("claim %q: status %d, OPA legal entity %q, want %q", claim, resp.Code, sent.LegalEntityID, want)
+		}
 	}
 }

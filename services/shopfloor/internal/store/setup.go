@@ -451,7 +451,7 @@ func (s *Postgres) AssignWorkerSetup(ctx context.Context, workerID string, versi
 			return err
 		}
 		if err := enqueue(ctx, tx, workerSource, workerID, sfevents.WorkerAssigned, p.TenantID,
-			sfevents.WorkerAssignedData{WorkerID: workerID, ProfileID: out.ProfileID, PayAgreementID: out.PayAgreementID, DefaultResourceID: out.DefaultResourceID, AssignedBy: assignedBy}); err != nil {
+			sfevents.WorkerAssignedData{WorkerID: workerID, ProfileID: out.ProfileID, PayAgreementID: out.PayAgreementID, DefaultResourceID: out.DefaultResourceID, LegalEntityID: out.LegalEntityID, AssignedBy: assignedBy}); err != nil {
 			return err
 		}
 		return remember(ctx, tx, idem, http.StatusOK, out)
@@ -499,7 +499,7 @@ func (s *Postgres) AssignWorkerResource(ctx context.Context, workerID string, ve
 			return err
 		}
 		if err := enqueue(ctx, tx, workerSource, workerID, sfevents.WorkerAssigned, p.TenantID,
-			sfevents.WorkerAssignedData{WorkerID: workerID, ProfileID: out.ProfileID, PayAgreementID: out.PayAgreementID, DefaultResourceID: out.DefaultResourceID, AssignedBy: assignedBy}); err != nil {
+			sfevents.WorkerAssignedData{WorkerID: workerID, ProfileID: out.ProfileID, PayAgreementID: out.PayAgreementID, DefaultResourceID: out.DefaultResourceID, LegalEntityID: out.LegalEntityID, AssignedBy: assignedBy}); err != nil {
 			return err
 		}
 		return remember(ctx, tx, idem, http.StatusOK, out)

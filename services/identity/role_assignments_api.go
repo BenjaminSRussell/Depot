@@ -24,6 +24,8 @@ const (
 	codeAssignmentEnded     = "IDN-ASSIGNMENT-ENDED"
 	codeUserDeprovisioned   = "IDN-USER-DEPROVISIONED"
 	codeLegalEntityInactive = "IDN-LEGAL-ENTITY-INACTIVE"
+	// codeTenantLevelScoped: a role whose duty acts on the tenant as a whole cannot be scoped to a legal entity (B-03b).
+	codeTenantLevelScoped = "IDN-ROLE-TENANT-LEVEL"
 	codeSelfGrant           = "IAM-0416"
 	codeLastTenantAdmin     = "IDN-LAST-TENANT-ADMIN"
 
@@ -123,6 +125,12 @@ func (a *RoleAssignmentsAPI) assign(w http.ResponseWriter, r *http.Request) {
 	}
 	if len(fields) > 0 {
 		invalidFields(w, r, "invalid role assignment", fields)
+		return
+	}
+	if req.LegalEntityID != "" && a.catalogue.TenantLevel(req.Role) {
+		problem := httpx.NewProblem(http.StatusUnprocessableEntity, codeTenantLevelScoped, req.Role+" acts on the whole tenant and can only be assigned tenant-wide")
+		problem.Errors = map[string]string{"legalEntityId": "must be empty: " + req.Role + " is a tenant-level duty"}
+		httpx.Fail(w, r, problem)
 		return
 	}
 	if req.Role == tenant.DutyTenantAdmin && !tenant.IsTenantAdmin(p) {

@@ -639,7 +639,9 @@ paths:
         IDN-ASSIGNMENT-OVERLAP). A tenant-wide assignment needs a request without a legal-entity scope from a
         caller holding identity.security-role.maintain. validFrom more than five minutes in the past is refused, and a
         validTo that is not in the future is refused (a window that has already closed grants nothing). A caller cannot grant a role to themselves (403 IAM-0416), identity.tenant.maintain can only be granted
-        in the operator tenant (403), and an inactive legal entity is refused (422 IDN-LEGAL-ENTITY-INACTIVE).
+        in the operator tenant (403), and an inactive legal entity is refused (422 IDN-LEGAL-ENTITY-INACTIVE). A role whose
+        duty acts on the whole tenant ("tenant_level" in the duty catalogue: identity and access administration, SCIM,
+        the tenant's audit evidence, and others) cannot be scoped to a legal entity (422 IDN-ROLE-TENANT-LEVEL).
         Audited and emitted as dev.depot.identity.roleassignment.assigned.v1.
       security: [{ gatewayHeaders: [] }]
       parameters: [{ $ref: '#/components/parameters/TenantHeader' }, { $ref: '#/components/parameters/UserHeader' }, { $ref: '#/components/parameters/Duties' }, { $ref: '#/components/parameters/LegalEntityHeader' }]

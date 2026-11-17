@@ -30,6 +30,7 @@ func (a *API) registerSetup(r chi.Router) {
 	r.With(authz.RequireDuty(DutySetup)).Post("/v1/shopfloor/workers/{id}:assign-setup", a.assignSetup)
 	r.With(authz.RequireDuty(DutySetup)).Post("/v1/shopfloor/workers/{id}:assign-resource", a.assignResource)
 	r.With(authz.RequireDuty(DutySetup)).Post("/v1/shopfloor/workers/{id}:assign-legal-entity", a.assignLegalEntity)
+	r.With(authz.RequireDuty(DutySetup)).Post("/v1/shopfloor/workers:assign-legal-entity", a.assignLegalEntities)
 }
 
 func etag(version int) string { return `"` + strconv.Itoa(version) + `"` }
@@ -420,11 +421,16 @@ type assignLegalEntityRequest struct {
 	LegalEntityID string `json:"legalEntityId"`
 }
 
-// assignLegalEntity sets the employing legal entity of a worker created before workers carried one (B-03b, D17).
-// Only a tenant administrator may (no legal-entity claim, tenant.administer and the setup duty): no scoped caller can
-// see such a worker. A worker that already has a legal entity is SF-0200.
+// assignLegalEntity sets the employing legal entity of a worker created before workers carried one, or corrects it
+// while the worker has no time or pay (B-03b, D17). Only a tenant administrator may (no legal-entity claim,
+// tenant.administer and the setup duty): no scoped caller can see such a worker. A worker with time or pay in another
+// legal entity is SF-0200.
 func (a *API) assignLegalEntity(w http.ResponseWriter, r *http.Request) {
 	if !validTenant(w, r) {
+		return
+	}
+	user, ok := authenticatedUser(w, r, "assigning a legal entity")
+	if !ok {
 		return
 	}
 	id, ok := pathID(w, r, store.CodeWorkerNotFound, "worker")
@@ -448,7 +454,7 @@ func (a *API) assignLegalEntity(w http.ResponseWriter, r *http.Request) {
 	if a.replayed(w, r, idem) {
 		return
 	}
-	out, err := a.store.AssignWorkerLegalEntity(r.Context(), id, entity, DutySetup, idem)
+	out, err := a.store.AssignWorkerLegalEntity(r.Context(), id, entity, DutySetup, user, idem)
 	if errors.Is(err, dbx.ErrNotTenantWide) {
 		httpx.Fail(w, r, httpx.NewProblem(http.StatusForbidden, "AUTH-0003", "only a tenant administrator may assign a worker's legal entity"))
 		return
@@ -458,5 +464,78 @@ func (a *API) assignLegalEntity(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("ETag", etag(out.Version))
+	httpx.JSON(w, http.StatusOK, out)
+}
+
+type assignLegalEntitiesRequest struct {
+	LegalEntityID string   `json:"legalEntityId"`
+	WorkerIDs     []string `json:"workerIds"`
+	AllUnassigned bool     `json:"allUnassigned"`
+}
+
+// assignLegalEntities assigns one legal entity to many workers created before workers carried one: the listed
+// workerIds (at most store.MaxBulkLegalEntityWorkers), or with allUnassigned every worker of the tenant that has none
+// (B-03b, the deploy-time backfill). Tenant administrators only, as for one worker. Workers already in another legal
+// entity are reported as conflicts and left alone; export batches whose lines all belong to the legal entity's workers
+// get it too.
+func (a *API) assignLegalEntities(w http.ResponseWriter, r *http.Request) {
+	if !validTenant(w, r) {
+		return
+	}
+	user, ok := authenticatedUser(w, r, "assigning a legal entity")
+	if !ok {
+		return
+	}
+	idem, ok := readIdem(w, r)
+	if !ok {
+		return
+	}
+	var req assignLegalEntitiesRequest
+	if err := httpx.Decode(r, &req); err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+	fields := map[string]string{}
+	entity, valid := ids.Canonical(strings.TrimSpace(req.LegalEntityID))
+	if !valid || entity == ids.Nil {
+		fields["legalEntityId"] = "must be a UUID"
+	}
+	workers := make([]string, 0, len(req.WorkerIDs))
+	seen := map[string]bool{}
+	for _, raw := range req.WorkerIDs {
+		id, ok := ids.Canonical(strings.TrimSpace(raw))
+		if !ok || id == ids.Nil {
+			fields["workerIds"] = "must be UUIDs"
+			break
+		}
+		if !seen[id] {
+			seen[id] = true
+			workers = append(workers, id)
+		}
+	}
+	switch {
+	case req.AllUnassigned && len(req.WorkerIDs) > 0:
+		fields["workerIds"] = "must be empty with allUnassigned"
+	case !req.AllUnassigned && len(req.WorkerIDs) == 0:
+		fields["workerIds"] = "name at least one worker, or set allUnassigned"
+	case len(workers) > store.MaxBulkLegalEntityWorkers:
+		fields["workerIds"] = "at most " + strconv.Itoa(store.MaxBulkLegalEntityWorkers) + " workers per call"
+	}
+	if len(fields) > 0 {
+		validationFailed(w, r, fields)
+		return
+	}
+	if a.replayed(w, r, idem) {
+		return
+	}
+	out, err := a.store.AssignWorkersLegalEntity(r.Context(), store.BulkLegalEntityAssignment{LegalEntityID: entity, WorkerIDs: workers, AllUnassigned: req.AllUnassigned}, DutySetup, user, idem)
+	if errors.Is(err, dbx.ErrNotTenantWide) {
+		httpx.Fail(w, r, httpx.NewProblem(http.StatusForbidden, "AUTH-0003", "only a tenant administrator may assign workers' legal entity"))
+		return
+	}
+	if err != nil {
+		a.fail(w, r, "assign workers legal entity", err)
+		return
+	}
 	httpx.JSON(w, http.StatusOK, out)
 }

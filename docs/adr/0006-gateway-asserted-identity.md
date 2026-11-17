@@ -100,9 +100,15 @@ Keep the built model and record it as the v1.0 authorization architecture.
      every listed entity must carry the duty, so a role scoped to company A grants in A and nothing in B, in A and B
      together, or on a request with no legal entity; tenant-wide assignments, tenant administrators and operator-only
      duties are unchanged (`authz_test.rego`, `test_role_scoped_to_company_a_*`, `test_tenant_admin_is_unchanged`).
-     `RequireOPA` fills `input.subject.legal_entity_id` from the verified token's `le` claim (a string, or an array
-     joined with commas; any other shape is no legal entity), kept out of the principal so the database scope of
-     identity's own routes does not change. On the single-host gateways the selection must equal the claim, so the
+     `RequireOPA` always fills `input.subject.legal_entity_id` from the verified token's `le` claim (a JSON string only,
+     as devgateway and `depot-server` forward it; any other shape is no legal entity), kept out of the principal so the
+     database scope of identity's own routes does not change. A *tenant-level* duty (`"tenant_level": true` in the duty
+     catalogue: identity and access administration including SCIM, the tenant's audit evidence, platform and operator
+     duties, routes that run only in scope `*`, tenant-wide structure and integration channels; the table is in
+     `policies/authz/README.md`) is never granted by a scoped assignment: the rule skips it, identity refuses to create
+     one (`422 IDN-ROLE-TENANT-LEVEL`) and the compiler drops any stored, as it drops a scoped assignment whose legal
+     entity is no longer active. Without it a role scoped to one company could open SCIM, which acts on every user of
+     the tenant (B-03b review, blocker). On the single-host gateways the selection must equal the claim, so the
      claim is the request's legal entity; under the Proposed list model (B-03c) the gateways must pass the selected
      entity instead. Envoy does not call OPA (rule 3), so in Kubernetes a scoped assignment still reaches services
      only through the token's `duties` and `le` claims.

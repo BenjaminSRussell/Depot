@@ -27,6 +27,7 @@ type catalogueDuty struct {
 	size         int
 	serviceOnly  bool
 	operatorOnly bool
+	tenantLevel  bool
 }
 
 func (d *catalogueDuty) grants(method, resource string) bool {
@@ -68,6 +69,7 @@ type catalogueFile struct {
 	Duties map[string]struct {
 		ServiceOnly  bool `json:"service_only"`
 		OperatorOnly bool `json:"operator_only"`
+		TenantLevel  bool `json:"tenant_level"`
 		Permissions  []struct {
 			Resource string   `json:"resource"`
 			Methods  []string `json:"methods"`
@@ -102,7 +104,7 @@ func LoadCatalogue(raw []byte) (*Catalogue, error) {
 	c := &Catalogue{duties: map[string]*catalogueDuty{}}
 	seen := map[Route]bool{}
 	for name, spec := range file.Duties {
-		duty := &catalogueDuty{serviceOnly: spec.ServiceOnly, operatorOnly: spec.OperatorOnly}
+		duty := &catalogueDuty{serviceOnly: spec.ServiceOnly, operatorOnly: spec.OperatorOnly, tenantLevel: spec.TenantLevel}
 		for _, p := range spec.Permissions {
 			pattern, err := compileGlob(p.Resource)
 			if err != nil {
@@ -144,6 +146,15 @@ func (c *Catalogue) PersonAssignable(name string) bool {
 func (c *Catalogue) ServiceOnly(name string) bool {
 	d, ok := c.duties[name]
 	return ok && d.serviceOnly
+}
+
+// TenantLevel reports whether the duty acts on the tenant as a whole (`"tenant_level": true` in data.json: identity
+// and access administration, the tenant's audit evidence, routes that run in scope '*', ...). Such a duty is never
+// granted by a legal-entity-scoped assignment (B-03b): identity refuses to create one, the bundle compiler drops any
+// that exist, and authz.rego skips it in the scoped rule.
+func (c *Catalogue) TenantLevel(name string) bool {
+	d, ok := c.duties[name]
+	return ok && d.tenantLevel
 }
 
 // OperatorOnly reports whether the duty acts on platform-wide state and may be held only in the operator tenant

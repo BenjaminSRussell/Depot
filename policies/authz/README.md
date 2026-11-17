@@ -41,6 +41,41 @@ is a UUID or a comma list (compared in lower case), and every listed entity must
 entity (a tenant administrator's) gets only the tenant-wide duties. Identity compiles both roots into the bundle;
 `data.json` seeds them empty.
 
+### Tenant-level duties
+
+`"tenant_level": true` marks a duty that acts on the tenant as a whole. A legal-entity-scoped assignment never grants
+it, in three places:
+
+- `authz.rego`'s scoped rule skips it;
+- identity refuses to create such an assignment (`422 IDN-ROLE-TENANT-LEVEL`);
+- the bundle compiler drops any that are stored.
+
+Without this, an A-scoped `identity.user.provision` opened SCIM, which runs in scope `*` over every user of the
+tenant (B-03b review).
+
+A duty is tenant-level when any of these rules applies (`test_tenant_level_duties_cover_identity_audit_and_operator_duties`
+pins the first three families):
+
+| Rule | Duties |
+|---|---|
+| Identity and access administration: users, SCIM, role assignments, legal entities, features, setup, tenants, customer contacts, effective permissions | every `identity.*` duty |
+| The tenant's audit and security evidence, and the chain verification | every `audit.*` duty; `compliance.security.admin`, `compliance.sod.admin` |
+| Platform and operator administration | every `operator_only` (`ops.*`) duty; `platform.release.maintain`, `platform.release.view`, `platform.promotion.approve`, `platform.environment.rollback`, `platform.global.admin`, `agents.admin` |
+| Flags whose meaning is tenant-wide | `tenant.administer`, `party.merge` |
+| Routes that run only in scope `*` (`dbx.TenantWide` / `WithTenantWideAdminTx` is their only path) | `org.legal-entity.write`, `org.reference.write`, `party.merge`, `migration.opening-target.release` |
+| Tenant-wide structure, schema and whole-tenant data movement | `org.hierarchy.write`, `org.hierarchy.publish`, `org.hierarchy.backdate`, `org.package.manage`, `org.demo-company.manage`, `metadata.entity.maintain`, `metadata.extension.apply`, `metadata.write`, `events.write`, `migration.package.apply`, `analytics.archive.admin` |
+| Integration channels that carry every legal entity's events or grant API scopes | `hub.client.write`, `hub.catalog.write`, `hub.subscription.write`, `hub.delivery.read`, `hub.coexistence.operate` |
+
+Not tenant-level:
+
+- Duties that use `dbx.TenantWide` for one branch only, beside a legal-entity-scoped branch: `shopfloor.setup.maintain`,
+  `print.admin`, `migration.run`, `migration.project.write`. A tenant-wide branch needs a request with no legal
+  entity, and a scoped assignment grants nothing to such a request anyway.
+- Duties on a service's own tenant-wide reference tables, such as fx rates and scheduling. Those services check the
+  duty from the token's `duties` claim on every route, so OPA's legal-entity rule changes nothing for them.
+
+A new duty that acts on the tenant as a whole must carry the flag.
+
 ## Resources
 
 Each permission is a route template matched with `glob.match(pattern, ["/", ":"], path)`:

@@ -761,6 +761,21 @@ func TestRoleAssignmentGuards(t *testing.T) {
 		wantProblem(t, assign(c, map[string]any{"userId": userID, "role": "party.vendor.view", "legalEntityId": inactive}), http.StatusUnprocessableEntity, "IDN-LEGAL-ENTITY-INACTIVE")
 	})
 
+	// B-03b review blocker: a tenant-level duty (SCIM provisioning, user and role administration, the tenant's audit
+	// evidence, ...) acts on the whole tenant, so it cannot be scoped to one legal entity; tenant-wide it is accepted.
+	t.Run("a tenant-level duty cannot be scoped to a legal entity", func(t *testing.T) {
+		for _, role := range []string{"identity.user.provision", "identity.user.maintain", "identity.security-role.maintain", "audit.read-log.export"} {
+			p := wantProblem(t, assign(c, map[string]any{"userId": userID, "role": role, "legalEntityId": legalA}), http.StatusUnprocessableEntity, "IDN-ROLE-TENANT-LEVEL")
+			if p.Errors["legalEntityId"] == "" {
+				t.Fatalf("%s: errors = %v", role, p.Errors)
+			}
+		}
+		if got := count(t, f.app, f.tenantA, "*", `select count(*) from identity_role_assignments where role = 'identity.user.provision'`); got != 0 {
+			t.Fatalf("a refused scoped tenant-level assignment left %d rows", got)
+		}
+		decode[assignmentRow](t, assign(c, map[string]any{"userId": userID, "role": "identity.user.provision"}), http.StatusCreated)
+	})
+
 	t.Run("an end date slightly in the past is accepted as now", func(t *testing.T) {
 		created := decode[assignmentRow](t, assign(c, map[string]any{"userId": userID, "role": "audit.log.view"}), http.StatusCreated)
 		ended := decode[assignmentRow](t, f.do(c, http.MethodPost, "/v1/authz/assignments/"+created.AssignmentID+"/end", map[string]any{"validTo": time.Now().Add(-time.Minute)}), http.StatusOK)

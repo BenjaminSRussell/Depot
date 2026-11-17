@@ -17,11 +17,18 @@ scoped to company A neither sees nor writes company B's workers, time or pay.
   lines.
 - A worker created before this has no legal entity and is visible only to all-entity reads. A tenant administrator (no
   legal-entity claim, `tenant.administer` and `shopfloor.setup.maintain`) assigns it with
-  `POST /v1/shopfloor/workers/{id}:assign-legal-entity` (AUTH-0003 for anyone else). It is set once: a trigger refuses a
-  change, and the route answers SF-0200 for another legal entity.
-- The sweeper's auto clock-out and the production consumer's stop of starts on a finished operation run as system
-  actors with no legal entity and work across all of the tenant's legal entities (`widenForSystemCaller`); a caller with
-  a claim keeps its own scope.
+  `POST /v1/shopfloor/workers/{id}:assign-legal-entity`, or many at once with `POST /v1/shopfloor/workers:assign-legal-entity`
+  (`workerIds`, or `allUnassigned`), the deploy-time backfill in `docs/runbooks/delivery/shopfloor-legal-entity-backfill.md`;
+  AUTH-0003 for anyone else. Each change publishes `worker.assigned` with `legalEntityId` and the administrator in
+  `assignedBy`, and old export batches whose lines all belong to the legal entity's workers get it too (migration
+  `0041`: exported lines follow their batch, or the pay line's worker while the batch has none).
+- The shop floor has no copy of the tenant's legal entities, so the value is not checked against them; a wrong one can
+  be corrected while the worker has no registration, day, correction or cost rate. After that it never changes: a
+  trigger refuses the change and the route answers SF-0200. An export batch's legal entity is set once as well.
+- The sweeper's auto clock-out, the production consumer's stop of starts on a finished operation, and the auto
+  clock-out route called with a verified service token work across all of the tenant's legal entities. They mark their
+  context in process (`store.WithSystemScope`), which no header or user id can do; a caller with a claim keeps its
+  own scope.
 - Machines, andon, OEE, downtime, jobs, PI sheets, control recipes, process messages, edge nodes and the setup code
   lists (time profiles, pay agreements, absence codes) stay tenant-wide, with the reasons in `platform/go/rlsexempt`.
 
@@ -921,7 +928,7 @@ Problem details use `application/problem+json` with `type` `https://depot.dev/pr
 | `SF-0197` | 404 | PI execution record not found |
 | `SF-0198` | 422 | A kiosk step message disagrees with the recipe or with what the service worked out (value not asked for, calculation result, branch decision, skipped step, machine reading that was not the one handed out, hand entry without a reason) |
 | `SF-0199` | 422 | A blocking timer is recorded before it has run out on the service's clock |
-| `SF-0200` | 409 | The worker already belongs to a legal entity, which never changes (B-03b) |
+| `SF-0200` | 409 | The worker already has time or pay in its legal entity, which therefore never changes (B-03b) |
 | `SF-0178` | 422 | The control recipe cannot go to that destination, or a write is not a setpoint of the recipe |
 | `idempotency_key_reuse` | 422 | `Idempotency-Key` already used with a different request |
 

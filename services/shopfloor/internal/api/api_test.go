@@ -91,8 +91,12 @@ func (f *fakeStore) DeactivateWorker(context.Context, string, int, string, strin
 	return store.Worker{}, nil
 }
 
-func (f *fakeStore) AssignWorkerLegalEntity(context.Context, string, string, string, store.Idem) (store.Worker, error) {
+func (f *fakeStore) AssignWorkerLegalEntity(context.Context, string, string, string, string, store.Idem) (store.Worker, error) {
 	return store.Worker{}, nil
+}
+
+func (f *fakeStore) AssignWorkersLegalEntity(context.Context, store.BulkLegalEntityAssignment, string, string, store.Idem) (store.BulkLegalEntityResult, error) {
+	return store.BulkLegalEntityResult{}, nil
 }
 
 func (f *fakeStore) AddCostRate(context.Context, string, store.CostRateInput, string, store.Idem) (store.CostRate, error) {

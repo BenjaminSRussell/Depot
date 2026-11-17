@@ -2,12 +2,12 @@
   "assignments": {},
   "scoped_assignments": {},
   "duties": {
-    "identity.user.maintain": {"permissions": [{"resource": "/v1/identity/users{,/**}", "methods": ["GET", "POST", "PATCH"]}, {"resource": "/v1/identity/user-names", "methods": ["GET"]}]},
-    "identity.user-name.read": {"permissions": [{"resource": "/v1/identity/user-names", "methods": ["GET"]}]},
-    "identity.customer-contact.maintain": {"permissions": [{"resource": "/v1/identity/customer-contacts{,/**}", "methods": ["GET", "POST", "PATCH"]}]},
-    "identity.user.provision": {"permissions": [{"resource": "/scim/v2{,/**}", "methods": ["GET", "POST", "PUT", "PATCH", "DELETE"]}]},
-    "identity.effective-permission.view": {"permissions": [{"resource": "/v1/identity/users/*/effective-permissions", "methods": ["GET"]}]},
-    "identity.security-role.maintain": {"permissions": [
+    "identity.user.maintain": {"tenant_level": true, "permissions": [{"resource": "/v1/identity/users{,/**}", "methods": ["GET", "POST", "PATCH"]}, {"resource": "/v1/identity/user-names", "methods": ["GET"]}]},
+    "identity.user-name.read": {"tenant_level": true, "permissions": [{"resource": "/v1/identity/user-names", "methods": ["GET"]}]},
+    "identity.customer-contact.maintain": {"tenant_level": true, "permissions": [{"resource": "/v1/identity/customer-contacts{,/**}", "methods": ["GET", "POST", "PATCH"]}]},
+    "identity.user.provision": {"tenant_level": true, "permissions": [{"resource": "/scim/v2{,/**}", "methods": ["GET", "POST", "PUT", "PATCH", "DELETE"]}]},
+    "identity.effective-permission.view": {"tenant_level": true, "permissions": [{"resource": "/v1/identity/users/*/effective-permissions", "methods": ["GET"]}]},
+    "identity.security-role.maintain": {"tenant_level": true, "permissions": [
       {"resource": "/v1/authz/roles{,/**}", "methods": ["GET", "POST", "PUT", "DELETE"]},
       {"resource": "/v1/authz/duties{,/**}", "methods": ["GET", "POST", "PUT", "DELETE"]},
       {"resource": "/v1/authz/privileges{,/**}", "methods": ["GET", "POST", "PUT", "DELETE"]},
@@ -15,8 +15,8 @@
     ]},
     "party.vendor.maintain": {"permissions": [{"resource": "/v1/vendors{,/**}", "methods": ["GET", "POST", "PUT", "PATCH", "DELETE"]}]},
     "party.vendor.view": {"permissions": [{"resource": "/v1/vendors{,/**}", "methods": ["GET"]}]},
-    "metadata.entity.maintain": {"permissions": [{"resource": "/v1/metadata{,/**}", "methods": ["GET", "POST", "PUT", "DELETE"]}]},
-    "metadata.extension.apply": {"permissions": [{"resource": "/v1/extensions{,/**}", "methods": ["GET", "POST", "PUT"]}]},
+    "metadata.entity.maintain": {"tenant_level": true, "permissions": [{"resource": "/v1/metadata{,/**}", "methods": ["GET", "POST", "PUT", "DELETE"]}]},
+    "metadata.extension.apply": {"tenant_level": true, "permissions": [{"resource": "/v1/extensions{,/**}", "methods": ["GET", "POST", "PUT"]}]},
     "workflow.definition.maintain": {"permissions": [{"resource": "/v1/workflows{,/**}", "methods": ["GET", "POST", "PUT", "DELETE"]}]},
     "workflow.instance.submit": {"permissions": [{"resource": "/v1/workflows/instances{,/**}", "methods": ["POST"]}]},
     "workflow.workitem.approve": {"permissions": [{"resource": "/v1/workitems{,/**}", "methods": ["GET", "POST"]}]},
@@ -43,34 +43,34 @@
       {"resource": "/v1/numbering/sequences/*/next", "methods": ["POST"]}
     ]},
     "numbering.sequence.allocate": {"service_only": true, "permissions": [{"resource": "/v1/numbering/sequences/*/next", "methods": ["POST"]}]},
-    "audit.log.view": {"permissions": [{"resource": "/v1/audit{,/**}", "methods": ["GET"]}]},
-    "audit.change.record": {"permissions": [{"resource": "/v1/audit{,/**}", "methods": ["POST"]}]},
+    "audit.log.view": {"tenant_level": true, "permissions": [{"resource": "/v1/audit{,/**}", "methods": ["GET"]}]},
+    "audit.change.record": {"tenant_level": true, "permissions": [{"resource": "/v1/audit{,/**}", "methods": ["POST"]}]},
     "io.data.import": {"permissions": [{"resource": "/v1/imports{,/**}", "methods": ["GET", "POST"]}]},
     "io.data.export": {"permissions": [{"resource": "/v1/exports{,/**}", "methods": ["GET", "POST"]}]},
-    "platform.release.maintain": {"permissions": [{"resource": "/v1/platform/releases{,/**}", "methods": ["GET", "POST", "PUT", "DELETE"]}]},
-    "platform.release.view": {"permissions": [{"resource": "/v1/platform/releases{,/**}", "methods": ["GET"]}]},
-    "ops.region.view": {"operator_only": true, "permissions": [{"resource": "/v1/ops/regions", "methods": ["GET"]}, {"resource": "/v1/ops/capacity/estimate", "methods": ["GET"]}, {"resource": "/v1/ops/failover-requests/*", "methods": ["GET"]}, {"resource": "/v1/ops/failovers/*", "methods": ["GET"]}, {"resource": "/v1/ops/break-glass", "methods": ["GET"]}, {"resource": "/v1/ops/failovers/*/scorecard", "methods": ["GET"]}, {"resource": "/v1/ops/tenants/*/license", "methods": ["GET"]}, {"resource": "/v1/ops/slo", "methods": ["GET"]}, {"resource": "/v1/ops/tenants", "methods": ["GET"]}, {"resource": "/v1/ops/tenants/*", "methods": ["GET"]}, {"resource": "/v1/ops/tenants/*/costs/*", "methods": ["GET"]}, {"resource": "/v1/ops/costs", "methods": ["GET"]}, {"resource": "/v1/ops/licenses", "methods": ["GET"]}, {"resource": "/v1/ops/tenants/*/decommission", "methods": ["GET"]}, {"resource": "/v1/ops/tenants/*/purge", "methods": ["GET"]}, {"resource": "/v1/ops/clone-schedules", "methods": ["GET"]}, {"resource": "/v1/ops/clone-schedules/*/runs", "methods": ["GET"]}]},
-    "ops.region.report": {"operator_only": true, "permissions": [{"resource": "/v1/ops/regions/*/lag", "methods": ["PUT"]}]},
-    "ops.failover.execute": {"operator_only": true, "permissions": [{"resource": "/v1/ops/failover", "methods": ["POST"]}, {"resource": "/v1/ops/regions/*:rejoin", "methods": ["POST"]}, {"resource": "/v1/ops/failover-requests/*:approve", "methods": ["POST"]}, {"resource": "/v1/ops/failovers/*/steps/*", "methods": ["PUT"]}]},
-    "ops.breakglass.request": {"operator_only": true, "permissions": [{"resource": "/v1/ops/break-glass", "methods": ["POST"]}, {"resource": "/v1/ops/break-glass/*:revoke", "methods": ["POST"]}]},
-    "ops.license.install": {"operator_only": true, "permissions": [{"resource": "/v1/ops/tenants/*/license", "methods": ["PUT"]}]},
-    "ops.breakglass.review": {"operator_only": true, "permissions": [{"resource": "/v1/ops/break-glass/*:review", "methods": ["POST"]}]},
-    "ops.tenant.provision": {"operator_only": true, "permissions": [{"resource": "/v1/ops/tenants", "methods": ["POST"]}, {"resource": "/v1/ops/tenants/*/provision-steps/*", "methods": ["PUT"]}]},
-    "ops.cost.record": {"operator_only": true, "permissions": [{"resource": "/v1/ops/tenants/*/costs/*", "methods": ["PUT"]}]},
-    "ops.tenant.purge": {"operator_only": true, "permissions": [{"resource": "/v1/ops/tenants/*/export-verification", "methods": ["PUT"]}, {"resource": "/v1/ops/tenants/*:purge", "methods": ["POST"]}, {"resource": "/v1/ops/tenants/*/purge-result", "methods": ["PUT"]}]},
-    "ops.tenant.decommission": {"operator_only": true, "permissions": [{"resource": "/v1/ops/tenants/*:decommission", "methods": ["POST"]}, {"resource": "/v1/ops/tenants/*/decommission-steps/*", "methods": ["PUT"]}]},
-    "ops.clone.schedule": {"operator_only": true, "permissions": [{"resource": "/v1/ops/clone-schedules", "methods": ["POST"]}, {"resource": "/v1/ops/clone-schedules/*", "methods": ["PUT", "DELETE"]}]},
-    "ops.license.report": {"operator_only": true, "permissions": [{"resource": "/v1/ops/tenants/*/license/usage", "methods": ["PUT"]}]},
-    "platform.promotion.approve": {"permissions": [{"resource": "/v1/platform/releases{,/**}", "methods": ["POST"]}]},
-    "platform.environment.rollback": {"permissions": [{"resource": "/v1/platform/releases{,/**}", "methods": ["POST"]}]},
-    "identity.tenant.maintain": {"permissions": [{"resource": "/v1/tenants{,/**}", "methods": ["GET", "POST", "PATCH"]}]},
-    "identity.ops.tenant-read": {"service_only": true, "permissions": [{"resource": "/v1/tenants/*/user-counts", "methods": ["GET"]}]},
-    "identity.tenant-registry.read": {"permissions": [{"resource": "/v1/tenants", "methods": ["GET"]}]},
-    "identity.legal-entity.maintain": {"permissions": [{"resource": "/v1/legal-entities{,/**}", "methods": ["GET", "POST", "PATCH"]}]},
-    "identity.feature.view": {"permissions": [{"resource": "/v1/tenant/features", "methods": ["GET"]}]},
-    "identity.feature.maintain": {"permissions": [{"resource": "/v1/tenant/features", "methods": ["GET", "PUT"]}]},
-    "identity.setup.view": {"permissions": [{"resource": "/v1/tenant/setup", "methods": ["GET"]}, {"resource": "/v1/tenant/workspace-config", "methods": ["GET"]}]},
-    "identity.setup.maintain": {"permissions": [{"resource": "/v1/tenant/setup{,/**}", "methods": ["GET", "PUT"]}, {"resource": "/v1/tenant/workspace-config", "methods": ["GET", "PUT"]}]},
+    "platform.release.maintain": {"tenant_level": true, "permissions": [{"resource": "/v1/platform/releases{,/**}", "methods": ["GET", "POST", "PUT", "DELETE"]}]},
+    "platform.release.view": {"tenant_level": true, "permissions": [{"resource": "/v1/platform/releases{,/**}", "methods": ["GET"]}]},
+    "ops.region.view": {"tenant_level": true, "operator_only": true, "permissions": [{"resource": "/v1/ops/regions", "methods": ["GET"]}, {"resource": "/v1/ops/capacity/estimate", "methods": ["GET"]}, {"resource": "/v1/ops/failover-requests/*", "methods": ["GET"]}, {"resource": "/v1/ops/failovers/*", "methods": ["GET"]}, {"resource": "/v1/ops/break-glass", "methods": ["GET"]}, {"resource": "/v1/ops/failovers/*/scorecard", "methods": ["GET"]}, {"resource": "/v1/ops/tenants/*/license", "methods": ["GET"]}, {"resource": "/v1/ops/slo", "methods": ["GET"]}, {"resource": "/v1/ops/tenants", "methods": ["GET"]}, {"resource": "/v1/ops/tenants/*", "methods": ["GET"]}, {"resource": "/v1/ops/tenants/*/costs/*", "methods": ["GET"]}, {"resource": "/v1/ops/costs", "methods": ["GET"]}, {"resource": "/v1/ops/licenses", "methods": ["GET"]}, {"resource": "/v1/ops/tenants/*/decommission", "methods": ["GET"]}, {"resource": "/v1/ops/tenants/*/purge", "methods": ["GET"]}, {"resource": "/v1/ops/clone-schedules", "methods": ["GET"]}, {"resource": "/v1/ops/clone-schedules/*/runs", "methods": ["GET"]}]},
+    "ops.region.report": {"tenant_level": true, "operator_only": true, "permissions": [{"resource": "/v1/ops/regions/*/lag", "methods": ["PUT"]}]},
+    "ops.failover.execute": {"tenant_level": true, "operator_only": true, "permissions": [{"resource": "/v1/ops/failover", "methods": ["POST"]}, {"resource": "/v1/ops/regions/*:rejoin", "methods": ["POST"]}, {"resource": "/v1/ops/failover-requests/*:approve", "methods": ["POST"]}, {"resource": "/v1/ops/failovers/*/steps/*", "methods": ["PUT"]}]},
+    "ops.breakglass.request": {"tenant_level": true, "operator_only": true, "permissions": [{"resource": "/v1/ops/break-glass", "methods": ["POST"]}, {"resource": "/v1/ops/break-glass/*:revoke", "methods": ["POST"]}]},
+    "ops.license.install": {"tenant_level": true, "operator_only": true, "permissions": [{"resource": "/v1/ops/tenants/*/license", "methods": ["PUT"]}]},
+    "ops.breakglass.review": {"tenant_level": true, "operator_only": true, "permissions": [{"resource": "/v1/ops/break-glass/*:review", "methods": ["POST"]}]},
+    "ops.tenant.provision": {"tenant_level": true, "operator_only": true, "permissions": [{"resource": "/v1/ops/tenants", "methods": ["POST"]}, {"resource": "/v1/ops/tenants/*/provision-steps/*", "methods": ["PUT"]}]},
+    "ops.cost.record": {"tenant_level": true, "operator_only": true, "permissions": [{"resource": "/v1/ops/tenants/*/costs/*", "methods": ["PUT"]}]},
+    "ops.tenant.purge": {"tenant_level": true, "operator_only": true, "permissions": [{"resource": "/v1/ops/tenants/*/export-verification", "methods": ["PUT"]}, {"resource": "/v1/ops/tenants/*:purge", "methods": ["POST"]}, {"resource": "/v1/ops/tenants/*/purge-result", "methods": ["PUT"]}]},
+    "ops.tenant.decommission": {"tenant_level": true, "operator_only": true, "permissions": [{"resource": "/v1/ops/tenants/*:decommission", "methods": ["POST"]}, {"resource": "/v1/ops/tenants/*/decommission-steps/*", "methods": ["PUT"]}]},
+    "ops.clone.schedule": {"tenant_level": true, "operator_only": true, "permissions": [{"resource": "/v1/ops/clone-schedules", "methods": ["POST"]}, {"resource": "/v1/ops/clone-schedules/*", "methods": ["PUT", "DELETE"]}]},
+    "ops.license.report": {"tenant_level": true, "operator_only": true, "permissions": [{"resource": "/v1/ops/tenants/*/license/usage", "methods": ["PUT"]}]},
+    "platform.promotion.approve": {"tenant_level": true, "permissions": [{"resource": "/v1/platform/releases{,/**}", "methods": ["POST"]}]},
+    "platform.environment.rollback": {"tenant_level": true, "permissions": [{"resource": "/v1/platform/releases{,/**}", "methods": ["POST"]}]},
+    "identity.tenant.maintain": {"tenant_level": true, "permissions": [{"resource": "/v1/tenants{,/**}", "methods": ["GET", "POST", "PATCH"]}]},
+    "identity.ops.tenant-read": {"tenant_level": true, "service_only": true, "permissions": [{"resource": "/v1/tenants/*/user-counts", "methods": ["GET"]}]},
+    "identity.tenant-registry.read": {"tenant_level": true, "permissions": [{"resource": "/v1/tenants", "methods": ["GET"]}]},
+    "identity.legal-entity.maintain": {"tenant_level": true, "permissions": [{"resource": "/v1/legal-entities{,/**}", "methods": ["GET", "POST", "PATCH"]}]},
+    "identity.feature.view": {"tenant_level": true, "permissions": [{"resource": "/v1/tenant/features", "methods": ["GET"]}]},
+    "identity.feature.maintain": {"tenant_level": true, "permissions": [{"resource": "/v1/tenant/features", "methods": ["GET", "PUT"]}]},
+    "identity.setup.view": {"tenant_level": true, "permissions": [{"resource": "/v1/tenant/setup", "methods": ["GET"]}, {"resource": "/v1/tenant/workspace-config", "methods": ["GET"]}]},
+    "identity.setup.maintain": {"tenant_level": true, "permissions": [{"resource": "/v1/tenant/setup{,/**}", "methods": ["GET", "PUT"]}, {"resource": "/v1/tenant/workspace-config", "methods": ["GET", "PUT"]}]},
     "platform.saved-view.maintain": {"permissions": [{"resource": "/v1/saved-views{,/**}", "methods": ["GET", "POST", "PUT", "DELETE"]}]},
     "hello.ledger.maintain": {"permissions": [{"resource": "/v1/hello-ledger{,/**}", "methods": ["GET", "POST", "PUT", "DELETE"]}]},
     "product.product.view": {"permissions": [{"resource": "/v1/product{,/**}", "methods": ["GET"]}]},
@@ -407,7 +407,7 @@
       {"resource": "/v1/reporting/library/*/share-links", "methods": ["GET", "POST"]},
       {"resource": "/v1/reporting/share-links/*:revoke", "methods": ["POST"]}
     ]},
-    "hub.subscription.write": {"permissions": [
+    "hub.subscription.write": {"tenant_level": true, "permissions": [
       {"resource": "/v1/hub/subscriptions", "methods": ["POST"]},
       {"resource": "/v1/hub/subscriptions/*", "methods": ["PATCH", "DELETE"]},
       {"resource": "/v1/hub/subscriptions/*:resume", "methods": ["POST"]},
@@ -416,7 +416,7 @@
       {"resource": "/v1/hub/deliveries/*:replay", "methods": ["POST"]},
       {"resource": "/v1/hub/subscriptions/*:rotate", "methods": ["POST"]}
     ]},
-    "hub.delivery.read": {"permissions": [
+    "hub.delivery.read": {"tenant_level": true, "permissions": [
       {"resource": "/v1/hub/subscriptions", "methods": ["GET"]},
       {"resource": "/v1/hub/subscriptions/*", "methods": ["GET"]},
       {"resource": "/v1/hub/deliveries", "methods": ["GET"]},
@@ -429,18 +429,18 @@
       {"resource": "/v1/hub/catalog/*", "methods": ["GET"]},
       {"resource": "/v1/hub/catalog/*/spec", "methods": ["GET"]}
     ]},
-    "hub.client.write": {"permissions": [
+    "hub.client.write": {"tenant_level": true, "permissions": [
       {"resource": "/v1/hub/clients", "methods": ["POST"]},
       {"resource": "/v1/hub/clients/*", "methods": ["PATCH"]},
       {"resource": "/v1/hub/clients/*:revoke", "methods": ["POST"]}
     ]},
-    "hub.catalog.write": {"permissions": [
+    "hub.catalog.write": {"tenant_level": true, "permissions": [
       {"resource": "/v1/hub/catalog", "methods": ["POST"]},
       {"resource": "/v1/hub/catalog/*", "methods": ["PATCH"]},
       {"resource": "/v1/hub/catalog/*:deprecate", "methods": ["POST"]},
       {"resource": "/v1/hub/catalog/*:retire", "methods": ["POST"]}
     ]},
-    "hub.coexistence.operate": {"permissions": [
+    "hub.coexistence.operate": {"tenant_level": true, "permissions": [
       {"resource": "/v1/hub/coexistence:retry-parked", "methods": ["POST"]}
     ]},
     "hub.client.consume": {"service_only": true, "permissions": [{"resource": "/v1/hub/clients:consume", "methods": ["POST"]}]},
@@ -1011,7 +1011,7 @@
       {"resource": "/v1/party/vendors/*/bank-accounts:reveal", "methods": ["GET"]}
     ]},
     "pii.read": {"flag": true, "permissions": []},
-    "party.merge": {"flag": true, "permissions": []},
+    "party.merge": {"tenant_level": true, "flag": true, "permissions": []},
     "party.merge.approve": {"permissions": [
       {"resource": "/v1/workflows/party-merges/*:approve", "methods": ["POST"]},
       {"resource": "/v1/workflows/party-merges/*:reject", "methods": ["POST"]},
@@ -1021,7 +1021,7 @@
       {"resource": "/v1/party/merge-requests/*:approve", "methods": ["POST"]},
       {"resource": "/v1/party/merge-requests/*:reject", "methods": ["POST"]}
     ]},
-    "tenant.administer": {"flag": true, "permissions": []},
+    "tenant.administer": {"tenant_level": true, "flag": true, "permissions": []},
     "party.approve": {"permissions": [
       {"resource": "/v1/party/pending-changes/*:approve", "methods": ["POST"]},
       {"resource": "/v1/party/pending-changes/*:reject", "methods": ["POST"]}
@@ -1063,7 +1063,7 @@
     "party.customer-portal.read": {"service_only": true, "permissions": [
       {"resource": "/v1/party/customer-portal/accounts", "methods": ["GET"]}
     ]},
-    "identity.customer-portal.read": {"service_only": true, "permissions": [
+    "identity.customer-portal.read": {"tenant_level": true, "service_only": true, "permissions": [
       {"resource": "/v1/identity/customer-portal/legal-entity", "methods": ["GET"]}
     ]},
     "product.customs.read": {"service_only": true, "permissions": [
@@ -1178,7 +1178,7 @@
       {"resource": "/v1/service/activities/*:reschedule", "methods": ["POST"]},
       {"resource": "/v1/service/activities:calendar", "methods": ["GET"]}
     ]},
-    "agents.admin": {"permissions": [
+    "agents.admin": {"tenant_level": true, "permissions": [
       {"resource": "/api/v1/agents/*/versions/*/promote", "methods": ["PUT"]},
       {"resource": "/api/v1/agents/budgets/*", "methods": ["GET"]},
       {"resource": "/api/v1/agents/kill-switch", "methods": ["GET", "POST"]},
@@ -1221,7 +1221,7 @@
       {"resource": "/v1/analytics/ux-funnels", "methods": ["GET"]},
       {"resource": "/v1/analytics/ux-signals", "methods": ["GET"]}
     ]},
-    "analytics.archive.admin": {"permissions": [
+    "analytics.archive.admin": {"tenant_level": true, "permissions": [
       {"resource": "/v1/archive/partitions", "methods": ["GET"]},
       {"resource": "/v1/archive/partitions/*", "methods": ["GET"]},
       {"resource": "/v1/archive/partitions/*/restore", "methods": ["POST"]}
@@ -1456,7 +1456,7 @@
       {"resource": "/api/v1/cutover/plans/*/go-no-go", "methods": ["GET", "POST"]},
       {"resource": "/api/v1/cutover/plans/*/export/*", "methods": ["GET"]}
     ]},
-    "migration.opening-target.release": {"permissions": [
+    "migration.opening-target.release": {"tenant_level": true, "permissions": [
       {"resource": "/api/v1/migration/opening-targets/*/*/release", "methods": ["POST"]}
     ]},
     "migration.cutover-step.execute": {"permissions": [
@@ -2091,7 +2091,7 @@
       {"resource": "/edi/v1/self-billing/disputes", "methods": ["GET"]},
       {"resource": "/edi/v1/self-billing/disputes/*:resolve", "methods": ["POST"]}
     ]},
-    "compliance.security.admin": {"permissions": [
+    "compliance.security.admin": {"tenant_level": true, "permissions": [
       {"resource": "/v1/sod/evaluations", "methods": ["POST"]},
       {"resource": "/v1/sod/simulate", "methods": ["POST"]}
     ]},
@@ -2099,7 +2099,7 @@
       {"resource": "/v1/security/incidents:breach-clocks", "methods": ["POST"]},
       {"resource": "/v1/security/incidents:transition", "methods": ["POST"]}
     ]},
-    "compliance.sod.admin": {"permissions": [
+    "compliance.sod.admin": {"tenant_level": true, "permissions": [
       {"resource": "/v1/sod/campaigns:close", "methods": ["POST"]},
       {"resource": "/v1/sod/campaigns:plan", "methods": ["POST"]},
       {"resource": "/v1/sod/conflicts/*/accept-risk", "methods": ["POST"]}
@@ -2413,25 +2413,25 @@
       {"resource": "/v1/fulfillment/packing-slip-lines/*", "methods": ["GET"]}
     ]},
     "fulfillment.returnable-packaging.maintain": {"permissions": [{"resource": "/v1/fulfillment/returnable-packaging:adjust", "methods": ["POST"]}]},
-    "audit.read": {"permissions": [
+    "audit.read": {"tenant_level": true, "permissions": [
       {"resource": "/v1/audit/alerts", "methods": ["GET"]},
       {"resource": "/v1/audit/records/*/*", "methods": ["GET"]}
     ]},
-    "audit.read-log.write": {"service_only": true, "permissions": [
+    "audit.read-log.write": {"tenant_level": true, "service_only": true, "permissions": [
       {"resource": "/v1/audit/reads", "methods": ["POST"]}
     ]},
-    "audit.read-log.view": {"permissions": [
+    "audit.read-log.view": {"tenant_level": true, "permissions": [
       {"resource": "/v1/audit/reads", "methods": ["GET"]}
     ]},
-    "audit.read-log.export": {"permissions": [
+    "audit.read-log.export": {"tenant_level": true, "permissions": [
       {"resource": "/v1/audit/reads:export", "methods": ["GET"]},
       {"resource": "/v1/audit/reads:verify", "methods": ["GET"]}
     ]},
-    "audit.read-log.review": {"permissions": [
+    "audit.read-log.review": {"tenant_level": true, "permissions": [
       {"resource": "/v1/audit/reads:break-glass", "methods": ["GET"]},
       {"resource": "/v1/audit/reads/*:review", "methods": ["POST"]}
     ]},
-    "audit.write": {"permissions": [
+    "audit.write": {"tenant_level": true, "permissions": [
       {"resource": "/v1/audit/alert-rules", "methods": ["POST"]},
       {"resource": "/v1/audit/changes", "methods": ["POST"]}
     ]},
@@ -2755,7 +2755,7 @@
       {"resource": "/v1/events/schemas/*", "methods": ["GET"]},
       {"resource": "/v1/events/topics", "methods": ["GET"]}
     ]},
-    "events.write": {"permissions": [{"resource": "/v1/events/schemas/*", "methods": ["POST"]}]},
+    "events.write": {"tenant_level": true, "permissions": [{"resource": "/v1/events/schemas/*", "methods": ["POST"]}]},
     "expense.advance.admin": {"permissions": [
       {"resource": "/v1/expense/cash-advances/*/pay", "methods": ["POST"]},
       {"resource": "/v1/expense/cash-advances/*/return", "methods": ["POST"]}
@@ -2864,11 +2864,11 @@
       {"resource": "/v1/metadata/entities/*/schema", "methods": ["GET"]},
       {"resource": "/v1/metadata/rules/evaluate", "methods": ["POST"]}
     ]},
-    "metadata.write": {"permissions": [
+    "metadata.write": {"tenant_level": true, "permissions": [
       {"resource": "/v1/metadata/entities", "methods": ["POST"]},
       {"resource": "/v1/metadata/extensions", "methods": ["POST"]}
     ]},
-    "migration.package.apply": {"permissions": [{"resource": "/v1/integration/config-packages:apply", "methods": ["POST"]}]},
+    "migration.package.apply": {"tenant_level": true, "permissions": [{"resource": "/v1/integration/config-packages:apply", "methods": ["POST"]}]},
     "migration.run": {"permissions": [
       {"resource": "/v1/integration/outbound-mappings", "methods": ["GET"]},
       {"resource": "/v1/integration/outbound-mappings/*", "methods": ["GET"]},
@@ -2951,15 +2951,15 @@
       {"resource": "/v1/org/fiscal-calendars/*", "methods": ["PATCH"]},
       {"resource": "/v1/org/fiscal-calendars/*:generate", "methods": ["POST"]}
     ]},
-    "org.hierarchy.backdate": {"flag": true, "permissions": []},
-    "org.hierarchy.publish": {"permissions": [{"resource": "/v1/org/hierarchy-versions/*:publish", "methods": ["POST"]}]},
-    "org.hierarchy.write": {"permissions": [
+    "org.hierarchy.backdate": {"tenant_level": true, "flag": true, "permissions": []},
+    "org.hierarchy.publish": {"tenant_level": true, "permissions": [{"resource": "/v1/org/hierarchy-versions/*:publish", "methods": ["POST"]}]},
+    "org.hierarchy.write": {"tenant_level": true, "permissions": [
       {"resource": "/v1/org/hierarchy-types", "methods": ["POST"]},
       {"resource": "/v1/org/hierarchy-types/*/versions", "methods": ["POST"]},
       {"resource": "/v1/org/hierarchy-versions/*", "methods": ["DELETE"]},
       {"resource": "/v1/org/hierarchy-versions/*/nodes", "methods": ["PUT"]}
     ]},
-    "org.legal-entity.write": {"permissions": [
+    "org.legal-entity.write": {"tenant_level": true, "permissions": [
       {"resource": "/v1/org/legal-entities", "methods": ["POST"]},
       {"resource": "/v1/org/legal-entities/*", "methods": ["PATCH"]},
       {"resource": "/v1/org/legal-entities/*/translations/*", "methods": ["PUT", "DELETE"]},
@@ -2977,8 +2977,8 @@
       {"resource": "/v1/org/teams/*/members/*:end", "methods": ["POST"]},
       {"resource": "/v1/org/operating-units/*/translations/*", "methods": ["PUT", "DELETE"]}
     ]},
-    "org.demo-company.manage": {"permissions": [{"resource": "/v1/org/demo-company", "methods": ["POST"]}, {"resource": "/v1/org/demo-company:reset", "methods": ["POST"]}]},
-    "org.package.manage": {"permissions": [
+    "org.demo-company.manage": {"tenant_level": true, "permissions": [{"resource": "/v1/org/demo-company", "methods": ["POST"]}, {"resource": "/v1/org/demo-company:reset", "methods": ["POST"]}]},
+    "org.package.manage": {"tenant_level": true, "permissions": [
       {"resource": "/v1/org/export", "methods": ["POST"]},
       {"resource": "/v1/org/import", "methods": ["POST"]}
     ]},
@@ -3037,7 +3037,7 @@
       {"resource": "/v1/org/warehouses/*/name", "methods": ["GET"]},
       {"resource": "/v1/org/warehouses/*/translations", "methods": ["GET"]}
     ]},
-    "org.reference.write": {"permissions": [
+    "org.reference.write": {"tenant_level": true, "permissions": [
       {"resource": "/v1/org/countries/*", "methods": ["PATCH"]},
       {"resource": "/v1/org/currencies/*", "methods": ["PATCH"]},
       {"resource": "/v1/org/currencies/*/rounding-rules/*", "methods": ["PUT", "DELETE"]},
@@ -3839,7 +3839,9 @@
       {"resource": "/v1/shopfloor/time-profiles/*", "methods": ["PUT"]},
       {"resource": "/v1/shopfloor/workers", "methods": ["POST"]},
       {"resource": "/v1/shopfloor/workers/*:assign-setup", "methods": ["POST"]},
-      {"resource": "/v1/shopfloor/workers/*:assign-resource", "methods": ["POST"]}, {"resource": "/v1/shopfloor/workers/*:assign-legal-entity", "methods": ["POST"]},
+      {"resource": "/v1/shopfloor/workers/*:assign-resource", "methods": ["POST"]},
+      {"resource": "/v1/shopfloor/workers/*:assign-legal-entity", "methods": ["POST"]},
+      {"resource": "/v1/shopfloor/workers:assign-legal-entity", "methods": ["POST"]},
       {"resource": "/v1/shopfloor/downtime-reasons", "methods": ["POST"]},
       {"resource": "/v1/shopfloor/downtime-reasons/*", "methods": ["PUT"]},
       {"resource": "/v1/shopfloor/process-categories", "methods": ["POST"]},
@@ -4123,7 +4125,7 @@
     "agents.run.workflow": {"service_only": true, "permissions": [
       {"resource": "/api/v1/agents/runs/*/steps/*", "methods": ["POST"]}
     ]},
-    "platform.global.admin": {"permissions": [{"resource": "/api/v1/agents/kill-switch", "methods": ["GET", "POST"]}]}
+    "platform.global.admin": {"tenant_level": true, "permissions": [{"resource": "/api/v1/agents/kill-switch", "methods": ["GET", "POST"]}]}
   },
   "service_grants": {
     "consolidation": {

@@ -61,20 +61,17 @@ type jwtClaims struct {
 	IssuedAt  int64           `json:"iat"`
 	NotBefore int64           `json:"nbf"`
 	Expires   int64           `json:"exp"`
-	// LegalEntity is the `le` claim: one legal entity as built, a comma list under ADR-0006 rule 4 (Proposed).
+	// LegalEntity is the `le` claim: one legal entity as built, a comma-joined string under ADR-0006 rule 4 (Proposed).
 	LegalEntity json.RawMessage `json:"le"`
 }
 
-// legalEntityClaim reads the `le` claim as a comma list: a string as it is, an array of strings joined with commas.
-// Any other shape is no legal entity, under which a legal-entity-scoped assignment grants nothing.
+// legalEntityClaim reads the `le` claim. Only a JSON string counts, as in devgateway and depot-server, which forward
+// `le` to services only when it is a string; any other shape (an array, a number, an object) is no legal entity, under
+// which a legal-entity-scoped assignment grants nothing, so OPA and the services never see different scopes.
 func legalEntityClaim(raw json.RawMessage) string {
 	var single string
 	if json.Unmarshal(raw, &single) == nil {
 		return strings.TrimSpace(single)
-	}
-	var many []string
-	if json.Unmarshal(raw, &many) == nil {
-		return strings.TrimSpace(strings.Join(many, ","))
 	}
 	return ""
 }

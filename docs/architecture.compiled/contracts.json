@@ -2,7 +2,7 @@
   "version": 3,
   "compiler": "scripts/compile_architecture.py",
   "note": "Generated from the OpenAPI and AsyncAPI specs and scripts/architecture_patterns.json. Do not edit; run python3 scripts/compile_architecture.py --write.",
-  "summary": {"openapiDocuments": 65, "paths": 2620, "operations": 3243, "asyncapiDocuments": 60, "topics": 384, "topicsPublished": 383, "topicsSubscribed": 16, "patterns": 59},
+  "summary": {"openapiDocuments": 65, "paths": 2621, "operations": 3244, "asyncapiDocuments": 60, "topics": 384, "topicsPublished": 383, "topicsSubscribed": 16, "patterns": 59},
   "patterns": [
     {
       "id": "event-envelope",
@@ -4108,7 +4108,8 @@
         {"method": "POST", "path": "/v1/shopfloor/workers/{id}:assign-resource", "operationId": "assignWorkerResource", "duty": "shopfloor.setup.maintain"},
         {"method": "POST", "path": "/v1/shopfloor/workers/{id}:assign-setup", "operationId": "assignWorkerSetup", "duty": "shopfloor.setup.maintain"},
         {"method": "POST", "path": "/v1/shopfloor/workers/{id}:deactivate", "operationId": "deactivateWorker", "duty": "shopfloor.setup.maintain"},
-        {"method": "POST", "path": "/v1/shopfloor/workers/{id}:reactivate", "operationId": "reactivateWorker", "duty": "shopfloor.setup.maintain"}
+        {"method": "POST", "path": "/v1/shopfloor/workers/{id}:reactivate", "operationId": "reactivateWorker", "duty": "shopfloor.setup.maintain"},
+        {"method": "POST", "path": "/v1/shopfloor/workers:assign-legal-entity", "operationId": "assignWorkersLegalEntity", "duty": "shopfloor.setup.maintain"}
       ]
     },
     {
