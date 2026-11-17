@@ -75,7 +75,7 @@ func exportRows(lines []exportLine) []domain.ExportRow {
 // workers of that legal entity; a caller scoped to several must narrow first.
 func (s *Postgres) ExportPay(ctx context.Context, fromDate, toDate, createdBy string, idem Idem) (PayExport, error) {
 	p, _ := tenant.FromContext(ctx)
-	entity, err := httpx.OwnerLegalEntity(ctx, "")
+	entity, err := exportLegalEntity(ctx)
 	if err != nil {
 		return PayExport{}, err
 	}
@@ -216,4 +216,23 @@ func (s *Postgres) GetPayExport(ctx context.Context, id string) (PayExport, erro
 		return err
 	})
 	return out, err
+}
+
+// exportLegalEntity is the one legal entity a payroll export is for: the caller's. A caller scoped to several must
+// select one (the shell's X-Depot-LegalEntity narrows the scope), and one with none, or with the all-entity read
+// scope only, cannot export (B-03b).
+func exportLegalEntity(ctx context.Context) (string, error) {
+	scopes, err := httpx.CallerLegalEntities(ctx)
+	if err != nil {
+		return "", err
+	}
+	switch len(scopes) {
+	case 1:
+		return scopes[0], nil
+	case 0:
+		return "", httpx.NewProblem(http.StatusForbidden, "AUTH-0003", "a payroll export is one legal entity's: select the legal entity to export")
+	}
+	bad := httpx.NewProblem(http.StatusUnprocessableEntity, "COM-0001", "request failed validation")
+	bad.Errors = map[string]string{"legalEntity": "a payroll export is one legal entity's: select one of your legal entities (X-Depot-LegalEntity) before exporting"}
+	return "", bad
 }

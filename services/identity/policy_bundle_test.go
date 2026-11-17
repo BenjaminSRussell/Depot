@@ -57,7 +57,7 @@ func newBundleFixture(t *testing.T, operator string) bundleFixture {
 	for _, q := range []string{
 		`insert into identity_role_assignments (tenant_id, assignment_id, user_id, role) values ($1, gen_random_uuid(), $2, 'identity.user.maintain')`,
 		`insert into identity_role_assignments (tenant_id, assignment_id, user_id, role, valid_from, valid_to) values ($1, gen_random_uuid(), $2, 'identity.tenant.maintain', now() - interval '2 days', now() - interval '1 day')`,
-		`insert into identity_role_assignments (tenant_id, assignment_id, user_id, role, legal_entity_id) values ($1, gen_random_uuid(), $2, 'identity.legal-entity.maintain', '` + legalA + `')`,
+		`insert into identity_role_assignments (tenant_id, assignment_id, user_id, role, legal_entity_id) values ($1, gen_random_uuid(), $2, 'party.vendor.view', '` + legalA + `')`,
 	} {
 		if _, err := admin.Exec(ctx, q, tenantA, userID); err != nil {
 			t.Fatal(err)
@@ -162,7 +162,7 @@ func TestCompiledBundleCarriesActiveAssignmentsBySubjectAndLegalEntity(t *testin
 		t.Fatalf("assignments = %s, want %s", got, expected)
 	}
 	wantScoped := map[string]map[string]map[string][]string{
-		f.tenantA: {"subject-" + f.tenantA: {legalA: {"identity.legal-entity.maintain"}}},
+		f.tenantA: {"subject-" + f.tenantA: {legalA: {"party.vendor.view"}}},
 	}
 	got, _ = json.Marshal(data.ScopedAssignments)
 	expected, _ = json.Marshal(wantScoped)
@@ -213,11 +213,52 @@ func TestCompiledBundleKeepsOperatorOnlyDutiesInTheOperatorTenant(t *testing.T) 
 	if slices.Contains(data.Assignments[f.tenantB]["subject-"+f.tenantB], "ops.failover.execute") {
 		t.Errorf("a non-operator tenant kept an operator-only duty: %v", data.Assignments[f.tenantB])
 	}
-	if !slices.Contains(data.ScopedAssignments[f.tenantA]["subject-"+f.tenantA][legalA], "ops.region.view") {
-		t.Errorf("operator tenant lost its scoped ops duty: %v", data.ScopedAssignments[f.tenantA])
+	// Operator-only duties are also tenant-level, so a scoped one is dropped even in the operator tenant (B-03b review).
+	if slices.Contains(data.ScopedAssignments[f.tenantA]["subject-"+f.tenantA][legalA], "ops.region.view") {
+		t.Errorf("the operator tenant kept a scoped operator-only duty: %v", data.ScopedAssignments[f.tenantA])
 	}
 	if len(data.ScopedAssignments[f.tenantB]) != 0 {
 		t.Errorf("a non-operator tenant kept a scoped operator-only duty: %v", data.ScopedAssignments[f.tenantB])
+	}
+}
+
+// B-03b review: the compiler drops a legal-entity-scoped assignment of a tenant-level duty (stored before identity
+// refused them, or written past the API) and one whose legal entity is no longer active.
+func TestCompiledBundleDropsScopedTenantLevelAndInactiveEntityAssignments(t *testing.T) {
+	f := newBundleFixture(t, "")
+	ctx := context.Background()
+	const inactive = "10000000-0000-0000-0000-000000000077"
+	if _, err := f.admin.Exec(ctx, `insert into identity_legal_entities (tenant_id, legal_entity_id, code, display_name, status) values ($1, $2, 'OLD', 'Old', 'inactive')`, f.tenantB, inactive); err != nil {
+		t.Fatal(err)
+	}
+	for _, q := range []struct{ tenantID, role, legalEntity string }{
+		{f.tenantA, "identity.user.provision", legalA},
+		{f.tenantA, "audit.read-log.export", legalB},
+		{f.tenantB, "party.vendor.view", inactive},
+		{f.tenantB, "party.vendor.maintain", legalA},
+	} {
+		if _, err := f.admin.Exec(ctx, `insert into identity_role_assignments (tenant_id, assignment_id, user_id, role, legal_entity_id) values ($1, gen_random_uuid(), $2, $3, $4)`, q.tenantID, userID, q.role, q.legalEntity); err != nil {
+			t.Fatal(err)
+		}
+	}
+	bundle, err := f.compiler.Compile(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var data struct {
+		ScopedAssignments map[string]map[string]map[string][]string `json:"scoped_assignments"`
+	}
+	if err := json.Unmarshal(untar(t, bundle.Archive)["data.json"], &data); err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]map[string]map[string][]string{
+		f.tenantA: {"subject-" + f.tenantA: {legalA: {"party.vendor.view"}}},
+		f.tenantB: {"subject-" + f.tenantB: {legalA: {"party.vendor.maintain"}}},
+	}
+	got, _ := json.Marshal(data.ScopedAssignments)
+	expected, _ := json.Marshal(want)
+	if string(got) != string(expected) {
+		t.Fatalf("scoped_assignments = %s, want %s (tenant-level and inactive-entity assignments dropped)", got, expected)
 	}
 }
 
@@ -314,7 +355,7 @@ func TestOPAAcceptsTheSignedBundleAndRejectsTampering(t *testing.T) {
 	}
 	// B-03b: the assignment scoped to legal entity A grants in A and nothing in B or with no legal entity.
 	scoped := func(legalEntity string) string {
-		return `{"subject":{"tenant_id":"` + f.tenantA + `","user_id":"subject-` + f.tenantA + `","legal_entity_id":"` + legalEntity + `"},"action":"GET","resource":"/v1/legal-entities"}`
+		return `{"subject":{"tenant_id":"` + f.tenantA + `","user_id":"subject-` + f.tenantA + `","legal_entity_id":"` + legalEntity + `"},"action":"GET","resource":"/v1/vendors/v1"}`
 	}
 	if out, err := opaEval(t, f, bundle.Archive, scoped(legalA)); err != nil || !strings.Contains(out, "true") {
 		t.Fatalf("an assignment scoped to legal entity A must grant in A: %v %s", err, out)

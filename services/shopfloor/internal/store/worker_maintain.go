@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"slices"
 	"strings"
 
 	"github.com/jackc/pgx/v5"
@@ -32,12 +33,14 @@ const (
 	CodeWorkerLegalEntitySet = "SF-0200"
 )
 
-// AssignWorkerLegalEntity sets the employing legal entity of a worker created before workers carried one (B-03b,
-// D17). Such a worker, and its time and pay, is visible to no scoped caller, so only a tenant administrator (no
-// legal-entity claim, tenant.administer and the setup duty; dbx.WithTenantWideAdminTx) may assign it; anyone else
-// gets dbx.ErrNotTenantWide. A worker that already has a legal entity is SF-0200: it never changes, as its history
-// follows it.
-func (s *Postgres) AssignWorkerLegalEntity(ctx context.Context, workerID, legalEntityID, duty string, idem Idem) (Worker, error) {
+// AssignWorkerLegalEntity sets the employing legal entity of a worker (B-03b, D17), for a worker created before
+// workers carried one, or to correct a wrong one while no time, day, pay, correction or cost-rate row hangs off the
+// worker yet. A worker with no legal entity, and its time and pay, is visible to no scoped caller, so only a tenant
+// administrator (no legal-entity claim, tenant.administer and the setup duty; dbx.WithTenantWideAdminTx) may assign
+// it; anyone else gets dbx.ErrNotTenantWide. Once the worker has time or pay its legal entity never changes (SF-0200):
+// that history follows it. The same legal entity again changes nothing. A change publishes worker.assigned with the
+// legal entity and the actor, and gives the legal entity to the worker's export batches that now have one.
+func (s *Postgres) AssignWorkerLegalEntity(ctx context.Context, workerID, legalEntityID, duty, assignedBy string, idem Idem) (Worker, error) {
 	p, _ := tenant.FromContext(ctx)
 	var out Worker
 	err := dbx.WithTenantWideAdminTx(ctx, s.pool, p, duty, func(tx pgx.Tx) error {
@@ -45,21 +48,146 @@ func (s *Postgres) AssignWorkerLegalEntity(ctx context.Context, workerID, legalE
 		if err != nil {
 			return err
 		}
+		if cur.LegalEntityID != nil && *cur.LegalEntityID == legalEntityID {
+			out = cur
+			return remember(ctx, tx, idem, http.StatusOK, out)
+		}
 		if cur.LegalEntityID != nil {
-			if *cur.LegalEntityID == legalEntityID {
-				out = cur
-				return remember(ctx, tx, idem, http.StatusOK, out)
+			has, err := workerHasTimeOrPay(ctx, tx, p.TenantID, workerID)
+			if err != nil {
+				return err
 			}
-			return httpx.NewProblem(http.StatusConflict, CodeWorkerLegalEntitySet, "the worker already belongs to a legal entity, which never changes")
+			if has {
+				return httpx.NewProblem(http.StatusConflict, CodeWorkerLegalEntitySet, "the worker already has time or pay in its legal entity, which therefore never changes")
+			}
 		}
 		out, err = scanWorker(tx.QueryRow(ctx, `update worker set legal_entity_id = $3, version = version + 1, updated_at = now()
 			where tenant_id = $1 and id = $2 returning `+workerColumns, p.TenantID, workerID, legalEntityID))
 		if err != nil {
 			return err
 		}
+		if err := publishWorkerAssigned(ctx, tx, p.TenantID, out, assignedBy); err != nil {
+			return err
+		}
+		if _, err := backfillExportBatches(ctx, tx, p.TenantID, legalEntityID); err != nil {
+			return err
+		}
 		return remember(ctx, tx, idem, http.StatusOK, out)
 	})
 	return out, err
+}
+
+// MaxBulkLegalEntityWorkers bounds the worker ids of one bulk assignment.
+const MaxBulkLegalEntityWorkers = 1000
+
+// BulkLegalEntityAssignment assigns one legal entity to many workers created before workers carried one (B-03b): the
+// listed WorkerIDs, or with AllUnassigned every worker of the tenant that has none.
+type BulkLegalEntityAssignment struct {
+	LegalEntityID string
+	WorkerIDs     []string
+	AllUnassigned bool
+}
+
+// BulkLegalEntityResult says what a bulk assignment did with each worker. Assigned had no legal entity and now has
+// it; Unchanged already had it; Conflicts already belong to another legal entity (correct those one at a time);
+// NotFound are not workers of the tenant. ExportBatches counts the payroll export batches that got the legal entity.
+type BulkLegalEntityResult struct {
+	LegalEntityID string   `json:"legalEntityId"`
+	Assigned      []string `json:"assigned"`
+	Unchanged     []string `json:"unchanged"`
+	Conflicts     []string `json:"conflicts"`
+	NotFound      []string `json:"notFound"`
+	ExportBatches int      `json:"exportBatches"`
+}
+
+// AssignWorkersLegalEntity is the bulk form of AssignWorkerLegalEntity for the deploy-time backfill (runbook
+// docs/runbooks/delivery/shopfloor-legal-entity-backfill.md): one tenant administrator transaction assigns the legal
+// entity to every listed worker that has none, publishes worker.assigned for each, and then gives it to every export
+// batch whose lines all belong to its workers. It never moves a worker from another legal entity.
+func (s *Postgres) AssignWorkersLegalEntity(ctx context.Context, in BulkLegalEntityAssignment, duty, assignedBy string, idem Idem) (BulkLegalEntityResult, error) {
+	p, _ := tenant.FromContext(ctx)
+	out := BulkLegalEntityResult{LegalEntityID: in.LegalEntityID, Assigned: []string{}, Unchanged: []string{}, Conflicts: []string{}, NotFound: []string{}}
+	err := dbx.WithTenantWideAdminTx(ctx, s.pool, p, duty, func(tx pgx.Tx) error {
+		var rows pgx.Rows
+		var err error
+		if in.AllUnassigned {
+			rows, err = tx.Query(ctx, `select id::text, legal_entity_id::text from worker where tenant_id = $1 and legal_entity_id is null order by id for update`, p.TenantID)
+		} else {
+			rows, err = tx.Query(ctx, `select id::text, legal_entity_id::text from worker where tenant_id = $1 and id = any($2::uuid[]) order by id for update`, p.TenantID, in.WorkerIDs)
+		}
+		if err != nil {
+			return err
+		}
+		found := map[string]bool{}
+		var assign []string
+		for rows.Next() {
+			var id string
+			var entity *string
+			if err := rows.Scan(&id, &entity); err != nil {
+				rows.Close()
+				return err
+			}
+			found[id] = true
+			switch {
+			case entity == nil:
+				assign = append(assign, id)
+			case *entity == in.LegalEntityID:
+				out.Unchanged = append(out.Unchanged, id)
+			default:
+				out.Conflicts = append(out.Conflicts, id)
+			}
+		}
+		rows.Close()
+		if err := rows.Err(); err != nil {
+			return err
+		}
+		for _, id := range in.WorkerIDs {
+			if !found[id] {
+				out.NotFound = append(out.NotFound, id)
+			}
+		}
+		if len(assign) > 0 {
+			rows, err := tx.Query(ctx, `update worker set legal_entity_id = $3, version = version + 1, updated_at = now()
+				where tenant_id = $1 and id = any($2::uuid[]) returning `+workerColumns, p.TenantID, assign, in.LegalEntityID)
+			if err != nil {
+				return err
+			}
+			var assigned []Worker
+			for rows.Next() {
+				w, err := scanWorker(rows)
+				if err != nil {
+					rows.Close()
+					return err
+				}
+				assigned = append(assigned, w)
+			}
+			rows.Close()
+			if err := rows.Err(); err != nil {
+				return err
+			}
+			for _, w := range assigned {
+				out.Assigned = append(out.Assigned, w.ID)
+				if err := publishWorkerAssigned(ctx, tx, p.TenantID, w, assignedBy); err != nil {
+					return err
+				}
+			}
+			slices.Sort(out.Assigned)
+		}
+		if out.ExportBatches, err = backfillExportBatches(ctx, tx, p.TenantID, in.LegalEntityID); err != nil {
+			return err
+		}
+		return remember(ctx, tx, idem, http.StatusOK, out)
+	})
+	if err != nil {
+		return BulkLegalEntityResult{}, err
+	}
+	return out, nil
+}
+
+func publishWorkerAssigned(ctx context.Context, tx pgx.Tx, tenantID string, w Worker, assignedBy string) error {
+	return enqueue(ctx, tx, workerSource, w.ID, sfevents.WorkerAssigned, tenantID, sfevents.WorkerAssignedData{
+		WorkerID: w.ID, ProfileID: w.ProfileID, PayAgreementID: w.PayAgreementID, DefaultResourceID: w.DefaultResourceID,
+		LegalEntityID: w.LegalEntityID, AssignedBy: assignedBy})
 }
 
 // WorkerInput is the editable part of a worker: everything but the party link, which never changes.

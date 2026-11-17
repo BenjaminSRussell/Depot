@@ -76,6 +76,13 @@ const tenantColumn = `(^|[^._[:alnum:]])tenant_id([^._[:alnum:]]|$)`
 
 const tenantExpr = tenantColumn + `[^=]*= *[A-Za-z_(]*current_setting\(.depot\.tenant_id.`
 
+// entityScopeExpr is what a restrictive policy that follows a legal entity compares: a legal_entity_id (the row's, or
+// a parent's in an EXISTS) against the list in depot.legal_entity_scopes. orTrue is a disjunct that admits every row.
+const (
+	entityScopeExpr = `legal_entity_id[^,]*= *ANY *\(string_to_array\(current_setting\(.depot\.legal_entity_scopes.`
+	orTrue          = `[[:<:]]or[[:space:]]+true[[:>:]]`
+)
+
 const tableFactsQuery = `
 select c.relname, c.relrowsecurity, c.relforcerowsecurity,
   exists (select 1 from pg_attribute a where a.attrelid = c.oid and a.attname = 'tenant_id' and not a.attisdropped),
@@ -95,8 +102,8 @@ select c.relname, c.relrowsecurity, c.relforcerowsecurity,
           and (coalesce(p.qual, '') || ' ' || coalesce(p.with_check, '')) ~* 'legal_entity_id[[:space:])]+is[[:space:]]+null'),
   exists (select 1 from pg_policies p where p.schemaname = n.nspname and p.tablename = c.relname and p.permissive = 'RESTRICTIVE'
           and p.cmd = 'ALL' and (p.roles = '{public}' or 'depot_app' = any (p.roles))
-          and p.qual like '%depot.legal_entity_scopes%'
-          and (p.with_check is null or p.with_check like '%depot.legal_entity_scopes%'))
+          and p.qual ~ '` + entityScopeExpr + `' and p.qual !~* '` + orTrue + `'
+          and (p.with_check is null or (p.with_check ~ '` + entityScopeExpr + `' and p.with_check !~* '` + orTrue + `')))
 from pg_class c
 join pg_namespace n on n.oid = c.relnamespace
 where n.nspname = $1 and c.relkind in ('r', 'p') and not c.relispartition and c.relname <> 'schema_migrations'
@@ -393,6 +400,29 @@ func table(vs []violation) string {
 	}
 	_ = w.Flush()
 	return b.String()
+}
+
+// B-03b review: in a service D17 named, a child table passes only with a restrictive policy that compares a legal
+// entity against the scope list; one that merely mentions the setting, admits every row, or joins its parent without
+// the parent's legal entity is a no-legal-entity-scope violation.
+func TestEntityScopeFixtureViolationsArePinned(t *testing.T) {
+	testkit.DB(t)
+	const service = "entityscope-fixture"
+	rlsexempt.EntityScopedServices[service] = true
+	t.Cleanup(func() { delete(rlsexempt.EntityScopedServices, service) })
+	var keys []string
+	for _, v := range schemaViolations(t, service, "testdata/entityscope") {
+		keys = append(keys, v.key())
+	}
+	sort.Strings(keys)
+	want := []string{
+		service + ".child_no_entity:" + problemNoScope,
+		service + ".child_vacuous:" + problemNoScope,
+		service + ".tenant_wide:" + problemNoScope,
+	}
+	if strings.Join(keys, "\n") != strings.Join(want, "\n") {
+		t.Fatalf("entity-scope fixture violations:\n%s\nwant:\n%s", strings.Join(keys, "\n"), strings.Join(want, "\n"))
+	}
 }
 
 func TestFixtureViolationsArePinned(t *testing.T) {

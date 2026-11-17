@@ -19,7 +19,9 @@ allow if {
 # (data.scoped_assignments[tenant][user][legal_entity]) applies only when the request acts in that legal entity:
 # input.subject.legal_entity_id names the legal entities the request acts in (one UUID, or a comma list), and a scoped
 # duty counts only when every one of them carries it. So a role scoped to company A grants in A, and nothing in B,
-# nothing in A and B together, and nothing on a request with no legal entity (a tenant administrator's).
+# nothing in A and B together, and nothing on a request with no legal entity (a tenant administrator's). A duty marked
+# "tenant_level" in data.json acts on the tenant as a whole (identity and access administration, SCIM, the tenant's audit
+# evidence, routes that run in scope '*'), so a scoped assignment never grants it, whatever its legal entity.
 held_duties contains duty if {
 	some duty in data.assignments[input.subject.tenant_id][input.subject.user_id]
 }
@@ -30,6 +32,7 @@ held_duties contains duty if {
 	scoped := data.scoped_assignments[input.subject.tenant_id][input.subject.user_id]
 	some first in entities
 	some duty in scoped[first]
+	not data.duties[duty].tenant_level
 	every entity in entities {
 		duty in scoped[entity]
 	}

@@ -777,8 +777,43 @@ func TestHTTP_TenantAdminAssignsAWorkersLegalEntity(t *testing.T) {
 	if rec := call(t, h, http.MethodGet, "/v1/shopfloor/workers/"+legacy, "", allDuty); rec.Code != http.StatusOK {
 		t.Fatalf("scoped read after the assignment: %d %s", rec.Code, rec.Body.String())
 	}
+	// Once the worker has time, its legal entity never changes.
+	regs := fmt.Sprintf(`{"items":[{"id":"0195f0a0-0000-7000-8000-0000000000c2","workerId":%q,"kind":"clock-in","startedAt":"2026-10-20T09:00:00Z"}]}`, legacy)
+	if rec := call(t, h, http.MethodPost, "/v1/shopfloor/registrations", regs, allDuty); rec.Code != http.StatusOK {
+		t.Fatalf("registrations: %d %s", rec.Code, rec.Body.String())
+	}
 	other := `{"legalEntityId":"00000000-0000-0000-0000-0000000000e2"}`
 	if rec := assign("", other, allDuty+",tenant.administer", "a-4"); rec.Code != http.StatusConflict || !strings.Contains(rec.Body.String(), "SF-0200") {
 		t.Fatalf("moving the worker to another legal entity: %d %s", rec.Code, rec.Body.String())
+	}
+
+	// The bulk form for the deploy-time backfill: tenant administrators only, validated, and it reports per worker.
+	second := "0195f0a0-0000-7000-8000-0000000000c3"
+	if _, err := admin.Exec(context.Background(), `insert into worker (tenant_id, id, party_id, name, cost_rate, currency) values ($1, $2, $3, 'Legacy 2', 20, 'USD')`, testkit.TenantID(1), second, jobID); err != nil {
+		t.Fatal(err)
+	}
+	bulk := func(legalEntity, body, key string) *httptest.ResponseRecorder {
+		return callWith(t, h, http.MethodPost, "/v1/shopfloor/workers:assign-legal-entity", body, allDuty+",tenant.administer",
+			map[string]string{"Idempotency-Key": key, "X-Depot-Legal-Entity": legalEntity})
+	}
+	for name, body := range map[string]string{
+		"neither": `{"legalEntityId":"` + testLegalEntity + `"}`,
+		"both":    `{"legalEntityId":"` + testLegalEntity + `","allUnassigned":true,"workerIds":["` + second + `"]}`,
+		"bad id":  `{"legalEntityId":"` + testLegalEntity + `","workerIds":["x"]}`,
+		"bad le":  `{"legalEntityId":"x","allUnassigned":true}`,
+		"nil le":  `{"legalEntityId":"00000000-0000-0000-0000-000000000000","allUnassigned":true}`,
+	} {
+		if rec := bulk("", body, "b-"+name); rec.Code != http.StatusBadRequest {
+			t.Fatalf("bulk %s: %d %s", name, rec.Code, rec.Body.String())
+		}
+	}
+	if rec := bulk(testLegalEntity, `{"legalEntityId":"`+testLegalEntity+`","allUnassigned":true}`, "b-scoped"); rec.Code != http.StatusForbidden {
+		t.Fatalf("bulk by a scoped caller: %d %s", rec.Code, rec.Body.String())
+	}
+	rec = bulk("", `{"legalEntityId":"`+testLegalEntity+`","workerIds":["`+second+`","`+legacy+`"]}`, "b-ok")
+	var res store.BulkLegalEntityResult
+	_ = json.Unmarshal(rec.Body.Bytes(), &res)
+	if rec.Code != http.StatusOK || len(res.Assigned) != 1 || res.Assigned[0] != second || len(res.Unchanged) != 1 || res.Unchanged[0] != legacy {
+		t.Fatalf("bulk: %d %s", rec.Code, rec.Body.String())
 	}
 }

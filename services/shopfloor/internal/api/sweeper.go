@@ -210,7 +210,9 @@ func (s *Sweeper) RunJob(ctx context.Context, job string) int {
 		if ctx.Err() != nil {
 			return failed
 		}
-		jctx, cancel := context.WithTimeout(tenant.With(ctx, tenant.Principal{TenantID: tenantID, UserID: SweepActor}), sweepJobTimeout)
+		// WithSystemScope lets the sweep's auto clock-out see every legal entity of the tenant (B-03b); only this
+		// in-process code path can set it.
+		jctx, cancel := context.WithTimeout(store.WithSystemScope(tenant.With(ctx, tenant.Principal{TenantID: tenantID, UserID: SweepActor})), sweepJobTimeout)
 		s.runs[job].Add(1)
 		if err := s.runTenant(jctx, job); err != nil {
 			failed++

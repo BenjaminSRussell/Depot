@@ -49,11 +49,15 @@ var bundleRoots = []string{"authz", "assignments", "scoped_assignments", "duties
 // compiledAssignmentsQuery reads every active assignment of every active user of every active tenant. A tenant-wide
 // assignment has an empty legal entity and goes to data.assignments; a legal-entity-scoped one goes to
 // data.scoped_assignments under its legal entity, where authz.rego grants it only to a request in that entity (B-03b).
+// A scoped assignment counts only while its legal entity is active: assignment creation refuses an inactive one, and
+// one deactivated later stops granting here (identity_legal_entities_policy_compile_read, migration 0019).
 const compiledAssignmentsQuery = `select a.tenant_id::text, u.idp_subject, coalesce(a.legal_entity_id::text, ''), a.role
 from identity_role_assignments a
 join identity_users u on u.tenant_id = a.tenant_id and u.user_id = a.user_id
 join identity_tenants t on t.tenant_id = a.tenant_id
+left join identity_legal_entities le on le.tenant_id = a.tenant_id and le.legal_entity_id = a.legal_entity_id
 where u.status = 'active' and t.status = 'active'
+  and (a.legal_entity_id is null or le.status = 'active')
   and a.valid_from <= now() and (a.valid_to is null or a.valid_to > now())
 order by 1, 2, 3, 4`
 
@@ -178,6 +182,11 @@ func (c *PolicyBundleCompiler) assignments(ctx context.Context) (compiledAssignm
 			}
 			// An operator-only duty assigned in any other tenant is dropped here as well as refused by the policy.
 			if c.catalogue.OperatorOnly(role) && tenantID != c.operatorTenantID {
+				continue
+			}
+			// A tenant-level duty never comes from a legal-entity-scoped assignment: identity refuses to create one and
+			// authz.rego skips it; one stored before that rule is dropped here as well (B-03b).
+			if legalEntity != "" && c.catalogue.TenantLevel(role) {
 				continue
 			}
 			if legalEntity == "" {
