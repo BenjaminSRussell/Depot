@@ -170,6 +170,10 @@ func Validate(c Change) map[string]string {
 //     neighbour.
 //   - legacy, for rows written before AUD-API-1 (all of those fields empty): prevHash, entity, recordId, field,
 //     oldValue, newValue, userId, traceId and occurredAt (UTC, time.RFC3339Nano, not truncated) joined by "|".
+//
+// RFC 8785 is defined for valid UTF-8 only, and decoding invalid bytes would map different values to the same
+// U+FFFD. So a v2 change with any value that is not valid UTF-8 has no hash: Hash returns "" (never a SHA-256 hex
+// string) and Verify reports the row as a break. Validate refuses such values, so Link never produces one.
 func Hash(prevHash string, c Change) string {
 	if prevHash == "" {
 		prevHash = Genesis
@@ -177,10 +181,16 @@ func Hash(prevHash string, c Change) string {
 	var payload []byte
 	if c.hasContext() {
 		occurred := c.OccurredAt.UTC().Truncate(time.Microsecond).Format(time.RFC3339Nano)
-		payload = canonicalStrings([]string{
+		values := []string{
 			contextHashVersion, prevHash, c.Entity, c.RecordID, c.Field, c.OldValue, c.NewValue, c.UserID, c.ActorKind, c.OnBehalfOf,
 			c.TraceID, occurred, c.Reason, c.ChangeSetID, c.EventType, c.EventID, c.WorkflowInstanceID,
-		})
+		}
+		for _, v := range values {
+			if !utf8.ValidString(v) {
+				return ""
+			}
+		}
+		payload = canonicalStrings(values)
 	} else {
 		payload = []byte(strings.Join([]string{
 			prevHash, c.Entity, c.RecordID, c.Field, c.OldValue, c.NewValue, c.UserID, c.TraceID, c.OccurredAt.UTC().Format(time.RFC3339Nano),
@@ -193,7 +203,7 @@ func Hash(prevHash string, c Change) string {
 // canonicalStrings is the RFC 8785 (JCS) serialization of an array of strings: no whitespace; in each string '"'
 // and '\' are escaped, U+0008, U+0009, U+000A, U+000C and U+000D use their short escapes, the other characters
 // below U+0020 are \u00xx with lowercase hex, and every other character, U+2028, U+2029, '<', '>' and '&'
-// included, is written as itself in UTF-8. Validate admits valid UTF-8 only.
+// included, is written as itself in UTF-8. The caller (Hash) passes valid UTF-8 only.
 func canonicalStrings(values []string) []byte {
 	const hexDigits = "0123456789abcdef"
 	var b strings.Builder
@@ -253,7 +263,7 @@ func Verify(entries []Entry) error {
 	prev := Genesis
 	for i, e := range entries {
 		want := Hash(prev, e.Change)
-		if e.PrevHash != prev || e.Hash != want {
+		if want == "" || e.PrevHash != prev || e.Hash != want {
 			return fmt.Errorf("chain break at %d", i)
 		}
 		prev = e.Hash

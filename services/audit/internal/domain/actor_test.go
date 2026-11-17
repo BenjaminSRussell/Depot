@@ -141,3 +141,27 @@ func TestValidateTextLimitsCountCharacters(t *testing.T) {
 		t.Fatalf("invalid UTF-8 and NUL: %v", f)
 	}
 }
+
+// TestHashRefusesInvalidUTF8: two v2 changes that differ only in invalid bytes would encode to the same U+FFFD and
+// collide, so Hash gives neither a hash and Verify reports the row as a break, whatever hash it carries.
+func TestHashRefusesInvalidUTF8(t *testing.T) {
+	a, b := serviceChange(), serviceChange()
+	a.NewValue, b.NewValue = "x\xff", "x\xfe"
+	if ha, hb := domain.Hash("", a), domain.Hash("", b); ha != "" || hb != "" {
+		t.Fatalf("invalid UTF-8 hashed: %q %q", ha, hb)
+	}
+	for _, stored := range []string{"", domain.Hash("", serviceChange())} {
+		if err := domain.Verify([]domain.Entry{{Change: a, PrevHash: domain.Genesis, Hash: stored}}); err == nil {
+			t.Fatalf("a row with invalid UTF-8 verified against hash %q", stored)
+		}
+	}
+	if _, err := domain.Link("", a); err == nil {
+		t.Fatal("Link accepted invalid UTF-8")
+	}
+	// The legacy payload hashes raw bytes, so it never decodes and cannot collide this way.
+	legacy := change("name", "x\xff", "y", "t")
+	legacy.ActorKind = ""
+	if domain.Hash("", legacy) == "" {
+		t.Fatal("legacy rows keep hashing their bytes")
+	}
+}
