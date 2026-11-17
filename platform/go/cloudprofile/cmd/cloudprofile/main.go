@@ -1,8 +1,8 @@
 // Command cloudprofile prints what a cloud profile resolves to.
 //
-//	go run ./cloudprofile/cmd/cloudprofile entra-idp -profile gcc-high -entra-tenant <guid> -client-id <id> -tenant-id <passage tenant>
+//	go run ./cloudprofile/cmd/cloudprofile entra-idp -profile gcc-high -entra-tenant <guid> -client-id <id> -tenant-id <depot tenant>
 //	go run ./cloudprofile/cmd/cloudprofile describe -profile gcc+hipaa
-//	go run ./cloudprofile/cmd/cloudprofile realm-patch -profile gcc-high+hipaa [-trust-idp-mfa] [-amr-regex <regex>] [-realm deploy/keycloak/realm-passage.json]
+//	go run ./cloudprofile/cmd/cloudprofile realm-patch -profile gcc-high+hipaa [-trust-idp-mfa] [-amr-regex <regex>] [-realm deploy/keycloak/realm-depot.json]
 //
 // realm-patch prints what the profile changes in the Keycloak realm (password policy, event retention, idle session
 // timeout, and with -trust-idp-mfa the post-broker flow that skips the second factor when the IdP's amr claim shows MFA);
@@ -15,7 +15,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/BenjaminSRussell/passage/platform/cloudprofile"
+	"github.com/BenjaminSRussell/depot/platform/cloudprofile"
 )
 
 func main() {
@@ -27,7 +27,7 @@ func main() {
 	sel := fs.String("profile", "commercial", "profile selector, for example gcc or gcc+hipaa")
 	entra := fs.String("entra-tenant", cloudprofile.PlaceholderEntraTenant, "customer Entra tenant GUID")
 	client := fs.String("client-id", cloudprofile.PlaceholderClientID, "app registration client id")
-	tid := fs.String("tenant-id", cloudprofile.PlaceholderPassageTID, "Passage tenant id bound to the realm")
+	tid := fs.String("tenant-id", cloudprofile.PlaceholderDepotTID, "Depot tenant id bound to the realm")
 	trust := fs.Bool("trust-idp-mfa", false, "trust the identity provider's amr claim for phishing-resistant MFA instead of asking again")
 	amr := fs.String("amr-regex", "", "regex matched against the idp_amr attribute (default: mfa or hwk)")
 	realmFile := fs.String("realm", "", "realm export to apply the patch to (realm-patch only)")

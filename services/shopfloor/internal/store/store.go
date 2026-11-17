@@ -19,14 +19,14 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/outbox"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/shopfloor/internal/domain"
-	sfevents "github.com/BenjaminSRussell/passage/services/shopfloor/internal/events"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/outbox"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/shopfloor/internal/domain"
+	sfevents "github.com/BenjaminSRussell/depot/services/shopfloor/internal/events"
 )
 
 // Catalog codes raised by the store (see README).
@@ -193,7 +193,7 @@ func mapForeignKey(err error) error {
 // client timestamp order (BR-25.7), so an offline replay posts its events in
 // the order the work happened; results come back in request order. An item
 // whose client UUID already exists is a no-op reported as duplicate; a new item
-// emits dev.passage.shopfloor.registration.posted.v1 in the same transaction.
+// emits dev.depot.shopfloor.registration.posted.v1 in the same transaction.
 // A new job-start drives dispatch (FR-25.3): it is flagged job-finished-conflict
 // when its job is already finished (BR-25.7), moves a released job to started,
 // and, when open, auto-stops the worker's other open job or bundle.
@@ -506,7 +506,7 @@ type ApproveResult struct {
 }
 
 // ApprovePay approves every calculated day in [fromDate, toDate] for a worker,
-// then emits dev.passage.shopfloor.payday.approved.v1 per newly approved day.
+// then emits dev.depot.shopfloor.payday.approved.v1 per newly approved day.
 // Days already approved are returned unchanged, so a replay is a no-op. The
 // whole approval fails when any day has an open flag (SF-0006), when clock
 // registrations for a calculated day arrived after its calculation or the dated

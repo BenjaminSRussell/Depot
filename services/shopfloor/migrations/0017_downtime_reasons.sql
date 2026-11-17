@@ -1,4 +1,4 @@
--- PSG-25 slice 17: the downtime reason code master (FR-25.11, D4). Until now a downtime was coded
+-- DPT-25 slice 17: the downtime reason code master (FR-25.11, D4). Until now a downtime was coded
 -- with free text (downtime_record.reason_code); a supervisor maintains the list of codes here, each
 -- with a name and the planned or unplanned category that OEE and andon report on, and coding a
 -- downtime then takes one of the active codes. The code is versioned (an update carries the version
@@ -22,13 +22,13 @@ CREATE TABLE IF NOT EXISTS downtime_reason (
 ALTER TABLE downtime_reason ENABLE ROW LEVEL SECURITY;
 ALTER TABLE downtime_reason FORCE ROW LEVEL SECURITY;
 CREATE POLICY downtime_reason_tenant_access ON downtime_reason AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON downtime_reason TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON downtime_reason TO depot_app';
   END IF;
 END
 $$;

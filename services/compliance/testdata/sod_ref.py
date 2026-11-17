@@ -1,4 +1,4 @@
-"""Independent reference for fx-sod-50-distinct (PSG-48 AC2).
+"""Independent reference for fx-sod-50-distinct (DPT-48 AC2).
 
 Run with `python3 -I sod_ref.py <fixture>` (stdlib only). It restates the eleven seed rules of FR-48.4
 and matches duty patterns with fnmatch, sharing no code with the Go engine, and checks that every

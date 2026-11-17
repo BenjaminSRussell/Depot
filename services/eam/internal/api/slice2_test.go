@@ -6,10 +6,10 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/eam/internal/store"
-	"github.com/BenjaminSRussell/passage/services/eam/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/eam/internal/store"
+	"github.com/BenjaminSRussell/depot/services/eam/migrations"
 )
 
 const pumpCatalogJSON = `{"symptoms":[{"code":"NOISE","text":"Noise"}],"areas":[{"code":"BEARING","text":"Bearing"}],` +
@@ -29,7 +29,7 @@ func TestSlice2Routes_RejectBeforeStore(t *testing.T) {
 	}
 	match := map[string]string{"If-Match": `"1"`}
 	noKey := func(duties string) map[string]string {
-		return map[string]string{"X-Passage-Tenant": testkit.TenantID(1), "X-Passage-Duties": duties}
+		return map[string]string{"X-Depot-Tenant": testkit.TenantID(1), "X-Depot-Duties": duties}
 	}
 	warranty := func(patch string) string {
 		return `{"warrantyType":"OEM","vendorPartyId":"` + testkit.TenantID(8) + `","startBasis":"PURCHASE","startsOn":"2025-11-01","months":24` + patch + `}`

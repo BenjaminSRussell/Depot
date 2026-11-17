@@ -10,11 +10,11 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/tax/internal/api"
-	"github.com/BenjaminSRussell/passage/services/tax/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/tax/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/tax/internal/api"
+	"github.com/BenjaminSRussell/depot/services/tax/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/tax/internal/store"
 )
 
 // fakeConfig implements only what a test needs; the embedded nil interface panics on anything else,

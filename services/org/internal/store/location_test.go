@@ -7,10 +7,10 @@ import (
 
 	"github.com/jackc/pgx/v5/pgconn"
 
-	"github.com/BenjaminSRussell/passage/services/org/internal/store"
+	"github.com/BenjaminSRussell/depot/services/org/internal/store"
 )
 
-const locationCreatedType = "dev.passage.org.location.created.v1"
+const locationCreatedType = "dev.depot.org.location.created.v1"
 
 func newLocation(warehouseID, code string) store.Location {
 	return store.Location{WarehouseID: warehouseID, Code: code, Name: "Location " + code}

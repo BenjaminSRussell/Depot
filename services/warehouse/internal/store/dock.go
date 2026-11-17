@@ -7,7 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/BenjaminSRussell/passage/services/warehouse/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/warehouse/internal/domain"
 )
 
 // CreateDoor stores a dock door. A code already used in the warehouse is

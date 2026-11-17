@@ -1,6 +1,6 @@
 -- Integration hub: webhook subscriptions, deliveries and delivery attempts (FR-35.9).
 -- Every table carries tenant_id with ENABLE + FORCE row-level security and the
--- tenant policy. passage_app is granted exactly what the store does.
+-- tenant policy. depot_app is granted exactly what the store does.
 
 CREATE TABLE IF NOT EXISTS hub_subscription (
   tenant_id uuid NOT NULL,
@@ -27,8 +27,8 @@ CREATE TABLE IF NOT EXISTS hub_subscription (
 ALTER TABLE hub_subscription ENABLE ROW LEVEL SECURITY;
 ALTER TABLE hub_subscription FORCE ROW LEVEL SECURITY;
 CREATE POLICY hub_subscription_tenant_access ON hub_subscription AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 CREATE TABLE IF NOT EXISTS hub_delivery (
   tenant_id uuid NOT NULL,
@@ -60,8 +60,8 @@ CREATE INDEX IF NOT EXISTS hub_delivery_archive ON hub_delivery (tenant_id, subs
 ALTER TABLE hub_delivery ENABLE ROW LEVEL SECURITY;
 ALTER TABLE hub_delivery FORCE ROW LEVEL SECURITY;
 CREATE POLICY hub_delivery_tenant_access ON hub_delivery AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 CREATE TABLE IF NOT EXISTS hub_attempt (
   tenant_id uuid NOT NULL,
@@ -77,22 +77,22 @@ CREATE INDEX IF NOT EXISTS hub_attempt_delivery ON hub_attempt (tenant_id, deliv
 ALTER TABLE hub_attempt ENABLE ROW LEVEL SECURITY;
 ALTER TABLE hub_attempt FORCE ROW LEVEL SECURITY;
 CREATE POLICY hub_attempt_tenant_access ON hub_attempt AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- The retry poller has no tenant until it finds one. It asks hub_due_subscriptions,
 -- which reads across tenants as the table owner: a policy for the owner role only
--- (never passage_app) lets the owner see every row despite FORCE ROW LEVEL SECURITY.
+-- (never depot_app) lets the owner see every row despite FORCE ROW LEVEL SECURITY.
 -- The function returns (tenant, subscription) ids only, takes no input but the
 -- clock, pins search_path to this schema with pg_temp last (a caller's temporary
--- table cannot stand in for a hub table), and only passage_app may execute it. The
+-- table cannot stand in for a hub table), and only depot_app may execute it. The
 -- poller then works inside each tenant under the tenant policies.
--- Migrations must run as the owner role: run as passage_app, the application role
+-- Migrations must run as the owner role: run as depot_app, the application role
 -- would own the tables and could switch row-level security off.
 DO $do$
 BEGIN
-  IF current_user = 'passage_app' THEN
-    RAISE EXCEPTION 'integration-hub migrations must run as the owner role, not passage_app';
+  IF current_user = 'depot_app' THEN
+    RAISE EXCEPTION 'integration-hub migrations must run as the owner role, not depot_app';
   END IF;
   EXECUTE 'CREATE POLICY hub_delivery_owner_scan ON hub_delivery AS PERMISSIVE FOR SELECT TO CURRENT_USER USING (true)';
   EXECUTE 'CREATE POLICY hub_subscription_owner_scan ON hub_subscription AS PERMISSIVE FOR SELECT TO CURRENT_USER USING (true)';
@@ -115,12 +115,12 @@ REVOKE ALL ON FUNCTION hub_due_subscriptions(double precision) FROM PUBLIC;
 -- databases without the role split).
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE format('GRANT USAGE ON SCHEMA %I TO passage_app', current_schema());
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON hub_subscription TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON hub_delivery TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT ON hub_attempt TO passage_app';
-    EXECUTE 'GRANT EXECUTE ON FUNCTION hub_due_subscriptions(double precision) TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE format('GRANT USAGE ON SCHEMA %I TO depot_app', current_schema());
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON hub_subscription TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON hub_delivery TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT ON hub_attempt TO depot_app';
+    EXECUTE 'GRANT EXECUTE ON FUNCTION hub_due_subscriptions(double precision) TO depot_app';
   END IF;
 END
 $$;

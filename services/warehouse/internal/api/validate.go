@@ -5,8 +5,8 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/warehouse/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/warehouse/internal/domain"
 )
 
 // validateSimulate returns field errors keyed by a JSON-like path, or none.

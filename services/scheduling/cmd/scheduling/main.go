@@ -1,4 +1,4 @@
-// Command scheduling runs the Passage scheduling service.
+// Command scheduling runs the Depot scheduling service.
 package main
 
 import (
@@ -11,12 +11,12 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/services/scheduling/internal/api"
-	"github.com/BenjaminSRussell/passage/services/scheduling/internal/optimizer"
-	"github.com/BenjaminSRussell/passage/services/scheduling/internal/store"
-	"github.com/BenjaminSRussell/passage/services/scheduling/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/services/scheduling/internal/api"
+	"github.com/BenjaminSRussell/depot/services/scheduling/internal/optimizer"
+	"github.com/BenjaminSRussell/depot/services/scheduling/internal/store"
+	"github.com/BenjaminSRussell/depot/services/scheduling/migrations"
 )
 
 const (

@@ -10,8 +10,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/services/close/internal/api"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/services/close/internal/api"
 )
 
 func TestAsyncAPI_ListsSliceBEvents(t *testing.T) {
@@ -20,13 +20,13 @@ func TestAsyncAPI_ListsSliceBEvents(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, typ := range []string{
-		"dev.passage.close.yearend.completed.v1",
-		"dev.passage.close.period.statuschanged.v1",
-		"dev.passage.close.run.created.v1",
-		"dev.passage.close.task.completed.v1",
-		"dev.passage.close.allocation.completed.v1",
-		"dev.passage.close.accrual.scheduled.v1",
-		"dev.passage.close.regrouping.completed.v1",
+		"dev.depot.close.yearend.completed.v1",
+		"dev.depot.close.period.statuschanged.v1",
+		"dev.depot.close.run.created.v1",
+		"dev.depot.close.task.completed.v1",
+		"dev.depot.close.allocation.completed.v1",
+		"dev.depot.close.accrual.scheduled.v1",
+		"dev.depot.close.regrouping.completed.v1",
 	} {
 		if !strings.Contains(string(raw), typ) {
 			t.Errorf("asyncapi missing %s", typ)
@@ -41,7 +41,7 @@ func TestOpenAPI_MatchesRoutesAndDuties(t *testing.T) {
 	}
 	pathRe := regexp.MustCompile(`^  (/v1/close/\S+):$`)
 	methodRe := regexp.MustCompile(`^    (get|put|post|patch|delete):$`)
-	dutyRe := regexp.MustCompile(`^      x-passage-duty: (\S+)$`)
+	dutyRe := regexp.MustCompile(`^      x-depot-duty: (\S+)$`)
 	documented := map[string]string{}
 	var path, op string
 	for _, line := range strings.Split(string(raw), "\n") {

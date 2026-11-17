@@ -1,9 +1,9 @@
 import { matchPath, type RouteObject } from "react-router-dom";
-import type { NavItem, PassageModule } from "../modules/registry";
+import type { NavItem, DepotModule } from "../modules/registry";
 
-declare const __PASSAGE_DEV_SHOW_ALL_NAV__: boolean | undefined;
+declare const __DEPOT_DEV_SHOW_ALL_NAV__: boolean | undefined;
 
-const showAllNav = typeof __PASSAGE_DEV_SHOW_ALL_NAV__ === "boolean" && __PASSAGE_DEV_SHOW_ALL_NAV__;
+const showAllNav = typeof __DEPOT_DEV_SHOW_ALL_NAV__ === "boolean" && __DEPOT_DEV_SHOW_ALL_NAV__;
 
 // UX hardening only: hiding entries and guarding routes never replaces server-side authorization.
 export function holdsDuty(duties: readonly string[], duty: string | undefined): boolean {
@@ -14,7 +14,7 @@ export function visibleNav(items: NavItem[], duties: readonly string[]): NavItem
   return items.filter((n) => holdsDuty(duties, n.duty));
 }
 
-export function visibleModules(modules: PassageModule[], duties: readonly string[]): PassageModule[] {
+export function visibleModules(modules: DepotModule[], duties: readonly string[]): DepotModule[] {
   return modules
     .map((m) => ({ ...m, nav: visibleNav(m.nav, duties) }))
     .filter((m) => m.nav.length > 0);
@@ -24,7 +24,7 @@ export function routeDuty(route: RouteObject): string | undefined {
   return (route.handle as { duty?: string } | undefined)?.duty;
 }
 
-function longestNavMatch(pathname: string, modules: PassageModule[]): NavItem | undefined {
+function longestNavMatch(pathname: string, modules: DepotModule[]): NavItem | undefined {
   let best: NavItem | undefined;
   for (const module of modules) {
     for (const entry of module.nav) {
@@ -37,11 +37,11 @@ function longestNavMatch(pathname: string, modules: PassageModule[]): NavItem | 
   return best;
 }
 
-export function hasEffectiveDutyScope(pathname: string, modules: PassageModule[]): boolean {
+export function hasEffectiveDutyScope(pathname: string, modules: DepotModule[]): boolean {
   return longestNavMatch(pathname, modules) !== undefined;
 }
 
-export function requiredDuty(pathname: string, modules: PassageModule[]): string | undefined {
+export function requiredDuty(pathname: string, modules: DepotModule[]): string | undefined {
   for (const module of modules) {
     for (const route of module.routes) {
       const declared = routeDuty(route);

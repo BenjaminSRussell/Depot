@@ -73,7 +73,7 @@ const result: OutboundResult = {
   messageId: "0195f0a0-0000-7000-8000-000000000022",
   transactionSet: "856",
   controlNumber: "000000002",
-  x12: "ISA*00*~GS*SH*PASSAGE*DISTRIBUTOR~ST*856*0001~BSN*00*LOAD42-SHIP7~",
+  x12: "ISA*00*~GS*SH*DEPOT*DISTRIBUTOR~ST*856*0001~BSN*00*LOAD42-SHIP7~",
 };
 
 const partnersOnly: Handler = (url) => (url.pathname === "/api/v1/edi/partners" ? json(200, { items: [partner] }) : undefined);

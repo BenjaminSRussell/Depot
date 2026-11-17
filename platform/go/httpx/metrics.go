@@ -16,7 +16,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 )
 
-// Shared HTTP metrics (PSG-50, FR-5.13). Every router from NewRouter records the same two series, so the
+// Shared HTTP metrics (DPT-50, FR-5.13). Every router from NewRouter records the same two series, so the
 // observability alerts, the burn-rate recording rules and the load campaign's SLO rows read one name and label set:
 //
 //	http_requests_total{route,status}

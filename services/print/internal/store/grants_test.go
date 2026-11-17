@@ -8,12 +8,12 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/print/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/print/internal/store"
-	"github.com/BenjaminSRussell/passage/services/print/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/print/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/print/internal/store"
+	"github.com/BenjaminSRussell/depot/services/print/migrations"
 )
 
 func TestGrants_AppRoleCannotDeletePrintersOrRewriteOutbox(t *testing.T) {

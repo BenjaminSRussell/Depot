@@ -13,8 +13,8 @@ const columns: DataTableColumn<Xref>[] = [
   { key: "company", header: "Company", mono: true },
   { key: "table", header: "Table", mono: true },
   { key: "legacyId", header: "Legacy identifier", mono: true },
-  { key: "passageEntity", header: "Passage record", mono: true },
-  { key: "passageId", header: "Passage id", mono: true },
+  { key: "depotEntity", header: "Depot record", mono: true },
+  { key: "depotId", header: "Depot id", mono: true },
   { key: "runId", header: "Loaded by run", render: (row) => <Link to={`/migration-factory/runs/${row.runId}`}>Open run</Link> },
   { key: "createdAt", header: "Loaded", render: (row) => formatDateTime(row.createdAt) },
 ];
@@ -26,7 +26,7 @@ interface Query {
   id: string;
 }
 
-/** Legacy reference lookup: resolve a legacy id to the Passage record it became (FR-49.3, 9.49.14). */
+/** Legacy reference lookup: resolve a legacy id to the Depot record it became (FR-49.3, 9.49.14). */
 export function XrefLookupPage() {
   const [query, setQuery] = useState<Query>({ system: "AX2012", company: "", table: "open_items", id: "" });
   const [idError, setIdError] = useState<string | undefined>();
@@ -56,7 +56,7 @@ export function XrefLookupPage() {
 
   return (
     <div className={styles.stack}>
-      <PageHeader title="Legacy reference" description="Find the Passage record a legacy AX or SAP record was migrated to, without the legacy system online." />
+      <PageHeader title="Legacy reference" description="Find the Depot record a legacy AX or SAP record was migrated to, without the legacy system online." />
       <Card>
         <form className={styles.form} onSubmit={submit} noValidate>
           <FormField id="xref-system" label="System">

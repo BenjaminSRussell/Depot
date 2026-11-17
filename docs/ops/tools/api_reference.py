@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""API reference renderer and undocumented-operation gate for OpenAPI documents (PSG-50, PRD 9.50.8 AC-50.11).
+"""API reference renderer and undocumented-operation gate for OpenAPI documents (DPT-50, PRD 9.50.8 AC-50.11).
 
 Every operation a service exposes must be documented before the reference is published. An operation is
 documented when it has:
@@ -7,7 +7,7 @@ documented when it has:
   operationId    the stable name the reference and generated clients use
   summary or     a non-empty sentence saying what the operation does (summary preferred; a description
   description    alone also counts)
-  x-passage-duty the privilege code that guards it (conventions: every operation carries x-passage-duty)
+  x-depot-duty the privilege code that guards it (conventions: every operation carries x-depot-duty)
   2xx response   at least one success status, and every response has a description
 
 Probe and internal routes are not part of the published API and are skipped: /healthz, /readyz, /metrics
@@ -97,10 +97,10 @@ def operations(doc: dict[str, Any]) -> list[Operation]:
 
 
 def _duty(o: Operation) -> str:
-    """The guarding duty; a route marked `x-passage-public: true` (no session, such as an enrollment token redeemed
+    """The guarding duty; a route marked `x-depot-public: true` (no session, such as an enrollment token redeemed
     by the edge connector) is guarded by its own credential and reads as `public`."""
-    duty = str(o.op.get("x-passage-duty") or "").strip()
-    return duty or ("public" if o.op.get("x-passage-public") is True else "")
+    duty = str(o.op.get("x-depot-duty") or "").strip()
+    return duty or ("public" if o.op.get("x-depot-public") is True else "")
 
 
 def _params(o: Operation, doc: dict[str, Any]) -> list[dict[str, Any]]:
@@ -122,7 +122,7 @@ def gaps(o: Operation, doc: dict[str, Any]) -> list[str]:
     if not _text(o.op, "summary") and not _text(o.op, "description"):
         out.append(f"{label}: missing summary or description")
     if not _duty(o):
-        out.append(f"{label}: missing x-passage-duty")
+        out.append(f"{label}: missing x-depot-duty")
     responses = o.op.get("responses") or {}
     if not any(_success(code) for code in responses):
         out.append(f"{label}: no 2xx response")

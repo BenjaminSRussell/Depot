@@ -113,8 +113,8 @@ BEGIN
     EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', t);
     EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY', t);
     EXECUTE format($p$CREATE POLICY %I_tenant_access ON %I AS PERMISSIVE
-      USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-      WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid)$p$, t, t);
+      USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+      WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid)$p$, t, t);
   END LOOP;
 END
 $$;
@@ -126,8 +126,8 @@ BEGIN
   FOREACH t IN ARRAY ARRAY['ic_entity', 'ic_fx_adjustment'] LOOP
     IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = t AND policyname = t || '_legal_entity_scope') THEN
       EXECUTE format($p$CREATE POLICY %I ON %I AS RESTRICTIVE
-        USING (current_setting('passage.legal_entity_scopes', true) = '*'
-               OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')))$p$, t || '_legal_entity_scope', t);
+        USING (current_setting('depot.legal_entity_scopes', true) = '*'
+               OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')))$p$, t || '_legal_entity_scope', t);
     END IF;
   END LOOP;
 END
@@ -135,10 +135,10 @@ $$;
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON ic_entity, ic_matrix_row TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT ON ic_transfer_price TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON ic_setting, ic_fx_adjustment TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON ic_entity, ic_matrix_row TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT ON ic_transfer_price TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON ic_setting, ic_fx_adjustment TO depot_app';
   END IF;
 END
 $$;

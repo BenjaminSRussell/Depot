@@ -12,7 +12,7 @@ export const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{1
 export const DECIMAL = /^\d+(\.\d{1,6})?$/;
 export const INTEGER = /^\d+$/;
 
-const STORAGE_KEY = "passage.warehouse.id";
+const STORAGE_KEY = "depot.warehouse.id";
 
 function stored(): string {
   try {

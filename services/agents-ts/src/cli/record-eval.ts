@@ -75,7 +75,7 @@ async function main(argv: string[], env: NodeJS.ProcessEnv): Promise<void> {
   const pool = new pg.Pool({ connectionString: url, max: 1 });
   try {
     const role = (await pool.query<{ role: string }>("select current_user as role")).rows[0]?.role;
-    if (role === "passage_app") throw new Error("record-eval needs the owner (migration) role's DATABASE_URL: passage_app may only read eval_run");
+    if (role === "depot_app") throw new Error("record-eval needs the owner (migration) role's DATABASE_URL: depot_app may only read eval_run");
     const store = new PgVersionStore(pool);
     const recorded = [];
     for (const r of results) {

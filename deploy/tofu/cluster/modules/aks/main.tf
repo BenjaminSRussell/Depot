@@ -1,5 +1,5 @@
 locals {
-  tags       = merge({ "passage.dev/cluster" = var.name, "passage.dev/managed-by" = "opentofu" }, var.tags)
+  tags       = merge({ "depot.dev/cluster" = var.name, "depot.dev/managed-by" = "opentofu" }, var.tags)
   compact    = substr(replace(var.name, "-", ""), 0, 14)
   nonce      = substr(sha1("${var.name}-${var.location}"), 0, 6)
   default_np = var.node_pools[0]
@@ -378,7 +378,7 @@ resource "azurerm_postgresql_flexible_server_active_directory_administrator" "th
   resource_group_name = azurerm_resource_group.this.name
   tenant_id           = var.tenant_id
   object_id           = var.postgres_admin_group_object_id
-  principal_name      = "passage-postgres-admins"
+  principal_name      = "depot-postgres-admins"
   principal_type      = "Group"
 }
 

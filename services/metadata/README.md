@@ -1,6 +1,6 @@
-# metadata (PSG-3)
+# metadata (DPT-3)
 
-Metadata kernel for Passage entities, fields, extensions, generated contracts, decision tables and usage reporting. Entity definitions are published as immutable tenant-scoped versions. Customer extensions produce a new additive effective version; extension fields remain in metadata-backed JSON records, so applying one does not lock or rewrite a generated business table.
+Metadata kernel for Depot entities, fields, extensions, generated contracts, decision tables and usage reporting. Entity definitions are published as immutable tenant-scoped versions. Customer extensions produce a new additive effective version; extension fields remain in metadata-backed JSON records, so applying one does not lock or rewrite a generated business table.
 
 ## Run
 
@@ -33,7 +33,7 @@ The registry API publishes and diffs definitions, atomically applies customer ex
 
 ## CDC
 
-Migration `0004_cdc_publication` pre-creates the `passage_outbox_metadata` publication (the connector runs with `publication.autocreate.mode: disabled`, so the CDC role needs no CREATE or ownership) and `0006_cdc_role_grants` gives the `debezium_cdc` role SELECT on `outbox` when that role exists. The migrating role needs CREATE on the database and ownership of `outbox`; the Debezium connector in `deploy/kafka` must start after migrations 0004 and 0006. The database, role and `wal_level=logical` come from the `deploy/postgres` chart. The CDC password is per database (Vault `<prefix>/<release>-postgres/cdc-password`) and each connector reads its own `debezium-cdc-<service>` Secret. `0006`/`0011` grant only if `debezium_cdc` exists when they run: if the service migrated before the database role existed, delete that row from `schema_migrations` and restart. Rotation steps are in `deploy/postgres/README.md`.
+Migration `0004_cdc_publication` pre-creates the `depot_outbox_metadata` publication (the connector runs with `publication.autocreate.mode: disabled`, so the CDC role needs no CREATE or ownership) and `0006_cdc_role_grants` gives the `debezium_cdc` role SELECT on `outbox` when that role exists. The migrating role needs CREATE on the database and ownership of `outbox`; the Debezium connector in `deploy/kafka` must start after migrations 0004 and 0006. The database, role and `wal_level=logical` come from the `deploy/postgres` chart. The CDC password is per database (Vault `<prefix>/<release>-postgres/cdc-password`) and each connector reads its own `debezium-cdc-<service>` Secret. `0006`/`0011` grant only if `debezium_cdc` exists when they run: if the service migrated before the database role existed, delete that row from `schema_migrations` and restart. Rotation steps are in `deploy/postgres/README.md`.
 
 ## Duties
 
@@ -46,7 +46,7 @@ Migration `0004_cdc_publication` pre-creates the `passage_outbox_metadata` publi
 
 ## PHI classification (HIPAA overlay, #606)
 
-A field may set `phi: true` (protected health information) and `encrypted: true` (the stored value is a `platform/go/fieldcrypt` envelope, sealed per tenant and field; the column is `bytea` and the wire value is base64). `Validate` and `entitygen` fail with MET-0010 when a `phi` field is not `encrypted`. Generated artifacts carry the classification: `x-passage-phi` and `x-passage-encrypted` on the JSON schema and OpenAPI property, `x-passage-phi-fields` in the OpenAPI `info`, and a `<Entity>PHIFields()` function in the generated Go model that lists the JSON names the read-access audit (`POST /v1/audit/reads`) should record. A definition without these keys behaves as before. Toggling `encrypted` on a published field is a breaking change (MET-0201).
+A field may set `phi: true` (protected health information) and `encrypted: true` (the stored value is a `platform/go/fieldcrypt` envelope, sealed per tenant and field; the column is `bytea` and the wire value is base64). `Validate` and `entitygen` fail with MET-0010 when a `phi` field is not `encrypted`. Generated artifacts carry the classification: `x-depot-phi` and `x-depot-encrypted` on the JSON schema and OpenAPI property, `x-depot-phi-fields` in the OpenAPI `info`, and a `<Entity>PHIFields()` function in the generated Go model that lists the JSON names the read-access audit (`POST /v1/audit/reads`) should record. A definition without these keys behaves as before. Toggling `encrypted` on a published field is a breaking change (MET-0201).
 
 ## Error codes
 

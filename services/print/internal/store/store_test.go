@@ -9,15 +9,15 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/print/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/print/internal/jobs"
-	"github.com/BenjaminSRussell/passage/services/print/internal/store"
-	"github.com/BenjaminSRussell/passage/services/print/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/print/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/print/internal/jobs"
+	"github.com/BenjaminSRussell/depot/services/print/internal/store"
+	"github.com/BenjaminSRussell/depot/services/print/migrations"
 )
 
 func tenantCtx(n int) context.Context {
@@ -157,7 +157,7 @@ func TestJobs_CompleteWritesOutboxInSameTransaction(t *testing.T) {
 	if err := pool.QueryRow(ctx, `select count(*), min(type), min(payload->'data'->>'status') from outbox where aggregate_id = $1`, job.ID).Scan(&n, &typ, &status); err != nil {
 		t.Fatal(err)
 	}
-	if n != 1 || typ != "dev.passage.print.job.completed.v1" || status != domain.JobPrinted {
+	if n != 1 || typ != "dev.depot.print.job.completed.v1" || status != domain.JobPrinted {
 		t.Fatalf("outbox rows=%d type=%s status=%s", n, typ, status)
 	}
 
@@ -347,7 +347,7 @@ func TestRoutingRules_StoreReplayAndOrder(t *testing.T) {
 }
 
 // Runs the service queries as the non-superuser application role, so FORCE RLS
-// is what keeps tenants apart (PASSAGE_TEST_APP_DATABASE_URL).
+// is what keeps tenants apart (DEPOT_TEST_APP_DATABASE_URL).
 func TestMigrationsApplyWithForcedRLS(t *testing.T) {
 	admin, app := testkit.DBWithApp(t)
 	ctx := tenantCtx(1)

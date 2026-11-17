@@ -3,8 +3,8 @@
 -- worker or tenant, and worker_pii keeps no DELETE grant.
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT UPDATE (national_id_sealed, bank_account_sealed) ON worker_pii TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT UPDATE (national_id_sealed, bank_account_sealed) ON worker_pii TO depot_app';
   END IF;
 END
 $$;

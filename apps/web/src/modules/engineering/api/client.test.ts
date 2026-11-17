@@ -182,7 +182,7 @@ describe("engineering client", () => {
     await signDocument("d/1", { printedName: "Carol Kane", method: "password" });
     const [url, init] = fetchMock.mock.calls[0];
     expect(url).toBe("/api/v1/engineering/documents/d%2F1:sign");
-    expect(new Headers(init?.headers).get("X-Passage-Reauth-Assertion")).toBeNull();
+    expect(new Headers(init?.headers).get("X-Depot-Reauth-Assertion")).toBeNull();
     expect(init?.body).toBe('{"printedName":"Carol Kane","method":"password"}');
     await acceptReleaseLine("l1");
     expect(fetchMock.mock.calls.at(-1)?.[0]).toBe("/api/v1/engineering/release-lines/l1:accept");

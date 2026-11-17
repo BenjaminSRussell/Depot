@@ -1,6 +1,6 @@
 asyncapi: 3.0.0
 info:
-  title: Passage Projects events
+  title: Depot Projects events
   version: 0.3.0
   description: |
     CloudEvents 1.0 published through the outbox in the same transaction as the
@@ -12,27 +12,27 @@ info:
 defaultContentType: application/cloudevents+json
 channels:
   projectCreated:
-    address: passage.projects.project
+    address: depot.projects.project
     messages:
       projectCreated:
         $ref: '#/components/messages/ProjectCreated'
   projectUpdated:
-    address: passage.projects.project
+    address: depot.projects.project
     messages:
       projectUpdated:
         $ref: '#/components/messages/ProjectUpdated'
   wbsScheduled:
-    address: passage.projects.wbs
+    address: depot.projects.wbs
     messages:
       wbsScheduled:
         $ref: '#/components/messages/WbsScheduled'
   changeOrderApplied:
-    address: passage.projects.changeorder
+    address: depot.projects.changeorder
     messages:
       changeOrderApplied:
         $ref: '#/components/messages/ChangeOrderApplied'
   transactionPosted:
-    address: passage.projects.transaction
+    address: depot.projects.transaction
     messages:
       transactionPosted:
         $ref: '#/components/messages/TransactionPosted'
@@ -60,27 +60,27 @@ operations:
 components:
   messages:
     ProjectCreated:
-      name: dev.passage.projects.project.created.v1
+      name: dev.depot.projects.project.created.v1
       contentType: application/cloudevents+json
       payload:
         $ref: '#/components/schemas/ProjectCreatedEvent'
     ProjectUpdated:
-      name: dev.passage.projects.project.updated.v1
+      name: dev.depot.projects.project.updated.v1
       contentType: application/cloudevents+json
       payload:
         $ref: '#/components/schemas/ProjectUpdatedEvent'
     WbsScheduled:
-      name: dev.passage.projects.wbs.scheduled.v1
+      name: dev.depot.projects.wbs.scheduled.v1
       contentType: application/cloudevents+json
       payload:
         $ref: '#/components/schemas/WbsScheduledEvent'
     ChangeOrderApplied:
-      name: dev.passage.projects.changeorder.applied.v1
+      name: dev.depot.projects.changeorder.applied.v1
       contentType: application/cloudevents+json
       payload:
         $ref: '#/components/schemas/ChangeOrderAppliedEvent'
     TransactionPosted:
-      name: dev.passage.projects.transaction.posted.v1
+      name: dev.depot.projects.transaction.posted.v1
       contentType: application/cloudevents+json
       payload:
         $ref: '#/components/schemas/TransactionPostedEvent'

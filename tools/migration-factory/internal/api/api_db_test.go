@@ -13,15 +13,15 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
 
-	"github.com/BenjaminSRussell/passage/tools/migration-factory/internal/store"
-	"github.com/BenjaminSRussell/passage/tools/migration-factory/migrations"
+	"github.com/BenjaminSRussell/depot/tools/migration-factory/internal/store"
+	"github.com/BenjaminSRussell/depot/tools/migration-factory/migrations"
 )
 
 // dbServer returns the API over a migrated throwaway schema, and the admin pool for
-// assertions. When the application-role URL is set, the server runs as passage_app so row-level
+// assertions. When the application-role URL is set, the server runs as depot_app so row-level
 // security is in force for the tenant-isolation checks.
 func dbServer(t *testing.T) (http.Handler, *pgxpool.Pool) {
 	t.Helper()
@@ -97,7 +97,7 @@ func TestPackRun_CleanExtractReconcilesAndRerunLoadsNothing(t *testing.T) {
 	if n := count(t, admin, `select count(*) from legacy_xref`); n != 200 {
 		t.Fatalf("legacy_xref rows = %d, want 200 (no duplicates after a re-run)", n)
 	}
-	if n := count(t, admin, `select count(*) from outbox where type = 'dev.passage.migration.pack.reconciled.v1'`); n != 2 {
+	if n := count(t, admin, `select count(*) from outbox where type = 'dev.depot.migration.pack.reconciled.v1'`); n != 2 {
 		t.Fatalf("pack.reconciled events = %d, want one per run", n)
 	}
 	var payload struct {
@@ -286,7 +286,7 @@ func TestCutoverPlan_GenerateCompleteRollback(t *testing.T) {
 	if after.Version != 4 || after.StepsDone != 3 || len(after.OpenGoNoGo) != 0 {
 		t.Fatalf("after three completions %+v", after)
 	}
-	if n := count(t, admin, `select count(*) from outbox where type = 'dev.passage.cutover.step.completed.v1' and aggregate_id = $1`, plan.PlanID); n != 3 {
+	if n := count(t, admin, `select count(*) from outbox where type = 'dev.depot.cutover.step.completed.v1' and aggregate_id = $1`, plan.PlanID); n != 3 {
 		t.Fatalf("step.completed events = %d, want 3", n)
 	}
 	if n := count(t, admin, `select count(*) from cutover_step where plan_id = $1 and status = 'DONE' and completed_by = 'owner' and completed_at is not null`, plan.PlanID); n != 3 {
@@ -316,7 +316,7 @@ func TestCutoverPlan_GenerateCompleteRollback(t *testing.T) {
 	if got := decode[planDTO](t, do(t, h, request{method: "GET", path: base, tenant: tenantA, duties: "migration.cutover.manage"})); got.PendingRollback == nil || got.RolledBack {
 		t.Fatalf("pending approval is shown on the plan: %+v", got)
 	}
-	if n := count(t, admin, `select count(*) from outbox where type = 'dev.passage.cutover.plan.rolledback.v1'`); n != 0 {
+	if n := count(t, admin, `select count(*) from outbox where type = 'dev.depot.cutover.plan.rolledback.v1'`); n != 0 {
 		t.Fatalf("a first approval writes no rolledback event, got %d", n)
 	}
 	done := do(t, h, request{method: "POST", path: rb, tenant: tenantA, duties: "migration.cutover.manage", body: `{}`, key: "rb-2", user: "bob"})
@@ -335,7 +335,7 @@ func TestCutoverPlan_GenerateCompleteRollback(t *testing.T) {
 	if c := complete("First weekly reconciliation", `{"actualDurationMin":1}`); c.Code != http.StatusConflict {
 		t.Fatalf("steps of a rolled-back plan cannot complete: %d %s", c.Code, c.Body)
 	}
-	if n := count(t, admin, `select count(*) from outbox where type = 'dev.passage.cutover.plan.rolledback.v1'`); n != 1 {
+	if n := count(t, admin, `select count(*) from outbox where type = 'dev.depot.cutover.plan.rolledback.v1'`); n != 1 {
 		t.Fatalf("rolledback events = %d, want 1", n)
 	}
 

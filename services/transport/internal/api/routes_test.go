@@ -12,10 +12,10 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/BenjaminSRussell/passage/services/transport/internal/api"
-	"github.com/BenjaminSRussell/passage/services/transport/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/transport/internal/optimizer"
-	"github.com/BenjaminSRussell/passage/services/transport/internal/store"
+	"github.com/BenjaminSRussell/depot/services/transport/internal/api"
+	"github.com/BenjaminSRussell/depot/services/transport/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/transport/internal/optimizer"
+	"github.com/BenjaminSRussell/depot/services/transport/internal/store"
 )
 
 const planID = "0190f0a0-0000-7000-8000-0000000000f2"
@@ -273,17 +273,17 @@ func TestRateShipment_CacheHitsAndInvalidation(t *testing.T) {
 	r := chi.NewRouter()
 	a.Register(r)
 	path := base + "/shipments/" + loadID + ":rate"
-	if rec := do(t, r, http.MethodPost, path, rateBody, api.DutyRate); rec.Header().Get("X-Passage-Cache") != "MISS" {
-		t.Fatalf("first rate shop cache = %q", rec.Header().Get("X-Passage-Cache"))
+	if rec := do(t, r, http.MethodPost, path, rateBody, api.DutyRate); rec.Header().Get("X-Depot-Cache") != "MISS" {
+		t.Fatalf("first rate shop cache = %q", rec.Header().Get("X-Depot-Cache"))
 	}
 	st.cards = nil // a hit must not read the cards again
 	rec := do(t, r, http.MethodPost, path, rateBody, api.DutyRate)
-	if rec.Header().Get("X-Passage-Cache") != "HIT" || !strings.Contains(rec.Body.String(), `"chosen"`) {
-		t.Fatalf("second rate shop = %q %s", rec.Header().Get("X-Passage-Cache"), rec.Body.String())
+	if rec.Header().Get("X-Depot-Cache") != "HIT" || !strings.Contains(rec.Body.String(), `"chosen"`) {
+		t.Fatalf("second rate shop = %q %s", rec.Header().Get("X-Depot-Cache"), rec.Body.String())
 	}
 	now = now.Add(10 * time.Minute)
-	if rec := do(t, r, http.MethodPost, path, rateBody, api.DutyRate); rec.Header().Get("X-Passage-Cache") != "MISS" || strings.Contains(rec.Body.String(), `"chosen"`) {
-		t.Fatalf("after the window = %q %s", rec.Header().Get("X-Passage-Cache"), rec.Body.String())
+	if rec := do(t, r, http.MethodPost, path, rateBody, api.DutyRate); rec.Header().Get("X-Depot-Cache") != "MISS" || strings.Contains(rec.Body.String(), `"chosen"`) {
+		t.Fatalf("after the window = %q %s", rec.Header().Get("X-Depot-Cache"), rec.Body.String())
 	}
 	cardBody := `{"carrierId":"` + carrierID + `","serviceId":"` + serviceID + `","basis":"LANE","currency":"USD","validFrom":"2026-01-01",
 		"minimumCharge":"0","fuelPct":"0","rows":[{"origin":"*","destination":"*","breakFrom":"0","rate":"2.00","unit":"KG"}],"accessorials":[]}`
@@ -291,13 +291,13 @@ func TestRateShipment_CacheHitsAndInvalidation(t *testing.T) {
 		t.Fatalf("create card = %d %s", rec.Code, rec.Body.String())
 	}
 	st.cards = []domain.RateCard{card(carrierID, "2.00")}
-	if rec := do(t, r, http.MethodPost, path, rateBody, api.DutyRate); rec.Header().Get("X-Passage-Cache") != "MISS" || !strings.Contains(rec.Body.String(), `"total":"200"`) {
-		t.Fatalf("after a new card = %q %s", rec.Header().Get("X-Passage-Cache"), rec.Body.String())
+	if rec := do(t, r, http.MethodPost, path, rateBody, api.DutyRate); rec.Header().Get("X-Depot-Cache") != "MISS" || !strings.Contains(rec.Body.String(), `"total":"200"`) {
+		t.Fatalf("after a new card = %q %s", rec.Header().Get("X-Depot-Cache"), rec.Body.String())
 	}
 	off := chi.NewRouter()
 	api.New(st).WithRatingCacheMinutes(0).Register(off)
 	for range 2 {
-		if rec := do(t, off, http.MethodPost, path, rateBody, api.DutyRate); rec.Header().Get("X-Passage-Cache") != "MISS" {
+		if rec := do(t, off, http.MethodPost, path, rateBody, api.DutyRate); rec.Header().Get("X-Depot-Cache") != "MISS" {
 			t.Fatal("a zero window must never serve from the cache")
 		}
 	}

@@ -9,11 +9,11 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/ledgerclient"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/projects/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/ledgerclient"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/projects/internal/domain"
 )
 
 const (
@@ -210,7 +210,7 @@ func problemStatus(err error) int {
 	return 0
 }
 
-// TestGL_AC4_SubledgerReconcilesToWIPAndRevenue is AC4 of PSG-41 ("project subledger reconciles to GL WIP/revenue accounts") on the PRD worked
+// TestGL_AC4_SubledgerReconcilesToWIPAndRevenue is AC4 of DPT-41 ("project subledger reconciles to GL WIP/revenue accounts") on the PRD worked
 // example (testdata/poc-worked-example.csv: contract 500,000, three periods, billing ahead then behind, expected loss 20,000 from period 3). Each
 // period the hours are posted and the estimate booked from stored data only; the expected balances are the worked example's own numbers read back
 // from the ledger fake. Cost moves from WIP to cost of sales as revenue is recognized, so the margin is real (28,888.89 in period 2) and the total

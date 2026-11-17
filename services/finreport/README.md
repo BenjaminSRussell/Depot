@@ -1,4 +1,4 @@
-# finreport: financial reporting (wave 15, PSG-15)
+# finreport: financial reporting (wave 15, DPT-15)
 
 Report definitions (row, column and tree designer model), statement runs over
 the reporting read model, and drill-down from a statement cell to its balance
@@ -60,8 +60,8 @@ Slice 6 adds the audit trail report (FR-15.10; on top of slices 1 to 5, below):
   `traceUrl` from `REPORTING_TRACE_URL`. Every query is narrowed (PRD
   §2.15.19): a period, or from and to at most 366 days apart, else 400.
 - `GET /audit-trail:export?…`: every matching entry as CSV (details as JSON
-  with sorted keys, formula text neutralized), with `X-Passage-Export-Sha256`
-  of the body and `X-Passage-Export-Id`; the export is itself recorded
+  with sorted keys, formula text neutralized), with `X-Depot-Export-Sha256`
+  of the body and `X-Depot-Export-Id`; the export is itself recorded
   (`audit_exported` with the filter, entry count and digest). More than 50,000
   entries is refused with REPORT-0030, never cut short.
 - Duty `reporting.audit.view` ("View audit trail", PRD §2.15.17).
@@ -76,7 +76,7 @@ Slice 5 added drill level 2 (FR-15.7, BR-15.4):
   posting sequence, line number, posting date, period, account, combination,
   currency type, voucher, debit, credit (net generated as debit - credit),
   closing flag, source document link and trace id. `PutJournalLines` writes it
-  (validated: a source link must be a Passage route or an http(s) URL, never
+  (validated: a source link must be a Depot route or an http(s) URL, never
   `javascript:` or `//host`; a stored line is a replay and is kept). The ledger
   consumer that will feed it is a later slice; tests load lines through it.
 - `GET /runs/{id}/cells/{row}/{column}/lines?key=&cursor=&limit=`: the lines of
@@ -236,23 +236,23 @@ charts/finreport/       Helm chart
 ## Run
 
 ```
-export DATABASE_URL=postgres://passage_migrator@localhost:5432/passage_reporting?sslmode=disable
+export DATABASE_URL=postgres://depot_migrator@localhost:5432/depot_reporting?sslmode=disable
 export MIGRATE_ON_START=true   # dev only
 go run ./cmd/finreport
 ```
 
-Requests need the gateway headers `X-Passage-Tenant`, `X-Passage-User` and
-`X-Passage-Duties` (see `platform/go/tenant`).
+Requests need the gateway headers `X-Depot-Tenant`, `X-Depot-User` and
+`X-Depot-Duties` (see `platform/go/tenant`).
 
 ## Test
 
 ```
 go vet ./... && go test ./...
-PASSAGE_TEST_DATABASE_URL=postgres://... go test ./internal/store/...   # DB tests
+DEPOT_TEST_DATABASE_URL=postgres://... go test ./internal/store/...   # DB tests
 ```
 
-Store tests are skipped without `PASSAGE_TEST_DATABASE_URL`. The row-level
-security test also needs `PASSAGE_TEST_APP_DATABASE_URL` (a non-owner role) and
+Store tests are skipped without `DEPOT_TEST_DATABASE_URL`. The row-level
+security test also needs `DEPOT_TEST_APP_DATABASE_URL` (a non-owner role) and
 is skipped without it. The domain tests include a 200-row by 12-column
 export/import round trip and a rapid property test (drill keys sum to the cell
 value); the store tests cover export, re-import under a new code and identical
@@ -295,7 +295,7 @@ later slices (NOT-IMPLEMENTED.md).
 
 ## Error codes
 
-Problem details use `type` `https://passage.dev/problems/<code>`.
+Problem details use `type` `https://depot.dev/problems/<code>`.
 
 | Code | Status | Meaning |
 | --- | --- | --- |

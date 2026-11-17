@@ -9,7 +9,7 @@ export const base = "/api/v1/mobile";
 /** Menu a device loads when none is provisioned (FR-32.2, GET /mobile/v1/menus/{id}). */
 export const DEFAULT_MENU_ID = "default";
 
-/** SSE channel the device watches for publishes (dev.passage.mobile.flow.published.v1). */
+/** SSE channel the device watches for publishes (dev.depot.mobile.flow.published.v1). */
 export const PUBLISH_EVENTS_URL = `${base}/events`;
 
 export interface SavedFlow extends FlowDraft {

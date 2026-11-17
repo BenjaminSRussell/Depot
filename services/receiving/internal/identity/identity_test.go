@@ -8,7 +8,7 @@ import (
 
 	"github.com/go-chi/chi/v5/middleware"
 
-	"github.com/BenjaminSRussell/passage/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
 )
 
 func forwarded(ctx context.Context, p tenant.Principal) http.Header {
@@ -20,7 +20,7 @@ func forwarded(ctx context.Context, p tenant.Principal) http.Header {
 func TestForwardSendsTheWholePrincipalWithSortedDuties(t *testing.T) {
 	ctx := context.WithValue(context.Background(), middleware.RequestIDKey, "req-1")
 	h := forwarded(ctx, tenant.Principal{TenantID: "t-1", LegalEntityID: "le-1,le-2", UserID: "u-1", Duties: map[string]struct{}{"b": {}, "a": {}}})
-	want := map[string]string{"X-Passage-Tenant": "t-1", "X-Passage-Legal-Entity": "le-1,le-2", "X-Passage-User": "u-1", "X-Passage-Duties": "a,b", "X-Request-Id": "req-1"}
+	want := map[string]string{"X-Depot-Tenant": "t-1", "X-Depot-Legal-Entity": "le-1,le-2", "X-Depot-User": "u-1", "X-Depot-Duties": "a,b", "X-Request-Id": "req-1"}
 	for k, v := range want {
 		if h.Get(k) != v {
 			t.Fatalf("%s = %q, want %q", k, h.Get(k), v)
@@ -30,10 +30,10 @@ func TestForwardSendsTheWholePrincipalWithSortedDuties(t *testing.T) {
 
 func TestForwardOmitsWhatThePrincipalLacks(t *testing.T) {
 	h := forwarded(context.Background(), tenant.Principal{TenantID: "t-1"})
-	if h.Get("X-Passage-Tenant") != "t-1" {
+	if h.Get("X-Depot-Tenant") != "t-1" {
 		t.Fatalf("tenant %v", h)
 	}
-	for _, k := range []string{"X-Passage-Legal-Entity", "X-Passage-User", "X-Passage-Duties", "X-Request-Id"} {
+	for _, k := range []string{"X-Depot-Legal-Entity", "X-Depot-User", "X-Depot-Duties", "X-Request-Id"} {
 		if _, present := h[k]; present {
 			t.Fatalf("%s sent without a value: %v", k, h)
 		}
@@ -41,7 +41,7 @@ func TestForwardOmitsWhatThePrincipalLacks(t *testing.T) {
 }
 
 func TestForwardKeepsTheWildcardScopeVerbatim(t *testing.T) {
-	if got := forwarded(context.Background(), tenant.Principal{TenantID: "t-1", LegalEntityID: "*"}).Get("X-Passage-Legal-Entity"); got != "*" {
+	if got := forwarded(context.Background(), tenant.Principal{TenantID: "t-1", LegalEntityID: "*"}).Get("X-Depot-Legal-Entity"); got != "*" {
 		t.Fatalf("scope %q", got)
 	}
 }

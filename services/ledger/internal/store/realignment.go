@@ -14,12 +14,12 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/money"
-	"github.com/BenjaminSRussell/passage/services/ledger/internal/domain"
-	ledgerevents "github.com/BenjaminSRussell/passage/services/ledger/internal/events"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/money"
+	"github.com/BenjaminSRussell/depot/services/ledger/internal/domain"
+	ledgerevents "github.com/BenjaminSRussell/depot/services/ledger/internal/events"
 )
 
 // Problem codes of dimension realignment (FR-11.24).
@@ -621,7 +621,7 @@ func postRealignmentPeriod(ctx context.Context, tx pgx.Tx, tenantID string, ledg
 	}
 	entry, err := writeEntry(ctx, tx, tenantID, newEntry{
 		ledger: ledger, documentID: ids.New(), postingDate: date, description: text,
-		source: ledgerevents.Source{System: "ledger", Type: "realignment", ID: run.ID, URI: "passage://ledger/realignments/" + run.ID},
+		source: ledgerevents.Source{System: "ledger", Type: "realignment", ID: run.ID, URI: "depot://ledger/realignments/" + run.ID},
 		key:    key, hash: keyHash(key), actor: in.Actor, traceID: in.TraceID, reasonCode: in.ReasonCode, reasonComment: in.ReasonComment,
 		realignmentRunID: run.ID, lines: lines,
 	})

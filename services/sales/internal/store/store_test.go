@@ -14,14 +14,14 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/sales/internal/domain"
-	salesevents "github.com/BenjaminSRussell/passage/services/sales/internal/events"
-	"github.com/BenjaminSRussell/passage/services/sales/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/sales/internal/domain"
+	salesevents "github.com/BenjaminSRussell/depot/services/sales/internal/events"
+	"github.com/BenjaminSRussell/depot/services/sales/migrations"
 )
 
 func d(n int64) decimal.Decimal { return decimal.NewFromInt(n) }
@@ -293,7 +293,7 @@ func TestPostgres_StaleVersionIsRefused(t *testing.T) {
 
 // TestPostgres_RowLevelSecurity checks that every table forces RLS and that a
 // non-owner role sees only its tenant's rows and, on tables that carry a legal
-// entity, only the legal entities in passage.legal_entity_scopes.
+// entity, only the legal entities in depot.legal_entity_scopes.
 func TestPostgres_RowLevelSecurity(t *testing.T) {
 	pool := testkit.DB(t)
 	ctx := principalCtx("sales-rep")
@@ -364,7 +364,7 @@ func TestPostgres_RowLevelSecurity(t *testing.T) {
 		if _, err := tx.Exec(bg, `set local role sales_rls_probe`); err != nil {
 			t.Fatal(err)
 		}
-		if _, err := tx.Exec(bg, `select set_config('passage.tenant_id', $1, true), set_config('passage.legal_entity_scopes', $2, true)`, tenantID, scopes); err != nil {
+		if _, err := tx.Exec(bg, `select set_config('depot.tenant_id', $1, true), set_config('depot.legal_entity_scopes', $2, true)`, tenantID, scopes); err != nil {
 			t.Fatal(err)
 		}
 		var n int

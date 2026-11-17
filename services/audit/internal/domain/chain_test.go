@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/services/audit/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/audit/internal/domain"
 )
 
 func change(field, oldV, newV, trace string) domain.Change {

@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/services/edi/internal/transport/transporttest"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/transport/transporttest"
 )
 
 func writeFile(t *testing.T, path string, b []byte) {

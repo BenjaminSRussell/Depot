@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/services/org/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/org/internal/domain"
 )
 
 func TestTeamInForce(t *testing.T) {

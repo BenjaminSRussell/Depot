@@ -3,8 +3,8 @@ package store_test
 import (
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/purchasing/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/purchasing/internal/store"
 )
 
 // #35 (35-3): a punchout line keeps its catalog source, supplier part and approval flag, and the requisition remembers it held a

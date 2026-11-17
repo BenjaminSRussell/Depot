@@ -1,5 +1,5 @@
 import { createElement } from "react";
-import type { PassageModule } from "../registry";
+import type { DepotModule } from "../registry";
 import { CatalogEntryPage } from "./CatalogEntryPage";
 import { CatalogPage } from "./CatalogPage";
 import { ClientPage } from "./ClientPage";
@@ -30,7 +30,7 @@ import { SyncDeliveriesPage } from "./SyncDeliveriesPage";
 import { SyncSubscriptionPage } from "./SyncSubscriptionPage";
 import { SyncSubscriptionsPage } from "./SyncSubscriptionsPage";
 
-const integration: PassageModule = {
+const integration: DepotModule = {
   id: "integration",
   title: "Integration",
   description:

@@ -12,9 +12,9 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/ops/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/ops/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/ops/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/ops/internal/store"
 )
 
 type fakeDirectory struct {
@@ -132,7 +132,7 @@ func (f *fakePrinter) Render(_ context.Context, doc []byte) ([]byte, error) {
 func TestCostStatementRendersAsAPDFThroughPrint(t *testing.T) {
 	pr := &fakePrinter{}
 	rates := mustRates(t)
-	e := newEnv3(t, time.Now().UTC(), func(c *Config) { c.CostRates = &rates; c.Printer = pr; c.Seller = "Passage Cloud" })
+	e := newEnv3(t, time.Now().UTC(), func(c *Config) { c.CostRates = &rates; c.Printer = pr; c.Seller = "Depot Cloud" })
 	tid := ids.New()
 	path := "/v1/ops/tenants/" + tid + "/costs/2026-10"
 	if rec := e.do("PUT", path, "job", DutyCostRecord, "", `{"quantities":`+testUsage+`,"usdPerEur":"1.08","modelVersion":"v1"}`); rec.Code != http.StatusOK {
@@ -151,7 +151,7 @@ func TestCostStatementRendersAsAPDFThroughPrint(t *testing.T) {
 	if err := json.Unmarshal(pr.doc, &doc); err != nil {
 		t.Fatal(err)
 	}
-	if doc.DocumentType != "PERIODIC_STATEMENT" || doc.LegalEntity.Name != "Passage Cloud" || len(doc.Lines) != len(domain.CostDimensions) || doc.Totals[0].Value != "137.65" {
+	if doc.DocumentType != "PERIODIC_STATEMENT" || doc.LegalEntity.Name != "Depot Cloud" || len(doc.Lines) != len(domain.CostDimensions) || doc.Totals[0].Value != "137.65" {
 		t.Fatalf("document = %+v", doc)
 	}
 	if rec := e.do("GET", path, "alice", DutyView, "", ""); rec.Code != http.StatusOK || !strings.Contains(rec.Header().Get("Content-Type"), "json") {
@@ -282,7 +282,7 @@ func TestCloneSchedulesAreStoredClaimedOncePerPeriodAndRecorded(t *testing.T) {
 	cl := &fakeCloner{}
 	e := newEnv3(t, clock, func(c *Config) { c.Cloner = cl; c.Now = func() time.Time { return clock } })
 	src := ids.New()
-	body := `{"name":"nightly-cedar-ridge","sourceTenant":"` + src + `","schema":"party","masksFile":"/etc/passage/masks-party.json","intervalHours":24}`
+	body := `{"name":"nightly-cedar-ridge","sourceTenant":"` + src + `","schema":"party","masksFile":"/etc/depot/masks-party.json","intervalHours":24}`
 	if rec := e.do("POST", "/v1/ops/clone-schedules", "alice", DutyView, "", body); rec.Code != http.StatusForbidden {
 		t.Fatalf("create needs its duty: %d", rec.Code)
 	}

@@ -11,14 +11,14 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/outbox"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/outbox"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
 
-	"github.com/BenjaminSRussell/passage/services/edi/internal/domain"
-	ediev "github.com/BenjaminSRussell/passage/services/edi/internal/events"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/domain"
+	ediev "github.com/BenjaminSRussell/depot/services/edi/internal/events"
 )
 
 // ErrNoTradeProfile means the partner exists but has no trade profile the
@@ -151,7 +151,7 @@ func (s *Store) GetTransport(ctx context.Context, partnerID string) (TransportRe
 }
 
 // ResolveAS2Endpoint maps an AS2 inbound endpoint id to its tenant and
-// partner. It runs without a principal (the AS2 caller has no Passage
+// partner. It runs without a principal (the AS2 caller has no Depot
 // identity): the SECURITY DEFINER lookup returns the two ids and nothing
 // else, and the caller is then authenticated by its signature.
 func (s *Store) ResolveAS2Endpoint(ctx context.Context, endpointID string) (tenantID, partnerID string, err error) {
@@ -226,7 +226,7 @@ func enqueueDelivery(ctx context.Context, tx pgx.Tx, tid, partnerID, interchange
 	if standard == domain.SyntaxEdifact {
 		ext = ".edi"
 	}
-	msgID := "edi-" + compact + "@passage"
+	msgID := "edi-" + compact + "@depot"
 	filename := fmt.Sprintf("%s_%s_%s%s", setID, fileSafe(control), compact[:12], ext)
 	d := DeliveryView{ID: id, PayloadKind: payloadKind, Transport: kind, MessageID: msgID, Status: "PENDING"}
 	if err := tx.QueryRow(ctx, `insert into transport_delivery (tenant_id, id, partner_id, legal_entity_id, interchange_id, payload_kind,

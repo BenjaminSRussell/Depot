@@ -1,19 +1,19 @@
 openapi: 3.1.0
 info:
-  title: Passage MCP gateway
+  title: Depot MCP gateway
   version: 0.2.0
   description: |
     Model Context Protocol endpoint (PRD 9.47.5, FR-47.1, FR-47.2). The
     handler in src/jsonrpc.ts implements the JSON-RPC 2.0 methods below, served
     over HTTP by src/server.ts. Every call runs with the invoking user's token:
-    tools/list shows only tools whose x-passage-duty the user holds, and
+    tools/list shows only tools whose x-depot-duty the user holds, and
     tools/call forwards the user's Authorization header, so OPA decides at the API.
     The edge (Envoy) verifies the JWT, strips any client copies of
-    x-passage-tenant, x-passage-user and x-passage-duties, and sets them from
+    x-depot-tenant, x-depot-user and x-depot-duties, and sets them from
     the token's claims (deploy/gateway).
     Server-initiated SSE streams are not offered yet; clients POST every message.
 servers:
-  - url: https://mcp.passage.dev
+  - url: https://mcp.depot.dev
 paths:
   /mcp:
     post:
@@ -29,7 +29,7 @@ paths:
         MCP-0422 (missing required argument) or MCP-0502 (a read tool's upstream
         body does not match the tool's outputSchema). A read tool whose upstream returns
         a continuation token puts it in result._meta.nextCursor.
-      x-passage-duty: none
+      x-depot-duty: none
       parameters:
         - $ref: "#/components/parameters/Traceparent"
         - name: x-agent-run-id
@@ -39,9 +39,9 @@ paths:
           schema:
             type: string
         - $ref: "#/components/parameters/Authorization"
-        - $ref: "#/components/parameters/PassageTenant"
-        - $ref: "#/components/parameters/PassageUser"
-        - $ref: "#/components/parameters/PassageDuties"
+        - $ref: "#/components/parameters/DepotTenant"
+        - $ref: "#/components/parameters/DepotUser"
+        - $ref: "#/components/parameters/DepotDuties"
       requestBody:
         required: true
         content:
@@ -59,7 +59,7 @@ paths:
         "200":
           description: JSON-RPC response (single object, or array for a batch)
           headers:
-            X-Passage-Api-Build:
+            X-Depot-Api-Build:
               $ref: "#/components/headers/ApiBuild"
             RateLimit-Limit:
               $ref: "#/components/headers/RateLimitLimit"
@@ -135,7 +135,7 @@ paths:
     get:
       operationId: healthz
       summary: Liveness; no dependency checks
-      x-passage-duty: none
+      x-depot-duty: none
       responses:
         "200":
           description: Process is up
@@ -143,7 +143,7 @@ paths:
     get:
       operationId: readyz
       summary: Readiness; the tool catalog is loaded
-      x-passage-duty: none
+      x-depot-duty: none
       responses:
         "200":
           description: Ready to serve tools
@@ -166,24 +166,24 @@ components:
       schema:
         type: string
         pattern: "^Bearer .+$"
-    PassageTenant:
-      name: x-passage-tenant
+    DepotTenant:
+      name: x-depot-tenant
       in: header
       required: true
       description: Set by the edge from the verified token's tid claim. The nil tenant is refused.
       schema:
         type: string
         format: uuid
-    PassageUser:
-      name: x-passage-user
+    DepotUser:
+      name: x-depot-user
       in: header
       required: true
       description: Set by the edge from the verified token.
       schema:
         type: string
         format: uuid
-    PassageDuties:
-      name: x-passage-duties
+    DepotDuties:
+      name: x-depot-duties
       in: header
       required: false
       description: Comma-separated duty ids the edge copies from the verified token's duties claim. Absent means no duties.
@@ -235,7 +235,7 @@ components:
       description: RFC 9457 problem details (application/problem+json) with the stable MCP code.
       required: [type, title, status, code, detail]
       properties:
-        type: {type: string, format: uri, pattern: "^https://passage.dev/problems/"}
+        type: {type: string, format: uri, pattern: "^https://depot.dev/problems/"}
         title: {type: string}
         status: {type: integer}
         code: {type: string, pattern: "^MCP-[0-9]{4}$"}
@@ -247,7 +247,7 @@ components:
       properties:
         name:
           type: string
-          pattern: "^passage(\\.[a-z][a-z0-9_-]*){2,3}$"
+          pattern: "^depot(\\.[a-z][a-z0-9_-]*){2,3}$"
         description: {type: string}
         inputSchema: {type: object, description: JSON Schema draft 2020-12}
         annotations:
@@ -257,5 +257,5 @@ components:
             readOnlyHint: {type: boolean}
             destructiveHint: {type: boolean}
             idempotentHint: {type: boolean}
-        x-passage-duty: {type: string}
-        x-passage-approval: {type: string, enum: [none, suggest, approve_before_commit]}
+        x-depot-duty: {type: string}
+        x-depot-approval: {type: string, enum: [none, suggest, approve_before_commit]}

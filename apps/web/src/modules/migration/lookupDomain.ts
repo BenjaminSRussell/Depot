@@ -1,7 +1,7 @@
 import type { LookupDefinition, LookupKind } from "./api/client";
 
 export const LOOKUP_KINDS: { value: LookupKind; label: string; hint: string }[] = [
-  { value: "enum", label: "Code list", hint: "Maps a Passage code to the code the legacy ERP uses, for example kg to KGM." },
+  { value: "enum", label: "Code list", hint: "Maps a Depot code to the code the legacy ERP uses, for example kg to KGM." },
   { value: "uom_conversion", label: "Unit conversion", hint: "Keys are FROM|TO unit pairs and values are positive factors with at most 12 decimals, for example LB|KG = 0.45359237. Enter both directions: a mapping never divides. A mapping with quantityPath sends the quantity times the factor." },
   { value: "price_list", label: "Price list", hint: "Keys are item keys, or item|currency (add the legal entity id as a key part for entity prices), and values are prices that are not negative with at most 6 decimals, for example SKU-1|EUR = 12.50." },
 ];
@@ -77,7 +77,7 @@ export function filterEntries(entries: Record<string, string>, text: string, lim
 export const MAX_IMPORT_BYTES = 2 * 1024 * 1024;
 
 export const IMPORT_HINTS: Record<LookupKind, string> = {
-  enum: "One entry per line: the Passage code, then the legacy code (kg,KGM).",
+  enum: "One entry per line: the Depot code, then the legacy code (kg,KGM).",
   uom_conversion: "One entry per line: from unit, to unit, factor (LB,KG,0.45359237). Add the reverse line too.",
   price_list: "One entry per line: the key parts in the order the mapping's keyPaths read them (item, or item and currency), then the price (SKU-1,EUR,12.50).",
 };

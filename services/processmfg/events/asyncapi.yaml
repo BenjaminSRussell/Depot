@@ -1,11 +1,11 @@
 asyncapi: 3.0.0
 info:
-  title: Passage Process Manufacturing events
+  title: Depot Process Manufacturing events
   version: 0.7.0
   description: >
     CloudEvents 1.0 published through the transactional outbox (Debezium
     outbox router), each in the same transaction as the change it reports.
-    Event types follow dev.passage.<context>.<entity>.<verb>.v<n>; the context
+    Event types follow dev.depot.<context>.<entity>.<verb>.v<n>; the context
     is production, as in PRD 4.24.5, and the entity drops the PRD hyphen
     (batch-order → batchorder) because the kernel rule allows none. Payloads
     match internal/events/events.go. The PRD's batch.attributes-recorded is
@@ -13,12 +13,12 @@ info:
 defaultContentType: application/cloudevents+json
 channels:
   formula:
-    address: passage.production.formula
+    address: depot.production.formula
     messages:
       formulaCreated:
         $ref: '#/components/messages/FormulaCreated'
   batchOrder:
-    address: passage.production.batchorder
+    address: depot.production.batchorder
     messages:
       batchOrderCreated:
         $ref: '#/components/messages/BatchOrderCreated'
@@ -27,17 +27,17 @@ channels:
       batchOrderStateChanged:
         $ref: '#/components/messages/BatchOrderStateChanged'
   coProduct:
-    address: passage.production.coproduct
+    address: depot.production.coproduct
     messages:
       coProductAllocated:
         $ref: '#/components/messages/CoProductAllocated'
   batchAttribute:
-    address: passage.production.batchattribute
+    address: depot.production.batchattribute
     messages:
       batchAttributeDefined:
         $ref: '#/components/messages/BatchAttributeDefined'
   batch:
-    address: passage.production.batch
+    address: depot.production.batch
     messages:
       batchRegistered:
         $ref: '#/components/messages/BatchRegistered'
@@ -50,35 +50,35 @@ channels:
       batchDerived:
         $ref: '#/components/messages/BatchDerived'
   reworkOrder:
-    address: passage.production.reworkorder
+    address: depot.production.reworkorder
     messages:
       reworkOrderCreated:
         $ref: '#/components/messages/ReworkOrderCreated'
       reworkOrderReceived:
         $ref: '#/components/messages/ReworkOrderReceived'
   inheritanceRule:
-    address: passage.production.inheritancerule
+    address: depot.production.inheritancerule
     messages:
       inheritanceRuleDefined:
         $ref: '#/components/messages/InheritanceRuleDefined'
       inheritanceRuleRetired:
         $ref: '#/components/messages/InheritanceRuleRetired'
   batchRequirement:
-    address: passage.production.batchrequirement
+    address: depot.production.batchrequirement
     messages:
       batchRequirementDefined:
         $ref: '#/components/messages/BatchRequirementDefined'
       batchRequirementRetired:
         $ref: '#/components/messages/BatchRequirementRetired'
   batchRecordProfile:
-    address: passage.production.batchrecordprofile
+    address: depot.production.batchrecordprofile
     messages:
       batchRecordProfileDefined:
         $ref: '#/components/messages/BatchRecordProfileDefined'
       batchRecordProfileRetired:
         $ref: '#/components/messages/BatchRecordProfileRetired'
   batchRecord:
-    address: passage.production.batchrecord
+    address: depot.production.batchrecord
     messages:
       batchRecordCompiled:
         $ref: '#/components/messages/BatchRecordCompiled'
@@ -214,122 +214,122 @@ operations:
 components:
   messages:
     FormulaCreated:
-      name: dev.passage.production.formula.created.v1
+      name: dev.depot.production.formula.created.v1
       summary: A formula was created with its lines
       contentType: application/cloudevents+json
       payload: { $ref: '#/components/schemas/FormulaCreatedData' }
     BatchOrderCreated:
-      name: dev.passage.production.batchorder.created.v1
+      name: dev.depot.production.batchorder.created.v1
       summary: A batch order was created from a formula snapshot
       contentType: application/cloudevents+json
       payload: { $ref: '#/components/schemas/BatchOrderCreatedData' }
     BatchOrderRescaled:
-      name: dev.passage.production.batchorder.rescaled.v1
+      name: dev.depot.production.batchorder.rescaled.v1
       summary: A batch order was rescaled before it started
       contentType: application/cloudevents+json
       payload: { $ref: '#/components/schemas/BatchOrderRescaledData' }
     BatchOrderStateChanged:
-      name: dev.passage.production.batchorder.statechanged.v1
+      name: dev.depot.production.batchorder.statechanged.v1
       summary: A batch order moved to released, started, reported or ended
       contentType: application/cloudevents+json
       payload: { $ref: '#/components/schemas/BatchOrderStateChangedData' }
     CoProductAllocated:
-      name: dev.passage.production.coproduct.allocated.v1
+      name: dev.depot.production.coproduct.allocated.v1
       summary: The batch cost of an ended order was allocated; the shares add up to the batch cost exactly
       contentType: application/cloudevents+json
       payload: { $ref: '#/components/schemas/CoProductAllocatedData' }
     BatchAttributeDefined:
-      name: dev.passage.production.batchattribute.defined.v1
+      name: dev.depot.production.batchattribute.defined.v1
       summary: An item got a batch attribute definition
       contentType: application/cloudevents+json
       payload: { $ref: '#/components/schemas/BatchAttributeDefinedData' }
     BatchRegistered:
-      name: dev.passage.production.batch.registered.v1
+      name: dev.depot.production.batch.registered.v1
       summary: A batch got its quality record
       contentType: application/cloudevents+json
       payload: { $ref: '#/components/schemas/BatchRegisteredData' }
     BatchAttributesRecorded:
-      name: dev.passage.production.batch.attributesrecorded.v1
+      name: dev.depot.production.batch.attributesrecorded.v1
       summary: Attribute values were recorded on a batch
       contentType: application/cloudevents+json
       payload: { $ref: '#/components/schemas/BatchAttributesRecordedData' }
     BatchDispositionChanged:
-      name: dev.passage.production.batch.dispositionchanged.v1
+      name: dev.depot.production.batch.dispositionchanged.v1
       summary: A batch moved to another disposition
       contentType: application/cloudevents+json
       payload: { $ref: '#/components/schemas/BatchDispositionChangedData' }
     BatchMerged:
-      name: dev.passage.production.batch.merged.v1
+      name: dev.depot.production.batch.merged.v1
       summary: Batches were merged into a new batch
       contentType: application/cloudevents+json
       payload: { $ref: '#/components/schemas/BatchMergedData' }
     BatchDerived:
-      name: dev.passage.production.batch.derived.v1
+      name: dev.depot.production.batch.derived.v1
       summary: A batch got attribute values derived from its senders
       contentType: application/cloudevents+json
       payload: { $ref: '#/components/schemas/BatchDerivedData' }
     ReworkOrderCreated:
-      name: dev.passage.production.reworkorder.created.v1
+      name: dev.depot.production.reworkorder.created.v1
       summary: A rework batch order was created from a stored batch
       contentType: application/cloudevents+json
       payload: { $ref: '#/components/schemas/ReworkOrderCreatedData' }
     ReworkOrderReceived:
-      name: dev.passage.production.reworkorder.received.v1
+      name: dev.depot.production.reworkorder.received.v1
       summary: The output of a rework batch order was received into the batch register
       contentType: application/cloudevents+json
       payload: { $ref: '#/components/schemas/ReworkOrderReceivedData' }
     InheritanceRuleDefined:
-      name: dev.passage.production.inheritancerule.defined.v1
+      name: dev.depot.production.inheritancerule.defined.v1
       summary: An attribute inheritance rule was defined
       contentType: application/cloudevents+json
       payload: { $ref: '#/components/schemas/InheritanceRuleData' }
     InheritanceRuleRetired:
-      name: dev.passage.production.inheritancerule.retired.v1
+      name: dev.depot.production.inheritancerule.retired.v1
       summary: An attribute inheritance rule was retired
       contentType: application/cloudevents+json
       payload: { $ref: '#/components/schemas/InheritanceRuleData' }
     BatchRequirementDefined:
-      name: dev.passage.production.batchrequirement.defined.v1
+      name: dev.depot.production.batchrequirement.defined.v1
       summary: A customer batch requirement was defined
       contentType: application/cloudevents+json
       payload: { $ref: '#/components/schemas/BatchRequirementData' }
     BatchRequirementRetired:
-      name: dev.passage.production.batchrequirement.retired.v1
+      name: dev.depot.production.batchrequirement.retired.v1
       summary: A customer batch requirement was retired
       contentType: application/cloudevents+json
       payload: { $ref: '#/components/schemas/BatchRequirementData' }
     BatchRecordProfileDefined:
-      name: dev.passage.production.batchrecordprofile.defined.v1
+      name: dev.depot.production.batchrecordprofile.defined.v1
       summary: A batch record profile was defined
       contentType: application/cloudevents+json
       payload: { $ref: '#/components/schemas/BatchRecordProfileData' }
     BatchRecordProfileRetired:
-      name: dev.passage.production.batchrecordprofile.retired.v1
+      name: dev.depot.production.batchrecordprofile.retired.v1
       summary: A batch record profile was retired
       contentType: application/cloudevents+json
       payload: { $ref: '#/components/schemas/BatchRecordProfileData' }
     BatchRecordCompiled:
-      name: dev.passage.production.batchrecord.compiled.v1
+      name: dev.depot.production.batchrecord.compiled.v1
       summary: A batch record was compiled or refreshed
       contentType: application/cloudevents+json
       payload: { $ref: '#/components/schemas/BatchRecordData' }
     BatchRecordExceptionRaised:
-      name: dev.passage.production.batchrecord.exceptionraised.v1
+      name: dev.depot.production.batchrecord.exceptionraised.v1
       summary: An exception was raised on a batch record
       contentType: application/cloudevents+json
       payload: { $ref: '#/components/schemas/BatchRecordExceptionData' }
     BatchRecordExceptionDispositioned:
-      name: dev.passage.production.batchrecord.exceptiondispositioned.v1
+      name: dev.depot.production.batchrecord.exceptiondispositioned.v1
       summary: An exception of a batch record was decided
       contentType: application/cloudevents+json
       payload: { $ref: '#/components/schemas/BatchRecordExceptionData' }
     BatchRecordApproved:
-      name: dev.passage.production.batchrecord.approved.v1
+      name: dev.depot.production.batchrecord.approved.v1
       summary: A batch record was approved
       contentType: application/cloudevents+json
       payload: { $ref: '#/components/schemas/BatchRecordData' }
     BatchRecordSealed:
-      name: dev.passage.production.batchrecord.sealed.v1
+      name: dev.depot.production.batchrecord.sealed.v1
       summary: A batch record was sealed
       contentType: application/cloudevents+json
       payload: { $ref: '#/components/schemas/BatchRecordData' }

@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/services/metadata/internal/usage"
+	"github.com/BenjaminSRussell/depot/services/metadata/internal/usage"
 )
 
 type source struct {

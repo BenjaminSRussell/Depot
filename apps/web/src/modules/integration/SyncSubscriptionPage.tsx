@@ -27,7 +27,7 @@ import { ProblemMessage } from "../../shell/errors";
 
 /** A sales.order.confirmed sample (services/sales/events/asyncapi.yaml), edited as JSON like the map tester takes raw X12. */
 export const SAMPLE_EVENT = {
-  type: "dev.passage.sales.order.confirmed.v1",
+  type: "dev.depot.sales.order.confirmed.v1",
   subject: "order-1",
   data: {
     order_id: "0195f0a0-0000-7000-8000-0000000000a1",

@@ -1,4 +1,4 @@
--- Shop floor time and attendance core (PSG-25 slice 1): workers, time
+-- Shop floor time and attendance core (DPT-25 slice 1): workers, time
 -- registrations, calculated worker-days with pay lines, idempotency records and
 -- the transactional outbox. Every table is tenant scoped with forced RLS.
 
@@ -24,8 +24,8 @@ CREATE INDEX IF NOT EXISTS worker_name ON worker (tenant_id, name, id);
 ALTER TABLE worker ENABLE ROW LEVEL SECURITY;
 ALTER TABLE worker FORCE ROW LEVEL SECURITY;
 CREATE POLICY worker_tenant_access ON worker AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 CREATE TABLE IF NOT EXISTS time_registration (
   tenant_id uuid NOT NULL,
@@ -56,8 +56,8 @@ CREATE INDEX IF NOT EXISTS time_registration_job ON time_registration (tenant_id
 ALTER TABLE time_registration ENABLE ROW LEVEL SECURITY;
 ALTER TABLE time_registration FORCE ROW LEVEL SECURITY;
 CREATE POLICY time_registration_tenant_access ON time_registration AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 CREATE TABLE IF NOT EXISTS worker_day (
   tenant_id uuid NOT NULL,
@@ -79,8 +79,8 @@ CREATE TABLE IF NOT EXISTS worker_day (
 ALTER TABLE worker_day ENABLE ROW LEVEL SECURITY;
 ALTER TABLE worker_day FORCE ROW LEVEL SECURITY;
 CREATE POLICY worker_day_tenant_access ON worker_day AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 CREATE TABLE IF NOT EXISTS pay_line (
   tenant_id uuid NOT NULL,
@@ -99,8 +99,8 @@ CREATE TABLE IF NOT EXISTS pay_line (
 ALTER TABLE pay_line ENABLE ROW LEVEL SECURITY;
 ALTER TABLE pay_line FORCE ROW LEVEL SECURITY;
 CREATE POLICY pay_line_tenant_access ON pay_line AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- BR-25.8 / FR-25.8: approved pay lines are immutable. Corrections are new lines
 -- plus a reversal in a later slice; until then the database refuses changes.
@@ -139,8 +139,8 @@ CREATE TABLE IF NOT EXISTS outbox (
 ALTER TABLE outbox ENABLE ROW LEVEL SECURITY;
 ALTER TABLE outbox FORCE ROW LEVEL SECURITY;
 CREATE POLICY outbox_tenant_access ON outbox AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 CREATE INDEX IF NOT EXISTS worker_day_date ON worker_day (tenant_id, work_date, worker_id);
 
@@ -158,15 +158,15 @@ CREATE TABLE IF NOT EXISTS idempotency_keys (
 ALTER TABLE idempotency_keys ENABLE ROW LEVEL SECURITY;
 ALTER TABLE idempotency_keys FORCE ROW LEVEL SECURITY;
 CREATE POLICY idempotency_keys_tenant_access ON idempotency_keys AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- The application role reads and writes through RLS; it never owns the tables.
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE format('GRANT USAGE ON SCHEMA %I TO passage_app', current_schema());
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON worker, time_registration, worker_day, pay_line, idempotency_keys, outbox TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE format('GRANT USAGE ON SCHEMA %I TO depot_app', current_schema());
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON worker, time_registration, worker_day, pay_line, idempotency_keys, outbox TO depot_app';
   END IF;
 END
 $$;

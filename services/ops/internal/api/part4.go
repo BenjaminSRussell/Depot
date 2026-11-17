@@ -17,15 +17,15 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/authz"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/ops/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/ops/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/authz"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/ops/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/ops/internal/store"
 )
 
-// Part 4 (PSG-50): tenant decommission, cost statement PDFs, the licence user-count reporter, the monthly metering job and the
+// Part 4 (DPT-50): tenant decommission, cost statement PDFs, the licence user-count reporter, the monthly metering job and the
 // masked-clone schedules with their job runner.
 
 const (
@@ -76,7 +76,7 @@ type ServiceCaller struct {
 
 func (c ServiceCaller) do(ctx context.Context, method, rawURL, aud string, duty string, body []byte, accept string) (*http.Response, error) {
 	if c.Signer == nil {
-		return nil, errors.New("no service signing key is configured (PASSAGE_SERVICE_SIGNING_KEY)")
+		return nil, errors.New("no service signing key is configured (DEPOT_SERVICE_SIGNING_KEY)")
 	}
 	req, err := http.NewRequestWithContext(ctx, method, rawURL, bytes.NewReader(body))
 	if err != nil {
@@ -156,7 +156,7 @@ func StatementDocument(st domain.CostStatement, seller string) map[string]any {
 		lines = append(lines, []string{d, st.Quantities[d], st.Lines[d]})
 	}
 	if seller == "" {
-		seller = "Passage"
+		seller = "Depot"
 	}
 	return map[string]any{
 		"documentType": "PERIODIC_STATEMENT",
@@ -199,7 +199,7 @@ type decommissionBody struct {
 }
 
 // decommission opens the decommission of a tenant: only for a tenant identity reports as suspended (OPS-1731), and audited. A
-// repeat returns the first record with 200. The decommission runner (passage-ops decommission) then performs the steps in reverse
+// repeat returns the first record with 200. The decommission runner (depot-ops decommission) then performs the steps in reverse
 // order and reports each with PUT .../decommission-steps/{action}.
 func (a *API) decommission(w http.ResponseWriter, r *http.Request) {
 	p, _ := tenant.FromContext(r.Context())
@@ -593,7 +593,7 @@ func (a *API) CloneOnce(ctx context.Context) int {
 }
 
 // CommandCloner runs tools/tenant-restore's `clone` command: `tenant-restore clone --tenant <id> --schema <schema> --masks <file> --apply`.
-// The source and target database URLs come from the process environment (PASSAGE_CLONE_SOURCE_URL, PASSAGE_CLONE_TARGET_URL), which
+// The source and target database URLs come from the process environment (DEPOT_CLONE_SOURCE_URL, DEPOT_CLONE_TARGET_URL), which
 // the child inherits; they are never put on the command line.
 type CommandCloner struct {
 	// Command is the tenant-restore executable (OPS_CLONE_COMMAND, default tenant-restore).
@@ -679,7 +679,7 @@ func (a *API) verifyExport(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, http.StatusOK, rec)
 }
 
-// requestPurge authorises the purge (decommission DECOMMISSIONED, export verified) and audits the request. `passage-ops tenant purge`
+// requestPurge authorises the purge (decommission DECOMMISSIONED, export verified) and audits the request. `depot-ops tenant purge`
 // calls it, then deletes with its own purge credentials, then reports with PUT .../purge-result.
 func (a *API) requestPurge(w http.ResponseWriter, r *http.Request) {
 	p, _ := tenant.FromContext(r.Context())

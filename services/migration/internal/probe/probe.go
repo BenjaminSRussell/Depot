@@ -19,9 +19,9 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	mssql "github.com/microsoft/go-mssqldb"
 
-	"github.com/BenjaminSRussell/passage/services/migration/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/migration/internal/egress"
-	"github.com/BenjaminSRussell/passage/services/migration/internal/oauth"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/egress"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/oauth"
 )
 
 // Failure codes a probe reports (the HTTP call itself still answers 200: the probe ran, the connection did not work).
@@ -192,7 +192,7 @@ func (p *Prober) rest(ctx context.Context, t Target, res *Result) error {
 		return &failure{CodeProbeFailed, "invalid base URL"}
 	}
 	req.Header.Set("Accept", "application/json")
-	req.Header.Set("User-Agent", "passage-migration-probe")
+	req.Header.Set("User-Agent", "depot-migration-probe")
 	switch authType {
 	case "basic":
 		req.SetBasicAuth(str(t.Config, "username"), t.Secret)

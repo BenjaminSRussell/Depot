@@ -10,10 +10,10 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/ledgerclient"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/budgeting/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/budgeting/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/ledgerclient"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/budgeting/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/budgeting/internal/store"
 )
 
 const (

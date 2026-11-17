@@ -226,7 +226,7 @@ describe("loans", () => {
   const loan: LoanDraft = {
     legalEntityId: LE,
     role: "lender",
-    counterpartyName: "Passage Holdings BV",
+    counterpartyName: "Depot Holdings BV",
     principal: "1000000.00",
     currency: "EUR",
     startDate: "2026-06-01",

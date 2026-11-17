@@ -17,5 +17,5 @@ create table "legal_entities" (
 alter table legal_entities enable row level security;
 alter table legal_entities force row level security;
 create policy legal_entities_tenant_access on legal_entities as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);

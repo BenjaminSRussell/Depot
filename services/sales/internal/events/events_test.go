@@ -8,19 +8,19 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/events"
 )
 
 // TestAsyncAPIMatchesEventTypes checks that events/asyncapi.yaml documents
 // exactly the event types the service publishes, and that each name follows
-// dev.passage.<context>.<entity>.<verb>.v<n>.
+// dev.depot.<context>.<entity>.<verb>.v<n>.
 func TestAsyncAPIMatchesEventTypes(t *testing.T) {
 	raw, err := os.ReadFile(filepath.Join("..", "..", "events", "asyncapi.yaml"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	var documented []string
-	for _, m := range regexp.MustCompile(`(?m)^\s+name: (dev\.passage\.\S+)$`).FindAllStringSubmatch(string(raw), -1) {
+	for _, m := range regexp.MustCompile(`(?m)^\s+name: (dev\.depot\.\S+)$`).FindAllStringSubmatch(string(raw), -1) {
 		documented = append(documented, m[1])
 	}
 	published := All()

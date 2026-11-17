@@ -1,10 +1,10 @@
 <#
   Start the bundled TypeScript and Python services with the start commands the conf.d files resolve to, on the build runner (x64).
-    Test-ServiceBundles.ps1 -ServerExe C:\out\bin\passage-server.exe -Repo $env:GITHUB_WORKSPACE -Temp $env:RUNNER_TEMP
+    Test-ServiceBundles.ps1 -ServerExe C:\out\bin\depot-server.exe -Repo $env:GITHUB_WORKSPACE -Temp $env:RUNNER_TEMP
   Inputs from the environment: NODE_DIR and PYTHON_DIR, as Build-ServiceBundles.ps1 left them.
 
   It lays out a throwaway install directory whose runtime\node and runtime\python are junctions to the bundles, copies
-  deploy/windows/features/*.yaml into its conf.d, and asks `passage-server services` for the resolved children. Then:
+  deploy/windows/features/*.yaml into its conf.d, and asks `depot-server services` for the resolved children. Then:
     Python services   are started exactly as listed and must answer their readiness path within 120 s.
     workflow-ts       is started exactly as listed, against a Temporal address where nothing listens: it must get as far as
                       connecting (its modules and the Temporal native bridge loaded) and fail on the connection, not on a
@@ -37,12 +37,12 @@ if ($env:PYTHON_DIR) {
 if ($features.Count -eq 0) { 'no Node or Python runtime configured: nothing to test'; return }
 
 $install = (Join-Path $root 'install') -replace '\\', '/'
-$config = Join-Path $root 'data\passage.yaml'
+$config = Join-Path $root 'data\depot.yaml'
 @("installDir: $install", 'temporalHostPort: 127.0.0.1:1', 'temporalNamespace: default', 'features:') + $features | Set-Content -Path $config -Encoding utf8
-$env:PASSAGE_CONFIG = $config
-$env:PASSAGE_DATA_DIR = Join-Path $root 'data'
+$env:DEPOT_CONFIG = $config
+$env:DEPOT_DATA_DIR = Join-Path $root 'data'
 $listing = & $ServerExe services
-if ($LASTEXITCODE -ne 0) { throw "passage-server services failed with exit code $LASTEXITCODE" }
+if ($LASTEXITCODE -ne 0) { throw "depot-server services failed with exit code $LASTEXITCODE" }
 $children = $listing | Out-String | ConvertFrom-Json
 
 function Start-Child($child, [string] $log) {
@@ -102,5 +102,5 @@ foreach ($child in $children) {
         }
     }
 }
-if ($tested -eq 0) { throw 'passage-server services listed no Node or Python service to test' }
+if ($tested -eq 0) { throw 'depot-server services listed no Node or Python service to test' }
 "tested $tested bundled services"

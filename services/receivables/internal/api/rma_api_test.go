@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/ids"
 )
 
 const rmaInvoiceID = "00000000-0000-0000-0000-0000000000b1"
@@ -118,8 +118,8 @@ func TestRMACreditOperatorRoutes(t *testing.T) {
 	// An all-scope caller (no legal-entity claim) cannot sign the ledger post, so it may not retry or sweep.
 	for _, path := range []string{"/v1/receivables/rma-credits/" + id + ":retry", "/v1/receivables/rma-credits:sweep"} {
 		req := httptest.NewRequest(http.MethodPost, path, strings.NewReader(""))
-		req.Header.Set("X-Passage-Tenant", testTenant)
-		req.Header.Set("X-Passage-Duties", "receivables.payment.post")
+		req.Header.Set("X-Depot-Tenant", testTenant)
+		req.Header.Set("X-Depot-Duties", "receivables.payment.post")
 		rec := httptest.NewRecorder()
 		h.ServeHTTP(rec, req)
 		if rec.Code != http.StatusBadRequest && rec.Code != http.StatusForbidden {

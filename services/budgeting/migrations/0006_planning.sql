@@ -29,11 +29,11 @@ CREATE UNIQUE INDEX IF NOT EXISTS budget_plan_one_approved_per_rule_year ON budg
 ALTER TABLE budget_plan_process ENABLE ROW LEVEL SECURITY;
 ALTER TABLE budget_plan_process FORCE ROW LEVEL SECURITY;
 CREATE POLICY budget_plan_process_tenant_access ON budget_plan_process AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY budget_plan_process_legal_entity_scope ON budget_plan_process AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 CREATE TABLE IF NOT EXISTS budget_plan_stage_owner (
   tenant_id uuid NOT NULL,
@@ -50,11 +50,11 @@ CREATE TABLE IF NOT EXISTS budget_plan_stage_owner (
 ALTER TABLE budget_plan_stage_owner ENABLE ROW LEVEL SECURITY;
 ALTER TABLE budget_plan_stage_owner FORCE ROW LEVEL SECURITY;
 CREATE POLICY budget_plan_stage_owner_tenant_access ON budget_plan_stage_owner AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY budget_plan_stage_owner_legal_entity_scope ON budget_plan_stage_owner AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 -- version is the ETag of the scenario's grid: every cell write bumps it.
 CREATE TABLE IF NOT EXISTS budget_plan_scenario (
@@ -75,11 +75,11 @@ CREATE TABLE IF NOT EXISTS budget_plan_scenario (
 ALTER TABLE budget_plan_scenario ENABLE ROW LEVEL SECURITY;
 ALTER TABLE budget_plan_scenario FORCE ROW LEVEL SECURITY;
 CREATE POLICY budget_plan_scenario_tenant_access ON budget_plan_scenario AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY budget_plan_scenario_legal_entity_scope ON budget_plan_scenario AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 CREATE TABLE IF NOT EXISTS budget_plan_scenario_editor (
   tenant_id uuid NOT NULL,
@@ -92,11 +92,11 @@ CREATE TABLE IF NOT EXISTS budget_plan_scenario_editor (
 ALTER TABLE budget_plan_scenario_editor ENABLE ROW LEVEL SECURITY;
 ALTER TABLE budget_plan_scenario_editor FORCE ROW LEVEL SECURITY;
 CREATE POLICY budget_plan_scenario_editor_tenant_access ON budget_plan_scenario_editor AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY budget_plan_scenario_editor_legal_entity_scope ON budget_plan_scenario_editor AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 CREATE TABLE IF NOT EXISTS budget_plan_cell (
   tenant_id uuid NOT NULL,
@@ -114,11 +114,11 @@ CREATE TABLE IF NOT EXISTS budget_plan_cell (
 ALTER TABLE budget_plan_cell ENABLE ROW LEVEL SECURITY;
 ALTER TABLE budget_plan_cell FORCE ROW LEVEL SECURITY;
 CREATE POLICY budget_plan_cell_tenant_access ON budget_plan_cell AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY budget_plan_cell_legal_entity_scope ON budget_plan_cell AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 -- Insert-only trail of submissions, sign-offs and rejections.
 CREATE TABLE IF NOT EXISTS budget_plan_decision (
@@ -139,19 +139,19 @@ CREATE TABLE IF NOT EXISTS budget_plan_decision (
 ALTER TABLE budget_plan_decision ENABLE ROW LEVEL SECURITY;
 ALTER TABLE budget_plan_decision FORCE ROW LEVEL SECURITY;
 CREATE POLICY budget_plan_decision_tenant_access ON budget_plan_decision AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY budget_plan_decision_legal_entity_scope ON budget_plan_decision AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON budget_plan_process, budget_plan_scenario, budget_plan_cell TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT ON budget_plan_scenario_editor TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON budget_plan_stage_owner TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT ON budget_plan_decision TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON budget_plan_process, budget_plan_scenario, budget_plan_cell TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT ON budget_plan_scenario_editor TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON budget_plan_stage_owner TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT ON budget_plan_decision TO depot_app';
   END IF;
 END
 $$;

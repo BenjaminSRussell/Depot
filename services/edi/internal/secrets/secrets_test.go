@@ -13,7 +13,7 @@ import (
 
 	"golang.org/x/crypto/ssh"
 
-	"github.com/BenjaminSRussell/passage/services/edi/internal/transport/transporttest"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/transport/transporttest"
 )
 
 func TestDir_ReadsOnlyNamedFilesInsideTheDirectory(t *testing.T) {
@@ -52,7 +52,7 @@ func TestDir_ReadsOnlyNamedFilesInsideTheDirectory(t *testing.T) {
 }
 
 func TestAS2IdentityAndSSHSigner(t *testing.T) {
-	kp := transporttest.NewKeyPair(t, "PASSAGE", false)
+	kp := transporttest.NewKeyPair(t, "DEPOT", false)
 	other := transporttest.NewKeyPair(t, "OTHER", false)
 	keyDER, _ := x509.MarshalPKCS8PrivateKey(other.Key)
 	mismatched := append(pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: keyDER}), kp.CertPEM()...)

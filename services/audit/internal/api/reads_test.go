@@ -11,9 +11,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/audit/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/audit/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/audit/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/audit/internal/store"
 )
 
 // readStore is the read-log half of the fake store: it appends to a real in-memory hash chain.
@@ -245,7 +245,7 @@ func TestExportReadsCSVAndNDJSONCarryTheChainVerdict(t *testing.T) {
 	if rec.Code != http.StatusOK || !strings.HasPrefix(rec.Header().Get("Content-Type"), "text/csv") {
 		t.Fatalf("csv: %d %v", rec.Code, rec.Header())
 	}
-	if rec.Header().Get("X-Passage-Read-Chain-Verified") != "true" || rec.Header().Get("X-Passage-Read-Chain-Entries") != "2" || rec.Header().Get("X-Passage-Read-Chain-Head") != f.rows[1].Hash {
+	if rec.Header().Get("X-Depot-Read-Chain-Verified") != "true" || rec.Header().Get("X-Depot-Read-Chain-Entries") != "2" || rec.Header().Get("X-Depot-Read-Chain-Head") != f.rows[1].Hash {
 		t.Fatalf("headers %v", rec.Header())
 	}
 	lines := strings.Split(strings.TrimSpace(rec.Body.String()), "\n")
@@ -272,7 +272,7 @@ func TestExportReadsCSVAndNDJSONCarryTheChainVerdict(t *testing.T) {
 
 	f.rows[0].Purpose = "tampered"
 	rec = do(r, http.MethodGet, readsPath+":export?format=ndjson", "", dutyExport, true)
-	if rec.Header().Get("X-Passage-Read-Chain-Verified") != "false" || rec.Header().Get("X-Passage-Read-Chain-Broken-At") != "0" {
+	if rec.Header().Get("X-Depot-Read-Chain-Verified") != "false" || rec.Header().Get("X-Depot-Read-Chain-Broken-At") != "0" {
 		t.Fatalf("a tampered row must show in the export headers: %v", rec.Header())
 	}
 	rec = do(r, http.MethodGet, readsPath+":verify", "", dutyExport, true)
@@ -310,9 +310,9 @@ func TestAnExportThatFailsMidStreamIsNeverACleanVerifiedResponse(t *testing.T) {
 	defer srv.Close()
 	get := func() (*http.Response, []byte, error) {
 		req, _ := http.NewRequest(http.MethodGet, srv.URL+readsPath+":export?format=ndjson", nil)
-		req.Header.Set("X-Passage-Tenant", testkit.TenantID(1))
-		req.Header.Set("X-Passage-User", "user-1")
-		req.Header.Set("X-Passage-Duties", dutyExport)
+		req.Header.Set("X-Depot-Tenant", testkit.TenantID(1))
+		req.Header.Set("X-Depot-User", "user-1")
+		req.Header.Set("X-Depot-Duties", dutyExport)
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
 			return nil, nil, err
@@ -323,8 +323,8 @@ func TestAnExportThatFailsMidStreamIsNeverACleanVerifiedResponse(t *testing.T) {
 	}
 
 	resp, body, err := get()
-	if err != nil || resp.StatusCode != http.StatusOK || resp.Trailer.Get("X-Passage-Read-Export-Complete") != "true" ||
-		resp.Trailer.Get("X-Passage-Read-Export-Rows") != "3" || strings.Count(string(body), "\n") != 3 {
+	if err != nil || resp.StatusCode != http.StatusOK || resp.Trailer.Get("X-Depot-Read-Export-Complete") != "true" ||
+		resp.Trailer.Get("X-Depot-Read-Export-Rows") != "3" || strings.Count(string(body), "\n") != 3 {
 		t.Fatalf("complete export: %v %v trailers %v\n%s", resp, err, resp.Trailer, body)
 	}
 
@@ -333,7 +333,7 @@ func TestAnExportThatFailsMidStreamIsNeverACleanVerifiedResponse(t *testing.T) {
 	if err == nil {
 		t.Fatalf("a failed export ended cleanly: %d trailers %v body %q", resp.StatusCode, resp.Trailer, body)
 	}
-	if resp != nil && resp.Trailer.Get("X-Passage-Read-Export-Complete") == "true" {
+	if resp != nil && resp.Trailer.Get("X-Depot-Read-Export-Complete") == "true" {
 		t.Fatal("a failed export claimed to be complete")
 	}
 }

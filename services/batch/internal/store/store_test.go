@@ -8,14 +8,14 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/batch/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/batch/internal/schema"
-	"github.com/BenjaminSRussell/passage/services/batch/internal/store"
-	"github.com/BenjaminSRussell/passage/services/batch/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/batch/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/batch/internal/schema"
+	"github.com/BenjaminSRussell/depot/services/batch/internal/store"
+	"github.com/BenjaminSRussell/depot/services/batch/migrations"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -128,12 +128,12 @@ func TestExclusiveJobOverlapAndSchemaGate(t *testing.T) {
 	}
 
 	current := schema.JSONSchema{Type: "object", Required: []string{"id"}, Properties: map[string]schema.JSONSchema{"id": {Type: "string"}}}
-	if err := s.RegisterSchema(ctx, "dev.passage.workflow.instance.submitted.v1", current); err != nil {
+	if err := s.RegisterSchema(ctx, "dev.depot.workflow.instance.submitted.v1", current); err != nil {
 		t.Fatal(err)
 	}
 	breaking := current
 	breaking.Required = []string{"id", "amount"}
-	if err := s.RegisterSchema(ctx, "dev.passage.workflow.instance.submitted.v1", breaking); err == nil {
+	if err := s.RegisterSchema(ctx, "dev.depot.workflow.instance.submitted.v1", breaking); err == nil {
 		t.Fatal("breaking schema must be rejected")
 	}
 }
@@ -171,8 +171,8 @@ func TestMigrationsApplyWithRLS(t *testing.T) {
 	}
 	var currentUser string
 	var roleSuper, roleBypass bool
-	if err := pool.QueryRow(ctx, `select current_user, r.rolsuper, r.rolbypassrls from pg_roles r where r.rolname = current_user`).Scan(&currentUser, &roleSuper, &roleBypass); err != nil || currentUser != "passage_app" || roleSuper || roleBypass {
-		t.Fatalf("RLS test must use passage_app: user=%q super=%v bypass=%v", currentUser, roleSuper, roleBypass)
+	if err := pool.QueryRow(ctx, `select current_user, r.rolsuper, r.rolbypassrls from pg_roles r where r.rolname = current_user`).Scan(&currentUser, &roleSuper, &roleBypass); err != nil || currentUser != "depot_app" || roleSuper || roleBypass {
+		t.Fatalf("RLS test must use depot_app: user=%q super=%v bypass=%v", currentUser, roleSuper, roleBypass)
 	}
 	for _, table := range []string{"workflow_instance", "batch_job", "notify_outbound_message", "outbox"} {
 		var enabled, forced bool

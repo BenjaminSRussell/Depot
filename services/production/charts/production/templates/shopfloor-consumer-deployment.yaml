@@ -46,13 +46,13 @@ spec:
             - name: admin
               containerPort: 9090
           env:
-            {{- include "passage.cloudEnv" $ | nindent 12 }}
+            {{- include "depot.cloudEnv" $ | nindent 12 }}
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:
                   name: {{ .Values.databaseSecret }}
                   key: DATABASE_URL
-            - name: PASSAGE_SERVICE_NAME
+            - name: DEPOT_SERVICE_NAME
               value: production
             - name: KAFKA_BROKERS
               value: {{ required "shopfloorConsumer.kafka.brokers is required" .Values.shopfloorConsumer.kafka.brokers | quote }}
@@ -61,11 +61,11 @@ spec:
             - name: KAFKA_USERNAME
               value: {{ .Values.shopfloorConsumer.kafka.username | quote }}
             - name: KAFKA_PASSWORD_FILE
-              value: /var/run/passage/kafka/password
+              value: /var/run/depot/kafka/password
             - name: KAFKA_TLS_CA_FILE
-              value: /var/run/passage/kafka/ca.crt
+              value: /var/run/depot/kafka/ca.crt
           volumeMounts:
-            - { name: kafka, mountPath: /var/run/passage/kafka, readOnly: true }
+            - { name: kafka, mountPath: /var/run/depot/kafka, readOnly: true }
           livenessProbe:
             httpGet: { path: /healthz, port: admin }
             initialDelaySeconds: 5

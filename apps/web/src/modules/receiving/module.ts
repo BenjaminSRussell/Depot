@@ -1,10 +1,10 @@
 import { createElement } from "react";
-import type { PassageModule } from "../registry";
+import type { DepotModule } from "../registry";
 import { NewArrivalPage } from "./NewArrivalPage";
 import { ReceiptPage } from "./ReceiptPage";
 import { ReceiptsPage } from "./ReceiptsPage";
 
-const receiving: PassageModule = {
+const receiving: DepotModule = {
   id: "receiving",
   title: "Receiving",
   description: "Record deliveries at the dock, register what was received, post receipts to the ledger, and correct or cancel them while nothing is invoiced.",

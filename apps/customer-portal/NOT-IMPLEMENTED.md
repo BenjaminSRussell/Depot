@@ -1,4 +1,4 @@
-# NOT-IMPLEMENTED: apps/customer-portal (PSG-30, #30)
+# NOT-IMPLEMENTED: apps/customer-portal (DPT-30, #30)
 
 | Deliverable or AC | Status | Reason |
 |---|---|---|

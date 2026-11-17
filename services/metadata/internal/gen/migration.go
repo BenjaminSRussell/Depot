@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/services/metadata/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/services/metadata/internal/domain"
 )
 
 func sqlDefault(f domain.Field) string {

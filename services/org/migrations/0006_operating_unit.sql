@@ -21,5 +21,5 @@ CREATE INDEX IF NOT EXISTS operating_unit_default_legal_entity ON operating_unit
 ALTER TABLE operating_unit ENABLE ROW LEVEL SECURITY;
 ALTER TABLE operating_unit FORCE ROW LEVEL SECURITY;
 CREATE POLICY operating_unit_tenant_access ON operating_unit AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);

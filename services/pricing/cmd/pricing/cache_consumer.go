@@ -8,14 +8,14 @@ import (
 	"slices"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/eventing"
-	"github.com/BenjaminSRussell/passage/platform/eventing/kafka"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/pricing/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/eventing"
+	"github.com/BenjaminSRussell/depot/platform/eventing/kafka"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/pricing/internal/store"
 )
 
-const deadLetterTopic = "passage.pricing.cache.dlq"
+const deadLetterTopic = "depot.pricing.cache.dlq"
 
 // cacheConsumerBackoff bounds how long a replica waits before it reconnects its cache consumer
 // after a poll or connection failure.

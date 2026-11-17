@@ -11,15 +11,15 @@ package api
 // bank_balances, wip_prod, fixed_assets and payroll_ytd the year is simulated in synth_year_test.go
 // (goods movements, orders and deliveries, bank statement lines, production orders, monthly
 // depreciation runs and payroll runs), generated at test time rather than vendored, with the
-// expected totals summed there from the legacy state in integer minor units. PASSAGE_SYNTH_SCALE=full
+// expected totals summed there from the legacy state in integer minor units. DEPOT_SYNTH_SCALE=full
 // runs the PRD fixture size (about 1.1M AX and 1.3M SAP legacy rows); the default is a 1/50 year.
 //
 // The test drives the generated cutover runbook through the API as a rehearsal: every pack load
 // runs in its runbook step, and the steps a machine performs here (extract, pack loads,
 // reconciliation) are timed; the other steps (meetings, master data owned by wave 48) are recorded
 // at their planned duration, since nothing local can perform them. Opening user access cuts every
-// entity kind of the legacy companies over to Passage. It then rehearses the rollback of the same
-// plan with the first postings after go-live, which Passage booked in the ledger: the pack runs move
+// entity kind of the legacy companies over to Depot. It then rehearses the rollback of the same
+// plan with the first postings after go-live, which Depot booked in the ledger: the pack runs move
 // to ROLLED_BACK, the coexistence adapters resume, and the compensating journals net the go-live
 // postings to zero.
 
@@ -41,12 +41,12 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/ledgerclient"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
+	"github.com/BenjaminSRussell/depot/platform/ledgerclient"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
 
-	"github.com/BenjaminSRussell/passage/tools/migration-factory/internal/coexist"
-	"github.com/BenjaminSRussell/passage/tools/migration-factory/internal/domain"
-	"github.com/BenjaminSRussell/passage/tools/migration-factory/internal/store"
+	"github.com/BenjaminSRussell/depot/tools/migration-factory/internal/coexist"
+	"github.com/BenjaminSRussell/depot/tools/migration-factory/internal/domain"
+	"github.com/BenjaminSRussell/depot/tools/migration-factory/internal/store"
 )
 
 const synthDir = "testdata/synth"
@@ -575,7 +575,7 @@ func TestWave49_SyntheticYearCutoverRehearsal(t *testing.T) {
 	}
 }
 
-// cutOver opens user access: every entity kind of the legacy companies is cut over to Passage
+// cutOver opens user access: every entity kind of the legacy companies is cut over to Depot
 // (FR-49.7), and the coexistence adapter stops bringing legacy changes in for it.
 func (r *rehearsal) cutOver() {
 	t := r.t
@@ -583,7 +583,7 @@ func (r *rehearsal) cutOver() {
 	for _, e := range r.ds.Entities {
 		for _, entity := range domain.CoexistEntities {
 			rec := do(t, r.h, request{method: "PUT", path: "/api/v1/migration/coexistence/" + r.ds.System + "/" + e.Company + "/" + entity, tenant: tenantA,
-				duties: "migration.cutover.manage", body: `{"mode":"PASSAGE","expectedVersion":0}`, user: "cutover-manager"})
+				duties: "migration.cutover.manage", body: `{"mode":"DEPOT","expectedVersion":0}`, user: "cutover-manager"})
 			if rec.Code != http.StatusOK {
 				t.Fatalf("cut over %s %s: %d %s", e.Company, entity, rec.Code, rec.Body)
 			}
@@ -603,7 +603,7 @@ func (r *rehearsal) cutOver() {
 }
 
 // rollback rehearses FR-49.9 and AC-49.7 on the rehearsal plan: the postings since T-0, which
-// Passage booked in each entity's ledger, come back as journal and document files exactly as the
+// Depot booked in each entity's ledger, come back as journal and document files exactly as the
 // reference lays them out, every journal balancing; the plan's pack runs move to ROLLED_BACK; every
 // entity kind goes back to the legacy system and its adapter resumes; and the compensating journals
 // take the go-live postings off the ledger.
@@ -733,7 +733,7 @@ func (r *rehearsal) rollback(planID string) {
 		}
 	}
 	var payload []byte
-	if err := r.admin.QueryRow(context.Background(), `select payload from outbox where type = 'dev.passage.cutover.plan.rolledback.v1' and aggregate_id = $1`, planID).Scan(&payload); err != nil {
+	if err := r.admin.QueryRow(context.Background(), `select payload from outbox where type = 'dev.depot.cutover.plan.rolledback.v1' and aggregate_id = $1`, planID).Scan(&payload); err != nil {
 		t.Fatal(err)
 	}
 	var counts struct {

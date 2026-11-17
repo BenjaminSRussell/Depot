@@ -1,5 +1,5 @@
 import { createElement } from "react";
-import type { PassageModule } from "../registry";
+import type { DepotModule } from "../registry";
 import { HierarchyDesignerPage } from "./HierarchyDesignerPage";
 import { ReferenceDataPage } from "./ReferenceDataPage";
 import { FiscalCalendarsPage } from "./FiscalCalendarsPage";
@@ -11,7 +11,7 @@ import { OrgHome, OrgLayout } from "./pages";
 import { LocationsPage, OperatingUnitsPage, SitesPage, WarehousesPage } from "./StructurePages";
 import { TeamsPage } from "./TeamsPage";
 
-const org: PassageModule = {
+const org: DepotModule = {
   id: "org",
   title: "Organization",
   description: "Legal entities, operating units, sites and warehouses, scoped by legal entity.",

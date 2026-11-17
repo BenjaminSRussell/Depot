@@ -4,9 +4,9 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/services/projects/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/projects/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/services/projects/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/projects/internal/store"
 )
 
 func (f *fakeStore) ActivateForecastModel(_ context.Context, projectID, modelID string, expected int) (domain.ForecastModel, error) {

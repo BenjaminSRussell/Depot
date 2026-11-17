@@ -11,7 +11,7 @@ const signer = createServiceTokenSigner({ seedBase64: Buffer.alloc(32, 9).toStri
 const levels: ApprovalLevel[] = [{ id: "data-steward", approver: "alice", escalationApprover: "cfo", slaMs: 3_600_000 }];
 
 function claimsOf(init: RequestInit | undefined) {
-  return decodeClaims(new Headers(init?.headers).get("X-Passage-Service-Token"));
+  return decodeClaims(new Headers(init?.headers).get("X-Depot-Service-Token"));
 }
 
 function problem(status: number, code: string): Response {
@@ -35,7 +35,7 @@ describe("party merge client", () => {
     expect(claims).toMatchObject({ iss: "workflow-ts", aud: "party", tid: "t1", act: "alice", duties: ["party.merge.execute"] });
     expect(claims).not.toHaveProperty("le");
     const headers = new Headers(init?.headers);
-    for (const name of ["X-Passage-Tenant", "X-Passage-Legal-Entity", "X-Passage-User", "X-Passage-Duties"]) expect(headers.has(name)).toBe(false);
+    for (const name of ["X-Depot-Tenant", "X-Depot-Legal-Entity", "X-Depot-User", "X-Depot-Duties"]) expect(headers.has(name)).toBe(false);
     expect(init?.body).toBeUndefined();
   });
 
@@ -104,7 +104,7 @@ describe("merge.requested consumer", () => {
   });
 
   it("refuses another type, a missing requester, and a requester among the approvers", () => {
-    expect(() => toMergeApprovalInput({ ...event, type: "dev.passage.party.change.requested.v1" }, levels)).toThrow(TypeError);
+    expect(() => toMergeApprovalInput({ ...event, type: "dev.depot.party.change.requested.v1" }, levels)).toThrow(TypeError);
     expect(() => toMergeApprovalInput({ ...event, data: { ...event.data, requested_by: "" } }, levels)).toThrow(TypeError);
     expect(() => validateInput(toMergeApprovalInput({ ...event, data: { ...event.data, requested_by: "alice" } }, levels))).toThrow(/requester/);
     expect(() => validateInput({ ...toMergeApprovalInput(event, levels), partyChange: { changeId: "c", tenantId: "t", legalEntityId: "l" } })).toThrow(/merge/);

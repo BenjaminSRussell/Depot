@@ -15,15 +15,15 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/cloudprofile"
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/ops/internal/api"
-	"github.com/BenjaminSRussell/passage/services/ops/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/ops/internal/store"
-	"github.com/BenjaminSRussell/passage/services/ops/migrations"
+	"github.com/BenjaminSRussell/depot/platform/cloudprofile"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/ops/internal/api"
+	"github.com/BenjaminSRussell/depot/services/ops/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/ops/internal/store"
+	"github.com/BenjaminSRussell/depot/services/ops/migrations"
 )
 
 const (
@@ -220,7 +220,7 @@ func part3Config(getenv func(string) string, cfg *api.Config) error {
 
 // part4Config reads the settings of the decommission guard, the licence user-count reporter, the statement PDFs, the monthly
 // metering job and the masked-clone job. Each is off until its settings are given; identity and print are reached with the service
-// signing key (PASSAGE_SERVICE_NAME=ops, PASSAGE_SERVICE_SIGNING_KEY or _FILE).
+// signing key (DEPOT_SERVICE_NAME=ops, DEPOT_SERVICE_SIGNING_KEY or _FILE).
 func part4Config(getenv func(string) string, cfg *api.Config) error {
 	signer, err := tenant.ServiceSignerFromEnv(getenv)
 	if err != nil {

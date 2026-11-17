@@ -174,9 +174,9 @@ func TestEnvelope_BR25_4(t *testing.T) {
 		t.Fatal(err)
 	}
 	checks := map[string]string{
-		"type":            "dev.passage.shopfloor.machine.event.v1",
+		"type":            "dev.depot.shopfloor.machine.event.v1",
 		"id":              "M-101-184233",
-		"source":          "urn:passage:iot-edge:plant-1:edge-7",
+		"source":          "urn:depot:iot-edge:plant-1:edge-7",
 		"subject":         "M-101",
 		"time":            "2026-10-21T08:15:03.250Z",
 		"datacontenttype": "application/json",

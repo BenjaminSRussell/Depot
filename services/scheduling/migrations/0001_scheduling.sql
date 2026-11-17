@@ -24,8 +24,8 @@ CREATE TABLE IF NOT EXISTS scheduling_resource (
 ALTER TABLE scheduling_resource ENABLE ROW LEVEL SECURITY;
 ALTER TABLE scheduling_resource FORCE ROW LEVEL SECURITY;
 CREATE POLICY scheduling_resource_tenant_access ON scheduling_resource AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 CREATE TABLE IF NOT EXISTS scheduling_operation (
   tenant_id uuid NOT NULL,
@@ -49,8 +49,8 @@ CREATE INDEX IF NOT EXISTS scheduling_operation_order ON scheduling_operation (t
 ALTER TABLE scheduling_operation ENABLE ROW LEVEL SECURITY;
 ALTER TABLE scheduling_operation FORCE ROW LEVEL SECURITY;
 CREATE POLICY scheduling_operation_tenant_access ON scheduling_operation AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 CREATE TABLE IF NOT EXISTS schedule_run (
   tenant_id uuid NOT NULL,
@@ -76,8 +76,8 @@ CREATE TABLE IF NOT EXISTS schedule_run (
 ALTER TABLE schedule_run ENABLE ROW LEVEL SECURITY;
 ALTER TABLE schedule_run FORCE ROW LEVEL SECURITY;
 CREATE POLICY schedule_run_tenant_access ON schedule_run AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- One row per contiguous segment of an operation on a resource. The exclusion
 -- constraint is the last line of defence against double booking on finite resources.
@@ -109,8 +109,8 @@ CREATE INDEX IF NOT EXISTS scheduled_job_order ON scheduled_job (tenant_id, orde
 ALTER TABLE scheduled_job ENABLE ROW LEVEL SECURITY;
 ALTER TABLE scheduled_job FORCE ROW LEVEL SECURITY;
 CREATE POLICY scheduled_job_tenant_access ON scheduled_job AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 CREATE TABLE IF NOT EXISTS outbox (
   id text PRIMARY KEY,
@@ -124,8 +124,8 @@ CREATE TABLE IF NOT EXISTS outbox (
 ALTER TABLE outbox ENABLE ROW LEVEL SECURITY;
 ALTER TABLE outbox FORCE ROW LEVEL SECURITY;
 CREATE POLICY outbox_tenant_access ON outbox AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- Replay records for commands whose result is not a single stored row
 -- (job moves and firming). Same shape as dbx.IdempotencyDDL.
@@ -141,17 +141,17 @@ CREATE TABLE IF NOT EXISTS idempotency_keys (
 ALTER TABLE idempotency_keys ENABLE ROW LEVEL SECURITY;
 ALTER TABLE idempotency_keys FORCE ROW LEVEL SECURITY;
 CREATE POLICY idempotency_keys_tenant_access ON idempotency_keys AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 CREATE INDEX IF NOT EXISTS schedule_run_created ON schedule_run (tenant_id, created_at DESC, id DESC);
 
 -- The application role reads and writes through RLS; it never owns the tables.
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE format('GRANT USAGE ON SCHEMA %I TO passage_app', current_schema());
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON scheduling_resource, scheduling_operation, schedule_run, scheduled_job, idempotency_keys, outbox TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE format('GRANT USAGE ON SCHEMA %I TO depot_app', current_schema());
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON scheduling_resource, scheduling_operation, schedule_run, scheduled_job, idempotency_keys, outbox TO depot_app';
   END IF;
 END
 $$;

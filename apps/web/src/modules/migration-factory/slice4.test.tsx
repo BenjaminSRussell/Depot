@@ -75,10 +75,10 @@ const step = (seq: number, name: string, offsetMin: number, extra: Partial<Runbo
 
 const rollbackSteps: RollbackStep[] = [
   { seq: 1, offsetMin: 2160, name: "Decision point: go/no-go items still open at the abort deadline", owner: "Cutover manager", plannedDurationMin: 30, decisionPoint: true },
-  { seq: 2, offsetMin: 2190, name: "Stop Passage user access", owner: "Cutover manager", plannedDurationMin: 15, decisionPoint: false },
+  { seq: 2, offsetMin: 2190, name: "Stop Depot user access", owner: "Cutover manager", plannedDurationMin: 15, decisionPoint: false },
   { seq: 3, offsetMin: 2205, name: "Restore legacy write access", owner: "Legacy operations lead", plannedDurationMin: 30, decisionPoint: false },
   { seq: 4, offsetMin: 2235, name: "Resume legacy coexistence adapters", owner: "Migration engineer", plannedDurationMin: 60, decisionPoint: false },
-  { seq: 5, offsetMin: 2295, name: "Export Passage postings since T-0 as re-keying files", owner: "Migration engineer", plannedDurationMin: 60, decisionPoint: false },
+  { seq: 5, offsetMin: 2295, name: "Export Depot postings since T-0 as re-keying files", owner: "Migration engineer", plannedDurationMin: 60, decisionPoint: false },
   { seq: 6, offsetMin: 2355, name: "Re-key the exported postings in legacy and reconcile", owner: "Controller", plannedDurationMin: 480, decisionPoint: false },
 ];
 

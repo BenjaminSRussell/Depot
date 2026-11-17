@@ -4,7 +4,7 @@ import { referenceFetch } from "./reference";
 // Writes for operating units, sites and warehouses. Operating units are tenant-level (no legal-entity policy), so
 // they carry no scope header. Sites and warehouses sit behind the legal-entity row-level security policy, and the
 // service drops the all-scope duty on every write, so each site or warehouse call names the row's own legal entity
-// in X-Passage-LegalEntity; without it the service sees no site rows and refuses the insert.
+// in X-Depot-LegalEntity; without it the service sees no site rows and refuses the insert.
 
 export type OperatingUnitType = OperatingUnit["type"];
 export const operatingUnitTypes: readonly OperatingUnitType[] = ["department", "cost_center", "business_unit", "value_stream"];

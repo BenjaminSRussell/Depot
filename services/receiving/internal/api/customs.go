@@ -6,8 +6,8 @@ import (
 
 	"github.com/go-chi/chi/v5/middleware"
 
-	"github.com/BenjaminSRussell/passage/platform/customsdata"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/customsdata"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
 )
 
 // receiptCustoms reads the Intrastat data of a receipt's vendor and products from the party and product masters, before the post

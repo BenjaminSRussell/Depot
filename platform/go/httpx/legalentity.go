@@ -4,8 +4,8 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
 )
 
 // OwnerLegalEntity returns the legal entity a new row belongs to, for services

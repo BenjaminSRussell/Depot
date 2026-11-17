@@ -1,4 +1,4 @@
--- PSG-25 slice 15: supervisor reopen of a finished job (FR-25.3 note). A finished job takes no
+-- DPT-25 slice 15: supervisor reopen of a finished job (FR-25.3 note). A finished job takes no
 -- feedback (SF-0122) and is hidden from the dispatch list; a supervisor reopens it with a reason
 -- when more must be reported (a late count, a rework pass, a finish keyed by mistake). Every
 -- reopening is kept: who, why, when, the finish it undid and the totals at that moment. The job
@@ -23,13 +23,13 @@ CREATE INDEX IF NOT EXISTS job_reopening_job_ix ON job_reopening (tenant_id, job
 ALTER TABLE job_reopening ENABLE ROW LEVEL SECURITY;
 ALTER TABLE job_reopening FORCE ROW LEVEL SECURITY;
 CREATE POLICY job_reopening_tenant_access ON job_reopening AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT ON job_reopening TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT ON job_reopening TO depot_app';
   END IF;
 END
 $$;

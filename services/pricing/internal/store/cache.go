@@ -6,9 +6,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/pricing/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/pricing/internal/domain"
 )
 
 // maxCacheEntries bounds the snapshot cache; it is emptied when full.
@@ -67,7 +67,7 @@ func NewCache(s Store, ttl time.Duration) *Cache {
 }
 
 // callerScope is the legal-entity scope row security applies to the caller: exactly the
-// passage.legal_entity_scopes a store transaction sets (dbx.LegalEntityScopes). Keying on the raw
+// depot.legal_entity_scopes a store transaction sets (dbx.LegalEntityScopes). Keying on the raw
 // claim would let two callers with no claim share a copy although only the one holding the
 // all-scope duty may read every legal entity's rows ('*' against the empty list).
 func callerScope(p tenant.Principal) string { return dbx.LegalEntityScopes(p) }

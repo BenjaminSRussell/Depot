@@ -6,7 +6,7 @@
 // apps/web runs this file in modules/technician/serviceWorker.test.ts.
 
 const SHELL_CACHE_VERSION = "v1";
-const SHELL_CACHE_PREFIX = "passage-technician-";
+const SHELL_CACHE_PREFIX = "depot-technician-";
 const SHELL_DOCUMENT = "/index.html";
 const SHELL_PRECACHE = ["/manifest.webmanifest"];
 const HASHED_ASSET_PREFIX = "/assets/";

@@ -1,7 +1,7 @@
 # Warehouse
 
 ## Purpose & Boundaries
-Context `warehouse` (database `passage_warehouse`; waves 28, 31-34). Deployables `warehouse` (Go: directives, work assignment), `warehouse-ts` (mobile flows, label printing, freight), `warehouse-py` (VRP via OR-Tools; stateless). Owns locations, license plates, work, waves, replenishment, loads, routes, rates, freight.
+Context `warehouse` (database `depot_warehouse`; waves 28, 31-34). Deployables `warehouse` (Go: directives, work assignment), `warehouse-ts` (mobile flows, label printing, freight), `warehouse-py` (VRP via OR-Tools; stateless). Owns locations, license plates, work, waves, replenishment, loads, routes, rates, freight.
 
 ## Interfaces
 Prefix `/v1/warehouse/`: `license-plates/{id}:move|:nest`; `waves` (+`:release` -> directives create work); `work:next` (device class; p95 < 1 s NFR-P12), `work/{id}:start|:complete|:cancel` (complete emits `work.completed.v1`); `replenishment-runs` (202); `mobile/sync` (ordered idempotent offline replay, per-op results); `labels:render` (ZPL/PDF); `loads/{id}:plan|:rate|:tender|:ship` (ship emits `load.shipped.v1`; tender timeout falls back to next carrier); `route-plans:solve` (VRP via warehouse-py, 202); `freight-invoices/{id}:reconcile`; `carrier-events` (Sig:HMAC carrier). Generated CRUD for locations (zone/aisle/rack/bin), license plates, location directives, work templates, replenishment templates, loads, carriers, rate tables, mobile flow definitions.
@@ -22,7 +22,7 @@ internal: inventory, sales, procurement, manufacturing, product, platform; devic
 - Offline: 200-transaction sync target (wave 32); steps flagged offline-allowed run against cached packet; offline print jobs queue.
 - Blocked stock (quality) never available to ATP/pick.
 - Landed-cost allocation conserves total; freight reconciles against loads.
-- HID keyboard-wedge scanning primary; GS1 AIs parsed by `@passage/gs1` (frontend package).
+- HID keyboard-wedge scanning primary; GS1 AIs parsed by `@depot/gs1` (frontend package).
 - Sales-shipping posts shipments on `load.shipped`.
 - `warehouse_ref` read models (product, warehouse, sales_demand).
 

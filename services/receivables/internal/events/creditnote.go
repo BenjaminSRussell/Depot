@@ -3,14 +3,14 @@ package events
 import (
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/services/receivables/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/services/receivables/internal/domain"
 )
 
 // CreditNotePosted is published when an RMA credit note is stored and posted (AC-30.5).
 var CreditNotePosted = events.Type(Context, "creditnote", "posted", 1)
 
-// CreditNotePostedData is the payload of dev.passage.receivables.creditnote.posted.v1.
+// CreditNotePostedData is the payload of dev.depot.receivables.creditnote.posted.v1.
 type CreditNotePostedData struct {
 	OpenItemID       string           `json:"open_item_id"`
 	ReturnOrderID    string           `json:"return_order_id"`

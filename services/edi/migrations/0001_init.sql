@@ -15,8 +15,8 @@ CREATE TABLE IF NOT EXISTS trading_partner (
 ALTER TABLE trading_partner ENABLE ROW LEVEL SECURITY;
 ALTER TABLE trading_partner FORCE ROW LEVEL SECURITY;
 CREATE POLICY trading_partner_tenant_access ON trading_partner AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- Gap-free control numbers per partner, direction and standard (BR-35.5). The
 -- row is locked and advanced inside the transaction that records the interchange.
@@ -32,8 +32,8 @@ CREATE TABLE IF NOT EXISTS control_number_counter (
 ALTER TABLE control_number_counter ENABLE ROW LEVEL SECURITY;
 ALTER TABLE control_number_counter FORCE ROW LEVEL SECURITY;
 CREATE POLICY control_number_counter_tenant_access ON control_number_counter AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 CREATE TABLE IF NOT EXISTS interchange (
   tenant_id uuid NOT NULL,
@@ -59,8 +59,8 @@ CREATE INDEX IF NOT EXISTS interchange_received ON interchange (tenant_id, recei
 ALTER TABLE interchange ENABLE ROW LEVEL SECURITY;
 ALTER TABLE interchange FORCE ROW LEVEL SECURITY;
 CREATE POLICY interchange_tenant_access ON interchange AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 CREATE TABLE IF NOT EXISTS message (
   tenant_id uuid NOT NULL,
@@ -80,8 +80,8 @@ CREATE INDEX IF NOT EXISTS message_interchange ON message (tenant_id, interchang
 ALTER TABLE message ENABLE ROW LEVEL SECURITY;
 ALTER TABLE message FORCE ROW LEVEL SECURITY;
 CREATE POLICY message_tenant_access ON message AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 CREATE TABLE IF NOT EXISTS outbox (
   id text PRIMARY KEY,
@@ -95,8 +95,8 @@ CREATE TABLE IF NOT EXISTS outbox (
 ALTER TABLE outbox ENABLE ROW LEVEL SECURITY;
 ALTER TABLE outbox FORCE ROW LEVEL SECURITY;
 CREATE POLICY outbox_tenant_access ON outbox AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- Idempotency-Key replay store (dbx.IdempotencyDDL): a replay with the same key
 -- and request returns the stored response; another request under the key is
@@ -113,5 +113,5 @@ CREATE TABLE IF NOT EXISTS idempotency_keys (
 ALTER TABLE idempotency_keys ENABLE ROW LEVEL SECURITY;
 ALTER TABLE idempotency_keys FORCE ROW LEVEL SECURITY;
 CREATE POLICY idempotency_keys_tenant_access ON idempotency_keys AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);

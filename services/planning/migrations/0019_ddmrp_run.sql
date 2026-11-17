@@ -4,7 +4,7 @@
 -- both are null on every other order. A run raises the PLAN-0010 red-zone
 -- message for every planned order that replenishes a buffer in its red zone,
 -- so the set of message actions grows. No table is added: planned_order and
--- action_message are already under RLS and granted to passage_app.
+-- action_message are already under RLS and granted to depot_app.
 ALTER TABLE planned_order
   ADD COLUMN IF NOT EXISTS planning_priority numeric(12,4),
   ADD COLUMN IF NOT EXISTS buffer_zone text CHECK (buffer_zone IN ('red', 'yellow', 'green'));

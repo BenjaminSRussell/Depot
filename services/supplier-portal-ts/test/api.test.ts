@@ -9,7 +9,7 @@ describe("session and CSRF rules on /api/v1", () => {
   it("needs a session", async () => {
     rig = await startRig();
     expect((await api(rig, undefined, "GET", "/api/v1/purchase-orders")).status).toBe(401);
-    expect((await api(rig, { cookie: "__Host-passage_supplier=forged", csrf: "x" }, "GET", "/api/v1/purchase-orders")).status).toBe(401);
+    expect((await api(rig, { cookie: "__Host-depot_supplier=forged", csrf: "x" }, "GET", "/api/v1/purchase-orders")).status).toBe(401);
     expect(rig.calls).toHaveLength(0);
   });
 
@@ -40,16 +40,16 @@ describe("vendor scoping", () => {
   it("signs the session's vendor, tenant, user and legal entity, whatever the client sends", async () => {
     rig = await startRig();
     const s = await signIn(rig);
-    const res = await api(rig, s, "GET", `/api/v1/purchase-orders?limit=5&vendorId=${VENDOR_A.replace("aa", "bb")}&legalEntityId=${LE_2}&tenantId=x`, undefined, { "x-passage-tenant": "evil", "x-passage-vendor": "evil" });
+    const res = await api(rig, s, "GET", `/api/v1/purchase-orders?limit=5&vendorId=${VENDOR_A.replace("aa", "bb")}&legalEntityId=${LE_2}&tenantId=x`, undefined, { "x-depot-tenant": "evil", "x-depot-vendor": "evil" });
     expect(res.status).toBe(200);
     const call = rig.calls[0]!;
     const url = new URL(call.url);
     expect(url.origin + url.pathname).toBe("http://purchasing.test/v1/procurement/vendor/purchase-orders");
     expect([...url.searchParams.keys()]).toEqual(["limit"]);
-    expect(call.headers.get("x-passage-tenant")).toBeNull();
-    expect(call.headers.get("x-passage-vendor")).toBeNull();
+    expect(call.headers.get("x-depot-tenant")).toBeNull();
+    expect(call.headers.get("x-depot-vendor")).toBeNull();
     expect(call.headers.get("cookie")).toBeNull();
-    expect(tokenClaims(call.headers.get("x-passage-service-token") as string)).toMatchObject({ iss: "supplier-portal", aud: "purchasing", tid: TENANT, le: LE_1, act: "user-1", vnd: VENDOR_A });
+    expect(tokenClaims(call.headers.get("x-depot-service-token") as string)).toMatchObject({ iss: "supplier-portal", aud: "purchasing", tid: TENANT, le: LE_1, act: "user-1", vnd: VENDOR_A });
   });
 
   it("strips vendor and tenant from bodies and sets the legal entity from the session", async () => {
@@ -61,7 +61,7 @@ describe("vendor scoping", () => {
     expect(call.url).toBe("http://receiving.test/v1/receiving/vendor/asns");
     expect(JSON.parse(call.body)).toEqual({ legalEntityId: LE_1, purchaseOrderId: PO, trackingNumber: "T1", lines: [{ poLineNo: 1, qty: "5" }] });
     expect(call.headers.get("idempotency-key")).toMatch(/^[0-9a-f-]{36}$/);
-    expect(tokenClaims(call.headers.get("x-passage-service-token") as string)).toMatchObject({ aud: "receiving", vnd: VENDOR_A });
+    expect(tokenClaims(call.headers.get("x-depot-service-token") as string)).toMatchObject({ aud: "receiving", vnd: VENDOR_A });
   });
 
   it("keeps the client's Idempotency-Key", async () => {
@@ -81,7 +81,7 @@ describe("vendor scoping", () => {
     expect((await api(rig, s, "GET", "/api/v1/asns", undefined, { "x-legal-entity": "nope" })).status).toBe(400);
     expect(rig.calls).toHaveLength(0);
     expect((await api(rig, s, "GET", "/api/v1/asns", undefined, { "x-legal-entity": LE_2.toUpperCase() })).status).toBe(200);
-    expect(tokenClaims(rig.calls[0]!.headers.get("x-passage-service-token") as string)["le"]).toBe(LE_2);
+    expect(tokenClaims(rig.calls[0]!.headers.get("x-depot-service-token") as string)["le"]).toBe(LE_2);
   });
 });
 

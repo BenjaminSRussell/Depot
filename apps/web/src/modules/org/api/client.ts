@@ -121,9 +121,9 @@ export async function orgFetch<T>(path: string, init: RequestInit, scope: Scope)
     if ((init.method ?? "GET").toUpperCase() !== "GET") {
       throw new OrgApiError(0, "COM-0001", "The ALL scope is read-only");
     }
-    headers.set("X-Passage-LegalEntity-Scope", ALL);
+    headers.set("X-Depot-LegalEntity-Scope", ALL);
   } else {
-    headers.set("X-Passage-LegalEntity", scope);
+    headers.set("X-Depot-LegalEntity", scope);
   }
   const res = await apiFetch(`${base}${path}`, { ...init, headers });
   if (!res.ok) {

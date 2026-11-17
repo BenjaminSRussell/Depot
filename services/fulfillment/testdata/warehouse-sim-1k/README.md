@@ -6,7 +6,7 @@ The dataset is generated from a fixed seed, not stored, so it cannot drift from
 the code that reads it. The generator and the run are
 `internal/store/sim_test.go` (`TestWarehouseSim1k_ZeroInventoryMismatch`). It
 runs against Postgres through the store, as the application role with
-row-level security, and is skipped without `PASSAGE_TEST_DATABASE_URL` or with
+row-level security, and is skipped without `DEPOT_TEST_DATABASE_URL` or with
 `go test -short`.
 
 | Parameter | Value |

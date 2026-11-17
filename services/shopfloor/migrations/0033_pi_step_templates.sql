@@ -37,8 +37,8 @@ CREATE INDEX IF NOT EXISTS pi_step_template_category ON pi_step_template (tenant
 ALTER TABLE pi_step_template ENABLE ROW LEVEL SECURITY;
 ALTER TABLE pi_step_template FORCE ROW LEVEL SECURITY;
 CREATE POLICY pi_step_template_tenant_access ON pi_step_template AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- A published version is immutable: the only change it takes is to become superseded (publishing its successor), and a
 -- superseded one takes none. Whatever the service does, the database refuses it.
@@ -61,8 +61,8 @@ CREATE TRIGGER pi_step_template_immutable BEFORE UPDATE ON pi_step_template FOR 
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON pi_step_template TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON pi_step_template TO depot_app';
   END IF;
 END
 $$;

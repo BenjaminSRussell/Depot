@@ -13,14 +13,14 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/batch/internal/api"
-	"github.com/BenjaminSRussell/passage/services/batch/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/batch/internal/inbox"
-	"github.com/BenjaminSRussell/passage/services/batch/internal/schema"
-	"github.com/BenjaminSRussell/passage/services/batch/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/batch/internal/api"
+	"github.com/BenjaminSRussell/depot/services/batch/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/batch/internal/inbox"
+	"github.com/BenjaminSRussell/depot/services/batch/internal/schema"
+	"github.com/BenjaminSRussell/depot/services/batch/internal/store"
 )
 
 type fakeStore struct {
@@ -127,10 +127,10 @@ func newRouter(f *fakeStore) *chi.Mux {
 func do(r http.Handler, method, path, body, duties string, withTenant bool) *httptest.ResponseRecorder {
 	req := httptest.NewRequest(method, path, strings.NewReader(body))
 	if withTenant {
-		req.Header.Set("X-Passage-Tenant", testkit.TenantID(1))
-		req.Header.Set("X-Passage-Legal-Entity", testkit.TenantID(9))
-		req.Header.Set("X-Passage-User", testkit.TenantID(8))
-		req.Header.Set("X-Passage-Duties", duties)
+		req.Header.Set("X-Depot-Tenant", testkit.TenantID(1))
+		req.Header.Set("X-Depot-Legal-Entity", testkit.TenantID(9))
+		req.Header.Set("X-Depot-User", testkit.TenantID(8))
+		req.Header.Set("X-Depot-Duties", duties)
 	}
 	if body != "" {
 		req.Header.Set("Content-Type", "application/json")
@@ -211,10 +211,10 @@ func (s staticSource) Fetch(context.Context, tenant.Principal, string) (inbox.Fe
 
 func inboxRequest(r http.Handler, target, entities, duties string) *httptest.ResponseRecorder {
 	req := httptest.NewRequest(http.MethodGet, target, nil)
-	req.Header.Set("X-Passage-Tenant", testkit.TenantID(1))
-	req.Header.Set("X-Passage-Legal-Entity", entities)
-	req.Header.Set("X-Passage-User", testkit.TenantID(8))
-	req.Header.Set("X-Passage-Duties", duties)
+	req.Header.Set("X-Depot-Tenant", testkit.TenantID(1))
+	req.Header.Set("X-Depot-Legal-Entity", entities)
+	req.Header.Set("X-Depot-User", testkit.TenantID(8))
+	req.Header.Set("X-Depot-Duties", duties)
 	rec := httptest.NewRecorder()
 	r.ServeHTTP(rec, req)
 	return rec

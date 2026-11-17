@@ -9,11 +9,11 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/projects/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/projects/internal/domain"
 )
 
 // userCtx is a principal of tenant n named user, unrestricted by legal entity.
@@ -180,7 +180,7 @@ func TestChangeOrders_ApplyAC4112(t *testing.T) {
 	}
 
 	events := outboxEvents(t, s, pm, "change_order", co.ID)
-	if len(events) != 1 || events[0]["type"] != "dev.passage.projects.changeorder.applied.v1" {
+	if len(events) != 1 || events[0]["type"] != "dev.depot.projects.changeorder.applied.v1" {
 		t.Fatalf("change order events: %+v", events)
 	}
 	data := events[0]["data"].(map[string]any)
@@ -190,7 +190,7 @@ func TestChangeOrders_ApplyAC4112(t *testing.T) {
 	}
 	projectEvents := outboxEvents(t, s, pm, "project", "PROJ-CO")
 	last := projectEvents[len(projectEvents)-1]
-	if last["type"] != "dev.passage.projects.project.updated.v1" || fmt.Sprint(last["data"].(map[string]any)["changedFields"]) != "[contractValue]" {
+	if last["type"] != "dev.depot.projects.project.updated.v1" || fmt.Sprint(last["data"].(map[string]any)["changedFields"]) != "[contractValue]" {
 		t.Fatalf("project updated event: %+v", last)
 	}
 }

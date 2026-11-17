@@ -2,11 +2,11 @@
 Cloud profile helpers (#599). Identical in every service chart; the values come from
 deploy/cloud-profiles/values/<profile>.yaml (global.*).
 
-passage.imageRepository: the image repository with the registry mirror applied. global.imageRegistry replaces the
+depot.imageRepository: the image repository with the registry mirror applied. global.imageRegistry replaces the
 registry host and organisation (ghcr.io/benjaminsrussell/<name> becomes <registry>/<name>). A profile that pulls only
 from a mirror (global.imageRegistryRequired) fails the render when none is set.
 */}}
-{{- define "passage.imageRepository" -}}
+{{- define "depot.imageRepository" -}}
 {{- $g := .Values.global | default dict -}}
 {{- if $g.imageRegistry -}}
 {{- printf "%s/%s" (trimSuffix "/" $g.imageRegistry) (regexReplaceAll "^[^/]+/[^/]+/" .Values.image.repository "") -}}
@@ -16,11 +16,11 @@ from a mirror (global.imageRegistryRequired) fails the render when none is set.
 {{- end -}}
 {{- end -}}
 
-{{/* passage.cloudEnv: the PASSAGE_CLOUD_PROFILE env entry (profile plus overlays, "gcc+hipaa") a Go service reads at start. */}}
-{{- define "passage.cloudEnv" -}}
+{{/* depot.cloudEnv: the DEPOT_CLOUD_PROFILE env entry (profile plus overlays, "gcc+hipaa") a Go service reads at start. */}}
+{{- define "depot.cloudEnv" -}}
 {{- $g := .Values.global | default dict -}}
 {{- with $g.cloudProfile }}
-- name: PASSAGE_CLOUD_PROFILE
+- name: DEPOT_CLOUD_PROFILE
   value: {{ concat (list .) ($g.cloudOverlays | default list) | join "+" | quote }}
 {{- end }}
 {{- /* global.logPseudonymize: force (true) the tenant-keyed pseudonymization of user identifiers in logs (#605); the eu-data-boundary overlay turns it on by itself. */}}
@@ -35,18 +35,18 @@ from a mirror (global.imageRegistryRequired) fails the render when none is set.
 {{- end }}
 {{- /* global.regionFenceUrl: the ops /healthz/region of this region; a fenced region answers 503 Retry-After (OPS-1703). Empty: no fence. */}}
 {{- with $g.regionFenceUrl }}
-- name: PASSAGE_REGION_FENCE_URL
+- name: DEPOT_REGION_FENCE_URL
   value: {{ . | quote }}
 {{- end }}
 {{- end -}}
 
 {{/*
-passage.secretKey / passage.secretProperty: ExternalSecret remote references for the configured store. Key Vault secret
+depot.secretKey / depot.secretProperty: ExternalSecret remote references for the configured store. Key Vault secret
 names allow only letters, digits and dashes and hold a plain value, so with global.secretStoreProvider "azure-key-vault"
-(set by every cloud profile values file) path separators become dashes (passage/dev/x/y becomes passage-dev-x-y) and
+(set by every cloud profile values file) path separators become dashes (depot/dev/x/y becomes depot-dev-x-y) and
 `property: value` is left out. Any other store (Vault, the default) keeps the path and the property.
 */}}
-{{- define "passage.secretKey" -}}
+{{- define "depot.secretKey" -}}
 {{- if eq ((.root.Values.global | default dict).secretStoreProvider | default "") "azure-key-vault" -}}
 {{- regexReplaceAll "[^0-9A-Za-z-]" .key "-" -}}
 {{- else -}}
@@ -54,7 +54,7 @@ names allow only letters, digits and dashes and hold a plain value, so with glob
 {{- end -}}
 {{- end -}}
 
-{{- define "passage.secretProperty" -}}
+{{- define "depot.secretProperty" -}}
 {{- if ne ((.Values.global | default dict).secretStoreProvider | default "") "azure-key-vault" -}}
 property: value
 {{- end -}}
@@ -63,17 +63,17 @@ property: value
 {{/*
 Workload identity for services that unwrap fieldcrypt keys (#599, #602). With global.workloadIdentity.fieldcryptClientId
 (the fieldcrypt_identity_client_id output of deploy/tofu/cluster) the chart creates a service account named
-passage-<service> annotated with the client id, runs the pods as it and labels them azure.workload.identity/use. The
+depot-<service> annotated with the client id, runs the pods as it and labels them azure.workload.identity/use. The
 OpenTofu module federates exactly these service account names (fieldcrypt_service_accounts), so the names are fixed.
 Unset, the pods keep the namespace's default account and nothing changes.
 */}}
-{{- define "passage.wiLabels" -}}
+{{- define "depot.wiLabels" -}}
 {{- if (((.Values.global | default dict).workloadIdentity | default dict).fieldcryptClientId) }}
 azure.workload.identity/use: "true"
 {{- end }}
 {{- end -}}
 
-{{- define "passage.wiServiceAccount" -}}
+{{- define "depot.wiServiceAccount" -}}
 {{- if ((((.root.Values.global | default dict).workloadIdentity | default dict).fieldcryptClientId)) }}
 serviceAccountName: {{ .name }}
 {{- end }}

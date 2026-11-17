@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/services/planning/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/services/planning/internal/store"
 )
 
 func (f *fakeStore) DiffVersions(_ context.Context, code string, from, to, limit int) (store.VersionDiff, error) {

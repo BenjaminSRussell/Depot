@@ -10,9 +10,9 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/services/receivables/internal/gateway"
-	"github.com/BenjaminSRussell/passage/services/receivables/internal/gateway/stripe"
-	"github.com/BenjaminSRussell/passage/services/receivables/internal/gateway/stripe/stripetest"
+	"github.com/BenjaminSRussell/depot/services/receivables/internal/gateway"
+	"github.com/BenjaminSRussell/depot/services/receivables/internal/gateway/stripe"
+	"github.com/BenjaminSRussell/depot/services/receivables/internal/gateway/stripe/stripetest"
 )
 
 const (
@@ -52,7 +52,7 @@ func TestCreateIntent_SendsAmountCurrencyMetadataAndIdempotencyKey(t *testing.T)
 	defer fake.Close()
 	g := newGateway(t, fake.URL)
 	req := gateway.IntentRequest{AttemptID: "a1b2", Amount: decimal.RequireFromString("1250.50"), Currency: "USD", Method: gateway.MethodCard,
-		Account: "acct_123", Description: "Payment of INV-1", Metadata: map[string]string{"passage_attempt_id": "a1b2", "passage_documents": "INV-1"}}
+		Account: "acct_123", Description: "Payment of INV-1", Metadata: map[string]string{"depot_attempt_id": "a1b2", "depot_documents": "INV-1"}}
 	intent, err := g.CreateIntent(context.Background(), req)
 	if err != nil {
 		t.Fatal(err)
@@ -66,15 +66,15 @@ func TestCreateIntent_SendsAmountCurrencyMetadataAndIdempotencyKey(t *testing.T)
 	}
 	reqs := fake.Requests()
 	r := reqs[0]
-	if r.Header.Get("Idempotency-Key") != "passage-pi-a1b2" || r.Header.Get("Stripe-Account") != "acct_123" ||
+	if r.Header.Get("Idempotency-Key") != "depot-pi-a1b2" || r.Header.Get("Stripe-Account") != "acct_123" ||
 		r.Header.Get("Stripe-Version") != stripe.APIVersion || r.Header.Get("Authorization") != "Bearer "+secretKey {
 		t.Fatalf("headers = %v", r.Header)
 	}
 	if r.Form.Get("amount") != "125050" || r.Form.Get("currency") != "usd" || r.Form.Get("payment_method_types[]") != "card" ||
-		r.Form.Get("metadata[passage_attempt_id]") != "a1b2" || r.Form.Get("metadata[passage_documents]") != "INV-1" {
+		r.Form.Get("metadata[depot_attempt_id]") != "a1b2" || r.Form.Get("metadata[depot_documents]") != "INV-1" {
 		t.Fatalf("form = %v", r.Form)
 	}
-	if reqs[1].Header.Get("Idempotency-Key") != "passage-pi-a1b2" {
+	if reqs[1].Header.Get("Idempotency-Key") != "depot-pi-a1b2" {
 		t.Fatal("the retry did not reuse the idempotency key")
 	}
 }
@@ -148,7 +148,7 @@ func TestMinorUnits(t *testing.T) {
 func TestParseWebhook_VerifiesSignatureAndAge(t *testing.T) {
 	now := time.Unix(1_800_000_000, 0)
 	g := newGateway(t, "http://unused", "whsec_old", whsec)
-	payload := stripetest.Event("evt_1", "payment_intent.succeeded", now, stripetest.Intent("pi_1", 125050, "usd", map[string]string{"passage_attempt_id": "a"}))
+	payload := stripetest.Event("evt_1", "payment_intent.succeeded", now, stripetest.Intent("pi_1", 125050, "usd", map[string]string{"depot_attempt_id": "a"}))
 
 	ev, err := g.ParseWebhook(payload, stripetest.Signed(payload, whsec, now), now.Add(30*time.Second))
 	if err != nil {
@@ -294,7 +294,7 @@ func TestCheckAmountAndCancel(t *testing.T) {
 		t.Fatal(err)
 	}
 	r := fake.Requests()[0]
-	if r.Path != "/v1/payment_intents/pi_5/cancel" || r.Header.Get("Idempotency-Key") != "passage-pi-cancel-att-1" || r.Header.Get("Stripe-Account") != "acct_1" {
+	if r.Path != "/v1/payment_intents/pi_5/cancel" || r.Header.Get("Idempotency-Key") != "depot-pi-cancel-att-1" || r.Header.Get("Stripe-Account") != "acct_1" {
 		t.Fatalf("cancel request = %s %v", r.Path, r.Header)
 	}
 	// Cancelling it again: Stripe refuses ("status of canceled"), the read says canceled, so it is cancelled.

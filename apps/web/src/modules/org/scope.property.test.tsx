@@ -55,7 +55,7 @@ function respond(url: string, init?: RequestInit) {
     return new Response("{}", { status: 404 });
   }
   const path = pathname.split("/").pop();
-  const scoped = new Headers(init?.headers).get("X-Passage-LegalEntity");
+  const scoped = new Headers(init?.headers).get("X-Depot-LegalEntity");
   const source: Record<string, { rows: unknown[]; owner: (r: never) => string }> = {
     "legal-entities": { rows: entities, owner: (r: { id: string }) => r.id } as never,
     ...Object.fromEntries(pages.map((p) => [p.path, { rows: p.rows, owner: p.owner as never }])),
@@ -132,7 +132,7 @@ describe(`legal-entity re-scoping (seed ${SEED})`, () => {
         url.includes("/legal-entities")
           ? Promise.resolve(respond(url, init))
           : new Promise<Response>((resolve) =>
-              queue.push({ scope: new Headers(init?.headers).get("X-Passage-LegalEntity"), release: () => resolve(respond(url, init)) }),
+              queue.push({ scope: new Headers(init?.headers).get("X-Depot-LegalEntity"), release: () => resolve(respond(url, init)) }),
             ),
       ),
     );

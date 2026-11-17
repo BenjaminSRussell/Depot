@@ -10,13 +10,13 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/ops/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/ops/internal/domain"
 )
 
 // Part 4: tenant decommission (with its audit trail) and masked-clone schedules.
 
-const EventTenantDecommissioned = "dev.passage.ops.tenant.decommissioned.v1"
+const EventTenantDecommissioned = "dev.depot.ops.tenant.decommissioned.v1"
 
 // DecommissionStep is one reported step of a decommission.
 type DecommissionStep struct {

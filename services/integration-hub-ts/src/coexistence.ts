@@ -1,14 +1,14 @@
 // Legacy coexistence adapters (wave 49, FR-49.7, AC-49.7). While a legacy company is cut over to
-// Passage entity by entity, each entity kind is mastered on one side: on LEGACY the kind's adapter
-// (AX OData/DMF, SAP IDoc/BAPI) brings the legacy changes in; on PASSAGE its flow is suspended so
+// Depot entity by entity, each entity kind is mastered on one side: on LEGACY the kind's adapter
+// (AX OData/DMF, SAP IDoc/BAPI) brings the legacy changes in; on DEPOT its flow is suspended so
 // the two sides never both write one record. The migration factory owns the flags and announces
-// each change (dev.passage.migration.coexistence.changed.v1); a cutover rollback hands every
+// each change (dev.depot.migration.coexistence.changed.v1); a cutover rollback hands every
 // cut-over kind of the plan's companies back to LEGACY and lists them on
-// dev.passage.cutover.plan.rolledback.v1, on which the adapters must resume.
+// dev.depot.cutover.plan.rolledback.v1, on which the adapters must resume.
 //
 // The consumer records the mode each adapter should be in (record), in flag version order, so a
 // replayed or late event never undoes a newer change. The sweep (CoexistenceSweeper) then tells the
-// adapter: suspend for PASSAGE, resume for LEGACY. A failure backs off (one minute doubling to an
+// adapter: suspend for DEPOT, resume for LEGACY. A failure backs off (one minute doubling to an
 // hour) and is parked after five attempts, at once when the adapter refuses or no adapter serves
 // the system; other rows go on. Suspend and resume are idempotent on the adapter side, so a row
 // told twice (two replicas, a crash between the call and its record) does no harm.
@@ -18,12 +18,12 @@ import pg from "pg";
 import type { HubEvent } from "./dispatcher.ts";
 import type { Metrics } from "./metrics.ts";
 
-export const ROLLED_BACK_TYPE = "dev.passage.cutover.plan.rolledback.v1";
-export const COEXISTENCE_CHANGED_TYPE = "dev.passage.migration.coexistence.changed.v1";
+export const ROLLED_BACK_TYPE = "dev.depot.cutover.plan.rolledback.v1";
+export const COEXISTENCE_CHANGED_TYPE = "dev.depot.migration.coexistence.changed.v1";
 
 export const SOURCE_SYSTEMS = ["AX2012", "D365FO", "SAPECC", "S4HANA"] as const;
 export type SourceSystem = (typeof SOURCE_SYSTEMS)[number];
-export type CoexistMode = "LEGACY" | "PASSAGE";
+export type CoexistMode = "LEGACY" | "DEPOT";
 
 /** Attempts before a failing row is parked. */
 export const MAX_ATTEMPTS = 5;
@@ -65,7 +65,7 @@ function change(raw: unknown, planId: string | null): CoexistenceChange | null {
   if (typeof system !== "string" || !(SOURCE_SYSTEMS as readonly string[]).includes(system)) return null;
   if (typeof company !== "string" || company.length < 1 || company.length > 64) return null;
   if (typeof entity !== "string" || entity.length < 1 || entity.length > 64) return null;
-  if (mode !== "LEGACY" && mode !== "PASSAGE") return null;
+  if (mode !== "LEGACY" && mode !== "DEPOT") return null;
   if (typeof version !== "number" || !Number.isSafeInteger(version) || version < 1) return null;
   return { sourceSystem: system as SourceSystem, sourceCompany: company, entity, mode, version, planId };
 }
@@ -168,7 +168,7 @@ export class CoexistenceStore {
     const c = await this.#pool.connect();
     try {
       await c.query("begin");
-      await c.query("select set_config('passage.tenant_id', $1, true)", [tenantId]);
+      await c.query("select set_config('depot.tenant_id', $1, true)", [tenantId]);
       const out = await fn(c);
       await c.query("commit");
       return out;
@@ -302,7 +302,7 @@ export interface SweepResult {
   parked: number;
 }
 
-/** Tells each due adapter the mode its entity kind is in now: suspend for PASSAGE, resume for LEGACY. */
+/** Tells each due adapter the mode its entity kind is in now: suspend for DEPOT, resume for LEGACY. */
 export class CoexistenceSweeper {
   readonly #o: SweeperOptions;
   readonly #adapters: Map<SourceSystem, CoexistenceAdapter>;
@@ -327,7 +327,7 @@ export class CoexistenceSweeper {
         outcome = await store.failed(k, job.version, CODE_NO_ADAPTER, `no coexistence adapter serves ${k.sourceSystem}`, true, now);
       } else {
         try {
-          if (job.mode === "PASSAGE") await adapter.suspend(k.tenantId, k.sourceCompany, k.entity);
+          if (job.mode === "DEPOT") await adapter.suspend(k.tenantId, k.sourceCompany, k.entity);
           else await adapter.resume(k.tenantId, k.sourceCompany, k.entity);
           await store.applied(k, job.mode, job.version, now);
           outcome = "applied";

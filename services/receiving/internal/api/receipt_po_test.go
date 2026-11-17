@@ -11,11 +11,11 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/api"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/purchasing"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/store/memstore"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/api"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/purchasing"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/store/memstore"
 )
 
 type poOverrides struct {
@@ -278,7 +278,7 @@ func TestCorrect_UpwardCorrectionCountsWhatOtherReceiptsTookFromThePOLine(t *tes
 		t.Fatalf("register B: %d %s", rec.Code, rec.Body)
 	}
 	postHdr := func(key string) headers {
-		return headers{"X-Passage-Tenant": maintainer(key)["X-Passage-Tenant"], "X-Passage-Duties": "receiving.receipt.post", "Idempotency-Key": key, "If-Match": "2"}
+		return headers{"X-Depot-Tenant": maintainer(key)["X-Depot-Tenant"], "X-Depot-Duties": "receiving.receipt.post", "Idempotency-Key": key, "If-Match": "2"}
 	}
 	if rec := doWith(r, http.MethodPost, "/v1/receiving/receipts/"+first+":post", "", postHdr("k5")); rec.Code != http.StatusOK {
 		t.Fatalf("post A: %d %s", rec.Code, rec.Body)

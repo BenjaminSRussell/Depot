@@ -1,5 +1,5 @@
 import { createElement } from "react";
-import type { PassageModule } from "../registry";
+import type { DepotModule } from "../registry";
 import { AssociationsPage, NewAssociationPage } from "./AssociationsPage";
 import { ComplianceListsPage, NewComplianceListPage } from "./ComplianceListsPage";
 import { InstrumentsPage, NewInstrumentPage } from "./InstrumentsPage";
@@ -16,7 +16,7 @@ import { SpcPage } from "./SpcPage";
 import { NewStudyPage, StabilityStudiesPage, StudyDetailPage } from "./StabilityStudiesPage";
 import { NewTestGroupPage, TestGroupsPage } from "./TestGroupsPage";
 
-const quality: PassageModule = {
+const quality: DepotModule = {
   id: "quality",
   title: "Quality",
   description:

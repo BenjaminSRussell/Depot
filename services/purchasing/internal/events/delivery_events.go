@@ -3,7 +3,7 @@ package events
 // DeliveryScheduleConfirmed is written when the vendor's confirmed date of a PO delivery schedule
 // row is set or changed (FR-17.10). The subject is the PO id, so it stays ordered with the PO's
 // other events.
-const DeliveryScheduleConfirmed = "dev.passage.procurement.deliveryschedule.confirmed.v1"
+const DeliveryScheduleConfirmed = "dev.depot.procurement.deliveryschedule.confirmed.v1"
 
 // DeliveryScheduleConfirmedData is the data member of deliveryschedule.confirmed.v1.
 type DeliveryScheduleConfirmedData struct {

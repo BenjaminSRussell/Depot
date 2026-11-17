@@ -20,8 +20,8 @@ CREATE TABLE IF NOT EXISTS fiscal_calendar (
 ALTER TABLE fiscal_calendar ENABLE ROW LEVEL SECURITY;
 ALTER TABLE fiscal_calendar FORCE ROW LEVEL SECURITY;
 CREATE POLICY fiscal_calendar_tenant_access ON fiscal_calendar AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 CREATE TABLE IF NOT EXISTS fiscal_period (
   tenant_id uuid NOT NULL,
@@ -41,5 +41,5 @@ CREATE TABLE IF NOT EXISTS fiscal_period (
 ALTER TABLE fiscal_period ENABLE ROW LEVEL SECURITY;
 ALTER TABLE fiscal_period FORCE ROW LEVEL SECURITY;
 CREATE POLICY fiscal_period_tenant_access ON fiscal_period AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);

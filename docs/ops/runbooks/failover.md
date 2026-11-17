@@ -1,6 +1,6 @@
 # Runbook: region failover (FR-50.5)
 
-Alert: `PassageFailoverInProgress`. Target: RTO <= 1 h, RPO <= 5 min, zero committed-transaction loss.
+Alert: `DepotFailoverInProgress`. Target: RTO <= 1 h, RPO <= 5 min, zero committed-transaction loss.
 Example pair: eu-west (PRIMARY) to eu-central (PASSIVE), `deploy/multi-region/values/`.
 
 ## Preconditions
@@ -10,14 +10,14 @@ Example pair: eu-west (PRIMARY) to eu-central (PASSIVE), `deploy/multi-region/va
 3. Target is in the same residency as the source (PRD 9.50.20: failover never crosses a residency boundary).
 
 ## Running it
-`passage-ops failover --to eu-central --dry-run` prints the plan and what each step would do without changing anything. The real
-command records the failover (OPS-1701/1702 apply; a failover that accepts data loss waits for `passage-ops failover approve --request <id>`
-from a second operator), runs the steps below and reports each one; if it stops, fix the cause and `passage-ops failover resume --event <id>`.
-`GET /v1/ops/failovers/<id>/scorecard` gives the RTO and RPO. Without the `ops.failover.execute` duty, `passage-ops break-glass open` gives a
+`depot-ops failover --to eu-central --dry-run` prints the plan and what each step would do without changing anything. The real
+command records the failover (OPS-1701/1702 apply; a failover that accepts data loss waits for `depot-ops failover approve --request <id>`
+from a second operator), runs the steps below and reports each one; if it stops, fix the cause and `depot-ops failover resume --event <id>`.
+`GET /v1/ops/failovers/<id>/scorecard` gives the RTO and RPO. Without the `ops.failover.execute` duty, `depot-ops break-glass open` gives a
 logged, time-boxed window that another operator reviews. See `services/ops/README.md`.
 
 ## When the old region is lost
-If the old primary's region cannot be reached, step 1 cannot fence its cluster and `passage-ops failover` stops there. Start the
+If the old primary's region cannot be reached, step 1 cannot fence its cluster and `depot-ops failover` stops there. Start the
 failover with `--accept-data-loss --fence-unreachable "<reason, ticket>"`: a lost region means the target may miss its last
 transactions, so a second operator approves the request (OPS-1702) as for any data loss. The runner still tries the fence first;
 only if it fails does it record the fence step as DONE and forced (the reason and the error are in the step, `forced: true`, and the
@@ -33,9 +33,9 @@ database they can still reach. (finreport's public share-link download is mounte
 `httpx.FenceMiddleware`, so it answers 503 too.) In a fenced region the database fence (CNPG `fencedInstances` and the NetworkPolicy) is what stops them: scale
 the consumers and workers to zero in step 7 of the old region, as for the application pods.
 
-## Steps (`passage-ops failover --to eu-central`)
+## Steps (`depot-ops failover --to eu-central`)
 1. **Fence the old primary.** Record the fence time and the target's lag (this is the RPO).
-   - Revoke writes: `ALTER ROLE passage_app NOLOGIN` and terminate its sessions, if the old region answers.
+   - Revoke writes: `ALTER ROLE depot_app NOLOGIN` and terminate its sessions, if the old region answers.
    - Scale application pods to zero. The gateway returns 503, `Retry-After: 30` (BR-50.2, OPS-1703).
    - Render the old region with `region.role=FENCED`: every CNPG instance is fenced
      (`cnpg.io/fencedInstances: ["*"]`) and the fence NetworkPolicy closes its Postgres pods. If the old
@@ -52,12 +52,12 @@ the consumers and workers to zero in step 7 of the old region, as for the applic
 5. **Flip DNS** (weight 0 to 100 on the target, TTL 60 s).
 6. **Verify the ledger hash chain** per tenant from the last shared journal (BR-50.3). A break is
    Sev-1: keep user access blocked (OPS-1704) and page the ledger owner. Check gap-free sequences (BR-50.4).
-7. Scale application pods up in the target; emit `dev.passage.ops.failover.completed.v1` and record a
+7. Scale application pods up in the target; emit `dev.depot.ops.failover.completed.v1` and record a
    `failover_event` row.
 
 ## Record
 Timeline, measured RPO (lag at fence time) and RTO (fence to DNS verified), `ledger_hash_ok`, `gapfree_ok`.
 
 ## Rollback
-Before step 2 completes, remove the fence (render the old region PRIMARY again), restore `passage_app`
+Before step 2 completes, remove the fence (render the old region PRIMARY again), restore `depot_app`
 LOGIN and restore DNS. After promotion, do not reverse; use [failback](failback.md).

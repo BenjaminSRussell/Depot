@@ -16,16 +16,16 @@ create table if not exists batch_run_pages (
 alter table batch_run_pages enable row level security;
 alter table batch_run_pages force row level security;
 create policy batch_run_pages_tenant_access on batch_run_pages as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- Page progress is upserted; the run keeps its append-only shape except the
--- progress columns a job executor finishes. Skipped when passage_app is absent.
+-- progress columns a job executor finishes. Skipped when depot_app is absent.
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON batch_run_pages TO passage_app';
-    EXECUTE 'GRANT UPDATE (status, ended_at, error, rows_done) ON batch_run TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON batch_run_pages TO depot_app';
+    EXECUTE 'GRANT UPDATE (status, ended_at, error, rows_done) ON batch_run TO depot_app';
   END IF;
 END
 $$;

@@ -1,40 +1,40 @@
 // Package events holds the ledger's CloudEvents type names and payloads.
-// Event types follow dev.passage.<context>.<entity>.<verb>.v<n> (naming rule in
+// Event types follow dev.depot.<context>.<entity>.<verb>.v<n> (naming rule in
 // the platform events package; checked by the tests in this package).
 package events
 
-// EventSource is the CloudEvents source of every ledger event (/passage/<context>/<service>).
-const EventSource = "/passage/ledger/ledger"
+// EventSource is the CloudEvents source of every ledger event (/depot/<context>/<service>).
+const EventSource = "/depot/ledger/ledger"
 
 // Event types published by the ledger (see events/asyncapi.yaml).
 const (
-	JournalPosted   = "dev.passage.ledger.journal.posted.v1"
-	JournalReversed = "dev.passage.ledger.journal.reversed.v1"
-	BalanceRebuilt  = "dev.passage.ledger.balance.rebuilt.v1"
+	JournalPosted   = "dev.depot.ledger.journal.posted.v1"
+	JournalReversed = "dev.depot.ledger.journal.reversed.v1"
+	BalanceRebuilt  = "dev.depot.ledger.balance.rebuilt.v1"
 	// BatchStatusChanged is the PRD's batch.status-changed event. The platform
 	// naming rule allows only letters and digits in the verb, so the verb is
 	// written statuschanged, as in production.order.statuschanged.v1.
-	BatchStatusChanged = "dev.passage.ledger.batch.statuschanged.v1"
+	BatchStatusChanged = "dev.depot.ledger.batch.statuschanged.v1"
 	// RecurringGenerated is announced when a recurring journal (FR-11.10) creates a draft batch.
-	RecurringGenerated = "dev.passage.ledger.recurring.generated.v1"
+	RecurringGenerated = "dev.depot.ledger.recurring.generated.v1"
 	// OpenItemCleared is announced when a clearing document is committed or reset
 	// (PRD name open-item.cleared; the naming rule allows only letters and digits
 	// in the entity, so it is written openitem).
-	OpenItemCleared = "dev.passage.ledger.openitem.cleared.v1"
+	OpenItemCleared = "dev.depot.ledger.openitem.cleared.v1"
 	// OpenItemActivated is announced when an activation run switches open-item management on for an
 	// account with history (FR-11.19); it shares the open item topic.
-	OpenItemActivated = "dev.passage.ledger.openitem.activated.v1"
+	OpenItemActivated = "dev.depot.ledger.openitem.activated.v1"
 	// RulesChanged is announced when a derivation strategy is activated, a lookup
 	// table it may use is replaced or a validation rule is saved (PRD rules.changed; posting caches invalidate on it).
-	RulesChanged = "dev.passage.ledger.rules.changed.v1"
+	RulesChanged = "dev.depot.ledger.rules.changed.v1"
 	// RealignmentCompleted is announced when a dimension realignment run (FR-11.24) is posted or reversed.
-	RealignmentCompleted = "dev.passage.ledger.realignment.completed.v1"
+	RealignmentCompleted = "dev.depot.ledger.realignment.completed.v1"
 	// BatchAttachmentChanged is announced when an attachment or note is added to or removed from a
 	// batch (FR-11.11); it shares the batch topic.
-	BatchAttachmentChanged = "dev.passage.ledger.batch.attachmentchanged.v1"
+	BatchAttachmentChanged = "dev.depot.ledger.batch.attachmentchanged.v1"
 )
 
-// BatchAttachmentChangedData is the payload of dev.passage.ledger.batch.attachmentchanged.v1.
+// BatchAttachmentChangedData is the payload of dev.depot.ledger.batch.attachmentchanged.v1.
 // Action is added or removed; Kind is attachment or note.
 type BatchAttachmentChangedData struct {
 	BatchID      string `json:"batchId"`
@@ -45,7 +45,7 @@ type BatchAttachmentChangedData struct {
 	Actor        string `json:"actor"`
 }
 
-// RealignmentCompletedData is the payload of dev.passage.ledger.realignment.completed.v1. EntryIDs are
+// RealignmentCompletedData is the payload of dev.depot.ledger.realignment.completed.v1. EntryIDs are
 // the reclassification entries of a posted run, or the reversing entries when Reversal is true.
 type RealignmentCompletedData struct {
 	RunID                string   `json:"runId"`
@@ -58,7 +58,7 @@ type RealignmentCompletedData struct {
 	Actor                string   `json:"actor"`
 }
 
-// RulesChangedData is the payload of dev.passage.ledger.rules.changed.v1. Kind is
+// RulesChangedData is the payload of dev.depot.ledger.rules.changed.v1. Kind is
 // derivation_strategy (ID is the strategy row, Version its version number) or
 // lookup_table (ID is the table, Version its replacement counter) or
 // validation_rule (ID is the rule, Version its lockVersion) or advanced_rule (ID is the rule,
@@ -72,7 +72,7 @@ type RulesChangedData struct {
 	Actor    string `json:"actor"`
 }
 
-// OpenItemActivatedData is the payload of dev.passage.ledger.openitem.activated.v1. Totals cover every
+// OpenItemActivatedData is the payload of dev.depot.ledger.openitem.activated.v1. Totals cover every
 // item the run created (opening and line items) as decimal strings in the ledger currency, so
 // totalDebit - totalCredit is the account balance at activation.
 type OpenItemActivatedData struct {
@@ -88,7 +88,7 @@ type OpenItemActivatedData struct {
 	Actor            string `json:"actor"`
 }
 
-// OpenItemClearedData is the payload of dev.passage.ledger.openitem.cleared.v1.
+// OpenItemClearedData is the payload of dev.depot.ledger.openitem.cleared.v1.
 // Status is cleared or reset; amounts are decimal strings in the ledger currency.
 type OpenItemClearedData struct {
 	ClearingDocumentID string   `json:"clearingDocumentId"`
@@ -104,7 +104,7 @@ type OpenItemClearedData struct {
 	Actor              string   `json:"actor"`
 }
 
-// RecurringGeneratedData is the payload of dev.passage.ledger.recurring.generated.v1.
+// RecurringGeneratedData is the payload of dev.depot.ledger.recurring.generated.v1.
 // ScheduledDate is the run date, which is also the posting date of the draft batch.
 type RecurringGeneratedData struct {
 	RecurringID   string `json:"recurringId"`
@@ -115,7 +115,7 @@ type RecurringGeneratedData struct {
 	Actor         string `json:"actor"`
 }
 
-// BatchStatusChangedData is the payload of dev.passage.ledger.batch.statuschanged.v1
+// BatchStatusChangedData is the payload of dev.depot.ledger.batch.statuschanged.v1
 // (BR-11.10). From and To are batch statuses; Actor is the user who caused the
 // transition. PostedEntryID is set on the transition to posted.
 type BatchStatusChangedData struct {
@@ -143,7 +143,7 @@ type Amounts struct {
 	Credit   string `json:"credit"`
 }
 
-// JournalPostedData is the payload of dev.passage.ledger.journal.posted.v1.
+// JournalPostedData is the payload of dev.depot.ledger.journal.posted.v1.
 type JournalPostedData struct {
 	EntryID  string `json:"entryId"`
 	LedgerID string `json:"ledgerId"`
@@ -161,7 +161,7 @@ type JournalPostedData struct {
 	TraceID         string  `json:"traceId"`
 }
 
-// JournalReversedData is the payload of dev.passage.ledger.journal.reversed.v1.
+// JournalReversedData is the payload of dev.depot.ledger.journal.reversed.v1.
 type JournalReversedData struct {
 	OriginalEntryID  string `json:"originalEntryId"`
 	ReversingEntryID string `json:"reversingEntryId"`
@@ -171,7 +171,7 @@ type JournalReversedData struct {
 	ReasonComment    string `json:"reasonComment,omitempty"`
 }
 
-// BalanceRebuiltData is the payload of dev.passage.ledger.balance.rebuilt.v1.
+// BalanceRebuiltData is the payload of dev.depot.ledger.balance.rebuilt.v1.
 type BalanceRebuiltData struct {
 	LedgerID          string `json:"ledgerId"`
 	HighWaterSequence int64  `json:"highWaterSequence"`

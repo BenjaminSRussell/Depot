@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/services/tax/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/tax/internal/domain"
 )
 
 func TestRun(t *testing.T) {

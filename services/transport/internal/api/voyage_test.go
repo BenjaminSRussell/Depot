@@ -6,9 +6,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/services/transport/internal/api"
-	"github.com/BenjaminSRussell/passage/services/transport/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/transport/internal/store"
+	"github.com/BenjaminSRussell/depot/services/transport/internal/api"
+	"github.com/BenjaminSRussell/depot/services/transport/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/transport/internal/store"
 )
 
 const voyageBody = `{"reference":" MAEU-2611E ","currency":"usd","status":"POSTED",

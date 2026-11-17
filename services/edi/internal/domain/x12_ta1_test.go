@@ -6,8 +6,8 @@ import (
 	"time"
 )
 
-const ta1Sample = "ISA*00*          *00*          *ZZ*DISTRIBUTOR    *ZZ*PASSAGE        *261105*0900*U*00401*000000042*0*T*>~" +
-	"GS*PO*DISTRIBUTOR*PASSAGE*20261105*0900*7*X*004010~ST*850*0001~BEG*00*SA*PO1**20261105~SE*3*0001~GE*1*7~IEA*1*000000042~"
+const ta1Sample = "ISA*00*          *00*          *ZZ*DISTRIBUTOR    *ZZ*DEPOT          *261105*0900*U*00401*000000042*0*T*>~" +
+	"GS*PO*DISTRIBUTOR*DEPOT*20261105*0900*7*X*004010~ST*850*0001~BEG*00*SA*PO1**20261105~SE*3*0001~GE*1*7~IEA*1*000000042~"
 
 func TestBuildTA1_RoundTripsAndIsNeverAGroup(t *testing.T) {
 	ic, err := Parse(ta1Sample)
@@ -22,7 +22,7 @@ func TestBuildTA1_RoundTripsAndIsNeverAGroup(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := "ISA*00*          *00*          *ZZ*PASSAGE        *ZZ*DISTRIBUTOR    *261105*1030*U*00401*000000005*0*T*>~TA1*000000042*261105*0900*R*025~IEA*0*000000005~"
+	want := "ISA*00*          *00*          *ZZ*DEPOT          *ZZ*DISTRIBUTOR    *261105*1030*U*00401*000000005*0*T*>~TA1*000000042*261105*0900*R*025~IEA*0*000000005~"
 	if raw != want {
 		t.Fatalf("got  %s\nwant %s", raw, want)
 	}

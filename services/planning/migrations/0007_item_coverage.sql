@@ -49,5 +49,5 @@ CREATE INDEX IF NOT EXISTS item_coverage_group_ix ON item_coverage (tenant_id, c
 ALTER TABLE item_coverage ENABLE ROW LEVEL SECURITY;
 ALTER TABLE item_coverage FORCE ROW LEVEL SECURITY;
 CREATE POLICY item_coverage_tenant_access ON item_coverage AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);

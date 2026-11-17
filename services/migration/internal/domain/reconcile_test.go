@@ -3,7 +3,7 @@ package domain_test
 import (
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/services/migration/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/domain"
 )
 
 func records(n int) []domain.Record {

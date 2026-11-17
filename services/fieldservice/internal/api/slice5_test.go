@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/fieldservice/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/fieldservice/internal/store"
 )
 
 // Validation tests stop before the store, so the nil store of newTestRouter is never reached.
@@ -86,7 +86,7 @@ func TestSlice5_HeadersAndDuties(t *testing.T) {
 	}
 }
 
-// AC-45.13 and AC-45.14 over HTTP against Postgres as passage_app.
+// AC-45.13 and AC-45.14 over HTTP against Postgres as depot_app.
 func TestAPI_ClaimAndEmailIntakeFlow(t *testing.T) {
 	h, as := genericRouter(t)
 	clerk := as(ids.New(), dutyClaim)

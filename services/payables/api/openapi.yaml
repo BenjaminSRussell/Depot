@@ -4,12 +4,12 @@ info:
   version: 0.1.0
   description: Accounts payable settlement and payments (wave 19). This slice ships the stateless settlement preview.
 servers:
-  - url: https://api.passage.dev
+  - url: https://api.depot.dev
 paths:
   /v1/payables/settlements:preview:
     post:
       operationId: previewSettlement
-      x-passage-duty: settlement.read
+      x-depot-duty: settlement.read
       description: Computes discount, FX difference, write-off and the balanced settlement journal for one credit against a vendor's open invoices. Writes nothing.
       requestBody:
         required: true
@@ -30,7 +30,7 @@ paths:
   /v1/payables/payment-files:preview:
     post:
       operationId: previewPaymentFile
-      x-passage-duty: payment-file.preview
+      x-depot-duty: payment-file.preview
       description: Builds a pain.001.001.09 file from the request, validates it against the vendored XSD and returns it with a summary. XSD violations are reported in validation.errors (AP-FIL-002) with status 200. Writes nothing. Bodies over 4 MiB are rejected with 413 and requests over 2000 payments with 400 (PAY-0001). An xmllint failure other than an invalid document is a 500.
       requestBody:
         required: true
@@ -61,7 +61,7 @@ paths:
   /v1/payables/payments/status:parse:
     post:
       operationId: parsePaymentStatus
-      x-passage-duty: payment-status.parse
+      x-depot-duty: payment-status.parse
       description: Parses a pain.002.001.10 status report into structured outcomes against the caller-supplied known message and payment ids. Writes nothing. Bodies over 16 MiB or status files over 10 MiB are rejected with 413.
       requestBody:
         required: true
@@ -82,7 +82,7 @@ paths:
   /v1/payables/aging:
     get:
       operationId: vendorAging
-      x-passage-duty: aging.read
+      x-depot-duty: aging.read
       description: Vendor aging from the open-item store. Buckets (CURRENT, 1-30, 31-60, 61-90, 91-180, OVER-180) are whole days past due at as_of; amounts are open_amount per currency, optionally per vendor. Open amounts are the current balances; as_of bounds the invoice date and sets the bucket day count, it does not rewind settlements.
       parameters:
         - { name: legal_entity, in: query, required: false, description: Legal entity; defaults to the caller's single legal-entity scope., schema: { type: string, format: uuid } }
@@ -101,7 +101,7 @@ paths:
   /v1/payables/aging:reconcile:
     get:
       operationId: reconcileAging
-      x-passage-duty: aging.reconcile
+      x-depot-duty: aging.reconcile
       description: Compares total open AP per currency with the AP control account (config AP_CONTROL_ACCOUNT, default 2000) in the ledger, as credits minus debits through the ledger period containing as_of. The ledger reports one currency per ledger; other currencies are listed with ledgerAvailable false and are never reconciled. When open items exist in any currency other than the ledger's, the ledger-currency line is also not comparable (comparable false, reason foreign-currency items require translation, difference null) because the ledger balance includes translated foreign invoices, and the overall reconciled flag is false. The ledger balance is cumulative to period end, so reconcile at a period end. The ledger call forwards the caller's identity and duties, so the caller needs ledger.balance.read and ledger.journal.read (the ledger is looked up to confirm it belongs to the legal entity; a 400 is returned otherwise, and a ledger 403 is passed through as 403) until service identity (#226) replaces forwarding.
       parameters:
         - { name: legal_entity, in: query, required: false, schema: { type: string, format: uuid } }
@@ -123,9 +123,9 @@ paths:
   /v1/payables/open-items:
     get:
       operationId: listOpenItems
-      summary: List AP open items, a vendor's invoice history with the vendor filter (agent tool passage.ap.vendor.history.list)
-      x-passage-duty: open-item.read
-      x-passage-tool: passage.ap.vendor.history.list
+      summary: List AP open items, a vendor's invoice history with the vendor filter (agent tool depot.ap.vendor.history.list)
+      x-depot-duty: open-item.read
+      x-depot-tool: depot.ap.vendor.history.list
       description: Open items of one legal entity, ordered by due date then id, with keyset pagination (limit 1 to 200, default 50; pass the previous nextCursor as cursor). legal_entity defaults to the caller's legal-entity scope and is required for an unscoped caller; naming an entity outside the caller's scope is a 403. With value_in, every item carries a valuation in that currency at the spot rate of today (UTC) from the fx service; the call forwards the caller's identity and duties, so the caller also needs the fx rate-read duty until service identity (#226) replaces forwarding.
       parameters:
         - { name: legal_entity, in: query, required: false, schema: { type: string, format: uuid } }
@@ -156,7 +156,7 @@ paths:
     get:
       operationId: getOpenItem
       summary: Read one AP open item
-      x-passage-duty: open-item.read
+      x-depot-duty: open-item.read
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - { name: value_in, in: query, required: false, schema: { type: string, pattern: '^[A-Z]{3}$' } }
@@ -177,8 +177,8 @@ paths:
   /v1/payables/open-items/{id}:hold:
     post:
       operationId: setPaymentHold
-      x-passage-duty: payment-hold.manage
-      description: Places a payment hold on an open item, so proposals skip it and approval or run start refuse a proposal that still holds it. Optional body {reason} (at most 500 characters) is stored with the hold and the user who placed it (payment_hold_reason, payment_held_by) and carried in the event. Idempotent, so holding a held item emits no event, counts nothing and logs no audit line. A SETTLED or REVERSED item is a 409 (AP-OPN-001). The change is audited by a structured log line and a dev.passage.payables.openitem.held.v1 event carrying the actor. The version is not bumped. The caller needs an identified user (X-Passage-User); an item outside the caller's legal-entity scope is a 404.
+      x-depot-duty: payment-hold.manage
+      description: Places a payment hold on an open item, so proposals skip it and approval or run start refuse a proposal that still holds it. Optional body {reason} (at most 500 characters) is stored with the hold and the user who placed it (payment_hold_reason, payment_held_by) and carried in the event. Idempotent, so holding a held item emits no event, counts nothing and logs no audit line. A SETTLED or REVERSED item is a 409 (AP-OPN-001). The change is audited by a structured log line and a dev.depot.payables.openitem.held.v1 event carrying the actor. The version is not bumped. The caller needs an identified user (X-Depot-User); an item outside the caller's legal-entity scope is a 404.
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       requestBody:
@@ -201,8 +201,8 @@ paths:
   /v1/payables/open-items/{id}:release:
     post:
       operationId: releasePaymentHold
-      x-passage-duty: payment-hold.manage
-      description: Releases the payment hold of an open item (dev.passage.payables.openitem.released.v1 when the hold changes). A proposal that was built before the hold stays valid. The caller needs an identified user (X-Passage-User).
+      x-depot-duty: payment-hold.manage
+      description: Releases the payment hold of an open item (dev.depot.payables.openitem.released.v1 when the hold changes). A proposal that was built before the hold stays valid. The caller needs an identified user (X-Depot-User).
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       requestBody:
@@ -225,8 +225,8 @@ paths:
   /v1/payables/vendors/{id}:block:
     post:
       operationId: blockVendorPayments
-      x-passage-duty: vendor-block.manage
-      description: Blocks a vendor for payment in one legal entity (legalEntityId, defaulting to the caller's legal-entity scope; an entity outside the caller's scope is a 403), so proposals of that entity skip the vendor's items and approval or run start refuse a proposal that includes them; other legal entities are unaffected. Blocking again replaces the reason. The vendor id is not validated against a vendor master until the party service (wave 07) exists. Audited by a structured log line and a dev.passage.payables.vendor.blocked.v1 event carrying the actor and reason. The caller needs an identified user (X-Passage-User).
+      x-depot-duty: vendor-block.manage
+      description: Blocks a vendor for payment in one legal entity (legalEntityId, defaulting to the caller's legal-entity scope; an entity outside the caller's scope is a 403), so proposals of that entity skip the vendor's items and approval or run start refuse a proposal that includes them; other legal entities are unaffected. Blocking again replaces the reason. The vendor id is not validated against a vendor master until the party service (wave 07) exists. Audited by a structured log line and a dev.depot.payables.vendor.blocked.v1 event carrying the actor and reason. The caller needs an identified user (X-Depot-User).
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       requestBody:
@@ -247,8 +247,8 @@ paths:
   /v1/payables/vendors/{id}:unblock:
     post:
       operationId: unblockVendorPayments
-      x-passage-duty: vendor-block.manage
-      description: Removes the payment block of a vendor in one legal entity (optional body {legalEntityId}, default as for block; dev.passage.payables.vendor.unblocked.v1). A vendor that is not blocked in that entity is a 404. The caller needs an identified user (X-Passage-User).
+      x-depot-duty: vendor-block.manage
+      description: Removes the payment block of a vendor in one legal entity (optional body {legalEntityId}, default as for block; dev.depot.payables.vendor.unblocked.v1). A vendor that is not blocked in that entity is a 404. The caller needs an identified user (X-Depot-User).
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       requestBody:
@@ -271,7 +271,7 @@ paths:
     get:
       operationId: listVendorBlocks
       summary: List the vendors blocked for payment in a legal entity (issue #528)
-      x-passage-duty: vendor-block.manage
+      x-depot-duty: vendor-block.manage
       description: The vendors blocked for payment in one legal entity (legal_entity, defaulting to the caller's legal-entity scope; an entity outside the caller's scope is a 403), newest block first, at most 500. vendor narrows the list to one vendor, so an empty list means the vendor is not blocked. Readable with vendor-block.manage or open-item.read, so a clerk can see why a vendor's items are left out of proposals.
       parameters:
         - { name: legal_entity, in: query, schema: { type: string, format: uuid } }
@@ -293,8 +293,8 @@ paths:
   /v1/payables/employee-vendors/{workerId}:
     put:
       operationId: registerEmployeeVendor
-      x-passage-duty: employee-vendor.maintain
-      description: Maps an HR worker to the party vendor that pays their expense reimbursements in one legal entity (legalEntityId, defaulting to the caller's legal-entity scope; outside it is a 403). The vendor must be in the party vendor master (unknown is a 422 AP-EMP-001; party not configured is a 503, unreachable a 502). A worker is mapped once; the same vendor again is a 200 with Idempotent-Replayed true and another vendor is a 409 AP-EMP-002 (remapping is not supported). In the same transaction the worker's OPEN items still waiting for a payee move to the vendor (repointedItems) and leave PAYEE_UNVERIFIED; open items created from approved expense reports afterwards name the vendor and carry the worker in payeeWorkerId. The caller needs an identified user (X-Passage-User).
+      x-depot-duty: employee-vendor.maintain
+      description: Maps an HR worker to the party vendor that pays their expense reimbursements in one legal entity (legalEntityId, defaulting to the caller's legal-entity scope; outside it is a 403). The vendor must be in the party vendor master (unknown is a 422 AP-EMP-001; party not configured is a 503, unreachable a 502). A worker is mapped once; the same vendor again is a 200 with Idempotent-Replayed true and another vendor is a 409 AP-EMP-002 (remapping is not supported). In the same transaction the worker's OPEN items still waiting for a payee move to the vendor (repointedItems) and leave PAYEE_UNVERIFIED; open items created from approved expense reports afterwards name the vendor and carry the worker in payeeWorkerId. The caller needs an identified user (X-Depot-User).
       parameters:
         - { name: workerId, in: path, required: true, schema: { type: string, format: uuid } }
       requestBody:
@@ -322,7 +322,7 @@ paths:
   /v1/payables/vendor-invoice-intake:
     post:
       operationId: receiveVendorInvoice
-      x-passage-duty: payables.vendor-invoice.intake
+      x-depot-duty: payables.vendor-invoice.intake
       description: "Stores a vendor invoice a procurement network sent electronically (#35, 35-4), called by the EDI engine with a service token for a cXML InvoiceDetailRequest. legalEntityId defaults to the caller's scope. Nothing is posted: an AP clerk matches the invoice to receipt lines and posts it in receiving. net is the sum of quantity times unit price per line, rounded to the currency; gross defaults to net. The same document (source, sourceRef) again is a 200 with Idempotent-Replayed true; with other content it is a 409 AP-VII-001; an invoice number of the vendor already received from another document is a 409 AP-VII-002."
       requestBody:
         required: true
@@ -368,7 +368,7 @@ paths:
         '500': { $ref: '#/components/responses/Problem' }
     get:
       operationId: listVendorInvoiceIntake
-      x-passage-duty: open-item.read
+      x-depot-duty: open-item.read
       description: Vendor invoices received electronically for one legal entity (legalEntityId, defaulting to the caller's scope), newest first, optionally of one vendor, with keyset paging (limit 1 to 200, default 50; pass the previous nextCursor as cursor).
       parameters:
         - { name: legalEntityId, in: query, schema: { type: string, format: uuid } }
@@ -393,9 +393,9 @@ paths:
   /v1/payables/vendor-invoice-intake/{id}:
     get:
       operationId: getVendorInvoiceIntake
-      summary: Read one received vendor invoice (agent tool passage.ap.invoice.get)
-      x-passage-duty: open-item.read
-      x-passage-tool: passage.ap.invoice.get
+      summary: Read one received vendor invoice (agent tool depot.ap.invoice.get)
+      x-depot-duty: open-item.read
+      x-depot-tool: depot.ap.invoice.get
       description: One vendor invoice received electronically, with its lines as the vendor sent them.
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
@@ -407,7 +407,7 @@ paths:
   /v1/payables/vendor-invoice-intake/{id}:resolve:
     post:
       operationId: resolveVendorInvoiceIntake
-      x-passage-duty: payables.vendor-invoice.review
+      x-depot-duty: payables.vendor-invoice.review
       description: "Records the vendor invoice an AP clerk posted from a received invoice (in receiving, against the receipt lines): the received invoice becomes POSTED and leaves the worklist. The vendor invoice has to be an open item of the received invoice's vendor in its legal entity (422 AP-VII-004: post it first), and closes one received invoice only (409 AP-VII-005). The same call again replays (Idempotent-Replayed); another decision after one is 409 AP-VII-003."
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
@@ -432,7 +432,7 @@ paths:
   /v1/payables/vendor-invoice-intake/{id}:reject:
     post:
       operationId: rejectVendorInvoiceIntake
-      x-passage-duty: payables.vendor-invoice.review
+      x-depot-duty: payables.vendor-invoice.review
       description: "Rejects a received invoice with a reason (at most 1000 characters): it becomes REJECTED and leaves the worklist. The same rejection again replays; another decision after one is 409 AP-VII-003."
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
@@ -456,7 +456,7 @@ paths:
   /v1/payables/opening-batches:
     post:
       operationId: importOpeningBatch
-      x-passage-duty: opening-item.import
+      x-depot-duty: opening-item.import
       description: Cutover import of open vendor items for one legal entity (legalEntityId, defaulting to the caller's legal-entity scope), called by the migration factory with a service token. All or nothing, 1 to 1000 items, rows numbered from 1. Every row needs a unique reference, a vendor in the party vendor master, an invoice number, invoice and due dates, a currency and a positive amount in whole minor units. controlTotalsMinor declares the total per currency; any mismatch refuses the batch (422 AP-OPB-003). A row error is a 422 AP-OPB-001 with errors keyed items[row].field. The same batchKey with the same content is a 200 with Idempotent-Replayed true; with other content it is a 409 AP-OPB-002; a reference already imported by another batch is a 422 AP-OPB-004. Imported items are ordinary OPEN items (listed, payable in proposals) marked as opening items; nothing is posted to the ledger, because the GL opening journal carries the AP control balance.
       requestBody:
         required: true
@@ -499,7 +499,7 @@ paths:
         '503': { $ref: '#/components/responses/Problem' }
     get:
       operationId: listOpeningBatches
-      x-passage-duty: opening-item.import.read
+      x-depot-duty: opening-item.import.read
       description: Imported opening batches of one legal entity (legal_entity, defaulting to the caller's scope), newest first, optionally one batch_key, with keyset paging (limit 1 to 200, default 50; pass the previous nextCursor as cursor). itemCount and totalsMinor are read back from the stored items, so the loader can verify what landed against what it sent.
       parameters:
         - { name: legal_entity, in: query, schema: { type: string, format: uuid } }
@@ -525,7 +525,7 @@ paths:
   /v1/payables/payment-proposals:
     get:
       operationId: listPaymentProposals
-      x-passage-duty: payment-proposal.read
+      x-depot-duty: payment-proposal.read
       description: Payment proposals of one legal entity without groups or lines, newest run date first (then id), with keyset pagination (limit 1 to 200, default 50; pass the previous nextCursor as cursor). legal_entity defaults to the caller's legal-entity scope and is required for an unscoped caller; naming an entity outside the caller's scope is a 403. totalValued is the sum of the group valuations in legalEntityCurrency. Fetch one proposal for its groups and lines.
       parameters:
         - { name: legal_entity, in: query, required: false, schema: { type: string, format: uuid } }
@@ -546,7 +546,7 @@ paths:
         '500': { $ref: '#/components/responses/Problem' }
     post:
       operationId: createPaymentProposal
-      x-passage-duty: payment-proposal.write
+      x-depot-duty: payment-proposal.write
       description: |
         Selects the legal entity's open items with due_date on or before dueBy (default runDate) that are not on payment hold, whose vendor is not blocked and that are not already on a proposal. A cash discount is taken when runDate is on or before the item's discount date, the item is still OPEN (not partially settled) and the discount is smaller than the open amount. Items are grouped per vendor, currency and payment method (vendorPaymentMethods overrides paymentMethod per vendor) and valued in legalEntityCurrency at the spot rate of runDate (today when runDate is in the future) from the fx service. The proposal is saved as DRAFT with the caller as creator.
         runDate is the payment date and may not be earlier than today (UTC; 400 on the runDate field); cash-discount eligibility is decided against it, so a backdated date cannot revive an expired discount. Replaying an existing run is still allowed after its day has passed. Creation is idempotent per (legal entity, runDate, runId): repeating the same request returns the stored proposal with 200 and Idempotent-Replayed: true; the same key with a different request is a 409 (AP-PRP-001). A 409 with the same code also reports that items changed, were held or were taken by another proposal while it was built; retry. Withholding: withholdingCodes maps vendor ids to a code from the legal entity's posting profile (withholdingCodes); payables calls the tax service (POST /v1/tax/withholding/calculate, signed token) once per line of those vendors with the vendor's year-to-date paid amount (lines of APPROVED, EXECUTING and EXECUTED proposals of the same vendor and currency) and records withheld per line and group; a code missing from the profile or a tax rule rejection is a 422 AP-PRP-006, tax unreachable is a retryable 502 COM-0502 (a tax refusal such as 403 is a non-retryable 500 COM-0500), tax not configured a 503 COM-0503. If a vendor's year-to-date payments changed between proposal and approval (a concurrent draft was approved first) the approval is a 409 AP-PRP-001 and a new proposal is needed. With payment runs enabled, approval also needs the party service (503 COM-0503 otherwise) and field encryption keys, because it binds each group's bank account. Bank details are never part of a proposal. A run with nothing due after the filters is a 422 (AP-PRP-005) and nothing is stored. Null and an empty vendorPaymentMethods are the same request for replay.
@@ -580,7 +580,7 @@ paths:
     get:
       operationId: getPaymentProposal
       summary: Read one payment proposal with its groups and lines
-      x-passage-duty: payment-proposal.read
+      x-depot-duty: payment-proposal.read
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -597,9 +597,9 @@ paths:
   /v1/payables/payment-proposals/{id}:approve:
     post:
       operationId: approvePaymentProposal
-      x-passage-duty: payment-proposal.approve
+      x-depot-duty: payment-proposal.approve
       description: |
-        Moves a DRAFT proposal to APPROVED. Segregation of duties: the approver must be a different user than the creator (403, AP-PRP-003); the database also refuses a row whose approver equals its creator. Approval locks every line's open item and re-checks version, open amount, payment hold, vendor block and status; if any line changed since the proposal was created the call is a 409 (AP-PRP-001) naming the open item ids. A proposal that is not a draft is a 409 (AP-PRP-002). A proposal whose runDate is before today (UTC) can no longer be approved: 409 AP-PRP-004, create a new proposal. Both the creator and the approver need an identified user (X-Passage-User). An approved proposal is executed by a payment run (POST /v1/payables/payment-runs).
+        Moves a DRAFT proposal to APPROVED. Segregation of duties: the approver must be a different user than the creator (403, AP-PRP-003); the database also refuses a row whose approver equals its creator. Approval locks every line's open item and re-checks version, open amount, payment hold, vendor block and status; if any line changed since the proposal was created the call is a 409 (AP-PRP-001) naming the open item ids. A proposal that is not a draft is a 409 (AP-PRP-002). A proposal whose runDate is before today (UTC) can no longer be approved: 409 AP-PRP-004, create a new proposal. Both the creator and the approver need an identified user (X-Depot-User). An approved proposal is executed by a payment run (POST /v1/payables/payment-runs).
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -617,9 +617,9 @@ paths:
   /v1/payables/payment-proposals/{id}:cancel:
     post:
       operationId: cancelPaymentProposal
-      x-passage-duty: payment-proposal.write
+      x-depot-duty: payment-proposal.write
       description: |
-        Cancels a DRAFT proposal (status CANCELLED, cancelledBy and cancelledAt recorded) and releases its open items so a new proposal can select them. The lines stay on the cancelled proposal for audit. An APPROVED or already cancelled proposal is a 409 (AP-PRP-002). The runId of a cancelled proposal stays used: repeating its request replays the cancelled proposal, so a new proposal needs a new runId. The caller needs an identified user (X-Passage-User).
+        Cancels a DRAFT proposal (status CANCELLED, cancelledBy and cancelledAt recorded) and releases its open items so a new proposal can select them. The lines stay on the cancelled proposal for audit. An APPROVED or already cancelled proposal is a 409 (AP-PRP-002). The runId of a cancelled proposal stays used: repeating its request replays the cancelled proposal, so a new proposal needs a new runId. The caller needs an identified user (X-Depot-User).
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -637,7 +637,7 @@ paths:
   /v1/payables/payment-runs:
     post:
       operationId: startPaymentRun
-      x-passage-duty: payment-run.execute
+      x-depot-duty: payment-run.execute
       description: |
         Starts the payment run of an APPROVED proposal (duty payment-run.execute, distinct from payment-proposal.approve). The body names only the legal entity and the proposal: the ledger, GL accounts and paying bank account come from the server-side posting profile of the legal entity (PAYABLES_POSTING_PROFILES; none is a 422 AP-RUN-013) and the payee bank details are fetched from the party vendor master at file generation, so any other field is a 400 and a request can redirect nothing. The executor must be neither the proposal's creator nor its approver (403 AP-PRP-003; the database refuses it too, and a replay by the creator or approver is refused the same way instead of returning the run). A caller without an identified user is a 403 AP-RUN-016. Idempotent per (legal entity, proposal): repeating returns the stored run with 200 and Idempotent-Replayed: true, also after the run date. The call verifies the profile's ledger belongs to the legal entity, that every group is TRANSFER or WIRE, in the legal-entity currency (foreign-currency groups are a 422 until realized FX exists) and that the profile has a discount account when the proposal takes a discount and a withholding account when it withholds tax (422 AP-RUN-013); the party service must be configured (422 AP-RUN-013); a run date before today (UTC) is a 409 AP-PRP-004. It then locks the proposal, moves it APPROVED to EXECUTING and re-checks every line like approval does. If a line changed (hold, vendor block, version, amount) the run is created FAILED, the proposal becomes FAILED and its lines are released, and the response is 201 with status FAILED. A proposal that is not APPROVED is a 409 (AP-PRP-002). The activity calls below are driven by the workflow in services/workflow-ts with a signed service token and are each safe to repeat.
       requestBody:
@@ -671,7 +671,7 @@ paths:
     get:
       operationId: getPaymentRun
       summary: Read one payment run
-      x-passage-duty: payment-run.read
+      x-depot-duty: payment-run.read
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -689,7 +689,7 @@ paths:
     get:
       operationId: getRemittanceAdvice
       summary: Remittance advice of one vendor in a completed payment run (issue #528)
-      x-passage-duty: payment-run.read
+      x-depot-duty: payment-run.read
       description: Each payment the run made to the vendor and the invoices it settled, with the open amount, the cash discount taken, the tax withheld and the amount paid (open amount less discount and withholding; the lines of a payment add up to its amount). It carries no bank details, so it needs the read duty only. A run that is not COMPLETED is a 409 AP-RUN-018; a vendor the run did not pay is a 404. format=csv answers a CSV download (UTF-8 with a byte order mark, one row per invoice and a Total row per payment; a text cell that starts like a formula is prefixed with an apostrophe).
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
@@ -712,7 +712,7 @@ paths:
   /v1/payables/payment-runs/{id}/file:
     get:
       operationId: getPaymentRunFile
-      x-passage-duty: payment-run.execute
+      x-depot-duty: payment-run.execute
       description: 'The generated pain.001.001.09 file, which carries the payees'' full bank details, so it needs the execute duty and every read is audited (log line "audit: payment file read" and payables_payment_file_reads_total). 404 until the generate-file step has run.'
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
@@ -730,7 +730,7 @@ paths:
   /v1/payables/payment-runs/{id}:generate-file:
     post:
       operationId: generatePaymentRunFile
-      x-passage-duty: payment-run.execute
+      x-depot-duty: payment-run.execute
       description: |
         Builds one pain.001.001.09 payment per proposal group (a bank account whose id or fingerprint differs from the one bound at approval is a terminal 422 AP-RUN-017), paying the group net of withheld tax, from the bank details revealed by the party service (GET /v1/party/vendors/{id}/bank-accounts:reveal, signed token with duty party.vendor-bank.reveal) at this step and never persisted in the clear: the one account in the group currency is used. A vendor that is unknown, has no account in the currency, has several, or has no account holder or bank country is a terminal 422 AP-RUN-017; party unreachable (transport failure or 5xx) is a retryable 502 COM-0502, while a party refusal (400, 401, 403, a missing signing key or scope) is a terminal 422 AP-RUN-013 configuration fault. The file is then validated against the XSD and stores the file and the ap_payment rows (one per group; a group can be paid once, ever). Repeating the step returns the stored file untouched. A bank-rule or XSD failure is a terminal 422 (AP-FIL-002, AP-RUN-002, AP-FIL-001, PAY-0001): fail the run. A FAILED run is a 409 (AP-RUN-011).
       parameters:
@@ -752,7 +752,7 @@ paths:
   /v1/payables/payment-runs/{id}:post-journal:
     post:
       operationId: postPaymentRunJournal
-      x-passage-duty: payment-run.execute
+      x-depot-duty: payment-run.execute
       description: |
         Posts one balanced journal to the ledger through POST /v1/ledger/journal-entries with Idempotency-Key payables:payment-run:<run id>: debit the control account per group (gross, valued in the legal-entity currency), credit the bank clearing account (paid, valued) and credit the discount account (the rounding-exact difference) when a discount is taken. Crash-safe: a retry after a lost reply replays the same ledger entry. Needs the file step (409 AP-RUN-012). Only a ledger 400 or 422 is terminal (422 AP-RUN-014, recorded; the journal is never requested again). Any other ledger answer or a transport failure is a retryable 502 that records nothing.
       parameters:
@@ -774,7 +774,7 @@ paths:
   /v1/payables/payment-runs/{id}:settle:
     post:
       operationId: settlePaymentRunItems
-      x-passage-duty: payment-run.execute
+      x-depot-duty: payment-run.execute
       description: |
         Settles every unsettled line of the proposal in one transaction: open_amount reduced by the line open amount (discount included), status PARTIALLY_SETTLED or SETTLED, version bumped, payables.openitem.settled outbox event with the run id as settlement id. A line is marked settled so a repeat settles nothing twice. Needs the journal step (409 AP-RUN-012). An item changed since approval is a 409 (AP-RUN-015) and nothing is settled.
       parameters:
@@ -796,7 +796,7 @@ paths:
   /v1/payables/payment-runs/{id}:complete:
     post:
       operationId: completePaymentRun
-      x-passage-duty: payment-run.execute
+      x-depot-duty: payment-run.execute
       description: |
         Marks the run COMPLETED and the proposal EXECUTED. Needs the settle step (409 AP-RUN-012); repeating on a completed run returns it.
       parameters:
@@ -818,7 +818,7 @@ paths:
   /v1/payables/payment-runs/{id}:fail:
     post:
       operationId: failPaymentRun
-      x-passage-duty: payment-run.execute
+      x-depot-duty: payment-run.execute
       description: Marks a run whose journal is not yet posted FAILED, the proposal FAILED and releases the proposal's lines so the items can be proposed again. Once the journal is posted the money is committed and the call is a 409 (AP-RUN-011); the run must complete instead. Repeating on a failed run returns it.
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
@@ -848,7 +848,7 @@ paths:
     get:
       operationId: listVendorPayments
       summary: "List the supplier portal vendor's invoices with their payment status"
-      x-passage-duty: payables.vendor-portal.read
+      x-depot-duty: payables.vendor-portal.read
       description: >-
         For the supplier portal service only (the duty is service-only). The vendor is the one in the verified supplier-portal service
         token; a vendorId or legal entity in the query is ignored. Each of the vendor's invoices reads OPEN, SCHEDULED (in an approved
@@ -871,20 +871,20 @@ paths:
   /healthz:
     get:
       operationId: liveness
-      x-passage-duty: public
+      x-depot-duty: public
       responses:
         '200': { description: Process is alive. }
   /readyz:
     get:
       operationId: readiness
-      x-passage-duty: public
+      x-depot-duty: public
       responses:
         '200': { description: Database reachable. }
         '503': { description: Database unreachable. }
   /metrics:
     get:
       operationId: metrics
-      x-passage-duty: public
+      x-depot-duty: public
       description: Served on the admin port (9090), never through the ingress.
       responses:
         '200':
@@ -1597,9 +1597,9 @@ components:
           schema: { $ref: '#/components/schemas/Problem' }
         text/plain:
           schema: { $ref: '#/components/schemas/TenantRejection' }
-          example: '{"type":"https://passage.dev/problems/AUTH-0001","title":"Unauthorized","status":401,"code":"AUTH-0001","detail":"missing tenant"}'
+          example: '{"type":"https://depot.dev/problems/AUTH-0001","title":"Unauthorized","status":401,"code":"AUTH-0001","detail":"missing tenant"}'
     Forbidden:
-      description: Principal lacks the duty the route requires (see x-passage-duty). Written by authz.RequireDuty through httpx.Fail.
+      description: Principal lacks the duty the route requires (see x-depot-duty). Written by authz.RequireDuty through httpx.Fail.
       content:
         application/problem+json:
           schema: { $ref: '#/components/schemas/KernelProblem' }

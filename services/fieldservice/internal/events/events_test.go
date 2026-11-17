@@ -86,25 +86,25 @@ func TestPayloadsMatchAsyncAPI(t *testing.T) {
 	if got, want := keysOf(t, DispatchPublishedData{}), requiredOf(t, "DispatchPublished"); !reflect.DeepEqual(got, want) {
 		t.Errorf("DispatchPublishedData keys %v, AsyncAPI requires %v", got, want)
 	}
-	if AssignmentChanged != "dev.passage.service.assignment.changed.v1" || DispatchPublished != "dev.passage.service.dispatch.published.v1" {
+	if AssignmentChanged != "dev.depot.service.assignment.changed.v1" || DispatchPublished != "dev.depot.service.dispatch.published.v1" {
 		t.Errorf("event types %s, %s", AssignmentChanged, DispatchPublished)
 	}
-	if AgreementChanged != "dev.passage.service.agreement.changed.v1" || AgreementVisitRecorded != "dev.passage.service.agreementvisit.recorded.v1" {
+	if AgreementChanged != "dev.depot.service.agreement.changed.v1" || AgreementVisitRecorded != "dev.depot.service.agreementvisit.recorded.v1" {
 		t.Errorf("event types %s, %s", AgreementChanged, AgreementVisitRecorded)
 	}
-	if SupplierClaimSettled != "dev.passage.service.supplierclaim.settled.v1" {
+	if SupplierClaimSettled != "dev.depot.service.supplierclaim.settled.v1" {
 		t.Errorf("event type %s", SupplierClaimSettled)
 	}
-	if CaseStageChanged != "dev.passage.case.stage.changed.v1" {
+	if CaseStageChanged != "dev.depot.case.stage.changed.v1" {
 		t.Errorf("event type %s", CaseStageChanged)
 	}
-	if ArticlePublished != "dev.passage.knowledge.article.published.v1" {
+	if ArticlePublished != "dev.depot.knowledge.article.published.v1" {
 		t.Errorf("event type %s", ArticlePublished)
 	}
-	if SLAWarning != "dev.passage.service.sla.warning.v1" || SLABreached != "dev.passage.service.sla.breached.v1" {
+	if SLAWarning != "dev.depot.service.sla.warning.v1" || SLABreached != "dev.depot.service.sla.breached.v1" {
 		t.Errorf("event types %s, %s", SLAWarning, SLABreached)
 	}
-	if CaseOpened != "dev.passage.service.case.opened.v1" || WorkOrderPosted != "dev.passage.service.workorder.posted.v1" {
+	if CaseOpened != "dev.depot.service.case.opened.v1" || WorkOrderPosted != "dev.depot.service.workorder.posted.v1" {
 		t.Errorf("event types %s, %s", CaseOpened, WorkOrderPosted)
 	}
 }

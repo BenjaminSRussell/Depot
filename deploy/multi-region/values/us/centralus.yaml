@@ -1,4 +1,4 @@
-# Region file: centralus is PASSIVE (CNPG replica cluster and MirrorMaker 2 target) in the US pair. `passage-ops
+# Region file: centralus is PASSIVE (CNPG replica cluster and MirrorMaker 2 target) in the US pair. `depot-ops
 # failover --to centralus` sets role PRIMARY here, role FENCED in eastus2.yaml and swaps mm2.sourceAlias/targetAlias in
 # both files (docs/ops/runbooks/failover.md). Its backup block is ready for the day it is promoted: the storage account
 # is in this region, so a failover never moves backups out of the US.
@@ -6,24 +6,24 @@ region:
   id: centralus
   role: PASSIVE
   provider: aks
-  namespace: passage-data
+  namespace: depot-data
 
 postgres:
   primary:
-    host: passage-pg-rw.eastus2.passage.internal
+    host: depot-pg-rw.eastus2.depot.internal
 
 backup:
   store: azure-blob
   azure:
-    storageAccount: passagepgbkpcentralus
+    storageAccount: depotpgbkpcentralus
     storageAccountRegion: centralus
     container: pg-backups
 
 kafka:
   localAlias: centralus
-  localBootstrap: passage-kafka-bootstrap.kafka.svc:9093
+  localBootstrap: depot-kafka-bootstrap.kafka.svc:9093
   remoteAlias: eastus2
-  remoteBootstrap: passage-kafka-bootstrap.kafka.passage-eastus2.internal:9093
+  remoteBootstrap: depot-kafka-bootstrap.kafka.depot-eastus2.internal:9093
 
 mm2:
   sourceAlias: eastus2

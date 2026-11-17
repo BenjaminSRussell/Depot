@@ -12,15 +12,15 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/store"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/store/memstore"
-	"github.com/BenjaminSRussell/passage/services/receiving/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/store"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/store/memstore"
+	"github.com/BenjaminSRussell/depot/services/receiving/migrations"
 )
 
 const (
@@ -106,7 +106,7 @@ func registerWith(serials ...string) store.RegisterFunc {
 
 func postWith(t *testing.T, p tenant.Principal, ledgerID string) store.PostFunc {
 	return func(r store.Receipt) (store.PostOutcome, error) {
-		evt, err := events.New(events.Type("receiving", "receipt", "posted", 1), "/passage/receiving/receiving", r.ID, p.TenantID,
+		evt, err := events.New(events.Type("receiving", "receipt", "posted", 1), "/depot/receiving/receiving", r.ID, p.TenantID,
 			map[string]string{"receiptId": r.ID})
 		if err != nil {
 			t.Fatal(err)
@@ -484,7 +484,7 @@ var cases = []struct {
 		}
 		correction := func(qty, amount string) store.AdjustFunc {
 			return func(cur store.Receipt) (store.Adjustment, error) {
-				evt, err := events.New(events.Type("receiving", "receipt", "corrected", 1), "/passage/receiving/receiving", cur.ID, p.TenantID, map[string]string{"receiptId": cur.ID})
+				evt, err := events.New(events.Type("receiving", "receipt", "corrected", 1), "/depot/receiving/receiving", cur.ID, p.TenantID, map[string]string{"receiptId": cur.ID})
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -534,7 +534,7 @@ var cases = []struct {
 		if err != nil {
 			t.Fatal(err)
 		}
-		evt, _ := events.New(events.Type("receiving", "receipt", "corrected", 1), "/passage/receiving/receiving", posted.ID, p.TenantID, map[string]string{"kind": "CANCELLATION"})
+		evt, _ := events.New(events.Type("receiving", "receipt", "corrected", 1), "/depot/receiving/receiving", posted.ID, p.TenantID, map[string]string{"kind": "CANCELLATION"})
 		if _, err = b.st.Cancel(ctxOf(p), posted.ID, func(store.Receipt) (store.Adjustment, error) { return store.Adjustment{Event: &evt}, nil }); err != nil {
 			t.Fatal(err)
 		}
@@ -563,7 +563,7 @@ var cases = []struct {
 			return func(items []*domain.GrirItem) (store.InvoiceOutcome, error) {
 				items[0].InvoicedQty = items[0].InvoicedQty.Add(decimal.RequireFromString(qty))
 				items[0].ClearedAmount.Value = items[0].ClearedAmount.Value.Add(decimal.RequireFromString(amount))
-				evt, err := events.New(events.Type("payables", "invoice", "posted", 1), "/passage/receiving/receiving", r.ID, p.TenantID, map[string]string{"invoice": "x"})
+				evt, err := events.New(events.Type("payables", "invoice", "posted", 1), "/depot/receiving/receiving", r.ID, p.TenantID, map[string]string{"invoice": "x"})
 				return store.InvoiceOutcome{LedgerEntryID: "inv-entry", Total: decimal.RequireFromString("2.5"), Event: evt}, err
 			}
 		}
@@ -633,7 +633,7 @@ var cases = []struct {
 			posted, err := b.st.PostInvoice(ctxOf(p), in, func(items []*domain.GrirItem) (store.InvoiceOutcome, error) {
 				items[0].InvoicedQty = items[0].InvoicedQty.Add(decimal.NewFromInt(1))
 				items[0].ClearedAmount.Value = items[0].ClearedAmount.Value.Add(decimal.RequireFromString("2.5"))
-				evt, err := events.New(events.Type("payables", "invoice", "posted", 1), "/passage/receiving/receiving", r.ID, p.TenantID, map[string]string{"invoice": "x"})
+				evt, err := events.New(events.Type("payables", "invoice", "posted", 1), "/depot/receiving/receiving", r.ID, p.TenantID, map[string]string{"invoice": "x"})
 				return store.InvoiceOutcome{LedgerEntryID: "entry-" + number, Total: decimal.RequireFromString("2.5"), Blocked: blocked, Event: evt}, err
 			})
 			if err != nil {

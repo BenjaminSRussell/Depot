@@ -8,9 +8,9 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/services/pricing/internal/domain"
-	pevents "github.com/BenjaminSRussell/passage/services/pricing/internal/events"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/services/pricing/internal/domain"
+	pevents "github.com/BenjaminSRussell/depot/services/pricing/internal/events"
 )
 
 // ExpiryReason is the reason conditionrecord.withdrawn carries when the nightly expiry job,

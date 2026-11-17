@@ -14,20 +14,20 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/compliance/internal/domain"
-	cevents "github.com/BenjaminSRussell/passage/services/compliance/internal/events"
-	"github.com/BenjaminSRussell/passage/services/compliance/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/compliance/internal/domain"
+	cevents "github.com/BenjaminSRussell/depot/services/compliance/internal/events"
+	"github.com/BenjaminSRussell/depot/services/compliance/migrations"
 )
 
 var t0 = time.Date(2026, 11, 2, 9, 0, 0, 0, time.UTC)
 
-// appOf connects as the application role (passage_app, NOBYPASSRLS) when
-// PASSAGE_TEST_APP_DATABASE_URL is set, so the store runs on the real grants.
+// appOf connects as the application role (depot_app, NOBYPASSRLS) when
+// DEPOT_TEST_APP_DATABASE_URL is set, so the store runs on the real grants.
 func appOf(t *testing.T, admin *pgxpool.Pool) *pgxpool.Pool {
 	t.Helper()
 	url := os.Getenv(testkit.EnvAppURL)

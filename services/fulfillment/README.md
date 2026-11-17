@@ -1,6 +1,6 @@
 # fulfillment
 
-Passage fulfillment service, wave 28 (PSG-28), slices 1 to 6. It releases confirmed
+Depot fulfillment service, wave 28 (DPT-28), slices 1 to 6. It releases confirmed
 order lines to a warehouse shipment, records pick and pack quantities,
 closes containers with GS1 SSCC-18 numbers (by hand or by packing rule with
 auto-pack), and posts a packing slip that
@@ -34,7 +34,7 @@ internal/domain/        pure rules: SSCC/GS1 check digits, release grouping, pic
                         shipment state machine, posting matrix (no I/O, property tests)
 internal/store/         Postgres repositories, tenant-scoped transactions, outbox, idempotency,
                         release de-duplication, PS- numbering per legal entity
-internal/events/        event types dev.passage.fulfillment.* and payloads
+internal/events/        event types dev.depot.fulfillment.* and payloads
 internal/api/           HTTP handlers, DTO validation, duties, If-Match, Idempotency-Key
 migrations/             0001_init.sql (RLS, outbox, idempotency, number counters),
                         0002_packing_packaging.sql (container types, packing rules,
@@ -56,7 +56,7 @@ exits non-zero on an invalid value.
 
 | Variable | Required | Default | Meaning |
 |---|---|---|---|
-| `DATABASE_URL` | yes | | Postgres URL for the `passage_app` role (no BYPASSRLS) |
+| `DATABASE_URL` | yes | | Postgres URL for the `depot_app` role (no BYPASSRLS) |
 | `GS1_COMPANY_PREFIX` | yes | | 6 to 12 digits (BR-28.5); the prefix of a legal entity that has none saved on its legal entity setting |
 | `SSCC_EXTENSION_DIGIT` | no | `0` | 0 to 9; the extension digit of a legal entity that has none saved |
 | `RELEASE_HORIZON_DAYS` | no | `2` | 0 to 30 (FR-28.1) |
@@ -65,7 +65,7 @@ exits non-zero on an invalid value.
 | `HTTP_ADDR` | no | `:8080` | listen address |
 | `SALES_URL` | no | | Sales base URL: posted packing slips are reported to its `:record-progress` (#496). Needs the service signing key. Unset, the reports queue (PENDING) and go out once it is set |
 | `SALES_REPORT_INTERVAL` | no | `30s` | How often the reporter looks for due reports (at least `1s`) |
-| `PASSAGE_SERVICE_SIGNING_KEY` / `_FILE`, `PASSAGE_SERVICE_NAME`, `PASSAGE_SERVICE_KEY_ID` | with `INVENTORY_URL`, `CARRIER_GATEWAY_URL` or `SALES_URL` | | fulfillment's Ed25519 service key; the callee must list its public key |
+| `DEPOT_SERVICE_SIGNING_KEY` / `_FILE`, `DEPOT_SERVICE_NAME`, `DEPOT_SERVICE_KEY_ID` | with `INVENTORY_URL`, `CARRIER_GATEWAY_URL` or `SALES_URL` | | fulfillment's Ed25519 service key; the callee must list its public key |
 
 ```
 cd services/fulfillment
@@ -99,24 +99,24 @@ through `platform/go/testkit`. They run as the application role
 so row-level security applies, which needs both URLs:
 
 ```
-PASSAGE_TEST_DATABASE_URL=postgres://admin@localhost/db \
-PASSAGE_TEST_APP_DATABASE_URL=postgres://passage_app@localhost/db \
+DEPOT_TEST_DATABASE_URL=postgres://admin@localhost/db \
+DEPOT_TEST_APP_DATABASE_URL=postgres://depot_app@localhost/db \
 go test ./...
 ```
 
-`passage_app` is NOSUPERUSER NOBYPASSRLS and needs the privileges of the schema
+`depot_app` is NOSUPERUSER NOBYPASSRLS and needs the privileges of the schema
 owner. Without the URLs the store tests are skipped, so `go test ./...` passes
 without a database. The API tests use an in-package fake store; they also check
 that `api/openapi.yaml` documents exactly the mounted routes with a duty each,
 and the events test checks `events/asyncapi.yaml` against the published types.
 
 Events reach Kafka through the `outbox-fulfillment` Debezium connector
-(`deploy/kafka/connect.yaml`): it streams the outbox through the `passage_outbox_fulfillment`
+(`deploy/kafka/connect.yaml`): it streams the outbox through the `depot_outbox_fulfillment`
 publication (migration 0029) as the `debezium_cdc_fulfillment` role (grants in migration 0030)
-and routes each event by its type to `passage.fulfillment.<entity>`, the AsyncAPI channel
+and routes each event by its type to `depot.fulfillment.<entity>`, the AsyncAPI channel
 (`events.Topic`), not by `aggregate_type`: the packing-slip, pick, container, ASN and tracking
 events are written under aggregate_type `shipment`, and `packingslip.posted` /
-`packingslip.cancelled` land on `passage.fulfillment.packingslip` (read by inventory's postings
+`packingslip.cancelled` land on `depot.fulfillment.packingslip` (read by inventory's postings
 consumer). A new entity needs a literal ACL for the `debezium` Kafka user in `connect.yaml`.
 
 The web module (`apps/web/src/modules/fulfillment`) has the fulfillment workspace,
@@ -376,5 +376,5 @@ libraries were added.
 
 ## Wave reference
 
-PSG-28 / wave 28. Depends on PSG-27 (orders and holds), wave 16 (inventory
+DPT-28 / wave 28. Depends on DPT-27 (orders and holds), wave 16 (inventory
 reservations), wave 20 (cost snapshots), wave 14 (period control).

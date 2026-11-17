@@ -1,4 +1,4 @@
-# finreport web module (PSG-15, wave 15 slices 1-16)
+# finreport web module (DPT-15, wave 15 slices 1-16)
 
 Financial statements workspace over the `services/finreport` API
 (`/api/v1/reporting`). Pages use the shell primitives and `pages.module.css`.
@@ -27,7 +27,7 @@ Drill level 2 (`LinesPanel.tsx`) opens from "Show all journal lines" or a
 balance's "Lines" button. It loads a page at a time ("Load more lines"), shows
 the running sum and the HWM, and states whether the lines add up to the amount;
 when the service reports `reconciled: false` it shows a warning with the
-difference instead of the "sum to" note. Source links open a Passage route in
+difference instead of the "sum to" note. Source links open a Depot route in
 the app or an http(s) document in a new tab; any other link (`javascript:`,
 `//host`) is shown as "None" (`sourceLink` in `drill.ts`). The trace opens
 `traceUrl` when the service is configured with `REPORTING_TRACE_URL`. A 403

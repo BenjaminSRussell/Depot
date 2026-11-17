@@ -215,7 +215,7 @@ export const copy = {
   },
   whatsNew: {
     pageTitle: "What's new",
-    description: "Changes to Passage in plain language, newest first.",
+    description: "Changes to Depot in plain language, newest first.",
     empty: "No release notes yet.",
   },
   notFound: {

@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
 )
 
 const bundleBody = `{
@@ -28,8 +28,8 @@ func serve(t *testing.T, body string) *httptest.ResponseRecorder {
 	New(nil).Register(router)
 	req := httptest.NewRequest(http.MethodPost, "/v1/revrec/allocations:preview", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Passage-Tenant", testkit.TenantID(1))
-	req.Header.Set("X-Passage-Duties", "revrec.view")
+	req.Header.Set("X-Depot-Tenant", testkit.TenantID(1))
+	req.Header.Set("X-Depot-Duties", "revrec.view")
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
 	return rec
@@ -141,8 +141,8 @@ func TestPreview_RequiresDuty(t *testing.T) {
 	router := httpx.NewRouter()
 	New(nil).Register(router)
 	req := httptest.NewRequest(http.MethodPost, "/v1/revrec/allocations:preview", strings.NewReader(bundleBody))
-	req.Header.Set("X-Passage-Tenant", testkit.TenantID(1))
-	req.Header.Set("X-Passage-Duties", "billing.invoice.view")
+	req.Header.Set("X-Depot-Tenant", testkit.TenantID(1))
+	req.Header.Set("X-Depot-Duties", "billing.invoice.view")
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
 	if rec.Code != http.StatusForbidden {
@@ -183,8 +183,8 @@ func TestPreview_ResidualToLargestAndMetrics(t *testing.T) {
 	a.Register(router)
 	body := strings.Replace(bundleBody, `"10800.00"`, `"10799.99"`, 1)
 	req := httptest.NewRequest(http.MethodPost, "/v1/revrec/allocations:preview", strings.NewReader(body))
-	req.Header.Set("X-Passage-Tenant", testkit.TenantID(1))
-	req.Header.Set("X-Passage-Duties", "revrec.view")
+	req.Header.Set("X-Depot-Tenant", testkit.TenantID(1))
+	req.Header.Set("X-Depot-Duties", "revrec.view")
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
 	var got previewBody

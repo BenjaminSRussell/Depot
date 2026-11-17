@@ -9,7 +9,7 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/money"
+	"github.com/BenjaminSRussell/depot/platform/money"
 )
 
 // Invoice statuses (BR-29.7).
@@ -35,7 +35,7 @@ const (
 // before the post is refused (FR-29.6, parameter tax_recheck_tolerance, 0.01).
 func TaxRecheckTolerance() decimal.Decimal { return decimal.New(1, -2) }
 
-// Error is a rule violation with a stable Passage code (BIL-xxxx).
+// Error is a rule violation with a stable Depot code (BIL-xxxx).
 type Error struct {
 	Code   string
 	Detail string

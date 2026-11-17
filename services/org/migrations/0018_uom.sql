@@ -11,8 +11,8 @@ CREATE TABLE IF NOT EXISTS unit_of_measure (
 ALTER TABLE unit_of_measure ENABLE ROW LEVEL SECURITY;
 ALTER TABLE unit_of_measure FORCE ROW LEVEL SECURITY;
 CREATE POLICY unit_of_measure_tenant_access ON unit_of_measure AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY unit_of_measure_sys_read ON unit_of_measure AS PERMISSIVE FOR SELECT
   USING (tenant_id = '00000000-0000-0000-0000-000000000000'::uuid);
 
@@ -35,7 +35,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS uom_conversion_unordered_pair ON uom_conversio
 ALTER TABLE uom_conversion ENABLE ROW LEVEL SECURITY;
 ALTER TABLE uom_conversion FORCE ROW LEVEL SECURITY;
 CREATE POLICY uom_conversion_tenant_access ON uom_conversion AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY uom_conversion_sys_read ON uom_conversion AS PERMISSIVE FOR SELECT
   USING (tenant_id = '00000000-0000-0000-0000-000000000000'::uuid);

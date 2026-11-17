@@ -20,7 +20,7 @@ spec:
             service: fx
           annotations:
             summary: FX rate import from {{ "{{ $labels.provider }}" }} failed for {{ "{{ $labels.rate_type }}" }}
-            description: The latest import ended in an outage after retries. The dev.passage.fx.provider.degraded.v1 event carries fallback=last_known when earlier rates keep being served, or fallback=none when no earlier import ever succeeded. retryable=false means a configuration failure (4xx or malformed payload) rather than an outage.
+            description: The latest import ended in an outage after retries. The dev.depot.fx.provider.degraded.v1 event carries fallback=last_known when earlier rates keep being served, or fallback=none when no earlier import ever succeeded. retryable=false means a configuration failure (4xx or malformed payload) rather than an outage.
         # docs/prd/phase-2-financial-core.md:1027: no import in 2 business days -> P2.
         # ECB publishes on business days only, so it gets 4 calendar days to cover a long weekend.
         - alert: FxRateImportStale

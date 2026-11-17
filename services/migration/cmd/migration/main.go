@@ -11,19 +11,19 @@ import (
 	"os"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/fieldcrypt"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/migration/internal/api"
-	"github.com/BenjaminSRussell/passage/services/migration/internal/connector"
-	"github.com/BenjaminSRussell/passage/services/migration/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/migration/internal/egress"
-	"github.com/BenjaminSRussell/passage/services/migration/internal/probe"
-	"github.com/BenjaminSRussell/passage/services/migration/internal/store"
-	"github.com/BenjaminSRussell/passage/services/migration/internal/syncer"
-	"github.com/BenjaminSRussell/passage/services/migration/internal/target"
-	"github.com/BenjaminSRussell/passage/services/migration/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/fieldcrypt"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/api"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/connector"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/egress"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/probe"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/store"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/syncer"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/target"
+	"github.com/BenjaminSRussell/depot/services/migration/migrations"
 )
 
 const (
@@ -66,7 +66,7 @@ func connectionDeps(getenv func(string) string) (*fieldcrypt.Keys, *probe.Prober
 
 // targetConfig reads the owning services' base URLs (MIG_TARGET_PARTY_URL, MIG_TARGET_PRODUCT_URL,
 // MIG_TARGET_RECEIVABLES_URL, MIG_TARGET_ENGINEERING_URL) and the service signing key the loader's calls are signed with. The key must belong to
-// the service named "migration" (PASSAGE_SERVICE_NAME), the caller the service grants are written for. An address
+// the service named "migration" (DEPOT_SERVICE_NAME), the caller the service grants are written for. An address
 // without a key stops the service: loading unsigned would be refused by every target.
 func targetConfig(getenv func(string) string) (target.Config, error) {
 	cfg := target.Config{PartyURL: getenv("MIG_TARGET_PARTY_URL"), ProductURL: getenv("MIG_TARGET_PRODUCT_URL"), ReceivablesURL: getenv("MIG_TARGET_RECEIVABLES_URL"), EngineeringURL: getenv("MIG_TARGET_ENGINEERING_URL")}
@@ -85,7 +85,7 @@ func targetConfig(getenv func(string) string) (target.Config, error) {
 	anyURL := cfg.PartyURL != "" || cfg.ProductURL != "" || cfg.ReceivablesURL != "" || cfg.EngineeringURL != ""
 	switch {
 	case signer == nil && anyURL:
-		return target.Config{}, errors.New("MIG_TARGET_*_URL is set but no service signing key is (PASSAGE_SERVICE_SIGNING_KEY or PASSAGE_SERVICE_SIGNING_KEY_FILE)")
+		return target.Config{}, errors.New("MIG_TARGET_*_URL is set but no service signing key is (DEPOT_SERVICE_SIGNING_KEY or DEPOT_SERVICE_SIGNING_KEY_FILE)")
 	case signer != nil && getenv(tenant.EnvServiceName) != target.Caller:
 		return target.Config{}, fmt.Errorf("%s must be %q for the loader's service grants", tenant.EnvServiceName, target.Caller)
 	}
@@ -95,7 +95,7 @@ func targetConfig(getenv func(string) string) (target.Config, error) {
 
 func run(ctx context.Context, getenv func(string) string) error {
 	// The integration hub calls the outbound render and xref:record routes with a service token; the verifier is built
-	// from PASSAGE_SERVICE_NAME and PASSAGE_SERVICE_PUBLIC_KEYS. A malformed list stops the service at start.
+	// from DEPOT_SERVICE_NAME and DEPOT_SERVICE_PUBLIC_KEYS. A malformed list stops the service at start.
 	if err := tenant.ConfigureServiceVerifier(getenv); err != nil {
 		return err
 	}

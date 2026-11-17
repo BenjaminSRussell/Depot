@@ -9,8 +9,8 @@
 import { purgeTelemetry, type StepTiming } from "./telemetry";
 
 export const SPAN_NAME = "mobile.step";
-export const SCOPE_NAME = "dev.passage.warehouse-mobile";
-export const SERVICE_NAME = "passage-warehouse-mobile";
+export const SCOPE_NAME = "dev.depot.warehouse-mobile";
+export const SERVICE_NAME = "depot-warehouse-mobile";
 
 const SPAN_KIND_INTERNAL = 1;
 const STATUS_OK = 1;
@@ -81,8 +81,8 @@ export function buildSpans(
   if ("error" in kept) return kept;
   const random = opts.randomHex ?? cryptoRandomHex;
   const spans: OtlpSpan[] = kept.kept.map((r) => {
-    const attributes: OtlpAttribute[] = [str("passage.flow.code", r.flowCode), str("passage.step.id", r.stepId), str("passage.device.id", r.deviceId)];
-    if (opts.deviceModel) attributes.push(str("passage.device.model", opts.deviceModel));
+    const attributes: OtlpAttribute[] = [str("depot.flow.code", r.flowCode), str("depot.step.id", r.stepId), str("depot.device.id", r.deviceId)];
+    if (opts.deviceModel) attributes.push(str("depot.device.model", opts.deviceModel));
     // A StepTiming is recorded when the step ends: `at` is the end, `durationMs` before it the start.
     return {
       traceId: random(16),
@@ -96,7 +96,7 @@ export function buildSpans(
     };
   });
   const resourceAttributes: OtlpAttribute[] = [str("service.name", SERVICE_NAME)];
-  if (opts.deviceModel) resourceAttributes.push(str("passage.device.model", opts.deviceModel));
+  if (opts.deviceModel) resourceAttributes.push(str("depot.device.model", opts.deviceModel));
   return {
     payload: {
       resourceSpans: [{ resource: { attributes: resourceAttributes }, scopeSpans: [{ scope: { name: SCOPE_NAME }, spans }] }],

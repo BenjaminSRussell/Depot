@@ -7,11 +7,11 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/outbox"
-	"github.com/BenjaminSRussell/passage/services/planning/internal/domain"
-	planevents "github.com/BenjaminSRussell/passage/services/planning/internal/events"
+	"github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/outbox"
+	"github.com/BenjaminSRussell/depot/services/planning/internal/domain"
+	planevents "github.com/BenjaminSRussell/depot/services/planning/internal/events"
 )
 
 // approvedFirmKeyPrefix keys the firming batch a run writes for the orders a

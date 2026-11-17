@@ -6,9 +6,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/fulfillment/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/fulfillment/internal/store"
 )
 
 var (
@@ -88,10 +88,10 @@ func TestOperationRule_Duties(t *testing.T) {
 	h := newServer(t, &fakeStore{})
 	path := "/v1/fulfillment/operation-rules/" + ids.New()
 	b := `{"legalEntityId":"` + ids.New() + `","postingDateSource":"TODAY","autoPackEnabled":true,"workbenchGroupKeyDefault":"CARRIER"}`
-	if rec := do(t, h, http.MethodPut, path, b, map[string]string{"If-Match": `"1"`, "Idempotency-Key": "d", "X-Passage-Duties": "fulfillment.warehouse.view"}); rec.Code != http.StatusForbidden {
+	if rec := do(t, h, http.MethodPut, path, b, map[string]string{"If-Match": `"1"`, "Idempotency-Key": "d", "X-Depot-Duties": "fulfillment.warehouse.view"}); rec.Code != http.StatusForbidden {
 		t.Fatalf("viewer save: %d", rec.Code)
 	}
-	if rec := do(t, h, http.MethodGet, path, "", map[string]string{"X-Passage-Duties": "fulfillment.warehouse.pick"}); rec.Code != http.StatusForbidden {
+	if rec := do(t, h, http.MethodGet, path, "", map[string]string{"X-Depot-Duties": "fulfillment.warehouse.pick"}); rec.Code != http.StatusForbidden {
 		t.Fatalf("picker read: %d", rec.Code)
 	}
 }

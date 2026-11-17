@@ -31,7 +31,7 @@ const (
 
 // IntentRequest asks the provider for a payment the customer then completes on the hosted element.
 type IntentRequest struct {
-	// AttemptID is the Passage payment attempt; the provider idempotency key is derived from it, so a retried create returns
+	// AttemptID is the Depot payment attempt; the provider idempotency key is derived from it, so a retried create returns
 	// the same provider payment instead of a second one.
 	AttemptID string
 	Amount    decimal.Decimal
@@ -66,7 +66,7 @@ const (
 	KindInquiry Kind = "INQUIRY"
 	// KindReinstated is a dispute whose withdrawn funds came back (the dispute was won). Flagged for a clerk to record again.
 	KindReinstated Kind = "REINSTATED"
-	// KindCanceled is a provider payment cancelled before it was paid (by Passage or at the provider).
+	// KindCanceled is a provider payment cancelled before it was paid (by Depot or at the provider).
 	KindCanceled Kind = "CANCELED"
 	// KindIgnored is an event type this integration does not act on; it is acknowledged so the provider stops sending it.
 	KindIgnored Kind = "IGNORED"

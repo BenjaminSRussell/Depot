@@ -8,9 +8,9 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	evts "github.com/BenjaminSRussell/passage/services/mobile/internal/events"
-	"github.com/BenjaminSRussell/passage/services/mobile/internal/session"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	evts "github.com/BenjaminSRussell/depot/services/mobile/internal/events"
+	"github.com/BenjaminSRussell/depot/services/mobile/internal/session"
 )
 
 var (

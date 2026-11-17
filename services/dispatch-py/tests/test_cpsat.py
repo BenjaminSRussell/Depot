@@ -10,7 +10,7 @@ import pytest
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
-from passage_dispatch import (
+from depot_dispatch import (
     Assignment,
     Problem,
     Technician,
@@ -21,7 +21,7 @@ from passage_dispatch import (
     solve_cpsat,
     solve_greedy,
 )
-from passage_dispatch import cpsat as cpsat_module
+from depot_dispatch import cpsat as cpsat_module
 from test_feasibility_proof import oracle, metric_problems, tight_problems
 
 PROOF = settings(max_examples=40, deadline=None, derandomize=True, suppress_health_check=[HealthCheck.too_slow])

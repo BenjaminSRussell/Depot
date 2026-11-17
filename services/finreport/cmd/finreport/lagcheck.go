@@ -6,12 +6,12 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
 
-	"github.com/BenjaminSRussell/passage/services/finreport/internal/config"
-	"github.com/BenjaminSRussell/passage/services/finreport/internal/store"
+	"github.com/BenjaminSRussell/depot/services/finreport/internal/config"
+	"github.com/BenjaminSRussell/depot/services/finreport/internal/store"
 )
 
 const (
@@ -28,7 +28,7 @@ type lagChecker interface {
 
 // lagCheck is `finreport lag-check TENANT_ID...` (FR-15.1, PRD §2.15.5), run by
 // the chart's CronJob every minute: for each tenant it opens and closes lag
-// episodes and writes one dev.passage.reporting.lag.exceeded.v1 per episode
+// episodes and writes one dev.depot.reporting.lag.exceeded.v1 per episode
 // once the lag has stayed above REPORTING_MAX_LAG_S for REPORTING_LAG_ALERT_S.
 func lagCheck(ctx context.Context, getenv func(string) string, args []string) error {
 	tenants, err := tenantArgs(lagCheckCommand, args)

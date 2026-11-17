@@ -5,12 +5,12 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/transport/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/transport/internal/store"
-	"github.com/BenjaminSRussell/passage/services/transport/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/transport/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/transport/internal/store"
+	"github.com/BenjaminSRussell/depot/services/transport/migrations"
 )
 
 func TestLegalEntityScope_VoyagesAndRoutePlans(t *testing.T) {

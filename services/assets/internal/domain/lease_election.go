@@ -3,7 +3,7 @@ package domain
 import (
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/money"
+	"github.com/BenjaminSRussell/depot/platform/money"
 )
 
 // Lease recognition exemptions (IFRS 16.5-8, D4c). A lease under an election is not recognized on the

@@ -4,7 +4,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/BenjaminSRussell/passage/services/engineering/internal/events"
+	"github.com/BenjaminSRussell/depot/services/engineering/internal/events"
 )
 
 // EcrState is the FR-9.7 request workflow: draft, submitted, under_review, then approved or rejected.

@@ -8,11 +8,11 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	sfevents "github.com/BenjaminSRussell/passage/services/shopfloor/internal/events"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	sfevents "github.com/BenjaminSRussell/depot/services/shopfloor/internal/events"
 )
 
 // CodeJobNotFinished is raised when a reopen names a job that is not finished.
@@ -32,7 +32,7 @@ type JobReopening struct {
 
 // ReopenJob puts a finished job back to started so it takes feedback again (FR-25.3 note).
 // version is the job version the caller read (SF-0143, 412); a job that is not finished is
-// SF-0155 (422). The reopening row, the job update and dev.passage.shopfloor.job.reopened.v1
+// SF-0155 (422). The reopening row, the job update and dev.depot.shopfloor.job.reopened.v1
 // are written in one transaction; a repeated Idempotency-Key returns the stored job. Quantities
 // and check results stay: a later finish still passes the mandatory-check gate (SF-0005).
 func (s *Postgres) ReopenJob(ctx context.Context, jobID string, version int, reason, reopenedBy string, idem Idem) (Job, error) {

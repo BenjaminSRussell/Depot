@@ -9,12 +9,12 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/outbox"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/close/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/outbox"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/close/internal/domain"
 )
 
 const (
@@ -109,7 +109,7 @@ func (s *Postgres) BeginYearEnd(ctx context.Context, in domain.YearEndRun) (doma
 		created = true
 		in.ID = ids.New()
 		_, err = tx.Exec(ctx, `insert into year_end_run(tenant_id, id, legal_entity_id, ledger_id, fiscal_year, sequence, supersedes_run_id, request_hash, status, currency, closing_date, opening_date, retained_earnings_account, retain_dimensions, created_by)
-			values(current_setting('passage.tenant_id')::uuid, $1, $2, $3, $4, $5, nullif($6, '')::uuid, $7, 'pending', $8, $9, $10, $11, $12, $13)`,
+			values(current_setting('depot.tenant_id')::uuid, $1, $2, $3, $4, $5, nullif($6, '')::uuid, $7, 'pending', $8, $9, $10, $11, $12, $13)`,
 			in.ID, in.LegalEntityID, in.LedgerID, in.FiscalYear, in.Sequence, in.SupersedesRunID, in.RequestHash, in.Currency, in.ClosingDate, in.OpeningDate, in.RetainedEarnings, in.RetainDimensions, in.CreatedBy)
 		if err != nil {
 			return err

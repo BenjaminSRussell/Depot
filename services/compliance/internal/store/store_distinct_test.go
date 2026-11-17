@@ -7,9 +7,9 @@ import (
 	"os"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/compliance/internal/domain"
-	cevents "github.com/BenjaminSRussell/passage/services/compliance/internal/events"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/compliance/internal/domain"
+	cevents "github.com/BenjaminSRussell/depot/services/compliance/internal/events"
 )
 
 // AC2 end to end on fx-sod-50-distinct: the 50 distinct conflicting role

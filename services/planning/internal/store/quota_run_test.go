@@ -6,10 +6,10 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/planning/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/planning/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/planning/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/planning/internal/store"
 )
 
 // TestRunPlan_QuotaAllocationAndBooking covers FR-22.17 and AC-22.13 on the
@@ -111,7 +111,7 @@ func TestRunPlan_QuotaAllocationAndBooking(t *testing.T) {
 		t.Fatalf("allocated after replay = %s", got)
 	}
 	var tagged int
-	if err := admin.QueryRow(context.Background(), `select count(*) from outbox where type = 'dev.passage.planning.plannedorder.firmed.v1'
+	if err := admin.QueryRow(context.Background(), `select count(*) from outbox where type = 'dev.depot.planning.plannedorder.firmed.v1'
 		and payload::text like '%' || $1 || '%'`, wantSource).Scan(&tagged); err != nil || tagged != 1 {
 		t.Fatalf("firmed events naming the source = %d, %v", tagged, err)
 	}

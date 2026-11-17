@@ -11,14 +11,14 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/outbox"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/transport/internal/domain"
-	tmsevents "github.com/BenjaminSRussell/passage/services/transport/internal/events"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/outbox"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/transport/internal/domain"
+	tmsevents "github.com/BenjaminSRussell/depot/services/transport/internal/events"
 )
 
 // CodeVersionConflict is returned when If-Match names a version the record no
@@ -261,7 +261,7 @@ func (s *Postgres) ListDGChecks(ctx context.Context, loadID string) ([]domain.DG
 
 // DecideFreightBill approves or disputes a bill (BR-34.4) under a row lock.
 // version is the If-Match value and must be the bill's current version. The
-// decision row and, for an approval, the dev.passage.tms.freightbill.approved.v1
+// decision row and, for an approval, the dev.depot.tms.freightbill.approved.v1
 // outbox row are written in the same transaction. A replay with the same
 // Idempotency-Key returns the bill as it is now, without a second decision.
 func (s *Postgres) DecideFreightBill(ctx context.Context, id, action, reason string, version int, idem Idem, now time.Time) (domain.FreightBill, error) {

@@ -1,4 +1,4 @@
--- PSG-25 slice 5: delete a process message with a reason (FR-25.17) and keyset paging of the monitor.
+-- DPT-25 slice 5: delete a process message with a reason (FR-25.17) and keyset paging of the monitor.
 -- A deleted message stays for audit (deleted_at, deleted_by, delete_reason); it leaves the monitor,
 -- cannot be reported or reprocessed, and the retry sweep skips it.
 

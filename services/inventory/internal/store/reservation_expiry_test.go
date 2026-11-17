@@ -9,9 +9,9 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/inventory/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/inventory/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/inventory/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/inventory/internal/store"
 )
 
 // FR-16.7 time to live: a reservation with ttlHours lapses once expires_at has passed; the
@@ -57,11 +57,11 @@ func TestExpiryRunReleasesOnlyDueReservations(t *testing.T) {
 	if again, err := s.ExpireReservations(ctx, 10); err != nil || len(again.Released) != 0 {
 		t.Fatalf("repeat: %v %+v", err, again)
 	}
-	if n := outboxCount(t, admin, "dev.passage.inventory.reservation.released.v1"); n != 1 {
+	if n := outboxCount(t, admin, "dev.depot.inventory.reservation.released.v1"); n != 1 {
 		t.Fatalf("released events %d, want 1", n)
 	}
 	var reason string
-	if err := admin.QueryRow(context.Background(), `select payload->'data'->>'reason' from outbox where type = 'dev.passage.inventory.reservation.released.v1'`).Scan(&reason); err != nil || reason != "EXPIRED" {
+	if err := admin.QueryRow(context.Background(), `select payload->'data'->>'reason' from outbox where type = 'dev.depot.inventory.reservation.released.v1'`).Scan(&reason); err != nil || reason != "EXPIRED" {
 		t.Fatalf("event reason %q err %v, want EXPIRED", reason, err)
 	}
 	// A manual release of a not-yet-due reservation is unaffected, and the limit pages the run.
@@ -121,7 +121,7 @@ func TestConcurrentExpiryRunsReleaseEachReservationOnce(t *testing.T) {
 	if got := released.Load(); got != n {
 		t.Fatalf("released %d across the runs, want %d", got, n)
 	}
-	if got := outboxCount(t, admin, "dev.passage.inventory.reservation.released.v1"); got != n {
+	if got := outboxCount(t, admin, "dev.depot.inventory.reservation.released.v1"); got != n {
 		t.Fatalf("released events %d, want %d", got, n)
 	}
 	if avail, _ := availFor(t, s, ctx, product); !avail.Equal(dec("10")) {

@@ -5,7 +5,7 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/services/inventory/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/inventory/internal/domain"
 )
 
 const (

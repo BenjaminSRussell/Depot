@@ -49,7 +49,7 @@ export function createPartyHttpClient(
     return fetchImpl(`${baseUrl}/v1/party/pending-changes/${encodeURIComponent(decision.changeId)}:${action}`, {
       method: "POST",
       headers: {
-        "X-Passage-Service-Token": token,
+        "X-Depot-Service-Token": token,
         ...(action === "reject" ? { "Content-Type": "application/json" } : {}),
       },
       ...(action === "reject" ? { body: JSON.stringify({ reason: STALE_REJECT_REASON }) } : {}),

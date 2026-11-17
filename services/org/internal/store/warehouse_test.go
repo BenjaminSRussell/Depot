@@ -10,13 +10,13 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/services/org/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/services/org/internal/store"
 )
 
 const (
-	warehouseCreatedType = "dev.passage.org.warehouse.created.v1"
-	warehouseUpdatedType = "dev.passage.org.warehouse.updated.v1"
+	warehouseCreatedType = "dev.depot.org.warehouse.created.v1"
+	warehouseUpdatedType = "dev.depot.org.warehouse.updated.v1"
 )
 
 func newWarehouse(siteID, code string) store.Warehouse {

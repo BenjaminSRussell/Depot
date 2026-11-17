@@ -39,7 +39,7 @@ check defaults "$(render)" '
   raise "EDI_AS2_ADDR set" if env.key?("EDI_AS2_ADDR")
 '
 
-# The listener on: its port admits only the Envoy proxies of Gateway passage-as2, and nothing else.
+# The listener on: its port admits only the Envoy proxies of Gateway depot-as2, and nothing else.
 as2="$(render --set transports.as2.enabled=true --set transports.workers=true)"
 check as2-enabled "$as2" '
   as2 = rule_for.(8081)
@@ -50,7 +50,7 @@ check as2-enabled "$as2" '
   peers.each do |f|
     raise "peer without namespaceSelector: #{f}" unless f.dig("namespaceSelector", "matchLabels", "kubernetes.io/metadata.name") == "envoy-gateway-system"
     labels = f.dig("podSelector", "matchLabels") || {}
-    raise "peer is not the passage-as2 gateway: #{labels}" unless labels["gateway.envoyproxy.io/owning-gateway-name"] == "passage-as2" &&
+    raise "peer is not the depot-as2 gateway: #{labels}" unless labels["gateway.envoyproxy.io/owning-gateway-name"] == "depot-as2" &&
       labels["gateway.envoyproxy.io/owning-gateway-namespace"] == "hello-ledger"
   end
   raise "8081 also admitted by the API rule" unless rule_for.(8080).none? { |r| r["ports"].any? { |p| p["port"] == 8081 } }
@@ -73,7 +73,7 @@ fi
 
 # Dev: the listener and the workers on, the public URL on the AS2 edge hostname.
 check dev "$(render --values "$dev_values")" '
-  raise "dev: EDI_AS2_PUBLIC_URL #{env["EDI_AS2_PUBLIC_URL"].inspect}" unless env["EDI_AS2_PUBLIC_URL"] == "https://as2.dev.passage.dev"
+  raise "dev: EDI_AS2_PUBLIC_URL #{env["EDI_AS2_PUBLIC_URL"].inspect}" unless env["EDI_AS2_PUBLIC_URL"] == "https://as2.dev.depot.dev"
   raise "dev: workers off (the asynchronous MDNs we owe would never be posted)" unless env["EDI_TRANSPORT_WORKERS"] == "true"
   raise "dev: no AS2 rule" unless rule_for.(8081).size == 1
 '

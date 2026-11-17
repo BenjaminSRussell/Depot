@@ -14,15 +14,15 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/fieldservice/internal/api"
-	"github.com/BenjaminSRussell/passage/services/fieldservice/internal/objectstore"
-	"github.com/BenjaminSRussell/passage/services/fieldservice/internal/optimizer"
-	"github.com/BenjaminSRussell/passage/services/fieldservice/internal/routefeed"
-	"github.com/BenjaminSRussell/passage/services/fieldservice/internal/store"
-	"github.com/BenjaminSRussell/passage/services/fieldservice/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/fieldservice/internal/api"
+	"github.com/BenjaminSRussell/depot/services/fieldservice/internal/objectstore"
+	"github.com/BenjaminSRussell/depot/services/fieldservice/internal/optimizer"
+	"github.com/BenjaminSRussell/depot/services/fieldservice/internal/routefeed"
+	"github.com/BenjaminSRussell/depot/services/fieldservice/internal/store"
+	"github.com/BenjaminSRussell/depot/services/fieldservice/migrations"
 )
 
 const (

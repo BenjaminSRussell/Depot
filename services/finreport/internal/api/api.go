@@ -21,14 +21,14 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/authz"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/authz"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
 
-	"github.com/BenjaminSRussell/passage/services/finreport/internal/config"
-	"github.com/BenjaminSRussell/passage/services/finreport/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/finreport/internal/store"
+	"github.com/BenjaminSRussell/depot/services/finreport/internal/config"
+	"github.com/BenjaminSRussell/depot/services/finreport/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/finreport/internal/store"
 )
 
 // Privilege codes (PRD §2.15.17).
@@ -199,7 +199,7 @@ func (a *API) Register(r chi.Router) {
 	})
 }
 
-// RegisterPublic mounts the one route that has no Passage identity: the
+// RegisterPublic mounts the one route that has no Depot identity: the
 // download a share link holder opens (FR-15.8). The link's secret is the
 // authority. Serve it through PublicHandler, never on the platform router: that
 // router's access log writes the request path, which holds the secret.

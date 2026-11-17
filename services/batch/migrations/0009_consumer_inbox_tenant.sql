@@ -7,5 +7,5 @@ alter table consumer_inbox enable row level security;
 alter table consumer_inbox force row level security;
 drop policy if exists consumer_inbox_tenant_access on consumer_inbox;
 create policy consumer_inbox_tenant_access on consumer_inbox as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);

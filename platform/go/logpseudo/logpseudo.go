@@ -1,6 +1,6 @@
 // Package logpseudo pseudonymizes personal identifiers in log records before they are exported to Loki (issue 605).
 //
-// Microsoft pseudonymizes the personal data in its own system logs inside the EU Data Boundary; Passage owes the same
+// Microsoft pseudonymizes the personal data in its own system logs inside the EU Data Boundary; Depot owes the same
 // for its logs and traces. Handler wraps a slog.Handler. An attribute whose key names a person (user, email, name,
 // person, subject, ip, ...), and any email address inside any string value or the message, is replaced by a stable
 // pseudonym: the HMAC of the value under the tenant's MAC key (fieldcrypt.Keys.MAC), so the same value maps to the
@@ -27,9 +27,9 @@ import (
 	"sync"
 	"unicode"
 
-	"github.com/BenjaminSRussell/passage/platform/cloudprofile"
-	"github.com/BenjaminSRussell/passage/platform/fieldcrypt"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/cloudprofile"
+	"github.com/BenjaminSRussell/depot/platform/fieldcrypt"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
 )
 
 // Env turns pseudonymization on when "true" (it is always on under the eu-data-boundary overlay).
@@ -44,6 +44,7 @@ const EmailRedacted = "[redacted-email]"
 // Prefix starts every pseudonym.
 const Prefix = "pn_"
 
+// macDomain keeps the product's former name so pseudonyms in retained logs still match (docs/adr/0005-rename-to-depot.md).
 const macDomain = "passage.log.pseudonym.v1\x00"
 
 var emailRE = regexp.MustCompile(`[A-Za-z0-9._%+'-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+`)

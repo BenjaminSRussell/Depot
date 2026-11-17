@@ -10,11 +10,11 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	idspkg "github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/receivables/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/receivables/internal/fxclient"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	idspkg "github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/receivables/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/receivables/internal/fxclient"
 )
 
 // fakeRates answers by pair and date; a pair or date it does not know is "no rate".
@@ -92,7 +92,7 @@ func TestApplyPayment_CrossCurrencyBooksTheRealizedFXAsItsOwnJournal(t *testing.
 	var itemAmount, itemCurrency string
 	if err := dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
 		return tx.QueryRow(ctx, `select payload->'data'->'settlements'->0->>'item_amount', payload->'data'->'settlements'->0->>'item_currency' from outbox
-			where type = 'dev.passage.receivables.payment.applied.v1'`).Scan(&itemAmount, &itemCurrency)
+			where type = 'dev.depot.receivables.payment.applied.v1'`).Scan(&itemAmount, &itemCurrency)
 	}); err != nil || itemAmount != "100" || itemCurrency != "USD" {
 		t.Errorf("payment.applied carries item amount %q %q (%v)", itemAmount, itemCurrency, err)
 	}
@@ -516,7 +516,7 @@ func TestUnapplyPayment_ReopensTheItemsAndMirrorsTheJournals(t *testing.T) {
 	if !mirrored {
 		t.Fatalf("the 0.80 gain was not mirrored: %+v", fx)
 	}
-	if n := countOutbox(t, s, ctx, "dev.passage.receivables.payment.unapplied.v1"); n != 1 {
+	if n := countOutbox(t, s, ctx, "dev.depot.receivables.payment.unapplied.v1"); n != 1 {
 		t.Fatalf("payment.unapplied events %d", n)
 	}
 	// The cash can now be reversed.

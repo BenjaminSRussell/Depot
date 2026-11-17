@@ -8,8 +8,8 @@ ALTER TABLE ap_payment_proposal_line ADD COLUMN IF NOT EXISTS withheld_base nume
 ALTER TABLE ap_payment_run ADD COLUMN IF NOT EXISTS withholding_record_error text;
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT UPDATE (withholding_record_error) ON ap_payment_run TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT UPDATE (withholding_record_error) ON ap_payment_run TO depot_app';
   END IF;
 END
 $$;

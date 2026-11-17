@@ -1,4 +1,4 @@
--- Slice 4 (PSG-4104): project categories, the project transaction subledger
+-- Slice 4 (DPT-4104): project categories, the project transaction subledger
 -- (FR-41.4) and invoice proposals built from billable transactions (FR-41.6,
 -- BR-41.3, BR-41.8). Additive only.
 
@@ -18,8 +18,8 @@ CREATE TABLE IF NOT EXISTS project_category (
 ALTER TABLE project_category ENABLE ROW LEVEL SECURITY;
 ALTER TABLE project_category FORCE ROW LEVEL SECURITY;
 CREATE POLICY project_category_tenant_access ON project_category AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- InvoiceProposal (§8.41.4). txn_types is the selection the proposal was built
 -- with; totals are the sums of the lines. The billing rule, tax amount and
@@ -52,8 +52,8 @@ CREATE TABLE IF NOT EXISTS project_invoice_proposal (
 ALTER TABLE project_invoice_proposal ENABLE ROW LEVEL SECURITY;
 ALTER TABLE project_invoice_proposal FORCE ROW LEVEL SECURITY;
 CREATE POLICY project_invoice_proposal_tenant_access ON project_invoice_proposal AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 -- Legal-entity scope through the owning project (itself scoped by RLS).
 CREATE POLICY project_invoice_proposal_legal_entity_scope ON project_invoice_proposal AS RESTRICTIVE
   USING (EXISTS (SELECT 1 FROM project p WHERE p.tenant_id = project_invoice_proposal.tenant_id AND p.id = project_invoice_proposal.project_id));
@@ -105,8 +105,8 @@ CREATE TABLE IF NOT EXISTS project_transaction (
 ALTER TABLE project_transaction ENABLE ROW LEVEL SECURITY;
 ALTER TABLE project_transaction FORCE ROW LEVEL SECURITY;
 CREATE POLICY project_transaction_tenant_access ON project_transaction AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY project_transaction_legal_entity_scope ON project_transaction AS RESTRICTIVE
   USING (EXISTS (SELECT 1 FROM project p WHERE p.tenant_id = project_transaction.tenant_id AND p.id = project_transaction.project_id));
 CREATE INDEX IF NOT EXISTS project_transaction_project_date_idx ON project_transaction (tenant_id, project_id, txn_date);
@@ -136,8 +136,8 @@ CREATE TABLE IF NOT EXISTS project_invoice_proposal_line (
 ALTER TABLE project_invoice_proposal_line ENABLE ROW LEVEL SECURITY;
 ALTER TABLE project_invoice_proposal_line FORCE ROW LEVEL SECURITY;
 CREATE POLICY project_invoice_proposal_line_tenant_access ON project_invoice_proposal_line AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY project_invoice_proposal_line_legal_entity_scope ON project_invoice_proposal_line AS RESTRICTIVE
   USING (EXISTS (SELECT 1 FROM project_invoice_proposal pr
     WHERE pr.tenant_id = project_invoice_proposal_line.tenant_id AND pr.id = project_invoice_proposal_line.proposal_id));
@@ -148,10 +148,10 @@ CREATE INDEX IF NOT EXISTS project_invoice_proposal_line_txn_idx ON project_invo
 -- when the role does not exist (developer databases without the role split).
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE format('GRANT USAGE ON SCHEMA %I TO passage_app', current_schema());
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON project_category, project_transaction, project_invoice_proposal TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT, DELETE ON project_invoice_proposal_line TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE format('GRANT USAGE ON SCHEMA %I TO depot_app', current_schema());
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON project_category, project_transaction, project_invoice_proposal TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT, DELETE ON project_invoice_proposal_line TO depot_app';
   END IF;
 END
 $$;

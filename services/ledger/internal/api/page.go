@@ -6,8 +6,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/ledger/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/ledger/internal/store"
 )
 
 // Keyset paging of the journal batch, recurring journal and clearing document lists. The response is

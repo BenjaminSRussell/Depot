@@ -103,10 +103,10 @@ export function parseEvent(message: KafkaMessageInput): { tenantId: string; even
     }
     occurredAt = t / 1000;
   }
-  // Per-aggregate order: the producer's passagesequence, else the partition offset (monotonic for a keyed aggregate).
-  const seq = e["passagesequence"] !== undefined ? Number(e["passagesequence"]) : Number(message.offset);
+  // Per-aggregate order: the producer's depotsequence, else the partition offset (monotonic for a keyed aggregate).
+  const seq = e["depotsequence"] !== undefined ? Number(e["depotsequence"]) : Number(message.offset);
   if (!Number.isSafeInteger(seq) || seq < 0) {
-    return { reason: "passagesequence is not a non-negative integer" };
+    return { reason: "depotsequence is not a non-negative integer" };
   }
   return {
     tenantId: tenantId.toLowerCase(),

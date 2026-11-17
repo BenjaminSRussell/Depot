@@ -3,7 +3,7 @@ package events
 // ReconciliationDiff is emitted when a daily inventory-to-ledger run finds a
 // non-zero difference (FR-16.12); a matched run emits nothing. A re-run on the
 // same day that still differs emits it again for the same run id.
-const ReconciliationDiff = "dev.passage.inventory.reconciliation.diff.v1"
+const ReconciliationDiff = "dev.depot.inventory.reconciliation.diff.v1"
 
 // ReconciliationDiffData is the payload of reconciliation.diff. Amounts are
 // decimal strings in Currency, rounded to its minor unit; Diff is

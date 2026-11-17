@@ -9,13 +9,13 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/ledgerclient"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/eam/internal/domain"
-	eamevents "github.com/BenjaminSRussell/passage/services/eam/internal/events"
-	"github.com/BenjaminSRussell/passage/services/eam/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/ledgerclient"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/eam/internal/domain"
+	eamevents "github.com/BenjaminSRussell/depot/services/eam/internal/events"
+	"github.com/BenjaminSRussell/depot/services/eam/migrations"
 )
 
 // TestWorkOrderCost50_ReconcilesAssetKPIAndEvents covers the asset side of

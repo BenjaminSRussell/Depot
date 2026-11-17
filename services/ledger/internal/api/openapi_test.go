@@ -20,7 +20,7 @@ func TestOpenAPI_MatchesRoutes(t *testing.T) {
 	}
 	pathRe := regexp.MustCompile(`^  (/v1/ledger/\S+):$`)
 	methodRe := regexp.MustCompile(`^    (get|put|post|patch|delete):$`)
-	dutyRe := regexp.MustCompile(`^      x-passage-duty: (\S+)$`)
+	dutyRe := regexp.MustCompile(`^      x-depot-duty: (\S+)$`)
 	documented := map[string]string{}
 	var path, op string
 	for _, line := range strings.Split(string(raw), "\n") {
@@ -166,7 +166,7 @@ func TestOpenAPI_MatchesRoutes(t *testing.T) {
 	}
 	for op, want := range duties {
 		if got := documented[op]; got != want {
-			t.Errorf("%s: x-passage-duty %q, want %q", op, got, want)
+			t.Errorf("%s: x-depot-duty %q, want %q", op, got, want)
 		}
 	}
 	if len(duties) != len(mounted) {

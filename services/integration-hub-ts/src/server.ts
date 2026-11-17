@@ -2,8 +2,8 @@
 // the delivery log, the dead-letter list, resume after a 410 pause and replay.
 //
 // Identity is the edge's, the same contract as the agents API: the gateway
-// verifies the token, strips client copies and sets x-passage-tenant,
-// x-passage-user and x-passage-duties. A missing, malformed or nil tenant or a
+// verifies the token, strips client copies and sets x-depot-tenant,
+// x-depot-user and x-depot-duties. A missing, malformed or nil tenant or a
 // missing user is 401; a missing duty is 403. Errors are RFC 9457 problems with
 // a stable HUB-04xx code.
 
@@ -109,13 +109,13 @@ function header(h: IncomingHttpHeaders, name: string): string | undefined {
 
 /** Reads the caller from the edge headers (the kernel tenant middleware's rule: bad tenant or user is 401). */
 export function principalFromHeaders(h: IncomingHttpHeaders): Principal {
-  const tenantId = header(h, "x-passage-tenant")?.trim().toLowerCase();
-  const userId = header(h, "x-passage-user")?.trim().toLowerCase();
+  const tenantId = header(h, "x-depot-tenant")?.trim().toLowerCase();
+  const userId = header(h, "x-depot-user")?.trim().toLowerCase();
   if (tenantId === undefined || !UUID.test(tenantId) || tenantId === NIL_UUID || userId === undefined || !UUID.test(userId)) {
     throw new ApiError(401, "HUB-0401", "the edge did not identify a tenant and user");
   }
   const duties = new Set(
-    (header(h, "x-passage-duties") ?? "")
+    (header(h, "x-depot-duties") ?? "")
       .split(",")
       .map((d) => d.trim())
       .filter((d) => d !== ""),
@@ -123,9 +123,9 @@ export function principalFromHeaders(h: IncomingHttpHeaders): Principal {
   return { userId, tenantId, duties };
 }
 
-/** The one legal entity the edge scoped the caller to (X-Passage-Legal-Entity), or undefined. */
+/** The one legal entity the edge scoped the caller to (X-Depot-Legal-Entity), or undefined. */
 export function legalEntityFromHeaders(h: IncomingHttpHeaders): string | undefined {
-  const raw = (header(h, "x-passage-legal-entity") ?? header(h, "x-passage-legalentity"))?.trim().toLowerCase();
+  const raw = (header(h, "x-depot-legal-entity") ?? header(h, "x-depot-legalentity"))?.trim().toLowerCase();
   return raw !== undefined && UUID.test(raw) && raw !== NIL_UUID ? raw : undefined;
 }
 
@@ -207,7 +207,7 @@ const TITLES: Record<number, string> = {
 
 function problem(res: ServerResponse, err: ApiError, path: string): void {
   const payload = JSON.stringify({
-    type: `https://passage.dev/problems/${err.code}`,
+    type: `https://depot.dev/problems/${err.code}`,
     title: TITLES[err.status] ?? "Error",
     status: err.status,
     code: err.code,

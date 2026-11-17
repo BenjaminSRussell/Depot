@@ -17,7 +17,7 @@ func TestRun(t *testing.T) {
 	}{
 		{"missing database url", map[string]string{}, "DATABASE_URL is required"},
 		{"missing audit url outside dev", map[string]string{"DATABASE_URL": "://bad"}, "AUDIT_URL is required"},
-		{"unparseable database url", map[string]string{"DATABASE_URL": "://bad", "PASSAGE_ENV": "dev"}, "connect database"},
+		{"unparseable database url", map[string]string{"DATABASE_URL": "://bad", "DEPOT_ENV": "dev"}, "connect database"},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {

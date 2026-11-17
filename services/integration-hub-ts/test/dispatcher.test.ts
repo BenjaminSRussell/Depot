@@ -18,15 +18,15 @@ const SECRET = "whsec_demo";
 // Three orders. A's sequence 3 is stamped one second before its sequence 2
 // (a producer clock running behind).
 const archive: HubEvent[] = [
-  { eventId: "a1", aggregateId: "A", sequence: 1, occurredAt: 1000, type: "dev.passage.sales.order.created.v1", data: {} },
-  { eventId: "b1", aggregateId: "B", sequence: 1, occurredAt: 1001, type: "dev.passage.sales.order.created.v1", data: {} },
-  { eventId: "a3", aggregateId: "A", sequence: 3, occurredAt: 1002, type: "dev.passage.sales.order.line_added.v1", data: { qty: 3 } },
-  { eventId: "a2", aggregateId: "A", sequence: 2, occurredAt: 1003, type: "dev.passage.sales.order.line_added.v1", data: { qty: 5 } },
-  { eventId: "c1", aggregateId: "C", sequence: 1, occurredAt: 1004, type: "dev.passage.sales.order.created.v1", data: {} },
-  { eventId: "b2", aggregateId: "B", sequence: 2, occurredAt: 1005, type: "dev.passage.sales.order.line_added.v1", data: { qty: 10 } },
-  { eventId: "c2", aggregateId: "C", sequence: 2, occurredAt: 1006, type: "dev.passage.sales.order.line_added.v1", data: { qty: 2 } },
-  { eventId: "a4", aggregateId: "A", sequence: 4, occurredAt: 1007, type: "dev.passage.sales.order.shipped.v1", data: {} },
-  { eventId: "b3", aggregateId: "B", sequence: 3, occurredAt: 1008, type: "dev.passage.sales.order.cancelled.v1", data: {} },
+  { eventId: "a1", aggregateId: "A", sequence: 1, occurredAt: 1000, type: "dev.depot.sales.order.created.v1", data: {} },
+  { eventId: "b1", aggregateId: "B", sequence: 1, occurredAt: 1001, type: "dev.depot.sales.order.created.v1", data: {} },
+  { eventId: "a3", aggregateId: "A", sequence: 3, occurredAt: 1002, type: "dev.depot.sales.order.line_added.v1", data: { qty: 3 } },
+  { eventId: "a2", aggregateId: "A", sequence: 2, occurredAt: 1003, type: "dev.depot.sales.order.line_added.v1", data: { qty: 5 } },
+  { eventId: "c1", aggregateId: "C", sequence: 1, occurredAt: 1004, type: "dev.depot.sales.order.created.v1", data: {} },
+  { eventId: "b2", aggregateId: "B", sequence: 2, occurredAt: 1005, type: "dev.depot.sales.order.line_added.v1", data: { qty: 10 } },
+  { eventId: "c2", aggregateId: "C", sequence: 2, occurredAt: 1006, type: "dev.depot.sales.order.line_added.v1", data: { qty: 2 } },
+  { eventId: "a4", aggregateId: "A", sequence: 4, occurredAt: 1007, type: "dev.depot.sales.order.shipped.v1", data: {} },
+  { eventId: "b3", aggregateId: "B", sequence: 3, occurredAt: 1008, type: "dev.depot.sales.order.cancelled.v1", data: {} },
 ];
 
 // Worked by hand from the events above.
@@ -57,14 +57,14 @@ class Receiver {
       req.on("data", (c: Buffer) => chunks.push(c));
       req.on("end", () => {
         const body = Buffer.concat(chunks).toString("utf8");
-        if (!verify(String(req.headers["passage-signature"] ?? ""), SECRET, body, clock.now)) {
+        if (!verify(String(req.headers["depot-signature"] ?? ""), SECRET, body, clock.now)) {
           this.badSignatures += 1;
           res.writeHead(401).end();
           return;
         }
-        const ce = JSON.parse(body) as { id: string; subject: string; type: string; passagesequence: number; data: { qty?: number } };
+        const ce = JSON.parse(body) as { id: string; subject: string; type: string; depotsequence: number; data: { qty?: number } };
         const attempt = this.attempts.filter((a) => a.eventId === ce.id).length + 1;
-        this.attempts.push({ eventId: ce.id, at: clock.now, replay: req.headers["ce-passagereplay"] === "true" });
+        this.attempts.push({ eventId: ce.id, at: clock.now, replay: req.headers["ce-depotreplay"] === "true" });
         const reply = this.#script(ce.id, attempt);
         if (reply === "drop") {
           req.socket.destroy();
@@ -78,13 +78,13 @@ class Receiver {
     });
   }
 
-  #apply(ce: { subject: string; type: string; passagesequence: number; data: { qty?: number } }): void {
+  #apply(ce: { subject: string; type: string; depotsequence: number; data: { qty?: number } }): void {
     const cur = this.state[ce.subject] ?? { seq: 0, status: "", qty: 0 };
-    if (ce.passagesequence !== cur.seq + 1) {
+    if (ce.depotsequence !== cur.seq + 1) {
       return; // a duplicate, or a gap the consumer waits to have filled
     }
     const kind = ce.type.split(".")[4];
-    const next = { ...cur, seq: ce.passagesequence };
+    const next = { ...cur, seq: ce.depotsequence };
     if (kind === "created") next.status = "open";
     if (kind === "line_added") next.qty += ce.data.qty ?? 0;
     if (kind === "shipped") next.status = "shipped";
@@ -234,7 +234,7 @@ test("AC-35.3/AC-35.4: an event refused nine times is dead-lettered (HUB-0115); 
     assert.equal(d.replay(archive, 0, 4), archive.length);
     await drain(d, clock);
     assert.deepEqual(receiver.state, expectedState);
-    assert.ok(receiver.attempts.slice(before).every((a) => a.replay), "replayed deliveries carry ce-passagereplay: true");
+    assert.ok(receiver.attempts.slice(before).every((a) => a.replay), "replayed deliveries carry ce-depotreplay: true");
     assert.equal(receiver.attempts.length - before, archive.length);
   } finally {
     await receiver.stop();

@@ -14,8 +14,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
 )
 
 const (
@@ -47,7 +47,7 @@ func New(baseURL, operatorTenantID string, signer *tenant.ServiceSigner, client 
 	case !ids.Valid(operatorTenantID):
 		return nil, errors.New("the tenant registry needs SWEEP_OPERATOR_TENANT_ID, the platform operator tenant's UUID")
 	case signer == nil:
-		return nil, errors.New("the tenant registry needs a service signing key (PASSAGE_SERVICE_NAME and PASSAGE_SERVICE_SIGNING_KEY or PASSAGE_SERVICE_SIGNING_KEY_FILE)")
+		return nil, errors.New("the tenant registry needs a service signing key (DEPOT_SERVICE_NAME and DEPOT_SERVICE_SIGNING_KEY or DEPOT_SERVICE_SIGNING_KEY_FILE)")
 	}
 	if client == nil {
 		client = &http.Client{Timeout: reqTimout}

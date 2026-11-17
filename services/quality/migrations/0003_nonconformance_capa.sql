@@ -36,8 +36,8 @@ CREATE INDEX IF NOT EXISTS quality_nonconformance_order ON quality_nonconformanc
 ALTER TABLE quality_nonconformance ENABLE ROW LEVEL SECURITY;
 ALTER TABLE quality_nonconformance FORCE ROW LEVEL SECURITY;
 CREATE POLICY quality_nonconformance_tenant_access ON quality_nonconformance AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- The 8D correction of one nonconformance (FR-33.8). steps is the array of the
 -- eight disciplines with their due dates, notes and completion.
@@ -67,8 +67,8 @@ CREATE TABLE IF NOT EXISTS quality_correction (
 ALTER TABLE quality_correction ENABLE ROW LEVEL SECURITY;
 ALTER TABLE quality_correction FORCE ROW LEVEL SECURITY;
 CREATE POLICY quality_correction_tenant_access ON quality_correction AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- The NCR a reject decision raised (FR-33.6), so a replayed decision returns it.
 ALTER TABLE quality_usage_decision ADD COLUMN IF NOT EXISTS nonconformance_id uuid;

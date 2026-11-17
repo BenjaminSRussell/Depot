@@ -8,10 +8,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/assets/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/assets/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/assets/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/assets/internal/store"
 )
 
 // Slice 3 fake store methods. They record the input so tests check what the
@@ -193,7 +193,7 @@ func TestCountSession_ValidationScopeAndDuties(t *testing.T) {
 		}
 	}
 	other := do(h, req{method: http.MethodPost, path: "/v1/assets/count-sessions", body: body, duties: "assets.asset.count", key: true,
-		headers: map[string]string{"X-Passage-Legal-Entity": ids.New()}})
+		headers: map[string]string{"X-Depot-Legal-Entity": ids.New()}})
 	if other.Code != http.StatusForbidden {
 		t.Fatalf("count outside the caller's legal entity status = %d", other.Code)
 	}

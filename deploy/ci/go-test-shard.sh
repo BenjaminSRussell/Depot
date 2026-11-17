@@ -13,12 +13,12 @@ cd "$root"
 shard_for() {
   local pkg=$1
   case $pkg in
-    github.com/BenjaminSRussell/passage/services/pricing/internal/store) echo pricing-store ;;
-    github.com/BenjaminSRussell/passage/services/identity|github.com/BenjaminSRussell/passage/services/identity/*|github.com/BenjaminSRussell/passage/tools/e2e|github.com/BenjaminSRussell/passage/tools/e2e/*) echo identity ;;
-    github.com/BenjaminSRussell/passage/services/inventory/internal/store) echo inventory-store ;;
-    github.com/BenjaminSRussell/passage/services/ledger/internal/store) echo ledger-store ;;
-    github.com/BenjaminSRussell/passage/services/org/internal/store) echo org-store ;;
-    github.com/BenjaminSRussell/passage/services/engineering/internal/store) echo engineering-store ;;
+    github.com/BenjaminSRussell/depot/services/pricing/internal/store) echo pricing-store ;;
+    github.com/BenjaminSRussell/depot/services/identity|github.com/BenjaminSRussell/depot/services/identity/*|github.com/BenjaminSRussell/depot/tools/e2e|github.com/BenjaminSRussell/depot/tools/e2e/*) echo identity ;;
+    github.com/BenjaminSRussell/depot/services/inventory/internal/store) echo inventory-store ;;
+    github.com/BenjaminSRussell/depot/services/ledger/internal/store) echo ledger-store ;;
+    github.com/BenjaminSRussell/depot/services/org/internal/store) echo org-store ;;
+    github.com/BenjaminSRussell/depot/services/engineering/internal/store) echo engineering-store ;;
     *)
       local n
       n=$(printf '%s' "$pkg" | cksum | awk '{print $1}')
@@ -30,7 +30,7 @@ shard_for() {
 modules=()
 while IFS= read -r dir; do
   modules+=("$dir")
-done < <(find platform/go services tools/rlscheck tools/tenant-restore tools/e2e tools/passage-server tools/signoff-packets -name go.mod -not -path '*/node_modules/*' -exec dirname {} \; | sort)
+done < <(find platform/go services tools/rlscheck tools/tenant-restore tools/e2e tools/depot-server tools/signoff-packets -name go.mod -not -path '*/node_modules/*' -exec dirname {} \; | sort)
 
 matched=0
 failed=0

@@ -1,8 +1,8 @@
-# The ClusterSecretStore every chart's externalSecret.storeName points at. All charts default to `passage`, so the
+# The ClusterSecretStore every chart's externalSecret.storeName points at. All charts default to `depot`, so the
 # secrets backend is swapped by installing this chart (Azure Key Vault) instead of a Vault store of the same name.
 # Render with the cloud profile's global values so the Key Vault suffix and the Azure environment come from the profile:
-#   helm template passage-secret-store deploy/secret-store -f deploy/cloud-profiles/values/<profile>.yaml --set azureKeyVault.name=<vault> ...
-storeName: passage
+#   helm template depot-secret-store deploy/secret-store -f deploy/cloud-profiles/values/<profile>.yaml --set azureKeyVault.name=<vault> ...
+storeName: depot
 
 azureKeyVault:
   name: ""                       # the vault's name; the URL is https://<name>.<global.endpoints.keyVaultSuffix>

@@ -22,8 +22,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/migration/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/domain"
 )
 
 // Reject codes the loader raises itself; a target's own refusal keeps the target's code.
@@ -32,7 +32,7 @@ const (
 	CodeUnavailable       = "MIG-TARGET-UNAVAILABLE"
 	CodeUpdateUnavailable = "MIG-TARGET-UPDATE-UNAVAILABLE"
 	CodeVersionUnknown    = "MIG-TARGET-VERSION-UNKNOWN"
-	// CodeDrift is BR-10.8: the record changed in Passage since the last load, so the changed legacy row is not
+	// CodeDrift is BR-10.8: the record changed in Depot since the last load, so the changed legacy row is not
 	// written over it.
 	CodeDrift         = "MIG-TARGET-DRIFT"
 	CodeRefused       = "MIG-TARGET-REFUSED"
@@ -282,11 +282,11 @@ func (r reply) refusal() domain.LoadResult {
 }
 
 // updateRefusal is refusal for a PATCH under the version recorded at the last load: a version conflict means the
-// record changed in Passage since then (or the answer to an earlier PATCH was lost), which BR-10.8 reports as drift.
+// record changed in Depot since then (or the answer to an earlier PATCH was lost), which BR-10.8 reports as drift.
 func (r reply) updateRefusal() domain.LoadResult {
 	res := r.refusal()
 	if !r.exhausted && (r.status == http.StatusConflict || r.status == http.StatusPreconditionFailed) && strings.HasSuffix(res.Code, "-VERSION-CONFLICT") {
-		return domain.LoadResult{Code: CodeDrift, Detail: clip("the record changed in Passage since it was loaded and is not overwritten (" + res.Code + ": " + res.Detail + ")")}
+		return domain.LoadResult{Code: CodeDrift, Detail: clip("the record changed in Depot since it was loaded and is not overwritten (" + res.Code + ": " + res.Detail + ")")}
 	}
 	return res
 }

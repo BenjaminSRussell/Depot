@@ -75,7 +75,7 @@ describe("Download PDF", () => {
   it("downloads a document with characters the PDF font lacks and says how many show as a placeholder", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn(async () => new Response("%PDF-1.5", { status: 200, headers: { "Content-Type": "application/pdf", "X-Passage-Unprintable-Characters": "4" } })),
+      vi.fn(async () => new Response("%PDF-1.5", { status: 200, headers: { "Content-Type": "application/pdf", "X-Depot-Unprintable-Characters": "4" } })),
     );
     renderButton(["print.document.render"]);
     await userEvent.click(screen.getByRole("button", { name: "Download PDF" }));
@@ -123,7 +123,7 @@ describe("document data", () => {
       return undefined;
     };
     expect(await legalEntityParty("le1")).toEqual({ name: "Cedar Ridge Pumps", address: ["400 Industrial Way", "Cedar Rapids IA"] });
-    expect(headerOf("/api/v1/org/addresses/a1", "X-Passage-LegalEntity")).toBe("le1");
+    expect(headerOf("/api/v1/org/addresses/a1", "X-Depot-LegalEntity")).toBe("le1");
   });
 
   it("prints the legal entity without an address when the address cannot be read", async () => {
@@ -141,7 +141,7 @@ describe("document data", () => {
     expect(await partyAddress("p1", ["invoice", "business"], LE)).toEqual(["3 Billing Sq", "Praha"]);
     expect(server.calls[0].url.searchParams.get("ownerType")).toBe("party");
     expect(server.calls[0].url.searchParams.get("ownerId")).toBe("p1");
-    expect(headerOf("/api/v1/org/addresses", "X-Passage-LegalEntity")).toBe(LE);
+    expect(headerOf("/api/v1/org/addresses", "X-Depot-LegalEntity")).toBe(LE);
 
     items = [business, invoicePlain];
     expect(await partyAddress("p1", ["invoice", "business"], LE)).toEqual(["1 Office Rd", "Praha"]);

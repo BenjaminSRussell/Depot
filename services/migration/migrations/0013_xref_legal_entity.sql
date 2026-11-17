@@ -1,4 +1,4 @@
--- Legal entity of a cross-reference row (PSG-10, closes the cross-legal-entity risk left by integration track S5).
+-- Legal entity of a cross-reference row (DPT-10, closes the cross-legal-entity risk left by integration track S5).
 -- NULL means tenant-wide master data: the owning service keeps the record without a legal entity (party, product,
 -- item). A row for a record the owning service scopes to one legal entity (customer and vendor roles, open AR items,
 -- the sales orders and invoices an outbound mapping records) carries that legal entity. The loader writes it for the
@@ -15,7 +15,7 @@ ALTER TABLE migration.xref ADD COLUMN legal_entity_id uuid;
 -- widens what a scoped session saw before (nothing): every path that read the table under '*' still sees every row.
 DROP POLICY xref_legal_entity_scope ON migration.xref;
 CREATE POLICY xref_legal_entity_scope ON migration.xref AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')))
-  WITH CHECK (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')))
+  WITH CHECK (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));

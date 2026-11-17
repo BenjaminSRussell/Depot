@@ -75,35 +75,35 @@ CREATE TABLE IF NOT EXISTS journal_batch_line (
 ALTER TABLE journal_name ENABLE ROW LEVEL SECURITY;
 ALTER TABLE journal_name FORCE ROW LEVEL SECURITY;
 CREATE POLICY journal_name_tenant_access ON journal_name AS PERMISSIVE
-    USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-    WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+    USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+    WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 ALTER TABLE journal_batch ENABLE ROW LEVEL SECURITY;
 ALTER TABLE journal_batch FORCE ROW LEVEL SECURITY;
 CREATE POLICY journal_batch_tenant_access ON journal_batch AS PERMISSIVE
-    USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-    WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+    USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+    WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY journal_batch_legal_entity_scope ON journal_batch AS RESTRICTIVE
-    USING (current_setting('passage.legal_entity_scopes', true) = '*'
-           OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+    USING (current_setting('depot.legal_entity_scopes', true) = '*'
+           OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 ALTER TABLE journal_batch_line ENABLE ROW LEVEL SECURITY;
 ALTER TABLE journal_batch_line FORCE ROW LEVEL SECURITY;
 CREATE POLICY journal_batch_line_tenant_access ON journal_batch_line AS PERMISSIVE
-    USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-    WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+    USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+    WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY journal_batch_line_legal_entity_scope ON journal_batch_line AS RESTRICTIVE
-    USING (current_setting('passage.legal_entity_scopes', true) = '*'
-           OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+    USING (current_setting('depot.legal_entity_scopes', true) = '*'
+           OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 -- The app role needs the new tables (0005_grants.sql cannot cover them).
 -- Journal names and batches are never deleted (batches are cancelled); batch
 -- lines are replaced wholesale on edit, so they need DELETE.
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON journal_name, journal_batch TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON journal_batch_line TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON journal_name, journal_batch TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON journal_batch_line TO depot_app';
   END IF;
 END
 $$;

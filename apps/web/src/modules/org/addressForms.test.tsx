@@ -124,11 +124,11 @@ describe("address forms", () => {
       street1: "1 Main St",
       purposes: [{ purpose: "delivery", primary: true }],
     });
-    expect(headerOf(post, "X-Passage-LegalEntity")).toBe("le-1");
+    expect(headerOf(post, "X-Depot-LegalEntity")).toBe("le-1");
     expect(headerOf(post, "Idempotency-Key")).toBeTruthy();
     const patch = callsTo(fetchMock, "PATCH", "/sites/s-1")[0] as [unknown, RequestInit | undefined];
     expect(bodyOf(patch)).toEqual({ version: 3, addressId: "a-1" });
-    expect(headerOf(patch, "X-Passage-LegalEntity")).toBe("le-1");
+    expect(headerOf(patch, "X-Depot-LegalEntity")).toBe("le-1");
     await waitFor(() => expect(screen.queryByRole("form", { name: "Edit address of site DET" })).toBeNull());
     expect(within(table).getByRole("button", { name: "Edit address of site DET" })).toBeInTheDocument();
   });
@@ -192,7 +192,7 @@ describe("address forms", () => {
     const { form } = await openAddress(user, "Add address of site DET");
     const lookup = new URL(String(callsTo(fetchMock, "GET", "/addresses?")[0][0]), "http://x");
     expect(Object.fromEntries(lookup.searchParams)).toEqual({ ownerType: "site", ownerId: "s-1", limit: "100" });
-    expect(headerOf(callsTo(fetchMock, "GET", "/addresses?")[0] as never, "X-Passage-LegalEntity")).toBe("le-1");
+    expect(headerOf(callsTo(fetchMock, "GET", "/addresses?")[0] as never, "X-Depot-LegalEntity")).toBe("le-1");
     expect(within(form).getByText(/not linked to it\. Saving links it/)).toBeInTheDocument();
     expect(within(form).getByLabelText("Street")).toHaveValue("1 Main St");
     expect(within(form).queryByLabelText("Purpose")).toBeNull();
@@ -277,7 +277,7 @@ describe("address forms", () => {
     await user.click(within(form).getByRole("button", { name: "Save address of legal entity USMF" }));
     await waitFor(() => expect(callsTo(fetchMock, "PATCH", "/legal-entities/le-1")).toHaveLength(1));
     expect(bodyOf(callsTo(fetchMock, "POST", "/addresses")[0] as never)).toMatchObject({ ownerType: "legal_entity", ownerId: "le-1", purposes: [{ purpose: "business", primary: true }] });
-    expect(headerOf(callsTo(fetchMock, "POST", "/addresses")[0] as never, "X-Passage-LegalEntity")).toBe("le-1");
+    expect(headerOf(callsTo(fetchMock, "POST", "/addresses")[0] as never, "X-Depot-LegalEntity")).toBe("le-1");
     expect(bodyOf(callsTo(fetchMock, "PATCH", "/legal-entities/le-1")[0] as never)).toEqual({ version: 2, primaryAddressId: "a-1" });
     expect(await within(table).findByRole("button", { name: "Edit address of legal entity USMF" })).toBeInTheDocument();
   });

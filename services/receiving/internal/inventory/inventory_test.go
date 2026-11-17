@@ -11,8 +11,8 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/domain"
 )
 
 const (
@@ -69,7 +69,7 @@ func TestGet_MapsAnOwnershipChangeFromTheJournalAndItsGLEntry(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if r := rec.last(); r.Method != http.MethodGet || r.URL.Path != "/v1/inventory/journals/"+journalID || r.Header.Get("X-Passage-Tenant") != tenantID || r.Header.Get("X-Passage-Duties") != "inventory.read" {
+	if r := rec.last(); r.Method != http.MethodGet || r.URL.Path != "/v1/inventory/journals/"+journalID || r.Header.Get("X-Depot-Tenant") != tenantID || r.Header.Get("X-Depot-Duties") != "inventory.read" {
 		t.Fatalf("request %s %s headers %v", r.Method, r.URL.Path, r.Header)
 	}
 	if got.JournalID != journalID || got.LegalEntityID != legalEntityID || got.VendorID != "V-1" || got.Currency != "USD" || got.AccrualAccount != "2300" ||
@@ -201,7 +201,7 @@ func TestPathsMatchTheInventoryRouteTable(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{`/v1/inventory/journals:`, `/v1/inventory/journals/{id}:`, `x-passage-duty: inventory.read`, `{ name: type, in: query, schema: { $ref: '#/components/schemas/JournalType' } }`} {
+	for _, want := range []string{`/v1/inventory/journals:`, `/v1/inventory/journals/{id}:`, `x-depot-duty: inventory.read`, `{ name: type, in: query, schema: { $ref: '#/components/schemas/JournalType' } }`} {
 		if !strings.Contains(string(spec), want) {
 			t.Fatalf("inventory openapi no longer contains %s; update the paths", want)
 		}

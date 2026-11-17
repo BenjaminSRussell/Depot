@@ -13,13 +13,13 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/quality/internal/api"
-	"github.com/BenjaminSRussell/passage/services/quality/internal/inventory"
-	"github.com/BenjaminSRussell/passage/services/quality/internal/store"
-	"github.com/BenjaminSRussell/passage/services/quality/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/quality/internal/api"
+	"github.com/BenjaminSRussell/depot/services/quality/internal/inventory"
+	"github.com/BenjaminSRussell/depot/services/quality/internal/store"
+	"github.com/BenjaminSRussell/depot/services/quality/migrations"
 )
 
 const (
@@ -102,7 +102,7 @@ func newStore(pool *pgxpool.Pool, getenv func(string) string) (*store.Postgres, 
 		return nil, fmt.Errorf("service signer: %w", err)
 	}
 	if signer == nil {
-		return nil, errors.New("INVENTORY_URL needs PASSAGE_SERVICE_SIGNING_KEY or PASSAGE_SERVICE_SIGNING_KEY_FILE: inventory accepts hold calls only with a signed service token")
+		return nil, errors.New("INVENTORY_URL needs DEPOT_SERVICE_SIGNING_KEY or DEPOT_SERVICE_SIGNING_KEY_FILE: inventory accepts hold calls only with a signed service token")
 	}
 	return st.WithHolds(inventory.New(url, signer, nil)), nil
 }

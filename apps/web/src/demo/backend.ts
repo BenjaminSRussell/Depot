@@ -1,4 +1,4 @@
-// In-browser stand-in for the Passage services, used only by the GitHub Pages demo build (`vite build --mode demo`).
+// In-browser stand-in for the Depot services, used only by the GitHub Pages demo build (`vite build --mode demo`).
 // It patches window.fetch: requests to /api/... are answered by the handlers registered with route(); anything
 // else goes to the network. Handlers live in ./handlers, one file per domain, and keep their data in memory, so
 // a page reload resets the demo.
@@ -98,7 +98,7 @@ export function route(method: string, pattern: string, handler: Handler): void {
   routes.push({ method: method.toUpperCase(), pattern, regex, keys, handler });
 }
 
-/** Requests no handler answered, for checking coverage from the console or Playwright: window.__passageDemoMisses. */
+/** Requests no handler answered, for checking coverage from the console or Playwright: window.__depotDemoMisses. */
 export const misses: string[] = [];
 
 const UNSUPPORTED_READ = "This screen has no sample data in the demo. The demo tour on the home page lists the screens that do.";
@@ -214,7 +214,7 @@ function fakeEventSource(Real: typeof EventSource): typeof EventSource {
 /** Replaces window.fetch (and EventSource) for /api/ requests. Call once, before the app renders. */
 export function installDemoBackend(): void {
   const realFetch = globalThis.fetch.bind(globalThis);
-  (globalThis as { __passageDemoMisses?: string[] }).__passageDemoMisses = misses;
+  (globalThis as { __depotDemoMisses?: string[] }).__depotDemoMisses = misses;
   if (typeof globalThis.EventSource === "function") globalThis.EventSource = fakeEventSource(globalThis.EventSource);
   globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
     const href = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;

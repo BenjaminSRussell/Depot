@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-// Per-operation SLOs (PSG-50, FR-50.1). An operation is one route of one service (the chi route pattern the shared HTTP series
+// Per-operation SLOs (DPT-50, FR-50.1). An operation is one route of one service (the chi route pattern the shared HTTP series
 // carry as the route label, for example /v1/ledger/journal-entries, across every method registered on it: the series have no method label), with its own availability and p95 objectives. The
 // figures are read from the same series as the per-service report; the objectives come from configuration (SLO_OPERATIONS).
 

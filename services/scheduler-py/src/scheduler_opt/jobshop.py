@@ -11,7 +11,7 @@ runs at most one operation at a time. The objective is
 with lambda = lambda_tenths / 10 (default 0.1, BR-23.9). OR-Tools is imported
 lazily so the pure helpers (parser, validator, checker) work without it.
 
-Two extensions follow the Passage resource-network rules (FR-23.13, BR-23.11):
+Two extensions follow the Depot resource-network rules (FR-23.13, BR-23.11):
 
 * an operation may list ``candidates``, the machines it may run on with its
   named ``machine`` first; exactly one is chosen;

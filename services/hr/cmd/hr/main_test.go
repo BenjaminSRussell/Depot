@@ -13,7 +13,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
 )
 
 var (
@@ -119,14 +119,14 @@ func TestPHIReadAuditFromEnv(t *testing.T) {
 		wantOn  bool
 		wantErr string
 	}{
-		{"commercial is off", map[string]string{"PASSAGE_CLOUD_PROFILE": "commercial"}, nil, false, ""},
+		{"commercial is off", map[string]string{"DEPOT_CLOUD_PROFILE": "commercial"}, nil, false, ""},
 		{"unset is off", map[string]string{}, nil, false, ""},
-		{"hipaa overlay is on", map[string]string{"PASSAGE_CLOUD_PROFILE": "commercial+hipaa", "AUDIT_URL": url}, signer, true, ""},
-		{"hipaa overlay needs the audit url", map[string]string{"PASSAGE_CLOUD_PROFILE": "commercial+hipaa"}, signer, false, "AUDIT_URL is required"},
-		{"hipaa overlay needs a signing key", map[string]string{"PASSAGE_CLOUD_PROFILE": "commercial+hipaa", "AUDIT_URL": url}, nil, false, "SIGNING_KEY"},
-		{"switch forces it on", map[string]string{"PASSAGE_PHI_READ_AUDIT": "true", "AUDIT_URL": url}, signer, true, ""},
-		{"switch forces it off", map[string]string{"PASSAGE_CLOUD_PROFILE": "commercial+hipaa", "PASSAGE_PHI_READ_AUDIT": "false"}, nil, false, ""},
-		{"unknown profile fails closed", map[string]string{"PASSAGE_CLOUD_PROFILE": "nowhere+hipaa"}, signer, false, "unknown cloud profile"},
+		{"hipaa overlay is on", map[string]string{"DEPOT_CLOUD_PROFILE": "commercial+hipaa", "AUDIT_URL": url}, signer, true, ""},
+		{"hipaa overlay needs the audit url", map[string]string{"DEPOT_CLOUD_PROFILE": "commercial+hipaa"}, signer, false, "AUDIT_URL is required"},
+		{"hipaa overlay needs a signing key", map[string]string{"DEPOT_CLOUD_PROFILE": "commercial+hipaa", "AUDIT_URL": url}, nil, false, "SIGNING_KEY"},
+		{"switch forces it on", map[string]string{"DEPOT_PHI_READ_AUDIT": "true", "AUDIT_URL": url}, signer, true, ""},
+		{"switch forces it off", map[string]string{"DEPOT_CLOUD_PROFILE": "commercial+hipaa", "DEPOT_PHI_READ_AUDIT": "false"}, nil, false, ""},
+		{"unknown profile fails closed", map[string]string{"DEPOT_CLOUD_PROFILE": "nowhere+hipaa"}, signer, false, "unknown cloud profile"},
 	}
 	for _, c := range tests {
 		rec, err := phiReadAuditFromEnv(envOf(c.env), c.signer)
@@ -155,7 +155,7 @@ func TestSubcommandsLogThroughThePseudonymizer(t *testing.T) {
 	if strings.Contains(buf.String(), "ann@example.com") || !strings.Contains(buf.String(), `"service":"hr"`) {
 		t.Fatalf("log line: %s", buf.String())
 	}
-	if err := setupLogging(&buf, envOf(map[string]string{"PASSAGE_CLOUD_PROFILE": "nope"})); err == nil {
+	if err := setupLogging(&buf, envOf(map[string]string{"DEPOT_CLOUD_PROFILE": "nope"})); err == nil {
 		t.Fatal("a bad profile must stop the command, not log raw values")
 	}
 }

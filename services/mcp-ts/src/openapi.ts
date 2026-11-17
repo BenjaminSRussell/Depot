@@ -3,7 +3,7 @@ import { isObject, stripTenantId, type ApprovalMode, type HttpMethod, type JsonO
 const VERBS = ["get", "post", "put", "patch", "delete"] as const;
 
 /**
- * Generates tools from every OpenAPI operation that carries x-passage-tool.
+ * Generates tools from every OpenAPI operation that carries x-depot-tool.
  * Path and query parameters and the JSON request body become the input schema.
  * tenant_id is removed from it (FR-47.1): the tenant comes from the caller's token.
  * Header parameters are skipped; the gateway sets the headers itself.
@@ -15,7 +15,7 @@ export function toolsFromOpenApi(doc: JsonObject): ToolDefinition[] {
     if (!isObject(item)) continue;
     for (const verb of VERBS) {
       const op = item[verb];
-      if (!isObject(op) || typeof op["x-passage-tool"] !== "string") continue;
+      if (!isObject(op) || typeof op["x-depot-tool"] !== "string") continue;
       out.push(toolFromOperation(path, verb.toUpperCase() as HttpMethod, op));
     }
   }
@@ -23,10 +23,10 @@ export function toolsFromOpenApi(doc: JsonObject): ToolDefinition[] {
 }
 
 function toolFromOperation(path: string, method: HttpMethod, op: JsonObject): ToolDefinition {
-  const name = String(op["x-passage-tool"]);
-  const duty = op["x-passage-duty"];
-  if (typeof duty !== "string") throw new Error(`${name}: x-passage-duty is required`);
-  const approval = (typeof op["x-passage-approval"] === "string" ? op["x-passage-approval"] : "none") as ApprovalMode;
+  const name = String(op["x-depot-tool"]);
+  const duty = op["x-depot-duty"];
+  if (typeof duty !== "string") throw new Error(`${name}: x-depot-duty is required`);
+  const approval = (typeof op["x-depot-approval"] === "string" ? op["x-depot-approval"] : "none") as ApprovalMode;
 
   const properties: JsonObject = {};
   const required: string[] = [];
@@ -51,7 +51,7 @@ function toolFromOperation(path: string, method: HttpMethod, op: JsonObject): To
   return {
     name,
     description: typeof op.summary === "string" ? op.summary : name,
-    version: typeof op["x-passage-version"] === "number" ? op["x-passage-version"] : 1,
+    version: typeof op["x-depot-version"] === "number" ? op["x-depot-version"] : 1,
     method,
     path,
     sourceRef: typeof op.operationId === "string" ? op.operationId : `${method} ${path}`,

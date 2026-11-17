@@ -22,7 +22,7 @@ spec:
         any:
           - resources:
               kinds: [Pod, Pod/ephemeralcontainers]
-              namespaces: [hello-ledger, passage-*]
+              namespaces: [hello-ledger, depot-*]
       validate:
         failureAction: Enforce
         message: Images under REGISTRY_HOST/ must be referenced by @sha256 digest, not a mutable tag.
@@ -68,7 +68,7 @@ spec:
         any:
           - resources:
               kinds: [Pod, Pod/ephemeralcontainers]
-              namespaces: [hello-ledger, passage-*]
+              namespaces: [hello-ledger, depot-*]
       verifyImages:
         - type: Cosign
           failureAction: Enforce

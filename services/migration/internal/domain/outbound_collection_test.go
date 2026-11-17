@@ -8,11 +8,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/services/migration/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/domain"
 )
 
 const linesDef = `{
-  "eventType": "dev.passage.sales.order.*.v1",
+  "eventType": "dev.depot.sales.order.*.v1",
   "xrefs": [{"name": "customer", "entity": "customer", "idPath": "data.customer_id"}],
   "decimalsAsNumbers": true,
   "mapping": {"entity": "SalesOrder", "fields": [
@@ -290,7 +290,7 @@ func TestOutboundCollection_DefinitionRefusals(t *testing.T) {
 }
 
 // A collection that names a subject lists one ref per element after the header's, with the position the hub pairs
-// the legacy ERP's answer to; an element without a Passage id is unresolved rather than pushed unrecordable.
+// the legacy ERP's answer to; an element without a Depot id is unresolved rather than pushed unrecordable.
 func TestOutboundCollection_SubjectRefsOfEveryLine(t *testing.T) {
 	withSubject := strings.Replace(strings.Replace(linesDef, `"maxItems": 3,`, `"maxItems": 3, "subject": {"entity": "salesOrderLine", "idPath": "id"},`, 1),
 		`"decimalsAsNumbers": true,`, `"subject": {"entity": "salesOrder", "idPath": "data.order_id"}, "decimalsAsNumbers": true,`, 1)

@@ -10,10 +10,10 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/tools/migration-factory/internal/domain"
-	"github.com/BenjaminSRussell/passage/tools/migration-factory/internal/target"
-	"github.com/BenjaminSRussell/passage/tools/migration-factory/internal/target/targettest"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/tools/migration-factory/internal/domain"
+	"github.com/BenjaminSRussell/depot/tools/migration-factory/internal/target"
+	"github.com/BenjaminSRussell/depot/tools/migration-factory/internal/target/targettest"
 )
 
 const (
@@ -123,7 +123,7 @@ func TestLoadBatch_RefusedRowKeepsTargetCode(t *testing.T) {
 		res[2].Outcome != target.OutcomeCreated || res[3].Code != "AR-OPENING-DUPLICATE-KEY" {
 		t.Fatalf("results %+v", res)
 	}
-	// A key settled in Passage: the snapshot is refused for it.
+	// A key settled in Depot: the snapshot is refused for it.
 	f.Settled["src|OK"] = true
 	changed := row("OK", "9")
 	res, _ = c.LoadBatch(context.Background(), tid, le, "src", "k2", []domain.ReceivablesRow{changed})

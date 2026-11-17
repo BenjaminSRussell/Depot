@@ -9,13 +9,13 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/money"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/intercompany/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/intercompany/internal/partyclient"
-	"github.com/BenjaminSRussell/passage/services/intercompany/internal/taxclient"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/money"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/intercompany/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/intercompany/internal/partyclient"
+	"github.com/BenjaminSRussell/depot/services/intercompany/internal/taxclient"
 )
 
 // RegistryStore persists what the earlier slices took in every request: the entity registry, the accounting matrix, the transfer

@@ -10,12 +10,12 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/productcost/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/productcost/internal/inventory"
-	"github.com/BenjaminSRussell/passage/services/productcost/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/productcost/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/productcost/internal/inventory"
+	"github.com/BenjaminSRussell/depot/services/productcost/internal/store"
 )
 
 // Slice 5: the persisted cost structure (FR-39.1) and costing versions

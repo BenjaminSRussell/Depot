@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	pevents "github.com/BenjaminSRussell/passage/platform/events"
+	pevents "github.com/BenjaminSRussell/depot/platform/events"
 )
 
 func readSpec(t *testing.T) string {
@@ -22,7 +22,7 @@ func readSpec(t *testing.T) string {
 
 func TestAsyncAPIDeclaresEveryEvent(t *testing.T) {
 	declared := map[string]bool{}
-	for _, m := range regexp.MustCompile(`x-passage-type: (\S+)`).FindAllStringSubmatch(readSpec(t), -1) {
+	for _, m := range regexp.MustCompile(`x-depot-type: (\S+)`).FindAllStringSubmatch(readSpec(t), -1) {
 		declared[m[1]] = true
 	}
 	for _, typ := range All() {

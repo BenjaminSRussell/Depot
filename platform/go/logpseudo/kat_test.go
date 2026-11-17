@@ -3,8 +3,8 @@ package logpseudo_test
 import (
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/fieldcrypt"
-	"github.com/BenjaminSRussell/passage/platform/logpseudo"
+	"github.com/BenjaminSRussell/depot/platform/fieldcrypt"
+	"github.com/BenjaminSRussell/depot/platform/logpseudo"
 )
 
 // Known answers shared with services/agents-ts/test/logging.test.ts and services/dispatch-py/tests/test_logpseudo.py:

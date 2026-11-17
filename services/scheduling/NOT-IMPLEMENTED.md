@@ -1,4 +1,4 @@
-# NOT-IMPLEMENTED — scheduling and scheduler-py (PSG-23, wave 23)
+# NOT-IMPLEMENTED — scheduling and scheduler-py (DPT-23, wave 23)
 
 Slice 1 builds: resources with weekly site-local calendars and open capacity
 materialized in UTC on read (DST-correct); schedulable operations with candidate
@@ -262,8 +262,8 @@ those jobs are not moved automatically, the planner moves them or runs the
 schedule again. Until then every Gantt bar that lies outside its resource's
 open capacity, calendar and overrides applied, carries `outsideCapacity`
 (SCHED-0002) and the workspace outlines it and badges it in the jobs table.
-EAM downtime (PSG-44, #44 AC4): `scheduling consume` reads
-`dev.passage.eam.downtime.recorded.v1` from `passage.eam.downtime` (the
+EAM downtime (DPT-44, #44 AC4): `scheduling consume` reads
+`dev.depot.eam.downtime.recorded.v1` from `depot.eam.downtime` (the
 `outbox-eam` connector in `deploy/kafka/connect.yaml`) and books a `downtime`
 override on the resource named by the event, through the same store call as
 the route. It runs as `service:scheduling-downtime` (`tenant.ServicePrincipal`;
@@ -271,14 +271,14 @@ duty table `service_principals` in `policies/authz/data.json`, holding only
 `scheduling.downtime.apply`, which is also seeded for the one overrides POST
 route). The tenant comes from the event; the resource is read under that
 tenant's RLS, so a resource of another tenant or an unknown one is not found
-and the event is dead-lettered to `passage.eam.downtime.dlq` at once (so are
+and the event is dead-lettered to `depot.eam.downtime.dlq` at once (so are
 bad data and a window over 31 days). Scheduling has no legal-entity column,
 so there is no legal-entity check beyond the tenant. Idempotent twice over:
 the `consumer_inbox` row for the event id (migration `0010`) and the override
 idempotency key `eam-downtime:{downtimeId}`, so a republished event with a new
 id books nothing more. The window is widened to whole minutes (start down, end
 up) and split into consecutive spans of at most 31 days, keyed `eam-downtime:{id}` then `:{n}`. Booked jobs the window overlaps are listed in the log and the
-`capacityoverride.created` event, not moved, as for the route. EAM's `resourceId` is the asset's `production_resource_id`, which must be a scheduling resource id; EAM has no scheduling lookup, so it is not checked on asset save (documented in `asyncapi.yaml`) and a wrong one is dead-lettered. Alert on `event_consumer_dead_lettered_total{consumer="scheduling-downtime"}` > 0 (a non-empty `passage.eam.downtime.dlq`); replay per `platform/go/eventing/README.md`. Deploy: `consumer.enabled` in the chart, a
+`capacityoverride.created` event, not moved, as for the route. EAM's `resourceId` is the asset's `production_resource_id`, which must be a scheduling resource id; EAM has no scheduling lookup, so it is not checked on asset save (documented in `asyncapi.yaml`) and a wrong one is dead-lettered. Alert on `event_consumer_dead_lettered_total{consumer="scheduling-downtime"}` > 0 (a non-empty `depot.eam.downtime.dlq`); replay per `platform/go/eventing/README.md`. Deploy: `consumer.enabled` in the chart, a
 `KafkaUser` `scheduling-consumer` (`deploy/kafka/scheduling-consumer.yaml`)
 whose secret (key `password`, plus the cluster CA as `ca.crt`) must be copied
 into the release namespace. Not built: planned downtime of RELEASED work
@@ -371,8 +371,8 @@ left out as `unknown-resource` and the order shows as `rejected` until
 resources are mapped (done in slice 19, below).
 `scheduling consume` runs a second consumer, `scheduling-order-import`, with
 its own Kafka group (`KAFKA_ORDER_GROUP`), principal, duty and dead-letter
-topic `passage.production.order.dlq`, reading
-`dev.passage.production.order.scheduled.v1` from `passage.production.order`;
+topic `depot.production.order.dlq`, reading
+`dev.depot.production.order.scheduled.v1` from `depot.production.order`;
 the handler refuses any principal without `scheduling.order.import` (the
 downtime principal included). Events with reason `finite` (wave 21 slice 20:
 production applying scheduling's own finite-capacity dates) are acknowledged
@@ -545,10 +545,10 @@ from slices 16 to 20 lie outside it:
 | `policies/authz/data.json`: resource rows `/v1/scheduling/late-orders` and `/v1/scheduling/runs/*/kpis` (GET) under `scheduling.read` | done (seeded in `policies/authz/data.json`) | GET `/v1/scheduling/late-orders` and `/v1/scheduling/runs/*/kpis` are rows of `scheduling.read`. |
 | `policies/authz/data.json`: resource rows `/v1/scheduling/order-imports` and `/v1/scheduling/order-imports/*` (GET) under `scheduling.read` | done (seeded in `policies/authz/data.json`) | Both GET routes are rows of `scheduling.read`. |
 | `platform/go/tenant/serviceprincipal.go` `servicePrincipals` and `policies/authz/data.json` `service_principals` (kept equal by `TestServicePrincipalTableMatchesPolicyData`): `"scheduling-order-import": ["scheduling.order.import"]`; the duty `scheduling.order.import` (no resource rows: no route uses it) | done (seeded on main, 6de0ddb2) | The order intake consumer starts on its own group at the earliest retained offset. |
-| `deploy/kafka/scheduling-consumer.yaml`: ACLs for `KafkaUser` `scheduling-consumer`: Read, Describe on topic `passage.production.order` and group `scheduling-order-import`; Write, Describe on `passage.production.order.dlq`; a `KafkaTopic` `passage.production.order.dlq` like the downtime one. `deploy/kafka/connect.yaml`: an outbox connector for `passage_production` publishing `passage.production.<aggregate_type>` keyed by aggregate id | handoff — deploy owner (#313) | No production outbox connector exists yet, so nothing reaches `passage.production.order`. Alert on `event_consumer_dead_lettered_total{consumer="scheduling-order-import"}` > 0. |
+| `deploy/kafka/scheduling-consumer.yaml`: ACLs for `KafkaUser` `scheduling-consumer`: Read, Describe on topic `depot.production.order` and group `scheduling-order-import`; Write, Describe on `depot.production.order.dlq`; a `KafkaTopic` `depot.production.order.dlq` like the downtime one. `deploy/kafka/connect.yaml`: an outbox connector for `depot_production` publishing `depot.production.<aggregate_type>` keyed by aggregate id | handoff — deploy owner (#313) | No production outbox connector exists yet, so nothing reaches `depot.production.order`. Alert on `event_consumer_dead_lettered_total{consumer="scheduling-order-import"}` > 0. |
 | Mapping production (engineering, wave 09) resource ids to scheduling resources | done (slice 19) | `scheduling_resource.engineering_resource_id`, set on `POST /resources` and `PATCH /resources/{id}`; the intake resolves a job's resource through it first and by scheduling id second. A wave 9 feed that creates the mappings automatically is still a handoff (below). |
 | `policies/authz/data.json`: resource row `/v1/scheduling/order-imports/*:reimport` (POST) under `scheduling.schedule.write` (an existing duty) | done (seeded in `policies/authz/data.json`) | `POST /v1/scheduling/order-imports/{orderId}:reimport` uses the existing duty `scheduling.schedule.write`; no new duty. |
-| `services/production/internal/store/journal.go` `logStatus`: set `startDate`/`endDate` on the statuschanged of auto-start and report as finished (slice 20) | handoff — wave 21 | Those events carry null dates for a dated order. Scheduling withdraws only on a move to Estimated, Created or Cancelled, so it is not affected; consumers that read the dates are. No new route, duty or topic: the event is on `passage.production.order`, which the order intake already reads. |
+| `services/production/internal/store/journal.go` `logStatus`: set `startDate`/`endDate` on the statuschanged of auto-start and report as finished (slice 20) | handoff — wave 21 | Those events carry null dates for a dated order. Scheduling withdraws only on a move to Estimated, Created or Cancelled, so it is not affected; consumers that read the dates are. No new route, duty or topic: the event is on `depot.production.order`, which the order intake already reads. |
 
 Slice 22 builds the per-order schedule command (FR-23.11, scope `order`):
 `POST /v1/scheduling/orders/{orderId}:schedule` (existing duty
@@ -561,7 +561,7 @@ on the production order page. No migration (the scope check already allowed
 | Item | Status | Reason |
 |---|---|---|
 | `policies/authz/data.json`: resource row `/v1/scheduling/orders/*:schedule` (POST) under `scheduling.run` (an existing duty) | handoff - main session (authz seed) | The route uses the existing duty of `POST /v1/scheduling/runs`; only the route row is new. Until it is seeded the gateway refuses the button on the production order page with 403. |
-| Per-order run started automatically by production's `:schedule` transition (FR-23.11 "on `:schedule`") | open - product decision, later slice of PSG-23 | The order intake registers the operations on `order.scheduled.v1` but does not run the heuristic for them; whether every production `:schedule` should place the order at once (and with which direction and finite setting) is not settled by the PRD. Today a planner presses "Schedule this order" (or starts a run). |
+| Per-order run started automatically by production's `:schedule` transition (FR-23.11 "on `:schedule`") | open - product decision, later slice of DPT-23 | The order intake registers the operations on `order.scheduled.v1` but does not run the heuristic for them; whether every production `:schedule` should place the order at once (and with which direction and finite setting) is not settled by the PRD. Today a planner presses "Schedule this order" (or starts a run). |
 
 Slice 23 builds operation maintenance and taking an order off the schedule
 (FR-23.4, FR-23.11). Until now an operation could only be created, so a wrong
@@ -602,7 +602,7 @@ The OpenAPI and AsyncAPI specs have no FAIL lines on the doc gates.
 |---|---|---|
 | `policies/authz/data.json`: resource rows `/v1/scheduling/operations/*` GET under `scheduling.read`, PATCH and DELETE under `scheduling.schedule.write` | handoff - main session (authz seed) | Existing duties; only the route rows are new. Until seeded the gateway answers 403 for the operation detail page, its save and delete. |
 | `policies/authz/data.json`: resource row `/v1/scheduling/orders/*:unschedule` (POST) under `scheduling.schedule.write` | handoff - main session (authz seed) | Existing duty; only the route row is new. Until seeded the "Take the order off the schedule" button gets 403. The duty is Maintain schedule (like `:move`, `:firm` and `:reimport`, which also take jobs off the schedule), not Run scheduling of the per-order `:schedule`: placing an order is a run, removing its placements is schedule maintenance. Product decision open for Ben. |
-| Event `order.unscheduled` / `operation.updated` consumers (production dates cleared when an order is taken off the schedule) | handoff - wave 21 | Production keeps the dates of the last `job.scheduled` / `orderdates.changed` until it reads these events; nothing in this wave clears them. The outbox aggregate types are the new `operation` and `order`; deploy/kafka has no scheduling outbox connector yet, so the topics `passage.scheduling.operation` and `passage.scheduling.order` follow whenever that connector is added (deploy owner). |
+| Event `order.unscheduled` / `operation.updated` consumers (production dates cleared when an order is taken off the schedule) | handoff - wave 21 | Production keeps the dates of the last `job.scheduled` / `orderdates.changed` until it reads these events; nothing in this wave clears them. The outbox aggregate types are the new `operation` and `order`; deploy/kafka has no scheduling outbox connector yet, so the topics `depot.scheduling.operation` and `depot.scheduling.order` follow whenever that connector is added (deploy owner). |
 
 Slice 24 builds scheduling parameters (PRD 4.23.13 site parameters, tenant-wide):
 `GET /v1/scheduling/parameters` (duty `scheduling.read`, ETag with the version)
@@ -622,7 +622,7 @@ value wins; a failed read of the parameters fails the run instead of using other
 defaults); a propagated `:move` walks the pegs to the stored limits and its
 SCHED-0007 message names them. Event `parameters.updated` through the outbox
 (AsyncAPI documents it). Migration `0018_scheduling_parameters.sql` adds the
-table with tenant RLS and `SELECT, INSERT, UPDATE` for `passage_app`. Web: a
+table with tenant RLS and `SELECT, INSERT, UPDATE` for `depot_app`. Web: a
 Parameters page (`/scheduling/parameters`, loading, error with retry, stale
 version message with a reload, field errors, the missing-duty hint), the new run
 form starts from the defaults (a planner's own choices win), and the Gantt drags
@@ -835,7 +835,7 @@ rollback and a concurrent run serialize rather than deadlock. It publishes `job.
 and `run.completed` (scope `rollback`, `rolledBackToRunId`) through the outbox.
 Migration `0021_run_snapshots.sql`: `schedule_run.snapshot` and `rollback_of`, the
 scope check gains `rollback`, new table `schedule_run_job` (tenant and RLS policy,
-`GRANT SELECT, INSERT` to `passage_app`: the store only inserts and reads it).
+`GRANT SELECT, INSERT` to `depot_app`: the store only inserts and reads it).
 Web: the run detail page has Compare with another run and Roll back to this run
 (confirmation, skipped jobs listed, refusals shown); a new compare page at
 `/scheduling/runs/:id/compare` picks the other run and shows the measures side by
@@ -845,10 +845,10 @@ no FAIL lines on the doc gates.
 | Item | Status | Reason |
 |---|---|---|
 | `policies/authz/data.json`: resource row `/v1/scheduling/runs/*/compare` (GET) under `scheduling.read` and resource row `/v1/scheduling/runs/*:rollback` (POST) under `scheduling.run` | handoff - main session (authz seed) | Existing duties; only the route rows are new. Until seeded the compare page and the Roll back button answer 403. |
-| Retention of `schedule_run_job` (it grows by the placed segments of every run) | later slice of PSG-23 | Nothing prunes old snapshots; a site run of 5,000 operations adds a few thousand rows. A keep-the-last-N-runs job needs the job runner (FR-23.11). |
-| Snapshots of Gantt moves, and of runs before this slice | later slice of PSG-23 | A move changes one order's jobs; rolling back to one is not defined. Older runs stay as history rows only. |
-| Rollback of operations the run left unplaced, and a rollback that also moves jobs of other operations out of the way | later slice of PSG-23 | Only the jobs the run placed are restored; an overlap with a booking made since, or a SCHED-0146 break, refuses the rollback instead of re-planning around it. |
-| Rollback re-checks not done: resource efficiency changed since the run (job lengths), network transfer time and maximum wait (BR-23.11), a setup matrix version that changed between the run's day and the restored jobs' day, and jobs restored into the past | later slice of PSG-23 | The checks above cover what the Gantt flags and what runs and moves refuse; efficiency and network waits are not flagged on existing jobs either, and runs themselves accept a start in the past. |
+| Retention of `schedule_run_job` (it grows by the placed segments of every run) | later slice of DPT-23 | Nothing prunes old snapshots; a site run of 5,000 operations adds a few thousand rows. A keep-the-last-N-runs job needs the job runner (FR-23.11). |
+| Snapshots of Gantt moves, and of runs before this slice | later slice of DPT-23 | A move changes one order's jobs; rolling back to one is not defined. Older runs stay as history rows only. |
+| Rollback of operations the run left unplaced, and a rollback that also moves jobs of other operations out of the way | later slice of DPT-23 | Only the jobs the run placed are restored; an overlap with a booking made since, or a SCHED-0146 break, refuses the rollback instead of re-planning around it. |
+| Rollback re-checks not done: resource efficiency changed since the run (job lengths), network transfer time and maximum wait (BR-23.11), a setup matrix version that changed between the run's day and the restored jobs' day, and jobs restored into the past | later slice of DPT-23 | The checks above cover what the Gantt flags and what runs and moves refuse; efficiency and network waits are not flagged on existing jobs either, and runs themselves accept a start in the past. |
 
 ## Slice 30: materialized capacity load and bottleneck episodes (PRD 4.23.14, AC-23.6, SCHED-0015)
 
@@ -878,7 +878,7 @@ the service configuration).
 
 `scheduling_bottleneck_episode` records a stretch with flagged weeks from the
 current week on. When a rewrite finds such a week and the resource has no open
-episode, it opens one and writes `dev.passage.scheduling.bottleneck.detected.v1`
+episode, it opens one and writes `dev.depot.scheduling.bottleneck.detected.v1`
 (episode, resource id and code, first week, flagged weeks, `periods[]` with
 each flagged week's load, peak load, rule) through the outbox in the same
 transaction; later runs that still find the resource overloaded add nothing.
@@ -912,11 +912,11 @@ gates.
 | Item | Status | Reason |
 |---|---|---|
 | `policies/authz/data.json`: resource rows `/v1/scheduling/bottlenecks` (GET) and `/v1/scheduling/bottlenecks/*` (GET) under `scheduling.read`, and resource row `/v1/scheduling/capacity-load:refresh` (POST) under `scheduling.run` | handoff - main session (authz seed) | Existing duties; only the route rows are new (no new duty, nothing for #313). Until seeded the gateway answers 403 for the Bottlenecks pages and the rebuild button. |
-| Kafka topic `passage.scheduling.bottleneck` (outbox aggregate type `bottleneck`) and a consumer that notifies planners | handoff - deploy owner (#313) and a notification wave | Nothing consumes `bottleneck.detected` yet; if topics are created ahead of time this one is new. |
-| `bottleneck.cleared` event | later slice of PSG-23 | The PRD names only `bottleneck.detected`. An episode whose weeks pass is reported closed on read and stored closed on the next rewrite; there is no timer that writes the close at the moment (FR-23.11 job runner), so nothing is published then. |
+| Kafka topic `depot.scheduling.bottleneck` (outbox aggregate type `bottleneck`) and a consumer that notifies planners | handoff - deploy owner (#313) and a notification wave | Nothing consumes `bottleneck.detected` yet; if topics are created ahead of time this one is new. |
+| `bottleneck.cleared` event | later slice of DPT-23 | The PRD names only `bottleneck.detected`. An episode whose weeks pass is reported closed on read and stored closed on the next rewrite; there is no timer that writes the close at the moment (FR-23.11 job runner), so nothing is published then. |
 | Bookings spanning more than 260 weeks on one resource | accepted | Only the latest 260 weeks are materialized (the oldest history drops out, never the weeks ahead); runs reach 730 days ahead. |
 | Weeks in the resource's local time instead of UTC | decision for Ben | Kept UTC to match the existing weekly `GET /capacity-load` and the bottleneck flag it shows; local weeks would change both. |
-| Reading `GET /capacity-load` from the table, and load by resource group | later slice of PSG-23 | The read still computes from bookings and the calendar, so a request with another threshold or weeks with no bookings is exact; the table serves the episodes. |
+| Reading `GET /capacity-load` from the table, and load by resource group | later slice of DPT-23 | The read still computes from bookings and the calendar, so a request with another threshold or weeks with no bookings is exact; the table serves the episodes. |
 
 ## Slice 31: operations mode in daily buckets (FR-23.2)
 
@@ -951,8 +951,8 @@ maximum wait) and `store/dailybuckets_test.go` (run end to end on Postgres).
 
 | Item | Status | Reason |
 |---|---|---|
-| Day-level capacity check in operations mode (a day bucket that refuses a job once its open minutes are used, instead of splitting it to the minute) | later slice of PSG-23 | Slice 31 aligns followers to day boundaries; the minutes still book exactly in open intervals, as FR-23.1 and the GiST invariant need. |
-| Mode on the CP-SAT campaign path | later slice of PSG-23 | The campaign sequencer ignores mode; campaign jobs are placed to the minute. Slice 32 covers the per-order command and moves. |
+| Day-level capacity check in operations mode (a day bucket that refuses a job once its open minutes are used, instead of splitting it to the minute) | later slice of DPT-23 | Slice 31 aligns followers to day boundaries; the minutes still book exactly in open intervals, as FR-23.1 and the GiST invariant need. |
+| Mode on the CP-SAT campaign path | later slice of DPT-23 | The campaign sequencer ignores mode; campaign jobs are placed to the minute. Slice 32 covers the per-order command and moves. |
 | Day boundary of the follower's resource, not the predecessor's | decision for Ben | When the two resources are in different time zones the follower waits for midnight where it runs (a predecessor ending 10:00 UTC lets a New York follower start 05:00 UTC the next day). |
 | Queue times and transfer counted in minutes before the day is rounded | decision for Ben | A queue that ends after midnight moves the follower one more day; the alternative, whole days of queue on top of the next day, was not chosen. |
 | Overlap applied by the day | decision for Ben | With an overlap quantity (BR-23.5) the follower may start the day after the overlap share is through, while the predecessor still runs, and never ends before it; the alternative is to ignore overlap in operations mode. |
@@ -1027,7 +1027,7 @@ AsyncAPI specs pass the doc gates with no FAIL lines.
 | `policies/authz/data.json`: resource row `/v1/scheduling/network-feasibility` (GET) under `scheduling.read` | handoff - main session (authz seed) | Existing duty; only the route row is new. Until it is seeded the route and the page answer 403 for roles that rely on the resource rows. |
 | Findings of runs older than the retention of `schedule_run`, and moves | accepted | Move runs record other messages (overrides, truncation), not network findings; a move that breaks a network is refused with SCHED-0009 and is not stored. The inquiry covers what site, selection and order runs recorded. |
 | Findings by the operation's network at the time of the run | accepted | The network and order shown are those of the operation today; an operation moved to another network, or deleted, shows the current values (null when deleted). |
-| Operation attributes of the finding such as the failing resource pair and the queue/wait figures as fields | later slice of PSG-23 | They are inside the `detail` text the scheduler wrote; no structured fields are stored on the run. |
+| Operation attributes of the finding such as the failing resource pair and the queue/wait figures as fields | later slice of DPT-23 | They are inside the `detail` text the scheduler wrote; no structured fields are stored on the run. |
 | Network filter on the predecessors of a failed chain | accepted | The filter keeps findings of operations that follow the network now. When a chain fails at an operation of network N, its earlier operations are also flagged SCHED-0009; those that follow no network (or another one) are left out under `networkId=N`, while the failing operation, and so the order, is listed. |
 | Default date range and an index for the scan | accepted | With no `from`/`to` the inquiry reads the messages and warnings of every run of the tenant (twice: totals and page). `from`/`to` use the existing `schedule_run_created` index; the page leaves both open by default. |
 | Date range on the time the run was made | decision for Ben | PRD 4.23.14 says only "date range"; the slice filters on when the run was made, not on the dates of the jobs the finding is about (an unplaced operation has no job date). |
@@ -1053,7 +1053,7 @@ specs pass the doc gates with no FAIL lines.
 | Item | Status | Reason |
 |---|---|---|
 | `policies/authz/data.json`: resource row `/v1/scheduling/block-utilization` (GET) under `scheduling.read` | handoff - main session (authz seed) | Existing duty; only the route row is new. Until it is seeded the route and the page answer 403 for roles that rely on the resource rows. |
-| Utilization by period (week or day buckets) inside the range and by resource group | later slice of PSG-23 | The report gives one total per block for the whole range; groups come from wave 9. |
+| Utilization by period (week or day buckets) inside the range and by resource group | later slice of DPT-23 | The report gives one total per block for the whole range; groups come from wave 9. |
 | Paging beyond 200 resources | accepted | The page tells the planner to pick a resource. The report reuses the per-resource read, about four queries per resource (resource, overrides, blocks, booked jobs), so a full report is up to some 800 small queries in one transaction; the 62-day cap keeps each one small. |
 | Days on the page are UTC days | accepted | The page sends UTC midnights for the first day and the day after the last, like the capacity load page; a resource in another time zone gets its windows cut at UTC midnight. The API takes any RFC 3339 instants. |
 | Blocks with no window in the range | decision for Ben | A block whose windows all fall outside the range has no row (the report lists what the range holds); a block whose windows are fully taken by higher-priority blocks or closed calendar time has a row with 0 held minutes and no share. |
@@ -1074,7 +1074,7 @@ new endpoint, no new duty.
 
 | Item | Status | Reason |
 |---|---|---|
-| Secondary bookings counted in the block-utilization inquiry and report | later slice of PSG-23 | Blocks match the operation's attributes on the resource a job runs on; whether a secondary booking should use up a block of the secondary resource is a rule the PRD does not state. |
+| Secondary bookings counted in the block-utilization inquiry and report | later slice of DPT-23 | Blocks match the operation's attributes on the resource a job runs on; whether a secondary booking should use up a block of the secondary resource is a rule the PRD does not state. |
 | Dragging a secondary bar to move the job | accepted | The job has one start; moving it from its secondary row would need a rule for which resource the new start applies to. Use the primary bar or the Move form. |
 
 ## Slice 36: cleanout counters and their manual reset (FR-23.15, BR-23.13)
@@ -1117,7 +1117,7 @@ under `scheduling.campaign.write`,
 | Item | Status | Reason |
 |---|---|---|
 | Reset of a counter to a chosen value (a partial cleanout) | accepted | A cleanout empties the resource; setting an arbitrary count would be a correction, not a cleanout. |
-| Re-sequencing the stale campaigns from the reset | later slice of PSG-23 | The planner opens each campaign and sequences it again; a bulk command would also change plans nobody reviewed. |
+| Re-sequencing the stale campaigns from the reset | later slice of DPT-23 | The planner opens each campaign and sequences it again; a bulk command would also change plans nobody reviewed. |
 | Resetting from a wave 25 shop-floor cleanout confirmation | handoff — wave 25 | The reset is a planner command until shop-floor feedback publishes a cleanout event. |
 
 ## Slice 37: a sequenced campaign placed on its resource (FR-23.14, BR-23.13)
@@ -1135,7 +1135,7 @@ never split across closed time (BR-23.13): when the open interval cannot hold
 it, the whole window moves to the next one that can, and the next order starts
 behind it. The window lives in `scheduling_campaign_cleanout` (migration
 `0024_campaign_placement.sql`: the table with tenant RLS and SELECT, INSERT,
-DELETE for `passage_app`; `placed_at`, `placed_run_id` on the campaign;
+DELETE for `depot_app`; `placed_at`, `placed_run_id` on the campaign;
 `operation_id` on the campaign order; scope `campaign` on `schedule_run`) and
 every read of a resource's overrides adds it as a downtime, so runs, moves, the
 capacity inquiry, block utilization and the weekly load treat it as closed
@@ -1184,11 +1184,11 @@ resources.
 |---|---|---|
 | `policies/authz/data.json`: resource rows `/v1/scheduling/campaigns/*:place` and `/v1/scheduling/campaigns/*:unplace` (POST) under `scheduling.schedule.write` (an existing duty) | handoff - main session (authz seed) | The matcher treats `/` and `:` as separators, so the existing campaign rows do not cover them. Only the route rows are new (no new duty, nothing for #313). Until seeded the gateway answers 403 and the Place on schedule and Take off schedule buttons show the error. |
 | Cleanout orders for the windows (`campaign.placed` carries each window with its start and end) | handoff - wave 21 | Production creates the lightweight cleanout order for exactly the placed window; scheduling holds the time and nothing else. |
-| Consumers of `campaign.placed` / `campaign.unplaced` (production dates, planning) | handoff - waves 21 and 22 | The topics `passage.scheduling.campaign` already exist; deploy/kafka has no scheduling outbox connector yet (see the slice 23 row). |
-| Campaign jobs drawn as one block with their cleanout windows | later slice of PSG-23 | The cleanout window is a bar since slice 38; the campaign's jobs are still drawn as separate bars, one per order.
+| Consumers of `campaign.placed` / `campaign.unplaced` (production dates, planning) | handoff - waves 21 and 22 | The topics `depot.scheduling.campaign` already exist; deploy/kafka has no scheduling outbox connector yet (see the slice 23 row). |
+| Campaign jobs drawn as one block with their cleanout windows | later slice of DPT-23 | The cleanout window is a bar since slice 38; the campaign's jobs are still drawn as separate bars, one per order.
 | Placing a started campaign, or re-placing after orders began | accepted | A started campaign is frozen (SCHED-0011); its jobs move with `:move` like any job. |
 | Order precedence, queue times and networks for the campaign operation | built (slice 37 review) | Scheduled earlier operations set the job's earliest start, later ones are pushed; an unscheduled earlier operation refuses with SCHED-0153. |
-| Pegged orders around a placed campaign (FR-23.8) | later slice of PSG-23 | A placement neither pushes the orders pegged to a campaign order nor waits for the parents of a campaign order; run the dependents afterwards or move with `propagate`. |
+| Pegged orders around a placed campaign (FR-23.8) | later slice of DPT-23 | A placement neither pushes the orders pegged to a campaign order nor waits for the parents of a campaign order; run the dependents afterwards or move with `propagate`. |
 | Runs and moves that keep a placed campaign together | open - product decision | The campaign jobs are ordinary jobs: a later site or order run re-places them like any job and a move moves one alone, while the cleanout windows stay where they were laid (the campaign read shows the jobs where they are now). Whether runs should treat a placed campaign as fixed (or firm its jobs) is not settled by the PRD; firm the jobs or unplace and place again after a run. |
 | A run or move that commits while a placement is being written | accepted | Like a capacity override created during a run, a run that read the resource before the cleanout windows committed may book into a window; the exclusion constraint still refuses double booking of jobs. Place again to re-lay the campaign around it. |
 
@@ -1207,7 +1207,7 @@ that row is now only the campaign drawn as one block.
 
 | Item | Status | Reason |
 |---|---|---|
-| Opening the campaign from its cleanout bar | later slice of PSG-23 | The bar shows its campaign in `data-cleanout-campaign` and a title; the campaign detail is reached from the campaign list. |
+| Opening the campaign from its cleanout bar | later slice of DPT-23 | The bar shows its campaign in `data-cleanout-campaign` and a title; the campaign detail is reached from the campaign list. |
 
 ## Slice 39: optimistic placement check on moves and firms (FR-23.8)
 
@@ -1244,8 +1244,8 @@ row only, and both could pass).
 
 | Item | Status | Reason |
 |---|---|---|
-| Making If-Match required on moves and firms | later slice of PSG-23 | Kept optional so existing API clients keep working; the web workspace already sends it. |
-| A version on dependents pushed by `propagate` | later slice of PSG-23 | The check covers the moved job's own order; pegged orders are re-planned against current placements under the existing exclusion constraint (their own versions change when they are pushed). |
+| Making If-Match required on moves and firms | later slice of DPT-23 | Kept optional so existing API clients keep working; the web workspace already sends it. |
+| A version on dependents pushed by `propagate` | later slice of DPT-23 | The check covers the moved job's own order; pegged orders are re-planned against current placements under the existing exclusion constraint (their own versions change when they are pushed). |
 
 ## Slice 40: Moonaan review fixes for campaign placement and completion (FR-23.14, BR-23.13)
 
@@ -1265,7 +1265,7 @@ no new endpoint, no new duty.
 
 | Item | Status | Reason |
 |---|---|---|
-| Cleanout windows following a `:move` of a campaign job or an `orders/{id}:unschedule` of a campaign order | later slice of PSG-23 | The window stays where the placement laid it and keeps closing that time; it clears when the campaign is unplaced, placed again, cancelled or completed. Until then a planner who moves a campaign job or unschedules a campaign order should place the campaign again (or unplace it) to move or free the window. See also the slice 37 row on runs and moves that keep a placed campaign together. |
+| Cleanout windows following a `:move` of a campaign job or an `orders/{id}:unschedule` of a campaign order | later slice of DPT-23 | The window stays where the placement laid it and keeps closing that time; it clears when the campaign is unplaced, placed again, cancelled or completed. Until then a planner who moves a campaign job or unschedules a campaign order should place the campaign again (or unplace it) to move or free the window. See also the slice 37 row on runs and moves that keep a placed campaign together. |
 | Truncating a window under way when the campaign is completed | accepted (product decision for Ben) | Completion keeps the cleaning in progress until its planned end. If completion should instead mean the line is clean now, the window would be cut at the completion time (needs an UPDATE grant on `scheduling_campaign_cleanout`). |
 
 ## Ticket deliverables
@@ -1284,28 +1284,28 @@ no new endpoint, no new duty.
 | 1 | Changeover cost and the matrix's cleaning operation set on each scheduled changeover | built (slice 7) | `Placement.ChangeoverCost` / `CleaningSetID`, stored on `scheduled_job` (first segment), on the Gantt bar and in `job.scheduled`. A route-setup fallback (SCHED-0012) has no matrix price and carries none. The cleaning set is a reference only: generating the cleaning operations it names is part of the cleanout orders handoff (deliverable 7). |
 | 1 | Reported hours and `finished` jobs frozen with remaining minutes (BR-23.6) | handoff — wave 25 (shop-floor feedback) | Only firmed jobs are frozen; there is no reported-hours input yet. |
 | 2 | Gantt with drag-reschedule, dry-run preview, constraint warnings and firm | built | `apps/web/src/modules/scheduling`. Bars are DOM buttons; a keyboard move form gives the same preview and commit. |
-| 2 | Canvas rendering above 1,000 bars, row virtualization, zoom, Shift+drag of a whole order, undo stack of 20 moves, per-user drag-snap setting | later slice of PSG-23 | The page fetches a 1-14 day window. The drag snap is a tenant parameter (slice 24, default 5 minutes), not a per-user setting. |
+| 2 | Canvas rendering above 1,000 bars, row virtualization, zoom, Shift+drag of a whole order, undo stack of 20 moves, per-user drag-snap setting | later slice of DPT-23 | The page fetches a 1-14 day window. The drag snap is a tenant parameter (slice 24, default 5 minutes), not a per-user setting. |
 | 2 | *Override scheduling constraints* duty to commit a move with violations | built (slice 26) for capacity violations of the moved job | `overrideConstraints` on `POST /jobs/{id}:move`, duty `scheduling.constraints.override` (see Slice 26). SCHED-0001, SCHED-0004, SCHED-0008 and conflicts of pushed jobs and dependents still block every commit. |
 | 3 | Capacity load by resource and ISO week with bottleneck flag (FR-23.9) | built | `GET /v1/scheduling/capacity-load`; weeks start Monday 00:00 UTC. |
 | 3 | Load by day and drill-down to jobs | built (slice 16) | `period=day` on `GET /capacity-load` and `GET /capacity-load/jobs`. Days are local days of the resource's calendar time zone. |
-| 3 | Load by resource group; US week numbering; weeks in the resource's time zone | later slice of PSG-23 | Groups come from wave 9; weeks start Monday 00:00 UTC (slice 3). |
+| 3 | Load by resource group; US week numbering; weeks in the resource's time zone | later slice of DPT-23 | Groups come from wave 9; weeks start Monday 00:00 UTC (slice 3). |
 | 3 | Materialized CapacityLoad table refreshed per run and move; `bottleneck.detected` event once per episode (AC-23.6, SCHED-0015) | built (slice 30) | `scheduling_capacity_load` is rewritten in the transaction of every writer that changes bookings or calendars; `bottleneck.detected` is published when an episode opens (see the slice 30 section). |
 | 4 | CP-SAT job-shop optimizer (FR-23.6, BR-23.9) | built in `services/scheduler-py` | Weighted lateness + lambda x makespan, 2,000-operation window, time limit, `num_workers` 8; ft06 proves 55. |
-| 4 | Optimization runs from the scheduling service (`algorithm: cp-sat`, solver_status, heuristic kept on UNKNOWN, AC-23.9, SCHED-0006) | later slice of PSG-23 | The Go service calls scheduler-opt for campaign sequencing only (slice 6, deliverable 7 below). Schedule runs do not call the job-shop endpoint yet; `schedule_run.algorithm` is constrained to `heuristic` and `solver_status` stays null. scheduler-opt already takes candidate machines and network steps and returns the chosen machines. |
+| 4 | Optimization runs from the scheduling service (`algorithm: cp-sat`, solver_status, heuristic kept on UNKNOWN, AC-23.9, SCHED-0006) | later slice of DPT-23 | The Go service calls scheduler-opt for campaign sequencing only (slice 6, deliverable 7 below). Schedule runs do not call the job-shop endpoint yet; `schedule_run.algorithm` is constrained to `heuristic` and `solver_status` stays null. scheduler-opt already takes candidate machines and network steps and returns the chosen machines. |
 | 5 | Schedule dates flow to production orders and planning (FR-23.10) | partial — consumers are waves 21 and 22 | `job.scheduled` and `orderdates.changed` are published through the outbox with start, end and late minutes. Production order date updates and the `planning.finite-capacity` flag (AC-23.8) are owned by the consuming waves. |
 | 5 | Operations fed from wave 21 production orders and jobs instead of the API | built (slices 18 and 20) for `order.scheduled.v1` and the withdrawal in `order.statuschanged.v1` | `POST /operations` stays for manual entry. Built (slice 20): withdrawing an order's operations when production resets, cancels or merges it (see Slice 20 below). Not built: order priority, quantities, the order's attributes and campaign key, and a wave 9 feed that creates the resource mappings (slice 19 maps by hand: an event's `resourceId` that is neither mapped nor a scheduling resource id is recorded as left out). |
 | 6 | Resource networks: definition, edges, edge rules (FR-23.13, BR-23.11 wait check) | built | `POST/GET /v1/scheduling/networks`; `domain.ResourceNetwork` (`Successors` in transfer-time order, `ChainAllowed`, `WaitOK`). |
 | 6 | Networks as heuristic constraints: operation n+1 only on an edge from operation n's resource, transfer time, maximum wait with the predecessor delayed up to 7 days, SCHED-0009 `NETWORK_INFEASIBLE`, SCHED-0010 behind a frozen predecessor, move checks (AC-23.10) | built | `domain/constraints.go`, `domain.PlanMove`; networks active on the run date are read by code. The 7-day limit is fixed (`NetworkDelayDays` in the domain) until site parameters exist. A maximum wait shorter than the transfer is now refused when a network is created. |
 | 6 | CP-SAT `AddAllowedAssignments` for network transitions in the optimizer | built in `services/scheduler-py` | Each operation may carry the edges of the step into it; allowed machine pairs use `AddAllowedAssignments` on the choice variables, and each pair enforces its transfer time and maximum wait. Not called from the Go service yet (deliverable 4). |
-| 6 | Capacity block windows and changeovers in the CP-SAT model | later slice of PSG-23 | The job-shop model has no calendars, blocks or setup times; the heuristic applies them. |
-| 6 | Booking the edge's transfer resource (a transfer line) during the transfer | later slice of PSG-23 | `secondary_resource_id` is stored on the edge but not booked; operation secondaries (BR-23.4) are built in slice 12, the edge's transfer line is still not booked for the transfer window. |
+| 6 | Capacity block windows and changeovers in the CP-SAT model | later slice of DPT-23 | The job-shop model has no calendars, blocks or setup times; the heuristic applies them. |
+| 6 | Booking the edge's transfer resource (a transfer line) during the transfer | later slice of DPT-23 | `secondary_resource_id` is stored on the edge but not booked; operation secondaries (BR-23.4) are built in slice 12, the edge's transfer line is still not booked for the transfer window. |
 | 6 | Network per site and assigned to a route operation chain; network edge editing | handoff — wave 9 (sites) and wave 21 (route operation chains) | A network is tenant-wide and each operation names the network of the step into it (`networkId`) until wave 21 route operation chains carry it. Networks can be renamed and ended on a date since slice 15 (`PATCH /networks/{id}`); their transitions are fixed at creation, so changing an edge means creating a new network, and an end date can be moved but not cleared. |
 | 7 | Campaigns, setup matrix sequencing, leading setup and cleanouts in the plan (FR-23.14, FR-23.15, BR-23.12, BR-23.13, AC-23.11, SCHED-0011, SCHED-0012) | built | `/v1/scheduling/campaigns`, `:sequence`, `:start`, `/setup-matrices`, `/cleanout-rules`. |
 | 7 | Placing a sequenced campaign contiguously on the Gantt (changeover and cleanout jobs as scheduled jobs; cleanout never split, BR-23.13) | built (slice 37) | `POST /campaigns/{id}:place`: the orders as jobs back to back with the matrix changeovers, the cleanouts as closed windows (`scheduling_campaign_cleanout`) that count as downtime for every capacity read. The order's other operations and a campaign over several resources are not built; see the slice 37 section. |
 | 7 | Cleanout and setup orders as lightweight production orders of type `cleanout` (`cleanout_order_id`, `setup_order_id`), consuming cleaning materials and labour | handoff — wave 21 (production orders) | Columns exist and stay null; `campaign.sequenced` carries the cleanouts for wave 21 to create them. |
 | 7 | Campaign start from the first order Started; complete and cancel transitions | built (slice 14) as explicit commands; automatic transitions are a handoff to wave 21 (order status events) | `:start`, `:complete` and `:cancel` are planner commands. Completing when the last order ends and starting when the first order starts need wave 21 order events. Cancelling does not unplace or cancel the orders themselves; production decides from `campaign.cancelled`. |
 | 7 | Campaign proposals from planned and firmed orders sharing a campaign key within a window (default 14 days) | built (slice 8) as an inquiry | `GET /campaign-proposals` over scheduled jobs and the campaign proposals screen; the planner enters quantities and creates the campaign. The window is a query parameter until site parameters exist. |
-| 7 | The nightly `campaign-proposal` job (23:00 per site and key) storing `proposed` campaigns and replacing them per key, with the count reported | later slice of PSG-23 | Needs the job runner (FR-23.11) and an order quantity to store: scheduling operations carry no quantity, so proposals are not stored and quantities are typed when a campaign is created. |
+| 7 | The nightly `campaign-proposal` job (23:00 per site and key) storing `proposed` campaigns and replacing them per key, with the count reported | later slice of DPT-23 | Needs the job runner (FR-23.11) and an order quantity to store: scheduling operations carry no quantity, so proposals are not stored and quantities are typed when a campaign is created. |
 | 7 | Proposals from wave 22 planned orders not yet scheduled, and orders excluded once Started | handoff — wave 22 (planned orders) and wave 25 (order start) | Only orders with a scheduled job are proposed; scheduling has no Started status yet, so every scheduled order outside a campaign is eligible. |
 | 7 | CP-SAT circuit sequencing (`AddCircuit`, at most 50 orders) | built (slice 6) | `sequenceRule: cp-sat`; `:sequence` calls `POST /v1/optimize/campaign-sequence` and keeps a certified, strictly cheaper order (BR-23.9), otherwise nearest-neighbour with SCHED-0006. The solver gets 20 s, not the PRD's 30 s, because the platform router ends every request at 30 s; a longer limit needs the asynchronous run path (FR-23.11). |
 | 7 | Setup matrix and campaign per resource group; setup group taken from the product (w8) or formula (w24) | handoff — wave 9 (resource groups), waves 8 and 24 | Matrices and campaigns are per resource; each campaign order carries its setup group. |
@@ -1318,19 +1318,19 @@ no new endpoint, no new duty.
 | 8 | RRULE recurrence on capacity blocks | built | `recurrence {rule, startDate, startMinute, endMinute}` on `POST /capacity-blocks`; the subset is FREQ=DAILY or WEEKLY with INTERVAL, BYDAY (plain weekday codes) and COUNT or UNTIL. Other RRULE parts (BYMONTHDAY, BYSETPOS, ordinal weekdays, MONTHLY) are refused rather than guessed. |
 | 8 | Block update and deactivation | built (slice 15) for priority, condition and the active flag | `PATCH /capacity-blocks/{id}` and `GET /capacity-blocks/{id}`, duty `scheduling.capacity.write`, Idempotency-Key and If-Match. The resource, code and window (weekly, dated or recurrence) are fixed at creation: to change them, deactivate the block and create another. Jobs already placed stay where they are until the next run or move; the answer and the event list those the blocks now keep out. |
 | 8 | Showing block breaches on the Gantt (a booked job inside a block it may not use) | built (slice 26) | `blockBreach` on every Gantt bar; the workspace dots the bar and badges the jobs table row. |
-| 6 | Jobs whose transitions break a network after its end date is moved later | later slice of PSG-23 | Ending a network earlier only relaxes the schedule. Moving the end date later re-applies the network to days that runs may have planned without it; those jobs are not listed in `network.updated` and keep their placement until the next run or move. |
+| 6 | Jobs whose transitions break a network after its end date is moved later | later slice of DPT-23 | Ending a network earlier only relaxes the schedule. Moving the end date later re-applies the network to days that runs may have planned without it; those jobs are not listed in `network.updated` and keep their placement until the next run or move. |
 
 ## PRD items (section 4.23) not built yet
 
 | Item | Status | Reason |
 |---|---|---|
-| FR-23.1 ResourceCapacity table materialized for 365 days, rebuilt on calendar events; efficiency % and per-day capacity overrides | later slice of PSG-23 (calendar events from wave 9) | Open intervals are computed from the weekly calendar plus downtimes and extra shifts (slice 9) on every read and run (`GET /resources/{id}/capacity`). A stored table is not needed while nothing else reads it; calendar events and per-day capacity overrides are wave 9. Efficiency % is built per resource (slice 21, BR-23.1: `efficiency_pct` stretches process and route setup minutes on runs and moves). |
+| FR-23.1 ResourceCapacity table materialized for 365 days, rebuilt on calendar events; efficiency % and per-day capacity overrides | later slice of DPT-23 (calendar events from wave 9) | Open intervals are computed from the weekly calendar plus downtimes and extra shifts (slice 9) on every read and run (`GET /resources/{id}/capacity`). A stored table is not needed while nothing else reads it; calendar events and per-day capacity overrides are wave 9. Efficiency % is built per resource (slice 21, BR-23.1: `efficiency_pct` stretches process and route setup minutes on runs and moves). |
 | AC-23.7 calendar change closes capacity and flags affected jobs (SCHED-0002 warnings on existing jobs) | partial (slice 9) | A downtime closes capacity at once (no 30 s lag: capacity is computed on read), returns the overlapping jobs when it is created, and the Gantt flags every bar outside open capacity (`outsideCapacity`) until it is moved. A change of the weekly calendar itself is built (slice 13, `PATCH /resources/{id}`, affected jobs returned and flagged on the Gantt); calendar events from wave 9 and per-job warning rows are not, and a calendar change does not re-run the schedule. |
 | FR-23.8 pegs fed from master planning | handoff — wave 22 (pegging) | Pegs are entered through `POST /order-pegs`; a consumer of wave 22 pegging events would fill the same table. Propagation itself is built (slice 4). |
 | AC-23.3 sales line delay in the move preview | handoff — wave 27 (sales lines) and wave 22 (pegging to demand) | Pegs link orders to orders; the preview lists every pegged order with its old and new dates, but sales lines are not pegged here. |
 | Schedule runs honouring pegs (a dependent placed no earlier than its parent ends) | built (slice 11) | `domain.Schedule` places parents first (`pegPlan`) and floors the dependent's first operation at the parents' last end (`pegFloor`; `store.pegsForRun` loads pegs and the ends of parents outside the run); an unplaced parent (in the run, or outside it with an operation stored as unplaced) leaves the dependent unplaced. Not yet: a peg-forced delay is not reported as a warning; `:move` without propagate still ignores pegs; a selection run that moves a parent later does not push its dependents outside the selection (run them too, or the site); a parent outside the run that was never scheduled sets no floor; a backward run schedules a parent against its own due date, not back from its dependent's start. |
-| PRD 4.23.17 limit of 100 orders in the propagation preview | later slice of PSG-23 | The preview walks the same 500 orders / 5 levels as the commit, so what is previewed is what is saved. |
-| FR-23.11 runs as Temporal jobs with checkpoints every 500 operations; nightly site run at 00:30 | later slice of PSG-23 (per-order `:schedule` is built, slice 22) | Runs execute synchronously inside one transaction (5,000 operations schedule in well under the 60 s budget in the domain test). |
+| PRD 4.23.17 limit of 100 orders in the propagation preview | later slice of DPT-23 | The preview walks the same 500 orders / 5 levels as the commit, so what is previewed is what is saved. |
+| FR-23.11 runs as Temporal jobs with checkpoints every 500 operations; nightly site run at 00:30 | later slice of DPT-23 (per-order `:schedule` is built, slice 22) | Runs execute synchronously inside one transaction (5,000 operations schedule in well under the 60 s budget in the domain test). |
 | Sites: `siteId` on resources, runs and the Gantt query | handoff — wave 9 (sites on resources) | Slice 1 schedules every resource of the tenant as one plant. |
 | Late orders inquiry (4.23.14) | built (slice 17) | `GET /late-orders` and the Late orders page: late and unplaced orders with due, planned end, lateness. Item and quantity per order are not shown. |
 | Order header data on bars and late orders (item, quantity) | handoff — wave 21 | Bars and late orders carry the order id, operation counts and dates only. |
@@ -1339,14 +1339,14 @@ no new endpoint, no new duty.
 | Run comparison (4.23.14) | built (slice 29) | `GET /runs/{id}/compare`, per-run snapshots in `schedule_run_job`; see the slice 29 section. |
 | Network feasibility report (4.23.14) | built (slice 33) | `GET /network-feasibility` and the Network feasibility page; see the slice 33 section. |
 | Dispatch list (4.23.15) | built (slice 25) as an inquiry and a printable page | See the slice 25 section; a PDF template and the kiosk view are handoffs. |
-| Gantt print, campaign sheet, cleanout record documents (4.23.15) | later slice of PSG-23 | No document templates yet. |
-| Feature flags `scheduling.cp-sat`, `scheduling.propagate-dependents`; config `SCHED_OPT_TIME_LIMIT_S` | later slice of PSG-23 | No flag client; CP-SAT is chosen per campaign with its sequence rule and switched off by leaving `SCHED_OPT_URL` empty, propagation is chosen per move with `propagate`, and the campaign solver limit is fixed at 20 s. |
+| Gantt print, campaign sheet, cleanout record documents (4.23.15) | later slice of DPT-23 | No document templates yet. |
+| Feature flags `scheduling.cp-sat`, `scheduling.propagate-dependents`; config `SCHED_OPT_TIME_LIMIT_S` | later slice of DPT-23 | No flag client; CP-SAT is chosen per campaign with its sequence rule and switched off by leaving `SCHED_OPT_URL` empty, propagation is chosen per move with `propagate`, and the campaign solver limit is fixed at 20 s. |
 | Site parameters (default method and direction, drag snap, propagation limit) | built (slice 24) as tenant-wide parameters | `GET/PATCH /v1/scheduling/parameters`; see the slice 24 section. |
-| Site parameters per site; resource selection rule, safety/queue time, horizon days and the default start | later slice of PSG-23 (per-site parameters are a handoff to wave 9, sites) | The parameters are one row per tenant. Selection stays least finish, no default safety or queue time is added (queue times are per operation, slice 27), and the horizon is `SCHED_HORIZON_DAYS`. |
-| Extension points `scheduling.constraint`, `scheduling.objective` | later slice of PSG-23 | |
-| `ScheduledJob.overlap_qty` (the overlap lives on the operation since slice 28); `ScheduleRun.time_limit_s`, `started_at`, `objective_value` | later slice of PSG-23 | Columns arrive with the features that fill them. |
+| Site parameters per site; resource selection rule, safety/queue time, horizon days and the default start | later slice of DPT-23 (per-site parameters are a handoff to wave 9, sites) | The parameters are one row per tenant. Selection stays least finish, no default safety or queue time is added (queue times are per operation, slice 27), and the horizon is `SCHED_HORIZON_DAYS`. |
+| Extension points `scheduling.constraint`, `scheduling.objective` | later slice of DPT-23 | |
+| `ScheduledJob.overlap_qty` (the overlap lives on the operation since slice 28); `ScheduleRun.time_limit_s`, `started_at`, `objective_value` | later slice of DPT-23 | Columns arrive with the features that fill them. |
 | Rollback by re-pointing to a previous run | built (slice 29) | `POST /runs/{id}:rollback` restores the run's snapshot under a new run; see the slice 29 section. |
 | Optimistic version check on moves and firms (If-Match) | built (slice 39) | `Bar.placementVersion` on `GET /gantt`; see the slice 39 section. Sending If-Match is optional for API clients; the web workspace always sends it. |
 | scheduler-opt KEDA scale-to-zero and the `scheduling-db` CloudNativePG cluster | handoff — deploy owner | Charts ship the deployment and service only. |
-| Playwright Gantt move + propagate test (4.23.9) | later slice of PSG-23 | Covered by the store move and propagation tests and the page tests. |
+| Playwright Gantt move + propagate test (4.23.9) | later slice of DPT-23 | Covered by the store move and propagation tests and the page tests. |
 | `sched-propagation` fixture (pegged chains 5 deep, 4.23.9) | partial | The store test builds a 7-order chain in code and checks the 5-level cut; no fixture file under testdata. |

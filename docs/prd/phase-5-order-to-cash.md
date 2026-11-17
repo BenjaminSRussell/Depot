@@ -2,7 +2,7 @@
 
 ## 5.0 Phase overview
 
-**Business outcome at phase exit.** At the end of wave 30 a manufacturer runs the complete buy → make → sell → collect loop on Passage. A sales rep quotes and takes an order at a deterministically resolved price; the order is promised against cumulative ATP and checked against credit; the warehouse picks, packs and ships it with a posted packing slip that moves inventory cost to the universal journal; billing posts the invoice with tax and an ASC 606 / IFRS 15 recognition schedule; cash is applied from lockbox, remittance or bank statement; collections runs dunning and disputes; returns flow through RMA to credit note; and every subledger reconciles to the journal by automated check. Wave 30 is the first go-live candidate.
+**Business outcome at phase exit.** At the end of wave 30 a manufacturer runs the complete buy → make → sell → collect loop on Depot. A sales rep quotes and takes an order at a deterministically resolved price; the order is promised against cumulative ATP and checked against credit; the warehouse picks, packs and ships it with a posted packing slip that moves inventory cost to the universal journal; billing posts the invoice with tax and an ASC 606 / IFRS 15 recognition schedule; cash is applied from lockbox, remittance or bank statement; collections runs dunning and disputes; returns flow through RMA to credit note; and every subledger reconciles to the journal by automated check. Wave 30 is the first go-live candidate.
 
 **Phase-exit sign-off criteria** (each produces an artifact in `reconciliation/phase-5-exit/`):
 - One simulated 31-day month (fixture period 2027-03) runs end-to-end on `stage` for demo entities DMF-US (USD) and DMF-DE (EUR): ≥ 200 purchase orders received (Phase 3), ≥ 150 production orders reported as finished (Phase 4), 1,000 sales orders, ≥ 900 shipments, ≥ 950 invoices including ≥ 40 bundles with revenue schedules, 600 customer payments across manual / BAI2 lockbox / camt.053, one dunning run, 30 RMAs, one rebate settlement, inventory close and period close for 2027-03.
@@ -26,20 +26,20 @@
 | open_item, payment, settlement, lockbox_batch, dunning_run, dispute, interest_note, return_order | receivables (receivables_db, Go) + collections-workflows (TS, Temporal) | → invoice, customer, camt.053 statement, journal |
 | portal_user, payment_intent | customer-portal (portal_db, TS BFF) + payments-gateway (TS) | → party contact (w7), open_item, Stripe/Adyen adapter |
 
-**Cross-wave event catalog** (CloudEvents on Kafka topics `passage.<domain>`, Avro in schema registry, Debezium outbox)
+**Cross-wave event catalog** (CloudEvents on Kafka topics `depot.<domain>`, Avro in schema registry, Debezium outbox)
 
 | Event | Producer | Consumers | Payload summary |
 |---|---|---|---|
-| passage.pricing.condition-record.activated.v1 | pricing | sales cache, analytics | id, type, keys, validity, version |
-| passage.pricing.rebate-accrual.posted.v1 | pricing | ledger, receivables | agreement, period, amount, journal ref |
-| dev.passage.sales.order.confirmed.v1 | sales | planning, fulfillment, credit, analytics | order, customer, lines with confirmed dates, totals |
-| passage.sales.order-hold.applied.v1 / released.v1 | sales | fulfillment, collections, portal | order, hold type, reason, actor |
-| passage.fulfillment.packing-slip.posted.v1 | fulfillment | billing, inventory, ledger, sales, portal | slip, lines, qty, cost snapshot, journal ref |
-| dev.passage.billing.invoice.posted.v1 | billing | receivables, revrec, ledger, pricing, portal | invoice, lines, tax, totals, due date |
-| dev.passage.revrec.schedule.recognized.v1 | revrec | ledger, analytics | schedule line, obligation, amount, period |
-| dev.passage.receivables.payment.applied.v1 | receivables | ledger, sales (credit), portal | payment, settlements[], residual |
-| passage.receivables.customer-balance.changed.v1 | receivables | sales credit, portal | customer, balance, overdue, oldest item days, dunning level |
-| passage.receivables.return-order.dispositioned.v1 | receivables | fulfillment, billing, inventory | RMA line, disposition, qty, restocking |
+| depot.pricing.condition-record.activated.v1 | pricing | sales cache, analytics | id, type, keys, validity, version |
+| depot.pricing.rebate-accrual.posted.v1 | pricing | ledger, receivables | agreement, period, amount, journal ref |
+| dev.depot.sales.order.confirmed.v1 | sales | planning, fulfillment, credit, analytics | order, customer, lines with confirmed dates, totals |
+| depot.sales.order-hold.applied.v1 / released.v1 | sales | fulfillment, collections, portal | order, hold type, reason, actor |
+| depot.fulfillment.packing-slip.posted.v1 | fulfillment | billing, inventory, ledger, sales, portal | slip, lines, qty, cost snapshot, journal ref |
+| dev.depot.billing.invoice.posted.v1 | billing | receivables, revrec, ledger, pricing, portal | invoice, lines, tax, totals, due date |
+| dev.depot.revrec.schedule.recognized.v1 | revrec | ledger, analytics | schedule line, obligation, amount, period |
+| dev.depot.receivables.payment.applied.v1 | receivables | ledger, sales (credit), portal | payment, settlements[], residual |
+| depot.receivables.customer-balance.changed.v1 | receivables | sales credit, portal | customer, balance, overdue, oldest item days, dunning level |
+| depot.receivables.return-order.dispositioned.v1 | receivables | fulfillment, billing, inventory | RMA line, disposition, qty, restocking |
 
 **Phase-level risks**
 
@@ -59,7 +59,7 @@ Every order, quotation, invoice and rebate in Phase 5 depends on a price that is
 
 **Pain points solved (10x lens)**
 
-| Pain point in AX/SAP today | Root cause | Passage answer in this wave | Measurable 10x target |
+| Pain point in AX/SAP today | Root cause | Depot answer in this wave | Measurable 10x target |
 |---|---|---|---|
 | Nobody can say why a line priced at 93.40: AX "Find next" results are invisible on SalesLine; SAP needs the VA01 condition "Analysis" screen per line | Resolution is a side effect inside the order form (PriceDisc class / RV61A formulas), not a queryable function | `POST /pricing/resolve?explain=true` returns the access-by-access trace, stored with the line as `price_explain_ref` | "Why this price": 20–40 min consultant trace → < 10 s self-service; 100% of lines traced |
 | Mass price change is a multi-hour, non-atomic job: PriceDiscAdmTrans posts row by row and leaves half-applied prices on failure; VK12 mass change has no undo | Row loop in X++/ABAP without a transaction boundary across the set | price_journal validates fully, posts in one transaction and reverses with one action | 100k prices: 3–6 h plus cleanup → < 120 s; rollback 1 action |
@@ -69,7 +69,7 @@ Every order, quotation, invoice and rebate in Phase 5 depends on a price that is
 
 ### 5.26.2 AX / SAP parity map
 
-| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Passage equivalent | Parity |
+| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Depot equivalent | Parity |
 |---|---|---|---|---|
 | Sales price agreements | PriceDiscTable (Relation=PriceSales), PriceDiscAdmTable/Trans journal | VK11/VK12/VK13, KONH/KONP, A004/A005/A305, PR00 | condition_record type PRICE | full |
 | Line discount | PriceDiscTable (LineDiscSales), PriceDiscGroup | K004/K005/K007, KONP-KBETR | condition_record LINE_DISC | full |
@@ -157,11 +157,11 @@ Validation: resolve requires legal_entity_id, customer_id, currency, pricing_dat
 
 | Event | Trigger | Payload fields | Consumers |
 |---|---|---|---|
-| passage.pricing.condition-record.activated.v1 | activate / journal post | id, type, keys, currency, validity, version, journal_id, retroactive | sales cache, analytics |
-| passage.pricing.condition-record.withdrawn.v1 | withdraw / reverse | id, version, reason | sales cache |
-| dev.passage.pricing.journal.posted.v1 | post / reverse | journal_id, line_count, reversed_journal_id | audit |
-| passage.pricing.rebate-accrual.posted.v1 | invoice.posted consumed | agreement_id, period_id, invoice_line_id, amount, currency, journal_posting_id | ledger, receivables |
-| dev.passage.pricing.commission.calculated.v1 | invoice.posted consumed | invoice_line_id, sales_rep_id, basis, rate, amount | Phase 8 |
+| depot.pricing.condition-record.activated.v1 | activate / journal post | id, type, keys, currency, validity, version, journal_id, retroactive | sales cache, analytics |
+| depot.pricing.condition-record.withdrawn.v1 | withdraw / reverse | id, version, reason | sales cache |
+| dev.depot.pricing.journal.posted.v1 | post / reverse | journal_id, line_count, reversed_journal_id | audit |
+| depot.pricing.rebate-accrual.posted.v1 | invoice.posted consumed | agreement_id, period_id, invoice_line_id, amount, currency, journal_posting_id | ledger, receivables |
+| dev.depot.pricing.commission.calculated.v1 | invoice.posted consumed | invoice_line_id, sales_rep_id, basis, rate, amount | Phase 8 |
 
 ### 5.26.6 User experience
 
@@ -225,11 +225,11 @@ Fixtures: `pricing-500` (hand-built from AX trade-agreement and SAP RVAA01 examp
 Reconciliation: Σ rebate_accrual per (agreement, period) = journal postings tagged `source=rebate_accrual`; journal snapshots replay to current record versions.
 
 ### 5.26.10 Deployment and operations
-Helm `passage-pricing` (Go, 3 replicas, HPA CPU 70%); CloudNativePG `pricing-db` (3 instances); Atlas migrations from metadata, additive-only. Config: `PRICING_CACHE_TTL=60s`, `PRICING_MAX_LINES=500`, `PRICING_EXPLAIN_MAX_BYTES=65536`. Flags: `pricing.search_next`, `pricing.sap_procedure`, `pricing.commission_hooks`. Temporal jobs: nightly expiry 00:10 entity-local; rebate recompute at period end. SLOs: 99.95% availability, p95 20 ms. Alerts: invalidation lag > 5 s, error rate > 0.5%, journal post > 300 s. Runbook: cache rebuild, journal reversal, procedure version rollback. Rollback: previous image digest via Argo CD.
+Helm `depot-pricing` (Go, 3 replicas, HPA CPU 70%); CloudNativePG `pricing-db` (3 instances); Atlas migrations from metadata, additive-only. Config: `PRICING_CACHE_TTL=60s`, `PRICING_MAX_LINES=500`, `PRICING_EXPLAIN_MAX_BYTES=65536`. Flags: `pricing.search_next`, `pricing.sap_procedure`, `pricing.commission_hooks`. Temporal jobs: nightly expiry 00:10 entity-local; rebate recompute at period end. SLOs: 99.95% availability, p95 20 ms. Alerts: invalidation lag > 5 s, error rate > 0.5%, journal post > 300 s. Runbook: cache rebuild, journal reversal, procedure version rollback. Rollback: previous image digest via Argo CD.
 
 ### 5.26.11 Migration from AX / SAP
 
-| Source | Passage entity | Notes |
+| Source | Depot entity | Notes |
 |---|---|---|
 | PriceDiscTable (Relation, AccountCode/Relation, ItemCode/Relation, QuantityAmount, Amount, Percent1/2, Currency, FromDate/ToDate, SearchAgain) | condition_record | Table/GroupId/All → customer/group/all; Relation → type; SearchAgain → search_next |
 | PriceDiscGroup; CustTable price/discount groups | customer_pricing_group, product_pricing_group | one group per AX type |
@@ -439,7 +439,7 @@ Wave 27 ships the `sales` service: quotations with conversion, sales agreements,
 
 **Pain points solved (10x lens)**
 
-| Pain point in AX/SAP today | Root cause | Passage answer in this wave | Measurable 10x target |
+| Pain point in AX/SAP today | Root cause | Depot answer in this wave | Measurable 10x target |
 |---|---|---|---|
 | Promise dates go stale after a planning run: AX ATP is recomputed only when the "Available ship and receipt dates" dialog opens; SAP VBEP dates change only on VA02 re-check or the nightly V_V2 rescheduling batch | ATP computed on demand inside the form; supply changes do not re-promise open lines | atp_bucket projection from inventory/planning events (lag < 30 s); re-promise on `order.changed` and supply cancellation; backward propagation (BR-27.1) | Promise accuracy ~70% → ≥ 95%; re-promise latency nightly → < 30 s |
 | Credit holds are opaque: SalesOrderHold shows a code; OVA8 writes only VBAK-CMGST and the VKM1 list | Rules evaluated inside posting classes; only the final status persists | `credit-check.evaluated` stores every rule, value and threshold; release queue shows the failing rule | Analyst lookup per release 5–8 min (FD32/CustTable) → < 30 s; 2-business-day SLA by timer |
@@ -449,7 +449,7 @@ Wave 27 ships the `sales` service: quotations with conversion, sales agreements,
 
 ### 5.27.2 AX / SAP parity map
 
-| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Passage equivalent | Parity |
+| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Depot equivalent | Parity |
 |---|---|---|---|---|
 | Quotations | SalesQuotationTable/Line, SalesQuotationStatus | VA21/VA22, VBAK VBTYP B; VA11 inquiries | sales_quotation, …:convert | full |
 | Sales orders | SalesTable/SalesLine, SalesStatus, SalesLineStatus, SalesType | VA01/VA02, VBAK/VBAP/VBEP, item categories TAN/TAS | sales_order, sales_order_line, order_schedule_line | full |
@@ -540,12 +540,12 @@ Validation: confirm rejects unpriced lines (unless manual), quantity ≤ 0, cust
 
 | Event | Trigger | Payload fields | Consumers |
 |---|---|---|---|
-| dev.passage.sales.order.confirmed.v1 | confirm | order_id, customer_id, currency, lines[{line_id, product, dims, qty, site, warehouse, confirmed_ship_date}], totals, version | fulfillment, planning (w22), credit, analytics |
-| dev.passage.sales.order.changed.v1 / cancelled.v1 | PATCH / cancel | order_id, version, diff[] or line_ids, reason | fulfillment, planning, portal |
-| dev.passage.sales.atp.promised.v1 | confirm with ATP/CTP | line_id, requested, confirmed, bucket_date, source | planning, portal |
-| passage.sales.order-hold.applied.v1 / released.v1 | hold lifecycle | order_id, hold_type, reason, actor, workflow_run_id | fulfillment, collections, portal |
-| passage.sales.credit-check.evaluated.v1 | any check | customer_id, order_id, rules[{id, result, value, threshold}], outcome | audit, collections |
-| dev.passage.sales.quotation.converted.v1 | convert | quotation_id, order_id, lines | analytics, CRM |
+| dev.depot.sales.order.confirmed.v1 | confirm | order_id, customer_id, currency, lines[{line_id, product, dims, qty, site, warehouse, confirmed_ship_date}], totals, version | fulfillment, planning (w22), credit, analytics |
+| dev.depot.sales.order.changed.v1 / cancelled.v1 | PATCH / cancel | order_id, version, diff[] or line_ids, reason | fulfillment, planning, portal |
+| dev.depot.sales.atp.promised.v1 | confirm with ATP/CTP | line_id, requested, confirmed, bucket_date, source | planning, portal |
+| depot.sales.order-hold.applied.v1 / released.v1 | hold lifecycle | order_id, hold_type, reason, actor, workflow_run_id | fulfillment, collections, portal |
+| depot.sales.credit-check.evaluated.v1 | any check | customer_id, order_id, rules[{id, result, value, threshold}], outcome | audit, collections |
+| dev.depot.sales.quotation.converted.v1 | convert | quotation_id, order_id, lines | analytics, CRM |
 
 ### 5.27.6 User experience
 
@@ -609,11 +609,11 @@ Fixtures: `atp-100` (from SAP OVZ9 and AX ATP examples with expected dates); `cr
 Reconciliation: Σ open confirmed order amounts per customer = credit_profile.exposure.open_orders; wave 16 reservations = Σ RESERVED line quantities; nightly rebuilt ATP projection = incremental projection (diff 0).
 
 ### 5.27.10 Deployment and operations
-Helm `passage-sales` (Go, 3 replicas, HPA on RPS); `sales-db`; Temporal namespace `sales`. Config: `ATP_TIME_FENCE_DEFAULT_DAYS=30`, `ATP_INCLUDE_PLANNED_ORDERS=false`, `CREDIT_CHECK_POINTS=confirm,release`, `INTAKE_RATE_LIMIT_PER_KEY=1000/min`. Flags: `sales.ctp`, `sales.alternative_items`, `sales.change_approval`. Jobs: ATP rebuild 01:00 entity-local; quotation expiry hourly; credit review warnings daily. SLOs: create p99 500 ms, 99.95% availability, projection lag < 30 s. Alerts: lag > 120 s, hold queue age > 2 business days, intake 5xx > 0.1%. Runbook: projection rebuild, stuck release workflow, re-promise after supply cancellation. Rollback: previous digest; additive migrations.
+Helm `depot-sales` (Go, 3 replicas, HPA on RPS); `sales-db`; Temporal namespace `sales`. Config: `ATP_TIME_FENCE_DEFAULT_DAYS=30`, `ATP_INCLUDE_PLANNED_ORDERS=false`, `CREDIT_CHECK_POINTS=confirm,release`, `INTAKE_RATE_LIMIT_PER_KEY=1000/min`. Flags: `sales.ctp`, `sales.alternative_items`, `sales.change_approval`. Jobs: ATP rebuild 01:00 entity-local; quotation expiry hourly; credit review warnings daily. SLOs: create p99 500 ms, 99.95% availability, projection lag < 30 s. Alerts: lag > 120 s, hold queue age > 2 business days, intake 5xx > 0.1%. Runbook: projection rebuild, stuck release workflow, re-promise after supply cancellation. Rollback: previous digest; additive migrations.
 
 ### 5.27.11 Migration from AX / SAP
 
-| Source | Passage entity | Notes |
+| Source | Depot entity | Notes |
 |---|---|---|
 | SalesTable (SalesId, CustAccount, InvoiceAccount, CurrencyCode, SalesStatus) + SalesLine (ItemId, InventDimId, SalesQty, SalesPrice, LinePercent, RemainSalesPhysical/Financial) | sales_order, lines | open orders only (Backorder, or Delivered with financial remainder); InventDim → dims + site/warehouse |
 | SalesQuotationTable/Line (Sent); SalesAgreementHeader/Line | sales_quotation; sales_agreement | remaining commitment from released qty |
@@ -794,7 +794,7 @@ Wave 28 ships the `fulfillment` service and the `carrier-gateway` adapter. Confi
 
 **Pain points solved (10x lens)**
 
-| Pain point in AX/SAP today | Root cause | Passage answer in this wave | Measurable 10x target |
+| Pain point in AX/SAP today | Root cause | Depot answer in this wave | Measurable 10x target |
 |---|---|---|---|
 | Delivered-not-invoiced never ties: AX "Cost of units delivered" via InventPosting drifts from CustPackingSlipJour after invoice cancellations; SAP PGI posts COGS at once so revenue and COGS land in different periods | Physical and financial postings decoupled across SalesFormLetter classes; reconciliation is a month-end report | Packing slip and invoice share one cost_snapshot_id; DNI projection reconciled to GL 1405 daily; AX-style and PGI-style matrices by policy | Month-end DNI reconciliation 4–8 h → 0 (daily, diff 0.00) |
 | Packing-slip posting blocks the user 5–20 s and fails opaquely ("Update has been cancelled"; VL02N "posting period closed" after picking) | Synchronous multi-table update with late validation | Pre-validation at PACKED (period, holds, dims, negative stock) and a Temporal saga with compensation | Failures discovered after pick ~3% → < 0.1%; post p95 < 2 s |
@@ -804,7 +804,7 @@ Wave 28 ships the `fulfillment` service and the `carrier-gateway` adapter. Confi
 
 ### 5.28.2 AX / SAP parity map
 
-| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Passage equivalent | Parity |
+| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Depot equivalent | Parity |
 |---|---|---|---|---|
 | Release to warehouse | Release to warehouse, SalesLine.ReleaseStatus, InventPickingList | VL01N/VL10, LIKP/LIPS | shipment (release rules) | full |
 | Picking | WMSPickingRoute, WMSOrderTrans, picking list registration | LT03 transfer order (LTAP); EWM warehouse task | pick_work | partial (advanced w31) |
@@ -878,11 +878,11 @@ Validation: post requires status PACKED, no ACTIVE hold, posting date in an open
 
 | Event | Trigger | Payload fields | Consumers |
 |---|---|---|---|
-| dev.passage.fulfillment.shipment.released.v1 | release | shipment_id, order_id, warehouse, lines | sales, analytics |
-| dev.passage.fulfillment.pick.confirmed.v1 | pick confirm | wave_id, lines[{order_line_id, qty, dims, location}] | inventory, sales |
-| passage.fulfillment.packing-slip.posted.v1 / cancelled.v1 | saga complete / cancel | packing_slip_id, order_id, lines[{order_line_id, qty, cost_amount, cost_snapshot_id}], journal_posting_id, posting_date | billing, sales, inventory, ledger, portal, credit |
-| dev.passage.fulfillment.asn.issued.v1 | post | shipment_id, containers[{sscc, lines}], carrier, tracking | EDI (w35) |
-| passage.fulfillment.shipment.tracking-updated.v1 | poll / webhook | shipment_id, tracking_number, status, event | portal, sales |
+| dev.depot.fulfillment.shipment.released.v1 | release | shipment_id, order_id, warehouse, lines | sales, analytics |
+| dev.depot.fulfillment.pick.confirmed.v1 | pick confirm | wave_id, lines[{order_line_id, qty, dims, location}] | inventory, sales |
+| depot.fulfillment.packing-slip.posted.v1 / cancelled.v1 | saga complete / cancel | packing_slip_id, order_id, lines[{order_line_id, qty, cost_amount, cost_snapshot_id}], journal_posting_id, posting_date | billing, sales, inventory, ledger, portal, credit |
+| dev.depot.fulfillment.asn.issued.v1 | post | shipment_id, containers[{sscc, lines}], carrier, tracking | EDI (w35) |
+| depot.fulfillment.shipment.tracking-updated.v1 | poll / webhook | shipment_id, tracking_number, status, event | portal, sales |
 
 ### 5.28.6 User experience
 
@@ -954,11 +954,11 @@ Fixtures: `warehouse-sim-1k` (1,000 orders, 120 products, 3 warehouses, batch/se
 Reconciliation: Σ inventory issue cost = Σ journal Cr 1400 from fulfillment; DNI projection = GL 1405; line delivered_qty = Σ slip qty.
 
 ### 5.28.10 Deployment and operations
-Helm `passage-fulfillment` (Go), `passage-carrier-gateway` (TS; egress via Envoy, provider secrets in Vault), `fulfillment-db`; PWA served by the shell. Config: `RELEASE_HORIZON_DAYS=2`, `WAVE_MAX_LINES=200`, `GS1_COMPANY_PREFIX` per entity, `COGS_AT_SHIPMENT=false`. Flags: `fulfillment.consolidation`, `fulfillment.asn`, `fulfillment.mobile_pick`. Jobs: release every 15 min per warehouse; tracking poll 30 min; DNI check 02:00. SLOs: post p95 < 2 s, saga completion 99.9% within 60 s. Alerts: PENDING > 10 min, carrier error rate > 5%, DNI diff ≠ 0. Runbook: resume stuck saga, re-print label, manual tracking. Rollback: previous digest; Temporal workflow versioning lets in-flight sagas finish on old code.
+Helm `depot-fulfillment` (Go), `depot-carrier-gateway` (TS; egress via Envoy, provider secrets in Vault), `fulfillment-db`; PWA served by the shell. Config: `RELEASE_HORIZON_DAYS=2`, `WAVE_MAX_LINES=200`, `GS1_COMPANY_PREFIX` per entity, `COGS_AT_SHIPMENT=false`. Flags: `fulfillment.consolidation`, `fulfillment.asn`, `fulfillment.mobile_pick`. Jobs: release every 15 min per warehouse; tracking poll 30 min; DNI check 02:00. SLOs: post p95 < 2 s, saga completion 99.9% within 60 s. Alerts: PENDING > 10 min, carrier error rate > 5%, DNI diff ≠ 0. Runbook: resume stuck saga, re-print label, manual tracking. Rollback: previous digest; Temporal workflow versioning lets in-flight sagas finish on old code.
 
 ### 5.28.11 Migration from AX / SAP
 
-| Source | Passage entity | Notes |
+| Source | Depot entity | Notes |
 |---|---|---|
 | CustPackingSlipJour/Trans with uninvoiced remainder | packing_slip, DNI opening balance | cost from InventTrans.CostAmountPhysical |
 | WMSShipment, WMSPickingRoute (open); WHSContainerTable | shipment, pick_work, container | open picks reset to RELEASED; SSCC retained |
@@ -1123,7 +1123,7 @@ Wave 29 ships the `billing` and `revrec` services. Posted packing slips and elig
 
 **Pain points solved (10x lens)**
 
-| Pain point in AX/SAP today | Root cause | Passage answer in this wave | Measurable 10x target |
+| Pain point in AX/SAP today | Root cause | Depot answer in this wave | Measurable 10x target |
 |---|---|---|---|
 | Bundle allocation lives in spreadsheets: D365 RevRecSchedule needs revenue prices per item and cannot explain allocation; SAP RAR (FARR_D_*) is a separate engine with its own posting run and FARR_RECON reconciliation | Rev rec bolted on after billing; allocation inputs not on the order | Revenue contract created at post from order lines with SSP order BR-29.2; allocation and schedules visible on the contract and in the invoice trace | Close-time rev rec effort 2–3 days → < 2 h review; 40/40 fixtures reproducible |
 | Invoice totals differ from the order by cents (SalesLine rounding per form letter; MWST vs. BSEG rounding) | Each document re-rounds | Engine net reused; per-line tax; totals property-tested | Cent discrepancies ~0.5% of invoices → 0 |
@@ -1133,7 +1133,7 @@ Wave 29 ships the `billing` and `revrec` services. Posted packing slips and elig
 
 ### 5.29.2 AX / SAP parity map
 
-| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Passage equivalent | Parity |
+| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Depot equivalent | Parity |
 |---|---|---|---|---|
 | Invoice from shipment | SalesFormLetter_Invoice, CustInvoiceJour/CustInvoiceTrans, summary update | VF01/VF04, VBRK/VBRP, copy control VTFL | invoice (SHIPMENT, CONSOLIDATED) | full |
 | Free-text invoice | CustInvoiceTable/CustInvoiceLine | FB70; order-related billing (DR) | invoice type FREE_TEXT | full |
@@ -1214,11 +1214,11 @@ Validation: post rejects closed AR/GL period, lines without revenue account, tax
 
 | Event | Trigger | Payload fields | Consumers |
 |---|---|---|---|
-| dev.passage.billing.invoice.posted.v1 | post | invoice_id, number, type, customer, invoice_account, currency, dates, lines[{order_line_id, product, qty, net, tax, revenue_account, obligation_id}], totals, journal_posting_id, intercompany | receivables, revrec, ledger, pricing, portal, sales |
-| passage.billing.credit-note.posted.v1 | post | credit_note_id, original_invoice_id, lines, totals, journal_posting_id | receivables, revrec, ledger, portal |
-| dev.passage.revrec.contract.allocated.v1 | allocate | contract_id, obligations[{id, ssp, allocated, method}] | analytics, audit |
-| dev.passage.revrec.schedule.recognized.v1 | run / event | schedule_id, obligation_id, period_id, amount, journal_posting_id | ledger, analytics |
-| dev.passage.billing.subscription.billed.v1 | daily job | subscription_id, invoice_id, period, proration | portal, analytics |
+| dev.depot.billing.invoice.posted.v1 | post | invoice_id, number, type, customer, invoice_account, currency, dates, lines[{order_line_id, product, qty, net, tax, revenue_account, obligation_id}], totals, journal_posting_id, intercompany | receivables, revrec, ledger, pricing, portal, sales |
+| depot.billing.credit-note.posted.v1 | post | credit_note_id, original_invoice_id, lines, totals, journal_posting_id | receivables, revrec, ledger, portal |
+| dev.depot.revrec.contract.allocated.v1 | allocate | contract_id, obligations[{id, ssp, allocated, method}] | analytics, audit |
+| dev.depot.revrec.schedule.recognized.v1 | run / event | schedule_id, obligation_id, period_id, amount, journal_posting_id | ledger, analytics |
+| dev.depot.billing.subscription.billed.v1 | daily job | subscription_id, invoice_id, period, proration | portal, analytics |
 
 ### 5.29.6 User experience
 
@@ -1283,11 +1283,11 @@ Fixtures: `asc606-40` (bundles with SSPs, discounts, milestones, modifications; 
 Reconciliation: Σ POSTED gross − credit notes = AR additions = GL 1200 debits from billing; recognized revenue = GL 4000 credits from billing + revrec; DNI reversals = slip costs invoiced.
 
 ### 5.29.10 Deployment and operations
-Helm `passage-billing`, `passage-revrec` (Go); `billing-db`, `revrec-db`; docgen templates in a ConfigMap per entity. Config: `BILLING_MAX_LINES=2000`, `BILLING_BATCH_MAX=500`, `REVREC_RESIDUAL_RULE=largest`, `USAGE_LATE_DAYS=45`. Flags: `billing.consolidation`, `billing.subscriptions`, `revrec.usage`, `billing.einvoice`. Jobs: subscription billing 03:00; recognition run on period-close trigger (w14) plus nightly preview; roll-forward check 02:30. SLOs: post p95 < 3 s, 99.95% availability. Alerts: failed posts > 1% in 15 min, roll-forward diff ≠ 0, run > 30 min. Runbook: re-run proposal, same-day reversal, regenerate document. Rollback: previous digest; recognition run idempotent per period.
+Helm `depot-billing`, `depot-revrec` (Go); `billing-db`, `revrec-db`; docgen templates in a ConfigMap per entity. Config: `BILLING_MAX_LINES=2000`, `BILLING_BATCH_MAX=500`, `REVREC_RESIDUAL_RULE=largest`, `USAGE_LATE_DAYS=45`. Flags: `billing.consolidation`, `billing.subscriptions`, `revrec.usage`, `billing.einvoice`. Jobs: subscription billing 03:00; recognition run on period-close trigger (w14) plus nightly preview; roll-forward check 02:30. SLOs: post p95 < 3 s, 99.95% availability. Alerts: failed posts > 1% in 15 min, roll-forward diff ≠ 0, run > 30 min. Runbook: re-run proposal, same-day reversal, regenerate document. Rollback: previous digest; recognition run idempotent per period.
 
 ### 5.29.11 Migration from AX / SAP
 
-| Source | Passage entity | Notes |
+| Source | Depot entity | Notes |
 |---|---|---|
 | CustInvoiceJour/Trans and CustInvoiceTable/Line with open CustTransOpen | invoice (POSTED), lines | header amounts and due dates; lines for trace |
 | RevRecSchedule / RevRecContract (D365) | revenue_contract, obligations, unrecognized schedules | unrecognized = opening 2400 |
@@ -1452,11 +1452,11 @@ Validation: Σ migrated open balances = legacy AR trial balance per customer; Σ
 ## 5.30 Wave 30: Accounts Receivable, Collections, Returns & Customer Portal
 
 ### 5.30.1 Scope and business context
-Wave 30 closes the loop. The `receivables` service applies cash (manual, BAI2 lockbox, remittance advice, camt.053 with ML-assisted suggestions) and settles open items; `collections-workflows` (TS on Temporal) runs aging, dunning, interest notes, promises to pay, disputes and risk scoring; return orders flow through RMA dispositions to inventory and credit notes; wave 26 accruals settle; statements are produced; and the customer portal at `customer.<env>.passage.dev` exposes orders, invoices, payments (Stripe/Adyen sandbox), returns and documents. The wave ends with the Phase 5 exit: the demo manufacturer's one-month simulation with reconciled subledgers and stakeholder sign-off. Out of scope: non-customer bank reconciliation and cash forecasting (wave 36), collections-agency integration, portal self-registration beyond invited contacts, bills of exchange (wave 36), generic case management (wave 45). Added from the coverage registers (§5.30.21): SEPA direct debit mandates and pain.008, deductions workbench, minimal collection cases, correspondence framework with email templates, balance confirmations, down payments and security deposits, distributor chargebacks, vendor dunning, GL/intercompany interest, portal guided configuration and returnable packaging charges.
+Wave 30 closes the loop. The `receivables` service applies cash (manual, BAI2 lockbox, remittance advice, camt.053 with ML-assisted suggestions) and settles open items; `collections-workflows` (TS on Temporal) runs aging, dunning, interest notes, promises to pay, disputes and risk scoring; return orders flow through RMA dispositions to inventory and credit notes; wave 26 accruals settle; statements are produced; and the customer portal at `customer.<env>.depot.dev` exposes orders, invoices, payments (Stripe/Adyen sandbox), returns and documents. The wave ends with the Phase 5 exit: the demo manufacturer's one-month simulation with reconciled subledgers and stakeholder sign-off. Out of scope: non-customer bank reconciliation and cash forecasting (wave 36), collections-agency integration, portal self-registration beyond invited contacts, bills of exchange (wave 36), generic case management (wave 45). Added from the coverage registers (§5.30.21): SEPA direct debit mandates and pain.008, deductions workbench, minimal collection cases, correspondence framework with email templates, balance confirmations, down payments and security deposits, distributor chargebacks, vendor dunning, GL/intercompany interest, portal guided configuration and returnable packaging charges.
 
 **Pain points solved (10x lens)**
 
-| Pain point in AX/SAP today | Root cause | Passage answer in this wave | Measurable 10x target |
+| Pain point in AX/SAP today | Root cause | Depot answer in this wave | Measurable 10x target |
 |---|---|---|---|
 | Cash application is manual: AX settle open transactions (CustOpenTrans) makes the clerk find invoices per check; SAP F-28 plus FLB2 post-processing lands 30–50% of payments on account | Exact-reference matching only; no scoring, subset-sum or remittance parsing | BR-30.1 scored rules R1–R7, auto-apply ≥ 85, ML-ranked suggestions across lockbox, camt.053, remittance and portal | Auto-match 40–60% → ≥ 90%; clerk time per payment 3 min → < 20 s; false matches 0 |
 | Dunning produces wrong letters: F150 MHNK proposals ignore disputes without FSCM; CustCollectionLetterJour cannot skip promised items | Exclusion state not part of selection | Exclusions from open_item.dispute_id/promise_id at issue time; grace, interval and minimum rules (BR-30.2) | Retracted letters ~5% → 0; run preparation 2 h → < 10 min |
@@ -1466,7 +1466,7 @@ Wave 30 closes the loop. The `receivables` service applies cash (manual, BAI2 lo
 
 ### 5.30.2 AX / SAP parity map
 
-| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Passage equivalent | Parity |
+| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Depot equivalent | Parity |
 |---|---|---|---|---|
 | Payments and settlement | CustPaymJournal (LedgerJournalTrans), CustTrans/CustSettlement, CustPaymModeTable | F-28, F-32, BSID → BSAD, OB41 | payment, settlement, open_item | full |
 | Lockbox | CustLockbox (BAI2 import) | FLB2 / FLB1 (BAI2) | lockbox_batch | full |
@@ -1559,13 +1559,13 @@ Validation: apply requires Σ settlements + on-account residual = payment amount
 
 | Event | Trigger | Payload fields | Consumers |
 |---|---|---|---|
-| dev.passage.receivables.payment.received.v1 | import / manual / portal | payment_id, source, amount, currency, payer, remittance[] | matcher, analytics |
-| dev.passage.receivables.payment.applied.v1 | apply | payment_id, settlements[{open_item_id, amount, discount, write_off, fx}], residual, journal_posting_id | ledger, sales credit, portal, collections |
-| passage.receivables.customer-balance.changed.v1 | any open item change | customer_id, balance, overdue, oldest_item_days, dunning_level, risk_score | sales credit, portal |
-| passage.receivables.dunning-letter.issued.v1 | issue | run_id, customer_id, level, items[], fee, document_ref | docgen, portal, sales (hold at level 4) |
-| dev.passage.receivables.dispute.opened.v1 / resolved.v1 | dispute lifecycle | dispute_id, open_item_id, amount, reason, resolution | collections, billing, analytics |
-| passage.receivables.return-order.authorized.v1 / dispositioned.v1 | RMA | rma_id, line, disposition, qty, restocking, credit_note_id | fulfillment, inventory, billing, portal |
-| dev.passage.pricing.rebate.settled.v1 | settlement | agreement_id, period_id, amount, credit_note_id | ledger, receivables, analytics |
+| dev.depot.receivables.payment.received.v1 | import / manual / portal | payment_id, source, amount, currency, payer, remittance[] | matcher, analytics |
+| dev.depot.receivables.payment.applied.v1 | apply | payment_id, settlements[{open_item_id, amount, discount, write_off, fx}], residual, journal_posting_id | ledger, sales credit, portal, collections |
+| depot.receivables.customer-balance.changed.v1 | any open item change | customer_id, balance, overdue, oldest_item_days, dunning_level, risk_score | sales credit, portal |
+| depot.receivables.dunning-letter.issued.v1 | issue | run_id, customer_id, level, items[], fee, document_ref | docgen, portal, sales (hold at level 4) |
+| dev.depot.receivables.dispute.opened.v1 / resolved.v1 | dispute lifecycle | dispute_id, open_item_id, amount, reason, resolution | collections, billing, analytics |
+| depot.receivables.return-order.authorized.v1 / dispositioned.v1 | RMA | rma_id, line, disposition, qty, restocking, credit_note_id | fulfillment, inventory, billing, portal |
+| dev.depot.pricing.rebate.settled.v1 | settlement | agreement_id, period_id, amount, credit_note_id | ledger, receivables, analytics |
 
 ### 5.30.6 User experience
 
@@ -1579,7 +1579,7 @@ Validation: apply requires Σ settlements + on-account residual = payment amount
 | Return order (RMA) | authorize, receive, inspect, disposition, credit | lines, disposition, restocking, credit preview | ReturnMaintain |
 | Customer portal | place order, view invoices/documents, pay, request return, track | orders, invoices, balance, payments, RMAs, tracking | PortalCustomer |
 
-Interaction rules: cash application keyboard flow (J/K candidates, Enter accept, A apply) and bulk accept of all ≥ 85 suggestions; worklist saved filters; dunning preview opens the rendered letter; portal is mobile-first; provider hosted fields so no card data touches Passage.
+Interaction rules: cash application keyboard flow (J/K candidates, Enter accept, A apply) and bulk accept of all ≥ 85 suggestions; worklist saved filters; dunning preview opens the rendered letter; portal is mobile-first; provider hosted fields so no card data touches Depot.
 
 ### 5.30.7 Business rules and edge cases
 - **BR-30.1 Cash application matching rules and scores.** Candidates are open items of the identified customer (all customers when unidentified). Score per candidate set: R1 exact document number in remittance/RmtInf/check memo +60; R2 amount = open amount of one item +30, or = Σ open of a subset of ≤ 5 items (0.00 tolerance) +25; R3 amount = open − available cash discount with discount date ≥ value_date +28; R4 payer bank account hash (MICR/IBAN) matches the customer's bank account +15; R5 payer name Jaro-Winkler ≥ 0.92 to customer or invoice account +10; R6 value_date within 7 days of due date +5; R7 short by < 1% or < 50.00 USD / 45.00 EUR +20 with a mandatory short-pay reason. Decision: auto-apply when exactly one set scores ≥ 85 and the runner-up ≤ winner − 20; 60–84 → SUGGESTED for one-click; < 60 → ON_ACCOUNT (1205) with top-3 suggestions kept. The ML ranker may reorder sets below 85 but cannot raise one above it. Every auto-application is reversible within the open period.
@@ -1635,18 +1635,18 @@ Fixtures: `cash-app-500` (300 BAI2 checks, 150 camt.053 entries, 50 remittances;
 Reconciliation: Σ open_amount = GL 1200; Σ ON_ACCOUNT = GL 1205; daily settlements = GL 1000/1010 debits from receivables; fees = GL 4300; interest = GL 4310; RMA receipts = wave 16 receipts = GL 1400 debits from returns; rebate settlements = GL 2150 debits; deferred revenue, DNI, inventory, WIP, AP and tax checks re-run on simulation data; trial balance balanced.
 
 ### 5.30.10 Deployment and operations
-Helm `passage-receivables` (Go), `passage-collections-workflows` (TS, Temporal namespace `collections`), `passage-customer-portal` (React + TS BFF; ingress `customer.<env>.passage.dev`; Keycloak realm `portal`), `passage-payments-gateway` (TS; provider keys in Vault; PCI scope limited to tokens), matcher ranker (Python, CPU). Databases `receivables-db`, `portal-db`. Config: `MATCH_AUTO_THRESHOLD=85`, `MATCH_MARGIN=20`, `DUNNING_INTERVAL_DAYS=10`, `RMA_EXPIRY_DAYS=30`, `WRITE_OFF_TOLERANCE=5.00/0.5%`. Flags: `ar.ml_ranker`, `ar.camt053`, `collections.interest`, `portal.payments`, `portal.returns`. Jobs: aging and risk score 01:30; lockbox/camt.053 SFTP poll every 15 min; dunning proposal weekly (issue manual); statements on the 1st; rebate settlement after period close; interest monthly. SLOs: open-items read p95 < 100 ms, apply p95 < 1 s, portal 99.9%, webhook processing < 60 s. Alerts: unapplied cash > 2% of monthly receipts for 3 days, webhook failures, reconciliation diff ≠ 0, run stuck in DRAFT > 7 days. Runbook: reverse a mis-application, re-import a file, re-issue a letter, rotate provider keys. Rollback: previous digest per deployable; Temporal workflows versioned.
+Helm `depot-receivables` (Go), `depot-collections-workflows` (TS, Temporal namespace `collections`), `depot-customer-portal` (React + TS BFF; ingress `customer.<env>.depot.dev`; Keycloak realm `portal`), `depot-payments-gateway` (TS; provider keys in Vault; PCI scope limited to tokens), matcher ranker (Python, CPU). Databases `receivables-db`, `portal-db`. Config: `MATCH_AUTO_THRESHOLD=85`, `MATCH_MARGIN=20`, `DUNNING_INTERVAL_DAYS=10`, `RMA_EXPIRY_DAYS=30`, `WRITE_OFF_TOLERANCE=5.00/0.5%`. Flags: `ar.ml_ranker`, `ar.camt053`, `collections.interest`, `portal.payments`, `portal.returns`. Jobs: aging and risk score 01:30; lockbox/camt.053 SFTP poll every 15 min; dunning proposal weekly (issue manual); statements on the 1st; rebate settlement after period close; interest monthly. SLOs: open-items read p95 < 100 ms, apply p95 < 1 s, portal 99.9%, webhook processing < 60 s. Alerts: unapplied cash > 2% of monthly receipts for 3 days, webhook failures, reconciliation diff ≠ 0, run stuck in DRAFT > 7 days. Runbook: reverse a mis-application, re-import a file, re-issue a letter, rotate provider keys. Rollback: previous digest per deployable; Temporal workflows versioned.
 
 ### 5.30.11 Migration from AX / SAP
 
-| Source | Passage entity | Notes |
+| Source | Depot entity | Notes |
 |---|---|---|
 | CustTrans + CustTransOpen (open); CustSettlement (current year) | open_item; settlement history | AmountCur/AmountMST → amounts; CollectionLetterCode → dunning_level |
 | CustCollectionLetterJour (last), CustInterestJour (open) | dunning history; open_item INTEREST | |
 | ReturnTable / SalesLine (ReturnStatus not Closed) | return_order | disposition codes → BR-30.3 |
 | BSID (open), BSAD (current year) | open_item; settlement history | MANSP → dunning_block; MSCHL/MANST → level |
 | MHNK/MHND (last run); UDM_DISPUTE (open); VBAK RE/LR (open) | dunning history; dispute; return_order | |
-| KONA/VBOX open accruals | rebate_accrual opening | settled in Passage |
+| KONA/VBOX open accruals | rebate_accrual opening | settled in Depot |
 
 Validation: Σ open items per customer = legacy AR aging to the cent; open dispute and RMA counts equal; dunning levels per item equal. Not migrated: cleared items before the current fiscal year, collection notes (lakehouse), legacy statements, CustPaymModeTable/lockbox setup (manual).
 
@@ -1817,7 +1817,7 @@ Validation: Σ open items per customer = legacy AR aging to the cent; open dispu
 - Statements and confirmations: language, date and number formats per customer locale; balance confirmations support audit standards (ISA 505 external confirmations) with immutable replies.
 - Bills of exchange (IT RiBa, ES pagaré, FR LCR, JP tegata) are not supported in v1; wave 36 adds treasury instruments and country packs enable them.
 - Down payments: tax on advance payments (EU art. 65 VAT Directive) enabled per pack; DE requires a down-payment invoice with tax.
-- Privacy and PCI: card data never touches Passage (SAQ-A); IBANs are stored encrypted and displayed masked; collection notes and case activities are personal data subject to w48 retention (7 years, then pseudonymized); portal contacts can export their data.
+- Privacy and PCI: card data never touches Depot (SAQ-A); IBANs are stored encrypted and displayed masked; collection notes and case activities are personal data subject to w48 retention (7 years, then pseudonymized); portal contacts can export their data.
 - Retention: open-item history and settlements 10 years (GoBD); dunning letters 7 years; R-transaction evidence 13 months minimum.
 - Extension points: correspondence template slots, dunning procedure legal-text slot, interest rule provider, payment-file format registry (w19) and the chargeback EDI mapper (w35).
 

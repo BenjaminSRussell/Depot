@@ -1,6 +1,6 @@
 openapi: 3.0.3
 info:
-  title: Passage Tax
+  title: Depot Tax
   version: 0.3.0
   description: >-
     Tax determination, calculation, withholding, provider failover, settlement reconciliation to the
@@ -10,25 +10,25 @@ paths:
   /healthz:
     get:
       operationId: liveness
-      x-passage-duty: public
+      x-depot-duty: public
       responses:
         "200": { description: The process is up }
   /readyz:
     get:
       operationId: readiness
-      x-passage-duty: public
+      x-depot-duty: public
       responses:
         "200": { description: The database answers a ping }
         "503": { description: The database is unreachable }
   /v1/tax/calculate:
     post:
       operationId: calculateTax
-      x-passage-duty: tax.tax.calculate
+      x-depot-duty: tax.tax.calculate
       summary: Stateless tax calculation of one document
       description: >-
         With a provider name the call goes to that provider and falls back to the internal engine on a
         timeout or 5xx (warning TAX-0007, fallback true). The document is then queued for recommit and
-        dev.passage.tax.provider.fallback.v1 is published when the tax store is configured.
+        dev.depot.tax.provider.fallback.v1 is published when the tax store is configured.
       requestBody:
         required: true
         content:
@@ -47,7 +47,7 @@ paths:
   /v1/tax/withholding/calculate:
     post:
       operationId: calculateWithholding
-      x-passage-duty: tax.withholding.calculate
+      x-depot-duty: tax.withholding.calculate
       summary: Stateless withholding tax calculation
       requestBody:
         required: true
@@ -67,7 +67,7 @@ paths:
   /v1/tax/transactions:
     post:
       operationId: recordTaxTransactions
-      x-passage-duty: tax.transaction.record
+      x-depot-duty: tax.transaction.record
       summary: Record posted tax amounts of the request's legal entity
       description: Idempotent per transaction id; a transaction already recorded is counted as a duplicate and left unchanged.
       requestBody:
@@ -93,7 +93,7 @@ paths:
   /v1/tax/settlements:run:
     post:
       operationId: runTaxSettlement
-      x-passage-duty: tax.settlement.run
+      x-depot-duty: tax.settlement.run
       summary: Settle the open tax transactions of a period after reconciling to the GL tax accounts to the cent
       description: >-
         Every recorded transaction of the period, settled or not, is compared per code and direction with
@@ -122,7 +122,7 @@ paths:
   /v1/tax/ledger-config:
     put:
       operationId: setTaxLedgerConfig
-      x-passage-duty: tax.ledgerconfig.manage
+      x-depot-duty: tax.ledgerconfig.manage
       summary: Set the ledger and GL tax accounts a legal entity settles against
       description: >-
         Stores the ledger and the code|direction to GL account map for the request's single legal entity.
@@ -145,7 +145,7 @@ paths:
   /v1/tax/recommit:run:
     post:
       operationId: runTaxRecommit
-      x-passage-duty: tax.recommit.run
+      x-depot-duty: tax.recommit.run
       summary: Re-calculate queued fallback documents on their external provider
       description: >-
         Takes the oldest pending queue entries of the request's legal entity, calculates each on its
@@ -167,7 +167,7 @@ paths:
   /v1/tax/saft:
     get:
       operationId: exportSaft
-      x-passage-duty: tax.saft.export
+      x-depot-duty: tax.saft.export
       summary: SAF-T tax extract of a period
       description: >-
         XML in the OECD SAF-T 2.00 namespace with the header and a tax table of per-code period totals.
@@ -198,7 +198,7 @@ paths:
   /v1/tax/jurisdictions:
     get:
       operationId: listJurisdictions
-      x-passage-duty: tax.config.read
+      x-depot-duty: tax.config.read
       summary: The jurisdiction tree as a flat list with parent codes
       responses:
         "200":
@@ -215,7 +215,7 @@ paths:
   /v1/tax/jurisdictions/{code}:
     put:
       operationId: putJurisdiction
-      x-passage-duty: tax.config.manage
+      x-depot-duty: tax.config.manage
       summary: Create or replace a jurisdiction; refuses a parent that loops the tree
       parameters:
         - { name: code, in: path, required: true, schema: { type: string } }
@@ -238,7 +238,7 @@ paths:
         "503": { $ref: "#/components/responses/Problem" }
     delete:
       operationId: deleteJurisdiction
-      x-passage-duty: tax.config.manage
+      x-depot-duty: tax.config.manage
       summary: Delete a jurisdiction with no children and no tax codes (TAX-0013 otherwise)
       parameters:
         - { name: code, in: path, required: true, schema: { type: string } }
@@ -253,7 +253,7 @@ paths:
   /v1/tax/codes:
     get:
       operationId: listTaxCodes
-      x-passage-duty: tax.config.read
+      x-depot-duty: tax.config.read
       summary: Stored tax codes with their effective-dated rates
       responses:
         "200":
@@ -270,7 +270,7 @@ paths:
   /v1/tax/codes/{code}:
     put:
       operationId: putTaxCode
-      x-passage-duty: tax.config.manage
+      x-depot-duty: tax.config.manage
       summary: Create or replace a tax code and its rate history
       parameters:
         - { name: code, in: path, required: true, schema: { type: string } }
@@ -293,7 +293,7 @@ paths:
         "503": { $ref: "#/components/responses/Problem" }
     delete:
       operationId: deleteTaxCode
-      x-passage-duty: tax.config.manage
+      x-depot-duty: tax.config.manage
       summary: Delete a tax code that no group or return box uses (TAX-0013 otherwise)
       parameters:
         - { name: code, in: path, required: true, schema: { type: string } }
@@ -308,7 +308,7 @@ paths:
   /v1/tax/groups/{kind}:
     get:
       operationId: listTaxGroups
-      x-passage-duty: tax.config.read
+      x-depot-duty: tax.config.read
       summary: Party tax groups (kind party) or item tax groups (kind item)
       parameters:
         - { name: kind, in: path, required: true, schema: { type: string } }
@@ -327,7 +327,7 @@ paths:
   /v1/tax/groups/{kind}/{code}:
     put:
       operationId: putTaxGroup
-      x-passage-duty: tax.config.manage
+      x-depot-duty: tax.config.manage
       summary: Create or replace a tax group and the tax codes it selects
       parameters:
         - { name: kind, in: path, required: true, schema: { type: string } }
@@ -351,7 +351,7 @@ paths:
         "503": { $ref: "#/components/responses/Problem" }
     delete:
       operationId: deleteTaxGroup
-      x-passage-duty: tax.config.manage
+      x-depot-duty: tax.config.manage
       summary: Delete a tax group
       parameters:
         - { name: kind, in: path, required: true, schema: { type: string } }
@@ -367,7 +367,7 @@ paths:
   /v1/tax/config:
     get:
       operationId: getTaxConfig
-      x-passage-duty: tax.config.read
+      x-depot-duty: tax.config.read
       summary: The stored configuration in the shape calculate takes inline; send stored_config true to use it
       responses:
         "200":
@@ -384,7 +384,7 @@ paths:
   /v1/tax/entity-settings:
     get:
       operationId: getEntitySettings
-      x-passage-duty: tax.config.read
+      x-depot-duty: tax.config.read
       summary: Country and VAT number of the request's legal entity
       responses:
         "200":
@@ -400,7 +400,7 @@ paths:
         "503": { $ref: "#/components/responses/Problem" }
     put:
       operationId: putEntitySettings
-      x-passage-duty: tax.config.manage
+      x-depot-duty: tax.config.manage
       summary: Set the country and VAT number of the request's legal entity
       requestBody:
         required: true
@@ -422,7 +422,7 @@ paths:
   /v1/tax/vat-boxes:
     get:
       operationId: listVatBoxes
-      x-passage-duty: tax.config.read
+      x-depot-duty: tax.config.read
       summary: VAT return box definitions and the tax codes each box sums
       responses:
         "200":
@@ -438,7 +438,7 @@ paths:
         "503": { $ref: "#/components/responses/Problem" }
     put:
       operationId: putVatBoxes
-      x-passage-duty: tax.config.manage
+      x-depot-duty: tax.config.manage
       summary: Replace the whole box set
       requestBody:
         required: true
@@ -460,7 +460,7 @@ paths:
   /v1/tax/vat-return:
     get:
       operationId: getVatReturn
-      x-passage-duty: tax.vatreturn.read
+      x-depot-duty: tax.vatreturn.read
       summary: Box totals of the request's legal entity over a period, computed from recorded tax transactions
       parameters:
         - { name: period_from, in: query, required: true, schema: { $ref: "#/components/schemas/Date" } }
@@ -484,7 +484,7 @@ paths:
   /v1/tax/esl:
     get:
       operationId: getEuSalesList
-      x-passage-duty: tax.vatreturn.read
+      x-depot-duty: tax.vatreturn.read
       summary: "EU sales list: supplies to other member states grouped by country, VAT number and kind of supply"
       parameters:
         - { name: period_from, in: query, required: true, schema: { $ref: "#/components/schemas/Date" } }
@@ -507,7 +507,7 @@ paths:
   /v1/tax/intrastat/master/{kind}:
     get:
       operationId: listIntrastatMaster
-      x-passage-duty: tax.intrastat.read
+      x-depot-duty: tax.intrastat.read
       summary: Intrastat master data of one kind (commodity, transaction_code, transport_mode, port, country or delivery_terms)
       parameters:
         - { name: kind, in: path, required: true, schema: { type: string } }
@@ -526,7 +526,7 @@ paths:
   /v1/tax/intrastat/master/{kind}/{code}:
     put:
       operationId: putIntrastatMaster
-      x-passage-duty: tax.intrastatmaster.manage
+      x-depot-duty: tax.intrastatmaster.manage
       summary: Create or replace one master data entry
       parameters:
         - { name: kind, in: path, required: true, schema: { type: string } }
@@ -550,7 +550,7 @@ paths:
         "503": { $ref: "#/components/responses/Problem" }
     delete:
       operationId: deleteIntrastatMaster
-      x-passage-duty: tax.intrastatmaster.manage
+      x-depot-duty: tax.intrastatmaster.manage
       summary: Delete one master data entry
       parameters:
         - { name: kind, in: path, required: true, schema: { type: string } }
@@ -566,7 +566,7 @@ paths:
   /v1/tax/intrastat/journals:
     get:
       operationId: listIntrastatJournals
-      x-passage-duty: tax.intrastat.read
+      x-depot-duty: tax.intrastat.read
       summary: Intrastat journals of the request's legal entity, newest period first
       responses:
         "200":
@@ -582,7 +582,7 @@ paths:
         "503": { $ref: "#/components/responses/Problem" }
     post:
       operationId: createIntrastatJournal
-      x-passage-duty: tax.intrastat.manage
+      x-depot-duty: tax.intrastat.manage
       summary: Open a draft journal for one flow and month
       requestBody:
         required: true
@@ -604,7 +604,7 @@ paths:
   /v1/tax/intrastat/journals/{id}:
     get:
       operationId: getIntrastatJournal
-      x-passage-duty: tax.intrastat.read
+      x-depot-duty: tax.intrastat.read
       summary: One journal with its lines and their validation problems
       parameters:
         - { name: id, in: path, required: true, schema: { type: string } }
@@ -623,7 +623,7 @@ paths:
   /v1/tax/intrastat/journals/{id}/transfer:
     post:
       operationId: transferIntrastatLines
-      x-passage-duty: tax.intrastat.manage
+      x-depot-duty: tax.intrastat.manage
       summary: Add shipment or receipt lines to an open journal; a source_ref already transferred is skipped
       parameters:
         - { name: id, in: path, required: true, schema: { type: string } }
@@ -647,7 +647,7 @@ paths:
   /v1/tax/intrastat/journals/{id}/validate:
     post:
       operationId: validateIntrastatJournal
-      x-passage-duty: tax.intrastat.manage
+      x-depot-duty: tax.intrastat.manage
       summary: Check every line against the master data; the journal becomes validated when none has a problem
       parameters:
         - { name: id, in: path, required: true, schema: { type: string } }
@@ -666,7 +666,7 @@ paths:
   /v1/tax/intrastat/journals/{id}/compress:
     post:
       operationId: compressIntrastatJournal
-      x-passage-duty: tax.intrastat.manage
+      x-depot-duty: tax.intrastat.manage
       summary: Merge lines that share every classifying field; the journal returns to draft
       parameters:
         - { name: id, in: path, required: true, schema: { type: string } }
@@ -685,7 +685,7 @@ paths:
   /v1/tax/intrastat/journals/{id}/correct:
     post:
       operationId: correctIntrastatJournal
-      x-passage-duty: tax.intrastat.manage
+      x-depot-duty: tax.intrastat.manage
       summary: Open a correction draft of an exported journal
       parameters:
         - { name: id, in: path, required: true, schema: { type: string } }
@@ -704,7 +704,7 @@ paths:
   /v1/tax/intrastat/journals/{id}/lines/{lineNo}:
     put:
       operationId: putIntrastatLine
-      x-passage-duty: tax.intrastat.manage
+      x-depot-duty: tax.intrastat.manage
       summary: Replace one line of an open journal; the journal returns to draft
       parameters:
         - { name: id, in: path, required: true, schema: { type: string } }
@@ -728,7 +728,7 @@ paths:
         "503": { $ref: "#/components/responses/Problem" }
     delete:
       operationId: deleteIntrastatLine
-      x-passage-duty: tax.intrastat.manage
+      x-depot-duty: tax.intrastat.manage
       summary: Remove one line of an open journal and renumber the rest
       parameters:
         - { name: id, in: path, required: true, schema: { type: string } }
@@ -744,7 +744,7 @@ paths:
   /v1/tax/intrastat/journals/{id}/export:
     get:
       operationId: exportIntrastatJournal
-      x-passage-duty: tax.intrastat.export
+      x-depot-duty: tax.intrastat.export
       summary: CSV declaration of a validated journal; locks it. An exported journal downloads again unchanged
       parameters:
         - { name: id, in: path, required: true, schema: { type: string } }
@@ -759,7 +759,7 @@ paths:
   /v1/tax/exemption-certificates:
     get:
       operationId: listExemptionCertificates
-      x-passage-duty: tax.config.read
+      x-depot-duty: tax.config.read
       summary: Stored exemption certificates
       responses:
         "200":
@@ -776,7 +776,7 @@ paths:
   /v1/tax/exemption-certificates/{number}:
     put:
       operationId: putExemptionCertificate
-      x-passage-duty: tax.config.manage
+      x-depot-duty: tax.config.manage
       summary: Create or replace an exemption certificate; stored_config calculations read it by party.certificate
       parameters:
         - { name: number, in: path, required: true, schema: { type: string } }
@@ -799,7 +799,7 @@ paths:
         "503": { $ref: "#/components/responses/Problem" }
     delete:
       operationId: deleteExemptionCertificate
-      x-passage-duty: tax.config.manage
+      x-depot-duty: tax.config.manage
       summary: Delete an exemption certificate
       parameters:
         - { name: number, in: path, required: true, schema: { type: string } }
@@ -814,7 +814,7 @@ paths:
   /v1/tax/intrastat/master:seed:
     post:
       operationId: seedIntrastatMaster
-      x-passage-duty: tax.intrastatmaster.manage
+      x-depot-duty: tax.intrastatmaster.manage
       summary: Add the standard Intrastat lists (transaction codes, transport modes, delivery terms, countries, ports, a starter set of CN8 codes) that the tenant does not have yet; edited entries are kept
       requestBody:
         required: true
@@ -836,7 +836,7 @@ paths:
   /v1/tax/intrastat/master:import:
     post:
       operationId: importIntrastatMaster
-      x-passage-duty: tax.intrastatmaster.manage
+      x-depot-duty: tax.intrastatmaster.manage
       summary: Load master data in bulk (for example the CN8 table); existing entries are kept unless overwrite is true
       requestBody:
         required: true
@@ -858,7 +858,7 @@ paths:
   /v1/tax/vat-layouts:
     get:
       operationId: listVatLayouts
-      x-passage-duty: tax.config.read
+      x-depot-duty: tax.config.read
       summary: National return layouts that ship with the service (box ids, labels and which transactions feed each)
       responses:
         "200":
@@ -875,7 +875,7 @@ paths:
   /v1/tax/vat-layouts/{country}/apply:
     post:
       operationId: applyVatLayout
-      x-passage-duty: tax.config.manage
+      x-depot-duty: tax.config.manage
       summary: Replace the legal entity's return boxes with a national layout, mapping its own tax codes to each box
       parameters:
         - { name: country, in: path, required: true, schema: { type: string } }
@@ -899,7 +899,7 @@ paths:
   /v1/tax/recovery-policies:
     get:
       operationId: listRecoveryPolicies
-      x-passage-duty: tax.config.read
+      x-depot-duty: tax.config.read
       summary: How much of an input tax is recoverable per code and item tax group, effective-dated
       responses:
         "200":
@@ -916,7 +916,7 @@ paths:
   /v1/tax/recovery-policies/{code}:
     put:
       operationId: putRecoveryPolicy
-      x-passage-duty: tax.config.manage
+      x-depot-duty: tax.config.manage
       summary: Create or replace the recovery policy of a code, item tax group and start date; stored_config calculations apply it to input tax
       parameters:
         - { name: code, in: path, required: true, schema: { type: string } }
@@ -939,7 +939,7 @@ paths:
         "503": { $ref: "#/components/responses/Problem" }
     delete:
       operationId: deleteRecoveryPolicy
-      x-passage-duty: tax.config.manage
+      x-depot-duty: tax.config.manage
       summary: Delete a recovery policy
       parameters:
         - { name: code, in: path, required: true, schema: { type: string } }
@@ -956,7 +956,7 @@ paths:
   /v1/tax/vat-reclaim:
     get:
       operationId: getVatReclaim
-      x-passage-duty: tax.vatreturn.read
+      x-depot-duty: tax.vatreturn.read
       summary: "Input tax of a period per code: what may be reclaimed and what stays in the cost of the purchases"
       parameters:
         - { name: period_from, in: query, required: false, schema: { type: string } }
@@ -976,7 +976,7 @@ paths:
   /v1/tax/withholding/entries:
     post:
       operationId: recordWithholdingEntries
-      x-passage-duty: tax.withholding.record
+      x-depot-duty: tax.withholding.record
       summary: Record the withholding of payments (the result of withholding/calculate) so a remittance run can remit it; an id is recorded once
       requestBody:
         required: true
@@ -998,7 +998,7 @@ paths:
   /v1/tax/withholding/remittance-runs:
     post:
       operationId: runWithholdingRemittance
-      x-passage-duty: tax.withholding.remit
+      x-depot-duty: tax.withholding.remit
       summary: "Remit the withholding of a period: totals per code and currency, and one numbered certificate per payee, code and currency; TAX-0014 when nothing is waiting"
       requestBody:
         required: true
@@ -1019,7 +1019,7 @@ paths:
         "503": { $ref: "#/components/responses/Problem" }
     get:
       operationId: listWithholdingRemittanceRuns
-      x-passage-duty: tax.withholding.read
+      x-depot-duty: tax.withholding.read
       summary: Remittance runs of the legal entity, newest first
       responses:
         "200":
@@ -1036,7 +1036,7 @@ paths:
   /v1/tax/withholding/remittance-runs/{id}:
     get:
       operationId: getWithholdingRemittanceRun
-      x-passage-duty: tax.withholding.read
+      x-depot-duty: tax.withholding.read
       summary: One remittance run with its certificates
       parameters:
         - { name: id, in: path, required: true, schema: { type: string } }
@@ -1055,7 +1055,7 @@ paths:
   /v1/tax/withholding/certificates:
     get:
       operationId: listWithholdingCertificates
-      x-passage-duty: tax.withholding.read
+      x-depot-duty: tax.withholding.read
       summary: Withholding certificates, optionally of one payee
       parameters:
         - { name: party_ref, in: query, required: false, schema: { type: string } }
@@ -1074,7 +1074,7 @@ paths:
   /v1/tax/intrastat/products:
     get:
       operationId: listIntrastatProducts
-      x-passage-duty: tax.intrastat.read
+      x-depot-duty: tax.intrastat.read
       summary: "Intrastat mapping of products: commodity code, origin and mass per unit"
       responses:
         "200":
@@ -1091,7 +1091,7 @@ paths:
   /v1/tax/intrastat/products/{product_id}:
     put:
       operationId: putIntrastatProduct
-      x-passage-duty: tax.intrastatmaster.manage
+      x-depot-duty: tax.intrastatmaster.manage
       summary: Create or replace the Intrastat mapping of a product
       parameters:
         - { name: product_id, in: path, required: true, schema: { type: string } }
@@ -1114,7 +1114,7 @@ paths:
         "503": { $ref: "#/components/responses/Problem" }
     delete:
       operationId: deleteIntrastatProduct
-      x-passage-duty: tax.intrastatmaster.manage
+      x-depot-duty: tax.intrastatmaster.manage
       summary: Delete the Intrastat mapping of a product
       parameters:
         - { name: product_id, in: path, required: true, schema: { type: string } }
@@ -1129,7 +1129,7 @@ paths:
   /v1/tax/intrastat/movements:
     post:
       operationId: stageIntrastatMovements
-      x-passage-duty: tax.intrastat.feed
+      x-depot-duty: tax.intrastat.feed
       summary: Stage the goods movements of shipments (dispatch) and receipts (arrival); a source reference is staged once
       requestBody:
         required: true
@@ -1150,7 +1150,7 @@ paths:
         "503": { $ref: "#/components/responses/Problem" }
     get:
       operationId: listIntrastatMovements
-      x-passage-duty: tax.intrastat.read
+      x-depot-duty: tax.intrastat.read
       summary: Staged movements of the legal entity, newest first
       parameters:
         - { name: status, in: query, required: false, schema: { type: string } }
@@ -1169,7 +1169,7 @@ paths:
   /v1/tax/intrastat/journals/{id}/transfer-movements:
     post:
       operationId: transferIntrastatMovements
-      x-passage-duty: tax.intrastat.manage
+      x-depot-duty: tax.intrastat.manage
       summary: Fill a draft journal from the staged movements of its flow and month; movements with an unmapped product stay staged and are named in the answer
       parameters:
         - { name: id, in: path, required: true, schema: { type: string } }

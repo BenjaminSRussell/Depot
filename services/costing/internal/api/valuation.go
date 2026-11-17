@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/money"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/money"
 
-	"github.com/BenjaminSRussell/passage/services/costing/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/costing/internal/domain"
 )
 
 const (

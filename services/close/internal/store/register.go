@@ -8,8 +8,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/services/close/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/services/close/internal/domain"
 )
 
 func (s *Postgres) RegisterPeriod(ctx context.Context, in domain.PeriodRegistration) (bool, error) {
@@ -34,7 +34,7 @@ func (s *Postgres) RegisterPeriod(ctx context.Context, in domain.PeriodRegistrat
 		switch {
 		case rows == 0:
 			created = true
-			_, err := tx.Exec(ctx, `insert into period_status(tenant_id, legal_entity_id, ledger_id, fiscal_period_id, module, status, start_date, end_date, changed_by) values(current_setting('passage.tenant_id')::uuid, $1, $2, $3, 'all', 'open', $4, $5, $6)`,
+			_, err := tx.Exec(ctx, `insert into period_status(tenant_id, legal_entity_id, ledger_id, fiscal_period_id, module, status, start_date, end_date, changed_by) values(current_setting('depot.tenant_id')::uuid, $1, $2, $3, 'all', 'open', $4, $5, $6)`,
 				in.LegalEntityID, in.LedgerID, in.FiscalPeriodID, in.Start, in.End, in.Actor)
 			return err
 		case moved > 0:

@@ -8,11 +8,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/org/internal/api"
-	"github.com/BenjaminSRussell/passage/services/org/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/org/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/org/internal/api"
+	"github.com/BenjaminSRussell/depot/services/org/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/org/internal/store"
 )
 
 // memOrg keeps the records an organization package touches; every other Store method panics.
@@ -335,7 +335,7 @@ func TestPackageRoutes_Authorization(t *testing.T) {
 			if rec := doWithoutTenantAdmin(r, http.MethodPost, route, packageBody, packageDuties, true); rec.Code != http.StatusForbidden {
 				t.Fatalf("without tenant.administer = %d", rec.Code)
 			}
-			if rec := do(r, http.MethodPost, route, packageBody, packageDuties, true, "X-Passage-Legal-Entity", "00000000-0000-4000-8000-000000000001"); rec.Code != http.StatusForbidden {
+			if rec := do(r, http.MethodPost, route, packageBody, packageDuties, true, "X-Depot-Legal-Entity", "00000000-0000-4000-8000-000000000001"); rec.Code != http.StatusForbidden {
 				t.Fatalf("scoped caller = %d", rec.Code)
 			}
 			if rec := do(r, http.MethodPost, route, packageBody, packageDuties, false); rec.Code != http.StatusUnauthorized && rec.Code != http.StatusForbidden {

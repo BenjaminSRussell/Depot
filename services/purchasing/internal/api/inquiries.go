@@ -5,8 +5,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/services/purchasing/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/purchasing/internal/store"
+	"github.com/BenjaminSRussell/depot/services/purchasing/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/purchasing/internal/store"
 )
 
 // inquiryFilter reads the shared inquiry query parameters: legalEntityId (must be in scope),

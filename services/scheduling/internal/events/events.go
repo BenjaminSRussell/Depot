@@ -2,8 +2,8 @@
 package events
 
 import (
-	"github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/services/scheduling/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/services/scheduling/internal/domain"
 )
 
 // Context is the bounded context name used in event types.

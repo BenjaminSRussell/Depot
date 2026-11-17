@@ -4,10 +4,10 @@ import (
 	"context"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/scheduling/internal/domain"
-	schedevents "github.com/BenjaminSRussell/passage/services/scheduling/internal/events"
-	"github.com/BenjaminSRussell/passage/services/scheduling/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/scheduling/internal/domain"
+	schedevents "github.com/BenjaminSRussell/depot/services/scheduling/internal/events"
+	"github.com/BenjaminSRussell/depot/services/scheduling/internal/store"
 )
 
 // A block is retired and re-prioritised under optimistic versioning: a stale
@@ -50,7 +50,7 @@ func TestUpdateCapacityBlock_VersionReplayAndEvent(t *testing.T) {
 	if err != nil || cleared.Version != 3 || len(cleared.Condition) != 0 || cleared.Active || cleared.Priority != 40 {
 		t.Fatalf("clear condition = %+v err=%v", cleared, err)
 	}
-	if n := outboxCount(t, admin, "dev.passage.scheduling.capacityblock.updated.v1"); n != 2 {
+	if n := outboxCount(t, admin, "dev.depot.scheduling.capacityblock.updated.v1"); n != 2 {
 		t.Fatalf("capacityblock.updated events = %d, want 2 (the replay writes none)", n)
 	}
 	read, err := s.GetCapacityBlock(ctx, b.ID)
@@ -170,7 +170,7 @@ func TestUpdateNetwork_RenameEndAndRefuseEarlyEnd(t *testing.T) {
 	if err != nil || !replayed || again.Version != 2 {
 		t.Fatalf("replay = %+v replayed=%v err=%v", again, replayed, err)
 	}
-	if n := outboxCount(t, admin, "dev.passage.scheduling.network.updated.v1"); n != 2 {
+	if n := outboxCount(t, admin, "dev.depot.scheduling.network.updated.v1"); n != 2 {
 		t.Fatalf("network.updated events = %d, want 2", n)
 	}
 	if _, _, err := s.UpdateNetwork(tenantCtx(2), n.ID, 3, store.NetworkPatch{Name: &name}, store.Idem{}); problemCode(err) != store.CodeNetworkNotFound {

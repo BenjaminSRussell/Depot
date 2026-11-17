@@ -1,7 +1,7 @@
 // The hub's client for the migration service's outbound mapping API (wave 10, slice S5):
 //
 //   POST /v1/integration/outbound-mappings/{id}:render   {event}  ->  {body, idempotencyKey, refs}
-//        422 MIG-XREF-UNRESOLVED when a referenced Passage record has no legacy key yet
+//        422 MIG-XREF-UNRESOLVED when a referenced Depot record has no legacy key yet
 //   POST /v1/integration/xref:record  {outboundMappingId, refs, legacyKey, eventId}  ->  204
 //        refs: the subject, plus (migration slice 23) one ref per element of a pushed collection, each with its legacyKey
 //
@@ -140,8 +140,8 @@ export interface MigrationClient {
   recordXref(input: XrefInput): Promise<XrefOutcome>;
 }
 
-/** The CloudEvent the hub renders: the same envelope the webhook body carries, plus the Passage extensions it kept. */
-export function cloudEventOf(event: HubEvent, source = "/passage/integration-hub"): Record<string, unknown> {
+/** The CloudEvent the hub renders: the same envelope the webhook body carries, plus the Depot extensions it kept. */
+export function cloudEventOf(event: HubEvent, source = "/depot/integration-hub"): Record<string, unknown> {
   return {
     specversion: "1.0",
     id: event.eventId,
@@ -149,7 +149,7 @@ export function cloudEventOf(event: HubEvent, source = "/passage/integration-hub
     type: event.type,
     time: new Date(event.occurredAt * 1000).toISOString(),
     subject: event.aggregateId,
-    passagesequence: event.sequence,
+    depotsequence: event.sequence,
     ...(event.legalEntityId ? { legalentityid: event.legalEntityId } : {}),
     data: event.data,
   };
@@ -192,7 +192,7 @@ export function httpMigrationClient(options: {
         redirect: "manual",
         headers: {
           "content-type": "application/json",
-          "x-passage-service-token": options.signer.mintForMigration({ tenantId, legalEntityId, actor: actor ?? HUB_ACTOR }),
+          "x-depot-service-token": options.signer.mintForMigration({ tenantId, legalEntityId, actor: actor ?? HUB_ACTOR }),
         },
         body: JSON.stringify(body),
         signal: AbortSignal.timeout(timeoutMs),

@@ -7,12 +7,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/eventing"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	platformtenant "github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/fulfillment/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/eventing"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	platformtenant "github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/fulfillment/internal/store"
 )
 
 var fakeExceptions []store.Exception
@@ -74,11 +74,11 @@ func TestExceptions_ListGetResolve(t *testing.T) {
 		t.Fatalf("resolve: %d %s %q", rec.Code, rec.Body.String(), fs.resolved)
 	}
 	// Resolving needs fulfillment.warehouse.release; viewing needs fulfillment.warehouse.view.
-	rec = do(t, h, http.MethodPost, path, `{"note":"x"}`, map[string]string{"If-Match": `"1"`, "Idempotency-Key": "r4", "X-Passage-Duties": "fulfillment.warehouse.view"})
+	rec = do(t, h, http.MethodPost, path, `{"note":"x"}`, map[string]string{"If-Match": `"1"`, "Idempotency-Key": "r4", "X-Depot-Duties": "fulfillment.warehouse.view"})
 	if rec.Code != http.StatusForbidden {
 		t.Fatalf("resolve without fulfillment.warehouse.release: %d", rec.Code)
 	}
-	if rec := do(t, h, http.MethodGet, "/v1/fulfillment/exceptions", "", map[string]string{"X-Passage-Duties": "fulfillment.warehouse.pick"}); rec.Code != http.StatusForbidden {
+	if rec := do(t, h, http.MethodGet, "/v1/fulfillment/exceptions", "", map[string]string{"X-Depot-Duties": "fulfillment.warehouse.pick"}); rec.Code != http.StatusForbidden {
 		t.Fatalf("list without fulfillment.warehouse.view: %d", rec.Code)
 	}
 }

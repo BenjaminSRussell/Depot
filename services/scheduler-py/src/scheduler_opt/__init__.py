@@ -1,4 +1,4 @@
-"""CP-SAT scheduling optimizer for the Passage scheduling service (PSG-23)."""
+"""CP-SAT scheduling optimizer for the Depot scheduling service (DPT-23)."""
 
 from scheduler_opt.campaign import CampaignSequence, changeover_matrix, sequence_campaign, validate_matrix
 from scheduler_opt.jobshop import (

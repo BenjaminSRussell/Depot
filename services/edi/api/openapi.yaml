@@ -1,10 +1,10 @@
 openapi: 3.1.0
 info:
-  title: Passage EDI engine API
+  title: Depot EDI engine API
   version: 0.1.0
-  description: Trading partner profiles, the map test harness, inbound X12 receipt with 997 matching, outbound 855/856/810 generation, the interchange list, the message monitor with reprocess and the partner SLA dashboard (PSG-35 slices 1 to 3); partner transports (AS2, SFTP) with outbound delivery, resend, and the AS2 listener partners call (#483).
+  description: Trading partner profiles, the map test harness, inbound X12 receipt with 997 matching, outbound 855/856/810 generation, the interchange list, the message monitor with reprocess and the partner SLA dashboard (DPT-35 slices 1 to 3); partner transports (AS2, SFTP) with outbound delivery, resend, and the AS2 listener partners call (#483).
 servers:
-  - url: https://api.{env}.passage.dev/v1
+  - url: https://api.{env}.depot.dev/v1
     variables:
       env: { default: dev }
 paths:
@@ -12,7 +12,7 @@ paths:
     post:
       operationId: createPartner
       summary: Create a trading partner profile
-      x-passage-duty: edi.admin
+      x-depot-duty: edi.admin
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
@@ -42,7 +42,7 @@ paths:
     get:
       operationId: listPartners
       summary: List trading partners by name
-      x-passage-duty: edi.admin
+      x-depot-duty: edi.admin
       parameters:
         - name: environment
           in: query
@@ -66,7 +66,7 @@ paths:
     get:
       operationId: getPartner
       summary: Read one trading partner
-      x-passage-duty: edi.admin
+      x-depot-duty: edi.admin
       parameters:
         - $ref: '#/components/parameters/Id'
       responses:
@@ -92,7 +92,7 @@ paths:
         are; a partner without a profile by any caller of the tenant with the duty. Setting status
         inactive stops inbound receipt (its senders no longer resolve), the AS2 listener (404) and
         outbound documents (EDI-0008).
-      x-passage-duty: edi.admin
+      x-depot-duty: edi.admin
       parameters:
         - $ref: '#/components/parameters/Id'
         - name: If-Match
@@ -155,7 +155,7 @@ paths:
         becomes SENT when the transport confirms receipt. A document that breaks a mapping rule
         is 422 EDI-0007. Served only when EDI_ALLOW_BODY_OUTBOUND=true (tests and development);
         production generates from the owning services through outbound:from-source.
-      x-passage-duty: edi.operate
+      x-depot-duty: edi.operate
       parameters:
         - $ref: '#/components/parameters/Id'
         - $ref: '#/components/parameters/IdempotencyKey'
@@ -195,7 +195,7 @@ paths:
       description: >
         The profile ties the partner to one legal entity and one customer of the source
         services and supplies the party names and GLNs the ASN and invoice sources do not carry.
-      x-passage-duty: edi.admin
+      x-depot-duty: edi.admin
       parameters:
         - $ref: '#/components/parameters/Id'
       requestBody:
@@ -229,7 +229,7 @@ paths:
         key, or a password) name files in the service's secret directory (EDI_SECRETS_DIR, filled
         by an ExternalSecret), and a reference that does not resolve to a usable secret is refused.
         The AS2 endpoint id is kept across updates.
-      x-passage-duty: edi.admin
+      x-depot-duty: edi.admin
       parameters:
         - $ref: '#/components/parameters/Id'
       requestBody:
@@ -261,7 +261,7 @@ paths:
     get:
       operationId: getTransport
       summary: Read the partner's transport, its AS2 inbound URL and whether its secrets resolve
-      x-passage-duty: edi.admin
+      x-depot-duty: edi.admin
       parameters:
         - $ref: '#/components/parameters/Id'
       responses:
@@ -275,8 +275,8 @@ paths:
   /edi/v1/partners/{id}/item-xrefs:
     get:
       operationId: listItemXrefs
-      summary: List the partner's item cross-references (partner item to Passage product)
-      x-passage-duty: edi.admin
+      summary: List the partner's item cross-references (partner item to Depot product)
+      x-depot-duty: edi.admin
       parameters:
         - $ref: '#/components/parameters/Id'
       responses:
@@ -298,7 +298,7 @@ paths:
       description: >
         Belongs to the legal entity of the partner's trade profile (409 EDI-0012 without one; a caller
         outside that entity sees the profile as absent). One mapping per qualifier and partner item (409 EDI-0019).
-      x-passage-duty: edi.admin
+      x-depot-duty: edi.admin
       parameters:
         - $ref: '#/components/parameters/Id'
       requestBody:
@@ -324,7 +324,7 @@ paths:
     put:
       operationId: putItemXref
       summary: Replace one item cross-reference
-      x-passage-duty: edi.admin
+      x-depot-duty: edi.admin
       parameters:
         - $ref: '#/components/parameters/Id'
         - $ref: '#/components/parameters/XrefId'
@@ -350,7 +350,7 @@ paths:
     delete:
       operationId: deleteItemXref
       summary: Delete one item cross-reference
-      x-passage-duty: edi.admin
+      x-depot-duty: edi.admin
       parameters:
         - $ref: '#/components/parameters/Id'
         - $ref: '#/components/parameters/XrefId'
@@ -362,7 +362,7 @@ paths:
     put:
       operationId: putSalesDefaults
       summary: Set the invoice account and the currency an inbound order without CUR is placed in
-      x-passage-duty: edi.admin
+      x-depot-duty: edi.admin
       parameters:
         - $ref: '#/components/parameters/Id'
       requestBody:
@@ -387,7 +387,7 @@ paths:
     get:
       operationId: getSalesDefaults
       summary: Read the partner's sales defaults
-      x-passage-duty: edi.admin
+      x-depot-duty: edi.admin
       parameters:
         - $ref: '#/components/parameters/Id'
       responses:
@@ -412,7 +412,7 @@ paths:
         final (409 EDI-0013). Idempotent per source document: a repeat returns the recorded
         interchange (200) and allocates no control number. This is an explicit API call; the
         wms.load.shipped and invoice.posted consumers are not built.
-      x-passage-duty: edi.operate
+      x-depot-duty: edi.operate
       parameters:
         - $ref: '#/components/parameters/Id'
       requestBody:
@@ -462,7 +462,7 @@ paths:
     get:
       operationId: listInterchanges
       summary: List interchanges, newest first
-      x-passage-duty: edi.operate
+      x-depot-duty: edi.operate
       parameters:
         - name: partnerId
           in: query
@@ -502,7 +502,7 @@ paths:
         The raw payload is not returned here; it is served as the masked segment tree under
         /payload. Party names in the canonical documents are replaced by "***" unless the caller
         holds edi.pii.view (BR-35.12).
-      x-passage-duty: edi.operate
+      x-depot-duty: edi.operate
       parameters:
         - $ref: '#/components/parameters/Id'
       responses:
@@ -525,7 +525,7 @@ paths:
         and numbers are replaced by "***" and flagged masked (BR-35.12); entity codes, qualifiers and the
         GLN stay visible. The raw text itself is never returned. A stored payload that no longer parses
         is EDI-0003; an EDIFACT payload is EDI-0006 (the viewer reads X12 only).
-      x-passage-duty: edi.operate
+      x-depot-duty: edi.operate
       parameters:
         - $ref: '#/components/parameters/Id'
       responses:
@@ -548,7 +548,7 @@ paths:
         (NOT_INBOUND) or one whose stored payload no longer parses (UNREADABLE) is reported in its item
         and does not stop the others. Items come back in request order. With dryRun=true nothing is
         written and no Idempotency-Key is needed.
-      x-passage-duty: edi.operate
+      x-depot-duty: edi.operate
       parameters:
         - name: Idempotency-Key
           in: header
@@ -593,13 +593,13 @@ paths:
       summary: Map the failed transactions of an inbound interchange again from its raw payload
       description: >
         Re-runs mapping for every FAILED transaction of an inbound interchange (received 997s are
-        left alone). A transaction that now maps becomes MAPPED and dev.passage.edi.message.received.v1
+        left alone). A transaction that now maps becomes MAPPED and dev.depot.edi.message.received.v1
         is published again with status MAPPED; one that still fails with another error is updated
-        and dev.passage.edi.message.failed.v1 is published. Unchanged outcomes write nothing. The 997
+        and dev.depot.edi.message.failed.v1 is published. Unchanged outcomes write nothing. The 997
         sent for the interchange and its ackStatus are never changed. With dryRun=true nothing is
         written and no Idempotency-Key is needed. An outbound interchange is EDI-0009 (it is resent,
         not reprocessed); a stored payload that no longer parses is EDI-0003.
-      x-passage-duty: edi.operate
+      x-depot-duty: edi.operate
       parameters:
         - $ref: '#/components/parameters/Id'
         - name: Idempotency-Key
@@ -635,7 +635,7 @@ paths:
         dispatcher. Only an outbound interchange whose latest document delivery is FAILED or
         REJECTED, to a partner whose transport (AS2 or SFTP) the caller's legal entities cover, can
         be resent (409 EDI-0015 otherwise).
-      x-passage-duty: edi.operate
+      x-depot-duty: edi.operate
       parameters:
         - $ref: '#/components/parameters/Id'
       responses:
@@ -653,16 +653,16 @@ paths:
               schema: { $ref: '#/components/schemas/Problem' }
   /as2/v1/{endpoint}:
     servers:
-      - url: https://as2.{env}.passage.dev
-        description: The AS2 listener (EDI_AS2_ADDR), reached by partners without a Passage token
+      - url: https://as2.{env}.depot.dev
+        description: The AS2 listener (EDI_AS2_ADDR), reached by partners without a Depot token
         variables:
           env: { default: dev }
     post:
       operationId: as2Receive
       summary: Receive an AS2 message from the partner of this endpoint (RFC 4130)
       description: >
-        Called by the trading partner's AS2 software, not by Passage users: there is no JWT and
-        X-Passage-* headers are ignored. The endpoint id selects one partner transport (tenant,
+        Called by the trading partner's AS2 software, not by Depot users: there is no JWT and
+        X-Depot-* headers are ignored. The endpoint id selects one partner transport (tenant,
         partner and legal entity come from it); the caller is authenticated by its CMS signature
         against the pinned partner certificate, AS2-From must be the partner's AS2 id and AS2-To
         ours. Nothing is parsed before the signature verifies (and the envelope decrypts when
@@ -681,7 +681,7 @@ paths:
         interchange recorded before; processed/error with authentication-failed,
         decryption-failed, integrity-check-failed, insufficient-message-security or
         unexpected-processing-error. Bodies above 8 MiB are 413.
-      x-passage-duty: none (partner authenticated by its AS2 signature)
+      x-depot-duty: none (partner authenticated by its AS2 signature)
       security: []
       parameters:
         - name: endpoint
@@ -707,8 +707,8 @@ paths:
         '503': { description: Our keys or the partner certificate cannot be loaded, or the asynchronous MDN cannot be stored }
   /as2/v1/{endpoint}/mdn:
     servers:
-      - url: https://as2.{env}.passage.dev
-        description: The AS2 listener (EDI_AS2_ADDR), reached by partners without a Passage token
+      - url: https://as2.{env}.depot.dev
+        description: The AS2 listener (EDI_AS2_ADDR), reached by partners without a Depot token
         variables:
           env: { default: dev }
     post:
@@ -718,10 +718,10 @@ paths:
         The MDN must be signed by the partner certificate, come from the partner's AS2 id to ours,
         answer a delivery of this partner that is AWAITING_MDN and carry the MIC we computed. A
         processed MDN marks the delivery DELIVERED and its messages SENT (with
-        dev.passage.edi.message.sent.v1); an error disposition marks it REJECTED. An MDN arriving
+        dev.depot.edi.message.sent.v1); an error disposition marks it REJECTED. An MDN arriving
         after the wait ran out (mdnDueAt) finds no delivery waiting: the delivery was sent again or
         FAILED. Shares the endpoint's rate limit.
-      x-passage-duty: none (partner authenticated by its AS2 signature)
+      x-depot-duty: none (partner authenticated by its AS2 signature)
       security: []
       parameters:
         - name: endpoint
@@ -749,7 +749,7 @@ paths:
       description: >
         Filters combine. Pages are keyset pages: pass nextCursor back as cursor to continue; it is
         absent on the last page. Rows carry no canonical document and never the raw payload.
-      x-passage-duty: edi.operate
+      x-depot-duty: edi.operate
       parameters:
         - name: partnerId
           in: query
@@ -802,7 +802,7 @@ paths:
       description: >
         The raw payload is not returned (BR-35.12). Party names in the canonical document are
         replaced by "***" unless the caller holds edi.pii.view; piiMasked says which view was served.
-      x-passage-duty: edi.operate
+      x-depot-duty: edi.operate
       parameters:
         - $ref: '#/components/parameters/Id'
       responses:
@@ -842,7 +842,7 @@ paths:
         with no cross-reference EDI-0105) or that sales refuses (EDI-0023) is parked: the message is
         FAILED with a park code and its error in the message monitor, the answer is 422, and the route
         posts it again once the cause is fixed.
-      x-passage-duty: edi.operate
+      x-depot-duty: edi.operate
       parameters:
         - $ref: '#/components/parameters/Id'
       responses:
@@ -887,7 +887,7 @@ paths:
         Partners with traffic in the last `days` days, by name. Ack latency is measured on our
         outbound interchanges from recording to the matched partner 997; lateAcks were matched after
         the profile's ackSlaMinutes and overdueAcks are still waiting past it.
-      x-passage-duty: edi.operate
+      x-depot-duty: edi.operate
       parameters:
         - name: days
           in: query
@@ -912,7 +912,7 @@ paths:
     post:
       operationId: testMaps
       summary: Run the mapping over a sample interchange without persisting anything
-      x-passage-duty: edi.admin
+      x-depot-duty: edi.admin
       requestBody:
         required: true
         content:
@@ -945,11 +945,11 @@ paths:
         same transaction. Unknown senders are EDI-0101. The 850 is mapped onto the canonical order,
         the 820 onto the remittance, the 214 onto the shipment status and the 810 onto the customer's self-billed
         invoice (matched right away against the shipments our 856s registered, like an INVOIC 389), each published with
-        dev.passage.edi.message.received.v1 (and message.failed when a rule breaks, AK5 R or E);
+        dev.depot.edi.message.received.v1 (and message.failed when a rule breaks, AK5 R or E);
         other sets are rejected (AK5 R, EDI-0006). A 997 group (GS01 FA) from the partner is
         matched by AK102 to the outbound interchange with that control number: answered messages
         become ACKED (AK5 A/E) or FAILED (AK5 R), the outbound interchange takes the AK9 status and
-        dev.passage.edi.message.acked.v1 is published per answered message. The 997 itself is
+        dev.depot.edi.message.acked.v1 is published per answered message. The 997 itself is
         POSTED, or FAILED with EDI-0161 when it answers nothing; 997s are never acknowledged, so
         ack997 is absent for an interchange of 997s only. TA1 segments (before the first GS) are
         matched by TA101 to our outbound interchange with that ISA13: a TA1 R rejects every
@@ -957,7 +957,7 @@ paths:
         noted (the 997 answers the groups); a TA1 is POSTED, or FAILED with EDI-0161, and never
         answered. A duplicate is 409 here; over AS2 or SFTP it is also answered with a TA1 R 025
         queued to the partner.
-      x-passage-duty: edi.operate
+      x-depot-duty: edi.operate
       parameters:
         - name: environment
           in: query
@@ -990,7 +990,7 @@ paths:
         posted. An invoice payables or the mapping refuses (no currency, no lines, a quantity of zero, a vendor invoice number received before) is parked
         (EDI-0038 or EDI-0039) and posts again with POST /messages/{id}:post once the cause is fixed; with payables not configured (EDI_PAYABLES_URL) it stays
         MAPPED for that route. A partner with a vendor profile has its 810s read this way on every route and transport.
-      x-passage-duty: edi.operate
+      x-depot-duty: edi.operate
       parameters:
         - name: environment
           in: query
@@ -1016,7 +1016,7 @@ paths:
     put:
       operationId: putVendorProfile
       summary: Say the partner is one of our vendors, and which vendor in which legal entity
-      x-passage-duty: edi.admin
+      x-depot-duty: edi.admin
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       requestBody:
@@ -1036,7 +1036,7 @@ paths:
     get:
       operationId: getVendorProfile
       summary: Read the partner's vendor profile
-      x-passage-duty: edi.admin
+      x-depot-duty: edi.admin
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -1058,7 +1058,7 @@ paths:
         qualifier against the partner's edifactId and edifactQualifier, EDI-0101 when none),
         rejects a UNB 0020 interchange reference seen from the partner inside the duplicate
         window (EDI-0102), and records every message: ORDERS mapped like the 850, DESADV held to
-        the 856 rules, INVOIC to the 810 rules, with dev.passage.edi.message.received.v1
+        the 856 rules, INVOIC to the 810 rules, with dev.depot.edi.message.received.v1
         (standard EDIFACT) per message and message.failed per failed one. A message whose UNT
         count or reference is wrong is FAILED while the rest is processed; other envelope errors
         are 400. A CONTRL is returned (and queued over the partner's transport) when the partner's
@@ -1067,10 +1067,10 @@ paths:
         group with a rejected message. A CONTRL from the partner is matched by its UCI 0020 to our
         outbound EDIFACT interchange with that reference, as a 997 is by AK102: the messages it
         answers become ACKED, or FAILED when the UCI is 4 or a UCM 4 names them, the interchange
-        takes the CONTRL's status and acked_at, and dev.passage.edi.message.acked.v1 is published
+        takes the CONTRL's status and acked_at, and dev.depot.edi.message.acked.v1 is published
         per answered message. The CONTRL is POSTED, or FAILED with EDI-0161 when it answers
         nothing; CONTRLs are never acknowledged.
-      x-passage-duty: edi.operate
+      x-depot-duty: edi.operate
       parameters:
         - name: environment
           in: query
@@ -1105,7 +1105,7 @@ paths:
         CURRENCY, LEADTIME, EXT_SCHEMA_TYPE and EXT_CATEGORY_ID for UNSPSC). A document that is not a
         PunchOutOrderMessage, or an OCI post without NEW_ITEM fields, is EDI-0003. Nothing is stored and
         no requisition is created (the wave-17 handoff).
-      x-passage-duty: edi.requisition.create
+      x-depot-duty: edi.requisition.create
       requestBody:
         required: true
         content:
@@ -1170,7 +1170,7 @@ paths:
         (EDI-0136). A line without a shipment is UNMATCHED (EDI-0137). A shipment still unbilled
         waitDays after shipping is reported (EDI-0138). Out-of-range waitDays, negative tolerances,
         malformed numbers or dates and missing ids are EDI-0001. Nothing is posted.
-      x-passage-duty: edi.self-billing.reconcile
+      x-depot-duty: edi.self-billing.reconcile
       requestBody:
         required: true
         content:
@@ -1261,7 +1261,7 @@ paths:
         date as PaymentMeans/PaymentDueDate. Blocking issues (EINV-0110, EINV-0111) come back with
         valid false and no XML. Nothing is stored; schematron validation and transmission through the
         access point are not part of this route.
-      x-passage-duty: edi.einvoice.operate
+      x-depot-duty: edi.einvoice.operate
       requestBody:
         required: true
         content:
@@ -1336,7 +1336,7 @@ paths:
         The consumer of fulfillment asn.issued, warehouse shipment.shipped and billing invoice.posted (`edi consume`) sends the 856 or DESADV and the 810 or INVOIC listed here to this
         partner, generated from the source document as outbound:from-source does (same idempotency key, so a redelivered event, a replay and a route call
         made by hand yield one interchange). An empty list switches it off. The partner needs a trade profile (EDI-0012); the legal entity is its profile's.
-      x-passage-duty: edi.admin
+      x-depot-duty: edi.admin
       parameters:
         - $ref: '#/components/parameters/Id'
       requestBody:
@@ -1365,7 +1365,7 @@ paths:
     get:
       operationId: getAutoOutbound
       summary: Read the documents the partner receives automatically
-      x-passage-duty: edi.admin
+      x-depot-duty: edi.admin
       parameters:
         - $ref: '#/components/parameters/Id'
       responses:
@@ -1379,7 +1379,7 @@ paths:
     put:
       operationId: putSelfBillConfig
       summary: Set the partner's self-billing tolerances, wait days and VAT rate
-      x-passage-duty: edi.admin
+      x-depot-duty: edi.admin
       parameters:
         - $ref: '#/components/parameters/Id'
       requestBody:
@@ -1415,7 +1415,7 @@ paths:
     get:
       operationId: getSelfBillConfig
       summary: Read the partner's self-billing settings (the defaults when none were set)
-      x-passage-duty: edi.admin
+      x-depot-duty: edi.admin
       parameters:
         - $ref: '#/components/parameters/Id'
       responses:
@@ -1434,7 +1434,7 @@ paths:
         every document that matched in full and has no legal invoice yet (`posted` counts them), then opens one
         UNBILLED dispute (EDI-0138) for each shipment of the caller's partners still not self-billed after the partner's wait days. Safe to run as often as wanted: a
         shipment is disputed once.
-      x-passage-duty: edi.self-billing.reconcile
+      x-depot-duty: edi.self-billing.reconcile
       responses:
         '200':
           description: OK
@@ -1446,7 +1446,7 @@ paths:
     get:
       operationId: listSelfBillDocuments
       summary: List the self-billed documents received, newest first
-      x-passage-duty: edi.self-billing.reconcile
+      x-depot-duty: edi.self-billing.reconcile
       parameters:
         - { name: status, in: query, required: false, description: 'Only documents of this status', schema: { type: string, enum: [MATCHED, DISPUTED, RESOLVED] } }
         - { name: limit, in: query, required: false, description: 'Page size', schema: { type: integer, minimum: 1, maximum: 200 } }
@@ -1464,7 +1464,7 @@ paths:
       summary: The self-billing dispute worklist, oldest first
       description: >
         Kinds: DIFFERENCE (a line differs in quantity, price or tax, EDI-0136), UNMATCHED (no shipment, EDI-0137) and UNBILLED (a shipment not billed in time, EDI-0138).
-      x-passage-duty: edi.self-billing.reconcile
+      x-depot-duty: edi.self-billing.reconcile
       parameters:
         - { name: status, in: query, required: false, description: 'Only disputes of this status', schema: { type: string, enum: [OPEN, ACCEPTED, REJECTED] } }
         - { name: partnerId, in: query, required: false, description: 'Only this partner', schema: { type: string, format: uuid } }
@@ -1484,7 +1484,7 @@ paths:
       description: >
         ACCEPTED takes the customer's line as billed (an UNBILLED shipment is closed as billed outside the system); REJECTED keeps our figures. The document becomes
         RESOLVED when its last open dispute is decided. Nothing is posted to billing or receivables (wave 29 handoff).
-      x-passage-duty: edi.self-billing.reconcile
+      x-depot-duty: edi.self-billing.reconcile
       parameters:
         - $ref: '#/components/parameters/Id'
       requestBody:
@@ -1517,7 +1517,7 @@ paths:
       summary: Store the seller profile of a legal entity or the buyer profile of a customer
       description: >
         Billing carries no address, VAT id or endpoint, so the e-invoice builder takes them from these profiles.
-      x-passage-duty: edi.einvoice.operate
+      x-depot-duty: edi.einvoice.operate
       parameters:
         - { name: role, in: path, required: true, schema: { type: string, enum: [SELLER, BUYER] } }
         - { name: subjectId, in: path, required: true, description: the legal entity (SELLER) or the customer (BUYER), schema: { type: string, format: uuid } }
@@ -1545,7 +1545,7 @@ paths:
     get:
       operationId: getEInvoiceParty
       summary: Read a stored party profile
-      x-passage-duty: edi.einvoice.operate
+      x-depot-duty: edi.einvoice.operate
       parameters:
         - { name: role, in: path, required: true, schema: { type: string, enum: [SELLER, BUYER] } }
         - { name: subjectId, in: path, required: true, description: the legal entity (SELLER) or the customer (BUYER), schema: { type: string, format: uuid } }
@@ -1567,7 +1567,7 @@ paths:
         must equal billing's gross, EINV-0112) and builds it with the mandate: PEPPOL (UBL 2.1, Peppol BIS Billing 3.0) here, IT_SDI and MX_CFDI as hooks that refuse
         (EINV-0150) until a country pack installs a generator, and FACTURX (the EN 16931 CII XML of Factur-X/ZUGFeRD; its PDF is GET .../facturx.pdf). The answer is VALID with its XML or INVALID with the blocking issues. A repeat returns the stored
         e-invoice (200); a repeat of an INVALID one builds again. EDI-0027 when the seller or buyer profile is missing.
-      x-passage-duty: edi.einvoice.operate
+      x-depot-duty: edi.einvoice.operate
       requestBody:
         required: true
         content:
@@ -1600,7 +1600,7 @@ paths:
     get:
       operationId: listEInvoices
       summary: List e-invoices newest first, without their XML
-      x-passage-duty: edi.einvoice.operate
+      x-depot-duty: edi.einvoice.operate
       parameters:
         - { name: status, in: query, required: false, description: 'Only this status', schema: { type: string, enum: [VALID, INVALID, SUBMITTING, SUBMITTED, ACCEPTED, REJECTED] } }
         - { name: mandate, in: query, required: false, description: 'Only this mandate', schema: { type: string, enum: [PEPPOL, IT_SDI, MX_CFDI, FACTURX] } }
@@ -1616,7 +1616,7 @@ paths:
     get:
       operationId: getEInvoice
       summary: One e-invoice with its XML and issues
-      x-passage-duty: edi.einvoice.operate
+      x-depot-duty: edi.einvoice.operate
       parameters:
         - $ref: '#/components/parameters/Id'
       responses:
@@ -1633,7 +1633,7 @@ paths:
       description: >
         VALID or REJECTED is claimed as SUBMITTING in one statement (a concurrent submit gets 409 EDI-0030 and never reaches the access point; a claim older than ten minutes can be taken over, so the access point must deduplicate by invoice number), then moves to SUBMITTED with the network's reference and publishes einvoice.submitted; when the access point fails (502) the claim is released. 503 EDI-0029 while no access point is configured
         (a live Peppol access point or government portal is injected by the deployment); 409 EDI-0031 for an INVALID e-invoice.
-      x-passage-duty: edi.einvoice.operate
+      x-depot-duty: edi.einvoice.operate
       parameters:
         - $ref: '#/components/parameters/Id'
       responses:
@@ -1666,7 +1666,7 @@ paths:
         Runs the Go-native subset of the Peppol BIS Billing 3.0 rules (BR-*, BR-CO-*, BR-S-08, PEPPOL-EN16931-R* and PEPPOL-COMMON-R040) on the stored UBL.
         It is not the official schematron, which needs an XSLT 2 processor; the schematron was run offline over the builder's output (testdata/peppol).
         409 EDI-0030 for an e-invoice that is not a built PEPPOL one.
-      x-passage-duty: edi.einvoice.operate
+      x-depot-duty: edi.einvoice.operate
       parameters:
         - $ref: '#/components/parameters/Id'
       responses:
@@ -1684,7 +1684,7 @@ paths:
       description: >
         An A4 page of the invoice with the CII XML embedded as factur-x.xml (AFRelationship Data) and the PDF/A-3 and Factur-X XMP metadata. The structure
         is PDF/A-3b but not certified: the fonts are not embedded and there is no ICC output intent. 409 EDI-0030 for an e-invoice that is not FACTURX.
-      x-passage-duty: edi.einvoice.operate
+      x-depot-duty: edi.einvoice.operate
       parameters:
         - $ref: '#/components/parameters/Id'
       responses:
@@ -1699,7 +1699,7 @@ paths:
     get:
       operationId: listEInvoiceMandates
       summary: The customers e-invoiced automatically when their invoice posts
-      x-passage-duty: edi.einvoice.operate
+      x-depot-duty: edi.einvoice.operate
       parameters:
         - { name: legalEntityId, in: query, required: false, description: 'Only this legal entity', schema: { type: string, format: uuid } }
         - { name: customerId, in: query, required: false, description: 'Only this customer', schema: { type: string, format: uuid } }
@@ -1715,9 +1715,9 @@ paths:
       operationId: putEInvoiceMandate
       summary: Register a customer for automatic e-invoicing under a mandate
       description: >
-        When the customer's invoice posts (dev.passage.billing.invoice.posted.v1, consumed by `edi consume`) its e-invoice is built under the mandate; with
+        When the customer's invoice posts (dev.depot.billing.invoice.posted.v1, consumed by `edi consume`) its e-invoice is built under the mandate; with
         autoSubmit it is also handed to the access point once VALID. Needs the seller and buyer profiles (EDI-0027 otherwise, logged and skipped by the consumer).
-      x-passage-duty: edi.einvoice.operate
+      x-depot-duty: edi.einvoice.operate
       parameters:
         - { name: customerId, in: path, required: true, description: 'The billing customer', schema: { type: string, format: uuid } }
         - { name: mandate, in: path, required: true, description: 'The mandate', schema: { type: string, enum: [PEPPOL, IT_SDI, MX_CFDI, FACTURX] } }
@@ -1742,7 +1742,7 @@ paths:
     delete:
       operationId: deleteEInvoiceMandate
       summary: Turn the automatic e-invoicing of a customer under a mandate off
-      x-passage-duty: edi.einvoice.operate
+      x-depot-duty: edi.einvoice.operate
       parameters:
         - { name: customerId, in: path, required: true, description: 'The billing customer', schema: { type: string, format: uuid } }
         - { name: mandate, in: path, required: true, description: 'The mandate', schema: { type: string, enum: [PEPPOL, IT_SDI, MX_CFDI, FACTURX] } }
@@ -1757,7 +1757,7 @@ paths:
       summary: Record the network's answer to a submitted e-invoice
       description: >
         SUBMITTED moves to ACCEPTED or REJECTED and publishes einvoice.accepted or einvoice.rejected.
-      x-passage-duty: edi.einvoice.operate
+      x-depot-duty: edi.einvoice.operate
       parameters:
         - $ref: '#/components/parameters/Id'
       requestBody:
@@ -1788,7 +1788,7 @@ paths:
     put:
       operationId: putPunchoutSupplier
       summary: Set the supplier's punchout settings (BR-35.13 inputs, setup URL, network identities)
-      x-passage-duty: edi.admin
+      x-depot-duty: edi.admin
       parameters:
         - $ref: '#/components/parameters/Id'
       requestBody:
@@ -1825,7 +1825,7 @@ paths:
     get:
       operationId: getPunchoutSupplier
       summary: Read the supplier's punchout settings
-      x-passage-duty: edi.admin
+      x-depot-duty: edi.admin
       parameters:
         - $ref: '#/components/parameters/Id'
       responses:
@@ -1839,7 +1839,7 @@ paths:
     get:
       operationId: listPunchoutSuppliers
       summary: List the suppliers whose punchout catalog the caller can open (active partners with punchout settings, by name)
-      x-passage-duty: edi.requisition.create
+      x-depot-duty: edi.requisition.create
       parameters:
         - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 200 } }
       responses:
@@ -1867,7 +1867,7 @@ paths:
         Records an OPEN session for the caller (the requester), sends the cXML PunchOutSetupRequest (or, for OCI, builds the supplier URL with HOOK_URL) and returns
         the URL to send the browser to. The cart comes back to POST /punchout/v1/return/{session}. 502 EDI-0033 when the supplier refuses or is down (no session
         is stored); 503 EDI-0032 without the public URL (EDI_AS2_PUBLIC_URL).
-      x-passage-duty: edi.requisition.create
+      x-depot-duty: edi.requisition.create
       requestBody:
         required: true
         content:
@@ -1901,7 +1901,7 @@ paths:
     get:
       operationId: listPunchoutSessions
       summary: The caller's punchout sessions, newest first
-      x-passage-duty: edi.requisition.create
+      x-depot-duty: edi.requisition.create
       parameters:
         - { name: limit, in: query, required: false, description: 'Page size', schema: { type: integer, minimum: 1, maximum: 200 } }
       responses:
@@ -1914,7 +1914,7 @@ paths:
     get:
       operationId: getPunchoutSession
       summary: One of the caller's punchout sessions, with the validated cart once it is back
-      x-passage-duty: edi.requisition.create
+      x-depot-duty: edi.requisition.create
       parameters:
         - $ref: '#/components/parameters/Id'
       responses:
@@ -1928,7 +1928,7 @@ paths:
     post:
       operationId: cancelPunchoutSession
       summary: Cancel an open punchout session
-      x-passage-duty: edi.requisition.create
+      x-depot-duty: edi.requisition.create
       parameters:
         - $ref: '#/components/parameters/Id'
       responses:
@@ -1951,7 +1951,7 @@ paths:
         Creates the requisition in purchasing (wave 17) as the requester, under the Idempotency-Key punchout:<session>, so a repeat returns the same requisition (200).
         The lines are description, UNSPSC (category), quantity, UN/ECE unit, catalog price and a date from the lead time; purchasing has no field for the catalog and
         approval flags, which stay on the session and in the punchout.returned event. 422 EDI-0034 when purchasing refuses the lines.
-      x-passage-duty: edi.requisition.create
+      x-depot-duty: edi.requisition.create
       parameters:
         - $ref: '#/components/parameters/Id'
       responses:
@@ -1976,19 +1976,19 @@ paths:
         '503': { $ref: '#/components/responses/Problem' }
   /punchout/v1/return/{session}:
     servers:
-      - url: https://as2.{env}.passage.dev
-        description: The public listener (EDI_AS2_ADDR), reached without a Passage token
+      - url: https://as2.{env}.depot.dev
+        description: The public listener (EDI_AS2_ADDR), reached without a Depot token
         variables:
           env: { default: dev }
     post:
       operationId: punchoutReturn
       summary: The supplier returns the cart (public listener)
       description: >
-        Called by the supplier's catalog page (the requester's browser) or the supplier's server, with no Passage token: the session id and its secret (random, stored
+        Called by the supplier's catalog page (the requester's browser) or the supplier's server, with no Depot token: the session id and its secret (random, stored
         hashed, valid until the session expires) select and open one session. cXML arrives as the raw body or in the cxml-urlencoded or cxml-base64 field of a form post;
         OCI as NEW_ITEM-... form fields. The cart is validated (BR-35.13): 200 with the line count, 422 EDI-0134 when the total does not match (session REJECTED), 400 for
         an unreadable cart or a wrong BuyerCookie, 404 for an unknown session or secret, 409 when the cart was returned already, 410 when the session expired.
-      x-passage-duty: none
+      x-depot-duty: none
       parameters:
         - { name: session, in: path, required: true, schema: { type: string, format: uuid } }
         - { name: t, in: query, required: true, description: the session secret from the return URL, schema: { type: string } }
@@ -2009,7 +2009,7 @@ paths:
       summary: Set the partner's cXML network identity and shared secret
       description: >
         Returns the URL the partner posts its documents to. The URL stays the same when the secret is rotated.
-      x-passage-duty: edi.admin
+      x-depot-duty: edi.admin
       parameters:
         - $ref: '#/components/parameters/Id'
       requestBody:
@@ -2039,7 +2039,7 @@ paths:
     get:
       operationId: getPartnerCXML
       summary: Read the partner's cXML identity and URL (never the secret)
-      x-passage-duty: edi.admin
+      x-depot-duty: edi.admin
       parameters:
         - $ref: '#/components/parameters/Id'
       responses:
@@ -2056,7 +2056,7 @@ paths:
       description: >
         The network's https URL, our NetworkId identity, the reference of our shared secret in EDI_SECRETS_DIR (never the secret itself) and the vendor this
         partner is for: only purchase orders of that vendor are sent to it. 409 EDI-0040 when the partner has no cXML identity yet.
-      x-passage-duty: edi.admin
+      x-depot-duty: edi.admin
       parameters:
         - $ref: '#/components/parameters/Id'
       requestBody:
@@ -2082,7 +2082,7 @@ paths:
     get:
       operationId: getCXMLOutbound
       summary: Read the outbound cXML settings
-      x-passage-duty: edi.admin
+      x-depot-duty: edi.admin
       parameters:
         - $ref: '#/components/parameters/Id'
       responses:
@@ -2102,7 +2102,7 @@ paths:
         The document is recorded as an OUT interchange (the shared secret is redacted in the stored copy), posted to the network and the network's Response
         recorded: 201 when it answers 200 or 201; otherwise 502 EDI-0041 with the document recorded FAILED (a document that failed is sent again as a new one).
         409 EDI-0040 without outbound settings.
-      x-passage-duty: edi.operate
+      x-depot-duty: edi.operate
       parameters:
         - $ref: '#/components/parameters/Id'
       requestBody:
@@ -2127,20 +2127,20 @@ paths:
         '502': { $ref: '#/components/responses/Problem' }
   /cxml/v1/{endpoint}:
     servers:
-      - url: https://as2.{env}.passage.dev
-        description: The public listener (EDI_AS2_ADDR), reached without a Passage token
+      - url: https://as2.{env}.depot.dev
+        description: The public listener (EDI_AS2_ADDR), reached without a Depot token
         variables:
           env: { default: dev }
     post:
       operationId: cxmlReceive
       summary: Receive a cXML document from a network (public listener)
       description: >
-        Called by the partner's cXML network (Ariba, Coupa), with no Passage token. The Sender credential (NetworkId identity and shared secret) is checked against the
+        Called by the partner's cXML network (Ariba, Coupa), with no Depot token. The Sender credential (NetworkId identity and shared secret) is checked against the
         partner's profile; ConfirmationRequest, ShipNoticeRequest and InvoiceDetailRequest are recorded as an interchange of standard CXML with a canonical message and
         message.received. The answer is a cXML Response: Status 200 (taken), 400 (not well-formed, a document type this endpoint does not take, or a document missing
         required elements, recorded FAILED), 401 (bad credentials), 409 (EDI-0135: the payloadID was used before with other content). The same payloadID with the same
         content gets the first answer back and records nothing (BR-35.14). 404 for an unknown endpoint, an inactive partner or a partner whose endpoint changed.
-      x-passage-duty: none
+      x-depot-duty: none
       parameters:
         - { name: endpoint, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -2547,7 +2547,7 @@ components:
             (EDI_AS2_MDN_TIMEOUT_MINUTES, default 24 hours), then is sent again with the same
             Message-ID, or FAILED when the attempts are used up; REJECTED means the partner's MDN
             reported an error (not retried; resend it). FAILED publishes
-            dev.passage.edi.delivery.failed.v1; resend it.
+            dev.depot.edi.delivery.failed.v1; resend it.
         attempts: { type: integer }
         nextAttemptAt: { type: string, format: date-time }
         mdnDisposition: { type: string }

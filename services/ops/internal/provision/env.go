@@ -14,8 +14,8 @@ import (
 // Kafka needs no configuration: the shared-topic model has nothing to provision per tenant.
 //
 //	Keycloak:  OPS_KEYCLOAK_URL, OPS_KEYCLOAK_CLIENT_ID, OPS_KEYCLOAK_CLIENT_SECRET; optional OPS_KEYCLOAK_ADMIN_REALM (master),
-//	           OPS_KEYCLOAK_REALM_PREFIX (passage-), OPS_KEYCLOAK_REALM_TEMPLATE (path to a realm JSON)
-//	Databases: OPS_PROVISION_DATABASES (JSON {"ledger": "postgres://..."} or @file), as passage_app. The purge has its own
+//	           OPS_KEYCLOAK_REALM_PREFIX (depot-), OPS_KEYCLOAK_REALM_TEMPLATE (path to a realm JSON)
+//	Databases: OPS_PROVISION_DATABASES (JSON {"ledger": "postgres://..."} or @file), as depot_app. The purge has its own
 //	           credentials: see PurgerFromEnv
 //	Lakehouse: OPS_LAKEHOUSE_CATALOG_URL; optional OPS_LAKEHOUSE_CATALOG_PREFIX, OPS_LAKEHOUSE_CATALOG_TOKEN, OPS_LAKEHOUSE_NAMESPACE_PREFIX
 func FromEnv(getenv func(string) string, log *slog.Logger, client *http.Client) (Executors, []string, error) {

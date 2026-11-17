@@ -10,10 +10,10 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/costing/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/costing/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/costing/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/costing/internal/store"
 )
 
 const (
@@ -61,14 +61,14 @@ func server() (http.Handler, *fakeStore) {
 
 const testLE = repLE
 
-func scopedTo(le string) map[string]string { return map[string]string{"X-Passage-Legal-Entity": le} }
+func scopedTo(le string) map[string]string { return map[string]string{"X-Depot-Legal-Entity": le} }
 
 func call(h http.Handler, method, path, body, duties string, headers map[string]string) *httptest.ResponseRecorder {
 	req := httptest.NewRequest(method, path, strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Passage-Tenant", testTenant)
-	req.Header.Set("X-Passage-Duties", duties)
-	req.Header.Set("X-Passage-Legal-Entity", testLE)
+	req.Header.Set("X-Depot-Tenant", testTenant)
+	req.Header.Set("X-Depot-Duties", duties)
+	req.Header.Set("X-Depot-Legal-Entity", testLE)
 	for k, v := range headers {
 		req.Header.Set(k, v)
 	}
@@ -235,7 +235,7 @@ func TestCreateVersion_RequiresIdempotencyKeyAndScope(t *testing.T) {
 		t.Errorf("created = %v", m)
 	}
 	rec = call(h, http.MethodPost, "/v1/costing/versions", body, allDuties,
-		map[string]string{"Idempotency-Key": "k2", "X-Passage-Legal-Entity": ids.New()})
+		map[string]string{"Idempotency-Key": "k2", "X-Depot-Legal-Entity": ids.New()})
 	if rec.Code != http.StatusForbidden {
 		t.Errorf("out-of-scope status %d, want 403", rec.Code)
 	}
@@ -311,7 +311,7 @@ func TestCreateVersion_ReplayIsNotCountedAsCreated(t *testing.T) {
 func TestCreateVersion_RefusesCallerWithoutLegalEntityScope(t *testing.T) {
 	h, fs := server()
 	body := `{"legalEntityId":"` + testLE + `","code":"STD-2026","type":"STANDARD","currency":"EUR","effectiveFrom":"2026-01-01"}`
-	rec := call(h, http.MethodPost, "/v1/costing/versions", body, allDuties, map[string]string{"Idempotency-Key": "k-noscope", "X-Passage-Legal-Entity": ""})
+	rec := call(h, http.MethodPost, "/v1/costing/versions", body, allDuties, map[string]string{"Idempotency-Key": "k-noscope", "X-Depot-Legal-Entity": ""})
 	if rec.Code != http.StatusForbidden || len(fs.versions) != 0 {
 		t.Fatalf("status %d versions %d, want 403 and nothing stored: %s", rec.Code, len(fs.versions), rec.Body)
 	}

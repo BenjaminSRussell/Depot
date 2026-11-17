@@ -64,7 +64,7 @@ var importSourceName = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]*$`)
 var uuidPattern = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
 
 // TargetConfig is what a run fixes for its load: the legal entity the open items belong to, the
-// import source name receivables keys them under, and the map from legacy party to the Passage
+// import source name receivables keys them under, and the map from legacy party to the Depot
 // customer id (a party that is itself a UUID needs no entry).
 type TargetConfig struct {
 	LegalEntityID string
@@ -228,7 +228,7 @@ func buildRow(rec Record, x TargetExtra, cfg TargetConfig) (ReceivablesRow, stri
 		customer = rec.Party
 	}
 	if !uuidPattern.MatchString(customer) {
-		return ReceivablesRow{}, CodeRefUnresolved, fmt.Sprintf("party %q has no Passage customer id: name it in load.customerIds or send customerId on the record", rec.Party)
+		return ReceivablesRow{}, CodeRefUnresolved, fmt.Sprintf("party %q has no Depot customer id: name it in load.customerIds or send customerId on the record", rec.Party)
 	}
 	side, kind := "DEBIT", x.Kind
 	if rec.Amount.IsNegative() {
@@ -290,7 +290,7 @@ type TargetRowView struct {
 	Ledger     string
 	Status     string
 	Outcome    string
-	PassageID  string
+	DepotID    string
 	Code       string
 	Detail     string
 	Amount     string

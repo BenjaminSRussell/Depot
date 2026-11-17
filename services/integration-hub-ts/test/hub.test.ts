@@ -14,8 +14,8 @@ function event(over: Record<string, unknown> = {}): Record<string, unknown> {
   return {
     specversion: "1.0",
     id: randomUUID(),
-    source: "/passage/sales",
-    type: "dev.passage.sales.order.released.v1",
+    source: "/depot/sales",
+    type: "dev.depot.sales.order.released.v1",
     subject: "order-1",
     time: new Date(T0 * 1000).toISOString(),
     datacontenttype: "application/json",
@@ -25,14 +25,14 @@ function event(over: Record<string, unknown> = {}): Record<string, unknown> {
 }
 
 function message(e: unknown, offset = "7"): KafkaMessageInput {
-  return { topic: "passage.sales.order", partition: 0, offset, key: Buffer.from("order-1"), value: Buffer.from(typeof e === "string" ? e : JSON.stringify(e)) };
+  return { topic: "depot.sales.order", partition: 0, offset, key: Buffer.from("order-1"), value: Buffer.from(typeof e === "string" ? e : JSON.stringify(e)) };
 }
 
 describe("parseEvent", () => {
   const tenantid = randomUUID();
   test("accepts a CloudEvent and falls back to the offset for the sequence", () => {
     const out = parseEvent(message(event({ tenantid })));
-    expect(out).toMatchObject({ tenantId: tenantid, event: { type: "dev.passage.sales.order.released.v1", aggregateId: "order-1", sequence: 7, occurredAt: T0 } });
+    expect(out).toMatchObject({ tenantId: tenantid, event: { type: "dev.depot.sales.order.released.v1", aggregateId: "order-1", sequence: 7, occurredAt: T0 } });
   });
   test.each([
     ["not json", "{nope"],
@@ -43,7 +43,7 @@ describe("parseEvent", () => {
     ["no tenant", event()],
     ["nil tenant", event({ tenantid: "00000000-0000-0000-0000-000000000000" })],
     ["bad time", event({ tenantid, time: "yesterday" })],
-    ["bad sequence", event({ tenantid, passagesequence: -1 })],
+    ["bad sequence", event({ tenantid, depotsequence: -1 })],
   ])("rejects %s", (_name, bad) => {
     expect(parseEvent(message(bad))).toHaveProperty("reason");
   });
@@ -70,7 +70,7 @@ describe.skipIf(ownerUrl === undefined)("integration hub on Postgres", () => {
     await fx.close();
   });
 
-  async function subscribe(tenant: string, r: Receiver, patterns = ["dev.passage.sales.**"]) {
+  async function subscribe(tenant: string, r: Receiver, patterns = ["dev.depot.sales.**"]) {
     const res = await hub.call("POST", "/v1/hub/subscriptions", { tenant }, { name: "ERP sync", url: r.url, patterns });
     expect(res.status).toBe(201);
     return res.body as { id: string; secret: string; version: number };
@@ -121,7 +121,7 @@ describe.skipIf(ownerUrl === undefined)("integration hub on Postgres", () => {
     const strict = await api({ store: fx.store }); // production guard: real resolver, https only
     try {
       for (const url of ["https://169.254.169.254/latest/meta-data", "https://10.0.0.5/hook", "https://127.0.0.1/x", "https://[::1]/x", "http://example.com/x", "https://user:pw@example.com/x"]) {
-        const res = await strict.call("POST", "/v1/hub/subscriptions", { tenant: t }, { name: "bad", url, patterns: ["dev.passage.sales.**"] });
+        const res = await strict.call("POST", "/v1/hub/subscriptions", { tenant: t }, { name: "bad", url, patterns: ["dev.depot.sales.**"] });
         expect(res.status, url).toBe(422);
         expect(res.body.code).toBe("HUB-0422");
       }
@@ -143,7 +143,7 @@ describe.skipIf(ownerUrl === undefined)("integration hub on Postgres", () => {
     expect((await bad({ name: "x", url: r.url, patterns: [] })).status).toBe(400);
     expect((await bad({ name: "x", url: r.url, patterns: ["a.b"], extra: 1 })).status).toBe(400);
     expect((await bad({ name: "x", url: r.url, patterns: ["a.b"], secret: "short" })).status).toBe(400);
-    const body = { name: "ERP", url: r.url, patterns: ["dev.passage.sales.**"] };
+    const body = { name: "ERP", url: r.url, patterns: ["dev.depot.sales.**"] };
     const first = await hub.call("POST", "/v1/hub/subscriptions", { tenant: t }, body, { "idempotency-key": "k1" });
     const again = await hub.call("POST", "/v1/hub/subscriptions", { tenant: t }, body, { "idempotency-key": "k1" });
     expect(first.status).toBe(201);
@@ -153,8 +153,8 @@ describe.skipIf(ownerUrl === undefined)("integration hub on Postgres", () => {
     expect(again.body.secret).toBeUndefined();
     const got = await hub.call("GET", `/v1/hub/subscriptions/${first.body.id}`, { tenant: t });
     expect(got.body.secret).toBeUndefined();
-    const ok = await hub.call("PATCH", `/v1/hub/subscriptions/${first.body.id}`, { tenant: t }, { version: 1, name: "ERP 2", patterns: ["dev.passage.billing.**"] });
-    expect(ok.body).toMatchObject({ name: "ERP 2", version: 2, patterns: ["dev.passage.billing.**"] });
+    const ok = await hub.call("PATCH", `/v1/hub/subscriptions/${first.body.id}`, { tenant: t }, { version: 1, name: "ERP 2", patterns: ["dev.depot.billing.**"] });
+    expect(ok.body).toMatchObject({ name: "ERP 2", version: 2, patterns: ["dev.depot.billing.**"] });
     const stale = await hub.call("PATCH", `/v1/hub/subscriptions/${first.body.id}`, { tenant: t }, { version: 1, name: "ERP 3" });
     expect(stale.status).toBe(409);
     expect(stale.body.code).toBe("HUB-0409");
@@ -165,7 +165,7 @@ describe.skipIf(ownerUrl === undefined)("integration hub on Postgres", () => {
     const r = await newReceiver();
     const sub = await subscribe(t, r);
     const other = await newReceiver();
-    await subscribe(t, other, ["dev.passage.billing.**"]);
+    await subscribe(t, other, ["dev.depot.billing.**"]);
     const handle = consumerFor();
     const e = event({ tenantid: t });
     await handle(message(e));
@@ -175,7 +175,7 @@ describe.skipIf(ownerUrl === undefined)("integration hub on Postgres", () => {
     expect(other.hits).toHaveLength(0);
     const hit = r.hits[0]!;
     expect(JSON.parse(hit.body)).toMatchObject({ id: e["id"], type: e["type"], subject: "order-1", data: { orderNo: "SO-1" } });
-    expect(verify(hit.headers["passage-signature"] as string, sub.secret, hit.body, now)).toBe(true);
+    expect(verify(hit.headers["depot-signature"] as string, sub.secret, hit.body, now)).toBe(true);
     await poller().pollOnce();
     expect(r.hits).toHaveLength(1);
     const list = await hub.call("GET", "/v1/hub/deliveries?status=delivered", { tenant: t });
@@ -191,7 +191,7 @@ describe.skipIf(ownerUrl === undefined)("integration hub on Postgres", () => {
     const dead: DeadLetterRecord[] = [];
     await consumerFor(dead)(message("{nope", "12"));
     expect(dead).toHaveLength(1);
-    expect(dead[0]).toMatchObject({ topic: "hub.dlq", headers: { "x-dlq-reason": "not JSON", "x-dlq-source-offset": "12", "x-dlq-source-topic": "passage.sales.order" } });
+    expect(dead[0]).toMatchObject({ topic: "hub.dlq", headers: { "x-dlq-reason": "not JSON", "x-dlq-source-offset": "12", "x-dlq-source-topic": "depot.sales.order" } });
     await poller().pollOnce();
     expect(r.hits).toHaveLength(0);
     const failing = createMessageHandler({ store: fx.store, dlqTopic: "hub.dlq", clock, deadLetter: async () => { throw new Error("broker down"); } });
@@ -284,8 +284,8 @@ describe.skipIf(ownerUrl === undefined)("integration hub on Postgres", () => {
     const r = await newReceiver();
     const sub = await subscribe(t, r);
     const handle = consumerFor();
-    await handle(message(event({ tenantid: t, id: "old", time: new Date((T0 - 1000) * 1000).toISOString(), passagesequence: 1 })));
-    await handle(message(event({ tenantid: t, id: "new", time: new Date((T0 + 1000) * 1000).toISOString(), passagesequence: 2 })));
+    await handle(message(event({ tenantid: t, id: "old", time: new Date((T0 - 1000) * 1000).toISOString(), depotsequence: 1 })));
+    await handle(message(event({ tenantid: t, id: "new", time: new Date((T0 + 1000) * 1000).toISOString(), depotsequence: 2 })));
     await poller().pollOnce();
     expect(r.hits).toHaveLength(2);
     const bad = await hub.call("POST", `/v1/hub/subscriptions/${sub.id}:replay`, { tenant: t }, { from: "soon" });
@@ -294,9 +294,9 @@ describe.skipIf(ownerUrl === undefined)("integration hub on Postgres", () => {
     expect(res).toMatchObject({ status: 202, body: { enqueued: 1 } });
     await poller().pollOnce();
     expect(r.hits).toHaveLength(3);
-    expect(r.hits[2]!.headers["ce-passagereplay"]).toBe("true");
+    expect(r.hits[2]!.headers["ce-depotreplay"]).toBe("true");
     expect(JSON.parse(r.hits[2]!.body).id).toBe("new");
-    expect(r.hits[0]!.headers["ce-passagereplay"]).toBeUndefined();
+    expect(r.hits[0]!.headers["ce-depotreplay"]).toBeUndefined();
   });
 
   test("deleting a subscription removes its deliveries; lists page by cursor and validate filters", async () => {
@@ -377,7 +377,7 @@ describe.skipIf(ownerUrl === undefined)("integration hub on Postgres", () => {
     const keyless = await api({ store: fx.keyless, guard, clock });
     try {
       const r = await newReceiver();
-      const res = await keyless.call("POST", "/v1/hub/subscriptions", { tenant: t }, { name: "ERP", url: r.url, patterns: ["dev.passage.sales.**"] });
+      const res = await keyless.call("POST", "/v1/hub/subscriptions", { tenant: t }, { name: "ERP", url: r.url, patterns: ["dev.depot.sales.**"] });
       expect(res.status).toBe(501);
       expect(res.body.code).toBe("HUB-0501");
       expect((await keyless.call("GET", "/v1/hub/subscriptions", { tenant: t })).body.items).toEqual([]);
@@ -388,7 +388,7 @@ describe.skipIf(ownerUrl === undefined)("integration hub on Postgres", () => {
     }
   });
 
-  test("hub_due_subscriptions: definer rights, pinned search_path, ids only, executable by passage_app alone", async () => {
+  test("hub_due_subscriptions: definer rights, pinned search_path, ids only, executable by depot_app alone", async () => {
     const fn = await fx.owner.query(
       `select p.prosecdef, p.proconfig, pg_get_function_result(p.oid) as result,
               array(select coalesce(r.rolname, 'PUBLIC') from aclexplode(p.proacl) a left join pg_roles r on r.oid = a.grantee
@@ -403,7 +403,7 @@ describe.skipIf(ownerUrl === undefined)("integration hub on Postgres", () => {
     expect(f.proconfig).toEqual([`search_path=${fx.schema}, pg_temp`]);
     expect(f.result).toBe("TABLE(tenant_id uuid, subscription_id uuid)");
     expect(f.executors).not.toContain("PUBLIC");
-    expect([...f.executors].sort()).toEqual([...new Set([f.owner, "passage_app"])].sort());
+    expect([...f.executors].sort()).toEqual([...new Set([f.owner, "depot_app"])].sort());
     // The owner-only scan policies never apply to the application role.
     const policies = await fx.owner.query(
       `select policyname, roles::text[] as roles from pg_policies where schemaname = $1 and policyname like '%owner_scan'`,
@@ -412,7 +412,7 @@ describe.skipIf(ownerUrl === undefined)("integration hub on Postgres", () => {
     // hub_delivery and hub_subscription (0001), hub_client_usage for the retention purge (0006), hub_coexistence_adapter
     // for the coexistence sweep (0007).
     expect(policies.rows).toHaveLength(4);
-    for (const p of policies.rows) expect(p.roles).not.toContain("passage_app");
+    for (const p of policies.rows) expect(p.roles).not.toContain("depot_app");
   });
 
   test("a temporary table cannot stand in for hub_delivery inside hub_due_subscriptions", async () => {
@@ -451,19 +451,19 @@ describe.skipIf(ownerUrl === undefined)("integration hub on Postgres", () => {
     expect((await hub.call("POST", `/v1/hub/subscriptions/${sub.id}:replay`, { tenant: t }, { from: new Date((T0 - 10) * 1000).toISOString() })).status).toBe(202);
     await poller().pollOnce();
     expect(r.hits.map((h) => h.headers["idempotency-key"])).toEqual([e["id"], e["id"], e["id"]]);
-    expect(r.hits.map((h) => h.headers["ce-passagereplay"])).toEqual([undefined, undefined, "true"]);
+    expect(r.hits.map((h) => h.headers["ce-depotreplay"])).toEqual([undefined, undefined, "true"]);
   });
 
   test(":replay stays inside the tenant and the current filter, and honours the cap", async () => {
     const [t, other] = [randomUUID(), randomUUID()];
     const r = await newReceiver();
-    const sub = await subscribe(t, r, ["dev.passage.sales.**", "dev.passage.billing.**"]);
+    const sub = await subscribe(t, r, ["dev.depot.sales.**", "dev.depot.billing.**"]);
     const handle = consumerFor();
     const from = new Date((T0 - 5) * 1000).toISOString();
     for (let i = 0; i < 4; i += 1) {
-      await handle(message(event({ tenantid: t, subject: `order-${i}`, passagesequence: i, time: new Date((T0 + i) * 1000).toISOString() }), String(i)));
+      await handle(message(event({ tenantid: t, subject: `order-${i}`, depotsequence: i, time: new Date((T0 + i) * 1000).toISOString() }), String(i)));
     }
-    await handle(message(event({ tenantid: t, type: "dev.passage.billing.invoice.posted.v1", subject: "inv-1" }), "9"));
+    await handle(message(event({ tenantid: t, type: "dev.depot.billing.invoice.posted.v1", subject: "inv-1" }), "9"));
     await poller().pollOnce();
     expect(r.hits).toHaveLength(5);
 
@@ -473,7 +473,7 @@ describe.skipIf(ownerUrl === undefined)("integration hub on Postgres", () => {
     expect((await hub.call("POST", `/v1/hub/subscriptions/${sub.id}:replay`, { tenant: t }, { from: "2026-13-45" })).status).toBe(400);
 
     // Narrow the filter: billing events are no longer replayed.
-    const patched = await hub.call("PATCH", `/v1/hub/subscriptions/${sub.id}`, { tenant: t }, { version: 1, patterns: ["dev.passage.sales.**"] });
+    const patched = await hub.call("PATCH", `/v1/hub/subscriptions/${sub.id}`, { tenant: t }, { version: 1, patterns: ["dev.depot.sales.**"] });
     expect(patched.status).toBe(200);
     const capped = await hub.call("POST", `/v1/hub/subscriptions/${sub.id}:replay`, { tenant: t }, { from, cap: 3 });
     expect(capped).toMatchObject({ status: 202, body: { enqueued: 3, truncated: true } });

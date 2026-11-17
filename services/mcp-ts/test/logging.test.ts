@@ -112,7 +112,7 @@ describe("recordScrubber and jsonLine", () => {
   };
 
   it("pseudonymizes under the eu-data-boundary overlay and writes one JSON line per record", () => {
-    const { log, lines } = capture({ PASSAGE_CLOUD_PROFILE: "commercial+eu-data-boundary", ...ENV_KEYS });
+    const { log, lines } = capture({ DEPOT_CLOUD_PROFILE: "commercial+eu-data-boundary", ...ENV_KEYS });
     log({ level: "info", message: "run for jane@example.com", tenantId: TENANT_A, email: "jane@example.com", user: "Jane Doe", runId: "r-1" });
     expect(lines).toHaveLength(1);
     expect(lines[0]).toMatch(/\n$/);
@@ -126,10 +126,10 @@ describe("recordScrubber and jsonLine", () => {
     expect(pseudonymizationEnabled({ LOG_PSEUDONYMIZE: "true" })).toBe(true);
     expect(pseudonymizationEnabled({ LOG_PSEUDONYMIZE: "false" })).toBe(false);
     expect(pseudonymizationEnabled({})).toBe(false);
-    expect(pseudonymizationEnabled({ PASSAGE_CLOUD_PROFILE: "gcc" })).toBe(false);
-    expect(pseudonymizationEnabled({ PASSAGE_CLOUD_PROFILE: "commercial+eu-data-boundary", LOG_PSEUDONYMIZE: "false" })).toBe(true);
-    expect(pseudonymizationEnabled({ PASSAGE_CLOUD_PROFILE: "commercial + eu-data-boundary" })).toBe(true);
-    expect(pseudonymizationEnabled({ PASSAGE_CLOUD_PROFILE: "commercial+eu-data-boundary\n" })).toBe(true);
+    expect(pseudonymizationEnabled({ DEPOT_CLOUD_PROFILE: "gcc" })).toBe(false);
+    expect(pseudonymizationEnabled({ DEPOT_CLOUD_PROFILE: "commercial+eu-data-boundary", LOG_PSEUDONYMIZE: "false" })).toBe(true);
+    expect(pseudonymizationEnabled({ DEPOT_CLOUD_PROFILE: "commercial + eu-data-boundary" })).toBe(true);
+    expect(pseudonymizationEnabled({ DEPOT_CLOUD_PROFILE: "commercial+eu-data-boundary\n" })).toBe(true);
     const { log, lines } = capture({});
     log({ message: "x", email: "jane@example.com" });
     expect(lines[0]).toContain("jane@example.com");

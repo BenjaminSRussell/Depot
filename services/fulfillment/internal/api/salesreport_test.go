@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/fulfillment/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/fulfillment/internal/store"
 )
 
 type salesReportCalls struct {
@@ -42,7 +42,7 @@ func TestSalesReports_ListAndRetry(t *testing.T) {
 			t.Errorf("%s: %d", q, rec.Code)
 		}
 	}
-	if rec := do(t, h, http.MethodGet, "/v1/fulfillment/sales-delivery-reports", "", map[string]string{"X-Passage-Duties": "fulfillment.warehouse.pick"}); rec.Code != http.StatusForbidden {
+	if rec := do(t, h, http.MethodGet, "/v1/fulfillment/sales-delivery-reports", "", map[string]string{"X-Depot-Duties": "fulfillment.warehouse.pick"}); rec.Code != http.StatusForbidden {
 		t.Fatalf("list without fulfillment.warehouse.view: %d", rec.Code)
 	}
 
@@ -58,7 +58,7 @@ func TestSalesReports_ListAndRetry(t *testing.T) {
 	if rec := do(t, h, http.MethodPost, "/v1/fulfillment/sales-delivery-reports/nope:retry", "", map[string]string{"Idempotency-Key": "retry-2"}); rec.Code != http.StatusNotFound {
 		t.Fatalf("bad id: %d", rec.Code)
 	}
-	if rec := do(t, h, http.MethodPost, path, "", map[string]string{"Idempotency-Key": "retry-3", "X-Passage-Duties": "fulfillment.warehouse.view"}); rec.Code != http.StatusForbidden {
+	if rec := do(t, h, http.MethodPost, path, "", map[string]string{"Idempotency-Key": "retry-3", "X-Depot-Duties": "fulfillment.warehouse.view"}); rec.Code != http.StatusForbidden {
 		t.Fatalf("retry without fulfillment.packing-slip.post: %d", rec.Code)
 	}
 }

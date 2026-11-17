@@ -1,14 +1,14 @@
-# Passage
+# Depot
 
-Passage is an open-architecture **ERP** (enterprise resource planning) system: the software a company runs its finance, purchasing, inventory, manufacturing, sales and HR on. It is being built from scratch to replace Microsoft Dynamics AX / D365 and SAP ECC / S/4HANA, in **50 sequential waves**. Every wave ships something that can be tested and deployed.
+Depot is an open-architecture **ERP** (enterprise resource planning) system: the software a company runs its finance, purchasing, inventory, manufacturing, sales and HR on. It is being built from scratch to replace Microsoft Dynamics AX / D365 and SAP ECC / S/4HANA, in **50 sequential waves**. Every wave ships something that can be tested and deployed.
 
 **Status:** early build. Most domains exist as Go services with tests and a web screen. `make dev` starts Postgres, Kafka, Keycloak and OPA in Docker plus a subset of services, a dev gateway and the web app, with Keycloak sign-in; the vendor, purchase order, receipt, invoice and ledger entry flow is proven end to end by `tools/e2e` (see [Run the whole thing](#run-the-whole-thing)). Not working yet:
 
 - Only ledger, numbering, party, purchasing and receiving run under `make dev`; the other services, and payables (so no payment run), are not started or routed.
-- The dev gateway is a local stand-in for the Envoy gateway ([#82](https://github.com/BenjaminSRussell/Passage/issues/82)); the Kubernetes gateway is not exercised locally.
+- The dev gateway is a local stand-in for the Envoy gateway ([#82](https://github.com/BenjaminSRussell/Depot/issues/82)); the Kubernetes gateway is not exercised locally.
 - Kafka runs but no service connects to it in this stack, so event-driven side effects (postings consumers, projections) do not happen.
-- Receiving runs in its fake mode (`PASSAGE_ALLOW_FAKES=1`): periods are not checked and posting accounts are defaults.
-- The browser path (Keycloak sign-in, then web app, then API through the dev gateway) has not been run live: there was no Docker where it was built and CI is blocked. The `tools/e2e` flow exercises the services directly. After `make dev`, run `apps/web/e2e/login.live.spec.ts` (`PASSAGE_E2E_LIVE_URL=http://localhost:5173`) to check it.
+- Receiving runs in its fake mode (`DEPOT_ALLOW_FAKES=1`): periods are not checked and posting accounts are defaults.
+- The browser path (Keycloak sign-in, then web app, then API through the dev gateway) has not been run live: there was no Docker where it was built and CI is blocked. The `tools/e2e` flow exercises the services directly. After `make dev`, run `apps/web/e2e/login.live.spec.ts` (`DEPOT_E2E_LIVE_URL=http://localhost:5173`) to check it.
 
 See [roadmap/README.md](roadmap/README.md) for where each wave stands.
 
@@ -38,18 +38,18 @@ Stack ([ADR-0001](docs/adr/0001-platform-stack.md)): Kubernetes · Go, TypeScrip
 make dev           # Ctrl-C stops the services; `make dev-down` removes the containers
 ```
 
-`make dev` starts Postgres, Kafka, Keycloak (realm `passage`) and OPA in Docker, then builds and runs ledger, numbering, party, purchasing, receiving and batch, the dev gateway and the web app. The first start builds Go binaries and pulls images, so allow a few minutes; it is ready when it prints `Passage is up`. The AP invoice screens are served by receiving, so the vendor to PO to receipt to AP invoice to ledger flow needs no other service.
+`make dev` starts Postgres, Kafka, Keycloak (realm `depot`) and OPA in Docker, then builds and runs ledger, numbering, party, purchasing, receiving and batch, the dev gateway and the web app. The first start builds Go binaries and pulls images, so allow a few minutes; it is ready when it prints `Depot is up`. The AP invoice screens are served by receiving, so the vendor to PO to receipt to AP invoice to ledger flow needs no other service.
 
 In a second terminal, prove the flow against the running stack:
 
 ```sh
 make e2e-local     # signs the seeded users in to Keycloak, then drives vendor -> PO -> receipt -> AP invoice -> ledger through the gateway
-(cd apps/web && PASSAGE_E2E_LIVE_URL=http://localhost:5173 npx playwright test e2e/login.live.spec.ts)   # browser sign-in
+(cd apps/web && DEPOT_E2E_LIVE_URL=http://localhost:5173 npx playwright test e2e/login.live.spec.ts)   # browser sign-in
 ```
 
 `make e2e-local` is repeatable: each run creates its own vendor and checks the change in the trial balance.
 
-Open http://localhost:5173 and sign in as `admin` / `passage-admin-dev` (every duty the purchase-to-ledger flow needs, plus the admin screens) or `clerk` / `passage-clerk-dev` (no admin duties: the admin navigation is hidden and the gateway answers 403 on admin routes). Users, duties and the tenant come from [deploy/local/seed.json](deploy/local/seed.json); see [deploy/local/README.md](deploy/local/README.md) for what runs where.
+Open http://localhost:5173 and sign in as `admin` / `depot-admin-dev` (every duty the purchase-to-ledger flow needs, plus the admin screens) or `clerk` / `depot-clerk-dev` (no admin duties: the admin navigation is hidden and the gateway answers 403 on admin routes). Users, duties and the tenant come from [deploy/local/seed.json](deploy/local/seed.json); see [deploy/local/README.md](deploy/local/README.md) for what runs where.
 
 ### 1. The web app
 
@@ -61,30 +61,30 @@ npm run dev        # http://localhost:5173
 
 The shell, navigation and screens render. API convention: the browser calls `/api/v1/<svc>/...`, services serve `/v1/<svc>/...`, and the edge strips `/api`. In dev the Vite proxy ([src/shell/devProxy.ts](apps/web/src/shell/devProxy.ts)) does that: it forwards `/api/v1/<svc>/...` to `http://localhost:8080/v1/<svc>/...` and adds the identity headers the gateway would set.
 
-Every service listens on :8080 by default, so run one at a time or give each its own `HTTP_ADDR` and point the proxy at it with `PASSAGE_SVC_<NAME>_URL` (`<NAME>` is the path segment upper-cased, `-` as `_`; `PASSAGE_SVC_DEFAULT_URL` replaces the :8080 fallback). `PASSAGE_SVC_INBOX_URL` must point at the batch service, which serves `/v1/inbox` (My work). Set these in the shell or in `apps/web/.env.local`:
+Every service listens on :8080 by default, so run one at a time or give each its own `HTTP_ADDR` and point the proxy at it with `DEPOT_SVC_<NAME>_URL` (`<NAME>` is the path segment upper-cased, `-` as `_`; `DEPOT_SVC_DEFAULT_URL` replaces the :8080 fallback). `DEPOT_SVC_INBOX_URL` must point at the batch service, which serves `/v1/inbox` (My work). Set these in the shell or in `apps/web/.env.local`:
 
 ```sh
-PASSAGE_SVC_LEDGER_URL=http://localhost:8081   # ledger started with HTTP_ADDR=:8081
-PASSAGE_DEV_TENANT=00000000-0000-0000-0000-000000000001
-PASSAGE_DEV_LEGAL_ENTITY=00000000-0000-0000-0000-0000000000e1
-PASSAGE_DEV_USER=dev
-PASSAGE_DEV_DUTIES=ledger.journal.read,ledger.journal.post   # comma-separated; each service lists its duties in internal/api/api.go
+DEPOT_SVC_LEDGER_URL=http://localhost:8081   # ledger started with HTTP_ADDR=:8081
+DEPOT_DEV_TENANT=00000000-0000-0000-0000-000000000001
+DEPOT_DEV_LEGAL_ENTITY=00000000-0000-0000-0000-0000000000e1
+DEPOT_DEV_USER=dev
+DEPOT_DEV_DUTIES=ledger.journal.read,ledger.journal.post   # comma-separated; each service lists its duties in internal/api/api.go
 ```
 
-`PASSAGE_DEV_DUTIES` defaults to empty, so any duty-guarded call returns 403 until you set the duties the service checks. The same list is given to the shell's modules so UI that needs a duty (for example `org.hierarchy.write` for the hierarchy designer's edit mode) is shown; restart `vite` after changing it. Gated nav entries and routes are hidden for duties you lack; set `PASSAGE_DEV_SHOW_ALL_NAV=1` to show every nav entry and open every page in `vite` without changing the duties sent to services.
+`DEPOT_DEV_DUTIES` defaults to empty, so any duty-guarded call returns 403 until you set the duties the service checks. The same list is given to the shell's modules so UI that needs a duty (for example `org.hierarchy.write` for the hierarchy designer's edit mode) is shown; restart `vite` after changing it. Gated nav entries and routes are hidden for duties you lack; set `DEPOT_DEV_SHOW_ALL_NAV=1` to show every nav entry and open every page in `vite` without changing the duties sent to services.
 
-The Kubernetes gateway ([#82](https://github.com/BenjaminSRussell/Passage/issues/82)) does the same: its HTTPRoutes match `/api/v1/<svc>` and rewrite to `/v1/<svc>` (strip `/api`), and set the `X-Passage-*` headers from the verified token.
+The Kubernetes gateway ([#82](https://github.com/BenjaminSRussell/Depot/issues/82)) does the same: its HTTPRoutes match `/api/v1/<svc>` and rewrite to `/v1/<svc>` (strip `/api`), and set the `X-Depot-*` headers from the verified token.
 
 ### 2. One backend service
 
 Each service is a standalone binary that needs its own Postgres database. Ledger is shown here. The others follow the same pattern (`services/<name>/cmd/<name>`, with a database of their own), one at a time, since they all listen on :8080.
 
 ```sh
-docker run -d --name passage-pg -p 5432:5432 -e POSTGRES_PASSWORD=passage postgres:17
-docker exec passage-pg createdb -U postgres ledger
+docker run -d --name depot-pg -p 5432:5432 -e POSTGRES_PASSWORD=depot postgres:17
+docker exec depot-pg createdb -U postgres ledger
 
 cd services/ledger
-DATABASE_URL='postgres://postgres:passage@localhost:5432/ledger?sslmode=disable' \
+DATABASE_URL='postgres://postgres:depot@localhost:5432/ledger?sslmode=disable' \
 MIGRATE_ON_START=true LEDGER_PERIOD_CHECK=disabled go run ./cmd/ledger
 # API on :8080, health/admin on :9090
 ```
@@ -93,14 +93,14 @@ There is no gateway yet, so requests must carry the identity headers it would no
 
 ```sh
 curl localhost:9090/readyz
-curl -H 'X-Passage-Tenant: 00000000-0000-0000-0000-000000000001' \
-     -H 'X-Passage-User: dev' \
-     -H 'X-Passage-Duties: ledger.journal.read' \
+curl -H 'X-Depot-Tenant: 00000000-0000-0000-0000-000000000001' \
+     -H 'X-Depot-User: dev' \
+     -H 'X-Depot-Duties: ledger.journal.read' \
      localhost:8080/v1/ledger/ledgers/00000000-0000-0000-0000-0000000000aa
 # → 404 "ledger not found": the service, database and auth are working
 ```
 
-Each service declares the duty names it checks at the top of its `internal/api/api.go` (ledger's are in [services/ledger/internal/api/api.go](services/ledger/internal/api/api.go)). Services trust these headers, so **never expose a service outside your machine** until the gateway lands ([#82](https://github.com/BenjaminSRussell/Passage/issues/82)). When you're done: `docker rm -f passage-pg`.
+Each service declares the duty names it checks at the top of its `internal/api/api.go` (ledger's are in [services/ledger/internal/api/api.go](services/ledger/internal/api/api.go)). Services trust these headers, so **never expose a service outside your machine** until the gateway lands ([#82](https://github.com/BenjaminSRussell/Depot/issues/82)). When you're done: `docker rm -f depot-pg`.
 
 ### 3. Local Kubernetes (optional)
 
@@ -118,18 +118,18 @@ make test-py       # Python services
 
 `test-ts` and `test-py` expect each package's dependencies to be installed first: `npm ci` in each TypeScript package, and `pip install -e '.[test]'` in each `services/*-py`.
 
-Database tests skip unless you point them at Postgres. They use a superuser plus a non-superuser `passage_app` role, so row-level security is actually exercised:
+Database tests skip unless you point them at Postgres. They use a superuser plus a non-superuser `depot_app` role, so row-level security is actually exercised:
 
 ```sh
-docker exec passage-pg psql -U postgres -c "CREATE ROLE passage_app LOGIN PASSWORD 'passage_app'"
-export PASSAGE_TEST_DATABASE_URL='postgres://postgres:passage@localhost:5432/postgres?sslmode=disable'
-export PASSAGE_TEST_APP_DATABASE_URL='postgres://passage_app:passage_app@localhost:5432/postgres?sslmode=disable'
+docker exec depot-pg psql -U postgres -c "CREATE ROLE depot_app LOGIN PASSWORD 'depot_app'"
+export DEPOT_TEST_DATABASE_URL='postgres://postgres:depot@localhost:5432/postgres?sslmode=disable'
+export DEPOT_TEST_APP_DATABASE_URL='postgres://depot_app:depot_app@localhost:5432/postgres?sslmode=disable'
 make test-go
 ```
 
 ## Learn more
 
-- [docs/PRD.md](docs/PRD.md): what Passage does and why
+- [docs/PRD.md](docs/PRD.md): what Depot does and why
 - [docs/user/README.md](docs/user/README.md): task-based guides for the people who use the app
 - [docs/architecture.md](docs/architecture.md): how it fits together
 - [docs/engineering/CONVENTIONS.md](docs/engineering/CONVENTIONS.md): coding rules for services

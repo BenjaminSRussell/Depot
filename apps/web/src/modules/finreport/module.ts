@@ -1,5 +1,5 @@
 import { createElement } from "react";
-import type { PassageModule } from "../registry";
+import type { DepotModule } from "../registry";
 import { AuditTrailPage } from "./AuditTrailPage";
 import { DefinitionEditorPage } from "./DefinitionEditorPage";
 import { DefinitionsPage } from "./DefinitionsPage";
@@ -19,7 +19,7 @@ import { SchedulesPage } from "./SchedulesPage";
 import { VerificationPage } from "./VerificationPage";
 import { VerificationsPage } from "./VerificationsPage";
 
-const finreport: PassageModule = {
+const finreport: DepotModule = {
   id: "finreport",
   title: "Financial statements",
   description: "Report definitions, statement runs over the journal with drill-down to the balances and journal lines behind every amount, downloads, row sets and column sets with comparative templates, reporting trees with per-unit roll-up runs, distribution schedules with their firings and the report library of stored statement files with its retention sweep and legal holds, the audit trail and the check of the read model against the ledger.",

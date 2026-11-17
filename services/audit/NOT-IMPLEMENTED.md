@@ -1,4 +1,4 @@
-# Not implemented in PSG-5 slice 1
+# Not implemented in DPT-5 slice 1
 
 | Deliverable or AC | Status | Reason |
 |---|---|---|
@@ -7,4 +7,4 @@
 | Deliverable 8: email/notify delivery | partial | Change and due-date matching plus an in-app inbox are built; the notify service does not exist yet |
 | Deliverable 9: persisted multilingual text library and document-layout references | partial | Placeholder expansion is built; language versions and layout binding need wave-3 metadata |
 | Tempo live UI-click drill-down in a cluster | model + dashboards | `deploy/observability` ships Grafana/Tempo/Loki/Prometheus manifests and the shell emits W3C `traceparent`. A running Tempo stack is a wave-1 deploy handoff |
-| Argo CD Application, Secret `audit-db`, database `passage_audit` | handoff | outside wave 5 service-chart ownership |
+| Argo CD Application, Secret `audit-db`, database `depot_audit` | handoff | outside wave 5 service-chart ownership |

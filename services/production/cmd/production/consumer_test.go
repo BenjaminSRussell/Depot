@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/services/production/internal/api"
+	"github.com/BenjaminSRussell/depot/services/production/internal/api"
 )
 
 // The consumer runs only as its own principal with the intake duty, never as another consumer's.

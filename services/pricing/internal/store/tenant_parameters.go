@@ -10,11 +10,11 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/pricing/internal/domain"
-	pevents "github.com/BenjaminSRussell/passage/services/pricing/internal/events"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/pricing/internal/domain"
+	pevents "github.com/BenjaminSRussell/depot/services/pricing/internal/events"
 )
 
 // TenantParameters are the pricing parameters of the whole tenant (PRD 5.26.13 scope tenant).

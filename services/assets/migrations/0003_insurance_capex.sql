@@ -15,8 +15,8 @@ CREATE TABLE IF NOT EXISTS asset_index_series (
 ALTER TABLE asset_index_series ENABLE ROW LEVEL SECURITY;
 ALTER TABLE asset_index_series FORCE ROW LEVEL SECURITY;
 CREATE POLICY asset_index_series_tenant_access ON asset_index_series AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 CREATE TABLE IF NOT EXISTS asset_index_value (
   tenant_id uuid NOT NULL,
@@ -29,8 +29,8 @@ CREATE TABLE IF NOT EXISTS asset_index_value (
 ALTER TABLE asset_index_value ENABLE ROW LEVEL SECURITY;
 ALTER TABLE asset_index_value FORCE ROW LEVEL SECURITY;
 CREATE POLICY asset_index_value_tenant_access ON asset_index_value AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- base_value is the replacement value at the index base year; indexed_value is
 -- base_value × index(index_year_used) ÷ index(index_base_year) for the
@@ -72,11 +72,11 @@ CREATE INDEX IF NOT EXISTS asset_insurance_policy_expiry ON asset_insurance_poli
 ALTER TABLE asset_insurance_policy ENABLE ROW LEVEL SECURITY;
 ALTER TABLE asset_insurance_policy FORCE ROW LEVEL SECURITY;
 CREATE POLICY asset_insurance_policy_tenant_access ON asset_insurance_policy AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY asset_insurance_policy_legal_entity_scope ON asset_insurance_policy AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 CREATE TABLE IF NOT EXISTS capex_request (
   tenant_id uuid NOT NULL,
@@ -103,11 +103,11 @@ CREATE INDEX IF NOT EXISTS capex_request_status ON capex_request (tenant_id, sta
 ALTER TABLE capex_request ENABLE ROW LEVEL SECURITY;
 ALTER TABLE capex_request FORCE ROW LEVEL SECURITY;
 CREATE POLICY capex_request_tenant_access ON capex_request AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY capex_request_legal_entity_scope ON capex_request AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 CREATE TABLE IF NOT EXISTS capex_request_variant (
   tenant_id uuid NOT NULL,
@@ -127,8 +127,8 @@ CREATE TABLE IF NOT EXISTS capex_request_variant (
 ALTER TABLE capex_request_variant ENABLE ROW LEVEL SECURITY;
 ALTER TABLE capex_request_variant FORCE ROW LEVEL SECURITY;
 CREATE POLICY capex_request_variant_tenant_access ON capex_request_variant AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY capex_request_variant_legal_entity_scope ON capex_request_variant AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));

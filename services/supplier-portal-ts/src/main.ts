@@ -1,15 +1,15 @@
-// Entry point. Environment: HTTP_ADDR (default :8080); OIDC_ISSUER, OIDC_CLIENT_ID (default passage-portal-supplier),
+// Entry point. Environment: HTTP_ADDR (default :8080); OIDC_ISSUER, OIDC_CLIENT_ID (default depot-portal-supplier),
 // OIDC_CLIENT_SECRET, OIDC_REDIRECT_URI; optionally OIDC_AUTHORIZATION_ENDPOINT, OIDC_TOKEN_ENDPOINT and OIDC_JWKS_URI
 // (default to the Keycloak paths under the issuer); OIDC_END_SESSION_ENDPOINT (default: the Keycloak logout path) and
 // OIDC_POST_LOGOUT_REDIRECT_URI (default: APP_ORIGIN/); APP_ORIGIN; COOKIE_SECURE=false for local http;
 // SESSION_STORE_URL (redis:// or rediss:// of a Valkey or Redis server shared by the pods; unset keeps sessions in memory) with
 // SESSION_STORE_PASSWORD or SESSION_STORE_PASSWORD_FILE and SESSION_STORE_CA_FILE;
 // KEYCLOAK_ADMIN_URL, KEYCLOAK_REALM, KEYCLOAK_ADMIN_CLIENT_ID, KEYCLOAK_ADMIN_CLIENT_SECRET(_FILE) for creating invited users;
-// PURCHASING_URL, RECEIVING_URL, PARTY_URL, PAYABLES_URL; PASSAGE_SERVICE_SIGNING_KEY or PASSAGE_SERVICE_SIGNING_KEY_FILE.
+// PURCHASING_URL, RECEIVING_URL, PARTY_URL, PAYABLES_URL; DEPOT_SERVICE_SIGNING_KEY or DEPOT_SERVICE_SIGNING_KEY_FILE.
 // Virus scan of uploads: CLAMAV_ADDR (host:port of clamd; when set the scan is required and a failed scan refuses the upload),
 // CLAMAV_TIMEOUT_MS, SCAN_ALLOW_UNSCANNED=true (accept uploads when no scanner is configured; default false).
 // Public registration page: REGISTRATION_TENANT_ID and REGISTRATION_LEGAL_ENTITY_ID (both, or registration is closed),
-// PUBLIC_RATE_PER_HOUR (per client address, default 10). PASSAGE_TRUSTED_PROXIES: comma-separated CIDRs or addresses of the
+// PUBLIC_RATE_PER_HOUR (per client address, default 10). DEPOT_TRUSTED_PROXIES: comma-separated CIDRs or addresses of the
 // proxies in front (the edge) whose X-Forwarded-For is believed; empty means none and the client address is the TCP peer.
 
 import { readFileSync } from "node:fs";
@@ -34,7 +34,7 @@ export function oidcFromEnv(env: Record<string, string | undefined>): OidcConfig
   const issuer = required(env, "OIDC_ISSUER").replace(/\/$/, "");
   return {
     issuer,
-    clientId: env["OIDC_CLIENT_ID"] ?? "passage-portal-supplier",
+    clientId: env["OIDC_CLIENT_ID"] ?? "depot-portal-supplier",
     clientSecret: required(env, "OIDC_CLIENT_SECRET"),
     redirectUri: required(env, "OIDC_REDIRECT_URI"),
     authorizationEndpoint: env["OIDC_AUTHORIZATION_ENDPOINT"] ?? `${issuer}/protocol/openid-connect/auth`,
@@ -68,10 +68,10 @@ export function provisionerFromEnv(env: Record<string, string | undefined>, read
   const file = env["KEYCLOAK_ADMIN_CLIENT_SECRET_FILE"];
   return new KeycloakProvisioner({
     baseUrl: base,
-    realm: env["KEYCLOAK_REALM"] ?? "passage",
+    realm: env["KEYCLOAK_REALM"] ?? "depot",
     clientId: required(env, "KEYCLOAK_ADMIN_CLIENT_ID"),
     clientSecret: file ? readFile(file).trim() : required(env, "KEYCLOAK_ADMIN_CLIENT_SECRET"),
-    portalClientId: env["OIDC_CLIENT_ID"] ?? "passage-portal-supplier",
+    portalClientId: env["OIDC_CLIENT_ID"] ?? "depot-portal-supplier",
     redirectUri: `${(env["APP_ORIGIN"] ?? "").replace(/\/$/, "")}/`,
     fetcher: fetch,
     log,

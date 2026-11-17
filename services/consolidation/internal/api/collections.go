@@ -11,13 +11,13 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/fxclient"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ledgerclient"
-	"github.com/BenjaminSRussell/passage/platform/money"
-	"github.com/BenjaminSRussell/passage/platform/orgclient"
-	"github.com/BenjaminSRussell/passage/services/consolidation/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/consolidation/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/fxclient"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ledgerclient"
+	"github.com/BenjaminSRussell/depot/platform/money"
+	"github.com/BenjaminSRussell/depot/platform/orgclient"
+	"github.com/BenjaminSRussell/depot/services/consolidation/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/consolidation/internal/store"
 )
 
 // LedgerBalances reads a ledger's trial balance. ledgerclient.Client and

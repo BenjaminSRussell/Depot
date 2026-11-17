@@ -54,7 +54,7 @@ export const stepGuides: Record<string, StepGuide> = {
   "users-roles": {
     to: "/admin/security/users",
     linkLabel: "Open users",
-    help: ["Add the people who will use Passage.", "Give each person the role that matches their job, so they land in the right workspace."],
+    help: ["Add the people who will use Depot.", "Give each person the role that matches their job, so they land in the right workspace."],
   },
   [IMPORT_STEP]: {
     to: "/migration",

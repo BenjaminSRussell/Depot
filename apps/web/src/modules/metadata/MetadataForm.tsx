@@ -10,7 +10,7 @@ interface FieldSchema {
   format?: string;
   default?: unknown;
   readOnly?: boolean;
-  "x-passage-visibility"?: "always" | "advanced" | "hidden";
+  "x-depot-visibility"?: "always" | "advanced" | "hidden";
 }
 
 interface EntitySchema {
@@ -68,7 +68,7 @@ export function MetadataForm({ entity }: MetadataFormProps) {
     const form = new FormData(formElement);
     const input: Record<string, unknown> = {};
     for (const [name, field] of Object.entries(schema?.properties ?? {})) {
-      if (field.readOnly || field["x-passage-visibility"] === "hidden") continue;
+      if (field.readOnly || field["x-depot-visibility"] === "hidden") continue;
       if (field.type === "boolean") {
         input[name] = form.get(name) === "on";
         continue;
@@ -149,7 +149,7 @@ export function MetadataForm({ entity }: MetadataFormProps) {
         <form onChange={() => setSaved(false)} onSubmit={(event) => void submit(event)}>
           <div className={styles.fields}>
             {Object.entries(schema.properties)
-              .filter(([, field]) => field["x-passage-visibility"] !== "hidden")
+              .filter(([, field]) => field["x-depot-visibility"] !== "hidden")
               .map(([name, field]) => (
                 <FormField
                   key={name}
@@ -216,8 +216,8 @@ function humanize(value: string) {
 function apiHeaders(): Record<string, string> {
   if (!import.meta.env.DEV) return {};
   return {
-    "X-Passage-Tenant": "00000000-0000-0000-0000-000000000001",
-    "X-Passage-User": "00000000-0000-0000-0000-000000000002",
-    "X-Passage-Duties": "metadata.read,metadata.write,metadata.data.read,metadata.data.write",
+    "X-Depot-Tenant": "00000000-0000-0000-0000-000000000001",
+    "X-Depot-User": "00000000-0000-0000-0000-000000000002",
+    "X-Depot-Duties": "metadata.read,metadata.write,metadata.data.read,metadata.data.write",
   };
 }

@@ -52,7 +52,7 @@ describe("decision routes", () => {
   function post(path: string, body: unknown, headers: Record<string, string> = {}) {
     return fetch(`${base}${path}`, {
       method: "POST",
-      headers: { "X-Passage-Tenant": TENANT, "X-Passage-User": "alice", "X-Passage-Legal-Entity": `${OTHER_LE},${LE.toUpperCase()}`, "X-Passage-Duties": "engineering.eco.approve,quality.capa.maintain,budget.plan.decide", ...headers },
+      headers: { "X-Depot-Tenant": TENANT, "X-Depot-User": "alice", "X-Depot-Legal-Entity": `${OTHER_LE},${LE.toUpperCase()}`, "X-Depot-Duties": "engineering.eco.approve,quality.capa.maintain,budget.plan.decide", ...headers },
       body: JSON.stringify(body),
     });
   }
@@ -69,14 +69,14 @@ describe("decision routes", () => {
   });
 
   it.each([
-    ["no tenant", { "X-Passage-Tenant": "" }, 401],
-    ["no user", { "X-Passage-User": "" }, 401],
-    ["a service token", { "X-Passage-Service-Token": "x.y" }, 401],
-    ["no approve duty", { "X-Passage-Duties": "quality.capa.maintain" }, 403],
-    ["the creator", { "X-Passage-User": "rita" }, 403],
-    ["another tenant", { "X-Passage-Tenant": OTHER_TENANT }, 404],
-    ["a legal entity outside the user's scope", { "X-Passage-Legal-Entity": OTHER_LE }, 403],
-    ["no legal-entity claim", { "X-Passage-Legal-Entity": "" }, 403],
+    ["no tenant", { "X-Depot-Tenant": "" }, 401],
+    ["no user", { "X-Depot-User": "" }, 401],
+    ["a service token", { "X-Depot-Service-Token": "x.y" }, 401],
+    ["no approve duty", { "X-Depot-Duties": "quality.capa.maintain" }, 403],
+    ["the creator", { "X-Depot-User": "rita" }, 403],
+    ["another tenant", { "X-Depot-Tenant": OTHER_TENANT }, 404],
+    ["a legal entity outside the user's scope", { "X-Depot-Legal-Entity": OTHER_LE }, 403],
+    ["no legal-entity claim", { "X-Depot-Legal-Entity": "" }, 403],
   ])("refuses an ECO decision from %s and signals nothing", async (_name, headers, status) => {
     const response = await post(`/v1/workflows/eco-approvals/${ECO}:approve`, {}, headers);
     expect(response.status).toBe(status);
@@ -105,10 +105,10 @@ describe("decision routes", () => {
   });
 
   it.each([
-    ["no decide duty", `/v1/workflows/budget-plans/${PLAN}/stages/review:sign-off`, { submission: 1, orgUnitId: UNIT }, { "X-Passage-Duties": "engineering.eco.approve" }, 403],
-    ["the submitter", `/v1/workflows/budget-plans/${PLAN}/stages/review:sign-off`, { submission: 1, orgUnitId: UNIT }, { "X-Passage-User": "pat" }, 403],
-    ["another tenant", `/v1/workflows/budget-plans/${PLAN}/stages/review:sign-off`, { submission: 1, orgUnitId: UNIT }, { "X-Passage-Tenant": OTHER_TENANT }, 404],
-    ["a legal entity outside the user's scope", `/v1/workflows/budget-plans/${PLAN}/stages/review:sign-off`, { submission: 1, orgUnitId: UNIT }, { "X-Passage-Legal-Entity": OTHER_LE }, 403],
+    ["no decide duty", `/v1/workflows/budget-plans/${PLAN}/stages/review:sign-off`, { submission: 1, orgUnitId: UNIT }, { "X-Depot-Duties": "engineering.eco.approve" }, 403],
+    ["the submitter", `/v1/workflows/budget-plans/${PLAN}/stages/review:sign-off`, { submission: 1, orgUnitId: UNIT }, { "X-Depot-User": "pat" }, 403],
+    ["another tenant", `/v1/workflows/budget-plans/${PLAN}/stages/review:sign-off`, { submission: 1, orgUnitId: UNIT }, { "X-Depot-Tenant": OTHER_TENANT }, 404],
+    ["a legal entity outside the user's scope", `/v1/workflows/budget-plans/${PLAN}/stages/review:sign-off`, { submission: 1, orgUnitId: UNIT }, { "X-Depot-Legal-Entity": OTHER_LE }, 403],
     ["no submission", `/v1/workflows/budget-plans/${PLAN}/stages/review:sign-off`, { orgUnitId: UNIT }, {}, 400],
     ["a bad org unit", `/v1/workflows/budget-plans/${PLAN}/stages/review:sign-off`, { submission: 1, orgUnitId: "x" }, {}, 400],
     ["an approval without a scenario", `/v1/workflows/budget-plans/${PLAN}/stages/approve:sign-off`, { submission: 1, orgUnitId: UNIT }, {}, 400],
@@ -136,7 +136,7 @@ describe("decision routes", () => {
   });
 
   it("applies the same legal-entity scope to CAPA decisions", async () => {
-    const outside = { "X-Passage-Legal-Entity": OTHER_LE };
+    const outside = { "X-Depot-Legal-Entity": OTHER_LE };
     expect((await post(`/v1/workflows/capa/${NCR}:effectiveness`, { result: "EFFECTIVE", note: "x" }, outside)).status).toBe(403);
     readings.set(`capa:${NCR}`, { tenantId: TENANT, legalEntityId: LE, status: "in_correction", currentStep: 1 });
     expect((await post(`/v1/workflows/capa/${NCR}:step-done`, { step: 1, notes: "x" }, outside)).status).toBe(403);
@@ -144,14 +144,14 @@ describe("decision routes", () => {
   });
 
   it("needs the CAPA duty", async () => {
-    expect((await post(`/v1/workflows/capa/${NCR}:step-done`, { step: 1, notes: "x" }, { "X-Passage-Duties": "engineering.eco.approve" })).status).toBe(403);
+    expect((await post(`/v1/workflows/capa/${NCR}:step-done`, { step: 1, notes: "x" }, { "X-Depot-Duties": "engineering.eco.approve" })).status).toBe(403);
     expect(signals).toEqual([]);
   });
 
   it("signals an effectiveness check from someone other than the D7 implementer, once it is open", async () => {
     const path = `/v1/workflows/capa/${NCR}:effectiveness`;
     const body = { result: "EFFECTIVE", note: "no recurrence" };
-    expect((await post(path, body, { "X-Passage-User": "engineer" })).status).toBe(403);
+    expect((await post(path, body, { "X-Depot-User": "engineer" })).status).toBe(403);
     expect((await post(path, { result: "MAYBE", note: "x" })).status).toBe(400);
     readings.set(`capa:${NCR}`, { tenantId: TENANT, legalEntityId: LE, status: "effectiveness_pending", currentStep: 8, implementer: "engineer" });
     expect((await post(path, body)).status).toBe(409);
@@ -162,7 +162,7 @@ describe("decision routes", () => {
   });
 
   const CHANGE = "00000000-0000-0000-0000-0000000000b1";
-  const approver = { "X-Passage-Duties": "party.approve" };
+  const approver = { "X-Depot-Duties": "party.approve" };
   const pendingChange = { requestId: CHANGE, entityType: "credit_limit", tenantId: TENANT, legalEntityId: LE, requester: "rita", status: "pending", levelId: "finance", approver: "alice", history: [] };
 
   it("signals a party change decision with the actor and scope of the authenticated approver, never from the body", async () => {
@@ -187,13 +187,13 @@ describe("decision routes", () => {
   });
 
   it.each([
-    ["no approve duty", {}, { "X-Passage-Duties": "engineering.eco.approve" }, 403],
-    ["a service token", {}, { ...approver, "X-Passage-Service-Token": "x.y" }, 401],
-    ["forged user headers without a tenant", {}, { ...approver, "X-Passage-Tenant": "tenant-1" }, 401],
-    ["the requester", {}, { ...approver, "X-Passage-User": "rita" }, 403],
-    ["someone who is not the current approver", {}, { ...approver, "X-Passage-User": "bob" }, 403],
-    ["another tenant", {}, { ...approver, "X-Passage-Tenant": OTHER_TENANT }, 404],
-    ["a legal entity outside the approver's scope", {}, { ...approver, "X-Passage-Legal-Entity": OTHER_LE }, 403],
+    ["no approve duty", {}, { "X-Depot-Duties": "engineering.eco.approve" }, 403],
+    ["a service token", {}, { ...approver, "X-Depot-Service-Token": "x.y" }, 401],
+    ["forged user headers without a tenant", {}, { ...approver, "X-Depot-Tenant": "tenant-1" }, 401],
+    ["the requester", {}, { ...approver, "X-Depot-User": "rita" }, 403],
+    ["someone who is not the current approver", {}, { ...approver, "X-Depot-User": "bob" }, 403],
+    ["another tenant", {}, { ...approver, "X-Depot-Tenant": OTHER_TENANT }, 404],
+    ["a legal entity outside the approver's scope", {}, { ...approver, "X-Depot-Legal-Entity": OTHER_LE }, 403],
     ["a decided approval", { status: "approved" }, approver, 409],
     ["an approval that is not a party change", { tenantId: undefined, legalEntityId: undefined }, approver, 404],
   ])("refuses a party change decision from %s and signals nothing", async (_name, override, headers, status) => {
@@ -209,7 +209,7 @@ describe("decision routes", () => {
 
   const MERGE = "00000000-0000-0000-0000-0000000000d1";
   const mergeWorkflow = `approval:party-merge:${MERGE}`;
-  const mergeApprover = { "X-Passage-Duties": "party.merge.approve,tenant.administer", "X-Passage-Legal-Entity": "" };
+  const mergeApprover = { "X-Depot-Duties": "party.merge.approve,tenant.administer", "X-Depot-Legal-Entity": "" };
   const pendingMerge = { requestId: `party-merge:${MERGE}`, entityType: "party_merge", tenantId: TENANT, mergeRequestId: MERGE, requester: "rita", status: "pending", levelId: "data-steward", approver: "alice", history: [] };
 
   it("signals a merge decision for the authenticated tenant-wide approver with no legal-entity scope", async () => {
@@ -226,16 +226,16 @@ describe("decision routes", () => {
   });
 
   it.each([
-    ["the requester (segregation of duties)", {}, { ...mergeApprover, "X-Passage-User": "rita" }, 403, "PTY-MERGE-SELF-APPROVAL"],
-    ["a payment-run approver (segregation of duties)", {}, { ...mergeApprover, "X-Passage-Duties": "party.merge.approve,tenant.administer,payment-proposal.approve" }, 403, "PTY-MERGE-SOD"],
-    ["a payment-run executor (segregation of duties)", {}, { ...mergeApprover, "X-Passage-Duties": "party.merge.approve,tenant.administer,payment-run.execute" }, 403, "PTY-MERGE-SOD"],
-    ["a party change approver", {}, { ...mergeApprover, "X-Passage-Duties": "party.approve,tenant.administer" }, 403, "AUTH-0003"],
-    ["the merge requester duty", {}, { ...mergeApprover, "X-Passage-Duties": "party.merge,tenant.administer" }, 403, "AUTH-0003"],
-    ["an approver who is not a tenant administrator", {}, { ...mergeApprover, "X-Passage-Duties": "party.merge.approve" }, 403, "AUTH-0003"],
-    ["an approver with a legal-entity claim", {}, { ...mergeApprover, "X-Passage-Legal-Entity": LE }, 403, "AUTH-0003"],
-    ["someone who is not the current approver", {}, { ...mergeApprover, "X-Passage-User": "bob" }, 403, "WF-0403"],
-    ["a service token", {}, { ...mergeApprover, "X-Passage-Service-Token": "x.y" }, 401, "AUTH-0001"],
-    ["another tenant", {}, { ...mergeApprover, "X-Passage-Tenant": OTHER_TENANT }, 404, "WF-0404"],
+    ["the requester (segregation of duties)", {}, { ...mergeApprover, "X-Depot-User": "rita" }, 403, "PTY-MERGE-SELF-APPROVAL"],
+    ["a payment-run approver (segregation of duties)", {}, { ...mergeApprover, "X-Depot-Duties": "party.merge.approve,tenant.administer,payment-proposal.approve" }, 403, "PTY-MERGE-SOD"],
+    ["a payment-run executor (segregation of duties)", {}, { ...mergeApprover, "X-Depot-Duties": "party.merge.approve,tenant.administer,payment-run.execute" }, 403, "PTY-MERGE-SOD"],
+    ["a party change approver", {}, { ...mergeApprover, "X-Depot-Duties": "party.approve,tenant.administer" }, 403, "AUTH-0003"],
+    ["the merge requester duty", {}, { ...mergeApprover, "X-Depot-Duties": "party.merge,tenant.administer" }, 403, "AUTH-0003"],
+    ["an approver who is not a tenant administrator", {}, { ...mergeApprover, "X-Depot-Duties": "party.merge.approve" }, 403, "AUTH-0003"],
+    ["an approver with a legal-entity claim", {}, { ...mergeApprover, "X-Depot-Legal-Entity": LE }, 403, "AUTH-0003"],
+    ["someone who is not the current approver", {}, { ...mergeApprover, "X-Depot-User": "bob" }, 403, "WF-0403"],
+    ["a service token", {}, { ...mergeApprover, "X-Depot-Service-Token": "x.y" }, 401, "AUTH-0001"],
+    ["another tenant", {}, { ...mergeApprover, "X-Depot-Tenant": OTHER_TENANT }, 404, "WF-0404"],
     ["a decided approval (replayed decision)", { status: "approved" }, mergeApprover, 409, "WF-0409"],
     ["an approval that is not a merge", { mergeRequestId: undefined }, mergeApprover, 404, "WF-0404"],
   ])("refuses a merge decision from %s and signals nothing", async (_name, override, headers, status, code) => {

@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/inventory/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/inventory/internal/domain"
 )
 
 func lineOf(sheet domain.CountSheet, product string) domain.CountLine {
@@ -36,7 +36,7 @@ func TestMovementAfterCountFlagsTheLineForRecountWithoutFreeze(t *testing.T) {
 	if got, _ := s.GetCountSheet(ctx, sheet.ID); got.RecountLines != 0 || got.Version != counted.Version {
 		t.Fatalf("uncounted row flagged: recount lines %d, version %d -> %d", got.RecountLines, counted.Version, got.Version)
 	}
-	before := outboxCount(t, admin, "dev.passage.inventory.countsheet.changed.v1")
+	before := outboxCount(t, admin, "dev.depot.inventory.countsheet.changed.v1")
 
 	post(t, ctx, s, domain.JournalAdjustment, line(product, "-3", "2", dims()))
 	got, err := s.GetCountSheet(ctx, sheet.ID)
@@ -53,13 +53,13 @@ func TestMovementAfterCountFlagsTheLineForRecountWithoutFreeze(t *testing.T) {
 	if got.RecountLines != 1 || got.Status != domain.CountOpen || got.Version <= counted.Version {
 		t.Fatalf("sheet after the movement: %+v", got)
 	}
-	if n := outboxCount(t, admin, "dev.passage.inventory.countsheet.changed.v1"); n != before+1 {
+	if n := outboxCount(t, admin, "dev.depot.inventory.countsheet.changed.v1"); n != before+1 {
 		t.Fatalf("countsheet.changed events %d, want %d", n, before+1)
 	}
 	var action, source string
 	var lineID *string
 	if err := admin.QueryRow(context.Background(), `select payload->'data'->>'action', payload->'data'->>'recountSource', payload->'data'->>'lineId'
-		from outbox where type = 'dev.passage.inventory.countsheet.changed.v1' and payload->'data'->>'sheetId' = $1
+		from outbox where type = 'dev.depot.inventory.countsheet.changed.v1' and payload->'data'->>'sheetId' = $1
 		order by created_at desc, id desc limit 1`, sheet.ID).Scan(&action, &source, &lineID); err != nil {
 		t.Fatal(err)
 	}

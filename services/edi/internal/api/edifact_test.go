@@ -12,16 +12,16 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/BenjaminSRussell/passage/services/edi/internal/delivery"
-	"github.com/BenjaminSRussell/passage/services/edi/internal/domain"
-	ediev "github.com/BenjaminSRussell/passage/services/edi/internal/events"
-	"github.com/BenjaminSRussell/passage/services/edi/internal/store"
-	"github.com/BenjaminSRussell/passage/services/edi/internal/transport"
-	"github.com/BenjaminSRussell/passage/services/edi/internal/transport/transporttest"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/delivery"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/domain"
+	ediev "github.com/BenjaminSRussell/depot/services/edi/internal/events"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/store"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/transport"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/transport/transporttest"
 )
 
 // ordersEdifact is testdata/edifact/orders-inbound.edi: one ORDERS from
-// 4012345000009:14 to PASSAGE:ZZZ, interchange reference 42, CONTRL
+// 4012345000009:14 to DEPOT:ZZZ, interchange reference 42, CONTRL
 // requested (UNB 0031 = 1).
 func ordersEdifact(t *testing.T) string {
 	t.Helper()
@@ -91,7 +91,7 @@ func TestReceiveEdifact_ORDERSRecordedPublishedAndAnsweredWithCONTRL(t *testing.
 	}
 	// The CONTRL goes back from the recipient to the sender, in the sender's
 	// service characters, on the partner's first outbound EDIFACT reference.
-	if !strings.HasPrefix(res.Contrl, "UNA:+.? 'UNB+UNOC:3+PASSAGE:ZZZ+"+euSender+"+") || !strings.Contains(res.Contrl, "+1'UNH+1+CONTRL:2:2:UN'UCI+42+"+euSender+"+PASSAGE:ZZZ+7'UNT+3+1'UNZ+1+1'") {
+	if !strings.HasPrefix(res.Contrl, "UNA:+.? 'UNB+UNOC:3+DEPOT:ZZZ+"+euSender+"+") || !strings.Contains(res.Contrl, "+1'UNH+1+CONTRL:2:2:UN'UCI+42+"+euSender+"+DEPOT:ZZZ+7'UNT+3+1'UNZ+1+1'") {
 		t.Fatalf("CONTRL %s", res.Contrl)
 	}
 	rec := do(t, h, http.MethodGet, "/edi/v1/interchanges/"+res.InterchangeID, "", "edi.operate,edi.pii.view", nil)
@@ -180,7 +180,7 @@ func TestReceiveEdifact_NegativeCONTRLRejectsEachMessageWithItsPlace(t *testing.
 	if res.AckStatus != "ACCEPTED_WITH_ERRORS" || strings.Join(statuses, ",") != "ORDERS/1=MAPPED,ORDERS/2=FAILED,ORDRSP/3=FAILED,ORDERS/4=FAILED" {
 		t.Fatalf("%s %v", res.AckStatus, statuses)
 	}
-	want := "UCI+77+" + euSender + "+PASSAGE:ZZZ+7'" +
+	want := "UCI+77+" + euSender + "+DEPOT:ZZZ+7'" +
 		"UCM+2+ORDERS:D:96A:UN:EAN008+4+29'UCS+20+29'UCD+29+1:2'" + // CNT 2 differs from the LIN count
 		"UCM+3+ORDRSP:D:96A:UN+4+12'UCS+1+12'UCD+12+2:1'" + // message type not supported
 		"UCM+4+ORDERS:D:96A:UN:EAN008+4+29'UCS+21+29'UCD+29+1:1'" // UNT01
@@ -240,7 +240,7 @@ func TestReceiveEdifact_CONTRLModesGroupsAndReceivedCONTRL(t *testing.T) {
 		t.Fatal(err)
 	}
 	res, code, pc := postEdifact(t, h, grouped)
-	if code != http.StatusCreated || res.Messages[0].Status != "MAPPED" || !strings.Contains(res.Contrl, "UCI+14+"+euSender+"+PASSAGE:ZZZ+7'UNT+3+1'") {
+	if code != http.StatusCreated || res.Messages[0].Status != "MAPPED" || !strings.Contains(res.Contrl, "UCI+14+"+euSender+"+DEPOT:ZZZ+7'UNT+3+1'") {
 		t.Fatalf("grouped: %d %s %+v", code, pc, res)
 	}
 	// A CONTRL from the partner is recorded, never answered, and matches
@@ -249,7 +249,7 @@ func TestReceiveEdifact_CONTRLModesGroupsAndReceivedCONTRL(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fromPartner := strings.Replace(string(contrl), "UNB+UNOC:3+PASSAGE:ZZZ+"+euSender+"+", "UNB+UNOC:3+"+euSender+"+PASSAGE:ZZZ+", 1)
+	fromPartner := strings.Replace(string(contrl), "UNB+UNOC:3+DEPOT:ZZZ+"+euSender+"+", "UNB+UNOC:3+"+euSender+"+DEPOT:ZZZ+", 1)
 	res, code, pc = postEdifact(t, h, fromPartner)
 	if code != http.StatusCreated || res.Contrl != "" || res.AckStatus != "ACCEPTED_WITH_ERRORS" || res.Messages[0].TransactionSet != "CONTRL" ||
 		res.Messages[0].Status != "FAILED" || !strings.HasPrefix(res.Messages[0].Error, domain.CodeUnmatchedAck) {
@@ -305,7 +305,7 @@ func TestTransportAS2_EdifactInboundCONTRLAndRefusalAcks(t *testing.T) {
 		t.Fatal("not recorded")
 	}
 	e.dispatch(1)
-	lastAck(transport.ContentEdifact + "|UCI+42+" + euSender + "+PASSAGE:ZZZ+7'")
+	lastAck(transport.ContentEdifact + "|UCI+42+" + euSender + "+DEPOT:ZZZ+7'")
 	if n := e.count(`select count(*) from transport_delivery where payload_kind = 'ACK' and filename like 'CONTRL\_42\_%.edi'`); n != 1 {
 		t.Fatal("CONTRL delivery file name")
 	}
@@ -317,7 +317,7 @@ func TestTransportAS2_EdifactInboundCONTRLAndRefusalAcks(t *testing.T) {
 		t.Fatalf("duplicate: %+v %v", r, err)
 	}
 	e.dispatch(1)
-	lastAck(transport.ContentEdifact + "|UCI+42+" + euSender + "+PASSAGE:ZZZ+4+26'")
+	lastAck(transport.ContentEdifact + "|UCI+42+" + euSender + "+DEPOT:ZZZ+4+26'")
 
 	// A syntax error with a readable UNB: error MDN and a CONTRL UCI 4 with
 	// the code, over the partner's transport.
@@ -330,7 +330,7 @@ func TestTransportAS2_EdifactInboundCONTRLAndRefusalAcks(t *testing.T) {
 		t.Fatal("source not parked with the refusal")
 	}
 	e.dispatch(1)
-	lastAck(transport.ContentEdifact + "|UCI+44+" + euSender + "+PASSAGE:ZZZ+4+29'")
+	lastAck(transport.ContentEdifact + "|UCI+44+" + euSender + "+DEPOT:ZZZ+4+29'")
 	// Sent again: refused again, answered once.
 	refused("eu-3@distributor", transport.ContentEdifact, badUNZ)
 	if recorded(`control_number = '44'`) != 1 {
@@ -345,10 +345,10 @@ func TestTransportAS2_EdifactInboundCONTRLAndRefusalAcks(t *testing.T) {
 	createPartner(t, e.h, "other-eu", edifactPartnerBody("Other EU", "OTHEREU", "4012345000016", ""))
 	refused("eu-5@distributor", transport.ContentEdifact, edifactRef(t, strings.Replace(ordersEdifact(t), euSender, "4012345000016:14", 1), "45"))
 	e.dispatch(1)
-	lastAck(transport.ContentEdifact + "|UCI+45+4012345000016:14+PASSAGE:ZZZ+4+23'")
+	lastAck(transport.ContentEdifact + "|UCI+45+4012345000016:14+DEPOT:ZZZ+4+23'")
 	refused("eu-6@distributor", transport.ContentEdifact, edifactRef(t, strings.Replace(ordersEdifact(t), euSender, "4099999999999:14", 1), "46"))
 	e.dispatch(1)
-	lastAck(transport.ContentEdifact + "|UCI+46+4099999999999:14+PASSAGE:ZZZ+4+23'")
+	lastAck(transport.ContentEdifact + "|UCI+46+4099999999999:14+DEPOT:ZZZ+4+23'")
 
 	// An X12 syntax error: a negative 997 naming the bad trailer.
 	badSE := strings.Replace(x12Control(t, "000000301"), "SE*6*0001~", "SE*7*0001~", 1)
@@ -432,8 +432,8 @@ func TestTransportSFTP_EdifactAndRefusal(t *testing.T) {
 		b, _ := os.ReadFile(filepath.Join(out, f.Name()))
 		got[f.Name()[:10]] = string(b)
 	}
-	if len(files) != 2 || !strings.Contains(got["CONTRL_42_"], "UCI+42+"+euSender+"+PASSAGE:ZZZ+7'") ||
-		!strings.Contains(got["CONTRL_50_"], "UCI+50+"+euSender+"+PASSAGE:ZZZ+4+29'") || !strings.HasSuffix(files[0].Name(), ".edi") {
+	if len(files) != 2 || !strings.Contains(got["CONTRL_42_"], "UCI+42+"+euSender+"+DEPOT:ZZZ+7'") ||
+		!strings.Contains(got["CONTRL_50_"], "UCI+50+"+euSender+"+DEPOT:ZZZ+4+29'") || !strings.HasSuffix(files[0].Name(), ".edi") {
 		t.Fatalf("outbound dir %v %v", files, got)
 	}
 	// The partner puts the refused file back: parked again, not answered twice.

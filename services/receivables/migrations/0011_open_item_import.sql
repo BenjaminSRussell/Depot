@@ -15,7 +15,7 @@ ALTER TABLE open_item ADD CONSTRAINT open_item_credit_source CHECK (
 -- import_source names the legacy system (SAP-PRD, AX-2012-EU); legacy_key is the
 -- row's key there. The pair is unique per tenant, so a rerun finds the item it
 -- loaded before. imported_open_amount is the open amount the import last set: an
--- item whose open amount differs was changed in Passage (settled, cleared,
+-- item whose open amount differs was changed in Depot (settled, cleared,
 -- deducted) and a rerun refuses it.
 ALTER TABLE open_item ADD COLUMN IF NOT EXISTS import_source text;
 ALTER TABLE open_item ADD COLUMN IF NOT EXISTS legacy_key text;

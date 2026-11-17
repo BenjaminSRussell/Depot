@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/services/migration/internal/oauth"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/oauth"
 )
 
 func TestClientCredentials(t *testing.T) {

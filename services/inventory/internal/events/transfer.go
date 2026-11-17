@@ -2,12 +2,12 @@ package events
 
 // Transfer order event types (FR-16.15, section 3.16.5).
 const (
-	TransferShipped  = "dev.passage.inventory.transfer.shipped.v1"
-	TransferReceived = "dev.passage.inventory.transfer.received.v1"
+	TransferShipped  = "dev.depot.inventory.transfer.shipped.v1"
+	TransferReceived = "dev.depot.inventory.transfer.received.v1"
 	// TransferChanged is published when a CREATED order is edited, confirmed from
 	// a draft, deleted (status DELETED), or any order is cancelled; it carries
 	// TransferData with every line of the order.
-	TransferChanged = "dev.passage.inventory.transfer.changed.v1"
+	TransferChanged = "dev.depot.inventory.transfer.changed.v1"
 )
 
 // TransferLineData is one line of a transfer event. Qty is the quantity this

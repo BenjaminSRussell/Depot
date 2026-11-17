@@ -4,14 +4,14 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/eventing"
+	"github.com/BenjaminSRussell/depot/platform/eventing"
 )
 
 func TestDecodeBinaryMode(t *testing.T) {
 	r := eventing.Record{
 		Value: []byte(`{"receipt_id":"r1"}`),
 		Headers: map[string]string{
-			"ce_specversion": "1.0", "ce_id": "e1", "ce_type": eventType, "ce_source": "/passage/receiving", "ce_tenantid": tenantA,
+			"ce_specversion": "1.0", "ce_id": "e1", "ce_type": eventType, "ce_source": "/depot/receiving", "ce_tenantid": tenantA,
 			"ce_correlationid": "c1", "ce_time": "2026-10-31T10:00:00Z", "tenantid": tenantA,
 		},
 	}

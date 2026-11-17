@@ -10,7 +10,7 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/testkit"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
 )
 
 func statementURL(rep, query string) string {
@@ -20,9 +20,9 @@ func statementURL(rep, query string) string {
 // statementRaw reads a statement as a caller scoped to legalEntity with pricing.commission.view.
 func statementRaw(h http.Handler, path string) *httptest.ResponseRecorder {
 	req := httptest.NewRequest(http.MethodGet, path, nil)
-	req.Header.Set("X-Passage-Tenant", testkit.TenantID(1))
-	req.Header.Set("X-Passage-Duties", "pricing.commission.view")
-	req.Header.Set("X-Passage-Legal-Entity", legalEntity)
+	req.Header.Set("X-Depot-Tenant", testkit.TenantID(1))
+	req.Header.Set("X-Depot-Duties", "pricing.commission.view")
+	req.Header.Set("X-Depot-Legal-Entity", legalEntity)
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, req)
 	return rec
@@ -175,7 +175,7 @@ func TestCommissionStatement_MidStreamFailureAbortsTheConnection(t *testing.T) {
 // would hide its rows); the CSV is refused before anything is written.
 func TestCommissionStatement_LegalEntityOutsideScopeIs403(t *testing.T) {
 	_, h := postedCommission(t)
-	outside := []string{"X-Passage-Legal-Entity", otherEntity}
+	outside := []string{"X-Depot-Legal-Entity", otherEntity}
 	for _, format := range []string{"json", "csv"} {
 		code, out := call(t, h, http.MethodGet, statementURL("R1", "period=2027-03&format="+format), "pricing.commission.view", "", outside...)
 		if code != http.StatusForbidden || out["code"] != "AUTH-0003" {

@@ -20,8 +20,8 @@ ALTER TABLE vendor_group ENABLE ROW LEVEL SECURITY;
 ALTER TABLE vendor_group FORCE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS vendor_group_tenant_access ON vendor_group;
 CREATE POLICY vendor_group_tenant_access ON vendor_group AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- Backfill: every vendor_group_id already on a vendor role becomes a group with
 -- the deterministic code 'VG' + the first 8 hex digits of its id. When that
@@ -29,7 +29,7 @@ CREATE POLICY vendor_group_tenant_access ON vendor_group AS PERMISSIVE
 -- shape is tried: 'V' + 9 hex, 10 hex, 'G' + hex digits 9 to 17. Groups are
 -- visited in tenant and id order, so the same data always gets the same codes.
 -- The statement reads every tenant, so it needs a role that bypasses row-level
--- security (FORCE stays on). Under a role without the bypass (passage_app) it
+-- security (FORCE stays on). Under a role without the bypass (depot_app) it
 -- would see no rows: it is skipped with a notice, and the groups are registered
 -- through POST /v1/party/vendor-groups with their existing id instead.
 DO $$

@@ -8,21 +8,21 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/hr/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/hr/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/hr/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/hr/migrations"
 )
 
 // TestRowLevelSecurity runs the store as the application role, which cannot
 // bypass RLS. Another tenant sees no HR row in any table even without a
 // tenant filter, and the legal-entity scope hides employments and positions
-// outside the caller's entity. It needs PASSAGE_TEST_APP_DATABASE_URL too.
+// outside the caller's entity. It needs DEPOT_TEST_APP_DATABASE_URL too.
 func TestRowLevelSecurity(t *testing.T) {
 	if os.Getenv(testkit.EnvURL) == "" || os.Getenv(testkit.EnvAppURL) == "" {
-		t.Skip("PASSAGE_TEST_DATABASE_URL and PASSAGE_TEST_APP_DATABASE_URL are needed for the RLS test")
+		t.Skip("DEPOT_TEST_DATABASE_URL and DEPOT_TEST_APP_DATABASE_URL are needed for the RLS test")
 	}
 	admin, app := testkit.DBWithApp(t)
 	bg := context.Background()

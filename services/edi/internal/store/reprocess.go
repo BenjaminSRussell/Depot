@@ -8,9 +8,9 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
 
-	ediev "github.com/BenjaminSRussell/passage/services/edi/internal/events"
+	ediev "github.com/BenjaminSRussell/depot/services/edi/internal/events"
 )
 
 // ErrNotInbound means the interchange was sent by us; only inbound

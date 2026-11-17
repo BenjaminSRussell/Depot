@@ -8,12 +8,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/warehouse/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/warehouse/internal/store"
-	"github.com/BenjaminSRussell/passage/services/warehouse/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/warehouse/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/warehouse/internal/store"
+	"github.com/BenjaminSRussell/depot/services/warehouse/migrations"
 )
 
 func TestReceivingRoutes_Refusals(t *testing.T) {
@@ -79,7 +79,7 @@ func TestReceivingRoutes_Refusals(t *testing.T) {
 		{"receipts list needs the inquiry duty", req{method: "GET", path: "/v1/warehouse/receipts?warehouseId=" + wh, duties: dutyReceive}, 403, ""},
 		{"receipt id must be a uuid", req{method: "GET", path: "/v1/warehouse/receipts/ASN-1", duties: dutyInquiry}, 404, ""},
 		{"receive needs a positive quantity", req{method: "POST", path: receive, duties: dutyReceive, key: "k", body: `{"qty":"0"}`}, 400, "qty"},
-		{"receive needs a user", req{method: "POST", path: receive, duties: dutyReceive, key: "k", user: "-", body: `{"qty":"95"}`}, 400, "X-Passage-User"},
+		{"receive needs a user", req{method: "POST", path: receive, duties: dutyReceive, key: "k", user: "-", body: `{"qty":"95"}`}, 400, "X-Depot-User"},
 		{"receive needs a line number", req{method: "POST", path: "/v1/warehouse/receipts/" + rid + "/lines/0:receive", duties: dutyReceive, key: "k", body: `{"qty":"95"}`}, 400, "n"},
 		{"receive If-Match is a version", req{method: "POST", path: receive, duties: dutyReceive, key: "k", ifMatch: "x", body: `{"qty":"95"}`}, 400, "If-Match"},
 		{"receive needs the receive duty", req{method: "POST", path: receive, duties: dutyWorkExecute, key: "k", body: `{"qty":"95"}`}, 403, ""},

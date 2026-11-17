@@ -8,9 +8,9 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/ids"
 
-	"github.com/BenjaminSRussell/passage/platform/ledgerclient"
+	"github.com/BenjaminSRussell/depot/platform/ledgerclient"
 )
 
 func TestFake_PostIsIdempotentPerKeyAndRejectsAChangedPayload(t *testing.T) {

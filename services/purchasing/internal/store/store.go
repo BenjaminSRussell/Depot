@@ -12,12 +12,12 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/outbox"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/purchasing/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/outbox"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/purchasing/internal/domain"
 )
 
 // Problem codes raised by the store. The README lists them with their HTTP status.
@@ -33,7 +33,7 @@ const (
 	CodeAgreementNotFound = "PRC-AGR-NOT-FOUND"
 	CodeVersionConflict   = "PRC-VERSION-CONFLICT"
 	CodeIdempotencyReuse  = "idempotency_key_reuse"
-	eventSource           = "/passage/procurement/purchasing"
+	eventSource           = "/depot/procurement/purchasing"
 )
 
 // Page sizes for the list endpoints.

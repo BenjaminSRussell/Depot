@@ -9,7 +9,7 @@ import (
 )
 
 // The AsyncAPI document declares exactly the event types the service
-// publishes, each with a CloudEvents type of the dev.passage.edi.*.v1 form.
+// publishes, each with a CloudEvents type of the dev.depot.edi.*.v1 form.
 func TestAsyncAPIDeclaresEveryPublishedType(t *testing.T) {
 	spec, err := os.ReadFile("../../events/asyncapi.yaml")
 	if err != nil {
@@ -25,10 +25,10 @@ func TestAsyncAPIDeclaresEveryPublishedType(t *testing.T) {
 	if strings.Join(declared, ",") != strings.Join(published, ",") {
 		t.Fatalf("asyncapi declares %v, code publishes %v", declared, published)
 	}
-	typeRe := regexp.MustCompile(`^dev\.passage\.edi\.[a-z]+\.[a-z]+\.v1$`)
+	typeRe := regexp.MustCompile(`^dev\.depot\.edi\.[a-z]+\.[a-z]+\.v1$`)
 	for _, typ := range published {
 		if !typeRe.MatchString(typ) {
-			t.Errorf("event type %q does not follow dev.passage.<ctx>.<entity>.<verb>.v1", typ)
+			t.Errorf("event type %q does not follow dev.depot.<ctx>.<entity>.<verb>.v1", typ)
 		}
 	}
 }

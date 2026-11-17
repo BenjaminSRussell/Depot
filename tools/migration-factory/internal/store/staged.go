@@ -10,9 +10,9 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/ids"
 
-	"github.com/BenjaminSRussell/passage/tools/migration-factory/internal/domain"
+	"github.com/BenjaminSRussell/depot/tools/migration-factory/internal/domain"
 )
 
 // StagedRun is a validated extract of a staged pack (wip_prod, fixed_assets, payroll_ytd) ready to
@@ -25,7 +25,7 @@ type StagedRun struct {
 	StartedBy string
 }
 
-// RunStaged loads the accepted lines Passage does not hold yet, each with its legacy_xref row and
+// RunStaged loads the accepted lines Depot does not hold yet, each with its legacy_xref row and
 // its staged_opening_line row, reconciles the run and stores it with its totals, quarantine and the
 // pack.reconciled event, in one transaction. Runs of one (system, company, pack) serialize on an
 // advisory lock. Nothing posts to the owning service.
@@ -45,7 +45,7 @@ func (s *Postgres) RunStaged(ctx context.Context, idem Idem, in StagedRun) (doma
 func runStaged(ctx context.Context, tx pgx.Tx, in StagedRun) (domain.PackRun, error) {
 	run, spec := in.Run, in.Spec
 	sys, company := string(run.SourceSystem), run.SourceCompany
-	if _, err := tx.Exec(ctx, `select pg_advisory_xact_lock(hashtextextended('xref|' || current_setting('passage.tenant_id', true) || '|' || $1 || '|' || $2 || '|' || $3, 0))`,
+	if _, err := tx.Exec(ctx, `select pg_advisory_xact_lock(hashtextextended('xref|' || current_setting('depot.tenant_id', true) || '|' || $1 || '|' || $2 || '|' || $3, 0))`,
 		sys, company, spec.Table); err != nil {
 		return domain.PackRun{}, fmt.Errorf("lock legacy_xref: %w", err)
 	}
@@ -55,7 +55,7 @@ func runStaged(ctx context.Context, tx pgx.Tx, in StagedRun) (domain.PackRun, er
 	}
 	held := map[string]domain.StagedLine{}
 	rows, err := tx.Query(ctx, `select legacy_id, natural_key, currency, grouping, measures from staged_opening_line
-		where tenant_id = current_setting('passage.tenant_id', true)::uuid and pack = $1 and source_system = $2 and source_company = $3 and legacy_id = any($4)`,
+		where tenant_id = current_setting('depot.tenant_id', true)::uuid and pack = $1 and source_system = $2 and source_company = $3 and legacy_id = any($4)`,
 		string(spec.Pack), sys, company, idsIn)
 	if err != nil {
 		return domain.PackRun{}, fmt.Errorf("read staged_opening_line: %w", err)
@@ -113,12 +113,12 @@ func runStaged(ctx context.Context, tx pgx.Tx, in StagedRun) (domain.PackRun, er
 			}
 		}
 		batch.Queue(`insert into legacy_xref (tenant_id, xref_id, source_system, source_company, source_table, source_id,
-			passage_entity, passage_id, run_id, amount, currency)
-			values (current_setting('passage.tenant_id', true)::uuid, $1, $2, $3, $4, $5, 'staged_opening_line', $6, $7, $8, $9)`,
+			depot_entity, depot_id, run_id, amount, currency)
+			values (current_setting('depot.tenant_id', true)::uuid, $1, $2, $3, $4, $5, 'staged_opening_line', $6, $7, $8, $9)`,
 			xrefID, sys, company, spec.Table, l.LegacyID, lineID, run.RunID, amount.Round(6).String(), l.Currency)
 		batch.Queue(`insert into staged_opening_line (tenant_id, line_id, run_id, legacy_xref_id, pack, source_system, source_company,
 			legacy_id, natural_key, currency, grouping, measures)
-			values (current_setting('passage.tenant_id', true)::uuid, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+			values (current_setting('depot.tenant_id', true)::uuid, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
 			lineID, run.RunID, xrefID, string(spec.Pack), sys, company, l.LegacyID, l.NaturalKey, l.Currency, grouping, measures)
 	}
 	if batch.Len() > 0 {
@@ -175,7 +175,7 @@ func decodeStaged(grouping, measures []byte) (map[string]string, map[string]deci
 	return g, m, nil
 }
 
-// checkStagedKeys refuses a line whose natural key Passage already holds for the pack and company
+// checkStagedKeys refuses a line whose natural key Depot already holds for the pack and company
 // under another legacy id: loading it would open the order, asset book or worker year twice
 // (FR-49.10). One conflict rejects the run before anything is written.
 func checkStagedKeys(ctx context.Context, tx pgx.Tx, pack domain.Pack, sys, company string, toLoad []domain.StagedLine) error {
@@ -188,7 +188,7 @@ func checkStagedKeys(ctx context.Context, tx pgx.Tx, pack domain.Pack, sys, comp
 	}
 	var key, legacyID, runID string
 	err := tx.QueryRow(ctx, `select natural_key, legacy_id, run_id::text from staged_opening_line
-		where tenant_id = current_setting('passage.tenant_id', true)::uuid and pack = $1 and source_system = $2 and source_company = $3 and natural_key = any($4)
+		where tenant_id = current_setting('depot.tenant_id', true)::uuid and pack = $1 and source_system = $2 and source_company = $3 and natural_key = any($4)
 		order by natural_key limit 1`, string(pack), sys, company, keys).Scan(&key, &legacyID, &runID)
 	switch {
 	case errors.Is(err, pgx.ErrNoRows):

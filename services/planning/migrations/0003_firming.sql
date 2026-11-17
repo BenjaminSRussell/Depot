@@ -21,8 +21,8 @@ CREATE TABLE IF NOT EXISTS firming_batch (
 ALTER TABLE firming_batch ENABLE ROW LEVEL SECURITY;
 ALTER TABLE firming_batch FORCE ROW LEVEL SECURITY;
 CREATE POLICY firming_batch_tenant_access ON firming_batch AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- A firmed planned order names the batch that firmed it and the target order
 -- (purchase, production or transfer order) the owning context creates from

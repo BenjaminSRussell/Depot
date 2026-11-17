@@ -9,11 +9,11 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/store"
 )
 
 const (
@@ -72,7 +72,7 @@ func TestCatchWeightReceiptPostsWeightAndCases(t *testing.T) {
 	}
 
 	posted, err := st.Post(ctxOf(p), r.ID, func(rec store.Receipt) (store.PostOutcome, error) {
-		evt, err := events.New(events.Type("receiving", "receipt", "posted", 1), "/passage/receiving/receiving", rec.ID, p.TenantID,
+		evt, err := events.New(events.Type("receiving", "receipt", "posted", 1), "/depot/receiving/receiving", rec.ID, p.TenantID,
 			map[string]string{"receiptId": rec.ID, "ledgerEntryId": "entry-cw"})
 		if err != nil {
 			return store.PostOutcome{}, err

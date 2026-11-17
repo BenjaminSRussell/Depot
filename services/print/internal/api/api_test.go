@@ -12,11 +12,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/print/internal/api"
-	"github.com/BenjaminSRussell/passage/services/print/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/print/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/print/internal/api"
+	"github.com/BenjaminSRussell/depot/services/print/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/print/internal/store"
 )
 
 // memStore is an in-memory store.Store for handler tests (no database needed).
@@ -220,9 +220,9 @@ func router(s store.Store, sender api.Sender, opts ...api.Option) http.Handler {
 func call(t *testing.T, h http.Handler, method, path, body, duties, key string) *httptest.ResponseRecorder {
 	t.Helper()
 	req := httptest.NewRequest(method, path, strings.NewReader(body))
-	req.Header.Set("X-Passage-Tenant", testkit.TenantID(1))
-	req.Header.Set("X-Passage-User", "worker-7")
-	req.Header.Set("X-Passage-Duties", duties)
+	req.Header.Set("X-Depot-Tenant", testkit.TenantID(1))
+	req.Header.Set("X-Depot-User", "worker-7")
+	req.Header.Set("X-Depot-Duties", duties)
 	req.Header.Set("Content-Type", "application/json")
 	if key != "" {
 		req.Header.Set("Idempotency-Key", key)

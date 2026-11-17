@@ -1,5 +1,5 @@
 // Package iccharge takes the borrower's vendor invoice of an intercompany charge in Invoice settlement mode into payables'
-// vendor-invoice intake (#40): intercompany publishes dev.passage.interco.chargeinvoice.requested.v1 instead of posting the charge,
+// vendor-invoice intake (#40): intercompany publishes dev.depot.interco.chargeinvoice.requested.v1 instead of posting the charge,
 // and this consumer records the invoice in the borrower's legal entity for the lender (the pairing's vendor account), at the
 // charge's price plus the cross-border tax intercompany worked out. Like any intake row it posts nothing: an AP clerk matches it
 // and posts it.
@@ -26,15 +26,15 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/eventing"
-	"github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/money"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/eventing"
+	"github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/money"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
 
-	"github.com/BenjaminSRussell/passage/services/payables/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/payables/internal/ledger"
-	"github.com/BenjaminSRussell/passage/services/payables/internal/store"
+	"github.com/BenjaminSRussell/depot/services/payables/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/payables/internal/ledger"
+	"github.com/BenjaminSRussell/depot/services/payables/internal/store"
 )
 
 const (
@@ -42,11 +42,11 @@ const (
 	ConsumerName = "payables-iccharge"
 	// Duty is the only duty of that principal.
 	Duty                       = "payables.iccharge.from-event"
-	ChargeInvoiceRequestedType = "dev.passage.interco.chargeinvoice.requested.v1"
+	ChargeInvoiceRequestedType = "dev.depot.interco.chargeinvoice.requested.v1"
 	// Source is the CloudEvents source intercompany publishes with (services/intercompany/internal/events.Source).
-	Source          = "/passage/intercompany"
-	Topic           = "passage.interco.chargeinvoice"
-	DeadLetterTopic = "passage.payables.iccharge.dlq"
+	Source          = "/depot/intercompany"
+	Topic           = "depot.interco.chargeinvoice"
+	DeadLetterTopic = "depot.payables.iccharge.dlq"
 	intakeSource    = "INTERCOMPANY"
 	entrySourceType = "IC_CHARGE_INVOICE"
 	// codePeriodClosed is the ledger problem code for a posting date in a closed period.

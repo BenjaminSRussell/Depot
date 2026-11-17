@@ -11,20 +11,20 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/BenjaminSRussell/passage/platform/eventing"
-	"github.com/BenjaminSRussell/passage/platform/eventing/kafka"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/inventory/internal/api"
-	"github.com/BenjaminSRussell/passage/services/inventory/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/inventory/internal/productunits"
-	"github.com/BenjaminSRussell/passage/services/inventory/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/eventing"
+	"github.com/BenjaminSRussell/depot/platform/eventing/kafka"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/inventory/internal/api"
+	"github.com/BenjaminSRussell/depot/services/inventory/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/inventory/internal/productunits"
+	"github.com/BenjaminSRussell/depot/services/inventory/internal/store"
 )
 
 // postingsDeadLetterTopic parks the receipt, delivery and cancellation events
 // the postings consumer could not book (the source topics share it; the
 // x-origin-topic header names where a record came from).
-const postingsDeadLetterTopic = "passage.inventory.postings.dlq"
+const postingsDeadLetterTopic = "depot.inventory.postings.dlq"
 
 func postingsKafkaConfig(getenv func(string) string) (kafka.Config, error) {
 	return kafka.ConfigFromEnv(getenv, api.PostingsConsumerName, api.PostingsConsumerName,

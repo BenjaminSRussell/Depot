@@ -17,14 +17,14 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	platevents "github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/outbox"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/quality/internal/domain"
-	qevents "github.com/BenjaminSRussell/passage/services/quality/internal/events"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	platevents "github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/outbox"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/quality/internal/domain"
+	qevents "github.com/BenjaminSRussell/depot/services/quality/internal/events"
 )
 
 const (
@@ -170,7 +170,7 @@ type OrderFilter struct {
 // ownTenant repeats the RLS predicate in every read and guarded update, so a
 // connection that bypasses RLS (a superuser or the table owner without FORCE)
 // still sees only the caller's tenant. WithTenantTx sets the setting.
-const ownTenant = "tenant_id = current_setting('passage.tenant_id', true)::uuid"
+const ownTenant = "tenant_id = current_setting('depot.tenant_id', true)::uuid"
 
 func notFound(code, detail string) error { return httpx.NewProblem(http.StatusNotFound, code, detail) }
 

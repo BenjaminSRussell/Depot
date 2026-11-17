@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build the Passage roadmap from roadmap/waves.json + roadmap/phases.json.
+"""Build the Depot roadmap from roadmap/waves.json + roadmap/phases.json.
 
   python3 scripts/build_roadmap.py            # validate + regenerate roadmap/*.md
   python3 scripts/build_roadmap.py --github   # also create labels, milestones, issues
@@ -16,7 +16,7 @@ import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 ROADMAP = ROOT / "roadmap"
-REPO = "BenjaminSRussell/Passage"
+REPO = "BenjaminSRussell/Depot"
 PROJECT_OWNER = "BenjaminSRussell"
 PROJECT_NUMBER = 5
 
@@ -87,7 +87,7 @@ def wave_md(w, phases):
 
 
 def write_markdown(phases, waves):
-    index = ["# Passage Roadmap — 50 Waves", "", "Generated from `waves.json` and `phases.json` by `scripts/build_roadmap.py`. Edit the JSON, not this file.", "",
+    index = ["# Depot Roadmap — 50 Waves", "", "Generated from `waves.json` and `phases.json` by `scripts/build_roadmap.py`. Edit the JSON, not this file.", "",
              "Each wave ships a **deliverable**, a **proof** (automated tests/fixtures/perf targets), a **deploy** (what runs where), and **references** (AX/SAP docs and standards/open-source we build against). Waves are strictly sequential; every 5th wave is a phase-exit with stakeholder sign-off. Wave 30 is the first go-live candidate; wave 50 is production go-live and v1.0.", ""]
     for p in phases:
         index += [f"## {phase_title(p)}", "", p["intent"], "", "| Wave | Name | Goal |", "|---|---|---|"]

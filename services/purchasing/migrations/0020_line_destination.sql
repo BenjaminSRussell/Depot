@@ -4,7 +4,7 @@
 -- the header. The header site and warehouse are fixed from the first confirmation, so a line that follows
 -- the header can only move with it before any receipt exists. Planning (wave 22) reads open lines by
 -- warehouse through GET /purchase-order-lines. Additive only (expand/contract); no new tables, so the
--- passage_app grants on both tables stand.
+-- depot_app grants on both tables stand.
 --
 -- purchase_order_line and purchase_requisition_line are live tables: nullable columns without a default
 -- only change the catalog, so the ACCESS EXCLUSIVE lock lasts an instant and nothing is scanned or

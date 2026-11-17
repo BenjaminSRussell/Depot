@@ -14,11 +14,11 @@ spec:
   template:
     metadata:
       labels:
-        {{- with include "passage.wiLabels" $ }}{{ . | nindent 8 }}{{- end }}
+        {{- with include "depot.wiLabels" $ }}{{ . | nindent 8 }}{{- end }}
         app.kubernetes.io/name: {{ .Values.serviceName }}
         app.kubernetes.io/instance: {{ .Release.Name }}
     spec:
-      {{- with include "passage.wiServiceAccount" (dict "root" $ "name" "passage-compliance") }}{{ . | nindent 6 }}{{- end }}
+      {{- with include "depot.wiServiceAccount" (dict "root" $ "name" "depot-compliance") }}{{ . | nindent 6 }}{{- end }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
         {{- if .Values.fieldCrypt.keysSecret }}
@@ -34,9 +34,9 @@ spec:
       containers:
         - name: compliance
           {{- if .Values.image.digest }}
-          image: "{{ (include "passage.imageRepository" $) }}@{{ .Values.image.digest }}"
+          image: "{{ (include "depot.imageRepository" $) }}@{{ .Values.image.digest }}"
           {{- else }}
-          image: "{{ (include "passage.imageRepository" $) }}:{{ .Values.image.tag }}"
+          image: "{{ (include "depot.imageRepository" $) }}:{{ .Values.image.tag }}"
           {{- end }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
@@ -45,9 +45,9 @@ spec:
             - name: admin
               containerPort: 9090
           env:
-            {{- include "passage.cloudEnv" $ | nindent 12 }}
-            - name: PASSAGE_ENV
-              value: {{ .Values.config.passageEnv | quote }}
+            {{- include "depot.cloudEnv" $ | nindent 12 }}
+            - name: DEPOT_ENV
+              value: {{ .Values.config.depotEnv | quote }}
             - name: SERVICE_NAME
               value: {{ .Values.serviceName | quote }}
             - name: HTTP_ADDR
@@ -72,13 +72,13 @@ spec:
               value: {{ .Values.config.screeningThreshold | quote }}
             - name: TRADE_LICENSE_CHECK
               value: {{ .Values.config.tradeLicenseCheck | quote }}
-            - name: PASSAGE_SERVICE_NAME
+            - name: DEPOT_SERVICE_NAME
               value: compliance
 {{- if .Values.serviceIdentity.publicKeys }}
-            - { name: PASSAGE_SERVICE_PUBLIC_KEYS, value: {{ .Values.serviceIdentity.publicKeys | quote }} }
+            - { name: DEPOT_SERVICE_PUBLIC_KEYS, value: {{ .Values.serviceIdentity.publicKeys | quote }} }
 {{- end }}
 {{- if .Values.fieldCrypt.keysSecret }}
-            - { name: FIELDCRYPT_KEYS_FILE, value: /var/run/passage/field-crypt/keys }
+            - { name: FIELDCRYPT_KEYS_FILE, value: /var/run/depot/field-crypt/keys }
             - { name: FIELDCRYPT_CURRENT_KEY_ID, value: {{ .Values.fieldCrypt.currentKeyId | quote }} }
 {{- end }}
             - name: DATABASE_URL
@@ -98,7 +98,7 @@ spec:
             periodSeconds: 5
 {{- if .Values.fieldCrypt.keysSecret }}
           volumeMounts:
-            - { name: field-crypt, mountPath: /var/run/passage/field-crypt, readOnly: true }
+            - { name: field-crypt, mountPath: /var/run/depot/field-crypt, readOnly: true }
 {{- end }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}

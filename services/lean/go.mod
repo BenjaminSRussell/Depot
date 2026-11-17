@@ -1,9 +1,9 @@
-module github.com/BenjaminSRussell/passage/services/lean
+module github.com/BenjaminSRussell/depot/services/lean
 
 go 1.26.0
 
 require (
-	github.com/BenjaminSRussell/passage/platform v0.0.0
+	github.com/BenjaminSRussell/depot/platform v0.0.0
 	github.com/go-chi/chi/v5 v5.5.0
 	github.com/jackc/pgx/v5 v5.12.0
 	github.com/shopspring/decimal v1.4.0
@@ -19,4 +19,4 @@ require (
 	golang.org/x/text v0.43.0 // indirect
 )
 
-replace github.com/BenjaminSRussell/passage/platform => ../../platform/go
+replace github.com/BenjaminSRussell/depot/platform => ../../platform/go

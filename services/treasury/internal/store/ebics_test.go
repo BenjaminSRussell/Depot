@@ -7,10 +7,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/treasury/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/treasury/internal/ebics"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/treasury/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/treasury/internal/ebics"
 )
 
 func newSubscriber(acct BankAccount, le string) NewEBICSSubscriber {

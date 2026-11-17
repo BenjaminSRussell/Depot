@@ -9,15 +9,15 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/engineering/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/engineering/internal/store"
-	"github.com/BenjaminSRussell/passage/services/engineering/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/engineering/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/engineering/internal/store"
+	"github.com/BenjaminSRussell/depot/services/engineering/migrations"
 )
 
-const routeActivated = "dev.passage.engineering.routeversion.activated.v1"
+const routeActivated = "dev.depot.engineering.routeversion.activated.v1"
 
 func routeOp(no, next int, reqs ...domain.OperationRequirement) domain.VersionOperation {
 	return domain.VersionOperation{

@@ -3,8 +3,8 @@ package store_test
 import (
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/party/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/party/internal/store"
 )
 
 // A customer role gets a tax registration: the country its VAT registration is in, read back by the services that report goods

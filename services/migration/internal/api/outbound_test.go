@@ -10,13 +10,13 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/migration/internal/api"
-	"github.com/BenjaminSRussell/passage/services/migration/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/migration/internal/store"
-	"github.com/BenjaminSRussell/passage/services/migration/internal/target"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/api"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/store"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/target"
 )
 
 const (
@@ -27,7 +27,7 @@ const (
 )
 
 const obDefinition = `{
-  "eventType": "dev.passage.sales.order.*.v1",
+  "eventType": "dev.depot.sales.order.*.v1",
   "subject": {"entity": "salesOrder", "idPath": "data.order_id"},
   "xrefs": [{"name": "customer", "entity": "customer", "idPath": "data.customer_id"}],
   "mapping": {"entity": "SalesOrder", "fields": [
@@ -47,7 +47,7 @@ func obRouter(s store.Store, hub tenant.Principal) *chi.Mux {
 				return
 			}
 			p := tenant.Principal{TenantID: testkit.TenantID(1), UserID: "ben", Duties: map[string]struct{}{}}
-			for _, d := range strings.Split(req.Header.Get("X-Passage-Duties"), ",") {
+			for _, d := range strings.Split(req.Header.Get("X-Depot-Duties"), ",") {
 				p.Duties[d] = struct{}{}
 			}
 			next.ServeHTTP(w, req.WithContext(tenant.With(req.Context(), p)))
@@ -93,7 +93,7 @@ func createOutbound(t *testing.T, r http.Handler, name string) obBody {
 
 // The event exactly as the hub's cloudEventOf builds it (services/integration-hub-ts/src/migrationClient.ts).
 func hubEvent(eventID, orderID, customerID string) string {
-	return `{"specversion":"1.0","id":"` + eventID + `","source":"/passage/integration-hub","type":"dev.passage.sales.order.confirmed.v1","time":"2026-11-01T10:00:00.000Z","subject":"` + orderID + `","passagesequence":4,"legalentityid":"` + hubLegalEnt + `","data":{"order_id":"` + orderID + `","customer_id":"` + customerID + `","number":"SO-9"}}`
+	return `{"specversion":"1.0","id":"` + eventID + `","source":"/depot/integration-hub","type":"dev.depot.sales.order.confirmed.v1","time":"2026-11-01T10:00:00.000Z","subject":"` + orderID + `","depotsequence":4,"legalentityid":"` + hubLegalEnt + `","data":{"order_id":"` + orderID + `","customer_id":"` + customerID + `","number":"SO-9"}}`
 }
 
 func seedCustomer(t *testing.T, s *store.Mem, legacyKey string) string {
@@ -201,15 +201,15 @@ func TestOutbound_RenderRefusals(t *testing.T) {
 		// 404 carries a problem code: the hub reads a 404 without one as "the route is missing".
 		"unknown mapping":       {obPath + "/" + ids.New() + ":render", `{"event":` + hubEvent("e", ids.New(), cust) + `}`, 404, store.CodeOutboundNotFound},
 		"not a uuid":            {obPath + "/nope:render", `{"event":` + hubEvent("e", ids.New(), cust) + `}`, 404, store.CodeOutboundNotFound},
-		"wrong event type":      {obPath + "/" + m.ID + ":render", `{"event":{"id":"e","type":"dev.passage.billing.invoice.posted.v1","legalentityid":"` + hubLegalEnt + `","data":{}}}`, 422, domain.CodeOutboundMismatch},
+		"wrong event type":      {obPath + "/" + m.ID + ":render", `{"event":{"id":"e","type":"dev.depot.billing.invoice.posted.v1","legalentityid":"` + hubLegalEnt + `","data":{}}}`, 422, domain.CodeOutboundMismatch},
 		"no event":              {obPath + "/" + m.ID + ":render", `{}`, 422, domain.CodeOutboundEvent},
 		"unknown version":       {obPath + "/" + m.ID + ":render", `{"version":9,"event":` + hubEvent("e", ids.New(), cust) + `}`, 404, store.CodeOutboundVersionGone},
 		"extra field":           {obPath + "/" + m.ID + ":render", `{"event":{},"x":1}`, 400, "COM-0001"},
-		"optional field absent": {obPath + "/" + m.ID + ":render", `{"event":{"id":"e","type":"dev.passage.sales.order.confirmed.v1","legalentityid":"` + hubLegalEnt + `","data":{"order_id":"` + ids.New() + `","customer_id":"` + cust + `"}}}`, 200, ""},
+		"optional field absent": {obPath + "/" + m.ID + ":render", `{"event":{"id":"e","type":"dev.depot.sales.order.confirmed.v1","legalentityid":"` + hubLegalEnt + `","data":{"order_id":"` + ids.New() + `","customer_id":"` + cust + `"}}}`, 200, ""},
 		// The token names one legal entity; it renders only events of that legal entity (store reads are tenant-wide).
 		"other legal entity":    {obPath + "/" + m.ID + ":render", `{"event":` + strings.Replace(hubEvent("e", ids.New(), cust), hubLegalEnt, "00000000-0000-7000-8000-0000000000b1", 1) + `}`, 403, api.CodeOutboundLegalEntity},
-		"no legal entity":       {obPath + "/" + m.ID + ":render", `{"event":{"id":"e","type":"dev.passage.sales.order.confirmed.v1","data":{"order_id":"` + ids.New() + `","customer_id":"` + cust + `"}}}`, 403, api.CodeOutboundLegalEntity},
-		"legal entity a number": {obPath + "/" + m.ID + ":render", `{"event":{"id":"e","type":"dev.passage.sales.order.confirmed.v1","legalentityid":7,"data":{}}}`, 403, api.CodeOutboundLegalEntity},
+		"no legal entity":       {obPath + "/" + m.ID + ":render", `{"event":{"id":"e","type":"dev.depot.sales.order.confirmed.v1","data":{"order_id":"` + ids.New() + `","customer_id":"` + cust + `"}}}`, 403, api.CodeOutboundLegalEntity},
+		"legal entity a number": {obPath + "/" + m.ID + ":render", `{"event":{"id":"e","type":"dev.depot.sales.order.confirmed.v1","legalentityid":7,"data":{}}}`, 403, api.CodeOutboundLegalEntity},
 		"upper-case same LE":    {obPath + "/" + m.ID + ":render", `{"event":` + strings.Replace(hubEvent("e", ids.New(), cust), hubLegalEnt, strings.ToUpper(hubLegalEnt), 1) + `}`, 200, ""},
 	} {
 		rec := hubCall(r, c.path, c.body)
@@ -337,7 +337,7 @@ func TestOutbound_CrudValidationAndDuties(t *testing.T) {
 		"no name":        `{"name":"","sourceSystem":"custom_acme","definition":` + obDefinition + `}`,
 		"bad system":     `{"name":"a","sourceSystem":"Acme!","definition":` + obDefinition + `}`,
 		"no definition":  `{"name":"a","sourceSystem":"custom_acme"}`,
-		"bad event type": `{"name":"a","sourceSystem":"custom_acme","definition":` + strings.Replace(obDefinition, "dev.passage.sales.order.*.v1", "a..b", 1) + `}`,
+		"bad event type": `{"name":"a","sourceSystem":"custom_acme","definition":` + strings.Replace(obDefinition, "dev.depot.sales.order.*.v1", "a..b", 1) + `}`,
 		"bad rule":       `{"name":"a","sourceSystem":"custom_acme","definition":` + strings.Replace(obDefinition, `"type": "string", "required": true`, `"type": "nope"`, 1) + `}`,
 	} {
 		if rec := post(body, obWrite); rec.Code != http.StatusBadRequest && rec.Code != http.StatusUnprocessableEntity {
@@ -391,7 +391,7 @@ func TestOutbound_PreviewStoredAndDraft(t *testing.T) {
 	if v := preview(obPath+":preview", `{"sourceSystem":"custom_acme","definition":`+strings.Replace(obDefinition, `"type": "string", "required": true`, `"type": "nope"`, 1)+`,"event":{}}`); v["status"] != "invalid" {
 		t.Fatalf("invalid draft preview = %+v", v)
 	}
-	if v := preview(obPath+"/"+m.ID+":preview", `{"event":{"id":"e","type":"dev.passage.sales.order.confirmed.v1","data":{}}}`); v["status"] != "unresolved" {
+	if v := preview(obPath+"/"+m.ID+":preview", `{"event":{"id":"e","type":"dev.depot.sales.order.confirmed.v1","data":{}}}`); v["status"] != "unresolved" {
 		t.Fatalf("event without the customer id = %+v", v)
 	}
 	// Previews need the view duty, not the hub's.

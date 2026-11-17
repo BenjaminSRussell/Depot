@@ -66,7 +66,7 @@ const loan: Loan = {
   id: LOAN,
   legalEntityId: LE,
   role: "lender",
-  counterpartyName: "Passage Holdings BV",
+  counterpartyName: "Depot Holdings BV",
   principal: "1000000",
   currency: "EUR",
   startDate: "2026-06-01",
@@ -358,7 +358,7 @@ describe("loans", () => {
     server.handler = () => json(200, { items: [loan] });
     const first = renderAt(`/treasury/loans?legalEntityId=${LE}`);
     const table = await findTable({ name: "Loans" });
-    await waitFor(() => expect(table).toHaveTextContent("Passage Holdings BV"));
+    await waitFor(() => expect(table).toHaveTextContent("Depot Holdings BV"));
     expect(table).toHaveTextContent("3%");
     expect(pageViolations(first.container)).toEqual([]);
     first.unmount();
@@ -382,7 +382,7 @@ describe("loans", () => {
     const { container } = renderAt(`/treasury/loans/new?legalEntityId=${LE}`);
     expect(pageViolations(container)).toEqual([]);
     fireEvent.change(screen.getByLabelText("Role"), { target: { value: "lender" } });
-    fill("Counterparty", "Passage Holdings BV");
+    fill("Counterparty", "Depot Holdings BV");
     fill("Principal", "1000000");
     fill("Currency", "EUR");
     fill("Annual rate (%)", "3");
@@ -390,12 +390,12 @@ describe("loans", () => {
     fill("Maturity date", "2026-07-01");
     fireEvent.change(screen.getByLabelText("Repayment"), { target: { value: "Bullet" } });
     fireEvent.click(screen.getByRole("button", { name: "Create loan and schedule" }));
-    expect(await screen.findByRole("heading", { name: "Loan with Passage Holdings BV" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Loan with Depot Holdings BV" })).toBeInTheDocument();
     const post = server.calls.find((c) => c.method === "POST")!;
     expect(post.body).toEqual({
       legalEntityId: LE,
       role: "lender",
-      counterpartyName: "Passage Holdings BV",
+      counterpartyName: "Depot Holdings BV",
       principal: "1000000",
       currency: "EUR",
       startDate: "2026-06-01",

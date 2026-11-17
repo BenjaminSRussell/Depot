@@ -1,6 +1,6 @@
 # production (web module)
 
-Production control workspace for wave 21 (PSG-21, PRD 4.21.6). Module id `production`, discovered
+Production control workspace for wave 21 (DPT-21, PRD 4.21.6). Module id `production`, discovered
 by the shell through `module.ts`.
 
 | Route | Page | Duty (nav) | API |

@@ -13,7 +13,7 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/money"
+	"github.com/BenjaminSRussell/depot/platform/money"
 )
 
 // Card feed formats accepted by ParseCardFeed (FR-43.13). Visa VCF 4.0 is not

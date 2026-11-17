@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/services/ledger/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/ledger/internal/store"
+	"github.com/BenjaminSRussell/depot/services/ledger/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/ledger/internal/store"
 )
 
 func TestPutReasonCode_CreatedThenReplaced(t *testing.T) {
@@ -131,7 +131,7 @@ func TestReverseEntry_StoreRejectionIs422(t *testing.T) {
 func TestCreateLedger_ReversalParameterDefaults(t *testing.T) {
 	h := server(&fakeStore{})
 	base := `"legalEntityId":"` + testDoc + `","code":"GL","name":"General ledger","chartCode":"STD","currency":"USD"`
-	inScope := map[string]string{"X-Passage-Legal-Entity": testDoc}
+	inScope := map[string]string{"X-Depot-Legal-Entity": testDoc}
 	rec := call(h, http.MethodPost, "/v1/ledger/ledgers", `{`+base+`}`, dutyLedgerWrite, inScope)
 	body := decode(t, rec)
 	// allowReinstate left out reaches the store unset, which stores the default true

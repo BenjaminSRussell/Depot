@@ -1,4 +1,4 @@
--- Time zone of sync schedules (PSG-10 integration track S4). A project's scheduleCron, and the cron a binding sets for
+-- Time zone of sync schedules (DPT-10 integration track S4). A project's scheduleCron, and the cron a binding sets for
 -- itself, used to be read in UTC, so "0 2 * * *" meant 02:00 UTC whatever the customer's plant clock said. The time
 -- zone is the project's (an IANA name, "UTC" by default so every existing schedule keeps its meaning): the cron and
 -- the zone it is read in are edited together and a binding's own cron runs under the project it runs under.

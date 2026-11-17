@@ -9,19 +9,19 @@ spec:
   refreshInterval: 1h
   secretStoreRef:
     kind: ClusterSecretStore
-    name: passage
+    name: depot
   target:
     name: apicurio-database
     creationPolicy: Owner
     template:
       data:
         # Apicurio Registry's SQL storage (deploy/kafka/registry.yaml): the apicurio-postgres Application,
-        # role passage_app, whose password the database reads from the same Vault key.
+        # role depot_app, whose password the database reads from the same Vault key.
         JDBC_URL: jdbc:postgresql://postgres.kafka.svc:5432/apicurio
-        USERNAME: passage_app
+        USERNAME: depot_app
         PASSWORD: "{{ .password }}"
   data:
     - secretKey: password
       remoteRef:
-        key: passage/dev/apicurio-postgres/app-password
+        key: depot/dev/apicurio-postgres/app-password
         property: value

@@ -10,12 +10,12 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
 
-	"github.com/BenjaminSRussell/passage/services/edi/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/edi/internal/sources"
-	"github.com/BenjaminSRussell/passage/services/edi/internal/store"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/sources"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/store"
 )
 
 type Sources interface {
@@ -119,7 +119,7 @@ func (a *API) SendFromSource(ctx context.Context, partnerID, transactionSet, sou
 }
 
 // SendFromWarehouse generates and records the whole-shipment 856 or DESADV of a shipment the warehouse shipped without a packing
-// slip (dev.passage.wms.shipment.shipped.v1). It is keyed like the route's whole-shipment notice, so a redelivered event, or the
+// slip (dev.depot.wms.shipment.shipped.v1). It is keyed like the route's whole-shipment notice, so a redelivered event, or the
 // route asked later, returns the interchange already recorded.
 func (a *API) SendFromWarehouse(ctx context.Context, partnerID, transactionSet, shipmentID string, ws domain.WarehouseShip) (store.OutboundResult, bool, error) {
 	return a.fromSource(ctx, partnerID, sourceRequest{TransactionSet: transactionSet, SourceID: shipmentID, Warehouse: &ws})

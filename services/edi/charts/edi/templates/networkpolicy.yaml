@@ -2,8 +2,8 @@
 {{- if and .Values.transports.as2.enabled (or (empty .Values.networkPolicy.as2Gateway.podLabels) (empty .Values.networkPolicy.as2Gateway.namespaces)) }}
 {{- fail "networkPolicy.as2Gateway.namespaces and podLabels must be set when transports.as2.enabled: the AS2 port is only admitted to the AS2 gateway's proxies" }}
 {{- end }}
-# The AS2 listener takes no Passage token, so its port is reachable only from the AS2 edge's Envoy proxies (Gateway
-# passage-as2), never from other pods or the passage-api gateway.
+# The AS2 listener takes no Depot token, so its port is reachable only from the AS2 edge's Envoy proxies (Gateway
+# depot-as2), never from other pods or the depot-api gateway.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:

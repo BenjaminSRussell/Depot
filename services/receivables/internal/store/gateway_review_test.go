@@ -11,8 +11,8 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/services/receivables/internal/gateway"
-	"github.com/BenjaminSRussell/passage/services/receivables/internal/gateway/stripe"
+	"github.com/BenjaminSRussell/depot/services/receivables/internal/gateway"
+	"github.com/BenjaminSRussell/depot/services/receivables/internal/gateway/stripe"
 )
 
 // Review M1: a refund delivered while the success of the same attempt is being handled is deferred (ErrGatewayBusy, the

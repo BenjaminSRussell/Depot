@@ -1,5 +1,5 @@
 image:
-  repository: ghcr.io/benjaminsrussell/passage-pricing
+  repository: ghcr.io/benjaminsrussell/depot-pricing
   tag: "0.1.0"
   # Prefer digest pinning from Argo CD; when set it takes precedence over tag.
   digest: ""
@@ -27,7 +27,7 @@ config:
 
 # Cache invalidation across replicas (FR-26.14): every replica follows campaign.killed,
 # campaign.restored, parameters.changed and tenantparameter.changed on the topics
-# passage.pricing.campaign and passage.pricing.parameters, under a Kafka group of its own.
+# depot.pricing.campaign and depot.pricing.parameters, under a Kafka group of its own.
 # Off by default: without it a replica's caches follow other replicas' changes within the
 # snapshot lifetime. Needs the service principal pricing-cache with the flag duty
 # pricing.cache.invalidate (see NOT-IMPLEMENTED.md).

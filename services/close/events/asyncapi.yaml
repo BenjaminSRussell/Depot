@@ -4,42 +4,42 @@ info:
   version: 0.1.0
   description: Period status changes, checklist, allocations, accruals, regrouping and year-end close write CloudEvents to the outbox.
 channels:
-  passage.close.period:
-    address: passage.close.period
+  depot.close.period:
+    address: depot.close.period
     messages:
       statusChanged:
         $ref: '#/components/messages/statusChanged'
-  passage.close.yearend:
-    address: passage.close.yearend
+  depot.close.yearend:
+    address: depot.close.yearend
     messages:
       yearEndCompleted:
         $ref: '#/components/messages/yearEndCompleted'
-  passage.close.run:
-    address: passage.close.run
+  depot.close.run:
+    address: depot.close.run
     messages:
       runCreated:
         $ref: '#/components/messages/runCreated'
-  passage.close.task:
-    address: passage.close.task
+  depot.close.task:
+    address: depot.close.task
     messages:
       taskCompleted:
         $ref: '#/components/messages/taskCompleted'
       taskReassigned:
         $ref: '#/components/messages/taskReassigned'
-  passage.close.allocation:
-    address: passage.close.allocation
+  depot.close.allocation:
+    address: depot.close.allocation
     messages:
       allocationCompleted:
         $ref: '#/components/messages/allocationCompleted'
-  passage.close.accrual:
-    address: passage.close.accrual
+  depot.close.accrual:
+    address: depot.close.accrual
     messages:
       accrualScheduled:
         $ref: '#/components/messages/accrualScheduled'
       accrualCancelled:
         $ref: '#/components/messages/accrualCancelled'
-  passage.close.regrouping:
-    address: passage.close.regrouping
+  depot.close.regrouping:
+    address: depot.close.regrouping
     messages:
       regroupingCompleted:
         $ref: '#/components/messages/regroupingCompleted'
@@ -47,57 +47,57 @@ operations:
   onStatusChanged:
     action: send
     channel:
-      $ref: '#/channels/passage.close.period'
+      $ref: '#/channels/depot.close.period'
     messages:
-      - $ref: '#/channels/passage.close.period/messages/statusChanged'
+      - $ref: '#/channels/depot.close.period/messages/statusChanged'
   onYearEndCompleted:
     action: send
     channel:
-      $ref: '#/channels/passage.close.yearend'
+      $ref: '#/channels/depot.close.yearend'
     messages:
-      - $ref: '#/channels/passage.close.yearend/messages/yearEndCompleted'
+      - $ref: '#/channels/depot.close.yearend/messages/yearEndCompleted'
   onRunCreated:
     action: send
     channel:
-      $ref: '#/channels/passage.close.run'
+      $ref: '#/channels/depot.close.run'
     messages:
-      - $ref: '#/channels/passage.close.run/messages/runCreated'
+      - $ref: '#/channels/depot.close.run/messages/runCreated'
   onTaskCompleted:
     action: send
     channel:
-      $ref: '#/channels/passage.close.task'
+      $ref: '#/channels/depot.close.task'
     messages:
-      - $ref: '#/channels/passage.close.task/messages/taskCompleted'
+      - $ref: '#/channels/depot.close.task/messages/taskCompleted'
   onTaskReassigned:
     action: send
     channel:
-      $ref: '#/channels/passage.close.task'
+      $ref: '#/channels/depot.close.task'
     messages:
-      - $ref: '#/channels/passage.close.task/messages/taskReassigned'
+      - $ref: '#/channels/depot.close.task/messages/taskReassigned'
   onAllocationCompleted:
     action: send
     channel:
-      $ref: '#/channels/passage.close.allocation'
+      $ref: '#/channels/depot.close.allocation'
     messages:
-      - $ref: '#/channels/passage.close.allocation/messages/allocationCompleted'
+      - $ref: '#/channels/depot.close.allocation/messages/allocationCompleted'
   onAccrualScheduled:
     action: send
     channel:
-      $ref: '#/channels/passage.close.accrual'
+      $ref: '#/channels/depot.close.accrual'
     messages:
-      - $ref: '#/channels/passage.close.accrual/messages/accrualScheduled'
+      - $ref: '#/channels/depot.close.accrual/messages/accrualScheduled'
   onAccrualCancelled:
     action: send
     channel:
-      $ref: '#/channels/passage.close.accrual'
+      $ref: '#/channels/depot.close.accrual'
     messages:
-      - $ref: '#/channels/passage.close.accrual/messages/accrualCancelled'
+      - $ref: '#/channels/depot.close.accrual/messages/accrualCancelled'
   onRegroupingCompleted:
     action: send
     channel:
-      $ref: '#/channels/passage.close.regrouping'
+      $ref: '#/channels/depot.close.regrouping'
     messages:
-      - $ref: '#/channels/passage.close.regrouping/messages/regroupingCompleted'
+      - $ref: '#/channels/depot.close.regrouping/messages/regroupingCompleted'
 components:
   messages:
     yearEndCompleted:
@@ -112,7 +112,7 @@ components:
           ledgerId: { type: string, format: uuid }
           fiscalYear: { type: string }
           closingJournalId: { type: string }
-      x-passage-type: dev.passage.close.yearend.completed.v1
+      x-depot-type: dev.depot.close.yearend.completed.v1
     statusChanged:
       name: statusChanged
       title: Period status changed
@@ -126,7 +126,7 @@ components:
           previousStatus: { type: string, enum: [open, on_hold, closed, permanently_closed] }
           newStatus: { type: string, enum: [open, on_hold, closed, permanently_closed] }
           changedBy: { type: string }
-      x-passage-type: dev.passage.close.period.statuschanged.v1
+      x-depot-type: dev.depot.close.period.statuschanged.v1
     runCreated:
       name: runCreated
       title: Close checklist run created
@@ -138,7 +138,7 @@ components:
           templateId: { type: string, format: uuid }
           fiscalPeriodId: { type: string, format: uuid }
           taskCount: { type: integer }
-      x-passage-type: dev.passage.close.run.created.v1
+      x-depot-type: dev.depot.close.run.created.v1
     taskCompleted:
       name: taskCompleted
       title: Close checklist task completed or skipped
@@ -151,7 +151,7 @@ components:
           status: { type: string }
           actor: { type: string }
           late: { type: boolean }
-      x-passage-type: dev.passage.close.task.completed.v1
+      x-depot-type: dev.depot.close.task.completed.v1
     taskReassigned:
       name: taskReassigned
       title: Close checklist task reassigned
@@ -163,7 +163,7 @@ components:
           taskId: { type: string, format: uuid }
           assignee: { type: string }
           actor: { type: string }
-      x-passage-type: dev.passage.close.task.reassigned.v1
+      x-depot-type: dev.depot.close.task.reassigned.v1
     allocationCompleted:
       name: allocationCompleted
       title: Allocation posted or reversed
@@ -175,7 +175,7 @@ components:
           ledgerId: { type: string, format: uuid }
           entryId: { type: string }
           reversed: { type: boolean }
-      x-passage-type: dev.passage.close.allocation.completed.v1
+      x-depot-type: dev.depot.close.allocation.completed.v1
     accrualScheduled:
       name: accrualScheduled
       title: Accrual run stored
@@ -186,7 +186,7 @@ components:
           runId: { type: string, format: uuid }
           schemeCode: { type: string }
           ledgerId: { type: string, format: uuid }
-      x-passage-type: dev.passage.close.accrual.scheduled.v1
+      x-depot-type: dev.depot.close.accrual.scheduled.v1
     accrualCancelled:
       name: accrualCancelled
       title: Accrual run cancelled
@@ -198,7 +198,7 @@ components:
           schemeCode: { type: string }
           ledgerId: { type: string, format: uuid }
           actor: { type: string }
-      x-passage-type: dev.passage.close.accrual.cancelled.v1
+      x-depot-type: dev.depot.close.accrual.cancelled.v1
     regroupingCompleted:
       name: regroupingCompleted
       title: Regrouping posted or reversed
@@ -211,4 +211,4 @@ components:
           keyDate: { type: string, format: date }
           entryId: { type: string }
           reversed: { type: boolean }
-      x-passage-type: dev.passage.close.regrouping.completed.v1
+      x-depot-type: dev.depot.close.regrouping.completed.v1

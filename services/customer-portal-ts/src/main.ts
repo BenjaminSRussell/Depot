@@ -1,8 +1,8 @@
-// Entry point. Environment: HTTP_ADDR (default :8080); OIDC_ISSUER, OIDC_CLIENT_ID (default passage-portal-customer),
+// Entry point. Environment: HTTP_ADDR (default :8080); OIDC_ISSUER, OIDC_CLIENT_ID (default depot-portal-customer),
 // OIDC_CLIENT_SECRET, OIDC_REDIRECT_URI; optionally OIDC_AUTHORIZATION_ENDPOINT, OIDC_TOKEN_ENDPOINT and OIDC_JWKS_URI
 // (default to the Keycloak paths under the issuer); OIDC_END_SESSION_ENDPOINT (default: the Keycloak logout path) and
 // OIDC_POST_LOGOUT_REDIRECT_URI (default: APP_ORIGIN/); APP_ORIGIN; COOKIE_SECURE=false for local http;
-// RECEIVABLES_URL, BILLING_URL, SALES_URL, PARTY_URL, IDENTITY_URL, PRINT_URL (the invoice and statement PDFs); PASSAGE_SERVICE_SIGNING_KEY or PASSAGE_SERVICE_SIGNING_KEY_FILE;
+// RECEIVABLES_URL, BILLING_URL, SALES_URL, PARTY_URL, IDENTITY_URL, PRINT_URL (the invoice and statement PDFs); DEPOT_SERVICE_SIGNING_KEY or DEPOT_SERVICE_SIGNING_KEY_FILE;
 // SESSION_STORE_URL (redis:// or rediss:// of a Valkey or Redis server shared by the pods; unset keeps sessions in this pod's memory,
 // which suits development and a single pod only; set, it also holds the per-session rate limit for every pod) with SESSION_STORE_PASSWORD or SESSION_STORE_PASSWORD_FILE and, for rediss:// with a private CA, SESSION_STORE_CA_FILE (PEM).
 
@@ -25,7 +25,7 @@ export function oidcFromEnv(env: Record<string, string | undefined>): OidcConfig
   const appOrigin = required(env, "APP_ORIGIN").replace(/\/$/, "");
   return {
     issuer,
-    clientId: env["OIDC_CLIENT_ID"] ?? "passage-portal-customer",
+    clientId: env["OIDC_CLIENT_ID"] ?? "depot-portal-customer",
     clientSecret: required(env, "OIDC_CLIENT_SECRET"),
     redirectUri: required(env, "OIDC_REDIRECT_URI"),
     authorizationEndpoint: env["OIDC_AUTHORIZATION_ENDPOINT"] ?? `${issuer}/protocol/openid-connect/auth`,

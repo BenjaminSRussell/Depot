@@ -61,9 +61,9 @@ func TestRun_RejectsMissingOrUnparseableDatabaseURL(t *testing.T) {
 }
 
 func TestRunServesProbesAndMetricsThenStopsOnCancel(t *testing.T) {
-	databaseURL := os.Getenv("PASSAGE_TEST_DATABASE_URL")
+	databaseURL := os.Getenv("DEPOT_TEST_DATABASE_URL")
 	if databaseURL == "" {
-		t.Skip("PASSAGE_TEST_DATABASE_URL not set; skipping database-backed serve test")
+		t.Skip("DEPOT_TEST_DATABASE_URL not set; skipping database-backed serve test")
 	}
 	httpAddr, adminAddr := freeAddr(t), freeAddr(t)
 	env := map[string]string{"HTTP_ADDR": httpAddr, "ADMIN_ADDR": adminAddr, "DATABASE_URL": databaseURL}

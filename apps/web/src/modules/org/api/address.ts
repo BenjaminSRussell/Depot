@@ -2,7 +2,7 @@ import { orgFetch } from "./client";
 
 // Postal addresses of legal entities, sites, warehouses and locations. An address is created with its owner's id and
 // the owner then points at it (PATCH addressId, or primaryAddressId on a legal entity), because an address needs the
-// owner's id and the owner needs the address's. Every call names the owner's legal entity in X-Passage-LegalEntity:
+// owner's id and the owner needs the address's. Every call names the owner's legal entity in X-Depot-LegalEntity:
 // addresses sit behind the legal-entity row-level security policy.
 
 export const addressPurposes = ["business", "delivery", "invoice", "remit_to", "service", "home", "other"] as const;

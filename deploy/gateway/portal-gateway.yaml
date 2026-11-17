@@ -1,29 +1,29 @@
 # The customer and supplier portal edge (#30, #511, #213). The portals sign in with their own Keycloak clients and keep a
-# cookie session in their BFF (services/customer-portal-ts, services/supplier-portal-ts); their requests carry no Passage
-# JWT, so they cannot sit on Gateway passage-api (SecurityPolicy/passage-api-jwt targets that whole Gateway). This is a
-# Gateway of its own, like passage-as2 and passage-region: one HTTPS listener per portal host (customer.<env>.passage.dev,
-# supplier.<env>.passage.dev), each with its cert-manager Certificate and one HTTPRoute to that portal's BFF and nothing
+# cookie session in their BFF (services/customer-portal-ts, services/supplier-portal-ts); their requests carry no Depot
+# JWT, so they cannot sit on Gateway depot-api (SecurityPolicy/depot-api-jwt targets that whole Gateway). This is a
+# Gateway of its own, like depot-as2 and depot-region: one HTTPS listener per portal host (customer.<env>.depot.dev,
+# supplier.<env>.depot.dev), each with its cert-manager Certificate and one HTTPRoute to that portal's BFF and nothing
 # else. The identity headers are stripped before any filter runs, each route allows only its own origin (CORS), and every
 # client address is rate limited. The portal app's static files are not served here yet (no image hosts them); WAF rules
 # are not expressible in Envoy Gateway and stay open. deploy/scripts/test_gateway.py (PortalEdge) checks all of this.
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
-  name: passage-portals
+  name: depot-portals
   namespace: hello-ledger
 spec:
-  gatewayClassName: passage-envoy
+  gatewayClassName: depot-envoy
   listeners:
     - name: customer-https
       protocol: HTTPS
       port: 443
-      hostname: customer.dev.passage.dev
+      hostname: customer.dev.depot.dev
       tls:
         mode: Terminate
         certificateRefs:
           - group: ""
             kind: Secret
-            name: passage-portal-customer-tls
+            name: depot-portal-customer-tls
       allowedRoutes:
         namespaces:
           from: Same
@@ -32,13 +32,13 @@ spec:
     - name: supplier-https
       protocol: HTTPS
       port: 443
-      hostname: supplier.dev.passage.dev
+      hostname: supplier.dev.depot.dev
       tls:
         mode: Terminate
         certificateRefs:
           - group: ""
             kind: Secret
-            name: passage-portal-supplier-tls
+            name: depot-portal-supplier-tls
       allowedRoutes:
         namespaces:
           from: Same
@@ -48,36 +48,36 @@ spec:
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
-  name: passage-portal-customer-tls
+  name: depot-portal-customer-tls
   namespace: hello-ledger
 spec:
-  secretName: passage-portal-customer-tls
+  secretName: depot-portal-customer-tls
   dnsNames:
-    - customer.dev.passage.dev
+    - customer.dev.depot.dev
   privateKey:
     algorithm: ECDSA
     size: 256
     rotationPolicy: Always
   issuerRef:
     kind: ClusterIssuer
-    name: passage-local-ca
+    name: depot-local-ca
 ---
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
-  name: passage-portal-supplier-tls
+  name: depot-portal-supplier-tls
   namespace: hello-ledger
 spec:
-  secretName: passage-portal-supplier-tls
+  secretName: depot-portal-supplier-tls
   dnsNames:
-    - supplier.dev.passage.dev
+    - supplier.dev.depot.dev
   privateKey:
     algorithm: ECDSA
     size: 256
     rotationPolicy: Always
   issuerRef:
     kind: ClusterIssuer
-    name: passage-local-ca
+    name: depot-local-ca
 ---
 # The customer portal BFF: only its sign-in and session routes (/bff/) and its API proxy (/api/v1/). Its health checks stay
 # inside the cluster.
@@ -88,10 +88,10 @@ metadata:
   namespace: hello-ledger
 spec:
   parentRefs:
-    - name: passage-portals
+    - name: depot-portals
       sectionName: customer-https
   hostnames:
-    - customer.dev.passage.dev
+    - customer.dev.depot.dev
   rules:
     - matches:
         - path:
@@ -113,10 +113,10 @@ metadata:
   namespace: hello-ledger
 spec:
   parentRefs:
-    - name: passage-portals
+    - name: depot-portals
       sectionName: supplier-https
   hostnames:
-    - supplier.dev.passage.dev
+    - supplier.dev.depot.dev
   rules:
     - matches:
         - path:
@@ -132,37 +132,37 @@ spec:
 apiVersion: gateway.envoyproxy.io/v1alpha1
 kind: ClientTrafficPolicy
 metadata:
-  name: passage-portals-client
+  name: depot-portals-client
   namespace: hello-ledger
 spec:
   targetRefs:
     - group: gateway.networking.k8s.io
       kind: Gateway
-      name: passage-portals
+      name: depot-portals
   tls:
     minVersion: "1.2"
   headers:
     earlyRequestHeaders:
       remove:
-        - X-Passage-Tenant
-        - X-Passage-Legal-Entity
-        - X-Passage-User
-        - X-Passage-Duties
-        - X-Passage-Tier
-        - X-Passage-Auth-Time
-        - X-Passage-LegalEntity
-        - X-Passage-LegalEntity-Scope
-        - X-Passage-Service-Token
-        - X-Passage-Gateway-Secret
+        - X-Depot-Tenant
+        - X-Depot-Legal-Entity
+        - X-Depot-User
+        - X-Depot-Duties
+        - X-Depot-Tier
+        - X-Depot-Auth-Time
+        - X-Depot-LegalEntity
+        - X-Depot-LegalEntity-Scope
+        - X-Depot-Service-Token
+        - X-Depot-Gateway-Secret
 ---
 # Same-origin only: a browser on any other origin gets no CORS grant, so it can neither read a portal answer with the
 # session cookie nor send the JSON or CSRF-header requests that need a preflight. The BFF checks Origin and the CSRF token
 # itself as well. No JWT here: the portal signs in with its own Keycloak client and a cookie session, and its tokens carry
-# no passage-api audience.
+# no depot-api audience.
 apiVersion: gateway.envoyproxy.io/v1alpha1
 kind: SecurityPolicy
 metadata:
-  name: passage-portal-customer-cors
+  name: depot-portal-customer-cors
   namespace: hello-ledger
 spec:
   targetRefs:
@@ -171,7 +171,7 @@ spec:
       name: customer-portal
   cors:
     allowOrigins:
-      - https://customer.dev.passage.dev
+      - https://customer.dev.depot.dev
     allowMethods: [GET, HEAD, POST, PUT, PATCH, DELETE]
     allowHeaders: [Content-Type, Idempotency-Key, If-Match, X-CSRF-Token, X-Customer, X-Legal-Entity]
     allowCredentials: true
@@ -180,11 +180,11 @@ spec:
 # Same-origin only: a browser on any other origin gets no CORS grant, so it can neither read a portal answer with the
 # session cookie nor send the JSON or CSRF-header requests that need a preflight. The BFF checks Origin and the CSRF token
 # itself as well. No JWT here: the portal signs in with its own Keycloak client and a cookie session, and its tokens carry
-# no passage-api audience.
+# no depot-api audience.
 apiVersion: gateway.envoyproxy.io/v1alpha1
 kind: SecurityPolicy
 metadata:
-  name: passage-portal-supplier-cors
+  name: depot-portal-supplier-cors
   namespace: hello-ledger
 spec:
   targetRefs:
@@ -193,7 +193,7 @@ spec:
       name: supplier-portal
   cors:
     allowOrigins:
-      - https://supplier.dev.passage.dev
+      - https://supplier.dev.depot.dev
     allowMethods: [GET, HEAD, POST, PUT, PATCH, DELETE]
     allowHeaders: [Content-Type, Idempotency-Key, If-Match, X-CSRF-Token, X-Customer, X-Legal-Entity]
     allowCredentials: true
@@ -208,7 +208,7 @@ spec:
 apiVersion: gateway.envoyproxy.io/v1alpha1
 kind: BackendTrafficPolicy
 metadata:
-  name: passage-portal-customer-limits
+  name: depot-portal-customer-limits
   namespace: hello-ledger
 spec:
   targetRefs:
@@ -243,7 +243,7 @@ spec:
 apiVersion: gateway.envoyproxy.io/v1alpha1
 kind: BackendTrafficPolicy
 metadata:
-  name: passage-portal-supplier-limits
+  name: depot-portal-supplier-limits
   namespace: hello-ledger
 spec:
   targetRefs:

@@ -14,15 +14,15 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/purchasing/internal/domain"
-	purchasingevents "github.com/BenjaminSRussell/passage/services/purchasing/internal/events"
-	"github.com/BenjaminSRussell/passage/services/purchasing/internal/store"
-	"github.com/BenjaminSRussell/passage/services/purchasing/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/purchasing/internal/domain"
+	purchasingevents "github.com/BenjaminSRussell/depot/services/purchasing/internal/events"
+	"github.com/BenjaminSRussell/depot/services/purchasing/internal/store"
+	"github.com/BenjaminSRussell/depot/services/purchasing/migrations"
 )
 
 const legalEntity = "00000000-0000-7000-8000-0000000001e1"
@@ -422,9 +422,9 @@ func TestRowLevelSecurity_AppRoleSeesOnlyItsTenant(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, stmt := range []string{
-		"grant usage on schema " + schema + " to passage_app",
-		"grant select, insert, update, delete on all tables in schema " + schema + " to passage_app",
-		"grant usage, select on all sequences in schema " + schema + " to passage_app",
+		"grant usage on schema " + schema + " to depot_app",
+		"grant select, insert, update, delete on all tables in schema " + schema + " to depot_app",
+		"grant usage, select on all sequences in schema " + schema + " to depot_app",
 	} {
 		if _, err := admin.Exec(ctx, stmt); err != nil {
 			t.Fatal(err)

@@ -8,12 +8,12 @@ import (
 
 	"github.com/jackc/pgx/v5/pgconn"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/payables/internal/api"
-	"github.com/BenjaminSRussell/passage/services/payables/internal/store"
-	"github.com/BenjaminSRussell/passage/services/payables/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/payables/internal/api"
+	"github.com/BenjaminSRussell/depot/services/payables/internal/store"
+	"github.com/BenjaminSRussell/depot/services/payables/migrations"
 )
 
 const intakeVendor = "0b1c2d3e-0000-4000-8000-0000000000cc"

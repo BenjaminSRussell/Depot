@@ -25,7 +25,7 @@ import (
 )
 
 // fxReplayMonthDocuments is the size of `fx-replay-month` (9.49.9: one month, 42k documents);
-// PASSAGE_REPLAY_DOCUMENTS overrides it.
+// DEPOT_REPLAY_DOCUMENTS overrides it.
 const fxReplayMonthDocuments = 42000
 
 type fxMonth struct {
@@ -106,10 +106,10 @@ func fxReplayMonth(n int) fxMonth {
 func TestWave49_ReplayMonthHasNoUnexplainedVariances(t *testing.T) {
 	h, _, _, fake, _ := ledgerServer(t)
 	n := fxReplayMonthDocuments
-	if v := os.Getenv("PASSAGE_REPLAY_DOCUMENTS"); v != "" {
+	if v := os.Getenv("DEPOT_REPLAY_DOCUMENTS"); v != "" {
 		var err error
 		if n, err = strconv.Atoi(v); err != nil || n < 1 {
-			t.Fatalf("PASSAGE_REPLAY_DOCUMENTS=%q", v)
+			t.Fatalf("DEPOT_REPLAY_DOCUMENTS=%q", v)
 		}
 	}
 	month := fxReplayMonth(n)

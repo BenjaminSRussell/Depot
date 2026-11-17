@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/ids"
 )
 
 // EventType is the CloudEvents type of a machine event (BR-25.4).
-const EventType = "dev.passage.shopfloor.machine.event.v1"
+const EventType = "dev.depot.shopfloor.machine.event.v1"
 
 // Machine event kinds and machine states (BR-25.4, MachineEvent entity).
 const (
@@ -35,7 +35,7 @@ type Measurement struct {
 	Unit  string  `json:"unit"`
 }
 
-// MachineEvent is the normalized data payload of dev.passage.shopfloor.machine.event.v1.
+// MachineEvent is the normalized data payload of dev.depot.shopfloor.machine.event.v1.
 // Counts are deltas since the previous count event (see CounterDelta).
 type MachineEvent struct {
 	MachineID   string            `json:"machineId"`
@@ -92,7 +92,7 @@ type CloudEvent struct {
 
 // Envelope wraps a valid machine event in the BR-25.4 CloudEvent. The id is
 // <machineId>-<seq>, which makes the Kafka producer's retries idempotent, and the
-// source is urn:passage:iot-edge:<site>:<edgeId>.
+// source is urn:depot:iot-edge:<site>:<edgeId>.
 func Envelope(site, edgeID string, e MachineEvent) (CloudEvent, error) {
 	if site == "" || edgeID == "" {
 		return CloudEvent{}, fmt.Errorf("%w: site and edge id are required", ErrInvalidEvent)
@@ -103,7 +103,7 @@ func Envelope(site, edgeID string, e MachineEvent) (CloudEvent, error) {
 	return CloudEvent{
 		SpecVersion:     "1.0",
 		ID:              fmt.Sprintf("%s-%d", e.MachineID, e.Seq),
-		Source:          fmt.Sprintf("urn:passage:iot-edge:%s:%s", site, edgeID),
+		Source:          fmt.Sprintf("urn:depot:iot-edge:%s:%s", site, edgeID),
 		Type:            EventType,
 		Subject:         e.MachineID,
 		Time:            e.TS.UTC().Format("2006-01-02T15:04:05.000Z07:00"),

@@ -1,4 +1,4 @@
--- Field service, slice 5 (PSG-4505): supplier warranty claims with vendor recovery
+-- Field service, slice 5 (DPT-4505): supplier warranty claims with vendor recovery
 -- (FR-45.15, BR-45.12) and email-to-case intake (FR-45.16, BR-45.13). Tenant RLS on
 -- every table; the tables that carry legal_entity_id also get the restrictive
 -- legal-entity scope policy.
@@ -18,11 +18,11 @@ CREATE TABLE IF NOT EXISTS service_case_mailbox (
 ALTER TABLE service_case_mailbox ENABLE ROW LEVEL SECURITY;
 ALTER TABLE service_case_mailbox FORCE ROW LEVEL SECURITY;
 CREATE POLICY service_case_mailbox_tenant_access ON service_case_mailbox AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY service_case_mailbox_legal_entity_scope ON service_case_mailbox AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 -- One inbound email. message_id (the RFC 5322 Message-ID) is unique per tenant, so a
 -- redelivery is answered from the stored row. Every message lands on a case: it is
@@ -60,11 +60,11 @@ CREATE INDEX IF NOT EXISTS service_inbound_message_case ON service_inbound_messa
 ALTER TABLE service_inbound_message ENABLE ROW LEVEL SECURITY;
 ALTER TABLE service_inbound_message FORCE ROW LEVEL SECURITY;
 CREATE POLICY service_inbound_message_tenant_access ON service_inbound_message AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY service_inbound_message_legal_entity_scope ON service_inbound_message AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 -- Email lines on the case log (CASE-MAIL-001).
 ALTER TABLE service_case_log DROP CONSTRAINT IF EXISTS service_case_log_kind_check;
@@ -117,11 +117,11 @@ CREATE INDEX IF NOT EXISTS service_supplier_claim_vendor ON service_supplier_cla
 ALTER TABLE service_supplier_claim ENABLE ROW LEVEL SECURITY;
 ALTER TABLE service_supplier_claim FORCE ROW LEVEL SECURITY;
 CREATE POLICY service_supplier_claim_tenant_access ON service_supplier_claim AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY service_supplier_claim_legal_entity_scope ON service_supplier_claim AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 -- One row per claimed source work order, so a work order is claimed once.
 CREATE TABLE IF NOT EXISTS service_supplier_claim_source (
@@ -136,8 +136,8 @@ CREATE TABLE IF NOT EXISTS service_supplier_claim_source (
 ALTER TABLE service_supplier_claim_source ENABLE ROW LEVEL SECURITY;
 ALTER TABLE service_supplier_claim_source FORCE ROW LEVEL SECURITY;
 CREATE POLICY service_supplier_claim_source_tenant_access ON service_supplier_claim_source AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- Application role privileges, in the style of 0002. Inbound messages and claim
 -- sources are append-only. The store upserts service_case_mailbox and updates
@@ -146,10 +146,10 @@ CREATE POLICY service_supplier_claim_source_tenant_access ON service_supplier_cl
 -- without the role split).
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE format('GRANT USAGE ON SCHEMA %I TO passage_app', current_schema());
-    EXECUTE 'GRANT SELECT, INSERT ON service_inbound_message, service_supplier_claim_source TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON service_case_mailbox, service_supplier_claim TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE format('GRANT USAGE ON SCHEMA %I TO depot_app', current_schema());
+    EXECUTE 'GRANT SELECT, INSERT ON service_inbound_message, service_supplier_claim_source TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON service_case_mailbox, service_supplier_claim TO depot_app';
   END IF;
 END
 $$;

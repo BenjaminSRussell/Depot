@@ -5,7 +5,7 @@
 
 ## Context
 
-Passage must replace AX/SAP for customers who will not accept vendor lock-in to a single cloud, and must be self-hostable. The alternatives considered were (a) AWS serverless (Lambda/DynamoDB/Pulumi — the Moonaan default), (b) a Postgres-first modular monolith on ECS, and (c) Kubernetes microservices with Postgres per domain and Kafka.
+Depot must replace AX/SAP for customers who will not accept vendor lock-in to a single cloud, and must be self-hostable. The alternatives considered were (a) AWS serverless (Lambda/DynamoDB/Pulumi — the Moonaan default), (b) a Postgres-first modular monolith on ECS, and (c) Kubernetes microservices with Postgres per domain and Kafka.
 
 ## Decision
 
@@ -22,7 +22,7 @@ Option (c):
 | Identity/authz | Keycloak (OIDC/SAML/SCIM), OPA/Rego | AX-style roles/duties/privileges compiled to policy |
 | Frontend | React, module federation shell, PWA for mobile/kiosk | Metadata-driven forms; one shell for all modules |
 | Analytics | Debezium → Iceberg → Trino/ClickHouse, Cube semantic layer | Keeps OLTP clean; governed metrics |
-| AI | MCP server over Passage APIs; Claude default via a provider-agnostic layer | Agents act under the user's OPA permissions |
+| AI | MCP server over Depot APIs; Claude default via a provider-agnostic layer | Agents act under the user's OPA permissions |
 | Observability | OpenTelemetry → Prometheus/Tempo/Loki/Grafana | Vendor-neutral |
 
 ## Consequences

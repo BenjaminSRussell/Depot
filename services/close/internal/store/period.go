@@ -10,12 +10,12 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/outbox"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/close/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/outbox"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/close/internal/domain"
 )
 
 func (s *Postgres) PeriodMatrix(ctx context.Context, legalEntityID, ledgerID string) ([]domain.PeriodStatus, error) {
@@ -92,7 +92,7 @@ func (s *Postgres) TransitionPeriod(ctx context.Context, in domain.PeriodTransit
 		}
 		if from == domain.StatusNeverOpened {
 			tag, err := tx.Exec(ctx, `insert into period_status(tenant_id, legal_entity_id, ledger_id, fiscal_period_id, module, status, allowed_group_id, start_date, end_date, changed_by)
-				select current_setting('passage.tenant_id')::uuid, legal_entity_id, ledger_id, fiscal_period_id, $4, $5, nullif($6,''), start_date, end_date, $7
+				select current_setting('depot.tenant_id')::uuid, legal_entity_id, ledger_id, fiscal_period_id, $4, $5, nullif($6,''), start_date, end_date, $7
 				from period_status where legal_entity_id = $1 and ledger_id = $2 and fiscal_period_id = $3 limit 1`,
 				in.LegalEntityID, in.LedgerID, in.FiscalPeriodID, in.Module, in.To, group, in.Actor)
 			if err != nil {
@@ -149,7 +149,7 @@ func writePeriodChange(ctx context.Context, tx pgx.Tx, tenantID, entity, ledger,
 		return err
 	}
 	if _, err := tx.Exec(ctx, `insert into period_status_change(tenant_id, id, legal_entity_id, ledger_id, fiscal_period_id, module, from_status, to_status, actor, reason, approvals)
-		values(current_setting('passage.tenant_id')::uuid, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb)`,
+		values(current_setting('depot.tenant_id')::uuid, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb)`,
 		ids.New(), entity, ledger, period, module, from, to, actor, reason, raw); err != nil {
 		return err
 	}
@@ -206,7 +206,7 @@ func (s *Postgres) RequestReopen(ctx context.Context, in domain.StoredReopen) (d
 		in.Approvals = []domain.ReopenApproval{}
 		raw, _ := json.Marshal(in.Approvals)
 		_, err = tx.Exec(ctx, `insert into period_reopen_request(tenant_id, id, legal_entity_id, ledger_id, fiscal_period_id, module, reason, requested_by, approvals, required_approvals, status, expires_days, idempotency_key, request_hash)
-			values(current_setting('passage.tenant_id')::uuid, $1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, 'pending', $10, $11, $12)`,
+			values(current_setting('depot.tenant_id')::uuid, $1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, 'pending', $10, $11, $12)`,
 			in.ID, in.LegalEntityID, in.LedgerID, in.FiscalPeriodID, in.Module, in.Reason, in.RequestedBy, raw, in.Required, in.ExpiresDays, in.IdempotencyKey, in.RequestHash)
 		if err != nil {
 			return uniquePending(err)

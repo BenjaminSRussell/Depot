@@ -52,7 +52,7 @@ func (t Thresholds) Valid() error {
 	return nil
 }
 
-// Facts are the comparable features of a statement line or a Passage bank transaction.
+// Facts are the comparable features of a statement line or a Depot bank transaction.
 type Facts struct {
 	Amount    decimal.Decimal
 	ValueDate string // YYYY-MM-DD

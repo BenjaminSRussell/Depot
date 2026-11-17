@@ -14,8 +14,8 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
 )
 
 const (
@@ -47,7 +47,7 @@ type Record struct {
 	LegalEntityID string
 	// PartyID is the party person a worker was created for. The worker is
 	// titled with that party's name (see Apply), so it is found by name.
-	PartyID    string
+	PartyID string
 	// MergedInto is the surviving party of a merged (removed) party record. The
 	// workers created for the merged person move to the survivor and take its name.
 	MergedInto string

@@ -75,13 +75,13 @@ BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = current_schema() AND tablename = t AND policyname = t || '_tenant_access') THEN
       EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', t);
       EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY', t);
-      EXECUTE format('CREATE POLICY %I ON %I AS PERMISSIVE USING (tenant_id = current_setting(''passage.tenant_id'', true)::uuid) WITH CHECK (tenant_id = current_setting(''passage.tenant_id'', true)::uuid)', t || '_tenant_access', t);
-      EXECUTE format('CREATE POLICY %I ON %I AS RESTRICTIVE USING (current_setting(''passage.legal_entity_scopes'', true) = ''*'' OR legal_entity_id::text = ANY(string_to_array(current_setting(''passage.legal_entity_scopes'', true), '','')))', t || '_legal_entity_scope', t);
+      EXECUTE format('CREATE POLICY %I ON %I AS PERMISSIVE USING (tenant_id = current_setting(''depot.tenant_id'', true)::uuid) WITH CHECK (tenant_id = current_setting(''depot.tenant_id'', true)::uuid)', t || '_tenant_access', t);
+      EXECUTE format('CREATE POLICY %I ON %I AS RESTRICTIVE USING (current_setting(''depot.legal_entity_scopes'', true) = ''*'' OR legal_entity_id::text = ANY(string_to_array(current_setting(''depot.legal_entity_scopes'', true), '','')))', t || '_legal_entity_scope', t);
     END IF;
   END LOOP;
 END
 $$;
 
-GRANT SELECT, INSERT, UPDATE ON receiving_ers_vendor, receiving_audit_policy TO passage_app;
-GRANT SELECT, INSERT ON receiving_ers_vendor_history, receiving_audit_policy_history TO passage_app;
-GRANT UPDATE (ledger_entry_id, status, released_by, released_at, rejected_by, rejected_at, reject_reason) ON receiving_vendor_invoice TO passage_app;
+GRANT SELECT, INSERT, UPDATE ON receiving_ers_vendor, receiving_audit_policy TO depot_app;
+GRANT SELECT, INSERT ON receiving_ers_vendor_history, receiving_audit_policy_history TO depot_app;
+GRANT UPDATE (ledger_entry_id, status, released_by, released_at, rejected_by, rejected_at, reject_reason) ON receiving_vendor_invoice TO depot_app;

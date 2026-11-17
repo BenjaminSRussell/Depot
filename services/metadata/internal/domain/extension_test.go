@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/services/metadata/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/metadata/internal/domain"
 )
 
 func TestApplyExtensionAddsFieldEnumValueAndHook(t *testing.T) {

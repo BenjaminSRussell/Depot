@@ -11,13 +11,13 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/api"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/store"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/store/memstore"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/api"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/store"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/store/memstore"
 )
 
 const sheetsPath = "/v1/receiving/service-entry-sheets"
@@ -75,12 +75,12 @@ func sheetLine(no int, qty, price string) map[string]any {
 }
 
 func (rg *rig) sheetAs(user, body string) *httpResult {
-	rec := rg.call(http.MethodPost, sheetsPath, body, duty("receiving.service-entry.maintain", rg.key(), "X-Passage-User", user))
+	rec := rg.call(http.MethodPost, sheetsPath, body, duty("receiving.service-entry.maintain", rg.key(), "X-Depot-User", user))
 	return &httpResult{rec.Code, rec.Body.String()}
 }
 
 func (rg *rig) decideSheet(id, action, user, body string) *httpResult {
-	rec := rg.call(http.MethodPost, sheetsPath+"/"+id+":"+action, body, duty("receiving.service-entry.accept", rg.key(), "X-Passage-User", user))
+	rec := rg.call(http.MethodPost, sheetsPath+"/"+id+":"+action, body, duty("receiving.service-entry.accept", rg.key(), "X-Depot-User", user))
 	return &httpResult{rec.Code, rec.Body.String()}
 }
 
@@ -133,19 +133,19 @@ func TestServiceSheet_CreateAcceptEmitsOneDecisionEvent(t *testing.T) {
 		t.Fatalf("events %+v", evts)
 	}
 	types := []string{evts[0].Type, evts[1].Type}
-	if types[0] != "dev.passage.receiving.serviceentrysheet.decided.v1" || types[1] != "dev.passage.receiving.receipt.posted.v1" {
+	if types[0] != "dev.depot.receiving.serviceentrysheet.decided.v1" || types[1] != "dev.depot.receiving.receipt.posted.v1" {
 		t.Fatalf("events %v", types)
 	}
 	assertDocumented(t, evts[0])
 	assertDocumented(t, evts[1])
-	byDecider := rg.call(http.MethodGet, sheetsPath+"/"+created.ID, "", duty("receiving.service-entry.accept", "", "X-Passage-User", "bob"))
+	byDecider := rg.call(http.MethodGet, sheetsPath+"/"+created.ID, "", duty("receiving.service-entry.accept", "", "X-Depot-User", "bob"))
 	if got := decode[sheetJSON](t, byDecider, http.StatusOK); got.ID != created.ID {
 		t.Fatalf("decider read %+v", got)
 	}
 	if r := rg.decideSheet(created.ID, "reject", "carol", `{"reason":"too late"}`); r.code != http.StatusConflict || !strings.Contains(r.body, "AP-SES-003") {
 		t.Fatalf("a decided sheet was decided again: %d %s", r.code, r.body)
 	}
-	read := rg.call(http.MethodGet, sheetsPath+"/"+created.ID, "", duty("receiving.service-entry.maintain", "", "X-Passage-User", "alice"))
+	read := rg.call(http.MethodGet, sheetsPath+"/"+created.ID, "", duty("receiving.service-entry.maintain", "", "X-Depot-User", "alice"))
 	if got := decode[sheetJSON](t, read, http.StatusOK); got.Status != "ACCEPTED" {
 		t.Fatalf("read %+v", got)
 	}
@@ -197,7 +197,7 @@ func TestServiceSheet_RefusesBadInputs(t *testing.T) {
 		t.Errorf("wrong duty: %d", rec.Code)
 	}
 	noUser := duty("receiving.service-entry.maintain", rg.key())
-	delete(noUser, "X-Passage-User")
+	delete(noUser, "X-Depot-User")
 	if rec := rg.call(http.MethodPost, sheetsPath, sheetBodyFor(sheetLine(1, "1", "1")), noUser); rec.Code != http.StatusUnauthorized {
 		t.Errorf("no user: %d", rec.Code)
 	}
@@ -213,12 +213,12 @@ func TestServiceSheet_RejectNeedsAReasonAndReadsAreScoped(t *testing.T) {
 	if rejected.Status != "REJECTED" || rejected.RejectReason != "not performed" {
 		t.Fatalf("rejected %+v", rejected)
 	}
-	foreign := duty("receiving.service-entry.maintain", "", "X-Passage-User", "alice", "X-Passage-Legal-Entity", "55555555-5555-4555-8555-555555555555")
+	foreign := duty("receiving.service-entry.maintain", "", "X-Depot-User", "alice", "X-Depot-Legal-Entity", "55555555-5555-4555-8555-555555555555")
 	if rec := rg.call(http.MethodGet, sheetsPath+"/"+created.ID, "", foreign); rec.Code != http.StatusForbidden {
 		t.Errorf("foreign read: %d", rec.Code)
 	}
 	missing := fmt.Sprintf("%s/%s", sheetsPath, "66666666-6666-4666-8666-666666666666")
-	if rec := rg.call(http.MethodGet, missing, "", duty("receiving.service-entry.maintain", "", "X-Passage-User", "alice")); rec.Code != http.StatusNotFound {
+	if rec := rg.call(http.MethodGet, missing, "", duty("receiving.service-entry.maintain", "", "X-Depot-User", "alice")); rec.Code != http.StatusNotFound {
 		t.Errorf("unknown sheet: %d", rec.Code)
 	}
 }
@@ -242,7 +242,7 @@ func TestServiceSheet_AcceptClosedPeriodPostsNothing(t *testing.T) {
 	if len(rg.ledger.Entries) != 0 {
 		t.Fatalf("ledger %+v", rg.ledger.Entries)
 	}
-	read := decode[sheetJSON](t, rg.call(http.MethodGet, sheetsPath+"/"+created.ID, "", duty("receiving.service-entry.maintain", "", "X-Passage-User", "alice")), http.StatusOK)
+	read := decode[sheetJSON](t, rg.call(http.MethodGet, sheetsPath+"/"+created.ID, "", duty("receiving.service-entry.maintain", "", "X-Depot-User", "alice")), http.StatusOK)
 	if read.Status != "PENDING" {
 		t.Fatalf("sheet moved off PENDING: %+v", read)
 	}
@@ -304,7 +304,7 @@ func TestServiceSheet_ReceiptCannotBeCorrectedOrCancelled(t *testing.T) {
 	if len(rg.ledger.Entries) != entries {
 		t.Fatalf("a refused command posted to the ledger: %+v", rg.ledger.Entries[entries:])
 	}
-	read := decode[sheetJSON](t, rg.call(http.MethodGet, sheetsPath+"/"+created.ID, "", duty("receiving.service-entry.maintain", "", "X-Passage-User", "alice")), http.StatusOK)
+	read := decode[sheetJSON](t, rg.call(http.MethodGet, sheetsPath+"/"+created.ID, "", duty("receiving.service-entry.maintain", "", "X-Depot-User", "alice")), http.StatusOK)
 	if read.Status != "ACCEPTED" {
 		t.Fatalf("sheet %+v", read)
 	}

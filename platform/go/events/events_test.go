@@ -8,16 +8,16 @@ import (
 
 func TestTypeAndTopic(t *testing.T) {
 	typ := Type("ledger", "journal", "posted", 1)
-	if typ != "dev.passage.ledger.journal.posted.v1" {
+	if typ != "dev.depot.ledger.journal.posted.v1" {
 		t.Fatalf("got %s", typ)
 	}
 	if !ValidType(typ) {
 		t.Fatal("expected valid")
 	}
-	if Topic(typ) != "passage.ledger.journal" {
+	if Topic(typ) != "depot.ledger.journal" {
 		t.Fatalf("topic %s", Topic(typ))
 	}
-	for _, bad := range []string{"ledger.journal.posted", "dev.passage.Ledger.journal.posted.v1", "dev.passage.ledger.journal.posted"} {
+	for _, bad := range []string{"ledger.journal.posted", "dev.depot.Ledger.journal.posted.v1", "dev.depot.ledger.journal.posted"} {
 		if ValidType(bad) {
 			t.Errorf("%s should be invalid", bad)
 		}

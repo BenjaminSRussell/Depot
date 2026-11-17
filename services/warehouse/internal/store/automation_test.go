@@ -11,9 +11,9 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/issueclaim"
-	"github.com/BenjaminSRussell/passage/services/warehouse/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/issueclaim"
+	"github.com/BenjaminSRussell/depot/services/warehouse/internal/domain"
 )
 
 // ssccFor returns the SSCC with the 17 digits of body and its check digit.

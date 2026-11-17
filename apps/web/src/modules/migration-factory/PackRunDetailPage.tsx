@@ -28,7 +28,7 @@ const totalColumns: DataTableColumn<ControlTotal>[] = [
   { key: "name", header: "Control total", mono: true },
   { key: "key", header: "Key", render: (row) => formatKey(row.key) },
   { key: "source", header: "Legacy", align: "end", mono: true, render: (row) => money(row.source) },
-  { key: "target", header: "Passage", align: "end", mono: true, render: (row) => money(row.target) },
+  { key: "target", header: "Depot", align: "end", mono: true, render: (row) => money(row.target) },
   { key: "delta", header: "Delta", align: "end", mono: true, render: (row) => money(row.delta) },
   { key: "status", header: "Status", render: (row) => <StatusPill status={row.status} /> },
 ];

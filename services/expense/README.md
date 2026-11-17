@@ -1,6 +1,6 @@
 # expense
 
-Expense management, wave 43 (PSG-43), slices 1-5.
+Expense management, wave 43 (DPT-43), slices 1-5.
 
 ## What it does
 
@@ -17,7 +17,7 @@ Slice 5 persists cash advances, travel requisitions and card feed imports
   entity or is REJECTED or CLOSED (`EXP-ADV-004`). An approver (hr.team.approve) approves or
   rejects it; an expense administrator records the AP prepayment that paid it, which
   sets paid = amount, moves it to PAID and writes
-  `dev.passage.expense.cashadvance.paid.v1` to the outbox in the same transaction, and
+  `dev.depot.expense.cashadvance.paid.v1` to the outbox in the same transaction, and
   records cash returns, capped at the open balance (`EXP-ADV-007`), with the status
   re-derived from the amounts (PARTIALLY_SETTLED, SETTLED). AC-43.9's return of the
   180.00 remainder makes the advance SETTLED.
@@ -37,7 +37,7 @@ Slice 5 persists cash advances, travel requisitions and card feed imports
   operation, the record, the body and If-Match, so a key cannot be replayed onto another
   action. Custom methods honour `If-Match` (`EXP-ADV-008`, `EXP-TR-005`). Every table has
   `tenant_id`, forced row-level security with the tenant policy and the legal-entity
-  scope policy; the application role `passage_app` has the grants of `0007`.
+  scope policy; the application role `depot_app` has the grants of `0007`.
 
 Slice 4 persists expense reports and lines (FR-43.11, `internal/store/reports.go`,
 migration `0002_reports.sql`):
@@ -52,7 +52,7 @@ migration `0002_reports.sql`):
 - Submit re-evaluates at the submit date. When any BLOCK applies or any REQUIRE_* is
   unsatisfied (8.43.5), the report stays DRAFT and the answer is a 422 with the first
   unsatisfied result's code and one error per result; each BLOCK result is still
-  written to the outbox as `dev.passage.expense.policy.violated.v1` in the same
+  written to the outbox as `dev.depot.expense.policy.violated.v1` in the same
   transaction. A clean submit moves the report to SUBMITTED.
 - Stored totals follow the lines in the same transaction and satisfy
   total = reimbursable + company-paid (a table check constraint, 8.43.4).
@@ -154,7 +154,7 @@ charts/expense/         Helm chart
 ## Run
 
 ```
-PASSAGE_ENV=dev SERVICE_NAME=expense DATABASE_URL=postgres://... \
+DEPOT_ENV=dev SERVICE_NAME=expense DATABASE_URL=postgres://... \
   HTTP_ADDR=:8080 go run ./cmd/expense
 ```
 
@@ -169,9 +169,9 @@ go vet ./... && go test ./...
 
 Domain and API tests are pure (the API tests use an in-memory report store). Store and
 migration tests use `platform/go/testkit` and are skipped unless
-`PASSAGE_TEST_DATABASE_URL` is set; run them as a role without superuser or BYPASSRLS so
+`DEPOT_TEST_DATABASE_URL` is set; run them as a role without superuser or BYPASSRLS so
 the row-level security test is not skipped. `TestAppRole_CrossTenantRLS` also needs
-`PASSAGE_TEST_APP_DATABASE_URL` (the `passage_app` role) and probes every table as that role.
+`DEPOT_TEST_APP_DATABASE_URL` (the `depot_app` role) and probes every table as that role.
 
 ## Endpoints
 
@@ -212,7 +212,7 @@ the row-level security test is not skipped. `TestAppRole_CrossTenantRLS` also ne
 
 ## Error codes
 
-Problem details use `type: https://passage.dev/problems/<code>`.
+Problem details use `type: https://depot.dev/problems/<code>`.
 
 | Code      | HTTP | Meaning                                                        |
 |-----------|------|----------------------------------------------------------------|
@@ -276,7 +276,7 @@ account of each category of the employee-paid lines, Cr the AP control account, 
 every such report not yet booked, dated the approval day, with Idempotency-Key
 `expense-report-{reportId}` (source `expense_report`, document id = report id); then, in
 the transaction that records the entry id, it writes
-`dev.passage.expense.report.approved.v1`. Payables only learns of a report once its AP
+`dev.depot.expense.report.approved.v1`. Payables only learns of a report once its AP
 control credit exists, so the payment run's AP control debit always has a matching
 credit. Ledger and accounts come from `EXPENSE_GL_PROFILES`, a JSON array of
 `{"legalEntityId", "ledgerId", "apControlAccount", "expenseAccounts": {"<CATEGORY>": "<account>"}}`;
@@ -291,5 +291,5 @@ CEL is not used; the rule schema is typed (see NOT-IMPLEMENTED.md).
 
 ## Wave reference
 
-PSG-43 / wave 43, PRD section 8.43. Depends on wave 18 (AP), wave 19 (payments),
+DPT-43 / wave 43, PRD section 8.43. Depends on wave 18 (AP), wave 19 (payments),
 wave 12 (FX), wave 13 (tax codes), wave 4 (workflow).

@@ -8,7 +8,7 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/services/planning/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/planning/internal/domain"
 )
 
 func (f *fakeStore) RunBuffers(_ context.Context, _, _ string, _ []string) ([]domain.RunBuffer, error) {

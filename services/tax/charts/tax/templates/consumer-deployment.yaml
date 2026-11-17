@@ -1,7 +1,7 @@
 {{- if .Values.consumer.enabled }}
 # The Intrastat feed consumer (#13, args [consume]): stages the EU cross-border movements of fulfillment's packingslip.posted and
 # receiving's receipt.posted (the movements POST /v1/tax/intrastat/movements stages) and parks what it cannot map on
-# passage.tax.intrastat.dlq. It starts only while service:tax-intrastat is seeded in the service principal table and needs no signing
+# depot.tax.intrastat.dlq. It starts only while service:tax-intrastat is seeded in the service principal table and needs no signing
 # key. Kafka user, ACLs and dead-letter topic: deploy/kafka/tax-consumer.yaml. Its labels differ from the API's so the Service never
 # routes to it.
 apiVersion: apps/v1
@@ -43,13 +43,13 @@ spec:
             - name: admin
               containerPort: 9090
           env:
-            {{- include "passage.cloudEnv" $ | nindent 12 }}
+            {{- include "depot.cloudEnv" $ | nindent 12 }}
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:
                   name: {{ .Values.databaseSecret }}
                   key: DATABASE_URL
-            - name: PASSAGE_SERVICE_NAME
+            - name: DEPOT_SERVICE_NAME
               value: tax
             - name: ADMIN_ADDR
               value: ":9090"
@@ -60,11 +60,11 @@ spec:
             - name: KAFKA_USERNAME
               value: {{ .Values.consumer.kafka.username | quote }}
             - name: KAFKA_PASSWORD_FILE
-              value: /var/run/passage/kafka/password
+              value: /var/run/depot/kafka/password
             - name: KAFKA_TLS_CA_FILE
-              value: /var/run/passage/kafka/ca.crt
+              value: /var/run/depot/kafka/ca.crt
           volumeMounts:
-            - { name: kafka, mountPath: /var/run/passage/kafka, readOnly: true }
+            - { name: kafka, mountPath: /var/run/depot/kafka, readOnly: true }
           livenessProbe:
             httpGet: { path: /healthz, port: admin }
             initialDelaySeconds: 5

@@ -1,10 +1,10 @@
 # The search index consumer (`search consume`, group search-index) keeps the record index current from the events of
 # every searchable record type (services/search/internal/index) and parks what it cannot index on
-# passage.search.index.dlq. The chart's consumer.kafka.username names this user. Literal ACLs: the user reads only the
+# depot.search.index.dlq. The chart's consumer.kafka.username names this user. Literal ACLs: the user reads only the
 # source topics it subscribes to and writes only its dead-letter topic. A topic added to the subscription needs an
 # entry here, or the consumer fails authorization at start. The source topics are produced by the outbox connectors
 # (deploy/kafka/connect.yaml): outbox-party, outbox-product, outbox-purchasing (po.confirmed and po.cancelled land on
-# passage.procurement.po), outbox-production and outbox-hr route by event type (#213). Turn the consumer on per environment once
+# depot.procurement.po), outbox-production and outbox-hr route by event type (#213). Turn the consumer on per environment once
 # those connectors run there (services/search/NOT-IMPLEMENTED.md).
 apiVersion: kafka.strimzi.io/v1beta2
 kind: KafkaUser
@@ -12,34 +12,34 @@ metadata:
   name: search-consumer
   namespace: kafka
   labels:
-    strimzi.io/cluster: passage
+    strimzi.io/cluster: depot
 spec:
   authentication:
     type: scram-sha-512
   authorization:
     type: simple
     acls:
-      - resource: {type: topic, name: passage.party.party, patternType: literal}
+      - resource: {type: topic, name: depot.party.party, patternType: literal}
         operations: [Read, Describe]
-      - resource: {type: topic, name: passage.product.product, patternType: literal}
+      - resource: {type: topic, name: depot.product.product, patternType: literal}
         operations: [Read, Describe]
-      - resource: {type: topic, name: passage.procurement.po, patternType: literal}
+      - resource: {type: topic, name: depot.procurement.po, patternType: literal}
         operations: [Read, Describe]
-      - resource: {type: topic, name: passage.receiving.receipt, patternType: literal}
+      - resource: {type: topic, name: depot.receiving.receipt, patternType: literal}
         operations: [Read, Describe]
-      - resource: {type: topic, name: passage.receiving.vendorinvoice, patternType: literal}
+      - resource: {type: topic, name: depot.receiving.vendorinvoice, patternType: literal}
         operations: [Read, Describe]
-      - resource: {type: topic, name: passage.sales.order, patternType: literal}
+      - resource: {type: topic, name: depot.sales.order, patternType: literal}
         operations: [Read, Describe]
-      - resource: {type: topic, name: passage.fulfillment.packingslip, patternType: literal}
+      - resource: {type: topic, name: depot.fulfillment.packingslip, patternType: literal}
         operations: [Read, Describe]
-      - resource: {type: topic, name: passage.billing.invoice, patternType: literal}
+      - resource: {type: topic, name: depot.billing.invoice, patternType: literal}
         operations: [Read, Describe]
-      - resource: {type: topic, name: passage.production.order, patternType: literal}
+      - resource: {type: topic, name: depot.production.order, patternType: literal}
         operations: [Read, Describe]
-      - resource: {type: topic, name: passage.hr.worker, patternType: literal}
+      - resource: {type: topic, name: depot.hr.worker, patternType: literal}
         operations: [Read, Describe]
-      - resource: {type: topic, name: passage.search.index.dlq, patternType: literal}
+      - resource: {type: topic, name: depot.search.index.dlq, patternType: literal}
         operations: [Write, Describe]
       - resource: {type: group, name: search-index, patternType: literal}
         operations: [Read, Describe]
@@ -47,12 +47,12 @@ spec:
 apiVersion: kafka.strimzi.io/v1beta2
 kind: KafkaTopic
 metadata:
-  name: passage-search-index-dlq
+  name: depot-search-index-dlq
   namespace: kafka
   labels:
-    strimzi.io/cluster: passage
+    strimzi.io/cluster: depot
 spec:
-  topicName: passage.search.index.dlq
+  topicName: depot.search.index.dlq
   partitions: 3
   replicas: 3
   config:

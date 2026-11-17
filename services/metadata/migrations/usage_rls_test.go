@@ -8,10 +8,10 @@ import (
 
 	"github.com/jackc/pgx/v5/pgconn"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/metadata/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/metadata/migrations"
 )
 
 func TestUsageDailyLegalEntityScope(t *testing.T) {
@@ -29,7 +29,7 @@ func TestUsageDailyLegalEntityScope(t *testing.T) {
 			t.Fatal(err)
 		}
 		defer func() { _ = tx.Rollback(ctx) }()
-		if _, err := tx.Exec(ctx, `select set_config('passage.tenant_id', $1, true), set_config('passage.legal_entity_scopes', $2, true)`, tenantID, scopes); err != nil {
+		if _, err := tx.Exec(ctx, `select set_config('depot.tenant_id', $1, true), set_config('depot.legal_entity_scopes', $2, true)`, tenantID, scopes); err != nil {
 			t.Fatal(err)
 		}
 		tag, err := tx.Exec(ctx, sql, args...)
@@ -51,7 +51,7 @@ func TestUsageDailyLegalEntityScope(t *testing.T) {
 			t.Fatal(err)
 		}
 		defer func() { _ = tx.Rollback(ctx) }()
-		if _, err := tx.Exec(ctx, `select set_config('passage.tenant_id', $1, true), set_config('passage.legal_entity_scopes', $2, true)`, tenantID, scopes); err != nil {
+		if _, err := tx.Exec(ctx, `select set_config('depot.tenant_id', $1, true), set_config('depot.legal_entity_scopes', $2, true)`, tenantID, scopes); err != nil {
 			t.Fatal(err)
 		}
 		if err := tx.QueryRow(ctx, `select count(*) from metadata_usage_daily`).Scan(&n); err != nil {

@@ -10,7 +10,7 @@ import (
 )
 
 var (
-	edifactUs      = EdifactParty{ID: "PASSAGE", Qualifier: "ZZZ"}
+	edifactUs      = EdifactParty{ID: "DEPOT", Qualifier: "ZZZ"}
 	edifactPartner = EdifactParty{ID: "4012345000009", Qualifier: "14"}
 )
 

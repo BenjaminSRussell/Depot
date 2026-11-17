@@ -10,11 +10,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/services/edi/internal/delivery"
-	"github.com/BenjaminSRussell/passage/services/edi/internal/domain"
-	ediev "github.com/BenjaminSRussell/passage/services/edi/internal/events"
-	"github.com/BenjaminSRussell/passage/services/edi/internal/transport"
-	"github.com/BenjaminSRussell/passage/services/edi/internal/transport/transporttest"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/delivery"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/domain"
+	ediev "github.com/BenjaminSRussell/depot/services/edi/internal/events"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/transport"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/transport/transporttest"
 )
 
 // X12 refused at the interchange level gets a TA1 R with its TA105 code

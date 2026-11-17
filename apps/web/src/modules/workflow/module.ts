@@ -1,9 +1,9 @@
 import { createElement } from "react";
-import type { PassageModule } from "../registry";
+import type { DepotModule } from "../registry";
 import { InboxPage } from "./InboxPage";
 import { DesignerPage, JobMonitorPage, TemplatesPage, WorkflowHome } from "./pages";
 
-const workflow: PassageModule = {
+const workflow: DepotModule = {
   id: "workflow",
   title: "Workflow and batch",
   description: "Approvals, batch jobs and message templates.",

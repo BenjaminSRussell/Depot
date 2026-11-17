@@ -5,16 +5,16 @@ package events
 const (
 	// POConfirmed is written when a version of a PO is confirmed: by :confirm,
 	// or by a post-confirmation change that needs no re-approval (FR-17.8).
-	POConfirmed = "dev.passage.procurement.po.confirmed.v1"
+	POConfirmed = "dev.depot.procurement.po.confirmed.v1"
 	// POVersionCreated is written for every confirmed version above 1. The PRD
 	// names it po.version.created; the platform type grammar allows one entity
 	// segment, so the entity is poversion (as engineering's bomversion).
-	POVersionCreated = "dev.passage.procurement.poversion.created.v1"
+	POVersionCreated = "dev.depot.procurement.poversion.created.v1"
 	// POCancelled is written by :cancel.
-	POCancelled = "dev.passage.procurement.po.cancelled.v1"
+	POCancelled = "dev.depot.procurement.po.cancelled.v1"
 	// PORepriced is written when :reprice applies a subsequent price change as
 	// the next PO version (FR-17.22).
-	PORepriced = "dev.passage.procurement.po.repriced.v1"
+	PORepriced = "dev.depot.procurement.po.repriced.v1"
 )
 
 // POLineData is one line as carried on po.confirmed.v1. Money and quantities

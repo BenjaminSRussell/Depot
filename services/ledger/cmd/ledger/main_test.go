@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/services/ledger/internal/store"
+	"github.com/BenjaminSRussell/depot/services/ledger/internal/store"
 )
 
 func TestConfigureIdempotencyTTL_RejectsShortOrMalformedValues(t *testing.T) {
@@ -62,9 +62,9 @@ func TestNewLogger_EmitsServiceAndMessageKeys(t *testing.T) {
 
 func TestRun_MalformedServicePublicKeysStopStartup(t *testing.T) {
 	err := run(context.Background(), func(k string) string {
-		return map[string]string{"PASSAGE_SERVICE_NAME": "svc", "PASSAGE_SERVICE_PUBLIC_KEYS": "receiving=zzz"}[k]
+		return map[string]string{"DEPOT_SERVICE_NAME": "svc", "DEPOT_SERVICE_PUBLIC_KEYS": "receiving=zzz"}[k]
 	})
-	if err == nil || !strings.Contains(err.Error(), "PASSAGE_SERVICE_PUBLIC_KEYS") {
+	if err == nil || !strings.Contains(err.Error(), "DEPOT_SERVICE_PUBLIC_KEYS") {
 		t.Fatalf("err = %v, want the malformed public keys to stop startup", err)
 	}
 }
@@ -87,8 +87,8 @@ func TestPeriodGate_CloseUrlNeedsASigningKey(t *testing.T) {
 	if _, err := periodGate(envOf(map[string]string{"CLOSE_URL": "http://close"})); err == nil || !strings.Contains(err.Error(), "signing key") {
 		t.Fatalf("want a signing key error, got %v", err)
 	}
-	g, err := periodGate(envOf(map[string]string{"CLOSE_URL": "http://close", "PASSAGE_SERVICE_NAME": "ledger",
-		"PASSAGE_SERVICE_SIGNING_KEY": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="}))
+	g, err := periodGate(envOf(map[string]string{"CLOSE_URL": "http://close", "DEPOT_SERVICE_NAME": "ledger",
+		"DEPOT_SERVICE_SIGNING_KEY": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="}))
 	if err != nil || g == nil {
 		t.Fatalf("configured: %v %v", g, err)
 	}
@@ -101,8 +101,8 @@ func TestRateSource_FxUrlNeedsASigningKeyAndIsOptional(t *testing.T) {
 	if _, err := rateSource(envOf(map[string]string{"FX_URL": "http://fx"})); err == nil || !strings.Contains(err.Error(), "signing key") {
 		t.Fatalf("want a signing key error, got %v", err)
 	}
-	src, err := rateSource(envOf(map[string]string{"FX_URL": "http://fx", "PASSAGE_SERVICE_NAME": "ledger",
-		"PASSAGE_SERVICE_SIGNING_KEY": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="}))
+	src, err := rateSource(envOf(map[string]string{"FX_URL": "http://fx", "DEPOT_SERVICE_NAME": "ledger",
+		"DEPOT_SERVICE_SIGNING_KEY": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="}))
 	if err != nil || src == nil {
 		t.Fatalf("configured: %v %v", src, err)
 	}

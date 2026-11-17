@@ -1,7 +1,7 @@
 // Command transport serves the wave-34 transportation API: rate cards, rate
 // shopping, freight bills, carrier invoices, tenders, tracking, landed-cost voyages,
 // loads, the gate, screening holds, route optimization and load plans.
-// ROUTING_PY_URL points at services/routing-py (the peer-URL name passage-server sets;
+// ROUTING_PY_URL points at services/routing-py (the peer-URL name depot-server sets;
 // TMS_OPTIMIZER_URL is the deprecated older name and is still read); TMS_RATING_CACHE_MIN
 // sets the rate-shop cache window.
 package main
@@ -16,13 +16,13 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/transport/internal/api"
-	"github.com/BenjaminSRussell/passage/services/transport/internal/optimizer"
-	"github.com/BenjaminSRussell/passage/services/transport/internal/store"
-	"github.com/BenjaminSRussell/passage/services/transport/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/transport/internal/api"
+	"github.com/BenjaminSRussell/depot/services/transport/internal/optimizer"
+	"github.com/BenjaminSRussell/depot/services/transport/internal/store"
+	"github.com/BenjaminSRussell/depot/services/transport/migrations"
 )
 
 const (
@@ -50,7 +50,7 @@ func newLogger(w io.Writer) *slog.Logger {
 }
 
 func run(ctx context.Context, getenv func(string) string) error {
-	// PASSAGE_SERVICE_NAME and PASSAGE_SERVICE_PUBLIC_KEYS admit workflow-ts's
+	// DEPOT_SERVICE_NAME and DEPOT_SERVICE_PUBLIC_KEYS admit workflow-ts's
 	// signed tender calls (transport.tender.execute); a malformed key list stops
 	// the service here instead of rejecting every service token.
 	if err := tenant.ConfigureServiceVerifier(getenv); err != nil {

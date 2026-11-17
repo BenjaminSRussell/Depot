@@ -3,7 +3,7 @@ package domain_test
 import (
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/services/pricing/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/pricing/internal/domain"
 )
 
 func discRecords() []domain.Record {

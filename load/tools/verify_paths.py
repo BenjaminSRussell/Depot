@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verify the k6 campaign's requests against the services' OpenAPI files (PSG-50, FR-50.1).
+"""Verify the k6 campaign's requests against the services' OpenAPI files (DPT-50, FR-50.1).
 
 Every ``http.<method>(`...`)`` call in ``load/k6/scenarios.js`` is resolved to a method and a gateway
 path (``/api/v1/...``) and looked up in ``services/*/api/openapi.yaml`` through the gateway's

@@ -46,7 +46,7 @@ spec:
                 capabilities:
                   drop: [ALL]
               volumeMounts:
-                - { name: service-identity, mountPath: /var/run/passage/service-identity, readOnly: true }
+                - { name: service-identity, mountPath: /var/run/depot/service-identity, readOnly: true }
               env:
                 - name: DATABASE_URL
                   valueFrom:
@@ -59,12 +59,12 @@ spec:
                   value: {{ required "sync.receivablesUrl is needed to read receivables" $.Values.sync.receivablesUrl | quote }}
                 - name: PREDICTION_SYNC_SCOPES
                   value: {{ required "sync.scopes is needed: the tenants and legal entities to read" $.Values.sync.scopes | quote }}
-                - name: PASSAGE_SERVICE_NAME
+                - name: DEPOT_SERVICE_NAME
                   value: prediction
-                - name: PASSAGE_SERVICE_SIGNING_KEY_FILE
-                  value: /var/run/passage/service-identity/signing-key
+                - name: DEPOT_SERVICE_SIGNING_KEY_FILE
+                  value: /var/run/depot/service-identity/signing-key
                 {{- if $.Values.sync.keyId }}
-                - name: PASSAGE_SERVICE_KEY_ID
+                - name: DEPOT_SERVICE_KEY_ID
                   value: {{ $.Values.sync.keyId | quote }}
                 {{- end }}
               resources:

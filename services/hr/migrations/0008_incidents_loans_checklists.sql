@@ -179,60 +179,60 @@ CREATE INDEX IF NOT EXISTS hr_worker_task_checklist ON hr_worker_task (tenant_id
 ALTER TABLE hr_incident ENABLE ROW LEVEL SECURITY;
 ALTER TABLE hr_incident FORCE ROW LEVEL SECURITY;
 CREATE POLICY hr_incident_tenant_access ON hr_incident AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY hr_incident_legal_entity_scope ON hr_incident AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 ALTER TABLE hr_incident_counter ENABLE ROW LEVEL SECURITY;
 ALTER TABLE hr_incident_counter FORCE ROW LEVEL SECURITY;
 CREATE POLICY hr_incident_counter_tenant_access ON hr_incident_counter AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 ALTER TABLE hr_loaned_item ENABLE ROW LEVEL SECURITY;
 ALTER TABLE hr_loaned_item FORCE ROW LEVEL SECURITY;
 CREATE POLICY hr_loaned_item_tenant_access ON hr_loaned_item AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 ALTER TABLE hr_checklist_template ENABLE ROW LEVEL SECURITY;
 ALTER TABLE hr_checklist_template FORCE ROW LEVEL SECURITY;
 CREATE POLICY hr_checklist_template_tenant_access ON hr_checklist_template AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 ALTER TABLE hr_checklist_template_task ENABLE ROW LEVEL SECURITY;
 ALTER TABLE hr_checklist_template_task FORCE ROW LEVEL SECURITY;
 CREATE POLICY hr_checklist_template_task_tenant_access ON hr_checklist_template_task AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 ALTER TABLE hr_checklist ENABLE ROW LEVEL SECURITY;
 ALTER TABLE hr_checklist FORCE ROW LEVEL SECURITY;
 CREATE POLICY hr_checklist_tenant_access ON hr_checklist AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 ALTER TABLE hr_worker_task ENABLE ROW LEVEL SECURITY;
 ALTER TABLE hr_worker_task FORCE ROW LEVEL SECURITY;
 CREATE POLICY hr_worker_task_tenant_access ON hr_worker_task AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- The legal entity of a worker's row is the entity of their latest employment
 -- (NULL when they have none, which only an all-entity caller can see), so a
 -- caller scoped to one entity never reads another entity's loans or tasks.
 CREATE POLICY hr_loaned_item_legal_entity_scope ON hr_loaned_item AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 CREATE POLICY hr_checklist_legal_entity_scope ON hr_checklist AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 CREATE POLICY hr_worker_task_legal_entity_scope ON hr_worker_task AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 -- Application-role grants (0004_grants.sql pattern). An incident changes only
 -- its workflow columns, and the trigger above freezes it once CLOSED. Loans,
@@ -240,14 +240,14 @@ CREATE POLICY hr_worker_task_legal_entity_scope ON hr_worker_task AS RESTRICTIVE
 -- tasks are write-once. Nothing is deleted.
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT ON hr_incident, hr_checklist_template, hr_checklist_template_task TO passage_app';
-    EXECUTE 'GRANT UPDATE (status, reviewed_by, closed_by, closed_at, updated_at) ON hr_incident TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON hr_incident_counter TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT ON hr_loaned_item, hr_checklist, hr_worker_task TO passage_app';
-    EXECUTE 'GRANT UPDATE (status, closed_on, condition_in, updated_at) ON hr_loaned_item TO passage_app';
-    EXECUTE 'GRANT UPDATE (status, completed_at) ON hr_checklist TO passage_app';
-    EXECUTE 'GRANT UPDATE (status, evidence_ref, completed_by, completed_at) ON hr_worker_task TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT ON hr_incident, hr_checklist_template, hr_checklist_template_task TO depot_app';
+    EXECUTE 'GRANT UPDATE (status, reviewed_by, closed_by, closed_at, updated_at) ON hr_incident TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON hr_incident_counter TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT ON hr_loaned_item, hr_checklist, hr_worker_task TO depot_app';
+    EXECUTE 'GRANT UPDATE (status, closed_on, condition_in, updated_at) ON hr_loaned_item TO depot_app';
+    EXECUTE 'GRANT UPDATE (status, completed_at) ON hr_checklist TO depot_app';
+    EXECUTE 'GRANT UPDATE (status, evidence_ref, completed_by, completed_at) ON hr_worker_task TO depot_app';
   END IF;
 END
 $$;

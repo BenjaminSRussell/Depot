@@ -7,11 +7,11 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/eventing"
-	"github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/pricing/internal/domain"
-	pevents "github.com/BenjaminSRussell/passage/services/pricing/internal/events"
+	"github.com/BenjaminSRussell/depot/platform/eventing"
+	"github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/pricing/internal/domain"
+	pevents "github.com/BenjaminSRussell/depot/services/pricing/internal/events"
 )
 
 // CacheConsumerName is the consumer every replica runs to keep its caches in step with the other
@@ -24,7 +24,7 @@ const CacheConsumerName = "pricing-cache"
 const DutyCacheInvalidate = "pricing.cache.invalidate"
 
 // CacheTopics are the topics the consumer follows (outbox aggregates of the pricing relay).
-var CacheTopics = []string{"passage.pricing.campaign", "passage.pricing.parameters"}
+var CacheTopics = []string{"depot.pricing.campaign", "depot.pricing.parameters"}
 
 // staleEventMargin is how far before a replica's start an event may be stamped and still be
 // applied: the clock skew allowed between the producing replica and this one. Anything older

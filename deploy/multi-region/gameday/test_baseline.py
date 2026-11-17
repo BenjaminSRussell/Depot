@@ -9,7 +9,7 @@ from pathlib import Path
 import baseline as bl
 
 
-STANDBY = "passage-kafka-eu-central"
+STANDBY = "depot-kafka-eu-central"
 
 
 def facts(**overrides):
@@ -19,7 +19,7 @@ def facts(**overrides):
             "tenant-a": {"seq": 120, "head": "h120", "checkpoints": {"100": "h100", "120": "h120"}},
         },
         "rows": {"journal_lines": 1000, "invoices": 50},
-        "offsets": {"passage.ledger.journal-0": 500, "passage.ledger.journal-1": 480},
+        "offsets": {"depot.ledger.journal-0": 500, "depot.ledger.journal-1": 480},
         "sequences": {"tenant-a/INV/2026": [1, 2, 3, 4, 5]},
     }
     base.update(overrides)
@@ -31,7 +31,7 @@ def pre_facts():
         "offsetsCluster": STANDBY,
         "ledger": {"tenant-a": {"seq": 120, "head": "h120"}},
         "rows": {"journal_lines": 1000, "invoices": 50},
-        "offsets": {"passage.ledger.journal-0": 500, "passage.ledger.journal-1": 480},
+        "offsets": {"depot.ledger.journal-0": 500, "depot.ledger.journal-1": 480},
         "sequences": {"tenant-a/INV/2026": [1, 2, 3, 4, 5]},
     }
 
@@ -135,7 +135,7 @@ class TestVerify(unittest.TestCase):
         self.assertTrue(any(c.name == "rows journal_lines" and not c.passed for c in report.checks))
 
     def test_missing_partition_fails(self) -> None:
-        f = facts(offsets={"passage.ledger.journal-0": 500})
+        f = facts(offsets={"depot.ledger.journal-0": 500})
         self.assertFalse(bl.verify(baseline_manifest(), f).passed)
 
     def test_sequence_gap_fails(self) -> None:
@@ -169,7 +169,7 @@ class TestVerify(unittest.TestCase):
 
     def test_offsets_from_another_cluster_fail(self) -> None:
         # Source offsets are not comparable with the mirror's, even with equal topic names.
-        report = bl.verify(baseline_manifest(), facts(offsetsCluster="passage-kafka-eu-west"))
+        report = bl.verify(baseline_manifest(), facts(offsetsCluster="depot-kafka-eu-west"))
         self.assertFalse(report.passed)
         self.assertTrue(any(c.name == "offsets cluster" and not c.passed for c in report.checks))
 

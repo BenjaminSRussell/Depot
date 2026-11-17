@@ -1,4 +1,4 @@
--- PSG-1521 (wave 15, slice 21): keyset paging of the statement run list
+-- DPT-1521 (wave 15, slice 21): keyset paging of the statement run list
 -- (FR-15.6, FR-15.8). GET /v1/reporting/runs pages on (started_at, id), both
 -- descending, optionally narrowed to a definition, ledger or period; the
 -- index serves the unfiltered and the definition-filtered page. The original

@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/services/pricing/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/pricing/internal/store"
+	"github.com/BenjaminSRussell/depot/services/pricing/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/pricing/internal/store"
 )
 
 func activeProcedureWith(t *testing.T, ctx context.Context, s *store.Postgres, le, name string, steps []domain.ProcedureStep) domain.Procedure {
@@ -131,7 +131,7 @@ func TestPostgres_ProcedureDeterminationByChannel(t *testing.T) {
 	// Every change is announced: two sets, a change and a clear; replays and refusals add nothing.
 	var changes []map[string]any
 	for _, r := range outboxRows(t, ctx, pool) {
-		if r.Type == "dev.passage.pricing.procedureassignment.changed.v1" {
+		if r.Type == "dev.depot.pricing.procedureassignment.changed.v1" {
 			changes = append(changes, r.Data)
 		}
 	}

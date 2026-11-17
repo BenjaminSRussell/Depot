@@ -381,7 +381,7 @@ func readScratch(ctx context.Context, scratch *pgx.Conn, schema, tenantID string
 		return t, nil, err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-	if _, err := tx.Exec(ctx, `select set_config('passage.tenant_id', $1, true), set_config('passage.legal_entity_scopes', '*', true)`, tenantID); err != nil {
+	if _, err := tx.Exec(ctx, `select set_config('depot.tenant_id', $1, true), set_config('depot.legal_entity_scopes', '*', true)`, tenantID); err != nil {
 		return t, nil, err
 	}
 	shared, err := scratchColumns(ctx, tx, schema, t)
@@ -499,7 +499,7 @@ func restoreTenant(ctx context.Context, scratch, live *pgx.Conn, schema, tenantI
 	if err := requireConstrainedRole(ctx, tx); err != nil {
 		return Result{}, err
 	}
-	if _, err := tx.Exec(ctx, `select set_config('passage.tenant_id', $1, true), set_config('passage.legal_entity_scopes', '*', true)`, tenantID); err != nil {
+	if _, err := tx.Exec(ctx, `select set_config('depot.tenant_id', $1, true), set_config('depot.legal_entity_scopes', '*', true)`, tenantID); err != nil {
 		return Result{}, err
 	}
 	tables, err := discover(ctx, tx, schema)

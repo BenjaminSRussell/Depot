@@ -5,7 +5,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/services/pricing/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/pricing/internal/domain"
 )
 
 func TestPriceListFor_KeepsApplicableScopesMostSpecificFirst(t *testing.T) {

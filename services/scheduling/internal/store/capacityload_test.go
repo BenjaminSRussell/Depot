@@ -10,13 +10,13 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/scheduling/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/scheduling/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/scheduling/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/scheduling/internal/store"
 )
 
-const bottleneckType = "dev.passage.scheduling.bottleneck.detected.v1"
+const bottleneckType = "dev.depot.scheduling.bottleneck.detected.v1"
 
 // assertMaterialized checks that scheduling_capacity_load holds exactly what
 // the on-read weekly load computes: a row for every week with a booking, with

@@ -1,21 +1,21 @@
 package events
 
 const (
-	BomVersionActivated    = "dev.passage.engineering.bomversion.activated.v1"
-	BomVersionExpired      = "dev.passage.engineering.bomversion.expired.v1"
-	EcoSubmitted           = "dev.passage.engineering.eco.submitted.v1"
-	EcoApproved            = "dev.passage.engineering.eco.approved.v1"
-	EcoReleased            = "dev.passage.engineering.eco.released.v1"
-	EcrSubmitted           = "dev.passage.engineering.ecr.submitted.v1"
-	EcrApproved            = "dev.passage.engineering.ecr.approved.v1"
-	EcrRejected            = "dev.passage.engineering.ecr.rejected.v1"
-	EcrCancelled           = "dev.passage.engineering.ecr.cancelled.v1"
-	ReleaseSessionCreated  = "dev.passage.engineering.releasesession.created.v1"
-	ReleaseLineAccepted    = "dev.passage.engineering.releaseline.accepted.v1"
-	ReleasedProductChanged = "dev.passage.engineering.releasedproduct.changed.v1"
-	DocumentSigned         = "dev.passage.engineering.document.signed.v1"
-	DocumentReleased       = "dev.passage.engineering.document.released.v1"
-	EbomImported           = "dev.passage.engineering.ebom.imported.v1"
+	BomVersionActivated    = "dev.depot.engineering.bomversion.activated.v1"
+	BomVersionExpired      = "dev.depot.engineering.bomversion.expired.v1"
+	EcoSubmitted           = "dev.depot.engineering.eco.submitted.v1"
+	EcoApproved            = "dev.depot.engineering.eco.approved.v1"
+	EcoReleased            = "dev.depot.engineering.eco.released.v1"
+	EcrSubmitted           = "dev.depot.engineering.ecr.submitted.v1"
+	EcrApproved            = "dev.depot.engineering.ecr.approved.v1"
+	EcrRejected            = "dev.depot.engineering.ecr.rejected.v1"
+	EcrCancelled           = "dev.depot.engineering.ecr.cancelled.v1"
+	ReleaseSessionCreated  = "dev.depot.engineering.releasesession.created.v1"
+	ReleaseLineAccepted    = "dev.depot.engineering.releaseline.accepted.v1"
+	ReleasedProductChanged = "dev.depot.engineering.releasedproduct.changed.v1"
+	DocumentSigned         = "dev.depot.engineering.document.signed.v1"
+	DocumentReleased       = "dev.depot.engineering.document.released.v1"
+	EbomImported           = "dev.depot.engineering.ebom.imported.v1"
 )
 
 type ReleaseSessionCreatedData struct {
@@ -90,8 +90,8 @@ type EcoData struct {
 }
 
 const (
-	ResourceChanged   = "dev.passage.engineering.resource.changed.v1"
-	CalendarGenerated = "dev.passage.engineering.calendar.generated.v1"
+	ResourceChanged   = "dev.depot.engineering.resource.changed.v1"
+	CalendarGenerated = "dev.depot.engineering.calendar.generated.v1"
 )
 
 type ResourceChangedData struct {
@@ -109,7 +109,7 @@ type CalendarGeneratedData struct {
 	OpenDays   int    `json:"openDays"`
 }
 
-const RouteVersionActivated = "dev.passage.engineering.routeversion.activated.v1"
+const RouteVersionActivated = "dev.depot.engineering.routeversion.activated.v1"
 
 type RouteVersionActivatedData struct {
 	RouteVersionID string `json:"routeVersionId"`

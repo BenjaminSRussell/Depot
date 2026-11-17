@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/services/migration/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/migration/internal/probe"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/probe"
 )
 
 func TestSQLBuild_KeysetDialectsAndInjection(t *testing.T) {
@@ -51,11 +51,11 @@ func TestSQLBuild_KeysetDialectsAndInjection(t *testing.T) {
 	if err != nil || !strings.HasPrefix(text, `SELECT * FROM (SELECT id, name, upd FROM erp.cust WHERE upd > $1 AND note <> ':watermark') src WHERE "upd" > $2`) || len(args) != 2 {
 		t.Fatalf("query: %q %v %v", text, args, err)
 	}
-	// A WITH query becomes the leading CTEs plus passage_src, and its comments are dropped so a trailing -- cannot
+	// A WITH query becomes the leading CTEs plus depot_src, and its comments are dropped so a trailing -- cannot
 	// swallow the generated WHERE, ORDER BY and row limit.
 	w := &SQL{Driver: ms, Src: domain.SQLSource{Query: "WITH c AS (SELECT id, upd FROM cust WHERE upd > :watermark) SELECT id, upd FROM c -- note"}, Keys: []string{"id"}, CursorField: "upd", CursorType: domain.CursorTimestamp}
 	text, args, err = w.build(Query{Limit: 5, Since: "2026-03-01T00:00:00.003000000Z", Position: `["2026-03-01T00:00:00.003000000Z",4]`})
-	want = `WITH c AS (SELECT id, upd FROM cust WHERE upd > @p1), passage_src AS (SELECT id, upd FROM c) SELECT TOP (6) * FROM passage_src WHERE ([upd] > @p2) OR ([upd] = @p3 AND [id] > @p4) ORDER BY [upd], [id]`
+	want = `WITH c AS (SELECT id, upd FROM cust WHERE upd > @p1), depot_src AS (SELECT id, upd FROM c) SELECT TOP (6) * FROM depot_src WHERE ([upd] > @p2) OR ([upd] = @p3 AND [id] > @p4) ORDER BY [upd], [id]`
 	if err != nil || text != want || len(args) != 4 {
 		t.Fatalf("with query: %q %v %v", text, args, err)
 	}

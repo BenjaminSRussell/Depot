@@ -1,7 +1,7 @@
-# Tenant administrator guide (PSG-50, FR-50.11, FR-50.12)
+# Tenant administrator guide (DPT-50, FR-50.11, FR-50.12)
 
 Audience: customer administrators who hold the TenantAdmin duty. This guide covers what a customer
-administrator sees and decides about the Passage tenant: licence use, users, segregation of duties,
+administrator sees and decides about the Depot tenant: licence use, users, segregation of duties,
 cost, releases, data export and incident communication. Operator procedures (regions, failover,
 provisioning, licence install, the `/api/v1/ops/*` control plane) are in the
 [administrator guide](administrator-guide.md), which is for platform operators, not tenant administrators.
@@ -16,7 +16,7 @@ Track 3 of the [training curriculum](training-curriculum.md) is the course for t
 | SoD conflicts and mitigations | `/compliance/sod/conflicts`, `/compliance/sod/check` (wave 48) | |
 | Monthly cost statement, `GET /api/v1/ops/tenants/{id}/cost`, cost and capacity screen | the calculators (`docs/ops/tools/cost_meter.py`, `capacity_estimate.py`) | the meter job, the endpoint and the screen (ops service) |
 | Release ring | `release.cadence` documented in the [upgrade strategy](upgrade-strategy.md) | setting it from tenant management (ops service) |
-| Status page subscription | | `passage-status-page` (deployment-cicd, wave 5) |
+| Status page subscription | | `depot-status-page` (deployment-cicd, wave 5) |
 
 Until the ops service ships, ask the platform operator for the licence usage, the cost statement and a ring
 change. Every gap above is listed in [NOT-IMPLEMENTED.md](NOT-IMPLEMENTED.md).
@@ -75,7 +75,7 @@ Lab 3.1 in the training curriculum walks through an assignment and the resulting
 
 ## 5. Cost statement
 
-Each month (on the 2nd, 02:00 UTC) Passage produces one cost statement for the tenant, in USD and EUR, kept
+Each month (on the 2nd, 02:00 UTC) Depot produces one cost statement for the tenant, in USD and EUR, kept
 7 years as a billing record. EUR uses the ECB month-average rate, and both are rounded to 0.01 (BR-50.10).
 The statement lists:
 
@@ -85,11 +85,11 @@ The statement lists:
 - the cost in USD and EUR, and the cost model version used
 
 Each line traces to the metered usage (lab 3.2). Read it with
-`GET /api/v1/ops/tenants/{id}/cost?month=YYYY-MM` or the PDF and CSV exports. Taxes on Passage's own invoices
+`GET /api/v1/ops/tenants/{id}/cost?month=YYYY-MM` or the PDF and CSV exports. Taxes on Depot's own invoices
 are outside the statement.
 
-Passage checks the meter every month: the sum of all tenants' metered cost on a cluster must be within 5% of
-the provider's bill. A larger difference raises COST-1901 and Passage investigates it under the
+Depot checks the meter every month: the sum of all tenants' metered cost on a cluster must be within 5% of
+the provider's bill. A larger difference raises COST-1901 and Depot investigates it under the
 [cost meter runbook](runbooks/cost-meter-drift.md). No statement is edited by hand; a corrected month is
 re-run with the stored query version.
 
@@ -115,7 +115,7 @@ step says so. A release never breaks clients of the previous release (N-1, PRD 9
 
 Tenant data can be exported in every licence state, including EXPIRED (BR-50.8).
 
-Only the platform operator decommissions a tenant, with a second approver. Passage first exports all tenant
+Only the platform operator decommissions a tenant, with a second approver. Depot first exports all tenant
 data encrypted and keeps the export for the longest retention that the tenant's country packs require (for
 example 10 years for DE and FR, BR-50.9), unless you take custody of the export and sign a release. Tenant
 schemas are dropped only after the export is verified. The steps are in
@@ -138,5 +138,5 @@ Sev-2 a 1-hour response, 24x5 (see the [go-live checklist](go-live-checklist.md)
 | LIC-1802 | License in grace period: {used} full users active, {licensed} licensed. | reassign full users, ask for a true-up, or renew |
 | LIC-1803 | License expired; sign-in blocked. Administrators can still sign in and export data. | renew |
 | LIC-1804 | License signature invalid. | ask the platform operator to reinstall the issued file |
-| COST-1901 | Metered cost for {month} differs from provider billing by {pct}%. | none; Passage investigates. Ask the platform operator before relying on that month's statement |
+| COST-1901 | Metered cost for {month} differs from provider billing by {pct}%. | none; Depot investigates. Ask the platform operator before relying on that month's statement |
 | OPS-1703 | This region is read-only during failover; retry in {s} s. | none; retry after the time shown |

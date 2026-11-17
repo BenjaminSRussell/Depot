@@ -29,11 +29,11 @@ CREATE INDEX IF NOT EXISTS open_item_customer_status_due ON open_item (tenant_id
 ALTER TABLE open_item ENABLE ROW LEVEL SECURITY;
 ALTER TABLE open_item FORCE ROW LEVEL SECURITY;
 CREATE POLICY open_item_tenant_access ON open_item AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY open_item_legal_entity_scope ON open_item AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 CREATE TABLE IF NOT EXISTS payment (
   tenant_id uuid NOT NULL,
@@ -63,11 +63,11 @@ CREATE INDEX IF NOT EXISTS payment_status_received ON payment (tenant_id, status
 ALTER TABLE payment ENABLE ROW LEVEL SECURITY;
 ALTER TABLE payment FORCE ROW LEVEL SECURITY;
 CREATE POLICY payment_tenant_access ON payment AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY payment_legal_entity_scope ON payment AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 -- Settlements are partitioned by month in a later slice (§5.30.19).
 CREATE TABLE IF NOT EXISTS settlement (
@@ -90,8 +90,8 @@ CREATE INDEX IF NOT EXISTS settlement_open_item ON settlement (tenant_id, open_i
 ALTER TABLE settlement ENABLE ROW LEVEL SECURITY;
 ALTER TABLE settlement FORCE ROW LEVEL SECURITY;
 CREATE POLICY settlement_tenant_access ON settlement AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY settlement_legal_entity_scope ON settlement AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));

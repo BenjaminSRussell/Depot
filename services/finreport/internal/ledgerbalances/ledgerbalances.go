@@ -16,7 +16,7 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
 )
 
 const (
@@ -61,7 +61,7 @@ func New(baseURL string, signer *tenant.ServiceSigner, httpClient *http.Client) 
 		return nil, errors.New("ledgerbalances: LEDGER_URL is required")
 	}
 	if signer == nil {
-		return nil, errors.New("ledgerbalances: a service signing key is required (PASSAGE_SERVICE_SIGNING_KEY_FILE)")
+		return nil, errors.New("ledgerbalances: a service signing key is required (DEPOT_SERVICE_SIGNING_KEY_FILE)")
 	}
 	if httpClient == nil {
 		httpClient = &http.Client{Timeout: timeout}

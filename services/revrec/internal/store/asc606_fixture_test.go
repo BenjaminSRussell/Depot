@@ -10,10 +10,10 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/money"
-	"github.com/BenjaminSRussell/passage/services/revrec/internal/domain"
-	rev "github.com/BenjaminSRussell/passage/services/revrec/internal/events"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/money"
+	"github.com/BenjaminSRussell/depot/services/revrec/internal/domain"
+	rev "github.com/BenjaminSRussell/depot/services/revrec/internal/events"
 )
 
 // asc606Scenario is the part of ../domain/testdata/asc606-40.json this test

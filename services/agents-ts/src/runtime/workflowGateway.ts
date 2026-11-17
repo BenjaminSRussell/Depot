@@ -13,7 +13,7 @@ export class WorkflowRefused extends Error {}
 
 /**
  * agents calls workflow-ts under its own signed service token (grant agents.run.signal, tenant-level, the run's user as actor), the
- * way workflow-ts calls agents. workflow-ts trusts the X-Passage-* headers on its edge routes, so no pod that merely reaches it can
+ * way workflow-ts calls agents. workflow-ts trusts the X-Depot-* headers on its edge routes, so no pod that merely reaches it can
  * claim an identity there; these two routes take only a verified agents token. The wake is authorized as the agents service, not as
  * the approver, so approvers need no workflow duty.
  */
@@ -25,7 +25,7 @@ export function createWorkflowGateway(cfg: { baseUrl: string; signer: ServiceSig
       method: "POST",
       headers: {
         "content-type": "application/json",
-        "x-passage-service-token": cfg.signer.mintForWorkflow({ tenantId: caller.tenantId, actor: caller.userId }),
+        "x-depot-service-token": cfg.signer.mintForWorkflow({ tenantId: caller.tenantId, actor: caller.userId }),
       },
       body: JSON.stringify(body),
       signal: AbortSignal.timeout(cfg.timeoutMs ?? 10_000),

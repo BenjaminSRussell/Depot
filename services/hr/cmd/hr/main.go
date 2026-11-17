@@ -11,19 +11,19 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/fieldcrypt"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/logpseudo"
-	"github.com/BenjaminSRussell/passage/platform/phiaudit"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/hr/internal/api"
-	"github.com/BenjaminSRussell/passage/services/hr/internal/compliance"
-	"github.com/BenjaminSRussell/passage/services/hr/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/hr/internal/numbering"
-	"github.com/BenjaminSRussell/passage/services/hr/internal/store"
-	"github.com/BenjaminSRussell/passage/services/hr/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/fieldcrypt"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/logpseudo"
+	"github.com/BenjaminSRussell/depot/platform/phiaudit"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/hr/internal/api"
+	"github.com/BenjaminSRussell/depot/services/hr/internal/compliance"
+	"github.com/BenjaminSRussell/depot/services/hr/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/hr/internal/numbering"
+	"github.com/BenjaminSRussell/depot/services/hr/internal/store"
+	"github.com/BenjaminSRussell/depot/services/hr/migrations"
 )
 
 const (
@@ -146,7 +146,7 @@ func sealerFromEnv(getenv func(string) string) (*domain.Sealer, error) {
 }
 
 // phiReadAuditFromEnv builds the recorder of reads of protected health information (#606, HIPAA audit controls). Read
-// auditing is on when PASSAGE_CLOUD_PROFILE includes the hipaa overlay, or when PASSAGE_PHI_READ_AUDIT=true (and off
+// auditing is on when DEPOT_CLOUD_PROFILE includes the hipaa overlay, or when DEPOT_PHI_READ_AUDIT=true (and off
 // when it is false). When on, the service refuses to start without AUDIT_URL and a service signing key: it must never
 // return protected health information it cannot record. It returns nil when auditing is off.
 func phiReadAuditFromEnv(getenv func(string) string, signer *tenant.ServiceSigner) (phiaudit.Recorder, error) {
@@ -159,10 +159,10 @@ func phiReadAuditFromEnv(getenv func(string) string, signer *tenant.ServiceSigne
 	}
 	url := getenv("AUDIT_URL")
 	if url == "" {
-		return nil, errors.New("AUDIT_URL is required when PHI read auditing is on (the hipaa overlay or PASSAGE_PHI_READ_AUDIT=true)")
+		return nil, errors.New("AUDIT_URL is required when PHI read auditing is on (the hipaa overlay or DEPOT_PHI_READ_AUDIT=true)")
 	}
 	if signer == nil {
-		return nil, errors.New("PASSAGE_SERVICE_SIGNING_KEY or PASSAGE_SERVICE_SIGNING_KEY_FILE is required when PHI read auditing is on")
+		return nil, errors.New("DEPOT_SERVICE_SIGNING_KEY or DEPOT_SERVICE_SIGNING_KEY_FILE is required when PHI read auditing is on")
 	}
 	slog.Info("PHI read auditing is on", "auditUrl", url)
 	return phiaudit.NewHTTP(url, signer), nil

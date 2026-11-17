@@ -21,8 +21,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/identity"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/identity"
 )
 
 const (
@@ -80,7 +80,7 @@ func newSCIMFixtureTTL(t *testing.T, ttl time.Duration) *scimFixture {
 		_ = json.NewEncoder(w).Encode(map[string]any{"result": map[string]any{"allow": in.Input.Subject.UserID == scimClient, "duty_missing": "identity.user.provision"}})
 	}))
 	t.Cleanup(opa.Close)
-	verifiers, err := identity.NewTenantVerifiers(f.app, f.issuerBase, "passage-api", jwks.Client(), ttl)
+	verifiers, err := identity.NewTenantVerifiers(f.app, f.issuerBase, "depot-api", jwks.Client(), ttl)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -96,7 +96,7 @@ func newSCIMFixtureTTL(t *testing.T, ttl time.Duration) *scimFixture {
 
 func (f *scimFixture) token(tenantID, sub string) string {
 	now := time.Now()
-	return f.signed(map[string]any{"iss": f.issuerBase + "/realm-" + tenantID, "sub": sub, "tid": tenantID, "aud": "passage-api", "iat": now.Unix(), "exp": now.Add(5 * time.Minute).Unix()}, f.key)
+	return f.signed(map[string]any{"iss": f.issuerBase + "/realm-" + tenantID, "sub": sub, "tid": tenantID, "aud": "depot-api", "iat": now.Unix(), "exp": now.Add(5 * time.Minute).Unix()}, f.key)
 }
 
 func (f *scimFixture) signed(claims map[string]any, key *rsa.PrivateKey) string {
@@ -215,7 +215,7 @@ func TestSCIMAuthentication(t *testing.T) {
 	}
 	now := time.Now()
 	claims := func(tid, realmOf, sub string) map[string]any {
-		return map[string]any{"iss": f.issuerBase + "/realm-" + realmOf, "sub": sub, "tid": tid, "aud": "passage-api", "iat": now.Unix(), "exp": now.Add(5 * time.Minute).Unix()}
+		return map[string]any{"iss": f.issuerBase + "/realm-" + realmOf, "sub": sub, "tid": tid, "aud": "depot-api", "iat": now.Unix(), "exp": now.Add(5 * time.Minute).Unix()}
 	}
 
 	expired := func(c map[string]any) map[string]any {
@@ -420,7 +420,7 @@ func TestSCIMUserLifecycle(t *testing.T) {
 		if n := countOf(audit, "roleassignment.ended|"+scimClient); n != 3 {
 			t.Errorf("ended audit rows = %d, want 3 (active tenant-wide, active entity-scoped, future)", n)
 		}
-		if !slices.Contains(events, "dev.passage.identity.user.deprovisioned.v1") || !slices.Contains(events, "dev.passage.identity.user.provisioned.v1") {
+		if !slices.Contains(events, "dev.depot.identity.user.deprovisioned.v1") || !slices.Contains(events, "dev.depot.identity.user.provisioned.v1") {
 			t.Errorf("events = %v", events)
 		}
 

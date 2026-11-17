@@ -1,25 +1,25 @@
 asyncapi: 3.0.0
 info:
-  title: Passage Receiving Events
+  title: Depot Receiving Events
   version: 1.0.0
   description: |
     CloudEvents 1.0 published through the transactional outbox (Debezium relays
     rows to Kafka). Each event is written in the same database transaction as the
     state change it announces, so a rolled-back change emits nothing. Types follow
-    dev.passage.<context>.<entity>.<verb>.v<n>. Additive-only schema evolution.
+    dev.depot.<context>.<entity>.<verb>.v<n>. Additive-only schema evolution.
     The invoice event uses the payables context named by the PRD (3.18.5) although
     the receiving service posts the invoice today.
 defaultContentType: application/cloudevents+json
 channels:
   receiptEvents:
-    address: passage.receiving.receipt
+    address: depot.receiving.receipt
     messages:
       receiptPosted:
         $ref: "#/components/messages/ReceiptPosted"
       receiptCorrected:
         $ref: "#/components/messages/ReceiptCorrected"
   invoiceEvents:
-    address: passage.payables.invoice
+    address: depot.payables.invoice
     messages:
       invoicePosted:
         $ref: "#/components/messages/InvoicePosted"
@@ -30,7 +30,7 @@ channels:
       invoiceRejected:
         $ref: "#/components/messages/InvoiceRejected"
   policyEvents:
-    address: passage.receiving.policy
+    address: depot.receiving.policy
     messages:
       auditPolicyChanged:
         $ref: "#/components/messages/AuditPolicyChanged"
@@ -39,17 +39,17 @@ channels:
       ersPriceConfirmed:
         $ref: "#/components/messages/ErsPriceConfirmed"
   serviceEntryEvents:
-    address: passage.receiving.serviceentrysheet
+    address: depot.receiving.serviceentrysheet
     messages:
       serviceSheetDecided:
         $ref: "#/components/messages/ServiceSheetDecided"
   ersSelfBillEvents:
-    address: passage.receiving.ersselfbill
+    address: depot.receiving.ersselfbill
     messages:
       ersSelfBillIssued:
         $ref: "#/components/messages/ErsSelfBillIssued"
   settlementEvents:
-    address: passage.payables.settlement
+    address: depot.payables.settlement
     messages:
       settlementPosted:
         $ref: "#/components/messages/SettlementPosted"
@@ -117,7 +117,7 @@ operations:
 components:
   messages:
     ReceiptPosted:
-      name: dev.passage.receiving.receipt.posted.v1
+      name: dev.depot.receiving.receipt.posted.v1
       summary: >-
         POST /v1/receiving/receipts/{id}:post moved a receipt to POSTED, posted Dr inventory / Cr GR/IR to the ledger and
         opened one GR/IR item per line. Consumers: inventory, payables (re-match, ERS), costing, supplier portal.
@@ -125,7 +125,7 @@ components:
       payload:
         $ref: "#/components/schemas/ReceiptPostedData"
     ReceiptCorrected:
-      name: dev.passage.receiving.receipt.corrected.v1
+      name: dev.depot.receiving.receipt.corrected.v1
       summary: >-
         A POSTED receipt was corrected by a quantity delta (kind CORRECTION) or fully reversed (kind CANCELLATION).
         Cancelling an ARRIVED or REGISTERED receipt posts nothing and emits nothing. Consumers: payables, costing,
@@ -134,7 +134,7 @@ components:
       payload:
         $ref: "#/components/schemas/ReceiptCorrectedData"
     InvoicePosted:
-      name: dev.passage.payables.invoice.posted.v1
+      name: dev.depot.payables.invoice.posted.v1
       summary: >-
         POST /v1/receiving/invoices:post or POST /v1/receiving/ers-settlements:run (source ERS) posted a vendor invoice
         against GR/IR items and persisted it, or POST /v1/receiving/invoices/{id}:release-audit-block released an invoice the
@@ -144,7 +144,7 @@ components:
       payload:
         $ref: "#/components/schemas/InvoicePostedData"
     InvoiceAdjusted:
-      name: dev.passage.payables.invoice.adjusted.v1
+      name: dev.depot.payables.invoice.adjusted.v1
       summary: >-
         POST /v1/receiving/invoice-adjustments:post posted a subsequent debit (the vendor charges more) or a credit note
         (the vendor charges less) against a posted vendor invoice. The adjustment changes value only: GR/IR items and
@@ -153,7 +153,7 @@ components:
       payload:
         $ref: "#/components/schemas/InvoiceAdjustedData"
     InvoiceSampled:
-      name: dev.passage.payables.invoice.sampled.v1
+      name: dev.depot.payables.invoice.sampled.v1
       summary: >-
         The stochastic audit block selected an invoice (manual or ERS) at posting. GR/IR quantity is reserved but nothing is
         posted to the ledger until POST /v1/receiving/invoices/{id}:release-audit-block; the invoice.posted event follows
@@ -162,7 +162,7 @@ components:
       payload:
         $ref: "#/components/schemas/InvoiceSampledData"
     InvoiceRejected:
-      name: dev.passage.payables.invoice.rejected.v1
+      name: dev.depot.payables.invoice.rejected.v1
       summary: >-
         An auditor rejected an invoice held by the stochastic audit block (POST /v1/receiving/invoices/{id}:reject-audit-block).
         Nothing was posted to the ledger and the reserved GR/IR quantity is free again. Consumers: workflow, notifications, audit.
@@ -170,25 +170,25 @@ components:
       payload:
         $ref: "#/components/schemas/InvoiceRejectedData"
     AuditPolicyChanged:
-      name: dev.passage.receiving.auditpolicy.changed.v1
+      name: dev.depot.receiving.auditpolicy.changed.v1
       summary: 'PUT /v1/receiving/audit-policy changed the stochastic audit sample rate of a legal entity. Consumers: audit.'
       contentType: application/cloudevents+json
       payload:
         $ref: "#/components/schemas/AuditPolicyChangedData"
     ErsVendorChanged:
-      name: dev.passage.receiving.ersvendor.changed.v1
+      name: dev.depot.receiving.ersvendor.changed.v1
       summary: 'PUT /v1/receiving/ers-vendors/{vendorId} turned evaluated receipt settlement on or off for a vendor. Consumers: audit.'
       contentType: application/cloudevents+json
       payload:
         $ref: "#/components/schemas/ErsVendorChangedData"
     ErsPriceConfirmed:
-      name: dev.passage.receiving.erspriceconfirmation.confirmed.v1
+      name: dev.depot.receiving.erspriceconfirmation.confirmed.v1
       summary: 'A buyer confirmed the PO price an ERS run may settle a receipt line at (BR-18.9). Consumers: audit.'
       contentType: application/cloudevents+json
       payload:
         $ref: "#/components/schemas/ErsPriceConfirmedData"
     ServiceSheetDecided:
-      name: dev.passage.receiving.serviceentrysheet.decided.v1
+      name: dev.depot.receiving.serviceentrysheet.decided.v1
       summary: >-
         POST /v1/receiving/service-entry-sheets/{id}:accept or :reject decided a service entry sheet. An accepted sheet also
         posts Dr expense / Cr GR/IR and emits receipt.posted for the synthetic service receipt. Consumers: audit, purchasing.
@@ -196,7 +196,7 @@ components:
       payload:
         $ref: "#/components/schemas/ServiceSheetDecidedData"
     ErsSelfBillIssued:
-      name: dev.passage.receiving.ersselfbill.issued.v1
+      name: dev.depot.receiving.ersselfbill.issued.v1
       summary: >-
         A posted ERS invoice issued the self-billing tax document (PDF) to the vendor. Written in the same transaction as the
         ERS invoice post, or as the release of an audit-blocked ERS invoice. Receiving's own tax consumer (group receiving-ers-tax) records
@@ -205,7 +205,7 @@ components:
       payload:
         $ref: "#/components/schemas/ErsSelfBillIssuedData"
     SettlementPosted:
-      name: dev.passage.payables.settlement.posted.v1
+      name: dev.depot.payables.settlement.posted.v1
       summary: >-
         An invoicing plan row (kind PLAN_ROW, Dr GR/IR / Cr vendor control) or a consumed consignment journal (kind
         CONSIGNMENT, Dr consignment accrual / Cr vendor control) was settled by POST /v1/receiving/plan-settlements:run or

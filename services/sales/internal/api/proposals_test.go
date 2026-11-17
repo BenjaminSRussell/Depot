@@ -7,9 +7,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/sales/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/sales/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/sales/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/sales/internal/store"
 )
 
 // proposalStore records the product proposal calls.

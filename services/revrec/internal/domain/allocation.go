@@ -8,7 +8,7 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/money"
+	"github.com/BenjaminSRussell/depot/platform/money"
 )
 
 // Ratable bases (§5.29.13 ratable_basis, FR-29.8 "RATABLE (daily or monthly)").
@@ -35,7 +35,7 @@ var (
 	methods    = map[string]bool{"POINT_IN_TIME": true, "RATABLE": true, "MILESTONE": true, "USAGE": true}
 )
 
-// Error is a rule violation with a stable Passage code (REV-xxxx).
+// Error is a rule violation with a stable Depot code (REV-xxxx).
 type Error struct {
 	Code   string
 	Detail string

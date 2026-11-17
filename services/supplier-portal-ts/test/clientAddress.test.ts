@@ -17,7 +17,7 @@ describe("trusted proxies", () => {
 
   it("refuse an entry that is not an address or CIDR instead of ignoring it", () => {
     for (const bad of ["10.0.0.0/33", "10.0.0.0/8/1", "proxy.internal", "10.0.0.0/x", "fd00::/129", "::ffff:10.0.0.0/64", "10.0.0.0/-1"]) {
-      expect(() => parseTrustedProxies(bad), bad).toThrow(/PASSAGE_TRUSTED_PROXIES/);
+      expect(() => parseTrustedProxies(bad), bad).toThrow(/DEPOT_TRUSTED_PROXIES/);
     }
   });
 });

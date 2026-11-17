@@ -1,7 +1,7 @@
 import { render, renderHook, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it } from "vitest";
-import type { PassageModule } from "../../modules/registry";
+import type { DepotModule } from "../../modules/registry";
 import { Shell } from "../Shell";
 import { json, server, useFakeServer } from "../testing/fakeServer";
 import { useWorkspaceNav } from "../workspaces/WorkspaceNav";
@@ -12,7 +12,7 @@ useFakeServer();
 
 beforeEach(() => window.localStorage.clear());
 
-const modules: PassageModule[] = [
+const modules: DepotModule[] = [
   {
     id: "ledger",
     title: "General ledger",
@@ -148,14 +148,14 @@ describe("Windows install features (#607)", () => {
     expect(withInstallation({ edi: false }, { node: true })).toEqual({ edi: false, [installFeatureKey("node")]: true });
   });
 
-  it("reads /installation.json only when served by passage-server and folds it into the features", async () => {
+  it("reads /installation.json only when served by depot-server and folds it into the features", async () => {
     server.handler = (url) => (url.pathname === "/installation.json" ? json(200, { features: { node: false, python: true } }) : undefined);
     const { result } = renderHook(() => useTenantSettingsLoader([], undefined, true));
     await waitFor(() => expect(result.current.features).toEqual({ "install:node": false, "install:python": true }));
     expect(isPathEnabled(result.current.features, "/copilot")).toBe(false);
   });
 
-  it("asks for no installation outside passage-server and keeps every screen on when it cannot be read", async () => {
+  it("asks for no installation outside depot-server and keeps every screen on when it cannot be read", async () => {
     renderHook(() => useTenantSettingsLoader([]));
     expect(server.calls).toHaveLength(0);
     server.handler = () => json(404, { code: "GW-0404", detail: "no route" });

@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Release-notes gate for a Passage release (PSG-50, PRD 9.50.15, FR-50.12, AC-50.11).
+"""Release-notes gate for a Depot release (DPT-50, PRD 9.50.15, FR-50.12, AC-50.11).
 
 The notes file must follow docs/ops/release-notes-template.md:
 
-  * a title line `# Passage vX.Y.Z` (semver, pre-release suffix allowed);
+  * a title line `# Depot vX.Y.Z` (semver, pre-release suffix allowed);
   * the sections Images and charts, Features by module, Migrations, Breaking changes, CVE fixes and Rollback,
     each non-empty;
   * Images and charts names at least one `sha256:<64 hex>` digest (images are published by digest only);
@@ -31,7 +31,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-TITLE_RE = re.compile(r"^# Passage v?(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)\s*$", re.MULTILINE)
+TITLE_RE = re.compile(r"^# Depot v?(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)\s*$", re.MULTILINE)
 DIGEST_RE = re.compile(r"sha256:[0-9a-f]{64}")
 COMMENT_RE = re.compile(r"<!--.*?-->", re.DOTALL)
 HTML_TAGS = {"br", "b", "i", "em", "strong", "code", "kbd", "sub", "sup", "details", "summary", "p"}
@@ -92,7 +92,7 @@ def check(text: str, allow_breaking: bool = False, evidence: dict[str, Any] | No
     text = strip_comments(text)
     title = TITLE_RE.search(text)
     if not title:
-        errors.append("missing title line '# Passage vX.Y.Z'")
+        errors.append("missing title line '# Depot vX.Y.Z'")
     secs = sections(text)
     for name in REQUIRED:
         if name not in secs:
@@ -132,7 +132,7 @@ def main(argv: list[str] | None = None) -> int:
         evidence = None
         if args.compat_evidence is not None:
             evidence = json.loads(args.compat_evidence.read_text(encoding="utf-8"))
-            if not isinstance(evidence, dict) or evidence.get("schema") != "passage.ops.compat-evidence/v1":
+            if not isinstance(evidence, dict) or evidence.get("schema") != "depot.ops.compat-evidence/v1":
                 raise ValueError(f"{args.compat_evidence}: not a compat evidence file")
     except (OSError, ValueError) as exc:
         print(f"error: {exc}", file=sys.stderr)

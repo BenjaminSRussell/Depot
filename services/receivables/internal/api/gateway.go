@@ -14,17 +14,17 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/authz"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/receivables/internal/gateway"
-	"github.com/BenjaminSRussell/passage/services/receivables/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/authz"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/receivables/internal/gateway"
+	"github.com/BenjaminSRussell/depot/services/receivables/internal/store"
 )
 
 // Card and ACH payments from the customer portal (#30, FR-30.14). The portal asks for a provider payment for open items of its
 // own customer and gets back only the client secret of the provider's hosted element; card and bank details never reach
-// Passage. The payment's status comes only from the provider's signature-verified webhooks, on their own listener.
+// Depot. The payment's status comes only from the provider's signature-verified webhooks, on their own listener.
 const (
 	dutyCustomerPortalPay = "receivables.customer-portal.pay"
 	maxWebhookBody        = 256 << 10
@@ -250,8 +250,8 @@ func (a *API) portalCreateIntent(w http.ResponseWriter, r *http.Request, custome
 		AttemptID: g.ID, Amount: g.Amount, Currency: g.Currency, Method: gateway.Method(g.Method), Account: account,
 		Description: "Payment of " + strings.Join(docs, ", "),
 		Metadata: map[string]string{
-			"passage_tenant_id": p.TenantID, "passage_legal_entity_id": g.LegalEntityID, "passage_attempt_id": g.ID,
-			"passage_customer_id": g.CustomerID, "passage_documents": strings.Join(docs, ","),
+			"depot_tenant_id": p.TenantID, "depot_legal_entity_id": g.LegalEntityID, "depot_attempt_id": g.ID,
+			"depot_customer_id": g.CustomerID, "depot_documents": strings.Join(docs, ","),
 		},
 	})
 	if err != nil {
@@ -371,7 +371,7 @@ func (a *API) portalGetIntent(w http.ResponseWriter, r *http.Request, customer s
 }
 
 // WebhookRoutes is the handler of the payment provider's webhook listener (RECEIVABLES_WEBHOOK_ADDR). The provider calls it
-// without a Passage identity, so it has no tenant middleware and reads no X-Passage-* header: the signature (Stripe-Signature,
+// without a Depot identity, so it has no tenant middleware and reads no X-Depot-* header: the signature (Stripe-Signature,
 // HMAC-SHA256 over the timestamp and the raw body, at most 5 minutes old) is checked before anything is parsed, the provider
 // payment id then selects the attempt (tenant and legal entity come from it), and the event id makes a redelivery or a
 // replayed request a no-op. Mount it on its own listener and expose only that through the public route.
@@ -425,7 +425,7 @@ func (a *API) stripeWebhook(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "temporarily unavailable", http.StatusServiceUnavailable)
 		return
 	}
-	if attempt := ev.Metadata["passage_attempt_id"]; attempt != "" && !strings.EqualFold(attempt, route.GatewayPaymentID) {
+	if attempt := ev.Metadata["depot_attempt_id"]; attempt != "" && !strings.EqualFold(attempt, route.GatewayPaymentID) {
 		slog.Warn("payment webhook metadata names another attempt", "event", ev.ID, "attempt", route.GatewayPaymentID)
 		httpx.JSON(w, http.StatusOK, map[string]string{"status": "ignored"})
 		return

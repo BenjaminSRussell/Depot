@@ -1,5 +1,5 @@
 // Command treasury runs the treasury service: bank accounts, statement import,
-// and cash forecast (wave 36, PSG-36 slice 1).
+// and cash forecast (wave 36, DPT-36 slice 1).
 package main
 
 import (
@@ -14,15 +14,15 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ledgerclient"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/treasury/internal/api"
-	"github.com/BenjaminSRussell/passage/services/treasury/internal/bankconnect"
-	"github.com/BenjaminSRussell/passage/services/treasury/internal/forecastsrc"
-	"github.com/BenjaminSRussell/passage/services/treasury/internal/store"
-	"github.com/BenjaminSRussell/passage/services/treasury/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ledgerclient"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/treasury/internal/api"
+	"github.com/BenjaminSRussell/depot/services/treasury/internal/bankconnect"
+	"github.com/BenjaminSRussell/depot/services/treasury/internal/forecastsrc"
+	"github.com/BenjaminSRussell/depot/services/treasury/internal/store"
+	"github.com/BenjaminSRussell/depot/services/treasury/migrations"
 )
 
 func main() {
@@ -145,7 +145,7 @@ func wireForecastSources(a *api.API) error {
 		return err
 	}
 	if signer == nil {
-		return errors.New("PAYABLES_URL or RECEIVABLES_URL needs a service signing key (PASSAGE_SERVICE_SIGNING_KEY_FILE)")
+		return errors.New("PAYABLES_URL or RECEIVABLES_URL needs a service signing key (DEPOT_SERVICE_SIGNING_KEY_FILE)")
 	}
 	if payables != "" {
 		sources = append(sources, forecastsrc.NewPayables(payables, signer, nil))

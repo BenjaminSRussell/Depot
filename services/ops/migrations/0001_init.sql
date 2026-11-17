@@ -1,4 +1,4 @@
--- Ops control plane (PSG-50, FR-50.5, BR-50.1). Platform state, not tenant data: no tenant_id and no RLS
+-- Ops control plane (DPT-50, FR-50.5, BR-50.1). Platform state, not tenant data: no tenant_id and no RLS
 -- (allowlisted in tools/rlscheck), reached only by the PlatformAdmin and PlatformView duties.
 CREATE TABLE ops_region (
   name        text PRIMARY KEY,

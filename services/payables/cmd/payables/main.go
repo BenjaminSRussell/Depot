@@ -11,19 +11,19 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/fieldcrypt"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/payables"
-	"github.com/BenjaminSRussell/passage/services/payables/internal/api"
-	"github.com/BenjaminSRussell/passage/services/payables/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/payables/internal/fx"
-	"github.com/BenjaminSRussell/passage/services/payables/internal/ledger"
-	"github.com/BenjaminSRussell/passage/services/payables/internal/party"
-	"github.com/BenjaminSRussell/passage/services/payables/internal/store"
-	"github.com/BenjaminSRussell/passage/services/payables/internal/tax"
-	"github.com/BenjaminSRussell/passage/services/payables/internal/withholdingreport"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/fieldcrypt"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/payables"
+	"github.com/BenjaminSRussell/depot/services/payables/internal/api"
+	"github.com/BenjaminSRussell/depot/services/payables/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/payables/internal/fx"
+	"github.com/BenjaminSRussell/depot/services/payables/internal/ledger"
+	"github.com/BenjaminSRussell/depot/services/payables/internal/party"
+	"github.com/BenjaminSRussell/depot/services/payables/internal/store"
+	"github.com/BenjaminSRussell/depot/services/payables/internal/tax"
+	"github.com/BenjaminSRussell/depot/services/payables/internal/withholdingreport"
 )
 
 const (
@@ -205,7 +205,7 @@ func ledgerPoster(getenv func(string) string) (api.LedgerPoster, error) {
 		return nil, err
 	}
 	if !c.Signed() {
-		return nil, errors.New("LEDGER_URL is set but payment runs need PASSAGE_SERVICE_SIGNING_KEY or PASSAGE_SERVICE_SIGNING_KEY_FILE: journals are never posted with forwarded user headers")
+		return nil, errors.New("LEDGER_URL is set but payment runs need DEPOT_SERVICE_SIGNING_KEY or DEPOT_SERVICE_SIGNING_KEY_FILE: journals are never posted with forwarded user headers")
 	}
 	return c, nil
 }
@@ -228,7 +228,7 @@ func vendorBanks(getenv func(string) string) (api.VendorBanks, error) {
 	}
 	c := party.New(url, &http.Client{Timeout: serviceClientTimeout(getenv, "PARTY_TIMEOUT", party.Timeout)}).WithSigner(signer)
 	if !c.Signed() {
-		return nil, errors.New("PARTY_URL is set but vendor bank details need PASSAGE_SERVICE_SIGNING_KEY or PASSAGE_SERVICE_SIGNING_KEY_FILE: they are never revealed with forwarded user headers")
+		return nil, errors.New("PARTY_URL is set but vendor bank details need DEPOT_SERVICE_SIGNING_KEY or DEPOT_SERVICE_SIGNING_KEY_FILE: they are never revealed with forwarded user headers")
 	}
 	return c, nil
 }
@@ -244,7 +244,7 @@ func withholdingTax(getenv func(string) string) (api.WithholdingCalculator, erro
 	}
 	c := tax.New(url, &http.Client{Timeout: serviceClientTimeout(getenv, "TAX_TIMEOUT", tax.Timeout)}).WithSigner(signer)
 	if !c.Signed() {
-		return nil, errors.New("TAX_URL is set but withholding needs PASSAGE_SERVICE_SIGNING_KEY or PASSAGE_SERVICE_SIGNING_KEY_FILE")
+		return nil, errors.New("TAX_URL is set but withholding needs DEPOT_SERVICE_SIGNING_KEY or DEPOT_SERVICE_SIGNING_KEY_FILE")
 	}
 	return c, nil
 }

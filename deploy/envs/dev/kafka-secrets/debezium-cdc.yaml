@@ -9,7 +9,7 @@ spec:
   refreshInterval: 1h
   secretStoreRef:
     kind: ClusterSecretStore
-    name: passage
+    name: depot
   target:
     name: debezium-cdc-metadata
     creationPolicy: Owner
@@ -20,7 +20,7 @@ spec:
   data:
     - secretKey: password
       remoteRef:
-        key: passage/dev/metadata-postgres/cdc-password
+        key: depot/dev/metadata-postgres/cdc-password
         property: value
 ---
 apiVersion: external-secrets.io/v1
@@ -34,7 +34,7 @@ spec:
   refreshInterval: 1h
   secretStoreRef:
     kind: ClusterSecretStore
-    name: passage
+    name: depot
   target:
     name: debezium-cdc-batch
     creationPolicy: Owner
@@ -45,7 +45,7 @@ spec:
   data:
     - secretKey: password
       remoteRef:
-        key: passage/dev/batch-postgres/cdc-password
+        key: depot/dev/batch-postgres/cdc-password
         property: value
 ---
 apiVersion: external-secrets.io/v1
@@ -59,7 +59,7 @@ spec:
   refreshInterval: 1h
   secretStoreRef:
     kind: ClusterSecretStore
-    name: passage
+    name: depot
   target:
     name: debezium-cdc-receiving
     creationPolicy: Owner
@@ -70,7 +70,7 @@ spec:
   data:
     - secretKey: password
       remoteRef:
-        key: passage/dev/receiving-postgres/cdc-password
+        key: depot/dev/receiving-postgres/cdc-password
         property: value
 ---
 apiVersion: external-secrets.io/v1
@@ -84,7 +84,7 @@ spec:
   refreshInterval: 1h
   secretStoreRef:
     kind: ClusterSecretStore
-    name: passage
+    name: depot
   target:
     name: debezium-cdc-eam
     creationPolicy: Owner
@@ -95,7 +95,7 @@ spec:
   data:
     - secretKey: password
       remoteRef:
-        key: passage/dev/eam-postgres/cdc-password
+        key: depot/dev/eam-postgres/cdc-password
         property: value
 ---
 apiVersion: external-secrets.io/v1
@@ -109,7 +109,7 @@ spec:
   refreshInterval: 1h
   secretStoreRef:
     kind: ClusterSecretStore
-    name: passage
+    name: depot
   target:
     name: debezium-cdc-transport
     creationPolicy: Owner
@@ -120,7 +120,7 @@ spec:
   data:
     - secretKey: password
       remoteRef:
-        key: passage/dev/transport-postgres/cdc-password
+        key: depot/dev/transport-postgres/cdc-password
         property: value
 ---
 apiVersion: external-secrets.io/v1
@@ -134,7 +134,7 @@ spec:
   refreshInterval: 1h
   secretStoreRef:
     kind: ClusterSecretStore
-    name: passage
+    name: depot
   target:
     name: debezium-cdc-sales
     creationPolicy: Owner
@@ -145,7 +145,7 @@ spec:
   data:
     - secretKey: password
       remoteRef:
-        key: passage/dev/sales-postgres/cdc-password
+        key: depot/dev/sales-postgres/cdc-password
         property: value
 ---
 apiVersion: external-secrets.io/v1
@@ -159,7 +159,7 @@ spec:
   refreshInterval: 1h
   secretStoreRef:
     kind: ClusterSecretStore
-    name: passage
+    name: depot
   target:
     name: debezium-cdc-fulfillment
     creationPolicy: Owner
@@ -170,7 +170,7 @@ spec:
   data:
     - secretKey: password
       remoteRef:
-        key: passage/dev/fulfillment-postgres/cdc-password
+        key: depot/dev/fulfillment-postgres/cdc-password
         property: value
 ---
 apiVersion: external-secrets.io/v1
@@ -184,7 +184,7 @@ spec:
   refreshInterval: 1h
   secretStoreRef:
     kind: ClusterSecretStore
-    name: passage
+    name: depot
   target:
     name: debezium-cdc-budgeting
     creationPolicy: Owner
@@ -195,7 +195,7 @@ spec:
   data:
     - secretKey: password
       remoteRef:
-        key: passage/dev/budgeting-postgres/cdc-password
+        key: depot/dev/budgeting-postgres/cdc-password
         property: value
 ---
 apiVersion: external-secrets.io/v1
@@ -209,7 +209,7 @@ spec:
   refreshInterval: 1h
   secretStoreRef:
     kind: ClusterSecretStore
-    name: passage
+    name: depot
   target:
     name: debezium-cdc-billing
     creationPolicy: Owner
@@ -220,7 +220,7 @@ spec:
   data:
     - secretKey: password
       remoteRef:
-        key: passage/dev/billing-postgres/cdc-password
+        key: depot/dev/billing-postgres/cdc-password
         property: value
 ---
 apiVersion: external-secrets.io/v1
@@ -234,7 +234,7 @@ spec:
   refreshInterval: 1h
   secretStoreRef:
     kind: ClusterSecretStore
-    name: passage
+    name: depot
   target:
     name: debezium-cdc-warehouse
     creationPolicy: Owner
@@ -245,7 +245,7 @@ spec:
   data:
     - secretKey: password
       remoteRef:
-        key: passage/dev/warehouse-postgres/cdc-password
+        key: depot/dev/warehouse-postgres/cdc-password
         property: value
 ---
 apiVersion: external-secrets.io/v1
@@ -259,7 +259,7 @@ spec:
   refreshInterval: 1h
   secretStoreRef:
     kind: ClusterSecretStore
-    name: passage
+    name: depot
   target:
     name: debezium-cdc-intercompany
     creationPolicy: Owner
@@ -270,7 +270,7 @@ spec:
   data:
     - secretKey: password
       remoteRef:
-        key: passage/dev/intercompany-postgres/cdc-password
+        key: depot/dev/intercompany-postgres/cdc-password
         property: value
 ---
 apiVersion: external-secrets.io/v1
@@ -284,7 +284,7 @@ spec:
   refreshInterval: 1h
   secretStoreRef:
     kind: ClusterSecretStore
-    name: passage
+    name: depot
   target:
     name: debezium-cdc-fieldservice
     creationPolicy: Owner
@@ -295,7 +295,7 @@ spec:
   data:
     - secretKey: password
       remoteRef:
-        key: passage/dev/fieldservice-postgres/cdc-password
+        key: depot/dev/fieldservice-postgres/cdc-password
         property: value
 ---
 apiVersion: external-secrets.io/v1
@@ -309,7 +309,7 @@ spec:
   refreshInterval: 1h
   secretStoreRef:
     kind: ClusterSecretStore
-    name: passage
+    name: depot
   target:
     name: debezium-cdc-ops
     creationPolicy: Owner
@@ -320,7 +320,7 @@ spec:
   data:
     - secretKey: password
       remoteRef:
-        key: passage/dev/ops-postgres/cdc-password
+        key: depot/dev/ops-postgres/cdc-password
         property: value
 ---
 apiVersion: external-secrets.io/v1
@@ -334,7 +334,7 @@ spec:
   refreshInterval: 1h
   secretStoreRef:
     kind: ClusterSecretStore
-    name: passage
+    name: depot
   target:
     name: debezium-cdc-receivables
     creationPolicy: Owner
@@ -345,7 +345,7 @@ spec:
   data:
     - secretKey: password
       remoteRef:
-        key: passage/dev/receivables-postgres/cdc-password
+        key: depot/dev/receivables-postgres/cdc-password
         property: value
 ---
 apiVersion: external-secrets.io/v1
@@ -359,7 +359,7 @@ spec:
   refreshInterval: 1h
   secretStoreRef:
     kind: ClusterSecretStore
-    name: passage
+    name: depot
   target:
     name: debezium-cdc-expense
     creationPolicy: Owner
@@ -370,7 +370,7 @@ spec:
   data:
     - secretKey: password
       remoteRef:
-        key: passage/dev/expense-postgres/cdc-password
+        key: depot/dev/expense-postgres/cdc-password
         property: value
 ---
 apiVersion: external-secrets.io/v1
@@ -384,7 +384,7 @@ spec:
   refreshInterval: 1h
   secretStoreRef:
     kind: ClusterSecretStore
-    name: passage
+    name: depot
   target:
     name: debezium-cdc-projects
     creationPolicy: Owner
@@ -395,7 +395,7 @@ spec:
   data:
     - secretKey: password
       remoteRef:
-        key: passage/dev/projects-postgres/cdc-password
+        key: depot/dev/projects-postgres/cdc-password
         property: value
 ---
 apiVersion: external-secrets.io/v1
@@ -409,7 +409,7 @@ spec:
   refreshInterval: 1h
   secretStoreRef:
     kind: ClusterSecretStore
-    name: passage
+    name: depot
   target:
     name: debezium-cdc-party
     creationPolicy: Owner
@@ -420,7 +420,7 @@ spec:
   data:
     - secretKey: password
       remoteRef:
-        key: passage/dev/party-postgres/cdc-password
+        key: depot/dev/party-postgres/cdc-password
         property: value
 ---
 apiVersion: external-secrets.io/v1
@@ -434,7 +434,7 @@ spec:
   refreshInterval: 1h
   secretStoreRef:
     kind: ClusterSecretStore
-    name: passage
+    name: depot
   target:
     name: debezium-cdc-product
     creationPolicy: Owner
@@ -445,7 +445,7 @@ spec:
   data:
     - secretKey: password
       remoteRef:
-        key: passage/dev/product-postgres/cdc-password
+        key: depot/dev/product-postgres/cdc-password
         property: value
 ---
 apiVersion: external-secrets.io/v1
@@ -459,7 +459,7 @@ spec:
   refreshInterval: 1h
   secretStoreRef:
     kind: ClusterSecretStore
-    name: passage
+    name: depot
   target:
     name: debezium-cdc-purchasing
     creationPolicy: Owner
@@ -470,7 +470,7 @@ spec:
   data:
     - secretKey: password
       remoteRef:
-        key: passage/dev/purchasing-postgres/cdc-password
+        key: depot/dev/purchasing-postgres/cdc-password
         property: value
 ---
 apiVersion: external-secrets.io/v1
@@ -484,7 +484,7 @@ spec:
   refreshInterval: 1h
   secretStoreRef:
     kind: ClusterSecretStore
-    name: passage
+    name: depot
   target:
     name: debezium-cdc-production
     creationPolicy: Owner
@@ -495,7 +495,7 @@ spec:
   data:
     - secretKey: password
       remoteRef:
-        key: passage/dev/production-postgres/cdc-password
+        key: depot/dev/production-postgres/cdc-password
         property: value
 ---
 apiVersion: external-secrets.io/v1
@@ -509,7 +509,7 @@ spec:
   refreshInterval: 1h
   secretStoreRef:
     kind: ClusterSecretStore
-    name: passage
+    name: depot
   target:
     name: debezium-cdc-hr
     creationPolicy: Owner
@@ -520,13 +520,13 @@ spec:
   data:
     - secretKey: password
       remoteRef:
-        key: passage/dev/hr-postgres/cdc-password
+        key: depot/dev/hr-postgres/cdc-password
         property: value
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: passage-connect-read-debezium-cdc
+  name: depot-connect-read-debezium-cdc
   namespace: kafka
 rules:
   - apiGroups: [""]
@@ -537,13 +537,13 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: passage-connect-read-debezium-cdc
+  name: depot-connect-read-debezium-cdc
   namespace: kafka
 subjects:
   - kind: ServiceAccount
-    name: passage-connect-connect
+    name: depot-connect-connect
     namespace: kafka
 roleRef:
   kind: Role
-  name: passage-connect-read-debezium-cdc
+  name: depot-connect-read-debezium-cdc
   apiGroup: rbac.authorization.k8s.io

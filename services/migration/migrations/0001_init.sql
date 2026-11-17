@@ -46,32 +46,32 @@ CREATE TABLE migration.run_ledger (
 ALTER TABLE migration.run ENABLE ROW LEVEL SECURITY;
 ALTER TABLE migration.run FORCE ROW LEVEL SECURITY;
 CREATE POLICY run_tenant_access ON migration.run AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY run_legal_entity_scope ON migration.run AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*');
+  USING (current_setting('depot.legal_entity_scopes', true) = '*');
 
 ALTER TABLE migration.xref ENABLE ROW LEVEL SECURITY;
 ALTER TABLE migration.xref FORCE ROW LEVEL SECURITY;
 CREATE POLICY xref_tenant_access ON migration.xref AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY xref_legal_entity_scope ON migration.xref AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*');
+  USING (current_setting('depot.legal_entity_scopes', true) = '*');
 
 ALTER TABLE migration.run_ledger ENABLE ROW LEVEL SECURITY;
 ALTER TABLE migration.run_ledger FORCE ROW LEVEL SECURITY;
 CREATE POLICY run_ledger_tenant_access ON migration.run_ledger AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY run_ledger_legal_entity_scope ON migration.run_ledger AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*');
+  USING (current_setting('depot.legal_entity_scopes', true) = '*');
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    GRANT USAGE ON SCHEMA migration TO passage_app;
-    GRANT SELECT, INSERT, UPDATE, DELETE ON migration.run, migration.xref, migration.run_ledger TO passage_app;
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    GRANT USAGE ON SCHEMA migration TO depot_app;
+    GRANT SELECT, INSERT, UPDATE, DELETE ON migration.run, migration.xref, migration.run_ledger TO depot_app;
   END IF;
 END
 $$;

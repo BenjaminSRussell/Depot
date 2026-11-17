@@ -9,12 +9,12 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/authz"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	passagetenant "github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/fulfillment/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/fulfillment/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/authz"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	depottenant "github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/fulfillment/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/fulfillment/internal/store"
 )
 
 // routesLegalEntitySetting mounts the posting settings per legal entity
@@ -151,7 +151,7 @@ func (a *API) saveLegalEntitySetting(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, "rtpChargeDays", "must be a whole number of days from 30 to 365 (leave it out to keep the saved value)")
 		return
 	}
-	p, _ := passagetenant.FromContext(r.Context())
+	p, _ := depottenant.FromContext(r.Context())
 	in := store.LegalEntitySettingInput{CogsAtShipment: *req.CogsAtShipment, AsnEnabled: *req.AsnEnabled,
 		GS1CompanyPrefix: req.GS1CompanyPrefix.nullable(), SSCCExtensionDigit: req.SSCCExtensionDigit.nullable(),
 		PackagingFeeBillable: store.Change[bool]{Set: req.PackagingFeeBillable.Set, Value: req.PackagingFeeBillable.Value},

@@ -17,9 +17,9 @@ function setting(key: string, fallback: string): string {
 export function DeviceHost() {
   return (
     <DeviceApp
-      deviceId={setting("passage.deviceId", "dev-unregistered")}
-      userId={setting("passage.userId", "unassigned")}
-      menuId={setting("passage.menuId", DEFAULT_MENU_ID)}
+      deviceId={setting("depot.deviceId", "dev-unregistered")}
+      userId={setting("depot.userId", "unassigned")}
+      menuId={setting("depot.menuId", DEFAULT_MENU_ID)}
     />
   );
 }

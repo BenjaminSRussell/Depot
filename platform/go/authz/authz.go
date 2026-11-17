@@ -7,8 +7,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
 )
 
 // Policy answers whether a principal may perform an action on a resource.

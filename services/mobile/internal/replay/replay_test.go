@@ -9,12 +9,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/mobile/internal/store"
-	"github.com/BenjaminSRussell/passage/services/mobile/internal/warehouse"
-	"github.com/BenjaminSRussell/passage/services/mobile/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/mobile/internal/store"
+	"github.com/BenjaminSRussell/depot/services/mobile/internal/warehouse"
+	"github.com/BenjaminSRussell/depot/services/mobile/migrations"
 )
 
 type call struct {

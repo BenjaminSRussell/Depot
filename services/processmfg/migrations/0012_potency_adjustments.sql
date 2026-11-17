@@ -17,13 +17,13 @@ CREATE TABLE IF NOT EXISTS batch_order_potency (
 ALTER TABLE batch_order_potency ENABLE ROW LEVEL SECURITY;
 ALTER TABLE batch_order_potency FORCE ROW LEVEL SECURITY;
 CREATE POLICY batch_order_potency_tenant_access ON batch_order_potency AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, DELETE ON batch_order_potency TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, DELETE ON batch_order_potency TO depot_app';
   END IF;
 END
 $$;

@@ -166,7 +166,7 @@ describe("AuditTrailPage", () => {
     server.handler = (url) => {
       if (url.pathname === PATH) return json(200, { items: [posted], limit: 100, nextCursor: null });
       if (url.pathname === `${PATH}:export`)
-        return text(200, "occurred_at,kind\n", { "X-Passage-Export-Id": "e-1", "X-Passage-Export-Sha256": sha, "X-Passage-Export-Entries": "1" });
+        return text(200, "occurred_at,kind\n", { "X-Depot-Export-Id": "e-1", "X-Depot-Export-Sha256": sha, "X-Depot-Export-Entries": "1" });
       return undefined;
     };
     renderAt("/finreport/audit-trail");

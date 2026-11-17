@@ -10,7 +10,7 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/services/party/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/party/internal/domain"
 )
 
 const maxBody = 1 << 20

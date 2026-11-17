@@ -16,8 +16,8 @@ ALTER TABLE sales_quotation VALIDATE CONSTRAINT sales_quotation_cancel_reason_se
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT DELETE ON sales_quotation_line TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT DELETE ON sales_quotation_line TO depot_app';
   END IF;
 END
 $$;

@@ -16,9 +16,9 @@ spec:
     - from:
         - namespaceSelector:
             matchExpressions:
-              - { key: kubernetes.io/metadata.name, operator: In, values: [passage, hello-ledger] }
+              - { key: kubernetes.io/metadata.name, operator: In, values: [depot, hello-ledger] }
           podSelector:
             matchLabels:
-              passage.dev/temporal-client: "true"
+              depot.dev/temporal-client: "true"
       ports:
         - { protocol: TCP, port: 7233 }

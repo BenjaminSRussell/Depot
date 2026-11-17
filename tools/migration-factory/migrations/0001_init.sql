@@ -65,8 +65,8 @@ create table legacy_xref (
   source_company text not null,
   source_table text not null,
   source_id text not null check (source_id <> ''),
-  passage_entity text not null,
-  passage_id uuid not null,
+  depot_entity text not null,
+  depot_id uuid not null,
   run_id uuid not null,
   amount numeric(28,6) not null,
   currency char(3) not null,
@@ -75,7 +75,7 @@ create table legacy_xref (
   unique (tenant_id, xref_id),
   foreign key (tenant_id, run_id) references pack_run (tenant_id, run_id)
 );
-create index legacy_xref_passage on legacy_xref (tenant_id, passage_entity, passage_id);
+create index legacy_xref_depot on legacy_xref (tenant_id, depot_entity, depot_id);
 
 create table cutover_plan (
   tenant_id uuid not null,
@@ -138,61 +138,61 @@ create table if not exists idempotency_keys (
 alter table pack_run enable row level security;
 alter table pack_run force row level security;
 create policy pack_run_tenant_access on pack_run as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 alter table control_total enable row level security;
 alter table control_total force row level security;
 create policy control_total_tenant_access on control_total as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 alter table pack_quarantine enable row level security;
 alter table pack_quarantine force row level security;
 create policy pack_quarantine_tenant_access on pack_quarantine as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 alter table legacy_xref enable row level security;
 alter table legacy_xref force row level security;
 create policy legacy_xref_tenant_access on legacy_xref as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 alter table cutover_plan enable row level security;
 alter table cutover_plan force row level security;
 create policy cutover_plan_tenant_access on cutover_plan as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 alter table cutover_step enable row level security;
 alter table cutover_step force row level security;
 create policy cutover_step_tenant_access on cutover_step as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 alter table outbox enable row level security;
 alter table outbox force row level security;
 create policy outbox_tenant_access on outbox as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 alter table idempotency_keys enable row level security;
 alter table idempotency_keys force row level security;
 create policy idempotency_keys_tenant_access on idempotency_keys as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- Application role privileges. Pack runs, control totals, quarantine rows, the
--- cross-reference and the outbox are insert-only for passage_app; cutover plans and steps
+-- cross-reference and the outbox are insert-only for depot_app; cutover plans and steps
 -- change as the runbook advances. Skipped when the role does not exist.
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE format('GRANT USAGE ON SCHEMA %I TO passage_app', current_schema());
-    EXECUTE 'GRANT SELECT, INSERT ON pack_run, control_total, pack_quarantine, legacy_xref, outbox TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON cutover_plan, cutover_step TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON idempotency_keys TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE format('GRANT USAGE ON SCHEMA %I TO depot_app', current_schema());
+    EXECUTE 'GRANT SELECT, INSERT ON pack_run, control_total, pack_quarantine, legacy_xref, outbox TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON cutover_plan, cutover_step TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON idempotency_keys TO depot_app';
   END IF;
 END
 $$;

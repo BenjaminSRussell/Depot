@@ -24,9 +24,9 @@ spec:
       containers:
         - name: pricing
           {{- if .Values.image.digest }}
-          image: "{{ (include "passage.imageRepository" $) }}@{{ .Values.image.digest }}"
+          image: "{{ (include "depot.imageRepository" $) }}@{{ .Values.image.digest }}"
           {{- else }}
-          image: "{{ (include "passage.imageRepository" $) }}:{{ .Values.image.tag }}"
+          image: "{{ (include "depot.imageRepository" $) }}:{{ .Values.image.tag }}"
           {{- end }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           securityContext:
@@ -37,13 +37,13 @@ spec:
             - name: admin
               containerPort: {{ .Values.service.adminPort }}
           env:
-            {{- include "passage.cloudEnv" $ | nindent 12 }}
+            {{- include "depot.cloudEnv" $ | nindent 12 }}
             - name: SERVICE_NAME
               value: pricing
-            - name: PASSAGE_SERVICE_NAME
+            - name: DEPOT_SERVICE_NAME
               value: pricing
             {{- if .Values.serviceIdentity.publicKeys }}
-            - { name: PASSAGE_SERVICE_PUBLIC_KEYS, value: {{ .Values.serviceIdentity.publicKeys | quote }} }
+            - { name: DEPOT_SERVICE_PUBLIC_KEYS, value: {{ .Values.serviceIdentity.publicKeys | quote }} }
             {{- end }}
             - name: HTTP_ADDR
               value: ":{{ .Values.service.port }}"

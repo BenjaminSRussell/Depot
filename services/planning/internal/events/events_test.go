@@ -5,31 +5,31 @@ import (
 	"regexp"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/events"
 )
 
 func TestEventTypesFollowTheNamingRule(t *testing.T) {
 	for _, typ := range All() {
 		if !events.ValidType(typ) {
-			t.Errorf("%s is not dev.passage.<context>.<entity>.<verb>.v<n>", typ)
+			t.Errorf("%s is not dev.depot.<context>.<entity>.<verb>.v<n>", typ)
 		}
 	}
-	if PlanCompleted != "dev.passage.planning.plan.completed.v1" {
+	if PlanCompleted != "dev.depot.planning.plan.completed.v1" {
 		t.Errorf("PlanCompleted = %s", PlanCompleted)
 	}
-	if PlannedOrderFirmed != "dev.passage.planning.plannedorder.firmed.v1" {
+	if PlannedOrderFirmed != "dev.depot.planning.plannedorder.firmed.v1" {
 		t.Errorf("PlannedOrderFirmed = %s", PlannedOrderFirmed)
 	}
-	if PlanStarted != "dev.passage.planning.plan.started.v1" {
+	if PlanStarted != "dev.depot.planning.plan.started.v1" {
 		t.Errorf("PlanStarted = %s", PlanStarted)
 	}
-	if MessageRaised != "dev.passage.planning.message.raised.v1" {
+	if MessageRaised != "dev.depot.planning.message.raised.v1" {
 		t.Errorf("MessageRaised = %s", MessageRaised)
 	}
-	if MessageApplied != "dev.passage.planning.message.applied.v1" || MessageDismissed != "dev.passage.planning.message.dismissed.v1" {
+	if MessageApplied != "dev.depot.planning.message.applied.v1" || MessageDismissed != "dev.depot.planning.message.dismissed.v1" {
 		t.Errorf("MessageApplied = %s, MessageDismissed = %s", MessageApplied, MessageDismissed)
 	}
-	if ForecastPublished != "dev.passage.planning.forecast.published.v1" {
+	if ForecastPublished != "dev.depot.planning.forecast.published.v1" {
 		t.Errorf("ForecastPublished = %s", ForecastPublished)
 	}
 }
@@ -41,7 +41,7 @@ func TestAsyncAPIDeclaresEveryEvent(t *testing.T) {
 		t.Fatal(err)
 	}
 	declared := map[string]bool{}
-	for _, m := range regexp.MustCompile(`name: (dev\.passage\.\S+)`).FindAllStringSubmatch(string(spec), -1) {
+	for _, m := range regexp.MustCompile(`name: (dev\.depot\.\S+)`).FindAllStringSubmatch(string(spec), -1) {
 		declared[m[1]] = true
 	}
 	for _, typ := range All() {

@@ -16,7 +16,7 @@ spec:
               kubernetes.io/metadata.name: envoy-gateway-system
           podSelector:
             matchLabels:
-              gateway.envoyproxy.io/owning-gateway-name: passage-api
+              gateway.envoyproxy.io/owning-gateway-name: depot-api
               gateway.envoyproxy.io/owning-gateway-namespace: hello-ledger
         - podSelector:
             matchLabels:

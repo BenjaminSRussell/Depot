@@ -10,10 +10,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/org/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/org/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/org/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/org/internal/store"
 )
 
 const (
@@ -161,7 +161,7 @@ func TestFiscalCalendarCreate(t *testing.T) {
 		{"unknown field", `{"code":"FY","name":"n","pattern":"calendar","x":1}`, fiscalDuties, nil, true, http.StatusBadRequest, "COM-0001"},
 		{"no tenant", createCalendar, "", nil, false, http.StatusUnauthorized, "AUTH-0001"},
 		{"read duty only", createCalendar, "org.read", nil, true, http.StatusForbidden, "AUTH-0003"},
-		{"legal-entity scoped caller", createCalendar, fiscalDuties, []string{"X-Passage-Legal-Entity", testkit.TenantID(2)}, true, http.StatusForbidden, "AUTH-0003"},
+		{"legal-entity scoped caller", createCalendar, fiscalDuties, []string{"X-Depot-Legal-Entity", testkit.TenantID(2)}, true, http.StatusForbidden, "AUTH-0003"},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -291,7 +291,7 @@ func TestFiscalYearGenerate(t *testing.T) {
 		{"malformed date", seededCalendars(), generate, `{"fiscalYear":2028,"periods":[{"start":"2028-13-40","end":"2028-12-31"}]}`, fiscalDuties, nil, http.StatusBadRequest, `periods[0].start`},
 		{"generator gap", &fakeStore{calendars: seededCalendars().calendars, generateErr: gap}, generate, `{"fiscalYear":2028,"periods":[{"start":"2028-01-01","end":"2028-02-28"}]}`, fiscalDuties, nil, http.StatusUnprocessableEntity, "ORG-CAL-GAP"},
 		{"no duty", seededCalendars(), generate, `{"fiscalYear":2028}`, "org.read", nil, http.StatusForbidden, "AUTH-0003"},
-		{"scoped caller", seededCalendars(), generate, `{"fiscalYear":2028}`, fiscalDuties, []string{"X-Passage-Legal-Entity", testkit.TenantID(2)}, http.StatusForbidden, "AUTH-0003"},
+		{"scoped caller", seededCalendars(), generate, `{"fiscalYear":2028}`, fiscalDuties, []string{"X-Depot-Legal-Entity", testkit.TenantID(2)}, http.StatusForbidden, "AUTH-0003"},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -399,7 +399,7 @@ func TestFiscalCalendarList(t *testing.T) {
 
 func TestFiscalCalendarUpdate(t *testing.T) {
 	path := fiscalPath + "/" + calendarID
-	scoped := []string{"X-Passage-Legal-Entity", testkit.TenantID(2)}
+	scoped := []string{"X-Depot-Legal-Entity", testkit.TenantID(2)}
 	tests := []struct {
 		name       string
 		path       string

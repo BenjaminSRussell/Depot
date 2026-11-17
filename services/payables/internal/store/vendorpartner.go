@@ -5,7 +5,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
 )
 
 // OpenItemPartners maps the open item id of each line of a payment proposal that carries an intercompany trading partner to it (#40);

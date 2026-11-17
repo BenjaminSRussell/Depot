@@ -3,130 +3,130 @@ info:
   title: engineering
   version: 0.1.0
 channels:
-  passage.engineering.bomversion:
-    address: passage.engineering.bomversion
+  depot.engineering.bomversion:
+    address: depot.engineering.bomversion
     messages:
       activated: { $ref: '#/components/messages/bomVersionActivated' }
       expired: { $ref: '#/components/messages/bomVersionExpired' }
-  passage.engineering.eco:
-    address: passage.engineering.eco
+  depot.engineering.eco:
+    address: depot.engineering.eco
     messages:
       submitted: { $ref: '#/components/messages/ecoSubmitted' }
       approved: { $ref: '#/components/messages/ecoApproved' }
       released: { $ref: '#/components/messages/ecoReleased' }
-  passage.engineering.ecr:
-    address: passage.engineering.ecr
+  depot.engineering.ecr:
+    address: depot.engineering.ecr
     messages:
       submitted: { $ref: '#/components/messages/ecrSubmitted' }
       approved: { $ref: '#/components/messages/ecrApproved' }
       rejected: { $ref: '#/components/messages/ecrRejected' }
       cancelled: { $ref: '#/components/messages/ecrCancelled' }
-  passage.engineering.routeversion:
-    address: passage.engineering.routeversion
+  depot.engineering.routeversion:
+    address: depot.engineering.routeversion
     messages:
       activated: { $ref: '#/components/messages/routeVersionActivated' }
-  passage.engineering.resource:
-    address: passage.engineering.resource
+  depot.engineering.resource:
+    address: depot.engineering.resource
     messages:
       changed: { $ref: '#/components/messages/resourceChanged' }
-  passage.engineering.calendar:
-    address: passage.engineering.calendar
+  depot.engineering.calendar:
+    address: depot.engineering.calendar
     messages:
       generated: { $ref: '#/components/messages/calendarGenerated' }
-  passage.engineering.releasesession:
-    address: passage.engineering.releasesession
+  depot.engineering.releasesession:
+    address: depot.engineering.releasesession
     messages:
       created: { $ref: '#/components/messages/releaseSessionCreated' }
-  passage.engineering.releaseline:
-    address: passage.engineering.releaseline
+  depot.engineering.releaseline:
+    address: depot.engineering.releaseline
     messages:
       accepted: { $ref: '#/components/messages/releaseLineAccepted' }
-  passage.engineering.releasedproduct:
-    address: passage.engineering.releasedproduct
+  depot.engineering.releasedproduct:
+    address: depot.engineering.releasedproduct
     messages:
       changed: { $ref: '#/components/messages/releasedProductChanged' }
-  passage.engineering.document:
-    address: passage.engineering.document
+  depot.engineering.document:
+    address: depot.engineering.document
     messages:
       signed: { $ref: '#/components/messages/documentSigned' }
       released: { $ref: '#/components/messages/documentReleased' }
-  passage.engineering.ebom:
-    address: passage.engineering.ebom
+  depot.engineering.ebom:
+    address: depot.engineering.ebom
     messages:
       imported: { $ref: '#/components/messages/ebomImported' }
 operations:
   onBomVersionActivated:
     action: send
-    channel: { $ref: '#/channels/passage.engineering.bomversion' }
-    messages: [{ $ref: '#/channels/passage.engineering.bomversion/messages/activated' }]
+    channel: { $ref: '#/channels/depot.engineering.bomversion' }
+    messages: [{ $ref: '#/channels/depot.engineering.bomversion/messages/activated' }]
   onBomVersionExpired:
     action: send
-    channel: { $ref: '#/channels/passage.engineering.bomversion' }
-    messages: [{ $ref: '#/channels/passage.engineering.bomversion/messages/expired' }]
+    channel: { $ref: '#/channels/depot.engineering.bomversion' }
+    messages: [{ $ref: '#/channels/depot.engineering.bomversion/messages/expired' }]
   onEcoSubmitted:
     action: send
-    channel: { $ref: '#/channels/passage.engineering.eco' }
-    messages: [{ $ref: '#/channels/passage.engineering.eco/messages/submitted' }]
+    channel: { $ref: '#/channels/depot.engineering.eco' }
+    messages: [{ $ref: '#/channels/depot.engineering.eco/messages/submitted' }]
   onEcoApproved:
     action: send
-    channel: { $ref: '#/channels/passage.engineering.eco' }
-    messages: [{ $ref: '#/channels/passage.engineering.eco/messages/approved' }]
+    channel: { $ref: '#/channels/depot.engineering.eco' }
+    messages: [{ $ref: '#/channels/depot.engineering.eco/messages/approved' }]
   onEcoReleased:
     action: send
-    channel: { $ref: '#/channels/passage.engineering.eco' }
-    messages: [{ $ref: '#/channels/passage.engineering.eco/messages/released' }]
+    channel: { $ref: '#/channels/depot.engineering.eco' }
+    messages: [{ $ref: '#/channels/depot.engineering.eco/messages/released' }]
   onEcrSubmitted:
     action: send
-    channel: { $ref: '#/channels/passage.engineering.ecr' }
-    messages: [{ $ref: '#/channels/passage.engineering.ecr/messages/submitted' }]
+    channel: { $ref: '#/channels/depot.engineering.ecr' }
+    messages: [{ $ref: '#/channels/depot.engineering.ecr/messages/submitted' }]
   onEcrApproved:
     action: send
-    channel: { $ref: '#/channels/passage.engineering.ecr' }
-    messages: [{ $ref: '#/channels/passage.engineering.ecr/messages/approved' }]
+    channel: { $ref: '#/channels/depot.engineering.ecr' }
+    messages: [{ $ref: '#/channels/depot.engineering.ecr/messages/approved' }]
   onEcrRejected:
     action: send
-    channel: { $ref: '#/channels/passage.engineering.ecr' }
-    messages: [{ $ref: '#/channels/passage.engineering.ecr/messages/rejected' }]
+    channel: { $ref: '#/channels/depot.engineering.ecr' }
+    messages: [{ $ref: '#/channels/depot.engineering.ecr/messages/rejected' }]
   onEcrCancelled:
     action: send
-    channel: { $ref: '#/channels/passage.engineering.ecr' }
-    messages: [{ $ref: '#/channels/passage.engineering.ecr/messages/cancelled' }]
+    channel: { $ref: '#/channels/depot.engineering.ecr' }
+    messages: [{ $ref: '#/channels/depot.engineering.ecr/messages/cancelled' }]
   onRouteVersionActivated:
     action: send
-    channel: { $ref: '#/channels/passage.engineering.routeversion' }
-    messages: [{ $ref: '#/channels/passage.engineering.routeversion/messages/activated' }]
+    channel: { $ref: '#/channels/depot.engineering.routeversion' }
+    messages: [{ $ref: '#/channels/depot.engineering.routeversion/messages/activated' }]
   onResourceChanged:
     action: send
-    channel: { $ref: '#/channels/passage.engineering.resource' }
-    messages: [{ $ref: '#/channels/passage.engineering.resource/messages/changed' }]
+    channel: { $ref: '#/channels/depot.engineering.resource' }
+    messages: [{ $ref: '#/channels/depot.engineering.resource/messages/changed' }]
   onCalendarGenerated:
     action: send
-    channel: { $ref: '#/channels/passage.engineering.calendar' }
-    messages: [{ $ref: '#/channels/passage.engineering.calendar/messages/generated' }]
+    channel: { $ref: '#/channels/depot.engineering.calendar' }
+    messages: [{ $ref: '#/channels/depot.engineering.calendar/messages/generated' }]
   onReleaseSessionCreated:
     action: send
-    channel: { $ref: '#/channels/passage.engineering.releasesession' }
-    messages: [{ $ref: '#/channels/passage.engineering.releasesession/messages/created' }]
+    channel: { $ref: '#/channels/depot.engineering.releasesession' }
+    messages: [{ $ref: '#/channels/depot.engineering.releasesession/messages/created' }]
   onReleaseLineAccepted:
     action: send
-    channel: { $ref: '#/channels/passage.engineering.releaseline' }
-    messages: [{ $ref: '#/channels/passage.engineering.releaseline/messages/accepted' }]
+    channel: { $ref: '#/channels/depot.engineering.releaseline' }
+    messages: [{ $ref: '#/channels/depot.engineering.releaseline/messages/accepted' }]
   onReleasedProductChanged:
     action: send
-    channel: { $ref: '#/channels/passage.engineering.releasedproduct' }
-    messages: [{ $ref: '#/channels/passage.engineering.releasedproduct/messages/changed' }]
+    channel: { $ref: '#/channels/depot.engineering.releasedproduct' }
+    messages: [{ $ref: '#/channels/depot.engineering.releasedproduct/messages/changed' }]
   onDocumentSigned:
     action: send
-    channel: { $ref: '#/channels/passage.engineering.document' }
-    messages: [{ $ref: '#/channels/passage.engineering.document/messages/signed' }]
+    channel: { $ref: '#/channels/depot.engineering.document' }
+    messages: [{ $ref: '#/channels/depot.engineering.document/messages/signed' }]
   onDocumentReleased:
     action: send
-    channel: { $ref: '#/channels/passage.engineering.document' }
-    messages: [{ $ref: '#/channels/passage.engineering.document/messages/released' }]
+    channel: { $ref: '#/channels/depot.engineering.document' }
+    messages: [{ $ref: '#/channels/depot.engineering.document/messages/released' }]
   onEbomImported:
     action: send
-    channel: { $ref: '#/channels/passage.engineering.ebom' }
-    messages: [{ $ref: '#/channels/passage.engineering.ebom/messages/imported' }]
+    channel: { $ref: '#/channels/depot.engineering.ebom' }
+    messages: [{ $ref: '#/channels/depot.engineering.ebom/messages/imported' }]
 components:
   messages:
     bomVersionActivated:
@@ -145,7 +145,7 @@ components:
           supersedesVersionId: { type: string }
           usage: { type: string, enum: [production, engineering, costing, maintenance, sales, universal], description: 'FR-9.19 BOM usage; absent on events written before slice 22, which were all production material BOMs.' }
           category: { type: string, enum: [material, document], description: FR-9.19 BOM category. }
-      x-passage-type: dev.passage.engineering.bomversion.activated.v1
+      x-depot-type: dev.depot.engineering.bomversion.activated.v1
     bomVersionExpired:
       name: bomVersionExpired
       title: BOM version expired by an ECO
@@ -156,7 +156,7 @@ components:
           bomVersionId: { type: string }
           effectiveTo: { type: string, format: date }
           ecoId: { type: string }
-      x-passage-type: dev.passage.engineering.bomversion.expired.v1
+      x-depot-type: dev.depot.engineering.bomversion.expired.v1
     ecoSubmitted:
       name: ecoSubmitted
       title: ECO submitted for approval
@@ -170,17 +170,17 @@ components:
           releaseDate: { type: string, format: date }
           approverId: { type: string }
           ecrId: { type: string, description: The approved change request this ECO carries out; absent for an ECO raised directly. }
-      x-passage-type: dev.passage.engineering.eco.submitted.v1
+      x-depot-type: dev.depot.engineering.eco.submitted.v1
     ecoApproved:
       name: ecoApproved
       title: ECO approved
       payload: *ecoPayload
-      x-passage-type: dev.passage.engineering.eco.approved.v1
+      x-depot-type: dev.depot.engineering.eco.approved.v1
     ecoReleased:
       name: ecoReleased
       title: ECO released to production
       payload: *ecoPayload
-      x-passage-type: dev.passage.engineering.eco.released.v1
+      x-depot-type: dev.depot.engineering.eco.released.v1
     ecrSubmitted:
       name: ecrSubmitted
       title: Engineering change request submitted
@@ -195,23 +195,23 @@ components:
           products: { type: array, items: { type: string } }
           requestedBy: { type: string }
           decidedBy: { type: string, description: Set on the approved and rejected events (the reviewer) and on the cancelled event (the requester who withdrew it). }
-      x-passage-type: dev.passage.engineering.ecr.submitted.v1
+      x-depot-type: dev.depot.engineering.ecr.submitted.v1
     ecrApproved:
       name: ecrApproved
       title: Engineering change request approved
       payload: *ecrPayload
-      x-passage-type: dev.passage.engineering.ecr.approved.v1
+      x-depot-type: dev.depot.engineering.ecr.approved.v1
     ecrRejected:
       name: ecrRejected
       title: Engineering change request rejected
       payload: *ecrPayload
-      x-passage-type: dev.passage.engineering.ecr.rejected.v1
+      x-depot-type: dev.depot.engineering.ecr.rejected.v1
     ecrCancelled:
       name: ecrCancelled
       title: Engineering change request withdrawn
       summary: The requester withdrew a submitted or under-review request. A draft withdrawn before submission raises no event.
       payload: *ecrPayload
-      x-passage-type: dev.passage.engineering.ecr.cancelled.v1
+      x-depot-type: dev.depot.engineering.ecr.cancelled.v1
     routeVersionActivated:
       name: routeVersionActivated
       title: Route version became active
@@ -223,7 +223,7 @@ components:
           productId: { type: string }
           siteId: { type: string }
           effectiveFrom: { type: string, format: date }
-      x-passage-type: dev.passage.engineering.routeversion.activated.v1
+      x-depot-type: dev.depot.engineering.routeversion.activated.v1
     resourceChanged:
       name: resourceChanged
       title: Resource created, changed or deleted
@@ -237,7 +237,7 @@ components:
           calendarId: { type: string }
           efficiencyPct: { type: string }
           changedFields: { type: array, items: { type: string } }
-      x-passage-type: dev.passage.engineering.resource.changed.v1
+      x-depot-type: dev.depot.engineering.resource.changed.v1
     calendarGenerated:
       name: calendarGenerated
       title: Calendar days generated for a range
@@ -249,7 +249,7 @@ components:
           from: { type: string, format: date }
           to: { type: string, format: date }
           openDays: { type: integer }
-      x-passage-type: dev.passage.engineering.calendar.generated.v1
+      x-depot-type: dev.depot.engineering.calendar.generated.v1
     releaseSessionCreated:
       name: releaseSessionCreated
       title: Product-release session created
@@ -260,7 +260,7 @@ components:
           sessionId: { type: string }
           number: { type: string }
           source: { type: string }
-      x-passage-type: dev.passage.engineering.releasesession.created.v1
+      x-depot-type: dev.depot.engineering.releasesession.created.v1
     releaseLineAccepted:
       name: releaseLineAccepted
       title: Product-release line accepted
@@ -272,7 +272,7 @@ components:
           sessionId: { type: string }
           legalEntityId: { type: string }
           acceptedBy: { type: string }
-      x-passage-type: dev.passage.engineering.releaseline.accepted.v1
+      x-depot-type: dev.depot.engineering.releaseline.accepted.v1
     releasedProductChanged:
       name: releasedProductChanged
       title: Released product readiness changed
@@ -284,7 +284,7 @@ components:
           productId: { type: string }
           legalEntityId: { type: string }
           state: { type: string }
-      x-passage-type: dev.passage.engineering.releasedproduct.changed.v1
+      x-depot-type: dev.depot.engineering.releasedproduct.changed.v1
     documentSigned:
       name: documentSigned
       title: Document electronically signed
@@ -297,7 +297,7 @@ components:
           signerId: { type: string }
           meaning: { type: string }
           signedAt: { type: string, format: date-time }
-      x-passage-type: dev.passage.engineering.document.signed.v1
+      x-depot-type: dev.depot.engineering.document.signed.v1
     documentReleased:
       name: documentReleased
       title: Document released
@@ -308,7 +308,7 @@ components:
           documentId: { type: string }
           number: { type: string }
           version: { type: string }
-      x-passage-type: dev.passage.engineering.document.released.v1
+      x-depot-type: dev.depot.engineering.document.released.v1
     ebomImported:
       name: ebomImported
       title: Engineering BOM imported
@@ -321,4 +321,4 @@ components:
           revision: { type: string }
           added: { type: integer }
           exceptions: { type: integer }
-      x-passage-type: dev.passage.engineering.ebom.imported.v1
+      x-depot-type: dev.depot.engineering.ebom.imported.v1

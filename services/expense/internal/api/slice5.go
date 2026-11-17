@@ -13,12 +13,12 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/authz"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	platformmoney "github.com/BenjaminSRussell/passage/platform/money"
-	"github.com/BenjaminSRussell/passage/services/expense/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/expense/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/authz"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	platformmoney "github.com/BenjaminSRussell/depot/platform/money"
+	"github.com/BenjaminSRussell/depot/services/expense/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/expense/internal/store"
 )
 
 // Duties of the slice-5 routes (8.43.17). Requests and the card pool use the EssExpense

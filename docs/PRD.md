@@ -1,4 +1,4 @@
-# Passage — Product Requirements Document
+# Depot — Product Requirements Document
 
 | | |
 |---|---|
@@ -45,12 +45,12 @@ Microsoft Dynamics AX (Axapta → AX 2012 → D365 Finance & Supply Chain) and S
 - **Architecturally dated** — monolithic application servers, synchronous batch frameworks, and vendor-locked cloud operation (LCS, RISE).
 - **Hard to integrate and extend with AI** — bolted-on copilots that can't act safely across the system.
 
-Passage is a ground-up rebuild of the complete feature surface of AX/SAP as an open-architecture, cloud-agnostic platform: Kubernetes-native, Postgres-per-domain, Kafka-eventing, metadata-driven, with AI agents as first-class, governed actors.
+Depot is a ground-up rebuild of the complete feature surface of AX/SAP as an open-architecture, cloud-agnostic platform: Kubernetes-native, Postgres-per-domain, Kafka-eventing, metadata-driven, with AI agents as first-class, governed actors.
 
 ## 2. Goals and non-goals
 
 ### Goals
-1. **Feature parity**: every AX 2012 / D365 F&SCM and SAP ECC / S/4 module in scope (§5) has an equivalent in Passage, mapped wave-by-wave.
+1. **Feature parity**: every AX 2012 / D365 F&SCM and SAP ECC / S/4 module in scope (§5) has an equivalent in Depot, mapped wave-by-wave.
 2. **Provable delivery**: every one of the 50 waves ends with an artifact that is (a) **provable** — automated tests and fixtures that demonstrate correctness, (b) **testable** — a stakeholder can exercise it in a running environment, and (c) **deployable** — it ships to a Kubernetes environment through the GitOps pipeline.
 3. **Sequential, top-down**: waves are strictly ordered; each wave depends only on earlier waves (dependency graph is a chain with stated back-references). A manufacturer can go live at the end of wave 30; full AX/SAP parity at wave 50.
 4. **Cloud-agnostic and self-hostable**: runs on any conformant Kubernetes (EKS/GKE/AKS/bare-metal/k3d) with no provider-specific managed services in the critical path.
@@ -90,9 +90,9 @@ Passage is a ground-up rebuild of the complete feature surface of AX/SAP as an o
 5. **Idempotent, replayable, auditable.** Posting APIs take idempotency keys; audit is derived from CDC, not from application code that can forget.
 6. **Ship the thin vertical slice.** A wave is done when a stakeholder can run the business process on a deployed environment with reconciled numbers — not when the code is written.
 
-## 5. Scope map — AX/SAP modules → Passage phases
+## 5. Scope map — AX/SAP modules → Depot phases
 
-| AX / D365 module | SAP module | Passage phase (waves) |
+| AX / D365 module | SAP module | Depot phase (waves) |
 |---|---|---|
 | AOT, security, workflow, batch, LCS, number sequences, DB log | DDIC, PFCG, Business Workflow, SM36, STMS, SNRO, CDHDR | **0 Foundation (1–5)** |
 | Org model, global address book, products, BOM/route, DIXF | Enterprise structure, Business Partner, material master, CS/CA, LSMW | **1 Master data (6–10)** |
@@ -222,7 +222,7 @@ Phase-level requirements below are the contract; wave-level detail (deliverables
 - **Workflow**: Temporal for approvals, batch, agents.
 - **Identity/authz**: Keycloak, OPA/Rego.
 - **Frontend**: React + module federation shell; PWA for shop floor, warehouse and field mobile.
-- **AI**: MCP server over Passage APIs; Claude as default model via a provider-agnostic layer; eval harness in CI.
+- **AI**: MCP server over Depot APIs; Claude as default model via a provider-agnostic layer; eval harness in CI.
 - **Observability**: OpenTelemetry → Prometheus/Tempo/Loki/Grafana.
 
 ## 10. Success metrics
@@ -230,7 +230,7 @@ Phase-level requirements below are the contract; wave-level detail (deliverables
 | Milestone | Metric |
 |---|---|
 | Wave 5 | Platform demo: deploy → login → extend entity → approve workflow → trace a request, all live. |
-| Wave 15 | A period closed in Passage with statements that tie to the trial balance to the cent. |
+| Wave 15 | A period closed in Depot with statements that tie to the trial balance to the cent. |
 | Wave 30 | Demo manufacturer runs one simulated month buy → make → sell → collect; all subledgers reconcile; stakeholder sign-off. |
 | Wave 40 | Group consolidation produced; finance parity sign-off by a practicing controller. |
 | Wave 50 | First customer month-end in production; load/DR targets met; v1.0 released. |

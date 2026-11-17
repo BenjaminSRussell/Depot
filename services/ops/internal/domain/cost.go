@@ -10,7 +10,7 @@ import (
 	"github.com/shopspring/decimal"
 )
 
-// Tenant cost statements (PSG-50, FR-50.9, BR-50.10, AC-50.7). The rules are those of docs/ops/tools/cost_meter.py, and
+// Tenant cost statements (DPT-50, FR-50.9, BR-50.10, AC-50.7). The rules are those of docs/ops/tools/cost_meter.py, and
 // cost_test.go pins the same figures as its tests:
 //
 //	cost_usd = sum(unit_rate[dim] * quantity[dim]) * (1 + overhead)

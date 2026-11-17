@@ -260,13 +260,13 @@ func TestDiffClassifier(t *testing.T) {
 		{Area: "TB", Key: "2000|USD", Legacy: d("10.00")},
 		{Area: "AP", Key: "V1", Legacy: d("5.00")},
 	}
-	passage := []Line{
-		{Area: "TB", Key: "1000|USD", Passage: d("100.01")},
-		{Area: "TB", Key: "1001|USD", Passage: d("50.00")},
-		{Area: "TB", Key: "2000|USD", Passage: d("12.00")},
-		{Area: "AP", Key: "V1", Passage: d("5.00")},
+	depot := []Line{
+		{Area: "TB", Key: "1000|USD", Depot: d("100.01")},
+		{Area: "TB", Key: "1001|USD", Depot: d("50.00")},
+		{Area: "TB", Key: "2000|USD", Depot: d("12.00")},
+		{Area: "AP", Key: "V1", Depot: d("5.00")},
 	}
-	vs := Diff(legacy, passage, DefaultRules(), ex)
+	vs := Diff(legacy, depot, DefaultRules(), ex)
 	if len(vs) != 2 {
 		t.Fatalf("want 2 variances (equal pairs skipped), got %d: %+v", len(vs), vs)
 	}
@@ -289,12 +289,12 @@ func TestDiffClassifier(t *testing.T) {
 func TestDiff_OuterJoinMissingSideIsZero(t *testing.T) {
 	vs := Diff([]Line{{Area: "INV", Key: "ITEM-1", Legacy: d("3")}}, nil, nil, Explanations{})
 	if len(vs) != 1 || vs[0].Class != ClassUnexplained || !vs[0].Delta.Equal(d("-3")) {
-		t.Fatalf("missing Passage line must be UNEXPLAINED with delta -3: %+v", vs)
+		t.Fatalf("missing Depot line must be UNEXPLAINED with delta -3: %+v", vs)
 	}
 }
 
 func TestDiff_HundredSeededVariances(t *testing.T) {
-	var legacy, passage []Line
+	var legacy, depot []Line
 	ex := Explanations{}
 	wantUnexplained := 0
 	for i := 0; i < 100; i++ {
@@ -302,18 +302,18 @@ func TestDiff_HundredSeededVariances(t *testing.T) {
 		legacy = append(legacy, Line{Area: "AR", Key: key, Legacy: d("1000")})
 		switch i % 4 {
 		case 0: // rounding, EXPECTED by RND-001
-			passage = append(passage, Line{Area: "AR", Key: key, Passage: d("1000.01")})
+			depot = append(depot, Line{Area: "AR", Key: key, Depot: d("1000.01")})
 		case 1: // explained
-			passage = append(passage, Line{Area: "AR", Key: key, Passage: d("1005")})
+			depot = append(depot, Line{Area: "AR", Key: key, Depot: d("1005")})
 			_ = ex.Explain("AR", key, "policy difference")
 		case 2: // unexplained
-			passage = append(passage, Line{Area: "AR", Key: key, Passage: d("990")})
+			depot = append(depot, Line{Area: "AR", Key: key, Depot: d("990")})
 			wantUnexplained++
 		default: // equal, not a variance
-			passage = append(passage, Line{Area: "AR", Key: key, Passage: d("1000")})
+			depot = append(depot, Line{Area: "AR", Key: key, Depot: d("1000")})
 		}
 	}
-	s := Summarize(Diff(legacy, passage, DefaultRules(), ex))
+	s := Summarize(Diff(legacy, depot, DefaultRules(), ex))
 	if s.UnexplainedCount != wantUnexplained || s.ByRule[RuleRND001] != 25 {
 		t.Fatalf("summary %+v, want unexplained %d and 25 RND-001", s, wantUnexplained)
 	}
@@ -376,9 +376,9 @@ func TestDiff_ExplanationIsScopedToArea(t *testing.T) {
 		t.Fatal(err)
 	}
 	legacy := []Line{{Area: "TB", Key: "K1", Legacy: d("100")}, {Area: "AR", Key: "K1", Legacy: d("100")}}
-	passage := []Line{{Area: "TB", Key: "K1", Passage: d("105")}, {Area: "AR", Key: "K1", Passage: d("105")}}
+	depot := []Line{{Area: "TB", Key: "K1", Depot: d("105")}, {Area: "AR", Key: "K1", Depot: d("105")}}
 	got := map[Area]string{}
-	for _, v := range Diff(legacy, passage, DefaultRules(), ex) {
+	for _, v := range Diff(legacy, depot, DefaultRules(), ex) {
 		got[v.Area] = v.Class
 	}
 	if got["TB"] != ClassExplained || got["AR"] != ClassUnexplained {

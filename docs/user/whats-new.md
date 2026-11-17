@@ -1,6 +1,6 @@
 # What's new
 
-Changes to Passage in plain language, newest first. Add an entry here for every change a user will notice. The "What's new" page in the app shows this file.
+Changes to Depot in plain language, newest first. Add an entry here for every change a user will notice. The "What's new" page in the app shows this file.
 
 ## 2026-11-10
 

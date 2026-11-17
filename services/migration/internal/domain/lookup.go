@@ -11,8 +11,8 @@ import (
 	"github.com/shopspring/decimal"
 )
 
-// Lookup tables (outbound value lookups): tenant tables that translate a Passage value to the value the legacy ERP
-// expects, by key. An enum table maps Passage codes ("kg", "pallet") to the legacy codes; a unit-of-measure table
+// Lookup tables (outbound value lookups): tenant tables that translate a Depot value to the value the legacy ERP
+// expects, by key. An enum table maps Depot codes ("kg", "pallet") to the legacy codes; a unit-of-measure table
 // holds conversion factors keyed "FROM|TO"; a price list holds a price per item key. An outbound mapping reads one
 // entry through its `lookups` and the mapping rules see it as the row field lookup.<name>. A unit conversion lookup
 // with a quantityPath yields the event quantity times the factor (exact decimal arithmetic) instead of the factor.

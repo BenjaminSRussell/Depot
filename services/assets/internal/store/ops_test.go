@@ -7,10 +7,10 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/assets/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/assets/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/assets/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/assets/internal/store"
 )
 
 // monthly is a 12-month straight-line book of 1,200.00 from 2026-01-01: 100.00 a month.
@@ -149,7 +149,7 @@ func TestStore_DepreciationRunLifecycle(t *testing.T) {
 		t.Fatalf("Σ cost %s / Σ acc %s vs book %s / %s", cost, acc, cur.Cost, cur.AccumulatedDepreciation)
 	}
 	types := outboxTypes(t, pool, ctx)
-	if types["dev.passage.assets.depreciation.posted.v1"] != 2 || types["dev.passage.assets.asset.adjusted.v1"] != 2 {
+	if types["dev.depot.assets.depreciation.posted.v1"] != 2 || types["dev.depot.assets.asset.adjusted.v1"] != 2 {
 		t.Fatalf("outbox = %v", types)
 	}
 	page, err := s.ListRuns(ctx, store.RunFilter{LegalEntityID: le, Limit: 2})
@@ -289,7 +289,7 @@ func TestStore_AdjustmentsAndAdditions(t *testing.T) {
 	if _, err := s.Adjust(ctx, asset.ID, store.AdjustmentInput{BookID: ifrs.ID, Type: domain.AdjustmentAcquisition, Date: day("2026-09-30"), Amount: d("10")}, "after-scrap"); problemCode(err) != domain.CodeAssetState {
 		t.Fatalf("adjustment on a scrapped asset: err = %v", err)
 	}
-	if types := outboxTypes(t, pool, ctx); types["dev.passage.assets.asset.adjusted.v1"] != 5 {
+	if types := outboxTypes(t, pool, ctx); types["dev.depot.assets.asset.adjusted.v1"] != 5 {
 		t.Fatalf("outbox = %v (impairment, reversal, two addition books, one selected book)", types)
 	}
 }

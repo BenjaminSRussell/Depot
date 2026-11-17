@@ -6,7 +6,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/services/production/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/production/internal/domain"
 )
 
 // CoProductInput is one co-product line of a report as finished: the quantity of

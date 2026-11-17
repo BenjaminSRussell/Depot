@@ -1,4 +1,4 @@
-# consolidation (wave 40, PSG-40, slices 1-3 and stored runs)
+# consolidation (wave 40, DPT-40, slices 1-3 and stored runs)
 
 Financial consolidation of a legal-entity group: IAS 21 translation with CTA,
 the elimination entries E1–E6 with the non-controlling interest (NCI) share,
@@ -24,8 +24,8 @@ Nothing is persisted, no run is versioned and no event is published yet.
 | Web workspace: `/consolidation`, `/consolidation/eliminations`, `/consolidation/translation` | `apps/web/src/modules/consolidation` | built, vitest |
 
 Browser calls go to `/api/v1/consol/...`; the web BFF rewrites them to the
-`/v1/consol/...` paths above and sets `X-Passage-Tenant` and
-`X-Passage-Duties`.
+`/v1/consol/...` paths above and sets `X-Depot-Tenant` and
+`X-Depot-Duties`.
 
 ## What slice 2 adds
 
@@ -87,9 +87,9 @@ difference goes to CTA (IAS 21.47). Rules version `consol-rules-2`.
 |---|---|---|
 | `POST /v1/consol/runs` (duty `consolidation.run`, `Idempotency-Key` required): run header (group, period, currency, version, status `completed`, inputs hash, `created_by`), unit balances, eliminations and statement lines inserted in one transaction | `internal/store`, `internal/api/runs.go` | built, tests |
 | `GET /v1/consol/runs` (filter `groupId`, `period`, newest first, cursor), `GET /v1/consol/runs/{id}` (balances and eliminations), `GET /v1/consol/runs/{id}/statements` (duty `consolidation.view`) | `internal/api/runs.go` | built, tests |
-| Rerun of a group, period and currency is the next version; stored rows are never updated or deleted (triggers raise 55000; `passage_app` has INSERT and SELECT only) | `migrations/0001_runs.sql`, `0002_grants.sql` | built, tests |
-| Event `dev.passage.consol.run.completed.v1` through the outbox in the run's transaction | `internal/events` | built, test |
-| Row-level security on the tenant GUC `passage.tenant_id`; the group is a column and a filter, not a legal-entity policy. All four run routes are all-entity only (403 CNS-0923 for a legal-entity-scoped caller) until group membership is stored | `migrations/0001_runs.sql` | built, tests as `passage_app` |
+| Rerun of a group, period and currency is the next version; stored rows are never updated or deleted (triggers raise 55000; `depot_app` has INSERT and SELECT only) | `migrations/0001_runs.sql`, `0002_grants.sql` | built, tests |
+| Event `dev.depot.consol.run.completed.v1` through the outbox in the run's transaction | `internal/events` | built, test |
+| Row-level security on the tenant GUC `depot.tenant_id`; the group is a column and a filter, not a legal-entity policy. All four run routes are all-entity only (403 CNS-0923 for a legal-entity-scoped caller) until group membership is stored | `migrations/0001_runs.sql` | built, tests as `depot_app` |
 
 Statement lines (group currency): `net_assets` has the opening and closing net
 assets, unit net income, CTA and its NCI and group shares; `income` has unit
@@ -115,8 +115,8 @@ balance. All of these routes need all-entity scope.
 | `GET /v1/consol/groups/{id}/collections`, `GET /v1/consol/collections/{id}`, `GET /v1/consol/collections/{id}/trial-balance`: the consolidated trial balance before eliminations with each unit's contribution, the unmapped balances and each unit's translation difference | `internal/api/collections.go` | built, tests |
 | Web: `/consolidation/groups`, `/consolidation/groups/:id`, `/consolidation/collections/:id` | `apps/web/src/modules/consolidation` | built, vitest, demo data |
 
-Collection needs `LEDGER_URL` and the service signing key (`PASSAGE_SERVICE_SIGNING_KEY_FILE`,
-`PASSAGE_SERVICE_NAME=consolidation`); the Helm chart takes them from `ledgerUrl` and
+Collection needs `LEDGER_URL` and the service signing key (`DEPOT_SERVICE_SIGNING_KEY_FILE`,
+`DEPOT_SERVICE_NAME=consolidation`); the Helm chart takes them from `ledgerUrl` and
 `serviceIdentity.signingKeySecret`. The service is granted `ledger.balance.read` on the ledger
 (`policies/authz/data.json`, `platform/go/tenant/service.go`).
 
@@ -125,8 +125,8 @@ Collection needs `LEDGER_URL` and the service signing key (`PASSAGE_SERVICE_SIGN
 ```
 cd services/consolidation
 go run ./cmd/consolidation         # HTTP_ADDR defaults to :8080
-go test ./...                      # database tests skip without PASSAGE_TEST_DATABASE_URL
-                                   # (RLS and grant tests also need PASSAGE_TEST_APP_DATABASE_URL)
+go test ./...                      # database tests skip without DEPOT_TEST_DATABASE_URL
+                                   # (RLS and grant tests also need DEPOT_TEST_APP_DATABASE_URL)
 go vet ./...
 ```
 
@@ -150,7 +150,7 @@ charts/consolidation/    Helm chart
 
 ## Error codes
 
-Problem details use `type: https://passage.dev/problems/<code>`.
+Problem details use `type: https://depot.dev/problems/<code>`.
 
 | Code | Meaning |
 |---|---|
@@ -177,4 +177,4 @@ other stored services).
 
 ## Wave reference
 
-PSG-40, PRD section 7.40 (Wave 40: Intercompany & Financial Consolidation).
+DPT-40, PRD section 7.40 (Wave 40: Intercompany & Financial Consolidation).

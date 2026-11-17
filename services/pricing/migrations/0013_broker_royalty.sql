@@ -139,56 +139,56 @@ CREATE INDEX IF NOT EXISTS contract_claim_period_ix ON contract_claim (tenant_id
 ALTER TABLE broker_contract ENABLE ROW LEVEL SECURITY;
 ALTER TABLE broker_contract FORCE ROW LEVEL SECURITY;
 CREATE POLICY broker_contract_tenant_access ON broker_contract AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY broker_contract_legal_entity_scope ON broker_contract AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 ALTER TABLE royalty_agreement ENABLE ROW LEVEL SECURITY;
 ALTER TABLE royalty_agreement FORCE ROW LEVEL SECURITY;
 CREATE POLICY royalty_agreement_tenant_access ON royalty_agreement AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY royalty_agreement_legal_entity_scope ON royalty_agreement AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 ALTER TABLE contract_period ENABLE ROW LEVEL SECURITY;
 ALTER TABLE contract_period FORCE ROW LEVEL SECURITY;
 CREATE POLICY contract_period_tenant_access ON contract_period AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY contract_period_legal_entity_scope ON contract_period AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 ALTER TABLE contract_accrual ENABLE ROW LEVEL SECURITY;
 ALTER TABLE contract_accrual FORCE ROW LEVEL SECURITY;
 CREATE POLICY contract_accrual_tenant_access ON contract_accrual AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY contract_accrual_legal_entity_scope ON contract_accrual AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 ALTER TABLE contract_claim ENABLE ROW LEVEL SECURITY;
 ALTER TABLE contract_claim FORCE ROW LEVEL SECURITY;
 CREATE POLICY contract_claim_tenant_access ON contract_claim AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY contract_claim_legal_entity_scope ON contract_claim AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 -- Application role privileges. contract_accrual is append-only. The store updates (closes,
 -- approves) or row-locks the other four tables, so they get UPDATE; nothing is deleted.
 -- Skipped when the role does not exist.
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT ON contract_accrual TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON broker_contract, royalty_agreement, contract_period, contract_claim TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT ON contract_accrual TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON broker_contract, royalty_agreement, contract_period, contract_claim TO depot_app';
   END IF;
 END
 $$;

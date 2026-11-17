@@ -36,16 +36,16 @@ create index bank_opening_balance_legacy on bank_opening_balance (tenant_id, sou
 alter table bank_opening_balance enable row level security;
 alter table bank_opening_balance force row level security;
 create policy bank_opening_balance_tenant_access on bank_opening_balance as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
--- Application role privileges. Opening balances are insert-only for passage_app: nothing updates
+-- Application role privileges. Opening balances are insert-only for depot_app: nothing updates
 -- or deletes them. Skipped when the role does not exist.
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE format('GRANT USAGE ON SCHEMA %I TO passage_app', current_schema());
-    EXECUTE 'GRANT SELECT, INSERT ON bank_opening_balance TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE format('GRANT USAGE ON SCHEMA %I TO depot_app', current_schema());
+    EXECUTE 'GRANT SELECT, INSERT ON bank_opening_balance TO depot_app';
   END IF;
 END
 $$;

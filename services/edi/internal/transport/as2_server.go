@@ -256,7 +256,7 @@ func (s *AS2Server) buildMDN(req http.Header, to, origID, mic, disposition strin
 	}
 	fmt.Fprintf(&b, "--%s\r\nContent-Type: text/plain; charset=us-ascii\r\n\r\n%s\r\n", boundary, text)
 	fmt.Fprintf(&b, "--%s\r\nContent-Type: message/disposition-notification\r\n\r\n", boundary)
-	fmt.Fprintf(&b, "Reporting-UA: passage-edi\r\nOriginal-Recipient: rfc822; %s\r\nFinal-Recipient: rfc822; %s\r\nOriginal-Message-ID: %s\r\n", s.Us.ID, s.Us.ID, origID)
+	fmt.Fprintf(&b, "Reporting-UA: depot-edi\r\nOriginal-Recipient: rfc822; %s\r\nFinal-Recipient: rfc822; %s\r\nOriginal-Message-ID: %s\r\n", s.Us.ID, s.Us.ID, origID)
 	if mic != "" {
 		fmt.Fprintf(&b, "Received-Content-MIC: %s\r\n", mic)
 	}

@@ -1,7 +1,7 @@
 // Package events holds the event types and payloads the edi service publishes.
 package events
 
-import "github.com/BenjaminSRussell/passage/platform/events"
+import "github.com/BenjaminSRussell/depot/platform/events"
 
 // Context is the bounded context segment of every event type.
 const Context = "edi"

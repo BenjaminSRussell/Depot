@@ -25,7 +25,7 @@ DATABASE_URL=postgres://... go run ./cmd/tax
 | `VERTEX_URL`, `VERTEX_TOKEN_URL`, `VERTEX_CLIENT_ID`, `VERTEX_CLIENT_SECRET`, `VERTEX_USERNAME`, `VERTEX_PASSWORD`, `VERTEX_COMPANY` | turn on the `vertex` provider, authenticated with an OAuth password grant whose token is cached until shortly before it expires |
 | `TAX_SETTLEMENT_TENANT_IDS`, `TAX_SETTLEMENT_DAY` (1 to 28, default 5), `TAX_SETTLEMENT_AT` (UTC, default `04:00`) | run the settlement of the previous calendar month for every legal entity with a ledger configuration, once a month; needs `LEDGER_URL`. A month that differs from the GL is refused (TAX-0008) and logged |
 | `TAX_RECOMMIT_TENANT_IDS`, `TAX_RECOMMIT_INTERVAL` (default 5m) | drain the recommit queue of the tenants' legal entities on a timer |
-| `PASSAGE_SERVICE_SIGNING_KEY` or `PASSAGE_SERVICE_SIGNING_KEY_FILE`, `PASSAGE_SERVICE_NAME` | the service identity the ledger call is signed with; required when `LEDGER_URL` is set. `service_grants.tax.ledger` in `policies/authz/data.json` (mirrored in `platform/go/tenant`) grants it `ledger.balance.read`, plus `ledger.entry.lookup`, `ledger.ledger.lookup` and `ledger.account.lookup` for the SAF-T export, and nothing else |
+| `DEPOT_SERVICE_SIGNING_KEY` or `DEPOT_SERVICE_SIGNING_KEY_FILE`, `DEPOT_SERVICE_NAME` | the service identity the ledger call is signed with; required when `LEDGER_URL` is set. `service_grants.tax.ledger` in `policies/authz/data.json` (mirrored in `platform/go/tenant`) grants it `ledger.balance.read`, plus `ledger.entry.lookup`, `ledger.ledger.lookup` and `ledger.account.lookup` for the SAF-T export, and nothing else |
 
 ## API
 
@@ -37,7 +37,7 @@ DATABASE_URL=postgres://... go run ./cmd/tax
 
 ### Provider fallback and recommit
 
-When an external provider fails or times out, the internal engine answers with `fallback: true` and TAX-0007, the request is queued in `tax_recommit_queue` and `dev.passage.tax.provider.fallback.v1` goes through the outbox in the same transaction. A queue failure is logged and counted (`tax_recommit_queue_failures_total`) and never fails the calculation. A request without a single legal entity cannot be queued (the queue is row-level secured per legal entity). `POST /v1/tax/recommit:run?limit=` (duty `tax.recommit.run`, default 20, at most 50) re-calculates the oldest pending entries on their provider: an answer marks the entry done and keeps the result, a provider still down leaves it pending with the attempt counted, and after 5 attempts the entry is marked `failed` and is not taken again; entries with fewer attempts are taken first, so one stuck entry cannot block newer ones. The scheduler calls it per legal entity; it holds the batch's row locks while it calls the providers, so keep the limit small.
+When an external provider fails or times out, the internal engine answers with `fallback: true` and TAX-0007, the request is queued in `tax_recommit_queue` and `dev.depot.tax.provider.fallback.v1` goes through the outbox in the same transaction. A queue failure is logged and counted (`tax_recommit_queue_failures_total`) and never fails the calculation. A request without a single legal entity cannot be queued (the queue is row-level secured per legal entity). `POST /v1/tax/recommit:run?limit=` (duty `tax.recommit.run`, default 20, at most 50) re-calculates the oldest pending entries on their provider: an answer marks the entry done and keeps the result, a provider still down leaves it pending with the attempt counted, and after 5 attempts the entry is marked `failed` and is not taken again; entries with fewer attempts are taken first, so one stuck entry cannot block newer ones. The scheduler calls it per legal entity; it holds the batch's row locks while it calls the providers, so keep the limit small.
 
 ### Tax configuration, VAT return, EU sales list and Intrastat
 
@@ -61,7 +61,7 @@ Rounding: `per_line` rounds each line's tax per code; `per_document` rounds the 
 
 `POST /v1/tax/withholding/calculate` (duty `tax.withholding.calculate`) is stateless like calculate. Body: `currency`, `party_type` (`vendor` or `customer`), `payment_date`, `code`, `gross_amount` (positive), `paid_to_date` (cumulative paid to this party this year before this payment, default 0) and inline `codes` (`code`, `jurisdiction`, `income_type`, effective-dated `rates` with `rate_pct`, optional `threshold`). With a threshold, only the part of `paid_to_date + gross_amount` above it is withheld (550 paid, 100 invoice, threshold 600: base 50). `gross_amount` may not have more decimals than the currency's minor unit, and `codes` must be unique. Tax is rounded to the currency minor unit. Response: `taxable_base`, `withholding_amount`, `net_payable`, `rate_pct` and `determination_trace`. Errors: TAX-0001 (no rate on the date), TAX-0002 (rate outside 0 to 100 or overlapping rates), TAX-0003 (requested code not in `codes`), COM-0001. Payables calls it with a signed service token; `service_grants.payables.tax` in `policies/authz/data.json` (mirrored in `platform/go/tenant`) grants it the duty. Metric: `tax_withholding_calculations_total`.
 
-Naming: the PRD calls the chart `passage-tax`; existing charts are named after the service, so the chart is `charts/tax`.
+Naming: the PRD calls the chart `depot-tax`; existing charts are named after the service, so the chart is `charts/tax`.
 
 ## Error codes
 

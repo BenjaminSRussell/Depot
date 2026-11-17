@@ -1,4 +1,4 @@
--- PSG-1516 (wave 15, slice 16): scheduled statement firings and the report
+-- DPT-1516 (wave 15, slice 16): scheduled statement firings and the report
 -- library (FR-15.8, FR-15.6, PRD §2.15.6).
 --
 -- report_schedule_firing is the record of one firing of a distribution schedule
@@ -36,11 +36,11 @@ CREATE INDEX IF NOT EXISTS report_schedule_firing_recent
 ALTER TABLE report_schedule_firing ENABLE ROW LEVEL SECURITY;
 ALTER TABLE report_schedule_firing FORCE ROW LEVEL SECURITY;
 CREATE POLICY report_schedule_firing_tenant_access ON report_schedule_firing AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY report_schedule_firing_legal_entity_scope ON report_schedule_firing AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 CREATE TABLE IF NOT EXISTS report_library_entry (
   tenant_id uuid NOT NULL,
@@ -73,17 +73,17 @@ CREATE INDEX IF NOT EXISTS report_library_entry_definition
 ALTER TABLE report_library_entry ENABLE ROW LEVEL SECURITY;
 ALTER TABLE report_library_entry FORCE ROW LEVEL SECURITY;
 CREATE POLICY report_library_entry_tenant_access ON report_library_entry AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY report_library_entry_legal_entity_scope ON report_library_entry AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 -- Both tables are written once (inserts use ON CONFLICT DO NOTHING) and only read after.
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT ON report_schedule_firing, report_library_entry TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT ON report_schedule_firing, report_library_entry TO depot_app';
   END IF;
 END
 $$;

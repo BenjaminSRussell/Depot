@@ -11,7 +11,7 @@ import { useWorkContext, WorkContext } from "./workContextState";
 
 export { useWorkContext };
 
-const storageKey = (identity: string) => `passage.workContext.${identity}`;
+const storageKey = (identity: string) => `depot.workContext.${identity}`;
 
 interface Stored {
   legalEntityId: string;

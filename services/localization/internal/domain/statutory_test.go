@@ -276,7 +276,7 @@ func TestStatutoryReferenceScriptAgrees(t *testing.T) {
 	}
 }
 
-// MX against SAT's own schema: set PASSAGE_SAT_CFDI_XSD to a local copy of
+// MX against SAT's own schema: set DEPOT_SAT_CFDI_XSD to a local copy of
 // cfdv40.xsd whose imports (catCFDI.xsd, tdCFDI.xsd) resolve locally, e.g.
 //
 //	curl -O http://www.sat.gob.mx/sitio_internet/cfd/4/cfdv40.xsd (and the two imports),
@@ -284,9 +284,9 @@ func TestStatutoryReferenceScriptAgrees(t *testing.T) {
 //
 // The fixture must validate and a mutated copy (19-digit NoCertificado) must not.
 func TestMXFixtureAgainstSATXSD(t *testing.T) {
-	xsd := os.Getenv("PASSAGE_SAT_CFDI_XSD")
+	xsd := os.Getenv("DEPOT_SAT_CFDI_XSD")
 	if xsd == "" {
-		t.Skip("PASSAGE_SAT_CFDI_XSD not set")
+		t.Skip("DEPOT_SAT_CFDI_XSD not set")
 	}
 	xmllint, err := exec.LookPath("xmllint")
 	if err != nil {

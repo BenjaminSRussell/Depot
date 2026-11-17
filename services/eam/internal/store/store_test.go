@@ -11,11 +11,11 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/eam/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/eam/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/eam/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/eam/migrations"
 )
 
 var clock = time.Date(2026, 10, 21, 0, 0, 0, 0, time.UTC)
@@ -399,7 +399,7 @@ func TestCondition_CooldownAndConversion(t *testing.T) {
 	if n := f.count(t, iot); n != 2 {
 		t.Fatalf("requests = %d, want still 2 (the second is open)", n)
 	}
-	if n := f.count(t, `select count(*) from outbox where type = 'dev.passage.eam.request.created.v1'`); n != 2 {
+	if n := f.count(t, `select count(*) from outbox where type = 'dev.depot.eam.request.created.v1'`); n != 2 {
 		t.Fatalf("request.created events = %d, want 2", n)
 	}
 }
@@ -495,10 +495,10 @@ func TestTransitionWorkOrder(t *testing.T) {
 	if err != nil || len(detail.History) != 4 || detail.History[0].To != "SCHEDULED" || deref(detail.History[0].Actor, "") != "planner-1" {
 		t.Fatalf("history = %+v %v", detail.History, err)
 	}
-	if n := f.count(t, `select count(*) from outbox where aggregate_id = $1 and type = 'dev.passage.eam.workorderstatus.changed.v1'`, wo.ID); n != 4 {
+	if n := f.count(t, `select count(*) from outbox where aggregate_id = $1 and type = 'dev.depot.eam.workorderstatus.changed.v1'`, wo.ID); n != 4 {
 		t.Fatalf("status events = %d, want 4", n)
 	}
-	if n := f.count(t, `select count(*) from outbox where aggregate_id = $1 and type = 'dev.passage.eam.workorder.completed.v1'
+	if n := f.count(t, `select count(*) from outbox where aggregate_id = $1 and type = 'dev.depot.eam.workorder.completed.v1'
 	    and payload->'data'->>'downtimeMinutes' = '90'`, wo.ID); n != 1 {
 		t.Fatalf("completed events with downtime = %d, want 1", n)
 	}
@@ -618,10 +618,10 @@ func TestListsAndWorkspace(t *testing.T) {
 
 // TestRLS_TenantIsolation runs the store as the application role (RLS in
 // force): another tenant sees none of tenant 1's rows. It needs
-// PASSAGE_TEST_APP_DATABASE_URL for a non-owner role named passage_app.
+// DEPOT_TEST_APP_DATABASE_URL for a non-owner role named depot_app.
 func TestRLS_TenantIsolation(t *testing.T) {
 	if os.Getenv(testkit.EnvURL) == "" || os.Getenv(testkit.EnvAppURL) == "" {
-		t.Skip("needs PASSAGE_TEST_DATABASE_URL and PASSAGE_TEST_APP_DATABASE_URL")
+		t.Skip("needs DEPOT_TEST_DATABASE_URL and DEPOT_TEST_APP_DATABASE_URL")
 	}
 	admin, app := testkit.DBWithApp(t)
 	ctx := context.Background()

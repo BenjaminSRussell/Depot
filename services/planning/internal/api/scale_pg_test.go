@@ -13,24 +13,24 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/planning/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/planning/internal/store"
-	"github.com/BenjaminSRussell/passage/services/planning/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/planning/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/planning/internal/store"
+	"github.com/BenjaminSRussell/depot/services/planning/migrations"
 )
 
 // EnvAPIScaleItems turns on TestRunAPI_ScalePostgres at that many items (a
 // positive multiple of 20; the issue's scale is 50000). It is skipped by
-// default and also needs PASSAGE_TEST_DATABASE_URL and
-// PASSAGE_TEST_APP_DATABASE_URL; see README.md "Scale run through the API".
-const EnvAPIScaleItems = "PASSAGE_PLANNING_API_SCALE_ITEMS"
+// default and also needs DEPOT_TEST_DATABASE_URL and
+// DEPOT_TEST_APP_DATABASE_URL; see README.md "Scale run through the API".
+const EnvAPIScaleItems = "DEPOT_PLANNING_API_SCALE_ITEMS"
 
 // EnvAPIScaleRuns is the number of runs (default 2, which also compares their
 // plan hashes). Each 50k-item version takes about 4.5 GB on disk, so a host
 // with less than about 10 GB free sets 1.
-const EnvAPIScaleRuns = "PASSAGE_PLANNING_API_SCALE_RUNS"
+const EnvAPIScaleRuns = "DEPOT_PLANNING_API_SCALE_RUNS"
 
 // TestRunAPI_ScalePostgres is AC2 of issue #22 through the HTTP API (issue
 // #479): the mrp-50k snapshot of the engine scale test (domain.ScaleSnapshot)
@@ -84,9 +84,9 @@ func TestRunAPI_ScalePostgres(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		req.Header.Set("X-Passage-Tenant", testkit.TenantID(1))
-		req.Header.Set("X-Passage-Legal-Entity", scaleLegalEntity)
-		req.Header.Set("X-Passage-Duties", dutyRun)
+		req.Header.Set("X-Depot-Tenant", testkit.TenantID(1))
+		req.Header.Set("X-Depot-Legal-Entity", scaleLegalEntity)
+		req.Header.Set("X-Depot-Duties", dutyRun)
 		resp, err := client.Do(req)
 		if err != nil {
 			t.Fatal(err)
@@ -102,9 +102,9 @@ func TestRunAPI_ScalePostgres(t *testing.T) {
 			t.Fatal(err)
 		}
 		req.Header.Set("Content-Type", "application/json")
-		req.Header.Set("X-Passage-Tenant", testkit.TenantID(1))
-		req.Header.Set("X-Passage-Legal-Entity", scaleLegalEntity)
-		req.Header.Set("X-Passage-Duties", dutyRun)
+		req.Header.Set("X-Depot-Tenant", testkit.TenantID(1))
+		req.Header.Set("X-Depot-Legal-Entity", scaleLegalEntity)
+		req.Header.Set("X-Depot-Duties", dutyRun)
 		req.Header.Set("Prefer", "respond-async")
 		req.Header.Set(idempotencyKey, fmt.Sprintf("scale-%d-%d", n, run))
 		began := time.Now()

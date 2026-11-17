@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/services/shopfloor/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/services/shopfloor/internal/domain"
 )
 
 const correctDuty = "shopfloor.time.correct,shopfloor.pay.revise,shopfloor.view"

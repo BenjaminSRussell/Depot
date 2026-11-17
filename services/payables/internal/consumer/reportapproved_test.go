@@ -12,15 +12,15 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/platform/fieldcrypt"
-	"github.com/BenjaminSRussell/passage/platform/reimbursement"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/payables/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/payables/internal/store"
-	"github.com/BenjaminSRussell/passage/services/payables/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/fieldcrypt"
+	"github.com/BenjaminSRussell/depot/platform/reimbursement"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/payables/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/payables/internal/store"
+	"github.com/BenjaminSRussell/depot/services/payables/migrations"
 )
 
 const (
@@ -35,7 +35,7 @@ func approvedEvent(t *testing.T, over func(*reimbursement.ReportApproved)) event
 	if over != nil {
 		over(&d)
 	}
-	evt, err := events.New(reimbursement.ReportApprovedType, "/passage/expense/expense", reportID, testkit.TenantID(1), d)
+	evt, err := events.New(reimbursement.ReportApprovedType, "/depot/expense/expense", reportID, testkit.TenantID(1), d)
 	if err != nil {
 		t.Fatal(err)
 	}

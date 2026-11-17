@@ -1,9 +1,9 @@
 // Package events holds the event types and payloads the lean service publishes
 // through its outbox. Types follow the kernel rule
-// dev.passage.<context>.<entity>.<verb>.v<n>. PRD 4.24.5 names the card
-// transition passage.lean.kanban.state-changed.v1; the kernel rule allows no
+// dev.depot.<context>.<entity>.<verb>.v<n>. PRD 4.24.5 names the card
+// transition depot.lean.kanban.state-changed.v1; the kernel rule allows no
 // hyphen, so the verb is "statechanged"; for the same reason the PRD's
-// passage.lean.flow-period.settled.v1 is dev.passage.lean.flowperiod.settled.v1.
+// depot.lean.flow-period.settled.v1 is dev.depot.lean.flowperiod.settled.v1.
 package events
 
 // Source is the CloudEvents source of every event this service writes.
@@ -11,12 +11,12 @@ const Source = "lean"
 
 // Event types.
 const (
-	FlowActivated      = "dev.passage.lean.flow.activated.v1"
-	FlowExpired        = "dev.passage.lean.flow.expired.v1"
-	KanbanCreated      = "dev.passage.lean.kanban.created.v1"
-	KanbanStateChanged = "dev.passage.lean.kanban.statechanged.v1"
-	JobStateChanged    = "dev.passage.lean.kanbanjob.statechanged.v1"
-	FlowPeriodSettled  = "dev.passage.lean.flowperiod.settled.v1"
+	FlowActivated      = "dev.depot.lean.flow.activated.v1"
+	FlowExpired        = "dev.depot.lean.flow.expired.v1"
+	KanbanCreated      = "dev.depot.lean.kanban.created.v1"
+	KanbanStateChanged = "dev.depot.lean.kanban.statechanged.v1"
+	JobStateChanged    = "dev.depot.lean.kanbanjob.statechanged.v1"
+	FlowPeriodSettled  = "dev.depot.lean.flowperiod.settled.v1"
 )
 
 // All lists every event type this service publishes.

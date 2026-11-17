@@ -89,8 +89,8 @@ class TestInstallLogging(unittest.TestCase):
     def test_on_under_the_eu_overlay_and_with_the_flag_only(self):
         for env, want in (
             ({}, False), ({"LOG_PSEUDONYMIZE": "false"}, False), ({"LOG_PSEUDONYMIZE": "true"}, True),
-            ({"PASSAGE_CLOUD_PROFILE": "gcc"}, False), ({"PASSAGE_CLOUD_PROFILE": "commercial+eu-data-boundary"}, True),
-            ({"PASSAGE_CLOUD_PROFILE": "commercial + eu-data-boundary"}, True), ({"PASSAGE_CLOUD_PROFILE": "commercial+eu-data-boundary\n"}, True),
+            ({"DEPOT_CLOUD_PROFILE": "gcc"}, False), ({"DEPOT_CLOUD_PROFILE": "commercial+eu-data-boundary"}, True),
+            ({"DEPOT_CLOUD_PROFILE": "commercial + eu-data-boundary"}, True), ({"DEPOT_CLOUD_PROFILE": "commercial+eu-data-boundary\n"}, True),
         ):
             self.assertEqual(lp.install_logging(env), want, env)
             self.tearDown()

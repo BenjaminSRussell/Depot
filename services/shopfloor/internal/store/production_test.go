@@ -9,13 +9,13 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/shopfloor/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/shopfloor/internal/domain"
 )
 
-// FR-25.3 and BR-25.7 through Postgres as passage_app: production finishes an operation (w21
+// FR-25.3 and BR-25.7 through Postgres as depot_app: production finishes an operation (w21
 // operation.statuschanged.v1), after which an online job-start on its job is SF-0157 and stores
 // nothing, while an offline replay of a start after the finish is accepted and flagged
 // job-finished-conflict (SF-0004); work that started before the finish and every job-stop pass;
@@ -122,7 +122,7 @@ func TestProductionFinish_StopsJobStartsUntilReopened(t *testing.T) {
 	}
 }
 
-// FR-25.3 through Postgres as passage_app: when production finishes an operation, the open
+// FR-25.3 through Postgres as depot_app: when production finishes an operation, the open
 // job-starts of every worker on its jobs are closed in the consumer's transaction by a job-stop
 // flagged production-finished (hours from the start to the finish, zero for a start after it),
 // with registration.posted; a bundled start, a start on another operation and a start that already
@@ -188,7 +188,7 @@ func TestProductionFinish_ClosesOpenStartsAndRefusesFeedback(t *testing.T) {
 		}
 		return out
 	}
-	before := countEvents(t, admin, tenantID, "dev.passage.shopfloor.registration.posted.v1")
+	before := countEvents(t, admin, tenantID, "dev.depot.shopfloor.registration.posted.v1")
 	apply(5, true, finishedAt)
 	apply(5, true, finishedAt) // the same event again: stored status is not newer, nothing more is written
 
@@ -222,7 +222,7 @@ func TestProductionFinish_ClosesOpenStartsAndRefusesFeedback(t *testing.T) {
 	if d := stopsOf(dee); len(d) != 0 {
 		t.Fatalf("a start on another operation was closed: %+v", d)
 	}
-	if got := countEvents(t, admin, tenantID, "dev.passage.shopfloor.registration.posted.v1") - before; got != 4 {
+	if got := countEvents(t, admin, tenantID, "dev.depot.shopfloor.registration.posted.v1") - before; got != 4 {
 		t.Fatalf("registration.posted after the finish = %d, want 4", got)
 	}
 	register(t, s, ctx, Registration{ID: ids.New(), WorkerID: cy, Kind: "clock-in", StartedAt: day(7, 0)})
@@ -262,11 +262,11 @@ func TestProductionFinish_ClosesOpenStartsAndRefusesFeedback(t *testing.T) {
 	for i := range replay {
 		replay[i].BundleID = &upper // the kiosk's case of the bundle id does not matter
 	}
-	corrected := countEvents(t, admin, tenantID, "dev.passage.shopfloor.registration.corrected.v1")
+	corrected := countEvents(t, admin, tenantID, "dev.depot.shopfloor.registration.corrected.v1")
 	if res := register(t, s, ctx, replay...); res[0].Status != StatusAccepted || res[1].Status != StatusAccepted {
 		t.Fatalf("offline bundle stop after the finish = %+v", res)
 	}
-	if got := countEvents(t, admin, tenantID, "dev.passage.shopfloor.registration.corrected.v1") - corrected; got != 2 {
+	if got := countEvents(t, admin, tenantID, "dev.depot.shopfloor.registration.corrected.v1") - corrected; got != 2 {
 		t.Fatalf("registration.corrected for the superseded bundle stops = %d, want 2", got)
 	}
 	sum := decimal.Zero
@@ -302,7 +302,7 @@ func TestProductionFinish_ClosesOpenStartsAndRefusesFeedback(t *testing.T) {
 	}
 }
 
-// FR-25.3 through Postgres as passage_app, concurrently: production's finish and a kiosk batch on
+// FR-25.3 through Postgres as depot_app, concurrently: production's finish and a kiosk batch on
 // the same job serialize, so the job's hours count once and no start stays open whichever commits
 // first. A finish still uncommitted makes the kiosk's stop wait, and the stop then supersedes the
 // server's (registration.corrected). A kiosk start still in flight makes the finish wait, and the
@@ -317,7 +317,7 @@ func TestProductionFinish_SerializesWithKioskBatches(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if _, err := tx.Exec(ctx, `select set_config('passage.tenant_id', $1, true)`, tenantID); err != nil {
+		if _, err := tx.Exec(ctx, `select set_config('depot.tenant_id', $1, true)`, tenantID); err != nil {
 			t.Fatal(err)
 		}
 		t.Cleanup(func() { _ = tx.Rollback(ctx) })

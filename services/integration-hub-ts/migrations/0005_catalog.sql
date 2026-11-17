@@ -3,7 +3,7 @@
 -- document (kind api) or an AsyncAPI document (kind event). The document of a
 -- published version never changes; a new version is a new row, a lifecycle moves
 -- active -> deprecated (with a sunset date at least api_deprecation_months away)
--- -> retired, and nothing is deleted, so passage_app gets no DELETE.
+-- -> retired, and nothing is deleted, so depot_app gets no DELETE.
 -- The document is stored as json, not jsonb, so it is returned exactly as published
 -- (jsonb would reorder the keys, and with them the order of paths and messages);
 -- spec_sha256 is the digest of that text, used to tell an idempotent repeat from a
@@ -48,13 +48,13 @@ CREATE INDEX IF NOT EXISTS hub_catalog_entry_name ON hub_catalog_entry (tenant_i
 ALTER TABLE hub_catalog_entry ENABLE ROW LEVEL SECURITY;
 ALTER TABLE hub_catalog_entry FORCE ROW LEVEL SECURITY;
 CREATE POLICY hub_catalog_entry_tenant_access ON hub_catalog_entry AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON hub_catalog_entry TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON hub_catalog_entry TO depot_app';
   END IF;
 END
 $$;

@@ -1,7 +1,7 @@
 // Package tenant carries the caller's tenant, legal entity, user and duties
 // through context. Until wave 2 replaces it with JWT validation at the gateway,
 // the values come from headers that are trusted only behind the gateway; the
-// gateway must strip client-supplied X-Passage-* headers (issue #82, part b;
+// gateway must strip client-supplied X-Depot-* headers (issue #82, part b;
 // see deploy/gateway/README.md). Middleware validates their shape but cannot
 // authenticate their origin.
 package tenant
@@ -18,7 +18,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/ids"
 	"github.com/go-chi/chi/v5/middleware"
 )
 
@@ -101,23 +101,23 @@ func FromContext(ctx context.Context) (Principal, bool) {
 
 // Headers the gateway sets. Internal only; never trusted from the public edge.
 const (
-	HeaderTenant      = "X-Passage-Tenant"
-	HeaderLegalEntity = "X-Passage-Legal-Entity"
-	HeaderUser        = "X-Passage-User"
-	HeaderDuties      = "X-Passage-Duties"
+	HeaderTenant      = "X-Depot-Tenant"
+	HeaderLegalEntity = "X-Depot-Legal-Entity"
+	HeaderUser        = "X-Depot-User"
+	HeaderDuties      = "X-Depot-Duties"
 	// HeaderAuthTime is the `auth_time` claim of the caller's token: the Unix second the person last authenticated at the
 	// identity provider (OIDC core 2.). The gateway sets it from the verified token and strips any value a client sends. A
 	// step-up (a 21 CFR Part 11 signature) checks it against a maximum age with AuthAge.
-	HeaderAuthTime = "X-Passage-Auth-Time"
+	HeaderAuthTime = "X-Depot-Auth-Time"
 
-	HeaderWebLegalEntity      = "X-Passage-LegalEntity"
-	HeaderLegalEntityScopeAll = "X-Passage-LegalEntity-Scope"
+	HeaderWebLegalEntity      = "X-Depot-LegalEntity"
+	HeaderLegalEntityScopeAll = "X-Depot-LegalEntity-Scope"
 	LegalEntityScopeAll       = "ALL"
 )
 
 // AuthTime is the moment the caller last authenticated, from the gateway's HeaderAuthTime. ok is false when the header is
 // missing or is not a positive Unix time. It is meaningful only for a person's request: a service-token request keeps the
-// X-Passage-* headers of whoever called it, so a caller must check Principal.Service is empty before trusting it.
+// X-Depot-* headers of whoever called it, so a caller must check Principal.Service is empty before trusting it.
 func AuthTime(r *http.Request) (time.Time, bool) {
 	secs, err := strconv.ParseInt(strings.TrimSpace(r.Header.Get(HeaderAuthTime)), 10, 64)
 	if err != nil || secs <= 0 {
@@ -142,17 +142,17 @@ func AuthAge(r *http.Request, now time.Time) (age time.Duration, ok bool) {
 
 // GatewaySecretEnv names an optional shared secret between the gateway and the services behind it. When it is set, Middleware accepts the
 // user-header identity only on a request that carries the same value in HeaderGatewaySecret, so a process that can reach a service's
-// loopback port (another user on a shared Windows Server) cannot invent X-Passage-* headers. The gateway (tools/passage-server) generates
+// loopback port (another user on a shared Windows Server) cannot invent X-Depot-* headers. The gateway (tools/depot-server) generates
 // a random value per start and sets it on every proxied request. Unset (the default, and in Kubernetes where NetworkPolicy is the
 // boundary) it changes nothing. Service tokens are signed and are not affected.
 const (
-	GatewaySecretEnv    = "PASSAGE_GATEWAY_SECRET"
-	HeaderGatewaySecret = "X-Passage-Gateway-Secret"
+	GatewaySecretEnv    = "DEPOT_GATEWAY_SECRET"
+	HeaderGatewaySecret = "X-Depot-Gateway-Secret"
 )
 
-// ForwardGatewaySecret adds the gateway secret (GatewaySecretEnv) to an outbound request that carries the caller's X-Passage-* identity headers
+// ForwardGatewaySecret adds the gateway secret (GatewaySecretEnv) to an outbound request that carries the caller's X-Depot-* identity headers
 // instead of a signed service token. A service that forwards a user's identity to a peer must call it wherever it sets HeaderTenant, or the
-// peer (which shares the secret under passage-server) refuses the call. It does nothing when the variable is unset.
+// peer (which shares the secret under depot-server) refuses the call. It does nothing when the variable is unset.
 func ForwardGatewaySecret(req *http.Request) {
 	if secret := os.Getenv(GatewaySecretEnv); secret != "" {
 		req.Header.Set(HeaderGatewaySecret, secret)
@@ -245,7 +245,7 @@ func requestLegalEntity(r *http.Request) (string, bool) {
 }
 
 // Middleware extracts the principal from headers, or from a verified service
-// token in X-Passage-Service-Token (which then replaces every user header; an
+// token in X-Depot-Service-Token (which then replaces every user header; an
 // invalid token is a 401, never a fallback to the user headers). Requests without a tenant,
 // with a malformed tenant, or with the nil system tenant are rejected with 401;
 // a malformed or conflicting legal entity scope is rejected with 400. Health
@@ -336,7 +336,7 @@ func middlewareWith(verifier func() *ServiceVerifier, next http.Handler) http.Ha
 
 func reject(w http.ResponseWriter, r *http.Request, status int, code, title, detail string) {
 	body := map[string]any{
-		"type":   "https://passage.dev/problems/" + code,
+		"type":   "https://depot.dev/problems/" + code,
 		"title":  title,
 		"status": status,
 		"code":   code,

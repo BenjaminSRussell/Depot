@@ -3,7 +3,7 @@ package events
 import (
 	"testing"
 
-	platform "github.com/BenjaminSRussell/passage/platform/events"
+	platform "github.com/BenjaminSRussell/depot/platform/events"
 )
 
 func TestTypesAreValid(t *testing.T) {

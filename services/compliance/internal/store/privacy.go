@@ -10,10 +10,10 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/compliance/internal/domain"
-	cevents "github.com/BenjaminSRussell/passage/services/compliance/internal/events"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/compliance/internal/domain"
+	cevents "github.com/BenjaminSRussell/depot/services/compliance/internal/events"
 )
 
 // Subject request error codes (listed in the service README).

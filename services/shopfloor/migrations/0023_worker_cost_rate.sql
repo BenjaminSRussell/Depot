@@ -1,4 +1,4 @@
--- PSG-25 slice 23: effective-dated worker cost rates (D2a'). A row says "from this date the worker
+-- DPT-25 slice 23: effective-dated worker cost rates (D2a'). A row says "from this date the worker
 -- costs this much an hour"; a day is priced at the latest row effective on or before its date, and
 -- at worker.cost_rate for days before the first row, so a raise or a correction no longer reprices
 -- the days before it when a supervisor recalculates them. Rows are append-only (a rate for a date
@@ -22,13 +22,13 @@ CREATE TABLE IF NOT EXISTS worker_cost_rate (
 ALTER TABLE worker_cost_rate ENABLE ROW LEVEL SECURITY;
 ALTER TABLE worker_cost_rate FORCE ROW LEVEL SECURITY;
 CREATE POLICY worker_cost_rate_tenant_access ON worker_cost_rate AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT ON worker_cost_rate TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT ON worker_cost_rate TO depot_app';
   END IF;
 END
 $$;

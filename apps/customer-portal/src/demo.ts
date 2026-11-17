@@ -1,7 +1,7 @@
 // In-browser stand-in for the portal's BFF, used only by the demo build (`vite build --mode demo`). It answers /bff and /api with
 // fictional data: Harlan Agricultural Co-op, a customer of Cedar Ridge Pumps, signed in as its accounts payable contact. Card and
 // bank account payments are simulated without Stripe.js: a card payment is paid at once, a bank account payment stays processing.
-// Requests nothing answers are listed in window.__passageDemoMisses for the demo check.
+// Requests nothing answers are listed in window.__depotDemoMisses for the demo check.
 import { fromMinor, toMinor } from "./money";
 
 interface Item {
@@ -15,7 +15,7 @@ interface Intent {
 
 declare global {
   interface Window {
-    __passageDemoMisses?: string[];
+    __depotDemoMisses?: string[];
   }
 }
 
@@ -48,7 +48,7 @@ let seq = 1;
 
 type Answer = { status: number; body: unknown };
 const ok = (body: unknown, status = 200): Answer => ({ status, body });
-const problem = (status: number, code: string, detail: string): Answer => ({ status, body: { type: `https://passage.dev/problems/${code}`, status, code, detail } });
+const problem = (status: number, code: string, detail: string): Answer => ({ status, body: { type: `https://depot.dev/problems/${code}`, status, code, detail } });
 
 const portalView = (p: Intent) => ({ ...p, allocations: p.allocations.map(({ documentNumber, amount: a }) => ({ documentNumber, amount: a })) });
 
@@ -145,7 +145,7 @@ function handle(method: string, url: URL, body: unknown): Answer | undefined {
 
 export function installDemo(): void {
   const misses: string[] = [];
-  window.__passageDemoMisses = misses;
+  window.__depotDemoMisses = misses;
   const real = window.fetch.bind(window);
   window.fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
     const url = new URL(typeof input === "string" ? input : input instanceof URL ? input.href : input.url, window.location.origin);

@@ -20,7 +20,7 @@ func posting(kind, entity, ref, at, account, amount string) string {
 		kind, entity, ref, at, account, amount, ref)
 }
 
-// AC-49.7 (FR-49.9): when a rehearsal cutover rolls back, the Passage postings since T-0 are
+// AC-49.7 (FR-49.9): when a rehearsal cutover rolls back, the Depot postings since T-0 are
 // exported as re-keying files, kept with the plan and served as CSV.
 func TestRollback_ExportsPostingsSinceT0AsRekeyingFiles(t *testing.T) {
 	h, admin := dbServer(t)
@@ -79,7 +79,7 @@ func TestRollback_ExportsPostingsSinceT0AsRekeyingFiles(t *testing.T) {
 		t.Fatalf("stored rekey lines = %d, want 5 (the replay stores nothing)", n)
 	}
 	var payload []byte
-	if err := admin.QueryRow(context.Background(), `select payload from outbox where type = 'dev.passage.cutover.plan.rolledback.v1' and aggregate_id = $1`, plan.PlanID).Scan(&payload); err != nil {
+	if err := admin.QueryRow(context.Background(), `select payload from outbox where type = 'dev.depot.cutover.plan.rolledback.v1' and aggregate_id = $1`, plan.PlanID).Scan(&payload); err != nil {
 		t.Fatal(err)
 	}
 	var evt struct {

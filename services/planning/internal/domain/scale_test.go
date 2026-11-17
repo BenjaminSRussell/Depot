@@ -12,12 +12,12 @@ import (
 
 // EnvScaleItems sets the size of the scale run. Unset, a 5,000-item snapshot
 // of the same shape keeps determinism covered in every test run; the issue's
-// scale (AC2, AC-22.3) is PASSAGE_PLANNING_SCALE_ITEMS=50000, which peaks near
+// scale (AC2, AC-22.3) is DEPOT_PLANNING_SCALE_ITEMS=50000, which peaks near
 // 5.5 GB RSS and takes about 40 s, so it is opt-in.
-const EnvScaleItems = "PASSAGE_PLANNING_SCALE_ITEMS"
+const EnvScaleItems = "DEPOT_PLANNING_SCALE_ITEMS"
 
 // TestRun_Scale50kDeterministic is AC2 and AC-22.3 at engine level when run
-// with PASSAGE_PLANNING_SCALE_ITEMS=50000: the 50k-item, 12-period, 5-level
+// with DEPOT_PLANNING_SCALE_ITEMS=50000: the 50k-item, 12-period, 5-level
 // plan runs three times (the second with the snapshot in reverse order) well
 // inside 10 minutes, with one plan hash, and the explain tree of every planned
 // order covers its whole quantity (AC3). Without the variable it runs the same

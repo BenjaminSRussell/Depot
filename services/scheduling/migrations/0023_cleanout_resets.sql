@@ -30,13 +30,13 @@ CREATE INDEX IF NOT EXISTS scheduling_cleanout_reset_resource ON scheduling_clea
 ALTER TABLE scheduling_cleanout_reset ENABLE ROW LEVEL SECURITY;
 ALTER TABLE scheduling_cleanout_reset FORCE ROW LEVEL SECURITY;
 CREATE POLICY scheduling_cleanout_reset_tenant_access ON scheduling_cleanout_reset AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT ON scheduling_cleanout_reset TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT ON scheduling_cleanout_reset TO depot_app';
   END IF;
 END
 $$;

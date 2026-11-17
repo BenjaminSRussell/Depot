@@ -43,9 +43,9 @@ CREATE TRIGGER ap_payment_proposal_line_guard BEFORE UPDATE ON ap_payment_propos
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT UPDATE (cancelled_by, cancelled_at) ON ap_payment_proposal TO passage_app';
-    EXECUTE 'GRANT UPDATE (reserved) ON ap_payment_proposal_line TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT UPDATE (cancelled_by, cancelled_at) ON ap_payment_proposal TO depot_app';
+    EXECUTE 'GRANT UPDATE (reserved) ON ap_payment_proposal_line TO depot_app';
   END IF;
 END
 $$;

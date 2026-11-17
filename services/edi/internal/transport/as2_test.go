@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-const x12Payload = "ISA*00*          *00*          *ZZ*PASSAGE        *ZZ*DISTRIBUTOR    *261105*0900*U*00401*000000042*0*T*>~GS*IN*PASSAGE*DISTRIBUTOR*20261105*0900*42*X*004010~ST*810*0001~SE*2*0001~GE*1*42~IEA*1*000000042~"
+const x12Payload = "ISA*00*          *00*          *ZZ*DEPOT          *ZZ*DISTRIBUTOR    *261105*0900*U*00401*000000042*0*T*>~GS*IN*DEPOT*DISTRIBUTOR*20261105*0900*42*X*004010~ST*810*0001~SE*2*0001~GE*1*42~IEA*1*000000042~"
 
 type as2Fixture struct {
 	us, partner keyPair
@@ -25,14 +25,14 @@ type as2Fixture struct {
 }
 
 // newAS2Fixture starts a partner AS2 server (DISTRIBUTOR) that trusts our
-// certificate, and returns a client from PASSAGE to it.
+// certificate, and returns a client from DEPOT to it.
 func newAS2Fixture(t *testing.T) (*as2Fixture, *AS2Client) {
 	t.Helper()
-	f := &as2Fixture{us: newKeyPair(t, "PASSAGE", false), partner: newKeyPair(t, "DISTRIBUTOR", true)}
+	f := &as2Fixture{us: newKeyPair(t, "DEPOT", false), partner: newKeyPair(t, "DISTRIBUTOR", true)}
 	f.server = &AS2Server{
 		Us: AS2Identity{ID: "DISTRIBUTOR", Cert: f.partner.cert, Key: f.partner.key},
 		Partner: func(from string) (AS2Partner, bool) {
-			return AS2Partner{ID: "PASSAGE", Cert: f.us.cert, RequireSigned: true}, from == "PASSAGE"
+			return AS2Partner{ID: "DEPOT", Cert: f.us.cert, RequireSigned: true}, from == "DEPOT"
 		},
 		Deliver: func(_ context.Context, _ string, m Message) error {
 			f.mu.Lock()
@@ -48,7 +48,7 @@ func newAS2Fixture(t *testing.T) (*as2Fixture, *AS2Client) {
 	f.srv = httptest.NewServer(f.server)
 	t.Cleanup(f.srv.Close)
 	c := &AS2Client{
-		Us:               AS2Identity{ID: "PASSAGE", Cert: f.us.cert, Key: f.us.key},
+		Us:               AS2Identity{ID: "DEPOT", Cert: f.us.cert, Key: f.us.key},
 		Partner:          AS2Partner{ID: "DISTRIBUTOR", URL: f.srv.URL, Cert: f.partner.cert},
 		HTTP:             f.srv.Client(),
 		RequireSignedMDN: true,
@@ -63,14 +63,14 @@ func x12Message(id string) Message {
 
 func TestAS2_SignedMessageAndSignedMDNRoundTrip(t *testing.T) {
 	f, c := newAS2Fixture(t)
-	r, err := c.Send(context.Background(), x12Message("passage-000000042"))
+	r, err := c.Send(context.Background(), x12Message("depot-000000042"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !r.SignedMDN || r.Transport != "as2" || r.Reference != "<passage-000000042>" || !strings.HasSuffix(r.MIC, ", sha-256") || !strings.HasSuffix(r.Disposition, "; processed") {
+	if !r.SignedMDN || r.Transport != "as2" || r.Reference != "<depot-000000042>" || !strings.HasSuffix(r.MIC, ", sha-256") || !strings.HasSuffix(r.Disposition, "; processed") {
 		t.Fatalf("receipt %+v", r)
 	}
-	if len(f.got) != 1 || string(f.got[0].Payload) != x12Payload || f.got[0].ContentType != ContentX12 || f.got[0].ID != "passage-000000042" || f.got[0].Filename != "passage-000000042.x12" {
+	if len(f.got) != 1 || string(f.got[0].Payload) != x12Payload || f.got[0].ContentType != ContentX12 || f.got[0].ID != "depot-000000042" || f.got[0].Filename != "depot-000000042.x12" {
 		t.Fatalf("delivered %+v", f.got)
 	}
 	// A binary payload with CRLF and a boundary-like line survives unchanged.
@@ -86,7 +86,7 @@ func TestAS2_SignedMessageAndSignedMDNRoundTrip(t *testing.T) {
 func TestAS2_PartnerRefusalsAreErrRejected(t *testing.T) {
 	t.Run("signature by a key the partner does not trust", func(t *testing.T) {
 		_, c := newAS2Fixture(t)
-		c.Us.Key = newKeyPair(t, "PASSAGE", false).key
+		c.Us.Key = newKeyPair(t, "DEPOT", false).key
 		_, err := c.Send(context.Background(), x12Message("m1"))
 		if !errors.Is(err, ErrRejected) || !strings.Contains(err.Error(), "authentication-failed") {
 			t.Fatalf("err = %v", err)
@@ -147,11 +147,11 @@ func TestAS2_ForgedOrMismatchedMDNIsRefused(t *testing.T) {
 			_, _ = w.Write(mdn)
 		}))
 		defer srv.Close()
-		c := &AS2Client{Us: AS2Identity{ID: "PASSAGE"}, Partner: AS2Partner{ID: "DISTRIBUTOR", URL: srv.URL}, HTTP: srv.Client()}
+		c := &AS2Client{Us: AS2Identity{ID: "DEPOT"}, Partner: AS2Partner{ID: "DISTRIBUTOR", URL: srv.URL}, HTTP: srv.Client()}
 		if _, err := c.Send(context.Background(), x12Message("other")); !errors.Is(err, ErrSignature) || !strings.Contains(err.Error(), "MDN answers") {
 			t.Fatalf("err = %v", err)
 		}
-		if _, err := c.Send(context.Background(), x12Message("passage-000000042@PASSAGE")); !errors.Is(err, ErrSignature) || !strings.Contains(err.Error(), "MIC") {
+		if _, err := c.Send(context.Background(), x12Message("depot-000000042@DEPOT")); !errors.Is(err, ErrSignature) || !strings.Contains(err.Error(), "MIC") {
 			t.Fatalf("err = %v", err)
 		}
 	})
@@ -168,7 +168,7 @@ func TestReadMDN_GoldenPartnerMDN(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if mdn.OriginalMessageID != "<passage-000000042@PASSAGE>" || mdn.MIC != "7v7F++Fq0FNA6tfz9m6aJFHPsThPHmXYXRK1zsaTRh4=, sha-256" || !mdn.Processed() || mdn.Signed {
+	if mdn.OriginalMessageID != "<depot-000000042@DEPOT>" || mdn.MIC != "7v7F++Fq0FNA6tfz9m6aJFHPsThPHmXYXRK1zsaTRh4=, sha-256" || !mdn.Processed() || mdn.Signed {
 		t.Fatalf("%+v", mdn)
 	}
 	for _, d := range []string{"automatic-action/MDN-sent-automatically; processed/error: authentication-failed", "manual-action/MDN-sent-manually; failed/Failure: unsupported format", "garbage"} {
@@ -195,7 +195,7 @@ func TestAS2Server_RejectsGetAndMissingMessageID(t *testing.T) {
 		t.Fatalf("GET = %d", resp.StatusCode)
 	}
 	req, _ := http.NewRequest(http.MethodPost, f.srv.URL, strings.NewReader("x"))
-	req.Header.Set("AS2-From", "PASSAGE")
+	req.Header.Set("AS2-From", "DEPOT")
 	req.Header.Set("AS2-To", "DISTRIBUTOR")
 	resp, err = http.DefaultClient.Do(req)
 	if err != nil {

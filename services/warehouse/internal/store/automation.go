@@ -11,9 +11,9 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/warehouse/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/warehouse/internal/domain"
 )
 
 // RFID reads (FR-32.9) and warehouse automation (FR-32.12) in the store.
@@ -438,7 +438,7 @@ func (s *Store) ReportAutomationOrder(ctx context.Context, id, status, reason st
 	return out, err
 }
 
-// AutomationEvent is what a PLC reported (the payload of dev.passage.warehouse.automation.event.v1).
+// AutomationEvent is what a PLC reported (the payload of dev.depot.warehouse.automation.event.v1).
 type AutomationEvent struct {
 	Kind string
 	// Session names the connector's link session to the PLC. The PLC numbers its telegrams per session (from 1 again

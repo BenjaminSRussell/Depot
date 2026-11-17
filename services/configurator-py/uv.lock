@@ -459,7 +459,7 @@ wheels = [
 ]
 
 [[package]]
-name = "passage-configurator"
+name = "depot-configurator"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [

@@ -1,6 +1,6 @@
 # revrec
 
-Passage revenue recognition context (wave 29, PSG-29). It allocates a contract's
+Depot revenue recognition context (wave 29, DPT-29). It allocates a contract's
 transaction price across its performance obligations by standalone selling price
 (SSP, ASC 606 / IFRS 15, BR-29.1 to BR-29.3), plans and recognizes the revenue
 schedules, and reports the deferred revenue roll-forward (FR-29.7 to FR-29.9).
@@ -63,7 +63,7 @@ charts/revrec/          Helm chart (DATABASE_URL from the revrec-db secret, admi
 | GET | `/v1/revrec/gl-reconciliation?legalEntityId=&currency=&period=YYYY-MM` | `revrec.view` | revenue recognized through the month end against the ledger's 2400 debits through the same period (`difference`), and the roll-forward's closing deferred balance (allocated deferred amounts less recognized) against the ledger's closing 2400 balance, credits less debits (`closingDifference`; the roll-forward adds on `contractDate`, the ledger on the invoice's posting date, so a later-posted invoice is a timing difference until it posts); `reconciled` needs both differences at zero. Credit notes: the debit side is recognized plus `creditNotes` (the deferred parts billing debited to 2400, reversed by the consumer), and `reversed` (recognized revenue revrec reverses, a 2400 credit) is in the closing |
 
 Duties are enforced with `platform/authz` (401 without a principal, 403 `AUTH-0003`
-without the duty). A principal scoped to one legal entity (`X-Passage-Legal-Entity`)
+without the duty). A principal scoped to one legal entity (`X-Depot-Legal-Entity`)
 gets 403 `AUTH-0003` when it creates a contract, runs recognition or reads a
 roll-forward for another entity, and row-level security hides other entities'
 contracts and runs from its reads.
@@ -125,7 +125,7 @@ contracts and runs from its reads.
   reversals (REV-0303 otherwise). One `credit_note_reversal` row per (credit note,
   line) makes it idempotent; REV-0300 (no contract for the order), REV-0301 (several),
   REV-0302 (no deferred obligation for the product), REV-0303 and REV-0304 (currency)
-  park the event on `passage.revrec.creditnotes.dlq`, anything else is retried.
+  park the event on `depot.revrec.creditnotes.dlq`, anything else is retried.
 - **Versions**: a contract starts at version 1; every satisfaction and every run
   that recognizes one of its lines bumps it. A contract becomes COMPLETE when no
   line is SCHEDULED and it has no USAGE obligation.
@@ -134,11 +134,11 @@ contracts and runs from its reads.
 
 | Type | When |
 |---|---|
-| `dev.passage.revrec.contract.allocated.v1` | contract created |
-| `dev.passage.revrec.schedule.recognized.v1` | milestone satisfied; each line of a recognition run |
+| `dev.depot.revrec.contract.allocated.v1` | contract created |
+| `dev.depot.revrec.schedule.recognized.v1` | milestone satisfied; each line of a recognition run |
 
 Both are written to the outbox in the same transaction and keyed by contract id.
-Consumed: `dev.passage.billing.creditnote.booked.v1` on `passage.billing.invoice` (the
+Consumed: `dev.depot.billing.creditnote.booked.v1` on `depot.billing.invoice` (the
 credit-note consumer, `revrec consume`; KafkaUser and dead-letter topic in
 `deploy/kafka/revrec-consumer.yaml`, chart `consumer.*`, off by default). Billing's
 outbox connector, which creates that topic, is not in `deploy/kafka/connect.yaml` yet.
@@ -153,9 +153,9 @@ id once the ledger answers.
 ## Ledger
 
 `LEDGER_URL` (and `LEDGER_TIMEOUT`) with the service signing key
-(`PASSAGE_SERVICE_NAME=revrec`, `PASSAGE_SERVICE_SIGNING_KEY[_FILE]`) enable the
+(`DEPOT_SERVICE_NAME=revrec`, `DEPOT_SERVICE_SIGNING_KEY[_FILE]`) enable the
 posting and the reconciliation through `platform/ledgerclient`; the ledger must trust
-revrec's public key (`PASSAGE_SERVICE_PUBLIC_KEYS`). The service holds only
+revrec's public key (`DEPOT_SERVICE_PUBLIC_KEYS`). The service holds only
 `ledger.entry.post`, `ledger.balance.read` and `ledger.ledger.lookup` (`service_grants`; the
 lookup pins the configured ledger to its legal entity before each posting call). A line is claimed
 for a posting in the transaction that creates the posting row, so no line is posted
@@ -192,7 +192,7 @@ DATABASE_URL=postgres://... MIGRATE_ON_START=true HTTP_ADDR=:8080 ADMIN_ADDR=:90
 
 ```
 go vet ./... && go test ./...
-PASSAGE_TEST_DATABASE_URL=postgres://... go test ./internal/store/   # Postgres tests (skipped without the URL)
+DEPOT_TEST_DATABASE_URL=postgres://... go test ./internal/store/   # Postgres tests (skipped without the URL)
 ```
 
 The domain tests cover the BR-29.1 example, the residual cases, the schedule

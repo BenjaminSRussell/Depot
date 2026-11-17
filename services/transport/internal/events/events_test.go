@@ -20,10 +20,10 @@ func TestAsyncAPI_ListsEveryEventType(t *testing.T) {
 		documented = append(documented, m[1])
 	}
 	published := []string{FreightBillMatched, FreightBillApproved, LoadReleased, TenderAccepted, TenderDeclined, TenderExpired, TrackingEventRecorded, LandedCostPosted, GateCheckedIn, GoodsInTransitShipped}
-	naming := regexp.MustCompile(`^dev\.passage\.tms\.[a-z]+\.[a-z]+\.v1$`)
+	naming := regexp.MustCompile(`^dev\.depot\.tms\.[a-z]+\.[a-z]+\.v1$`)
 	for _, typ := range published {
 		if !naming.MatchString(typ) {
-			t.Errorf("%s does not follow dev.passage.<ctx>.<entity>.<verb>.v1", typ)
+			t.Errorf("%s does not follow dev.depot.<ctx>.<entity>.<verb>.v1", typ)
 		}
 	}
 	sort.Strings(documented)

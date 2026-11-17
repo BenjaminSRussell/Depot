@@ -7,8 +7,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/openingimport"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/openingimport"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
 )
 
 // Opening import of payroll year-to-date balances at cutover (#49). A balance is one amount per worker, tax year and pay element. Nothing is posted and

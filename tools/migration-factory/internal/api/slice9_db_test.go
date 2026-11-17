@@ -52,8 +52,8 @@ func TestOnhand_LoadReconcileAndRerunLoadsNothing(t *testing.T) {
 	if n := count(t, admin, `select count(*) from onhand_opening_balance where run_id = $1 and item = 'BOLT-10' and site = 'S2' and quantity = 40 and value = 100.25`, run.RunID); n != 1 {
 		t.Fatalf("opening stock rows for BOLT-10/S2 = %d", n)
 	}
-	if n := count(t, admin, `select count(*) from legacy_xref x join onhand_opening_balance b on b.legacy_xref_id = x.xref_id and b.balance_id = x.passage_id
-		where x.source_table = 'onhand' and x.passage_entity = 'onhand_opening_balance'`); n != 3 {
+	if n := count(t, admin, `select count(*) from legacy_xref x join onhand_opening_balance b on b.legacy_xref_id = x.xref_id and b.balance_id = x.depot_id
+		where x.source_table = 'onhand' and x.depot_entity = 'onhand_opening_balance'`); n != 3 {
 		t.Fatalf("xref rows tied to their opening stock = %d, want 3", n)
 	}
 	xref := do(t, h, request{method: "GET", path: "/api/v1/migration/xref?system=AX2012&company=USMF&table=onhand&id=OH-2", tenant: tenantA})
@@ -72,7 +72,7 @@ func TestOnhand_LoadReconcileAndRerunLoadsNothing(t *testing.T) {
 	if n := count(t, admin, `select count(*) from onhand_opening_balance`); n != 3 {
 		t.Fatalf("opening stock after the re-run = %d, want 3", n)
 	}
-	if n := count(t, admin, `select count(*) from outbox where type = 'dev.passage.migration.pack.reconciled.v1'`); n != 2 {
+	if n := count(t, admin, `select count(*) from outbox where type = 'dev.depot.migration.pack.reconciled.v1'`); n != 2 {
 		t.Fatalf("pack.reconciled events = %d, want one per run", n)
 	}
 
@@ -247,7 +247,7 @@ func TestOnhand_IdempotencyKeyReplays(t *testing.T) {
 	}
 }
 
-// A serial is one unit: once Passage holds it for the company, a later extract that has moved it
+// A serial is one unit: once Depot holds it for the company, a later extract that has moved it
 // to another site under a new legacy id is refused whole, and the database refuses it even past
 // the check. The same serial text on another item, or in another company, is a different unit.
 func TestOnhand_SerialAlreadyHeldElsewhereIsRefused(t *testing.T) {
@@ -272,12 +272,12 @@ func TestOnhand_SerialAlreadyHeldElsewhereIsRefused(t *testing.T) {
 		t.Fatalf("the same serial in another company: %d %s", r.Code, r.Body)
 	}
 	_, err := admin.Exec(context.Background(), `with b as (select * from onhand_opening_balance where legacy_id = 'OH-3'),
-		x as (insert into legacy_xref (tenant_id, xref_id, source_system, source_company, source_table, source_id, passage_entity, passage_id, run_id, amount, currency)
+		x as (insert into legacy_xref (tenant_id, xref_id, source_system, source_company, source_table, source_id, depot_entity, depot_id, run_id, amount, currency)
 			select tenant_id, gen_random_uuid(), source_system, source_company, 'onhand', 'OH-99', 'onhand_opening_balance', gen_random_uuid(), run_id, 1, currency from b
-			returning tenant_id, xref_id, passage_id)
+			returning tenant_id, xref_id, depot_id)
 		insert into onhand_opening_balance (tenant_id, balance_id, run_id, legacy_xref_id, source_system, source_company,
 			legacy_id, item, site, warehouse, serial, unit, quantity, value, currency)
-		select b.tenant_id, x.passage_id, b.run_id, x.xref_id, b.source_system, b.source_company, 'OH-99', b.item, 'S8', b.warehouse, b.serial, b.unit, 1, 1, b.currency
+		select b.tenant_id, x.depot_id, b.run_id, x.xref_id, b.source_system, b.source_company, 'OH-99', b.item, 'S8', b.warehouse, b.serial, b.unit, 1, 1, b.currency
 		from b join x on x.tenant_id = b.tenant_id`)
 	if err == nil || !strings.Contains(err.Error(), "onhand_opening_balance_serial") {
 		t.Fatalf("the database must hold a serial once per item and company: %v", err)

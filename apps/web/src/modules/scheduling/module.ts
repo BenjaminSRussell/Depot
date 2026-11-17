@@ -1,5 +1,5 @@
 import { createElement } from "react";
-import type { PassageModule } from "../registry";
+import type { DepotModule } from "../registry";
 import { BlockReportPage } from "./BlockReportPage";
 import { BottleneckDetailPage } from "./BottleneckDetailPage";
 import { BottlenecksPage } from "./BottlenecksPage";
@@ -45,7 +45,7 @@ import { SetupMatricesPage } from "./SetupMatricesPage";
 import { SetupMatrixDetailPage } from "./SetupMatrixDetailPage";
 import { WorkspacePage } from "./WorkspacePage";
 
-const scheduling: PassageModule = {
+const scheduling: DepotModule = {
   id: "scheduling",
   title: "Scheduling",
   description:

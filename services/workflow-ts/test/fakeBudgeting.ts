@@ -47,7 +47,7 @@ export class FakeBudgeting {
   private readonly afterEffect = new Map<Action, Hook>();
 
   readonly fetch: typeof fetch = async (input, init) => {
-    const claims = decodeClaims(new Headers(init?.headers).get("X-Passage-Service-Token"));
+    const claims = decodeClaims(new Headers(init?.headers).get("X-Depot-Service-Token"));
     if (!claims || claims.iss !== "workflow-ts" || claims.aud !== "budgeting" || claims.duties.join() !== "budget.plan.workflow" || !claims.act) {
       return problem(401, "missing or wrong service token");
     }

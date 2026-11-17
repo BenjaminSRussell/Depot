@@ -38,12 +38,12 @@ ALTER TABLE transport_mdn ENABLE ROW LEVEL SECURITY;
 ALTER TABLE transport_mdn FORCE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS transport_mdn_tenant_access ON transport_mdn;
 CREATE POLICY transport_mdn_tenant_access ON transport_mdn AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 DROP POLICY IF EXISTS transport_mdn_legal_entity_scope ON transport_mdn;
 CREATE POLICY transport_mdn_legal_entity_scope ON transport_mdn AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 -- When an AWAITING_MDN delivery stops waiting (EDI_AS2_MDN_TIMEOUT_MINUTES after it was sent, set by the dispatcher)
 -- and how many times it timed out. Only AWAITING_MDN rows have a due time. Rows that were AWAITING_MDN before this
@@ -115,9 +115,9 @@ CREATE TRIGGER transport_mdn_track AFTER INSERT OR UPDATE OF status, next_attemp
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON transport_mdn TO passage_app';
-    EXECUTE 'GRANT EXECUTE ON FUNCTION edi_transport_due_tenants(text) TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON transport_mdn TO depot_app';
+    EXECUTE 'GRANT EXECUTE ON FUNCTION edi_transport_due_tenants(text) TO depot_app';
   END IF;
 END
 $$;

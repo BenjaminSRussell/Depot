@@ -10,11 +10,11 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/store"
 )
 
 const (
@@ -117,7 +117,7 @@ func TestAsn_BoundTrackingIsolationAndOneReceipt(t *testing.T) {
 		"a return to OPEN":        `update ` + asnTable + ` set status = 'OPEN', receipt_id = null where id = '` + payeeOne + `'`,
 	} {
 		if err := db.run(db.one, sql); err == nil {
-			t.Errorf("passage_app must not run %s", name)
+			t.Errorf("depot_app must not run %s", name)
 		}
 	}
 }

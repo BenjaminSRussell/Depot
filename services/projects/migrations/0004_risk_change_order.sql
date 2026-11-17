@@ -1,4 +1,4 @@
--- Slice 3 (PSG-4103): contract value, change orders and claims (FR-41.18,
+-- Slice 3 (DPT-4103): contract value, change orders and claims (FR-41.18,
 -- BR-41.13) and the risk and issue register (FR-41.20). Additive only.
 
 -- The project's contract value (BR-41.1 reads it; BR-41.13 adjusts it).
@@ -49,8 +49,8 @@ CREATE TABLE IF NOT EXISTS project_change_order (
 ALTER TABLE project_change_order ENABLE ROW LEVEL SECURITY;
 ALTER TABLE project_change_order FORCE ROW LEVEL SECURITY;
 CREATE POLICY project_change_order_tenant_access ON project_change_order AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 -- Legal-entity scope through the owning project (itself scoped by RLS).
 CREATE POLICY project_change_order_legal_entity_scope ON project_change_order AS RESTRICTIVE
   USING (EXISTS (SELECT 1 FROM project p WHERE p.tenant_id = project_change_order.tenant_id AND p.id = project_change_order.project_id));
@@ -77,8 +77,8 @@ CREATE TABLE IF NOT EXISTS project_change_order_line (
 ALTER TABLE project_change_order_line ENABLE ROW LEVEL SECURITY;
 ALTER TABLE project_change_order_line FORCE ROW LEVEL SECURITY;
 CREATE POLICY project_change_order_line_tenant_access ON project_change_order_line AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY project_change_order_line_legal_entity_scope ON project_change_order_line AS RESTRICTIVE
   USING (EXISTS (SELECT 1 FROM project_change_order c WHERE c.tenant_id = project_change_order_line.tenant_id AND c.id = project_change_order_line.change_order_id));
 
@@ -107,8 +107,8 @@ CREATE TABLE IF NOT EXISTS project_risk_issue (
 ALTER TABLE project_risk_issue ENABLE ROW LEVEL SECURITY;
 ALTER TABLE project_risk_issue FORCE ROW LEVEL SECURITY;
 CREATE POLICY project_risk_issue_tenant_access ON project_risk_issue AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY project_risk_issue_legal_entity_scope ON project_risk_issue AS RESTRICTIVE
   USING (EXISTS (SELECT 1 FROM project p WHERE p.tenant_id = project_risk_issue.tenant_id AND p.id = project_risk_issue.project_id));
 CREATE INDEX IF NOT EXISTS project_risk_issue_project_idx ON project_risk_issue (tenant_id, project_id, status, id);

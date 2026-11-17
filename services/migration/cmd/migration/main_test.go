@@ -19,7 +19,7 @@ func TestRun(t *testing.T) {
 		{"unparseable database url", map[string]string{"DATABASE_URL": "://bad"}, "connect database"},
 		{"bad egress allowlist", map[string]string{"DATABASE_URL": "postgres://x", "MIG_EGRESS_ALLOW": "10.0.0.0/99"}, "MIG_EGRESS_ALLOW"},
 		{"target address without a signing key", map[string]string{"DATABASE_URL": "postgres://x", "MIG_TARGET_PARTY_URL": "http://party:8080"}, "signing key"},
-		{"signing key for another service", map[string]string{"DATABASE_URL": "postgres://x", "MIG_TARGET_PARTY_URL": "http://party:8080", "PASSAGE_SERVICE_NAME": "receiving", "PASSAGE_SERVICE_SIGNING_KEY": base64.StdEncoding.EncodeToString(bytes.Repeat([]byte{2}, 32))}, `must be "migration"`},
+		{"signing key for another service", map[string]string{"DATABASE_URL": "postgres://x", "MIG_TARGET_PARTY_URL": "http://party:8080", "DEPOT_SERVICE_NAME": "receiving", "DEPOT_SERVICE_SIGNING_KEY": base64.StdEncoding.EncodeToString(bytes.Repeat([]byte{2}, 32))}, `must be "migration"`},
 		{"bad fieldcrypt keys", map[string]string{"DATABASE_URL": "postgres://x", "FIELDCRYPT_KEYS": "k=not-base64", "FIELDCRYPT_CURRENT_KEY_ID": "k"}, "fieldcrypt keys"},
 	}
 	for _, tc := range tests {
@@ -65,8 +65,8 @@ func TestTargetConfig(t *testing.T) {
 		t.Fatalf("unset = %+v, %v; the service must stay on the 501 backend", cfg, err)
 	}
 	env := map[string]string{
-		"MIG_TARGET_PARTY_URL": "http://party:8080", "PASSAGE_SERVICE_NAME": "migration",
-		"PASSAGE_SERVICE_SIGNING_KEY": base64.StdEncoding.EncodeToString(bytes.Repeat([]byte{3}, 32)),
+		"MIG_TARGET_PARTY_URL": "http://party:8080", "DEPOT_SERVICE_NAME": "migration",
+		"DEPOT_SERVICE_SIGNING_KEY": base64.StdEncoding.EncodeToString(bytes.Repeat([]byte{3}, 32)),
 	}
 	cfg, err = targetConfig(func(k string) string { return env[k] })
 	if err != nil || !cfg.Configured() || cfg.PartyURL != "http://party:8080" || cfg.ProductURL != "" {
@@ -78,11 +78,11 @@ func TestTargetConfig(t *testing.T) {
 	}
 	// Misconfiguration stops the service instead of falling back to 501 or sending unsigned calls.
 	for name, bad := range map[string]map[string]string{
-		"address without a key":  {"MIG_TARGET_PRODUCT_URL": "http://product:8080", "PASSAGE_SERVICE_NAME": "migration"},
-		"key of another service": {"MIG_TARGET_PRODUCT_URL": "http://product:8080", "PASSAGE_SERVICE_NAME": "party", "PASSAGE_SERVICE_SIGNING_KEY": env["PASSAGE_SERVICE_SIGNING_KEY"]},
-		"address without scheme": {"MIG_TARGET_RECEIVABLES_URL": "receivables:8080", "PASSAGE_SERVICE_NAME": "migration", "PASSAGE_SERVICE_SIGNING_KEY": env["PASSAGE_SERVICE_SIGNING_KEY"]},
-		"address with userinfo":  {"MIG_TARGET_PARTY_URL": "http://u:p@party:8080", "PASSAGE_SERVICE_NAME": "migration", "PASSAGE_SERVICE_SIGNING_KEY": env["PASSAGE_SERVICE_SIGNING_KEY"]},
-		"malformed key":          {"MIG_TARGET_PARTY_URL": "http://party:8080", "PASSAGE_SERVICE_NAME": "migration", "PASSAGE_SERVICE_SIGNING_KEY": "not-base64"},
+		"address without a key":  {"MIG_TARGET_PRODUCT_URL": "http://product:8080", "DEPOT_SERVICE_NAME": "migration"},
+		"key of another service": {"MIG_TARGET_PRODUCT_URL": "http://product:8080", "DEPOT_SERVICE_NAME": "party", "DEPOT_SERVICE_SIGNING_KEY": env["DEPOT_SERVICE_SIGNING_KEY"]},
+		"address without scheme": {"MIG_TARGET_RECEIVABLES_URL": "receivables:8080", "DEPOT_SERVICE_NAME": "migration", "DEPOT_SERVICE_SIGNING_KEY": env["DEPOT_SERVICE_SIGNING_KEY"]},
+		"address with userinfo":  {"MIG_TARGET_PARTY_URL": "http://u:p@party:8080", "DEPOT_SERVICE_NAME": "migration", "DEPOT_SERVICE_SIGNING_KEY": env["DEPOT_SERVICE_SIGNING_KEY"]},
+		"malformed key":          {"MIG_TARGET_PARTY_URL": "http://party:8080", "DEPOT_SERVICE_NAME": "migration", "DEPOT_SERVICE_SIGNING_KEY": "not-base64"},
 	} {
 		if _, err := targetConfig(func(k string) string { return bad[k] }); err == nil {
 			t.Errorf("%s: want a startup error", name)

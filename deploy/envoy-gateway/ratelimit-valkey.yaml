@@ -10,7 +10,7 @@ metadata:
   namespace: envoy-gateway-system
   labels:
     app.kubernetes.io/name: ratelimit-valkey
-    app.kubernetes.io/part-of: passage-gateway
+    app.kubernetes.io/part-of: depot-gateway
 spec:
   replicas: 1
   selector:
@@ -20,7 +20,7 @@ spec:
     metadata:
       labels:
         app.kubernetes.io/name: ratelimit-valkey
-        app.kubernetes.io/part-of: passage-gateway
+        app.kubernetes.io/part-of: depot-gateway
     spec:
       automountServiceAccountToken: false
       securityContext:

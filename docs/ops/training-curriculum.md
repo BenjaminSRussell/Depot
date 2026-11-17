@@ -26,7 +26,7 @@ supplement, never the pass criterion for a duty that changes data.
 
 **Covers**
 - Tenancy and legal entities: what a tenant is, what a legal entity scope narrows, why the
-  `Passage-Legal-Entity` header can only narrow access, never widen it.
+  `Depot-Legal-Entity` header can only narrow access, never widen it.
 - Duties and sign-in: duties are granted by policy, not by job title; a session can expire during a
   change; step-up sign-in for sensitive actions.
 - Idempotency and retries: why a retried posting is safe when it carries the same `Idempotency-Key`,
@@ -106,7 +106,7 @@ assessor.
 **Guide:** [implementer guide](implementer-guide.md).
 
 **Covers**
-- Migration pipeline: extraction, mapping to Passage metadata, validation, load, and reconciliation.
+- Migration pipeline: extraction, mapping to Depot metadata, validation, load, and reconciliation.
   Migration packs for AX and SAP and their reconciliation statuses (RECONCILED, MISMATCH, SIGNED_OFF).
 - Localization: installing country packs, running one statutory fixture per legal entity, tax and
   e-invoicing configuration. Localization is verified, not assumed.

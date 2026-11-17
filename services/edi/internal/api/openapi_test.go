@@ -28,7 +28,7 @@ func declaredOperations(spec string) map[string]bool {
 		case specOperation.MatchString(line):
 			operation = path + " " + specOperation.FindStringSubmatch(line)[1]
 			declared[operation] = false
-		case operation != "" && strings.HasPrefix(line, "      x-passage-duty: "):
+		case operation != "" && strings.HasPrefix(line, "      x-depot-duty: "):
 			declared[operation] = true
 		}
 	}
@@ -52,7 +52,7 @@ func TestOpenAPIDocumentsEveryOperation(t *testing.T) {
 		served[route+" "+strings.ToLower(method)] = true
 		return nil
 	})
-	// The AS2 listener (partners, no Passage identity) is documented in the same file.
+	// The AS2 listener (partners, no Depot identity) is documented in the same file.
 	_ = chi.Walk(withBody.AS2Routes().(chi.Routes), func(method, route string, _ http.Handler, _ ...func(http.Handler) http.Handler) error {
 		if route == "/healthz" || route == "/readyz" {
 			return nil
@@ -67,7 +67,7 @@ func TestOpenAPIDocumentsEveryOperation(t *testing.T) {
 		case !ok:
 			t.Errorf("not documented: %s", op)
 		case !hasDuty:
-			t.Errorf("no x-passage-duty: %s", op)
+			t.Errorf("no x-depot-duty: %s", op)
 		}
 	}
 	for op := range declared {

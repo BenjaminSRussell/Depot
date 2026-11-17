@@ -19,10 +19,10 @@ CREATE TABLE migration.data_template (
 ALTER TABLE migration.data_template ENABLE ROW LEVEL SECURITY;
 ALTER TABLE migration.data_template FORCE ROW LEVEL SECURITY;
 CREATE POLICY data_template_tenant_access ON migration.data_template AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY data_template_legal_entity_scope ON migration.data_template AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*');
+  USING (current_setting('depot.legal_entity_scopes', true) = '*');
 
 -- A run pins the template it used; the ledger records which targets each row took from it.
 ALTER TABLE migration.run ADD COLUMN data_template_id uuid;
@@ -32,8 +32,8 @@ ALTER TABLE migration.run_ledger ADD COLUMN template_fields text[] NOT NULL DEFA
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    GRANT SELECT, INSERT ON migration.data_template TO passage_app;
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    GRANT SELECT, INSERT ON migration.data_template TO depot_app;
   END IF;
 END
 $$;

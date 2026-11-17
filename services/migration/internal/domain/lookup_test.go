@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/services/migration/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/domain"
 )
 
 type fakeTables map[string]domain.LookupAnswer
@@ -33,7 +33,7 @@ type keysAndTables struct {
 }
 
 const lookupOutboundDef = `{
-  "eventType": "dev.passage.sales.order.*.v1",
+  "eventType": "dev.depot.sales.order.*.v1",
   "xrefs": [{"name": "customer", "entity": "customer", "idPath": "data.customer_id"}],
   "lookups": [
     {"name": "unit", "table": "unit-codes", "keyPaths": ["data.uom"]},
@@ -51,7 +51,7 @@ const lookupOutboundDef = `{
 
 func lookupEvent(t *testing.T, data string) map[string]any {
 	t.Helper()
-	ev, err := domain.DecodeEvent(json.RawMessage(`{"id":"evt-1","type":"dev.passage.sales.order.confirmed.v1","data":` + data + `}`))
+	ev, err := domain.DecodeEvent(json.RawMessage(`{"id":"evt-1","type":"dev.depot.sales.order.confirmed.v1","data":` + data + `}`))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -160,7 +160,7 @@ func TestOutboundLookups_ResolverWithoutTablesIsRefused(t *testing.T) {
 
 func TestOutboundLookups_DefinitionIsValidated(t *testing.T) {
 	base := func(lookup string) string {
-		return `{"eventType":"dev.passage.sales.order.*.v1","lookups":[` + lookup + `],"mapping":{"entity":"E","fields":[{"source":"data.a","target":"A","type":"string"}]}}`
+		return `{"eventType":"dev.depot.sales.order.*.v1","lookups":[` + lookup + `],"mapping":{"entity":"E","fields":[{"source":"data.a","target":"A","type":"string"}]}}`
 	}
 	for name, lookup := range map[string]string{
 		"bad name":      `{"name":"Unit","table":"t","keyPaths":["data.a"]}`,
@@ -237,7 +237,7 @@ func TestParseLookupDefinition(t *testing.T) {
 // units convert to themselves; a price list cannot convert; the mapping field rounds to its scale.
 func TestOutboundLookups_ConvertQuantity(t *testing.T) {
 	def, err := domain.ParseOutboundDefinition([]byte(`{
-	  "eventType": "dev.passage.sales.order.*.v1",
+	  "eventType": "dev.depot.sales.order.*.v1",
 	  "lookups": [
 	    {"name": "qtyKg", "table": "uom", "keyPaths": ["data.unit"], "keyConstants": ["KG"], "quantityPath": "data.qty"},
 	    {"name": "price", "table": "prices", "keyPaths": ["legalentityid", "data.currency", "data.sku"]}
@@ -256,7 +256,7 @@ func TestOutboundLookups_ConvertQuantity(t *testing.T) {
 		"prices": {Kind: domain.LookupPrice, Version: 1, Values: map[string]string{le + "|EUR|SKU-1": "12.5", "other-le|EUR|SKU-1": "99"}},
 	}
 	render := func(data string) (map[string]any, error) {
-		ev, err := domain.DecodeEvent(json.RawMessage(`{"id":"evt-1","type":"dev.passage.sales.order.confirmed.v1","legalentityid":"` + le + `","data":` + data + `}`))
+		ev, err := domain.DecodeEvent(json.RawMessage(`{"id":"evt-1","type":"dev.depot.sales.order.confirmed.v1","legalentityid":"` + le + `","data":` + data + `}`))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -298,7 +298,7 @@ func TestOutboundLookups_ConvertQuantity(t *testing.T) {
 
 func TestOutboundLookups_KeyConstantsAndQuantityAreValidated(t *testing.T) {
 	base := func(lookup string) string {
-		return `{"eventType":"dev.passage.sales.order.*.v1","lookups":[` + lookup + `],"mapping":{"entity":"E","fields":[{"source":"data.a","target":"A","type":"string"}]}}`
+		return `{"eventType":"dev.depot.sales.order.*.v1","lookups":[` + lookup + `],"mapping":{"entity":"E","fields":[{"source":"data.a","target":"A","type":"string"}]}}`
 	}
 	for name, lookup := range map[string]string{
 		"constant with separator": `{"name":"q","table":"t","keyPaths":["data.a"],"keyConstants":["K|G"]}`,

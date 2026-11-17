@@ -15,13 +15,13 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/receivables/internal/gateway/stripe"
-	"github.com/BenjaminSRussell/passage/services/receivables/internal/gateway/stripe/stripetest"
-	"github.com/BenjaminSRussell/passage/services/receivables/internal/store"
-	"github.com/BenjaminSRussell/passage/services/receivables/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/receivables/internal/gateway/stripe"
+	"github.com/BenjaminSRussell/depot/services/receivables/internal/gateway/stripe/stripetest"
+	"github.com/BenjaminSRussell/depot/services/receivables/internal/store"
+	"github.com/BenjaminSRussell/depot/services/receivables/migrations"
 )
 
 const (
@@ -96,7 +96,7 @@ func (h *gatewayHarness) portal(t *testing.T, customer, method, path, body, key 
 		t.Fatal(err)
 	}
 	req := httptest.NewRequest(method, path, strings.NewReader(body))
-	req.Header.Set("X-Passage-Service-Token", token)
+	req.Header.Set("X-Depot-Service-Token", token)
 	req.Header.Set("Content-Type", "application/json")
 	if key != "" {
 		req.Header.Set("Idempotency-Key", key)
@@ -108,9 +108,9 @@ func (h *gatewayHarness) portal(t *testing.T, customer, method, path, body, key 
 
 func (h *gatewayHarness) staff(path string) *httptest.ResponseRecorder {
 	req := httptest.NewRequest(http.MethodGet, path, nil)
-	req.Header.Set("X-Passage-Tenant", gwTenant)
-	req.Header.Set("X-Passage-Duties", "receivables.view")
-	req.Header.Set("X-Passage-Legal-Entity", gwLE)
+	req.Header.Set("X-Depot-Tenant", gwTenant)
+	req.Header.Set("X-Depot-Duties", "receivables.view")
+	req.Header.Set("X-Depot-Legal-Entity", gwLE)
 	rec := httptest.NewRecorder()
 	h.api.ServeHTTP(rec, req)
 	return rec
@@ -187,8 +187,8 @@ func TestGatewayAPI_CardPaymentFromPortalToApplication(t *testing.T) {
 	}
 	stripeReq := h.fake.Requests()[0]
 	if stripeReq.Header.Get("Idempotency-Key") != stripe.IdempotencyKey(created.ID) || stripeReq.Form.Get("amount") != "125050" ||
-		stripeReq.Form.Get("currency") != "usd" || stripeReq.Form.Get("metadata[passage_attempt_id]") != created.ID ||
-		stripeReq.Form.Get("metadata[passage_documents]") != "INV-7001,INV-7002" {
+		stripeReq.Form.Get("currency") != "usd" || stripeReq.Form.Get("metadata[depot_attempt_id]") != created.ID ||
+		stripeReq.Form.Get("metadata[depot_documents]") != "INV-7001,INV-7002" {
 		t.Fatalf("Stripe got %v %v", stripeReq.Header, stripeReq.Form)
 	}
 	replay := decodeBody[intentAnswer](t, h.portal(t, gwCustA, http.MethodPost, path, body, "key-pay-0001"))
@@ -206,7 +206,7 @@ func TestGatewayAPI_CardPaymentFromPortalToApplication(t *testing.T) {
 	}
 
 	// Webhooks: a bad signature and a stale one are refused; the browser's word counts for nothing.
-	payload := stripetest.Event("evt_api_ok", "payment_intent.succeeded", h.now, stripetest.Intent(intentID, 125050, "usd", map[string]string{"passage_attempt_id": created.ID}))
+	payload := stripetest.Event("evt_api_ok", "payment_intent.succeeded", h.now, stripetest.Intent(intentID, 125050, "usd", map[string]string{"depot_attempt_id": created.ID}))
 	if rec := h.deliver(payload, stripetest.Signed(payload, "whsec_wrong", h.now)); rec.Code != http.StatusBadRequest {
 		t.Fatalf("bad signature: %d", rec.Code)
 	}
@@ -241,7 +241,7 @@ func TestGatewayAPI_CardPaymentFromPortalToApplication(t *testing.T) {
 		t.Fatalf("INV-7002 after a partial payment = %v", item)
 	}
 
-	// An event for a PaymentIntent Passage did not create is acknowledged and ignored.
+	// An event for a PaymentIntent Depot did not create is acknowledged and ignored.
 	stranger := stripetest.Event("evt_stranger", "payment_intent.succeeded", h.now, stripetest.Intent("pi_not_ours", 100, "usd", nil))
 	if rec := h.deliver(stranger, stripetest.Signed(stranger, gwWhsec, h.now)); rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "ignored") {
 		t.Fatalf("stranger: %d %s", rec.Code, rec.Body)
@@ -269,9 +269,9 @@ func TestGatewayAPI_RefusalsAndCallers(t *testing.T) {
 
 	// Staff holding the duty still cannot use the portal route: it is the portal's, for a customer.
 	req := httptest.NewRequest(http.MethodPost, path, strings.NewReader(body))
-	req.Header.Set("X-Passage-Tenant", gwTenant)
-	req.Header.Set("X-Passage-Duties", "receivables.customer-portal.pay")
-	req.Header.Set("X-Passage-Legal-Entity", gwLE)
+	req.Header.Set("X-Depot-Tenant", gwTenant)
+	req.Header.Set("X-Depot-Duties", "receivables.customer-portal.pay")
+	req.Header.Set("X-Depot-Legal-Entity", gwLE)
 	req.Header.Set("Idempotency-Key", "key-staff-01")
 	staff := httptest.NewRecorder()
 	h.api.ServeHTTP(staff, req)
@@ -311,7 +311,7 @@ func TestGatewayAPI_CancelGranularityAndForeignCharges(t *testing.T) {
 		t.Fatalf("cancel: %d %s", rec.Code, rec.Body)
 	}
 	last := h.fake.Requests()[len(h.fake.Requests())-1]
-	if !strings.HasSuffix(last.Path, "/cancel") || last.Header.Get("Idempotency-Key") != "passage-pi-cancel-"+created.ID {
+	if !strings.HasSuffix(last.Path, "/cancel") || last.Header.Get("Idempotency-Key") != "depot-pi-cancel-"+created.ID {
 		t.Fatalf("Stripe cancel = %s %v", last.Path, last.Header)
 	}
 	if rec := h.portal(t, gwCustA, http.MethodPost, path, body, "key-cancel-03"); rec.Code != http.StatusCreated {

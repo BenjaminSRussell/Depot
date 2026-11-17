@@ -14,10 +14,10 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/pricing/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/pricing/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/pricing/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/pricing/internal/store"
 )
 
 // StreamRebateStatement mirrors the streaming Postgres read over rebateStatementInput.
@@ -89,9 +89,9 @@ func (f *fakeStore) rebateStatementInput(agreementID, periodKey string) (domain.
 
 func getRaw(h http.Handler, path, duties string) *httptest.ResponseRecorder {
 	req := httptest.NewRequest(http.MethodGet, path, nil)
-	req.Header.Set("X-Passage-Tenant", testkit.TenantID(1))
+	req.Header.Set("X-Depot-Tenant", testkit.TenantID(1))
 	if duties != "" {
-		req.Header.Set("X-Passage-Duties", duties)
+		req.Header.Set("X-Depot-Duties", duties)
 	}
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, req)
@@ -435,7 +435,7 @@ func TestRebateStatement_CSVStreamsEveryRowJSONTruncates(t *testing.T) {
 		t.Fatalf("json = %d truncated %v lines %d count %v; want %d of %d", code, st["linesTruncated"], len(st["lines"].([]any)), st["lineCount"], store.MaxStatementLines, store.MaxStatementLines+2)
 	}
 	rec := getRaw(h, path+"&format=csv", "pricing.rebate.view")
-	if n := strings.Count(rec.Body.String(), "\nLINE,"); n != store.MaxStatementLines+2 || rec.Header().Get("X-Passage-Truncated") != "" {
+	if n := strings.Count(rec.Body.String(), "\nLINE,"); n != store.MaxStatementLines+2 || rec.Header().Get("X-Depot-Truncated") != "" {
 		t.Fatalf("csv has %d lines, want all %d", n, store.MaxStatementLines+2)
 	}
 	if !strings.Contains(rec.Body.String(), "\nOPEN,2026-Q2,") {

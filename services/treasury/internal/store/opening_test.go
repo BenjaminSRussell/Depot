@@ -3,7 +3,7 @@ package store
 import (
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/ids"
 )
 
 func TestOpeningBalances_BatchIsAllOrNothingAndReplays(t *testing.T) {

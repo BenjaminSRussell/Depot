@@ -13,17 +13,17 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
 
-	"github.com/BenjaminSRussell/passage/services/finreport/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/finreport/internal/ledgerbalances"
-	"github.com/BenjaminSRussell/passage/services/finreport/internal/store"
-	"github.com/BenjaminSRussell/passage/services/finreport/internal/verify"
-	"github.com/BenjaminSRussell/passage/services/finreport/migrations"
+	"github.com/BenjaminSRussell/depot/services/finreport/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/finreport/internal/ledgerbalances"
+	"github.com/BenjaminSRussell/depot/services/finreport/internal/store"
+	"github.com/BenjaminSRussell/depot/services/finreport/internal/verify"
+	"github.com/BenjaminSRussell/depot/services/finreport/migrations"
 )
 
 type fakeLedger struct {
@@ -102,7 +102,7 @@ func TestRun_MatchedStoresACheckAndAnEvent(t *testing.T) {
 	var extension, status string
 	err = dbx.WithTenantTx(ctx, admin, func(tx pgx.Tx) error {
 		return tx.QueryRow(ctx, `select count(*), max(payload->>'legalentityid'), max(payload->'data'->>'status') from outbox
-			where type = 'dev.passage.reporting.balance.verified.v1'`).Scan(&events, &extension, &status)
+			where type = 'dev.depot.reporting.balance.verified.v1'`).Scan(&events, &extension, &status)
 	})
 	if err != nil || events != 1 {
 		t.Fatalf("outbox events %d, %v", events, err)

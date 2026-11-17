@@ -9,13 +9,13 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/product/internal/api"
-	"github.com/BenjaminSRussell/passage/services/product/internal/orgclient"
-	"github.com/BenjaminSRussell/passage/services/product/internal/store"
-	"github.com/BenjaminSRussell/passage/services/product/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/product/internal/api"
+	"github.com/BenjaminSRussell/depot/services/product/internal/orgclient"
+	"github.com/BenjaminSRussell/depot/services/product/internal/store"
+	"github.com/BenjaminSRussell/depot/services/product/migrations"
 )
 
 const (

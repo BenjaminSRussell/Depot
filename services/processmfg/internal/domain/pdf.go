@@ -20,7 +20,7 @@ import (
 const (
 	pdfLineWidth    = 110
 	pdfLinesPerPage = 64
-	pdfProducer     = "Passage processmfg"
+	pdfProducer     = "Depot processmfg"
 	// PDFAPart and PDFAConformance are the PDF/A level RenderTextPDF claims in
 	// its XMP metadata (pdfaid:part, pdfaid:conformance): PDF/A-2b.
 	PDFAPart        = 2

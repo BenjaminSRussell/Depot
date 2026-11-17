@@ -1,14 +1,14 @@
 # Azure AKS (commercial)
 
-`provider_kind = "aks"` in `deploy/tofu/cluster` builds Passage's Azure footprint (#600). The same module serves the other Azure clouds through the [cloud profile](cloud-profiles.md).
+`provider_kind = "aks"` in `deploy/tofu/cluster` builds Depot's Azure footprint (#600). The same module serves the other Azure clouds through the [cloud profile](cloud-profiles.md).
 
 ## What it creates
 
-Resource group, VNet with a node subnet and a private-endpoint subnet, AKS (Azure CNI overlay with Cilium, OIDC issuer and workload identity on, local accounts off, FIPS node images when the profile says so), ACR (Premium, no public access, no admin user), Key Vault (premium, RBAC, purge protection, no public access) with an `RSA-HSM` key `fieldcrypt-kek` that only wraps and unwraps, a backup storage account (no shared keys, no public access, TLS 1.2, versioned) with container `pg-backups`, private endpoints and private DNS zones for the vault, storage and registry (and Postgres when `azure_postgres_flexible_server` is on), and three user-assigned identities with federated credentials: `external_secrets` (Key Vault Secrets User), `backup` (Storage Blob Data Contributor, for the CNPG service account `passage-pg`), `fieldcrypt` (Key Vault Crypto User on the wrapping key). Private DNS zone names come from the profile's endpoint table.
+Resource group, VNet with a node subnet and a private-endpoint subnet, AKS (Azure CNI overlay with Cilium, OIDC issuer and workload identity on, local accounts off, FIPS node images when the profile says so), ACR (Premium, no public access, no admin user), Key Vault (premium, RBAC, purge protection, no public access) with an `RSA-HSM` key `fieldcrypt-kek` that only wraps and unwraps, a backup storage account (no shared keys, no public access, TLS 1.2, versioned) with container `pg-backups`, private endpoints and private DNS zones for the vault, storage and registry (and Postgres when `azure_postgres_flexible_server` is on), and three user-assigned identities with federated credentials: `external_secrets` (Key Vault Secrets User), `backup` (Storage Blob Data Contributor, for the CNPG service account `depot-pg`), `fieldcrypt` (Key Vault Crypto User on the wrapping key). Private DNS zone names come from the profile's endpoint table.
 
 ```
 tofu -chdir=deploy/tofu/cluster init
-tofu -chdir=deploy/tofu/cluster apply -var provider_kind=aks -var name=passage-prod \
+tofu -chdir=deploy/tofu/cluster apply -var provider_kind=aks -var name=depot-prod \
   -var-file=../../cloud-profiles/tofu/commercial.tfvars.json \
   -var azure_tenant_id=<tenant> -var azure_subscription_id=<subscription> -var azure_location=eastus2
 ```
@@ -19,14 +19,14 @@ Tests: `make -C deploy test-tofu` (`tofu validate` plus offline `tofu test` with
 
 ## Secrets: External Secrets with Key Vault
 
-`deploy/secret-store` renders the `ClusterSecretStore` named `passage` (the name every chart's `externalSecret.storeName` defaults to) with `authType: WorkloadIdentity`, `vaultUrl` from `azureKeyVault.name` and the profile's Key Vault suffix, and the matching `environmentType` (`PublicCloud` for commercial and GCC, `USGovernmentCloud`, `ChinaCloud`). Install it after the External Secrets Operator, with the operator's service account annotated `azure.workload.identity/client-id: <external_secrets_identity_client_id>`.
+`deploy/secret-store` renders the `ClusterSecretStore` named `depot` (the name every chart's `externalSecret.storeName` defaults to) with `authType: WorkloadIdentity`, `vaultUrl` from `azureKeyVault.name` and the profile's Key Vault suffix, and the matching `environmentType` (`PublicCloud` for commercial and GCC, `USGovernmentCloud`, `ChinaCloud`). Install it after the External Secrets Operator, with the operator's service account annotated `azure.workload.identity/client-id: <external_secrets_identity_client_id>`.
 
 ```
-helm upgrade --install passage-secret-store deploy/secret-store -f deploy/cloud-profiles/values/commercial.yaml \
+helm upgrade --install depot-secret-store deploy/secret-store -f deploy/cloud-profiles/values/commercial.yaml \
   --set azureKeyVault.name=<vault> --set azureKeyVault.tenantId=<tenant>
 ```
 
-Key Vault secret names allow only letters, digits and dashes and hold a plain value, so under a cloud profile (`global.secretStoreProvider: azure-key-vault`) the charts turn `passage/dev/identity/keycloak/acme` into the secret name `passage-dev-identity-keycloak-acme` and omit `property: value`. Store each secret under that name as a plain string. Without a profile the Vault paths are unchanged.
+Key Vault secret names allow only letters, digits and dashes and hold a plain value, so under a cloud profile (`global.secretStoreProvider: azure-key-vault`) the charts turn `depot/dev/identity/keycloak/acme` into the secret name `depot-dev-identity-keycloak-acme` and omit `property: value`. Store each secret under that name as a plain string. Without a profile the Vault paths are unchanged.
 
 ## fieldcrypt master keys wrapped by Key Vault
 
@@ -36,7 +36,7 @@ Create a wrapped key, and rotate:
 
 ```
 cd platform/go
-FIELDCRYPT_AZURE_KEY_ID=https://<vault>/keys/fieldcrypt-kek PASSAGE_CLOUD_PROFILE=commercial \
+FIELDCRYPT_AZURE_KEY_ID=https://<vault>/keys/fieldcrypt-kek DEPOT_CLOUD_PROFILE=commercial \
   go run ./fieldcrypt/cmd/fieldcrypt-wrap -id 2027-01          # prints id=wrapped:...
 ```
 

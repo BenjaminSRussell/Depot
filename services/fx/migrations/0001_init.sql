@@ -13,8 +13,8 @@ CREATE TABLE IF NOT EXISTS exchange_rate_type (
 ALTER TABLE exchange_rate_type ENABLE ROW LEVEL SECURITY;
 ALTER TABLE exchange_rate_type FORCE ROW LEVEL SECURITY;
 CREATE POLICY exchange_rate_type_tenant_access ON exchange_rate_type AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 CREATE TABLE IF NOT EXISTS exchange_rate (
   tenant_id uuid NOT NULL,
@@ -41,8 +41,8 @@ CREATE INDEX IF NOT EXISTS ix_fx_exchange_rate_current
 ALTER TABLE exchange_rate ENABLE ROW LEVEL SECURITY;
 ALTER TABLE exchange_rate FORCE ROW LEVEL SECURITY;
 CREATE POLICY exchange_rate_tenant_access ON exchange_rate AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 CREATE TABLE IF NOT EXISTS provider_import_run (
   tenant_id uuid NOT NULL,
@@ -65,8 +65,8 @@ CREATE TABLE IF NOT EXISTS provider_import_run (
 ALTER TABLE provider_import_run ENABLE ROW LEVEL SECURITY;
 ALTER TABLE provider_import_run FORCE ROW LEVEL SECURITY;
 CREATE POLICY provider_import_run_tenant_access ON provider_import_run AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 CREATE TABLE IF NOT EXISTS outbox (
   id text PRIMARY KEY,
@@ -80,5 +80,5 @@ CREATE TABLE IF NOT EXISTS outbox (
 ALTER TABLE outbox ENABLE ROW LEVEL SECURITY;
 ALTER TABLE outbox FORCE ROW LEVEL SECURITY;
 CREATE POLICY outbox_tenant_access ON outbox AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);

@@ -1,10 +1,10 @@
 import { createElement } from "react";
-import type { PassageModule } from "../registry";
+import type { DepotModule } from "../registry";
 import { BreakGlassPage, LicensesPage, OpsHome, SloPage } from "./pages";
 
 // The operations console (#50). Every entry needs ops.region.view, an operator-only duty: the ops routes serve the platform
 // operator tenant only, so the console shows nothing in a customer tenant.
-const ops: PassageModule = {
+const ops: DepotModule = {
   id: "ops",
   title: "Operations console",
   description: "Platform operations: which region is primary and how far standbys are behind, break-glass windows, service levels and company licences.",

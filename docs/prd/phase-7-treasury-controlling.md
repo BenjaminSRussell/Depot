@@ -2,7 +2,7 @@
 
 ## 7.0 Phase overview
 
-**Business outcome at phase exit.** At the end of wave 40 the finance function runs entirely on Passage: treasury sees every bank balance intraday and a 13-week cash forecast built from the subledgers; fixed assets and leases depreciate under multiple books and post to the universal journal; controllers plan budgets, enforce budget control on commitments, and run a cost accounting ledger with allocations; product costs roll up from BOMs and routings with a cost component split, and production variances are decomposed by cause; intercompany trade posts mirror documents across legal entities and the group consolidates with eliminations and IAS 21 translation. This is the "finance parity" milestone in PRD §10 (wave 40): a practicing controller signs off that nothing they did in AX/SAP finance is missing.
+**Business outcome at phase exit.** At the end of wave 40 the finance function runs entirely on Depot: treasury sees every bank balance intraday and a 13-week cash forecast built from the subledgers; fixed assets and leases depreciate under multiple books and post to the universal journal; controllers plan budgets, enforce budget control on commitments, and run a cost accounting ledger with allocations; product costs roll up from BOMs and routings with a cost component split, and production variances are decomposed by cause; intercompany trade posts mirror documents across legal entities and the group consolidates with eliminations and IAS 21 translation. This is the "finance parity" milestone in PRD §10 (wave 40): a practicing controller signs off that nothing they did in AX/SAP finance is missing.
 
 **Phase-exit sign-off criteria**
 - 1,000-line bank statement fixture auto-matches ≥ 95% of lines correctly with zero false positive matches (wave 36 proof).
@@ -33,16 +33,16 @@
 
 | Event (CloudEvents type) | Producer | Consumers | Payload summary |
 |---|---|---|---|
-| `dev.passage.treasury.statement.reconciled.v1` | treasury-svc | journal (wave 11), cashforecast-svc, analytics (46) | statementId, bankAccountId, matchedCount, unmatchedCount, closingBalance |
-| `dev.passage.treasury.cashposition.updated.v1` | cashforecast-svc | dashboards, interco-svc (netting) | legalEntityId, asOf, balancesByAccount[], forecastBuckets[] |
-| `dev.passage.assets.depreciation.posted.v1` | asset-svc | costacct-svc, analytics | runId, bookId, period, assetCount, totalAmount, journalEntryId |
-| `dev.passage.assets.asset.disposed.v1` | asset-svc | costacct-svc, tax (wave 13) | assetId, bookId, proceeds, nbv, gainLoss |
-| `dev.passage.budget.check.completed.v1` | budget-svc | procurement (17), AP (18), workflow | sourceDocumentId, result (pass/warn/fail), availableBefore, amount, availableAfter |
-| `dev.passage.controlling.allocation.completed.v1` | costacct-svc | budget-svc, analytics | runId, policyId, iterations, totalIn, totalOut, residual |
-| `dev.passage.costing.standardcost.activated.v1` | costing-svc | inventory costing (20), production (21), budget-svc | costingVersionId, itemCount, revaluationJournalId, totalRevaluation |
-| `dev.passage.costing.variance.posted.v1` | costing-svc | costacct-svc, analytics | productionOrderId, varianceByType{lotSize,quantity,price,substitution}, byComponent[] |
-| `dev.passage.interco.mirror.created.v1` | interco-svc | sales (27), procurement (17), consol-svc | sourceDocId, sourceEntity, mirrorDocId, mirrorEntity, type |
-| `dev.passage.consol.run.completed.v1` | consol-svc | reporting (15), analytics | runId, groupId, period, unitCount, eliminationCount, ctaAmount |
+| `dev.depot.treasury.statement.reconciled.v1` | treasury-svc | journal (wave 11), cashforecast-svc, analytics (46) | statementId, bankAccountId, matchedCount, unmatchedCount, closingBalance |
+| `dev.depot.treasury.cashposition.updated.v1` | cashforecast-svc | dashboards, interco-svc (netting) | legalEntityId, asOf, balancesByAccount[], forecastBuckets[] |
+| `dev.depot.assets.depreciation.posted.v1` | asset-svc | costacct-svc, analytics | runId, bookId, period, assetCount, totalAmount, journalEntryId |
+| `dev.depot.assets.asset.disposed.v1` | asset-svc | costacct-svc, tax (wave 13) | assetId, bookId, proceeds, nbv, gainLoss |
+| `dev.depot.budget.check.completed.v1` | budget-svc | procurement (17), AP (18), workflow | sourceDocumentId, result (pass/warn/fail), availableBefore, amount, availableAfter |
+| `dev.depot.controlling.allocation.completed.v1` | costacct-svc | budget-svc, analytics | runId, policyId, iterations, totalIn, totalOut, residual |
+| `dev.depot.costing.standardcost.activated.v1` | costing-svc | inventory costing (20), production (21), budget-svc | costingVersionId, itemCount, revaluationJournalId, totalRevaluation |
+| `dev.depot.costing.variance.posted.v1` | costing-svc | costacct-svc, analytics | productionOrderId, varianceByType{lotSize,quantity,price,substitution}, byComponent[] |
+| `dev.depot.interco.mirror.created.v1` | interco-svc | sales (27), procurement (17), consol-svc | sourceDocId, sourceEntity, mirrorDocId, mirrorEntity, type |
+| `dev.depot.consol.run.completed.v1` | consol-svc | reporting (15), analytics | runId, groupId, period, unitCount, eliminationCount, ctaAmount |
 
 **Phase-level risks**
 
@@ -67,7 +67,7 @@ Out of scope: hedge accounting and derivative valuation (not in v1), in-house ba
 
 **Pain points solved (10x lens)**
 
-| Pain point in AX/SAP today | Root cause | Passage answer in this wave | Measurable 10x target |
+| Pain point in AX/SAP today | Root cause | Depot answer in this wave | Measurable 10x target |
 |---|---|---|---|
 | D365 advanced bank reconciliation: statement import via DMF (BankStatementFormat + XSLT transform) fails silently on bank camt dialects; the user re-imports after editing XSLT | Transform-first design; no schema validation surfaced to the user | Native camt/BAI2/MT940 parsers with per-bank profile overrides and line-level validation errors | Failed imports needing IT help: 1 in 5 → < 1 in 200 |
 | SAP FEBAN post-processing: each unmatched line is opened, the clearing document found in FBL5N, keyed and posted (≈ 14 clicks per line) | Posting rules (OT83) only test search strings; no candidate ranking | Scored candidates shown inline; `m` to match; N:1 batch matching | Clicks per exception 14 → 2; auto-match ≥ 95% |
@@ -77,7 +77,7 @@ Out of scope: hedge accounting and derivative valuation (not in v1), in-house ba
 
 ### 7.36.2 AX / SAP parity map
 
-| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Passage equivalent | Parity |
+| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Depot equivalent | Parity |
 |---|---|---|---|---|
 | Bank account master, signatories, approval | BankAccountTable, BankAccountTrans, BankGroup, form BankAccountTable; D365 bank account change workflow | FI12 house banks T012/T012K, BAM (FCLM_BAM) with signatories and workflow | `treasury-svc` BankAccount entity, workspace Bank accounts | full |
 | Electronic statement import | BankStmtISOAccountStatement, BankStmtISOReportEntry, BankStatementFormat, DIXF ISO 20022 transform | FF_5 (FEBKO/FEBEP), FF67 manual statement, OT83 posting rules, external transaction codes | Statement import API, formats camt.053/BAI2/MT940/CSV | improved (native XSD validation, duplicate detection) |
@@ -108,7 +108,7 @@ Out of scope: hedge accounting and derivative valuation (not in v1), in-house ba
   - Notes: IBAN mod-97 and ABA routing checksum validated on save; account numbers stored encrypted at rest (pgcrypto, key in Vault) and shown masked except to the `TreasuryBankAccountMaintain` duty; status lifecycle Draft → Active → Inactive → Closed; changes to number/currency/GL account require 2-step approval (Temporal workflow); maximum 500 bank accounts per legal entity.
 - **FR-36.2 Statement import** — Must. The system shall import bank statements in camt.053.001.02/08, BAI2, MT940 and configurable CSV, validate structure, detect duplicates and persist header, balances (OPBD/CLBD/CLAV) and entries.
   - Notes: files up to 50 MB and 200,000 entries; duplicate detection on (bankAccount, statementId or sequence, closingBalance); gap detection on statement sequence numbers raises a warning; each entry retains the raw source fragment for audit; import of 10,000 lines completes in < 30 s.
-- **FR-36.3 Matching rule engine** — Must. The system shall match statement lines to Passage bank transactions using ordered rule sets, producing a 0–100 score per candidate and auto-matching above a configurable threshold.
+- **FR-36.3 Matching rule engine** — Must. The system shall match statement lines to Depot bank transactions using ordered rule sets, producing a 0–100 score per candidate and auto-matching above a configurable threshold.
   - Notes: criteria: amount (exact / tolerance absolute or %), value date window (±N days), reference regex capture (end-to-end id, check number, invoice number), counterparty name trigram similarity, bank transaction code map (BTC/domain-family-subfamily); weights sum to 100; default thresholds auto-match ≥ 90, suggest 60–89, unmatched < 60; 1:1, 1:N and N:1 matches with up to 50 lines per side; rules tested against historical statements with a precision/recall report before activation.
 - **FR-36.4 ML match suggestions** — Should. The system shall rank unmatched lines' candidates with a model trained on the tenant's confirmed matches and present the top 3 suggestions with reasons.
   - Notes: Python gradient-boosted model in `cashforecast-svc`; retrained nightly if ≥ 200 new confirmed matches; suggestions never auto-post; model inputs and version logged per suggestion.
@@ -249,17 +249,17 @@ Commands: `ImportStatement` (validates schema, rejects duplicates), `RunMatching
 
 | Event | Trigger | Payload fields | Consumers |
 |---|---|---|---|
-| `dev.passage.treasury.statement.imported.v1` | import committed | statementId, bankAccountId, lineCount, openingBalance, closingBalance | cashforecast-svc, treasury-svc matcher |
-| `dev.passage.treasury.statement.reconciled.v1` | reconciliation closed | statementId, matchedCount, createdCount, closingBalance | journal, analytics |
-| `dev.passage.treasury.check.voided.v1` | void | checkId, bankAccountId, number, reason | AP (19) positive pay |
-| `dev.passage.treasury.cashposition.updated.v1` | position refresh | legalEntityId, asOf, balances[] | dashboards, interco-svc |
-| `dev.passage.treasury.file.sent.v1` | outbound file acknowledged | connectionId, fileHash, channel, ackStatus | audit |
-| `dev.passage.treasury.instrument.statuschanged.v1` | bill / note / PDC status change | instrumentId, kind, fromStatus, toStatus, amount, maturityDate | AR (30), AP (19), cashforecast-svc |
-| `dev.passage.treasury.pdc.bounced.v1` | PDC bounced | instrumentId, customerId, amount, fee, reasonCode | AR (30) credit hold |
-| `dev.passage.treasury.cashdesk.closed.v1` | desk day closed | deskId, businessDate, closing, difference | journal audit, analytics |
-| `dev.passage.treasury.deal.valued.v1` | valuation posted | runId, keyDate, dealCount, unrealizedTotal, journalEntryId | analytics, consol-svc |
-| `dev.passage.treasury.paymentrequest.approved.v1` | request approved | requestId, category, amount, currency, executionDate | bank-connect-svc routing |
-| `dev.passage.treasury.ihc.statement.generated.v1` | IHC month-end statement | ihcAccountId, participantEntityId, period, closingBalance, fileRef | treasury-svc import (participant) |
+| `dev.depot.treasury.statement.imported.v1` | import committed | statementId, bankAccountId, lineCount, openingBalance, closingBalance | cashforecast-svc, treasury-svc matcher |
+| `dev.depot.treasury.statement.reconciled.v1` | reconciliation closed | statementId, matchedCount, createdCount, closingBalance | journal, analytics |
+| `dev.depot.treasury.check.voided.v1` | void | checkId, bankAccountId, number, reason | AP (19) positive pay |
+| `dev.depot.treasury.cashposition.updated.v1` | position refresh | legalEntityId, asOf, balances[] | dashboards, interco-svc |
+| `dev.depot.treasury.file.sent.v1` | outbound file acknowledged | connectionId, fileHash, channel, ackStatus | audit |
+| `dev.depot.treasury.instrument.statuschanged.v1` | bill / note / PDC status change | instrumentId, kind, fromStatus, toStatus, amount, maturityDate | AR (30), AP (19), cashforecast-svc |
+| `dev.depot.treasury.pdc.bounced.v1` | PDC bounced | instrumentId, customerId, amount, fee, reasonCode | AR (30) credit hold |
+| `dev.depot.treasury.cashdesk.closed.v1` | desk day closed | deskId, businessDate, closing, difference | journal audit, analytics |
+| `dev.depot.treasury.deal.valued.v1` | valuation posted | runId, keyDate, dealCount, unrealizedTotal, journalEntryId | analytics, consol-svc |
+| `dev.depot.treasury.paymentrequest.approved.v1` | request approved | requestId, category, amount, currency, executionDate | bank-connect-svc routing |
+| `dev.depot.treasury.ihc.statement.generated.v1` | IHC month-end statement | ihcAccountId, participantEntityId, period, closingBalance, fileRef | treasury-svc import (participant) |
 
 ### 7.36.6 User experience
 
@@ -288,7 +288,7 @@ Interaction rules: the reconciliation grid supports keyboard `m` (match selected
 - **BR-36.9** Facility utilization uses the instrument's original currency converted at the daily rate; limit breaches recomputed nightly and on rate change > 2%.
 - **BR-36.10** Bill of exchange state machine: Drawn → Remitted → Honored | Protested; Protested → Redrawn (new bill, old bill closed) or → ReturnedToCustomer (open item restored with protest fee); a bill cannot be remitted twice; remittance for discount books the discount expense on remittance date, not at maturity.
 - **BR-36.11** Promissory note state machine: Drawn → Remitted → Settled; Drawn → Redrawn; settlement requires a matched bank statement line or a manual settlement with duty `TreasuryInstrumentSettle`; the vendor open item is settled at draw and never reopened except through a redraw reversal.
-- **BR-36.12** Postdated check: a deposit before the check date is rejected unless the parameter `allow-early-deposit` is on; a bounce after Cleared is a new customer transaction (fee + reversal) with reason code; bounced customer checks raise `dev.passage.treasury.pdc.bounced.v1` consumed by wave-30 credit hold.
+- **BR-36.12** Postdated check: a deposit before the check date is rejected unless the parameter `allow-early-deposit` is on; a bounce after Cleared is a new customer transaction (fee + reversal) with reason code; bounced customer checks raise `dev.depot.treasury.pdc.bounced.v1` consumed by wave-30 credit hold.
 - **BR-36.13** Cash desk day close: closing balance = opening + Σ receipts − Σ payments in desk currency; |counted − closing| ≤ cash difference limit posts a difference line, above the limit the close is blocked; no document can post to a closed day; reopening a closed day requires `TreasuryCashDeskApprove` and the day's reopen is audited.
 - **BR-36.14** Deal valuation entries are per deal and key date, reversed on the first calendar day of the next period before the new valuation; a deal settled between two key dates realizes gain / loss = settlement rate difference × notional and the last unrealized entry is reversed in the same journal.
 - **BR-36.15** Interest accrual uses the contract day-count; ACT/360 for a leap-year February period counts 29 days; accrual rounding half-up to the minor unit per period, and the final period of a schedule absorbs the rounding residual so Σ interest = Σ scheduled interest.
@@ -338,7 +338,7 @@ Helm charts `treasury-svc`, `bank-connect-svc`, `cashforecast-svc`; config: `TRE
 
 ### 7.36.11 Migration from AX / SAP
 
-| Source | Passage entity | Notes |
+| Source | Depot entity | Notes |
 |---|---|---|
 | BankAccountTable, BankAccountTrans (open items) | BankAccount, BankTransaction | opening balance as of cutover; unreconciled items migrated as InTransit |
 | BankChequeTable | Check | status map; next number continues |
@@ -550,7 +550,7 @@ SoD conflicts are enforced as OPA rules (wave 2) at role assignment (warning, re
 - **Postdated checks** are common in IN, AE, SA, PH, MY, TH; the IN pack sets withholding at settlement, the AE pack records bounce reason codes required for legal action. Extension point `PdcPolicy` (deposit window, bounce fee, credit hold).
 - **Cash journal**: DE GoBD / §146 AO require daily recording, immutability after post, and a cash book export (DSFinV-K is out of scope because desks are not retail POS); PL requires KP / KW cash receipt documents; FR and IT require a sequential cash book. Extension point `CashJournalPolicy` (numbering, mandatory fields, max cash payment amounts such as IT EUR 5,000 / FR EUR 1,000 cash payment limits, warning TRS-0433 extended by pack rules).
 - **Bank statement and payment formats**: BAI2 (US), CODA (BE), Norma 43 (ES), CFONB 120 (FR), MT940 / camt.053 (DE, NL), CAMT for SEPA; positive pay (US), CPA-005 (CA); bank chain usage for non-SEPA cross-border payments. Extension point `BankFormatProfile` in the wave-19 format engine.
-- **FX deal regulatory reporting**: EU EMIR (FX forwards and swaps are reportable; spot is not), UK EMIR, US Dodd-Frank for swap counterparties; Passage records the LEI on every counterparty and the UTI on deals and exports the trade report through the wave-48 `RegulatoryTradeReport` hook; delegated reporting by the bank is the default.
+- **FX deal regulatory reporting**: EU EMIR (FX forwards and swaps are reportable; spot is not), UK EMIR, US Dodd-Frank for swap counterparties; Depot records the LEI on every counterparty and the UTI on deals and exports the trade report through the wave-48 `RegulatoryTradeReport` hook; delegated reporting by the bank is the default.
 - **Intercompany loans and GL interest**: thin-capitalization and interest-limitation data (DE §4h EStG, US §163(j), EU ATAD art. 4) and transfer-pricing safe-harbor rates feed the wave-40 transfer-pricing evidence export; withholding tax on cross-border interest uses wave-13 tax codes.
 - **Retention**: statements, checks, cash books and deal records 10 years (DE HGB §257, FR), 7 years (US), 5 years after termination for EMIR records; enforced through the wave-5 retention policies.
 - **Calendars and rounding**: banking-day calendars per country and currency (TARGET2 for EUR); day-count conventions per currency market (GBP ACT/365, EUR / USD money market ACT/360).
@@ -631,7 +631,7 @@ Out of scope: enterprise asset maintenance (wave 44), tax depreciation reports b
 
 **Pain points solved (10x lens)**
 
-| Pain point in AX/SAP today | Root cause | Passage answer in this wave | Measurable 10x target |
+| Pain point in AX/SAP today | Root cause | Depot answer in this wave | Measurable 10x target |
 |---|---|---|---|
 | AX depreciation proposal → LedgerJournalTrans → post: three forms, and one bad asset aborts the whole journal with an infolog | Journal-centric batch without per-asset isolation | Temporal run with per-asset checkpoints; failing assets reported, others post | Failed runs per month 2 → 0; run restart time 1 h → < 1 min |
 | SAP AFAB runs in background only, errors in SM37 spool; test run then real run, 2–4 h for 100k assets | Batch job architecture | Online proposal preview with formula inputs; 1M asset-periods/h | Run time for 100k assets 2 h → < 6 min |
@@ -641,7 +641,7 @@ Out of scope: enterprise asset maintenance (wave 44), tax depreciation reports b
 
 ### 7.37.2 AX / SAP parity map
 
-| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Passage equivalent | Parity |
+| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Depot equivalent | Parity |
 |---|---|---|---|---|
 | Asset master and groups | AssetTable, AssetGroup, AssetGroupBookSetup, form AssetTable | ANLA, ANLZ (time-dependent), asset classes ANKA/ANKT (OAOA), AS01/AS02/AS03 | Asset, AssetClass entities | full |
 | Books / depreciation areas | AssetBook (D365 books; AX 2012 value models + AssetDepBook), posting layer per book | ANLB per depreciation area (OADB), T093 chart of depreciation, ledger assignment | AssetBook per asset × book definition, posts to ledger layers (wave 12) | full |
@@ -758,12 +758,12 @@ Validation: book must be Open and period open per ledger × module (wave 14); di
 
 | Event | Trigger | Payload fields | Consumers |
 |---|---|---|---|
-| `dev.passage.assets.asset.acquired.v1` | acquisition posted | assetId, bookIds[], cost, sourceType, sourceId | budget-svc, analytics |
-| `dev.passage.assets.depreciation.posted.v1` | run posted | runId, bookDefinitionId, period, assetCount, totalAmount, journalEntryId | costacct-svc, analytics |
-| `dev.passage.assets.asset.disposed.v1` | disposal posted | assetId, bookId, percentage, proceeds, nbv, gainLoss | tax, analytics |
-| `dev.passage.assets.lease.recognized.v1` | lease activated | leaseId, liability, rouAsset, termMonths, rate | analytics |
-| `dev.passage.assets.capexrequest.approved.v1` | request approved | requestId, variantId, amountsByYear, programPositionId | budget-svc (38), asset forecasting |
-| `dev.passage.assets.insurance.expiring.v1` | policy within 30 days of expiry | policyId, assetId, coverageTo, insuredValue | workspace, notifications |
+| `dev.depot.assets.asset.acquired.v1` | acquisition posted | assetId, bookIds[], cost, sourceType, sourceId | budget-svc, analytics |
+| `dev.depot.assets.depreciation.posted.v1` | run posted | runId, bookDefinitionId, period, assetCount, totalAmount, journalEntryId | costacct-svc, analytics |
+| `dev.depot.assets.asset.disposed.v1` | disposal posted | assetId, bookId, percentage, proceeds, nbv, gainLoss | tax, analytics |
+| `dev.depot.assets.lease.recognized.v1` | lease activated | leaseId, liability, rouAsset, termMonths, rate | analytics |
+| `dev.depot.assets.capexrequest.approved.v1` | request approved | requestId, variantId, amountsByYear, programPositionId | budget-svc (38), asset forecasting |
+| `dev.depot.assets.insurance.expiring.v1` | policy within 30 days of expiry | policyId, assetId, coverageTo, insuredValue | workspace, notifications |
 
 ### 7.37.6 User experience
 
@@ -829,7 +829,7 @@ Helm chart `asset-svc`; env `ASSET_RUN_BATCH_SIZE=500`, `ASSET_MAX_BOOKS=10`; At
 
 ### 7.37.11 Migration from AX / SAP
 
-| Source | Passage entity | Notes |
+| Source | Depot entity | Notes |
 |---|---|---|
 | AssetTable, AssetGroup | Asset, AssetClass | |
 | AssetBook / AssetDepBook, AssetDepreciationProfile | AssetBook, DepreciationProfile | method/convention mapped; opening NBV as acquisition + accumulated depreciation transactions dated cutover |
@@ -1016,7 +1016,7 @@ Out of scope: public-sector fund accounting (appropriations, apportionments, yea
 
 **Pain points solved (10x lens)**
 
-| Pain point in AX/SAP today | Root cause | Passage answer in this wave | Measurable 10x target |
+| Pain point in AX/SAP today | Root cause | Depot answer in this wave | Measurable 10x target |
 |---|---|---|---|
 | D365 budget check on PO happens in a batch-like synchronous call that takes 3–8 s per line on large BudgetSourceTracking tables; buyers disable it | Available-funds query aggregates BudgetSourceTrackingDetail at check time | Per dimension-combination balance cache rebuilt from events; check is one indexed read | Check latency 5 s → p95 < 150 ms |
 | SAP FM availability control (FMAVCR01) rebuilds the AVC ledger (FMAVCT) when budget structure changes; FMAVCREINIT takes hours | Derived ledger with offline rebuild | Balance cache with incremental event replay | Rebuild for 1M documents 3 h → < 10 min |
@@ -1026,7 +1026,7 @@ Out of scope: public-sector fund accounting (appropriations, apportionments, yea
 
 ### 7.38.2 AX / SAP parity map
 
-| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Passage equivalent | Parity |
+| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Depot equivalent | Parity |
 |---|---|---|---|---|
 | Budget register entries | BudgetTransactionHeader, BudgetTransactionLine, BudgetTransactionCode, BudgetModel, BudgetCycle | FMBB budget entry documents, FMBH; KP06/KP26 plan versions | BudgetRegisterEntry, BudgetModel | full |
 | Budget planning | BudgetPlanHeader/Line, BudgetPlanningProcess, BudgetPlanStage, BudgetPlanScenario, BudgetPlanWorkflow, BudgetPlanTemplate (Excel) | KP06 plan versions, BPC/SAC planning | BudgetPlan with scenarios, stages, Temporal workflow | full |
@@ -1069,7 +1069,7 @@ Out of scope: public-sector fund accounting (appropriations, apportionments, yea
 - **FR-38.11 Reconciliation** — Must. The system shall reconcile Σ primary cost entries per element and period to the journal balances and list differences.
 - **FR-38.12 Management cubes** — Should. The system shall publish cost ledger facts and hierarchies to the lakehouse via CDC with a documented star schema for wave 46.
 - **FR-38.13 Budget plan worksheet templates** — Should. The system shall define worksheet templates per planning process (row dimensions, column sets per scenario / period / prior-year actual, editable and protected ranges, formulas) and round-trip them as xlsx files whose upload validates and writes back only editable cells.
-  - Notes: each exported workbook carries the plan id, stage, template version and a SHA-256 per protected range in a hidden sheet; upload is rejected when the stage changed, the template version differs or a protected range checksum fails; cell-level changes are applied as a diff with an audit row per cell; maximum 200,000 editable cells per upload; formulas evaluate in Passage (not trusted from the file) so totals always recompute server-side.
+  - Notes: each exported workbook carries the plan id, stage, template version and a SHA-256 per protected range in a hidden sheet; upload is rejected when the stage changed, the template version differs or a protected range checksum fails; cell-level changes are applied as a diff with an audit row per cell; maximum 200,000 editable cells per upload; formulas evaluate in Depot (not trusted from the file) so totals always recompute server-side.
 - **FR-38.14 Generate budget plan from sources** — Must. The system shall create or refresh plan lines from: GL actuals of a period range (with % uplift), another plan or scenario, depreciation forecast (FR-37.12) and approved capex requests (FR-37.17), demand forecast (wave 22) × standard cost (wave 39) or price, project forecasts (wave 41, when available), and position forecasts (FR-38.15).
   - Notes: generation modes Replace, Add, Update-if-unchanged (keeps manually edited cells); every generated line keeps its source reference; the run reports lines created / updated / skipped; 500,000 lines generate in < 3 min.
 - **FR-38.15 Position forecasting** — Could. The system shall maintain forecast positions with start / end dates, FTE, compensation group and budget cost elements (salary, benefits %, payroll tax %), compute monthly cost per position and publish it as a plan source.
@@ -1165,14 +1165,14 @@ Validation: check requests must carry accounting date, ledger dimension and amou
 
 | Event | Trigger | Payload fields | Consumers |
 |---|---|---|---|
-| `dev.passage.budget.register.posted.v1` | entry posted | entryId, modelId, type, lines summary | balance projector, analytics |
-| `dev.passage.budget.check.completed.v1` | check | sourceDocumentId, lineResults[{result, available, amount}] | procurement, AP, workflow |
-| `dev.passage.budget.encumbrance.relieved.v1` | relief | encumbranceId, amount, invoiceId, remaining | analytics |
-| `dev.passage.controlling.allocation.completed.v1` | run complete | runId, policyId, iterations, totalIn, totalOut, residual | budget-svc, analytics |
-| `dev.passage.controlling.costentry.created.v1` | mirror or allocation | entryId, costObjectId, elementId, amount, origin | lakehouse |
-| `dev.passage.budget.reservation.consumed.v1` | follow-on document consumes reservation | reservationId, documentId, amount, remaining | analytics |
-| `dev.passage.budget.program.carriedforward.v1` | year-end carry-forward | programId, fromYear, toYear, positions[], amount | budget-svc, asset-svc |
-| `dev.passage.controlling.hierarchy.distributed.v1` | node distribution | runId, nodeId, period, distributed, residual | costing-svc (39), analytics |
+| `dev.depot.budget.register.posted.v1` | entry posted | entryId, modelId, type, lines summary | balance projector, analytics |
+| `dev.depot.budget.check.completed.v1` | check | sourceDocumentId, lineResults[{result, available, amount}] | procurement, AP, workflow |
+| `dev.depot.budget.encumbrance.relieved.v1` | relief | encumbranceId, amount, invoiceId, remaining | analytics |
+| `dev.depot.controlling.allocation.completed.v1` | run complete | runId, policyId, iterations, totalIn, totalOut, residual | budget-svc, analytics |
+| `dev.depot.controlling.costentry.created.v1` | mirror or allocation | entryId, costObjectId, elementId, amount, origin | lakehouse |
+| `dev.depot.budget.reservation.consumed.v1` | follow-on document consumes reservation | reservationId, documentId, amount, remaining | analytics |
+| `dev.depot.budget.program.carriedforward.v1` | year-end carry-forward | programId, fromYear, toYear, positions[], amount | budget-svc, asset-svc |
+| `dev.depot.controlling.hierarchy.distributed.v1` | node distribution | runId, nodeId, period, distributed, residual | costing-svc (39), analytics |
 
 ### 7.38.6 User experience
 
@@ -1245,7 +1245,7 @@ Helm charts `budget-svc`, `costacct-svc` (shared Postgres `controlling`); env `B
 
 ### 7.38.11 Migration from AX / SAP
 
-| Source | Passage entity | Notes |
+| Source | Depot entity | Notes |
 |---|---|---|
 | BudgetTransactionHeader/Line (current and next cycle) | BudgetRegisterEntry | posted entries summarized per combination/period |
 | BudgetControlConfiguration, BudgetControlRule, BudgetGroup | BudgetControlRule | re-validated; user groups mapped to Keycloak groups |
@@ -1443,7 +1443,7 @@ Out of scope: actual costing / material ledger periodic unit price (wave 20 cove
 
 **Pain points solved (10x lens)**
 
-| Pain point in AX/SAP today | Root cause | Passage answer in this wave | Measurable 10x target |
+| Pain point in AX/SAP today | Root cause | Depot answer in this wave | Measurable 10x target |
 |---|---|---|---|
 | AX BOMCalcTable "Calculate items" for a costing version runs single-threaded; 50k items take 6–10 h and lock InventItemPriceSim | Sequential explosion per item re-exploding shared subassemblies | Topological roll-up computes each node once; parallel by level | 50k items 8 h → < 15 min |
 | CK40N costing run in SAP: selection, structure explosion, costing, analysis, marking, release as separate steps with logs in CKAPP; errors found at release | Multi-step batch with late validation | One run with upfront validation (missing prices, cycles, inactive routes) and per-item diagnostics | Rework runs per cycle 3 → 1 |
@@ -1453,7 +1453,7 @@ Out of scope: actual costing / material ledger periodic unit price (wave 20 cove
 
 ### 7.39.2 AX / SAP parity map
 
-| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Passage equivalent | Parity |
+| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Depot equivalent | Parity |
 |---|---|---|---|---|
 | Costing versions | CostingVersion (type Standard cost / Planned cost), blocking, fallback principle, InventItemPrice, InventItemPriceSim | Costing variant OKKN, valuation variant, costing version (OKKN), KEKO header | CostingVersion with status, fallback, site scope | full |
 | Cost groups and categories | CostGroup (direct material / direct manufacturing / indirect / undefined; fixed/variable), CostCategory with cost category prices, BOMCalcGroup | Cost component structure OKTZ (TCKH1–3), cost elements per component, activity types/prices KP26 | CostGroup, CostComponent, CostCategory rate tables | full |
@@ -1573,12 +1573,12 @@ Invariants: Σ CostComponentSplit.amount per calculation = unit_cost × calc_qua
 
 | Event | Trigger | Payload fields | Consumers |
 |---|---|---|---|
-| `dev.passage.costing.calculation.completed.v1` | item rolled | calculationId, itemId, siteId, unitCost, split[] | analytics |
-| `dev.passage.costing.rollrun.completed.v1` | mass roll finished | runId, itemCount, errorCount, durationMs | workspace |
-| `dev.passage.costing.standardcost.activated.v1` | activation | costingVersionId, itemCount, revaluationJournalId, totalRevaluation | inventory costing, production, budget |
-| `dev.passage.costing.variance.posted.v1` | variance computed | sourceId, type totals, byComponent[], journalEntryId | costacct-svc, analytics |
-| `dev.passage.costing.conversion.activated.v1` | conversion activated | conversionId, itemCount, revaluationJournalId, conversionDate | inventory costing (20), production (21) |
-| `dev.passage.costing.salesorderestimate.completed.v1` | order line costed | lineId, calculationId, cost, margin, marginPct | sales (27), analytics |
+| `dev.depot.costing.calculation.completed.v1` | item rolled | calculationId, itemId, siteId, unitCost, split[] | analytics |
+| `dev.depot.costing.rollrun.completed.v1` | mass roll finished | runId, itemCount, errorCount, durationMs | workspace |
+| `dev.depot.costing.standardcost.activated.v1` | activation | costingVersionId, itemCount, revaluationJournalId, totalRevaluation | inventory costing, production, budget |
+| `dev.depot.costing.variance.posted.v1` | variance computed | sourceId, type totals, byComponent[], journalEntryId | costacct-svc, analytics |
+| `dev.depot.costing.conversion.activated.v1` | conversion activated | conversionId, itemCount, revaluationJournalId, conversionDate | inventory costing (20), production (21) |
+| `dev.depot.costing.salesorderestimate.completed.v1` | order line costed | lineId, calculationId, cost, margin, marginPct | sales (27), analytics |
 
 ### 7.39.6 User experience
 
@@ -1648,7 +1648,7 @@ Helm chart `costing-svc` (extends wave 20 chart, Postgres `costing`); env `COSTI
 
 ### 7.39.11 Migration from AX / SAP
 
-| Source | Passage entity | Notes |
+| Source | Depot entity | Notes |
 |---|---|---|
 | CostingVersion, InventItemPrice (active standard) | CostingVersion, CostCalculation (Active, no explanation) | active standards loaded as calculations with status Active and diagnostics `Migrated` |
 | CostGroup, CostCategory, CostSheetNodeTable/CalculationBasis/Factor | CostGroup, CostCategory, CostingSheet | |
@@ -1819,7 +1819,7 @@ Out of scope: equity-method accounting for associates (v1.x), complex multi-tier
 
 **Pain points solved (10x lens)**
 
-| Pain point in AX/SAP today | Root cause | Passage answer in this wave | Measurable 10x target |
+| Pain point in AX/SAP today | Root cause | Depot answer in this wave | Measurable 10x target |
 |---|---|---|---|
 | D365 intercompany: the mirror PO/SO is created by a synchronous X++ call; if the partner entity's number sequence or dimension validation fails, the user sees an infolog and the pair is left half-created (SalesTable without InterCompanyPurchId) | No saga; no compensation | Temporal saga with compensating cancel; both documents or neither | Orphan IC documents per month 5–20 → 0 |
 | SAP cross-company FB01 posts via OBYA clearing accounts; FBICR3 (ICR) reconciles weeks later by downloading both ledgers | Reconciliation is a separate batch extract | Every IC posting carries a pair id; reconciliation is continuous per posting | Mismatch detection latency 30 days → < 1 min |
@@ -1829,7 +1829,7 @@ Out of scope: equity-method accounting for associates (v1.x), complex multi-tier
 
 ### 7.40.2 AX / SAP parity map
 
-| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Passage equivalent | Parity |
+| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Depot equivalent | Parity |
 |---|---|---|---|---|
 | Trading partner setup | InterCompanyTradingPartner, InterCompanyEndpoint, InterCompanyEndpointActionPolicy, InterCompanyTradingValueMap, CustTable/VendTable intercompany flags | Customer/vendor with company code assignment, VBAK-VKORG IC sales org, OBYA clearing | IntercompanyPartner (customer in A ↔ vendor in B) with action policies and value maps | full |
 | Mirror sales/purchase orders | SalesTable.InterCompanyOriginalPurchId, PurchTable.InterCompanyOriginalSalesId, InterCompanySalesOrder/PurchaseOrder classes, chains | Cross-company stock transport order (ME21N NB) with delivery and IC billing (VF01 IV) | Mirror document saga | full |
@@ -1958,15 +1958,15 @@ Validation: mirror saga rejects when the partner policy is inactive or the mirro
 
 | Event | Trigger | Payload fields | Consumers |
 |---|---|---|---|
-| `dev.passage.interco.mirror.created.v1` | saga linked | icPairId, sourceDocId, sourceEntity, mirrorDocId, mirrorEntity, type | sales, procurement, analytics |
-| `dev.passage.interco.mirror.compensated.v1` | saga failed | icPairId, failedStep, reason | workflow, alerts |
-| `dev.passage.interco.journal.posted.v1` | IC journal both sides posted | icPairId, entityA, entityB, amount, currency, journalIds[] | reconciliation, consol-svc |
-| `dev.passage.interco.reconciliation.flagged.v1` | mismatch | itemId, entities, difference | workspace, workflow |
-| `dev.passage.consol.run.completed.v1` | run completed | runId, groupId, period, version, unitCount, eliminationCount, ctaAmount | reporting, analytics |
-| `dev.passage.interco.charge.posted.v1` | IC charge posted in both entities | chargeId, icPairId, lendingEntity, borrowingEntity, amount, settlementMode | wave 41 projects, wave 43 expenses, reconciliation |
-| `dev.passage.interco.planning.completed.v1` | planning group run done | runId, groupId, entitiesPlanned[], icDemandCount | master planning (22), workspace |
-| `dev.passage.consol.unit.released.v1` | unit data released | groupId, unitId, period, balancesHash | consol-svc monitor |
-| `dev.passage.consol.validation.failed.v1` | validation rule error | runId, ruleId, unitId, difference | workspace, close checklist (14) |
+| `dev.depot.interco.mirror.created.v1` | saga linked | icPairId, sourceDocId, sourceEntity, mirrorDocId, mirrorEntity, type | sales, procurement, analytics |
+| `dev.depot.interco.mirror.compensated.v1` | saga failed | icPairId, failedStep, reason | workflow, alerts |
+| `dev.depot.interco.journal.posted.v1` | IC journal both sides posted | icPairId, entityA, entityB, amount, currency, journalIds[] | reconciliation, consol-svc |
+| `dev.depot.interco.reconciliation.flagged.v1` | mismatch | itemId, entities, difference | workspace, workflow |
+| `dev.depot.consol.run.completed.v1` | run completed | runId, groupId, period, version, unitCount, eliminationCount, ctaAmount | reporting, analytics |
+| `dev.depot.interco.charge.posted.v1` | IC charge posted in both entities | chargeId, icPairId, lendingEntity, borrowingEntity, amount, settlementMode | wave 41 projects, wave 43 expenses, reconciliation |
+| `dev.depot.interco.planning.completed.v1` | planning group run done | runId, groupId, entitiesPlanned[], icDemandCount | master planning (22), workspace |
+| `dev.depot.consol.unit.released.v1` | unit data released | groupId, unitId, period, balancesHash | consol-svc monitor |
+| `dev.depot.consol.validation.failed.v1` | validation rule error | runId, ruleId, unitId, difference | workspace, close checklist (14) |
 
 ### 7.40.6 User experience
 
@@ -2044,7 +2044,7 @@ Helm charts `interco-svc` (TS, Temporal workers), `consol-svc` (Go), Postgres `g
 
 ### 7.40.11 Migration from AX / SAP
 
-| Source | Passage entity | Notes |
+| Source | Depot entity | Notes |
 |---|---|---|
 | InterCompanyTradingPartner, InterCompanyEndpoint*, value maps | IntercompanyPartner, policies | |
 | SalesTable/PurchTable IC links (open orders) | IcDocumentLink | open chains only, status Linked |
@@ -2055,7 +2055,7 @@ Helm charts `interco-svc` (TS, Temporal workers), `consol-svc` (Go), Postgres `g
 | Group Reporting units/groups/FS item mapping, ECCS CX hierarchy | ConsolidationGroup, Unit, chart mapping | |
 | ACDOCU / ECMCT history | lakehouse archive | prior consolidated results kept for comparison, not re-run |
 
-Validation: IC balances per pair equal legacy after migration; first Passage consolidation for the last closed legacy period matches legacy consolidated statements within 0.01% per line (differences explained). Not migrated: closed IC chains, legacy elimination journals (replaced by derived runs).
+Validation: IC balances per pair equal legacy after migration; first Depot consolidation for the last closed legacy period matches legacy consolidated statements within 0.01% per line (differences explained). Not migrated: closed IC chains, legacy elimination journals (replaced by derived runs).
 
 ### 7.40.12 Dependencies, risks, open questions
 
@@ -2198,7 +2198,7 @@ Open questions: (1) Mirror customer payments by default or rely on netting? Prop
 
 - **Consolidation frameworks**: IFRS 10 / IFRS 3 / IAS 21 / IAS 28 (equity method) default; US GAAP ASC 810 / 830 / 323 differences (for example, NCI measured at fair value vs proportionate share, a choice under IFRS 3) are set per group; local GAAP group accounts (DE HGB §§290–315, FR règlement ANC 2020-01) through wave-48 pack chart mappings and statement layouts; ESEF iXBRL tagging for EU listed groups through the wave-15 designer.
 - **Proportional consolidation** is dropped because IFRS 11 removed it for joint ventures (equity method applies); HGB §310 still allows it, so a DE pack may request it post-v1.
-- **Transfer pricing**: OECD Guidelines master / local file and country-by-country reporting (CbCR, OECD XML schema) for groups with revenue ≥ EUR 750 million; Passage supplies the data export (FR-40.4, FR-40.13, FR-39.17); filing formats are wave-48 pack outputs (`TransferPricingReport` extension point).
+- **Transfer pricing**: OECD Guidelines master / local file and country-by-country reporting (CbCR, OECD XML schema) for groups with revenue ≥ EUR 750 million; Depot supplies the data export (FR-40.4, FR-40.13, FR-39.17); filing formats are wave-48 pack outputs (`TransferPricingReport` extension point).
 - **IC invoicing tax**: cross-border IC supplies follow wave-13 VAT rules (EU intra-community supply, reverse charge); IC invoices fall under e-invoicing mandates where applicable (MX CFDI, IN IRP, FR / DE B2B schedules) through wave-48 packs.
 - **Regrouping**: balance-sheet classification of current / non-current (IAS 1.66–1.76) and HGB §268 (residual terms > 1 year disclosed); the RemainingTerm rule threshold is a pack parameter (12 months default).
 - **Retention**: consolidation runs, top-side journals and IC confirmations 10 years.

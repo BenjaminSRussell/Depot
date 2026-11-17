@@ -41,7 +41,7 @@ export interface CatalogOperation {
   /** The path of an operation, or the CloudEvents type of a message. */
   path: string;
   summary: string | null;
-  /** x-passage-duty of an operation; messages have none. */
+  /** x-depot-duty of an operation; messages have none. */
   duty: string | null;
 }
 
@@ -221,7 +221,7 @@ export function readSpec(kind: CatalogKind, spec: unknown): CatalogOperation[] {
       for (const m of HTTP_METHODS) {
         const op = item[m];
         if (!isObject(op)) continue;
-        ops.push({ id: str(op["operationId"]), method: m.toUpperCase(), path, summary: str(op["summary"]), duty: str(op["x-passage-duty"]) });
+        ops.push({ id: str(op["operationId"]), method: m.toUpperCase(), path, summary: str(op["summary"]), duty: str(op["x-depot-duty"]) });
       }
     }
     if (ops.length === 0) {
@@ -248,14 +248,14 @@ export function readSpec(kind: CatalogKind, spec: unknown): CatalogOperation[] {
   return ops;
 }
 
-/** The documentation gaps the doc gate flags: an operation without operationId, summary or x-passage-duty; a message without a summary. */
+/** The documentation gaps the doc gate flags: an operation without operationId, summary or x-depot-duty; a message without a summary. */
 export function docIssues(kind: CatalogKind, ops: readonly CatalogOperation[]): string[] {
   const out: string[] = [];
   for (const o of ops) {
     const what = kind === "api" ? `${o.method} ${o.path}` : o.path;
     if (kind === "api" && o.id === null) out.push(`${what}: no operationId`);
     if (o.summary === null) out.push(`${what}: no summary`);
-    if (kind === "api" && o.duty === null) out.push(`${what}: no x-passage-duty`);
+    if (kind === "api" && o.duty === null) out.push(`${what}: no x-depot-duty`);
   }
   return out;
 }
@@ -470,7 +470,7 @@ export class CatalogStore {
           return (await replay()) as { entry: CatalogEntry; created: boolean };
         }
         const entry = toEntry(res.rows[0]);
-        await enqueue(c, tenantId, { type: "dev.passage.hub.catalogentry.published.v1", aggregateId: entry.id, actor: input.createdBy, data: eventData(entry) });
+        await enqueue(c, tenantId, { type: "dev.depot.hub.catalogentry.published.v1", aggregateId: entry.id, actor: input.createdBy, data: eventData(entry) });
         return { entry, created: true };
       });
     } catch (err) {
@@ -530,7 +530,7 @@ export class CatalogStore {
         [id, patch.title ?? row.title, patch.summary ?? row.summary, patch.ownerService ?? row.owner_service],
       );
       const entry = toEntry(res.rows[0] as Row);
-      await enqueue(c, tenantId, { type: "dev.passage.hub.catalogentry.updated.v1", aggregateId: id, actor, data: eventData(entry) });
+      await enqueue(c, tenantId, { type: "dev.depot.hub.catalogentry.updated.v1", aggregateId: id, actor, data: eventData(entry) });
       return entry;
     });
   }
@@ -564,7 +564,7 @@ export class CatalogStore {
         [id, now.toISOString(), input.sunsetAt.toISOString(), input.replacedBy],
       );
       const entry = toEntry(res.rows[0] as Row);
-      await enqueue(c, tenantId, { type: "dev.passage.hub.catalogentry.deprecated.v1", aggregateId: id, actor, data: eventData(entry) });
+      await enqueue(c, tenantId, { type: "dev.depot.hub.catalogentry.deprecated.v1", aggregateId: id, actor, data: eventData(entry) });
       return entry;
     });
   }
@@ -588,7 +588,7 @@ export class CatalogStore {
         [id, now.toISOString()],
       );
       const entry = toEntry(res.rows[0] as Row);
-      await enqueue(c, tenantId, { type: "dev.passage.hub.catalogentry.retired.v1", aggregateId: id, actor, data: eventData(entry) });
+      await enqueue(c, tenantId, { type: "dev.depot.hub.catalogentry.retired.v1", aggregateId: id, actor, data: eventData(entry) });
       return entry;
     });
   }

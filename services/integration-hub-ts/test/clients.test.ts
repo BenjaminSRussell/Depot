@@ -38,14 +38,14 @@ describe("API client rules", () => {
   test("event envelopes are CloudEvents 1.0 and every type follows the naming rule", () => {
     for (const type of EVENT_TYPES) {
       const e = envelope("11111111-1111-4111-8111-111111111111", { type, aggregateId: "y", actor: null, data: {} });
-      expect(e).toMatchObject({ specversion: "1.0", type, subject: "y", datacontenttype: "application/json", source: "passage/integration-hub" });
+      expect(e).toMatchObject({ specversion: "1.0", type, subject: "y", datacontenttype: "application/json", source: "depot/integration-hub" });
     }
-    expect(() => envelope("t", { type: "dev.passage.hub.Bad.v1" as never, aggregateId: "y", actor: null, data: {} })).toThrow();
+    expect(() => envelope("t", { type: "dev.depot.hub.Bad.v1" as never, aggregateId: "y", actor: null, data: {} })).toThrow();
   });
-  test("the outbox aggregate type is the type's entity, so the relay topic is events.Topic's passage.hub.<entity>", () => {
-    expect(aggregateTypeOf("dev.passage.hub.webhook.delivered.v1")).toBe("webhook");
-    expect(aggregateTypeOf("dev.passage.hub.subscription.paused.v1")).toBe("subscription");
-    expect(aggregateTypeOf("dev.passage.hub.apiclient.revoked.v1")).toBe("apiclient");
+  test("the outbox aggregate type is the type's entity, so the relay topic is events.Topic's depot.hub.<entity>", () => {
+    expect(aggregateTypeOf("dev.depot.hub.webhook.delivered.v1")).toBe("webhook");
+    expect(aggregateTypeOf("dev.depot.hub.subscription.paused.v1")).toBe("subscription");
+    expect(aggregateTypeOf("dev.depot.hub.apiclient.revoked.v1")).toBe("apiclient");
   });
 });
 
@@ -83,7 +83,7 @@ describe.skipIf(ownerUrl === undefined)("API clients on Postgres", () => {
     expect((await hub.call("GET", "/v1/hub/clients", { tenant: t })).body.items).toHaveLength(1);
     expect((await hub.call("GET", `/v1/hub/clients/${res.body.id}`, { tenant: t })).body.clientId).toBe(res.body.clientId);
     const [e] = await events(t);
-    expect(e).toMatchObject({ type: "dev.passage.hub.apiclient.registered.v1", aggregate_type: "apiclient", aggregate_id: res.body.id });
+    expect(e).toMatchObject({ type: "dev.depot.hub.apiclient.registered.v1", aggregate_type: "apiclient", aggregate_id: res.body.id });
     expect(e!.payload.data).toMatchObject({ client_id: res.body.clientId, quota_per_min: 600, burst: 100, status: "active" });
     expect(e!.payload.tenantid).toBe(t);
   });
@@ -124,7 +124,7 @@ describe.skipIf(ownerUrl === undefined)("API clients on Postgres", () => {
     expect(up.body).toMatchObject({ version: 2, quotaPerMin: 1200, burst: 200, scopes: ["sales.order.read", "sales.order.write"] });
     expect((await hub.call("PATCH", `/v1/hub/clients/${c.id}`, { tenant: t, duties: ADMIN }, { version: 1, name: "late" })).status).toBe(409);
     expect((await hub.call("PATCH", `/v1/hub/clients/${c.id}`, { tenant: t, duties: ADMIN }, { version: 2, burst: 0 })).status).toBe(400);
-    expect((await events(t)).map((e) => e.type)).toEqual(["dev.passage.hub.apiclient.registered.v1", "dev.passage.hub.apiclient.updated.v1"]);
+    expect((await events(t)).map((e) => e.type)).toEqual(["dev.depot.hub.apiclient.registered.v1", "dev.depot.hub.apiclient.updated.v1"]);
     expect((await hub.call("PATCH", `/v1/hub/clients/${randomUUID()}`, { tenant: t, duties: ADMIN }, { version: 1 })).status).toBe(404);
   });
 
@@ -174,7 +174,7 @@ describe.skipIf(ownerUrl === undefined)("API clients on Postgres", () => {
     for (let i = 0; i < 700; i += 1) {
       const res = await fetch(`${hub.base}/v1/hub/clients:consume`, {
         method: "POST",
-        headers: { "x-passage-tenant": t, "x-passage-user": "11111111-1111-4111-8111-111111111111", "x-passage-duties": EDGE.join(","), "content-type": "application/json" },
+        headers: { "x-depot-tenant": t, "x-depot-user": "11111111-1111-4111-8111-111111111111", "x-depot-duties": EDGE.join(","), "content-type": "application/json" },
         body: JSON.stringify({ clientId: c.clientId }),
       });
       if (res.status === 200) {
@@ -255,13 +255,13 @@ describe.skipIf(ownerUrl === undefined)("API clients on Postgres", () => {
     const t = randomUUID();
     const recv = await receiver((hit) => (hit === 1 ? 410 : 200));
     try {
-      const sub = (await hub.call("POST", "/v1/hub/subscriptions", { tenant: t, duties: ADMIN }, { name: "ERP sync", url: recv.url, patterns: ["dev.passage.sales.**"] })).body;
+      const sub = (await hub.call("POST", "/v1/hub/subscriptions", { tenant: t, duties: ADMIN }, { name: "ERP sync", url: recv.url, patterns: ["dev.depot.sales.**"] })).body;
       await hub.call("PATCH", `/v1/hub/subscriptions/${sub.id}`, { tenant: t, duties: ADMIN }, { version: 1, name: "ERP sync 2" });
       const handler = createMessageHandler({ store: fx.store, dlqTopic: "hub.dlq", clock, deadLetter: async () => undefined });
       const send = (id: string) =>
         handler({
           topic: "t", partition: 0, offset: "1", key: Buffer.from("o1"),
-          value: Buffer.from(JSON.stringify({ specversion: "1.0", id, source: "/s", type: "dev.passage.sales.order.released.v1", subject: "o1", time: new Date(now * 1000).toISOString(), datacontenttype: "application/json", data: {}, tenantid: t })),
+          value: Buffer.from(JSON.stringify({ specversion: "1.0", id, source: "/s", type: "dev.depot.sales.order.released.v1", subject: "o1", time: new Date(now * 1000).toISOString(), datacontenttype: "application/json", data: {}, tenantid: t })),
         });
       const poller = new Poller({ store: fx.store, transport: httpTransport({ validate: loopbackValidate }), clock, leaseSeconds: 60 });
       await send("ev-1");
@@ -272,12 +272,12 @@ describe.skipIf(ownerUrl === undefined)("API clients on Postgres", () => {
       await hub.call("DELETE", `/v1/hub/subscriptions/${sub.id}`, { tenant: t, duties: ADMIN });
       const types = (await events(t)).map((e) => e.type);
       expect(types).toEqual([
-        "dev.passage.hub.subscription.created.v1",
-        "dev.passage.hub.subscription.updated.v1",
-        "dev.passage.hub.subscription.paused.v1",
-        "dev.passage.hub.subscription.resumed.v1",
-        "dev.passage.hub.webhook.delivered.v1",
-        "dev.passage.hub.subscription.deleted.v1",
+        "dev.depot.hub.subscription.created.v1",
+        "dev.depot.hub.subscription.updated.v1",
+        "dev.depot.hub.subscription.paused.v1",
+        "dev.depot.hub.subscription.resumed.v1",
+        "dev.depot.hub.webhook.delivered.v1",
+        "dev.depot.hub.subscription.deleted.v1",
       ]);
       const all = JSON.stringify(await events(t));
       expect(all).not.toContain(recv.url);
@@ -293,18 +293,18 @@ describe.skipIf(ownerUrl === undefined)("API clients on Postgres", () => {
     const t = randomUUID();
     const recv = await receiver(() => 500);
     try {
-      const sub = (await hub.call("POST", "/v1/hub/subscriptions", { tenant: t, duties: ADMIN }, { name: "down", url: recv.url, patterns: ["dev.passage.sales.**"] })).body;
+      const sub = (await hub.call("POST", "/v1/hub/subscriptions", { tenant: t, duties: ADMIN }, { name: "down", url: recv.url, patterns: ["dev.depot.sales.**"] })).body;
       const handler = createMessageHandler({ store: fx.store, dlqTopic: "hub.dlq", clock, deadLetter: async () => undefined });
       await handler({
         topic: "t", partition: 0, offset: "1", key: Buffer.from("o1"),
-        value: Buffer.from(JSON.stringify({ specversion: "1.0", id: "ev-dead", source: "/s", type: "dev.passage.sales.order.released.v1", subject: "o1", time: new Date(now * 1000).toISOString(), datacontenttype: "application/json", data: {}, tenantid: t })),
+        value: Buffer.from(JSON.stringify({ specversion: "1.0", id: "ev-dead", source: "/s", type: "dev.depot.sales.order.released.v1", subject: "o1", time: new Date(now * 1000).toISOString(), datacontenttype: "application/json", data: {}, tenantid: t })),
       });
       const poller = new Poller({ store: fx.store, transport: httpTransport({ validate: loopbackValidate }), clock, leaseSeconds: 60 });
       for (let i = 0; i < 12; i += 1) {
         await poller.pollOnce();
         now += 86_400;
       }
-      const dead = (await events(t)).filter((e) => e.type === "dev.passage.hub.webhook.deadlettered.v1");
+      const dead = (await events(t)).filter((e) => e.type === "dev.depot.hub.webhook.deadlettered.v1");
       expect(dead).toHaveLength(1);
       expect(dead[0]!.payload.data).toMatchObject({ subscription_id: sub.id, event_id: "ev-dead", attempts: 9, code: "HUB-0115", last_status: 500 });
     } finally {
@@ -315,16 +315,16 @@ describe.skipIf(ownerUrl === undefined)("API clients on Postgres", () => {
     const t = randomUUID();
     const recv = await receiver(() => 200);
     try {
-      await hub.call("POST", "/v1/hub/subscriptions", { tenant: t, duties: ADMIN }, { name: "hub outcomes", url: recv.url, patterns: ["dev.passage.hub.**"] });
+      await hub.call("POST", "/v1/hub/subscriptions", { tenant: t, duties: ADMIN }, { name: "hub outcomes", url: recv.url, patterns: ["dev.depot.hub.**"] });
       const handler = createMessageHandler({ store: fx.store, dlqTopic: "hub.dlq", clock, deadLetter: async () => undefined });
       await handler({
-        topic: "passage.hub.webhook", partition: 0, offset: "1", key: Buffer.from("s1"),
-        value: Buffer.from(JSON.stringify({ specversion: "1.0", id: "outcome-1", source: "passage/integration-hub", type: "dev.passage.hub.webhook.delivered.v1", subject: "s1", time: new Date(now * 1000).toISOString(), datacontenttype: "application/json", data: { subscription_id: randomUUID(), event_id: "x", attempts: 1 }, tenantid: t })),
+        topic: "depot.hub.webhook", partition: 0, offset: "1", key: Buffer.from("s1"),
+        value: Buffer.from(JSON.stringify({ specversion: "1.0", id: "outcome-1", source: "depot/integration-hub", type: "dev.depot.hub.webhook.delivered.v1", subject: "s1", time: new Date(now * 1000).toISOString(), datacontenttype: "application/json", data: { subscription_id: randomUUID(), event_id: "x", attempts: 1 }, tenantid: t })),
       });
       const poller = new Poller({ store: fx.store, transport: httpTransport({ validate: loopbackValidate }), clock, leaseSeconds: 60 });
       await poller.pollOnce();
       expect(recv.hits).toHaveLength(1);
-      expect((await events(t)).map((e) => e.type)).toEqual(["dev.passage.hub.subscription.created.v1"]);
+      expect((await events(t)).map((e) => e.type)).toEqual(["dev.depot.hub.subscription.created.v1"]);
     } finally {
       recv.server.close();
     }

@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/tools/migration-factory/internal/target"
-	"github.com/BenjaminSRussell/passage/tools/migration-factory/internal/target/targettest"
+	"github.com/BenjaminSRussell/depot/tools/migration-factory/internal/target"
+	"github.com/BenjaminSRussell/depot/tools/migration-factory/internal/target/targettest"
 )
 
 const (
@@ -137,7 +137,7 @@ func TestPayablesLoad_SendsBatchesOfAThousandAndReconciles(t *testing.T) {
 	if n := e.stagedAP(t, run.RunID); n != 0 {
 		t.Fatalf("payables_staged = %d after a clean AP load", n)
 	}
-	if n := e.scalar(t, `select count(*) from outbox where type = 'dev.passage.migration.pack.loaded.v1' and payload->'data'->>'target' = 'payables'`); n != 1 {
+	if n := e.scalar(t, `select count(*) from outbox where type = 'dev.depot.migration.pack.loaded.v1' and payload->'data'->>'target' = 'payables'`); n != 1 {
 		t.Fatalf("pack.loaded events for payables = %d", n)
 	}
 	if rd := decode[runDetailDTO](t, e.do(t, "GET", "/api/v1/migration/runs/"+run.RunID, "")); rd.PayablesLoad == nil || rd.PayablesLoad.Status != "RECONCILED" {

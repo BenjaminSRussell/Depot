@@ -10,7 +10,7 @@ import (
 
 	"pgregory.net/rapid"
 
-	"github.com/BenjaminSRussell/passage/services/org/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/org/internal/domain"
 )
 
 var epoch = time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)

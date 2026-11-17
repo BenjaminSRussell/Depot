@@ -1,4 +1,4 @@
--- Failover approval (PSG-50, OPS-1702): a failover that accepts data loss is a request until a second operator approves it.
+-- Failover approval (DPT-50, OPS-1702): a failover that accepts data loss is a request until a second operator approves it.
 -- The approver is the verified caller of the approve route, never a value in the request body, and never the requester.
 -- Platform state, not tenant data: no tenant_id and no RLS (allowlisted in tools/rlscheck), like ops_failover.
 CREATE TABLE ops_failover_request (
@@ -18,8 +18,8 @@ CREATE TABLE ops_failover_request (
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON ops_failover_request TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON ops_failover_request TO depot_app';
   END IF;
 END
 $$;

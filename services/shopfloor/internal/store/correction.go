@@ -9,12 +9,12 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/shopfloor/internal/domain"
-	sfevents "github.com/BenjaminSRussell/passage/services/shopfloor/internal/events"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/shopfloor/internal/domain"
+	sfevents "github.com/BenjaminSRussell/depot/services/shopfloor/internal/events"
 )
 
 // CodeRegistrationNotFound is a correction of a registration that does not exist.
@@ -49,7 +49,7 @@ func parseHours(s *string) (*decimal.Decimal, error) {
 
 // CorrectRegistration changes the times of a registration with a reason, keeps the
 // before and after in registration_correction and publishes
-// dev.passage.shopfloor.registration.corrected.v1 in the same transaction (FR-25.8).
+// dev.depot.shopfloor.registration.corrected.v1 in the same transaction (FR-25.8).
 // A day calculated before the correction can no longer be approved until it is
 // recalculated (SF-0104). The worker's own user cannot correct their time (SF-0106).
 // The domain rules decide what may change (SF-0127, SF-0128); an auto clock-out not

@@ -9,17 +9,17 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/outbox"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/audit/internal/cdc"
-	"github.com/BenjaminSRussell/passage/services/audit/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/outbox"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/audit/internal/cdc"
+	"github.com/BenjaminSRussell/depot/services/audit/internal/domain"
 )
 
-const recordedType = "dev.passage.audit.change.recorded.v1"
+const recordedType = "dev.depot.audit.change.recorded.v1"
 
 // Record is a queryable audit row.
 type Record struct {
@@ -111,7 +111,7 @@ func (s *Postgres) Apply(ctx context.Context, change domain.Change) error {
 		if err := fireAlerts(ctx, tx, p.TenantID, change); err != nil {
 			return err
 		}
-		evt, err := events.New(recordedType, "passage/audit", change.RecordID, p.TenantID, map[string]any{
+		evt, err := events.New(recordedType, "depot/audit", change.RecordID, p.TenantID, map[string]any{
 			"entity": change.Entity, "recordId": change.RecordID, "field": change.Field,
 			"oldValue": change.OldValue, "newValue": change.NewValue, "userId": change.UserID, "traceId": change.TraceID,
 		})

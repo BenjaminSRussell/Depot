@@ -4,8 +4,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
 )
 
 // postLinesFixture posts three vendor invoices on different dates and
@@ -72,7 +72,7 @@ func TestPostgres_ListLines_KeysetPagingWalksPostingOrder(t *testing.T) {
 	if first.Account != "6010" || first.DebitCredit != "D" || first.Amount != "100.00" || first.AmountAcct != "100.00" || first.Currency != "USD" ||
 		first.PostingDate != "2026-03-01" || first.Dimensions["DEPT"] != "D100" || first.TraceID != testTrace ||
 		first.SourceSystem != "ap" || first.SourceType != "vendor_invoice" || first.SourceID != "LQ-1" ||
-		first.SourceURI != "passage://ap/invoices/LQ-1" || first.NegativePosting {
+		first.SourceURI != "depot://ap/invoices/LQ-1" || first.NegativePosting {
 		t.Fatalf("first line = %+v", first)
 	}
 	if seen[1].Account != "2100" || seen[1].DebitCredit != "C" || len(seen[1].Dimensions) != 0 {

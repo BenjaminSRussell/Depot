@@ -13,23 +13,23 @@ DOWNSTREAM_ROUTE_RE = re.compile(r"^/v1/[a-z-]+$")
 
 # The API gateway (every route behind the JWT SecurityPolicy) and the AS2 edge for trading partners (#483), which
 # takes no JWT and carries exactly one route to the edi AS2 listener.
-API_GATEWAY = "passage-api"
-AS2_GATEWAY = "passage-as2"
+API_GATEWAY = "depot-api"
+AS2_GATEWAY = "depot-as2"
 AS2_ROUTE = "edi-as2"
 AS2_SERVICE = "edi-as2"
 # The region health edge (OPS-1703): GET /healthz/region without a JWT, its own Gateway with one route.
-REGION_GATEWAY = "passage-region"
+REGION_GATEWAY = "depot-region"
 REGION_ROUTE = "ops-region-health"
 # The plant edge for iot-edge connectors (#25): mTLS with the edge CA, a token-less enrollment route, one route.
-EDGE_GATEWAY = "passage-edge"
+EDGE_GATEWAY = "depot-edge"
 EDGE_ROUTE = "shopfloor-edge"
-# The customer and supplier portal edge (#30, #511): cookie-session BFFs without a Passage JWT, its own Gateway, one route
+# The customer and supplier portal edge (#30, #511): cookie-session BFFs without a Depot JWT, its own Gateway, one route
 # per portal to that portal's BFF Service (the release name in deploy/envs/dev/apps/services.yaml).
-PORTAL_GATEWAY = "passage-portals"
+PORTAL_GATEWAY = "depot-portals"
 PORTALS = ("customer", "supplier")
 PORTAL_ROUTES = {f"{p}-portal": p for p in PORTALS}
 # The JWT policy of the API gateway; the portal routes have CORS-only SecurityPolicies of their own.
-API_JWT_POLICY = "passage-api-jwt"
+API_JWT_POLICY = "depot-api-jwt"
 
 
 def render():
@@ -73,7 +73,7 @@ def quantity_bytes(q):
     return int(m.group(1)) * {None: 1, "Ki": 1 << 10, "Mi": 1 << 20, "Gi": 1 << 30}[m.group(2)]
 
 
-CLIENT_SUPPLIED = {"X-Passage-LegalEntity-Scope"}
+CLIENT_SUPPLIED = {"X-Depot-LegalEntity-Scope"}
 
 
 # A route is named after its public prefix; these prefixes are served by a Service of another name (the payment prediction service
@@ -91,34 +91,34 @@ class GatewayManifests(unittest.TestCase):
                 self.assertEqual(d["metadata"].get("namespace"), "hello-ledger", d["metadata"]["name"])
 
     def test_identity_headers_removed_early_for_every_tenant_header(self):
-        header_consts = set(re.findall(r'Header\w+\s*=\s*"(X-Passage-[A-Za-z-]+)"', TENANT_GO.read_text()))
+        header_consts = set(re.findall(r'Header\w+\s*=\s*"(X-Depot-[A-Za-z-]+)"', TENANT_GO.read_text()))
         self.assertTrue(header_consts)
-        ctp = named(self.docs, "ClientTrafficPolicy", "passage-api-strip-identity-headers")
+        ctp = named(self.docs, "ClientTrafficPolicy", "depot-api-strip-identity-headers")
         removed = set(ctp["spec"]["headers"]["earlyRequestHeaders"]["remove"])
         self.assertTrue(header_consts - CLIENT_SUPPLIED <= removed, header_consts - CLIENT_SUPPLIED - removed)
         self.assertFalse(CLIENT_SUPPLIED & removed)
         self.assertLessEqual(CLIENT_SUPPLIED, header_consts)
         explicit = {
-            "X-Passage-Tenant",
-            "X-Passage-Legal-Entity",
-            "X-Passage-LegalEntity",
-            "X-Passage-User",
-            "X-Passage-Duties",
-            "X-Passage-Tier",
-            "X-Passage-Service-Token",
+            "X-Depot-Tenant",
+            "X-Depot-Legal-Entity",
+            "X-Depot-LegalEntity",
+            "X-Depot-User",
+            "X-Depot-Duties",
+            "X-Depot-Tier",
+            "X-Depot-Service-Token",
         }
         self.assertTrue(explicit <= removed, explicit - removed)
         self.assertEqual(target_names(ctp), {("Gateway", API_GATEWAY)})
 
     def test_removal_precedes_claim_mapping_and_covers_mapped_headers(self):
-        ctp = named(self.docs, "ClientTrafficPolicy", "passage-api-strip-identity-headers")
+        ctp = named(self.docs, "ClientTrafficPolicy", "depot-api-strip-identity-headers")
         sp = named(self.docs, "SecurityPolicy", API_JWT_POLICY)
         self.assertNotIn("requestHeaderModifier", str(of_kind(self.docs, "HTTPRoute")))
         removed = set(ctp["spec"]["headers"]["earlyRequestHeaders"]["remove"])
         for provider in sp["spec"]["jwt"]["providers"]:
             mapped = {m["header"] for m in provider["claimToHeaders"]}
             self.assertTrue(mapped <= removed, mapped - removed)
-            self.assertIn("X-Passage-Tenant", mapped)
+            self.assertIn("X-Depot-Tenant", mapped)
 
     def test_security_policy_targets_gateway_so_every_route_is_covered(self):
         self.assertTrue(api_routes(self.docs))
@@ -167,7 +167,7 @@ class GatewayManifests(unittest.TestCase):
     def test_duties_claim_mapped_as_single_string_claim(self):
         sp = named(self.docs, "SecurityPolicy", API_JWT_POLICY)
         for provider in sp["spec"]["jwt"]["providers"]:
-            self.assertIn(("duties", "X-Passage-Duties"), {(m["claim"], m["header"]) for m in provider["claimToHeaders"]})
+            self.assertIn(("duties", "X-Depot-Duties"), {(m["claim"], m["header"]) for m in provider["claimToHeaders"]})
 
     def test_nil_tenant_denied(self):
         sp = named(self.docs, "SecurityPolicy", API_JWT_POLICY)
@@ -177,17 +177,17 @@ class GatewayManifests(unittest.TestCase):
 
     def test_rate_limit_keyed_on_tenant_and_covers_every_route(self):
         routes = {("HTTPRoute", r["metadata"]["name"]) for r in api_routes(self.docs)}
-        btp = named(self.docs, "BackendTrafficPolicy", "passage-api-tenant-rate-limit")
+        btp = named(self.docs, "BackendTrafficPolicy", "depot-api-tenant-rate-limit")
         self.assertEqual(target_names(btp), routes)
         rules = btp["spec"]["rateLimit"]["global"]["rules"]
         for rule in rules:
             self.assertIs(rule.get("shared"), True)
             headers = rule["clientSelectors"][0]["headers"]
-            self.assertIn(("X-Passage-Tenant", "Distinct"), {(h["name"], h.get("type")) for h in headers})
+            self.assertIn(("X-Depot-Tenant", "Distinct"), {(h["name"], h.get("type")) for h in headers})
         limits = {
-            next(h["value"] for h in r["clientSelectors"][0]["headers"] if h["name"] == "X-Passage-Tier"): r["limit"]
+            next(h["value"] for h in r["clientSelectors"][0]["headers"] if h["name"] == "X-Depot-Tier"): r["limit"]
             for r in rules
-            if any(h["name"] == "X-Passage-Tier" and not h.get("invert") for h in r["clientSelectors"][0]["headers"])
+            if any(h["name"] == "X-Depot-Tier" and not h.get("invert") for h in r["clientSelectors"][0]["headers"])
         }
         self.assertEqual(
             {k: (v["requests"], v["unit"]) for k, v in limits.items()},
@@ -200,7 +200,7 @@ class GatewayManifests(unittest.TestCase):
         ]
         self.assertEqual((fallback["limit"]["requests"], fallback["limit"]["unit"]), (600, "Minute"))
         inverted = next(h for h in fallback["clientSelectors"][0]["headers"] if h.get("invert"))
-        self.assertEqual(inverted["name"], "X-Passage-Tier")
+        self.assertEqual(inverted["name"], "X-Depot-Tier")
         self.assertEqual(inverted["value"], "^(starter|professional|enterprise)$")
 
     def test_campaign_contexts_are_routed_to_the_port_their_service_listens_on(self):
@@ -269,7 +269,7 @@ class AS2Edge(unittest.TestCase):
     def test_api_routes_still_require_a_jwt_and_the_as2_edge_never_does(self):
         sp = named(self.docs, "SecurityPolicy", API_JWT_POLICY)
         self.assertTrue(sp["spec"]["jwt"]["providers"])
-        # Every API route is covered: the JWT policy targets the whole passage-api Gateway.
+        # Every API route is covered: the JWT policy targets the whole depot-api Gateway.
         self.assertEqual(target_names(sp), {("Gateway", API_GATEWAY)})
         self.assertTrue(all(parent_gateways(r) == {API_GATEWAY} for r in api_routes(self.docs)))
         # No SecurityPolicy reaches the AS2 edge, by Gateway or by route; partners authenticate by AS2 signature.
@@ -299,10 +299,10 @@ class AS2Edge(unittest.TestCase):
         self.assertEqual(self.gateway["spec"]["gatewayClassName"], named(self.docs, "Gateway", API_GATEWAY)["spec"]["gatewayClassName"])
         listener = self.listener
         self.assertEqual((listener["protocol"], listener["port"], listener["tls"]["mode"]), ("HTTPS", 443, "Terminate"))
-        # as2.<env>.passage.dev, in the environment of the IdP the API gateway trusts.
+        # as2.<env>.depot.dev, in the environment of the IdP the API gateway trusts.
         sp = named(self.docs, "SecurityPolicy", API_JWT_POLICY)
-        issuer_env = re.fullmatch(r"https://idp\.([a-z]+)\.passage\.dev/realms/\w+", sp["spec"]["jwt"]["providers"][0]["issuer"]).group(1)
-        self.assertEqual(listener["hostname"], f"as2.{issuer_env}.passage.dev")
+        issuer_env = re.fullmatch(r"https://idp\.([a-z]+)\.depot\.dev/realms/\w+", sp["spec"]["jwt"]["providers"][0]["issuer"]).group(1)
+        self.assertEqual(listener["hostname"], f"as2.{issuer_env}.depot.dev")
         self.assertEqual(listener["allowedRoutes"]["kinds"], [{"kind": "HTTPRoute"}])
         (ref,) = listener["tls"]["certificateRefs"]
         cert = named(self.docs, "Certificate", ref["name"])
@@ -317,10 +317,10 @@ class AS2Edge(unittest.TestCase):
         dev_values = yaml.safe_load((DEPLOY / "envs/dev/values/edi.yaml").read_text())
         self.assertEqual(dev_values["transports"]["as2"]["publicUrl"], f"https://{listener['hostname']}")
         self.assertTrue(dev_values["transports"]["as2"]["enabled"])
-        self.assertIn("https://as2.{env}.passage.dev", (EDI / "api/openapi.yaml").read_text())
+        self.assertIn("https://as2.{env}.depot.dev", (EDI / "api/openapi.yaml").read_text())
 
     def test_as2_edge_body_limit_matches_the_service_and_is_rate_limited_per_client(self):
-        btp = named(self.docs, "BackendTrafficPolicy", "passage-as2-limits")
+        btp = named(self.docs, "BackendTrafficPolicy", "depot-as2-limits")
         self.assertEqual(target_names(btp), {("HTTPRoute", AS2_ROUTE)})
         limit = quantity_bytes(btp["spec"]["requestBuffer"]["limit"])
         self.assertEqual(limit, go_byte_const(EDI / "internal/api/as2in.go", "maxAS2Body"))
@@ -341,8 +341,8 @@ class AS2Edge(unittest.TestCase):
                 self.assertFalse(target_names(other) & {("Gateway", AS2_GATEWAY), ("HTTPRoute", AS2_ROUTE)})
 
     def test_as2_edge_strips_identity_headers_and_requires_tls_1_2(self):
-        header_consts = set(re.findall(r'Header\w+\s*=\s*"(X-Passage-[A-Za-z-]+)"', TENANT_GO.read_text()))
-        ctp = named(self.docs, "ClientTrafficPolicy", "passage-as2-client")
+        header_consts = set(re.findall(r'Header\w+\s*=\s*"(X-Depot-[A-Za-z-]+)"', TENANT_GO.read_text()))
+        ctp = named(self.docs, "ClientTrafficPolicy", "depot-as2-client")
         self.assertEqual(target_names(ctp), {("Gateway", AS2_GATEWAY)})
         removed = set(ctp["spec"]["headers"]["earlyRequestHeaders"]["remove"])
         self.assertTrue(header_consts <= removed, header_consts - removed)
@@ -397,14 +397,14 @@ class RegionHealthEdge(unittest.TestCase):
         cert = named(self.docs, "Certificate", ref["name"])
         self.assertEqual(cert["spec"]["dnsNames"], [listener["hostname"]])
         self.assertEqual(self.route["spec"]["hostnames"], [listener["hostname"]])
-        header_consts = set(re.findall(r'Header\w+\s*=\s*"(X-Passage-[A-Za-z-]+)"', TENANT_GO.read_text()))
-        ctp = named(self.docs, "ClientTrafficPolicy", "passage-region-client")
+        header_consts = set(re.findall(r'Header\w+\s*=\s*"(X-Depot-[A-Za-z-]+)"', TENANT_GO.read_text()))
+        ctp = named(self.docs, "ClientTrafficPolicy", "depot-region-client")
         self.assertEqual(target_names(ctp), {("Gateway", REGION_GATEWAY)})
         self.assertTrue(header_consts <= set(ctp["spec"]["headers"]["earlyRequestHeaders"]["remove"]))
         self.assertIn(ctp["spec"]["tls"]["minVersion"], {"1.2", "1.3"})
 
     def test_region_route_is_rate_limited_per_client(self):
-        btp = named(self.docs, "BackendTrafficPolicy", "passage-region-limits")
+        btp = named(self.docs, "BackendTrafficPolicy", "depot-region-limits")
         self.assertEqual(target_names(btp), {("HTTPRoute", REGION_ROUTE)})
         self.assertEqual(btp["spec"]["rateLimit"]["type"], "Global")
 
@@ -429,7 +429,7 @@ class PortalEdge(unittest.TestCase):
             with self.subTest(portal=portal):
                 listener = self.listeners[f"{portal}-https"]
                 self.assertEqual((listener["protocol"], listener["port"], listener["tls"]["mode"]), ("HTTPS", 443, "Terminate"))
-                # customer.<env>.passage.dev, the host the portal's dev values sign in from.
+                # customer.<env>.depot.dev, the host the portal's dev values sign in from.
                 self.assertEqual(listener["hostname"], f"{portal}.{self.env}")
                 self.assertEqual(listener["allowedRoutes"], {"namespaces": {"from": "Same"}, "kinds": [{"kind": "HTTPRoute"}]})
                 (ref,) = listener["tls"]["certificateRefs"]
@@ -486,19 +486,19 @@ class PortalEdge(unittest.TestCase):
                 self.assertIn("X-CSRF-Token", cors["allowHeaders"])
 
     def test_portal_edge_strips_identity_headers_and_requires_tls_1_2(self):
-        header_consts = set(re.findall(r'Header\w+\s*=\s*"(X-Passage-[A-Za-z-]+)"', TENANT_GO.read_text()))
-        ctp = named(self.docs, "ClientTrafficPolicy", "passage-portals-client")
+        header_consts = set(re.findall(r'Header\w+\s*=\s*"(X-Depot-[A-Za-z-]+)"', TENANT_GO.read_text()))
+        ctp = named(self.docs, "ClientTrafficPolicy", "depot-portals-client")
         self.assertEqual(target_names(ctp), {("Gateway", PORTAL_GATEWAY)})
         removed = set(ctp["spec"]["headers"]["earlyRequestHeaders"]["remove"])
         self.assertTrue(header_consts <= removed, header_consts - removed)
-        self.assertIn("X-Passage-LegalEntity-Scope", removed)
+        self.assertIn("X-Depot-LegalEntity-Scope", removed)
         self.assertIn(ctp["spec"]["tls"]["minVersion"], {"1.2", "1.3"})
 
     def test_portal_routes_are_rate_limited_per_client_address_one_bucket_per_portal(self):
         limited = set()
         for portal in PORTALS:
             with self.subTest(portal=portal):
-                btp = named(self.docs, "BackendTrafficPolicy", f"passage-portal-{portal}-limits")
+                btp = named(self.docs, "BackendTrafficPolicy", f"depot-portal-{portal}-limits")
                 self.assertEqual(target_names(btp), {("HTTPRoute", f"{portal}-portal")})
                 limited |= target_names(btp)
                 rate = btp["spec"]["rateLimit"]
@@ -517,7 +517,7 @@ class PortalEdge(unittest.TestCase):
         # The tenant limit keys on JWT headers the portals never carry, so it must not reach them.
         portal_targets = {("Gateway", PORTAL_GATEWAY)} | {("HTTPRoute", r) for r in PORTAL_ROUTES}
         for other in of_kind(self.docs, "BackendTrafficPolicy"):
-            if not other["metadata"]["name"].startswith("passage-portal-"):
+            if not other["metadata"]["name"].startswith("depot-portal-"):
                 self.assertFalse(target_names(other) & portal_targets, other["metadata"]["name"])
 
     def test_the_supplier_bff_reads_the_client_address_past_the_edge(self):
@@ -546,7 +546,7 @@ class PlantEdge(unittest.TestCase):
         cls.gateway = named(cls.docs, "Gateway", EDGE_GATEWAY)
         (cls.listener,) = cls.gateway["spec"]["listeners"]
         cls.route = named(cls.docs, "HTTPRoute", EDGE_ROUTE)
-        cls.ctp = named(cls.docs, "ClientTrafficPolicy", "passage-edge-client")
+        cls.ctp = named(cls.docs, "ClientTrafficPolicy", "depot-edge-client")
 
     def test_edge_listener_is_https_only_on_its_own_hostname_with_a_certificate(self):
         self.assertEqual((self.listener["protocol"], self.listener["port"], self.listener["tls"]["mode"]), ("HTTPS", 443, "Terminate"))
@@ -562,7 +562,7 @@ class PlantEdge(unittest.TestCase):
         validation = self.ctp["spec"]["tls"]["clientValidation"]
         # A connector has no certificate when it redeems its token, so the certificate is optional at the listener.
         self.assertIs(validation["optional"], True)
-        self.assertEqual([(r["kind"], r["name"]) for r in validation["caCertificateRefs"]], [("Secret", "passage-edge-ca-trust")])
+        self.assertEqual([(r["kind"], r["name"]) for r in validation["caCertificateRefs"]], [("Secret", "depot-edge-ca-trust")])
         self.assertIn(self.ctp["spec"]["tls"]["minVersion"], {"1.2", "1.3"})
 
     def test_the_certificate_subject_is_forwarded_from_the_verified_certificate_only(self):
@@ -575,7 +575,7 @@ class PlantEdge(unittest.TestCase):
         self.assertIn('"X-Forwarded-Client-Cert"', edgecert)
 
     def test_edge_strips_identity_headers_like_the_other_edges(self):
-        header_consts = set(re.findall(r'Header\w+\s*=\s*"(X-Passage-[A-Za-z-]+)"', TENANT_GO.read_text()))
+        header_consts = set(re.findall(r'Header\w+\s*=\s*"(X-Depot-[A-Za-z-]+)"', TENANT_GO.read_text()))
         removed = set(self.ctp["spec"]["headers"]["earlyRequestHeaders"]["remove"])
         self.assertTrue(header_consts <= removed, header_consts - removed)
 

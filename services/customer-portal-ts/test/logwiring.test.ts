@@ -13,7 +13,7 @@ afterEach(async () => {
 
 describe("the default log line", () => {
   it("carries a pseudonym, never the raw user id, under the eu-data-boundary overlay", async () => {
-    vi.stubEnv("PASSAGE_CLOUD_PROFILE", "commercial+eu-data-boundary");
+    vi.stubEnv("DEPOT_CLOUD_PROFILE", "commercial+eu-data-boundary");
     vi.stubEnv("FIELDCRYPT_KEYS", `k1=${KEY_B64}`);
     vi.stubEnv("FIELDCRYPT_CURRENT_KEY_ID", "k1");
     const lines: string[] = [];

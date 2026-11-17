@@ -4,7 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	"github.com/BenjaminSRussell/passage/platform/money"
+	"github.com/BenjaminSRussell/depot/platform/money"
 	"sort"
 	"strings"
 	"time"
@@ -72,7 +72,7 @@ func UnitCost(o OnhandLine) decimal.Decimal {
 // StockValue is the value the target books for a line: quantity times the rounded unit cost.
 func StockValue(o OnhandLine) decimal.Decimal { return o.Quantity.Mul(UnitCost(o)) }
 
-// BuildStockItem maps a staged on-hand line onto a batch item. products maps a legacy item to the Passage product id
+// BuildStockItem maps a staged on-hand line onto a batch item. products maps a legacy item to the Depot product id
 // (an item that is itself a UUID needs no entry).
 func BuildStockItem(o OnhandLine, products map[string]string) (StockItem, string, string) {
 	product := strings.TrimSpace(products[o.Item])
@@ -80,7 +80,7 @@ func BuildStockItem(o OnhandLine, products map[string]string) (StockItem, string
 		product = o.Item
 	}
 	if !uuidPattern.MatchString(product) {
-		return StockItem{}, CodeRefUnresolved, fmt.Sprintf("item %q has no Passage product id: name it in products", o.Item)
+		return StockItem{}, CodeRefUnresolved, fmt.Sprintf("item %q has no Depot product id: name it in products", o.Item)
 	}
 	dims := map[string]string{"site": o.Site, "warehouse": o.Warehouse}
 	for k, v := range map[string]string{"location": o.Location, "batch": o.Batch, "serial": o.Serial} {
@@ -229,7 +229,7 @@ type OnHandStock struct {
 }
 
 // ReconcileOnHand is the on-hand read-back of BR-49.3 (H-S9-2): per product, the quantity the factory's accepted opening batches put
-// in the legal entity against what the inventory ledger's on-hand inquiry reports after the import. Products are Passage ids. Stock
+// in the legal entity against what the inventory ledger's on-hand inquiry reports after the import. Products are Depot ids. Stock
 // moved after the load, or loaded into the entity from outside the factory, shows as a difference.
 func ReconcileOnHand(legalEntityID string, loaded map[string]decimal.Decimal, onHand map[string]OnHandStock) ([]ControlTotal, error) {
 	products := make([]string, 0, len(loaded))

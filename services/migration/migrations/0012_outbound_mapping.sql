@@ -1,5 +1,5 @@
--- Outbound mappings (PSG-10 integration track S5, decision B4: orders and invoices flow Passage to the legacy ERP).
--- A mapping turns one Passage CloudEvent type into the request body the integration hub pushes to the customer's
+-- Outbound mappings (DPT-10 integration track S5, decision B4: orders and invoices flow Depot to the legacy ERP).
+-- A mapping turns one Depot CloudEvent type into the request body the integration hub pushes to the customer's
 -- legacy ERP. Every edit writes an immutable version row; the header carries the current version (the optimistic
 -- version of the API) and the facts that do not change between versions.
 CREATE TABLE migration.outbound_mapping (
@@ -56,12 +56,12 @@ BEGIN
   FOREACH t IN ARRAY ARRAY['outbound_mapping', 'outbound_mapping_version', 'outbound_xref_event'] LOOP
     EXECUTE format('ALTER TABLE migration.%I ENABLE ROW LEVEL SECURITY', t);
     EXECUTE format('ALTER TABLE migration.%I FORCE ROW LEVEL SECURITY', t);
-    EXECUTE format('CREATE POLICY %I ON migration.%I AS PERMISSIVE USING (tenant_id = current_setting(''passage.tenant_id'', true)::uuid) WITH CHECK (tenant_id = current_setting(''passage.tenant_id'', true)::uuid)', t || '_tenant_access', t);
-    EXECUTE format('CREATE POLICY %I ON migration.%I AS RESTRICTIVE USING (current_setting(''passage.legal_entity_scopes'', true) = ''*'')', t || '_legal_entity_scope', t);
+    EXECUTE format('CREATE POLICY %I ON migration.%I AS PERMISSIVE USING (tenant_id = current_setting(''depot.tenant_id'', true)::uuid) WITH CHECK (tenant_id = current_setting(''depot.tenant_id'', true)::uuid)', t || '_tenant_access', t);
+    EXECUTE format('CREATE POLICY %I ON migration.%I AS RESTRICTIVE USING (current_setting(''depot.legal_entity_scopes'', true) = ''*'')', t || '_legal_entity_scope', t);
   END LOOP;
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    GRANT SELECT, INSERT, UPDATE ON migration.outbound_mapping TO passage_app;
-    GRANT SELECT, INSERT ON migration.outbound_mapping_version, migration.outbound_xref_event TO passage_app;
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    GRANT SELECT, INSERT, UPDATE ON migration.outbound_mapping TO depot_app;
+    GRANT SELECT, INSERT ON migration.outbound_mapping_version, migration.outbound_xref_event TO depot_app;
   END IF;
 END
 $$;

@@ -9,12 +9,12 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/ledgerclient"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/consolidation/internal/api"
-	"github.com/BenjaminSRussell/passage/services/consolidation/internal/store"
-	"github.com/BenjaminSRussell/passage/services/consolidation/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/ledgerclient"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/consolidation/internal/api"
+	"github.com/BenjaminSRussell/depot/services/consolidation/internal/store"
+	"github.com/BenjaminSRussell/depot/services/consolidation/migrations"
 )
 
 const (

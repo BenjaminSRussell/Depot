@@ -3,9 +3,9 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "passage-dispatch"
+name = "depot-dispatch"
 version = "0.2.0"
-description = "Passage dispatch feasibility, greedy and CP-SAT solvers and the optimizer API (wave 45)"
+description = "Depot dispatch feasibility, greedy and CP-SAT solvers and the optimizer API (wave 45)"
 requires-python = ">=3.11"
 dependencies = [
     "ortools>=9.10",

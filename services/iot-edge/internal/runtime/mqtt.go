@@ -10,8 +10,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/services/iot-edge/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/iot-edge/internal/mqtt"
+	"github.com/BenjaminSRussell/depot/services/iot-edge/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/iot-edge/internal/mqtt"
 )
 
 // TagAware is implemented by a Source that must know which tags the applied configuration maps: the

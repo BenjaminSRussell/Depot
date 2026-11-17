@@ -18,7 +18,7 @@ const columns: DataTableColumn<Subscription>[] = [
   { key: "createdAt", header: "Created", render: (row) => formatDateTime(row.createdAt) },
 ];
 
-/** Outbound sync: subscriptions that push Passage events to a webhook or into the customer's legacy ERP. */
+/** Outbound sync: subscriptions that push Depot events to a webhook or into the customer's legacy ERP. */
 export function SyncSubscriptionsPage() {
   const navigate = useNavigate();
   const canWrite = holdsDuty(usePrincipalDuties(), DUTY_HUB_WRITE);

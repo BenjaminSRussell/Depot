@@ -21,31 +21,31 @@ $$;
 
 DROP POLICY IF EXISTS statement_run_legal_entity_scope ON statement_run;
 CREATE POLICY statement_run_legal_entity_scope ON statement_run AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ','))
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ','))
          OR (legal_entity_ids IS NOT NULL
-             AND legal_entity_ids::text[] <@ string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+             AND legal_entity_ids::text[] <@ string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 DROP POLICY IF EXISTS statement_cell_legal_entity_scope ON statement_cell;
 CREATE POLICY statement_cell_legal_entity_scope ON statement_cell AS RESTRICTIVE
   USING (
-    current_setting('passage.legal_entity_scopes', true) = '*'
+    current_setting('depot.legal_entity_scopes', true) = '*'
     OR EXISTS (
       SELECT 1 FROM statement_run AS scope_parent
       WHERE scope_parent.tenant_id = statement_cell.tenant_id
         AND scope_parent.id = statement_cell.run_id
-        AND (scope_parent.legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ','))
+        AND (scope_parent.legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ','))
              OR (scope_parent.legal_entity_ids IS NOT NULL
-                 AND scope_parent.legal_entity_ids::text[] <@ string_to_array(current_setting('passage.legal_entity_scopes', true), ',')))
+                 AND scope_parent.legal_entity_ids::text[] <@ string_to_array(current_setting('depot.legal_entity_scopes', true), ',')))
     )
   ) WITH CHECK (
-    current_setting('passage.legal_entity_scopes', true) = '*'
+    current_setting('depot.legal_entity_scopes', true) = '*'
     OR EXISTS (
       SELECT 1 FROM statement_run AS scope_parent
       WHERE scope_parent.tenant_id = statement_cell.tenant_id
         AND scope_parent.id = statement_cell.run_id
-        AND (scope_parent.legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ','))
+        AND (scope_parent.legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ','))
              OR (scope_parent.legal_entity_ids IS NOT NULL
-                 AND scope_parent.legal_entity_ids::text[] <@ string_to_array(current_setting('passage.legal_entity_scopes', true), ',')))
+                 AND scope_parent.legal_entity_ids::text[] <@ string_to_array(current_setting('depot.legal_entity_scopes', true), ',')))
     )
   );

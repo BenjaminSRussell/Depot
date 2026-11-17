@@ -23,8 +23,8 @@ func TestAsyncAPINamesEveryEventType(t *testing.T) {
 		}
 	}
 	for _, line := range strings.Split(string(spec), "\n") {
-		if name, ok := strings.CutPrefix(strings.TrimSpace(line), "name: dev.passage."); ok && !known["dev.passage."+name] {
-			t.Errorf("asyncapi.yaml names dev.passage.%s, which the service does not publish", name)
+		if name, ok := strings.CutPrefix(strings.TrimSpace(line), "name: dev.depot."); ok && !known["dev.depot."+name] {
+			t.Errorf("asyncapi.yaml names dev.depot.%s, which the service does not publish", name)
 		}
 	}
 }

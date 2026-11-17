@@ -7,9 +7,9 @@ import { REAL_IBAN, ScriptedProvider } from "./fakes.js";
 import { tokenFor } from "./jwt.js";
 import { FakeMcp, headers, MemoryStore, serve, T1, tool, USER } from "./surface-fakes.js";
 
-const GET = "passage.ap.invoice.get";
-const LIST = "passage.ap.vendor.list";
-const SEARCH = "passage.knowledge.search";
+const GET = "depot.ap.invoice.get";
+const LIST = "depot.ap.vendor.list";
+const SEARCH = "depot.knowledge.search";
 const DUTIES = "mcp.copilot.use,ap.invoice.read,ap.vendor.read";
 const answer = (text: string, usage = { tokensIn: 100, tokensOut: 20 }): ModelResponse => ({ text, usage });
 const call = (toolName: string, args: Record<string, unknown> = {}): ModelResponse => ({
@@ -60,7 +60,7 @@ describe("POST /api/v1/copilot/chat", () => {
     expect(s.mcp.connects[0]).toMatchObject({ userId: USER, token: tokenFor(T1, USER, DUTIES) });
     expect(s.mcp.calls).toEqual([{ name: GET, args: { invoiceId: "INV-7" } }]);
     // The second prompt carries the tool result; only read tools were offered.
-    expect(s.provider.seen[1]?.user).toContain("Result of passage.ap.invoice.get");
+    expect(s.provider.seen[1]?.user).toContain("Result of depot.ap.invoice.get");
     expect(s.provider.seen[0]?.allowedTools).toEqual([GET, LIST]);
     const [run] = [...s.store.runs.values()];
     expect(run).toMatchObject({ agentId: "copilot", status: "COMMITTED", tokensIn: 300, tokensOut: 30 });
@@ -82,12 +82,12 @@ describe("POST /api/v1/copilot/chat", () => {
   });
 
   it("refuses a tool outside the caller's allowed set with AGT-0203 and never calls it", async () => {
-    const s = await setup([call("passage.ap.invoice.post", { invoiceId: "INV-7" })]);
+    const s = await setup([call("depot.ap.invoice.post", { invoiceId: "INV-7" })]);
     close = s.srv.close;
     const res = await chat(s.srv.base, { mode: "ask", message: "post it" });
     const body = (await res.json()) as { refusal: { code: string; message: string }; toolCalls: unknown[] };
     expect(body.refusal.code).toBe("AGT-0203");
-    expect(body.toolCalls).toEqual([{ tool: "passage.ap.invoice.post", status: "DENIED", code: "AGT-0203" }]);
+    expect(body.toolCalls).toEqual([{ tool: "depot.ap.invoice.post", status: "DENIED", code: "AGT-0203" }]);
     expect(s.mcp.calls).toHaveLength(0);
     const [run] = [...s.store.runs.values()];
     expect(s.store.actionRows.get(run?.runId ?? "")?.[0]).toMatchObject({ decision: "DENIED" });
@@ -99,7 +99,7 @@ describe("POST /api/v1/copilot/chat", () => {
     const res = await chat(s.srv.base, { mode: "ask", message: "hi" }, "mcp.copilot.use");
     const body = (await res.json()) as { refusal: { code: string; message: string } };
     expect(body.refusal.code).toBe("AGT-0203");
-    expect(body.refusal.message).toBe("I cannot do that: you do not hold duty ap.invoice.read required by passage.ap.invoice.get.");
+    expect(body.refusal.message).toBe("I cannot do that: you do not hold duty ap.invoice.read required by depot.ap.invoice.get.");
     expect(s.provider.seen).toHaveLength(0);
     expect(s.store.runs.size).toBe(0);
   });

@@ -12,8 +12,8 @@ ALTER TABLE quality_order_counter ENABLE ROW LEVEL SECURITY;
 ALTER TABLE quality_order_counter FORCE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS quality_order_counter_tenant_access ON quality_order_counter;
 CREATE POLICY quality_order_counter_tenant_access ON quality_order_counter AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 CREATE OR REPLACE FUNCTION quality_order_assign_number() RETURNS trigger LANGUAGE plpgsql AS $$
 DECLARE
@@ -35,7 +35,7 @@ CREATE TRIGGER quality_order_number BEFORE INSERT ON quality_order FOR EACH ROW 
 -- were created, after the tenant's counter (so a re-run never reuses a number
 -- the trigger already gave out), and the counter moves on past them. It reads
 -- every tenant, so it runs only under a role that bypasses row-level security;
--- under passage_app it is skipped with a notice (the orders keep no number and
+-- under depot_app it is skipped with a notice (the orders keep no number and
 -- show their short id).
 DO $$
 BEGIN
@@ -63,8 +63,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS quality_order_number_key ON quality_order (ten
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON quality_order_counter TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON quality_order_counter TO depot_app';
   END IF;
 END
 $$;

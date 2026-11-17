@@ -60,7 +60,7 @@ const asEvalRun = (r: EvalRow): StoredEvalRun => ({
  * `agent_version` and `eval_run` (migration 0006, FR-47.10, BR-47.8). A definition is its agent id, version and
  * prompt hash; an eval passes one exact definition. These are platform rows, the same for every tenant, so the
  * statements run on the pool without a tenant setting. `recordEval` needs the owner role (the eval pipeline,
- * cli/record-eval.ts): the pods' passage_app role may only read eval_run.
+ * cli/record-eval.ts): the pods' depot_app role may only read eval_run.
  */
 export class PgVersionStore {
   constructor(private readonly pool: pg.Pool) {}

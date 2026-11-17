@@ -11,13 +11,13 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
 
-	"github.com/BenjaminSRussell/passage/tools/migration-factory/internal/domain"
-	"github.com/BenjaminSRussell/passage/tools/migration-factory/internal/store"
-	"github.com/BenjaminSRussell/passage/tools/migration-factory/internal/target"
+	"github.com/BenjaminSRussell/depot/tools/migration-factory/internal/domain"
+	"github.com/BenjaminSRussell/depot/tools/migration-factory/internal/store"
+	"github.com/BenjaminSRussell/depot/tools/migration-factory/internal/target"
 )
 
 // Problem codes of the target load.
@@ -176,7 +176,7 @@ func toTargetLoadDTO(l domain.TargetLoad) targetLoadDTO {
 }
 
 func toTargetRowDTO(v domain.TargetRowView) targetRowDTO {
-	return targetRowDTO{Seq: v.Seq, LegacyID: v.LegacyID, Ledger: v.Ledger, Status: v.Status, Outcome: v.Outcome, OpenItemID: v.PassageID, Code: v.Code, Detail: v.Detail,
+	return targetRowDTO{Seq: v.Seq, LegacyID: v.LegacyID, Ledger: v.Ledger, Status: v.Status, Outcome: v.Outcome, OpenItemID: v.DepotID, Code: v.Code, Detail: v.Detail,
 		Side: v.Side, Amount: v.Amount, Currency: v.Currency, CustomerID: v.CustomerID}
 }
 
@@ -289,7 +289,7 @@ func (s *Server) runTargetLoad(w http.ResponseWriter, r *http.Request) {
 	}
 	if s.target == nil || !s.target.Configured() {
 		httpx.Fail(w, r, httpx.NewProblem(http.StatusServiceUnavailable, CodeTargetNotConfigured,
-			"the receivables target is not configured: set RECEIVABLES_URL and the service signing key (PASSAGE_SERVICE_NAME=migration-factory, PASSAGE_SERVICE_SIGNING_KEY)"))
+			"the receivables target is not configured: set RECEIVABLES_URL and the service signing key (DEPOT_SERVICE_NAME=migration-factory, DEPOT_SERVICE_SIGNING_KEY)"))
 		return
 	}
 	ctx := r.Context()
@@ -405,7 +405,7 @@ func (s *Server) WithXref(x XrefResolver) *Server { s.xref = x; return s }
 // CodeXrefUnavailable is the cross-reference of the party migration not answering when a run needs it.
 const CodeXrefUnavailable = "MIG-1565"
 
-// resolveCustomers fills load.customerIds for the AR records whose legacy party has no Passage customer yet (not on the record,
+// resolveCustomers fills load.customerIds for the AR records whose legacy party has no Depot customer yet (not on the record,
 // not in the map, not a UUID) from the customers the party migration loaded into the run's legal entity: the key is the legacy
 // company and the party (company|party, as the migration service keys a customer), else the party alone.
 func (s *Server) resolveCustomers(ctx context.Context, tenantID string, cfg *domain.TargetConfig, records []domain.Record, extras map[string]domain.TargetExtra, sys domain.SourceSystem, company string) error {
@@ -440,7 +440,7 @@ func (s *Server) resolveCustomers(ctx context.Context, tenantID string, cfg *dom
 	return nil
 }
 
-// resolveVendors fills load.payables.vendorIds for the AP records whose legacy party has no Passage vendor yet (not on the record as
+// resolveVendors fills load.payables.vendorIds for the AP records whose legacy party has no Depot vendor yet (not on the record as
 // vendorId, not in the map, not a UUID) from the vendors the party migration loaded into the run's legal entity, keyed like a
 // customer: the legacy company and the party (company|party), else the party alone (#49). A run with no load.payables has no AP
 // target, so nothing is asked.

@@ -15,13 +15,13 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/BenjaminSRussell/passage/platform/cloudprofile"
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/identity"
-	"github.com/BenjaminSRussell/passage/services/identity/migrations"
+	"github.com/BenjaminSRussell/depot/platform/cloudprofile"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/identity"
+	"github.com/BenjaminSRussell/depot/services/identity/migrations"
 )
 
 const (
@@ -30,8 +30,8 @@ const (
 
 	scimRealmCacheTTL = 30 * time.Second
 
-	defaultKeycloakClientID       = "passage-identity-deprovision"
-	defaultCustomerPortalClientID = "passage-portal-customer"
+	defaultKeycloakClientID       = "depot-identity-deprovision"
+	defaultCustomerPortalClientID = "depot-portal-customer"
 	minDeprovisionInterval        = 5 * time.Second
 )
 
@@ -55,7 +55,7 @@ func newLogger(w io.Writer) *slog.Logger {
 }
 
 type config struct {
-	// cloudProfile is PASSAGE_CLOUD_PROFILE: tenant placement follows its allowedRegions and the eu-data-boundary
+	// cloudProfile is DEPOT_CLOUD_PROFILE: tenant placement follows its allowedRegions and the eu-data-boundary
 	// overlay's EU default residency (#605).
 	cloudProfile     *cloudprofile.Profile
 	databaseURL      string

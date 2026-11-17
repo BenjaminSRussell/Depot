@@ -157,13 +157,13 @@ func TestRenderTextPDF_PDFA2bStructure(t *testing.T) {
 	}
 	xmp := string(streamData(t, meta))
 	for _, want := range []string{"<?xpacket begin=\"\xef\xbb\xbf\" id=\"W5M0MpCehiHzreSzNTczkc9d\"?>", "<pdfaid:part>2</pdfaid:part>", "<pdfaid:conformance>B</pdfaid:conformance>",
-		`<rdf:li xml:lang="x-default">Batch record L-1</rdf:li>`, "<pdf:Producer>Passage processmfg</pdf:Producer>",
+		`<rdf:li xml:lang="x-default">Batch record L-1</rdf:li>`, "<pdf:Producer>Depot processmfg</pdf:Producer>",
 		"<xmp:CreateDate>2026-03-04T05:06:07Z</xmp:CreateDate>", "<xmp:ModifyDate>2026-03-04T05:06:07Z</xmp:ModifyDate>", `<?xpacket end="r"?>`} {
 		if !strings.Contains(xmp, want) {
 			t.Fatalf("XMP lacks %q:\n%s", want, xmp)
 		}
 	}
-	if !strings.Contains(info, "/Title "+pdfTextString("Batch record L-1")) || !strings.Contains(info, "/Producer "+pdfTextString("Passage processmfg")) ||
+	if !strings.Contains(info, "/Title "+pdfTextString("Batch record L-1")) || !strings.Contains(info, "/Producer "+pdfTextString("Depot processmfg")) ||
 		!strings.Contains(info, "/CreationDate (D:20260304050607+00'00')") || !strings.Contains(info, "/ModDate (D:20260304050607+00'00')") {
 		t.Fatalf("Info does not match the XMP: %s", info)
 	}

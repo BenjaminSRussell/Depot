@@ -9,8 +9,8 @@ import { FieldKeys } from "../src/crypt.ts";
 import { HubStore, MIGRATIONS_DIR, migrate } from "../src/pgStore.ts";
 import { createHubHandler, type HubApiDeps } from "../src/server.ts";
 
-export const ownerUrl = process.env["PASSAGE_TEST_DATABASE_URL"];
-const appUrl = process.env["PASSAGE_TEST_APP_DATABASE_URL"] ?? ownerUrl;
+export const ownerUrl = process.env["DEPOT_TEST_DATABASE_URL"];
+const appUrl = process.env["DEPOT_TEST_APP_DATABASE_URL"] ?? ownerUrl;
 
 const vectors = JSON.parse(readFileSync(new URL("../testdata/fieldcrypt-vectors.json", import.meta.url), "utf8")) as { keys: string; currentKeyId: string };
 /** Test master keys (the Go cross-language vectors' keys). */
@@ -18,7 +18,7 @@ export const testKeys = FieldKeys.fromEnv({ FIELDCRYPT_KEYS: vectors.keys, FIELD
 
 export interface Fixture {
   store: HubStore;
-  /** The same database through passage_app, with no field encryption keys. */
+  /** The same database through depot_app, with no field encryption keys. */
   keyless: HubStore;
   app: pg.Pool;
   owner: pg.Pool;
@@ -26,7 +26,7 @@ export interface Fixture {
   close(): Promise<void>;
 }
 
-/** A private schema migrated by the owner role, used through the passage_app role when one is configured. */
+/** A private schema migrated by the owner role, used through the depot_app role when one is configured. */
 export async function fixture(): Promise<Fixture> {
   const schema = `hub_${randomUUID().replaceAll("-", "").slice(0, 12)}`;
   const admin = new pg.Pool({ connectionString: ownerUrl, max: 2 });
@@ -98,9 +98,9 @@ export async function api(deps: HubApiDeps): Promise<Api> {
       const res = await fetch(base + path, {
         method,
         headers: {
-          "x-passage-tenant": who.tenant,
-          "x-passage-user": "11111111-1111-4111-8111-111111111111",
-          "x-passage-duties": (who.duties ?? ["hub.subscription.write", "hub.delivery.read"]).join(","),
+          "x-depot-tenant": who.tenant,
+          "x-depot-user": "11111111-1111-4111-8111-111111111111",
+          "x-depot-duties": (who.duties ?? ["hub.subscription.write", "hub.delivery.read"]).join(","),
           "content-type": "application/json",
           ...extra,
         },

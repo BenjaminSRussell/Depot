@@ -11,12 +11,12 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/shopfloor/internal/domain"
-	sfevents "github.com/BenjaminSRussell/passage/services/shopfloor/internal/events"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/shopfloor/internal/domain"
+	sfevents "github.com/BenjaminSRussell/depot/services/shopfloor/internal/events"
 )
 
 // Edge fleet problem codes (see README).
@@ -184,7 +184,7 @@ func edgeEvent(ctx context.Context, tx pgx.Tx, tenantID string, n EdgeNode, by s
 }
 
 // CreateEdgeNode registers a connector under the Idempotency-Key and publishes
-// dev.passage.shopfloor.edgenode.saved.v1 in the same transaction. A name or connector identity
+// dev.depot.shopfloor.edgenode.saved.v1 in the same transaction. A name or connector identity
 // already used is SF-0153.
 func (s *Postgres) CreateEdgeNode(ctx context.Context, in EdgeNodeInput, createdBy string, idem Idem) (EdgeNode, error) {
 	p, _ := tenant.FromContext(ctx)
@@ -285,7 +285,7 @@ func scanEdgeConfig(row pgx.Row) (EdgeConfigVersion, error) {
 }
 
 // PublishEdgeConfig stores the next configuration version of a node under the
-// Idempotency-Key and publishes dev.passage.shopfloor.edgeconfig.published.v1. Versions count
+// Idempotency-Key and publishes dev.depot.shopfloor.edgeconfig.published.v1. Versions count
 // up from 1 per node; the node row is locked so two publishers get different numbers. The
 // document is validated again with its final version number written into it.
 func (s *Postgres) PublishEdgeConfig(ctx context.Context, edgeID string, document json.RawMessage, publishedBy string, idem Idem) (EdgeConfigVersion, error) {
@@ -370,7 +370,7 @@ func (s *Postgres) CurrentEdgeConfig(ctx context.Context, edgeID, subject string
 // Heartbeat records a connector's report: its version, buffer fill, machine states and the
 // configuration version it runs. Reporting a version other than the applied one makes it the
 // applied one (one at a time), stamps applied_at on that version the first time it is applied
-// and publishes dev.passage.shopfloor.edgeconfig.applied.v1. A version the node was never
+// and publishes dev.depot.shopfloor.edgeconfig.applied.v1. A version the node was never
 // given is SF-0151 (422); a caller other than the bound connector is SF-0154 (403); a
 // switched-off node is SF-0152 (409). A repeated heartbeat only moves the last-heartbeat time.
 func (s *Postgres) Heartbeat(ctx context.Context, edgeID, subject string, in HeartbeatInput) (HeartbeatResult, error) {

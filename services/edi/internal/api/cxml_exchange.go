@@ -13,13 +13,13 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
 
-	"github.com/BenjaminSRussell/passage/services/edi/internal/cxmlmap"
-	"github.com/BenjaminSRussell/passage/services/edi/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/edi/internal/sources"
-	"github.com/BenjaminSRussell/passage/services/edi/internal/store"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/cxmlmap"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/sources"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/store"
 )
 
 // The cXML exchange (#35, 35-4). Outbound: POST /partners/{id}/cxml:send builds an OrderRequest from a purchase order, or a
@@ -178,7 +178,7 @@ func (a *API) SendCXML(ctx context.Context, partnerID, docType, sourceID string)
 	if err != nil {
 		return CXMLSendResult{}, err
 	}
-	payloadID := ids.New() + "@passage"
+	payloadID := ids.New() + "@depot"
 	at := a.now().UTC()
 	creds := domain.CXMLCredentials{From: out.OurIdentity, To: cfg.NetworkIdentity, Secret: secret}
 	doc, orderRef, err := a.buildCXMLDocument(ctx, docType, sourceID, profile, out, creds, payloadID, at)

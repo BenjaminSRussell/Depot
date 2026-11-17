@@ -13,10 +13,10 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/batch/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/batch/internal/jobs"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/batch/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/batch/internal/jobs"
 )
 
 type memoryPages struct {

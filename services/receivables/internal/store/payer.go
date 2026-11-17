@@ -6,7 +6,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/BenjaminSRussell/passage/services/receivables/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/receivables/internal/domain"
 )
 
 // valueOrEmpty dereferences an optional text column; nil reads as "".

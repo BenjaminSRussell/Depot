@@ -492,7 +492,7 @@ def read_demo(entity):
 
 def real_loader_prediction(demo):
     """What the real loader adds to the pipeline outcome: a customer or vendor whose AX party was rejected has no
-    Passage party to attach the role to, so it is refused MIG-REF-UNRESOLVED. The real-loader run keys parties by RecId."""
+    Depot party to attach the role to, so it is refused MIG-REF-UNRESOLVED. The real-loader run keys parties by RecId."""
     party_rejects = demo["party"]["rejects"]
     by_recid = {}
     for r in read_demo("party"):

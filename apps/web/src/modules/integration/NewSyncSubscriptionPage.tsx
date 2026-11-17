@@ -51,7 +51,7 @@ type Errors = Partial<Record<keyof SyncValues, string>>;
 
 export const EMPTY_SYNC: SyncValues = {
   name: "",
-  patterns: "dev.passage.sales.order.confirmed.v1",
+  patterns: "dev.depot.sales.order.confirmed.v1",
   outboundMappingId: "",
   method: "POST",
   url: "",
@@ -213,7 +213,7 @@ export function NewSyncSubscriptionPage() {
       <Card>
         <form className={styles.form} onSubmit={submit} noValidate>
           {text("name", "Name", undefined, false, { maxLength: 200 })}
-          <FormField id="sync-patterns" label="Event types" hint="One per line, such as dev.passage.sales.order.confirmed.v1." error={errors.patterns}>
+          <FormField id="sync-patterns" label="Event types" hint="One per line, such as dev.depot.sales.order.confirmed.v1." error={errors.patterns}>
             {(control) => <Textarea {...control} rows={3} mono value={values.patterns} onChange={(event) => update({ patterns: event.target.value })} invalid={Boolean(errors.patterns)} />}
           </FormField>
           <LookupFormField

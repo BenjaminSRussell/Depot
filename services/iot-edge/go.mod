@@ -1,9 +1,9 @@
-module github.com/BenjaminSRussell/passage/services/iot-edge
+module github.com/BenjaminSRussell/depot/services/iot-edge
 
 go 1.26.0
 
 require (
-	github.com/BenjaminSRussell/passage/platform v0.0.0
+	github.com/BenjaminSRussell/depot/platform v0.0.0
 	github.com/gopcua/opcua v0.9.1
 	pgregory.net/rapid v1.3.0
 )
@@ -19,4 +19,4 @@ require (
 	golang.org/x/text v0.43.0 // indirect
 )
 
-replace github.com/BenjaminSRussell/passage/platform => ../../platform/go
+replace github.com/BenjaminSRussell/depot/platform => ../../platform/go

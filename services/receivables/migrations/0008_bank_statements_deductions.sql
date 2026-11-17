@@ -22,11 +22,11 @@ CREATE INDEX IF NOT EXISTS bank_statement_import_at_idx ON bank_statement_import
 ALTER TABLE bank_statement_import ENABLE ROW LEVEL SECURITY;
 ALTER TABLE bank_statement_import FORCE ROW LEVEL SECURITY;
 CREATE POLICY bank_statement_import_tenant_access ON bank_statement_import AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY bank_statement_import_legal_entity_scope ON bank_statement_import AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 -- A deduction is the unexplained part of a short payment, moved off the short-paid
 -- open item so it is aged apart from invoices and never dunned while open
@@ -76,8 +76,8 @@ CREATE INDEX IF NOT EXISTS deduction_item_idx ON deduction (tenant_id, open_item
 ALTER TABLE deduction ENABLE ROW LEVEL SECURITY;
 ALTER TABLE deduction FORCE ROW LEVEL SECURITY;
 CREATE POLICY deduction_tenant_access ON deduction AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY deduction_legal_entity_scope ON deduction AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));

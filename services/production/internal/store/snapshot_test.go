@@ -8,12 +8,12 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/production/internal/domain"
-	prodevents "github.com/BenjaminSRussell/passage/services/production/internal/events"
-	"github.com/BenjaminSRussell/passage/services/production/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/production/internal/domain"
+	prodevents "github.com/BenjaminSRussell/depot/services/production/internal/events"
+	"github.com/BenjaminSRussell/depot/services/production/migrations"
 )
 
 // order-cost-snapshot: one row per open order and day with planned cost, actual cost and WIP; a

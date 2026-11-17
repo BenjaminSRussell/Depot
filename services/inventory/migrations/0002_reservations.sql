@@ -15,8 +15,8 @@ CREATE TABLE IF NOT EXISTS batch_expiry (
 ALTER TABLE batch_expiry ENABLE ROW LEVEL SECURITY;
 ALTER TABLE batch_expiry FORCE ROW LEVEL SECURITY;
 CREATE POLICY batch_expiry_tenant_access ON batch_expiry AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- One row per allocation of a reservation request. A policy request that spans
 -- several dimension sets writes one row per allocation, numbered by allocation_no
@@ -50,17 +50,17 @@ CREATE INDEX IF NOT EXISTS inventory_reservation_product_idx
 ALTER TABLE inventory_reservation ENABLE ROW LEVEL SECURITY;
 ALTER TABLE inventory_reservation FORCE ROW LEVEL SECURITY;
 CREATE POLICY inventory_reservation_tenant_access ON inventory_reservation AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY inventory_reservation_legal_entity_scope ON inventory_reservation AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON batch_expiry TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON inventory_reservation TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON batch_expiry TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON inventory_reservation TO depot_app';
   END IF;
 END
 $$;

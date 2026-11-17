@@ -15,8 +15,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS print_document_template_default ON print_docum
 ALTER TABLE print_document_template ENABLE ROW LEVEL SECURITY;
 ALTER TABLE print_document_template FORCE ROW LEVEL SECURITY;
 CREATE POLICY print_document_template_tenant_access ON print_document_template AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 CREATE TABLE IF NOT EXISTS print_text_block (
   tenant_id uuid NOT NULL,
@@ -30,8 +30,8 @@ CREATE TABLE IF NOT EXISTS print_text_block (
 ALTER TABLE print_text_block ENABLE ROW LEVEL SECURITY;
 ALTER TABLE print_text_block FORCE ROW LEVEL SECURITY;
 CREATE POLICY print_text_block_tenant_access ON print_text_block AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 CREATE TABLE IF NOT EXISTS print_output_rule (
   tenant_id uuid NOT NULL,
@@ -52,19 +52,19 @@ CREATE TABLE IF NOT EXISTS print_output_rule (
 ALTER TABLE print_output_rule ENABLE ROW LEVEL SECURITY;
 ALTER TABLE print_output_rule FORCE ROW LEVEL SECURITY;
 CREATE POLICY print_output_rule_tenant_access ON print_output_rule AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 -- A rule of one legal entity is visible and writable only within the caller's legal-entity scope;
 -- a rule with no legal entity applies to the whole tenant (the API lets only a tenant administrator write it).
 CREATE POLICY print_output_rule_legal_entity_scope ON print_output_rule AS RESTRICTIVE
   USING (legal_entity_id IS NULL
-         OR current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+         OR current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON print_document_template, print_text_block, print_output_rule TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON print_document_template, print_text_block, print_output_rule TO depot_app';
   END IF;
 END
 $$;

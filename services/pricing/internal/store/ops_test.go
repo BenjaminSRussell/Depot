@@ -8,9 +8,9 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/services/pricing/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/pricing/internal/events"
-	"github.com/BenjaminSRussell/passage/services/pricing/internal/store"
+	"github.com/BenjaminSRussell/depot/services/pricing/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/pricing/internal/events"
+	"github.com/BenjaminSRussell/depot/services/pricing/internal/store"
 )
 
 // BR-26.9 against Postgres: the expiry job moves only the ACTIVE records of the named legal

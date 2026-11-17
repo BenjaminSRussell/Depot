@@ -14,8 +14,8 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/ledgerclient"
-	"github.com/BenjaminSRussell/passage/services/intercompany/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/ledgerclient"
+	"github.com/BenjaminSRussell/depot/services/intercompany/internal/domain"
 )
 
 // SourceType is the source type the ledger records on the entries.

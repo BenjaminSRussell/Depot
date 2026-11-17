@@ -1,4 +1,4 @@
-# The only route on Gateway passage-edge: what an iot-edge connector calls, to the shopfloor Service.
+# The only route on Gateway depot-edge: what an iot-edge connector calls, to the shopfloor Service.
 #   POST /v1/shopfloor/edge-nodes/{id}:enroll              redeem an enrollment token (no session, no certificate)
 #   POST /v1/shopfloor/edge-nodes/{id}:renew-certificate   renew the certificate (mTLS)
 #   POST /v1/shopfloor/edge-nodes/{id}:heartbeat           heartbeat (mTLS)
@@ -6,7 +6,7 @@
 #   GET  /v1/shopfloor/edge-nodes/{id}/control-recipes     its control recipes (mTLS)
 #   POST /v1/shopfloor/edge-nodes/{id}/control-recipes/{rid}:report   a recipe's status and writes (mTLS)
 #   POST /v1/shopfloor/machine-events                      machine events (mTLS)
-# Nothing else of the shop floor service is reachable here; the people's routes are on passage-api behind the JWT.
+# Nothing else of the shop floor service is reachable here; the people's routes are on depot-api behind the JWT.
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
@@ -14,10 +14,10 @@ metadata:
   namespace: hello-ledger
 spec:
   parentRefs:
-    - name: passage-edge
+    - name: depot-edge
       sectionName: edge-https
   hostnames:
-    - edge.dev.passage.dev
+    - edge.dev.depot.dev
   rules:
     - matches:
         - path:

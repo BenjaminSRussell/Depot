@@ -12,7 +12,7 @@ import math
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from passage_dispatch import Problem, Technician, WorkOrder, plan_violations, solve_greedy
+from depot_dispatch import Problem, Technician, WorkOrder, plan_violations, solve_greedy
 
 SKILLS = ["hvac", "elec", "plumb"]
 TERRITORIES = ["north", "south"]

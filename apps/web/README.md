@@ -1,4 +1,4 @@
-# Passage web app
+# Depot web app
 
 React and TypeScript, built with Vite. The keyboard-first shell lives in `src/shell`; each domain is a module under `src/modules/<name>` with a `module.ts` that registers its routes.
 

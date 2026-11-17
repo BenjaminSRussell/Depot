@@ -5,9 +5,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/scheduling/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/scheduling/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/scheduling/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/scheduling/internal/store"
 )
 
 func TestParameters_DefaultsThenVersionedChanges(t *testing.T) {
@@ -47,7 +47,7 @@ func TestParameters_DefaultsThenVersionedChanges(t *testing.T) {
 	if err != nil || next.Version != 3 || next.PropagationLevels != 3 || next.DefaultDirection != "backward" {
 		t.Fatalf("second change = %+v err=%v", next, err)
 	}
-	if got := outboxCount(t, admin, "dev.passage.scheduling.parameters.updated.v1"); got != 2 {
+	if got := outboxCount(t, admin, "dev.depot.scheduling.parameters.updated.v1"); got != 2 {
 		t.Fatalf("parameters.updated events = %d, want 2 (the replay and the stale change publish nothing)", got)
 	}
 

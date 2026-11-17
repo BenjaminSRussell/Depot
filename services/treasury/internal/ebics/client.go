@@ -19,7 +19,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/services/treasury/internal/bankconnect"
+	"github.com/BenjaminSRussell/depot/services/treasury/internal/bankconnect"
 )
 
 const (

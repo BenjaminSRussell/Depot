@@ -1,4 +1,4 @@
--- Wave 36 (PSG-36) AC4: audit of every bank file sent. Append-only: a 'prepared' row is
+-- Wave 36 (DPT-36) AC4: audit of every bank file sent. Append-only: a 'prepared' row is
 -- written before a file is signed and sent, then a 'sent', 'failed' or 'unknown' (the bank may have received it) row for the same file_id.
 -- The foreign key includes legal_entity_id, so an audit row cannot name another entity's account.
 alter table bank_account add constraint bank_account_tenant_id_legal_entity_key unique (tenant_id, id, legal_entity_id);
@@ -28,16 +28,16 @@ create index ix_bank_file_audit_file on bank_file_audit (tenant_id, file_id, cre
 alter table bank_file_audit enable row level security;
 alter table bank_file_audit force row level security;
 create policy bank_file_audit_tenant_access on bank_file_audit as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 create policy bank_file_audit_legal_entity_scope on bank_file_audit as restrictive
-  using (current_setting('passage.legal_entity_scopes', true) = '*'
-         or legal_entity_id::text = any(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  using (current_setting('depot.legal_entity_scopes', true) = '*'
+         or legal_entity_id::text = any(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT ON bank_file_audit TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT ON bank_file_audit TO depot_app';
   END IF;
 END
 $$;

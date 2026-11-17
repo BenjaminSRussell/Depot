@@ -1,6 +1,6 @@
 # edi
 
-The EDI engine of Passage (PSG-35, wave 35, PRD §6.35). It replaces AX AIF
+The EDI engine of Depot (DPT-35, wave 35, PRD §6.35). It replaces AX AIF
 ports, SAP IDoc/ALE and the PI/PO EDI mappings. Partners exchange orders, ship
 notices and invoices as X12 and EDIFACT interchanges.
 
@@ -67,7 +67,7 @@ Built in this slice:
 - **997 matching**: a 997 group (GS01 FA) received on `/inbound/x12` is read
   (`Parse997`), matched by AK102 to the outbound interchange with that control number,
   and the answered messages become ACKED or FAILED with one
-  `dev.passage.edi.message.acked.v1` per message in the outbox. A 997 is never itself
+  `dev.depot.edi.message.acked.v1` per message in the outbox. A 997 is never itself
   acknowledged.
 - **Interchange list** filters by direction (IN/OUT).
 
@@ -87,7 +87,7 @@ Built in this slice:
   were, and received 997s are not reprocessed. `?dryRun=true` returns the outcome without
   writing and needs no key; otherwise `Idempotency-Key` is required and a replay returns
   the first result. An outbound interchange is refused with EDI-0009.
-- **`dev.passage.edi.message.failed.v1`**: published in the receiving transaction for
+- **`dev.depot.edi.message.failed.v1`**: published in the receiving transaction for
   every transaction that fails mapping and every 997 that cannot be read or matched, and
   after a reprocess as above. Stored errors now carry the catalog code
   (`EDI-0103: CTT01 2 does not match PO1 count 1`).
@@ -204,7 +204,7 @@ database or publishes an event, so these routes also run without a store.
   through a SECURITY DEFINER index, leases rows with skip locked (several replicas never send a row
   twice; a crash re-sends with the same Message-ID after the lease), signs (and encrypts) AS2
   messages, requires a signed MDN with our MIC, and records DELIVERED (messages become SENT,
-  `dev.passage.edi.message.sent.v1`), AWAITING_MDN (asynchronous MDN), REJECTED (error
+  `dev.depot.edi.message.sent.v1`), AWAITING_MDN (asynchronous MDN), REJECTED (error
   disposition, not retried) or PENDING with back-off from one minute to an hour, FAILED after 8
   attempts. SFTP uploads as `.part` and renames. `POST /edi/v1/interchanges/{id}:resend` queues a
   new delivery of a FAILED or REJECTED one; the interchange detail lists the deliveries.
@@ -215,7 +215,7 @@ database or publishes an event, so these routes also run without a store.
   used up. The delivery counts the waits (`mdnTimeouts`) and says why in `lastError`, the dispatcher
   logs `edi delivery MDN timeout`, and a MDN arriving after the wait finds nothing waiting (404).
   Every delivery that ends FAILED (attempts used up, MDN wait, transport gone) publishes
-  `dev.passage.edi.delivery.failed.v1` in the same transaction, for the monitor and the task queue;
+  `dev.depot.edi.delivery.failed.v1` in the same transaction, for the monitor and the task queue;
   the operator resends it.
 - **Asynchronous MDNs we owe** (`transport_mdn`): when a partner asks for its MDN at a
   `Receipt-Delivery-Option` on its configured AS2 host, the signed MDN is stored, not posted from
@@ -243,8 +243,8 @@ database or publishes an event, so these routes also run without a store.
 
 ### AS2 listener security
 
-Partners call the AS2 listener without a Passage JWT, so it does not run the tenant middleware and
-ignores `X-Passage-*` headers. The endpoint id in the path (random, per partner transport, kept
+Partners call the AS2 listener without a Depot JWT, so it does not run the tenant middleware and
+ignores `X-Depot-*` headers. The endpoint id in the path (random, per partner transport, kept
 across updates) is resolved by the SECURITY DEFINER `edi_as2_endpoint()` to a tenant and partner
 and nothing else; the work then runs as the edi service in the one legal entity of the partner's
 trade profile. The caller is authenticated by its CMS signature against the certificate pinned on
@@ -263,8 +263,8 @@ limit, which gets 429 with `Retry-After` (logged once per episode). Only well-fo
 bucket, and at most 10000 are kept (refilled buckets are dropped first), so made-up ids cannot grow
 memory; evicting a bucket only resets it to full.
 
-The edge is the AS2 Gateway `passage-as2` (`deploy/gateway/as2-*.yaml`, see `deploy/gateway/README.md`):
-`https://as2.<env>.passage.dev`, its own Gateway so the passage-api JWT SecurityPolicy cannot apply,
+The edge is the AS2 Gateway `depot-as2` (`deploy/gateway/as2-*.yaml`, see `deploy/gateway/README.md`):
+`https://as2.<env>.depot.dev`, its own Gateway so the depot-api JWT SecurityPolicy cannot apply,
 one route (`POST /as2/v1/` to the `edi-as2` Service), TLS 1.2 or newer, an 8 MiB request buffer and
 a rate limit per client address. The chart's NetworkPolicy admits only that Gateway's Envoy proxies to
 the AS2 port (`networkPolicy.as2Gateway`); the API and metrics ports keep their previous reach unless
@@ -287,7 +287,7 @@ the AS2 port (`networkPolicy.as2Gateway`); the API and metrics ports keep their 
   partner and standard (EDI-0102). ORDERS is mapped like the 850 (`MapORDERS`, issues and
   accepted-with-errors as for the 850), DESADV is held to the 856 rules and INVOIC to the 810 rules;
   each message is stored with its canonical document under the UNH type and reference and gets
-  `dev.passage.edi.message.received.v1` (standard EDIFACT), failed ones also `message.failed`. Other
+  `dev.depot.edi.message.received.v1` (standard EDIFACT), failed ones also `message.failed`. Other
   message types are FAILED (EDI-0006). A received CONTRL is read, matched to our outbound EDIFACT
   interchange (slice 9) and never acknowledged. Reprocess reads stored EDIFACT and re-maps by type
   and UNH reference.
@@ -326,7 +326,7 @@ the AS2 port (`networkPolicy.as2Gateway`); the API and metrics ports keep their 
   like the 810) under the same service grant. `BuildEdifactOutbound` holds DESADV to the 856 rules
   and INVOIC to the 810 rules; the message goes in a UNOC syntax 3 interchange (UNA, default service
   characters, UNB 0035 test indicator for a TEST partner) from our UNB identity (`EDI_EDIFACT_ID`,
-  `EDI_EDIFACT_QUALIFIER`, default PASSAGE/ZZZ, chart `edifactSender`) to the partner's
+  `EDI_EDIFACT_QUALIFIER`, default DEPOT/ZZZ, chart `edifactSender`) to the partner's
   `edifactId`/`edifactQualifier` (409 EDI-0017 when it has none), asks for a CONTRL (UNB 0031 = 1)
   and takes UNB 0020 from the partner's gap-free EDIFACT counter, the one the CONTRLs we send it
   use. It is stored as an OUT interchange (standard EDIFACT, version UNOC:3, UNH reference 1),
@@ -337,7 +337,7 @@ the AS2 port (`networkPolicy.as2Gateway`); the API and metrics ports keep their 
   `applyAnswers` with the 997): each message still MAPPED or SENT becomes ACKED, or FAILED when the
   UCI is 4 or a UCM 4 names it (the error says which, with the 0085 code); UCI 8 (received, nothing
   checked) acknowledges; the interchange takes the CONTRL's status (`ContrlAck.Status`) and
-  `acked_at` unless an earlier CONTRL answered it; `dev.passage.edi.message.acked.v1` is published
+  `acked_at` unless an earlier CONTRL answered it; `dev.depot.edi.message.acked.v1` is published
   per answered message. The CONTRL is POSTED (with notes for UCMs naming no message), or FAILED with
   EDI-0161 when it answers nothing. The SLA dashboard counts EDIFACT acknowledgments like 997s.
 - **Inbound 820 and 214**: the X12 receipt maps the 820 onto the canonical remittance (`Map820`:
@@ -374,8 +374,8 @@ the AS2 port (`networkPolicy.as2Gateway`); the API and metrics ports keep their 
   callers scoped to that entity (or to every entity) may change it (403 EDI-0018), as for the
   profile and the transport: the profile's restrictive RLS hides it from other callers, so the
   binding is read through `edi_partner_in_entity_scope()`, a SECURITY DEFINER function over the
-  `partner_entity_index` a trigger on `partner_trade_profile` keeps (no RLS, no `passage_app`
-  grant, listed in `tools/rlscheck`). `passage_app` gets UPDATE on the changed columns only:
+  `partner_entity_index` a trigger on `partner_trade_profile` keeps (no RLS, no `depot_app`
+  grant, listed in `tools/rlscheck`). `depot_app` gets UPDATE on the changed columns only:
   tenant, id, environment and creation time stay write-once and partners are never deleted.
 - **Partner certificate trust** (`internal/certtrust`): the partner AS2 certificate stays pinned
   (signatures are verified against it alone, so another certificate of the same CA cannot sign for
@@ -401,7 +401,7 @@ the AS2 port (`networkPolicy.as2Gateway`); the API and metrics ports keep their 
   order is posted again only by the route, and reprocess leaves it alone. The body sent under a message's
   Idempotency-Key is pinned at the first attempt. Transport's
   `POST /v1/transport/tracking-events` needs a load id and stop number the 214 does not carry;
-  receivables has no remittance-advice route. Consumers read `dev.passage.edi.message.received.v1`
+  receivables has no remittance-advice route. Consumers read `dev.depot.edi.message.received.v1`
   and the canonical document; `NOT-IMPLEMENTED.md` (Handoffs) lists what each posting needs.
 
 ## Slice 10 scope: the B2B batch (#35, 35-1 to 35-5)
@@ -413,7 +413,7 @@ Migration `0012_b2b_exchange.sql`. Every table is tenant-scoped with the legal-e
   `asn.issued` (now carrying `legal_entity_id`) and billing's `invoice.posted`. For each active partner of the event's legal
   entity whose `PUT /partners/{id}/auto-outbound` lists the set (`856`, `DESADV` for a shipment, `810`, `INVOIC` for an invoice) it
   generates the document through the same path as `outbound:from-source` (`API.SendFromSource`), under the same idempotency key
-  (partner, set, source document): a redelivered event, a replay from `passage.edi.outbound.dlq` and a route call made by hand
+  (partner, set, source document): a redelivered event, a replay from `depot.edi.outbound.dlq` and a route call made by hand
   yield one interchange. A document that is not this partner's (another customer, EDI-0011), cannot be mapped (a partly shipped
   shipment, EDI-0007), or a partner without a profile or EDIFACT identity is logged and skipped; a source outage is retried by the
   consumer (2 s doubling, 10 attempts) and then dead-lettered. One 856 per shipment: a second packing slip of a shipment replays the
@@ -481,7 +481,7 @@ Sample files: `testdata/cxml/` (the three network documents, a punchout cart and
 
 ## Slice 12 scope: B2B round 3 (#35, #40)
 
-- **35-1 shipped without a packing slip.** The warehouse publishes `dev.passage.wms.shipment.shipped.v1` (topic `passage.wms.shipment`)
+- **35-1 shipped without a packing slip.** The warehouse publishes `dev.depot.wms.shipment.shipped.v1` (topic `depot.wms.shipment`)
   when it confirms that a fulfillment shipment left the dock without a packing slip (`POST /v1/warehouse/shipments/{id}:ship`). The
   consumer reads the shipment from fulfillment and sends the whole shipment's 856 or DESADV under the route's whole-shipment key, with the
   warehouse's ship time as the ship date, its carrier when it named one, and only the containers that left (a named pallet takes its
@@ -498,7 +498,7 @@ Sample files: `testdata/cxml/` (the three network documents, a punchout cart and
   posts nothing: an AP clerk matches it to receipts. An invoice of several orders, or with `EDI_PAYABLES_URL` (chart
   `sources.payablesUrl`) unset, is parked with EDI-0038; a refusal by payables (a changed resend, the vendor's invoice number taken)
   with EDI-0039. The payables chart must list edi's public key.
-- **35-5 self-billing.** An inbound X12 810 is read as the customer's self-billed invoice (Passage sends its own 810s and takes vendor
+- **35-5 self-billing.** An inbound X12 810 is read as the customer's self-billed invoice (Depot sends its own 810s and takes vendor
   invoices through cXML and AP): BIG (date, document number, PO), CUR, REF*PK or REF*BM (delivery note), REF*LI (PO line, else IT101),
   IT1, line TXI and TDS; it is matched right after receipt (only the messages of that interchange; other pending ones are left to
   the sweep), and by the sweep, exactly like an INVOIC 389. A partner with a `taxCountry`
@@ -553,7 +553,7 @@ internal/autosend/  the outbound consumer's handlers (asn.issued, shipment.shipp
 internal/events/    event type constants and payloads
 migrations/         0001_init.sql (trading_partner, control_number_counter, interchange, message, outbox, idempotency_keys), 0002_monitor.sql (interchange.acked_at, monitor indexes), 0004/0005 trade profile, 0006_partner_transport.sql (partner_transport, transport_delivery, transport_inbound, transport_work index), 0007_as2_mdn_queue.sql (transport_mdn, the MDN wait on transport_delivery), 0008_edifact_inbound.sql (partner EDIFACT identity and CONTRL mode, interchange.refusal), 0009_partner_update.sql (partner UPDATE column grant, partner_entity_index and edi_partner_in_entity_scope())
 api/openapi.yaml    OpenAPI 3.1 for the routes above
-events/asyncapi.yaml AsyncAPI 3 for dev.passage.edi.message.received.v1, message.acked.v1, message.failed.v1, message.sent.v1 and delivery.failed.v1
+events/asyncapi.yaml AsyncAPI 3 for dev.depot.edi.message.received.v1, message.acked.v1, message.failed.v1, message.sent.v1 and delivery.failed.v1
 charts/edi/         Helm chart (api deployment, service, optional AS2 service, NetworkPolicy, transport ExternalSecret, ServiceMonitor); test-as2.sh checks the AS2 port's NetworkPolicy
 testdata/x12/       X12 fixtures for the domain and API tests
 testdata/edifact/   EDIFACT fixtures and goldens (ORDERS in, DESADV, INVOIC, CONTRL out)
@@ -586,7 +586,7 @@ testdata/as2/       a third-party MDN
 | POST | /edi/v1/interchanges/{id}:reprocess?dryRun= | edi.operate | Re-map FAILED inbound transactions from the raw payload; `Idempotency-Key` unless `dryRun=true` |
 | POST | /edi/v1/interchanges:reprocess?dryRun= | edi.operate | Bulk reprocess of 1 to 200 distinct interchange ids; `Idempotency-Key` unless `dryRun=true` |
 | POST | /edi/v1/interchanges/{id}:resend | edi.operate | 202 with a new delivery of an outbound interchange whose last delivery FAILED or was REJECTED; 409 EDI-0015 otherwise |
-| POST | /as2/v1/{endpoint} | none (AS2 signature) | AS2 listener only (`EDI_AS2_ADDR`, edge `https://as2.<env>.passage.dev`): a partner's AS2 message, answered with an MDN (an asynchronous one is stored and posted by the dispatcher); 429 with `Retry-After` over the endpoint's rate limit |
+| POST | /as2/v1/{endpoint} | none (AS2 signature) | AS2 listener only (`EDI_AS2_ADDR`, edge `https://as2.<env>.depot.dev`): a partner's AS2 message, answered with an MDN (an asynchronous one is stored and posted by the dispatcher); 429 with `Retry-After` over the endpoint's rate limit |
 | POST | /as2/v1/{endpoint}/mdn | none (AS2 signature) | AS2 listener only: the asynchronous MDN for one of our deliveries (404 once the wait ran out); same rate limit |
 | GET | /edi/v1/messages?partnerId=&direction=&status=&transactionSet=&controlNumber=&limit=&cursor= | edi.operate | `{items, nextCursor}` newest first, limit 1 to 200 (default 50) |
 | GET | /edi/v1/messages/{id} | edi.operate | One message with envelope and canonical document (party names masked without `edi.pii.view`) |
@@ -622,17 +622,17 @@ payload viewer, partner SLA, map tester).
 ```sh
 cd services/edi
 go test ./...                       # store tests skip without a database
-PASSAGE_TEST_DATABASE_URL=postgres://... go test ./...   # runs the store and API database tests
-# add PASSAGE_TEST_APP_DATABASE_URL (a NOSUPERUSER NOBYPASSRLS role) to run the RLS test
+DEPOT_TEST_DATABASE_URL=postgres://... go test ./...   # runs the store and API database tests
+# add DEPOT_TEST_APP_DATABASE_URL (a NOSUPERUSER NOBYPASSRLS role) to run the RLS test
 DATABASE_URL=postgres://... MIGRATE_ON_START=true go run ./cmd/edi
 ```
 
 Configuration: `DATABASE_URL` (required), `HTTP_ADDR` (default `:8080`),
 `MIGRATE_ON_START` (dev only), `EDI_DUP_WINDOW_DAYS` (default 30), `EDI_ISA_QUALIFIER`
-and `EDI_ISA_ID` (our ISA06/GS02 identity on outbound documents, default ZZ/PASSAGE),
+and `EDI_ISA_ID` (our ISA06/GS02 identity on outbound documents, default ZZ/DEPOT),
 `EDI_EDIFACT_ID` and `EDI_EDIFACT_QUALIFIER` (our UNB S002 identity on outbound EDIFACT, default
-PASSAGE/ZZZ; the qualifier may be empty),
-`PASSAGE_SERVICE_NAME=edi` with `PASSAGE_SERVICE_SIGNING_KEY` or `_FILE` (and `PASSAGE_SERVICE_KEY_ID`),
+DEPOT/ZZZ; the qualifier may be empty),
+`DEPOT_SERVICE_NAME=edi` with `DEPOT_SERVICE_SIGNING_KEY` or `_FILE` (and `DEPOT_SERVICE_KEY_ID`),
 `EDI_PURCHASING_URL` (optional; punchout requisitions, 35-3), `EDI_FULFILLMENT_URL`, `EDI_BILLING_URL`, `EDI_SALES_URL` (without a signing key the from-source
 or any source URL is unset the from-source route answers 503), `EDI_ALLOW_BODY_OUTBOUND` (off in the binary; the chart
 sets `allowBodyOutbound: true` so the integration screen and the 855 keep working).
@@ -647,10 +647,10 @@ the SFTP poller; with the AS2 listener on, some replica must run them),
 waits for its asynchronous MDN, default 1440), `EDI_AS2_TRUST_ROOTS` (PEM bundle of the CAs partner AS2
 certificates must chain to; unset pins certificates only) and `EDI_AS2_CRL_DIR` (CRLs of those CAs,
 needs the roots; chart `transports.trust.rootsConfigMap`/`rootsKey` and `crlConfigMap`, mounted under
-`/etc/passage/edi-trust`). `edi consume` (the outbound consumer, 35-1) reads `DATABASE_URL`, the service identity and the three source URLs like the API, plus
+`/etc/depot/edi-trust`). `edi consume` (the outbound consumer, 35-1) reads `DATABASE_URL`, the service identity and the three source URLs like the API, plus
 `KAFKA_BROKERS`, `KAFKA_USERNAME`, `KAFKA_PASSWORD_FILE`, `KAFKA_TLS_CA_FILE` and `ADMIN_ADDR`; chart `consumer.*`. Chart values
 under `transports` set them, mount the Secret `transports.secretName` at
-`/var/run/passage/edi-secrets` and, with `transports.externalSecret.enabled`, create it from the
+`/var/run/depot/edi-secrets` and, with `transports.externalSecret.enabled`, create it from the
 Vault path `transports.externalSecret.key` (every property becomes one reference).
 The fulfillment, billing and sales charts verify edi's token from `serviceIdentity.publicKeys`
 (`edi=<base64 public key>`); until it is set they refuse every edi call.
@@ -722,7 +722,7 @@ exists; the PRD text names it for schematron failures.
 
 ## Slice 12: warehouse pack data, self-billed invoices posted, vendor 810 (#35, round 4)
 
-- **Pack hierarchy from the warehouse.** `dev.passage.wms.shipment.shipped.v1` may carry, per container, `parent_sscc`, `gross_kg` and `lines`
+- **Pack hierarchy from the warehouse.** `dev.depot.wms.shipment.shipped.v1` may carry, per container, `parent_sscc`, `gross_kg` and `lines`
   (`shipment_line_id`, `qty`). When any container has lines the 856 or DESADV of the shipment is built from the warehouse's containers (pallets and
   cartons as the warehouse recorded them) and not from fulfillment's; a confirmation that names only SSCCs uses fulfillment's containers as before.
 - **Self-billed documents posted.** A self-billed INVOIC 389 or X12 810 that matched in full is posted by billing as the legal customer invoice

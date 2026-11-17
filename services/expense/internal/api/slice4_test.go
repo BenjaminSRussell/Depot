@@ -12,13 +12,13 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/expense/internal/api"
-	"github.com/BenjaminSRussell/passage/services/expense/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/expense/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/expense/internal/api"
+	"github.com/BenjaminSRussell/depot/services/expense/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/expense/internal/store"
 )
 
 // fakeReports is an in-memory reportStore that records what the handlers pass it.

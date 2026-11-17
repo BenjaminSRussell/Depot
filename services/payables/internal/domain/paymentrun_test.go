@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/services/payables/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/payables/internal/domain"
 )
 
 const (
@@ -116,7 +116,7 @@ func TestWithhold_ReducesNetAndValuedPerLineAndGroup(t *testing.T) {
 func TestBuildRunFile_OnePaymentPerGroupWithInvoiceRemittance(t *testing.T) {
 	groups := twoGroups()
 	cfg := domain.RunFileConfig{
-		Debtor:        domain.PartyDTO{Name: "Passage Holding Inc", Address: domain.PostalAddressDTO{StreetName: "1 Market Street", PostCode: "94105", TownName: "San Francisco", Country: "US"}},
+		Debtor:        domain.PartyDTO{Name: "Depot Holding Inc", Address: domain.PostalAddressDTO{StreetName: "1 Market Street", PostCode: "94105", TownName: "San Francisco", Country: "US"}},
 		DebtorAccount: domain.AccountDTO{OtherID: "000123456789"}, DebtorBIC: "CHASUS33",
 		Profile: domain.BankProfileDTO{Variant: "US"},
 	}

@@ -3,7 +3,7 @@ package store
 import (
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/services/product/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/product/internal/domain"
 )
 
 func parseDecimal(s string) (decimal.Decimal, error) {

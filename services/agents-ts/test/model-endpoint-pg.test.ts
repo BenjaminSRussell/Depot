@@ -19,7 +19,7 @@ describe.skipIf(ownerUrl === undefined)("agent_run records the model endpoint", 
     const deps = {
       ...makeDeps({
         provider,
-        tools: new FakeTools({ "passage.ap.invoice.post": postDescriptor, "passage.ap.invoice.propose_coding": codingDescriptor }),
+        tools: new FakeTools({ "depot.ap.invoice.post": postDescriptor, "depot.ap.invoice.propose_coding": codingDescriptor }),
         approvals: new FakeApprovals({ decision: "APPROVED", approverUserId: APPROVER }),
       }),
       audit: pg.store,

@@ -9,11 +9,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/planning/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/planning/internal/forecastclient"
-	"github.com/BenjaminSRussell/passage/services/planning/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/planning/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/planning/internal/forecastclient"
+	"github.com/BenjaminSRussell/depot/services/planning/internal/store"
 )
 
 const (
@@ -61,8 +61,8 @@ func genDo(t *testing.T, a *API, body, duties, ifMatch string) *httptest.Respons
 	a.Register(router)
 	req := httptest.NewRequest(http.MethodPost, generatePath, strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Passage-Tenant", testkit.TenantID(1))
-	req.Header.Set("X-Passage-Duties", duties)
+	req.Header.Set("X-Depot-Tenant", testkit.TenantID(1))
+	req.Header.Set("X-Depot-Duties", duties)
 	if ifMatch != "" {
 		req.Header.Set("If-Match", ifMatch)
 	}
@@ -191,8 +191,8 @@ func TestGenerateForecastChecksTheModelBeforeCallingTheService(t *testing.T) {
 	router := httpx.NewRouter()
 	a.Register(router)
 	req := httptest.NewRequest(http.MethodPost, "/v1/planning/forecasts/SENT:generate", strings.NewReader(generateBody("[1,2]")))
-	req.Header.Set("X-Passage-Tenant", testkit.TenantID(1))
-	req.Header.Set("X-Passage-Duties", dutyForecasts)
+	req.Header.Set("X-Depot-Tenant", testkit.TenantID(1))
+	req.Header.Set("X-Depot-Duties", dutyForecasts)
 	req.Header.Set("If-Match", `"2"`)
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)

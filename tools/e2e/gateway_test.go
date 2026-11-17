@@ -19,11 +19,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/tools/e2e/devenv"
-	"github.com/BenjaminSRussell/passage/tools/e2e/stack"
+	"github.com/BenjaminSRussell/depot/tools/e2e/devenv"
+	"github.com/BenjaminSRussell/depot/tools/e2e/stack"
 )
 
-const gatewayIssuer = "http://127.0.0.1:1/realms/passage"
+const gatewayIssuer = "http://127.0.0.1:1/realms/depot"
 
 type tokenSigner struct{ key *rsa.PrivateKey }
 
@@ -43,7 +43,7 @@ func (s tokenSigner) token(t *testing.T, seed devenv.Seed, u devenv.User) string
 	header, _ := json.Marshal(map[string]string{"alg": "RS256", "kid": "e2e"})
 	claims, _ := json.Marshal(map[string]any{
 		"iss": gatewayIssuer, "sub": u.Sub, "tid": seed.TenantID, "le": seed.LegalEntityID, "duties": u.DutyClaim(), "tier": u.Tier,
-		"aud": []string{"passage-api"}, "iat": now.Unix(), "exp": now.Add(5 * time.Minute).Unix(),
+		"aud": []string{"depot-api"}, "iat": now.Unix(), "exp": now.Add(5 * time.Minute).Unix(),
 	})
 	signed := base64.RawURLEncoding.EncodeToString(header) + "." + base64.RawURLEncoding.EncodeToString(claims)
 	digest := sha256.Sum256([]byte(signed))
@@ -126,8 +126,8 @@ func TestGatewayEnforcesSeededDutiesInFrontOfTheRealServices(t *testing.T) {
 	env := map[string]string{
 		"DEVGATEWAY_ADDR": gatewayAddr, "DEVGATEWAY_ISSUER": gatewayIssuer, "DEVGATEWAY_JWKS_URL": jwks.URL,
 		"DEVGATEWAY_TENANT_ID": seed.TenantID, "DEVGATEWAY_OPA_URL": "http://" + opaAddr,
-		"PASSAGE_SVC_LEDGER_URL": s.URL("ledger"), "PASSAGE_SVC_NUMBERING_URL": s.URL("numbering"),
-		"PASSAGE_SVC_PARTY_URL": s.URL("party"), "PASSAGE_SVC_PROCUREMENT_URL": s.URL("purchasing"), "PASSAGE_SVC_RECEIVING_URL": s.URL("receiving"),
+		"DEPOT_SVC_LEDGER_URL": s.URL("ledger"), "DEPOT_SVC_NUMBERING_URL": s.URL("numbering"),
+		"DEPOT_SVC_PARTY_URL": s.URL("party"), "DEPOT_SVC_PROCUREMENT_URL": s.URL("purchasing"), "DEPOT_SVC_RECEIVING_URL": s.URL("receiving"),
 	}
 	if err := s.Spawn("devgateway", "", env, binary); err != nil {
 		t.Fatal(err)
@@ -149,7 +149,7 @@ func TestGatewayEnforcesSeededDutiesInFrontOfTheRealServices(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("no token is 401 even with forged identity headers", func(t *testing.T) {
-		resp, err := api(devenv.User{}, map[string]string{"X-Passage-Tenant": seed.TenantID, "X-Passage-User": adminUser.Sub, "X-Passage-Duties": adminUser.DutyClaim()}).
+		resp, err := api(devenv.User{}, map[string]string{"X-Depot-Tenant": seed.TenantID, "X-Depot-User": adminUser.Sub, "X-Depot-Duties": adminUser.DutyClaim()}).
 			Do(ctx, http.MethodGet, "/v1/numbering/sequences", nil, nil)
 		if err != nil || resp.Status != http.StatusUnauthorized {
 			t.Fatalf("status %d err %v, want 401", resp.Status, err)
@@ -157,7 +157,7 @@ func TestGatewayEnforcesSeededDutiesInFrontOfTheRealServices(t *testing.T) {
 	})
 
 	t.Run("a clerk is refused admin routes by OPA and told which duty is missing", func(t *testing.T) {
-		resp, err := api(clerkUser, map[string]string{"X-Passage-Duties": adminUser.DutyClaim()}).Do(ctx, http.MethodGet, "/v1/numbering/sequences", nil, nil)
+		resp, err := api(clerkUser, map[string]string{"X-Depot-Duties": adminUser.DutyClaim()}).Do(ctx, http.MethodGet, "/v1/numbering/sequences", nil, nil)
 		if err != nil || resp.Status != http.StatusForbidden || resp.String("code") != "AUTH-0003" {
 			t.Fatalf("status %d code %q err %v, want 403 AUTH-0003: %s", resp.Status, resp.String("code"), err, resp.Body)
 		}

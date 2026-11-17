@@ -188,14 +188,14 @@ export function NewPackRunPage() {
                 id="run-legalEntityId"
                 label="Legal entity"
                 entity="legalEntity"
-                hint="The Passage legal entity the open items belong to. You must be scoped to it."
+                hint="The Depot legal entity the open items belong to. You must be scoped to it."
                 value={values.legalEntityId}
                 error={errors.legalEntityId}
                 onChange={(legalEntityId) => update({ legalEntityId })}
               />
               {text("importSource", "Import source", "How receivables keys the items with the legacy id. Default: the system and company, such as ax2012.usmf.", { maxLength: 40 }, true)}
               <div className={styles.wide}>
-                <FormField id="run-customers" label="Customers" hint="One per line: legacyParty=Passage customer id. A party that is already a UUID needs no line." error={errors.customers} optional>
+                <FormField id="run-customers" label="Customers" hint="One per line: legacyParty=Depot customer id. A party that is already a UUID needs no line." error={errors.customers} optional>
                   {(control) => (
                     <Textarea {...control} mono rows={3} value={values.customers} invalid={Boolean(errors.customers)} onChange={(event) => update({ customers: event.target.value })} />
                   )}

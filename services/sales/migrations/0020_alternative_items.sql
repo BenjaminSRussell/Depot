@@ -29,16 +29,16 @@ CREATE UNIQUE INDEX IF NOT EXISTS alternative_item_rule_unique ON alternative_it
 ALTER TABLE alternative_item_rule ENABLE ROW LEVEL SECURITY;
 ALTER TABLE alternative_item_rule FORCE ROW LEVEL SECURITY;
 CREATE POLICY alternative_item_rule_tenant_access ON alternative_item_rule AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY alternative_item_rule_legal_entity_scope ON alternative_item_rule AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, DELETE ON alternative_item_rule TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, DELETE ON alternative_item_rule TO depot_app';
   END IF;
 END
 $$;

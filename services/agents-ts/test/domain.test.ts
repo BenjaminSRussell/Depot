@@ -77,7 +77,7 @@ describe("authorization", () => {
 });
 
 describe("buildActionRecord", () => {
-  const input = { runId: "r", seq: 1, toolName: "passage.ap.invoice.post", inputRedacted: '{"remitTo":"[IBAN-1]"}', outputRedacted: '{"ref":"p-1"}', approverUserId: "u2", decision: "APPROVED" as const, decidedAt: "2026-10-21T00:00:00Z" };
+  const input = { runId: "r", seq: 1, toolName: "depot.ap.invoice.post", inputRedacted: '{"remitTo":"[IBAN-1]"}', outputRedacted: '{"ref":"p-1"}', approverUserId: "u2", decision: "APPROVED" as const, decidedAt: "2026-10-21T00:00:00Z" };
 
   it("refuses raw PII in stored input (AGT-0210)", () => {
     expect(() => buildActionRecord({ ...input, inputRedacted: '{"remitTo":"DE89370400440532013000"}' })).toThrow("AGT-0210");

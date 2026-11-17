@@ -16,16 +16,16 @@ CREATE TABLE IF NOT EXISTS purchasing_policy (
 ALTER TABLE purchasing_policy ENABLE ROW LEVEL SECURITY;
 ALTER TABLE purchasing_policy FORCE ROW LEVEL SECURITY;
 CREATE POLICY purchasing_policy_tenant_access ON purchasing_policy AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY purchasing_policy_legal_entity_scope ON purchasing_policy AS RESTRICTIVE
   USING (
-    current_setting('passage.legal_entity_scopes', true) = '*'
-    OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ','))
+    current_setting('depot.legal_entity_scopes', true) = '*'
+    OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ','))
   )
   WITH CHECK (
-    current_setting('passage.legal_entity_scopes', true) = '*'
-    OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ','))
+    current_setting('depot.legal_entity_scopes', true) = '*'
+    OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ','))
   );
 
 ALTER TABLE purchase_order ADD COLUMN IF NOT EXISTS created_by uuid;
@@ -34,8 +34,8 @@ ALTER TABLE purchase_order ADD COLUMN IF NOT EXISTS changed_by uuid;
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON purchasing_policy TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON purchasing_policy TO depot_app';
   END IF;
 END
 $$;

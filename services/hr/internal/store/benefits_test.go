@@ -6,11 +6,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/hr/internal/domain"
-	hrevents "github.com/BenjaminSRussell/passage/services/hr/internal/events"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/hr/internal/domain"
+	hrevents "github.com/BenjaminSRussell/depot/services/hr/internal/events"
 )
 
 // medicalPlan is a November 2026 open-enrollment plan with the AC-42.5 rule.

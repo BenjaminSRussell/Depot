@@ -37,15 +37,15 @@ CREATE INDEX IF NOT EXISTS subject_request_state ON subject_request (tenant_id, 
 ALTER TABLE subject_request ENABLE ROW LEVEL SECURITY;
 ALTER TABLE subject_request FORCE ROW LEVEL SECURITY;
 CREATE POLICY subject_request_tenant_access ON subject_request AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
--- passage_app takes requests in (insert) and moves them through their states
+-- depot_app takes requests in (insert) and moves them through their states
 -- (update under FOR UPDATE); it never deletes one.
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON subject_request TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON subject_request TO depot_app';
   END IF;
 END
 $$;

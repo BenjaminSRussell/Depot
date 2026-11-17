@@ -15,9 +15,9 @@ CREATE UNIQUE INDEX IF NOT EXISTS currency_rounding_key ON currency_rounding
 ALTER TABLE currency_rounding ENABLE ROW LEVEL SECURITY;
 ALTER TABLE currency_rounding FORCE ROW LEVEL SECURITY;
 CREATE POLICY currency_rounding_tenant_access ON currency_rounding AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY currency_rounding_legal_entity_scope ON currency_rounding AS RESTRICTIVE
   USING (legal_entity_id IS NULL
-         OR current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+         OR current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));

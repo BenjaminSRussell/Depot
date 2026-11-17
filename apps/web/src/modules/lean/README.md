@@ -1,4 +1,4 @@
-# lean web module (PSG-24 slices 1, 2, 4, 5, 6, 7 and 8)
+# lean web module (DPT-24 slices 1, 2, 4, 5, 6, 7 and 8)
 
 Front end for `services/lean`. Discovered by the shell through `module.ts`. Pages use the
 `shell/ui` primitives and `pages.module.css` (tokens only), as in `docs/design-system.md`.

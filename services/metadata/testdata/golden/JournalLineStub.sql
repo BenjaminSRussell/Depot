@@ -19,8 +19,8 @@ create index "ix_journal_line_stubs_01" on "journal_line_stubs" ("tenant_id", "j
 alter table journal_line_stubs enable row level security;
 alter table journal_line_stubs force row level security;
 create policy journal_line_stubs_tenant_access on journal_line_stubs as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 create policy journal_line_stubs_legal_entity_scope on journal_line_stubs as restrictive
-  using (current_setting('passage.legal_entity_scopes', true) = '*'
-         or legal_entity_id::text = any(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  using (current_setting('depot.legal_entity_scopes', true) = '*'
+         or legal_entity_id::text = any(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));

@@ -10,7 +10,7 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/xlsx"
+	"github.com/BenjaminSRussell/depot/platform/xlsx"
 )
 
 // Packet is one review workbook.
@@ -85,7 +85,7 @@ func cover(p Packet, meta Meta, tables []*Table) xlsx.Sheet {
 		}
 		rows = append(rows, row)
 	}
-	add("Passage sign-off packet", p.Title)
+	add("Depot sign-off packet", p.Title)
 	add("Serves", p.Item)
 	for i, s := range p.Sources {
 		label := ""

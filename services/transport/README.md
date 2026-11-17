@@ -1,4 +1,4 @@
-# transport (wave 34, PSG-34)
+# transport (wave 34, DPT-34)
 
 Transportation management and freight: rate cards, rate shopping, freight bills,
 carrier invoice reconciliation, carrier tendering, shipment tracking and landed-cost
@@ -125,7 +125,7 @@ charts/transport/       Helm chart (image, DATABASE_URL from a secret, probes, S
 `POST /loads/{id}:tender` refuses a load with an OPEN screening hold with 422 TMS-0133
 and stores no tender (BR-34.17, AC-34.16). `POST /shipments/{id}:rate` answers from a
 cache per tenant and rating input for `TMS_RATING_CACHE_MIN` minutes (default 10, 0
-off) and says `X-Passage-Cache: HIT` or `MISS`; saving a rate card drops that tenant's
+off) and says `X-Depot-Cache: HIT` or `MISS`; saving a rate card drops that tenant's
 cache on the replica.
 
 Configuration: `ROUTING_PY_URL` (the older `TMS_OPTIMIZER_URL` is still read and logged as deprecated) (chart `optimizer.url`) is the routing-py base URL;
@@ -172,13 +172,13 @@ the load plan (form with the top view, floor positions, load sequence and axle e
 ## Run
 
 ```sh
-export DATABASE_URL=postgres://passage_app:...@localhost:5432/passage_transport
+export DATABASE_URL=postgres://depot_app:...@localhost:5432/depot_transport
 export MIGRATE_ON_START=true     # dev only; stage/prod run migrations as an Argo PreSync Job
 go run ./cmd/transport
 ```
 
 Configuration: `HTTP_ADDR` (default `:8080`), `ADMIN_ADDR` (default `:9090`, serves
-`/metrics`), `DATABASE_URL`, `MIGRATE_ON_START`, `PASSAGE_ENV`, `SERVICE_NAME`. The tenant
+`/metrics`), `DATABASE_URL`, `MIGRATE_ON_START`, `DEPOT_ENV`, `SERVICE_NAME`. The tenant
 and duties come from the gateway headers that `platform/go/tenant` reads; OPA is not wired yet.
 
 ## Test
@@ -189,12 +189,12 @@ go vet ./... && go test ./...
 
 Domain tests are pure table tests with `pgregory.net/rapid` property checks. API tests use
 a fake `store.Store`. Store tests use `testkit.DBWithApp` and run as the application role,
-so row-level security is exercised; they are skipped without `PASSAGE_TEST_DATABASE_URL`
-and need `PASSAGE_TEST_APP_DATABASE_URL` (a non-owner role without BYPASSRLS):
+so row-level security is exercised; they are skipped without `DEPOT_TEST_DATABASE_URL`
+and need `DEPOT_TEST_APP_DATABASE_URL` (a non-owner role without BYPASSRLS):
 
 ```sh
-PASSAGE_TEST_DATABASE_URL=postgres://postgres@localhost:5432/passage_test \
-PASSAGE_TEST_APP_DATABASE_URL=postgres://passage_app:app@localhost:5432/passage_test \
+DEPOT_TEST_DATABASE_URL=postgres://postgres@localhost:5432/depot_test \
+DEPOT_TEST_APP_DATABASE_URL=postgres://depot_app:app@localhost:5432/depot_test \
 go test ./internal/store/
 ```
 
@@ -286,7 +286,7 @@ go test ./internal/store/
 
 ## Error codes
 
-Envelope: RFC 9457 `application/problem+json`, `type` = `https://passage.dev/problems/<code>`.
+Envelope: RFC 9457 `application/problem+json`, `type` = `https://depot.dev/problems/<code>`.
 
 | Code | HTTP | Meaning |
 |---|---|---|
@@ -338,20 +338,20 @@ goods-in-transit orders, screening holds and route plans. Codes not yet raised (
 
 | Type | When | Subject |
 |---|---|---|
-| dev.passage.tms.freightbill.matched.v1 | A carrier invoice is matched to its bill | freight bill id |
-| dev.passage.tms.load.released.v1 | A planner releases a load for tendering (not on replay); the release id, the cascade, the releasing user and its legal-entity scope; workflow-ts starts `tenderWorkflow` from it | load id |
-| dev.passage.tms.tender.accepted.v1 / declined.v1 / expired.v1 | Each attempt outcome; payload has rank and the quoted rate | tender id |
-| dev.passage.tms.tracking.event.v1 | A status report is stored (not on replay) | load id |
-| dev.passage.tms.landedcost.posted.v1 | A voyage is allocated and posted; Σ receiptLines = total | voyage id |
-| dev.passage.tms.freightbill.approved.v1 | A freight bill is approved; expected (accrued), invoiced and variance amounts for AP and the ledger | freight bill id |
-| dev.passage.tms.gate.checkedin.v1 | A driver and trailer check in (not on replay); no driver PII | gate visit id |
-| dev.passage.tms.goodsintransit.shipped.v1 | A goods-in-transit order ships; goods value and estimated cost per line and cost type, Σ lines = estimatedTotal | order id |
+| dev.depot.tms.freightbill.matched.v1 | A carrier invoice is matched to its bill | freight bill id |
+| dev.depot.tms.load.released.v1 | A planner releases a load for tendering (not on replay); the release id, the cascade, the releasing user and its legal-entity scope; workflow-ts starts `tenderWorkflow` from it | load id |
+| dev.depot.tms.tender.accepted.v1 / declined.v1 / expired.v1 | Each attempt outcome; payload has rank and the quoted rate | tender id |
+| dev.depot.tms.tracking.event.v1 | A status report is stored (not on replay) | load id |
+| dev.depot.tms.landedcost.posted.v1 | A voyage is allocated and posted; Σ receiptLines = total | voyage id |
+| dev.depot.tms.freightbill.approved.v1 | A freight bill is approved; expected (accrued), invoiced and variance amounts for AP and the ledger | freight bill id |
+| dev.depot.tms.gate.checkedin.v1 | A driver and trailer check in (not on replay); no driver PII | gate visit id |
+| dev.depot.tms.goodsintransit.shipped.v1 | A goods-in-transit order ships; goods value and estimated cost per line and cost type, Σ lines = estimatedTotal | order id |
 
 Each is written to the outbox in the transaction that makes the change. The `outbox-transport`
 Debezium connector (`deploy/kafka/connect.yaml`) streams the outbox through the
-`passage_outbox_transport` publication (migration 0011) as the `debezium_cdc_transport` role
-(grants in migration 0012) and routes each event to `passage.tms.<aggregate_type>`: the release
-to `passage.tms.load`, the tender outcomes to `passage.tms.tender`.
+`depot_outbox_transport` publication (migration 0011) as the `debezium_cdc_transport` role
+(grants in migration 0012) and routes each event to `depot.tms.<aggregate_type>`: the release
+to `depot.tms.load`, the tender outcomes to `depot.tms.tender`.
 
 ## Dependencies
 

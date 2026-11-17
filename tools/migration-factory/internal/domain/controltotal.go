@@ -26,7 +26,7 @@ type Tolerance struct {
 	Reason string
 }
 
-// ControlTotal compares a legacy (source) value with the Passage (target) value at one key.
+// ControlTotal compares a legacy (source) value with the Depot (target) value at one key.
 type ControlTotal struct {
 	Name      string
 	Key       map[string]string

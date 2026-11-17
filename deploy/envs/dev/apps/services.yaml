@@ -83,7 +83,7 @@ spec:
           - { name: treasury, path: services/treasury/charts/treasury, namespace: hello-ledger }
           - { name: warehouse, path: services/warehouse/charts/warehouse, namespace: hello-ledger }
           - { name: workflow, path: services/workflow-ts/charts/workflow, namespace: hello-ledger }
-          - { name: passage-migration-factory, path: tools/migration-factory/charts/passage-migration-factory, namespace: hello-ledger }
+          - { name: depot-migration-factory, path: tools/migration-factory/charts/depot-migration-factory, namespace: hello-ledger }
   template:
     metadata:
       name: '{{ .name }}'
@@ -92,7 +92,7 @@ spec:
     spec:
       project: default
       sources:
-        - repoURL: https://github.com/BenjaminSRussell/Passage.git
+        - repoURL: https://github.com/BenjaminSRussell/Depot.git
           targetRevision: main
           path: '{{ .path }}'
           helm:
@@ -103,7 +103,7 @@ spec:
             parameters:
               - name: image.digest
                 value: sha256:0000000000000000000000000000000000000000000000000000000000000000
-        - repoURL: https://github.com/BenjaminSRussell/Passage.git
+        - repoURL: https://github.com/BenjaminSRussell/Depot.git
           targetRevision: main
           ref: values
       destination:

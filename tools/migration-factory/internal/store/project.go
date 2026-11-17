@@ -9,9 +9,9 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/ids"
 
-	"github.com/BenjaminSRussell/passage/tools/migration-factory/internal/domain"
+	"github.com/BenjaminSRussell/depot/tools/migration-factory/internal/domain"
 )
 
 // ProjectWIPRun is a validated project_wip extract ready to load (FR-49.12). Run carries the
@@ -75,7 +75,7 @@ func lineJSON(l domain.OpeningLine) openingLineJSON {
 func runProjectWIP(ctx context.Context, tx pgx.Tx, in ProjectWIPRun) (domain.PackRun, error) {
 	run := in.Run
 	sys, company := string(run.SourceSystem), run.SourceCompany
-	if _, err := tx.Exec(ctx, `select pg_advisory_xact_lock(hashtextextended('xref|' || current_setting('passage.tenant_id', true) || '|' || $1 || '|' || $2 || '|' || $3, 0))`,
+	if _, err := tx.Exec(ctx, `select pg_advisory_xact_lock(hashtextextended('xref|' || current_setting('depot.tenant_id', true) || '|' || $1 || '|' || $2 || '|' || $3, 0))`,
 		sys, company, domain.TableProjectWIP); err != nil {
 		return domain.PackRun{}, fmt.Errorf("lock legacy_xref: %w", err)
 	}
@@ -85,7 +85,7 @@ func runProjectWIP(ctx context.Context, tx pgx.Tx, in ProjectWIPRun) (domain.Pac
 	}
 	present := map[string]struct{}{}
 	rows, err := tx.Query(ctx, `select source_id from legacy_xref
-		where tenant_id = current_setting('passage.tenant_id', true)::uuid and source_system = $1 and source_company = $2 and source_table = $3 and source_id = any($4)`,
+		where tenant_id = current_setting('depot.tenant_id', true)::uuid and source_system = $1 and source_company = $2 and source_table = $3 and source_id = any($4)`,
 		sys, company, domain.TableProjectWIP, idsIn)
 	if err != nil {
 		return domain.PackRun{}, fmt.Errorf("read legacy_xref: %w", err)
@@ -128,13 +128,13 @@ func runProjectWIP(ctx context.Context, tx pgx.Tx, in ProjectWIPRun) (domain.Pac
 			return domain.PackRun{}, err
 		}
 		batch.Queue(`insert into legacy_xref (tenant_id, xref_id, source_system, source_company, source_table, source_id,
-			passage_entity, passage_id, run_id, amount, currency)
-			values (current_setting('passage.tenant_id', true)::uuid, $1, $2, $3, $4, $5, 'project_opening_line', $6, $7, $8, $9)`,
+			depot_entity, depot_id, run_id, amount, currency)
+			values (current_setting('depot.tenant_id', true)::uuid, $1, $2, $3, $4, $5, 'project_opening_line', $6, $7, $8, $9)`,
 			xrefID, sys, company, domain.TableProjectWIP, l.LegacyID, lineID, run.RunID, l.CostAmount.String(), l.Currency)
 		batch.Queue(`insert into project_opening_line (tenant_id, line_id, run_id, legacy_xref_id, source_system, source_company, legacy_id,
 			project_id, category, transaction_date, qty, cost_amount, sales_amount, currency, worker_id, activity_id, dimensions_json, billing_status,
 			wip_cost, wip_sales)
-			values (current_setting('passage.tenant_id', true)::uuid, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)`,
+			values (current_setting('depot.tenant_id', true)::uuid, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)`,
 			lineID, run.RunID, xrefID, sys, company, l.LegacyID, l.ProjectID, string(l.Category), l.TransactionDate, l.Qty.String(),
 			l.CostAmount.String(), l.SalesAmount.String(), l.Currency, l.WorkerID, l.ActivityID, dims, string(l.BillingStatus),
 			l.WIPCost.String(), l.WIPSales.String())
@@ -188,10 +188,10 @@ func scanLine(row pgx.Row) (domain.OpeningLine, error) {
 	return l, nil
 }
 
-// linesOfProjects returns every opening line Passage holds for the projects in (system, company).
+// linesOfProjects returns every opening line Depot holds for the projects in (system, company).
 func linesOfProjects(ctx context.Context, tx pgx.Tx, sys, company string, projects []string) ([]domain.OpeningLine, error) {
 	rows, err := tx.Query(ctx, `select `+lineColumns+` from project_opening_line
-		where tenant_id = current_setting('passage.tenant_id', true)::uuid and source_system = $1 and source_company = $2 and project_id = any($3)`,
+		where tenant_id = current_setting('depot.tenant_id', true)::uuid and source_system = $1 and source_company = $2 and project_id = any($3)`,
 		sys, company, projects)
 	if err != nil {
 		return nil, fmt.Errorf("read project_opening_line: %w", err)
@@ -244,12 +244,12 @@ func (s *Postgres) GetProjectOpening(ctx context.Context, f OpeningFilter) (Proj
 		out = ProjectOpening{Run: run, ProjectID: f.ProjectID, Totals: totals, Status: domain.ProjectStatus(totals), Lines: []domain.OpeningLine{}}
 		sys, company := string(run.SourceSystem), run.SourceCompany
 		if err := tx.QueryRow(ctx, `select count(*) from project_opening_line
-			where tenant_id = current_setting('passage.tenant_id', true)::uuid and source_system = $1 and source_company = $2 and project_id = $3`,
+			where tenant_id = current_setting('depot.tenant_id', true)::uuid and source_system = $1 and source_company = $2 and project_id = $3`,
 			sys, company, f.ProjectID).Scan(&out.LineCount); err != nil {
 			return err
 		}
 		rows, err := tx.Query(ctx, `select `+lineColumns+` from project_opening_line
-			where tenant_id = current_setting('passage.tenant_id', true)::uuid and source_system = $1 and source_company = $2 and project_id = $3
+			where tenant_id = current_setting('depot.tenant_id', true)::uuid and source_system = $1 and source_company = $2 and project_id = $3
 			  and legacy_id > $4
 			order by legacy_id limit $5`, sys, company, f.ProjectID, f.After, clampLimit(f.Limit))
 		if err != nil {

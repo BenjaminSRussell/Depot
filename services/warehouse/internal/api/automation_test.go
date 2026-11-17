@@ -9,12 +9,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/warehouse/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/warehouse/internal/store"
-	"github.com/BenjaminSRussell/passage/services/warehouse/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/warehouse/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/warehouse/internal/store"
+	"github.com/BenjaminSRussell/depot/services/warehouse/migrations"
 )
 
 func (f *fakeStore) GetGS1Company(context.Context) (store.GS1Company, error) {
@@ -687,7 +687,7 @@ func TestReassignRoute_DutyAndValidation(t *testing.T) {
 		{"not a reader", req{method: "POST", path: path, duties: dutyWorkSupervise, key: "k", body: `{"toUser":"rfid:DOCK","reason":"x"}`, user: "sup"}, 400, "toUser"},
 		{"needs a reason", req{method: "POST", path: path, duties: dutyWorkSupervise, key: "k", body: `{"toUser":"mia.ortiz","reason":" "}`, user: "sup"}, 400, "reason"},
 		{"id is a uuid", req{method: "POST", path: "/v1/warehouse/work/nope:reassign", duties: dutyWorkSupervise, key: "k", body: body, user: "sup"}, 400, "id"},
-		{"needs the calling user", req{method: "POST", path: path, duties: dutyWorkSupervise, key: "k", body: body, user: "-"}, 400, "X-Passage-User"},
+		{"needs the calling user", req{method: "POST", path: path, duties: dutyWorkSupervise, key: "k", body: body, user: "-"}, 400, "X-Depot-User"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

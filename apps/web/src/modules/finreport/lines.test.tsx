@@ -186,7 +186,7 @@ describe("drill level 2: journal lines", () => {
     expect(screen.getByRole("heading", { name: "Journal lines for Revenue, March" })).toBeInTheDocument();
     expect(lineCalls()[0].url.searchParams.has("key")).toBe(false);
 
-    // A Passage route opens in the app; an http(s) document opens in a new tab.
+    // A Depot route opens in the app; an http(s) document opens in a new tab.
     expect(within(table).getByRole("link", { name: "Open source document of AP-7" })).toHaveAttribute("href", "/payables/invoices/INV-1");
     const external = within(table).getByRole("link", { name: "Open source document of GJ-2 (opens in a new tab)" });
     expect(external).toHaveAttribute("href", "https://dms.example.com/doc/9");
@@ -269,7 +269,7 @@ describe("drill level 2: journal lines", () => {
 });
 
 describe("source and trace links", () => {
-  it("only links Passage routes and http(s) URLs", () => {
+  it("only links Depot routes and http(s) URLs", () => {
     expect(sourceLink("/payables/invoices/1")).toEqual({ kind: "route", to: "/payables/invoices/1" });
     expect(sourceLink("https://dms.example.com/a")).toEqual({ kind: "external", href: "https://dms.example.com/a" });
     for (const unsafe of ["javascript:alert(1)", "data:text/html,x", "//evil.example.com", "/\\evil.example.com", "relative/path", "", undefined]) {

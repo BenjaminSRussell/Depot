@@ -1,4 +1,4 @@
--- Tenant licences (PSG-50, FR-50.12, BR-50.8). Platform state, not tenant data: the licensed tenant is the key
+-- Tenant licences (DPT-50, FR-50.12, BR-50.8). Platform state, not tenant data: the licensed tenant is the key
 -- (licensee_id, not a tenant_id column: this table is read by the operator, never inside a tenant) and there is no RLS
 -- (allowlisted in tools/rlscheck). The signed payload and its Ed25519 signature are kept as installed.
 CREATE TABLE ops_tenant_license (
@@ -19,8 +19,8 @@ CREATE TABLE ops_tenant_license (
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON ops_tenant_license TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON ops_tenant_license TO depot_app';
   END IF;
 END
 $$;

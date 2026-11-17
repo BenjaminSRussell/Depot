@@ -9,7 +9,7 @@ import (
 	"github.com/shopspring/decimal"
 	"pgregory.net/rapid"
 
-	"github.com/BenjaminSRussell/passage/services/payables/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/payables/internal/domain"
 )
 
 var settlementDate = time.Date(2026, 1, 10, 0, 0, 0, 0, time.UTC)

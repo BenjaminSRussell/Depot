@@ -1,10 +1,10 @@
 package events
 
-import "github.com/BenjaminSRussell/passage/platform/events"
+import "github.com/BenjaminSRussell/depot/platform/events"
 
 const (
 	Context = "consol"
-	Source  = "/passage/consolidation"
+	Source  = "/depot/consolidation"
 )
 
 var RunCompleted = events.Type(Context, "run", "completed", 1)

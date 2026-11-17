@@ -10,10 +10,10 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/purchasing/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/purchasing/internal/domain"
 )
 
 // Opening import of open purchase orders at cutover (#49). Nothing is announced: no po.confirmed event, no approval and
@@ -238,10 +238,10 @@ func rejectTakenOpening(ctx context.Context, tx pgx.Tx, in OpeningImport) error 
 	// A PO number is unique per tenant, so the check reads every legal entity's orders: the entity scope is widened for this one
 	// statement and put back.
 	var scope string
-	if err := tx.QueryRow(ctx, `select coalesce(current_setting('passage.legal_entity_scopes', true), '')`).Scan(&scope); err != nil {
+	if err := tx.QueryRow(ctx, `select coalesce(current_setting('depot.legal_entity_scopes', true), '')`).Scan(&scope); err != nil {
 		return err
 	}
-	if _, err := tx.Exec(ctx, `select set_config('passage.legal_entity_scopes', '*', true)`); err != nil {
+	if _, err := tx.Exec(ctx, `select set_config('depot.legal_entity_scopes', '*', true)`); err != nil {
 		return err
 	}
 	rows, err = tx.Query(ctx, `select number from purchase_order where number = any($1)`, numbers)
@@ -260,7 +260,7 @@ func rejectTakenOpening(ctx context.Context, tx pgx.Tx, in OpeningImport) error 
 	if err := rows.Err(); err != nil {
 		return err
 	}
-	if _, err := tx.Exec(ctx, `select set_config('passage.legal_entity_scopes', $1, true)`, scope); err != nil {
+	if _, err := tx.Exec(ctx, `select set_config('depot.legal_entity_scopes', $1, true)`, scope); err != nil {
 		return err
 	}
 	if len(taken.References) > 0 || len(taken.OrderNumbers) > 0 {

@@ -13,14 +13,14 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/outbox"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/print/internal/domain"
-	printevents "github.com/BenjaminSRussell/passage/services/print/internal/events"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/outbox"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/print/internal/domain"
+	printevents "github.com/BenjaminSRussell/depot/services/print/internal/events"
 )
 
 const (
@@ -255,7 +255,7 @@ func (s *Postgres) CreateJob(ctx context.Context, in NewJob) (domain.Job, bool, 
 }
 
 // CompleteJob stores the terminal state of a QUEUED job and enqueues
-// dev.passage.print.job.completed.v1 in the same transaction.
+// dev.depot.print.job.completed.v1 in the same transaction.
 func (s *Postgres) CompleteJob(ctx context.Context, j domain.Job) error {
 	p, _ := tenant.FromContext(ctx)
 	return dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {

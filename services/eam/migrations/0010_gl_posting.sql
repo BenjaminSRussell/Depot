@@ -78,8 +78,8 @@ CREATE INDEX IF NOT EXISTS eam_gl_posting_account ON eam_gl_posting (tenant_id, 
 
 DROP POLICY IF EXISTS eam_pending_booking_legal_entity_scope ON eam_pending_booking;
 CREATE POLICY eam_pending_booking_legal_entity_scope ON eam_pending_booking AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 DO $$
 DECLARE t text;
@@ -89,18 +89,18 @@ BEGIN
     EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY', t);
     EXECUTE format('DROP POLICY IF EXISTS %I_tenant_access ON %I', t, t);
     EXECUTE format('CREATE POLICY %I_tenant_access ON %I AS PERMISSIVE
-      USING (tenant_id = current_setting(''passage.tenant_id'', true)::uuid)
-      WITH CHECK (tenant_id = current_setting(''passage.tenant_id'', true)::uuid)', t, t);
+      USING (tenant_id = current_setting(''depot.tenant_id'', true)::uuid)
+      WITH CHECK (tenant_id = current_setting(''depot.tenant_id'', true)::uuid)', t, t);
   END LOOP;
 END $$;
 
 -- The profile is updated under row lock; the GL subledger is insert-only.
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON eam_posting_profile TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT ON eam_gl_posting TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT, DELETE ON eam_pending_booking TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON eam_posting_profile TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT ON eam_gl_posting TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT, DELETE ON eam_pending_booking TO depot_app';
   END IF;
 END
 $$;

@@ -12,14 +12,14 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/eventing"
-	"github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/money"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/revrec/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/revrec/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/eventing"
+	"github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/money"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/revrec/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/revrec/internal/store"
 )
 
 // The invoice consumer (29-4) opens the revenue contract of an order from billing's invoice.posted: one contract per order,
@@ -34,7 +34,7 @@ import (
 // milestone) have no contract here.
 const (
 	// InvoicePostedType is billing's invoice.posted.v1 on BillingInvoiceTopic.
-	InvoicePostedType = "dev.passage.billing.invoice.posted.v1"
+	InvoicePostedType = "dev.depot.billing.invoice.posted.v1"
 	// InvoiceContractKeyPrefix starts the idempotency key of a contract opened from an invoice:
 	// invoice-posted:<legal entity>:<order>.
 	InvoiceContractKeyPrefix = "invoice-posted:"

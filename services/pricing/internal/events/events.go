@@ -5,50 +5,50 @@ package events
 // Event types. The kernel regex allows three segments after the namespace, so the
 // catalog's condition-record.activated collapses to conditionrecord.activated (as org does).
 const (
-	ConditionRecordActivated = "dev.passage.pricing.conditionrecord.activated.v1"
-	ConditionRecordWithdrawn = "dev.passage.pricing.conditionrecord.withdrawn.v1"
-	JournalPosted            = "dev.passage.pricing.journal.posted.v1"
-	RebateAccrualPosted      = "dev.passage.pricing.rebateaccrual.posted.v1"
-	CommissionCalculated     = "dev.passage.pricing.commission.calculated.v1"
+	ConditionRecordActivated = "dev.depot.pricing.conditionrecord.activated.v1"
+	ConditionRecordWithdrawn = "dev.depot.pricing.conditionrecord.withdrawn.v1"
+	JournalPosted            = "dev.depot.pricing.journal.posted.v1"
+	RebateAccrualPosted      = "dev.depot.pricing.rebateaccrual.posted.v1"
+	CommissionCalculated     = "dev.depot.pricing.commission.calculated.v1"
 	// A commission settlement export was recorded for AP or payroll, and later voided (FR-26.18).
-	CommissionExportIssued = "dev.passage.pricing.commissionexport.issued.v1"
-	CommissionExportVoided = "dev.passage.pricing.commissionexport.voided.v1"
+	CommissionExportIssued = "dev.depot.pricing.commissionexport.issued.v1"
+	CommissionExportVoided = "dev.depot.pricing.commissionexport.voided.v1"
 	// Trade promotion funds (FR-26.19, BR-26.15).
-	FundClosed        = "dev.passage.pricing.fund.closed.v1"
-	FundReopened      = "dev.passage.pricing.fund.reopened.v1"
-	FundUsageRecorded = "dev.passage.pricing.fundusage.recorded.v1"
+	FundClosed        = "dev.depot.pricing.fund.closed.v1"
+	FundReopened      = "dev.depot.pricing.fund.reopened.v1"
+	FundUsageRecorded = "dev.depot.pricing.fundusage.recorded.v1"
 	// Campaigns (FR-26.10): the kill switch set (killed) or cleared (restored).
-	CampaignKilled   = "dev.passage.pricing.campaign.killed.v1"
-	CampaignRestored = "dev.passage.pricing.campaign.restored.v1"
+	CampaignKilled   = "dev.depot.pricing.campaign.killed.v1"
+	CampaignRestored = "dev.depot.pricing.campaign.restored.v1"
 	// CampaignRevised: name, validity, target customer group or budget changed.
-	CampaignRevised = "dev.passage.pricing.campaign.revised.v1"
+	CampaignRevised = "dev.depot.pricing.campaign.revised.v1"
 	// Pricing procedures (FR-26.1): a version became ACTIVE.
-	ProcedureActivated = "dev.passage.pricing.procedure.activated.v1"
+	ProcedureActivated = "dev.depot.pricing.procedure.activated.v1"
 	// Rebate agreements (FR-26.11): revised, and closed early.
-	RebateAgreementRevised = "dev.passage.pricing.rebateagreement.revised.v1"
-	RebateAgreementClosed  = "dev.passage.pricing.rebateagreement.closed.v1"
+	RebateAgreementRevised = "dev.depot.pricing.rebateagreement.revised.v1"
+	RebateAgreementClosed  = "dev.depot.pricing.rebateagreement.closed.v1"
 	// RebateAgreementReopened: a CLOSED agreement became ACTIVE again with a later end date.
-	RebateAgreementReopened = "dev.passage.pricing.rebateagreement.reopened.v1"
+	RebateAgreementReopened = "dev.depot.pricing.rebateagreement.reopened.v1"
 	// Vendor rebate claims (FR-26.15): a period claim was created, and approved for w19 AP.
-	VendorRebateClaimCreated  = "dev.passage.pricing.vendorrebateclaim.created.v1"
-	VendorRebateClaimApproved = "dev.passage.pricing.vendorrebateclaim.approved.v1"
+	VendorRebateClaimCreated  = "dev.depot.pricing.vendorrebateclaim.created.v1"
+	VendorRebateClaimApproved = "dev.depot.pricing.vendorrebateclaim.approved.v1"
 	// Broker contracts and royalty agreements (FR-26.16, FR-26.17): created and closed.
-	BrokerContractCreated   = "dev.passage.pricing.brokercontract.created.v1"
-	BrokerContractClosed    = "dev.passage.pricing.brokercontract.closed.v1"
-	RoyaltyAgreementCreated = "dev.passage.pricing.royaltyagreement.created.v1"
-	RoyaltyAgreementClosed  = "dev.passage.pricing.royaltyagreement.closed.v1"
+	BrokerContractCreated   = "dev.depot.pricing.brokercontract.created.v1"
+	BrokerContractClosed    = "dev.depot.pricing.brokercontract.closed.v1"
+	RoyaltyAgreementCreated = "dev.depot.pricing.royaltyagreement.created.v1"
+	RoyaltyAgreementClosed  = "dev.depot.pricing.royaltyagreement.closed.v1"
 	// A broker or royalty accrual posted (invoice line, credit note line or minimum royalty
 	// shortfall), and the period claim created and approved for w19 AP.
-	ContractAccrualPosted = "dev.passage.pricing.contractaccrual.posted.v1"
-	ContractClaimCreated  = "dev.passage.pricing.contractclaim.created.v1"
-	ContractClaimApproved = "dev.passage.pricing.contractclaim.approved.v1"
+	ContractAccrualPosted = "dev.depot.pricing.contractaccrual.posted.v1"
+	ContractClaimCreated  = "dev.depot.pricing.contractclaim.created.v1"
+	ContractClaimApproved = "dev.depot.pricing.contractclaim.approved.v1"
 	// Pricing parameters (PRD 5.26.13): a legal entity's parameters were changed.
-	ParametersChanged = "dev.passage.pricing.parameters.changed.v1"
+	ParametersChanged = "dev.depot.pricing.parameters.changed.v1"
 	// A tenant's parameters (cache lifetime, campaign kill switch effect) were changed.
-	TenantParametersChanged = "dev.passage.pricing.tenantparameter.changed.v1"
+	TenantParametersChanged = "dev.depot.pricing.tenantparameter.changed.v1"
 	// Procedure determination (PRD 5.26.13): the procedure a legal entity and sales channel
 	// price with was set or cleared.
-	ProcedureAssignmentChanged = "dev.passage.pricing.procedureassignment.changed.v1"
+	ProcedureAssignmentChanged = "dev.depot.pricing.procedureassignment.changed.v1"
 )
 
 // ProcedureAssignmentChangedData is the payload of procedureassignment.changed. Cleared is
@@ -263,9 +263,9 @@ type ConditionRecordWithdrawnData struct {
 // Free goods rules (FR-26.22): a rule was created, revised or withdrawn. The sales cache drops
 // its free goods snapshot for the legal entity on any of them.
 const (
-	FreeGoodsRuleCreated   = "dev.passage.pricing.freegoodsrule.created.v1"
-	FreeGoodsRuleWithdrawn = "dev.passage.pricing.freegoodsrule.withdrawn.v1"
-	FreeGoodsRuleRevised   = "dev.passage.pricing.freegoodsrule.revised.v1"
+	FreeGoodsRuleCreated   = "dev.depot.pricing.freegoodsrule.created.v1"
+	FreeGoodsRuleWithdrawn = "dev.depot.pricing.freegoodsrule.withdrawn.v1"
+	FreeGoodsRuleRevised   = "dev.depot.pricing.freegoodsrule.revised.v1"
 )
 
 // FreeGoodsRuleData is the payload of freegoodsrule.created, .revised and .withdrawn.
@@ -307,11 +307,11 @@ type RebateAgreementData struct {
 // Commodity pricing (FR-26.21). A basis, an index quote, a price calculation and a completed
 // run each announce themselves; the run's journal is announced by journal posting.
 const (
-	CommodityBasisCreated         = "dev.passage.pricing.commoditybasis.created.v1"
-	CommodityIndexRecorded        = "dev.passage.pricing.commodityindex.recorded.v1"
-	CommodityCalculationCreated   = "dev.passage.pricing.commoditycalculation.created.v1"
-	CommodityCalculationWithdrawn = "dev.passage.pricing.commoditycalculation.withdrawn.v1"
-	CommodityRunCompleted         = "dev.passage.pricing.commodityrun.completed.v1"
+	CommodityBasisCreated         = "dev.depot.pricing.commoditybasis.created.v1"
+	CommodityIndexRecorded        = "dev.depot.pricing.commodityindex.recorded.v1"
+	CommodityCalculationCreated   = "dev.depot.pricing.commoditycalculation.created.v1"
+	CommodityCalculationWithdrawn = "dev.depot.pricing.commoditycalculation.withdrawn.v1"
+	CommodityRunCompleted         = "dev.depot.pricing.commodityrun.completed.v1"
 )
 
 // CommodityBasisData is the payload of commoditybasis.created.

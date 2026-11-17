@@ -5,7 +5,7 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/xlsx"
+	"github.com/BenjaminSRussell/depot/platform/xlsx"
 )
 
 const asc606Source = "services/revrec/internal/domain/testdata/asc606-40.json"

@@ -1,7 +1,7 @@
 # Keycloak with the BouncyCastle FIPS provider, in strict ("approved") mode (#599, #601).
-#   docker build -f deploy/keycloak/Dockerfile.fips -t passage/keycloak-fips deploy/keycloak
+#   docker build -f deploy/keycloak/Dockerfile.fips -t depot/keycloak-fips deploy/keycloak
 # Deploy with the kustomize overlay deploy/keycloak-fips, which starts it with `start --optimized`.
-# Strict mode needs: passwords of 14+ characters and pbkdf2-sha512 hashing (realm-passage.json pins both), RSA keys of
+# Strict mode needs: passwords of 14+ characters and pbkdf2-sha512 hashing (realm-depot.json pins both), RSA keys of
 # 2048 bits or more, and BCFKS key and trust stores (https://www.keycloak.org/server/fips).
 # The jar versions are the ones Keycloak 26.0.8 itself builds against (keycloak/pom.xml tag 26.0.8); the checksums pin them.
 FROM quay.io/keycloak/keycloak:26.0.8 AS builder

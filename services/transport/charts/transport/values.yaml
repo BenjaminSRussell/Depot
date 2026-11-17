@@ -1,5 +1,5 @@
 image:
-  repository: ghcr.io/benjaminsrussell/passage/transport
+  repository: ghcr.io/benjaminsrussell/depot/transport
   tag: "0.1.0"
   digest: ""
   pullPolicy: IfNotPresent
@@ -12,7 +12,7 @@ database:
   secretKey: url
 
 env:
-  PASSAGE_ENV: dev
+  DEPOT_ENV: dev
   SERVICE_NAME: transport
   HTTP_ADDR: ":8080"
   ADMIN_ADDR: ":9090"
@@ -38,7 +38,7 @@ serviceMonitor:
   interval: 30s
 
 # Base URL of the routing-py optimizer (VRP and load-plan stacking), for example
-# http://passage-tms-optimizer:8080. Empty leaves route optimization and load
+# http://depot-tms-optimizer:8080. Empty leaves route optimization and load
 # plans answering 503 TMS-0123.
 optimizer:
   url: ""

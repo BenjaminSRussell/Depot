@@ -11,18 +11,18 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
-	"github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/platform/outbox"
-	"github.com/BenjaminSRussell/passage/services/ops/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/outbox"
+	"github.com/BenjaminSRussell/depot/services/ops/internal/domain"
 )
 
 // Ops events (part 3). Each is written to the outbox in the transaction of the change it reports; Debezium relays it.
 const (
-	EventSource           = "/passage/ops/ops"
-	EventFailoverComplete = "dev.passage.ops.failover.completed.v1"
-	EventTenantProvision  = "dev.passage.ops.tenant.provisioned.v1"
-	EventSLOBreached      = "dev.passage.ops.slo.breached.v1"
-	EventLicenseChanged   = "dev.passage.ops.license.changed.v1"
+	EventSource           = "/depot/ops/ops"
+	EventFailoverComplete = "dev.depot.ops.failover.completed.v1"
+	EventTenantProvision  = "dev.depot.ops.tenant.provisioned.v1"
+	EventSLOBreached      = "dev.depot.ops.slo.breached.v1"
+	EventLicenseChanged   = "dev.depot.ops.license.changed.v1"
 )
 
 // WithOperator sets the platform operator tenant, the tenant of the platform-wide events (failover completed, SLO breached).
@@ -39,7 +39,7 @@ func enqueue(ctx context.Context, tx pgx.Tx, aggregateType, aggregateID, typ, te
 		return err
 	}
 	evt.Actor = actor
-	if _, err := tx.Exec(ctx, `select set_config('passage.tenant_id', $1, true)`, tenantID); err != nil {
+	if _, err := tx.Exec(ctx, `select set_config('depot.tenant_id', $1, true)`, tenantID); err != nil {
 		return err
 	}
 	return outbox.Enqueue(ctx, tx, aggregateType, aggregateID, evt)
@@ -601,7 +601,7 @@ func realmOf(p Provision, tenantID string) string {
 	if p.RealmName != "" {
 		return p.RealmName
 	}
-	return "passage-" + tenantID
+	return "depot-" + tenantID
 }
 
 // SetProvisionRealm records the realm the realm step created. A realm already recorded is not changed to another name.

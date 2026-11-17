@@ -91,23 +91,23 @@ CREATE INDEX IF NOT EXISTS benefit_enrollment_worker ON benefit_enrollment (tena
 ALTER TABLE benefit_plan ENABLE ROW LEVEL SECURITY;
 ALTER TABLE benefit_plan FORCE ROW LEVEL SECURITY;
 CREATE POLICY benefit_plan_tenant_access ON benefit_plan AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 ALTER TABLE benefit_plan_option ENABLE ROW LEVEL SECURITY;
 ALTER TABLE benefit_plan_option FORCE ROW LEVEL SECURITY;
 CREATE POLICY benefit_plan_option_tenant_access ON benefit_plan_option AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 ALTER TABLE benefit_life_event ENABLE ROW LEVEL SECURITY;
 ALTER TABLE benefit_life_event FORCE ROW LEVEL SECURITY;
 CREATE POLICY benefit_life_event_tenant_access ON benefit_life_event AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 ALTER TABLE benefit_enrollment ENABLE ROW LEVEL SECURITY;
 ALTER TABLE benefit_enrollment FORCE ROW LEVEL SECURITY;
 CREATE POLICY benefit_enrollment_tenant_access ON benefit_enrollment AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);

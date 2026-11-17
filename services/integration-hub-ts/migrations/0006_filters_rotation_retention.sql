@@ -3,10 +3,10 @@
 -- hub_client_usage.
 -- No new table: the columns are on hub_subscription (0001), which already carries
 -- tenant_id, ENABLE + FORCE row-level security, the tenant policy and the
--- passage_app grants (SELECT, INSERT, UPDATE, DELETE); the store updates the new
+-- depot_app grants (SELECT, INSERT, UPDATE, DELETE); the store updates the new
 -- columns under them and nothing else needs a grant. hub_client_usage keeps the
 -- grants of 0004 (SELECT, INSERT, UPDATE): the purge below runs inside a
--- SECURITY DEFINER function as the owner, so passage_app gets no DELETE.
+-- SECURITY DEFINER function as the owner, so depot_app gets no DELETE.
 
 -- A CESQL expression (src/cesql.ts) over the event's attributes and data; an
 -- event is delivered when its type matches a pattern and the expression holds.
@@ -23,18 +23,18 @@ ALTER TABLE hub_subscription ADD CONSTRAINT hub_subscription_previous_secret_sha
   OR (previous_secret_sealed IS NOT NULL AND previous_secret_expires_at IS NOT NULL AND kind = 'webhook'));
 
 -- Maintenance works across tenants like the retry poller does (see 0001): policies
--- for the owner role only (never passage_app), read by SECURITY DEFINER functions that
+-- for the owner role only (never depot_app), read by SECURITY DEFINER functions that
 -- pin search_path with pg_temp last, answer ids or a count only, and that only
--- passage_app may execute. The re-seal itself then runs inside each tenant under the
+-- depot_app may execute. The re-seal itself then runs inside each tenant under the
 -- tenant policies.
 DO $do$
 BEGIN
-  IF current_user = 'passage_app' THEN
-    RAISE EXCEPTION 'integration-hub migrations must run as the owner role, not passage_app';
+  IF current_user = 'depot_app' THEN
+    RAISE EXCEPTION 'integration-hub migrations must run as the owner role, not depot_app';
   END IF;
   -- The purge's DELETE reads the rows it removes, so the owner needs a SELECT policy as well as the DELETE one:
   -- under FORCE ROW LEVEL SECURITY a non-superuser owner would otherwise see no row (or fail casting an empty
-  -- passage.tenant_id left on a pooled connection).
+  -- depot.tenant_id left on a pooled connection).
   EXECUTE 'CREATE POLICY hub_client_usage_owner_scan ON hub_client_usage AS PERMISSIVE FOR SELECT TO CURRENT_USER USING (true)';
   EXECUTE 'CREATE POLICY hub_client_usage_owner_purge ON hub_client_usage AS PERMISSIVE FOR DELETE TO CURRENT_USER USING (true)';
   EXECUTE format($f$
@@ -81,9 +81,9 @@ REVOKE ALL ON FUNCTION hub_purge_client_usage(timestamptz, integer) FROM PUBLIC;
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT EXECUTE ON FUNCTION hub_reseal_due(text, timestamptz, integer) TO passage_app';
-    EXECUTE 'GRANT EXECUTE ON FUNCTION hub_purge_client_usage(timestamptz, integer) TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT EXECUTE ON FUNCTION hub_reseal_due(text, timestamptz, integer) TO depot_app';
+    EXECUTE 'GRANT EXECUTE ON FUNCTION hub_purge_client_usage(timestamptz, integer) TO depot_app';
   END IF;
 END
 $$;

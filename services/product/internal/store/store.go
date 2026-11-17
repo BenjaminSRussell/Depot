@@ -11,14 +11,14 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/outbox"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/product/internal/domain"
-	pevents "github.com/BenjaminSRussell/passage/services/product/internal/events"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/outbox"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/product/internal/domain"
+	pevents "github.com/BenjaminSRussell/depot/services/product/internal/events"
 )
 
 const (
@@ -103,7 +103,7 @@ func domainProblem(err error) error {
 
 func emit(ctx context.Context, tx pgx.Tx, typ, aggregate, id string, data any) error {
 	p, _ := tenant.FromContext(ctx)
-	evt, err := events.New(typ, "passage://product", id, p.TenantID, data)
+	evt, err := events.New(typ, "depot://product", id, p.TenantID, data)
 	if err != nil {
 		return err
 	}

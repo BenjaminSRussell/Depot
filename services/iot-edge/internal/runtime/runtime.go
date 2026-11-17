@@ -1,4 +1,4 @@
-// Package runtime is the iot-edge connector's running part (PSG-25 D9, FR-25.9): it takes raw
+// Package runtime is the iot-edge connector's running part (DPT-25 D9, FR-25.9): it takes raw
 // readings from a Source, turns them into BR-25.4 machine events with the domain rules, keeps them in
 // the store-and-forward buffer and ships them to the shopfloor ingest endpoint with Peek and Ack, so
 // a broker or network outage costs duplicates (dropped downstream by seq) and never events. It also
@@ -16,7 +16,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/services/iot-edge/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/iot-edge/internal/domain"
 )
 
 // Reading is one raw value from a tag. For a count tag Number is the absolute 32-bit counter and

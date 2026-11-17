@@ -210,7 +210,7 @@ Transportation workspace; demo carriers and rate cards; landed cost active.
 
 **Deploy**
 
-Integration hub + developer portal at developers.<env>.passage.dev; EDI engine connected to a partner simulator.
+Integration hub + developer portal at developers.<env>.depot.dev; EDI engine connected to a partner simulator.
 
 **References**
 

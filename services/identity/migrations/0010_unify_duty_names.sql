@@ -6,7 +6,7 @@
 --
 -- The migrator is the table owner and the table forces row-level security, so the owner would see
 -- no rows without a tenant context. FORCE is lifted for this transaction only and restored before
--- it commits; passage_app is never affected.
+-- it commits; depot_app is never affected.
 alter table identity_role_assignments no force row level security;
 
 update identity_role_assignments a

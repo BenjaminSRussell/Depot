@@ -11,10 +11,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/identity"
-	"github.com/BenjaminSRussell/passage/services/identity/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/identity"
+	"github.com/BenjaminSRussell/depot/services/identity/migrations"
 )
 
 const (
@@ -41,7 +41,7 @@ func TestConfigFromRejectsIncompleteOrMalformedSettings(t *testing.T) {
 		"no database":               {map[string]string{"IDENTITY_DUTY_CATALOGUE_PATH": "/data.json"}, "DATABASE_URL"},
 		"no catalogue":              {map[string]string{"DATABASE_URL": "postgres://x"}, "IDENTITY_DUTY_CATALOGUE_PATH"},
 		"bad operator":              {with(map[string]string{"IDENTITY_OPERATOR_TENANT_ID": "urn:uuid:" + operatorID}), "IDENTITY_OPERATOR_TENANT_ID"},
-		"scim without opa":          {with(map[string]string{"IDENTITY_SCIM_ISSUER_BASE": "https://sso.test/realms", "IDENTITY_SCIM_AUDIENCE": "passage"}), "IDENTITY_OPA_URL"},
+		"scim without opa":          {with(map[string]string{"IDENTITY_SCIM_ISSUER_BASE": "https://sso.test/realms", "IDENTITY_SCIM_AUDIENCE": "depot"}), "IDENTITY_OPA_URL"},
 		"bundle without key":        {with(map[string]string{"IDENTITY_BUNDLE_TOKEN": "t", "IDENTITY_OPERATOR_TENANT_ID": operatorID}), "IDENTITY_BUNDLE_SIGNING_KEY_PATH"},
 		"bundle on the public port": {with(map[string]string{"IDENTITY_BUNDLE_TOKEN": "t", "IDENTITY_OPERATOR_TENANT_ID": operatorID, "IDENTITY_BUNDLE_SIGNING_KEY_PATH": "/k", "IDENTITY_BUNDLE_KEY_ID": "k", "IDENTITY_BUNDLE_TLS_CERT_PATH": "/c", "IDENTITY_BUNDLE_TLS_KEY_PATH": "/k", "IDENTITY_BUNDLE_ADDR": ":8080"}), "differ from HTTP_ADDR"},
 		"bundle without operator":   {with(map[string]string{"IDENTITY_BUNDLE_TOKEN": "t", "IDENTITY_BUNDLE_SIGNING_KEY_PATH": "/k.pem", "IDENTITY_BUNDLE_KEY_ID": "k"}), "IDENTITY_OPERATOR_TENANT_ID"},
@@ -81,7 +81,7 @@ func TestConfigFromRejectsIncompleteOrMalformedSettings(t *testing.T) {
 	})
 
 	t.Run("keycloak deprovisioning settings", func(t *testing.T) {
-		kc := map[string]string{"IDENTITY_KEYCLOAK_ADMIN_URL": "https://kc.test", "IDENTITY_KEYCLOAK_SECRETS_DIR": "/var/run/passage/keycloak", "IDENTITY_OPERATOR_TENANT_ID": operatorID}
+		kc := map[string]string{"IDENTITY_KEYCLOAK_ADMIN_URL": "https://kc.test", "IDENTITY_KEYCLOAK_SECRETS_DIR": "/var/run/depot/keycloak", "IDENTITY_OPERATOR_TENANT_ID": operatorID}
 		cfg, err := configFrom(env(with(kc)))
 		if err != nil || !cfg.keycloakDeprovisionEnabled() || cfg.keycloakClientID != defaultKeycloakClientID || cfg.deprovisionInterval != identity.DefaultDeprovisionInterval {
 			t.Fatalf("defaults: cfg = %+v err = %v", cfg, err)
@@ -108,7 +108,7 @@ func TestConfigFromRejectsIncompleteOrMalformedSettings(t *testing.T) {
 	})
 
 	t.Run("scim settings", func(t *testing.T) {
-		cfg, err := configFrom(env(with(map[string]string{"IDENTITY_SCIM_ISSUER_BASE": "https://sso.test/realms", "IDENTITY_SCIM_AUDIENCE": "passage", "IDENTITY_OPA_URL": "http://127.0.0.1:8181"})))
+		cfg, err := configFrom(env(with(map[string]string{"IDENTITY_SCIM_ISSUER_BASE": "https://sso.test/realms", "IDENTITY_SCIM_AUDIENCE": "depot", "IDENTITY_OPA_URL": "http://127.0.0.1:8181"})))
 		if err != nil || !cfg.scimEnabled() {
 			t.Fatalf("cfg = %+v err = %v", cfg, err)
 		}
@@ -130,7 +130,7 @@ func testRouter(t *testing.T, withSCIM bool) http.Handler {
 	}
 	var scim *identity.SCIMAPI
 	if withSCIM {
-		verifiers, err := identity.NewTenantVerifiers(nil, "https://sso.test/realms", "passage", nil, 0)
+		verifiers, err := identity.NewTenantVerifiers(nil, "https://sso.test/realms", "depot", nil, 0)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -161,14 +161,14 @@ func TestRouterServesHealthAndGuardsAdminRoutes(t *testing.T) {
 	if rec := get(router, "/v1/authz/roles", nil); rec.Code != http.StatusUnauthorized {
 		t.Fatalf("no tenant = %d, want 401", rec.Code)
 	}
-	tenantOnly := map[string]string{"X-Passage-Tenant": operatorID, "X-Passage-User": "u"}
+	tenantOnly := map[string]string{"X-Depot-Tenant": operatorID, "X-Depot-User": "u"}
 	for _, path := range []string{"/v1/authz/roles", "/v1/authz/duties", "/v1/identity/users", "/v1/legal-entities", "/v1/tenants", "/v1/authz/assignments",
 		"/v1/identity/users/" + operatorID + "/keycloak-deprovisions"} {
 		if rec := get(router, path, tenantOnly); rec.Code != http.StatusForbidden {
 			t.Errorf("%s without a duty = %d, want 403", path, rec.Code)
 		}
 	}
-	withDuty := map[string]string{"X-Passage-Tenant": operatorID, "X-Passage-User": "u", "X-Passage-Duties": "identity.security-role.maintain"}
+	withDuty := map[string]string{"X-Depot-Tenant": operatorID, "X-Depot-User": "u", "X-Depot-Duties": "identity.security-role.maintain"}
 	rec := get(router, "/v1/authz/roles", withDuty)
 	var body struct {
 		Items []struct{ Name string } `json:"items"`
@@ -179,7 +179,7 @@ func TestRouterServesHealthAndGuardsAdminRoutes(t *testing.T) {
 }
 
 func TestSCIMRoutesAreBearerOnlyAndOptional(t *testing.T) {
-	headers := map[string]string{"X-Passage-Tenant": operatorID, "X-Passage-User": "u", "X-Passage-Duties": "identity.user.provision"}
+	headers := map[string]string{"X-Depot-Tenant": operatorID, "X-Depot-User": "u", "X-Depot-Duties": "identity.user.provision"}
 	if rec := get(testRouter(t, false), "/scim/v2/Users", headers); rec.Code != http.StatusNotFound {
 		t.Fatalf("scim unconfigured = %d, want 404", rec.Code)
 	}

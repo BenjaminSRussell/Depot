@@ -12,10 +12,10 @@ spec:
   template:
     metadata:
       labels:
-        {{- with include "passage.wiLabels" $ }}{{ . | nindent 8 }}{{- end }}
+        {{- with include "depot.wiLabels" $ }}{{ . | nindent 8 }}{{- end }}
         app.kubernetes.io/name: receiving
     spec:
-      {{- with include "passage.wiServiceAccount" (dict "root" $ "name" "passage-receiving") }}{{ . | nindent 6 }}{{- end }}
+      {{- with include "depot.wiServiceAccount" (dict "root" $ "name" "depot-receiving") }}{{ . | nindent 6 }}{{- end }}
       securityContext:
         runAsNonRoot: true
         {{- if or .Values.serviceIdentity.signingKeySecret .Values.fieldCrypt.keysSecret }}
@@ -48,15 +48,15 @@ spec:
             capabilities:
               drop: [ALL]
           env:
-            {{- include "passage.cloudEnv" $ | nindent 12 }}
+            {{- include "depot.cloudEnv" $ | nindent 12 }}
             {{- include "receiving.env" . | nindent 12 }}
           {{- if or .Values.serviceIdentity.signingKeySecret .Values.fieldCrypt.keysSecret }}
           volumeMounts:
 {{- if .Values.serviceIdentity.signingKeySecret }}
-            - { name: service-identity, mountPath: /var/run/passage/service-identity, readOnly: true }
+            - { name: service-identity, mountPath: /var/run/depot/service-identity, readOnly: true }
 {{- end }}
 {{- if .Values.fieldCrypt.keysSecret }}
-            - { name: field-crypt, mountPath: /var/run/passage/field-crypt, readOnly: true }
+            - { name: field-crypt, mountPath: /var/run/depot/field-crypt, readOnly: true }
 {{- end }}
           {{- end }}
           ports:

@@ -83,7 +83,7 @@ export function LibraryEntryPage() {
       </Card>
       {canShare ? <ShareLinks libraryId={e.id} /> : null}
       <p className={styles.note}>
-        The download is exactly the stored file. To check it, compute its SHA-256 and compare it with the value above; the download also carries it in the X-Passage-Content-Sha256 header.
+        The download is exactly the stored file. To check it, compute its SHA-256 and compare it with the value above; the download also carries it in the X-Depot-Content-Sha256 header.
       </p>
       <Link to="/finreport/library">Back to the library</Link>
     </div>

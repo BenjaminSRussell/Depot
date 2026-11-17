@@ -6,7 +6,7 @@
 
 /** Bump to drop every cached shell on the next worker activation (rollback path, §6.32.10). */
 export const SHELL_CACHE_VERSION = "v1";
-export const SHELL_CACHE_PREFIX = "passage-mobile-";
+export const SHELL_CACHE_PREFIX = "depot-mobile-";
 
 /** The shell document. Every page navigation of the single-page app is answered with it offline. */
 export const SHELL_DOCUMENT = "/index.html";
@@ -64,7 +64,7 @@ export function shellAssetsFromHtml(html: string): string[] {
   return [...found];
 }
 
-/** Name of the cache for a version, e.g. "passage-mobile-v1". */
+/** Name of the cache for a version, e.g. "depot-mobile-v1". */
 export function shellCacheName(version: string = SHELL_CACHE_VERSION): string {
   return `${SHELL_CACHE_PREFIX}${version}`;
 }

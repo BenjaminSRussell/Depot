@@ -2,7 +2,7 @@ import { localPreferenceStorage, type PreferenceStorage } from "./preferenceStor
 
 export type Density = "comfortable" | "compact";
 
-const densityKey = (identity: string) => `passage.density.v1.${identity}`;
+const densityKey = (identity: string) => `depot.density.v1.${identity}`;
 
 export function readDensity(identity: string, storage: PreferenceStorage = localPreferenceStorage): Density {
   return identity !== "" && storage.read(densityKey(identity)) === "compact" ? "compact" : "comfortable";

@@ -12,11 +12,11 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/billing/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/billing/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/billing/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/billing/internal/store"
 )
 
 const (
@@ -90,7 +90,7 @@ func (c *customerHarness) get(t *testing.T, customer, path string, extra map[str
 		t.Fatal(err)
 	}
 	req := httptest.NewRequest(http.MethodGet, path, nil)
-	req.Header.Set("X-Passage-Service-Token", token)
+	req.Header.Set("X-Depot-Service-Token", token)
 	for k, v := range extra {
 		req.Header.Set(k, v)
 	}
@@ -170,7 +170,7 @@ func TestCustomerPortal_OnlyTheCustomerPortalTokenReachesTheRoutes(t *testing.T)
 	c := newCustomerHarness(t, s)
 	for _, path := range []string{"/v1/billing/customer-portal/invoices", "/v1/billing/customer-portal/invoices/" + invA} {
 		// A staff user holding every duty, with a customer named in a header and a query, is not a customer.
-		rec := doAs(c.h, http.MethodGet, path+"?customerId="+custA, "", "", allDuties+",billing.customer-portal.read", map[string]string{"X-Passage-Customer": custA})
+		rec := doAs(c.h, http.MethodGet, path+"?customerId="+custA, "", "", allDuties+",billing.customer-portal.read", map[string]string{"X-Depot-Customer": custA})
 		if rec.Code != http.StatusForbidden {
 			t.Errorf("%s as a user: %d %s, want 403", path, rec.Code, rec.Body)
 		}
@@ -183,7 +183,7 @@ func TestCustomerPortal_OnlyTheCustomerPortalTokenReachesTheRoutes(t *testing.T)
 func TestCustomerPortal_TokenCannotReachStaffRoutes(t *testing.T) {
 	c := newCustomerHarness(t, newCustomerStore(false))
 	for _, path := range []string{"/v1/billing/invoices", "/v1/billing/invoices/" + invB, "/v1/billing/invoices/" + invB + "/trace", "/v1/billing/invoices?customerId=" + custB} {
-		if rec := c.get(t, custA, path, map[string]string{"X-Passage-Duties": allDuties}); rec.Code != http.StatusForbidden {
+		if rec := c.get(t, custA, path, map[string]string{"X-Depot-Duties": allDuties}); rec.Code != http.StatusForbidden {
 			t.Errorf("%s with a customer portal token: %d %s, want 403", path, rec.Code, rec.Body)
 		}
 	}

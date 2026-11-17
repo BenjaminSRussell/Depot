@@ -8,11 +8,11 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/BenjaminSRussell/passage/services/migration/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/domain"
 )
 
 // The engineering service keeps BOM and route versions per tenant (no legal entity) and identifies a product by its
-// Passage product id. The loader creates draft versions through POST /v1/engineering/bom-versions and
+// Depot product id. The loader creates draft versions through POST /v1/engineering/bom-versions and
 // /v1/engineering/route-versions (engineering.import.write); activating one stays an engineering decision. A service
 // token always names one legal entity, so the call carries the row's (or the run's), as product calls do.
 var (
@@ -22,7 +22,7 @@ var (
 	bomLineFields = []string{"lineNo", "quantity", "series", "lineType", "scrapConst", "scrapVarPct", "roundUp"}
 )
 
-// productRef resolves the product a BOM, a route or a BOM line is for: a Passage product id in idField, else the legacy
+// productRef resolves the product a BOM, a route or a BOM line is for: a Depot product id in idField, else the legacy
 // key in keyField of an item load, else of a product load.
 func (l *Loader) productRef(ctx context.Context, f map[string]any, idField, keyField string) (string, *domain.LoadResult) {
 	if id := text(f, idField); id != "" {
@@ -78,7 +78,7 @@ func list(f map[string]any, k string) ([]map[string]any, error) {
 // engineering.bom.write, so a changed legacy BOM is a reject, not a silent skip.
 func (l *Loader) loadBom(ctx context.Context, c *call, it domain.LoadItem) (domain.LoadResult, error) {
 	if it.Existing {
-		return domain.LoadResult{Code: CodeUpdateUnavailable, Detail: "the engineering service opens no import route to change a BOM version after it is created; edit the draft in Passage or load it as a new key"}, nil
+		return domain.LoadResult{Code: CodeUpdateUnavailable, Detail: "the engineering service opens no import route to change a BOM version after it is created; edit the draft in Depot or load it as a new key"}, nil
 	}
 	le, bad := l.legalEntity(it.Fields)
 	if bad != nil {
@@ -126,7 +126,7 @@ func (l *Loader) loadBom(ctx context.Context, c *call, it domain.LoadItem) (doma
 // loadRoute creates a draft route version; the operations go as the mapping gives them (engineering validates them).
 func (l *Loader) loadRoute(ctx context.Context, c *call, it domain.LoadItem) (domain.LoadResult, error) {
 	if it.Existing {
-		return domain.LoadResult{Code: CodeUpdateUnavailable, Detail: "the engineering service opens no import route to change a route version after it is created; edit the draft in Passage or load it as a new key"}, nil
+		return domain.LoadResult{Code: CodeUpdateUnavailable, Detail: "the engineering service opens no import route to change a route version after it is created; edit the draft in Depot or load it as a new key"}, nil
 	}
 	le, bad := l.legalEntity(it.Fields)
 	if bad != nil {

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""fx-smoke-12 runner (PSG-50, PRD 9.50.9, AC-50.4).
+"""fx-smoke-12 runner (DPT-50, PRD 9.50.9, AC-50.4).
 
 Runs the twelve core processes in ``load/fixtures/smoke-12.json`` against a base URL, in order, and
 writes a JSON report. A process passes only when every step returns 2xx AND its final assertion is
@@ -16,7 +16,7 @@ placeholder (``{n}``, the pick line) comes from ``--params``; a placeholder with
 without sending it.
 
 Usage:
-    SMOKE_TOKEN=... python3 load/tools/smoke12.py --base-url https://api.perf.passage.dev \\
+    SMOKE_TOKEN=... python3 load/tools/smoke12.py --base-url https://api.perf.depot.dev \\
         --payloads payloads.json --params params.json --report smoke-report.json
 
 ``--payloads`` maps an action name to the JSON body sent for that step. The fixture carries no bodies,

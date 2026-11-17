@@ -49,26 +49,26 @@ CREATE INDEX IF NOT EXISTS agreement_return_agreement ON agreement_return (tenan
 ALTER TABLE sales_agreement_version ENABLE ROW LEVEL SECURITY;
 ALTER TABLE sales_agreement_version FORCE ROW LEVEL SECURITY;
 CREATE POLICY sales_agreement_version_tenant_access ON sales_agreement_version AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY sales_agreement_version_legal_entity_scope ON sales_agreement_version AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 ALTER TABLE agreement_return ENABLE ROW LEVEL SECURITY;
 ALTER TABLE agreement_return FORCE ROW LEVEL SECURITY;
 CREATE POLICY agreement_return_tenant_access ON agreement_return AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY agreement_return_legal_entity_scope ON agreement_return AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 -- Both tables are append-only: the store only inserts and reads them.
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT ON sales_agreement_version, agreement_return TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT ON sales_agreement_version, agreement_return TO depot_app';
   END IF;
 END
 $$;

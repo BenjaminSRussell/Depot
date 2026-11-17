@@ -13,7 +13,7 @@ from forecast.logpseudo import install_logging
 
 install_logging(os.environ)  # eu-data-boundary overlay or LOG_PSEUDONYMIZE=true: person values and emails in log lines are pseudonymized (#605)
 
-app = FastAPI(title="Passage forecast", version="0.4.0")
+app = FastAPI(title="Depot forecast", version="0.4.0")
 
 
 # A history value is a non-negative, finite quantity; anything else is a 422.

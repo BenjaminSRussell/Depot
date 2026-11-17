@@ -1,5 +1,5 @@
 import { createElement } from "react";
-import type { PassageModule } from "../registry";
+import type { DepotModule } from "../registry";
 import { DocumentDesignPage } from "./DocumentDesignPage";
 import { NewOutputRulePage } from "./OutputRuleFormPage";
 import { NewStatementSchedulePage } from "./ScheduleFormPage";
@@ -7,7 +7,7 @@ import { NewTemplatePage, TemplatePage } from "./TemplateFormPage";
 import { TemplateHistoryPage } from "./TemplateHistoryPage";
 import { NewTextBlockPage, TextBlockPage } from "./TextBlockFormPage";
 
-const documentDesign: PassageModule = {
+const documentDesign: DepotModule = {
   id: "document-design",
   title: "Document design",
   description: "Document templates, standard text blocks with language versions, and the output rules that route the original and the copies of each business document.",

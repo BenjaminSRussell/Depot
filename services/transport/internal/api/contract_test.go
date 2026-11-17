@@ -11,7 +11,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/BenjaminSRussell/passage/services/transport/internal/api"
+	"github.com/BenjaminSRussell/depot/services/transport/internal/api"
 )
 
 type operation struct{ method, path, duty string }
@@ -19,10 +19,10 @@ type operation struct{ method, path, duty string }
 var (
 	pathLine   = regexp.MustCompile(`^  (/v1/transport/\S+):$`)
 	methodLine = regexp.MustCompile(`^    (get|post|put|patch|delete):$`)
-	dutyLine   = regexp.MustCompile(`^      x-passage-duty: (\S+)$`)
+	dutyLine   = regexp.MustCompile(`^      x-depot-duty: (\S+)$`)
 )
 
-// specOperations reads method, path and x-passage-duty from openapi.yaml.
+// specOperations reads method, path and x-depot-duty from openapi.yaml.
 func specOperations(t *testing.T) []operation {
 	t.Helper()
 	f, err := os.Open("../../api/openapi.yaml")
@@ -77,7 +77,7 @@ func TestOpenAPI_MatchesRoutes(t *testing.T) {
 	ids := strings.NewReplacer("{id}", loadID)
 	for _, op := range spec {
 		if op.duty == "" {
-			t.Fatalf("%s %s has no x-passage-duty", op.method, op.path)
+			t.Fatalf("%s %s has no x-depot-duty", op.method, op.path)
 		}
 		path := ids.Replace(op.path)
 		if rec := do(t, r, op.method, path, `{}`); rec.Code != http.StatusForbidden {

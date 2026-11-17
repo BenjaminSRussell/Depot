@@ -1,4 +1,4 @@
-# intercompany (wave 40, PSG-40, slices 1-4)
+# intercompany (wave 40, DPT-40, slices 1-4)
 
 Intercompany trade, transfers and charges between legal entities of one
 tenant: trading-partner rules, the due-to / due-from journal derivation, the
@@ -25,8 +25,8 @@ Nothing is persisted and no event is published yet.
 | Web workspace: `/intercompany`, `/intercompany/journal`, `/intercompany/reconciliation` | `apps/web/src/modules/intercompany` | built, vitest |
 
 Browser calls go to `/api/v1/interco/...`; the web BFF rewrites them to the
-`/v1/interco/...` paths above and sets `X-Passage-Tenant` and
-`X-Passage-Duties`.
+`/v1/interco/...` paths above and sets `X-Depot-Tenant` and
+`X-Depot-Duties`.
 
 ## What slice 2 adds
 
@@ -78,8 +78,8 @@ order change against a stored pairing, and the partner screens.
 | Pairings, FR-40.1: seller entity's IC customer and buyer entity's IC vendor, active flag, action policy (defaults auto-create on, auto-post off), pricing policy and markup, BR-40.3 tolerance (price %, date days); the direction never changes | `internal/domain/partner_record.go`, `internal/store/partners.go` | built, unit and store tests |
 | `POST /v1/interco/partners` (duty `intercompany.configure`, `Idempotency-Key` required; a retry replays the stored response, a reused key with another body is IC-0841, a second active pairing for the direction IC-0840) | `internal/api/partners.go` | built, tests (incl. concurrent same-key requests) |
 | `GET /v1/interco/partners` (filters `entity`, `active`, keyset paging `after` / `limit`) and `GET /v1/interco/partners/{id}` with `ETag` (duty `intercompany.view`) | `internal/api/partners.go` | built, tests |
-| `PATCH /v1/interco/partners/{id}` (duty `intercompany.configure`, `If-Match` required: 428 missing, 412 stale, IC-0843): policy change, activate, deactivate; version + 1 and `dev.passage.interco.partner.updated.v1` with the changed fields; a no-op patch keeps the version | `internal/store/partners.go` | built, tests |
-| Events `dev.passage.interco.partner.created.v1` / `updated.v1` written through the outbox in the same transaction (not in the PRD event table; added for the saga worker and the sales and procurement services) | `internal/events`, `events/asyncapi.yaml` | built, contract test |
+| `PATCH /v1/interco/partners/{id}` (duty `intercompany.configure`, `If-Match` required: 428 missing, 412 stale, IC-0843): policy change, activate, deactivate; version + 1 and `dev.depot.interco.partner.updated.v1` with the changed fields; a no-op patch keeps the version | `internal/store/partners.go` | built, tests |
+| Events `dev.depot.interco.partner.created.v1` / `updated.v1` written through the outbox in the same transaction (not in the PRD event table; added for the saga worker and the sales and procurement services) | `internal/events`, `events/asyncapi.yaml` | built, contract test |
 | IC line pricing from the stored policy, FR-40.4: PriceList, CostPlus with the pairing's markup, TransferPriceTable by the item row effective on the line date (IC-0821), extended amount rounded once to the minor unit, pricing basis returned as the link will record it; an inactive pairing is IC-0801. `POST /v1/interco/partners/{id}/lines:price` (duty `intercompany.view`; transfer prices are sent with the request) | `internal/domain/line_pricing.go`, `internal/api/partners.go` | built, unit and API tests |
 | Linked order change decision, BR-40.3 / IC-0804: any quantity change, a price move beyond the tolerance % or a date move beyond the tolerance days sends the mirror PO for re-approval, with every breach listed. `POST /v1/interco/partners/{id}/changes:evaluate` (duty `intercompany.view`) | `internal/domain/order_change.go`, `internal/api/partners.go` | built, unit, rapid and API tests |
 | Web pages: `/intercompany/partners` (list with filter, paging, loading, empty and error states), `/intercompany/partners/new` (create with an Idempotency-Key kept across retries), `/intercompany/partners/:id` (policy, edit with If-Match and conflict reload, activate / deactivate, price a line, check an order change) | `apps/web/src/modules/intercompany` | built, vitest |
@@ -97,7 +97,7 @@ Remaining deliverables and acceptance criteria are listed in
 | `POST /v1/interco/reconciliations/run` (duty `intercompany.reconcile`, `Idempotency-Key` required), `GET /v1/interco/reconciliations`, `GET /v1/interco/reconciliations/{id}?status=`, `POST /v1/interco/reconciliations/items/{id}/resolve`; the run and items are immutable and an open item is resolved once with a note; event `reconciliation.flagged.v1` | `internal/api/recon.go`, `internal/store/recon.go`, migration `0004_reconciliation.sql` | built, tests incl. the planted-50 fixture `internal/api/testdata/ic-recon-planted-50.json` |
 | Web: posted journals, charge log, reconciliation runs, posting from the journal and charge previews, saving a classification as a run | `apps/web/src/modules/intercompany` | built, vitest, demo data |
 
-Posting needs `LEDGER_URL` and the service signing key (`PASSAGE_SERVICE_NAME=intercompany`); without
+Posting needs `LEDGER_URL` and the service signing key (`DEPOT_SERVICE_NAME=intercompany`); without
 them the posting routes answer 503 and everything else works. The Helm chart takes them from
 `ledgerUrl` and `serviceIdentity.signingKeySecret`. The service is granted `ledger.entry.post`,
 `ledger.journal.reverse` and `ledger.ledger.lookup` on the ledger.
@@ -108,8 +108,8 @@ them the posting routes answer 503 and everything else works. The Helm chart tak
 cd services/intercompany
 DATABASE_URL=postgres://... MIGRATE_ON_START=true go run ./cmd/intercompany   # HTTP_ADDR defaults to :8080
 go vet ./... && go test ./...                                                  # store tests skip without a database
-PASSAGE_TEST_DATABASE_URL=postgres://... go test ./...                         # store tests
-PASSAGE_TEST_APP_DATABASE_URL=postgres://passage_app@... # also runs the RLS test as a non-bypass role
+DEPOT_TEST_DATABASE_URL=postgres://... go test ./...                         # store tests
+DEPOT_TEST_APP_DATABASE_URL=postgres://depot_app@... # also runs the RLS test as a non-bypass role
 ```
 
 The service reads `DATABASE_URL` (required; the chart takes it from the
@@ -132,7 +132,7 @@ charts/intercompany/     Helm chart
 
 ## Error codes
 
-Problem details use `type: https://passage.dev/problems/<code>`.
+Problem details use `type: https://depot.dev/problems/<code>`.
 
 | Code | HTTP | Meaning |
 |---|---|---|
@@ -163,11 +163,11 @@ shopspring/decimal, pgregory.net/rapid for tests).
 
 ## Wave reference
 
-PSG-40, PRD section 7.40 (Wave 40: Intercompany & Financial Consolidation).
+DPT-40, PRD section 7.40 (Wave 40: Intercompany & Financial Consolidation).
 
 ## Invoice settlement mode consumers (#40)
 
-`chargeinvoice.requested.v1` now has its own channel, `passage.interco.chargeinvoice`, and names `lenderLegalEntityId`,
+`chargeinvoice.requested.v1` now has its own channel, `depot.interco.chargeinvoice`, and names `lenderLegalEntityId`,
 `borrowerLegalEntityId` (from the registry) and `customerAccount`, `vendorAccount` (from the active pairing of lender and borrower).
 Billing raises the lender's invoice proposal and payables takes the borrower's vendor invoice into its intake from it. The outbox
 reaches Kafka through the `outbox-intercompany` connector (deploy/kafka/connect.yaml, routed by event type; CDC migrations 0007 and

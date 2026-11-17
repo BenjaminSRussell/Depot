@@ -1,5 +1,5 @@
 -- Campaign completion and cancellation (FR-23.14). The scheduling_campaign
--- table, its RLS policy and its passage_app grant (SELECT, INSERT, UPDATE,
+-- table, its RLS policy and its depot_app grant (SELECT, INSERT, UPDATE,
 -- DELETE) come from 0002; no new table here.
 ALTER TABLE scheduling_campaign ADD COLUMN IF NOT EXISTS completed_at timestamptz;
 ALTER TABLE scheduling_campaign ADD COLUMN IF NOT EXISTS cancelled_at timestamptz;

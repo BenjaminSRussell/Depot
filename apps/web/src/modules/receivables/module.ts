@@ -1,5 +1,5 @@
 import { createElement } from "react";
-import type { PassageModule } from "../registry";
+import type { DepotModule } from "../registry";
 import { BankStatementImportPage, BankStatementsPage } from "./BankStatements";
 import { CaseDetailPage, CasesPage, NewCasePage } from "./Cases";
 import { ConfirmationRunDetailPage, ConfirmationRunsPage, NewConfirmationRunPage } from "./Confirmations";
@@ -24,7 +24,7 @@ import { NewPromisePage, PromisesPage } from "./Promises";
 import { WorklistPage } from "./WorklistPage";
 import { WorkspacePage } from "./WorkspacePage";
 
-const receivables: PassageModule = {
+const receivables: DepotModule = {
   id: "receivables",
   title: "Accounts receivable",
   description:

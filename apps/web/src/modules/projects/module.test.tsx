@@ -77,7 +77,7 @@ function renderAt(path: string) {
 
 const problem = (status: number, code: string, detail: string, errors?: Record<string, string>): Reply => ({
   status,
-  body: { type: `https://passage.dev/problems/${code}`, title: "Error", status, code, detail, ...(errors ? { errors } : {}) },
+  body: { type: `https://depot.dev/problems/${code}`, title: "Error", status, code, detail, ...(errors ? { errors } : {}) },
 });
 
 describe("projects module", () => {

@@ -5,10 +5,10 @@ import (
 	"io/fs"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/budgeting/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/budgeting/migrations"
 )
 
 func TestCDCMigrationsPublishTheOutboxAndRerunSafely(t *testing.T) {
@@ -18,7 +18,7 @@ func TestCDCMigrationsPublishTheOutboxAndRerunSafely(t *testing.T) {
 		t.Fatal(err)
 	}
 	var published bool
-	if err := pool.QueryRow(ctx, `select exists(select 1 from pg_publication_rel pr join pg_publication p on p.oid = pr.prpubid where p.pubname = 'passage_outbox_budgeting' and pr.prrelid = to_regclass(current_schema() || '.outbox'))`).Scan(&published); err != nil || !published {
+	if err := pool.QueryRow(ctx, `select exists(select 1 from pg_publication_rel pr join pg_publication p on p.oid = pr.prpubid where p.pubname = 'depot_outbox_budgeting' and pr.prrelid = to_regclass(current_schema() || '.outbox'))`).Scan(&published); err != nil || !published {
 		t.Fatalf("outbox published = %v, %v", published, err)
 	}
 	for _, name := range []string{"0008_cdc_publication.sql", "0009_cdc_role_grants.sql"} {

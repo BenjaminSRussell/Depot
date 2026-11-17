@@ -25,6 +25,6 @@ if (import.meta.env.PROD && "serviceWorker" in navigator) {
 }
 createRoot(root).render(
   <StrictMode>
-    <App deviceId={setting("passage.deviceId", "dev-unregistered")} userId={setting("passage.userId", "unassigned")} />
+    <App deviceId={setting("depot.deviceId", "dev-unregistered")} userId={setting("depot.userId", "unassigned")} />
   </StrictMode>,
 );

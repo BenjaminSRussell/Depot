@@ -1,7 +1,7 @@
 # Procurement
 
 ## Purpose & Boundaries
-Context `procurement` (database `passage_procurement`; waves 17-20). Deployables `procurement` (Go: matching, settlement, payment runs) and `procurement-ts` (RFQ, supplier portal, invoice capture). Owns requisition -> payment documents, match results, AP open items. Sole generator of payment files (pain.001 / NACHA / check / positive-pay) and owner of the "enter payment" duty; treasury only signs and transmits. Creates the expense-reimbursement vendor invoice (workforce does not post AP).
+Context `procurement` (database `depot_procurement`; waves 17-20). Deployables `procurement` (Go: matching, settlement, payment runs) and `procurement-ts` (RFQ, supplier portal, invoice capture). Owns requisition -> payment documents, match results, AP open items. Sole generator of payment files (pain.001 / NACHA / check / positive-pay) and owner of the "enter payment" duty; treasury only signs and transmits. Creates the expense-reimbursement vendor invoice (workforce does not post AP).
 
 ## Interfaces
 Generated CRUD for requisitions, RFQs, agreements, POs (+lines, delivery schedules), product receipts, vendor invoices, AP open items, payments, tolerance rules, approval policies. Custom (`/v1/procurement/`):

@@ -9,11 +9,11 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/intercompany/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/intercompany/internal/store"
-	"github.com/BenjaminSRussell/passage/services/intercompany/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/intercompany/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/intercompany/internal/store"
+	"github.com/BenjaminSRussell/depot/services/intercompany/migrations"
 )
 
 func appSetup(t *testing.T) (*store.Postgres, *pgxpool.Pool, context.Context) {

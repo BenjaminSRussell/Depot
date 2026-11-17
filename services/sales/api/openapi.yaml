@@ -1,14 +1,14 @@
 openapi: 3.1.0
 info:
-  title: Passage Sales
+  title: Depot Sales
   version: 1.0.0
   description: >-
     Sales orders, ATP promise checks, credit profiles and order holds, change
     management, listings, agreements, quotations, the hold release queue and
-    supplementary item rules, product proposals and alternative items (wave 27, slices 1 to 16). Every operation carries x-passage-duty. Errors are RFC 9457
+    supplementary item rules, product proposals and alternative items (wave 27, slices 1 to 16). Every operation carries x-depot-duty. Errors are RFC 9457
     application/problem+json with a stable code listed in the service README.
 servers:
-  - url: https://api.{env}.passage.dev
+  - url: https://api.{env}.depot.dev
     variables:
       env:
         default: dev
@@ -17,7 +17,7 @@ paths:
     get:
       summary: Readiness (Postgres reachable within 500 ms)
       operationId: ready
-      x-passage-duty: none
+      x-depot-duty: none
       responses:
         "200":
           description: ready
@@ -33,7 +33,7 @@ paths:
     get:
       summary: List orders, newest first (Sales orders list; hold=CREDIT is the credit release queue)
       operationId: listOrders
-      x-passage-duty: sales.order.read
+      x-depot-duty: sales.order.read
       parameters:
         - {name: status, in: query, schema: {type: string, enum: [DRAFT, OPEN, CONFIRMED, PARTIALLY_SHIPPED, SHIPPED, INVOICED, CLOSED, CANCELLED]}}
         - {name: customerId, in: query, schema: {type: string, format: uuid}}
@@ -66,7 +66,7 @@ paths:
         line as an SLS-0012 warning. OPTIONAL rules are offered by
         POST /v1/sales/supplementary-items:evaluate and never added.
       operationId: createOrder
-      x-passage-duty: sales.order.write | sales.channel.intake
+      x-depot-duty: sales.order.write | sales.channel.intake
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -115,7 +115,7 @@ paths:
     get:
       summary: Read an order with lines and holds
       operationId: getOrder
-      x-passage-duty: sales.order.read
+      x-depot-duty: sales.order.read
       responses:
         "200":
           description: the order
@@ -183,7 +183,7 @@ paths:
         changes of the order applied without approval moved, stays below the
         threshold.
       operationId: changeOrder
-      x-passage-duty: sales.order.write
+      x-depot-duty: sales.order.write
       parameters:
         - $ref: "#/components/parameters/IfMatch"
       requestBody:
@@ -229,7 +229,7 @@ paths:
     post:
       summary: Confirm an order (runs the credit check; a failing check places a CREDIT hold)
       operationId: confirmOrder
-      x-passage-duty: sales.order.confirm
+      x-depot-duty: sales.order.confirm
       parameters:
         - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
         - $ref: "#/components/parameters/IfMatch"
@@ -261,7 +261,7 @@ paths:
         that confirmation, the hold is still released, the order stays unconfirmed
         (confirmed=false) and order.warnings carries the SLS-0013 refusal.
       operationId: releaseHold
-      x-passage-duty: sales.credit.release | sales.order.hold
+      x-depot-duty: sales.credit.release | sales.order.hold
       parameters:
         - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
         - {name: holdId, in: path, required: true, schema: {type: string, format: uuid}}
@@ -294,7 +294,7 @@ paths:
         comment is written, and orderhold.rejected and order.cancelled are emitted. If-Match carries
         the order ETag, so a retry gets 412 and never rejects twice.
       operationId: rejectOrderHold
-      x-passage-duty: sales.credit.release
+      x-depot-duty: sales.credit.release
       parameters:
         - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
         - {name: holdId, in: path, required: true, schema: {type: string, format: uuid}}
@@ -329,7 +329,7 @@ paths:
         from the credit check. A FRAUD hold blocks confirmation (BR-27.4). If-Match
         carries the order ETag, so a retried request cannot apply the hold twice.
       operationId: applyOrderHold
-      x-passage-duty: sales.order.hold
+      x-depot-duty: sales.order.hold
       parameters:
         - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
         - $ref: "#/components/parameters/IfMatch"
@@ -360,7 +360,7 @@ paths:
     get:
       summary: Listing inquiry - ALLOW and DENY entries in the caller's scope, newest first (BR-27.13)
       operationId: listProductListings
-      x-passage-duty: sales.order.read
+      x-depot-duty: sales.order.read
       parameters:
         - $ref: "#/components/parameters/LegalEntityQuery"
         - {name: productId, in: query, schema: {type: string, format: uuid}}
@@ -383,7 +383,7 @@ paths:
     post:
       summary: Add an ALLOW or DENY entry for a product per customer or customer group, with optional validity (FR-27.15)
       operationId: createProductListing
-      x-passage-duty: sales.listing.maintain
+      x-depot-duty: sales.listing.maintain
       requestBody:
         required: true
         content:
@@ -401,7 +401,7 @@ paths:
     delete:
       summary: Remove a listing entry; orders already taken keep their logged overrides
       operationId: deleteProductListing
-      x-passage-duty: sales.listing.maintain
+      x-depot-duty: sales.listing.maintain
       parameters:
         - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
       responses:
@@ -412,7 +412,7 @@ paths:
     get:
       summary: Sales agreements in the caller's scope, newest first, with commitment, released and remaining quantity
       operationId: listSalesAgreements
-      x-passage-duty: sales.order.read
+      x-depot-duty: sales.order.read
       parameters:
         - $ref: "#/components/parameters/LegalEntityQuery"
         - {name: customerId, in: query, schema: {type: string, format: uuid}}
@@ -437,7 +437,7 @@ paths:
     post:
       summary: Create an ACTIVE quantity commitment for one product of a customer at an agreed price, numbered SA- (FR-27.10)
       operationId: createSalesAgreement
-      x-passage-duty: sales.agreement.maintain
+      x-depot-duty: sales.agreement.maintain
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -472,7 +472,7 @@ paths:
     get:
       summary: One agreement with its remaining commitment and release history, newest first
       operationId: getSalesAgreement
-      x-passage-duty: sales.order.read
+      x-depot-duty: sales.order.read
       parameters:
         - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
       responses:
@@ -493,7 +493,7 @@ paths:
         created keep their price. The revision, its field-level diff and agreement.changed.v1 commit together. A request
         that changes nothing returns the agreement without a new version.
       operationId: reviseSalesAgreement
-      x-passage-duty: sales.agreement.maintain
+      x-depot-duty: sales.agreement.maintain
       parameters:
         - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
         - $ref: "#/components/parameters/IfMatch"
@@ -527,7 +527,7 @@ paths:
         Quantity already released stays released and its orders are untouched. A closed agreement refuses releases,
         schedule releases and revisions with SLS-0052. agreement.closed.v1 is written in the same transaction.
       operationId: closeSalesAgreement
-      x-passage-duty: sales.agreement.maintain
+      x-depot-duty: sales.agreement.maintain
       parameters:
         - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
         - $ref: "#/components/parameters/IfMatch"
@@ -573,7 +573,7 @@ paths:
         When at least one order was repriced the agreement gets a REPRICED history entry and agreement.repriced.v1 in the
         same transaction; a call that reprices nothing changes nothing. A closed agreement is refused with SLS-0052.
       operationId: repriceSalesAgreementOrders
-      x-passage-duty: sales.agreement.maintain
+      x-depot-duty: sales.agreement.maintain
       parameters:
         - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
         - $ref: "#/components/parameters/IfMatch"
@@ -607,7 +607,7 @@ paths:
     get:
       summary: An agreement's history, newest first, with the field-level diff of each revision, close and returned quantity
       operationId: listSalesAgreementVersions
-      x-passage-duty: sales.order.read
+      x-depot-duty: sales.order.read
       parameters:
         - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
       responses:
@@ -631,7 +631,7 @@ paths:
         agreement price (channel AGREEMENT), atomically under the agreement's row lock
         (FR-27.10, BR-27.9). The order passes the product listing check.
       operationId: releaseAgreementOrder
-      x-passage-duty: sales.agreement.maintain
+      x-depot-duty: sales.agreement.maintain
       parameters:
         - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
         - $ref: "#/components/parameters/IdempotencyKey"
@@ -675,7 +675,7 @@ paths:
     get:
       summary: Scheduling releases stored against an agreement, newest first, without schedule lines (FR-27.20)
       operationId: listAgreementScheduleReleases
-      x-passage-duty: sales.order.read
+      x-depot-duty: sales.order.read
       parameters:
         - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
         - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 200, default: 50}}
@@ -701,7 +701,7 @@ paths:
         replaces the previous release's open schedule lines atomically; beyond it, it is stored HELD
         with CUM_QTY_MISMATCH (SLS-0014) and no schedule line changes (AC-27.13).
       operationId: createAgreementScheduleRelease
-      x-passage-duty: sales.agreement.maintain
+      x-depot-duty: sales.agreement.maintain
       parameters:
         - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
         - $ref: "#/components/parameters/IdempotencyKey"
@@ -742,7 +742,7 @@ paths:
     get:
       summary: One scheduling release with its schedule lines, open and superseded
       operationId: getAgreementScheduleRelease
-      x-passage-duty: sales.order.read
+      x-depot-duty: sales.order.read
       parameters:
         - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
         - {name: releaseId, in: path, required: true, schema: {type: string, format: uuid}}
@@ -763,7 +763,7 @@ paths:
         open schedule lines, with open quantity against the agreement's current shipped quantity;
         REJECT closes it and changes nothing. Emits schedulerelease.resolved.
       operationId: resolveAgreementScheduleRelease
-      x-passage-duty: sales.agreement.maintain
+      x-depot-duty: sales.agreement.maintain
       parameters:
         - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
         - {name: releaseId, in: path, required: true, schema: {type: string, format: uuid}}
@@ -804,7 +804,7 @@ paths:
         shipped). The quantity may fall only when the reset date moves forward; the closed period's
         shipped quantity then moves into the shippedOffset of the ACCEPTED and HELD releases.
       operationId: recordAgreementShipped
-      x-passage-duty: sales.agreement.maintain
+      x-depot-duty: sales.agreement.maintain
       parameters:
         - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
         - $ref: "#/components/parameters/IfMatch"
@@ -840,7 +840,7 @@ paths:
     post:
       summary: Stateless ATP promise check over caller-supplied buckets (BR-27.1)
       operationId: atpCheck
-      x-passage-duty: sales.order.read
+      x-depot-duty: sales.order.read
       requestBody:
         required: true
         content:
@@ -859,7 +859,7 @@ paths:
     get:
       summary: Read the sales parameters of a legal entity (the defaults, at version 0, when none were saved)
       operationId: getSalesParameters
-      x-passage-duty: sales.order.read
+      x-depot-duty: sales.order.read
       responses:
         "200":
           description: the parameters; the ETag is the version, 0 when the legal entity never saved them
@@ -873,7 +873,7 @@ paths:
     put:
       summary: Replace the sales parameters (If-Match carries the current ETag; first save uses "0")
       operationId: putSalesParameters
-      x-passage-duty: sales.parameter.maintain
+      x-depot-duty: sales.parameter.maintain
       parameters:
         - $ref: "#/components/parameters/IfMatch"
       requestBody:
@@ -903,7 +903,7 @@ paths:
         CANCEL). Each item carries the change, the field-level diff
         it would make and the order version it was made against.
       operationId: listChangeRequests
-      x-passage-duty: sales.order.read
+      x-depot-duty: sales.order.read
       parameters:
         - $ref: "#/components/parameters/LegalEntityQuery"
         - {name: status, in: query, schema: {type: string, enum: [PENDING, APPROVED, REJECTED, WITHDRAWN]}}
@@ -925,7 +925,7 @@ paths:
     get:
       summary: Read one change request with its diff and decision
       operationId: getChangeRequest
-      x-passage-duty: sales.order.read
+      x-depot-duty: sales.order.read
       parameters:
         - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
       responses:
@@ -952,7 +952,7 @@ paths:
         approve their own request; an order that moved since the request was
         made refuses the approval and the request stays PENDING.
       operationId: approveChangeRequest
-      x-passage-duty: sales.order.approve
+      x-depot-duty: sales.order.approve
       parameters:
         - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
         - $ref: "#/components/parameters/IfMatch"
@@ -997,7 +997,7 @@ paths:
     post:
       summary: Reject a change request with a comment; the order stays as it was (FR-27.9)
       operationId: rejectChangeRequest
-      x-passage-duty: sales.order.approve
+      x-depot-duty: sales.order.approve
       parameters:
         - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
         - $ref: "#/components/parameters/IfMatch"
@@ -1040,7 +1040,7 @@ paths:
         order stays as it was and orderchange.withdrawn is written in the same
         transaction. A new request can then be made.
       operationId: withdrawChangeRequest
-      x-passage-duty: sales.order.write
+      x-depot-duty: sales.order.write
       parameters:
         - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
         - $ref: "#/components/parameters/IfMatch"
@@ -1078,7 +1078,7 @@ paths:
     get:
       summary: Read whether a customer's changes to confirmed orders need approval (change_approval_required, off at version 0)
       operationId: getChangePolicy
-      x-passage-duty: sales.order.read
+      x-depot-duty: sales.order.read
       responses:
         "200":
           description: the switch; the ETag is the version, 0 when never saved
@@ -1110,7 +1110,7 @@ paths:
         holding the duty decide, so a policy never leaves requests without an
         approver.
       operationId: putChangePolicy
-      x-passage-duty: sales.order.approve
+      x-depot-duty: sales.order.approve
       parameters:
         - $ref: "#/components/parameters/IfMatch"
       requestBody:
@@ -1141,7 +1141,7 @@ paths:
     get:
       summary: List credit profiles of one legal entity, or of every legal entity in the caller's scope
       operationId: listCreditProfiles
-      x-passage-duty: sales.order.read
+      x-depot-duty: sales.order.read
       parameters:
         - {name: legalEntityId, in: query, schema: {type: string, format: uuid}}
         - {name: reviewDueBy, in: query, description: "only profiles whose reviewDate is on or before this day (YYYY-MM-DD), oldest review date first: the credit review list ahead of the CR-4 review-date rule", schema: {type: string, format: date}}
@@ -1176,7 +1176,7 @@ paths:
         the ranking is cut to the page, up to 50,000 profiles; past that the
         response says the ranking is partial.
       operationId: listCreditExposure
-      x-passage-duty: sales.order.read
+      x-depot-duty: sales.order.read
       parameters:
         - {name: legalEntityId, in: query, schema: {type: string, format: uuid}}
         - {name: customerId, in: query, schema: {type: string, format: uuid}}
@@ -1206,7 +1206,7 @@ paths:
     get:
       summary: Read the customer's credit profile in one legal entity
       operationId: getCreditProfile
-      x-passage-duty: sales.order.read
+      x-depot-duty: sales.order.read
       responses:
         "200":
           description: the profile
@@ -1221,7 +1221,7 @@ paths:
     put:
       summary: Replace the credit profile (If-Match carries the current ETag; a new profile uses "0")
       operationId: putCreditProfile
-      x-passage-duty: sales.credit.maintain
+      x-depot-duty: sales.credit.maintain
       parameters:
         - $ref: "#/components/parameters/IfMatch"
       requestBody:
@@ -1250,7 +1250,7 @@ paths:
         a line it already built, so a retry after a partial failure plans each line once.
         The call to production carries a service token that holds only production.order.create-from-sales.
       operationId: planProduction
-      x-passage-duty: sales.order.plan-production
+      x-depot-duty: sales.order.plan-production
       parameters:
         - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
       responses:
@@ -1288,7 +1288,7 @@ paths:
         Lines of the orders in the caller's scope, in line order within an order. q keeps the lines of orders whose
         number contains it; orderId narrows to one order. Readable with the order read or lookup duty.
       operationId: listOrderLines
-      x-passage-duty: sales.order.read
+      x-depot-duty: sales.order.read
       parameters:
         - {name: orderId, in: query, schema: {type: string, format: uuid}}
         - {name: q, in: query, description: "only lines of orders whose number contains it, ignoring case", schema: {type: string, maxLength: 100}}
@@ -1311,7 +1311,7 @@ paths:
     get:
       summary: One order line by id (the line lookup's resolve)
       operationId: getOrderLine
-      x-passage-duty: sales.order.read
+      x-depot-duty: sales.order.read
       parameters:
         - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
       responses:
@@ -1335,7 +1335,7 @@ paths:
         cut the list. The legal entity is the query parameter, or the caller's; without either, an all-scope caller covers
         every legal entity.
       operationId: autoCloseOrders
-      x-passage-duty: sales.order.write
+      x-depot-duty: sales.order.write
       parameters:
         - $ref: "#/components/parameters/LegalEntityQuery"
         - {name: graceDays, in: query, description: days an INVOICED order must be unchanged, schema: {type: integer, minimum: 0, maximum: 365, default: 30}}
@@ -1376,7 +1376,7 @@ paths:
         kept at 0) so fulfillment cuts what it released. An order with a picked, delivered or
         invoiced line is refused (SLS-0025).
       operationId: cancelOrder
-      x-passage-duty: sales.order.confirm
+      x-depot-duty: sales.order.confirm
       parameters:
         - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
         - $ref: "#/components/parameters/IfMatch"
@@ -1431,7 +1431,7 @@ paths:
         order.remaindercancelled is emitted. A retry with the old If-Match gets 412 and never closes
         twice; a delivery reported afterwards is refused with SLS-0058.
       operationId: cancelOrderRemainder
-      x-passage-duty: sales.order.write
+      x-depot-duty: sales.order.write
       parameters:
         - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
         - $ref: "#/components/parameters/IfMatch"
@@ -1476,7 +1476,7 @@ paths:
         (SHIPPED or INVOICED once every line is delivered or cancelled). A new version is written and
         order.remaindercancelled is emitted for that one line. ACTIVE holds stay.
       operationId: cancelOrderLineRemainder
-      x-passage-duty: sales.order.write
+      x-depot-duty: sales.order.write
       parameters:
         - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
         - {name: lineNo, in: path, required: true, schema: {type: integer, minimum: 1}}
@@ -1519,7 +1519,7 @@ paths:
     get:
       summary: An order's change history, newest first, with the field-level diff of each version (FR-27.9)
       operationId: listOrderVersions
-      x-passage-duty: sales.order.read
+      x-depot-duty: sales.order.read
       parameters:
         - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
       responses:
@@ -1545,7 +1545,7 @@ paths:
         first dated schedule line (never earlier than the quota period it drew from, BR-27.15), its supplementary lines follow, the order
         gets a new version with the diff, and order.changed and atp.promised are written in the same transaction.
       operationId: promiseOrderLine
-      x-passage-duty: sales.order.write
+      x-depot-duty: sales.order.write
       parameters:
         - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
         - {name: lineNo, in: path, required: true, schema: {type: integer, minimum: 1}}
@@ -1599,7 +1599,7 @@ paths:
     get:
       summary: The active schedule lines of an order by line and sequence (FR-27.6)
       operationId: listScheduleLines
-      x-passage-duty: sales.order.read
+      x-depot-duty: sales.order.read
       parameters:
         - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
       responses:
@@ -1620,7 +1620,7 @@ paths:
     get:
       summary: Backorder list - schedule lines promised after the requested date or not at all, by promised date (FR-27.6, AC-27.8)
       operationId: listBackorders
-      x-passage-duty: sales.order.read
+      x-depot-duty: sales.order.read
       parameters:
         - {name: legalEntityId, in: query, schema: {type: string, format: uuid}}
         - {name: productId, in: query, schema: {type: string, format: uuid}}
@@ -1645,7 +1645,7 @@ paths:
     post:
       summary: Stateless reconciliation of a scheduling-agreement release; a cumulative mismatch holds the release (BR-27.12, FR-27.20)
       operationId: checkScheduleRelease
-      x-passage-duty: sales.agreement.maintain
+      x-depot-duty: sales.agreement.maintain
       requestBody:
         required: true
         content:
@@ -1694,7 +1694,7 @@ paths:
     post:
       summary: Preview a backorder processing run for one product and site; nothing is committed (BR-27.11, FR-27.17)
       operationId: previewBackorderRun
-      x-passage-duty: sales.backorder.run
+      x-depot-duty: sales.backorder.run
       requestBody:
         required: true
         content:
@@ -1731,7 +1731,7 @@ paths:
     get:
       summary: Stored backorder runs in the caller's scope, newest first, without their lines (Backorder run results)
       operationId: listBackorderRuns
-      x-passage-duty: sales.order.read
+      x-depot-duty: sales.order.read
       parameters:
         - $ref: "#/components/parameters/LegalEntityQuery"
         - {name: productId, in: query, schema: {type: string, format: uuid}}
@@ -1755,7 +1755,7 @@ paths:
         Plan a backorder processing run over the open lines of one product at a site and warehouse, read from
         the CONFIRMED and PARTIALLY_SHIPPED orders, and store it as a PREVIEW; no order changes until it is committed (FR-27.17, BR-27.11)
       operationId: createBackorderRun
-      x-passage-duty: sales.backorder.run
+      x-depot-duty: sales.backorder.run
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -1789,7 +1789,7 @@ paths:
     get:
       summary: One stored backorder run with its lines in processing order
       operationId: getBackorderRun
-      x-passage-duty: sales.order.read
+      x-depot-duty: sales.order.read
       parameters:
         - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
       responses:
@@ -1809,7 +1809,7 @@ paths:
         schedule lines of every changed line, move confirmed dates, version each order and emit order.changed,
         atp.promised per changed line and backorderrun.committed
       operationId: commitBackorderRun
-      x-passage-duty: sales.backorder.run
+      x-depot-duty: sales.backorder.run
       parameters:
         - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
         - $ref: "#/components/parameters/IfMatch"
@@ -1836,7 +1836,7 @@ paths:
     get:
       summary: Quotations in the caller's scope, newest first, without lines (Quotations pipeline)
       operationId: listQuotations
-      x-passage-duty: sales.order.read
+      x-depot-duty: sales.order.read
       parameters:
         - $ref: "#/components/parameters/LegalEntityQuery"
         - {name: customerId, in: query, schema: {type: string, format: uuid}}
@@ -1859,7 +1859,7 @@ paths:
     post:
       summary: Create a DRAFT quotation numbered SQ- (FR-27.1); validity defaults to +30 days and probability to 50
       operationId: createQuotation
-      x-passage-duty: sales.quotation.maintain
+      x-depot-duty: sales.quotation.maintain
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -1899,7 +1899,7 @@ paths:
     get:
       summary: One quotation with its lines; converted lines name their order
       operationId: getQuotation
-      x-passage-duty: sales.order.read
+      x-depot-duty: sales.order.read
       parameters:
         - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
       responses:
@@ -1919,7 +1919,7 @@ paths:
         validity or probability but no new lines, because its prices are what the customer holds.
         A quotation whose validity has passed cannot be changed.
       operationId: changeQuotation
-      x-passage-duty: sales.quotation.maintain
+      x-depot-duty: sales.quotation.maintain
       parameters:
         - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
         - $ref: "#/components/parameters/IfMatch"
@@ -1954,7 +1954,7 @@ paths:
     post:
       summary: Move a DRAFT quotation that is still valid to SENT
       operationId: sendQuotation
-      x-passage-duty: sales.quotation.maintain
+      x-depot-duty: sales.quotation.maintain
       parameters:
         - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
         - $ref: "#/components/parameters/IfMatch"
@@ -1978,7 +1978,7 @@ paths:
     post:
       summary: Mark a DRAFT or SENT quotation LOST with a reason
       operationId: loseQuotation
-      x-passage-duty: sales.quotation.maintain
+      x-depot-duty: sales.quotation.maintain
       parameters:
         - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
         - $ref: "#/components/parameters/IfMatch"
@@ -2012,7 +2012,7 @@ paths:
     post:
       summary: Cancel a DRAFT or SENT quotation with a reason (BR-27.5); emits quotation.cancelled
       operationId: cancelQuotation
-      x-passage-duty: sales.quotation.maintain
+      x-depot-duty: sales.quotation.maintain
       parameters:
         - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
         - $ref: "#/components/parameters/IfMatch"
@@ -2048,7 +2048,7 @@ paths:
         Convert the selected open lines (every open line when lineNos is empty or the body absent)
         into one DRAFT order at the quoted prices (FR-27.1, AC-27.6); emits quotation.converted
       operationId: convertQuotation
-      x-passage-duty: sales.quotation.maintain
+      x-depot-duty: sales.quotation.maintain
       parameters:
         - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
         - $ref: "#/components/parameters/IfMatch"
@@ -2090,7 +2090,7 @@ paths:
         takes no Idempotency-Key. Each quotation's version is bumped and quotation.expired is written in the
         same transaction. When more is true the batch limit stopped the run; call it again.
       operationId: expireQuotations
-      x-passage-duty: sales.quotation.maintain
+      x-depot-duty: sales.quotation.maintain
       parameters:
         - $ref: "#/components/parameters/LegalEntityQuery"
       responses:
@@ -2108,7 +2108,7 @@ paths:
         The tiles and the conversion rate ignore the pipeline filters (status, minProbabilityPct,
         expiringWithinDays), which narrow the pipeline only. Days are UTC calendar days.
       operationId: getSalesSummary
-      x-passage-duty: sales.order.read
+      x-depot-duty: sales.order.read
       parameters:
         - $ref: "#/components/parameters/LegalEntityQuery"
         - {name: windowDays, in: query, description: Days over which the conversion rate is measured, schema: {type: integer, minimum: 1, maximum: 365, default: 90}}
@@ -2127,7 +2127,7 @@ paths:
     get:
       summary: Release queue - ACTIVE holds oldest first with the failed credit rule and the customer's limit (holdType=CREDIT is the credit release queue)
       operationId: listHolds
-      x-passage-duty: sales.credit.release | sales.order.hold
+      x-depot-duty: sales.credit.release | sales.order.hold
       parameters:
         - $ref: "#/components/parameters/LegalEntityQuery"
         - {name: holdType, in: query, schema: {type: string, enum: [CREDIT, FRAUD, MANUAL, PRICE_REVIEW]}}
@@ -2150,7 +2150,7 @@ paths:
     get:
       summary: Supplementary item rules in the caller's scope, optionally for one parent product
       operationId: listSupplementaryRules
-      x-passage-duty: sales.order.read
+      x-depot-duty: sales.order.read
       parameters:
         - $ref: "#/components/parameters/LegalEntityQuery"
         - {name: parentProductId, in: query, schema: {type: string, format: uuid}}
@@ -2172,7 +2172,7 @@ paths:
     post:
       summary: Create a supplementary item rule (FR-27.14); FREE rules carry no price, PRICED rules a positive one
       operationId: createSupplementaryRule
-      x-passage-duty: sales.listing.maintain
+      x-depot-duty: sales.listing.maintain
       requestBody:
         required: true
         content:
@@ -2195,7 +2195,7 @@ paths:
     delete:
       summary: Remove a supplementary item rule
       operationId: deleteSupplementaryRule
-      x-passage-duty: sales.listing.maintain
+      x-depot-duty: sales.listing.maintain
       parameters:
         - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
       responses:
@@ -2208,7 +2208,7 @@ paths:
         Stateless - the supplementary lines a parent line of a product and quantity triggers for a customer;
         MANDATORY lines go with the parent, OPTIONAL lines are offered (FR-27.14)
       operationId: evaluateSupplementary
-      x-passage-duty: sales.order.read
+      x-depot-duty: sales.order.read
       requestBody:
         required: true
         content:
@@ -2239,7 +2239,7 @@ paths:
     get:
       summary: Allocation quota inquiry per product and period - quota, consumed and remaining (FR-27.16)
       operationId: listAllocationQuotas
-      x-passage-duty: sales.order.read
+      x-depot-duty: sales.order.read
       parameters:
         - $ref: "#/components/parameters/LegalEntityQuery"
         - {name: productId, in: query, schema: {type: string, format: uuid}}
@@ -2265,7 +2265,7 @@ paths:
         Set a product allocation quota for a period, for one customer or every customer (FR-27.16, SAP OVZJ).
         Confirmation of an order consumes it in requested-period order (BR-27.15).
       operationId: createAllocationQuota
-      x-passage-duty: sales.allocation.maintain
+      x-depot-duty: sales.allocation.maintain
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -2304,7 +2304,7 @@ paths:
     get:
       summary: One allocation quota with its draw history, newest first
       operationId: getAllocationQuota
-      x-passage-duty: sales.order.read
+      x-depot-duty: sales.order.read
       parameters:
         - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
       responses:
@@ -2320,7 +2320,7 @@ paths:
     patch:
       summary: Change a quota quantity under If-Match; below the consumed quantity is refused (BR-27.15)
       operationId: changeAllocationQuota
-      x-passage-duty: sales.allocation.maintain
+      x-depot-duty: sales.allocation.maintain
       parameters:
         - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
         - $ref: "#/components/parameters/IfMatch"
@@ -2359,7 +2359,7 @@ paths:
     get:
       summary: List customers' transport days and receiving weekdays, by customer (FR-27.3, BR-27.2)
       operationId: listDeliveryTerms
-      x-passage-duty: sales.order.read
+      x-depot-duty: sales.order.read
       parameters:
         - $ref: "#/components/parameters/LegalEntityQuery"
         - {name: customerId, in: query, schema: {type: string, format: uuid}}
@@ -2381,7 +2381,7 @@ paths:
     post:
       summary: Set a customer's transport days and receiving weekdays, which date the confirmed receipt of its order lines (FR-27.3, BR-27.2)
       operationId: createDeliveryTerms
-      x-passage-duty: sales.parameter.maintain
+      x-depot-duty: sales.parameter.maintain
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -2420,7 +2420,7 @@ paths:
     get:
       summary: One customer's delivery terms
       operationId: getDeliveryTerms
-      x-passage-duty: sales.order.read
+      x-depot-duty: sales.order.read
       parameters:
         - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
       responses:
@@ -2436,7 +2436,7 @@ paths:
     put:
       summary: Replace a customer's transport days and receiving weekdays under If-Match; they date orders confirmed afterwards, and confirmed orders keep the terms they were confirmed with
       operationId: replaceDeliveryTerms
-      x-passage-duty: sales.parameter.maintain
+      x-depot-duty: sales.parameter.maintain
       parameters:
         - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
         - $ref: "#/components/parameters/IfMatch"
@@ -2466,7 +2466,7 @@ paths:
     get:
       summary: List delivery tolerance rules by product and customer, the all-customers rule first (BR-27.9, BR-28.7)
       operationId: listDeliveryTolerances
-      x-passage-duty: sales.order.read
+      x-depot-duty: sales.order.read
       parameters:
         - $ref: "#/components/parameters/LegalEntityQuery"
         - {name: productId, in: query, schema: {type: string, format: uuid}}
@@ -2489,7 +2489,7 @@ paths:
     post:
       summary: Set the over-delivery and under-delivery tolerance and the partial delivery policy of a product for one customer or for every customer (BR-27.9, BR-28.7, FR-27.6)
       operationId: createDeliveryTolerance
-      x-passage-duty: sales.parameter.maintain
+      x-depot-duty: sales.parameter.maintain
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -2528,7 +2528,7 @@ paths:
     get:
       summary: The tolerance that governs a product for a customer, the customer's own rule before the all-customers rule before the default, with the least and most a shipment may carry when orderedQty is given (for the shipping check of BR-28.7; fulfillment does not call it yet)
       operationId: resolveDeliveryTolerance
-      x-passage-duty: sales.order.read
+      x-depot-duty: sales.order.read
       parameters:
         - {name: legalEntityId, in: query, description: "the legal entity; absent, the caller's own", schema: {type: string, format: uuid}}
         - {name: productId, in: query, required: true, schema: {type: string, format: uuid}}
@@ -2549,7 +2549,7 @@ paths:
     get:
       summary: One delivery tolerance rule
       operationId: getDeliveryTolerance
-      x-passage-duty: sales.order.read
+      x-depot-duty: sales.order.read
       parameters:
         - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
       responses:
@@ -2565,7 +2565,7 @@ paths:
     put:
       summary: Replace the tolerances and the partial delivery policy of a rule under If-Match; the resolve call answers with them from now on
       operationId: replaceDeliveryTolerance
-      x-passage-duty: sales.parameter.maintain
+      x-depot-duty: sales.parameter.maintain
       parameters:
         - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
         - $ref: "#/components/parameters/IfMatch"
@@ -2594,7 +2594,7 @@ paths:
     delete:
       summary: Remove a rule; the product and customer fall back to the all-customers rule or the default
       operationId: deleteDeliveryTolerance
-      x-passage-duty: sales.parameter.maintain
+      x-depot-duty: sales.parameter.maintain
       parameters:
         - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
       responses:
@@ -2605,7 +2605,7 @@ paths:
     get:
       summary: Product proposal rules in the caller's scope with their recorded accept and decline counts (FR-27.21)
       operationId: listProposalRules
-      x-passage-duty: sales.order.read
+      x-depot-duty: sales.order.read
       parameters:
         - $ref: "#/components/parameters/LegalEntityQuery"
         - name: orderedProductId
@@ -2632,7 +2632,7 @@ paths:
     post:
       summary: Create a product proposal rule (FR-27.21, SAP VB41 cross-selling)
       operationId: createProposalRule
-      x-passage-duty: sales.listing.maintain
+      x-depot-duty: sales.listing.maintain
       requestBody:
         required: true
         content:
@@ -2655,7 +2655,7 @@ paths:
     delete:
       summary: Remove a product proposal rule; its recorded responses are kept
       operationId: deleteProposalRule
-      x-passage-duty: sales.listing.maintain
+      x-depot-duty: sales.listing.maintain
       parameters:
         - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
       responses:
@@ -2669,7 +2669,7 @@ paths:
         already on the order or being committed is never proposed, and a customer's own rule wins over the
         rule for every customer. Nothing is created unless the user accepts a proposal.
       operationId: evaluateProposals
-      x-passage-duty: sales.order.read
+      x-depot-duty: sales.order.read
       requestBody:
         required: true
         content:
@@ -2700,7 +2700,7 @@ paths:
     get:
       summary: Intake errors - channel orders refused at intake, most recently seen first (PRD 5.27.14)
       operationId: listIntakeErrors
-      x-passage-duty: sales.order.read
+      x-depot-duty: sales.order.read
       parameters:
         - $ref: "#/components/parameters/LegalEntityQuery"
         - {name: channel, in: query, description: only this channel, schema: {type: string, maxLength: 40}}
@@ -2727,7 +2727,7 @@ paths:
     get:
       summary: Read one intake error
       operationId: getIntakeError
-      x-passage-duty: sales.order.read
+      x-depot-duty: sales.order.read
       responses:
         "200":
           description: the intake error; the ETag header carries its version
@@ -2744,7 +2744,7 @@ paths:
     post:
       summary: Close an open intake error with a note (the sender was corrected or will not retry)
       operationId: resolveIntakeError
-      x-passage-duty: sales.order.write
+      x-depot-duty: sales.order.write
       parameters:
         - {name: If-Match, in: header, required: true, description: the ETag of the intake error, schema: {type: string}}
       requestBody:
@@ -2786,7 +2786,7 @@ paths:
         again the answer is still 200 with replayed false and the new refusal in failure; the error stays OPEN with one
         more attempt and replayCount.
       operationId: replayIntakeError
-      x-passage-duty: sales.order.write
+      x-depot-duty: sales.order.write
       responses:
         "200":
           description: the replay outcome; the ETag header carries the intake error version
@@ -2821,7 +2821,7 @@ paths:
         before it are kept). Safe to repeat. The legal entity is the query parameter, or the caller's; without either,
         an all-scope caller replays every legal entity.
       operationId: replayIntakeErrors
-      x-passage-duty: sales.order.write
+      x-depot-duty: sales.order.write
       parameters:
         - $ref: "#/components/parameters/LegalEntityQuery"
         - {name: channel, in: query, description: only this channel, schema: {type: string, maxLength: 40}}
@@ -2858,7 +2858,7 @@ paths:
         Record goods delivered or an invoice issued on an order: the line quantities, line statuses (PICKED in part,
         DELIVERED, INVOICED) and the derived order status (PARTIALLY_SHIPPED, SHIPPED, INVOICED) follow (BR-27.5, FR-28.8)
       operationId: recordOrderProgress
-      x-passage-duty: sales.order.record-delivery | sales.order.record-invoice
+      x-depot-duty: sales.order.record-delivery | sales.order.record-invoice
       description: >-
         Called by fulfillment when a packing slip posts (kind DELIVERED, duty sales.order.record-delivery, the
         quantities of that shipment, never cumulative) and by billing when an invoice posts (kind INVOICED, duty
@@ -2919,7 +2919,7 @@ paths:
     get:
       summary: Delivery and invoice reports recorded on orders, newest first
       operationId: listOrderProgress
-      x-passage-duty: sales.order.read
+      x-depot-duty: sales.order.read
       parameters:
         - $ref: "#/components/parameters/LegalEntityQuery"
         - {name: orderId, in: query, description: only this order, schema: {type: string, format: uuid}}
@@ -2943,7 +2943,7 @@ paths:
     get:
       summary: Alternative item rules in the caller's scope, by ordered product and priority (FR-27.13)
       operationId: listAlternativeRules
-      x-passage-duty: sales.order.read
+      x-depot-duty: sales.order.read
       parameters:
         - $ref: "#/components/parameters/LegalEntityQuery"
         - name: orderedProductId
@@ -2970,7 +2970,7 @@ paths:
     post:
       summary: Create an alternative item rule, a product to offer when the ordered one cannot ship in time (FR-27.13)
       operationId: createAlternativeRule
-      x-passage-duty: sales.listing.maintain
+      x-depot-duty: sales.listing.maintain
       requestBody:
         required: true
         content:
@@ -2993,7 +2993,7 @@ paths:
     delete:
       summary: Remove an alternative item rule
       operationId: deleteAlternativeRule
-      x-passage-duty: sales.listing.maintain
+      x-depot-duty: sales.listing.maintain
       parameters:
         - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
       responses:
@@ -3009,7 +3009,7 @@ paths:
         every customer. Offers that cover the quantity come first, then by priority. Nothing is stored and no
         line changes.
       operationId: evaluateAlternatives
-      x-passage-duty: sales.order.read
+      x-depot-duty: sales.order.read
       requestBody:
         required: true
         content:
@@ -3055,7 +3055,7 @@ paths:
     post:
       summary: Record a user's accept or decline of a proposal, the input of the acceptance rate (FR-27.21)
       operationId: respondToProposal
-      x-passage-duty: sales.order.write | sales.channel.intake
+      x-depot-duty: sales.order.write | sales.channel.intake
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -3110,7 +3110,7 @@ paths:
         Without `PRICING_URL` a product never bought is 422 SAL-CUS-002. The order is stored on channel `PORTAL-<customer>` and committed through the normal confirm, so the
         credit check runs and a CREDIT hold may be placed (the answer then shows the order's status). A repeat of the Idempotency-Key
         returns the stored order with 200.
-      x-passage-duty: sales.customer-portal.order
+      x-depot-duty: sales.customer-portal.order
       parameters:
         - { $ref: "#/components/parameters/IdempotencyKey" }
       requestBody:
@@ -3154,7 +3154,7 @@ paths:
       operationId: customerPortalListOrders
       summary: The signed-in customer's own orders (customer portal).
       description: For the customer portal only (#30). The customer is the signed `cus` claim of the customer-portal service token; a `customerId` query parameter is ignored. Draft orders are not listed.
-      x-passage-duty: sales.customer-portal.read
+      x-depot-duty: sales.customer-portal.read
       parameters:
         - { name: status, in: query, schema: { type: string } }
         - { name: cursor, in: query, schema: { type: string } }
@@ -3179,7 +3179,7 @@ paths:
       operationId: customerPortalGetOrder
       summary: One of the signed-in customer's orders with its lines (customer portal).
       description: An order of another customer, or a draft, is 404 SLS-0100, the same answer as an unknown id.
-      x-passage-duty: sales.customer-portal.read
+      x-depot-duty: sales.customer-portal.read
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -3196,7 +3196,7 @@ paths:
       operationId: customerPortalListProducts
       summary: The products the signed-in customer can reorder (customer portal).
       description: The products of the customer's own committed orders, one row per product and unit, with the price paid last (discount applied) and its currency, newest first.
-      x-passage-duty: sales.customer-portal.read
+      x-depot-duty: sales.customer-portal.read
       responses:
         "200":
           description: The answer.
@@ -3235,7 +3235,7 @@ paths:
         flow; an invoice that is unknown, another customer's or not returnable is one answer, 422 SAL-CUS-003. A product the customer
         never bought is 422 SAL-CUS-002. The return is created REQUESTED, returning to the site and warehouse of the customer's last
         order of the product, valued at current cost; staff authorize, receive and inspect it as any return order.
-      x-passage-duty: sales.customer-portal.return
+      x-depot-duty: sales.customer-portal.return
       parameters:
         - { $ref: "#/components/parameters/IdempotencyKey" }
       requestBody:
@@ -3277,7 +3277,7 @@ paths:
       operationId: customerPortalListReturns
       summary: The signed-in customer's own return orders (customer portal).
       description: For the customer portal only (#30). The customer is the signed `cus` claim of the customer-portal service token; a `customerId` query parameter is ignored.
-      x-passage-duty: sales.customer-portal.read
+      x-depot-duty: sales.customer-portal.read
       parameters:
         - { name: status, in: query, schema: { type: string } }
         - { name: limit, in: query, schema: { type: integer, minimum: 1 } }
@@ -3301,7 +3301,7 @@ paths:
       operationId: customerPortalGetReturn
       summary: One of the signed-in customer's return orders (customer portal).
       description: A return of another customer is 404 SLS-0125, the same answer as an unknown id.
-      x-passage-duty: sales.customer-portal.read
+      x-depot-duty: sales.customer-portal.read
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -3323,7 +3323,7 @@ paths:
         order is marked once receivables holds the reservation (also when it already did); one that fails is
         listed in `failed` and taken up by the next call. `more` is true while orders are left after `limit`.
       operationId: backfillReturnReservations
-      x-passage-duty: sales.order.write
+      x-depot-duty: sales.order.write
       parameters:
         - {name: legalEntityId, in: query, required: true, schema: {type: string, format: uuid}}
         - {name: limit, in: query, required: false, schema: {type: integer, minimum: 1, maximum: 100}}
@@ -3347,7 +3347,7 @@ paths:
     get:
       summary: List return orders (RMA), newest first (FR-30.11)
       operationId: listReturnOrders
-      x-passage-duty: sales.order.read
+      x-depot-duty: sales.order.read
       parameters:
         - $ref: "#/components/parameters/LegalEntityQuery"
         - {name: customerId, in: query, schema: {type: string, format: uuid}}
@@ -3376,7 +3376,7 @@ paths:
         the product (422 SLS-0123). ORIGINAL_COST resolves the shipment's unit cost from
         the packing slip. A body price or currency is refused (400).
       operationId: createReturnOrder
-      x-passage-duty: sales.order.write
+      x-depot-duty: sales.order.write
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -3407,7 +3407,7 @@ paths:
     get:
       summary: One return order
       operationId: getReturnOrder
-      x-passage-duty: sales.order.read
+      x-depot-duty: sales.order.read
       parameters:
         - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
       responses:
@@ -3424,7 +3424,7 @@ paths:
     post:
       summary: Authorize an RMA (REQUESTED → AUTHORIZED, 30-day validity); the creator may not authorize it (403 AUTH-0003)
       operationId: authorizeReturnOrder
-      x-passage-duty: sales.order.write
+      x-depot-duty: sales.order.write
       parameters:
         - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
         - $ref: "#/components/parameters/IfMatch"
@@ -3444,7 +3444,7 @@ paths:
     post:
       summary: Receive returned goods into quarantine (lines left out receive 0; stock is booked after inspection)
       operationId: receiveReturnOrder
-      x-passage-duty: sales.order.write
+      x-depot-duty: sales.order.write
       parameters:
         - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
         - $ref: "#/components/parameters/IfMatch"
@@ -3486,7 +3486,7 @@ paths:
         cost read now; a product with none at the site and warehouse is 422 SLS-0122, and the RMA stays
         RECEIVED so the line can be inspected CREDIT_ONLY.
       operationId: inspectReturnOrder
-      x-passage-duty: sales.order.write
+      x-depot-duty: sales.order.write
       parameters:
         - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
         - $ref: "#/components/parameters/IfMatch"
@@ -3524,7 +3524,7 @@ paths:
     post:
       summary: Confirm dispositions and restock the accepted RETURN_TO_STOCK quantity (INSPECTED → DISPOSITIONED); repeat on a DISPOSITIONED RMA to retry a failed restock (503 SLS-0124)
       operationId: dispositionReturnOrder
-      x-passage-duty: sales.order.write
+      x-depot-duty: sales.order.write
       parameters:
         - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
         - $ref: "#/components/parameters/IfMatch"
@@ -3550,7 +3550,7 @@ paths:
         accepted and no credit-only line, or a charge equal to the value) closes with net 0 and no credit
         note, without asking receivables.
       operationId: creditReturnOrder
-      x-passage-duty: sales.order.write
+      x-depot-duty: sales.order.write
       parameters:
         - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
         - $ref: "#/components/parameters/IfMatch"
@@ -3581,7 +3581,7 @@ paths:
     post:
       summary: Reject an RMA before any goods are received (REQUESTED or AUTHORIZED → REJECTED); its quantity is returnable again
       operationId: rejectReturnOrder
-      x-passage-duty: sales.order.write
+      x-depot-duty: sales.order.write
       parameters:
         - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
         - $ref: "#/components/parameters/IfMatch"
@@ -3600,7 +3600,7 @@ paths:
   /v1/sales/opening-orders:
     post:
       operationId: importOpeningSalesOrder
-      x-passage-duty: sales.opening-order.import
+      x-depot-duty: sales.opening-order.import
       description: >-
         Cutover import of sales orders still open in the legacy system, called by the migration factory with a service token. All
         or nothing, 1 to 1000 lines of one legal entity, numbered from 1 in errors. Every line has a unique reference (the legacy line id),
@@ -3658,7 +3658,7 @@ paths:
         '500': { $ref: '#/components/responses/Problem' }
     get:
       operationId: listOpeningSalesOrders
-      x-passage-duty: sales.opening-order.read
+      x-depot-duty: sales.opening-order.read
       description: >-
         Imported opening batches of one legal entity (legal_entity), newest first, optionally one batch_key, with keyset paging (limit 1 to 200, default 50;
         pass the previous nextCursor as cursor). orderCount, lineCount, openQty and openValue are read back from the stored lines, so the loader can verify what landed
@@ -3703,7 +3703,7 @@ components:
       required: false
       description: >-
         The legal entity the profile belongs to. Defaults to the caller's legal entity
-        (gateway header X-Passage-Legal-Entity); a caller scoped to one legal entity
+        (gateway header X-Depot-Legal-Entity); a caller scoped to one legal entity
         may not name another (403). Required when the caller has no legal entity.
       schema: {type: string, format: uuid}
   headers:
@@ -3941,7 +3941,7 @@ components:
       type: object
       required: [type, title, status]
       properties:
-        type: {type: string, format: uri, example: "https://passage.dev/problems/SLS-0005"}
+        type: {type: string, format: uri, example: "https://depot.dev/problems/SLS-0005"}
         title: {type: string}
         status: {type: integer}
         detail: {type: string}

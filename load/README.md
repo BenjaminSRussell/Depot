@@ -1,4 +1,4 @@
-# Load campaign — PSG-50, wave 50
+# Load campaign — DPT-50, wave 50
 
 Performance campaign for FR-50.1: scenarios S1–S7 in k6, the SLO table and throughput targets as data, and
 a checker that fails a campaign when any SLO is missed or unmeasured.
@@ -49,14 +49,14 @@ a checker that fails a campaign when any SLO is missed or unmeasured.
 ## Run
 ```
 python3 load/tools/verify_paths.py --gateway deploy/gateway   # before the campaign: services and edge serve every route
-k6 run --env BASE_URL=https://api.perf.passage.dev --env TOKEN="$TOKEN" --env POOL_FILE=/data/pool.json \
+k6 run --env BASE_URL=https://api.perf.depot.dev --env TOKEN="$TOKEN" --env POOL_FILE=/data/pool.json \
   --env CAMPAIGN_ID=c-2026-10 --summary-export=results/summary.json load/k6/scenarios.js
 python3 load/tools/check_campaign.py results/summary.json
 python3 -m unittest discover -s load/tools
 node --test load/k6/*.test.mjs
 
 # soak, 24 h at 50% (memory series exported per service as timestamp,bytes CSV)
-k6 run --env BASE_URL=https://api.perf.passage.dev --env TOKEN="$TOKEN" --env POOL_FILE=/data/pool.json \
+k6 run --env BASE_URL=https://api.perf.depot.dev --env TOKEN="$TOKEN" --env POOL_FILE=/data/pool.json \
   --env CAMPAIGN_ID=soak-2026-10 --summary-export=results/soak-summary.json load/k6/soak.js
 python3 load/tools/check_campaign.py --profile soak results/soak-summary.json
 python3 load/tools/check_soak.py results/soak-memory-*.csv

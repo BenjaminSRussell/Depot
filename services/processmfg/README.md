@@ -1,6 +1,6 @@
 # processmfg
 
-Process manufacturing for Passage (wave 24, PSG-24, slices 1 to 3, 9 and 11 to 17). Formulas, batch orders
+Process manufacturing for Depot (wave 24, DPT-24, slices 1 to 3, 9 and 11 to 17). Formulas, batch orders
 created from a formula snapshot and scaled to the batch size, rescale before the order starts,
 and the potency, catch-weight and co-product allocation rules (slice 1). Slice 2 adds the batch
 rules as stateless previews: batch derivation (FR-24.15), batch merge (FR-24.16), bulk
@@ -51,20 +51,20 @@ With `IDENTITY_URL` set, every route answers 403 `FEAT-0001` while the tenant ha
 
 `DATABASE_URL` is required. `HTTP_ADDR` defaults to `:8080`. Batch record signing (21 CFR
 Part 11) answers 503 PMF-0135 until a step-up re-authentication verifier is bound;
-`PASSAGE_ENV=dev` binds a stand-in whose signatures record the method `dev-unverified`, so a
+`DEPOT_ENV=dev` binds a stand-in whose signatures record the method `dev-unverified`, so a
 record sealed with them says `signaturesVerified: false`. The gateway sets
-`X-Passage-Tenant`, `X-Passage-User`, `X-Passage-Duties` and `X-Passage-Legal-Entity`.
+`X-Depot-Tenant`, `X-Depot-User`, `X-Depot-Duties` and `X-Depot-Legal-Entity`.
 
 ## Test
 
 ```
 go vet ./... && go test ./...
-PASSAGE_TEST_DATABASE_URL=postgres://owner@... PASSAGE_TEST_APP_DATABASE_URL=postgres://passage_app@... go test ./...
+DEPOT_TEST_DATABASE_URL=postgres://owner@... DEPOT_TEST_APP_DATABASE_URL=postgres://depot_app@... go test ./...
 ```
 
 Store tests use `testkit.DBWithApp`: migrations run as the owner, every query as the
-`passage_app` role (no BYPASSRLS), so tenant and legal-entity isolation is exercised. They are
-skipped when `PASSAGE_TEST_DATABASE_URL` is unset.
+`depot_app` role (no BYPASSRLS), so tenant and legal-entity isolation is exercised. They are
+skipped when `DEPOT_TEST_DATABASE_URL` is unset.
 
 - AC-24.1 scaling of a 1,000 kg formula to 2,500 kg (domain, API and store), a property test
   that percent-controlled lines sum exactly to the batch size, and the order snapshot.
@@ -137,7 +137,7 @@ skipped when `PASSAGE_TEST_DATABASE_URL` is unset.
 | POST | `/v1/production/batch-records` | `production.batch-record.write` | Compile the electronic batch record of a batch from its batch order and quality record, or refresh it while in review; one exception per recorded value outside its limits (BR-24.15); writes `batchrecord.compiled` and `batchrecord.exceptionraised` |
 | GET | `/v1/production/batch-records`, `/{id}` | `production.batch-order.read` | Records by status, batch and item; the detail carries the content, the exceptions and, once sealed, the sealed document and its hash |
 | POST | `/v1/production/batch-records/{id}/exceptions` | `production.batch-record.write` | Raise an exception by hand on a record in review |
-| POST | `/v1/production/batch-records/{id}/exceptions/{exceptionId}:disposition` | `production.batch-record.write` | The review step: accept, raise a deviation or reject an open exception, signed by the call (meaning reviewed: printed name, step-up assertion in `X-Passage-Reauth-Assertion`, the BR-24.14 lockout, 403 PMF-0010, 423 PMF-0011, 409 PMF-0013 when the record changed, 503 PMF-0135 without a verifier); a decision is final (409 PMF-0125); writes `batchrecord.exceptiondispositioned` |
+| POST | `/v1/production/batch-records/{id}/exceptions/{exceptionId}:disposition` | `production.batch-record.write` | The review step: accept, raise a deviation or reject an open exception, signed by the call (meaning reviewed: printed name, step-up assertion in `X-Depot-Reauth-Assertion`, the BR-24.14 lockout, 403 PMF-0010, 423 PMF-0011, 409 PMF-0013 when the record changed, 503 PMF-0135 without a verifier); a decision is final (409 PMF-0125); writes `batchrecord.exceptiondispositioned` |
 | POST | `/v1/production/batch-records/{id}:approve` | `production.batch-record.approve` | Approve by exception: every exception decided and signed (422 PMF-0014), no value recorded since the last compile (409 PMF-0121), and the approver neither raised nor decided an exception of the record nor created its batch order (422 PMF-0124); signed by the call with the meaning approved, like a decision; writes `batchrecord.approved` (BR-24.15, AC-24.16) |
 | GET | `/v1/production/batch-records/{id}/pdf` | `production.batch-order.read` | A sealed record rendered as PDF/A-2b from its sealed JSON (embedded font, XMP pdfaid, sRGB output intent, document ID; checked with veraPDF) |
 | POST | `/v1/production/batch-records/{id}:seal` | `production.batch-record.approve` | Seal an approved record: the canonical JSON document of the approved content (sorted keys, compact, UTC times, every signature, and `signaturesVerified` true only when every decision and the approval rest on a verified re-authentication) is stored with its SHA-256 and the database refuses any later change; writes `batchrecord.sealed` (FR-24.21) |
@@ -175,13 +175,13 @@ Duties are enforced with the kernel `authz.RequireDuty`. The OPA entries are a h
 
 | Type | When |
 |---|---|
-| `dev.passage.production.formula.created.v1` | a formula is created |
-| `dev.passage.production.batchorder.created.v1` | a batch order is created (PRD `batch-order.created`) |
-| `dev.passage.production.batchorder.rescaled.v1` | a batch order's size changes |
-| `dev.passage.production.batchorder.statechanged.v1` | a batch order is released, started, reported as finished or ended |
-| `dev.passage.production.coproduct.allocated.v1` | an order ends and its batch cost is split (same transaction as the end) |
-| `dev.passage.production.batchrecordprofile.defined.v1`, `.retired.v1` | a batch record profile is defined or retired (FR-24.21) |
-| `dev.passage.production.batchrecord.compiled.v1`, `.exceptionraised.v1`, `.exceptiondispositioned.v1`, `.approved.v1`, `.sealed.v1` | the electronic batch record is compiled, an exception is raised or decided, the record is approved or sealed (the sealed event carries the content hash) |
+| `dev.depot.production.formula.created.v1` | a formula is created |
+| `dev.depot.production.batchorder.created.v1` | a batch order is created (PRD `batch-order.created`) |
+| `dev.depot.production.batchorder.rescaled.v1` | a batch order's size changes |
+| `dev.depot.production.batchorder.statechanged.v1` | a batch order is released, started, reported as finished or ended |
+| `dev.depot.production.coproduct.allocated.v1` | an order ends and its batch cost is split (same transaction as the end) |
+| `dev.depot.production.batchrecordprofile.defined.v1`, `.retired.v1` | a batch record profile is defined or retired (FR-24.21) |
+| `dev.depot.production.batchrecord.compiled.v1`, `.exceptionraised.v1`, `.exceptiondispositioned.v1`, `.approved.v1`, `.sealed.v1` | the electronic batch record is compiled, an exception is raised or decided, the record is approved or sealed (the sealed event carries the content hash) |
 
 ## Error codes
 

@@ -85,7 +85,7 @@ const run: MigrationRun = {
   bindingId: BINDING,
   watermark: "2026-11-01T09:00:00.000000000Z",
   counts: { extracted: 3, mapped: 3, created: 1, updated: 1, unchanged: 0, conflicted: 1, rejected: 1, warned: 0 },
-  rejects: [{ sourceKey: "C1", rejects: [{ field: "", code: "MIG-TARGET-DRIFT", detail: "Passage is the source of truth" }] }],
+  rejects: [{ sourceKey: "C1", rejects: [{ field: "", code: "MIG-TARGET-DRIFT", detail: "Depot is the source of truth" }] }],
   warnings: [],
   absent: [],
   createdAt: "2026-11-01T10:00:00Z",
@@ -159,13 +159,13 @@ describe("delta sync list", () => {
 });
 
 describe("deleted legacy rows", () => {
-  it("lists the keys the last full read did not find, with the Passage record they were loaded into", async () => {
+  it("lists the keys the last full read did not find, with the Depot record they were loaded into", async () => {
     detailHandler({ ...healthy, absentCount: 1 }, [], [gone]);
     const { container } = renderAt(`/migration/sync/${BINDING}`);
     const table = await findTable({ name: "Keys missing in the legacy system" });
     expect(table).toHaveTextContent("C9");
     expect(table).toHaveTextContent("0195f0a0-0000-7000-8000-0000000000e1");
-    expect(screen.getByText(/Nothing is deactivated in Passage/)).toBeInTheDocument();
+    expect(screen.getByText(/Nothing is deactivated in Depot/)).toBeInTheDocument();
     expect(violations(container)).toEqual([]);
   });
 
@@ -267,9 +267,9 @@ describe("delta sync detail", () => {
     renderAt(`/migration/sync/${BINDING}`);
     fireEvent.click(await screen.findByRole("button", { name: "Run now" }));
     await waitFor(() => expect(calls.find((c) => c.method === "PATCH")?.body).toEqual({ version: 2, runNow: true }));
-    fireEvent.change(await screen.findByLabelText("Source of truth"), { target: { value: "passage" } });
+    fireEvent.change(await screen.findByLabelText("Source of truth"), { target: { value: "depot" } });
     await waitFor(() => expect(calls.filter((c) => c.method === "PATCH")).toHaveLength(2));
-    expect(calls.filter((c) => c.method === "PATCH")[1].body).toMatchObject({ sourceOfTruth: "passage" });
+    expect(calls.filter((c) => c.method === "PATCH")[1].body).toMatchObject({ sourceOfTruth: "depot" });
   });
 
   it("explains failures and the backoff", async () => {
@@ -289,16 +289,16 @@ describe("delta sync detail", () => {
   });
 
   it("resolves a conflict after confirmation", async () => {
-    detailHandler({ ...healthy, openConflicts: 1, sourceOfTruth: "passage" }, [conflict]);
+    detailHandler({ ...healthy, openConflicts: 1, sourceOfTruth: "depot" }, [conflict]);
     const { container } = renderAt(`/migration/sync/${BINDING}`);
     const table = await findTable({ name: "Sync conflicts" });
     expect(table).toHaveTextContent("Legacy name");
-    fireEvent.click(within(table).getByRole("button", { name: "Keep Passage" }));
+    fireEvent.click(within(table).getByRole("button", { name: "Keep Depot" }));
     const dialog = await screen.findByRole("alertdialog");
     expect(violations(container)).toEqual([]);
-    fireEvent.click(within(dialog).getByRole("button", { name: "Keep Passage" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Keep Depot" }));
     await waitFor(() => expect(calls.some((c) => c.url.pathname.endsWith(":resolve"))).toBe(true));
-    expect(calls.find((c) => c.url.pathname.endsWith(":resolve"))?.body).toEqual({ resolution: "keep_passage", version: 3 });
+    expect(calls.find((c) => c.url.pathname.endsWith(":resolve"))?.body).toEqual({ resolution: "keep_depot", version: 3 });
   });
 
   it("shows the service's refusal when accepting legacy values fails", async () => {
@@ -314,7 +314,7 @@ describe("delta sync detail", () => {
   });
 
   it("reloads the conflicts when a run replaced the legacy values after they were shown", async () => {
-    detailHandler({ ...healthy, openConflicts: 1, sourceOfTruth: "passage" }, [conflict]);
+    detailHandler({ ...healthy, openConflicts: 1, sourceOfTruth: "depot" }, [conflict]);
     const inner = handler;
     let lists = 0;
     handler = (url, init) => {
@@ -325,8 +325,8 @@ describe("delta sync detail", () => {
     renderAt(`/migration/sync/${BINDING}`);
     const table = await findTable({ name: "Sync conflicts" });
     const before = lists;
-    fireEvent.click(within(table).getByRole("button", { name: "Keep Passage" }));
-    fireEvent.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Keep Passage" }));
+    fireEvent.click(within(table).getByRole("button", { name: "Keep Depot" }));
+    fireEvent.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Keep Depot" }));
     expect(await screen.findByText(/MIG-VERSION-CONFLICT/)).toBeInTheDocument();
     await waitFor(() => expect(lists).toBeGreaterThan(before));
   });

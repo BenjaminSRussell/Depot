@@ -12,19 +12,19 @@ import (
 
 	"github.com/jackc/pgx/v5/pgconn"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/migration/internal/connector"
-	"github.com/BenjaminSRussell/passage/services/migration/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/migration/internal/probe"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/connector"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/probe"
 )
 
 // openLocal opens the real postgres registry entry against the test database. The egress guard is covered by the probe
 // tests; the extractor's own logic (keyset paging, delta, read-only) is what this exercises.
 func openLocal(t *testing.T) (*sql.DB, probe.SQLDriver, string) {
 	t.Helper()
-	url := os.Getenv("PASSAGE_TEST_DATABASE_URL")
+	url := os.Getenv("DEPOT_TEST_DATABASE_URL")
 	if url == "" {
-		t.Skip("PASSAGE_TEST_DATABASE_URL not set; skipping database test")
+		t.Skip("DEPOT_TEST_DATABASE_URL not set; skipping database test")
 	}
 	cc, err := pgconn.ParseConfig(url)
 	if err != nil {

@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/services/costacct/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/services/costacct/internal/store"
 )
 
 func (f *fakeStore) CreateHierarchy(_ context.Context, _, _ string, in store.Hierarchy) (int, []byte, error) {

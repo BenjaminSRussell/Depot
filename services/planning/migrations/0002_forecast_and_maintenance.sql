@@ -24,8 +24,8 @@ CREATE TABLE IF NOT EXISTS forecast_model (
 ALTER TABLE forecast_model ENABLE ROW LEVEL SECURITY;
 ALTER TABLE forecast_model FORCE ROW LEVEL SECURITY;
 CREATE POLICY forecast_model_tenant_access ON forecast_model AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- sales_qty is the open sales quantity of the period as the planner entered it
 -- until sales orders (w27) feed it; reduced_qty is recomputed on every write.
@@ -51,5 +51,5 @@ CREATE INDEX IF NOT EXISTS forecast_line_site ON forecast_line (tenant_id, model
 ALTER TABLE forecast_line ENABLE ROW LEVEL SECURITY;
 ALTER TABLE forecast_line FORCE ROW LEVEL SECURITY;
 CREATE POLICY forecast_line_tenant_access ON forecast_line AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);

@@ -17,13 +17,13 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/shopfloor/internal/pki"
-	"github.com/BenjaminSRussell/passage/services/shopfloor/internal/store"
-	"github.com/BenjaminSRussell/passage/services/shopfloor/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/shopfloor/internal/pki"
+	"github.com/BenjaminSRussell/depot/services/shopfloor/internal/store"
+	"github.com/BenjaminSRussell/depot/services/shopfloor/migrations"
 )
 
 func (f *fakeStore) IssueEnrollmentToken(_ context.Context, id, by string, now time.Time) (store.EnrollmentToken, error) {
@@ -133,7 +133,7 @@ func TestHTTP_EdgeEnrollmentBindsTheCertificateIdentity(t *testing.T) {
 	if err := dbx.Migrate(context.Background(), admin, migrations.FS); err != nil {
 		t.Fatal(err)
 	}
-	caCert, caKey, err := pki.NewTestCA("Passage test edge CA", time.Now())
+	caCert, caKey, err := pki.NewTestCA("Depot test edge CA", time.Now())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -147,9 +147,9 @@ func TestHTTP_EdgeEnrollmentBindsTheCertificateIdentity(t *testing.T) {
 	h := fullRouter(a)
 	send := func(method, path, body, duties, user string) *httptest.ResponseRecorder {
 		req := httptest.NewRequest(method, path, strings.NewReader(body))
-		req.Header.Set("X-Passage-Tenant", testkit.TenantID(1))
-		req.Header.Set("X-Passage-User", user)
-		req.Header.Set("X-Passage-Duties", duties)
+		req.Header.Set("X-Depot-Tenant", testkit.TenantID(1))
+		req.Header.Set("X-Depot-User", user)
+		req.Header.Set("X-Depot-Duties", duties)
 		req.Header.Set("Idempotency-Key", "k-"+path+body)
 		rec := httptest.NewRecorder()
 		h.ServeHTTP(rec, req)
@@ -301,9 +301,9 @@ func TestHTTP_EdgeEnrollmentBindsTheCertificateIdentity(t *testing.T) {
 	cur := send(http.MethodGet, "/v1/shopfloor/edge-nodes/"+node.ID, "", DutyView, "supervisor-1")
 	_ = json.Unmarshal(cur.Body.Bytes(), &bound)
 	reqUpd := httptest.NewRequest(http.MethodPut, "/v1/shopfloor/edge-nodes/"+node.ID, strings.NewReader(`{"name":"Press line gateway","platform":"linux","ring":"all","active":false,"connectorSubject":"`+subject+`"}`))
-	reqUpd.Header.Set("X-Passage-Tenant", testkit.TenantID(1))
-	reqUpd.Header.Set("X-Passage-User", "supervisor-1")
-	reqUpd.Header.Set("X-Passage-Duties", DutyEdgeConfigure)
+	reqUpd.Header.Set("X-Depot-Tenant", testkit.TenantID(1))
+	reqUpd.Header.Set("X-Depot-User", "supervisor-1")
+	reqUpd.Header.Set("X-Depot-Duties", DutyEdgeConfigure)
 	reqUpd.Header.Set("If-Match", etag(bound.Version))
 	recUpd := httptest.NewRecorder()
 	h.ServeHTTP(recUpd, reqUpd)

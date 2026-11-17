@@ -1,12 +1,12 @@
 import { createElement } from "react";
-import type { PassageModule } from "../registry";
+import type { DepotModule } from "../registry";
 import { ConvertPage } from "./ConvertPage";
 import { LookupPage } from "./LookupPage";
 import { RateEntryPage } from "./RateEntryPage";
 import { RatesPage } from "./RatesPage";
 import { RateTypesPage } from "./RateTypesPage";
 
-const fx: PassageModule = {
+const fx: DepotModule = {
   id: "fx",
   title: "Exchange rates",
   description: "Stored exchange rates and their audit history, the rate that applies to a pair on a date, and amount conversion with minor-unit rounding.",

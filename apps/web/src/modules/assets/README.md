@@ -1,4 +1,4 @@
-# Fixed assets (web module, PSG-37 wave 37)
+# Fixed assets (web module, DPT-37 wave 37)
 
 Module folder: `apps/web/src/modules/assets/`. Discovered by the shell through
 `module.ts` (`id: "assets"`). Pages use the shell primitives from
@@ -61,7 +61,7 @@ never parses money to floats.
 Transfer between locations or dimensions, the group's own run line, lease termination, the PWA barcode scanner (the count page
 takes pasted or keyed scans), transfer / scrap proposals from a count, routing capex approvals to the approver of each level (wave-4
 workflow), run reversal and the workspace tiles
-are later slices of PSG-37 or handoffs (see `services/assets/NOT-IMPLEMENTED.md`).
+are later slices of DPT-37 or handoffs (see `services/assets/NOT-IMPLEMENTED.md`).
 
 ## Needs
 

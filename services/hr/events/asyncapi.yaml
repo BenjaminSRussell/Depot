@@ -1,6 +1,6 @@
 asyncapi: 3.0.0
 info:
-  title: Passage HR events
+  title: Depot HR events
   version: 0.1.0
   description: |
     Events published by the HR service through the transactional outbox (same
@@ -9,79 +9,79 @@ info:
 defaultContentType: application/cloudevents+json
 channels:
   workerSkillChanged:
-    address: passage.hr.workerskill
+    address: depot.hr.workerskill
     messages:
       workerSkillChanged:
         $ref: "#/components/messages/WorkerSkillChanged"
   certificationIssued:
-    address: passage.hr.certification
+    address: depot.hr.certification
     messages:
       certificationIssued:
         $ref: "#/components/messages/CertificationIssued"
   workerCreated:
-    address: passage.hr.worker
+    address: depot.hr.worker
     messages:
       workerCreated:
         $ref: "#/components/messages/WorkerCreated"
   employmentChanged:
-    address: passage.hr.employment
+    address: depot.hr.employment
     messages:
       employmentChanged:
         $ref: "#/components/messages/EmploymentChanged"
   positionAssignmentChanged:
-    address: passage.hr.positionassignment
+    address: depot.hr.positionassignment
     messages:
       positionAssignmentChanged:
         $ref: "#/components/messages/PositionAssignmentChanged"
   absenceApproved:
-    address: passage.hr.absence
+    address: depot.hr.absence
     messages:
       absenceApproved:
         $ref: "#/components/messages/AbsenceApproved"
   benefitEnrollmentChanged:
-    address: passage.hr.benefitenrollment
+    address: depot.hr.benefitenrollment
     messages:
       benefitEnrollmentChanged:
         $ref: "#/components/messages/BenefitEnrollmentChanged"
   courseCompleted:
-    address: passage.hr.course
+    address: depot.hr.course
     messages:
       courseCompleted:
         $ref: "#/components/messages/CourseCompleted"
   compensationChanged:
-    address: passage.hr.compensation
+    address: depot.hr.compensation
     messages:
       compensationChanged:
         $ref: "#/components/messages/CompensationChanged"
   compensationCycleApplied:
-    address: passage.hr.compensationcycle
+    address: depot.hr.compensationcycle
     messages:
       compensationCycleApplied:
         $ref: "#/components/messages/CompensationCycleApplied"
       compensationCycleApproved:
         $ref: "#/components/messages/CompensationCycleApproved"
   requisitionChanged:
-    address: passage.hr.requisition
+    address: depot.hr.requisition
     messages:
       requisitionChanged:
         $ref: "#/components/messages/RequisitionChanged"
   incidentChanged:
-    address: passage.hr.incident
+    address: depot.hr.incident
     messages:
       incidentChanged:
         $ref: "#/components/messages/IncidentChanged"
   loanedItemChanged:
-    address: passage.hr.loaneditem
+    address: depot.hr.loaneditem
     messages:
       loanedItemChanged:
         $ref: "#/components/messages/LoanedItemChanged"
   checklistChanged:
-    address: passage.hr.checklist
+    address: depot.hr.checklist
     messages:
       checklistChanged:
         $ref: "#/components/messages/ChecklistChanged"
   reviewChanged:
-    address: passage.hr.review
+    address: depot.hr.review
     messages:
       reviewChanged:
         $ref: "#/components/messages/ReviewChanged"
@@ -185,7 +185,7 @@ operations:
 components:
   messages:
     CompensationChanged:
-      name: dev.passage.hr.compensation.changed.v1
+      name: dev.depot.hr.compensation.changed.v1
       description: A worker's fixed compensation row opened from valid_from; payroll consumes it. Confidential amounts travel to payroll only.
       contentType: application/cloudevents+json
       payload:
@@ -201,7 +201,7 @@ components:
           valid_from: {type: string, format: date-time}
           valid_to: {type: [string, "null"], format: date-time}
     CompensationCycleApplied:
-      name: dev.passage.hr.compensationcycle.applied.v1
+      name: dev.depot.hr.compensationcycle.applied.v1
       description: PRD name compensation.cycle.applied, collapsed to one entity segment like positionassignment.
       contentType: application/cloudevents+json
       payload:
@@ -214,7 +214,7 @@ components:
             type: array
             items: {type: string, format: uuid}
     CompensationCycleApproved:
-      name: dev.passage.hr.compensationcycle.approved.v1
+      name: dev.depot.hr.compensationcycle.approved.v1
       description: A compensation cycle in APPROVAL was approved by a user who did not create it, submit any of its worksheets, or appear on a submitted row as the worker or the proposing manager. Apply needs this approval.
       contentType: application/cloudevents+json
       payload:
@@ -226,7 +226,7 @@ components:
           approved_by: {type: string}
           rows: {type: integer}
     RequisitionChanged:
-      name: dev.passage.hr.requisition.changed.v1
+      name: dev.depot.hr.requisition.changed.v1
       description: A job requisition was created or its status changed, including FILLED and back to OPEN as hires count against its headcount.
       contentType: application/cloudevents+json
       payload:
@@ -239,19 +239,19 @@ components:
           status: {type: string, enum: [DRAFT, APPROVED, OPEN, FILLED, CANCELED]}
           filled: {type: integer}
     WorkerCreated:
-      name: dev.passage.hr.worker.created.v1
+      name: dev.depot.hr.worker.created.v1
       description: A worker record was created for a party person, with its personnel number and worker type. Carries no personal data. The search index lists the worker by personnel number from it and titles it with the party person's name from the party record (#506).
       contentType: application/cloudevents+json
       payload:
         $ref: "#/components/schemas/WorkerCreatedData"
     EmploymentChanged:
-      name: dev.passage.hr.employment.changed.v1
+      name: dev.depot.hr.employment.changed.v1
       description: A worker's employment with a legal entity was opened or changed; action names the change and valid_from and valid_to bound it.
       contentType: application/cloudevents+json
       payload:
         $ref: "#/components/schemas/EmploymentChangedData"
     PositionAssignmentChanged:
-      name: dev.passage.hr.positionassignment.changed.v1
+      name: dev.depot.hr.positionassignment.changed.v1
       description: |
         PRD name position.assignment.changed; the kernel event-type regex
         allows three segments after the namespace, so the entity collapses to
@@ -260,7 +260,7 @@ components:
       payload:
         $ref: "#/components/schemas/PositionAssignmentChangedData"
     AbsenceApproved:
-      name: dev.passage.hr.absence.approved.v1
+      name: dev.depot.hr.absence.approved.v1
       description: |
         Written to the outbox in the same transaction as the approval that spends
         the balance (FR-42.7). Consumers - time (wave 25), projects
@@ -270,49 +270,49 @@ components:
       payload:
         $ref: "#/components/schemas/AbsenceApprovedData"
     BenefitEnrollmentChanged:
-      name: dev.passage.hr.benefitenrollment.changed.v1
+      name: dev.depot.hr.benefitenrollment.changed.v1
       description: Published in the same transaction as an enrollment starts or ends (8.42.5). Payroll deductions consume it; dependents are never included.
       contentType: application/cloudevents+json
       payload:
         $ref: "#/components/schemas/BenefitEnrollmentChangedData"
     WorkerSkillChanged:
-      name: dev.passage.hr.workerskill.changed.v1
+      name: dev.depot.hr.workerskill.changed.v1
       description: Published in the same transaction as a worker's rating on a skill changes (FR-42.10). Wave-45 dispatch consumes it. Carries codes and ratings only.
       contentType: application/cloudevents+json
       payload:
         $ref: "#/components/schemas/WorkerSkillChangedData"
     CertificationIssued:
-      name: dev.passage.hr.certification.issued.v1
+      name: dev.depot.hr.certification.issued.v1
       description: Published in the same transaction as a certificate is recorded (BR-42.8). Validity is [issued_on, expires_on); expiry reminders (FR-42.20) and wave-45 dispatch read expires_on.
       contentType: application/cloudevents+json
       payload:
         $ref: "#/components/schemas/CertificationIssuedData"
     CourseCompleted:
-      name: dev.passage.hr.course.completed.v1
+      name: dev.depot.hr.course.completed.v1
       description: Published in the same transaction as a registration is recorded ATTENDED with PASS and its skills and certificate are written (8.42.5, FR-42.14, BR-42.9). Wave-45 dispatch consumes the skills; notifications consume the certificate id. Codes, ratings and ids only; no worker names.
       contentType: application/cloudevents+json
       payload:
         $ref: "#/components/schemas/CourseCompletedData"
     IncidentChanged:
-      name: dev.passage.hr.incident.changed.v1
+      name: dev.depot.hr.incident.changed.v1
       description: Published in the same transaction as an incident is reported, moved to UNDER_REVIEW or CLOSED (FR-42.16, BR-42.11). Ids, codes and counts only; the worker's name and the sealed medical details never leave the service in an event.
       contentType: application/cloudevents+json
       payload:
         $ref: "#/components/schemas/IncidentChangedData"
     LoanedItemChanged:
-      name: dev.passage.hr.loaneditem.changed.v1
+      name: dev.depot.hr.loaneditem.changed.v1
       description: Published in the same transaction as an item is issued, returned or recorded lost (FR-42.17). asset_id is the wave-44 asset when the item is one.
       contentType: application/cloudevents+json
       payload:
         $ref: "#/components/schemas/LoanedItemChangedData"
     ChecklistChanged:
-      name: dev.passage.hr.checklist.changed.v1
+      name: dev.depot.hr.checklist.changed.v1
       description: Published in the same transaction as a checklist is started (its worker tasks are created) or completed (FR-42.19, BR-42.12).
       contentType: application/cloudevents+json
       payload:
         $ref: "#/components/schemas/ChecklistChangedData"
     ReviewChanged:
-      name: dev.passage.hr.review.changed.v1
+      name: dev.depot.hr.review.changed.v1
       description: Published in the same transaction as a review is opened (draft), the worker submits the self-assessment (self_submitted) or the manager signs off (signed_off) (FR-42.11). Ids, period and status only; no review text.
       contentType: application/cloudevents+json
       payload:

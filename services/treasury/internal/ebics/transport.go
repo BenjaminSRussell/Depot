@@ -3,7 +3,7 @@ package ebics
 import (
 	"context"
 
-	"github.com/BenjaminSRussell/passage/services/treasury/internal/bankconnect"
+	"github.com/BenjaminSRussell/depot/services/treasury/internal/bankconnect"
 )
 
 // Transport sends bank files through a subscriber as EBICS upload orders, so a

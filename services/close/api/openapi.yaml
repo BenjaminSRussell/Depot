@@ -4,12 +4,12 @@ info:
   version: 0.1.0
   description: Period control, close checklist, allocations and year-end (wave 14). This slice ships the period-control decision endpoint the ledger posting API calls.
 servers:
-  - url: https://api.passage.dev
+  - url: https://api.depot.dev
 paths:
   /v1/close/period-statuses:check:
     post:
       operationId: checkPeriodStatus
-      x-passage-duty: period.check
+      x-depot-duty: period.check
       description: Decides whether a posting from the given source system may enter the fiscal period. Resolution order is the module row, then the ALL row, then never opened (rejected). Read-only; the ledger also checks inside its posting transaction.
       requestBody:
         required: true
@@ -30,7 +30,7 @@ paths:
   /v1/close/periods:resolve:
     get:
       operationId: resolveFiscalPeriod
-      x-passage-duty: period.check
+      x-depot-duty: period.check
       description: Maps a posting date to the fiscal period of one ledger and legal entity (the single legal entity of the caller's identity, required) and returns the period id with the status of the requested source system's module (module row, then ALL row, then never_opened). A closed or held period is a normal answer; the caller decides. Only periods with start and end dates registered are resolvable.
       parameters:
         - { name: ledgerId, in: query, required: true, schema: { type: string, format: uuid } }
@@ -55,7 +55,7 @@ paths:
   /v1/close/periods/{fiscalPeriodId}:
     put:
       operationId: registerPeriod
-      x-passage-duty: period.maintain
+      x-depot-duty: period.maintain
       description: Registers the dates of a fiscal period of one ledger and the caller's single legal entity, opening the ALL module when the period is new. Idempotent for the same dates; registered dates never move, and dates that overlap another period of the ledger are refused. The ledger's legal entity is read from the ledger service and must equal the caller's. Never changes a status.
       parameters:
         - { name: fiscalPeriodId, in: path, required: true, schema: { type: string, format: uuid } }
@@ -82,8 +82,8 @@ paths:
   /v1/close/year-end-runs:
     post:
       operationId: runYearEnd
-      x-passage-duty: close.yearend.run
-      description: "Closes one fiscal year of a ledger and the caller's single legal entity. The request names only the ledger, year and retained-earnings account. Close verifies the ledger belongs to the caller's legal entity, requires the fiscal periods of the year to be contiguous, non-overlapping and to cover 1 January to 31 December, every module closed (general ledger may be on hold) and the last period not permanently closed, reads the balances per account and dimension from the ledger trial balance, takes account classes from the ledger's chart, derives the closing date (last period end) and the proposed opening date (the next day) from its periods, computes the closing and opening proposals, records the run, posts only the closing entry (profit and loss to retained earnings) with service credentials under a key derived from the run, then marks the run completed and queues dev.passage.close.yearend.completed.v1. No opening journal is posted: the ledger's balances are cumulative, so the opening proposal is kept on the run as a verification artifact. Proposals are derived again on a retry until the closing entry has posted. Repeating the same request, including a completed re-run, returns the stored run (200) and resumes an unfinished posting without duplicating entries. A ledger refusal while nothing has posted marks the run abandoned and frees the year. A completed year is redone only by naming that run in supersedesRunId, which reverses its closing entry and posts again from the ledger's current balances. A different request for the same ledger and year is 409 COM-0409; a posting the ledger is still processing is 409 CLOSE-0002 with Retry-After."
+      x-depot-duty: close.yearend.run
+      description: "Closes one fiscal year of a ledger and the caller's single legal entity. The request names only the ledger, year and retained-earnings account. Close verifies the ledger belongs to the caller's legal entity, requires the fiscal periods of the year to be contiguous, non-overlapping and to cover 1 January to 31 December, every module closed (general ledger may be on hold) and the last period not permanently closed, reads the balances per account and dimension from the ledger trial balance, takes account classes from the ledger's chart, derives the closing date (last period end) and the proposed opening date (the next day) from its periods, computes the closing and opening proposals, records the run, posts only the closing entry (profit and loss to retained earnings) with service credentials under a key derived from the run, then marks the run completed and queues dev.depot.close.yearend.completed.v1. No opening journal is posted: the ledger's balances are cumulative, so the opening proposal is kept on the run as a verification artifact. Proposals are derived again on a retry until the closing entry has posted. Repeating the same request, including a completed re-run, returns the stored run (200) and resumes an unfinished posting without duplicating entries. A ledger refusal while nothing has posted marks the run abandoned and frees the year. A completed year is redone only by naming that run in supersedesRunId, which reverses its closing entry and posts again from the ledger's current balances. A different request for the same ledger and year is 409 COM-0409; a posting the ledger is still processing is 409 CLOSE-0002 with Retry-After."
       requestBody:
         required: true
         content:
@@ -114,7 +114,7 @@ paths:
   /v1/close/year-end-runs/{runId}:
     get:
       operationId: getYearEndRun
-      x-passage-duty: close.yearend.read
+      x-depot-duty: close.yearend.read
       description: Returns a stored year-end run with its proposals and posted journal ids.
       parameters:
         - { name: runId, in: path, required: true, schema: { type: string, format: uuid } }
@@ -132,7 +132,7 @@ paths:
   /v1/close/periods:
     get:
       operationId: listPeriods
-      x-passage-duty: period.maintain
+      x-depot-duty: period.maintain
       description: Lists period-status rows of the caller's legal entity for one ledger.
       parameters:
         - { name: ledgerId, in: query, required: true, schema: { type: string, format: uuid } }
@@ -145,7 +145,7 @@ paths:
   /v1/close/periods/{fiscalPeriodId}/modules/{module}:
     patch:
       operationId: transitionPeriod
-      x-passage-duty: period.maintain
+      x-depot-duty: period.maintain
       description: Transitions a module of a registered period (open, on_hold, closed, permanently_closed). Closed periods change only through the reopen workflow.
       parameters:
         - { name: fiscalPeriodId, in: path, required: true, schema: { type: string, format: uuid } }
@@ -173,7 +173,7 @@ paths:
   /v1/close/periods/{fiscalPeriodId}/modules/{module}:request-reopen:
     post:
       operationId: requestReopen
-      x-passage-duty: period.reopen
+      x-depot-duty: period.reopen
       description: Starts dual-approval reopen of a closed period. Requires Idempotency-Key.
       parameters:
         - { name: fiscalPeriodId, in: path, required: true, schema: { type: string, format: uuid } }
@@ -200,7 +200,7 @@ paths:
   /v1/close/reopen-requests/{requestId}:approve:
     post:
       operationId: approveReopen
-      x-passage-duty: period.reopen
+      x-depot-duty: period.reopen
       description: Records one distinct approver. The requester cannot approve. Two approvals open the period until expiry.
       parameters:
         - { name: requestId, in: path, required: true, schema: { type: string, format: uuid } }
@@ -215,7 +215,7 @@ paths:
     post:
       operationId: rejectReopen
       summary: "Reject a request to reopen a closed period"
-      x-passage-duty: period.reopen
+      x-depot-duty: period.reopen
       parameters:
         - { name: requestId, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -228,7 +228,7 @@ paths:
     put:
       operationId: putCloseTemplate
       summary: "Create or replace a close checklist template"
-      x-passage-duty: close.checklist.write
+      x-depot-duty: close.checklist.write
       parameters:
         - { name: templateId, in: path, required: true, schema: { type: string, format: uuid } }
       requestBody:
@@ -244,7 +244,7 @@ paths:
     get:
       operationId: getCloseTemplate
       summary: "Get a close checklist template"
-      x-passage-duty: close.checklist.read
+      x-depot-duty: close.checklist.read
       parameters:
         - { name: templateId, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -255,7 +255,7 @@ paths:
   /v1/close/runs:
     post:
       operationId: createCloseRun
-      x-passage-duty: close.checklist.write
+      x-depot-duty: close.checklist.write
       description: Instantiates a template across legal entities. Requires Idempotency-Key.
       parameters:
         - { name: Idempotency-Key, in: header, required: true, schema: { type: string } }
@@ -281,7 +281,7 @@ paths:
     get:
       operationId: listCloseTasks
       summary: "List the tasks of a close run"
-      x-passage-duty: close.checklist.read
+      x-depot-duty: close.checklist.read
       parameters:
         - { name: runId, in: path, required: true, schema: { type: string, format: uuid } }
         - { name: entity, in: query, schema: { type: string, format: uuid } }
@@ -295,7 +295,7 @@ paths:
     post:
       operationId: startCloseTask
       summary: "Start a close task"
-      x-passage-duty: close.checklist.write
+      x-depot-duty: close.checklist.write
       parameters:
         - { name: taskId, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -308,7 +308,7 @@ paths:
     post:
       operationId: completeCloseTask
       summary: "Complete a close task"
-      x-passage-duty: close.checklist.write
+      x-depot-duty: close.checklist.write
       parameters:
         - { name: taskId, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -321,7 +321,7 @@ paths:
     post:
       operationId: skipCloseTask
       summary: "Skip a close task with a reason"
-      x-passage-duty: close.checklist.write
+      x-depot-duty: close.checklist.write
       parameters:
         - { name: taskId, in: path, required: true, schema: { type: string, format: uuid } }
       requestBody:
@@ -339,7 +339,7 @@ paths:
     post:
       operationId: reassignCloseTask
       summary: "Reassign a close task to another user"
-      x-passage-duty: close.checklist.write
+      x-depot-duty: close.checklist.write
       parameters:
         - { name: taskId, in: path, required: true, schema: { type: string, format: uuid } }
       requestBody:
@@ -356,7 +356,7 @@ paths:
     put:
       operationId: putAllocationRule
       summary: "Create or replace an allocation rule"
-      x-passage-duty: close.allocation.write
+      x-depot-duty: close.allocation.write
       parameters:
         - { name: ruleId, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -368,7 +368,7 @@ paths:
     get:
       operationId: getAllocationRule
       summary: "Get an allocation rule"
-      x-passage-duty: close.allocation.write
+      x-depot-duty: close.allocation.write
       parameters:
         - { name: ruleId, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -379,7 +379,7 @@ paths:
   /v1/close/allocation-runs:
     post:
       operationId: runAllocation
-      x-passage-duty: close.allocation.run
+      x-depot-duty: close.allocation.run
       description: Proposes an allocation from the ledger trial balance and optionally posts it through ledgerclient without PostClosed. Requires Idempotency-Key.
       parameters:
         - { name: Idempotency-Key, in: header, required: true, schema: { type: string } }
@@ -395,7 +395,7 @@ paths:
     post:
       operationId: postAllocation
       summary: "Post a proposed allocation run to the ledger"
-      x-passage-duty: close.allocation.run
+      x-depot-duty: close.allocation.run
       parameters:
         - { name: runId, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -408,7 +408,7 @@ paths:
     post:
       operationId: reverseAllocation
       summary: "Reverse a posted allocation run"
-      x-passage-duty: close.allocation.run
+      x-depot-duty: close.allocation.run
       parameters:
         - { name: runId, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -421,7 +421,7 @@ paths:
     put:
       operationId: putAccrualScheme
       summary: "Create or replace an accrual scheme"
-      x-passage-duty: close.accrual.write
+      x-depot-duty: close.accrual.write
       parameters:
         - { name: code, in: path, required: true, schema: { type: string } }
       responses:
@@ -433,7 +433,7 @@ paths:
     get:
       operationId: getAccrualScheme
       summary: "Get an accrual scheme"
-      x-passage-duty: close.accrual.write
+      x-depot-duty: close.accrual.write
       parameters:
         - { name: code, in: path, required: true, schema: { type: string } }
         - { name: ledgerId, in: query, required: true, schema: { type: string, format: uuid } }
@@ -445,7 +445,7 @@ paths:
   /v1/close/accrual-schemes/{code}:apply:
     post:
       operationId: applyAccrual
-      x-passage-duty: close.accrual.run
+      x-depot-duty: close.accrual.run
       description: Spreads the amount stored on the scheme (close.accrual.write sets it; the request carries no amount) across monthly occurrences stepped from month end, in the ledger currency (a different currency is 422 CLOSE-0011). Occurrences and reversals that are due today or earlier post now, each persisted as it posts; later ones are posted by the in-process sweeper with backoff, and a permanent ledger refusal parks the run. Requires Idempotency-Key. Recurring journals stay in the ledger service.
       parameters:
         - { name: code, in: path, required: true, schema: { type: string } }
@@ -460,7 +460,7 @@ paths:
   /v1/close/accrual-runs/{runId}:cancel:
     post:
       operationId: cancelAccrualRun
-      x-passage-duty: close.accrual.run
+      x-depot-duty: close.accrual.run
       description: Cancels a scheduled or parked accrual run so no further occurrence or reversal posts. Entries already posted stay in the ledger. A run copies the scheme's amount, accounts and autoReverse when it is applied, so later scheme edits do not change it; cancel and apply again to pick them up. The user who last changed a scheme cannot apply it.
       parameters:
         - { name: runId, in: path, required: true, schema: { type: string, format: uuid } }
@@ -474,7 +474,7 @@ paths:
     put:
       operationId: putRegroupingRule
       summary: "Create or replace a regrouping rule"
-      x-passage-duty: close.regrouping.write
+      x-depot-duty: close.regrouping.write
       parameters:
         - { name: code, in: path, required: true, schema: { type: string } }
       responses:
@@ -486,7 +486,7 @@ paths:
     get:
       operationId: getRegroupingRule
       summary: "Get a regrouping rule"
-      x-passage-duty: close.regrouping.write
+      x-depot-duty: close.regrouping.write
       parameters:
         - { name: code, in: path, required: true, schema: { type: string } }
         - { name: ledgerId, in: query, required: true, schema: { type: string, format: uuid } }
@@ -498,7 +498,7 @@ paths:
   /v1/close/regroupings:
     post:
       operationId: runRegrouping
-      x-passage-duty: close.regrouping.run
+      x-depot-duty: close.regrouping.run
       description: Proposes balance-sheet regrouping and optionally posts through ledgerclient without PostClosed. Remaining-term items without a due date fall into the shortest bucket. Requires Idempotency-Key.
       parameters:
         - { name: Idempotency-Key, in: header, required: true, schema: { type: string } }
@@ -514,7 +514,7 @@ paths:
     post:
       operationId: postRegrouping
       summary: "Post a proposed regrouping run to the ledger"
-      x-passage-duty: close.regrouping.run
+      x-depot-duty: close.regrouping.run
       parameters:
         - { name: runId, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -527,7 +527,7 @@ paths:
     post:
       operationId: reverseRegrouping
       summary: "Reverse a posted regrouping run"
-      x-passage-duty: close.regrouping.run
+      x-depot-duty: close.regrouping.run
       parameters:
         - { name: runId, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -539,20 +539,20 @@ paths:
   /healthz:
     get:
       operationId: liveness
-      x-passage-duty: public
+      x-depot-duty: public
       responses:
         '200': { description: Process is alive. }
   /readyz:
     get:
       operationId: readiness
-      x-passage-duty: public
+      x-depot-duty: public
       responses:
         '200': { description: Database reachable. }
         '503': { description: Database unreachable. }
   /metrics:
     get:
       operationId: metrics
-      x-passage-duty: public
+      x-depot-duty: public
       description: Served on the admin port (9090), never through the ingress.
       responses:
         '200':

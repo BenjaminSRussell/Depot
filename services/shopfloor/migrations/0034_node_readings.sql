@@ -18,13 +18,13 @@ CREATE INDEX IF NOT EXISTS node_reading_node ON node_reading (tenant_id, node, r
 ALTER TABLE node_reading ENABLE ROW LEVEL SECURITY;
 ALTER TABLE node_reading FORCE ROW LEVEL SECURITY;
 CREATE POLICY node_reading_tenant_access ON node_reading AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON node_reading TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON node_reading TO depot_app';
   END IF;
 END
 $$;

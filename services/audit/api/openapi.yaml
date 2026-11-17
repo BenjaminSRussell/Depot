@@ -4,13 +4,13 @@ info:
   version: 0.1.0
   description: Append-only field-level audit log with a hash chain. CDC ingest is the wave-4 seam.
 servers:
-  - url: https://app.local.passage.dev
+  - url: https://app.local.depot.dev
 paths:
   /v1/audit/changes:
     post:
       operationId: ingestChange
       summary: "Record a change to an audited record"
-      x-passage-duty: audit.write
+      x-depot-duty: audit.write
       requestBody:
         required: true
         content: { application/json: { schema: { $ref: '#/components/schemas/Change' } } }
@@ -22,7 +22,7 @@ paths:
     get:
       operationId: queryRecord
       summary: "Get the audit history of one record"
-      x-passage-duty: audit.read
+      x-depot-duty: audit.read
       parameters:
         - { name: entity, in: path, required: true, schema: { type: string } }
         - { name: recordId, in: path, required: true, schema: { type: string } }
@@ -37,7 +37,7 @@ paths:
     post:
       operationId: createAlertRule
       summary: "Create an audit alert rule"
-      x-passage-duty: audit.write
+      x-depot-duty: audit.write
       requestBody:
         required: true
         content: { application/json: { schema: { $ref: '#/components/schemas/AlertRule' } } }
@@ -48,7 +48,7 @@ paths:
     get:
       operationId: listAlerts
       summary: "List raised audit alerts"
-      x-passage-duty: audit.read
+      x-depot-duty: audit.read
       responses:
         '200': { description: Alert inbox. }
         default: { $ref: '#/components/responses/Problem' }
@@ -60,7 +60,7 @@ paths:
         Appends one row to the tenant's PHI read-access log (HIPAA audit controls, #606): who read which record and fields,
         when, and why. The reader is the verified caller of the request (the end user in a service token), never a body value;
         a body that names userId is refused with AUD-0002. Called by the service that returned the data, not by a person.
-      x-passage-duty: audit.read-log.write
+      x-depot-duty: audit.read-log.write
       requestBody:
         required: true
         content: { application/json: { schema: { $ref: '#/components/schemas/PhiReadInput' } } }
@@ -74,7 +74,7 @@ paths:
     get:
       operationId: listPhiReads
       summary: "List PHI reads in chain order"
-      x-passage-duty: audit.read-log.view
+      x-depot-duty: audit.read-log.view
       parameters:
         - { name: entity, in: query, schema: { type: string } }
         - { name: recordId, in: query, schema: { type: string } }
@@ -97,11 +97,11 @@ paths:
       summary: "Export the tenant's PHI read log for an auditor"
       description: >-
         Streams the filtered rows as CSV or NDJSON in chain order. The whole chain is verified first and the verdict is in the
-        X-Passage-Read-Chain-* response headers. Keep the head hash: a later export whose chain does not contain it was cut
+        X-Depot-Read-Chain-* response headers. Keep the head hash: a later export whose chain does not contain it was cut
         short. CSV neutralises cells that start with a formula character; NDJSON is lossless, so recompute hashes from it.
-        The trailers X-Passage-Read-Export-Rows and X-Passage-Read-Export-Complete (true) follow the last row; a failure
+        The trailers X-Depot-Read-Export-Rows and X-Depot-Read-Export-Complete (true) follow the last row; a failure
         while rows are streaming aborts the connection, so a body without the completion trailer is incomplete.
-      x-passage-duty: audit.read-log.export
+      x-depot-duty: audit.read-log.export
       parameters:
         - { name: format, in: query, schema: { type: string, enum: [csv, ndjson], default: csv } }
         - { name: entity, in: query, schema: { type: string } }
@@ -113,10 +113,10 @@ paths:
         '200':
           description: The read log. Cache-Control is no-store.
           headers:
-            X-Passage-Read-Chain-Verified: { description: "true when every row links to the one before it from the genesis hash.", schema: { type: string, enum: ['true', 'false'] } }
-            X-Passage-Read-Chain-Entries: { description: Rows in the whole chain., schema: { type: integer } }
-            X-Passage-Read-Chain-Head: { description: Hash of the last verified row., schema: { type: string } }
-            X-Passage-Read-Chain-Broken-At: { description: 0-based position of the first row that does not link; only when verified is false., schema: { type: integer } }
+            X-Depot-Read-Chain-Verified: { description: "true when every row links to the one before it from the genesis hash.", schema: { type: string, enum: ['true', 'false'] } }
+            X-Depot-Read-Chain-Entries: { description: Rows in the whole chain., schema: { type: integer } }
+            X-Depot-Read-Chain-Head: { description: Hash of the last verified row., schema: { type: string } }
+            X-Depot-Read-Chain-Broken-At: { description: 0-based position of the first row that does not link; only when verified is false., schema: { type: integer } }
           content:
             text/csv: { schema: { type: string } }
             application/x-ndjson: { schema: { type: string } }
@@ -126,7 +126,7 @@ paths:
     get:
       operationId: verifyPhiReads
       summary: "Verify the tenant's PHI read-log hash chain"
-      x-passage-duty: audit.read-log.export
+      x-depot-duty: audit.read-log.export
       responses:
         '200':
           description: The verification result.
@@ -140,7 +140,7 @@ paths:
         Reads recorded with the reserved reason code BREAK-GLASS (a purpose that is "BREAK-GLASS" or starts with
         "BREAK-GLASS:" or "BREAK-GLASS "): emergency access to protected health information under a duty kept for
         emergencies (#606). Oldest first. status pending (the default) lists the ones nobody has reviewed yet.
-      x-passage-duty: audit.read-log.review
+      x-depot-duty: audit.read-log.review
       parameters:
         - { name: status, in: query, schema: { type: string, enum: [pending, reviewed, all], default: pending } }
         - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 500, default: 100 } }
@@ -161,7 +161,7 @@ paths:
         A second person's review of a break-glass read, made once: APPROVED, or FLAGGED with a note. The reviewer is the
         verified caller and may not be the person who read the record (AUD-0005, as for a read that is not break-glass or
         is already reviewed). The read-log row is not changed, so the hash chain still verifies.
-      x-passage-duty: audit.read-log.review
+      x-depot-duty: audit.read-log.review
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       requestBody:
@@ -187,7 +187,7 @@ paths:
     post:
       operationId: expandText
       summary: "Replace placeholders in a text with the given values"
-      x-passage-duty: authenticated
+      x-depot-duty: authenticated
       requestBody:
         required: true
         content: { application/json: { schema: { type: object, required: [body], properties: { body: { type: string }, vars: { type: object, additionalProperties: { type: string } } } } } }
@@ -197,13 +197,13 @@ paths:
   /healthz:
     get:
       operationId: liveness
-      x-passage-duty: public
+      x-depot-duty: public
       responses:
         '200': { description: Process is alive. }
   /readyz:
     get:
       operationId: readiness
-      x-passage-duty: public
+      x-depot-duty: public
       responses:
         '200': { description: Database reachable. }
         '503': { description: Database unreachable. }

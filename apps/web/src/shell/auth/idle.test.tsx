@@ -57,7 +57,7 @@ describe("idle sign-out (#606)", () => {
     const onTimeout = vi.fn();
     render(<IdleSignOut minutes={2} onTimeout={onTimeout} />);
     act(() => void vi.advanceTimersByTime(100_000));
-    act(() => void window.dispatchEvent(new StorageEvent("storage", { key: "passage.lastActivity", newValue: String(Date.now()) })));
+    act(() => void window.dispatchEvent(new StorageEvent("storage", { key: "depot.lastActivity", newValue: String(Date.now()) })));
     act(() => void vi.advanceTimersByTime(100_000));
     expect(onTimeout).not.toHaveBeenCalled();
     act(() => void vi.advanceTimersByTime(30_000));

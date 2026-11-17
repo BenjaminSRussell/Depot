@@ -8,9 +8,9 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/billing/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/billing/migrations"
 )
 
 func TestOutbox_InsertOnlyAndTenantScoped(t *testing.T) {
@@ -43,7 +43,7 @@ func TestOutbox_InsertOnlyAndTenantScoped(t *testing.T) {
 		var n int
 		return tx.QueryRow(mine, `select count(*) from outbox`).Scan(&n)
 	})
-	requireInsufficientPrivilege(t, err, "passage_app must not be able to read the outbox")
+	requireInsufficientPrivilege(t, err, "depot_app must not be able to read the outbox")
 }
 
 func requireInsufficientPrivilege(t *testing.T, err error, msg string) {

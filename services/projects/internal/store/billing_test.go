@@ -10,9 +10,9 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/projects/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/projects/internal/domain"
 )
 
 // billingProject creates an IN_PROCESS project of type pt in USD with the
@@ -433,7 +433,7 @@ func TestTransactions_HourPublishesTransactionPostedOnce(t *testing.T) {
 	if len(events) != 1 {
 		t.Fatalf("transaction.posted events = %d, want 1", len(events))
 	}
-	if events[0]["type"] != "dev.passage.projects.transaction.posted.v1" {
+	if events[0]["type"] != "dev.depot.projects.transaction.posted.v1" {
 		t.Fatalf("type = %v", events[0]["type"])
 	}
 	data, _ := events[0]["data"].(map[string]any)

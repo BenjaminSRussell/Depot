@@ -1,4 +1,4 @@
--- Wave 36 (PSG-36) FR-36.3: stored reconciliation rules and the match table.
+-- Wave 36 (DPT-36) FR-36.3: stored reconciliation rules and the match table.
 -- A match groups statement lines with the open items they settle (ledger, AR or AP): one line to
 -- many items (N:1 batch receipts) or one item to many lines. A line and an item are in at most one
 -- active match; an unmatch keeps the row (active = false) as history.
@@ -85,45 +85,45 @@ create unique index ux_reconciliation_match_item_active on reconciliation_match_
 alter table reconciliation_rule enable row level security;
 alter table reconciliation_rule force row level security;
 create policy reconciliation_rule_tenant_access on reconciliation_rule as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 create policy reconciliation_rule_legal_entity_scope on reconciliation_rule as restrictive
-  using (current_setting('passage.legal_entity_scopes', true) = '*'
-         or legal_entity_id::text = any(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  using (current_setting('depot.legal_entity_scopes', true) = '*'
+         or legal_entity_id::text = any(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 alter table reconciliation_match enable row level security;
 alter table reconciliation_match force row level security;
 create policy reconciliation_match_tenant_access on reconciliation_match as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 create policy reconciliation_match_legal_entity_scope on reconciliation_match as restrictive
-  using (current_setting('passage.legal_entity_scopes', true) = '*'
-         or legal_entity_id::text = any(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  using (current_setting('depot.legal_entity_scopes', true) = '*'
+         or legal_entity_id::text = any(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 alter table reconciliation_match_line enable row level security;
 alter table reconciliation_match_line force row level security;
 create policy reconciliation_match_line_tenant_access on reconciliation_match_line as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 create policy reconciliation_match_line_legal_entity_scope on reconciliation_match_line as restrictive
-  using (current_setting('passage.legal_entity_scopes', true) = '*'
-         or legal_entity_id::text = any(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  using (current_setting('depot.legal_entity_scopes', true) = '*'
+         or legal_entity_id::text = any(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 alter table reconciliation_match_item enable row level security;
 alter table reconciliation_match_item force row level security;
 create policy reconciliation_match_item_tenant_access on reconciliation_match_item as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 create policy reconciliation_match_item_legal_entity_scope on reconciliation_match_item as restrictive
-  using (current_setting('passage.legal_entity_scopes', true) = '*'
-         or legal_entity_id::text = any(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  using (current_setting('depot.legal_entity_scopes', true) = '*'
+         or legal_entity_id::text = any(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 -- The statement line keeps its append-only grant except for the two columns a match moves.
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON reconciliation_rule, reconciliation_match, reconciliation_match_line, reconciliation_match_item TO passage_app';
-    EXECUTE 'GRANT UPDATE (status, version) ON bank_statement_line TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON reconciliation_rule, reconciliation_match, reconciliation_match_line, reconciliation_match_item TO depot_app';
+    EXECUTE 'GRANT UPDATE (status, version) ON bank_statement_line TO depot_app';
   END IF;
 END
 $$;

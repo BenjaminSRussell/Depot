@@ -84,7 +84,7 @@ func TestSeedRejectsDuplicateAndIncompleteUsers(t *testing.T) {
 
 func TestRenderRealmKeepsProductionMappersAndAddsSeededUsers(t *testing.T) {
 	root := repoRoot(t)
-	base, err := os.ReadFile(filepath.Join(root, "deploy", "keycloak", "realm-passage.json"))
+	base, err := os.ReadFile(filepath.Join(root, "deploy", "keycloak", "realm-depot.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -120,7 +120,7 @@ func TestRenderRealmKeepsProductionMappersAndAddsSeededUsers(t *testing.T) {
 	if err := json.Unmarshal(out, &realm); err != nil {
 		t.Fatal(err)
 	}
-	if realm.SSLRequired != "none" || realm.BrowserFlow != "passage-browser-dev" {
+	if realm.SSLRequired != "none" || realm.BrowserFlow != "depot-browser-dev" {
 		t.Errorf("dev realm sslRequired=%q browserFlow=%q", realm.SSLRequired, realm.BrowserFlow)
 	}
 	flowDefined := false
@@ -179,7 +179,7 @@ func TestRenderedUserIDsAreTheAssignmentKeys(t *testing.T) {
 	if err := json.Unmarshal(assignments, &doc); err != nil {
 		t.Fatal(err)
 	}
-	base, err := os.ReadFile(filepath.Join(repoRoot(t), "deploy", "keycloak", "realm-passage.json"))
+	base, err := os.ReadFile(filepath.Join(repoRoot(t), "deploy", "keycloak", "realm-depot.json"))
 	if err != nil {
 		t.Fatal(err)
 	}

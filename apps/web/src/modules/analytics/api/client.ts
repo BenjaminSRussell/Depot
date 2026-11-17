@@ -79,7 +79,7 @@ export interface QueryInput {
   to: string;
 }
 
-/** A failed call. `code` is the stable Passage problem code (e.g. AUTH-0003). */
+/** A failed call. `code` is the stable Depot problem code (e.g. AUTH-0003). */
 export class AnalyticsApiError extends Error {
   readonly status: number;
   readonly code: string;

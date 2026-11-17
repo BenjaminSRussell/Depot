@@ -8,18 +8,18 @@ import (
 	"net/http"
 	"slices"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/eventing"
-	"github.com/BenjaminSRussell/passage/platform/eventing/kafka"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/receivables/internal/api"
-	"github.com/BenjaminSRussell/passage/services/receivables/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/eventing"
+	"github.com/BenjaminSRussell/depot/platform/eventing/kafka"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/receivables/internal/api"
+	"github.com/BenjaminSRussell/depot/services/receivables/internal/store"
 )
 
 // billingDeadLetterTopic parks the invoice.posted and creditnote.posted events the consumer could not apply (the x-origin-*
 // headers name the source record, x-dlq-reason why; the plain reason is in the consumer's log).
-const billingDeadLetterTopic = "passage.receivables.invoices.dlq"
+const billingDeadLetterTopic = "depot.receivables.invoices.dlq"
 
 func billingKafkaConfig(getenv func(string) string) (kafka.Config, error) {
 	return kafka.ConfigFromEnv(getenv, api.BillingConsumerName, api.BillingConsumerName, []string{api.BillingInvoiceTopic})

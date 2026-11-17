@@ -11,13 +11,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/ops/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/ops/internal/store"
-	"github.com/BenjaminSRussell/passage/services/ops/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/ops/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/ops/internal/store"
+	"github.com/BenjaminSRussell/depot/services/ops/migrations"
 )
 
 func licenseEnv(t *testing.T, now time.Time) (*env, ed25519.PrivateKey) {
@@ -108,7 +108,7 @@ func TestLicenseInstallVerifiesSignatureAndVersions(t *testing.T) {
 		t.Fatalf("bad count: %d", rec.Code)
 	}
 	a := New(store.New(e.pool), Config{OperatorTenantID: e.tenant, Now: func() time.Time { return time.Date(2027, 1, 15, 0, 0, 0, 0, time.UTC) }})
-	if m := httpGet(a.Metrics()); !strings.Contains(m, `passage_license_days_to_expiry{tenant_id="`+tid+`"} 350`) {
+	if m := httpGet(a.Metrics()); !strings.Contains(m, `depot_license_days_to_expiry{tenant_id="`+tid+`"} 350`) {
 		t.Fatalf("metrics: %s", m)
 	}
 }

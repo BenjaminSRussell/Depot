@@ -5,18 +5,18 @@ package events
 // Context is the bounded context segment of every event type (PRD 3.17.5).
 const Context = "procurement"
 
-// Event types. Each follows dev.passage.<context>.<entity>.<verb>.v1 and is
+// Event types. Each follows dev.depot.<context>.<entity>.<verb>.v1 and is
 // checked against platform/events.ValidType in the package test.
 const (
 	// RequisitionSubmitted is written when a DRAFT requisition is submitted.
-	RequisitionSubmitted = "dev.passage.procurement.requisition.submitted.v1"
+	RequisitionSubmitted = "dev.depot.procurement.requisition.submitted.v1"
 	// RequisitionApproved is written when a requisition reaches APPROVED: on submit
 	// when the policy chain is empty, or when the last level approves.
-	RequisitionApproved = "dev.passage.procurement.requisition.approved.v1"
+	RequisitionApproved = "dev.depot.procurement.requisition.approved.v1"
 	// AgreementThreshold is written when a release takes a purchase agreement
 	// line to the threshold (90 % by default) or overruns a SOFT limit
 	// (FR-17.5, BR-17.10, PRD 3.17.5).
-	AgreementThreshold = "dev.passage.procurement.agreement.threshold.v1"
+	AgreementThreshold = "dev.depot.procurement.agreement.threshold.v1"
 )
 
 // RequisitionLine is one line of a requisition event. Money is a decimal string.

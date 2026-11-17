@@ -14,14 +14,14 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/treasury/internal/domain"
-	tevents "github.com/BenjaminSRussell/passage/services/treasury/internal/events"
-	"github.com/BenjaminSRussell/passage/services/treasury/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/treasury/internal/domain"
+	tevents "github.com/BenjaminSRussell/depot/services/treasury/internal/events"
+	"github.com/BenjaminSRussell/depot/services/treasury/migrations"
 )
 
 const testIBAN = "DE89370400440532013000"

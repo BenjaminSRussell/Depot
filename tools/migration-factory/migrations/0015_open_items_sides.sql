@@ -9,7 +9,7 @@
 --   * legacy_xref is append-only, and its trigger refuses every update but the one-time confirmation of
 --     the target id. 0016 lets it move a row from the bare open_items to one of the two side tables for
 --     the length of its own transaction and puts the 0006 trigger back before it commits, so the rows
---     stay write-once. (The application role holds UPDATE on passage_id and target_confirmed only, 0006.)
+--     stay write-once. (The application role holds UPDATE on depot_id and target_confirmed only, 0006.)
 --   * target_row held one row per (run, legacy id); a run that carries a receivable and a payable with
 --     the same legacy id needs one per (run, ledger, legacy id).
 --

@@ -1,5 +1,5 @@
-"""Repository contract, run against the in-memory repository and, when PASSAGE_TEST_DATABASE_URL (owner) and
-PASSAGE_TEST_APP_DATABASE_URL (passage_app) are set, against Postgres in a private schema."""
+"""Repository contract, run against the in-memory repository and, when DEPOT_TEST_DATABASE_URL (owner) and
+DEPOT_TEST_APP_DATABASE_URL (depot_app) are set, against Postgres in a private schema."""
 
 from __future__ import annotations
 
@@ -13,8 +13,8 @@ from prediction import synth
 from prediction.domain import Config, PaidInvoice, PredictionError
 from prediction.service import SCORED_EVENT, InMemoryRepository, PredictionService, SyncState
 
-OWNER_URL = os.environ.get("PASSAGE_TEST_DATABASE_URL", "")
-APP_URL = os.environ.get("PASSAGE_TEST_APP_DATABASE_URL", "") or OWNER_URL
+OWNER_URL = os.environ.get("DEPOT_TEST_DATABASE_URL", "")
+APP_URL = os.environ.get("DEPOT_TEST_APP_DATABASE_URL", "") or OWNER_URL
 T1 = "11111111-1111-1111-1111-111111111111"
 T2 = "22222222-2222-2222-2222-222222222222"
 USER = "33333333-3333-3333-3333-333333333333"
@@ -24,7 +24,7 @@ NOW = datetime(2026, 11, 13, 10, 0, tzinfo=timezone.utc)
 @pytest.fixture(scope="module")
 def pg_schema():
     if not OWNER_URL:
-        pytest.skip("PASSAGE_TEST_DATABASE_URL is not set")
+        pytest.skip("DEPOT_TEST_DATABASE_URL is not set")
     psycopg = pytest.importorskip("psycopg")
     from psycopg.conninfo import make_conninfo
 
@@ -263,7 +263,7 @@ def test_predictions_are_scoped_to_the_legal_entities_a_call_acts_for(make_repo)
     assert repo.mark_reversed(t, [theirs[0].invoice_id], [le]) == 0 and repo.mark_reversed(t, [theirs[0].invoice_id], [le2]) == 1
 
 
-@pytest.mark.skipif(not OWNER_URL, reason="PASSAGE_TEST_DATABASE_URL is not set")
+@pytest.mark.skipif(not OWNER_URL, reason="DEPOT_TEST_DATABASE_URL is not set")
 def test_the_database_hides_other_legal_entities_and_sessions_without_a_scope(pg_schema):
     import psycopg
 
@@ -280,9 +280,9 @@ def test_the_database_hides_other_legal_entities_and_sessions_without_a_scope(pg
     def count(sql: str, scopes: str | None) -> int:
         with psycopg.connect(app_url) as conn:
             with conn.transaction():
-                conn.execute("select set_config('passage.tenant_id', %s, true)", (t,))
+                conn.execute("select set_config('depot.tenant_id', %s, true)", (t,))
                 if scopes is not None:
-                    conn.execute("select set_config('passage.legal_entity_scopes', %s, true)", (scopes,))
+                    conn.execute("select set_config('depot.legal_entity_scopes', %s, true)", (scopes,))
                 return int(conn.execute(sql).fetchone()[0])  # type: ignore[index]
 
     for table in ("payment_prediction", "prediction_sync"):
@@ -294,7 +294,7 @@ def test_the_database_hides_other_legal_entities_and_sessions_without_a_scope(pg
     with pytest.raises(psycopg.errors.InsufficientPrivilege):
         with psycopg.connect(app_url) as conn:
             with conn.transaction():
-                conn.execute("select set_config('passage.tenant_id', %s, true), set_config('passage.legal_entity_scopes', %s, true)", (t, le2))
+                conn.execute("select set_config('depot.tenant_id', %s, true), set_config('depot.legal_entity_scopes', %s, true)", (t, le2))
                 conn.execute("insert into prediction_sync (tenant_id, legal_entity_id) values (%s, %s)", (t, le))
     assert repo.sync_state(t, le2) == SyncState() and repo.sync_state(t, le).open_watermark == NOW
 
@@ -341,7 +341,7 @@ def test_the_application_role_may_only_read_and_insert_inbox_rows(pg_schema):
     app_url, _owner = pg_schema
     t = tenant()
     with psycopg.connect(app_url) as c, c.transaction():
-        c.execute("select set_config('passage.tenant_id', %s, true)", (t,))
+        c.execute("select set_config('depot.tenant_id', %s, true)", (t,))
         c.execute("insert into consumer_inbox (tenant_id, consumer, event_id) values (%s, 'c', 'e')", (t,))
         with pytest.raises(psycopg.errors.InsufficientPrivilege):
             c.execute("delete from consumer_inbox")

@@ -1,5 +1,5 @@
 image:
-  repository: ghcr.io/benjaminsrussell/passage-analytics
+  repository: ghcr.io/benjaminsrussell/depot-analytics
   tag: "0.1.0"
   digest: ""
   pullPolicy: IfNotPresent

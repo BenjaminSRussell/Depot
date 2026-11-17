@@ -9,9 +9,9 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/analytics/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/analytics/migrations"
 )
 
 func appPool(t *testing.T) *pgxpool.Pool {
@@ -47,6 +47,6 @@ func TestGrants_ReconciliationUpsertWorksAsAppRole(t *testing.T) {
 	}
 	got, changed, err := st.RecordReconciliation(ctx, recon(leUSMF, "revenue", "2026-10-01", "1", "2"))
 	if err != nil || !changed || got.Status != "FAILED" {
-		t.Fatalf("upsert as passage_app = %+v changed=%v, %v", got, changed, err)
+		t.Fatalf("upsert as depot_app = %+v changed=%v, %v", got, changed, err)
 	}
 }

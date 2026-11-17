@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/scheduling/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/scheduling/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/scheduling/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/scheduling/internal/store"
 )
 
 func importReq(orderID string, version int, jobs ...domain.ProductionJob) store.OrderImportRequest {
@@ -44,7 +44,7 @@ func TestImportProductionOrder_RegistersUpdatesAndRemovesOperations(t *testing.T
 		t.Fatalf("ops %+v err=%v, want 10, 20 and 40", ops, err)
 	}
 	var events int
-	if err := admin.QueryRow(context.Background(), `select count(*) from outbox where type = 'dev.passage.scheduling.orderimport.recorded.v1'`).Scan(&events); err != nil || events != 1 {
+	if err := admin.QueryRow(context.Background(), `select count(*) from outbox where type = 'dev.depot.scheduling.orderimport.recorded.v1'`).Scan(&events); err != nil || events != 1 {
 		t.Fatalf("%d outbox events, err=%v, want 1", events, err)
 	}
 
@@ -371,7 +371,7 @@ func TestWithdrawProductionOrder_RemovesOperationsKeepsFirmedAndImportsAgain(t *
 		t.Fatalf("second withdraw: changed=%v err=%v", changed, err)
 	}
 	var events int
-	if err := admin.QueryRow(context.Background(), `select count(*) from outbox where type = 'dev.passage.scheduling.orderimport.recorded.v1' and payload::text like '%"withdrawn"%'`).Scan(&events); err != nil || events != 1 {
+	if err := admin.QueryRow(context.Background(), `select count(*) from outbox where type = 'dev.depot.scheduling.orderimport.recorded.v1' and payload::text like '%"withdrawn"%'`).Scan(&events); err != nil || events != 1 {
 		t.Fatalf("%d withdrawal events, err=%v, want 1", events, err)
 	}
 	if _, err := s.ReimportProductionOrder(ctx, order); problemCode(err) != store.CodeOrderWithdrawn {

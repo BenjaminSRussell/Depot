@@ -10,12 +10,12 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
 
-	"github.com/BenjaminSRussell/passage/services/edi/internal/domain"
-	ediev "github.com/BenjaminSRussell/passage/services/edi/internal/events"
-	"github.com/BenjaminSRussell/passage/services/edi/migrations"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/domain"
+	ediev "github.com/BenjaminSRussell/depot/services/edi/internal/events"
+	"github.com/BenjaminSRussell/depot/services/edi/migrations"
 )
 
 func migrated(t *testing.T) *pgxpool.Pool {
@@ -247,10 +247,10 @@ func TestReceiveInterchange_WritesMessagesAndEventInOneTransaction(t *testing.T)
 
 // TestRowLevelSecurity runs the store as the application role, which cannot
 // bypass RLS, and checks one tenant never sees another's partners or
-// interchanges. It needs PASSAGE_TEST_APP_DATABASE_URL as well.
+// interchanges. It needs DEPOT_TEST_APP_DATABASE_URL as well.
 func TestRowLevelSecurity(t *testing.T) {
 	if os.Getenv(testkit.EnvURL) == "" || os.Getenv(testkit.EnvAppURL) == "" {
-		t.Skip("PASSAGE_TEST_DATABASE_URL and PASSAGE_TEST_APP_DATABASE_URL are needed for the RLS test")
+		t.Skip("DEPOT_TEST_DATABASE_URL and DEPOT_TEST_APP_DATABASE_URL are needed for the RLS test")
 	}
 	admin, app := testkit.DBWithApp(t)
 	bg := context.Background()

@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/services/purchasing/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/services/purchasing/internal/store"
 )
 
 // requisitionPatch is the body of PATCH /requisitions/{id} (BR-17.1). Lines, when present, replace all the lines;

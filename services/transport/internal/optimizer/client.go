@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/services/transport/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/transport/internal/domain"
 )
 
 // ErrUnavailable means the optimizer could not be reached, failed or answered
@@ -39,7 +39,7 @@ type Client struct {
 }
 
 // New returns a client for the optimizer at baseURL, for example
-// http://passage-tms-optimizer:8080. A nil http.Client gets a default one.
+// http://depot-tms-optimizer:8080. A nil http.Client gets a default one.
 func New(baseURL string, hc *http.Client) *Client {
 	if hc == nil {
 		hc = &http.Client{Timeout: clientTimeout}

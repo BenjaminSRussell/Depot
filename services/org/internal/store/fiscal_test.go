@@ -13,13 +13,13 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/services/org/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/org/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/services/org/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/org/internal/store"
 )
 
-const fiscalGeneratedType = "dev.passage.org.fiscalcalendar.generated.v1"
+const fiscalGeneratedType = "dev.depot.org.fiscalcalendar.generated.v1"
 
 func fiscalCalendar(code, pattern string) store.FiscalCalendar {
 	return store.FiscalCalendar{Code: code, Name: "Calendar " + code, Pattern: pattern, StartMonth: 1, WeekStart: "monday", OpeningClosing: true}
@@ -332,7 +332,7 @@ func TestPostgres_FiscalCalendarInactiveRefusedWhileAssigned(t *testing.T) {
 	one, two = assignCalendar(t, s, ctx, one, c.ID), assignCalendar(t, s, ctx, two, c.ID)
 	var scopes string
 	if err := dbx.WithTenantTx(ctx, pool, func(tx pgx.Tx) error {
-		return tx.QueryRow(ctx, `select current_setting('passage.legal_entity_scopes')`).Scan(&scopes)
+		return tx.QueryRow(ctx, `select current_setting('depot.legal_entity_scopes')`).Scan(&scopes)
 	}); err != nil || scopes != "*" {
 		t.Fatalf("unscoped caller scopes = %q, %v; want *", scopes, err)
 	}

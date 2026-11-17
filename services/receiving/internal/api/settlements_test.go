@@ -13,10 +13,10 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/api"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/store/memstore"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/api"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/store/memstore"
 )
 
 const (
@@ -302,7 +302,7 @@ func TestPlanSettlement_RunReplaysByIdempotencyKeyAndEmitsDocumentedEvent(t *tes
 		t.Fatalf("replay %d entries %d", replay.Code, len(rg.ledger.Entries))
 	}
 	evts := rg.st.Events()
-	if len(evts) != 2 || evts[0].Type != "dev.passage.payables.settlement.posted.v1" || !strings.Contains(string(evts[0].Data), `"kind":"PLAN_ROW"`) || !strings.Contains(string(evts[0].Data), `"amount":"1000"`) {
+	if len(evts) != 2 || evts[0].Type != "dev.depot.payables.settlement.posted.v1" || !strings.Contains(string(evts[0].Data), `"kind":"PLAN_ROW"`) || !strings.Contains(string(evts[0].Data), `"amount":"1000"`) {
 		t.Fatalf("events %+v", evts)
 	}
 	assertDocumented(t, evts[0])

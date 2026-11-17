@@ -8,7 +8,7 @@
       "tools/docs/"
     ],
     "web": [],
-    "_note": "Platform kernel (wave 0): shared Go kernel and repo-level scripts. Changed only by kernel slices PSG-9002+, which pick up handoffs other waves raise against these paths."
+    "_note": "Platform kernel (wave 0): shared Go kernel and repo-level scripts. Changed only by kernel slices DPT-9002+, which pick up handoffs other waves raise against these paths."
   },
   "1": {
     "owns": [

@@ -9,15 +9,15 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	kevents "github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/money"
-	"github.com/BenjaminSRussell/passage/platform/outbox"
-	"github.com/BenjaminSRussell/passage/platform/reimbursement"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/expense/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/expense/internal/events"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	kevents "github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/money"
+	"github.com/BenjaminSRussell/depot/platform/outbox"
+	"github.com/BenjaminSRussell/depot/platform/reimbursement"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/expense/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/expense/internal/events"
 )
 
 var ErrSettlementMismatch = errors.New("AP settlement does not match the approved expense report")
@@ -25,7 +25,7 @@ var ErrSettlementMismatch = errors.New("AP settlement does not match the approve
 // DecideReport approves or rejects a SUBMITTED report. The user who submitted it may not
 // decide it (EXP-SOD-001). An approval with a reimbursable amount records decidedOn as the
 // approval date and waits for its general ledger posting (MarkGLBooked), which publishes
-// dev.passage.expense.report.approved.v1 for payables. A report with nothing to reimburse
+// dev.depot.expense.report.approved.v1 for payables. A report with nothing to reimburse
 // goes straight to PAID.
 func (s *Store) DecideReport(ctx context.Context, id string, approve bool, decidedOn time.Time, c Command) (Report, bool, error) {
 	p, err := decider(ctx)
@@ -230,7 +230,7 @@ func (s *Store) DueGLReports(ctx context.Context, legalEntityID string, limit in
 }
 
 // MarkGLBooked records the journal entry of the report's liability. For an APPROVED report it
-// commits dev.passage.expense.report.approved.v1 to the outbox in the same transaction, with the
+// commits dev.depot.expense.report.approved.v1 to the outbox in the same transaction, with the
 // stored reimbursable amount and approval date, so payables creates the employee's open item only
 // once the AP control account carries the credit its payment will debit. A report already booked
 // changes nothing and returns false.

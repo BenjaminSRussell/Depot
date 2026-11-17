@@ -7,7 +7,7 @@
       <NbOfTxs>3</NbOfTxs>
       <CtrlSum>3148.50</CtrlSum>
       <InitgPty>
-        <Nm>Passage UK Ltd</Nm>
+        <Nm>Depot UK Ltd</Nm>
       </InitgPty>
     </GrpHdr>
     <PmtInf>
@@ -25,7 +25,7 @@
         <Dt>2026-11-02</Dt>
       </ReqdExctnDt>
       <Dbtr>
-        <Nm>Passage UK Ltd</Nm>
+        <Nm>Depot UK Ltd</Nm>
         <PstlAdr>
           <StrtNm>10 Downing Place</StrtNm>
           <PstCd>SW1A 2AA</PstCd>

@@ -5,10 +5,10 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/lean/internal/domain"
-	leanevents "github.com/BenjaminSRussell/passage/services/lean/internal/events"
-	"github.com/BenjaminSRussell/passage/services/lean/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/lean/internal/domain"
+	leanevents "github.com/BenjaminSRussell/depot/services/lean/internal/events"
+	"github.com/BenjaminSRussell/depot/services/lean/internal/store"
 )
 
 // cellFlow is a two-activity flow: Mix on the mixing cell, then Fill on the

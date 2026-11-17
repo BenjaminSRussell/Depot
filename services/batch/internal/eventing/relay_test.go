@@ -10,8 +10,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
+	"github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
 )
 
 type fakeSource struct {
@@ -65,7 +65,7 @@ func (i *fakeInbox) Once(_ context.Context, consumer, eventID string, effect fun
 
 func outboxRow(t *testing.T, id, tenantID, aggregateID string) Row {
 	t.Helper()
-	evt, err := events.New("dev.passage.platform.legalentity.created.v1", "/passage/platform/test", aggregateID, tenantID, map[string]string{"id": aggregateID})
+	evt, err := events.New("dev.depot.platform.legalentity.created.v1", "/depot/platform/test", aggregateID, tenantID, map[string]string{"id": aggregateID})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -179,7 +179,7 @@ func TestRelay_MessageKeyAndTopicCarryTenant(t *testing.T) {
 	if broker.messages[0].Key != tenantA+":agg" || broker.messages[1].Key != tenantB+":agg" {
 		t.Fatalf("keys = %q, %q", broker.messages[0].Key, broker.messages[1].Key)
 	}
-	if broker.messages[0].Topic != "passage.platform.legalentity" {
+	if broker.messages[0].Topic != "depot.platform.legalentity" {
 		t.Fatalf("topic = %q", broker.messages[0].Topic)
 	}
 }

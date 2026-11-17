@@ -10,8 +10,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/tools/migration-factory/internal/domain"
-	mfevents "github.com/BenjaminSRussell/passage/tools/migration-factory/internal/events"
+	"github.com/BenjaminSRussell/depot/tools/migration-factory/internal/domain"
+	mfevents "github.com/BenjaminSRussell/depot/tools/migration-factory/internal/events"
 )
 
 // CreatePlan stores a generated plan and its steps.
@@ -26,14 +26,14 @@ func (s *Postgres) CreatePlan(ctx context.Context, idem Idem, plan domain.Plan, 
 				packs[i] = string(p)
 			}
 			if err := tx.QueryRow(ctx, `insert into cutover_plan (tenant_id, plan_id, t0, packs, entities, abort_offset_min, version, created_by, rehearsal_plan_id, rehearsal_carried)
-				values (current_setting('passage.tenant_id', true)::uuid, $1, $2, $3, $4, $5, $6, $7, nullif($8, '')::uuid, $9) returning created_at`,
+				values (current_setting('depot.tenant_id', true)::uuid, $1, $2, $3, $4, $5, $6, $7, nullif($8, '')::uuid, $9) returning created_at`,
 				plan.PlanID, plan.T0, packs, plan.Entities, plan.AbortOffsetMin, plan.Version, createdBy, plan.RehearsalPlanID, plan.RehearsalCarried).Scan(&plan.CreatedAt); err != nil {
 				return domain.Plan{}, fmt.Errorf("insert cutover_plan: %w", err)
 			}
 			for _, st := range plan.Steps {
 				if _, err := tx.Exec(ctx, `insert into cutover_step (tenant_id, plan_id, seq, offset_minutes, name, owner, planned_duration_min,
 					actual_duration_min, status, go_nogo, pack, entity)
-					values (current_setting('passage.tenant_id', true)::uuid, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+					values (current_setting('depot.tenant_id', true)::uuid, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
 					plan.PlanID, st.Seq, st.OffsetMin, st.Name, st.Owner, st.PlannedDurationMin, st.ActualDurationMin, st.Status, st.GoNoGo, st.Pack, st.Entity); err != nil {
 					return domain.Plan{}, fmt.Errorf("insert cutover_step: %w", err)
 				}
@@ -76,7 +76,7 @@ func loadSteps(ctx context.Context, tx pgx.Tx, plans []*domain.Plan) error {
 	}
 	rows, err := tx.Query(ctx, `select plan_id::text, seq, offset_minutes, name, owner, planned_duration_min, actual_duration_min, status,
 		go_nogo, pack, entity, completed_by, completed_at, started_at, started_by
-		from cutover_step where tenant_id = current_setting('passage.tenant_id', true)::uuid and plan_id = any($1::uuid[]) order by plan_id, seq`, planIDs)
+		from cutover_step where tenant_id = current_setting('depot.tenant_id', true)::uuid and plan_id = any($1::uuid[]) order by plan_id, seq`, planIDs)
 	if err != nil {
 		return err
 	}
@@ -94,7 +94,7 @@ func loadSteps(ctx context.Context, tx pgx.Tx, plans []*domain.Plan) error {
 }
 
 func getPlan(ctx context.Context, tx pgx.Tx, id string, forUpdate bool) (domain.Plan, error) {
-	q := `select ` + planColumns + ` from cutover_plan where tenant_id = current_setting('passage.tenant_id', true)::uuid and plan_id = $1`
+	q := `select ` + planColumns + ` from cutover_plan where tenant_id = current_setting('depot.tenant_id', true)::uuid and plan_id = $1`
 	if forUpdate {
 		q += ` for update`
 	}
@@ -142,7 +142,7 @@ func (s *Postgres) ListPlans(ctx context.Context, f PlanFilter) ([]domain.Plan, 
 		var afterID *string
 		if f.After != "" {
 			var at time.Time
-			err := tx.QueryRow(ctx, `select created_at from cutover_plan where tenant_id = current_setting('passage.tenant_id', true)::uuid and plan_id = $1`, f.After).Scan(&at)
+			err := tx.QueryRow(ctx, `select created_at from cutover_plan where tenant_id = current_setting('depot.tenant_id', true)::uuid and plan_id = $1`, f.After).Scan(&at)
 			if errors.Is(err, pgx.ErrNoRows) {
 				return ErrNotFound
 			}
@@ -152,7 +152,7 @@ func (s *Postgres) ListPlans(ctx context.Context, f PlanFilter) ([]domain.Plan, 
 			after, afterID = &at, &f.After
 		}
 		rows, err := tx.Query(ctx, `select `+planColumns+` from cutover_plan
-			where tenant_id = current_setting('passage.tenant_id', true)::uuid and ($1::timestamptz is null or (created_at, plan_id) < ($1, $2::uuid))
+			where tenant_id = current_setting('depot.tenant_id', true)::uuid and ($1::timestamptz is null or (created_at, plan_id) < ($1, $2::uuid))
 			order by created_at desc, plan_id desc limit $3`, after, afterID, clampLimit(f.Limit))
 		if err != nil {
 			return err
@@ -224,7 +224,7 @@ func stepAt(plan *domain.Plan, seq int) *domain.Step {
 }
 
 func savePlanVersion(ctx context.Context, tx pgx.Tx, plan domain.Plan) error {
-	if _, err := tx.Exec(ctx, `update cutover_plan set version = $2 where tenant_id = current_setting('passage.tenant_id', true)::uuid and plan_id = $1`, plan.PlanID, plan.Version); err != nil {
+	if _, err := tx.Exec(ctx, `update cutover_plan set version = $2 where tenant_id = current_setting('depot.tenant_id', true)::uuid and plan_id = $1`, plan.PlanID, plan.Version); err != nil {
 		return fmt.Errorf("update cutover_plan: %w", err)
 	}
 	return nil
@@ -247,7 +247,7 @@ func (s *Postgres) StartStep(ctx context.Context, idem Idem, st StepStart) (doma
 			}
 			step := stepAt(&plan, st.Seq)
 			if _, err := tx.Exec(ctx, `update cutover_step set started_at = $3, started_by = $4
-				where tenant_id = current_setting('passage.tenant_id', true)::uuid and plan_id = $1 and seq = $2`, plan.PlanID, step.Seq, step.StartedAt, step.StartedBy); err != nil {
+				where tenant_id = current_setting('depot.tenant_id', true)::uuid and plan_id = $1 and seq = $2`, plan.PlanID, step.Seq, step.StartedAt, step.StartedBy); err != nil {
 				return domain.Plan{}, fmt.Errorf("update cutover_step: %w", err)
 			}
 			return plan, savePlanVersion(ctx, tx, plan)
@@ -282,7 +282,7 @@ func (s *Postgres) CompleteStep(ctx context.Context, idem Idem, c StepCompletion
 			step := stepAt(&plan, c.Seq)
 			step.CompletedBy, step.CompletedAt = c.By, &now
 			if _, err := tx.Exec(ctx, `update cutover_step set status = $3, actual_duration_min = $4, completed_by = $5, completed_at = $6
-				where tenant_id = current_setting('passage.tenant_id', true)::uuid and plan_id = $1 and seq = $2`, plan.PlanID, step.Seq, step.Status, step.ActualDurationMin, c.By, now); err != nil {
+				where tenant_id = current_setting('depot.tenant_id', true)::uuid and plan_id = $1 and seq = $2`, plan.PlanID, step.Seq, step.Status, step.ActualDurationMin, c.By, now); err != nil {
 				return domain.Plan{}, fmt.Errorf("update cutover_step: %w", err)
 			}
 			if err := savePlanVersion(ctx, tx, plan); err != nil {
@@ -301,7 +301,7 @@ func (s *Postgres) CompleteStep(ctx context.Context, idem Idem, c StepCompletion
 }
 
 // RollbackRequest approves a plan's rollback as the authenticated user By (CUT-1603, CUT-1605).
-// Postings are the Passage postings since go-live to export for re-keying (FR-49.9); they are
+// Postings are the Depot postings since go-live to export for re-keying (FR-49.9); they are
 // used by the request that executes the rollback (the second approval) and validated then.
 type RollbackRequest struct {
 	PlanID          string
@@ -348,7 +348,7 @@ func (s *Postgres) Rollback(ctx context.Context, idem Idem, r RollbackRequest) (
 				plan.Version++
 				a := domain.RollbackApproval{Approver: approvers[0], PlanVersion: plan.Version}
 				if err := tx.QueryRow(ctx, `insert into cutover_rollback_approval (tenant_id, plan_id, round, approver, plan_version)
-					values (current_setting('passage.tenant_id', true)::uuid, $1, `+rollbackRound+`, $2, $3) returning round, approved_at`,
+					values (current_setting('depot.tenant_id', true)::uuid, $1, `+rollbackRound+`, $2, $3) returning round, approved_at`,
 					plan.PlanID, a.Approver, a.PlanVersion).Scan(&a.Round, &a.ApprovedAt); err != nil {
 					return RollbackResult{}, fmt.Errorf("insert cutover_rollback_approval: %w", err)
 				}
@@ -383,7 +383,7 @@ func (s *Postgres) Rollback(ctx context.Context, idem Idem, r RollbackRequest) (
 			}
 			// BR-49.1: LOADED/RECONCILED -> ROLLED_BACK for every run of the plan's legacy companies and packs.
 			tag, err := tx.Exec(ctx, `update pack_run set status = 'ROLLED_BACK', rolled_back_plan_id = $1, rolled_back_at = $4, version = version + 1
-				where tenant_id = current_setting('passage.tenant_id', true)::uuid and source_company = any($2) and pack = any($3)
+				where tenant_id = current_setting('depot.tenant_id', true)::uuid and source_company = any($2) and pack = any($3)
 				  and status in ('LOADED', 'RECONCILED')`, plan.PlanID, plan.Entities, packs, now)
 			if err != nil {
 				return RollbackResult{}, fmt.Errorf("roll back pack runs: %w", err)
@@ -397,7 +397,7 @@ func (s *Postgres) Rollback(ctx context.Context, idem Idem, r RollbackRequest) (
 			if _, err := tx.Exec(ctx, `update cutover_plan set rolled_back = true, rollback_approvers = $2, rolled_back_by = $3,
 				rolled_back_at = $8, version = $4, rekey_journal_lines = $5, rekey_document_lines = $6, rekey_excluded = $7,
 				rollback_pack_runs = $9, rollback_coexistence = $10
-				where tenant_id = current_setting('passage.tenant_id', true)::uuid and plan_id = $1`,
+				where tenant_id = current_setting('depot.tenant_id', true)::uuid and plan_id = $1`,
 				plan.PlanID, plan.Approvers, r.By, plan.Version, plan.Rekey.JournalLines, plan.Rekey.DocumentLines, plan.Rekey.Excluded, now,
 				plan.RollbackPackRuns, plan.RollbackCoexistence); err != nil {
 				return RollbackResult{}, fmt.Errorf("update cutover_plan: %w", err)
@@ -424,7 +424,7 @@ func (s *Postgres) Rollback(ctx context.Context, idem Idem, r RollbackRequest) (
 // rollbackRound is the go/no-go decision round of plan $1 now: the seq its next decision takes, as
 // for GO approvals (domain.ReadinessFacts.Round). A rollback approval of an earlier round is void.
 const rollbackRound = `(select count(*)::int + 1 from cutover_decision d
-	where d.tenant_id = current_setting('passage.tenant_id', true)::uuid and d.plan_id = $1)`
+	where d.tenant_id = current_setting('depot.tenant_id', true)::uuid and d.plan_id = $1)`
 
 // loadPendingRollbacks fills PendingRollback on every unrolled-back plan in plans with the first
 // approval of the plan's current decision round; one given before a go/no-go decision is void.
@@ -439,7 +439,7 @@ func loadPendingRollbacks(ctx context.Context, tx pgx.Tx, plans []*domain.Plan) 
 		planIDs = append(planIDs, p.PlanID)
 	}
 	rows, err := tx.Query(ctx, `select a.plan_id::text, a.round, a.approver, a.plan_version, a.approved_at from cutover_rollback_approval a
-		where a.tenant_id = current_setting('passage.tenant_id', true)::uuid and a.plan_id = any($1::uuid[])
+		where a.tenant_id = current_setting('depot.tenant_id', true)::uuid and a.plan_id = any($1::uuid[])
 		and a.round = (select count(*)::int + 1 from cutover_decision d where d.tenant_id = a.tenant_id and d.plan_id = a.plan_id)
 		order by a.approved_at, a.approver`, planIDs)
 	if err != nil {
@@ -467,7 +467,7 @@ func insertRekeyLines(ctx context.Context, tx pgx.Tx, planID string, kind domain
 	batch := &pgx.Batch{}
 	for i, l := range lines {
 		batch.Queue(`insert into rekey_line (tenant_id, plan_id, kind, seq, entity, document_ref, line, posted_at, account, dimensions, currency, amount, text)
-			values (current_setting('passage.tenant_id', true)::uuid, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+			values (current_setting('depot.tenant_id', true)::uuid, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
 			planID, string(kind), i+1, l.Entity, l.DocumentRef, l.Line, l.PostedAt, l.Account, l.Dimensions, l.Currency, l.Amount.String(), l.Text)
 	}
 	if err := tx.SendBatch(ctx, batch).Close(); err != nil {
@@ -482,7 +482,7 @@ func (s *Postgres) RekeyLines(ctx context.Context, planID string, kind domain.Po
 	out := []domain.RekeyPosting{}
 	err := s.tx(ctx, func(tx pgx.Tx) error {
 		var rolledBack bool
-		err := tx.QueryRow(ctx, `select rolled_back from cutover_plan where tenant_id = current_setting('passage.tenant_id', true)::uuid and plan_id = $1`, planID).Scan(&rolledBack)
+		err := tx.QueryRow(ctx, `select rolled_back from cutover_plan where tenant_id = current_setting('depot.tenant_id', true)::uuid and plan_id = $1`, planID).Scan(&rolledBack)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrNotFound
 		}
@@ -493,7 +493,7 @@ func (s *Postgres) RekeyLines(ctx context.Context, planID string, kind domain.Po
 			return fmt.Errorf("%w: plan is not rolled back, so it has no re-keying files", domain.ErrTransition)
 		}
 		rows, err := tx.Query(ctx, `select entity, document_ref, line, posted_at, account, dimensions, currency, amount::text, text
-			from rekey_line where tenant_id = current_setting('passage.tenant_id', true)::uuid and plan_id = $1 and kind = $2 order by seq`, planID, string(kind))
+			from rekey_line where tenant_id = current_setting('depot.tenant_id', true)::uuid and plan_id = $1 and kind = $2 order by seq`, planID, string(kind))
 		if err != nil {
 			return err
 		}

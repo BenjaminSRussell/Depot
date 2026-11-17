@@ -13,15 +13,15 @@ import (
 	"testing/fstest"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/fieldcrypt"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/party/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/party/internal/store"
-	"github.com/BenjaminSRussell/passage/services/party/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/fieldcrypt"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/party/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/party/internal/store"
+	"github.com/BenjaminSRussell/depot/services/party/migrations"
 )
 
 func testKeys(t *testing.T) *fieldcrypt.Keys {
@@ -298,7 +298,7 @@ func TestAudit_FlagsVendorRoleOwnedByMergedParty(t *testing.T) {
 
 func jsonPayload(t *testing.T, f mergeFixture, into *domain.PartyMerged) error {
 	t.Helper()
-	return json.Unmarshal([]byte(scalar(t, f, `select (payload->'data')::text from outbox where type = 'dev.passage.party.party.merged.v1'`)), into)
+	return json.Unmarshal([]byte(scalar(t, f, `select (payload->'data')::text from outbox where type = 'dev.depot.party.party.merged.v1'`)), into)
 }
 
 func TestVendorBank_RevealWritesDurableAuditWithoutAccountData(t *testing.T) {
@@ -318,7 +318,7 @@ func TestVendorBank_RevealWritesDurableAuditWithoutAccountData(t *testing.T) {
 		t.Fatal(err)
 	}
 	f := mergeFixture{app: app, ctx: principalContext(1, "")}
-	const revealed = `select count(*)::text from outbox where type = 'dev.passage.party.vendorbank.revealed.v1'`
+	const revealed = `select count(*)::text from outbox where type = 'dev.depot.party.vendorbank.revealed.v1'`
 	if _, err := s.ListBankAccounts(ctx, vendor.ID, false); err != nil || scalar(t, f, revealed) != "0" {
 		t.Fatalf("a masked read wrote an audit event: %v", err)
 	}
@@ -327,10 +327,10 @@ func TestVendorBank_RevealWritesDurableAuditWithoutAccountData(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := `{"vendor_id": "` + vendor.ID + `", "legal_entity_id": "` + legalEntityA + `", "actor_user_id": "approver", "actor_service": "payables", "account_count": 1}`
-	if got := scalar(t, f, `select (((payload->'data')::jsonb - 'revealed_at') = $1::jsonb)::text from outbox where type = 'dev.passage.party.vendorbank.revealed.v1'`, want); got != "true" {
+	if got := scalar(t, f, `select (((payload->'data')::jsonb - 'revealed_at') = $1::jsonb)::text from outbox where type = 'dev.depot.party.vendorbank.revealed.v1'`, want); got != "true" {
 		t.Errorf("audit payload does not match %s", want)
 	}
-	if got := scalar(t, f, `select (position('000123456789' in payload::text) > 0)::text from outbox where type = 'dev.passage.party.vendorbank.revealed.v1'`); got != "false" {
+	if got := scalar(t, f, `select (position('000123456789' in payload::text) > 0)::text from outbox where type = 'dev.depot.party.vendorbank.revealed.v1'`); got != "false" {
 		t.Error("audit event carries account data")
 	}
 	if _, err := s.ListBankAccounts(asUser(1, legalEntityB, "buyer"), vendor.ID, true); err == nil || scalar(t, f, revealed) != "1" {
@@ -357,7 +357,7 @@ func TestVendor_CreateWaitsForConcurrentMergeAndThenRefuses(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer tx.Rollback(f.ctx)
-	if _, err := tx.Exec(f.ctx, `select set_config('passage.tenant_id', $1, true), set_config('passage.legal_entity_scopes', '*', true)`, testkit.TenantID(1)); err != nil {
+	if _, err := tx.Exec(f.ctx, `select set_config('depot.tenant_id', $1, true), set_config('depot.legal_entity_scopes', '*', true)`, testkit.TenantID(1)); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := tx.Exec(f.ctx, `update party set status = 'merged', merged_into_id = $2 where id = $1`, f.loser, f.winner); err != nil {
@@ -458,7 +458,7 @@ func TestVendorGroup_CreateReplayAndCode(t *testing.T) {
 	if err != nil || got.VendorGroupCode != "DOM" {
 		t.Fatalf("get = %+v, %v", got, err)
 	}
-	if got := outboxTypes(t, app); got != "dev.passage.party.vendorgroup.created.v1" {
+	if got := outboxTypes(t, app); got != "dev.depot.party.vendorgroup.created.v1" {
 		t.Fatalf("outbox = %s; want one vendorgroup.created (replay and refusals emit nothing)", got)
 	}
 

@@ -4,7 +4,7 @@
 -- behaviour before this migration (anyone with the duty may post, descriptions
 -- come from the legal entity's language, a reversal can be reversed again).
 -- No new table, so no new grant: journal_name and ledger are already granted
--- SELECT, INSERT, UPDATE to passage_app.
+-- SELECT, INSERT, UPDATE to depot_app.
 
 ALTER TABLE journal_name
     ADD COLUMN IF NOT EXISTS posting_restriction text NOT NULL DEFAULT 'none'

@@ -5,7 +5,7 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/xlsx"
+	"github.com/BenjaminSRussell/depot/platform/xlsx"
 )
 
 const costingSource = "services/costing/internal/domain/testdata/cost_reference.json"

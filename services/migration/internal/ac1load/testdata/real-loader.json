@@ -3,7 +3,7 @@
   "issue": 475,
   "commit": "5d9e2c74bb617702a1d18612271b3c1d4b90266d-dirty",
   "host": "vm",
-  "note": "Postgres 16.15 (Ubuntu 16.15-0ubuntu0.24.04.1), services built from this tree on 4 CPUs, one process each, serving as passage_app (RLS on); party numbers from the numbering service; engineering with PASSAGE_ENV=dev (no audit sink, unused by BOM imports); PASSAGE_SERVICE_REPLAY_CACHE_SIZE=2000000",
+  "note": "Postgres 16.15 (Ubuntu 16.15-0ubuntu0.24.04.1), services built from this tree on 4 CPUs, one process each, serving as depot_app (RLS on); party numbers from the numbering service; engineering with DEPOT_ENV=dev (no audit sink, unused by BOM imports); DEPOT_SERVICE_REPLAY_CACHE_SIZE=2000000",
   "volumes": {
     "customers": 50000,
     "vendors": 20000,

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/BenjaminSRussell/passage/services/metadata/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/metadata/internal/domain"
 )
 
 func tsClient(e *domain.Entity) string {

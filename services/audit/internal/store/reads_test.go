@@ -10,12 +10,12 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/audit/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/audit/internal/store"
-	"github.com/BenjaminSRussell/passage/services/audit/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/audit/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/audit/internal/store"
+	"github.com/BenjaminSRussell/depot/services/audit/migrations"
 )
 
 func phiRead(record, user, purpose string) domain.Read {
@@ -121,7 +121,7 @@ func TestReadLogIsAppendOnlyAndRowLevelSecured(t *testing.T) {
 	}
 	s := store.New(app)
 	if _, err := s.RecordRead(ctx, phiRead("w-1", "user-1", "audit")); err != nil {
-		t.Fatalf("record as passage_app needs the phi_read sequence: %v", err)
+		t.Fatalf("record as depot_app needs the phi_read sequence: %v", err)
 	}
 	for _, stmt := range []string{
 		`update phi_read set purpose = 'tamper'`,

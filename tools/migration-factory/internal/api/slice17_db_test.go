@@ -12,14 +12,14 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/ledgerclient"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/ledgerclient"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
 
-	"github.com/BenjaminSRussell/passage/tools/migration-factory/internal/coexist"
-	"github.com/BenjaminSRussell/passage/tools/migration-factory/internal/domain"
-	"github.com/BenjaminSRussell/passage/tools/migration-factory/internal/store"
-	"github.com/BenjaminSRussell/passage/tools/migration-factory/migrations"
+	"github.com/BenjaminSRussell/depot/tools/migration-factory/internal/coexist"
+	"github.com/BenjaminSRussell/depot/tools/migration-factory/internal/domain"
+	"github.com/BenjaminSRussell/depot/tools/migration-factory/internal/store"
+	"github.com/BenjaminSRussell/depot/tools/migration-factory/migrations"
 )
 
 const (
@@ -105,7 +105,7 @@ func TestStagedPacks_StageReconcileAndRerun(t *testing.T) {
 	if run.Status != "LOADED" || run.RecordsLoaded != 9 || run.RecordsQuarantined != 1 || !strings.HasPrefix(run.Quarantined[0].Reason, "MIG-1507") {
 		t.Fatalf("fixed_assets run %+v %+v", run.runDTO, run.Quarantined)
 	}
-	if n := count(t, admin, `select count(*) from staged_opening_line s join legacy_xref x on x.xref_id = s.legacy_xref_id and x.passage_id = s.line_id
+	if n := count(t, admin, `select count(*) from staged_opening_line s join legacy_xref x on x.xref_id = s.legacy_xref_id and x.depot_id = s.line_id
 		where s.pack = 'fixed_assets' and x.source_table = 'fixed_assets' and (s.measures->>'nbv')::numeric > 0`); n != 9 {
 		t.Fatalf("staged assets tied to their xref = %d", n)
 	}
@@ -134,7 +134,7 @@ func TestStagedPacks_StageReconcileAndRerun(t *testing.T) {
 	if pay.Code != http.StatusCreated || p.Status != "LOADED" || p.RecordsQuarantined != 1 {
 		t.Fatalf("payroll_ytd: %d %s", pay.Code, pay.Body)
 	}
-	// The coexistence router matches a staged legacy id to its Passage line.
+	// The coexistence router matches a staged legacy id to its Depot line.
 	known, err := st.KnownXrefs(testkit.Ctx(tenantA), domain.SourceAX2012, "USMF", "payroll_ytd", []string{"PY-1", "PY-2"})
 	if err != nil || len(known) != 1 || known["payroll_ytd|PY-1"] == "" {
 		t.Fatalf("known xrefs %v %v", known, err)
@@ -295,7 +295,7 @@ func TestParallelReplay_DiffsTrialBalances(t *testing.T) {
 		if v.Area != "TB" || (v.Key != "1100|USD|2026-04" && v.Key != "4000|USD|2026-04") {
 			t.Fatalf("variance %+v", v)
 		}
-		if v.Key == "1100|USD|2026-04" && (v.Legacy != "100.000000" || v.Passage != "60.000000") {
+		if v.Key == "1100|USD|2026-04" && (v.Legacy != "100.000000" || v.Depot != "60.000000") {
 			t.Fatalf("1100 variance %+v", v)
 		}
 	}
@@ -349,14 +349,14 @@ func TestCoexistence_EntityFlagRoutesAdapterRecords(t *testing.T) {
 		}
 		return decode[coexistDTO](t, r), r.Code
 	}
-	f, code := put("PASSAGE", 0)
+	f, code := put("DEPOT", 0)
 	if code != http.StatusOK || f.Version != 1 || f.CutoverAt == nil || f.ChangedBy != "manager" {
 		t.Fatalf("cutover: %d %+v", code, f)
 	}
 	if _, code := put("LEGACY", 0); code != http.StatusConflict {
 		t.Fatalf("stale version: %d", code)
 	}
-	if _, code := put("PASSAGE", 1); code != http.StatusConflict {
+	if _, code := put("DEPOT", 1); code != http.StatusConflict {
 		t.Fatalf("same mode: %d", code)
 	}
 	cut := *f.CutoverAt

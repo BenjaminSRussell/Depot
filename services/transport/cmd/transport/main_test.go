@@ -9,9 +9,9 @@ import (
 
 func TestRunStopsOnMalformedServicePublicKeys(t *testing.T) {
 	err := run(context.Background(), func(k string) string {
-		return map[string]string{"PASSAGE_SERVICE_NAME": "transport", "PASSAGE_SERVICE_PUBLIC_KEYS": "workflow-ts=zzz"}[k]
+		return map[string]string{"DEPOT_SERVICE_NAME": "transport", "DEPOT_SERVICE_PUBLIC_KEYS": "workflow-ts=zzz"}[k]
 	})
-	if err == nil || !strings.Contains(err.Error(), "PASSAGE_SERVICE_PUBLIC_KEYS") {
+	if err == nil || !strings.Contains(err.Error(), "DEPOT_SERVICE_PUBLIC_KEYS") {
 		t.Fatalf("run with a malformed key = %v", err)
 	}
 }

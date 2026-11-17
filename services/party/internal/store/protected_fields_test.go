@@ -9,12 +9,12 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/party/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/party/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/party/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/party/internal/store"
 )
 
 func TestProtectedFields_DefaultsToCreditLimit(t *testing.T) {
@@ -39,7 +39,7 @@ func TestProtectedFields_UnprotectedIncreaseAppliesImmediately(t *testing.T) {
 	if got := storedLimit(t, app, customerID); got != "120000.00" {
 		t.Fatalf("limit = %s", got)
 	}
-	if got := outboxTypes(t, app); got != "dev.passage.party.protectedfields.updated.v1,dev.passage.party.customer.updated.v1" {
+	if got := outboxTypes(t, app); got != "dev.depot.party.protectedfields.updated.v1,dev.depot.party.customer.updated.v1" {
 		t.Fatalf("outbox = %s", got)
 	}
 	if _, err := s.SetProtectedFields(asUser(1, "", approver), legalEntityA, []string{domain.FieldCreditLimit}); err != nil {
@@ -172,7 +172,7 @@ func TestProtectedFields_UpdateWritesAuditEvent(t *testing.T) {
 			t.Fatal(err)
 		}
 		d := evt.Data
-		if rows[i].typ != "dev.passage.party.protectedfields.updated.v1" || d.LegalEntityID != legalEntityA || d.ActorUserID != want.actor ||
+		if rows[i].typ != "dev.depot.party.protectedfields.updated.v1" || d.LegalEntityID != legalEntityA || d.ActorUserID != want.actor ||
 			string(d.Before) != want.before || string(d.After) != want.after || d.UpdatedAt.IsZero() {
 			t.Fatalf("event %d = %s", i, rows[i].payload)
 		}

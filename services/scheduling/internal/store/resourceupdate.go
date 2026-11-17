@@ -10,9 +10,9 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/services/scheduling/internal/domain"
-	schedevents "github.com/BenjaminSRussell/passage/services/scheduling/internal/events"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/services/scheduling/internal/domain"
+	schedevents "github.com/BenjaminSRussell/depot/services/scheduling/internal/events"
 )
 
 // CodeResourceVersion is returned when a resource was changed since the

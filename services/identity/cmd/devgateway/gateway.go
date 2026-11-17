@@ -11,21 +11,21 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/identity"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/identity"
 )
 
 const (
-	headerTier       = "X-Passage-Tier"
-	identityHdrStart = "X-Passage-"
+	headerTier       = "X-Depot-Tier"
+	identityHdrStart = "X-Depot-"
 )
 
 type tokenClaims struct {
 	LegalEntity string `json:"le"`
 	Duties      string `json:"duties"`
 	Tier        string `json:"tier"`
-	// AuthTime is the Unix second the person last authenticated at (OIDC auth_time); a step-up reads it as X-Passage-Auth-Time.
+	// AuthTime is the Unix second the person last authenticated at (OIDC auth_time); a step-up reads it as X-Depot-Auth-Time.
 	AuthTime int64 `json:"auth_time"`
 }
 

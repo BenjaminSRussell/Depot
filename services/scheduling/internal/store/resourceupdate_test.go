@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/scheduling/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/scheduling/internal/store"
 )
 
 // Shortening a resource's calendar lists the booked jobs it no longer covers
@@ -49,7 +49,7 @@ func TestUpdateResource_CalendarChangeListsUncoveredJobs(t *testing.T) {
 	if _, _, err := s.UpdateResource(ctx, r.ID, 1, patch, from, store.Idem{Key: "u1", Fingerprint: "other"}); problemCode(err) != store.CodeIdempotencyReuse {
 		t.Fatalf("reused key: err=%v", err)
 	}
-	if n := outboxCount(t, admin, "dev.passage.scheduling.resource.updated.v1"); n != 1 {
+	if n := outboxCount(t, admin, "dev.depot.scheduling.resource.updated.v1"); n != 1 {
 		t.Fatalf("resource.updated events = %d, want 1", n)
 	}
 	if b := barsOf(t, ctx, s)[late.ID]; !b.OutsideCapacity {
@@ -138,7 +138,7 @@ func TestResourceEfficiency_StretchesRunsAndJobEventCarriesShopFloorKeys(t *test
 	}
 	var orderRef, operationRef string
 	if err := admin.QueryRow(context.Background(), `select payload->'data'->>'orderRef', payload->'data'->>'operationRef' from outbox where type = $1`,
-		"dev.passage.scheduling.job.scheduled.v1").Scan(&orderRef, &operationRef); err != nil {
+		"dev.depot.scheduling.job.scheduled.v1").Scan(&orderRef, &operationRef); err != nil {
 		t.Fatal(err)
 	}
 	if orderRef != order || operationRef != "10" {
@@ -146,7 +146,7 @@ func TestResourceEfficiency_StretchesRunsAndJobEventCarriesShopFloorKeys(t *test
 	}
 	var efficiency int
 	if err := admin.QueryRow(context.Background(), `select (payload->'data'->>'efficiencyPct')::int from outbox where type = $1`,
-		"dev.passage.scheduling.resource.updated.v1").Scan(&efficiency); err != nil || efficiency != 80 {
+		"dev.depot.scheduling.resource.updated.v1").Scan(&efficiency); err != nil || efficiency != 80 {
 		t.Fatalf("resource.updated efficiencyPct = %d err=%v, want 80", efficiency, err)
 	}
 	if _, _, err := s.UpdateResource(ctx, r.ID, 2, store.ResourcePatch{EfficiencyPct: 501}, at(0, 6, 0), store.Idem{}); err == nil {

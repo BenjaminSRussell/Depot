@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Monthly tenant cost meter (PSG-50, FR-50.9, BR-50.10, AC-50.7, COST-1901).
+"""Monthly tenant cost meter (DPT-50, FR-50.9, BR-50.10, AC-50.7, COST-1901).
 
 Turns one tenant's metered usage for one month into a cost statement in USD and EUR:
 

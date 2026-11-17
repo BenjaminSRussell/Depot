@@ -9,13 +9,13 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
 
-	"github.com/BenjaminSRussell/passage/services/finreport/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/finreport/internal/events"
-	"github.com/BenjaminSRussell/passage/services/finreport/migrations"
+	"github.com/BenjaminSRussell/depot/services/finreport/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/finreport/internal/events"
+	"github.com/BenjaminSRussell/depot/services/finreport/migrations"
 )
 
 // waitingEntry parks an entry that arrived ahead of the mark, received age
@@ -33,7 +33,7 @@ func waitingEntry(t *testing.T, st *Postgres, ctx context.Context, ledger, entit
 	}
 }
 
-// lagFixture applies two entries as passage_app; admin reads the outbox, which
+// lagFixture applies two entries as depot_app; admin reads the outbox, which
 // the application role can only insert into.
 func lagFixture(t *testing.T) (st *Postgres, ctx context.Context, ledger, entity string) {
 	st, _, ctx, ledger, entity = lagFixtureAdmin(t)

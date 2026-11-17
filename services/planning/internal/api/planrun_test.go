@@ -11,9 +11,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/planning/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/planning/internal/store"
 )
 
 // fakePlanRuns keeps asynchronous runs in memory. Its lock also orders the
@@ -137,9 +137,9 @@ func (s *asyncServer) do(method, path, body, duties, key string, async bool) *ht
 	s.t.Helper()
 	req := httptest.NewRequest(method, path, strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Passage-Tenant", testkit.TenantID(1))
-	req.Header.Set("X-Passage-Duties", duties)
-	req.Header.Set("X-Passage-User", "planner-1")
+	req.Header.Set("X-Depot-Tenant", testkit.TenantID(1))
+	req.Header.Set("X-Depot-Duties", duties)
+	req.Header.Set("X-Depot-User", "planner-1")
 	if key != "" {
 		req.Header.Set(idempotencyKey, key)
 	}

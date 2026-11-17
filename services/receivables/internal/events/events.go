@@ -6,8 +6,8 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/services/receivables/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/services/receivables/internal/domain"
 )
 
 // Context is the bounded context segment of every event type.
@@ -25,7 +25,7 @@ var (
 	DunningLetterIssued = events.Type(Context, "dunningletter", "issued", 1)
 )
 
-// DisputeOpenedData is the payload of dev.passage.receivables.dispute.opened.v1.
+// DisputeOpenedData is the payload of dev.depot.receivables.dispute.opened.v1.
 type DisputeOpenedData struct {
 	DisputeID     string          `json:"dispute_id"`
 	LegalEntityID string          `json:"legal_entity_id"`
@@ -36,7 +36,7 @@ type DisputeOpenedData struct {
 	ReasonCode    string          `json:"reason_code"`
 }
 
-// DisputeResolvedData is the payload of dev.passage.receivables.dispute.resolved.v1.
+// DisputeResolvedData is the payload of dev.depot.receivables.dispute.resolved.v1.
 type DisputeResolvedData struct {
 	DisputeID     string          `json:"dispute_id"`
 	LegalEntityID string          `json:"legal_entity_id"`
@@ -56,7 +56,7 @@ type LetterItemData struct {
 }
 
 // DunningLetterIssuedData is the payload of
-// dev.passage.receivables.dunningletter.issued.v1, one event per issued letter
+// dev.depot.receivables.dunningletter.issued.v1, one event per issued letter
 // (§5.30.5: run_id, customer_id, level, items[], fee, document_ref).
 type DunningLetterIssuedData struct {
 	RunID         string           `json:"run_id"`
@@ -70,7 +70,7 @@ type DunningLetterIssuedData struct {
 	DocumentRef   string           `json:"document_ref"`
 }
 
-// PaymentReceivedData is the payload of dev.passage.receivables.payment.received.v1.
+// PaymentReceivedData is the payload of dev.depot.receivables.payment.received.v1.
 type PaymentReceivedData struct {
 	PaymentID     string           `json:"payment_id"`
 	LegalEntityID string           `json:"legal_entity_id"`
@@ -99,7 +99,7 @@ type SettlementData struct {
 	ItemAmount   decimal.Decimal `json:"item_amount,omitempty"`
 }
 
-// PaymentAppliedData is the payload of dev.passage.receivables.payment.applied.v1.
+// PaymentAppliedData is the payload of dev.depot.receivables.payment.applied.v1.
 type PaymentAppliedData struct {
 	PaymentID     string           `json:"payment_id"`
 	LegalEntityID string           `json:"legal_entity_id"`
@@ -130,7 +130,7 @@ var (
 	CreditSettlementReversed = events.Type(Context, "creditsettlement", "reversed", 1)
 )
 
-// CreditSettlementReversedData is the payload of dev.passage.receivables.creditsettlement.reversed.v1. Amounts are positive
+// CreditSettlementReversedData is the payload of dev.depot.receivables.creditsettlement.reversed.v1. Amounts are positive
 // magnitudes, as in CreditSettledData; realized_fx is the functional-currency difference that was reversed (positive a gain).
 type CreditSettlementReversedData struct {
 	BatchID         string               `json:"batch_id"`
@@ -145,7 +145,7 @@ type CreditSettlementReversedData struct {
 	Debits          []CreditSettledDebit `json:"debits"`
 }
 
-// CreditSettledData is the payload of dev.passage.receivables.creditsettlement.applied.v1. Amounts are positive
+// CreditSettledData is the payload of dev.depot.receivables.creditsettlement.applied.v1. Amounts are positive
 // magnitudes; nothing moves in the ledger, both sides stay in 1200.
 type CreditSettledData struct {
 	BatchID       string               `json:"batch_id"`
@@ -167,7 +167,7 @@ type CreditSettledDebit struct {
 	ItemAmount   decimal.Decimal `json:"item_amount,omitempty"`
 }
 
-// CaseOpenedData is the payload of dev.passage.receivables.case.opened.v1.
+// CaseOpenedData is the payload of dev.depot.receivables.case.opened.v1.
 type CaseOpenedData struct {
 	CaseID         string           `json:"case_id"`
 	LegalEntityID  string           `json:"legal_entity_id"`
@@ -182,7 +182,7 @@ type CaseOpenedData struct {
 	SLADue         time.Time        `json:"sla_due"`
 }
 
-// CaseClosedData is the payload of dev.passage.receivables.case.closed.v1.
+// CaseClosedData is the payload of dev.depot.receivables.case.closed.v1.
 type CaseClosedData struct {
 	CaseID        string  `json:"case_id"`
 	LegalEntityID string  `json:"legal_entity_id"`
@@ -192,7 +192,7 @@ type CaseClosedData struct {
 	Note          *string `json:"note"`
 }
 
-// ConfirmationRepliedData is the payload of dev.passage.receivables.confirmation.replied.v1.
+// ConfirmationRepliedData is the payload of dev.depot.receivables.confirmation.replied.v1.
 // CaseID names the DISPUTE case a disagreement opened (BR-30.13).
 type ConfirmationRepliedData struct {
 	ConfirmationID  string          `json:"confirmation_id"`
@@ -230,7 +230,7 @@ var (
 	DeductionResolved = events.Type(Context, "deduction", "resolved", 1)
 )
 
-// DeductionOpenedData is the payload of dev.passage.receivables.deduction.opened.v1:
+// DeductionOpenedData is the payload of dev.depot.receivables.deduction.opened.v1:
 // the amount moved off the short-paid open item into the workbench.
 type DeductionOpenedData struct {
 	DeductionID   string          `json:"deduction_id"`
@@ -245,7 +245,7 @@ type DeductionOpenedData struct {
 	Currency      string          `json:"currency"`
 }
 
-// DeductionResolvedData is the payload of dev.passage.receivables.deduction.resolved.v1.
+// DeductionResolvedData is the payload of dev.depot.receivables.deduction.resolved.v1.
 // Resolution is APPROVED (billing issues the credit note against the claim, which
 // consumes the fund or accrual), DENIED (RebillItemID is the debit item re-billed
 // to the customer), WRITTEN_OFF (Postings carry Dr 6110 / Cr 1200) or SPLIT

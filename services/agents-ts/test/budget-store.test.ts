@@ -20,7 +20,7 @@ const ask = (tenantId: string, tokens: number, over: Partial<BudgetRequest> = {}
 });
 
 const committingRun = (overrides: Partial<RunDeps>) => {
-  const tools = new FakeTools({ "passage.ap.invoice.post": postDescriptor });
+  const tools = new FakeTools({ "depot.ap.invoice.post": postDescriptor });
   const provider = new ScriptedProvider([proposal(0.8)]);
   const deps = {
     ...makeDeps({ provider, tools, approvals: new FakeApprovals({ decision: "APPROVED", approverUserId: APPROVER }) }),
@@ -63,7 +63,7 @@ describe("run start validation and post-commit failures (no database)", () => {
 
   it("usage is charged right after the model call, before the approval wait and the tool call", async () => {
     const order: string[] = [];
-    const tools = new FakeTools({ "passage.ap.invoice.post": postDescriptor });
+    const tools = new FakeTools({ "depot.ap.invoice.post": postDescriptor });
     const base = makeDeps({ provider: new ScriptedProvider([proposal(0.8)]), tools, approvals: { request: async () => (order.push("approval"), { decision: "APPROVED", approverUserId: APPROVER }) } });
     const deps = { ...base, budgets: { ...testBudgets, settle: async (_h: unknown, u: { tokensIn: number }) => (order.push(`settle ${u.tokensIn}`), "OK" as const) } };
     await runAgent(deps, makeRequest());
@@ -586,7 +586,7 @@ describe.runIf(ownerUrl)("persisted audit and token budget in Postgres", () => {
     expect((await events(t)).map((e) => e.payload)).toEqual([{ tenant_id: t, month: "2026-10", pct: 80, state: "SOFT" }]);
     await store.settle(await store.reserve(ask(t, 100)), { tokensIn: 100, tokensOut: 0 });
     const all = await events(t);
-    expect(all.map((e) => e.type)).toEqual(["dev.passage.agent.budget.threshold.v1", "dev.passage.agent.budget.threshold.v1"]);
+    expect(all.map((e) => e.type)).toEqual(["dev.depot.agent.budget.threshold.v1", "dev.depot.agent.budget.threshold.v1"]);
     expect(all[1]?.payload).toEqual({ tenant_id: t, month: "2026-10", pct: 100, state: "HARD" });
   });
 

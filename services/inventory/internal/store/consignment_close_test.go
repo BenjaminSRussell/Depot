@@ -5,10 +5,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/inventory/internal/domain"
-	invevents "github.com/BenjaminSRussell/passage/services/inventory/internal/events"
-	"github.com/BenjaminSRussell/passage/services/inventory/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/inventory/internal/domain"
+	invevents "github.com/BenjaminSRussell/depot/services/inventory/internal/events"
+	"github.com/BenjaminSRussell/depot/services/inventory/internal/store"
 )
 
 // A partly received replenishment order is closed: the received vendor-owned stock stays, the open

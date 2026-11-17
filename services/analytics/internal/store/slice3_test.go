@@ -6,13 +6,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/analytics/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/analytics/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/analytics/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/analytics/migrations"
 )
 
-// filterStore runs as passage_app when PASSAGE_TEST_APP_DATABASE_URL is set, so
+// filterStore runs as depot_app when DEPOT_TEST_APP_DATABASE_URL is set, so
 // the tenant-2 assertions below are enforced by row-level security rather than
 // only by the queries' tenant predicate.
 func filterStore(t *testing.T) *Postgres {

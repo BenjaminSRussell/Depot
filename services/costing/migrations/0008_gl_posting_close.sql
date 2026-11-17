@@ -84,22 +84,22 @@ BEGIN
     EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY', t);
     EXECUTE format('DROP POLICY IF EXISTS %I_tenant_access ON %I', t, t);
     EXECUTE format('CREATE POLICY %I_tenant_access ON %I AS PERMISSIVE
-      USING (tenant_id = current_setting(''passage.tenant_id'', true)::uuid)
-      WITH CHECK (tenant_id = current_setting(''passage.tenant_id'', true)::uuid)', t, t);
+      USING (tenant_id = current_setting(''depot.tenant_id'', true)::uuid)
+      WITH CHECK (tenant_id = current_setting(''depot.tenant_id'', true)::uuid)', t, t);
     EXECUTE format('DROP POLICY IF EXISTS %I_legal_entity_scope ON %I', t, t);
     EXECUTE format('CREATE POLICY %I_legal_entity_scope ON %I AS RESTRICTIVE
-      USING (current_setting(''passage.legal_entity_scopes'', true) = ''*''
-             OR legal_entity_id::text = ANY(string_to_array(current_setting(''passage.legal_entity_scopes'', true), '','')))', t, t);
+      USING (current_setting(''depot.legal_entity_scopes'', true) = ''*''
+             OR legal_entity_id::text = ANY(string_to_array(current_setting(''depot.legal_entity_scopes'', true), '','')))', t, t);
   END LOOP;
 END $$;
 
 -- The profile, a close and a voucher are updated in place; nothing is deleted.
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE format('GRANT USAGE ON SCHEMA %I TO passage_app', current_schema());
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON costing_posting_profile, inventory_close TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON costing_gl_voucher TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE format('GRANT USAGE ON SCHEMA %I TO depot_app', current_schema());
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON costing_posting_profile, inventory_close TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON costing_gl_voucher TO depot_app';
   END IF;
 END
 $$;

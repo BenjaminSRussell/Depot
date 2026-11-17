@@ -60,14 +60,14 @@ describe.skipIf(ownerUrl === undefined)("filters, rotation, re-seal and retentio
     handler()({
       topic: "t", partition: 0, offset: "1", key: Buffer.from("o1"),
       value: Buffer.from(JSON.stringify({
-        specversion: "1.0", id: randomUUID(), source: "passage/sales", type: "dev.passage.sales.order.confirmed.v1", subject: "o1",
+        specversion: "1.0", id: randomUUID(), source: "depot/sales", type: "dev.depot.sales.order.confirmed.v1", subject: "o1",
         time: new Date().toISOString(), datacontenttype: "application/json", data, tenantid: tenant, ...over,
       })),
     });
   const deliveries = async (tenant: string, subscriptionId: string) =>
     (await hub.call("GET", `/v1/hub/deliveries?subscriptionId=${subscriptionId}`, { tenant, duties: ADMIN })).body.items as { eventId: string; status: string }[];
   const subscribe = async (tenant: string, r: Receiver, extra: Record<string, unknown> = {}) => {
-    const res = await hub.call("POST", "/v1/hub/subscriptions", { tenant, duties: ADMIN }, { name: "ERP", url: r.url, patterns: ["dev.passage.sales.**"], ...extra });
+    const res = await hub.call("POST", "/v1/hub/subscriptions", { tenant, duties: ADMIN }, { name: "ERP", url: r.url, patterns: ["dev.depot.sales.**"], ...extra });
     expect(res.status, JSON.stringify(res.body)).toBe(201);
     return res.body as { id: string; secret: string; version: number; filter: string | null };
   };
@@ -84,7 +84,7 @@ describe.skipIf(ownerUrl === undefined)("filters, rotation, re-seal and retentio
       await publish(t, { currency: "USD", qty: 3 });
       await publish(t, { currency: "EUR", qty: 99 });
       await publish(t, { qty: 99 }); // currency missing: the filter cannot hold
-      await publish(t, { currency: "USD", qty: 50 }, { type: "dev.passage.billing.invoice.posted.v1" }); // filter holds, pattern does not
+      await publish(t, { currency: "USD", qty: 50 }, { type: "dev.depot.billing.invoice.posted.v1" }); // filter holds, pattern does not
       expect(await deliveries(t, big.id)).toHaveLength(1);
       expect(await deliveries(t, all.id)).toHaveLength(4);
     });
@@ -93,7 +93,7 @@ describe.skipIf(ownerUrl === undefined)("filters, rotation, re-seal and retentio
       const t = randomUUID();
       const r = await newReceiver();
       const le = randomUUID();
-      const sub = await subscribe(t, r, { filter: `legalentityid = '${le}' AND EXISTS actor AND source LIKE 'passage/%' AND subject = 'o1'` });
+      const sub = await subscribe(t, r, { filter: `legalentityid = '${le}' AND EXISTS actor AND source LIKE 'depot/%' AND subject = 'o1'` });
       await publish(t, {}, { legalentityid: le, actor: "user-1" });
       await publish(t, {}, { legalentityid: le });
       await publish(t, {}, { legalentityid: randomUUID(), actor: "user-1" });
@@ -115,11 +115,11 @@ describe.skipIf(ownerUrl === undefined)("filters, rotation, re-seal and retentio
       const t = randomUUID();
       const r = await newReceiver();
       for (const bad of ["data.qty =", "1 + 2", 5, "", "x".repeat(1025)]) {
-        const res = await hub.call("POST", "/v1/hub/subscriptions", { tenant: t, duties: ADMIN }, { name: "bad", url: r.url, patterns: ["dev.passage.sales.**"], filter: bad });
+        const res = await hub.call("POST", "/v1/hub/subscriptions", { tenant: t, duties: ADMIN }, { name: "bad", url: r.url, patterns: ["dev.depot.sales.**"], filter: bad });
         expect(res.status, JSON.stringify(bad).slice(0, 40)).toBe(400);
         expect(res.body.code).toBe("HUB-0400");
       }
-      expect((await hub.call("POST", "/v1/hub/subscriptions", { tenant: t, duties: ADMIN }, { name: "null", url: r.url, patterns: ["dev.passage.sales.**"], filter: null })).status).toBe(400);
+      expect((await hub.call("POST", "/v1/hub/subscriptions", { tenant: t, duties: ADMIN }, { name: "null", url: r.url, patterns: ["dev.depot.sales.**"], filter: null })).status).toBe(400);
       const sub = await subscribe(t, r);
       const set = await hub.call("PATCH", `/v1/hub/subscriptions/${sub.id}`, { tenant: t, duties: ADMIN }, { version: 1, filter: "data.qty > 5" });
       expect(set.body).toMatchObject({ version: 2, filter: "data.qty > 5" });
@@ -143,7 +143,7 @@ describe.skipIf(ownerUrl === undefined)("filters, rotation, re-seal and retentio
       await new Poller({ store: fx.store, transport, clock: () => at, leaseSeconds: 60 }).pollOnce();
       expect(r.hits.length).toBe(before + 1);
       const hit = r.hits[before]!;
-      return { header: hit.headers["passage-signature"] as string, body: hit.body, id };
+      return { header: hit.headers["depot-signature"] as string, body: hit.body, id };
     };
 
     test("the new secret is shown once; during the grace period deliveries verify under both secrets, afterwards under the new one only", async () => {
@@ -212,7 +212,7 @@ describe.skipIf(ownerUrl === undefined)("filters, rotation, re-seal and retentio
       const ok = await rotate(t, sub.id, { version: 1 });
       expect(ok.status).toBe(200);
       const log = await events(t);
-      const rotated = log.filter((e) => e.type === "dev.passage.hub.subscription.secretrotated.v1");
+      const rotated = log.filter((e) => e.type === "dev.depot.hub.subscription.secretrotated.v1");
       expect(rotated).toHaveLength(1);
       expect(rotated[0]!.payload.data).toMatchObject({ subscription_id: sub.id, version: 2 });
       expect(rotated[0]!.payload.data["secret_rotated_at"]).toEqual(expect.any(String));
@@ -232,7 +232,7 @@ describe.skipIf(ownerUrl === undefined)("filters, rotation, re-seal and retentio
         keyless.server.close();
       }
       const restSub = await fx.store.createSubscription(t, {
-        name: "rest", url: "https://erp.example/api", secret: "", patterns: ["dev.passage.sales.**"], createdBy: null, idempotencyKey: null,
+        name: "rest", url: "https://erp.example/api", secret: "", patterns: ["dev.depot.sales.**"], createdBy: null, idempotencyKey: null,
         rest: {
           config: { outboundMappingId: randomUUID(), method: "POST", responseKeyPath: "$.id", lineKeyPath: "", onClientError: "dead_letter", auth: { type: "bearer" } },
           credentials: { token: "tok" },
@@ -252,10 +252,10 @@ describe.skipIf(ownerUrl === undefined)("filters, rotation, re-seal and retentio
     async function legacySubscription(tenant: string, withRest = false) {
       const created = await oldStore().createSubscription(tenant, withRest
         ? {
-            name: "rest", url: "https://erp.example/api", secret: "", patterns: ["dev.passage.sales.**"], createdBy: null, idempotencyKey: null,
+            name: "rest", url: "https://erp.example/api", secret: "", patterns: ["dev.depot.sales.**"], createdBy: null, idempotencyKey: null,
             rest: { config: { outboundMappingId: randomUUID(), method: "POST", responseKeyPath: "$.id", lineKeyPath: "", onClientError: "dead_letter", auth: { type: "bearer" } }, credentials: { token: "tok-old" } },
           }
-        : { name: "old", url: "https://hook.example/x", secret: "whsec_sealed_under_old_key", patterns: ["dev.passage.sales.**"], createdBy: null, idempotencyKey: null });
+        : { name: "old", url: "https://hook.example/x", secret: "whsec_sealed_under_old_key", patterns: ["dev.depot.sales.**"], createdBy: null, idempotencyKey: null });
       return created.subscription;
     }
 
@@ -312,7 +312,7 @@ describe.skipIf(ownerUrl === undefined)("filters, rotation, re-seal and retentio
 
     test("a value whose key the hub no longer holds is counted as failed and left as it is; the others are still done", async () => {
       const [lost, fine] = [randomUUID(), randomUUID()];
-      const gone = (await new HubStore(fx.app, lostKeys).createSubscription(lost, { name: "lost", url: "https://hook.example/x", secret: "whsec_lost_key_secret_1", patterns: ["dev.passage.sales.**"], createdBy: null, idempotencyKey: null })).subscription;
+      const gone = (await new HubStore(fx.app, lostKeys).createSubscription(lost, { name: "lost", url: "https://hook.example/x", secret: "whsec_lost_key_secret_1", patterns: ["dev.depot.sales.**"], createdBy: null, idempotencyKey: null })).subscription;
       const ok = await legacySubscription(fine);
       const out = await fx.store.resealDue(1000);
       expect(out.failed).toBeGreaterThanOrEqual(1);
@@ -341,7 +341,7 @@ describe.skipIf(ownerUrl === undefined)("filters, rotation, re-seal and retentio
     });
   });
 
-  test("hub_reseal_due and hub_purge_client_usage: definer rights, pinned search_path, executable by passage_app alone; owner policies only", async () => {
+  test("hub_reseal_due and hub_purge_client_usage: definer rights, pinned search_path, executable by depot_app alone; owner policies only", async () => {
     const fns = await fx.owner.query(
       `select p.proname, p.prosecdef, p.proconfig, pg_get_userbyid(p.proowner) as owner,
               array(select coalesce(r.rolname, 'PUBLIC') from aclexplode(p.proacl) a left join pg_roles r on r.oid = a.grantee
@@ -355,14 +355,14 @@ describe.skipIf(ownerUrl === undefined)("filters, rotation, re-seal and retentio
       expect(f.prosecdef, f.proname).toBe(true);
       expect(f.proconfig, f.proname).toEqual([`search_path=${fx.schema}, pg_temp`]);
       expect(f.executors, f.proname).not.toContain("PUBLIC");
-      expect([...f.executors].sort(), f.proname).toEqual([...new Set([f.owner, "passage_app"])].sort());
+      expect([...f.executors].sort(), f.proname).toEqual([...new Set([f.owner, "depot_app"])].sort());
     }
     const policies = await fx.owner.query(
       "select policyname, roles::text[] as roles from pg_policies where schemaname = $1 and tablename = 'hub_client_usage' and policyname like '%owner%'",
       [fx.schema],
     );
     expect(policies.rows.map((p) => p.policyname).sort()).toEqual(["hub_client_usage_owner_purge", "hub_client_usage_owner_scan"]);
-    for (const p of policies.rows) expect(p.roles).not.toContain("passage_app");
+    for (const p of policies.rows) expect(p.roles).not.toContain("depot_app");
   });
 
   describe("client usage retention", () => {
@@ -406,7 +406,7 @@ describe.skipIf(ownerUrl === undefined)("filters, rotation, re-seal and retentio
     test("Maintenance runs retention with the configured days and the re-seal pass together, and reports both", async () => {
       const t = randomUUID();
       await clientWithUsage(t, [0, 5, 20]);
-      const sub = await new HubStore(fx.app, oldKeys).createSubscription(t, { name: "old", url: "https://hook.example/x", secret: "whsec_maintenance_secret", patterns: ["dev.passage.sales.**"], createdBy: null, idempotencyKey: null });
+      const sub = await new HubStore(fx.app, oldKeys).createSubscription(t, { name: "old", url: "https://hook.example/x", secret: "whsec_maintenance_secret", patterns: ["dev.depot.sales.**"], createdBy: null, idempotencyKey: null });
       const result = await new Maintenance({ store: fx.store, usageRetentionDays: 7 }).runOnce();
       expect(result.usagePurged).toBeGreaterThanOrEqual(1); // also the 10 day old rows other tests left
       expect(result.resealed).toBeGreaterThanOrEqual(1);
@@ -422,7 +422,7 @@ describe.skipIf(ownerUrl === undefined)("filters, rotation, re-seal and retentio
     test("the application role cannot delete usage itself; only the purge function can", async () => {
       const t = randomUUID();
       await clientWithUsage(t, [0, 400]);
-      if (process.env["PASSAGE_TEST_APP_DATABASE_URL"] !== undefined) {
+      if (process.env["DEPOT_TEST_APP_DATABASE_URL"] !== undefined) {
         await expect(fx.store.withTenant(t, (c) => c.query("delete from hub_client_usage"))).rejects.toThrow(/permission denied/);
         expect(await remaining(t)).toBe(2);
       }

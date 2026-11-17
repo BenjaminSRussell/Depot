@@ -1,7 +1,7 @@
 # Product
 
 ## Purpose & Boundaries
-Context `product` (database `passage_product`; waves 8-9). Deployables: `product` (Go: BOM explosion, where-used, effective dating), `product-ts` (ECM change orders, GS1, attributes), `product-py` (constraint configurator, CP-SAT; stateless, no database). Owns products, dimension groups, released products, BOM, formula, routing, resources, calendars, change orders, configuration models.
+Context `product` (database `depot_product`; waves 8-9). Deployables: `product` (Go: BOM explosion, where-used, effective dating), `product-ts` (ECM change orders, GS1, attributes), `product-py` (constraint configurator, CP-SAT; stateless, no database). Owns products, dimension groups, released products, BOM, formula, routing, resources, calendars, change orders, configuration models.
 
 ## Interfaces
 Generated CRUD for products, product masters, released products, dimension groups, item model groups, attributes, classifications, BOMs, formulas, routings, operations, resources, resource groups, calendars, change orders, configuration models. Custom:

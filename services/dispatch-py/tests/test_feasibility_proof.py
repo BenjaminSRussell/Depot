@@ -2,7 +2,7 @@
 time windows, shifts, travel with buffer and the daily load (BR-45.3).
 
 `oracle` below is written from the BR-45.3 text and shares no code with
-passage_dispatch.model. Three properties use it:
+depot_dispatch.model. Three properties use it:
 
 * every greedy plan, on the original generator and on an adversarial one (tight
   windows, a skill nobody has, asymmetric travel, buffers 0-15, overtime), has no
@@ -26,7 +26,7 @@ from collections import Counter
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
-from passage_dispatch import Assignment, Problem, Technician, WorkOrder, plan_violations, solve_greedy
+from depot_dispatch import Assignment, Problem, Technician, WorkOrder, plan_violations, solve_greedy
 
 PROOF = settings(max_examples=300, deadline=None, derandomize=True, suppress_health_check=[HealthCheck.too_slow])
 

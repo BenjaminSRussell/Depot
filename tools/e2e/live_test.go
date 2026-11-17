@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/tools/e2e/devenv"
-	"github.com/BenjaminSRussell/passage/tools/e2e/stack"
+	"github.com/BenjaminSRussell/depot/tools/e2e/devenv"
+	"github.com/BenjaminSRussell/depot/tools/e2e/stack"
 )
 
 // passwordToken signs the user in against the running Keycloak with the dev realm's password grant.
@@ -42,17 +42,17 @@ func getenv(key, fallback string) string {
 // TestLiveStackFlow runs the vendor to ledger flow against the stack `make dev` started: real Keycloak tokens for the
 // seeded users, the dev gateway, OPA and the real services. `make e2e-local` runs it.
 func TestLiveStackFlow(t *testing.T) {
-	if os.Getenv("PASSAGE_E2E_LIVE") == "" {
-		t.Skip("set PASSAGE_E2E_LIVE=1 with `make dev` running (or use `make e2e-local`)")
+	if os.Getenv("DEPOT_E2E_LIVE") == "" {
+		t.Skip("set DEPOT_E2E_LIVE=1 with `make dev` running (or use `make e2e-local`)")
 	}
 	root := repoRoot(t)
 	seed, err := devenv.LoadSeed(filepath.Join(root, "deploy", "local", "seed.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	gateway := getenv("PASSAGE_E2E_GATEWAY_URL", "http://127.0.0.1:8088")
-	issuer := getenv("PASSAGE_E2E_ISSUER", "http://localhost:8080/realms/"+devenv.RealmName)
-	ledgerID := os.Getenv("PASSAGE_E2E_LEDGER_ID")
+	gateway := getenv("DEPOT_E2E_GATEWAY_URL", "http://127.0.0.1:8088")
+	issuer := getenv("DEPOT_E2E_ISSUER", "http://localhost:8080/realms/"+devenv.RealmName)
+	ledgerID := os.Getenv("DEPOT_E2E_LEDGER_ID")
 	if ledgerID == "" {
 		raw, err := os.ReadFile(filepath.Join(root, ".run", "dev", "ledger-id"))
 		if err != nil {

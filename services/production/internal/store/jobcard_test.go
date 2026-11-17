@@ -9,12 +9,12 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/production/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/production/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/production/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/production/migrations"
 )
 
 func jobOf(t *testing.T, s *Postgres, ctx context.Context, orderID string, oper int, typ domain.JobType) Job {
@@ -236,7 +236,7 @@ func codeOf(err error) string {
 	return code
 }
 
-// As passage_app, the grants of 0018 cover what a job card writes on its job: posting, :reopen,
+// As depot_app, the grants of 0018 cover what a job card writes on its job: posting, :reopen,
 // a re-date carrying the feedback over, and the reset that reverses the card.
 func TestJobCard_AsAppRole(t *testing.T) {
 	if os.Getenv(testkit.EnvURL) == "" || os.Getenv(testkit.EnvAppURL) == "" {

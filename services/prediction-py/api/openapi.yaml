@@ -1,14 +1,14 @@
 openapi: 3.1.0
 info:
-  title: Passage payment prediction
+  title: Depot payment prediction
   version: 0.1.0
   description: |
     Payment-date prediction per tenant (PRD 9.47 FR-47.15). The caller comes from the edge headers
-    x-passage-tenant, x-passage-user and x-passage-duties (401 AGT-0401 when missing or malformed); the tenant is
+    x-depot-tenant, x-depot-user and x-depot-duties (401 AGT-0401 when missing or malformed); the tenant is
     never read from a body. Errors are RFC 9457 problems with a stable `code`. Models, predictions and per-tenant
     settings are stored in Postgres under tenant row-level security.
 servers:
-  - url: https://api.passage.dev
+  - url: https://api.depot.dev
 paths:
   /api/v1/predictions/payment/retrain:
     post:
@@ -19,7 +19,7 @@ paths:
         within the tenant's mae_max_days and retires the previous ACTIVE model; otherwise it is stored as CANDIDATE
         and the previous one keeps serving (AC-47.12). Paid invoices that had a stored prediction are recorded as its
         outcome for the accuracy report. A retrain that races another for the same tenant is 409 AGT-0409.
-      x-passage-duty: agents.admin
+      x-depot-duty: agents.admin
       requestBody:
         required: true
         content:
@@ -41,11 +41,11 @@ paths:
       operationId: scorePaymentDates
       summary: Score open invoices with the tenant's ACTIVE model
       description: |
-        Stores the latest prediction per invoice and writes one dev.passage.prediction.payment.scored.v1 event per
+        Stores the latest prediction per invoice and writes one dev.depot.prediction.payment.scored.v1 event per
         invoice to the outbox in the same transaction. 422 AGT-0213 without an ACTIVE model. Predictions are stored for a legal entity and
-        a caller sees those of the entities in its X-Passage-Legal-Entity (every one with the all-scope duty): a legalEntityId outside the
+        a caller sees those of the entities in its X-Depot-Legal-Entity (every one with the all-scope duty): a legalEntityId outside the
         caller's scope is 404 AGT-0404 and an invoice that already belongs to an entity outside it is 403 PRD-0403.
-      x-passage-duty: agents.admin
+      x-depot-duty: agents.admin
       requestBody:
         required: true
         content:
@@ -70,8 +70,8 @@ paths:
       operationId: getInvoicePaymentPrediction
       summary: The stored payment prediction of one invoice
       description: The latest prediction, with `stale` true when it is older than 7 days (BR-47.12). 404 AGT-0404 when the invoice was never scored.
-      x-passage-duty: collections.view
-      x-passage-tool: passage.ar.invoice.prediction.get
+      x-depot-duty: collections.view
+      x-depot-tool: depot.ar.invoice.prediction.get
       parameters:
         - {name: invoice_id, in: path, required: true, schema: {type: string, minLength: 1, maxLength: 64}}
       responses:
@@ -98,7 +98,7 @@ paths:
         predictions, with the amount-weighted `pLate30d`, the number of invoices and their sum (`openAmount` mixes currencies when the
         entity bills in several, so read it per entity), and `stale` when the latest scoring is older than 7 days. The receivables feed
         (`python -m prediction.sync`) keeps it current. 404 AGT-0404 until the entity's open invoices have been scored. Also served under /v1.
-      x-passage-duty: collections.view
+      x-depot-duty: collections.view
       parameters:
         - {name: legalEntityId, in: query, required: true, schema: {type: string, format: uuid}}
       responses:
@@ -126,7 +126,7 @@ paths:
       operationId: getPaymentPredictionSettings
       summary: The tenant's prediction.payment parameters (9.47.20)
       description: The tenant's own min_rows and mae_max_days, or the service defaults when the tenant has none (`tenantOverride` false).
-      x-passage-duty: agents.admin
+      x-depot-duty: agents.admin
       responses:
         "200":
           description: The parameters in force for the tenant.
@@ -139,7 +139,7 @@ paths:
       operationId: putPaymentPredictionSettings
       summary: Set the tenant's prediction.payment parameters
       description: A field left out keeps its current value. min_rows is 100 to 10000 and mae_max_days 1 to 30 (400 PRD-0400 otherwise). The next retrain uses them.
-      x-passage-duty: agents.admin
+      x-depot-duty: agents.admin
       requestBody:
         required: true
         content:
@@ -167,7 +167,7 @@ paths:
         Over the stored predictions whose invoices have since been paid: MAE in days between predicted and actual
         payment date, the share within 7 days, and p_late_30d calibration per probability bucket, overall and per
         model version. Ratios are decimal text; null when there is nothing to measure.
-      x-passage-duty: agents.admin
+      x-depot-duty: agents.admin
       responses:
         "200":
           description: The report.
@@ -232,7 +232,7 @@ components:
       additionalProperties: false
       required: [openInvoices]
       properties:
-        legalEntityId: {type: string, format: uuid, description: "The legal entity the invoices belong to. A caller scoped to one legal entity (X-Passage-Legal-Entity) may leave it out; one scoped to several must name one of them (400); a caller with the all-scope duty must name one too (400 otherwise), so no prediction belongs to no entity."}
+        legalEntityId: {type: string, format: uuid, description: "The legal entity the invoices belong to. A caller scoped to one legal entity (X-Depot-Legal-Entity) may leave it out; one scoped to several must name one of them (400); a caller with the all-scope duty must name one too (400 otherwise), so no prediction belongs to no entity."}
         openInvoices: {type: array, minItems: 1, maxItems: 5000, items: {$ref: "#/components/schemas/Invoice"}}
     Model:
       type: object

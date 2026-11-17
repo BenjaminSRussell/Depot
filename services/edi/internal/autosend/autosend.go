@@ -1,6 +1,6 @@
 // Package autosend is the event-driven outbound of the EDI engine (#35, 35-1): when fulfillment publishes an advance ship notice
-// (dev.passage.fulfillment.asn.issued.v1), the warehouse ships a shipment without a packing slip (dev.passage.wms.shipment.shipped.v1)
-// or billing posts an invoice (dev.passage.billing.invoice.posted.v1), every active partner
+// (dev.depot.fulfillment.asn.issued.v1), the warehouse ships a shipment without a packing slip (dev.depot.wms.shipment.shipped.v1)
+// or billing posts an invoice (dev.depot.billing.invoice.posted.v1), every active partner
 // of that legal entity that asked for the document (partner_auto_outbound) gets its 856 or DESADV, or its 810 or INVOIC, generated
 // from the source document exactly as POST /partners/{id}/outbound:from-source would.
 //
@@ -21,14 +21,14 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/eventing"
-	"github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/eventing"
+	"github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
 
-	"github.com/BenjaminSRussell/passage/services/edi/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/edi/internal/store"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/store"
 )
 
 const (
@@ -37,16 +37,16 @@ const (
 	// Duty is the only duty of that principal.
 	Duty = "edi.outbound.from-event"
 
-	ASNIssuedType       = "dev.passage.fulfillment.asn.issued.v1"
-	ShipmentShippedType = "dev.passage.wms.shipment.shipped.v1"
+	ASNIssuedType       = "dev.depot.fulfillment.asn.issued.v1"
+	ShipmentShippedType = "dev.depot.wms.shipment.shipped.v1"
 	WarehouseSource     = "warehouse"
-	WarehouseTopic      = "passage.wms.shipment"
-	InvoicePostedType   = "dev.passage.billing.invoice.posted.v1"
+	WarehouseTopic      = "depot.wms.shipment"
+	InvoicePostedType   = "dev.depot.billing.invoice.posted.v1"
 	FulfillmentSource   = "fulfillment"
 	BillingSource       = "billing"
-	FulfillmentTopic    = "passage.fulfillment.asn"
-	BillingTopic        = "passage.billing.invoice"
-	DeadLetterTopic     = "passage.edi.outbound.dlq"
+	FulfillmentTopic    = "depot.fulfillment.asn"
+	BillingTopic        = "depot.billing.invoice"
+	DeadLetterTopic     = "depot.edi.outbound.dlq"
 	maxPartnersPerSend  = 200
 )
 

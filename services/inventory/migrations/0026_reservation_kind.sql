@@ -1,7 +1,7 @@
 -- Wave 16 slice 24: reservations against expected receipts (FR-16.7, RESERVED_ORDERED). A
 -- reservation either holds physical stock (kind PHYSICAL, the reserved_physical bucket, as before)
 -- or a quantity of the ordered / arrived supply of one dimension set (kind ORDERED, the
--- reserved_ordered bucket). No new table: inventory_reservation already carries the passage_app
+-- reserved_ordered bucket). No new table: inventory_reservation already carries the depot_app
 -- grants (SELECT, INSERT, UPDATE) from 0002.
 --
 -- inventory_reservation is a live table, so this file only changes the catalog: a constant default is

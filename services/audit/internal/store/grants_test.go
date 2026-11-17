@@ -9,12 +9,12 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/audit/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/audit/internal/store"
-	"github.com/BenjaminSRussell/passage/services/audit/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/audit/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/audit/internal/store"
+	"github.com/BenjaminSRussell/depot/services/audit/migrations"
 )
 
 func TestGrants_AppRoleAppendsButCannotRewrite(t *testing.T) {
@@ -30,7 +30,7 @@ func TestGrants_AppRoleAppendsButCannotRewrite(t *testing.T) {
 	change := domain.Change{Entity: "party.vendor", RecordID: "v-1", Field: "name", OldValue: "Acme", NewValue: "Acme Ltd",
 		UserID: "user-1", TraceID: "trace-abc", OccurredAt: time.Now().UTC()}
 	if err := s.Apply(ctx, change); err != nil {
-		t.Fatalf("apply as passage_app needs the audit_entry sequence: %v", err)
+		t.Fatalf("apply as depot_app needs the audit_entry sequence: %v", err)
 	}
 	if alerts, err := s.ListAlerts(ctx); err != nil || len(alerts) != 1 {
 		t.Fatalf("alerts = %+v, %v", alerts, err)

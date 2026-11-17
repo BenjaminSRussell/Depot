@@ -9,7 +9,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	evts "github.com/BenjaminSRussell/passage/services/mobile/internal/events"
+	evts "github.com/BenjaminSRussell/depot/services/mobile/internal/events"
 )
 
 const (
@@ -146,7 +146,7 @@ var ErrApplyInProgress = errors.New("store: the transaction is being applied")
 
 // Settle moves a PENDING transaction to APPLIED, CONFLICT or REJECTED. A
 // transaction that is no longer PENDING (another replay settled it first) is
-// returned unchanged. A CONFLICT emits dev.passage.mobile.offline.conflict.v1.
+// returned unchanged. A CONFLICT emits dev.depot.mobile.offline.conflict.v1.
 func (s *Store) Settle(ctx context.Context, key, status, reason string) (OfflineTx, error) {
 	var out OfflineTx
 	err := s.inTx(ctx, func(tx pgx.Tx) error {
@@ -219,7 +219,7 @@ func (s *Store) ListConflicts(ctx context.Context, after time.Time, afterKey str
 // the conflict's version, so two supervisors cannot both resolve it. REJECT
 // ends the transaction as REJECTED (it also closes a PENDING one, which a
 // supervisor does to free a device queue held by a user who left); REAPPLY keeps it CONFLICT with the
-// resolution set and tells consumers through dev.passage.mobile.offline.resolved.v1
+// resolution set and tells consumers through dev.depot.mobile.offline.resolved.v1
 // to move the inventory as scanned.
 func (s *Store) Resolve(ctx context.Context, idem Idem, key, action string, ifMatch int) (OfflineTx, bool, error) {
 	var out OfflineTx

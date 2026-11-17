@@ -10,9 +10,9 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/ledger/internal/domain"
-	ledgerevents "github.com/BenjaminSRussell/passage/services/ledger/internal/events"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/ledger/internal/domain"
+	ledgerevents "github.com/BenjaminSRussell/depot/services/ledger/internal/events"
 )
 
 type fixtureLine struct {
@@ -90,7 +90,7 @@ func (d fixtureDocument) postInput(t *testing.T, ledgerID string, ledgerOf map[s
 		ledgerLines[ledgerOf[g.Ledger]] = d.domainLines(g.Lines)
 	}
 	return PostInput{LedgerID: ledgerID, DocumentID: ids.New(), PostingDate: date, Description: "AC-12.4 document " + key,
-		Source: ledgerevents.Source{System: "ap", Type: "vendor_invoice", ID: key, URI: "passage://ap/invoices/" + key},
+		Source: ledgerevents.Source{System: "ap", Type: "vendor_invoice", ID: key, URI: "depot://ap/invoices/" + key},
 		Lines:  d.domainLines(d.Lines), LedgerLines: ledgerLines, CanPostLedgerSpecific: len(ledgerLines) > 0, Key: key, Hash: hash, Actor: "test-user", TraceID: testTrace, Today: testToday}
 }
 

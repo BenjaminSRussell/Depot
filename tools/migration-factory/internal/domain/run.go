@@ -106,7 +106,7 @@ func (r *PackRun) Message() string {
 // loaded is how many records this run inserted; present maps OpenItemKey (side and legacy id) to the amount
 // legacy_xref holds for every accepted record, including ones loaded by earlier runs. It
 // computes the FR-49.2 control totals (count, amount per currency, and amount per (company,
-// account, currency)) of the whole extract against what Passage holds, and moves the run from
+// account, currency)) of the whole extract against what Depot holds, and moves the run from
 // VALIDATED to LOADED and, when no total is MISMATCH, to RECONCILED. Quarantined records are
 // part of the source side, so a run with quarantine stays LOADED until they are released.
 func ReconcileOpenItems(r *PackRun, records, accepted []Record, loaded int, present map[string]decimal.Decimal) error {

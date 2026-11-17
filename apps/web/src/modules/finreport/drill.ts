@@ -63,7 +63,7 @@ export type SourceLink = { kind: "route"; to: string } | { kind: "external"; hre
 
 /**
  * Resolves a journal line's source document link (FR-15.7): an absolute
- * Passage route opens in the app, an http(s) URL opens outside it, and
+ * Depot route opens in the app, an http(s) URL opens outside it, and
  * anything else (javascript:, data:, protocol-relative "//host") gets no link.
  */
 export function sourceLink(uri: string | undefined): SourceLink | null {

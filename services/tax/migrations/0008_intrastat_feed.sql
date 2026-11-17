@@ -37,11 +37,11 @@ begin
   foreach t in array array['tax_intrastat_product', 'tax_intrastat_movement'] loop
     execute format('alter table %I enable row level security', t);
     execute format('alter table %I force row level security', t);
-    execute format('create policy %I on %I as permissive using (tenant_id = current_setting(''passage.tenant_id'', true)::uuid) with check (tenant_id = current_setting(''passage.tenant_id'', true)::uuid)', t || '_tenant_access', t);
+    execute format('create policy %I on %I as permissive using (tenant_id = current_setting(''depot.tenant_id'', true)::uuid) with check (tenant_id = current_setting(''depot.tenant_id'', true)::uuid)', t || '_tenant_access', t);
   end loop;
-  execute 'create policy tax_intrastat_movement_legal_entity_scope on tax_intrastat_movement as restrictive using (current_setting(''passage.legal_entity_scopes'', true) = ''*'' or legal_entity_id::text = any(string_to_array(current_setting(''passage.legal_entity_scopes'', true), '','')))';
-  if exists (select 1 from pg_roles where rolname = 'passage_app') then
-    execute 'grant select, insert, update, delete on tax_intrastat_product, tax_intrastat_movement to passage_app';
+  execute 'create policy tax_intrastat_movement_legal_entity_scope on tax_intrastat_movement as restrictive using (current_setting(''depot.legal_entity_scopes'', true) = ''*'' or legal_entity_id::text = any(string_to_array(current_setting(''depot.legal_entity_scopes'', true), '','')))';
+  if exists (select 1 from pg_roles where rolname = 'depot_app') then
+    execute 'grant select, insert, update, delete on tax_intrastat_product, tax_intrastat_movement to depot_app';
   end if;
 end
 $$;

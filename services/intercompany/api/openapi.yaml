@@ -1,13 +1,13 @@
 openapi: 3.1.0
 info:
-  title: Passage Intercompany
+  title: Depot Intercompany
   version: 0.5.0
   description: |
     Wave 40, slices 1 to 4. Trading partners (FR-40.1) are stored: create a
     pairing with an Idempotency-Key, change its policy with If-Match (each
     change is a new version), price an IC line from the stored policy (FR-40.4)
     and check a linked order change against its tolerance (BR-40.3). Pairing
-    changes publish dev.passage.interco.partner.created.v1 / updated.v1 through
+    changes publish dev.depot.interco.partner.created.v1 / updated.v1 through
     the outbox (events/asyncapi.yaml).
 
     The other endpoints are stateless intercompany calculations: the caller
@@ -24,11 +24,11 @@ info:
     first side reversed when the second is refused (FR-40.5, FR-40.13).
     Reconciliation runs are stored and their flagged items resolved (FR-40.6).
     Mirror sagas, persisted links, stored setups and the planning run are later
-    slices of PSG-40 (see NOT-IMPLEMENTED.md). Browser
+    slices of DPT-40 (see NOT-IMPLEMENTED.md). Browser
     calls go through the web BFF at /api/v1/interco/..., which rewrites to
     these paths and sets the tenant and duty headers.
 servers:
-  - url: https://api.{env}.passage.dev
+  - url: https://api.{env}.depot.dev
     variables:
       env:
         default: dev
@@ -37,7 +37,7 @@ paths:
     post:
       operationId: previewIntercompanyJournal
       summary: Derive the balanced due-to / due-from journal for one intercompany line (BR-40.4, AC-40.4)
-      x-passage-duty: intercompany.post
+      x-depot-duty: intercompany.post
       parameters:
         - $ref: '#/components/parameters/TenantHeader'
         - $ref: '#/components/parameters/DutiesHeader'
@@ -70,7 +70,7 @@ paths:
     post:
       operationId: classifyReconciliationItems
       summary: Classify IC balance pairs as Matched, Timing or Mismatch (FR-40.6, BR-40.5)
-      x-passage-duty: intercompany.reconcile
+      x-depot-duty: intercompany.reconcile
       parameters:
         - $ref: '#/components/parameters/TenantHeader'
         - $ref: '#/components/parameters/DutiesHeader'
@@ -97,7 +97,7 @@ paths:
     post:
       operationId: previewIntercompanyCharge
       summary: Price an IC charge by the transfer price effective on its date and derive its Journal-mode legs (FR-40.13, BR-40.12, AC-40.11)
-      x-passage-duty: intercompany.post
+      x-depot-duty: intercompany.post
       parameters:
         - $ref: '#/components/parameters/TenantHeader'
         - $ref: '#/components/parameters/DutiesHeader'
@@ -130,7 +130,7 @@ paths:
     post:
       operationId: previewCentralizedPayment
       summary: Derive the paying and owning entities' legs of one pay- or receive-on-behalf payment (FR-40.12, AC-40.10)
-      x-passage-duty: intercompany.configure
+      x-depot-duty: intercompany.configure
       parameters:
         - $ref: '#/components/parameters/TenantHeader'
         - $ref: '#/components/parameters/DutiesHeader'
@@ -163,7 +163,7 @@ paths:
     post:
       operationId: sequencePlanningGroup
       summary: Run order of a planning group (buyers before suppliers), IC demand dates and stale suppliers (FR-40.15, BR-40.13, AC-40.16)
-      x-passage-duty: intercompany.plan
+      x-depot-duty: intercompany.plan
       parameters:
         - $ref: '#/components/parameters/TenantHeader'
         - $ref: '#/components/parameters/DutiesHeader'
@@ -196,7 +196,7 @@ paths:
     post:
       operationId: previewDeliveryChain
       summary: Validate a direct delivery chain and list what the seller's packing slip posts in the buyer entity in one saga (FR-40.3, AC-40.3)
-      x-passage-duty: intercompany.view
+      x-depot-duty: intercompany.view
       parameters:
         - $ref: '#/components/parameters/TenantHeader'
         - $ref: '#/components/parameters/DutiesHeader'
@@ -229,7 +229,7 @@ paths:
     post:
       operationId: exportTransferPricingEvidence
       summary: Render the transfer-pricing evidence file for one entity pair and period as CSV (FR-40.4)
-      x-passage-duty: intercompany.view
+      x-depot-duty: intercompany.view
       parameters:
         - $ref: '#/components/parameters/TenantHeader'
         - $ref: '#/components/parameters/DutiesHeader'
@@ -264,7 +264,7 @@ paths:
     post:
       operationId: previewCentralizedPaymentReversal
       summary: Derive the reversal of a centralized payment returned by the bank, in both entities under the original pair id (BR-40.11)
-      x-passage-duty: intercompany.configure
+      x-depot-duty: intercompany.configure
       parameters:
         - $ref: '#/components/parameters/TenantHeader'
         - $ref: '#/components/parameters/DutiesHeader'
@@ -297,7 +297,7 @@ paths:
     get:
       operationId: listIntercompanyPartners
       summary: List the tenant's trading-partner pairings, ordered by id (FR-40.1)
-      x-passage-duty: intercompany.view
+      x-depot-duty: intercompany.view
       parameters:
         - $ref: '#/components/parameters/TenantHeader'
         - $ref: '#/components/parameters/DutiesHeader'
@@ -325,8 +325,8 @@ paths:
         One active pairing per entity pair and direction. Omitted policies take
         the ic.partnerPolicy defaults: active, auto-create on, auto-confirm and
         auto-post off, PriceList pricing, tolerance price 0.5 % and date 2 days.
-        Publishes dev.passage.interco.partner.created.v1 through the outbox.
-      x-passage-duty: intercompany.configure
+        Publishes dev.depot.interco.partner.created.v1 through the outbox.
+      x-depot-duty: intercompany.configure
       parameters:
         - $ref: '#/components/parameters/TenantHeader'
         - $ref: '#/components/parameters/DutiesHeader'
@@ -370,7 +370,7 @@ paths:
     get:
       operationId: getIntercompanyPartner
       summary: Read one pairing with its current policy version
-      x-passage-duty: intercompany.view
+      x-depot-duty: intercompany.view
       parameters:
         - $ref: '#/components/parameters/TenantHeader'
         - $ref: '#/components/parameters/DutiesHeader'
@@ -400,8 +400,8 @@ paths:
       description: |
         The direction (seller and buyer entity) never changes. A patch that
         changes nothing returns the pairing at its current version. Publishes
-        dev.passage.interco.partner.updated.v1 through the outbox.
-      x-passage-duty: intercompany.configure
+        dev.depot.interco.partner.updated.v1 through the outbox.
+      x-depot-duty: intercompany.configure
       parameters:
         - $ref: '#/components/parameters/TenantHeader'
         - $ref: '#/components/parameters/DutiesHeader'
@@ -462,7 +462,7 @@ paths:
         date (category Item; rows are sent with the request until transfer
         prices are stored). The unit price keeps full precision; the extended
         amount is rounded once to the currency minor unit. Nothing is stored.
-      x-passage-duty: intercompany.view
+      x-depot-duty: intercompany.view
       parameters:
         - $ref: '#/components/parameters/TenantHeader'
         - $ref: '#/components/parameters/DutiesHeader'
@@ -507,7 +507,7 @@ paths:
         price tolerance (percent of the old price) and the date by its date
         tolerance in days, both inclusive. Nothing is stored; routing the
         mirror PO to the wave-17 workflow comes with the mirror saga.
-      x-passage-duty: intercompany.view
+      x-depot-duty: intercompany.view
       parameters:
         - $ref: '#/components/parameters/TenantHeader'
         - $ref: '#/components/parameters/DutiesHeader'
@@ -540,14 +540,14 @@ paths:
   /healthz:
     get:
       operationId: healthz
-      x-passage-duty: public
+      x-depot-duty: public
       responses:
         '200':
           description: Liveness
   /readyz:
     get:
       operationId: readyz
-      x-passage-duty: public
+      x-depot-duty: public
       responses:
         '200':
           description: Readiness
@@ -565,10 +565,10 @@ paths:
         with the same Idempotency-Key resumes it without posting twice. Every
         entity needs its legal entity and ledger in entities; a ledger that does
         not belong to the entity is 422 IC-0847. Publishes
-        dev.passage.interco.journal.posted.v1 (or journal.compensated.v1)
+        dev.depot.interco.journal.posted.v1 (or journal.compensated.v1)
         through the outbox. Posting needs LEDGER_URL; without it the route
         answers 503.
-      x-passage-duty: intercompany.post
+      x-depot-duty: intercompany.post
       parameters:
         - $ref: '#/components/parameters/TenantHeader'
         - $ref: '#/components/parameters/DutiesHeader'
@@ -595,7 +595,7 @@ paths:
     get:
       operationId: listIntercompanyJournals
       summary: List posted journals, newest first
-      x-passage-duty: intercompany.view
+      x-depot-duty: intercompany.view
       parameters:
         - $ref: '#/components/parameters/TenantHeader'
         - $ref: '#/components/parameters/DutiesHeader'
@@ -622,7 +622,7 @@ paths:
     get:
       operationId: getIntercompanyJournal
       summary: One posted journal with the ledger entry of each entity
-      x-passage-duty: intercompany.view
+      x-depot-duty: intercompany.view
       parameters:
         - $ref: '#/components/parameters/TenantHeader'
         - $ref: '#/components/parameters/DutiesHeader'
@@ -650,8 +650,8 @@ paths:
         as a journal. A source with no applicable price is kept on suspense
         (202, failureCode IC-0821) and nothing is posted (BR-40.12); submit the
         source again with the next version and the missing price to post it.
-        Publishes dev.passage.interco.charge.posted.v1 for a posted charge.
-      x-passage-duty: intercompany.post
+        Publishes dev.depot.interco.charge.posted.v1 for a posted charge.
+      x-depot-duty: intercompany.post
       parameters:
         - $ref: '#/components/parameters/TenantHeader'
         - $ref: '#/components/parameters/DutiesHeader'
@@ -682,7 +682,7 @@ paths:
     get:
       operationId: listIntercompanyCharges
       summary: List IC charges, newest first
-      x-passage-duty: intercompany.view
+      x-depot-duty: intercompany.view
       parameters:
         - $ref: '#/components/parameters/TenantHeader'
         - $ref: '#/components/parameters/DutiesHeader'
@@ -709,7 +709,7 @@ paths:
     get:
       operationId: getIntercompanyCharge
       summary: One IC charge
-      x-passage-duty: intercompany.view
+      x-depot-duty: intercompany.view
       parameters:
         - $ref: '#/components/parameters/TenantHeader'
         - $ref: '#/components/parameters/DutiesHeader'
@@ -733,10 +733,10 @@ paths:
         the classify route (within a cent, FX tolerance, next-period
         counterpart) and stores the run and its items as immutable rows. An
         item that is not Matched starts open. A run that leaves Timing or
-        Mismatch items publishes dev.passage.interco.reconciliation.flagged.v1.
+        Mismatch items publishes dev.depot.interco.reconciliation.flagged.v1.
         blocking is true while the run holds a Mismatch: the period-end
         summary must be free of Mismatch before consolidation (CNS-0901).
-      x-passage-duty: intercompany.reconcile
+      x-depot-duty: intercompany.reconcile
       parameters:
         - $ref: '#/components/parameters/TenantHeader'
         - $ref: '#/components/parameters/DutiesHeader'
@@ -763,7 +763,7 @@ paths:
     get:
       operationId: listIntercompanyReconciliations
       summary: List stored reconciliation runs, newest first
-      x-passage-duty: intercompany.view
+      x-depot-duty: intercompany.view
       parameters:
         - $ref: '#/components/parameters/TenantHeader'
         - $ref: '#/components/parameters/DutiesHeader'
@@ -788,7 +788,7 @@ paths:
     get:
       operationId: getIntercompanyReconciliation
       summary: A stored run with its items, optionally only those with one status
-      x-passage-duty: intercompany.view
+      x-depot-duty: intercompany.view
       parameters:
         - $ref: '#/components/parameters/TenantHeader'
         - $ref: '#/components/parameters/DutiesHeader'
@@ -816,7 +816,7 @@ paths:
       operationId: resolveIntercompanyReconciliationItem
       summary: Resolve an open Timing or Mismatch item with a note
       description: A matched item has nothing to resolve and a resolved item is final; both are 409 IC-0852.
-      x-passage-duty: intercompany.reconcile
+      x-depot-duty: intercompany.reconcile
       parameters:
         - $ref: '#/components/parameters/TenantHeader'
         - $ref: '#/components/parameters/DutiesHeader'
@@ -853,7 +853,7 @@ paths:
         into a closed period); the entry's text says so. The item is resolved with a note naming the ledger entry. A second call
         returns the stored adjustment. A Timing item, or a difference larger than settings fxAdjustMaxPct of the larger side, is refused (IC-0858, IC-0861): a missing or wrong entry needs a correcting entry. IC-0857 when the entity has no FX-difference account, IC-0858 when the item has no FX
         difference, IC-0852 when the item is not open, IC-0845 when the ledger refuses the entry, IC-0846 when it does not answer.
-      x-passage-duty: intercompany.reconcile
+      x-depot-duty: intercompany.reconcile
       parameters:
         - $ref: '#/components/parameters/TenantHeader'
         - $ref: '#/components/parameters/DutiesHeader'
@@ -875,7 +875,7 @@ paths:
       operationId: listIntercompanyEntities
       summary: List the entity registry
       description: Each entity code with its legal entity, ledger, currency, country, FX-difference account and tax accounts; only the entities in the caller's legal entity scope.
-      x-passage-duty: intercompany.view
+      x-depot-duty: intercompany.view
       parameters:
         - $ref: '#/components/parameters/TenantHeader'
         - $ref: '#/components/parameters/DutiesHeader'
@@ -897,7 +897,7 @@ paths:
       operationId: putIntercompanyEntity
       summary: Store the registry entry of an entity code
       description: The caller must be in the legal entity's scope (403 AUTH-0003). Postings, charges and the ledger reconciliation take the legal entity and ledger of an entity from here when the request sends none.
-      x-passage-duty: intercompany.configure
+      x-depot-duty: intercompany.configure
       parameters:
         - $ref: '#/components/parameters/TenantHeader'
         - $ref: '#/components/parameters/DutiesHeader'
@@ -921,7 +921,7 @@ paths:
     get:
       operationId: getIntercompanyMatrix
       summary: Read the stored IC accounting matrix
-      x-passage-duty: intercompany.view
+      x-depot-duty: intercompany.view
       parameters:
         - $ref: '#/components/parameters/TenantHeader'
         - $ref: '#/components/parameters/DutiesHeader'
@@ -938,7 +938,7 @@ paths:
       operationId: putIntercompanyMatrix
       summary: Replace the IC accounting matrix
       description: One row per ordered pair, naming registered entities only (IC-0853); the caller must see every entity of the registry (403 AUTH-0003).
-      x-passage-duty: intercompany.configure
+      x-depot-duty: intercompany.configure
       parameters:
         - $ref: '#/components/parameters/TenantHeader'
         - $ref: '#/components/parameters/DutiesHeader'
@@ -962,7 +962,7 @@ paths:
     get:
       operationId: listIntercompanyTransferPrices
       summary: List the stored transfer prices
-      x-passage-duty: intercompany.view
+      x-depot-duty: intercompany.view
       parameters:
         - $ref: '#/components/parameters/TenantHeader'
         - $ref: '#/components/parameters/DutiesHeader'
@@ -985,7 +985,7 @@ paths:
       operationId: addIntercompanyTransferPrice
       summary: Store an effective-dated transfer price
       description: Prices are never edited; the next one takes over from its own date (BR-40.12). A price for the same lender, borrower, category and role on the same date is 409 IC-0854. A charge that sends no transferPrices is priced from these.
-      x-passage-duty: intercompany.configure
+      x-depot-duty: intercompany.configure
       parameters:
         - $ref: '#/components/parameters/TenantHeader'
         - $ref: '#/components/parameters/DutiesHeader'
@@ -1010,7 +1010,7 @@ paths:
     get:
       operationId: getIntercompanySettings
       summary: Read the tenant's charge and reconciliation settings
-      x-passage-duty: intercompany.view
+      x-depot-duty: intercompany.view
       parameters:
         - $ref: '#/components/parameters/TenantHeader'
         - $ref: '#/components/parameters/DutiesHeader'
@@ -1027,7 +1027,7 @@ paths:
       operationId: putIntercompanySettings
       summary: Store the tenant's charge and reconciliation settings
       description: chargeSettlementMode Journal posts a charge to both entities, Invoice hands it to the pairing's invoice documents and posts nothing here. crossBorderTax makes a charge between two countries carry the tax the tax service works out. reconCurrency switches the scheduled reconciliation on.
-      x-passage-duty: intercompany.configure
+      x-depot-duty: intercompany.configure
       parameters:
         - $ref: '#/components/parameters/TenantHeader'
         - $ref: '#/components/parameters/DutiesHeader'
@@ -1049,7 +1049,7 @@ paths:
 components:
   parameters:
     TenantHeader:
-      name: X-Passage-Tenant
+      name: X-Depot-Tenant
       in: header
       required: true
       description: Set by the gateway; UUIDv7 tenant id
@@ -1057,7 +1057,7 @@ components:
         type: string
         format: uuid
     DutiesHeader:
-      name: X-Passage-Duties
+      name: X-Depot-Duties
       in: header
       required: true
       description: Set by the gateway; comma-separated duties of the caller
@@ -1832,7 +1832,7 @@ components:
       type: object
       required: [type, title, status]
       properties:
-        type: { type: string, format: uri, description: 'https://passage.dev/problems/<code>' }
+        type: { type: string, format: uri, description: 'https://depot.dev/problems/<code>' }
         title: { type: string }
         status: { type: integer }
         detail: { type: string }

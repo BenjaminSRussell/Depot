@@ -16,7 +16,7 @@ absent — the source document does not address this
 absent — the source document does not address this
 
 ## Dependencies
-internal: procurement, sales, party, projects, edge-identity. external: Keycloak clients `passage-portal-supplier`, `passage-portal-customer`; payment provider (customer portal; provider product Q12; card data must never touch Passage; hosted fields must pass the same axe gate).
+internal: procurement, sales, party, projects, edge-identity. external: Keycloak clients `depot-portal-supplier`, `depot-portal-customer`; payment provider (customer portal; provider product Q12; card data must never touch Depot; hosted fields must pass the same axe gate).
 
 ## Gotchas & Constraints
 - Portals are online-only (installable); tenant-scoped data only — a vendor sees only its data.

@@ -1,4 +1,4 @@
-# Passage operations documentation — PSG-50, wave 50
+# Depot operations documentation — DPT-50, wave 50
 
 Operator-facing documents for scale, DR, release and go-live.
 

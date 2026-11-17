@@ -95,26 +95,26 @@ CREATE INDEX IF NOT EXISTS hr_course_registration_worker ON hr_course_registrati
 ALTER TABLE hr_course ENABLE ROW LEVEL SECURITY;
 ALTER TABLE hr_course FORCE ROW LEVEL SECURITY;
 CREATE POLICY hr_course_tenant_access ON hr_course AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 ALTER TABLE hr_course_skill_outcome ENABLE ROW LEVEL SECURITY;
 ALTER TABLE hr_course_skill_outcome FORCE ROW LEVEL SECURITY;
 CREATE POLICY hr_course_skill_outcome_tenant_access ON hr_course_skill_outcome AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 ALTER TABLE hr_course_session ENABLE ROW LEVEL SECURITY;
 ALTER TABLE hr_course_session FORCE ROW LEVEL SECURITY;
 CREATE POLICY hr_course_session_tenant_access ON hr_course_session AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 ALTER TABLE hr_course_registration ENABLE ROW LEVEL SECURITY;
 ALTER TABLE hr_course_registration FORCE ROW LEVEL SECURITY;
 CREATE POLICY hr_course_registration_tenant_access ON hr_course_registration AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- Application-role grants (0004_grants.sql pattern): courses and their skill
 -- outcomes are write-once. A session is write-once but its row is locked FOR
@@ -122,9 +122,9 @@ CREATE POLICY hr_course_registration_tenant_access ON hr_course_registration AS 
 -- change status. Nothing is deleted.
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT ON hr_course, hr_course_skill_outcome TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON hr_course_session, hr_course_registration TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT ON hr_course, hr_course_skill_outcome TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON hr_course_session, hr_course_registration TO depot_app';
   END IF;
 END
 $$;

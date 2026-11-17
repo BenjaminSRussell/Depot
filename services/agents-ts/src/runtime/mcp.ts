@@ -52,9 +52,9 @@ export function createMcpConnector(cfg: McpClientConfig): McpConnector {
             "content-type": "application/json",
             accept: "application/json",
             authorization: `Bearer ${token}`,
-            "x-passage-tenant": caller.tenantId,
-            "x-passage-user": caller.userId,
-            "x-passage-duties": [...caller.duties].join(","),
+            "x-depot-tenant": caller.tenantId,
+            "x-depot-user": caller.userId,
+            "x-depot-duties": [...caller.duties].join(","),
             ...(runId !== undefined ? { "x-agent-run-id": runId } : {}),
           },
           body: JSON.stringify({ jsonrpc: "2.0", id: (nextId += 1), method, ...(params !== undefined ? { params } : {}) }),
@@ -79,8 +79,8 @@ export function createMcpConnector(cfg: McpClientConfig): McpConnector {
       const tools: McpToolInfo[] = [];
       for (const t of raw) {
         if (!isRecord(t) || typeof t.name !== "string") continue;
-        const duty = t["x-passage-duty"];
-        const mode = t["x-passage-approval"];
+        const duty = t["x-depot-duty"];
+        const mode = t["x-depot-approval"];
         if (typeof duty !== "string" || (mode !== "none" && mode !== "suggest" && mode !== "approve_before_commit")) continue;
         const ann = isRecord(t.annotations) ? t.annotations : {};
         tools.push({

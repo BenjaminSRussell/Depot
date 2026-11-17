@@ -12,19 +12,19 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/transport/internal/domain"
-	tmsevents "github.com/BenjaminSRussell/passage/services/transport/internal/events"
-	"github.com/BenjaminSRussell/passage/services/transport/internal/store"
-	"github.com/BenjaminSRussell/passage/services/transport/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/transport/internal/domain"
+	tmsevents "github.com/BenjaminSRussell/depot/services/transport/internal/events"
+	"github.com/BenjaminSRussell/depot/services/transport/internal/store"
+	"github.com/BenjaminSRussell/depot/services/transport/migrations"
 )
 
 // setup migrates a throwaway schema as the admin role and returns a store on
 // the application role, so row-level security applies exactly as in production.
-// It needs PASSAGE_TEST_DATABASE_URL and PASSAGE_TEST_APP_DATABASE_URL.
+// It needs DEPOT_TEST_DATABASE_URL and DEPOT_TEST_APP_DATABASE_URL.
 func setup(t *testing.T) (*store.Postgres, *pgxpool.Pool) {
 	t.Helper()
 	admin, app := testkit.DBWithApp(t)

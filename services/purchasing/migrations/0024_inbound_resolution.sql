@@ -26,12 +26,12 @@ ALTER TABLE purchase_inbound_change ADD CONSTRAINT purchase_inbound_change_sourc
 CREATE INDEX IF NOT EXISTS purchase_inbound_change_open_refused ON purchase_inbound_change (tenant_id, id DESC)
   WHERE status = 'REFUSED' AND resolution = '';
 
--- passage_app: the store now updates a change row (a retry rewrites its outcome, an acknowledgement
+-- depot_app: the store now updates a change row (a retry rewrites its outcome, an acknowledgement
 -- stamps it). Still no DELETE.
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON purchase_inbound_change TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON purchase_inbound_change TO depot_app';
   END IF;
 END
 $$;

@@ -9,10 +9,10 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/services/scheduling/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/scheduling/internal/optimizer"
-	"github.com/BenjaminSRussell/passage/services/scheduling/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/services/scheduling/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/scheduling/internal/optimizer"
+	"github.com/BenjaminSRussell/depot/services/scheduling/internal/store"
 )
 
 func (f *fakeStore) CampaignSetupMatrix(context.Context, string, time.Time) (domain.SetupMatrix, error) {

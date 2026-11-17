@@ -9,16 +9,16 @@ import (
 	"slices"
 	"strconv"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/eventing"
-	"github.com/BenjaminSRussell/passage/platform/eventing/kafka"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/eventing"
+	"github.com/BenjaminSRussell/depot/platform/eventing/kafka"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
 
-	"github.com/BenjaminSRussell/passage/services/billing/internal/api"
-	"github.com/BenjaminSRussell/passage/services/billing/internal/iccharge"
-	"github.com/BenjaminSRussell/passage/services/billing/internal/periods"
-	"github.com/BenjaminSRussell/passage/services/billing/internal/store"
+	"github.com/BenjaminSRussell/depot/services/billing/internal/api"
+	"github.com/BenjaminSRussell/depot/services/billing/internal/iccharge"
+	"github.com/BenjaminSRussell/depot/services/billing/internal/periods"
+	"github.com/BenjaminSRussell/depot/services/billing/internal/store"
 )
 
 // icChargeSeeded reports whether the service principal table gives the consumer its principal with the one flag duty.

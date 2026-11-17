@@ -1,5 +1,5 @@
 import { createElement } from "react";
-import type { PassageModule } from "../registry";
+import type { DepotModule } from "../registry";
 import { AssetDetailPage } from "./AssetDetailPage";
 import { AssetsPage, NewAssetPage } from "./AssetsPage";
 import { FaultCatalogPage } from "./FaultCatalogPage";
@@ -15,7 +15,7 @@ import { WorkOrderDetailPage } from "./WorkOrderDetailPage";
 import { NewWorkOrderPage, WorkOrdersPage } from "./WorkOrdersPage";
 import { WorkspacePage } from "./WorkspacePage";
 
-const eam: PassageModule = {
+const eam: DepotModule = {
   id: "eam",
   title: "Asset management",
   description: "Maintain plant assets with preventive plans, condition triggers, work orders, faults, warranties, permits to work with lockout/tagout, functional locations, maintenance sequences and rounds, asset costs, backlog and maintenance reminders.",

@@ -1,6 +1,6 @@
 -- Wave 16 slice 9: TRANSFER journals (FR-16.3 stock moves between dimension sets).
 -- Additive: widens two CHECK lists and gives journal lines a destination dimension
--- set. No new table, so the passage_app grants of 0001 (inventory_journal_line) and
+-- set. No new table, so the depot_app grants of 0001 (inventory_journal_line) and
 -- the origin table already cover it.
 
 ALTER TABLE inventory_journal DROP CONSTRAINT IF EXISTS inventory_journal_journal_type_check;

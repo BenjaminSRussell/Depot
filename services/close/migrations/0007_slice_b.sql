@@ -180,11 +180,11 @@ BEGIN
   FOREACH t IN ARRAY ARRAY['allocation_rule', 'allocation_run', 'accrual_scheme', 'accrual_run', 'regrouping_rule', 'regrouping_run', 'regrouping_posted_rule'] LOOP
     EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', t);
     EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY', t);
-    EXECUTE format('CREATE POLICY %I ON %I AS PERMISSIVE USING (tenant_id = current_setting(''passage.tenant_id'', true)::uuid) WITH CHECK (tenant_id = current_setting(''passage.tenant_id'', true)::uuid)', t || '_tenant_access', t);
-    EXECUTE format('CREATE POLICY %I ON %I AS RESTRICTIVE USING (current_setting(''passage.legal_entity_scopes'', true) = ''*'' OR legal_entity_id::text = ANY(string_to_array(current_setting(''passage.legal_entity_scopes'', true), '','')))', t || '_legal_entity_scope', t);
+    EXECUTE format('CREATE POLICY %I ON %I AS PERMISSIVE USING (tenant_id = current_setting(''depot.tenant_id'', true)::uuid) WITH CHECK (tenant_id = current_setting(''depot.tenant_id'', true)::uuid)', t || '_tenant_access', t);
+    EXECUTE format('CREATE POLICY %I ON %I AS RESTRICTIVE USING (current_setting(''depot.legal_entity_scopes'', true) = ''*'' OR legal_entity_id::text = ANY(string_to_array(current_setting(''depot.legal_entity_scopes'', true), '','')))', t || '_legal_entity_scope', t);
   END LOOP;
 END
 $$;
-GRANT SELECT, INSERT, UPDATE ON allocation_rule, allocation_run, accrual_scheme, accrual_run, regrouping_rule, regrouping_run TO passage_app;
-GRANT SELECT, INSERT, DELETE ON regrouping_posted_rule TO passage_app;
-GRANT EXECUTE ON FUNCTION close_accrual_due_tenants() TO passage_app;
+GRANT SELECT, INSERT, UPDATE ON allocation_rule, allocation_run, accrual_scheme, accrual_run, regrouping_rule, regrouping_run TO depot_app;
+GRANT SELECT, INSERT, DELETE ON regrouping_posted_rule TO depot_app;
+GRANT EXECUTE ON FUNCTION close_accrual_due_tenants() TO depot_app;

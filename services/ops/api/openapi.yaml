@@ -3,17 +3,17 @@ info:
   title: ops
   version: 0.1.0
   description: >
-    Ops control plane, parts 1 and 2 (PSG-50, FR-50.5): the active/passive region topology, a guarded failover that fences the old
+    Ops control plane, parts 1 and 2 (DPT-50, FR-50.5): the active/passive region topology, a guarded failover that fences the old
     primary and promotes the target, the capacity model, and the region health check DNS reads. The failover records the plan
     and the state change; the infrastructure steps are carried out by runners that read the plan.
 servers:
-  - url: https://app.local.passage.dev
+  - url: https://app.local.depot.dev
 paths:
   /v1/ops/regions:
     get:
       operationId: listRegions
       summary: List the regions with their role and replication lag
-      x-passage-duty: ops.region.view
+      x-depot-duty: ops.region.view
       responses:
         '200':
           description: Regions by name, and the lag limit a failover enforces.
@@ -23,7 +23,7 @@ paths:
     put:
       operationId: reportRegionLag
       summary: Record a region's replication lag
-      x-passage-duty: ops.region.report
+      x-depot-duty: ops.region.report
       parameters:
         - { name: name, in: path, required: true, schema: { type: string } }
       requestBody:
@@ -45,7 +45,7 @@ paths:
         (POST /v1/ops/failover-requests/{id}:approve, OPS-1702). The body names no approver.
         The Idempotency-Key is the failover event id: a retry returns the first outcome (200, or 202 with the same request) and
         changes nothing. Every ops route serves the platform operator tenant only (OPS-1715).
-      x-passage-duty: ops.failover.execute
+      x-depot-duty: ops.failover.execute
       parameters:
         - { name: Idempotency-Key, in: header, required: true, schema: { type: string, maxLength: 128 } }
       requestBody:
@@ -66,7 +66,7 @@ paths:
     get:
       operationId: getFailoverRequest
       summary: Read a failover request that waits for, or received, its second approval
-      x-passage-duty: ops.region.view
+      x-depot-duty: ops.region.view
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -82,7 +82,7 @@ paths:
         The approver is the verified caller and must not be the requester (403 OPS-1702). The plan is made again under the region
         locks, so it reflects the topology and lag at approval time. A request older than 5 minutes (the two-person window) is refused (OPS-1714).
         Approving an approved request returns the applied failover with 200 and changes nothing.
-      x-passage-duty: ops.failover.execute
+      x-depot-duty: ops.failover.execute
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -98,7 +98,7 @@ paths:
       operationId: rejoinRegion
       summary: Return a fenced region to passive
       description: A FENCED region becomes PASSIVE only after its re-sync was verified (BR-50.1, OPS-1711).
-      x-passage-duty: ops.failover.execute
+      x-depot-duty: ops.failover.execute
       parameters:
         - { name: name, in: path, required: true, schema: { type: string } }
       requestBody:
@@ -116,7 +116,7 @@ paths:
       description: >
         The model of docs/ops/capacity-model.md. Every parameter defaults to the 10k-user reference tenant. A rate parameter
         prices the matching part in both regions plus 12% overhead; costPriced names the parts priced.
-      x-passage-duty: ops.region.view
+      x-depot-duty: ops.region.view
       parameters:
         - { name: users, in: query, schema: { type: integer, minimum: 1 } }
         - { name: thinkTimeS, in: query, schema: { type: integer, minimum: 1 } }
@@ -144,7 +144,7 @@ paths:
       operationId: getFailover
       summary: Read a failover with the steps recorded so far
       description: complete is true when every step of the plan is DONE. A runner that crashed resumes at the first step not DONE.
-      x-passage-duty: ops.region.view
+      x-depot-duty: ops.region.view
       parameters:
         - { name: eventId, in: path, required: true, schema: { type: string } }
       responses:
@@ -157,9 +157,9 @@ paths:
       operationId: recordFailoverStep
       summary: Record the result of one failover step
       description: >
-        The runner (passage-ops failover) reports each step as it finishes. The reporter is the verified caller. A step recorded DONE
+        The runner (depot-ops failover) reports each step as it finishes. The reporter is the verified caller. A step recorded DONE
         is kept; a FAILED step is replaced by a later result, which is how a retry shows its success.
-      x-passage-duty: ops.failover.execute
+      x-depot-duty: ops.failover.execute
       parameters:
         - { name: eventId, in: path, required: true, schema: { type: string } }
         - { name: action, in: path, required: true, schema: { type: string, enum: [fence-old-primary, promote-cnpg, switch-mirrormaker, activate-temporal, flip-dns, verify-ledger-hash-chain] } }
@@ -179,7 +179,7 @@ paths:
         A named operator opens a time-boxed window for themselves (15 to 120 minutes, default 60) with a reason code and a ticket. While it
         lasts the failover, rejoin, approve and step routes accept them without the ops.failover.execute duty; each use is logged. One window
         at a time per operator (OPS-1717). Another operator reviews it after it ends.
-      x-passage-duty: ops.breakglass.request
+      x-depot-duty: ops.breakglass.request
       requestBody:
         required: true
         content: { application/json: { schema: { $ref: '#/components/schemas/BreakGlassRequest' } } }
@@ -191,7 +191,7 @@ paths:
     get:
       operationId: listBreakGlass
       summary: List break-glass windows, newest first
-      x-passage-duty: ops.region.view
+      x-depot-duty: ops.region.view
       parameters:
         - { name: unreviewed, in: query, required: false, schema: { type: boolean } }
       responses:
@@ -204,7 +204,7 @@ paths:
       operationId: revokeBreakGlass
       summary: End a break-glass window early
       description: Only the operator who opened the window can revoke it (OPS-1720).
-      x-passage-duty: ops.breakglass.request
+      x-depot-duty: ops.breakglass.request
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -220,7 +220,7 @@ paths:
         APPROVED or FLAGGED (a flag needs a note). The reviewer is the verified caller and not the operator who used the window; a window is
         reviewed once and only after it ended or was revoked (OPS-1718). The review is due 3 days after the window ends; the
         ops_break_glass_review_overdue metric counts the late ones.
-      x-passage-duty: ops.breakglass.review
+      x-depot-duty: ops.breakglass.review
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       requestBody:
@@ -239,7 +239,7 @@ paths:
         RTO runs from the start of the fence step to the end of the DNS flip; RPO is the replication lag at the fence (AC-50.3, the
         same measures as deploy/multi-region/gameday/score.py). The targets are RTO_TARGET_MIN (60) and RPO_TARGET_S (300). passed needs
         every step DONE, both targets met, the ledger hash chain verified and no data loss accepted.
-      x-passage-duty: ops.region.view
+      x-depot-duty: ops.region.view
       parameters:
         - { name: eventId, in: path, required: true, schema: { type: string } }
       responses:
@@ -252,10 +252,10 @@ paths:
       operationId: installTenantLicense
       summary: Install a signed tenant licence
       description: >
-        payload is the base64 of the licence JSON exactly as signed offline by Passage commercial operations; signature is the base64
+        payload is the base64 of the licence JSON exactly as signed offline by Depot commercial operations; signature is the base64
         Ed25519 signature over those bytes (LIC-1804 when it does not verify, or no key is configured). If-Match carries the installed version,
         0 when none is installed (412 LIC-1806 when it changed). The licence must name this tenant (LIC-1805).
-      x-passage-duty: ops.license.install
+      x-depot-duty: ops.license.install
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - { name: If-Match, in: header, required: true, schema: { type: string } }
@@ -274,7 +274,7 @@ paths:
         VALID, GRACE or EXPIRED by the rules of BR-50.8 (grace 30 days by default, 0 to 60). activeFull is the caller's count of active full users;
         without it the tenant's last reported count (PUT .../license/usage) applies, and without that only the date rules apply. Admin sign-in and data
         export are never blocked.
-      x-passage-duty: ops.region.view
+      x-depot-duty: ops.region.view
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - { name: activeFull, in: query, required: false, schema: { type: integer, minimum: 0 } }
@@ -289,8 +289,8 @@ paths:
       summary: Report a tenant's active user counts
       description: >
         The user-count reporter sends each tenant's active full, operational and self-service users, hourly. The hourly licence check
-        evaluates every licence with the last full-user count and writes dev.passage.ops.license.changed.v1 when the state moves.
-      x-passage-duty: ops.license.report
+        evaluates every licence with the last full-user count and writes dev.depot.ops.license.changed.v1 when the state moves.
+      x-depot-duty: ops.license.report
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       requestBody:
@@ -306,7 +306,7 @@ paths:
       operationId: listTenantLicenses
       summary: List every tenant licence with its state
       description: Each installed licence with its state today, evaluated with the tenant's last reported full users, and those counts.
-      x-passage-duty: ops.region.view
+      x-depot-duty: ops.region.view
       responses:
         '200':
           description: The licences.
@@ -320,8 +320,8 @@ paths:
         Availability (share of requests that were not 5xx) and p95 latency per service over the window, read from Prometheus
         (http_requests_total and http_request_duration_seconds, one scrape job per service), against the targets SLO_AVAILABILITY_TARGET
         (0.999) and SLO_LATENCY_P95_MS (2000, per service in SLO_LATENCY_P95_BY). breachedSince comes from the hourly SLO check, which writes
-        dev.passage.ops.slo.breached.v1 once per breach. 503 OPS-1725 when PROMETHEUS_URL is not set or Prometheus does not answer.
-      x-passage-duty: ops.region.view
+        dev.depot.ops.slo.breached.v1 once per breach. 503 OPS-1725 when PROMETHEUS_URL is not set or Prometheus does not answer.
+      x-depot-duty: ops.region.view
       parameters:
         - { name: window, in: query, required: false, schema: { type: string, enum: ['1h', '6h', '24h', '7d', '30d'], default: '24h' } }
       responses:
@@ -334,7 +334,7 @@ paths:
       operationId: listTenantProvisions
       summary: List tenant provisions
       description: The provisions, newest first (at most 500), each with its status and whether it runs past the 15-minute target.
-      x-passage-duty: ops.region.view
+      x-depot-duty: ops.region.view
       responses:
         '200':
           description: The provisions.
@@ -346,9 +346,9 @@ paths:
       description: >
         Checks the residency first (OPS-1705: the region must be deployed and inside the residency, by platform/go/residency), then records
         the provision with its plan (realm, databases, kafka-acls, lakehouse, license). The provisioning runner executes each step and
-        reports it; the last DONE step writes dev.passage.ops.tenant.provisioned.v1. Idempotency-Key is required: a replay with the same
+        reports it; the last DONE step writes dev.depot.ops.tenant.provisioned.v1. Idempotency-Key is required: a replay with the same
         request answers 200 with the first record, a different request or a tenant that already has a provision answers 409 OPS-1723.
-      x-passage-duty: ops.tenant.provision
+      x-depot-duty: ops.tenant.provision
       parameters:
         - { name: Idempotency-Key, in: header, required: true, schema: { type: string, maxLength: 200 } }
       requestBody:
@@ -366,7 +366,7 @@ paths:
     get:
       operationId: getTenantProvision
       summary: Read a tenant provision with its steps
-      x-passage-duty: ops.region.view
+      x-depot-duty: ops.region.view
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -382,7 +382,7 @@ paths:
         DONE is kept; FAILED marks the provision FAILED until a retry of that step is DONE. The license step is DONE only once the tenant's
         signed licence is installed (OPS-1724). When the last step turns DONE the provision is PROVISIONED and the event is written in the same
         transaction.
-      x-passage-duty: ops.tenant.provision
+      x-depot-duty: ops.tenant.provision
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - { name: action, in: path, required: true, schema: { type: string, enum: [realm, databases, kafka-acls, lakehouse, license] } }
@@ -402,7 +402,7 @@ paths:
         The monthly metering job sends the six metered quantities (decimal strings), the ECB month-average rate (USD per EUR) and the
         Prometheus query version; the statement is computed by the rules of docs/ops/cost-model.md (one rounding to cents, EUR from the
         unrounded total) and stored. A second call restates the month. 503 COST-1904 without OPS_COST_RATES; 422 COST-1902 for invalid input.
-      x-passage-duty: ops.cost.record
+      x-depot-duty: ops.cost.record
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - { name: month, in: path, required: true, schema: { type: string, pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' } }
@@ -420,7 +420,7 @@ paths:
       description: >
         JSON, the CSV statement with format=csv (or Accept text/csv), or the PDF statement with format=pdf (or Accept application/pdf), rendered through
         print's POST /print/v1/documents:render as service:ops-reporter (503 COST-1904 without PRINT_URL). 404 COST-1903 when the month is not recorded.
-      x-passage-duty: ops.region.view
+      x-depot-duty: ops.region.view
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - { name: month, in: path, required: true, schema: { type: string, pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' } }
@@ -440,8 +440,8 @@ paths:
       description: >
         Only for a tenant that identity reports as suspended (409 OPS-1731; 503 OPS-1730 when identity cannot be asked) and that has a provision
         (404 OPS-1721). Records the reason and the plan (lakehouse, kafka-acls, databases, realm: the provision in reverse) and writes the request to
-        the audit trail. A repeat returns the first record with 200. `passage-ops tenant decommission` then performs the steps and reports each.
-      x-passage-duty: ops.tenant.decommission
+        the audit trail. A repeat returns the first record with 200. `depot-ops tenant decommission` then performs the steps and reports each.
+      x-depot-duty: ops.tenant.decommission
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       requestBody:
@@ -459,7 +459,7 @@ paths:
     get:
       operationId: getTenantDecommission
       summary: Read a tenant's decommission with its audit trail
-      x-passage-duty: ops.region.view
+      x-depot-duty: ops.region.view
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -480,7 +480,7 @@ paths:
       description: >
         Steps run in reverse order: a step is DONE only when the one before it (lakehouse, kafka-acls, databases, realm) is (409 OPS-1733). DONE is
         kept; FAILED marks the decommission FAILED until a retry is DONE. Each report is audited, and the last DONE step writes tenant.decommissioned.
-      x-passage-duty: ops.tenant.decommission
+      x-depot-duty: ops.tenant.decommission
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - { name: action, in: path, required: true, schema: { type: string, enum: [lakehouse, kafka-acls, databases, realm] } }
@@ -498,7 +498,7 @@ paths:
       summary: Record that a decommissioned tenant's export was verified
       description: >
         Needs the decommission DECOMMISSIONED (409 OPS-1738). Records the export id, who verified it and when; audited. The marker is fixed once a purge is requested.
-      x-passage-duty: ops.tenant.purge
+      x-depot-duty: ops.tenant.purge
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       requestBody:
@@ -514,9 +514,9 @@ paths:
       operationId: requestTenantPurge
       summary: Authorise the purge of a decommissioned tenant's data
       description: >
-        Needs the decommission DECOMMISSIONED (409 OPS-1738) and a verified export (409 OPS-1739); audited. `passage-ops tenant purge` calls it, deletes with its own
+        Needs the decommission DECOMMISSIONED (409 OPS-1738) and a verified export (409 OPS-1739); audited. `depot-ops tenant purge` calls it, deletes with its own
         purge credentials and reports with PUT .../purge-result. A FAILED purge may be requested again; a DONE one may not.
-      x-passage-duty: ops.tenant.purge
+      x-depot-duty: ops.tenant.purge
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -530,7 +530,7 @@ paths:
       summary: Report the result of a requested purge
       description: >
         DONE or FAILED with the per-database detail, including the tables retained (append-only, listed, without a delete grant, keyed by another tenant column). Audited.
-      x-passage-duty: ops.tenant.purge
+      x-depot-duty: ops.tenant.purge
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       requestBody:
@@ -545,7 +545,7 @@ paths:
     get:
       operationId: getTenantPurge
       summary: Read a tenant's export marker and purge record
-      x-passage-duty: ops.region.view
+      x-depot-duty: ops.region.view
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -557,7 +557,7 @@ paths:
     get:
       operationId: listCloneSchedules
       summary: List the masked-clone schedules
-      x-passage-duty: ops.region.view
+      x-depot-duty: ops.region.view
       responses:
         '200':
           description: The schedules with their next and last run.
@@ -569,7 +569,7 @@ paths:
       description: >
         One tenant's schema is copied into the non-production database with the mask configuration, every `intervalHours`, by the job in this service
         (tools/tenant-restore `clone --apply`, needs OPS_CLONE_ENABLED=true). The first run is due now. 409 OPS-1737 for a second schedule of the same name.
-      x-passage-duty: ops.clone.schedule
+      x-depot-duty: ops.clone.schedule
       requestBody:
         required: true
         content: { application/json: { schema: { $ref: '#/components/schemas/CloneScheduleRequest' } } }
@@ -583,7 +583,7 @@ paths:
       operationId: setCloneScheduleEnabled
       summary: Turn a schedule on or off
       description: Turning a schedule on makes it due now.
-      x-passage-duty: ops.clone.schedule
+      x-depot-duty: ops.clone.schedule
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       requestBody:
@@ -597,7 +597,7 @@ paths:
     delete:
       operationId: deleteCloneSchedule
       summary: Delete a schedule and its runs
-      x-passage-duty: ops.clone.schedule
+      x-depot-duty: ops.clone.schedule
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -607,7 +607,7 @@ paths:
     get:
       operationId: listCloneRuns
       summary: The latest runs of a schedule
-      x-passage-duty: ops.region.view
+      x-depot-duty: ops.region.view
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -620,7 +620,7 @@ paths:
       operationId: listTenantCosts
       summary: List every tenant's cost statement for a month
       description: The statements and the cluster total in USD, the figure reconciled with the provider invoice (AC-50.7).
-      x-passage-duty: ops.region.view
+      x-depot-duty: ops.region.view
       parameters:
         - { name: month, in: query, required: true, schema: { type: string, pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' } }
       responses:
@@ -635,7 +635,7 @@ paths:
       description: >
         200 only while the region this replica runs in is PRIMARY; 503 with Retry-After 30 and the role otherwise. When the role cannot be read (database
         unreadable, region not registered) the 503 is a problem with no role, so a consumer never mistakes it for a role: the services' fence keeps its last state.
-      x-passage-duty: public
+      x-depot-duty: public
       responses:
         '200':
           description: This region is PRIMARY.
@@ -649,13 +649,13 @@ paths:
   /healthz:
     get:
       operationId: liveness
-      x-passage-duty: public
+      x-depot-duty: public
       responses:
         '200': { description: Process is alive. }
   /readyz:
     get:
       operationId: readiness
-      x-passage-duty: public
+      x-depot-duty: public
       responses:
         '200': { description: Database reachable. }
         '503': { description: Database unreachable. }

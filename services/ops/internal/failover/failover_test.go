@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/services/ops/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/ops/internal/domain"
 )
 
 type calls struct {
@@ -162,7 +162,7 @@ func (k *kubeFake) handler(w http.ResponseWriter, r *http.Request) {
 		if k.gets < 2 {
 			phase = "Waiting for the instances to become active"
 		}
-		_, _ = w.Write([]byte(`{"spec":{},"status":{"phase":"` + phase + `","currentPrimary":"passage-pg-1"}}`))
+		_, _ = w.Write([]byte(`{"spec":{},"status":{"phase":"` + phase + `","currentPrimary":"depot-pg-1"}}`))
 	case http.MethodDelete:
 		w.WriteHeader(http.StatusNotFound)
 	default:
@@ -175,14 +175,14 @@ func TestCNPGFenceAndPromoteThroughTheKubeAPI(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(kf.handler))
 	defer srv.Close()
 	kube := &Kube{Servers: map[string]KubeServer{"eu-west": {Server: srv.URL, Token: "tok"}, "eu-central": {Server: srv.URL, Token: "tok"}}}
-	c := CNPG{Kube: kube, Namespace: "passage-data", Cluster: "passage-pg", PollEvery: time.Millisecond, Timeout: time.Second}
+	c := CNPG{Kube: kube, Namespace: "depot-data", Cluster: "depot-pg", PollEvery: time.Millisecond, Timeout: time.Second}
 	if err := c.FenceRegion(t.Context(), "eu-west"); err != nil {
 		t.Fatal(err)
 	}
 	if err := c.Promote(t.Context(), "eu-central"); err != nil {
 		t.Fatal(err)
 	}
-	if kf.requests[0] != "PATCH /apis/postgresql.cnpg.io/v1/namespaces/passage-data/clusters/passage-pg application/merge-patch+json Bearer tok" {
+	if kf.requests[0] != "PATCH /apis/postgresql.cnpg.io/v1/namespaces/depot-data/clusters/depot-pg application/merge-patch+json Bearer tok" {
 		t.Fatalf("fence request %q", kf.requests[0])
 	}
 	var fence map[string]map[string]map[string]any
@@ -223,7 +223,7 @@ func TestMirrorMakerDeleteIsIdempotent(t *testing.T) {
 	if err := m.StopInto(t.Context(), "eu-central"); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.HasPrefix(kf.requests[0], "DELETE /apis/kafka.strimzi.io/v1beta2/namespaces/kafka/kafkamirrormaker2s/passage-mm2") {
+	if !strings.HasPrefix(kf.requests[0], "DELETE /apis/kafka.strimzi.io/v1beta2/namespaces/kafka/kafkamirrormaker2s/depot-mm2") {
 		t.Fatalf("request %q", kf.requests[0])
 	}
 }
@@ -242,14 +242,14 @@ func TestKubeErrorIsReported(t *testing.T) {
 
 func TestTemporalCLIUpdatesEveryNamespace(t *testing.T) {
 	var got []string
-	tc := TemporalCLI{Address: "temporal:7233", Namespaces: []string{"passage", "passage-ops"}, Run: func(_ context.Context, name string, args ...string) ([]byte, error) {
+	tc := TemporalCLI{Address: "temporal:7233", Namespaces: []string{"depot", "depot-ops"}, Run: func(_ context.Context, name string, args ...string) ([]byte, error) {
 		got = append(got, name+" "+strings.Join(args, " "))
 		return nil, nil
 	}}
 	if err := tc.ActivateIn(t.Context(), "eu-central"); err != nil {
 		t.Fatal(err)
 	}
-	if len(got) != 2 || got[0] != "temporal operator namespace update --namespace passage --active-cluster eu-central --yes --address temporal:7233" {
+	if len(got) != 2 || got[0] != "temporal operator namespace update --namespace depot --active-cluster eu-central --yes --address temporal:7233" {
 		t.Fatalf("commands %v", got)
 	}
 	failing := TemporalCLI{Namespaces: []string{"x"}, Run: func(context.Context, string, ...string) ([]byte, error) { return []byte("boom"), errors.New("exit 1") }}
@@ -269,14 +269,14 @@ func TestDNSWebhook(t *testing.T) {
 		_ = json.NewDecoder(r.Body).Decode(&body)
 	}))
 	defer srv.Close()
-	d := DNSWebhook{URL: srv.URL, Token: "s3", Record: "app.passage.example", TTL: 60, AllowInsecure: true}
+	d := DNSWebhook{URL: srv.URL, Token: "s3", Record: "app.depot.example", TTL: 60, AllowInsecure: true}
 	if err := (DNSWebhook{URL: srv.URL, Token: "s3"}).Flip(t.Context(), "r"); err == nil || !strings.Contains(err.Error(), "https") {
 		t.Fatalf("a plain http webhook must be refused: %v", err)
 	}
 	if err := d.Flip(t.Context(), "eu-central"); err != nil {
 		t.Fatal(err)
 	}
-	if auth != "Bearer s3" || body["target"] != "eu-central" || body["record"] != "app.passage.example" || body["ttlSeconds"] != float64(60) || body["weight"] != float64(100) {
+	if auth != "Bearer s3" || body["target"] != "eu-central" || body["record"] != "app.depot.example" || body["ttlSeconds"] != float64(60) || body["weight"] != float64(100) {
 		t.Fatalf("auth %q body %v", auth, body)
 	}
 	bad := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(502) }))

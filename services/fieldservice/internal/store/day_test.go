@@ -12,9 +12,9 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/fieldservice/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/fieldservice/internal/domain"
 )
 
 func pngBytes(t *testing.T, w, h int, shade uint8) []byte {
@@ -65,7 +65,7 @@ func (d dispatchFixture) dispatchedWith(t *testing.T, code string, lines []domai
 }
 
 // FR-45.8: the technician's day, photo and signature captures, the checklist gate and the
-// completed event with the truck, against Postgres as passage_app.
+// completed event with the truck, against Postgres as depot_app.
 func TestStore_TechnicianDayCapturesAndChecklist(t *testing.T) {
 	d := newDispatch(t, 31)
 	part := domain.WorkLine{ID: ids.New(), Kind: domain.KindPart, Qty: decimal.NewFromInt(3), UnitPrice: decimal.NewFromInt(20), Description: "Impeller",
@@ -191,7 +191,7 @@ func TestStore_TechnicianDayCapturesAndChecklist(t *testing.T) {
 	var site, product, unit, consumed string
 	if err := dbx.WithTenantTx(d.ctx, d.s.pool, func(tx pgx.Tx) error {
 		return tx.QueryRow(d.ctx, `select payload->'data'->'truck'->>'siteId', payload->'data'->'lines'->0->>'productId', payload->'data'->'lines'->0->>'unit',
-			payload->'data'->'lines'->0->>'consumedQty' from outbox where type = 'dev.passage.service.workorder.completed.v1'`).Scan(&site, &product, &unit, &consumed)
+			payload->'data'->'lines'->0->>'consumedQty' from outbox where type = 'dev.depot.service.workorder.completed.v1'`).Scan(&site, &product, &unit, &consumed)
 	}); err != nil {
 		t.Fatal(err)
 	}

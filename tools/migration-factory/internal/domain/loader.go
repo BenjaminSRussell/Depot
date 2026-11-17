@@ -38,17 +38,17 @@ func AlreadyPresentMessage(n int) string {
 	return fmt.Sprintf("Re-run loaded 0 new records; all %d already present by cross-reference.", n)
 }
 
-// Xref is one legacy_xref row (FR-49.3): the legacy record and the Passage record it became.
+// Xref is one legacy_xref row (FR-49.3): the legacy record and the Depot record it became.
 type Xref struct {
 	XrefID        string
 	SourceSystem  SourceSystem
 	SourceCompany string
 	SourceTable   string
 	SourceID      string
-	PassageEntity string
-	PassageID     string
+	DepotEntity   string
+	DepotID       string
 	RunID         string
 	CreatedAt     time.Time
-	// TargetConfirmed is true once PassageID is the id the target service assigned; until then it is the factory's own.
+	// TargetConfirmed is true once DepotID is the id the target service assigned; until then it is the factory's own.
 	TargetConfirmed bool
 }

@@ -21,11 +21,11 @@ CREATE TABLE IF NOT EXISTS investment_program (
 ALTER TABLE investment_program ENABLE ROW LEVEL SECURITY;
 ALTER TABLE investment_program FORCE ROW LEVEL SECURITY;
 CREATE POLICY investment_program_tenant_access ON investment_program AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY investment_program_legal_entity_scope ON investment_program AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 -- Position codes are unique within a program. plan, actual and commitment are the
 -- sums of the objects assigned to this position directly; the rollup over the
@@ -56,11 +56,11 @@ CREATE INDEX IF NOT EXISTS program_position_parent ON program_position (tenant_i
 ALTER TABLE program_position ENABLE ROW LEVEL SECURITY;
 ALTER TABLE program_position FORCE ROW LEVEL SECURITY;
 CREATE POLICY program_position_tenant_access ON program_position AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY program_position_legal_entity_scope ON program_position AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 -- Capex requests (wave 37), assets under construction and projects (wave 41)
 -- assigned to a position, with the plan, actual and commitment their owning
@@ -86,11 +86,11 @@ CREATE INDEX IF NOT EXISTS program_assignment_position ON program_assignment (te
 ALTER TABLE program_assignment ENABLE ROW LEVEL SECURITY;
 ALTER TABLE program_assignment FORCE ROW LEVEL SECURITY;
 CREATE POLICY program_assignment_tenant_access ON program_assignment AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY program_assignment_legal_entity_scope ON program_assignment AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 -- Unused budget carried to the next approval year: once per position (a program
 -- is one approval year, so once per position and year, BR-38.15).
@@ -113,8 +113,8 @@ CREATE TABLE IF NOT EXISTS investment_carry_forward (
 ALTER TABLE investment_carry_forward ENABLE ROW LEVEL SECURITY;
 ALTER TABLE investment_carry_forward FORCE ROW LEVEL SECURITY;
 CREATE POLICY investment_carry_forward_tenant_access ON investment_carry_forward AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY investment_carry_forward_legal_entity_scope ON investment_carry_forward AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));

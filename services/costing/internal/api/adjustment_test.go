@@ -8,10 +8,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/costing/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/costing/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/costing/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/costing/internal/store"
 )
 
 // slice6 fakes the adjustment and reconciliation stores. Planning against the
@@ -124,7 +124,7 @@ func TestAdjustments_PostRequiresKeyDutyAndScope(t *testing.T) {
 	if m, _ := decodeMap(rec); rec.Code != http.StatusBadRequest || m["errors"].(map[string]any)[idempotencyKey] == nil {
 		t.Errorf("without a key: status %d body %v, want 400 naming %s", rec.Code, m, idempotencyKey)
 	}
-	scoped := map[string]string{idempotencyKey: "adj-1", "X-Passage-Legal-Entity": ids.New()}
+	scoped := map[string]string{idempotencyKey: "adj-1", "X-Depot-Legal-Entity": ids.New()}
 	if rec := call(h, http.MethodPost, "/v1/costing/adjustments", onHandBody(""), adjustDuties, scoped); rec.Code != http.StatusForbidden {
 		t.Errorf("another legal entity: status %d, want 403", rec.Code)
 	}
@@ -246,7 +246,7 @@ func TestAdjustments_ListFilters(t *testing.T) {
 	if rec := call(h, http.MethodGet, "/v1/costing/adjustments?kind=STOCK", "", allDuties, nil); rec.Code != http.StatusBadRequest {
 		t.Errorf("unknown kind status %d, want 400", rec.Code)
 	}
-	scoped := map[string]string{"X-Passage-Legal-Entity": ids.New()}
+	scoped := map[string]string{"X-Depot-Legal-Entity": ids.New()}
 	if rec := call(h, http.MethodGet, "/v1/costing/adjustments?legalEntityId="+repLE, "", allDuties, scoped); rec.Code != http.StatusForbidden {
 		t.Errorf("another legal entity status %d, want 403", rec.Code)
 	}

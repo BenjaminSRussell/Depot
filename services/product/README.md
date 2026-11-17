@@ -1,8 +1,8 @@
 # product
 
-Product information management for Passage (wave 8). Tenant-level products and masters, variant explosion, released products with site/warehouse default cascade, item and item-model groups, attributes, GS1 identifiers, lifecycle process policies, relations, service products, and a constraint configurator (in-process solver; optional Python CP-SAT worker).
+Product information management for Depot (wave 8). Tenant-level products and masters, variant explosion, released products with site/warehouse default cascade, item and item-model groups, attributes, GS1 identifiers, lifecycle process policies, relations, service products, and a constraint configurator (in-process solver; optional Python CP-SAT worker).
 
-Run: `DATABASE_URL=postgres://... MIGRATE_ON_START=true go run ./cmd/product`. Test: `go vet ./... && go test ./...`; store tests need `PASSAGE_TEST_DATABASE_URL`. RLS proof also needs `PASSAGE_TEST_APP_DATABASE_URL` as `passage_app`.
+Run: `DATABASE_URL=postgres://... MIGRATE_ON_START=true go run ./cmd/product`. Test: `go vet ./... && go test ./...`; store tests need `DEPOT_TEST_DATABASE_URL`. RLS proof also needs `DEPOT_TEST_APP_DATABASE_URL` as `depot_app`.
 
 ## Configuration
 
@@ -34,7 +34,7 @@ Run: `DATABASE_URL=postgres://... MIGRATE_ON_START=true go run ./cmd/product`. T
 | `GET /v1/product/uom/convert?product=&from=&to=&qty=` (without `to`: into the product's base unit, which the answer names; #480) | `product.read`, or the service-only `product.uom.convert` (the inventory postings consumer; it reaches nothing else) |
 | `GET /healthz`, `GET /readyz`, `GET /metrics` on the admin port | public |
 
-Contract: `api/openapi.yaml`, `events/asyncapi.yaml`. Paths follow `/v1/<context>/...`. The legal-entity header is `X-Passage-Legal-Entity`.
+Contract: `api/openapi.yaml`, `events/asyncapi.yaml`. Paths follow `/v1/<context>/...`. The legal-entity header is `X-Depot-Legal-Entity`.
 
 Wave 3 metadata and wave 4 Temporal/Kafka are not imported. Explosion runs in-process with 500-row outbox checkpoints. Number sequences and org site/warehouse membership sit behind in-package defaults (manual product numbers; site IDs accepted as UUIDs).
 

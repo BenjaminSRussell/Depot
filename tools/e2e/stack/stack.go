@@ -53,11 +53,11 @@ var services = []service{
 	{name: "purchasing", callers: []string{"receiving", "batch"}},
 	{name: "receiving", env: func(s *Stack) map[string]string {
 		return map[string]string{
-			"PASSAGE_ALLOW_FAKES": "1",
-			"LEDGER_URL":          s.URL("ledger"),
-			"PURCHASING_URL":      s.URL("purchasing"),
-			"PARTY_URL":           s.URL("party"),
-			"POSTING_LEDGER_ID":   s.LedgerID,
+			"DEPOT_ALLOW_FAKES": "1",
+			"LEDGER_URL":        s.URL("ledger"),
+			"PURCHASING_URL":    s.URL("purchasing"),
+			"PARTY_URL":         s.URL("party"),
+			"POSTING_LEDGER_ID": s.LedgerID,
 		}
 	}},
 	{name: "batch", env: func(s *Stack) map[string]string {
@@ -106,7 +106,7 @@ func New(cfg Config) (*Stack, error) {
 		return nil, errors.New("stack: Root and AdminDB are required")
 	}
 	if cfg.DBPrefix == "" {
-		cfg.DBPrefix = "passage"
+		cfg.DBPrefix = "depot"
 	}
 	if cfg.RunDir == "" {
 		cfg.RunDir = filepath.Join(cfg.Root, ".run")
@@ -190,7 +190,7 @@ func (s *Stack) queryOne(service, tenantID, script string, vars map[string]strin
 		args = append(args, "-v", k+"="+v)
 	}
 	cmd := exec.Command("psql", args...)
-	cmd.Stdin = strings.NewReader("SELECT set_config('passage.tenant_id', :'tenant', false) \\gset\nSELECT set_config('passage.legal_entity_scopes', '*', false) \\gset\n" + script)
+	cmd.Stdin = strings.NewReader("SELECT set_config('depot.tenant_id', :'tenant', false) \\gset\nSELECT set_config('depot.legal_entity_scopes', '*', false) \\gset\n" + script)
 	var stderr strings.Builder
 	cmd.Stderr = &stderr
 	out, err := cmd.Output()
@@ -217,10 +217,10 @@ func (s *Stack) ensureDatabase(name string, fresh bool) error {
 	return s.psql("-c", fmt.Sprintf(`CREATE DATABASE "%s"`, db))
 }
 
-// ensureAppRole creates the passage_app role the service migrations grant to. Roles are cluster-wide, so a fresh
+// ensureAppRole creates the depot_app role the service migrations grant to. Roles are cluster-wide, so a fresh
 // Postgres (the compose one) has none, and a CI database already has it from .github/postgres-test-setup.sql.
 func (s *Stack) ensureAppRole() error {
-	return s.psql("-c", `DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN CREATE ROLE passage_app LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD 'passage_app'; END IF; END $$`)
+	return s.psql("-c", `DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN CREATE ROLE depot_app LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD 'depot_app'; END IF; END $$`)
 }
 
 func (s *Stack) Build(ctx context.Context) error {
@@ -263,15 +263,15 @@ func (s *Stack) environ(svc service) ([]string, error) {
 		return nil, err
 	}
 	env := map[string]string{
-		"DATABASE_URL":                dbURL,
-		"MIGRATE_ON_START":            "true",
-		"HTTP_ADDR":                   fmt.Sprintf("127.0.0.1:%d", s.ports[svc.name]),
-		"ADMIN_ADDR":                  fmt.Sprintf("127.0.0.1:%d", s.admin[svc.name]),
-		"PASSAGE_SERVICE_NAME":        svc.name,
-		"PASSAGE_SERVICE_SIGNING_KEY": base64.StdEncoding.EncodeToString(s.seeds[svc.name]),
+		"DATABASE_URL":              dbURL,
+		"MIGRATE_ON_START":          "true",
+		"HTTP_ADDR":                 fmt.Sprintf("127.0.0.1:%d", s.ports[svc.name]),
+		"ADMIN_ADDR":                fmt.Sprintf("127.0.0.1:%d", s.admin[svc.name]),
+		"DEPOT_SERVICE_NAME":        svc.name,
+		"DEPOT_SERVICE_SIGNING_KEY": base64.StdEncoding.EncodeToString(s.seeds[svc.name]),
 	}
 	if len(svc.callers) > 0 {
-		env["PASSAGE_SERVICE_PUBLIC_KEYS"] = s.publicKeys(svc)
+		env["DEPOT_SERVICE_PUBLIC_KEYS"] = s.publicKeys(svc)
 	}
 	if svc.env != nil {
 		for k, v := range svc.env(s) {

@@ -53,17 +53,17 @@ CREATE INDEX IF NOT EXISTS agreement_draw_release ON agreement_draw (tenant_id, 
 ALTER TABLE agreement_draw ENABLE ROW LEVEL SECURITY;
 ALTER TABLE agreement_draw FORCE ROW LEVEL SECURITY;
 CREATE POLICY agreement_draw_tenant_access ON agreement_draw AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY agreement_draw_legal_entity_scope ON agreement_draw AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 -- agreement_draw is append-only: the store only inserts and reads it.
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT ON agreement_draw TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT ON agreement_draw TO depot_app';
   END IF;
 END
 $$;

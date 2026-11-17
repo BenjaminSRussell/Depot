@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/services/engineering/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/engineering/internal/store"
+	"github.com/BenjaminSRussell/depot/services/engineering/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/engineering/internal/store"
 )
 
 const (
@@ -59,7 +59,7 @@ func ecrIn(state domain.EcrState) *fakeStore {
 }
 
 func ecrAct(h http.Handler, action, duties, user, body string) (int, string) {
-	rec := do(h, http.MethodPost, ecrs+"/"+ecrID+":"+action, body, duties, true, "X-Passage-User", user)
+	rec := do(h, http.MethodPost, ecrs+"/"+ecrID+":"+action, body, duties, true, "X-Depot-User", user)
 	return rec.Code, rec.Body.String()
 }
 
@@ -68,7 +68,7 @@ const validEcr = `{"number":"ECR-9","title":"Swap the wheel","reason":"fatigue c
 func TestCreateEcr(t *testing.T) {
 	f := &fakeStore{ecrs: &ecrState{}}
 	r, _ := newRouter(f, approves)
-	rec := do(r, http.MethodPost, ecrs, validEcr, allDuties, true, "X-Passage-User", "rita")
+	rec := do(r, http.MethodPost, ecrs, validEcr, allDuties, true, "X-Depot-User", "rita")
 	if rec.Code != http.StatusCreated || !strings.Contains(rec.Body.String(), `"state":"draft"`) || !strings.Contains(rec.Body.String(), `"requestedBy":"rita"`) {
 		t.Fatalf("create = %d %s", rec.Code, rec.Body)
 	}
@@ -81,14 +81,14 @@ func TestCreateEcr(t *testing.T) {
 		"no product": `{"number":"E","title":"t","priority":"low","products":[]}`,
 		"unknown":    `{"number":"E","title":"t","priority":"low","products":["A"],"state":"approved","extra":1}`,
 	} {
-		if rec := do(r, http.MethodPost, ecrs, body, allDuties, true, "X-Passage-User", "rita"); rec.Code != http.StatusBadRequest {
+		if rec := do(r, http.MethodPost, ecrs, body, allDuties, true, "X-Depot-User", "rita"); rec.Code != http.StatusBadRequest {
 			t.Errorf("%s = %d %s; want 400", name, rec.Code, rec.Body)
 		}
 	}
 	if rec := do(r, http.MethodPost, ecrs, validEcr, allDuties, true); rec.Code != http.StatusUnauthorized {
 		t.Errorf("no user = %d; want 401", rec.Code)
 	}
-	if rec := do(r, http.MethodPost, ecrs, validEcr, "engineering.read", true, "X-Passage-User", "rita"); rec.Code != http.StatusForbidden {
+	if rec := do(r, http.MethodPost, ecrs, validEcr, "engineering.read", true, "X-Depot-User", "rita"); rec.Code != http.StatusForbidden {
 		t.Errorf("read-only = %d; want 403", rec.Code)
 	}
 }
@@ -96,7 +96,7 @@ func TestCreateEcr(t *testing.T) {
 func TestCreateEcr_StateIsNotCallerSupplied(t *testing.T) {
 	f := &fakeStore{ecrs: &ecrState{}}
 	r, _ := newRouter(f, approves)
-	rec := do(r, http.MethodPost, ecrs, strings.Replace(validEcr, `"products"`, `"state":"approved","requestedBy":"mallory","products"`, 1), allDuties, true, "X-Passage-User", "rita")
+	rec := do(r, http.MethodPost, ecrs, strings.Replace(validEcr, `"products"`, `"state":"approved","requestedBy":"mallory","products"`, 1), allDuties, true, "X-Depot-User", "rita")
 	if rec.Code != http.StatusCreated || f.ecrs.list[0].State != domain.EcrDraft || f.ecrs.list[0].RequestedBy != "rita" {
 		t.Fatalf("create = %d %s %+v", rec.Code, rec.Body, f.ecrs.list)
 	}
@@ -218,12 +218,12 @@ func TestEcrWorkflow_StoreFailures(t *testing.T) {
 func TestCreateEco_FromEcr(t *testing.T) {
 	r, _ := newRouter(&fakeStore{}, approves)
 	body := `{"number":"ECO-1","ecrId":"` + ecrID + `","replaces":[{"oldVersionId":"` + oldVersion + `","newVersionId":"` + newVersion + `"}]}`
-	rec := do(r, http.MethodPost, ecos, body, allDuties, true, "X-Passage-User", "rita")
+	rec := do(r, http.MethodPost, ecos, body, allDuties, true, "X-Depot-User", "rita")
 	if rec.Code != http.StatusCreated || !strings.Contains(rec.Body.String(), `"ecrId":"`+ecrID+`"`) {
 		t.Fatalf("create from ecr = %d %s", rec.Code, rec.Body)
 	}
 	bad := strings.Replace(body, ecrID, "not-a-uuid", 1)
-	if rec := do(r, http.MethodPost, ecos, bad, allDuties, true, "X-Passage-User", "rita"); rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "ecrId") {
+	if rec := do(r, http.MethodPost, ecos, bad, allDuties, true, "X-Depot-User", "rita"); rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "ecrId") {
 		t.Fatalf("bad ecr id = %d %s", rec.Code, rec.Body)
 	}
 }

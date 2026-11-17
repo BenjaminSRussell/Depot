@@ -8,10 +8,10 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/services/processmfg/internal/domain"
-	pmfevents "github.com/BenjaminSRussell/passage/services/processmfg/internal/events"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/services/processmfg/internal/domain"
+	pmfevents "github.com/BenjaminSRussell/depot/services/processmfg/internal/events"
 )
 
 // Share is one recipient of an ended order's batch cost (BR-24.3).

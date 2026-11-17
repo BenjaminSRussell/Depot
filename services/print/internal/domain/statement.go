@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/ids"
 )
 
 // Scheduled statements (#46, 46-4): a schedule renders the statement of every customer of one legal entity that has open

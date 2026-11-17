@@ -1,4 +1,4 @@
-# evals (wave 47, PSG-47)
+# evals (wave 47, DPT-47)
 
 The eval harness for the copilot and agents (PRD 9.47 FR-47.9, BR-47.8). A
 release that fails a threshold is blocked.

@@ -3,8 +3,8 @@
 
 DO $do$
 BEGIN
-  IF current_user = 'passage_app' THEN
-    RAISE EXCEPTION 'agents migrations must run as the owner role, not passage_app';
+  IF current_user = 'depot_app' THEN
+    RAISE EXCEPTION 'agents migrations must run as the owner role, not depot_app';
   END IF;
 END
 $do$;
@@ -182,18 +182,18 @@ ALTER TABLE agent_run FORCE ROW LEVEL SECURITY;
 ALTER TABLE agent_action ENABLE ROW LEVEL SECURITY;
 ALTER TABLE agent_action FORCE ROW LEVEL SECURITY;
 CREATE POLICY agent_action_tenant_access ON agent_action AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- The application role reaches agent_action only through the parent (partitions carry no grant). Versions are
 -- append-only for it; eval runs are read-only, so a pod can never record a passing eval for itself.
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT ON agent_action TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT ON agent_version TO passage_app';
-    EXECUTE 'GRANT SELECT ON eval_run TO passage_app';
-    EXECUTE 'GRANT EXECUTE ON FUNCTION agent_action_ensure_partitions(integer) TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT ON agent_action TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT ON agent_version TO depot_app';
+    EXECUTE 'GRANT SELECT ON eval_run TO depot_app';
+    EXECUTE 'GRANT EXECUTE ON FUNCTION agent_action_ensure_partitions(integer) TO depot_app';
   END IF;
 END
 $$;

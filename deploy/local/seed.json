@@ -4,9 +4,9 @@
   "users": [
     {
       "username": "admin",
-      "password": "passage-admin-dev",
+      "password": "depot-admin-dev",
       "sub": "00000000-0000-0000-0000-0000000000a1",
-      "email": "admin@passage.localhost",
+      "email": "admin@depot.localhost",
       "firstName": "Ada",
       "lastName": "Admin",
       "tier": "standard",
@@ -44,9 +44,9 @@
     },
     {
       "username": "clerk",
-      "password": "passage-clerk-dev",
+      "password": "depot-clerk-dev",
       "sub": "00000000-0000-0000-0000-0000000000c1",
-      "email": "clerk@passage.localhost",
+      "email": "clerk@depot.localhost",
       "firstName": "Cole",
       "lastName": "Clerk",
       "tier": "standard",

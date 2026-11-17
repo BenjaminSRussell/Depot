@@ -9,12 +9,12 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/ledgerclient"
+	"github.com/BenjaminSRussell/depot/platform/ledgerclient"
 )
 
 // Compensating journals of a rolled-back cutover (FR-49.9, D9). When a cutover is ROLLED_BACK the
-// Passage journals posted since T-0 go back to the legacy system for re-keying; each one is
-// compensated in the Passage ledger by an entry with the same accounts and amounts on the opposite
+// Depot journals posted since T-0 go back to the legacy system for re-keying; each one is
+// compensated in the Depot ledger by an entry with the same accounts and amounts on the opposite
 // side, so the ledger no longer carries what the legacy system will hold again. The lines are
 // derived from the stored re-keying lines, never from the request.
 

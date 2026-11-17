@@ -10,13 +10,13 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
 )
 
 func testSigner(t *testing.T) *tenant.ServiceSigner {
 	t.Helper()
 	s, err := tenant.ServiceSignerFromEnv(func(k string) string {
-		return map[string]string{"PASSAGE_SERVICE_NAME": "consolidation", "PASSAGE_SERVICE_SIGNING_KEY": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="}[k]
+		return map[string]string{"DEPOT_SERVICE_NAME": "consolidation", "DEPOT_SERVICE_SIGNING_KEY": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="}[k]
 	})
 	if err != nil || s == nil {
 		t.Fatalf("signer: %v %v", s, err)

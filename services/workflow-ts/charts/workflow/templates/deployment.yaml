@@ -13,7 +13,7 @@ spec:
     metadata:
       labels:
         app.kubernetes.io/name: workflow
-        passage.dev/temporal-client: "true"
+        depot.dev/temporal-client: "true"
     spec:
       automountServiceAccountToken: false
       securityContext:
@@ -48,7 +48,7 @@ spec:
             capabilities:
               drop: [ALL]
           env:
-            {{- include "passage.cloudEnv" $ | nindent 12 }}
+            {{- include "depot.cloudEnv" $ | nindent 12 }}
             - name: TEMPORAL_ADDRESS
               value: {{ .Values.temporal.address | quote }}
             - name: TEMPORAL_NAMESPACE
@@ -61,14 +61,14 @@ spec:
             - { name: QUALITY_BASE_URL, value: {{ .Values.qualityUrl | quote }} }
             - { name: TRANSPORT_BASE_URL, value: {{ .Values.transportUrl | quote }} }
             - { name: PARTY_BASE_URL, value: {{ .Values.partyUrl | quote }} }
-            - { name: PASSAGE_SERVICE_NAME, value: workflow-ts }
+            - { name: DEPOT_SERVICE_NAME, value: workflow-ts }
 {{- if .Values.agentsPublicKeys }}
-            - { name: PASSAGE_SERVICE_PUBLIC_KEYS, value: {{ .Values.agentsPublicKeys | quote }} }
+            - { name: DEPOT_SERVICE_PUBLIC_KEYS, value: {{ .Values.agentsPublicKeys | quote }} }
 {{- end }}
 {{- if .Values.serviceIdentity.signingKeySecret }}
-            - { name: PASSAGE_SERVICE_SIGNING_KEY_FILE, value: /var/run/passage/service-identity/signing-key }
+            - { name: DEPOT_SERVICE_SIGNING_KEY_FILE, value: /var/run/depot/service-identity/signing-key }
 {{- if .Values.serviceIdentity.keyId }}
-            - { name: PASSAGE_SERVICE_KEY_ID, value: {{ .Values.serviceIdentity.keyId | quote }} }
+            - { name: DEPOT_SERVICE_KEY_ID, value: {{ .Values.serviceIdentity.keyId | quote }} }
 {{- end }}
 {{- end }}
 {{- if .Values.kafka.brokers }}
@@ -77,17 +77,17 @@ spec:
             - { name: WORKFLOW_DLQ_TOPIC, value: {{ .Values.kafka.dlqTopic | quote }} }
 {{- if .Values.kafka.secret }}
             - { name: KAFKA_USERNAME, value: {{ .Values.kafka.username | quote }} }
-            - { name: KAFKA_PASSWORD_FILE, value: /var/run/passage/kafka/password }
-            - { name: KAFKA_TLS_CA_FILE, value: /var/run/passage/kafka/ca.crt }
+            - { name: KAFKA_PASSWORD_FILE, value: /var/run/depot/kafka/password }
+            - { name: KAFKA_TLS_CA_FILE, value: /var/run/depot/kafka/ca.crt }
 {{- end }}
 {{- end }}
 {{- if or .Values.serviceIdentity.signingKeySecret .Values.kafka.secret }}
           volumeMounts:
 {{- if .Values.serviceIdentity.signingKeySecret }}
-            - { name: service-identity, mountPath: /var/run/passage/service-identity, readOnly: true }
+            - { name: service-identity, mountPath: /var/run/depot/service-identity, readOnly: true }
 {{- end }}
 {{- if .Values.kafka.secret }}
-            - { name: kafka, mountPath: /var/run/passage/kafka, readOnly: true }
+            - { name: kafka, mountPath: /var/run/depot/kafka, readOnly: true }
 {{- end }}
 {{- end }}
           ports:

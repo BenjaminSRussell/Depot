@@ -1,8 +1,8 @@
 package events
 
 const (
-	ReconciliationMatched   = "dev.passage.treasury.reconciliation.matched.v1"
-	ReconciliationUnmatched = "dev.passage.treasury.reconciliation.unmatched.v1"
+	ReconciliationMatched   = "dev.depot.treasury.reconciliation.matched.v1"
+	ReconciliationUnmatched = "dev.depot.treasury.reconciliation.unmatched.v1"
 )
 
 // ReconciliationMatchedData is the payload of ReconciliationMatched, published

@@ -64,13 +64,13 @@ describe("signing a PI step needs a fresh sign-in", () => {
     expect(screen.queryByText("The step was not saved")).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Sign in again" }));
     expect(auth.reauthenticate).toHaveBeenCalledOnce();
-    expect(sessionStorage.getItem(`passage.pi.resume.${RECIPE}`)).toBe("1");
+    expect(sessionStorage.getItem(`depot.pi.resume.${RECIPE}`)).toBe("1");
     view.unmount();
 
     // After the sign-in the page loads again: the sheet opens on the signature step, once.
     mount(vi.fn().mockResolvedValue(undefined), true);
     expect(await screen.findByText("Step 2 of 2")).toBeInTheDocument();
-    expect(sessionStorage.getItem(`passage.pi.resume.${RECIPE}`)).toBeNull();
+    expect(sessionStorage.getItem(`depot.pi.resume.${RECIPE}`)).toBeNull();
   });
 
   it("says to sign in again by hand where the build has no sign-in, and shows other failures as before", async () => {

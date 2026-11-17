@@ -10,12 +10,12 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/party/internal/api"
-	"github.com/BenjaminSRussell/passage/services/party/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/party/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/party/internal/api"
+	"github.com/BenjaminSRussell/depot/services/party/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/party/internal/store"
 )
 
 const (
@@ -108,8 +108,8 @@ func TestCustomerRoutes_ValidationReplayAndConflict(t *testing.T) {
 		t.Errorf("unknown field: %d", rec.Code)
 	}
 	req := httptest.NewRequest(http.MethodPost, path, strings.NewReader(customerBody))
-	req.Header.Set("X-Passage-Tenant", testkit.TenantID(1))
-	req.Header.Set("X-Passage-Duties", "party.write")
+	req.Header.Set("X-Depot-Tenant", testkit.TenantID(1))
+	req.Header.Set("X-Depot-Duties", "party.write")
 	req.Header.Set("Idempotency-Key", "k-1")
 	rec := httptest.NewRecorder()
 	r.ServeHTTP(rec, req)
@@ -211,7 +211,7 @@ func TestMigrationLoader_CreatesPartyVendorAndCustomerInItsOwnLegalEntity(t *tes
 	}
 	vendor := `{"accountNumber":"V-1","vendorGroupId":"` + vendorGroup + `","currencyCode":"USD"}`
 	// A header naming another legal entity must not move the role: the token's wins.
-	hdr := map[string]string{"X-Passage-Legal-Entity": other, "Idempotency-Key": "row-17"}
+	hdr := map[string]string{"X-Depot-Legal-Entity": other, "Idempotency-Key": "row-17"}
 	if rec := m.call(t, le, http.MethodPost, partiesPath+"/"+knownID+"/vendor", vendor, hdr); rec.Code != http.StatusCreated || m.vendors.partyID != knownID || m.vendors.key != "row-17" || m.vendors.hash == "" {
 		t.Fatalf("vendor: %d %s key=%q", rec.Code, rec.Body, m.vendors.key)
 	}
@@ -305,8 +305,8 @@ func TestVendorRoutes_IdempotencyKeyReachesTheStore(t *testing.T) {
 	f := &fakeVendors{}
 	r := vendorRouter(f)
 	req := httptest.NewRequest(http.MethodPost, partiesPath+"/"+knownID+"/vendor", strings.NewReader(`{"accountNumber":"V-1","vendorGroupId":"`+vendorGroup+`","currencyCode":"usd"}`))
-	req.Header.Set("X-Passage-Tenant", testkit.TenantID(1))
-	req.Header.Set("X-Passage-Duties", "party.write")
+	req.Header.Set("X-Depot-Tenant", testkit.TenantID(1))
+	req.Header.Set("X-Depot-Duties", "party.write")
 	req.Header.Set("Idempotency-Key", "v-1")
 	rec := httptest.NewRecorder()
 	r.ServeHTTP(rec, req)

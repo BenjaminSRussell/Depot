@@ -2,7 +2,7 @@
 
 ## 8.0 Phase overview
 
-**Business outcome at phase exit.** At the end of wave 45 the demo group (manufacturer plus the engineering-services entity added in wave 41) runs project operations, HR core, payroll, expense management, plant maintenance and field service on Passage, with every financial effect posted through the universal journal (wave 11) and reconciled daily. A project manager plans a WBS, books resources, captures time and expense, bills by T&M, fixed-price milestone or retainer, and recognizes revenue by percentage-of-completion. An HR administrator manages workers, positions and jobs with effective dating; employees self-serve absence and benefits. A payroll administrator runs a US gross-to-net cycle that matches IRS Publication 15-T to the cent and posts to the GL. A maintenance planner keeps plant machines on preventive and counter-based plans whose work orders cost to the asset and GL. A service coordinator dispatches field technicians under SLA with OR-Tools, and technicians execute offline on a PWA. This phase is where Passage reaches parity with AX Project management and accounting, HR, Payroll, Expense management, D365 Asset Management and Service management, and with SAP PS, HCM PA/OM/PT, PY, Concur, PM and CS/FSM.
+**Business outcome at phase exit.** At the end of wave 45 the demo group (manufacturer plus the engineering-services entity added in wave 41) runs project operations, HR core, payroll, expense management, plant maintenance and field service on Depot, with every financial effect posted through the universal journal (wave 11) and reconciled daily. A project manager plans a WBS, books resources, captures time and expense, bills by T&M, fixed-price milestone or retainer, and recognizes revenue by percentage-of-completion. An HR administrator manages workers, positions and jobs with effective dating; employees self-serve absence and benefits. A payroll administrator runs a US gross-to-net cycle that matches IRS Publication 15-T to the cent and posts to the GL. A maintenance planner keeps plant machines on preventive and counter-based plans whose work orders cost to the asset and GL. A service coordinator dispatches field technicians under SLA with OR-Tools, and technicians execute offline on a PWA. This phase is where Depot reaches parity with AX Project management and accounting, HR, Payroll, Expense management, D365 Asset Management and Service management, and with SAP PS, HCM PA/OM/PT, PY, Concur, PM and CS/FSM.
 
 **Phase-exit sign-off criteria**
 - Percentage-of-completion estimate fixtures (12 projects, 4 periods each) match the accountant-reviewed workbook to 0.01 USD/EUR per period.
@@ -30,15 +30,15 @@
 
 | Event (CloudEvents type) | Producer | Consumers | Payload summary |
 |---|---|---|---|
-| `dev.passage.projects.transaction.posted.v1` | projects | journal, analytics, expense (link-back) | projectId, wbsId, txType, qty, cost, salesPrice, currency, journalId |
-| `dev.passage.hr.employment.changed.v1` | hr | payroll, projects (resource validity), service (technician), Keycloak sync | workerId, employmentId, action, effectiveFrom, effectiveTo |
-| `dev.passage.hr.absence.approved.v1` | hr | time (wave 25), projects (availability), payroll (paid-leave earnings) | workerId, planId, from, to, hours |
-| `dev.passage.payroll.run.posted.v1` | payroll | journal, bank (wave 36), analytics | payRunId, payCycleId, grossTotal, netTotal, employerTaxTotal, journalId |
-| `dev.passage.expense.report.approved.v1` | expense | ap (wave 18), projects | reportId, workerId, totalAmount, currency, lines[] |
-| `dev.passage.eam.request.created.v1` | eam (or IoT bridge) | service desk UI, notifications | requestId, assetId, source, severity, readingValue |
-| `dev.passage.eam.workorder.completed.v1` | eam | journal (cost settlement), fixed assets, scheduling (wave 23) capacity release | workOrderId, assetId, partsCost, laborCost, downtimeMinutes |
-| `dev.passage.service.sla.breached.v1` | service | notifications, analytics | caseId or workOrderId, slaType, dueAt, breachedAt |
-| `dev.passage.service.dispatch.published.v1` | dispatch | technician PWA, service | scheduleDate, assignments[] (workOrderId, technicianId, start, end) |
+| `dev.depot.projects.transaction.posted.v1` | projects | journal, analytics, expense (link-back) | projectId, wbsId, txType, qty, cost, salesPrice, currency, journalId |
+| `dev.depot.hr.employment.changed.v1` | hr | payroll, projects (resource validity), service (technician), Keycloak sync | workerId, employmentId, action, effectiveFrom, effectiveTo |
+| `dev.depot.hr.absence.approved.v1` | hr | time (wave 25), projects (availability), payroll (paid-leave earnings) | workerId, planId, from, to, hours |
+| `dev.depot.payroll.run.posted.v1` | payroll | journal, bank (wave 36), analytics | payRunId, payCycleId, grossTotal, netTotal, employerTaxTotal, journalId |
+| `dev.depot.expense.report.approved.v1` | expense | ap (wave 18), projects | reportId, workerId, totalAmount, currency, lines[] |
+| `dev.depot.eam.request.created.v1` | eam (or IoT bridge) | service desk UI, notifications | requestId, assetId, source, severity, readingValue |
+| `dev.depot.eam.workorder.completed.v1` | eam | journal (cost settlement), fixed assets, scheduling (wave 23) capacity release | workOrderId, assetId, partsCost, laborCost, downtimeMinutes |
+| `dev.depot.service.sla.breached.v1` | service | notifications, analytics | caseId or workOrderId, slaType, dueAt, breachedAt |
+| `dev.depot.service.dispatch.published.v1` | dispatch | technician PWA, service | scheduleDate, assignments[] (workOrderId, technicianId, start, end) |
 
 **Phase-level risks**
 
@@ -61,7 +61,7 @@ Out of scope: grant management beyond customer funding sources with limits; proj
 
 **Pain points solved (10x lens)**
 
-| Pain point in AX/SAP today | Root cause | Passage answer in this wave | Measurable 10x target |
+| Pain point in AX/SAP today | Root cause | Depot answer in this wave | Measurable 10x target |
 |---|---|---|---|
 | AX invoice proposal (ProjProposalJour via "Create invoice proposal" dialog) takes 9–12 clicks per project and silently skips transactions whose line property changed after posting; SAP DP90 requires a DIP profile (ODP1) that most sites never get right, so billing runs produce missing lines nobody notices until the customer disputes | Selection is a batch class with no explainable predicate; eligibility state lives on the transaction and is mutated by other processes | Declarative billing rules with a stated predicate (BR-41.3), a "why not billed" explain endpoint per transaction, and proposals built in one action from the project workspace | Clicks 12 → 2 per proposal; omitted-billable-transaction rate 0 (property test); dispute rate attributable to billing errors −90% |
 | Fixed-price estimates (ProjEstimate, "Create estimate" periodic job; SAP KKA2 + CJ88) run as month-end batch taking 1–4 h on 2,000 projects; reversal (ProjEstimate "Reverse") and re-run is manual and frequently leaves orphan WIP | Batch framework; estimate and settlement are two separate steps with separate postings | Estimate run as a Temporal workflow per project with idempotent reverse-and-rerun in one call; WIP projection reconciled nightly to GL | Estimate run 4 h → < 10 min for 2,000 projects; orphan WIP incidents 0; re-run effort 30 min → 1 click |
@@ -72,7 +72,7 @@ Out of scope: grant management beyond customer funding sources with limits; proj
 
 ### 8.41.2 AX / SAP parity map
 
-| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Passage equivalent | Parity |
+| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Depot equivalent | Parity |
 |---|---|---|---|---|
 | Project master and hierarchy | ProjTable, ProjGroup, ProjType (TimeMaterial, FixedPrice, Internal, Cost, Investment, Time), form ProjTable | PROJ (project definition), PRPS (WBS elements), CJ20N Project Builder | `projects` service, `Project` entity, screen Projects › Project | full |
 | WBS and scheduling | ProjWBS, ProjPlanVersion, ProjWBSActivityEstimate | PRPS, AUFK networks, AFVC activities, CJ20N | `WbsNode`, `WbsDependency`, CPM scheduler | full |
@@ -247,13 +247,13 @@ Commands validate: journal lines must reference a project in IN_PROCESS; categor
 
 | Event | Trigger | Payload fields | Consumers |
 |---|---|---|---|
-| `dev.passage.projects.transaction.posted.v1` | journal/document posted | see 8.0 | journal, analytics, expense |
-| `dev.passage.projects.invoice-proposal.posted.v1` | proposal → POSTED | proposalId, invoiceId, lines[] | invoicing (wave 29), analytics |
-| `dev.passage.projects.estimate.posted.v1` | estimate posted or reversed | estimateId, projectId, periodId, pocPercent, revenueThisPeriod, journalId, reversed | journal, analytics |
-| `dev.passage.projects.wbs.scheduled.v1` | scheduler run | projectId, planVersionId, criticalPath[], finishDate | resource planning, notifications |
-| `dev.passage.projects.timesheet.submitted.v1` | timesheet SUBMITTED | timesheetId, workerId, periodId, totalHours, projectIds[] | workflow (wave 4), notifications |
-| `dev.passage.projects.change-order.applied.v1` | change order APPLIED | changeOrderId, projectId, contractValueDelta, budgetDelta, newBaselineVersionId | budget control (wave 38), analytics |
-| `dev.passage.projects.retention.released.v1` | release proposal POSTED | projectId, partyId, releasedAmount, invoiceId | invoicing, AP |
+| `dev.depot.projects.transaction.posted.v1` | journal/document posted | see 8.0 | journal, analytics, expense |
+| `dev.depot.projects.invoice-proposal.posted.v1` | proposal → POSTED | proposalId, invoiceId, lines[] | invoicing (wave 29), analytics |
+| `dev.depot.projects.estimate.posted.v1` | estimate posted or reversed | estimateId, projectId, periodId, pocPercent, revenueThisPeriod, journalId, reversed | journal, analytics |
+| `dev.depot.projects.wbs.scheduled.v1` | scheduler run | projectId, planVersionId, criticalPath[], finishDate | resource planning, notifications |
+| `dev.depot.projects.timesheet.submitted.v1` | timesheet SUBMITTED | timesheetId, workerId, periodId, totalHours, projectIds[] | workflow (wave 4), notifications |
+| `dev.depot.projects.change-order.applied.v1` | change order APPLIED | changeOrderId, projectId, contractValueDelta, budgetDelta, newBaselineVersionId | budget control (wave 38), analytics |
+| `dev.depot.projects.retention.released.v1` | release proposal POSTED | projectId, partyId, releasedAmount, invoiceId | invoicing, AP |
 
 ### 8.41.6 User experience
 
@@ -331,11 +331,11 @@ Reconciliation: Σ transactions cost by project = project cost subledger = GL co
 
 ### 8.41.10 Deployment and operations
 
-Helm chart `passage-projects` (API, scheduler worker, estimate worker), Postgres cluster `projects` (CloudNativePG, 3 replicas), Atlas migration `projects/0001_initial`. Config: `PROJ_SCHEDULER_MAX_NODES=5000`, `PROJ_PROPOSAL_BATCH=500`. Feature flags: `projects.intercompany-hours`, `projects.funding-limits`. Temporal schedules: nightly `projects-reconcile` 02:00 tenant-local, `committed-cost-refresh` every 60 s. SLOs: journal post p95 < 400 ms for 100 lines; proposal build p95 < 5 s for 5,000 candidates; availability 99.9%. Alerts: reconciliation variance ≠ 0; estimate run failure; outbox lag > 60 s. Runbook: re-run estimate (reverse then run), rebuild committed cost projection from events. Rollback: Argo digest rollback; migrations are additive within the wave.
+Helm chart `depot-projects` (API, scheduler worker, estimate worker), Postgres cluster `projects` (CloudNativePG, 3 replicas), Atlas migration `projects/0001_initial`. Config: `PROJ_SCHEDULER_MAX_NODES=5000`, `PROJ_PROPOSAL_BATCH=500`. Feature flags: `projects.intercompany-hours`, `projects.funding-limits`. Temporal schedules: nightly `projects-reconcile` 02:00 tenant-local, `committed-cost-refresh` every 60 s. SLOs: journal post p95 < 400 ms for 100 lines; proposal build p95 < 5 s for 5,000 candidates; availability 99.9%. Alerts: reconciliation variance ≠ 0; estimate run failure; outbox lag > 60 s. Runbook: re-run estimate (reverse then run), rebuild committed cost projection from events. Rollback: Argo digest rollback; migrations are additive within the wave.
 
 ### 8.41.11 Migration from AX / SAP
 
-| Source | Passage entity | Notes |
+| Source | Depot entity | Notes |
 |---|---|---|
 | ProjTable, ProjGroup, ProjType | Project, ProjectGroup | Status map: Created→CREATED, InProcess→IN_PROCESS, Finished→FINISHED |
 | ProjWBS, ProjPlanVersion | WbsNode, PlanVersion | AX activity numbers → wbs_code |
@@ -550,7 +550,7 @@ Coverage closure (8.42.21) narrows those exclusions as follows: an internal cour
 
 **Pain points solved (10x lens)**
 
-| Pain point in AX/SAP today | Root cause | Passage answer in this wave | Measurable 10x target |
+| Pain point in AX/SAP today | Root cause | Depot answer in this wave | Measurable 10x target |
 |---|---|---|---|
 | AX HcmPositionWorkerAssignment edits in the Position form require "Maintain versions" dialogs; as-of reporting needs SQL over ValidFrom/ValidTo and routinely returns two managers for a day because ranges are inclusive-inclusive; SAP PA30 infotype splits (BEGDA/ENDDA) produce the same overlap at delimit time | Date-effective framework with inclusive end dates and no exclusion constraints | `[from, to)` ranges with Postgres exclusion constraints; one `as-of` endpoint; org chart with a date picker | Duplicate/overlapping manager answers 0 (property test over 50,000 dates); as-of query p95 < 50 ms vs 2–5 s SSRS reports |
 | Hire in AX takes 25+ clicks across Worker, Employment, Position assignment, Compensation and User relation forms; SAP PA40 hire action walks 8–12 infotype screens and aborts midway on validation, leaving a partial employee | Action not modeled as a unit; each screen commits separately | One `PersonnelAction` with a diff, workflow approval, and atomic apply (future-dated via Temporal); SCIM provisions the user automatically | Clicks 25 → 4; partial-hire records 0; user provisioning 1–2 days manual → < 60 s |
@@ -560,7 +560,7 @@ Coverage closure (8.42.21) narrows those exclusions as follows: an internal cour
 
 ### 8.42.2 AX / SAP parity map
 
-| Capability | AX 2012 / D365 | SAP ECC / S/4 | Passage equivalent | Parity |
+| Capability | AX 2012 / D365 | SAP ECC / S/4 | Depot equivalent | Parity |
 |---|---|---|---|---|
 | Worker/person | HcmWorker, DirPerson, HcmPersonPrivateDetails | PA0002 Personal Data, PA0006 Address | `Worker` (links wave-7 party person), `WorkerPII` vault | full |
 | Employment | HcmEmployment (ValidFrom/To), HcmEmploymentDetail | PA0000 Actions, PA0001 Org Assignment | `Employment` (effective-dated) | full |
@@ -725,13 +725,13 @@ Validation: action effective date may be future-dated up to 365 days; terminatio
 
 | Event | Trigger | Payload | Consumers |
 |---|---|---|---|
-| `dev.passage.hr.employment.changed.v1` | action applied | see 8.0 | payroll, projects, service, SCIM |
-| `dev.passage.hr.position.assignment.changed.v1` | assignment start/end | workerId, positionId, validity, managerPositionId | authorization (manager roles), workflow routing |
-| `dev.passage.hr.absence.approved.v1` | request approved | workerId, planId, from, to, hours | time, projects, payroll |
-| `dev.passage.hr.benefit.enrollment.changed.v1` | enrollment start/end | workerId, planId, option, validity, employeeRate | payroll deductions |
-| `dev.passage.hr.course.completed.v1` | registration ATTENDED with PASS | workerId, courseId, sessionId, skills[], certificationId | wave-45 dispatch skills, notifications |
-| `dev.passage.hr.incident.reported.v1` | incident created | incidentId, siteId, severity, oshaRecordable, assetId | EHS notifications, wave-44 asset history |
-| `dev.passage.hr.compensation.cycle.applied.v1` | cycle APPLIED | cycleId, effectiveDate, actionIds[] | payroll (wave 43), budget (wave 38) |
+| `dev.depot.hr.employment.changed.v1` | action applied | see 8.0 | payroll, projects, service, SCIM |
+| `dev.depot.hr.position.assignment.changed.v1` | assignment start/end | workerId, positionId, validity, managerPositionId | authorization (manager roles), workflow routing |
+| `dev.depot.hr.absence.approved.v1` | request approved | workerId, planId, from, to, hours | time, projects, payroll |
+| `dev.depot.hr.benefit.enrollment.changed.v1` | enrollment start/end | workerId, planId, option, validity, employeeRate | payroll deductions |
+| `dev.depot.hr.course.completed.v1` | registration ATTENDED with PASS | workerId, courseId, sessionId, skills[], certificationId | wave-45 dispatch skills, notifications |
+| `dev.depot.hr.incident.reported.v1` | incident created | incidentId, siteId, severity, oshaRecordable, assetId | EHS notifications, wave-44 asset history |
+| `dev.depot.hr.compensation.cycle.applied.v1` | cycle APPLIED | cycleId, effectiveDate, actionIds[] | payroll (wave 43), budget (wave 38) |
 
 ### 8.42.6 User experience
 
@@ -813,11 +813,11 @@ Reconciliation: Σ absence usage = approved request hours = wave-25 absence time
 
 ### 8.42.10 Deployment and operations
 
-Chart `passage-hr` (API, workflow worker, SCIM worker, ESS BFF), Postgres `hr` with schema `hr_pii` under a separate role and Vault-managed key. Flags: `hr.performance`. Schedules: `hr-apply-actions` 00:00 tenant-local, `hr-accrue` per plan frequency, `hr-cert-expiry` daily. SLOs: as-of query p95 < 50 ms; ESS page p95 < 300 ms; availability 99.9%. Alerts: action application failures; PII decrypt errors; SCIM lag > 5 min. Runbook: replay actions from event log; rotate tenant PII key (re-encrypt job). Rollback by digest; `hr_pii` migrations never drop columns.
+Chart `depot-hr` (API, workflow worker, SCIM worker, ESS BFF), Postgres `hr` with schema `hr_pii` under a separate role and Vault-managed key. Flags: `hr.performance`. Schedules: `hr-apply-actions` 00:00 tenant-local, `hr-accrue` per plan frequency, `hr-cert-expiry` daily. SLOs: as-of query p95 < 50 ms; ESS page p95 < 300 ms; availability 99.9%. Alerts: action application failures; PII decrypt errors; SCIM lag > 5 min. Runbook: replay actions from event log; rotate tenant PII key (re-encrypt job). Rollback by digest; `hr_pii` migrations never drop columns.
 
 ### 8.42.11 Migration from AX / SAP
 
-| Source | Passage entity | Notes |
+| Source | Depot entity | Notes |
 |---|---|---|
 | HcmWorker, DirPerson, HcmPersonPrivateDetails | Worker, WorkerPII | PII to vault at load time |
 | HcmEmployment, HcmEmploymentDetail | Employment | ValidFrom/ValidTo → validity range |
@@ -1049,7 +1049,7 @@ Out of scope: country packs beyond US and the EU reference (DE assumed, see open
 
 **Pain points solved (10x lens)**
 
-| Pain point in AX/SAP today | Root cause | Passage answer in this wave | Measurable 10x target |
+| Pain point in AX/SAP today | Root cause | Depot answer in this wave | Measurable 10x target |
 |---|---|---|---|
 | AX 2012 payroll tax updates arrive as hotfix-delivered PayrollTaxCode data (Ceridian engine) with no diff view; SAP PY tax changes ship as HR support packs (BSI TUBs) that require a Basis transport cycle and regression of schemas/PCRs; a wrong table version is discovered only when net pay looks wrong | Rules embedded in code/transports, not versioned data | Rule sets as signed, versioned JSON packs with diff, publish approval and a frozen binding on each run (PayStatement.rule_version per line) | Tax-table deployment 1–2 weeks transport cycle → < 1 h; mis-versioned runs 0 (binding recorded on every line) |
 | Gross-to-net results are opaque: AX pay statement lines do not show basis or bracket; SAP RT (PC_PAYRESULT) shows wage types only decipherable by a payroll consultant | No explain path from result to rule | Each `PayResultLine` stores basis_amount, rule_version and bracket; statement viewer drills to the rule | "Why is my tax X?" tickets resolved by admin in < 2 min vs consultant escalation; 200/200 fixtures explainable |
@@ -1060,7 +1060,7 @@ Out of scope: country packs beyond US and the EU reference (DE assumed, see open
 
 ### 8.43.2 AX / SAP parity map
 
-| Capability | AX 2012 / D365 | SAP ECC / S/4 | Passage equivalent | Parity |
+| Capability | AX 2012 / D365 | SAP ECC / S/4 | Depot equivalent | Parity |
 |---|---|---|---|---|
 | Pay cycles and periods | PayrollPayCycle, PayrollPayPeriod | Payroll area, period parameters (T549A/T549Q) | `PayCycle`, `PayPeriod` | full |
 | Earnings | PayrollEarningCode, PayrollEarningCodeRate, earning statements | Wage types (T512W), PCR rules | `EarningCode` (rule set versioned) | full |
@@ -1172,13 +1172,13 @@ Validation: calculate requires HR cutoff passed and all time registrations for t
 
 | Event | Trigger | Payload | Consumers |
 |---|---|---|---|
-| `dev.passage.payroll.run.posted.v1` | GL post | see 8.0 | journal, bank, analytics |
-| `dev.passage.payroll.statement.finalized.v1` | finalize | statementId, workerId, net, payDate | ESS, provider adapter |
-| `dev.passage.expense.report.approved.v1` | approval | see 8.0 | ap, projects |
-| `dev.passage.expense.policy.violated.v1` | BLOCK outcome at submit | reportId, lineId, ruleId, outcome | analytics, audit |
-| `dev.passage.expense.cash-advance.paid.v1` | AP prepayment paid | advanceId, workerId, amount, currency, prepaymentId | expense settlement, analytics |
-| `dev.passage.payroll.claim.created.v1` | negative net on recalculation | claimId, workerId, taxYear, gross, net | payroll admin notifications, AR (direct repayment) |
-| `dev.passage.payroll.statutory-aggregate.closed.v1` | quarter/year aggregate reconciled | legalEntityId, formCode, period, totals | wave-48 country pack filing |
+| `dev.depot.payroll.run.posted.v1` | GL post | see 8.0 | journal, bank, analytics |
+| `dev.depot.payroll.statement.finalized.v1` | finalize | statementId, workerId, net, payDate | ESS, provider adapter |
+| `dev.depot.expense.report.approved.v1` | approval | see 8.0 | ap, projects |
+| `dev.depot.expense.policy.violated.v1` | BLOCK outcome at submit | reportId, lineId, ruleId, outcome | analytics, audit |
+| `dev.depot.expense.cash-advance.paid.v1` | AP prepayment paid | advanceId, workerId, amount, currency, prepaymentId | expense settlement, analytics |
+| `dev.depot.payroll.claim.created.v1` | negative net on recalculation | claimId, workerId, taxYear, gross, net | payroll admin notifications, AR (direct repayment) |
+| `dev.depot.payroll.statutory-aggregate.closed.v1` | quarter/year aggregate reconciled | legalEntityId, formCode, period, totals | wave-48 country pack filing |
 
 ### 8.43.6 User experience
 
@@ -1253,11 +1253,11 @@ Reconciliation: Σ statement net = payment batch; Σ tax lines by jurisdiction =
 
 ### 8.43.10 Deployment and operations
 
-Charts `passage-payroll` (Go API, Temporal calc workers, statement renderer) and `passage-expense` (TS API, OCR Python worker, feed importer); Postgres `payroll` (encrypted bank columns via `hr_pii` key pattern) and `expense`. Rule-set packs delivered as signed JSON bundles (`rulesets/us/2025.1.json`) loaded by migration job. Flags: `payroll.de-pack`, `payroll.provider-adapter`, `expense.ocr`. Schedules: `payroll-cutoff-reminder`, `expense-card-import` hourly (SFTP pull), `expense-aging` daily. SLOs: calculate 10k workers < 10 min; statement fetch p95 < 200 ms; policy evaluation p95 < 100 ms per line. Alerts: calculation failures; tax table pack missing for period end; card import failures. Runbook: re-run calculation from DRAFT; reissue payment batch; rotate SFTP keys. Rollback by digest; FINALIZED data is never altered by migrations.
+Charts `depot-payroll` (Go API, Temporal calc workers, statement renderer) and `depot-expense` (TS API, OCR Python worker, feed importer); Postgres `payroll` (encrypted bank columns via `hr_pii` key pattern) and `expense`. Rule-set packs delivered as signed JSON bundles (`rulesets/us/2025.1.json`) loaded by migration job. Flags: `payroll.de-pack`, `payroll.provider-adapter`, `expense.ocr`. Schedules: `payroll-cutoff-reminder`, `expense-card-import` hourly (SFTP pull), `expense-aging` daily. SLOs: calculate 10k workers < 10 min; statement fetch p95 < 200 ms; policy evaluation p95 < 100 ms per line. Alerts: calculation failures; tax table pack missing for period end; card import failures. Runbook: re-run calculation from DRAFT; reissue payment batch; rotate SFTP keys. Rollback by digest; FINALIZED data is never altered by migrations.
 
 ### 8.43.11 Migration from AX / SAP
 
-| Source | Passage entity | Notes |
+| Source | Depot entity | Notes |
 |---|---|---|
 | PayrollPayCycle, PayrollPayPeriod | PayCycle, PayPeriod | |
 | PayrollEarningCode, PayrollTaxCode, PayrollBenefit | EarningCode, TaxRuleSet mapping, DeductionCode | AX tax engine codes mapped to jurisdictions |
@@ -1455,7 +1455,7 @@ Out of scope: predictive ML models (hooks only), calibration management, fleet m
 
 **Pain points solved (10x lens)**
 
-| Pain point in AX/SAP today | Root cause | Passage answer in this wave | Measurable 10x target |
+| Pain point in AX/SAP today | Root cause | Depot answer in this wave | Measurable 10x target |
 |---|---|---|---|
 | SAP IP10/IP30 deadline monitoring is a batch job (RISTRA20) run daily or weekly; calls are generated late or in bursts and counter-based plans need IK11 readings entered by hand; D365 "Schedule maintenance plans" is likewise a batch with a fixed horizon | Scheduling is periodic recalculation, not event-driven | Scheduler runs on every completion/reading event plus nightly; forecast from rolling usage; algorithm stated in BR-44.1 | Call latency 1–7 days batch → < 60 s after triggering event; 40/40 plan fixtures exact |
 | Creating a corrective work order in D365 Asset Management from a request takes 8–10 clicks across Maintenance request → Work order → Job → Lines; SAP IW21 → IW31 → components → IW32 release is 4 transactions | Request and order are separate forms with re-keyed fields | Request triage converts to a WO in one action carrying asset, location, symptom, parts and checklist | Clicks 10 → 2; re-keyed fields 0 |
@@ -1465,7 +1465,7 @@ Out of scope: predictive ML models (hooks only), calibration management, fleet m
 
 ### 8.44.2 AX / SAP parity map
 
-| Capability | AX / D365 | SAP ECC / S/4 | Passage equivalent | Parity |
+| Capability | AX / D365 | SAP ECC / S/4 | Depot equivalent | Parity |
 |---|---|---|---|---|
 | Functional locations | EntAssetFunctionalLocation, types, structure | IFLOT, IFLOTX, IL01/IL02 | `FunctionalLocation` (ltree path) | full |
 | Assets/equipment | EntAssetObject, EntAssetObjectType, asset lifecycle states | EQUI, EQKT, IE01/IE02, equipment categories | `Asset` with `AssetType` and lifecycle | full |
@@ -1610,14 +1610,14 @@ Validation: readings for cumulative counters must be ≥ last_reading else `EAM-
 
 | Event | Trigger | Payload | Consumers |
 |---|---|---|---|
-| `dev.passage.eam.request.created.v1` | request created | see 8.0 | planner UI, notifications |
-| `dev.passage.eam.workorder.status.changed.v1` | transition | workOrderId, from, to, at, actor | mobile, analytics |
-| `dev.passage.eam.workorder.completed.v1` | COMPLETED | see 8.0 | journal, fixed assets, scheduling |
-| `dev.passage.eam.counter.reading.registered.v1` | reading | counterId, assetId, value, at, source | plan scheduler, condition rules |
-| `dev.passage.eam.downtime.recorded.v1` | downtime on resource | resourceId, from, to, workOrderId | scheduling (wave 23), OEE (wave 25) |
-| `dev.passage.eam.permit.status.changed.v1` | permit transition | permitId, workOrderId, from, to, at, actor | mobile, safety notifications |
-| `dev.passage.eam.warranty.claimable.v1` | covered WO completed | workOrderId, assetId, warrantyId, vendorPartyId, coveredParts, coveredLabor | service (FR-45.15 supplier claims) |
-| `dev.passage.eam.budget.calculated.v1` | budget calculation done | budgetVersion, scope, periods[], total | budgeting (wave 38) |
+| `dev.depot.eam.request.created.v1` | request created | see 8.0 | planner UI, notifications |
+| `dev.depot.eam.workorder.status.changed.v1` | transition | workOrderId, from, to, at, actor | mobile, analytics |
+| `dev.depot.eam.workorder.completed.v1` | COMPLETED | see 8.0 | journal, fixed assets, scheduling |
+| `dev.depot.eam.counter.reading.registered.v1` | reading | counterId, assetId, value, at, source | plan scheduler, condition rules |
+| `dev.depot.eam.downtime.recorded.v1` | downtime on resource | resourceId, from, to, workOrderId | scheduling (wave 23), OEE (wave 25) |
+| `dev.depot.eam.permit.status.changed.v1` | permit transition | permitId, workOrderId, from, to, at, actor | mobile, safety notifications |
+| `dev.depot.eam.warranty.claimable.v1` | covered WO completed | workOrderId, assetId, warrantyId, vendorPartyId, coveredParts, coveredLabor | service (FR-45.15 supplier claims) |
+| `dev.depot.eam.budget.calculated.v1` | budget calculation done | budgetVersion, scope, periods[], total | budgeting (wave 38) |
 
 ### 8.44.6 User experience
 
@@ -1694,11 +1694,11 @@ Reconciliation: Σ WO costs by account = GL maintenance accounts; Σ parts issue
 
 ### 8.44.10 Deployment and operations
 
-Chart `passage-eam` (Go API, scheduler worker, condition engine consumer, mobile BFF); Postgres `eam` with ltree and monthly partitions on readings. Flags: `eam.capital-wo`, `eam.predictive-hooks`. Schedules: `eam-plan-schedule` nightly 01:00 site-local plus event-driven; `eam-kpi-rollup` hourly. SLOs: condition engine p95 < 5 s; WO status API p95 < 200 ms; availability 99.9%. Alerts: scheduler run failure; condition consumer lag > 30 s; emergency WO not regularized in 24 h. Runbook: replay readings from Kafka by offset; re-run scheduler for a plan. Rollback by digest.
+Chart `depot-eam` (Go API, scheduler worker, condition engine consumer, mobile BFF); Postgres `eam` with ltree and monthly partitions on readings. Flags: `eam.capital-wo`, `eam.predictive-hooks`. Schedules: `eam-plan-schedule` nightly 01:00 site-local plus event-driven; `eam-kpi-rollup` hourly. SLOs: condition engine p95 < 5 s; WO status API p95 < 200 ms; availability 99.9%. Alerts: scheduler run failure; condition consumer lag > 30 s; emergency WO not regularized in 24 h. Runbook: replay readings from Kafka by offset; re-run scheduler for a plan. Rollback by digest.
 
 ### 8.44.11 Migration from AX / SAP
 
-| Source | Passage entity | Notes |
+| Source | Depot entity | Notes |
 |---|---|---|
 | EntAssetFunctionalLocation | FunctionalLocation | |
 | EntAssetObject, EntAssetObjectType | Asset, AssetType | lifecycle state map |
@@ -1895,7 +1895,7 @@ Coverage closure (8.45.21) adds the cross-module case framework that earlier wav
 
 **Pain points solved (10x lens)**
 
-| Pain point in AX/SAP today | Root cause | Passage answer in this wave | Measurable 10x target |
+| Pain point in AX/SAP today | Root cause | Depot answer in this wave | Measurable 10x target |
 |---|---|---|---|
 | AX SMADispatchBoard is a manual Gantt: a dispatcher drags each SMAServiceOrderTable row by hand, with no skill or travel check; SAP FSM/RSO optimization is a separate licensed product with its own master data sync | No optimizer in the ERP; duplicated technician master | OR-Tools CP-SAT dispatch inside the service domain using wave-42 skills and wave-16 truck stock (BR-45.3) | Dispatch time per territory-day 2–3 h → < 30 s solve + 10 min review; skill/window violations 0 |
 | Entitlement: AX service orders pick the agreement the user chooses (SMAServiceOrderTable.ServiceAgreementId) with no SLA clock; SAP CS warranty check (IW31 "warranty" pop-up) is informational and SLA profiles live in CRM only | No deterministic entitlement or SLA engine in ERP | Resolver (BR-45.1) and business-hour SLA clocks with pause states and breach events (BR-45.2) | Wrong-agreement billing 0 on fixtures; SLA breaches discovered after the fact → warning at 75% |
@@ -1905,7 +1905,7 @@ Coverage closure (8.45.21) adds the cross-module case framework that earlier wav
 
 ### 8.45.2 AX / SAP parity map
 
-| Capability | AX / D365 | SAP ECC / S/4 | Passage equivalent | Parity |
+| Capability | AX / D365 | SAP ECC / S/4 | Depot equivalent | Parity |
 |---|---|---|---|---|
 | Installed base / service objects | SMAServiceObjectTable, SMAServiceObjectRelationTable; D365 FS customer assets | IBase (IBIN/IBIB), equipment with customer, serial numbers (SERI) | `ServiceObject` from wave-28 shipment serials | full |
 | Warranties | Limited (SMAServiceObject + agreement) ; D365 FS warranties | Warranty master (BGMK), warranty check on order | `Warranty` (parts/labor/travel, start trigger) | improved |
@@ -2028,14 +2028,14 @@ Validation: case creation requires a customer; dispatch run requires all WOs to 
 
 | Event | Trigger | Payload | Consumers |
 |---|---|---|---|
-| `dev.passage.service.case.opened.v1` | case created | caseId, customerId, priority, agreementId, responseDue, resolutionDue | notifications, analytics |
-| `dev.passage.service.sla.breached.v1` | breach monitor | see 8.0 | notifications, analytics |
-| `dev.passage.service.dispatch.published.v1` | publish | see 8.0 | PWA, customer notifications |
-| `dev.passage.service.workorder.completed.v1` | complete action | workOrderId, technicianId, lines[], firstTimeFix, durationMinutes | billing, inventory (truck consumption), KPIs |
-| `dev.passage.service.workorder.posted.v1` | billing post | workOrderId, invoiceId, billableTotal, warrantyCost, entitlementConsumed | invoicing, analytics |
-| `dev.passage.case.stage.changed.v1` | stage transition (any category) | caseId, categoryId, from, to, at, actor | workflow, notifications, domain owners (HR, collections, audit) |
-| `dev.passage.knowledge.article.published.v1` | article PUBLISHED | articleId, version, language, applicability | search index, copilot retrieval (wave 47) |
-| `dev.passage.service.supplier-claim.settled.v1` | credit note matched | claimId, vendorId, claimedAmount, recoveredAmount | analytics, GL warranty recovery |
+| `dev.depot.service.case.opened.v1` | case created | caseId, customerId, priority, agreementId, responseDue, resolutionDue | notifications, analytics |
+| `dev.depot.service.sla.breached.v1` | breach monitor | see 8.0 | notifications, analytics |
+| `dev.depot.service.dispatch.published.v1` | publish | see 8.0 | PWA, customer notifications |
+| `dev.depot.service.workorder.completed.v1` | complete action | workOrderId, technicianId, lines[], firstTimeFix, durationMinutes | billing, inventory (truck consumption), KPIs |
+| `dev.depot.service.workorder.posted.v1` | billing post | workOrderId, invoiceId, billableTotal, warrantyCost, entitlementConsumed | invoicing, analytics |
+| `dev.depot.case.stage.changed.v1` | stage transition (any category) | caseId, categoryId, from, to, at, actor | workflow, notifications, domain owners (HR, collections, audit) |
+| `dev.depot.knowledge.article.published.v1` | article PUBLISHED | articleId, version, language, applicability | search index, copilot retrieval (wave 47) |
+| `dev.depot.service.supplier-claim.settled.v1` | credit note matched | claimId, vendorId, claimedAmount, recoveredAmount | analytics, GL warranty recovery |
 
 ### 8.45.6 User experience
 
@@ -2110,11 +2110,11 @@ Reconciliation: Σ POSTED billable = wave-29 invoices with source SWO; Σ warran
 
 ### 8.45.10 Deployment and operations
 
-Charts `passage-service` (TS API, breach monitor, mobile BFF) and `passage-dispatch` (Python OR-Tools worker, OSRM sidecar with regional extracts); Postgres `service` with PostGIS. Flags: `service.allow-negative-truck`. Schedules: `service-sla-monitor` every 60 s; `service-dispatch-auto` 18:00 territory-local for next day; `service-truck-replenish` nightly. SLOs: case create p95 < 300 ms; dispatch run ≤ 30 s; PWA sync p95 < 2 s per 100 actions; availability 99.9%. Alerts: SLA monitor lag > 2 min; solver fallback rate > 10%; OSRM unavailable. Runbook: re-run dispatch with greedy; replay mobile actions; refresh OSRM extract. Rollback by digest; dispatch runs are versioned and republishable.
+Charts `depot-service` (TS API, breach monitor, mobile BFF) and `depot-dispatch` (Python OR-Tools worker, OSRM sidecar with regional extracts); Postgres `service` with PostGIS. Flags: `service.allow-negative-truck`. Schedules: `service-sla-monitor` every 60 s; `service-dispatch-auto` 18:00 territory-local for next day; `service-truck-replenish` nightly. SLOs: case create p95 < 300 ms; dispatch run ≤ 30 s; PWA sync p95 < 2 s per 100 actions; availability 99.9%. Alerts: SLA monitor lag > 2 min; solver fallback rate > 10%; OSRM unavailable. Runbook: re-run dispatch with greedy; replay mobile actions; refresh OSRM extract. Rollback by digest; dispatch runs are versioned and republishable.
 
 ### 8.45.11 Migration from AX / SAP
 
-| Source | Passage entity | Notes |
+| Source | Depot entity | Notes |
 |---|---|---|
 | SMAServiceObjectTable, SMAServiceObjectRelationTable | ServiceObject | link to inventory serials where found |
 | SMAServiceAgreementTable/Line, SMAAgreementLine | ServiceAgreement, lines | interval lines → preventive visit WOs |

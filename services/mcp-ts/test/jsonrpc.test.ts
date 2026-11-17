@@ -5,15 +5,15 @@ import { principal, readTool, rig } from "./fixtures.js";
 
 const catalog = () =>
   buildCatalog([
-    readTool("passage.ap.invoice.list", "APInvoiceRead"),
-    readTool("passage.ledger.journal.get", "LedgerRead"),
+    readTool("depot.ap.invoice.list", "APInvoiceRead"),
+    readTool("depot.ledger.journal.get", "LedgerRead"),
   ]);
 
 describe("MCP JSON-RPC handler", () => {
   it("tools/list returns only the tools the caller may use", async () => {
     const r = rig(catalog());
     const res = await handleRpc(r.deps, principal(["LedgerRead"]), { jsonrpc: "2.0", id: 1, method: "tools/list" });
-    expect(res).toMatchObject({ result: { tools: [{ name: "passage.ledger.journal.get" }] } });
+    expect(res).toMatchObject({ result: { tools: [{ name: "depot.ledger.journal.get" }] } });
   });
 
   it("tools/call without the duty answers with the 403 mapping and the API is not called", async () => {
@@ -22,7 +22,7 @@ describe("MCP JSON-RPC handler", () => {
       jsonrpc: "2.0",
       id: "a",
       method: "tools/call",
-      params: { name: "passage.ap.invoice.list", arguments: {} },
+      params: { name: "depot.ap.invoice.list", arguments: {} },
     });
     expect(res).toMatchObject({ error: { code: RPC.forbidden, data: { status: 403, code: "AGT-0203" } } });
     expect(r.upstream.calls).toHaveLength(0);
@@ -35,7 +35,7 @@ describe("MCP JSON-RPC handler", () => {
       jsonrpc: "2.0",
       id: 2,
       method: "tools/call",
-      params: { name: "passage.ap.invoice.list", arguments: {} },
+      params: { name: "depot.ap.invoice.list", arguments: {} },
     });
     expect(res).toMatchObject({ result: { isError: false, content: [{ type: "text", text: '{"items":[1]}' }] } });
   });
@@ -59,6 +59,6 @@ describe("MCP JSON-RPC handler", () => {
   it("initialize advertises the tools capability", async () => {
     const r = rig(catalog());
     const res = await handleRpc(r.deps, principal([]), { jsonrpc: "2.0", id: 5, method: "initialize" });
-    expect(res).toMatchObject({ result: { capabilities: { tools: { listChanged: false } }, serverInfo: { name: "passage-mcp" } } });
+    expect(res).toMatchObject({ result: { capabilities: { tools: { listChanged: false } }, serverInfo: { name: "depot-mcp" } } });
   });
 });

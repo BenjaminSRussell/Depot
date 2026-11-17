@@ -31,17 +31,17 @@ CREATE INDEX IF NOT EXISTS advanced_rule_structure ON advanced_rule (tenant_id, 
 ALTER TABLE advanced_rule ENABLE ROW LEVEL SECURITY;
 ALTER TABLE advanced_rule FORCE ROW LEVEL SECURITY;
 CREATE POLICY advanced_rule_tenant_access ON advanced_rule AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY advanced_rule_legal_entity_scope ON advanced_rule AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 -- Rules are inserted and updated in place while the structure is a draft; never deleted.
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON advanced_rule TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON advanced_rule TO depot_app';
   END IF;
 END
 $$;

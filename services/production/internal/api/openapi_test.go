@@ -10,14 +10,14 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/services/production/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/production/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/services/production/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/production/internal/store"
 )
 
 var specOperation = regexp.MustCompile(`^    (get|put|post|patch|delete):$`)
 
-// declaredOperations reads "path method" → has x-passage-duty from the paths section.
+// declaredOperations reads "path method" → has x-depot-duty from the paths section.
 func declaredOperations(spec string) map[string]bool {
 	declared := map[string]bool{}
 	inPaths, path, operation := false, "", ""
@@ -33,7 +33,7 @@ func declaredOperations(spec string) map[string]bool {
 		case specOperation.MatchString(line):
 			operation = path + " " + specOperation.FindStringSubmatch(line)[1]
 			declared[operation] = false
-		case operation != "" && strings.HasPrefix(line, "      x-passage-duty: "):
+		case operation != "" && strings.HasPrefix(line, "      x-depot-duty: "):
 			declared[operation] = true
 		}
 	}
@@ -92,7 +92,7 @@ func TestOpenAPIMatchesTheRouter(t *testing.T) {
 		if hasDuty, ok := declared[op]; !ok {
 			problems = append(problems, "not documented: "+op)
 		} else if !hasDuty {
-			problems = append(problems, "no x-passage-duty: "+op)
+			problems = append(problems, "no x-depot-duty: "+op)
 		}
 	}
 	for op := range declared {

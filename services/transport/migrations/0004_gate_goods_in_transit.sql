@@ -57,8 +57,8 @@ CREATE INDEX IF NOT EXISTS gate_visit_checked_in ON gate_visit (tenant_id, check
 ALTER TABLE gate_visit ENABLE ROW LEVEL SECURITY;
 ALTER TABLE gate_visit FORCE ROW LEVEL SECURITY;
 CREATE POLICY gate_visit_tenant_access ON gate_visit AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- The gate log (GateEvent): check-in, seal, check-out and every blocked
 -- check-out attempt (AC-34.12). Append-only: the application role may only
@@ -90,8 +90,8 @@ CREATE TRIGGER gate_event_no_change BEFORE UPDATE OR DELETE ON gate_event
 ALTER TABLE gate_event ENABLE ROW LEVEL SECURITY;
 ALTER TABLE gate_event FORCE ROW LEVEL SECURITY;
 CREATE POLICY gate_event_tenant_access ON gate_event AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- Goods-in-transit order (GoodsInTransitOrder): receipt lines of a voyage that
 -- move to the in-transit warehouse at an origin transfer event (BR-34.11).
@@ -128,8 +128,8 @@ CREATE INDEX IF NOT EXISTS goods_in_transit_order_created ON goods_in_transit_or
 ALTER TABLE goods_in_transit_order ENABLE ROW LEVEL SECURITY;
 ALTER TABLE goods_in_transit_order FORCE ROW LEVEL SECURITY;
 CREATE POLICY goods_in_transit_order_tenant_access ON goods_in_transit_order AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- A voyage receipt line is on at most one goods-in-transit order (the primary
 -- key), so its ownership cannot move twice, also under concurrent requests.
@@ -144,14 +144,14 @@ CREATE TABLE IF NOT EXISTS goods_in_transit_line (
 ALTER TABLE goods_in_transit_line ENABLE ROW LEVEL SECURITY;
 ALTER TABLE goods_in_transit_line FORCE ROW LEVEL SECURITY;
 CREATE POLICY goods_in_transit_line_tenant_access ON goods_in_transit_line AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON gate_visit, goods_in_transit_order, goods_in_transit_line TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT ON gate_event TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON gate_visit, goods_in_transit_order, goods_in_transit_line TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT ON gate_event TO depot_app';
   END IF;
 END
 $$;

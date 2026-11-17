@@ -29,7 +29,7 @@ export const GATEWAY_STATUS_TONES: Record<GatewayStatus, BadgeTone> = {
 
 const BRANDS: Record<string, string> = { visa: "Visa", mastercard: "Mastercard", amex: "American Express", discover: "Discover", jcb: "JCB", diners: "Diners Club", unionpay: "UnionPay" };
 
-/** "Visa ending 4242, expires 12/2030" or "Bank account at STRIPE TEST BANK ending 6789": the only card or bank facts Passage keeps. */
+/** "Visa ending 4242, expires 12/2030" or "Bank account at STRIPE TEST BANK ending 6789": the only card or bank facts Depot keeps. */
 export function methodText(g: GatewayPayment): string {
   if (g.method === "ACH") {
     const bank = g.bankName ? ` at ${g.bankName}` : "";

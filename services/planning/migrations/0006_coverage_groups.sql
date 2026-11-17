@@ -33,5 +33,5 @@ CREATE TABLE IF NOT EXISTS coverage_group (
 ALTER TABLE coverage_group ENABLE ROW LEVEL SECURITY;
 ALTER TABLE coverage_group FORCE ROW LEVEL SECURITY;
 CREATE POLICY coverage_group_tenant_access ON coverage_group AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);

@@ -1,5 +1,5 @@
 import { createElement } from "react";
-import type { PassageModule } from "../registry";
+import type { DepotModule } from "../registry";
 import { EditPrinterPage } from "./EditPrinterPage";
 import { NewPrintDocumentPage } from "./NewPrintDocumentPage";
 import { NewPrinterPage } from "./NewPrinterPage";
@@ -13,7 +13,7 @@ import { PrintJobDetailPage } from "./PrintJobDetailPage";
 import { PrintJobsPage } from "./PrintJobsPage";
 import { RoutingRulesPage } from "./RoutingRulesPage";
 
-const mobileFlows: PassageModule = {
+const mobileFlows: DepotModule = {
   id: "mobile-flows",
   title: "Mobile flows",
   description:

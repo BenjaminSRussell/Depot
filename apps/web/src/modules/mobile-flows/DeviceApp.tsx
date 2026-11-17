@@ -101,7 +101,7 @@ export interface AppProps {
   flows?: readonly FlowDraft[];
   /** Device menu id (GET /mobile/v1/menus/{id}). Defaults to `default`. */
   menuId?: string;
-  /** The warehouse the device is bound to (a UUID). Defaults to `localStorage["passage.warehouseId"]`; without one the device runs without a service session. */
+  /** The warehouse the device is bound to (a UUID). Defaults to `localStorage["depot.warehouseId"]`; without one the device runs without a service session. */
   warehouseId?: string;
   /** A headset's speech engine (FR-32.9): the step prompt is spoken and utterances answer the step. */
   voice?: VoiceAdapter;
@@ -148,7 +148,7 @@ export function DeviceApp({ deviceId, userId, flows, menuId = DEFAULT_MENU_ID, w
   const rfid = useRef(new RfidAggregator());
   const onScanRef = useRef<(raw: string, source: ScanSource) => void>(() => undefined);
   const onVoiceRef = useRef<(text: string) => void>(() => undefined);
-  const warehouse = warehouseId ?? readSetting("passage.warehouseId");
+  const warehouse = warehouseId ?? readSetting("depot.warehouseId");
   const applier = useMemo(
     () => makeApplier({ userId, sessionId: () => keeperRef.current?.sessionId, onStop: (stop) => (stopRef.current = stop) }),
     [userId],
@@ -426,7 +426,7 @@ export function DeviceApp({ deviceId, userId, flows, menuId = DEFAULT_MENU_ID, w
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [voice, flow?.code, stepId]);
   const waiting = queue ? queue.snapshot().filter((t) => t.replayStatus !== "APPLIED" && !t.resolved).length : 0;
-  const largeTargets = readFlag("passage.largeTargets");
+  const largeTargets = readFlag("depot.largeTargets");
   const layout = { "--font-base": `${fontSizePx(18, largeTargets)}px`, "--target": `${targetSizePx(largeTargets)}px` } as CSSProperties;
 
   return (

@@ -59,11 +59,11 @@ CREATE TRIGGER cost_adjustment_no_update BEFORE UPDATE OR DELETE ON cost_adjustm
 ALTER TABLE cost_adjustment ENABLE ROW LEVEL SECURITY;
 ALTER TABLE cost_adjustment FORCE ROW LEVEL SECURITY;
 CREATE POLICY cost_adjustment_tenant_access ON cost_adjustment AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY cost_adjustment_legal_entity_scope ON cost_adjustment AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 -- One stored tie-out of the value report against ledger balances (the run of
 -- costing.reconcile, or a manual one). body is the run as served, rows
@@ -100,8 +100,8 @@ CREATE TRIGGER reconciliation_run_no_update BEFORE UPDATE OR DELETE ON reconcili
 ALTER TABLE reconciliation_run ENABLE ROW LEVEL SECURITY;
 ALTER TABLE reconciliation_run FORCE ROW LEVEL SECURITY;
 CREATE POLICY reconciliation_run_tenant_access ON reconciliation_run AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY reconciliation_run_legal_entity_scope ON reconciliation_run AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));

@@ -6,11 +6,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/fieldservice/internal/domain"
-	svcevents "github.com/BenjaminSRussell/passage/services/fieldservice/internal/events"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/fieldservice/internal/domain"
+	svcevents "github.com/BenjaminSRussell/depot/services/fieldservice/internal/events"
 )
 
 // userCtx is a caller of tenant n with a user id and duties and no legal-entity scope.
@@ -43,10 +43,10 @@ func hrSetup(t *testing.T, s *Postgres, ctx context.Context, window int) (Proces
 	return proc, cat
 }
 
-// AC-45.10 against Postgres as passage_app: the HR case starts at INTAKE, moves to
+// AC-45.10 against Postgres as depot_app: the HR case starts at INTAKE, moves to
 // INVESTIGATION, is refused RESOLUTION with CASE-STG-001 while the Interview is OPEN
 // and advances after it is DONE. Every move is logged, emits
-// dev.passage.case.stage.changed.v1 and replays under its Idempotency-Key.
+// dev.depot.case.stage.changed.v1 and replays under its Idempotency-Key.
 func TestStore_GenericCaseStageGate(t *testing.T) {
 	s, _ := newSliceStore(t, 41)
 	hr := ids.New()
@@ -356,7 +356,7 @@ func TestStore_GenericCaseAssociationsListAndSLA(t *testing.T) {
 	}
 }
 
-// Generic cases under RLS as passage_app: another tenant sees no process, category
+// Generic cases under RLS as depot_app: another tenant sees no process, category
 // or case, and a caller scoped to another legal entity sees none of the entity's cases.
 func TestStore_GenericCaseTenantAndLegalEntityIsolation(t *testing.T) {
 	s, _ := newSliceStore(t, 45)

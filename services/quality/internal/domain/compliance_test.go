@@ -8,7 +8,7 @@ import (
 	"github.com/shopspring/decimal"
 	"pgregory.net/rapid"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/ids"
 )
 
 // dehp is bis(2-ethylhexyl) phthalate, a REACH SVHC; lead and cadmium are RoHS substances.

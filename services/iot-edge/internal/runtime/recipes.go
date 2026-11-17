@@ -11,7 +11,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/services/iot-edge/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/iot-edge/internal/domain"
 )
 
 // Control recipes on the edge (FR-25.15, FR-25.19, BR-25.15). The connector pulls the recipes sent to its

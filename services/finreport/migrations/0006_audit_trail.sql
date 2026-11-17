@@ -1,4 +1,4 @@
--- PSG-1506 (wave 15, slice 6): audit trail (FR-15.10, AuditTrailEntry).
+-- DPT-1506 (wave 15, slice 6): audit trail (FR-15.10, AuditTrailEntry).
 -- One row per audited event: ledger kinds (posted, approvals, reversals,
 -- period changes and reopen approvals, rate overrides, tax fallbacks,
 -- allocation, year-end and rebuild runs) arrive from other services' events
@@ -36,5 +36,5 @@ CREATE UNIQUE INDEX IF NOT EXISTS audit_trail_entry_source_event ON audit_trail_
 ALTER TABLE audit_trail_entry ENABLE ROW LEVEL SECURITY;
 ALTER TABLE audit_trail_entry FORCE ROW LEVEL SECURITY;
 CREATE POLICY audit_trail_entry_tenant_access ON audit_trail_entry AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);

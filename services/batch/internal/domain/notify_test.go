@@ -64,10 +64,10 @@ func TestDigestAndEscalationEmail(t *testing.T) {
 }
 
 func TestAllowlisted(t *testing.T) {
-	if !Allowlisted("a@passage.dev", []string{"passage.dev"}) {
+	if !Allowlisted("a@depot.dev", []string{"depot.dev"}) {
 		t.Fatal("expected allow")
 	}
-	if Allowlisted("a@example.com", []string{"passage.dev"}) {
+	if Allowlisted("a@example.com", []string{"depot.dev"}) {
 		t.Fatal("expected deny")
 	}
 }

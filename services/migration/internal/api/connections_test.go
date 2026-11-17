@@ -16,14 +16,14 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/fieldcrypt"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/migration/internal/api"
-	"github.com/BenjaminSRussell/passage/services/migration/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/migration/internal/egress"
-	"github.com/BenjaminSRussell/passage/services/migration/internal/probe"
-	"github.com/BenjaminSRussell/passage/services/migration/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/fieldcrypt"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/api"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/egress"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/probe"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/store"
 )
 
 const (
@@ -31,7 +31,7 @@ const (
 	connWrite    = "migration.run,migration.connection.write,migration.project.write,tenant.administer"
 	connReadOnly = "migration.run,tenant.administer"
 	sentinel     = "Sup3r-S3cret-sentinel-9f2c"
-	acmeSQL      = `{"name":"Acme ERP","kind":"sql","sourceSystem":"custom_acme","config":{"driver":"postgres","host":"erp.acme.example","port":5432,"database":"erp","user":"passage","sslmode":"require","timezone":"Europe/Berlin","codepage":"windows-1252"}}`
+	acmeSQL      = `{"name":"Acme ERP","kind":"sql","sourceSystem":"custom_acme","config":{"driver":"postgres","host":"erp.acme.example","port":5432,"database":"erp","user":"depot","sslmode":"require","timezone":"Europe/Berlin","codepage":"windows-1252"}}`
 )
 
 type connBody struct {
@@ -147,7 +147,7 @@ func TestConnections_CreateReplayGetListAndPatch(t *testing.T) {
 	if rec := patch(`{"name":"x"}`); rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), `"version"`) {
 		t.Fatalf("patch without version = %d %s", rec.Code, rec.Body)
 	}
-	up := patch(`{"version":1,"name":"Acme ERP prod","status":"disabled","config":{"driver":"postgres","host":"erp2.acme.example","database":"erp","user":"passage"}}`)
+	up := patch(`{"version":1,"name":"Acme ERP prod","status":"disabled","config":{"driver":"postgres","host":"erp2.acme.example","database":"erp","user":"depot"}}`)
 	if up.Code != http.StatusOK {
 		t.Fatalf("patch = %d %s", up.Code, up.Body)
 	}
@@ -207,7 +207,7 @@ func TestConnections_RejectionsAndDuties(t *testing.T) {
 			}
 		})
 	}
-	if rec := do(r, http.MethodPost, connPath, acmeSQL, connWrite, true, "X-Passage-Legal-Entity", testkit.TenantID(7)); rec.Code != http.StatusForbidden {
+	if rec := do(r, http.MethodPost, connPath, acmeSQL, connWrite, true, "X-Depot-Legal-Entity", testkit.TenantID(7)); rec.Code != http.StatusForbidden {
 		t.Fatalf("legal-entity-scoped caller = %d", rec.Code)
 	}
 	if rec := do(r, http.MethodGet, connPath, "", "migration.run", true); rec.Code != http.StatusForbidden {
@@ -348,7 +348,7 @@ func TestConnections_PatchThatRepointsTheProfileClearsTheSecret(t *testing.T) {
 	r := connRouter(s, testKeys(t), p)
 	c := createConn(t, r, acmeSQL)
 	do(r, http.MethodPut, connPath+"/"+c.ID+"/secret", `{"secret":"`+sentinel+`"}`, connWrite, true)
-	cfg := `"driver":"postgres","host":"erp.acme.example","port":5432,"database":"erp","user":"passage","sslmode":"require"`
+	cfg := `"driver":"postgres","host":"erp.acme.example","port":5432,"database":"erp","user":"depot","sslmode":"require"`
 	kept := do(r, http.MethodPatch, connPath+"/"+c.ID, `{"version":2,"name":"Acme ERP prod","config":{`+cfg+`,"timezone":"UTC"}}`, connWrite, true)
 	if got := decodeConn(t, kept); kept.Code != http.StatusOK || !got.SecretSet || got.Version != 3 {
 		t.Fatalf("a rename and a timezone keep the secret: %d %s", kept.Code, kept.Body)

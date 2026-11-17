@@ -2,7 +2,7 @@
   "fileNumber": "US-F1",
   "created": "2026-10-25T09:30:00Z",
   "debtor": {
-    "name": "Passage Holding Inc",
+    "name": "Depot Holding Inc",
     "address": {
       "streetName": "1 Market Street",
       "postCode": "94105",
@@ -18,7 +18,7 @@
     "variant": "US",
     "overrides": {
       "charset": "ascii",
-      "initiating_party_id": "PASSAGEUS01"
+      "initiating_party_id": "DEPOTUS01"
     }
   },
   "payments": [

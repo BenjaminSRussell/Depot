@@ -13,14 +13,14 @@ describe("worker activity registry", () => {
 
   it("warns and registers nothing when the key is malformed", () => {
     const warn = vi.fn();
-    const activities = buildActivities({ PASSAGE_SERVICE_SIGNING_KEY: "AAAA" }, () => "", warn);
+    const activities = buildActivities({ DEPOT_SERVICE_SIGNING_KEY: "AAAA" }, () => "", warn);
     expect(Object.keys(activities)).toEqual([]);
     expect(warn).toHaveBeenCalledTimes(1);
   });
 
   it("registers the party change and merge decisions, payment run, ECO, CAPA and tender activities when a key is present", () => {
     const warn = vi.fn();
-    const activities = buildActivities({ PASSAGE_SERVICE_SIGNING_KEY: seed }, () => "", warn);
+    const activities = buildActivities({ DEPOT_SERVICE_SIGNING_KEY: seed }, () => "", warn);
     expect(Object.keys(activities).sort()).toEqual(
       [
         "agentAbort",
@@ -54,7 +54,7 @@ describe("worker activity registry", () => {
   });
 
   it("reads the key from a mounted file", () => {
-    const activities = buildActivities({ PASSAGE_SERVICE_SIGNING_KEY_FILE: "/secret/key" }, (path) => (path === "/secret/key" ? `${seed}\n` : ""), vi.fn());
+    const activities = buildActivities({ DEPOT_SERVICE_SIGNING_KEY_FILE: "/secret/key" }, (path) => (path === "/secret/key" ? `${seed}\n` : ""), vi.fn());
     expect(activities).toHaveProperty("startPaymentRun");
   });
 });

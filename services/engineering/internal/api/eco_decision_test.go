@@ -7,15 +7,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/services/engineering/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/engineering/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/services/engineering/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/engineering/internal/store"
 )
 
 const workflowDuty = "engineering.eco.workflow"
 
 func decide(h http.Handler, action, duties, user string) (int, string) {
-	rec := do(h, http.MethodPost, ecos+"/"+ecoID+":"+action, "", duties, true, "X-Passage-User", user)
+	rec := do(h, http.MethodPost, ecos+"/"+ecoID+":"+action, "", duties, true, "X-Depot-User", user)
 	return rec.Code, rec.Body.String()
 }
 
@@ -78,12 +78,12 @@ func TestDecideEco_HumanApproveDutyCannotDecideOnlyRelease(t *testing.T) {
 func TestDecideEco_RecordsTheSystemActorAndReason(t *testing.T) {
 	f := &fakeStore{record: releasableRecord(domain.EcoSubmitted, time.Time{})}
 	r, _ := newRouter(f, nil)
-	rec := do(r, http.MethodPost, ecos+"/"+ecoID+":cancel", `{"reason":"approval window closed"}`, workflowDuty, true, "X-Passage-User", "system:eco-timeout")
+	rec := do(r, http.MethodPost, ecos+"/"+ecoID+":cancel", `{"reason":"approval window closed"}`, workflowDuty, true, "X-Depot-User", "system:eco-timeout")
 	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"decidedBy":"system:eco-timeout"`) || !strings.Contains(rec.Body.String(), `"decisionReason":"approval window closed"`) ||
 		f.released[0].eco.DecisionReason != "approval window closed" {
 		t.Fatalf("timeout cancel = %d %s %+v", rec.Code, rec.Body, f.released)
 	}
-	long := do(r, http.MethodPost, ecos+"/"+ecoID+":cancel", `{"reason":"`+strings.Repeat("x", 201)+`"}`, workflowDuty, true, "X-Passage-User", "system:eco-timeout")
+	long := do(r, http.MethodPost, ecos+"/"+ecoID+":cancel", `{"reason":"`+strings.Repeat("x", 201)+`"}`, workflowDuty, true, "X-Depot-User", "system:eco-timeout")
 	if long.Code != http.StatusBadRequest {
 		t.Fatalf("overlong reason = %d %s", long.Code, long.Body)
 	}
@@ -92,7 +92,7 @@ func TestDecideEco_RecordsTheSystemActorAndReason(t *testing.T) {
 func TestCreateEco_RecordsTheCreator(t *testing.T) {
 	f := &fakeStore{}
 	r, _ := newRouter(f, nil)
-	rec := do(r, http.MethodPost, ecos, `{"number":"ECO-9","replaces":[{"oldVersionId":"`+oldVersion+`","newVersionId":"`+newVersion+`"}]}`, allDuties, true, "X-Passage-User", "rita")
+	rec := do(r, http.MethodPost, ecos, `{"number":"ECO-9","replaces":[{"oldVersionId":"`+oldVersion+`","newVersionId":"`+newVersion+`"}]}`, allDuties, true, "X-Depot-User", "rita")
 	if rec.Code != http.StatusCreated || !strings.Contains(rec.Body.String(), `"createdBy":"rita"`) {
 		t.Fatalf("create = %d %s", rec.Code, rec.Body)
 	}

@@ -3,7 +3,7 @@ package events
 import (
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/events"
 )
 
 // OpenItemsImported is published once per opening-item import batch that created
@@ -22,7 +22,7 @@ type OpenItemImportedRow struct {
 	OpenAmount decimal.Decimal `json:"open_amount"`
 }
 
-// OpenItemsImportedData is the payload of dev.passage.receivables.openitem.imported.v1.
+// OpenItemsImportedData is the payload of dev.depot.receivables.openitem.imported.v1.
 type OpenItemsImportedData struct {
 	BatchID       string                `json:"batch_id"`
 	LegalEntityID string                `json:"legal_entity_id"`

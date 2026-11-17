@@ -8,7 +8,7 @@ import (
 	"github.com/shopspring/decimal"
 	"pgregory.net/rapid"
 
-	"github.com/BenjaminSRussell/passage/platform/money"
+	"github.com/BenjaminSRussell/depot/platform/money"
 )
 
 // AC-29.10: 3 installments 30/30/40 at +0/+30/+60 days on 1,000.01 USD.

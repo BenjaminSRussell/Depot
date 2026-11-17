@@ -61,32 +61,32 @@ CREATE INDEX IF NOT EXISTS hr_review_worker ON hr_review (tenant_id, worker_id, 
 ALTER TABLE job_skill_requirement ENABLE ROW LEVEL SECURITY;
 ALTER TABLE job_skill_requirement FORCE ROW LEVEL SECURITY;
 CREATE POLICY job_skill_requirement_tenant_access ON job_skill_requirement AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 ALTER TABLE hr_goal ENABLE ROW LEVEL SECURITY;
 ALTER TABLE hr_goal FORCE ROW LEVEL SECURITY;
 CREATE POLICY hr_goal_tenant_access ON hr_goal AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY hr_goal_legal_entity_scope ON hr_goal AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 ALTER TABLE hr_review ENABLE ROW LEVEL SECURITY;
 ALTER TABLE hr_review FORCE ROW LEVEL SECURITY;
 CREATE POLICY hr_review_tenant_access ON hr_review AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY hr_review_legal_entity_scope ON hr_review AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON job_skill_requirement TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON hr_goal, hr_review TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON job_skill_requirement TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON hr_goal, hr_review TO depot_app';
   END IF;
 END
 $$;

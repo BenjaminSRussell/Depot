@@ -1,6 +1,6 @@
 # The intercompany charge feed (#40, `intercompany consume`, group intercompany-charges) raises an intercompany charge for every expense
-# line and project hour another legal entity bears, from expense's report.approved (passage.expense.report) and projects'
-# transaction.posted (passage.projects.transaction), and parks what it cannot apply on passage.intercompany.charges.dlq. The chart's
+# line and project hour another legal entity bears, from expense's report.approved (depot.expense.report) and projects'
+# transaction.posted (depot.projects.transaction), and parks what it cannot apply on depot.intercompany.charges.dlq. The chart's
 # consumer.kafka.username names this user. Literal ACLs: it reads those two topics and writes only its dead-letter topic.
 # The two topics are written by outbox-expense and outbox-projects (deploy/kafka/connect.yaml, routed by event type, #213); the
 # consumer stays off in the chart until those connectors run on the cluster.
@@ -10,18 +10,18 @@ metadata:
   name: intercompany-consumer
   namespace: kafka
   labels:
-    strimzi.io/cluster: passage
+    strimzi.io/cluster: depot
 spec:
   authentication:
     type: scram-sha-512
   authorization:
     type: simple
     acls:
-      - resource: {type: topic, name: passage.expense.report, patternType: literal}
+      - resource: {type: topic, name: depot.expense.report, patternType: literal}
         operations: [Read, Describe]
-      - resource: {type: topic, name: passage.projects.transaction, patternType: literal}
+      - resource: {type: topic, name: depot.projects.transaction, patternType: literal}
         operations: [Read, Describe]
-      - resource: {type: topic, name: passage.intercompany.charges.dlq, patternType: literal}
+      - resource: {type: topic, name: depot.intercompany.charges.dlq, patternType: literal}
         operations: [Write, Describe]
       - resource: {type: group, name: intercompany-charges, patternType: literal}
         operations: [Read, Describe]
@@ -29,12 +29,12 @@ spec:
 apiVersion: kafka.strimzi.io/v1beta2
 kind: KafkaTopic
 metadata:
-  name: passage-intercompany-charges-dlq
+  name: depot-intercompany-charges-dlq
   namespace: kafka
   labels:
-    strimzi.io/cluster: passage
+    strimzi.io/cluster: depot
 spec:
-  topicName: passage.intercompany.charges.dlq
+  topicName: depot.intercompany.charges.dlq
   partitions: 3
   replicas: 3
   config:

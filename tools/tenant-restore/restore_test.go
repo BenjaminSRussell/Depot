@@ -56,9 +56,9 @@ func newPair(t *testing.T, ddl string) *pair {
 	}
 	p := &pair{
 		schema:    "tr_" + hex.EncodeToString(raw),
-		scratch:   connectEnv(t, "PASSAGE_TEST_RESTORE_DATABASE_URL"),
-		liveAdmin: connectEnv(t, "PASSAGE_TEST_DATABASE_URL"),
-		liveApp:   connectEnv(t, "PASSAGE_TEST_APP_DATABASE_URL"),
+		scratch:   connectEnv(t, "DEPOT_TEST_RESTORE_DATABASE_URL"),
+		liveAdmin: connectEnv(t, "DEPOT_TEST_DATABASE_URL"),
+		liveApp:   connectEnv(t, "DEPOT_TEST_APP_DATABASE_URL"),
 	}
 	p.scratchOnly = func(sql string) { exec(t, p.scratch, strings.ReplaceAll(sql, "S.", p.schema+".")) }
 	p.liveOnly = func(sql string) { exec(t, p.liveAdmin, strings.ReplaceAll(sql, "S.", p.schema+".")) }
@@ -66,7 +66,7 @@ func newPair(t *testing.T, ddl string) *pair {
 		exec(t, c, "create schema "+p.schema)
 		exec(t, c, strings.ReplaceAll(ddl, "S.", p.schema+"."))
 	}
-	exec(t, p.liveAdmin, "grant usage on schema "+p.schema+" to passage_app")
+	exec(t, p.liveAdmin, "grant usage on schema "+p.schema+" to depot_app")
 	t.Cleanup(func() {
 		for _, c := range []*pgx.Conn{p.scratch, p.liveAdmin} {
 			_, _ = c.Exec(context.Background(), "drop schema "+p.schema+" cascade")
@@ -78,9 +78,9 @@ func newPair(t *testing.T, ddl string) *pair {
 func rlsTable(table string) string {
 	return `alter table S.` + table + ` enable row level security;
 alter table S.` + table + ` force row level security;
-create policy tenant_access on S.` + table + ` using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
-grant select, insert, update on S.` + table + ` to passage_app;`
+create policy tenant_access on S.` + table + ` using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
+grant select, insert, update on S.` + table + ` to depot_app;`
 }
 
 const ledgerDDL = `
@@ -253,8 +253,8 @@ func TestRunCopyDryRunPrintsCountsAndNeedsEnvironment(t *testing.T) {
 	p := newPair(t, ledgerDDL)
 	seedScenario(t, p)
 	env := map[string]string{
-		scratchURLEnv: os.Getenv("PASSAGE_TEST_RESTORE_DATABASE_URL"),
-		liveURLEnv:    os.Getenv("PASSAGE_TEST_APP_DATABASE_URL"),
+		scratchURLEnv: os.Getenv("DEPOT_TEST_RESTORE_DATABASE_URL"),
+		liveURLEnv:    os.Getenv("DEPOT_TEST_APP_DATABASE_URL"),
 	}
 	var out bytes.Buffer
 	err := run(context.Background(), []string{"copy", "--tenant", tenantA, "--schema", p.schema}, &out, func(k string) string { return env[k] }, time.Now())
@@ -283,7 +283,7 @@ func roleConn(t *testing.T, p *pair, attrs string) *pgx.Conn {
 	exec(t, p.liveAdmin, "create role "+name+" login password 'x' "+attrs)
 	exec(t, p.liveAdmin, "grant usage on schema "+p.schema+" to "+name)
 	exec(t, p.liveAdmin, "grant select, insert, update on all tables in schema "+p.schema+" to "+name)
-	cfg, err := pgx.ParseConfig(os.Getenv("PASSAGE_TEST_APP_DATABASE_URL"))
+	cfg, err := pgx.ParseConfig(os.Getenv("DEPOT_TEST_APP_DATABASE_URL"))
 	if err != nil {
 		t.Fatal(err)
 	}

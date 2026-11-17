@@ -26,9 +26,9 @@ spec:
       containers:
         - name: revrec
           {{- if .Values.image.digest }}
-          image: "{{ (include "passage.imageRepository" $) }}@{{ .Values.image.digest }}"
+          image: "{{ (include "depot.imageRepository" $) }}@{{ .Values.image.digest }}"
           {{- else }}
-          image: "{{ (include "passage.imageRepository" $) }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          image: "{{ (include "depot.imageRepository" $) }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           {{- end }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           securityContext:
@@ -39,7 +39,7 @@ spec:
             - name: admin
               containerPort: {{ .Values.service.adminPort }}
           env:
-            {{- include "passage.cloudEnv" $ | nindent 12 }}
+            {{- include "depot.cloudEnv" $ | nindent 12 }}
             - name: SERVICE_NAME
               value: revrec
             - name: HTTP_ADDR
@@ -54,10 +54,10 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.databaseSecret }}
                   key: DATABASE_URL
-            - name: PASSAGE_SERVICE_NAME
+            - name: DEPOT_SERVICE_NAME
               value: revrec
             {{- with .Values.serviceIdentity.publicKeys }}
-            - name: PASSAGE_SERVICE_PUBLIC_KEYS
+            - name: DEPOT_SERVICE_PUBLIC_KEYS
               value: {{ . | quote }}
             {{- end }}
             {{- if .Values.ledgerUrl }}
@@ -73,14 +73,14 @@ spec:
               value: {{ .Values.billingInterval | quote }}
             {{- end }}
             {{- if .Values.serviceIdentity.signingKeySecret }}
-            - name: PASSAGE_SERVICE_SIGNING_KEY_FILE
-              value: /var/run/passage/service-identity/signing-key
+            - name: DEPOT_SERVICE_SIGNING_KEY_FILE
+              value: /var/run/depot/service-identity/signing-key
             {{- if .Values.serviceIdentity.keyId }}
-            - name: PASSAGE_SERVICE_KEY_ID
+            - name: DEPOT_SERVICE_KEY_ID
               value: {{ .Values.serviceIdentity.keyId | quote }}
             {{- end }}
           volumeMounts:
-            - { name: service-identity, mountPath: /var/run/passage/service-identity, readOnly: true }
+            - { name: service-identity, mountPath: /var/run/depot/service-identity, readOnly: true }
             {{- end }}
           livenessProbe:
             httpGet: { path: /healthz, port: http }

@@ -12,7 +12,7 @@ export const SIGNATURE_TOLERANCE_SECONDS = 300;
 export type DeliveryDecision = { kind: "delivered" } | { kind: "pause" } | { kind: "retry" };
 
 /**
- * Signs `t.body` with HMAC-SHA256 and returns the Passage-Signature header value. During a secret
+ * Signs `t.body` with HMAC-SHA256 and returns the Depot-Signature header value. During a secret
  * rotation's grace period pass the previous secret too: the header then carries one v1 per secret
  * (`t=..,v1=<new>,v1=<old>`) and a receiver holding either secret verifies it.
  */
@@ -21,7 +21,7 @@ export function sign(secret: string, unixSeconds: number, body: string, previous
   return `t=${unixSeconds},${secrets.map((s) => `v1=${digest(s, unixSeconds, body).toString("hex")}`).join(",")}`;
 }
 
-/** Verifies a Passage-Signature header at `nowSeconds`. Stale or malformed headers fail. */
+/** Verifies a Depot-Signature header at `nowSeconds`. Stale or malformed headers fail. */
 export function verify(header: string, secret: string, body: string, nowSeconds: number): boolean {
   const parsed = parseHeader(header);
   if (parsed === null) {

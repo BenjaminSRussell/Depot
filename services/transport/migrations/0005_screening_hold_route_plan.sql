@@ -27,8 +27,8 @@ CREATE INDEX IF NOT EXISTS screening_hold_status_created ON screening_hold (tena
 ALTER TABLE screening_hold ENABLE ROW LEVEL SECURITY;
 ALTER TABLE screening_hold FORCE ROW LEVEL SECURITY;
 CREATE POLICY screening_hold_tenant_access ON screening_hold AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- A solved route optimization. request_hash (SHA-256 of the normalized request)
 -- is the idempotency key of POST /routes:optimize: the same request returns the
@@ -54,15 +54,15 @@ CREATE INDEX IF NOT EXISTS route_plan_created ON route_plan (tenant_id, created_
 ALTER TABLE route_plan ENABLE ROW LEVEL SECURITY;
 ALTER TABLE route_plan FORCE ROW LEVEL SECURITY;
 CREATE POLICY route_plan_tenant_access ON route_plan AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- Holds are released, never deleted; route plans are written once.
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON screening_hold TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT ON route_plan TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON screening_hold TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT ON route_plan TO depot_app';
   END IF;
 END
 $$;

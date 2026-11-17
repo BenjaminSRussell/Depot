@@ -28,11 +28,11 @@ CREATE TABLE IF NOT EXISTS subscription (
 ALTER TABLE subscription ENABLE ROW LEVEL SECURITY;
 ALTER TABLE subscription FORCE ROW LEVEL SECURITY;
 CREATE POLICY subscription_tenant_access ON subscription AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY subscription_legal_entity_scope ON subscription AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 CREATE TABLE IF NOT EXISTS subscription_term (
   tenant_id uuid NOT NULL,
@@ -68,25 +68,25 @@ BEGIN
     EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY', child_table);
     EXECUTE format(
       'CREATE POLICY %I ON %I AS PERMISSIVE
-         USING (tenant_id = current_setting(''passage.tenant_id'', true)::uuid)
-         WITH CHECK (tenant_id = current_setting(''passage.tenant_id'', true)::uuid)',
+         USING (tenant_id = current_setting(''depot.tenant_id'', true)::uuid)
+         WITH CHECK (tenant_id = current_setting(''depot.tenant_id'', true)::uuid)',
       child_table || '_tenant_access', child_table);
     EXECUTE format(
       'CREATE POLICY %I ON %I AS RESTRICTIVE USING (
-         current_setting(''passage.legal_entity_scopes'', true) = ''*''
+         current_setting(''depot.legal_entity_scopes'', true) = ''*''
          OR EXISTS (
            SELECT 1 FROM subscription AS scope_parent
            WHERE scope_parent.tenant_id = %I.tenant_id
              AND scope_parent.id = %I.subscription_id
-             AND scope_parent.legal_entity_id::text = ANY(string_to_array(current_setting(''passage.legal_entity_scopes'', true), '',''))
+             AND scope_parent.legal_entity_id::text = ANY(string_to_array(current_setting(''depot.legal_entity_scopes'', true), '',''))
          )
        ) WITH CHECK (
-         current_setting(''passage.legal_entity_scopes'', true) = ''*''
+         current_setting(''depot.legal_entity_scopes'', true) = ''*''
          OR EXISTS (
            SELECT 1 FROM subscription AS scope_parent
            WHERE scope_parent.tenant_id = %I.tenant_id
              AND scope_parent.id = %I.subscription_id
-             AND scope_parent.legal_entity_id::text = ANY(string_to_array(current_setting(''passage.legal_entity_scopes'', true), '',''))
+             AND scope_parent.legal_entity_id::text = ANY(string_to_array(current_setting(''depot.legal_entity_scopes'', true), '',''))
          )
        )',
       child_table || '_legal_entity_scope', child_table, child_table, child_table, child_table, child_table);
@@ -95,9 +95,9 @@ END $$;
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON subscription TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT ON subscription_term, subscription_period TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON subscription TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT ON subscription_term, subscription_period TO depot_app';
   END IF;
 END
 $$;

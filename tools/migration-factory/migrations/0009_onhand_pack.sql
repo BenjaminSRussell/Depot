@@ -51,17 +51,17 @@ alter table pack_run add constraint pack_run_gl_run_onhand_only
 alter table onhand_opening_balance enable row level security;
 alter table onhand_opening_balance force row level security;
 create policy onhand_opening_balance_tenant_access on onhand_opening_balance as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
--- Application role privileges. Opening stock is insert-only for passage_app: nothing updates or
+-- Application role privileges. Opening stock is insert-only for depot_app: nothing updates or
 -- deletes it. The new pack_run column is covered by the pack_run grants of 0001 and 0002.
 -- Skipped when the role does not exist.
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE format('GRANT USAGE ON SCHEMA %I TO passage_app', current_schema());
-    EXECUTE 'GRANT SELECT, INSERT ON onhand_opening_balance TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE format('GRANT USAGE ON SCHEMA %I TO depot_app', current_schema());
+    EXECUTE 'GRANT SELECT, INSERT ON onhand_opening_balance TO depot_app';
   END IF;
 END
 $$;

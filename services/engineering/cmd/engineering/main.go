@@ -10,13 +10,13 @@ import (
 	"os"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/engineering/internal/api"
-	"github.com/BenjaminSRussell/passage/services/engineering/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/engineering/internal/store"
-	"github.com/BenjaminSRussell/passage/services/engineering/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/engineering/internal/api"
+	"github.com/BenjaminSRussell/depot/services/engineering/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/engineering/internal/store"
+	"github.com/BenjaminSRussell/depot/services/engineering/migrations"
 )
 
 const (
@@ -58,10 +58,10 @@ func run(ctx context.Context, getenv func(string) string) error {
 	if databaseURL == "" {
 		return errors.New("DATABASE_URL is required")
 	}
-	dev := getenv("PASSAGE_ENV") == devEnvironment
+	dev := getenv("DEPOT_ENV") == devEnvironment
 	auditURL := getenv("AUDIT_URL")
 	if auditURL == "" && !dev {
-		return errors.New("AUDIT_URL is required unless PASSAGE_ENV=dev: signatures must reach the audit service")
+		return errors.New("AUDIT_URL is required unless DEPOT_ENV=dev: signatures must reach the audit service")
 	}
 	pool, err := dbx.Connect(ctx, databaseURL)
 	if err != nil {
@@ -83,7 +83,7 @@ func run(ctx context.Context, getenv func(string) string) error {
 			return fmt.Errorf("audit signer: %w", err)
 		}
 		if signer == nil {
-			return errors.New("audit signer: PASSAGE_SERVICE_SIGNING_KEY is required when AUDIT_URL is set")
+			return errors.New("audit signer: DEPOT_SERVICE_SIGNING_KEY is required when AUDIT_URL is set")
 		}
 		auditor = api.NewHTTPAuditor(auditURL, signer)
 	}

@@ -68,13 +68,13 @@ create table rollback_compensation (
 );
 
 -- Which side masters an entity kind of a legacy company during coexistence (FR-49.7): LEGACY until
--- the entity is cut over, then PASSAGE; a rollback flips it back. Versioned writes.
+-- the entity is cut over, then DEPOT; a rollback flips it back. Versioned writes.
 create table coexistence_entity (
   tenant_id uuid not null,
   source_system text not null check (source_system in ('AX2012', 'D365FO', 'SAPECC', 'S4HANA')),
   source_company text not null check (source_company <> ''),
   entity text not null check (entity <> ''),
-  mode text not null check (mode in ('LEGACY', 'PASSAGE')),
+  mode text not null check (mode in ('LEGACY', 'DEPOT')),
   cutover_at timestamptz,
   version int not null check (version >= 1),
   changed_by text not null,
@@ -85,36 +85,36 @@ create table coexistence_entity (
 alter table staged_opening_line enable row level security;
 alter table staged_opening_line force row level security;
 create policy staged_opening_line_tenant_access on staged_opening_line as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 alter table rollback_ledger enable row level security;
 alter table rollback_ledger force row level security;
 create policy rollback_ledger_tenant_access on rollback_ledger as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 -- A caller sees and pins only the ledgers of legal entities in its scope.
 create policy rollback_ledger_legal_entity_scope on rollback_ledger as restrictive
-  using (current_setting('passage.legal_entity_scopes', true) = '*'
-         or legal_entity_id::text = any(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  using (current_setting('depot.legal_entity_scopes', true) = '*'
+         or legal_entity_id::text = any(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 alter table rollback_compensation enable row level security;
 alter table rollback_compensation force row level security;
 create policy rollback_compensation_tenant_access on rollback_compensation as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 alter table coexistence_entity enable row level security;
 alter table coexistence_entity force row level security;
 create policy coexistence_entity_tenant_access on coexistence_entity as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- Application role privileges. Staged lines and pinned ledgers are insert-only; compensations and
 -- coexistence flags are updated in place. Skipped when the role does not exist.
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE format('GRANT USAGE ON SCHEMA %I TO passage_app', current_schema());
-    EXECUTE 'GRANT SELECT, INSERT ON staged_opening_line, rollback_ledger TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON rollback_compensation, coexistence_entity TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE format('GRANT USAGE ON SCHEMA %I TO depot_app', current_schema());
+    EXECUTE 'GRANT SELECT, INSERT ON staged_opening_line, rollback_ledger TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON rollback_compensation, coexistence_entity TO depot_app';
   END IF;
 END
 $$;

@@ -1,6 +1,6 @@
 openapi: 3.1.0
 info:
-  title: Passage customer portal BFF
+  title: Depot customer portal BFF
   version: 0.1.0
   description: >-
     The session and proxy API of apps/customer-portal. Every /api/v1 route needs the session cookie. The routes are reads, plus the

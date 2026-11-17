@@ -9,9 +9,9 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/ids"
 
-	"github.com/BenjaminSRussell/passage/tools/migration-factory/internal/domain"
+	"github.com/BenjaminSRussell/depot/tools/migration-factory/internal/domain"
 )
 
 // BankRun is a validated bank_balances extract ready to load (FR-49.1). Run carries the identity,
@@ -24,7 +24,7 @@ type BankRun struct {
 	StartedBy string
 }
 
-// RunBankBalances loads the accepted lines that Passage does not hold yet, each with its
+// RunBankBalances loads the accepted lines that Depot does not hold yet, each with its
 // legacy_xref row and its bank_opening_balance row, reconciles the run and stores it with its
 // totals, quarantine and the pack.reconciled event, in one transaction. Runs of one (system,
 // company) serialize on an advisory lock. Nothing posts to treasury here.
@@ -44,7 +44,7 @@ func (s *Postgres) RunBankBalances(ctx context.Context, idem Idem, in BankRun) (
 func runBankBalances(ctx context.Context, tx pgx.Tx, in BankRun) (domain.PackRun, error) {
 	run := in.Run
 	sys, company := string(run.SourceSystem), run.SourceCompany
-	if _, err := tx.Exec(ctx, `select pg_advisory_xact_lock(hashtextextended('xref|' || current_setting('passage.tenant_id', true) || '|' || $1 || '|' || $2 || '|' || $3, 0))`,
+	if _, err := tx.Exec(ctx, `select pg_advisory_xact_lock(hashtextextended('xref|' || current_setting('depot.tenant_id', true) || '|' || $1 || '|' || $2 || '|' || $3, 0))`,
 		sys, company, domain.TableBank); err != nil {
 		return domain.PackRun{}, fmt.Errorf("lock legacy_xref: %w", err)
 	}
@@ -54,7 +54,7 @@ func runBankBalances(ctx context.Context, tx pgx.Tx, in BankRun) (domain.PackRun
 	}
 	held := map[string]domain.BankBalanceLine{}
 	rows, err := tx.Query(ctx, `select legacy_id, bank_account, currency, balance::text from bank_opening_balance
-		where tenant_id = current_setting('passage.tenant_id', true)::uuid and source_system = $1 and source_company = $2 and legacy_id = any($3)`,
+		where tenant_id = current_setting('depot.tenant_id', true)::uuid and source_system = $1 and source_company = $2 and legacy_id = any($3)`,
 		sys, company, idsIn)
 	if err != nil {
 		return domain.PackRun{}, fmt.Errorf("read bank_opening_balance: %w", err)
@@ -101,12 +101,12 @@ func runBankBalances(ctx context.Context, tx pgx.Tx, in BankRun) (domain.PackRun
 	for _, b := range toLoad {
 		xrefID, balanceID := ids.New(), ids.New()
 		batch.Queue(`insert into legacy_xref (tenant_id, xref_id, source_system, source_company, source_table, source_id,
-			passage_entity, passage_id, run_id, amount, currency)
-			values (current_setting('passage.tenant_id', true)::uuid, $1, $2, $3, $4, $5, 'bank_opening_balance', $6, $7, $8, $9)`,
+			depot_entity, depot_id, run_id, amount, currency)
+			values (current_setting('depot.tenant_id', true)::uuid, $1, $2, $3, $4, $5, 'bank_opening_balance', $6, $7, $8, $9)`,
 			xrefID, sys, company, domain.TableBank, b.LegacyID, balanceID, run.RunID, b.Balance.String(), b.Currency)
 		batch.Queue(`insert into bank_opening_balance (tenant_id, balance_id, run_id, legacy_xref_id, source_system, source_company, legacy_id,
 			bank_account, currency, balance)
-			values (current_setting('passage.tenant_id', true)::uuid, $1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+			values (current_setting('depot.tenant_id', true)::uuid, $1, $2, $3, $4, $5, $6, $7, $8, $9)`,
 			balanceID, run.RunID, xrefID, sys, company, b.LegacyID, b.BankAccount, b.Currency, b.Balance.String())
 	}
 	if batch.Len() > 0 {
@@ -130,7 +130,7 @@ func runBankBalances(ctx context.Context, tx pgx.Tx, in BankRun) (domain.PackRun
 	return run, nil
 }
 
-// checkBankAccounts refuses a line whose bank account Passage already holds for the company under
+// checkBankAccounts refuses a line whose bank account Depot already holds for the company under
 // another legacy id: loading it would open the account twice (FR-49.10). One conflict rejects the
 // run before anything is written.
 func checkBankAccounts(ctx context.Context, tx pgx.Tx, sys, company string, toLoad []domain.BankBalanceLine) error {
@@ -143,7 +143,7 @@ func checkBankAccounts(ctx context.Context, tx pgx.Tx, sys, company string, toLo
 	}
 	var account, legacyID, runID string
 	err := tx.QueryRow(ctx, `select bank_account, legacy_id, run_id::text from bank_opening_balance
-		where tenant_id = current_setting('passage.tenant_id', true)::uuid and source_system = $1 and source_company = $2 and bank_account = any($3)
+		where tenant_id = current_setting('depot.tenant_id', true)::uuid and source_system = $1 and source_company = $2 and bank_account = any($3)
 		order by bank_account limit 1`, sys, company, accounts).Scan(&account, &legacyID, &runID)
 	switch {
 	case errors.Is(err, pgx.ErrNoRows):

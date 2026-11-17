@@ -1,4 +1,4 @@
--- Slice 5 (PSG-43): card feed import persistence (FR-43.13, EXP-CARD-002, 8.43.4).
+-- Slice 5 (DPT-43): card feed import persistence (FR-43.13, EXP-CARD-002, 8.43.4).
 -- One import per file hash per tenant ("key per file hash", 8.43.5). Rows the parser
 -- rejected and rows whose card has no cardholder are kept on the import as its
 -- quarantine. Each accepted row is one card transaction in its worker's UNASSIGNED pool.
@@ -46,17 +46,17 @@ create index card_transaction_worker_status on card_transaction (tenant_id, work
 alter table card_import enable row level security;
 alter table card_import force row level security;
 create policy card_import_tenant_access on card_import as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 create policy card_import_legal_entity_scope on card_import as restrictive
-  using (current_setting('passage.legal_entity_scopes', true) = '*'
-         or legal_entity_id::text = any(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  using (current_setting('depot.legal_entity_scopes', true) = '*'
+         or legal_entity_id::text = any(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 alter table card_transaction enable row level security;
 alter table card_transaction force row level security;
 create policy card_transaction_tenant_access on card_transaction as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 create policy card_transaction_legal_entity_scope on card_transaction as restrictive
-  using (current_setting('passage.legal_entity_scopes', true) = '*'
-         or legal_entity_id::text = any(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  using (current_setting('depot.legal_entity_scopes', true) = '*'
+         or legal_entity_id::text = any(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));

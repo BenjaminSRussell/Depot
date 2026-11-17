@@ -6,10 +6,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/analytics/internal/recon"
-	"github.com/BenjaminSRussell/passage/services/analytics/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/analytics/internal/recon"
+	"github.com/BenjaminSRussell/depot/services/analytics/internal/store"
 )
 
 const reconUser = "system:revenue-reconciliation"

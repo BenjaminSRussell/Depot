@@ -12,19 +12,19 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/planning/internal/domain"
-	planevents "github.com/BenjaminSRussell/passage/services/planning/internal/events"
-	"github.com/BenjaminSRussell/passage/services/planning/internal/store"
-	"github.com/BenjaminSRussell/passage/services/planning/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/planning/internal/domain"
+	planevents "github.com/BenjaminSRussell/depot/services/planning/internal/events"
+	"github.com/BenjaminSRussell/depot/services/planning/internal/store"
+	"github.com/BenjaminSRussell/depot/services/planning/migrations"
 )
 
 // setup migrates with the admin pool and returns a store over the application
 // role, so row-level security applies to every query. Skipped without
-// PASSAGE_TEST_DATABASE_URL.
+// DEPOT_TEST_DATABASE_URL.
 func setup(t *testing.T) (*store.Postgres, *pgxpool.Pool, *pgxpool.Pool) {
 	t.Helper()
 	admin, app := testkit.DBWithApp(t)
@@ -253,7 +253,7 @@ func TestRunPlan_RefusesConcurrentRun(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-	if _, err := tx.Exec(ctx, `select set_config('passage.tenant_id', $1, true), set_config('passage.legal_entity_scopes', '*', true)`, testkit.TenantID(1)); err != nil {
+	if _, err := tx.Exec(ctx, `select set_config('depot.tenant_id', $1, true), set_config('depot.legal_entity_scopes', '*', true)`, testkit.TenantID(1)); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := tx.Exec(ctx, `select id from plan where code = 'MAIN' for update`); err != nil {

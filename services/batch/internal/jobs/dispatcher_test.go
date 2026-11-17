@@ -9,13 +9,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/batch/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/batch/internal/jobs"
-	"github.com/BenjaminSRussell/passage/services/batch/internal/store"
-	"github.com/BenjaminSRussell/passage/services/batch/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/batch/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/batch/internal/jobs"
+	"github.com/BenjaminSRussell/depot/services/batch/internal/store"
+	"github.com/BenjaminSRussell/depot/services/batch/migrations"
 )
 
 var dispatchHandlers = []string{jobs.HandlerProductExplode, jobs.HandlerProductGroupChange}

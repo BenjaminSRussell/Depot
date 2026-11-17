@@ -36,19 +36,19 @@
 
 | Event (CloudEvents type) | Producer | Consumers | Payload summary |
 |---|---|---|---|
-| dev.passage.identity.user.created.v1 / .deactivated.v1 | identity | audit, workflow (assignee cache), shell | user_id, tenant_id, email, status |
-| dev.passage.authz.role-assignment.granted.v1 / .revoked.v1 | authz | audit, OPA bundle builder | user_id, role_id, legal_entity_ids, effective_from/to |
-| dev.passage.authz.policy.compiled.v1 | authz | OPA sidecars (bundle pull), audit | bundle_version, sha256, role_count |
-| dev.passage.metadata.entity.published.v1 | metadata-registry | generator, events (topic/schema), shell (form cache) | entity_name, version, diff summary |
-| dev.passage.metadata.extension.applied.v1 | metadata-registry | generator, audit, shell | package_id, entity_name, fields_added, enum_values_added |
-| dev.passage.workflow.instance.submitted.v1 / .completed.v1 | workflow | owning entity service, audit, shell inbox | instance_id, entity, record_id, outcome |
-| dev.passage.workflow.workitem.assigned.v1 / .escalated.v1 | workflow | shell inbox, notifications | workitem_id, assignee_id, due_at |
-| dev.passage.batch.run.completed.v1 / .failed.v1 | workflow (batch) | shell job monitor, alerting | job_id, run_id, rows_processed, error |
-| dev.passage.audit.entry.recorded.v1 | audit | shell audit viewer (live), analytics (wave 46) | entry_id, entity, record_id, operation, hash |
-| dev.passage.rules.ruleset.published.v1 | metadata-registry | every service holding compiled rule trees, audit | code, version, tables, row_count |
-| dev.passage.notify.message.sent.v1 / .failed.v1 / .bounced.v1 | notify | audit, alerting, identity | message_id, channel, template_code, recipient_user_id |
-| dev.passage.docs.attachment.available.v1 / .purged.v1 | docs | shell, audit, OCR capture (wave 18) | attachment_id, version_no, document_type, links |
-| dev.passage.alerts.alert.fired.v1 | shell-bff (alert evaluator) | notify, shell | rule_id, entity, record_id, recipient_id |
+| dev.depot.identity.user.created.v1 / .deactivated.v1 | identity | audit, workflow (assignee cache), shell | user_id, tenant_id, email, status |
+| dev.depot.authz.role-assignment.granted.v1 / .revoked.v1 | authz | audit, OPA bundle builder | user_id, role_id, legal_entity_ids, effective_from/to |
+| dev.depot.authz.policy.compiled.v1 | authz | OPA sidecars (bundle pull), audit | bundle_version, sha256, role_count |
+| dev.depot.metadata.entity.published.v1 | metadata-registry | generator, events (topic/schema), shell (form cache) | entity_name, version, diff summary |
+| dev.depot.metadata.extension.applied.v1 | metadata-registry | generator, audit, shell | package_id, entity_name, fields_added, enum_values_added |
+| dev.depot.workflow.instance.submitted.v1 / .completed.v1 | workflow | owning entity service, audit, shell inbox | instance_id, entity, record_id, outcome |
+| dev.depot.workflow.workitem.assigned.v1 / .escalated.v1 | workflow | shell inbox, notifications | workitem_id, assignee_id, due_at |
+| dev.depot.batch.run.completed.v1 / .failed.v1 | workflow (batch) | shell job monitor, alerting | job_id, run_id, rows_processed, error |
+| dev.depot.audit.entry.recorded.v1 | audit | shell audit viewer (live), analytics (wave 46) | entry_id, entity, record_id, operation, hash |
+| dev.depot.rules.ruleset.published.v1 | metadata-registry | every service holding compiled rule trees, audit | code, version, tables, row_count |
+| dev.depot.notify.message.sent.v1 / .failed.v1 / .bounced.v1 | notify | audit, alerting, identity | message_id, channel, template_code, recipient_user_id |
+| dev.depot.docs.attachment.available.v1 / .purged.v1 | docs | shell, audit, OCR capture (wave 18) | attachment_id, version_no, document_type, links |
+| dev.depot.alerts.alert.fired.v1 | shell-bff (alert evaluator) | notify, shell | rule_id, entity, record_id, recipient_id |
 
 **Phase-level risks**
 
@@ -71,7 +71,7 @@ AX ships code as LCS deployable packages built on a build VM and applied with Ax
 
 #### Pain points solved (10x lens)
 
-| Pain point in AX/SAP today | Root cause | Passage answer in this wave | Measurable 10x target |
+| Pain point in AX/SAP today | Root cause | Depot answer in this wave | Measurable 10x target |
 |---|---|---|---|
 | Applying an LCS deployable package to a D365 sandbox takes 2–4 h of downtime and a service request for production; a failed apply means a database restore | Package = whole-system binary; environment managed by vendor tooling | Per-service OCI image + Helm chart, promoted by digest through Argo CD; rolling update with no downtime | Merge → running in env: 4 h → < 15 min; downtime per release: hours → 0 |
 | STMS transport import to PRD (STMS_IMPORT) is a manual queue with no automatic back-out; a bad transport is reversed by hand-building a transport of copies | Transports carry object deltas, not immutable artifacts | Immutable digests; rollback is a one-line overlay revert | Rollback: 1–3 h and a Basis ticket → < 5 min, self-service |
@@ -81,13 +81,13 @@ AX ships code as LCS deployable packages built on a build VM and applied with Ax
 
 ### 0.1.2 AX / SAP parity map
 
-| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Passage equivalent | Parity |
+| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Depot equivalent | Parity |
 |---|---|---|---|---|
 | Package a release | LCS deployable package, `AxUtil export` model store, AXModel files | STMS transport request (E070/E071), `tp export` | OCI image (digest) + Helm chart version in `deploy/` | improved |
 | Build and validate | Build VM, `AxBuild.exe`, Best Practice checks | SE80 activation, ATC (code inspector SCI), ABAP unit | GitHub Actions: lint, unit, container build, SBOM, scan | improved |
 | Environment tiers | LCS dev/test/UAT/prod topology | STMS transport route DEV→QAS→PRD, STMS_QA | Argo CD app-of-apps per environment: dev, stage, prod | full |
-| Promote between tiers | LCS "apply package" to the next environment | STMS import queue, `tp import`, STMS_IMPORT | `passage promote --to stage --digest sha256:…` opens a PR against the env overlay | full |
-| Rollback | Restore DB + model store, "AOT revert" | Transport of copies back-out, SNOTE de-implement | Argo CD rollback to prior digest, `passage rollback --env stage` | improved |
+| Promote between tiers | LCS "apply package" to the next environment | STMS import queue, `tp import`, STMS_IMPORT | `depot promote --to stage --digest sha256:…` opens a PR against the env overlay | full |
+| Rollback | Restore DB + model store, "AOT revert" | Transport of copies back-out, SNOTE de-implement | Argo CD rollback to prior digest, `depot rollback --env stage` | improved |
 | Code signing / trust | Strong-name model signing (`AxUtil … /key`) | Digitally signed SAP Notes, TMS trusted systems | cosign keyless signatures, policy-controller admission denies unsigned images | improved |
 | Hotfix path | KB hotfix via LCS, binary update | SNOTE note implementation, SPAU | Hotfix branch → cherry-pick → same pipeline, same gates | full |
 | Deployment log / history | LCS environment history, AxUpdateInstaller logs | STMS import log, SLOG/ALOG | Argo CD history + GitHub Deployments API + `platform.release` table | improved |
@@ -95,25 +95,25 @@ AX ships code as LCS deployable packages built on a build VM and applied with Ax
 
 ### 0.1.3 Functional requirements
 
-- **FR-1.1 Monorepo layout** — Must. The system shall keep all Passage source in one repository with the layout `services/go/<svc>`, `services/ts/<svc>`, `services/py/<svc>`, `web/shell`, `web/remotes/<name>`, `deploy/charts/<svc>`, `deploy/envs/{dev,stage,prod}`, `infra/modules/<provider>`, `metadata/entities`, `docs/`.
+- **FR-1.1 Monorepo layout** — Must. The system shall keep all Depot source in one repository with the layout `services/go/<svc>`, `services/ts/<svc>`, `services/py/<svc>`, `web/shell`, `web/remotes/<name>`, `deploy/charts/<svc>`, `deploy/envs/{dev,stage,prod}`, `infra/modules/<provider>`, `metadata/entities`, `docs/`.
   - Notes: each service owns a `Dockerfile`, `Makefile`, `CODEOWNERS` entry and a Helm chart; CI path filters build only changed services; a `go.work` and `pnpm` workspace root pin toolchain versions (Go 1.25, Node 24, Python 3.12).
 - **FR-1.2 Cluster bootstrap module** — Must. The system shall provide an OpenTofu module `infra/modules/cluster` with one variable interface (`provider ∈ {k3d, eks, gke, aks, baremetal}`, `name`, `node_pools[]`, `kubernetes_version`) that outputs a kubeconfig and installs the base add-ons.
   - Notes: base add-ons are Argo CD, Envoy Gateway, cert-manager, External Secrets Operator, CloudNativePG operator, sigstore policy-controller, metrics-server; provider modules contain only networking, node pools and storage classes; k3d module runs with 3 agent nodes and 8 GB RAM.
 - **FR-1.3 Argo CD app-of-apps** — Must. The system shall define a root Application per environment that reconciles child Applications from `deploy/envs/<env>/apps/*.yaml`, each pinning a chart version and an image digest.
   - Notes: sync policy automated for dev, manual-approve PR for stage and prod; prune and self-heal enabled; sync waves order operators (−2), databases (−1), services (0), gateway routes (1).
 - **FR-1.4 Digest-only promotion** — Must. The system shall promote images by immutable digest; tags are informational only.
-  - Notes: `passage promote` rewrites `image.digest` in the target overlay and opens a PR with the SBOM diff and scan summary; promotion to prod requires the digest to have run in stage for ≥ 60 minutes with no SLO burn alert.
+  - Notes: `depot promote` rewrites `image.digest` in the target overlay and opens a PR with the SBOM diff and scan summary; promotion to prod requires the digest to have run in stage for ≥ 60 minutes with no SLO burn alert.
 - **FR-1.5 CI pipeline** — Must. The system shall run on every PR and on `main`: lint (golangci-lint, eslint, ruff), unit tests with coverage ≥ 70% per service, container build (BuildKit, reproducible), Syft SBOM (SPDX 2.3), Grype and Trivy scan, cosign sign and attest.
-  - Notes: required checks block merge; `main` builds push to the registry under `ghcr.io/passage/<svc>@sha256:…`; median PR pipeline ≤ 8 minutes; cache keyed by lockfile hash.
+  - Notes: required checks block merge; `main` builds push to the registry under `ghcr.io/depot/<svc>@sha256:…`; median PR pipeline ≤ 8 minutes; cache keyed by lockfile hash.
 - **FR-1.6 Vulnerability gate** — Must. The system shall fail the build on any CRITICAL finding, or any HIGH finding older than 14 days with a fix available, unless an exception file `.vuln-exceptions.yaml` lists the CVE with an expiry ≤ 30 days.
-- **FR-1.7 Signature verification admission** — Must. The system shall reject any pod whose image lacks a valid cosign signature from the repository identity (`https://github.com/passage/*` OIDC issuer) in namespaces labelled `passage.dev/verified=true`.
+- **FR-1.7 Signature verification admission** — Must. The system shall reject any pod whose image lacks a valid cosign signature from the repository identity (`https://github.com/depot/*` OIDC issuer) in namespaces labelled `depot.dev/verified=true`.
   - Notes: SLSA provenance attestation level 2 at wave 1, level 3 target by wave 48; a negative test deploys an unsigned image and asserts the admission denial message.
 - **FR-1.8 `hello-ledger` placeholder** — Must. The system shall deploy a Go service with one Postgres table that proves the path: migration on start, REST endpoints, health probes, TLS ingress, metrics endpoint.
-- **FR-1.9 Local parity** — Must. `make deploy-local` shall stand up k3d, Argo CD and `hello-ledger` behind `https://app.local.passage.dev` with a locally trusted cert-manager CA in under 10 minutes on a 16 GB laptop.
-- **FR-1.10 Rollback** — Must. The system shall roll back any environment to the previous release by digest in ≤ 5 minutes via `passage rollback --env <env>` (which reverts the overlay commit) or the Argo CD history UI.
+- **FR-1.9 Local parity** — Must. `make deploy-local` shall stand up k3d, Argo CD and `hello-ledger` behind `https://app.local.depot.dev` with a locally trusted cert-manager CA in under 10 minutes on a 16 GB laptop.
+- **FR-1.10 Rollback** — Must. The system shall roll back any environment to the previous release by digest in ≤ 5 minutes via `depot rollback --env <env>` (which reverts the overlay commit) or the Argo CD history UI.
   - Notes: database migrations in Phase 0 are additive-only so rollback never requires a down migration; a rollback records a `Release` row with `kind=rollback`.
 - **FR-1.11 Secrets and config** — Must. The system shall source all secrets from Vault through External Secrets Operator; no secret value appears in Git, Helm values or CI logs.
-  - Notes: config via ConfigMap generated from `deploy/envs/<env>/values.yaml`; secret names follow `passage/<env>/<svc>/<key>`.
+  - Notes: config via ConfigMap generated from `deploy/envs/<env>/values.yaml`; secret names follow `depot/<env>/<svc>/<key>`.
 
 ### 0.1.4 Data model
 
@@ -140,7 +140,7 @@ AX ships code as LCS deployable packages built on a build VM and applied with Ax
 | argo_root_app | text | yes | app-of-apps name |
 | promotion_policy | enum | yes | auto, pr_approval |
 | soak_minutes | int | yes | default 0 dev, 60 stage→prod |
-| base_url | text | yes | `https://app.<env>.passage.dev` |
+| base_url | text | yes | `https://app.<env>.depot.dev` |
 
 **HelloLedgerEntry** (`hello_ledger.entry`)
 
@@ -167,14 +167,14 @@ Invariants: one `Release` row per (service, image_digest); at most one `deployed
 | GET | /v1/platform/releases?service=&env= | Release history | n/a | View platform releases |
 | POST | /v1/platform/releases/{id}/promote | Open promotion PR | release id + env | Maintain platform releases |
 
-CLI commands `passage promote`, `passage rollback`, `passage status` call these endpoints or edit the overlay directly.
+CLI commands `depot promote`, `depot rollback`, `depot status` call these endpoints or edit the overlay directly.
 
 | Event | Trigger | Payload fields | Consumers |
 |---|---|---|---|
-| dev.passage.platform.release.built.v1 | CI publishes signed image | release_id, service, image_digest, git_sha, sbom_url | registry DB writer |
-| dev.passage.platform.release.promoted.v1 | Argo sync Healthy in target env | release_id, environment, actor, previous_digest | audit (wave 5), shell notifications |
-| dev.passage.platform.release.rolledback.v1 | Rollback sync Healthy | release_id, environment, actor, reason | audit, alerting |
-| dev.passage.hello.entry.created.v1 | Entry insert | entry_id, amount_minor, currency | none (proves outbox path in wave 4) |
+| dev.depot.platform.release.built.v1 | CI publishes signed image | release_id, service, image_digest, git_sha, sbom_url | registry DB writer |
+| dev.depot.platform.release.promoted.v1 | Argo sync Healthy in target env | release_id, environment, actor, previous_digest | audit (wave 5), shell notifications |
+| dev.depot.platform.release.rolledback.v1 | Rollback sync Healthy | release_id, environment, actor, reason | audit, alerting |
+| dev.depot.hello.entry.created.v1 | Entry insert | entry_id, amount_minor, currency | none (proves outbox path in wave 4) |
 
 In wave 1 events are written as CloudEvents JSON to stdout and to the registry DB; Kafka transport replaces the sink in wave 4 without changing types.
 
@@ -204,8 +204,8 @@ Interaction rules: promotion PRs are templated with a checklist (soak time met, 
 - **AC-1.1** Given a PR with an injected lint error, When CI runs, Then the `lint` check fails and merge is blocked. (FR-1.5)
 - **AC-1.2** Given a PR with a failing unit test, When CI runs, Then `unit` fails and the failing assertion is annotated inline. (FR-1.5)
 - **AC-1.3** Given a clean macOS or Linux laptop with Docker, When `make deploy-local` runs, Then Argo CD and hello-ledger are reachable over TLS within 10 minutes. (FR-1.9)
-- **AC-1.4** Given a signed image in dev, When `passage promote --to stage` is merged, Then Argo shows Healthy with that digest within 15 minutes of merge. (FR-1.3, FR-1.4)
-- **AC-1.5** Given stage running digest B after A, When `passage rollback --env stage` runs, Then Argo history shows A active within 5 minutes and a `rolled_back` Release row exists. (FR-1.10)
+- **AC-1.4** Given a signed image in dev, When `depot promote --to stage` is merged, Then Argo shows Healthy with that digest within 15 minutes of merge. (FR-1.3, FR-1.4)
+- **AC-1.5** Given stage running digest B after A, When `depot rollback --env stage` runs, Then Argo history shows A active within 5 minutes and a `rolled_back` Release row exists. (FR-1.10)
 - **AC-1.6** Given an unsigned image applied to a verified namespace, When the pod is created, Then admission denies it with a message naming the missing signature. (FR-1.7)
 - **AC-1.7** Given an image with one CRITICAL CVE, When CI runs, Then the scan gate fails; adding a valid exception with expiry in 10 days passes it. (FR-1.6)
 - **AC-1.8** Given a secret in Vault, When hello-ledger starts, Then it reads `DATABASE_URL` via ESO and the value is absent from Git, values files and CI logs (grep check). (FR-1.11)
@@ -228,7 +228,7 @@ Reconciliation: `Release` rows with status `deployed_<env>` equal the digests in
 
 ### 0.1.10 Deployment and operations
 
-Charts: `deploy/charts/platform-base` (umbrella for operators), `deploy/charts/hello-ledger`. Config: `values.yaml` per env; env vars `PASSAGE_ENV`, `OTEL_EXPORTER_OTLP_ENDPOINT` (used from wave 5), `DATABASE_URL` (ESO). Migrations: Atlas, additive-only, run as an init job. Feature flags: none. Scheduled jobs: nightly release reconciliation. SLOs: pipeline p50 ≤ 8 min, promotion merge→Healthy p95 ≤ 15 min, hello-ledger availability 99.9%. Alerts: `ArgoAppDegraded` > 10 min, `PipelineFailureRate` > 20% over 1 h, `AdmissionDeniedSpike`. Runbook entries: Argo out of sync, failed migration job, expired local CA. Rollback: `passage rollback`, then verify `/v1/version`.
+Charts: `deploy/charts/platform-base` (umbrella for operators), `deploy/charts/hello-ledger`. Config: `values.yaml` per env; env vars `DEPOT_ENV`, `OTEL_EXPORTER_OTLP_ENDPOINT` (used from wave 5), `DATABASE_URL` (ESO). Migrations: Atlas, additive-only, run as an init job. Feature flags: none. Scheduled jobs: nightly release reconciliation. SLOs: pipeline p50 ≤ 8 min, promotion merge→Healthy p95 ≤ 15 min, hello-ledger availability 99.9%. Alerts: `ArgoAppDegraded` > 10 min, `PipelineFailureRate` > 20% over 1 h, `AdmissionDeniedSpike`. Runbook entries: Argo out of sync, failed migration job, expired local CA. Rollback: `depot rollback`, then verify `/v1/version`.
 
 ### 0.1.11 Migration from AX / SAP
 
@@ -254,20 +254,20 @@ Platform parameters live in Git (`deploy/envs/<env>/values.yaml`, `infra/modules
 |---|---|---|---|---|---|---|---|
 | `cluster.provider` | cluster (OpenTofu variable) | enum | `k3d` | k3d, eks, gke, aks, baremetal | selects the provider sub-module for networking, node pools, storage classes | LCS environment topology (cloud-hosted / on-premises) | SAP system landscape (SLD, STMS system overview) |
 | `cluster.kubernetes_version` | cluster | semver | 1.31 | n−2 … n of upstream | pins the control plane and node pools | LCS platform update version | Kernel / SAP_BASIS release (System → Status) |
-| `cluster.node_pools[]` | cluster | list of {name, size, count, labels} | 3 × 8 GB (k3d) | provider-specific | sizes compute; `passage.dev/workload` label routes stateful sets | LCS environment sizing (tier) | SM51 application servers, RZ12 logon groups |
+| `cluster.node_pools[]` | cluster | list of {name, size, count, labels} | 3 × 8 GB (k3d) | provider-specific | sizes compute; `depot.dev/workload` label routes stateful sets | LCS environment sizing (tier) | SM51 application servers, RZ12 logon groups |
 | `environment.promotion_policy` | environment (`platform.environment`) | enum | auto (dev), pr_approval (stage, prod) | auto, pr_approval | auto-sync vs. PR with required reviewers | LCS "apply package" approval | STMS_QA quality assurance approval, STMS transport route target group |
 | `environment.soak_minutes` | environment | int | 0 dev, 60 stage | 0–1,440 | minimum time a digest must run in the prior tier before promotion | none | none (manual import scheduling in STMS_IMPORT) |
 | `argo.sync.self_heal`, `argo.sync.prune` | environment overlay | bool | true, true | true/false | drift corrected automatically; removed manifests deleted | none | `tp` profile parameter `repeatonerror` (closest) |
 | `argo.sync_waves` | overlay annotation | ordered ints | operators −2, databases −1, services 0, routes 1 | −10 … 10 | start order per sync | AxUpdateInstaller step order | STMS import order / import all |
-| `ci.unit_coverage_min_pct` | repository (`.passage-ci.yaml`) | int | 70 | 0–100 | fails the `unit` check below threshold | Best Practice check severity | ATC check variant (SCI) priority |
+| `ci.unit_coverage_min_pct` | repository (`.depot-ci.yaml`) | int | 70 | 0–100 | fails the `unit` check below threshold | Best Practice check severity | ATC check variant (SCI) priority |
 | `ci.vuln.fail_on` | repository | enum set | critical, high_with_fix_older_than_14d | critical, high, high_with_fix_older_than_14d, medium | scan gate policy (FR-1.6) | none | none (SAP Security Notes via SysRec) |
 | `ci.vuln.exception_max_days` | repository | int | 30 | 1–90 | maximum validity of a `.vuln-exceptions.yaml` entry | none | none |
 | `ci.sbom.format` | repository | enum | spdx-2.3 | spdx-2.3, cyclonedx-1.6 | SBOM attestation format | none | none |
-| `admission.verified_namespace_label` | cluster (policy-controller `ClusterImagePolicy`) | string | `passage.dev/verified=true` | label selector | namespaces where unsigned images are denied | strong-name signing requirement for models (`AxUtil /key`) | TMS trusted systems (SE06, SMT1) |
-| `admission.oidc_identity` | cluster | regex | `https://github.com/passage/.*` | issuer + subject regex | identity accepted by cosign keyless verification | none | none |
+| `admission.verified_namespace_label` | cluster (policy-controller `ClusterImagePolicy`) | string | `depot.dev/verified=true` | label selector | namespaces where unsigned images are denied | strong-name signing requirement for models (`AxUtil /key`) | TMS trusted systems (SE06, SMT1) |
+| `admission.oidc_identity` | cluster | regex | `https://github.com/depot/.*` | issuer + subject regex | identity accepted by cosign keyless verification | none | none |
 | `registry.image_retention_days` | registry | int | 180 | 30–3,650 | untagged, unreferenced digests deleted after this | LCS asset library retention | none (transport files kept in `/usr/sap/trans`) |
 | `registry.sbom_retention_years` | registry | int | 7 | 1–10 | SBOM and attestation retention | none | none |
-| `secrets.path_template` | cluster (ESO `ClusterSecretStore`) | string | `passage/<env>/<svc>/<key>` | Vault KV v2 path | where every service secret is read from | none (web.config / AOS config) | SECSTORE (secure storage), RSECADMIN |
+| `secrets.path_template` | cluster (ESO `ClusterSecretStore`) | string | `depot/<env>/<svc>/<key>` | Vault KV v2 path | where every service secret is read from | none (web.config / AOS config) | SECSTORE (secure storage), RSECADMIN |
 | `local.profile` | developer (`make deploy-local PROFILE=`) | enum | full | min, full | `min` omits observability and Temporal UI to fit 16 GB | OneBox VHD size | NetWeaver developer edition install profile |
 | `hello_ledger.idempotency_window_hours` | service values | int | 24 | 1–168 | replay window for `Idempotency-Key` | none | none |
 
@@ -294,7 +294,7 @@ No printed documents. Electronic artifacts produced by the wave:
 |---|---|---|---|---|---|
 | SBOM | every `main` build | SPDX document: creator, package list (name, version, license, PURL), relationships, digest it describes | SPDX 2.3 JSON, attached to the image as a cosign attestation | identified by image digest, no sequence | retained 7 years (BR-1.7); evidence for wave 48 SOC 2 CC8.1 |
 | Provenance attestation | every signed build | in-toto statement: builder id, source repo + sha, materials, build config | in-toto JSON (SLSA v1), Rekor transparency log entry | Rekor log index | retained with the image; immutable in Rekor |
-| Promotion PR summary | `passage promote` | title (service, from → to env, digest), checklist (soak met, scan clean, rollback target), SBOM diff table, scan summary | GitHub PR body (Markdown) | PR number | retained with repository history |
+| Promotion PR summary | `depot promote` | title (service, from → to env, digest), checklist (soak met, scan clean, rollback target), SBOM diff table, scan summary | GitHub PR body (Markdown) | PR number | retained with repository history |
 | Release notes (per promotion to prod) | PR merge to prod overlay | commits since previous prod digest grouped by Conventional Commit type, linked issues | Markdown in GitHub Deployment description | release id | none |
 
 ### 0.1.16 Periodic and batch jobs
@@ -310,22 +310,22 @@ No printed documents. Electronic artifacts produced by the wave:
 
 ### 0.1.17 Security duties and privileges
 
-Wave 1 has no OPA-enforced API yet (wave 2); the duties below are enforced by GitHub branch protection, CODEOWNERS, Argo CD RBAC (mapped from GitHub teams) and Vault policies, and are re-declared as Passage duties in wave 2 so the same names hold later.
+Wave 1 has no OPA-enforced API yet (wave 2); the duties below are enforced by GitHub branch protection, CODEOWNERS, Argo CD RBAC (mapped from GitHub teams) and Vault policies, and are re-declared as Depot duties in wave 2 so the same names hold later.
 
 | Duty | Privileges (entry points) | Segregation-of-duties conflicts | Default roles that include it |
 |---|---|---|---|
-| View platform releases | `GET /v1/platform/releases`, Argo CD read-only UI, `passage status` | none | Platform engineer, Release manager, Auditor |
-| Maintain platform releases | `POST /v1/platform/releases/{id}/promote` (dev → stage), `passage promote --to stage`, merge to `deploy/envs/dev`, `deploy/envs/stage` | with Approve production promotion (same person cannot author and sole-approve the prod PR; enforced by required reviewers ≠ author) | Platform engineer |
-| Approve production promotion | review + merge of PRs touching `deploy/envs/prod` (CODEOWNERS `@passage/release-managers`) | with Maintain vulnerability exceptions | Release manager |
-| Rollback environment | `passage rollback --env <env>`, Argo CD rollback action | none (rollback is always allowed to anyone who can promote to that env) | Platform engineer (dev, stage), Release manager (prod) |
-| Maintain vulnerability exceptions | edit `.vuln-exceptions.yaml` (CODEOWNERS `@passage/security`) | with Approve production promotion | Security engineer |
+| View platform releases | `GET /v1/platform/releases`, Argo CD read-only UI, `depot status` | none | Platform engineer, Release manager, Auditor |
+| Maintain platform releases | `POST /v1/platform/releases/{id}/promote` (dev → stage), `depot promote --to stage`, merge to `deploy/envs/dev`, `deploy/envs/stage` | with Approve production promotion (same person cannot author and sole-approve the prod PR; enforced by required reviewers ≠ author) | Platform engineer |
+| Approve production promotion | review + merge of PRs touching `deploy/envs/prod` (CODEOWNERS `@depot/release-managers`) | with Maintain vulnerability exceptions | Release manager |
+| Rollback environment | `depot rollback --env <env>`, Argo CD rollback action | none (rollback is always allowed to anyone who can promote to that env) | Platform engineer (dev, stage), Release manager (prod) |
+| Maintain vulnerability exceptions | edit `.vuln-exceptions.yaml` (CODEOWNERS `@depot/security`) | with Approve production promotion | Security engineer |
 | Maintain cluster configuration | `tofu apply` on `infra/`, edit `deploy/charts/platform-base` | with Maintain secrets (one person should not hold both cluster admin and Vault root) | Platform engineer |
-| Maintain secrets | Vault policy `passage/<env>/*` write; ESO `ClusterSecretStore` edit | with Maintain cluster configuration | Security engineer |
+| Maintain secrets | Vault policy `depot/<env>/*` write; ESO `ClusterSecretStore` edit | with Maintain cluster configuration | Security engineer |
 | Maintain hello ledger | `POST /v1/hello-ledger/entries` (token-gated from wave 2) | none | Platform engineer (demo only) |
 
 ### 0.1.18 Message catalog
 
-Codes `PLT-01xx` are emitted by CI checks, the `passage` CLI, the admission controller and the hello-ledger service; CI messages are also written as GitHub check annotations.
+Codes `PLT-01xx` are emitted by CI checks, the `depot` CLI, the admission controller and the hello-ledger service; CI messages are also written as GitHub check annotations.
 
 | Code | Severity | User text | Cause | Remediation | Raised by |
 |---|---|---|---|---|---|
@@ -333,7 +333,7 @@ Codes `PLT-01xx` are emitted by CI checks, the `passage` CLI, the admission cont
 | PLT-0102 | error | Promotion to prod blocked: digest ran {minutes} of {required} soak minutes in stage | soak not met | wait, or lower `soak_minutes` with Release manager approval | BR-1.3 |
 | PLT-0103 | error | Promotion to prod blocked: SLO burn alert `{alert}` fired during soak | `SLOBurnRateHigh` within the window | investigate the alert; re-soak after fix | BR-1.3 |
 | PLT-0104 | warning | A promotion of {service} to {env} is already open (#{pr}); this PR was closed | concurrent promotion | wait for the first PR | BR-1.4 |
-| PLT-0105 | error | No rollback target: no earlier `deployed_{env}` release with a different digest | first release in the environment | deploy an earlier digest explicitly with `passage promote --digest` | BR-1.6 |
+| PLT-0105 | error | No rollback target: no earlier `deployed_{env}` release with a different digest | first release in the environment | deploy an earlier digest explicitly with `depot promote --digest` | BR-1.6 |
 | PLT-0106 | error | Vulnerability exception for {cve} expired on {date} | exception past expiry | renew with new justification (≤ 30 days) or fix | BR-1.5, FR-1.6 |
 | PLT-0107 | error | Scan gate failed: {n} CRITICAL / {m} actionable HIGH findings | FR-1.6 policy | upgrade the package or add a justified exception | FR-1.6 |
 | PLT-0108 | error | Pod denied: image {image} has no valid cosign signature from `{identity}` | admission policy | build through CI; never push hand-built images to verified namespaces | FR-1.7 |
@@ -379,11 +379,11 @@ No `GAP` or `PARTIAL` row in coverage-ax.md §12.99 or coverage-sap.md §13.99 i
 
 ### 0.2.1 Scope and business context
 
-AX 2012 authorizes through `SecurityRole` → `SecurityDuty` → `SecurityPrivilege` → `SecurityEntryPoint` with access levels (NoAccess, Read, Update, Create, Correct, Delete), table permissions in the AOT, extensible data security policies (XDS) and `UserInfo` rows tied to Active Directory; companies are isolated by `DataAreaId` on every per-company table. SAP uses `SU01` user masters (USR02), `PFCG` roles (AGR_DEFINE, AGR_1251 field values, AGR_USERS), authorization objects such as `S_TCODE`, `F_BKPF_BUK` (company code) and `M_MATE_WRK` (plant), `SU24` proposals, `SU53` failed-check traces, and `MANDT` for client isolation. Wave 2 gives Passage one identity provider (Keycloak) federated to Entra ID, Okta or Google, SCIM provisioning, an AX-shaped role model compiled to Rego, OPA as a sidecar on every service, Envoy Gateway JWT validation with per-tenant rate limits, and Postgres RLS on every table. At the end of the wave a user logs in once, lands in a legal entity, and every API call is allowed or denied by policy, not code. Out of scope: segregation-of-duties conflict analysis (wave 48), position hierarchies (wave 42), record-level XDS-style data policies beyond tenant and legal entity (wave 15 adds dimension security), customer-facing portals (waves 20, 30).
+AX 2012 authorizes through `SecurityRole` → `SecurityDuty` → `SecurityPrivilege` → `SecurityEntryPoint` with access levels (NoAccess, Read, Update, Create, Correct, Delete), table permissions in the AOT, extensible data security policies (XDS) and `UserInfo` rows tied to Active Directory; companies are isolated by `DataAreaId` on every per-company table. SAP uses `SU01` user masters (USR02), `PFCG` roles (AGR_DEFINE, AGR_1251 field values, AGR_USERS), authorization objects such as `S_TCODE`, `F_BKPF_BUK` (company code) and `M_MATE_WRK` (plant), `SU24` proposals, `SU53` failed-check traces, and `MANDT` for client isolation. Wave 2 gives Depot one identity provider (Keycloak) federated to Entra ID, Okta or Google, SCIM provisioning, an AX-shaped role model compiled to Rego, OPA as a sidecar on every service, Envoy Gateway JWT validation with per-tenant rate limits, and Postgres RLS on every table. At the end of the wave a user logs in once, lands in a legal entity, and every API call is allowed or denied by policy, not code. Out of scope: segregation-of-duties conflict analysis (wave 48), position hierarchies (wave 42), record-level XDS-style data policies beyond tenant and legal entity (wave 15 adds dimension security), customer-facing portals (waves 20, 30).
 
 #### Pain points solved (10x lens)
 
-| Pain point in AX/SAP today | Root cause | Passage answer in this wave | Measurable 10x target |
+| Pain point in AX/SAP today | Root cause | Depot answer in this wave | Measurable 10x target |
 |---|---|---|---|
 | Diagnosing "no authorization" in SAP needs SU53 on the user's session, then SUIM, then PFCG edit, role generation and user comparison (PFCG → Authorizations → Generate → User tab → User comparison): 6 screens and often a transport | Authorization data lives in profiles generated from roles; failures are only visible in the user's own buffer | Every 403 carries `duty_missing`; the effective-permission viewer shows the decision trace for any user × entity × action; assignment takes effect in ≤ 30 s without a transport | Access-fix cycle: 1–3 days (ticket + transport window) → < 5 min; screens: 6 → 1 |
 | AX security development: a new entry point needs a privilege, duty and role in the AOT, synchronization and an AOS restart; D365 needs a build and package | Security objects are AOT metadata compiled into the model store | Role/duty/privilege are data compiled to a Rego bundle on save | Role change to live: 1–2 h (AX) / 4 h (D365 package) → ≤ 5 s compile + 10 s propagation |
@@ -393,7 +393,7 @@ AX 2012 authorizes through `SecurityRole` → `SecurityDuty` → `SecurityPrivil
 
 ### 0.2.2 AX / SAP parity map
 
-| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Passage equivalent | Parity |
+| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Depot equivalent | Parity |
 |---|---|---|---|---|
 | User master | `UserInfo`, SysUserInfoPage form, AD import wizard | SU01, USR02/USR21, SU10 mass maintenance | identity `User` entity, Admin UI Users, SCIM /Users | full |
 | Role | `SecurityRole`, SysSecRoles form | PFCG single/composite/derived roles, AGR_DEFINE | authz `Role` (+ `derived_from` for org-level variants) | full |
@@ -413,8 +413,8 @@ AX 2012 authorizes through `SecurityRole` → `SecurityDuty` → `SecurityPrivil
   - Notes: deprovision sets `status=deprovisioned`, revokes sessions within 60 s, never deletes the row (audit needs it).
 - **FR-2.3 Tenant and legal entity model** — Must. The system shall model `Tenant` → `LegalEntity` → `Site` (shell only; detailed in wave 6) and stamp `tenant_id` on every table in every domain database.
   - Notes: `legal_entity_id` is stamped on per-company tables (AX `SaveDataPerCompany=Yes` equivalent, declared in metadata in wave 3); a user's current legal entity is a session attribute, not a token claim, so switching does not require re-login.
-- **FR-2.4 Row-level security** — Must. Every table shall have `ENABLE ROW LEVEL SECURITY` and `FORCE ROW LEVEL SECURITY` with policy `tenant_id = current_setting('passage.tenant_id')::uuid`; services connect as role `passage_app` with `NOBYPASSRLS` and set the variable with `SET LOCAL` inside every transaction.
-  - Notes: a missing `passage.tenant_id` yields zero rows, not an error; migrations run as `passage_owner`, which is also NOBYPASSRLS; a CI check fails if any table lacks the policy.
+- **FR-2.4 Row-level security** — Must. Every table shall have `ENABLE ROW LEVEL SECURITY` and `FORCE ROW LEVEL SECURITY` with policy `tenant_id = current_setting('depot.tenant_id')::uuid`; services connect as role `depot_app` with `NOBYPASSRLS` and set the variable with `SET LOCAL` inside every transaction.
+  - Notes: a missing `depot.tenant_id` yields zero rows, not an error; migrations run as `depot_owner`, which is also NOBYPASSRLS; a CI check fails if any table lacks the policy.
 - **FR-2.5 Role/duty/privilege model** — Must. The system shall store Role → Duty → Privilege → Permission where Permission = (entity, action, field_mask?, condition?), and compile the closure into one Rego bundle per tenant.
   - Notes: actions are read, create, update, correct, delete, post, approve, export; `correct` retains AX semantics (edit date-effective rows); 20 seeded duties ship (Maintain users, Maintain security roles, Maintain vendors, View vendors, Maintain entity metadata, Apply extensions, Maintain workflows, Approve workflow, Maintain batch jobs, View batch history, Maintain number sequences, View audit log, Import data, Export data, Maintain platform releases, View platform releases, Maintain tenants, Maintain legal entities, Maintain saved views, Maintain hello ledger).
 - **FR-2.6 Policy compilation** — Must. The system shall compile a bundle within 5 s of any role/duty/privilege/assignment change and distribute it to OPA sidecars via bundle polling (interval 10 s) with the version in `pv`.
@@ -498,11 +498,11 @@ Commands validate: email RFC 5322; role code `^[A-Za-z][A-Za-z0-9]{2,63}$`; assi
 
 | Event | Trigger | Payload fields | Consumers |
 |---|---|---|---|
-| dev.passage.identity.user.created.v1 | User insert (UI, SCIM, federation first login) | user_id, tenant_id, email, kind, source | workflow, audit, shell |
-| dev.passage.identity.user.status-changed.v1 | status transition | user_id, from, to, actor, reason | audit, session revoker |
-| dev.passage.authz.role-assignment.granted.v1 / revoked.v1 | assignment insert/delete | assignment_id, user_id, role_id, legal_entity_ids, effective_from, effective_to | policy compiler, audit |
-| dev.passage.authz.policy.compiled.v1 | bundle built | tenant_id, bundle_version, sha256 | OPA sidecars, audit |
-| dev.passage.identity.login.succeeded.v1 / failed.v1 | Keycloak event listener | user_id, ip, idp, amr | audit, anomaly alert |
+| dev.depot.identity.user.created.v1 | User insert (UI, SCIM, federation first login) | user_id, tenant_id, email, kind, source | workflow, audit, shell |
+| dev.depot.identity.user.status-changed.v1 | status transition | user_id, from, to, actor, reason | audit, session revoker |
+| dev.depot.authz.role-assignment.granted.v1 / revoked.v1 | assignment insert/delete | assignment_id, user_id, role_id, legal_entity_ids, effective_from, effective_to | policy compiler, audit |
+| dev.depot.authz.policy.compiled.v1 | bundle built | tenant_id, bundle_version, sha256 | OPA sidecars, audit |
+| dev.depot.identity.login.succeeded.v1 / failed.v1 | Keycloak event listener | user_id, ip, idp, amr | audit, anomaly alert |
 
 ### 0.2.6 User experience
 
@@ -533,7 +533,7 @@ Rules: all grids are keyboard navigable (wave 5 shell completes this); role edit
 ### 0.2.8 Acceptance criteria
 
 - **AC-2.1** Given a user with duty "Maintain vendors", When they `PUT /vendors/{id}` (stub entity), Then 200; Given a user without it, Then 403 with `duty_missing`. Table-driven across 20 duties. (FR-2.5, FR-2.7)
-- **AC-2.2** Given tenant A's app session, When a query filters `tenant_id = <tenant B>`, Then zero rows are returned under `passage_app`. (FR-2.4)
+- **AC-2.2** Given tenant A's app session, When a query filters `tenant_id = <tenant B>`, Then zero rows are returned under `depot_app`. (FR-2.4)
 - **AC-2.3** Given two Keycloak realms federated to a stand-in Keycloak IdP in CI, When a user logs in through each, Then both sessions carry the correct `tid` and land in the user's default legal entity. (FR-2.1, FR-2.3)
 - **AC-2.4** Given 100 random (user, entity, action, legal entity) tuples, When effective-permission report and `POST /v1/authz/decision` are compared, Then they agree 100%. (FR-2.6, FR-2.10)
 - **AC-2.5** Given a SCIM PATCH deactivating a user, When processed, Then `status=deprovisioned`, refresh tokens are revoked within 60 s and the row persists. (FR-2.2)
@@ -564,16 +564,16 @@ Charts: `keycloak` (with CNPG database, 2 replicas), `identity`, `authz` (compil
 
 ### 0.2.11 Migration from AX / SAP
 
-| Source | Passage entity | Notes |
+| Source | Depot entity | Notes |
 |---|---|---|
 | AX `UserInfo` (id, name, networkAlias, enable) | User | `networkAlias` → username; `enable=0` → disabled |
 | AX `SecurityUserRole` (user, securityRole, validFrom/validTo) | RoleAssignment | dates carried; `OMUserRoleOrganization` rows → `legal_entity_ids` |
-| AX `SecurityRole` / `SecurityDuty` / `SecurityPrivilege` + `SecurityRoleTaskGrant`, `SecurityTaskEntryPoint` | Role / Duty / Privilege | custom (CUS/VAR layer) roles only; SYS roles are mapped by name to Passage seeds |
+| AX `SecurityRole` / `SecurityDuty` / `SecurityPrivilege` + `SecurityRoleTaskGrant`, `SecurityTaskEntryPoint` | Role / Duty / Privilege | custom (CUS/VAR layer) roles only; SYS roles are mapped by name to Depot seeds |
 | SAP USR02 (BNAME, UFLAG, GLTGV/GLTGB) | User | UFLAG 64/128 → locked; GLTGV/GLTGB → status dates |
 | SAP AGR_USERS (AGR_NAME, UNAME, FROM_DAT, TO_DAT) | RoleAssignment | dates carried |
-| SAP AGR_DEFINE / AGR_1251 (OBJECT, FIELD, LOW/HIGH) | Role / Duty / Privilege | authorization objects map via a crosswalk file to Passage permissions; BUKRS values → legal_entity_ids |
+| SAP AGR_DEFINE / AGR_1251 (OBJECT, FIELD, LOW/HIGH) | Role / Duty / Privilege | authorization objects map via a crosswalk file to Depot permissions; BUKRS values → legal_entity_ids |
 
-Transformations run through the wave 10 migration framework; this wave ships only the crosswalk format and a dry-run report. Not migrated: passwords (federated), SU24 proposals, AX entry-point grants on forms that have no Passage equivalent (reported as "unmapped" with counts).
+Transformations run through the wave 10 migration framework; this wave ships only the crosswalk format and a dry-run report. Not migrated: passwords (federated), SU24 proposals, AX entry-point grants on forms that have no Depot equivalent (reported as "unmapped" with counts).
 
 ### 0.2.12 Dependencies, risks, open questions
 
@@ -585,7 +585,7 @@ Depends on: wave 1 (cluster, Argo, Vault/ESO, gateway).
 | Rego closure bundle size for large role models | Medium | Medium | Partial evaluation; bundle per tenant; limit 50k permissions |
 | SAML IdPs with non-standard attribute names | Medium | Low | Mapper templates for Entra ID, Okta, ADFS |
 
-Open questions: (1) Field-level masks in P0 or deferred to wave 15 — default: masks compiled but enforced only for PII-flagged fields; decide by wave 3. (2) Session legal entity in a cookie vs header — default header `X-Passage-Legal-Entity`; decide by wave 5. (3) Tenant realm per tenant vs shared realm with groups — default per tenant; decide by wave 2 mid-point.
+Open questions: (1) Field-level masks in P0 or deferred to wave 15 — default: masks compiled but enforced only for PII-flagged fields; decide by wave 3. (2) Session legal entity in a cookie vs header — default header `X-Depot-Legal-Entity`; decide by wave 5. (3) Tenant realm per tenant vs shared realm with groups — default per tenant; decide by wave 2 mid-point.
 
 ### 0.2.13 Parameters and setup
 
@@ -609,7 +609,7 @@ Tenant-scoped values are rows of `identity.tenant_settings` (edited on the Admin
 | `authz.recompile_time` | tenant | HH:MM tenant time zone | 00:05 | any | nightly effective-date recompile (BR-2.5) | none | PFUD / PFCG_TIME_DEPENDENCY job |
 | `gateway.rate_limit.sustained_rps`, `gateway.rate_limit.burst` | tenant | int, int | 1,000, 2,000 | 100–50,000 | FR-2.8 limits; 429 with `Retry-After` | none | ICM `icm/max_conn`, `rdisp/tm_max_no` |
 | `gateway.jwks_cache_minutes` | environment | int | 5 | 1–60 | JWKS refresh | none | none |
-| `session.legal_entity_header` | environment | string | `X-Passage-Legal-Entity` | header name | carries the current legal entity (open question 2) | `changecompany()` / company switch | SU3 default parameter BUK |
+| `session.legal_entity_header` | environment | string | `X-Depot-Legal-Entity` | header name | carries the current legal entity (open question 2) | `changecompany()` / company switch | SU3 default parameter BUK |
 | `tenant.time_zone`, `tenant.default_currency` | tenant | IANA tz, ISO 4217 | `UTC`, `USD` | valid values | effective-date evaluation, defaults for later waves | System parameters → General (time zone), CompanyInfo currency | SCC4 client, OY01 country, OB22 company code currency |
 | `legal_entity.country` | legal entity | ISO 3166-1 alpha-2 | required | valid code | country-pack hook (0.2.20) | Legal entities form → Addresses (country/region) | OX02 company code country |
 | `agent.max_sponsor_subset` | tenant | bool | true | true | agents may hold only a subset of the sponsor's roles (FR-2.11) | none | SU01 reference user |
@@ -628,7 +628,7 @@ Tenant-scoped values are rows of `identity.tenant_settings` (edited on the Admin
 | Online sessions | list inquiry | tenant, user | user, session start, last activity, IdP, client; action: revoke | Keycloak sessions API | Online users (SysUsersOnline) | SM04, AL08 |
 | Expiring role assignments | operational report | horizon (default 30 days) | user, role, effective_to, granted by | `authz.role_assignment` | none | PFCG_TIME_DEPENDENCY log |
 | Authorization denials | KPI / operational | period, duty, entity, user | denials per duty per hour, top users, top entities | OPA decision logs (Loki) → `authz.decision_stat` | none | SU53 (per user), SM20 RFC/auth failures |
-| SCIM reconciliation | operational report | last run | users in IdP not in Passage, deprovisioned in IdP still active, group → role mismatches | SCIM sync job output | AD import wizard log | SAP IPS job log, CUA distribution log (SCUL) |
+| SCIM reconciliation | operational report | last run | users in IdP not in Depot, deprovisioned in IdP still active, group → role mismatches | SCIM sync job output | AD import wizard log | SAP IPS job log, CUA distribution log (SCUL) |
 | Policy bundle versions | list inquiry | tenant | version, sha256, compiled at, role count, permission count, trigger | `authz.bundle` | none | PFCG profile generation log |
 | Tenant and legal entity list | list inquiry | status | code, name, country, currency, time zone, user count | `identity.tenant`, `identity.legal_entity` | Legal entities (OMLegalEntity) | OX02 company codes, SCC4 clients |
 
@@ -734,7 +734,7 @@ In AX every business object is an AOT artifact: a Table with properties (`TableG
 
 #### Pain points solved (10x lens)
 
-| Pain point in AX/SAP today | Root cause | Passage answer in this wave | Measurable 10x target |
+| Pain point in AX/SAP today | Root cause | Depot answer in this wave | Measurable 10x target |
 |---|---|---|---|
 | Adding one field to VendTable in D365: table extension, EDT, form extension, data entity extension, label, build, deployable package, LCS apply — a 2–5 day developer task with an environment outage | Schema, API, form and entity are separate artifacts kept in sync by hand | One `x_` field in an `ExtensionPackage`: migration, API, client, JSON Schema and (wave 5) form generated and applied with zero downtime | Field addition: 2–5 days + outage → < 60 s, no outage; artifacts touched by hand: 6 → 1 |
 | SAP append structure on LFA1 needs SE11, activation (table conversion risk on large tables), CMOD/BAdI for validation, SE51 screen exit, and a transport through DEV→QAS→PRD | DDIC activation rewrites tables; UI exits are separate from DDIC | Additive `ADD COLUMN` with fast default, `CREATE INDEX CONCURRENTLY`, declarative validation in the same package | Lock time on a 100M-row table: minutes → < 2 s; transport cycle: 1–2 weeks → one PR |
@@ -744,7 +744,7 @@ In AX every business object is an AOT artifact: a Table with properties (`TableG
 
 ### 0.3.2 AX / SAP parity map
 
-| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Passage equivalent | Parity |
+| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Depot equivalent | Parity |
 |---|---|---|---|---|
 | Table definition | AOT Tables node, `TableGroup`, `SaveDataPerCompany`, `RecId`, `RecVersion`, `DataAreaId`, `Partition` | DD02L, delivery class, MANDT, SE11 | `EntityDefinition` YAML; system fields id, tenant_id, legal_entity_id, version, created_*, updated_* | full |
 | Typed fields | Extended Data Types (StringSize, Label, HelpText), `SysDictField` | Domains (DD01L) + data elements (DD04L) | `TypeDefinition` (EDT) + `FieldDefinition` | full |
@@ -774,7 +774,7 @@ In AX every business object is an AOT artifact: a Table with properties (`TableG
 - **FR-3.7 Lifecycle hooks** — Must. The system shall execute hooks in order initValue → validateField (per changed field) → validateWrite → write → afterWrite, and validateDelete → delete → afterDelete; declarative hooks are expressions returning `{ok, code, message, field}`; coded hooks are Go/TS functions registered by name in the owning service.
   - Notes: validation errors return 422 with `errors[]{field, code, message}`; a coded hook that panics rolls back the transaction and returns 500 with a trace id.
 - **FR-3.8 Metadata registry** — Must. The system shall store every definition version, expose diff between versions, publish an immutable version on approval, and serve the current version to generators, the gateway and the shell with ETag caching.
-  - Notes: registry DB is `metadata`; publishing emits `dev.passage.metadata.entity.published.v1`; registry read p95 ≤ 20 ms.
+  - Notes: registry DB is `metadata`; publishing emits `dev.depot.metadata.entity.published.v1`; registry read p95 ≤ 20 ms.
 - **FR-3.9 Extension packages** — Must. Customers shall create an `ExtensionPackage` (layer customer or partner) that adds fields (prefixed `x_`), enum values (code ≥ 1000), indexes, declarative hooks and labels to any `sys` entity; applying a package generates and runs the migration, regenerates OpenAPI/JSON Schema and invalidates the shell form cache with zero downtime.
   - Notes: limits: 200 extension fields per entity, 50 enum values per enum per package; packages are versioned and reversible only while additive.
 - **FR-3.10 Backward compatibility** — Must. CI shall run the previous published version's generated TypeScript client against the new server and fail on any breaking change (removed field, type change, required added, enum value removed); additive changes pass.
@@ -899,13 +899,13 @@ Invariants: a published version is immutable; field names unique per entity acro
 
 | Event | Trigger | Payload fields | Consumers |
 |---|---|---|---|
-| dev.passage.rules.ruleset.published.v1 | rule set publish | code, version, tables[], row_count | services holding compiled trees (reload), audit |
-| dev.passage.metadata.usage.snapshot.v1 | nightly snapshot | tenant_id, snapshot_date, active_users_30d, active_users_90d | analytics (wave 46), licensing report (PRD §12 Q1) |
-| dev.passage.metadata.entity.published.v1 | publish | entity, domain, version, api_major, diff_summary{added, changed, removed} | generator pipeline, events (wave 4), shell |
-| dev.passage.metadata.entity.deprecated.v1 | deprecate | entity, version, sunset_date | shell, API docs |
-| dev.passage.metadata.extension.applied.v1 | apply success | package_id, code, version, entities[], fields_added, enum_values_added, migration_id | audit, shell, generator |
-| dev.passage.metadata.extension.failed.v1 | apply failure | package_id, stage, error | alerting |
-| dev.passage.metadata.schema.migrated.v1 | Atlas job completes | domain, migration_id, duration_ms | audit |
+| dev.depot.rules.ruleset.published.v1 | rule set publish | code, version, tables[], row_count | services holding compiled trees (reload), audit |
+| dev.depot.metadata.usage.snapshot.v1 | nightly snapshot | tenant_id, snapshot_date, active_users_30d, active_users_90d | analytics (wave 46), licensing report (PRD §12 Q1) |
+| dev.depot.metadata.entity.published.v1 | publish | entity, domain, version, api_major, diff_summary{added, changed, removed} | generator pipeline, events (wave 4), shell |
+| dev.depot.metadata.entity.deprecated.v1 | deprecate | entity, version, sunset_date | shell, API docs |
+| dev.depot.metadata.extension.applied.v1 | apply success | package_id, code, version, entities[], fields_added, enum_values_added, migration_id | audit, shell, generator |
+| dev.depot.metadata.extension.failed.v1 | apply failure | package_id, stage, error | alerting |
+| dev.depot.metadata.schema.migrated.v1 | Atlas job completes | domain, migration_id, duration_ms | audit |
 
 ### 0.3.6 User experience
 
@@ -966,18 +966,18 @@ Reconciliation: registry field count per published entity equals `information_sc
 
 ### 0.3.10 Deployment and operations
 
-Charts: `metadata-registry` (Go, CNPG `metadata` database), `passage-gen` runs in CI and as an in-cluster Job for extension apply. Config: `REGISTRY_URL`, `GEN_OUTPUT_DIR`, `ATLAS_DEV_URL` (scratch database for migration planning). Migrations: generated; applied by Argo pre-sync hook with `atlas migrate apply --tx-mode all`. Feature flags: `metadata.extensions.enabled` per tenant. Scheduled jobs: nightly drift check (registry vs live schema). SLOs: registry availability 99.9%, read p95 ≤ 20 ms, extension apply ≤ 60 s. Alerts: `SchemaDrift`, `ExtensionApplyFailed`, `MigrationJobFailed`. Runbook: failed migration (mark package failed, run `atlas migrate down` only in dev), registry restore from CNPG backup. Rollback: registry and generated services roll back together by digest; because migrations are additive the previous digest runs against the newer schema.
+Charts: `metadata-registry` (Go, CNPG `metadata` database), `depot-gen` runs in CI and as an in-cluster Job for extension apply. Config: `REGISTRY_URL`, `GEN_OUTPUT_DIR`, `ATLAS_DEV_URL` (scratch database for migration planning). Migrations: generated; applied by Argo pre-sync hook with `atlas migrate apply --tx-mode all`. Feature flags: `metadata.extensions.enabled` per tenant. Scheduled jobs: nightly drift check (registry vs live schema). SLOs: registry availability 99.9%, read p95 ≤ 20 ms, extension apply ≤ 60 s. Alerts: `SchemaDrift`, `ExtensionApplyFailed`, `MigrationJobFailed`. Runbook: failed migration (mark package failed, run `atlas migrate down` only in dev), registry restore from CNPG backup. Rollback: registry and generated services roll back together by digest; because migrations are additive the previous digest runs against the newer schema.
 
 ### 0.3.11 Migration from AX / SAP
 
-| Source | Passage entity | Notes |
+| Source | Depot entity | Notes |
 |---|---|---|
-| AX AOT Tables (via `SysDictTable` export or AxModel XML) with `TableGroup`, `SaveDataPerCompany` | EntityDefinition | only customer-layer (CUS/VAR/USR) tables and fields are candidates; SYS tables map to Passage entities by crosswalk |
+| AX AOT Tables (via `SysDictTable` export or AxModel XML) with `TableGroup`, `SaveDataPerCompany` | EntityDefinition | only customer-layer (CUS/VAR/USR) tables and fields are candidates; SYS tables map to Depot entities by crosswalk |
 | AX EDTs, Base Enums | TypeDefinition, EnumDefinition | enum values keep their integer codes where < 1000 |
 | AX table extensions (`.extension` XML) | ExtensionPackage | field additions become `x_` fields |
 | SAP DD02L/DD03L for Z*/Y* tables, append structures, CI_* includes | EntityDefinition / ExtensionPackage | DD04L data elements → TypeDefinition; DD07L fixed values → EnumValue |
 
-Transformation is a definition import (`passage-gen import-ax`, `import-sap`) producing draft YAML for review; nothing is auto-published. Not migrated: X++ table methods and ABAP user exits (code), SAP delivery-class semantics, AX `CacheLookup` and `Partition`.
+Transformation is a definition import (`depot-gen import-ax`, `import-sap`) producing draft YAML for review; nothing is auto-published. Not migrated: X++ table methods and ABAP user exits (code), SAP delivery-class semantics, AX `CacheLookup` and `Partition`.
 
 ### 0.3.12 Dependencies, risks, open questions
 
@@ -1042,9 +1042,9 @@ No printed documents. Electronic documents:
 |---|---|---|---|---|---|
 | OpenAPI 3.1 document per entity | publish | info (entity, version, api_major), paths, components (schemas from JSON Schema), security scheme | JSON, YAML | version = entity version | retained for every published version (immutable) |
 | JSON Schema per entity | publish | `$id`, properties with types/formats, required, enum values | JSON Schema 2020-12 | same | same |
-| TypeScript client package | publish | typed fetch client, request/response types | npm tarball `@passage/client-<domain>@<version>` | semver from version | retained in registry 7 years (same as images) |
+| TypeScript client package | publish | typed fetch client, request/response types | npm tarball `@depot/client-<domain>@<version>` | semver from version | retained in registry 7 years (same as images) |
 | Migration file | publish / extension apply | Atlas SQL with header (entity, version, package) | `.sql` under `migrations/<domain>/` | timestamped Atlas name | permanent in Git |
-| Extension package manifest | package validated | code, layer, version, targets, dry-run SQL, lock estimate | YAML (`passage-gen export`) | package code + version | permanent in `metadata.extension_package` |
+| Extension package manifest | package validated | code, layer, version, targets, dry-run SQL, lock estimate | YAML (`depot-gen export`) | package code + version | permanent in `metadata.extension_package` |
 | Rule set export | administrator action | tables with columns, rows (conditions, results, effective dates, layer) | CSV per table, YAML for the whole set | rule set code + version | retained with the version |
 | Usage report export | administrator action | snapshot rows | CSV, JSON | none | retained by requester; snapshots 3 years |
 
@@ -1142,7 +1142,7 @@ AX runs approvals through the workflow framework (`WorkflowTable`, `WorkflowVers
 
 #### Pain points solved (10x lens)
 
-| Pain point in AX/SAP today | Root cause | Passage answer in this wave | Measurable 10x target |
+| Pain point in AX/SAP today | Root cause | Depot answer in this wave | Measurable 10x target |
 |---|---|---|---|
 | Downstream systems (MES, WMS, BI) poll `ModifiedDateTime` on AX tables or wait for the nightly IDoc/BD21 change-pointer job; IDocs stuck in status 51/64 are reprocessed by hand in BD87 | No reliable push of changes; outbound integration is batch | Every committed change is a CloudEvent on Kafka via Debezium outbox within 500 ms; consumers subscribe, never poll | Change-to-consumer latency: 15 min–24 h → < 2 s p95; manual reprocessing runs per week: dozens → 0 (DLQ with reason, replayable) |
 | AX workflow approvals: the workflow batch job (`WorkflowMessageProcessingTask`) runs every minute and the work-item list is refreshed manually; escalation "due dates" silently fail when the batch server is down | Workflow runtime is a polling batch job on the AOS | Temporal workflows with durable timers; work item pushed to the inbox by event | Submit-to-inbox latency: 1–5 min → < 2 s; missed escalations due to batch outage: possible → 0 (timers survive restarts) |
@@ -1152,7 +1152,7 @@ AX runs approvals through the workflow framework (`WorkflowTable`, `WorkflowVers
 
 ### 0.4.2 AX / SAP parity map
 
-| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Passage equivalent | Parity |
+| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Depot equivalent | Parity |
 |---|---|---|---|---|
 | Change notification | Business events (D365 `BusinessEventsBase`), AIF outbound ports, alerts (`EventInbox`) | Event type linkage SWE2, change pointers BD21, IDoc outbound | CloudEvents on Kafka via outbox; AsyncAPI per topic | improved |
 | Reliable publish | AIF queue (`AifGatewayQueue`), dual-write risk in X++ | tRFC/qRFC (SM58), IDoc status 03 | Debezium outbox event router; exactly-once effect | improved |
@@ -1168,11 +1168,11 @@ AX runs approvals through the workflow framework (`WorkflowTable`, `WorkflowVers
 
 ### 0.4.3 Functional requirements
 
-- **FR-4.1 Kafka and topics** — Must. The system shall run Strimzi-managed Kafka (3 brokers in cloud, 1 in k3d, KRaft) with topics named `passage.<domain>.<aggregate>` (the version lives in the CloudEvents type), partition key = aggregate id, 12 partitions default, retention 7 days (entity-state topics compacted), and CloudEvents 1.0 JSON envelopes with extensions `tenantid`, `legalentityid`, `traceparent`, `actor`.
+- **FR-4.1 Kafka and topics** — Must. The system shall run Strimzi-managed Kafka (3 brokers in cloud, 1 in k3d, KRaft) with topics named `depot.<domain>.<aggregate>` (the version lives in the CloudEvents type), partition key = aggregate id, 12 partitions default, retention 7 days (entity-state topics compacted), and CloudEvents 1.0 JSON envelopes with extensions `tenantid`, `legalentityid`, `traceparent`, `actor`.
   - Notes: no per-tenant topics; consumers filter by `tenantid` header; max message 1 MB, larger payloads use a claim-check reference (object storage URL).
 - **FR-4.2 Transactional outbox** — Must. Every service shall write domain changes and an `outbox_event` row in the same transaction; Debezium (one connector per domain database, pgoutput) with the outbox event router publishes and never writes to Kafka from application code.
   - Notes: outbox columns id, aggregate_type, aggregate_id, event_type, payload (jsonb), headers (jsonb), created_at; rows deleted after 24 h by a sweep; publish lag p95 ≤ 500 ms.
-- **FR-4.3 Schema registry** — Must. Event payload schemas shall be JSON Schema derived from the metadata registry (`dev.passage.<domain>.<entity>.<verb>.v<n>` ↔ entity version) registered with BACKWARD_TRANSITIVE compatibility; CI rejects an incompatible schema.
+- **FR-4.3 Schema registry** — Must. Event payload schemas shall be JSON Schema derived from the metadata registry (`dev.depot.<domain>.<entity>.<verb>.v<n>` ↔ entity version) registered with BACKWARD_TRANSITIVE compatibility; CI rejects an incompatible schema.
 - **FR-4.4 AsyncAPI generation** — Must. The generator from wave 3 shall emit an AsyncAPI 3.0 document per domain listing topics, event types and schemas; published at `/v1/events/asyncapi/{domain}`.
 - **FR-4.5 Consumer library** — Must. Go and TS libraries shall provide idempotent consumption keyed by CloudEvents `id` (dedupe table per consumer group, 7-day window), ordered processing per partition, retry with exponential backoff (1 s → 5 min, 10 attempts) and a per-topic dead-letter topic `…dlq`.
 - **FR-4.6 Temporal cluster** — Must. The system shall run Temporal (CNPG persistence, 1 namespace per environment, `tenant_id` as a search attribute) with Go and TS SDK wrappers that inject tenant, actor and trace context into every workflow and activity.
@@ -1183,10 +1183,10 @@ AX runs approvals through the workflow framework (`WorkflowTable`, `WorkflowVers
 - **FR-4.9 Batch job framework** — Must. The system shall define jobs (`BatchJob`: handler name, parameters JSON Schema, partition strategy range|hash|list, partition count ≤ 256, concurrency ≤ 32, priority A/B/C, retry policy), schedule them by cron (tenant time zone) or on demand, execute each partition as a Temporal activity with checkpoints every N rows (default 10,000) and resume from the last checkpoint after failure.
   - Notes: statuses waiting, scheduled, executing, ended, error, hold, canceling, canceled; max run time default 6 h; a job may declare `exclusive=true` to prevent overlapping runs.
 - **FR-4.10 Job monitor** — Must. The system shall show runs, tasks, progress (rows/sec, ETA), logs and errors; allow cancel, hold, resume and rerun-failed-partitions; retain history 90 days.
-- **FR-4.11 Metadata-changed events** — Must. The metadata registry shall emit `dev.passage.metadata.entity.published.v1` through its own outbox (first production consumer of the backbone).
+- **FR-4.11 Metadata-changed events** — Must. The metadata registry shall emit `dev.depot.metadata.entity.published.v1` through its own outbox (first production consumer of the backbone).
 - **FR-4.12 Chaos and replay** — Should. The platform shall support topic replay from an offset or timestamp per consumer group and ship a chaos test that kills a service between commit and publish.
 - **FR-4.13 Outbound email and message delivery** — Must. The system shall provide a `notify` service (TS) with a provider adapter interface (`Send`, `GetStatus`, `IngestBounce`) implemented for SMTP (STARTTLS or implicit TLS, credentials via ESO) and for an HTTP API provider (the SMTP relay is the P0 default per open question 2); a per-tenant sender identity (from address, display name, reply-to, envelope domain whose SPF/DKIM/DMARC are the customer's responsibility and are checked by a "verify sender" action); an `OutboundMessage` queue (channel email | in_app | webhook; status queued → sending → sent | failed | bounced; attempts; provider message id); a distributor job (every 60 s, batch 500, 5 attempts with backoff 1 min → 1 h); a mail sending mode per tenant (`immediate` for workflow and alerts, `batch` for digests and reports); attachments ≤ 10 MB total per message; an outbound status inquiry; manual retry; and a bounce webhook/IMAP ingest that marks the message `bounced` and, after 3 hard bounces, flags the recipient user (`identity.user.email_status=bouncing`).
-  - Notes: in-app messages are rows in the same table read by the shell notification tray (wave 5) via SSE; webhook deliveries sign the body with HMAC-SHA256 (`X-Passage-Signature`) and retry on non-2xx; messages are retained 90 days (body) and 3 years (metadata); a tenant with no sender identity falls back to the platform default `no-reply@<env>.passage.dev` with a warning on the parameters form; the service never generates email in test environments unless `notify.allowlist_domains` matches the recipient.
+  - Notes: in-app messages are rows in the same table read by the shell notification tray (wave 5) via SSE; webhook deliveries sign the body with HMAC-SHA256 (`X-Depot-Signature`) and retry on non-2xx; messages are retained 90 days (body) and 3 years (metadata); a tenant with no sender identity falls back to the platform default `no-reply@<env>.depot.dev` with a warning on the parameters form; the service never generates email in test environments unless `notify.allowlist_domains` matches the recipient.
 - **FR-4.14 Message templates and notification settings** — Must. The system shall provide `MessageTemplate` (code, channel, language, subject, body in Mustache syntax with placeholders resolved from the entity record via metadata (`{{record.number}}`, `{{record.amount | money}}`), the workflow context (`{{workitem.due_at | date}}`, `{{instance.submitted_by.display_name}}`, `{{link}}` deep link to the work item or record) and standard texts from wave 5 (`{{text:CODE}}`); an HTML layout wrapper per tenant (logo, footer); versioning and `sys`/`customer` layers so customers override shipped templates per language); shipped `sys` templates for `workflow.workitem.assigned`, `.escalated`, `.delegated`, `instance.completed`, `instance.change_requested`, `batch.run.failed`, `identity.user.invited`; per-user `NotificationPreference` (per event class: in_app, email, none; digest none | daily at HH:MM | weekly on day; language; quiet hours); per-`WorkflowDefinition` flags (notify_on_assign, notify_on_escalate, notify_submitter_on_complete, comment_required); and a "preview with sample record" action.
   - Notes: rendering is fail-closed — a missing placeholder or render error marks the message `failed` with NTF-0407 instead of sending a blank; templates are rendered in the recipient's language, falling back to the tenant default then `en`; digests aggregate pending in-app items into one email at the chosen time (BR-4.12); user-level workflow delegation stays in `WorkItem` (FR-4.7) and is referenced, not duplicated, by preferences.
 
@@ -1200,7 +1200,7 @@ AX runs approvals through the workflow framework (`WorkflowTable`, `WorkflowVers
 | tenant_id | uuid | yes | RLS; copied to header `tenantid` |
 | aggregate_type | varchar(64) | yes | entity name; routes to topic |
 | aggregate_id | uuid | yes | partition key |
-| event_type | varchar(128) | yes | `dev.passage.<domain>.<entity>.<verb>.v<n>` |
+| event_type | varchar(128) | yes | `dev.depot.<domain>.<entity>.<verb>.v<n>` |
 | payload | jsonb | yes | CloudEvents `data` |
 | headers | jsonb | yes | traceparent, actor, legalentityid, schema_version |
 | created_at | timestamptz | yes | CloudEvents `time` |
@@ -1309,14 +1309,14 @@ Validation: approve/reject require a comment when the definition flags `comment_
 
 | Event | Trigger | Payload fields | Consumers |
 |---|---|---|---|
-| dev.passage.workflow.instance.submitted.v1 | submit | instance_id, entity, record_id, definition_version, submitted_by | owning service (sets record status), audit |
-| dev.passage.workflow.workitem.assigned.v1 | step entered / delegated | workitem_id, instance_id, assignee_id, due_at, step | shell inbox, notifier |
-| dev.passage.workflow.workitem.escalated.v1 | SLA timer fired | workitem_id, from_assignee, to_assignee, action | notifier, audit |
-| dev.passage.workflow.instance.completed.v1 | terminal status | instance_id, outcome (approved/rejected/canceled/recalled), completed_at | owning service, audit, shell |
-| dev.passage.batch.run.started.v1 / completed.v1 / failed.v1 | run transitions | job_code, run_id, rows_total, rows_done, duration_ms, error | job monitor, alerting, audit |
-| dev.passage.metadata.entity.published.v1 | registry outbox | (see wave 3) | events service (topic/schema create) |
-| dev.passage.notify.message.sent.v1 / failed.v1 / bounced.v1 | distributor outcome | message_id, channel, template_code, recipient_user_id (no address in payload), attempts, error | audit, alerting (`NotifyFailureRate`), identity (bounce flag) |
-| dev.passage.notify.template.published.v1 | template publish | code, version, language, layer | notify workers (cache reload), audit |
+| dev.depot.workflow.instance.submitted.v1 | submit | instance_id, entity, record_id, definition_version, submitted_by | owning service (sets record status), audit |
+| dev.depot.workflow.workitem.assigned.v1 | step entered / delegated | workitem_id, instance_id, assignee_id, due_at, step | shell inbox, notifier |
+| dev.depot.workflow.workitem.escalated.v1 | SLA timer fired | workitem_id, from_assignee, to_assignee, action | notifier, audit |
+| dev.depot.workflow.instance.completed.v1 | terminal status | instance_id, outcome (approved/rejected/canceled/recalled), completed_at | owning service, audit, shell |
+| dev.depot.batch.run.started.v1 / completed.v1 / failed.v1 | run transitions | job_code, run_id, rows_total, rows_done, duration_ms, error | job monitor, alerting, audit |
+| dev.depot.metadata.entity.published.v1 | registry outbox | (see wave 3) | events service (topic/schema create) |
+| dev.depot.notify.message.sent.v1 / failed.v1 / bounced.v1 | distributor outcome | message_id, channel, template_code, recipient_user_id (no address in payload), attempts, error | audit, alerting (`NotifyFailureRate`), identity (bounce flag) |
+| dev.depot.notify.template.published.v1 | template publish | code, version, language, layer | notify workers (cache reload), audit |
 
 ### 0.4.6 User experience
 
@@ -1357,7 +1357,7 @@ Rules: bulk approve is limited to 100 items per action and requires a confirmati
 - **AC-4.2** Given a 3-level chain (role → user → expression) with 4-hour SLAs, When step 2's assignee delegates and step 3 times out with `delegate_to admin`, Then the instance completes approved after simulated clock advance and the timeline shows 5 work items. (FR-4.7)
 - **AC-4.3** Given a batch job over 1,000,000 synthetic rows in 16 hash partitions, When the worker pod is killed at ~40%, Then the run resumes and ends with rows_done = 1,000,000 and no duplicate side effects. (FR-4.9)
 - **AC-4.4** Given a schema change that removes a required field, When CI registers it, Then the registry rejects it with the incompatible path. (FR-4.3)
-- **AC-4.5** Given an entity publish in the registry, When the outbox is captured, Then a message on topic `passage.metadata.entity` with type `dev.passage.metadata.entity.published.v1` exists within 1 s. (FR-4.11)
+- **AC-4.5** Given an entity publish in the registry, When the outbox is captured, Then a message on topic `depot.metadata.entity` with type `dev.depot.metadata.entity.published.v1` exists within 1 s. (FR-4.11)
 - **AC-4.6** Given a submitter recalls after step 1 approved, When the action is sent, Then 409 `RECALL_NOT_ALLOWED`. (BR-4.1)
 - **AC-4.7** Given a consumer group replay from `T-1h`, When executed, Then events are redelivered and the dedupe table suppresses side effects for already-processed ids. (FR-4.12)
 - **AC-4.8** Given an exclusive job with a running instance, When a second run is requested, Then 409 `RUN_OVERLAP`. (FR-4.9)
@@ -1390,10 +1390,10 @@ Charts: `strimzi-kafka` (cluster CR), `debezium-connect` (one connector per doma
 
 ### 0.4.11 Migration from AX / SAP
 
-| Source | Passage entity | Notes |
+| Source | Depot entity | Notes |
 |---|---|---|
 | AX `WorkflowTable` / `WorkflowVersionTable` (approval elements, conditions) | WorkflowDefinition | exported via workflow export XML; steps mapped where assignee type is user/role; hierarchy-based assignees flagged for wave 42 |
-| AX `BatchJob` / `Batch` / `SysRecurrence` | BatchJob | only jobs whose handler has a Passage equivalent (listed per later wave); recurrence → cron |
+| AX `BatchJob` / `Batch` / `SysRecurrence` | BatchJob | only jobs whose handler has a Depot equivalent (listed per later wave); recurrence → cron |
 | SAP TBTCO/TBTCP (job name, program, variant, period) | BatchJob | same rule; variants → params |
 | SAP SWDD workflow templates (WS*), PFAC rules | WorkflowDefinition | manual rebuild from a generated inventory report |
 | In-flight work items (`WorkflowWorkItemTable`, SWWWIHEAD) | not migrated | cut over by completing or canceling in the source system (wave 49 runbook) |
@@ -1435,11 +1435,11 @@ Tenant values live on Admin workspace → Workflow parameters, Batch parameters 
 | `batch.history_retention_days` | tenant | int | 90 | 30–730 | FR-4.10 | Batch job history cleanup | SM37 → delete old jobs (RSBTCDEL2) |
 | `notify.provider` | tenant | enum | smtp | smtp, http_api | FR-4.13 adapter | Email parameters → SMTP / Exchange | SCOT SMTP node |
 | `notify.smtp.host`, `.port`, `.tls`, `.credential_ref` | tenant | string, int, enum, secret ref | platform relay, 587, starttls, ESO path | — | outbound SMTP | Email parameters → SMTP server, port, SSL, user/password | SCOT node → host, port, TLS, logon data |
-| `notify.sender.from`, `.display_name`, `.reply_to` | tenant (legal entity override) | email, string, email | `no-reply@<env>.passage.dev` | verified domain | sender identity | Email parameters → "Send from" | SCOT default domain, SO_USER_AUTOMATIC |
+| `notify.sender.from`, `.display_name`, `.reply_to` | tenant (legal entity override) | email, string, email | `no-reply@<env>.depot.dev` | verified domain | sender identity | Email parameters → "Send from" | SCOT default domain, SO_USER_AUTOMATIC |
 | `notify.mode` | tenant | enum per event class | immediate (workflow, alerts), batch (digests) | immediate, batch | when the distributor sends | Mail sending mode: batch / client | SCOT send job RSCONN01 period |
 | `notify.distributor_interval_seconds` | environment | int | 60 | 15–900 | distributor polling | Email distributor batch recurrence | RSCONN01 job period |
 | `notify.max_attempts` | tenant | int | 5 | 1–10 | BR-4.11 | Email distributor "Retries" | SCOT retry settings |
-| `notify.allowlist_domains` | environment | domain list | empty in prod, `passage.dev` in dev/stage | domains | non-prod recipient guard | none | SCOT address area restrictions |
+| `notify.allowlist_domains` | environment | domain list | empty in prod, `depot.dev` in dev/stage | domains | non-prod recipient guard | none | SCOT address area restrictions |
 | `notify.body_retention_days`, `notify.metadata_retention_years` | tenant | int, int | 90, 3 | 7–365, 1–10 | outbound history retention | Outbound email status cleanup | SOST reorg (RSBCS_REORG) |
 | `notify.default_language` | tenant | BCP 47 | en | any | template fallback | Email templates default language | SO10 language key fallback |
 
@@ -1468,7 +1468,7 @@ Tenant values live on Admin workspace → Workflow parameters, Batch parameters 
 | Completion email to submitter | `instance.completed` with `notify_submitter_on_complete` | outcome, approver, comment, link | email | none | same |
 | Daily / weekly digest | digest schedule (BR-4.12) | list of pending items grouped by entity with due dates | email | none | same |
 | Batch failure email | `batch.run.failed` to job owner | job, run, failed partitions, first error, link to monitor | email | none | same |
-| Webhook delivery | subscribed event class | CloudEvents JSON body, `X-Passage-Signature` | HTTPS POST | CloudEvents `id` | delivery log 3 years |
+| Webhook delivery | subscribed event class | CloudEvents JSON body, `X-Depot-Signature` | HTTPS POST | CloudEvents `id` | delivery log 3 years |
 | AsyncAPI document | metadata publish | channels, messages, schemas | AsyncAPI 3.0 YAML/JSON | entity version | retained per version |
 
 ### 0.4.16 Periodic and batch jobs
@@ -1566,11 +1566,11 @@ Tenant values live on Admin workspace → Workflow parameters, Batch parameters 
 
 ### 0.5.1 Scope and business context
 
-AX users work in list pages and details forms generated from the AOT (form datasources, `ListPageInteraction`, action panes, FactBoxes, `SysQueryForm` advanced filters, `SysLastValue` personalization, `SysTableLookup` lookups, Infolog) and D365 workspaces, saved views and the Excel add-in; SAP users work in SAP GUI dynpros and ALV grids with layout variants, F4 search helps, SE16N, and the Fiori launchpad with catalogs and groups. Document numbering comes from AX `NumberSequenceTable` / `NumberSequenceReference` / `NumberSequenceScope` (shared, company, legal entity, fiscal calendar period, operating unit) with continuous and non-continuous modes and `NumberSequenceList` pre-allocation, or SAP `SNRO` number range objects with `NRIV` intervals, buffering (`NRIV_LOKAL`) and gap-free settings. Change tracking is AX `SysDatabaseLog` / `SysDatabaseLogSetup` (Insert/Update/Delete/RenameKey) or SAP change documents (`CDHDR`/`CDPOS`, `SCDO` objects, `DBTABLOG` table logging). Monitoring is LCS environment monitoring or Solution Manager / ST03N / SM21 / ST22. Wave 5 replaces all of this with a React module-federation shell, a metadata-driven form renderer, a number sequence service with a Jepsen-tested gap-free mode, an audit service that derives field-level history from CDC into a hash-chained append-only store, OpenTelemetry across every service into Prometheus/Tempo/Loki/Grafana, and CSV/XLSX import-export against any entity. At wave end the admin workspace runs at `app.<env>.passage.dev` and Phase 0 is demonstrated to stakeholders. Out of scope: full-text search across business documents and analytics content beyond attachment text (wave 46), report designer (wave 15), mobile PWA (wave 32), localization of labels (wave 48), fiscal-period scopes for sequences (wave 6 supplies calendars; scope type is reserved here).
+AX users work in list pages and details forms generated from the AOT (form datasources, `ListPageInteraction`, action panes, FactBoxes, `SysQueryForm` advanced filters, `SysLastValue` personalization, `SysTableLookup` lookups, Infolog) and D365 workspaces, saved views and the Excel add-in; SAP users work in SAP GUI dynpros and ALV grids with layout variants, F4 search helps, SE16N, and the Fiori launchpad with catalogs and groups. Document numbering comes from AX `NumberSequenceTable` / `NumberSequenceReference` / `NumberSequenceScope` (shared, company, legal entity, fiscal calendar period, operating unit) with continuous and non-continuous modes and `NumberSequenceList` pre-allocation, or SAP `SNRO` number range objects with `NRIV` intervals, buffering (`NRIV_LOKAL`) and gap-free settings. Change tracking is AX `SysDatabaseLog` / `SysDatabaseLogSetup` (Insert/Update/Delete/RenameKey) or SAP change documents (`CDHDR`/`CDPOS`, `SCDO` objects, `DBTABLOG` table logging). Monitoring is LCS environment monitoring or Solution Manager / ST03N / SM21 / ST22. Wave 5 replaces all of this with a React module-federation shell, a metadata-driven form renderer, a number sequence service with a Jepsen-tested gap-free mode, an audit service that derives field-level history from CDC into a hash-chained append-only store, OpenTelemetry across every service into Prometheus/Tempo/Loki/Grafana, and CSV/XLSX import-export against any entity. At wave end the admin workspace runs at `app.<env>.depot.dev` and Phase 0 is demonstrated to stakeholders. Out of scope: full-text search across business documents and analytics content beyond attachment text (wave 46), report designer (wave 15), mobile PWA (wave 32), localization of labels (wave 48), fiscal-period scopes for sequences (wave 6 supplies calendars; scope type is reserved here).
 
 #### Pain points solved (10x lens)
 
-| Pain point in AX/SAP today | Root cause | Passage answer in this wave | Measurable 10x target |
+| Pain point in AX/SAP today | Root cause | Depot answer in this wave | Measurable 10x target |
 |---|---|---|---|
 | Editing 50 vendor records in AX means 50 details-form round trips (open, edit, save) or an Excel add-in session that fails on the first validation error; SAP needs an LSMW recording or XK02 one by one | Forms are record-at-a-time; bulk edit is an external tool | Grid inline edit, bulk edit of a field across ≤ 1,000 selected rows, validated per row with per-row error reporting | Clicks for 50 edits: ~300 → ~6; failed bulk sessions due to one bad row: all-or-nothing → partial with error file |
 | Continuous number sequences in AX serialize on `NumberSequenceTable` for the whole transaction, causing lock waits on sales-order entry; SAP gap-free NRIV without buffering shows as `NRIV` lock contention in SM12 | Lock held for the caller's full transaction | Allocation row with reserved → used/released lifecycle; lock held only for the allocation statement | Gap-free allocation p99: 100s of ms under load → ≤ 30 ms; buffered p99 ≤ 2 ms; gaps and duplicates: 0 (Jepsen-tested) |
@@ -1580,7 +1580,7 @@ AX users work in list pages and details forms generated from the AOT (form datas
 
 ### 0.5.2 AX / SAP parity map
 
-| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Passage equivalent | Parity |
+| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Depot equivalent | Parity |
 |---|---|---|---|---|
 | Navigation / workspaces | Navigation pane, area pages, D365 workspaces and tiles | Fiori launchpad (FLP), catalogs/groups, SAP menu (SE43) | Shell navigation by workspace, tiles bound to saved views | full |
 | List page | List page framework, `ListPageInteraction`, action pane, quick filter | ALV grid (SALV), SE16N, layout variants | Generated list page with grid, filters, saved views | full |
@@ -1611,7 +1611,7 @@ AX users work in list pages and details forms generated from the AOT (form datas
   - Notes: references bind (entity, field, legal entity) to a sequence, mirroring `NumberSequenceReference`; `numseq(<code>)` is a valid field default from wave 3.
 - **FR-5.9 Gap-free and buffered allocation** — Must. Continuous sequences shall allocate inside the caller's transaction with a `SELECT … FOR UPDATE` on the sequence/scope row and record an `Allocation` row (status reserved → used | released); a rollback releases the number to be reused by the next caller; p99 ≤ 30 ms at 500 rps per sequence. Non-continuous sequences shall pre-allocate a block per service instance and serve from memory, p99 ≤ 2 ms; unused numbers in a block are lost on restart (documented, like `NRIV_LOKAL`).
 - **FR-5.10 Audit capture** — Must. The audit service shall consume Debezium change events for every table whose entity or field has `audit=true`, and write `AuditEntry` (operation insert/update/delete, actor from `updated_by`, `trace_id` from the transaction's outbox header or `pg_current_xact_id` correlation, `occurred_at`) and `AuditField` rows for changed fields only, with `pii=sensitive` values stored as SHA-256 digests plus masked display.
-  - Notes: entry visible in the viewer within 2 s (p95) of commit; the audit database is `audit`, separate from domain databases; role `passage_app` has INSERT and SELECT only.
+  - Notes: entry visible in the viewer within 2 s (p95) of commit; the audit database is `audit`, separate from domain databases; role `depot_app` has INSERT and SELECT only.
 - **FR-5.11 Immutable hash chain** — Must. Each `AuditEntry` shall store `prev_hash` (previous entry for the same tenant) and `hash = SHA-256(prev_hash ‖ canonical_json(entry + fields))`; a daily job writes the chain head per tenant to an anchor table and to object storage; `GET …/verify` recomputes a range.
 - **FR-5.12 Audit viewer** — Must. From any record the user shall open "History" showing entries with user, time, trace id, operation and before/after per field, filterable by field and date, exportable; a global audit workspace searches by entity, record, user, date range.
 - **FR-5.13 OpenTelemetry** — Must. Every service shall emit traces (W3C `traceparent` propagated gateway → service → Postgres spans → outbox header → Kafka consumer → Temporal activities), RED metrics (`http_server_requests`, `db_query_duration`, `kafka_consume_lag`, `temporal_activity_duration`) and structured JSON logs with `trace_id`, `tenant_id`, `actor`; the shell emits browser spans for navigation and API calls.
@@ -1764,15 +1764,15 @@ Invariants: `next ≤ largest` unless `wrap`; for continuous sequences the set o
 
 | Event | Trigger | Payload fields | Consumers |
 |---|---|---|---|
-| dev.passage.numseq.number.allocated.v1 | continuous allocation `used` or `released` | sequence_code, scope_value, number, status, tx_ref, actor | audit |
-| dev.passage.audit.entry.recorded.v1 | entry committed | entry_id, tenant_id, entity, record_id, operation, hash, seq | shell live history, analytics (wave 46) |
-| dev.passage.audit.chain.anchored.v1 | daily anchor | tenant_id, seq, hash, anchor_ref | compliance evidence (wave 48) |
-| dev.passage.io.import.completed.v1 / failed.v1 | import terminal | import_id, entity, rows_ok, rows_failed, error_file_ref | shell inbox, audit |
-| dev.passage.ui.view.shared.v1 | saved view shared | view_id, entity, role_id, owner | shell cache |
-| dev.passage.docs.attachment.available.v1 / quarantined.v1 | scan outcome | attachment_id, version_no, document_type, links[], sha256, size | shell (refresh panel), audit, OCR capture (wave 18) |
-| dev.passage.docs.attachment.purged.v1 / archived.v1 | retention job | attachment_id, retention class, reason | audit, compliance evidence (wave 48) |
-| dev.passage.alerts.alert.fired.v1 | rule match | rule_id, entity, record_id, recipient_id, delivery | notify (wave 4), shell alert badge |
-| dev.passage.texts.standard-text.published.v1 | publish | code, language, version | notify template cache, layouts (wave 46) |
+| dev.depot.numseq.number.allocated.v1 | continuous allocation `used` or `released` | sequence_code, scope_value, number, status, tx_ref, actor | audit |
+| dev.depot.audit.entry.recorded.v1 | entry committed | entry_id, tenant_id, entity, record_id, operation, hash, seq | shell live history, analytics (wave 46) |
+| dev.depot.audit.chain.anchored.v1 | daily anchor | tenant_id, seq, hash, anchor_ref | compliance evidence (wave 48) |
+| dev.depot.io.import.completed.v1 / failed.v1 | import terminal | import_id, entity, rows_ok, rows_failed, error_file_ref | shell inbox, audit |
+| dev.depot.ui.view.shared.v1 | saved view shared | view_id, entity, role_id, owner | shell cache |
+| dev.depot.docs.attachment.available.v1 / quarantined.v1 | scan outcome | attachment_id, version_no, document_type, links[], sha256, size | shell (refresh panel), audit, OCR capture (wave 18) |
+| dev.depot.docs.attachment.purged.v1 / archived.v1 | retention job | attachment_id, retention class, reason | audit, compliance evidence (wave 48) |
+| dev.depot.alerts.alert.fired.v1 | rule match | rule_id, entity, record_id, recipient_id, delivery | notify (wave 4), shell alert badge |
+| dev.depot.texts.standard-text.published.v1 | publish | code, language, version | notify template cache, layouts (wave 46) |
 
 ### 0.5.6 User experience
 
@@ -1855,13 +1855,13 @@ Charts: `shell-web` (static assets behind the gateway, remotes manifest in Confi
 
 ### 0.5.11 Migration from AX / SAP
 
-| Source | Passage entity | Notes |
+| Source | Depot entity | Notes |
 |---|---|---|
 | AX `NumberSequenceTable` (NumberSequence, Txt, Format, Lowest, Highest, NextRec, Continuous, Manual, InUse, Wrap) + `NumberSequenceScope` | NumberSequence | `Format` `###-######` converted to segments; `NextRec` → `next` after cutover freeze; scope `DataAreaId` → legal entity code |
-| AX `NumberSequenceReference` (DataTypeId → NumberSequenceId) | sequence reference | EDT name mapped to Passage entity/field by crosswalk |
+| AX `NumberSequenceReference` (DataTypeId → NumberSequenceId) | sequence reference | EDT name mapped to Depot entity/field by crosswalk |
 | SAP NRIV (OBJECT, SUBOBJECT, NRRANGENR, FROMNUMBER, TONUMBER, NRLEVEL, EXTERNIND) | NumberSequence | SUBOBJECT (BUKRS) → scope value; EXTERNIND='X' → manual; buffering settings from TNRO → block_size |
 | AX `SysDatabaseLog` (table, recId, logType, createdBy, createdDateTime, data container) | AuditEntry/AuditField (read-only import) | loaded as historical entries with `source=ax`, excluded from the hash chain (separate chain `legacy`) |
-| SAP CDHDR/CDPOS (OBJECTCLAS, OBJECTID, CHANGENR, USERNAME, UDATE, UTIME, TABNAME, FNAME, VALUE_OLD, VALUE_NEW) | AuditEntry/AuditField | same treatment; OBJECTID resolved to Passage record ids via the migration run ledger (wave 10) |
+| SAP CDHDR/CDPOS (OBJECTCLAS, OBJECTID, CHANGENR, USERNAME, UDATE, UTIME, TABNAME, FNAME, VALUE_OLD, VALUE_NEW) | AuditEntry/AuditField | same treatment; OBJECTID resolved to Depot record ids via the migration run ledger (wave 10) |
 | D365 saved views / AX `SysLastValue` usage data; SAP ALV layout variants (LTDX) | SavedView | optional; only named, shared variants are imported |
 | AX `DocuRef` (RefTableId, RefRecId, TypeId, Name, Notes, Restriction) + `DocuValue` (FileName, FileType, Path / File container) + `DocuType` | Attachment / AttachmentVersion / AttachmentLink / DocumentType | file content copied from the archive directory, database container or SharePoint location to object storage; RefTableId/RefRecId resolved via the wave 10 run ledger; notes → kind=note |
 | SAP GOS (SRGBTBREL, SOOD, SOFFCONT1), ArchiveLink (TOA01–TOA03, TOAAT), DMS (DRAW, DRAD object links, originals in KPro) | same | content fetched via `SO_DOCUMENT_READ_API1` / ArchiveLink HTTP or KPro export; DRAD links → AttachmentLink; DMS versions → AttachmentVersion |
@@ -1909,7 +1909,7 @@ Values live on Admin workspace → Shell parameters, Number sequence parameters,
 | `alerts.due_date_time` | tenant | HH:MM tenant tz | 06:00 | any | daily due-date evaluation | Alert parameters → Due-date alert batch recurrence (`EventJobDueDate`) | ALRTCATDEF scheduling, SWE2 deadline events |
 | `alerts.max_per_rule_per_hour` | tenant | int | 500 | 10–10,000 | runaway-rule suspension (ALR-0505) | none | none |
 | `alerts.retention_days` | tenant | int | 90 | 7–365 | alert inbox retention | Alert parameters → "Alerts retention" (EventParameters) | ALRTPROC cleanup (SALRT_DELETE) |
-| `alerts.drilldown_base_url` | environment | URL | `https://app.<env>.passage.dev` | URL | deep-link target in alert email | Alert parameters → Drill-down target | Fiori launchpad intent base |
+| `alerts.drilldown_base_url` | environment | URL | `https://app.<env>.depot.dev` | URL | deep-link target in alert email | Alert parameters → Drill-down target | Fiori launchpad intent base |
 | `io.max_import_rows`, `io.staging_retention_days` | tenant | int, int | 1,000,000, 7 | ≤ 5 M, 1–30 | import size and staging cleanup | Data management parameters (DMFParameters) → staging cleanup | LSMW / Migration Cockpit project retention |
 | `otel.sampling.ratio`, `otel.sampling.latency_threshold_ms` | environment | decimal, int | 1.0 dev / 0.1 stage-prod, 1,000 | 0–1, 100–10,000 | FR-5.13 tail sampling | LCS trace capture settings | ST05 / SAT trace settings |
 | `alerting.webhook_url`, `alerting.routes` | environment | ESO ref, YAML | PagerDuty-compatible | — | Alertmanager routing (FR-5.14) | LCS monitoring alerts | Solution Manager alerting (CCMS RZ20 thresholds) |
@@ -1940,7 +1940,7 @@ No printed business documents (wave 15/46 layouts consume FR-5.18 texts and FR-5
 
 | Document | Trigger | Layout elements | Formats | Numbering sequence | Legal / retention requirement |
 |---|---|---|---|---|---|
-| List export | user export of a view (FR-5.15) | header row (column labels), rows per view, footer row with export time, user, filter, legal entity | CSV (UTF-8, RFC 4180), XLSX | none | not retained by Passage after 7 days (download link expiry) |
+| List export | user export of a view (FR-5.15) | header row (column labels), rows per view, footer row with export time, user, filter, legal entity | CSV (UTF-8, RFC 4180), XLSX | none | not retained by Depot after 7 days (download link expiry) |
 | Import error file | import validation | original columns + `row`, `field`, `code`, `message` | CSV, XLSX | import id | 7 days |
 | Audit history export | audit viewer export | entity, record, entries, chain seq range, verification result | CSV, JSON (with hashes for third-party verification) | none | requester's custody; source entries retained per 0.5.4 |
 | Audit chain anchor | daily job | tenant, seq, hash, timestamp | JSON object in WORM bucket | per-tenant seq | 10 years, object lock (compliance mode) |

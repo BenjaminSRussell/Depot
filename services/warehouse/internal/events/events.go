@@ -3,7 +3,7 @@
 // are snake_case like the PRD; quantities are decimal strings.
 package events
 
-import "github.com/BenjaminSRussell/passage/platform/events"
+import "github.com/BenjaminSRussell/depot/platform/events"
 
 // Context is the event context the PRD names for warehouse management.
 const Context = "wms"
@@ -37,7 +37,7 @@ type Line struct {
 	ToLocationID   string `json:"to_location_id,omitempty"`
 }
 
-// WorkCreatedData is the payload of dev.passage.wms.work.created.v1, emitted
+// WorkCreatedData is the payload of dev.depot.wms.work.created.v1, emitted
 // when a work header is committed, including a short-pick remainder.
 type WorkCreatedData struct {
 	WorkID       string `json:"work_id"`
@@ -49,7 +49,7 @@ type WorkCreatedData struct {
 	Lines        []Line `json:"lines"`
 }
 
-// WorkCompletedData is the payload of dev.passage.wms.work.completed.v1,
+// WorkCompletedData is the payload of dev.depot.wms.work.completed.v1,
 // emitted when the last open line is confirmed or short picked: the work is
 // COMPLETED or PARTIALLY_COMPLETED. Inventory posts the confirmed quantities.
 type WorkCompletedData struct {
@@ -62,7 +62,7 @@ type WorkCompletedData struct {
 	Lines       []Line `json:"lines"`
 }
 
-// WorkReleasedData is the payload of dev.passage.wms.work.released.v1, emitted
+// WorkReleasedData is the payload of dev.depot.wms.work.released.v1, emitted
 // when a WAITING work becomes OPEN because the work it depended on ended:
 // AfterStatus is that work's terminal status (COMPLETED or CANCELLED).
 type WorkReleasedData struct {
@@ -78,7 +78,7 @@ type ItemQty struct {
 	Qty    string `json:"qty"`
 }
 
-// ReceiptRegisteredData is the payload of dev.passage.wms.receipt.registered.v1,
+// ReceiptRegisteredData is the payload of dev.depot.wms.receipt.registered.v1,
 // emitted when a received ASN pallet is committed (FR-31.9): one event per
 // pallet, so purchasing and quality see each receipt as it happens. Quantities
 // are what arrived; the variance is against the ASN (BR-31.10).
@@ -114,7 +114,7 @@ type ShippedContainer struct {
 	Lines      []ShippedLine `json:"lines,omitempty"`
 }
 
-// ShipmentShippedData is the payload of dev.passage.wms.shipment.shipped.v1, emitted when the warehouse confirms that an
+// ShipmentShippedData is the payload of dev.depot.wms.shipment.shipped.v1, emitted when the warehouse confirms that an
 // outbound shipment left the dock without a packing slip posted for it (#35, 35-1): the EDI engine sends the 856 or DESADV of
 // the whole shipment from it, as it does from fulfillment's asn.issued for a slip. ShipmentID is the fulfillment shipment;
 // Containers, when given, are the SSCCs that left (otherwise every closed container of the shipment did).

@@ -1,6 +1,6 @@
 package rlscheck
 
-import "github.com/BenjaminSRussell/passage/platform/rlsexempt"
+import "github.com/BenjaminSRussell/depot/platform/rlsexempt"
 
 // The allowlist lives in platform/go/rlsexempt so services/ops provisioning reads the same one.
 const replayNotForcedReason = rlsexempt.ReplayNotForcedReason

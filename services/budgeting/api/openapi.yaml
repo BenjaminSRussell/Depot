@@ -22,13 +22,13 @@ info:
     BUD-0030 (program not found), BUD-0031 (program code exists for the year), BUD-0032 (carry-forward goes to the next
     approval year only), idempotency_key_reuse, idempotency_in_progress.
 servers:
-  - url: https://app.local.passage.dev
+  - url: https://app.local.depot.dev
 paths:
   /v1/budget/control-rules:
     get:
       operationId: listBudgetControlRules
       summary: "List budget control rules"
-      x-passage-duty: budget.view
+      x-depot-duty: budget.view
       parameters:
         - { name: legalEntityId, in: query, required: false, schema: { type: string, format: uuid } }
       responses:
@@ -39,7 +39,7 @@ paths:
     post:
       operationId: createBudgetControlRule
       summary: "Create a budget control rule"
-      x-passage-duty: budget.configure
+      x-depot-duty: budget.configure
       parameters:
         - { name: Idempotency-Key, in: header, required: true, schema: { type: string, maxLength: 255 } }
       requestBody:
@@ -54,7 +54,7 @@ paths:
     get:
       operationId: getBudgetControlRule
       summary: "Get a budget control rule"
-      x-passage-duty: budget.view
+      x-depot-duty: budget.view
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -66,7 +66,7 @@ paths:
     get:
       operationId: listBudgetRegisterEntries
       summary: "List budget register entries"
-      x-passage-duty: budget.view
+      x-depot-duty: budget.view
       parameters:
         - { $ref: '#/components/parameters/Rule' }
       responses:
@@ -77,7 +77,7 @@ paths:
     post:
       operationId: postBudgetRegisterEntry
       summary: "Post a budget register entry"
-      x-passage-duty: budget.maintain
+      x-depot-duty: budget.maintain
       parameters:
         - { name: Idempotency-Key, in: header, required: true, schema: { type: string, maxLength: 255 } }
       requestBody:
@@ -92,7 +92,7 @@ paths:
     get:
       operationId: getAvailableFunds
       summary: "Get the available funds"
-      x-passage-duty: budget.view
+      x-depot-duty: budget.view
       parameters:
         - { $ref: '#/components/parameters/Rule' }
         - { name: dims, in: query, required: false, description: Control dimension key., schema: { type: string } }
@@ -106,7 +106,7 @@ paths:
     get:
       operationId: listBudgetChecks
       summary: "List budget checks"
-      x-passage-duty: budget.view
+      x-depot-duty: budget.view
       parameters:
         - { $ref: '#/components/parameters/Rule' }
         - { name: documentId, in: query, required: false, schema: { type: string, format: uuid } }
@@ -118,7 +118,7 @@ paths:
     post:
       operationId: checkBudget
       summary: "Check a request against the budget"
-      x-passage-duty: budget.check
+      x-depot-duty: budget.check
       parameters:
         - { name: Idempotency-Key, in: header, required: true, schema: { type: string, maxLength: 255 } }
       requestBody:
@@ -137,7 +137,7 @@ paths:
     get:
       operationId: getBudgetCheck
       summary: "Get a budget check"
-      x-passage-duty: budget.view
+      x-depot-duty: budget.view
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -149,7 +149,7 @@ paths:
     get:
       operationId: listEncumbrances
       summary: "List encumbrances"
-      x-passage-duty: budget.view
+      x-depot-duty: budget.view
       parameters:
         - { $ref: '#/components/parameters/Rule' }
         - { name: status, in: query, required: false, schema: { type: string, enum: [Open, PartiallyRelieved, Relieved, Released] } }
@@ -162,7 +162,7 @@ paths:
     get:
       operationId: getEncumbrance
       summary: "Get an encumbrance"
-      x-passage-duty: budget.view
+      x-depot-duty: budget.view
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -174,7 +174,7 @@ paths:
     post:
       operationId: relieveEncumbrance
       summary: "Relieve an encumbrance"
-      x-passage-duty: budget.check
+      x-depot-duty: budget.check
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - { name: Idempotency-Key, in: header, required: true, schema: { type: string, maxLength: 255 } }
@@ -191,7 +191,7 @@ paths:
   /v1/budget/encumbrances/{id}:release:
     post:
       operationId: releaseEncumbrance
-      x-passage-duty: budget.check
+      x-depot-duty: budget.check
       description: >-
         Gives the open remainder of an encumbrance (reserved less relieved) back to available funds when the PO line is
         cancelled or the PO is closed (FR-38.5). The balance and the encumbrance move in one transaction and
@@ -212,7 +212,7 @@ paths:
   /v1/budget/encumbrances/{id}:convert:
     post:
       operationId: convertPreEncumbrance
-      x-passage-duty: budget.encumbrance.convert
+      x-depot-duty: budget.encumbrance.convert
       description: >-
         A budget check of a Requisition reserves a pre-encumbrance (stage pre, in the balance's preEncumbrances). The confirmed
         purchase order converts it: the open amount moves from preEncumbrances to encumbrances and the line is re-keyed to the PO
@@ -233,7 +233,7 @@ paths:
   /v1/budget/encumbrances:convert:
     post:
       operationId: convertPreEncumbranceByLine
-      x-passage-duty: budget.encumbrance.convert
+      x-depot-duty: budget.encumbrance.convert
       description: >-
         Service-only (purchasing). The same conversion, naming the pre-encumbrance by the requisition line it was checked for
         (the line id of the Requisition check). BUD-0002 (404) when nothing was reserved for that line, which purchasing treats as
@@ -251,7 +251,7 @@ paths:
   /v1/budget/documents:
     get:
       operationId: listBudgetDocuments
-      x-passage-duty: budget.view
+      x-depot-duty: budget.view
       description: >-
         The source documents budget checks have seen, newest activity first, each with a readable number (BD-000042). A
         document is registered by its first check and its lines refreshed by every check. q matches part of the number,
@@ -269,7 +269,7 @@ paths:
   /v1/budget/documents/{id}:
     get:
       operationId: getBudgetDocument
-      x-passage-duty: budget.view
+      x-depot-duty: budget.view
       description: One registered document, or BUD-0005.
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
@@ -281,7 +281,7 @@ paths:
   /v1/budget/document-lines:
     get:
       operationId: listBudgetDocumentLines
-      x-passage-duty: budget.view
+      x-depot-duty: budget.view
       description: The lines of registered documents in line order. q matches the line number, dimension or span.
       parameters:
         - { name: documentId, in: query, required: false, schema: { type: string, format: uuid } }
@@ -295,7 +295,7 @@ paths:
   /v1/budget/document-lines/{id}:
     get:
       operationId: getBudgetDocumentLine
-      x-passage-duty: budget.view
+      x-depot-duty: budget.view
       description: One registered document line, or BUD-0005.
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
@@ -307,7 +307,7 @@ paths:
   /v1/budget/reservations:
     get:
       operationId: listBudgetReservations
-      x-passage-duty: budget.view
+      x-depot-duty: budget.view
       description: Earmarked funds list (PRD 7.38.14), newest first, without lines and consumptions.
       parameters:
         - { name: rule, in: query, required: false, schema: { type: string, format: uuid } }
@@ -320,7 +320,7 @@ paths:
         default: { $ref: '#/components/responses/Problem' }
     post:
       operationId: createBudgetReservation
-      x-passage-duty: budget.reserve
+      x-depot-duty: budget.reserve
       description: >-
         Runs the FR-38.4 check on every line of a FundsReservation, Precommitment or FundsBlocking document and holds the
         amounts in the balances' reservations, so available funds drop. A failing line refuses the document with CO-0601;
@@ -339,7 +339,7 @@ paths:
   /v1/budget/reservations:expire:
     post:
       operationId: expireBudgetReservations
-      x-passage-duty: budget.reserve
+      x-depot-duty: budget.reserve
       description: >-
         Job reservation-expiry (BR-38.14). Moves Open and PartiallyConsumed documents whose expiry date is on or before
         asOf to Expired and releases their residual; at most 200 per call, a rerun picks up the rest.
@@ -364,7 +364,7 @@ paths:
     get:
       operationId: getBudgetReservation
       summary: "Get a budget reservation"
-      x-passage-duty: budget.view
+      x-depot-duty: budget.view
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -375,11 +375,11 @@ paths:
   /v1/budget/reservations/{id}:consume:
     post:
       operationId: consumeBudgetReservation
-      x-passage-duty: budget.check
+      x-depot-duty: budget.check
       description: >-
         A follow-on document line draws on one reservation line. In one transaction the line is relieved and the follow-on
         line's encumbrance is created (or raised), so the balance moves the amount from reservations to encumbrances and
-        available funds do not change (AC-38.12). Emits dev.passage.budget.reservation.consumed.v1.
+        available funds do not change (AC-38.12). Emits dev.depot.budget.reservation.consumed.v1.
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - { name: Idempotency-Key, in: header, required: true, schema: { type: string, maxLength: 255 } }
@@ -394,7 +394,7 @@ paths:
   /v1/budget/reservations/{id}:close:
     post:
       operationId: closeBudgetReservation
-      x-passage-duty: budget.reserve
+      x-depot-duty: budget.reserve
       description: Releases the residual and marks the document Closed (BR-38.14). FundsBlocking closes from Open only.
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
@@ -408,7 +408,7 @@ paths:
     get:
       operationId: listBudgetPlans
       summary: "List budget plans"
-      x-passage-duty: budget.view
+      x-depot-duty: budget.view
       parameters:
         - { name: legalEntityId, in: query, required: false, schema: { type: string, format: uuid } }
       responses:
@@ -416,7 +416,7 @@ paths:
         default: { $ref: '#/components/responses/Problem' }
     post:
       operationId: createBudgetPlan
-      x-passage-duty: budget.plan.maintain
+      x-depot-duty: budget.plan.maintain
       description: Opens a planning process (FR-38.2) on a control rule version with a Baseline scenario. Name is unique per legal entity and fiscal year (BUD-0041).
       parameters:
         - { name: Idempotency-Key, in: header, required: true, schema: { type: string, maxLength: 255 } }
@@ -430,7 +430,7 @@ paths:
     get:
       operationId: getBudgetPlan
       summary: "Get a budget plan"
-      x-passage-duty: budget.view
+      x-depot-duty: budget.view
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -439,7 +439,7 @@ paths:
   /v1/budget/plans/{id}/stage-owners:
     put:
       operationId: setBudgetPlanStageOwners
-      x-passage-duty: budget.plan.maintain
+      x-depot-duty: budget.plan.maintain
       description: Replaces the owners of the Review and Approve stages per org unit on a Draft plan. One person cannot own both stages (BUD-0044).
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
@@ -453,7 +453,7 @@ paths:
   /v1/budget/plans/{id}/scenarios:
     post:
       operationId: createBudgetPlanScenario
-      x-passage-duty: budget.plan.maintain
+      x-depot-duty: budget.plan.maintain
       description: Adds a scenario to a Draft plan, up to 10 (BUD-0051). copyFromScenarioId copies that scenario's cells, scaled by adjustmentPct.
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
@@ -467,7 +467,7 @@ paths:
   /v1/budget/plans/{id}/scenarios/{sid}/grid:
     get:
       operationId: getBudgetPlanGrid
-      x-passage-duty: budget.view
+      x-depot-duty: budget.view
       description: Cells of one scenario (account x cost center x period), filterable. The ETag header is the version a write must send in If-Match.
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
@@ -480,7 +480,7 @@ paths:
         default: { $ref: '#/components/responses/Problem' }
     put:
       operationId: upsertBudgetPlanGrid
-      x-passage-duty: budget.plan.maintain
+      x-depot-duty: budget.plan.maintain
       description: >-
         Bulk upserts up to 5000 cells of a Draft plan under optimistic concurrency. A missing If-Match is 428; a stale one is
         412 BUD-0050 and nothing is written. The response carries the new ETag.
@@ -498,7 +498,7 @@ paths:
   /v1/budget/plans/{id}/scenarios:compare:
     get:
       operationId: compareBudgetPlanScenarios
-      x-passage-duty: budget.view
+      x-depot-duty: budget.view
       description: >-
         Sets two scenarios of the plan side by side, grouped by account (default), cost center or period. A key only one scenario
         holds shows zero for the other. deltaPct is omitted when the base is zero.
@@ -513,7 +513,7 @@ paths:
   /v1/budget/plans/{id}/scenarios/{sid}:spread:
     post:
       operationId: spreadBudgetPlanGrid
-      x-passage-duty: budget.plan.maintain
+      x-depot-duty: budget.plan.maintain
       description: >-
         Allocates a total over cost centers by weight and spreads each share over the 12 periods, evenly or in the
         proportions of the account's posted balances in the prior fiscal year read from the ledger (net per month, absolute).
@@ -535,7 +535,7 @@ paths:
   /v1/budget/plans/{id}/scenarios/{sid}:generate:
     post:
       operationId: generateBudgetPlanGrid
-      x-passage-duty: budget.plan.maintain
+      x-depot-duty: budget.plan.maintain
       description: >-
         Fills the scenario from another source (FR-38.14) and writes the cells like the grid PUT (If-Match required, Draft plan
         only). source prior-plan copies the approved scenario of the previous fiscal year's plan on the same legal entity and rule
@@ -566,7 +566,7 @@ paths:
   /v1/budget/plans/{id}/scenarios/{sid}:export:
     get:
       operationId: exportBudgetPlanWorkbook
-      x-passage-duty: budget.view
+      x-depot-duty: budget.view
       description: >-
         The scenario's grid as an .xlsx workbook (FR-38.14). Sheet Plan has one row per account and cost center with the 12 periods of
         the fiscal year across and a Total column; sheet Info names the plan, scenario, version, fiscal year and currency it came from.
@@ -583,7 +583,7 @@ paths:
   /v1/budget/plans/{id}/scenarios/{sid}:import:
     post:
       operationId: importBudgetPlanWorkbook
-      x-passage-duty: budget.plan.maintain
+      x-depot-duty: budget.plan.maintain
       description: >-
         Writes the amounts of an edited workbook of this plan and scenario like the grid PUT (If-Match required, Draft plan only, at
         most 5000 cells, replayed by Idempotency-Key). A blank amount counts as 0 and the Total column is ignored; a row removed from
@@ -607,8 +607,8 @@ paths:
   /v1/budget/plans/{id}:submit:
     post:
       operationId: submitBudgetPlan
-      x-passage-duty: budget.plan.maintain
-      description: Draft to Submitted once both stages have owners and some scenario holds an amount (BUD-0045). Emits dev.passage.budget.plan.submitted.v1.
+      x-depot-duty: budget.plan.maintain
+      description: Draft to Submitted once both stages have owners and some scenario holds an amount (BUD-0045). Emits dev.depot.budget.plan.submitted.v1.
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - { name: Idempotency-Key, in: header, required: true, schema: { type: string, maxLength: 255 } }
@@ -618,7 +618,7 @@ paths:
   /v1/budget/plans/{id}/stages/{stage}:sign-off:
     post:
       operationId: signOffBudgetPlanStage
-      x-passage-duty: budget.plan.workflow
+      x-depot-duty: budget.plan.workflow
       description: >-
         Service-only; called by workflow-ts with the deciding person as the acting user. That person must own the stage for the
         org unit (BUD-0043), not have submitted the plan and, for Approve, not have reviewed it (BUD-0044). submission must be the
@@ -639,8 +639,8 @@ paths:
   /v1/budget/plans/{id}:reject:
     post:
       operationId: rejectBudgetPlan
-      x-passage-duty: budget.plan.workflow
-      description: Service-only. An owner of the open stage sends the plan back to Draft and the sign-offs are cleared. Emits dev.passage.budget.plan.rejected.v1.
+      x-depot-duty: budget.plan.workflow
+      description: Service-only. An owner of the open stage sends the plan back to Draft and the sign-offs are cleared. Emits dev.depot.budget.plan.rejected.v1.
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - { name: Idempotency-Key, in: header, required: true, schema: { type: string, maxLength: 255 } }
@@ -654,7 +654,7 @@ paths:
     get:
       operationId: listInvestmentPrograms
       summary: "List investment programs"
-      x-passage-duty: budget.view
+      x-depot-duty: budget.view
       parameters:
         - { name: legalEntityId, in: query, required: false, schema: { type: string, format: uuid } }
       responses:
@@ -664,7 +664,7 @@ paths:
         default: { $ref: '#/components/responses/Problem' }
     post:
       operationId: createInvestmentProgram
-      x-passage-duty: budget.program.maintain
+      x-depot-duty: budget.program.maintain
       description: Creates a Capex program for one approval year. The code is unique per legal entity and year (BUD-0031).
       parameters:
         - { name: Idempotency-Key, in: header, required: true, schema: { type: string, maxLength: 255 } }
@@ -680,7 +680,7 @@ paths:
     get:
       operationId: getInvestmentProgram
       summary: "Get an investment program"
-      x-passage-duty: budget.view
+      x-depot-duty: budget.view
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -691,7 +691,7 @@ paths:
   /v1/budget/investment-programs/{id}:distribute:
     post:
       operationId: distributeInvestmentProgram
-      x-passage-duty: budget.program.maintain
+      x-depot-duty: budget.program.maintain
       description: >-
         Sets the budgets of child positions under one parent (the program itself when parentPositionId is absent),
         creating positions for new codes one level down. Σ child budgets never exceed the parent budget (CO-0641 with the
@@ -711,7 +711,7 @@ paths:
   /v1/budget/investment-programs/{id}:assign:
     post:
       operationId: assignToInvestmentProgram
-      x-passage-duty: budget.program.maintain
+      x-depot-duty: budget.program.maintain
       description: >-
         Puts a capex request, asset under construction or project on a position with the plan, actual and commitment its
         owning service reports. Re-assigning the same object replaces its amounts and may move it to another position.
@@ -729,11 +729,11 @@ paths:
   /v1/budget/investment-programs/{id}:carry-forward:
     post:
       operationId: carryForwardInvestmentProgram
-      x-passage-duty: budget.program.maintain
+      x-depot-duty: budget.program.maintain
       description: >-
         Records each position's unused budget (its undistributed slice less the actual and commitment of its own
         assignments) for the next approval year, once per position (BR-38.15). Emits
-        dev.passage.budget.program.carriedforward.v1 when anything is carried; a rerun with nothing left is BUD-0021.
+        dev.depot.budget.program.carriedforward.v1 when anything is carried; a rerun with nothing left is BUD-0021.
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - { name: Idempotency-Key, in: header, required: true, schema: { type: string, maxLength: 255 } }

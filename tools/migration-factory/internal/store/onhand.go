@@ -9,9 +9,9 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/ids"
 
-	"github.com/BenjaminSRussell/passage/tools/migration-factory/internal/domain"
+	"github.com/BenjaminSRussell/depot/tools/migration-factory/internal/domain"
 )
 
 // OnhandRun is a validated onhand extract ready to load (FR-49.1). Run carries the identity,
@@ -28,7 +28,7 @@ type OnhandRun struct {
 	StartedBy string
 }
 
-// RunOnhand loads the accepted lines that Passage does not hold yet, each with its legacy_xref
+// RunOnhand loads the accepted lines that Depot does not hold yet, each with its legacy_xref
 // row and its onhand_opening_balance row, reconciles the run (and the inventory account of the
 // gl_balances run it names) and stores it with its totals, quarantine and the pack.reconciled
 // event, in one transaction. Runs of one (system, company) serialize on an advisory lock. Nothing
@@ -49,7 +49,7 @@ func (s *Postgres) RunOnhand(ctx context.Context, idem Idem, in OnhandRun) (doma
 func runOnhand(ctx context.Context, tx pgx.Tx, in OnhandRun) (domain.PackRun, error) {
 	run := in.Run
 	sys, company := string(run.SourceSystem), run.SourceCompany
-	if _, err := tx.Exec(ctx, `select pg_advisory_xact_lock(hashtextextended('xref|' || current_setting('passage.tenant_id', true) || '|' || $1 || '|' || $2 || '|' || $3, 0))`,
+	if _, err := tx.Exec(ctx, `select pg_advisory_xact_lock(hashtextextended('xref|' || current_setting('depot.tenant_id', true) || '|' || $1 || '|' || $2 || '|' || $3, 0))`,
 		sys, company, domain.TableOnhand); err != nil {
 		return domain.PackRun{}, fmt.Errorf("lock legacy_xref: %w", err)
 	}
@@ -76,7 +76,7 @@ func runOnhand(ctx context.Context, tx pgx.Tx, in OnhandRun) (domain.PackRun, er
 	held := map[string]domain.OnhandLine{}
 	rows, err := tx.Query(ctx, `select legacy_id, item, site, warehouse, location, batch, serial, unit, currency, quantity::text, value::text
 		from onhand_opening_balance
-		where tenant_id = current_setting('passage.tenant_id', true)::uuid and source_system = $1 and source_company = $2 and legacy_id = any($3)`,
+		where tenant_id = current_setting('depot.tenant_id', true)::uuid and source_system = $1 and source_company = $2 and legacy_id = any($3)`,
 		sys, company, idsIn)
 	if err != nil {
 		return domain.PackRun{}, fmt.Errorf("read onhand_opening_balance: %w", err)
@@ -124,7 +124,7 @@ func runOnhand(ctx context.Context, tx pgx.Tx, in OnhandRun) (domain.PackRun, er
 		return domain.PackRun{}, err
 	}
 	if in.Account != "" {
-		if _, err := tx.Exec(ctx, `update pack_run set inventory_account = $2 where tenant_id = current_setting('passage.tenant_id', true)::uuid and run_id = $1`, run.RunID, in.Account); err != nil {
+		if _, err := tx.Exec(ctx, `update pack_run set inventory_account = $2 where tenant_id = current_setting('depot.tenant_id', true)::uuid and run_id = $1`, run.RunID, in.Account); err != nil {
 			return domain.PackRun{}, fmt.Errorf("store the inventory account: %w", err)
 		}
 	}
@@ -132,12 +132,12 @@ func runOnhand(ctx context.Context, tx pgx.Tx, in OnhandRun) (domain.PackRun, er
 	for _, o := range toLoad {
 		xrefID, balanceID := ids.New(), ids.New()
 		batch.Queue(`insert into legacy_xref (tenant_id, xref_id, source_system, source_company, source_table, source_id,
-			passage_entity, passage_id, run_id, amount, currency)
-			values (current_setting('passage.tenant_id', true)::uuid, $1, $2, $3, $4, $5, 'onhand_opening_balance', $6, $7, $8, $9)`,
+			depot_entity, depot_id, run_id, amount, currency)
+			values (current_setting('depot.tenant_id', true)::uuid, $1, $2, $3, $4, $5, 'onhand_opening_balance', $6, $7, $8, $9)`,
 			xrefID, sys, company, domain.TableOnhand, o.LegacyID, balanceID, run.RunID, o.Value.String(), o.Currency)
 		batch.Queue(`insert into onhand_opening_balance (tenant_id, balance_id, run_id, legacy_xref_id, source_system, source_company, legacy_id,
 			item, site, warehouse, location, batch, serial, unit, quantity, value, currency)
-			values (current_setting('passage.tenant_id', true)::uuid, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)`,
+			values (current_setting('depot.tenant_id', true)::uuid, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)`,
 			balanceID, run.RunID, xrefID, sys, company, o.LegacyID, o.Item, o.Site, o.Warehouse, o.Location, o.Batch, o.Serial, o.Unit,
 			o.Quantity.String(), o.Value.String(), o.Currency)
 	}
@@ -177,7 +177,7 @@ func checkGLRun(gl, oh domain.PackRun) error {
 	return nil
 }
 
-// checkOnhandKeys refuses lines whose (item, site, warehouse, location, batch, serial) Passage
+// checkOnhandKeys refuses lines whose (item, site, warehouse, location, batch, serial) Depot
 // already holds for the company under another legacy id: loading them would open the stock twice
 // (FR-49.10), and a serial the company already holds anywhere (checkOnhandSerials). One conflict
 // rejects the run before anything is written.
@@ -198,7 +198,7 @@ func checkOnhandKeys(ctx context.Context, tx pgx.Tx, sys, company string, toLoad
 		from onhand_opening_balance b
 		join unnest($3::text[], $4::text[], $5::text[], $6::text[], $7::text[], $8::text[]) as k(item, site, warehouse, location, batch, serial)
 		  on b.item = k.item and b.site = k.site and b.warehouse = k.warehouse and b.location = k.location and b.batch = k.batch and b.serial = k.serial
-		where b.tenant_id = current_setting('passage.tenant_id', true)::uuid and b.source_system = $1 and b.source_company = $2
+		where b.tenant_id = current_setting('depot.tenant_id', true)::uuid and b.source_system = $1 and b.source_company = $2
 		order by b.item, b.site, b.warehouse, b.location, b.batch, b.serial limit 1`,
 		sys, company, cols[0], cols[1], cols[2], cols[3], cols[4], cols[5]).Scan(&item, &site, &warehouse, &location, &batch, &serial, &legacyID, &runID)
 	switch {
@@ -211,7 +211,7 @@ func checkOnhandKeys(ctx context.Context, tx pgx.Tx, sys, company string, toLoad
 	return checkOnhandSerials(ctx, tx, sys, company, toLoad)
 }
 
-// checkOnhandSerials refuses a serial of an item that Passage already holds for the company under
+// checkOnhandSerials refuses a serial of an item that Depot already holds for the company under
 // another legacy id, at any dimension: a serial is one unit in one place, and loading it again
 // at another warehouse or location would open it twice.
 func checkOnhandSerials(ctx context.Context, tx pgx.Tx, sys, company string, toLoad []domain.OnhandLine) error {
@@ -228,7 +228,7 @@ func checkOnhandSerials(ctx context.Context, tx pgx.Tx, sys, company string, toL
 	err := tx.QueryRow(ctx, `select b.item, b.serial, b.site, b.warehouse, b.location, b.legacy_id, b.run_id::text
 		from onhand_opening_balance b
 		join unnest($3::text[], $4::text[]) as k(item, serial) on b.item = k.item and b.serial = k.serial
-		where b.tenant_id = current_setting('passage.tenant_id', true)::uuid and b.source_system = $1 and b.source_company = $2
+		where b.tenant_id = current_setting('depot.tenant_id', true)::uuid and b.source_system = $1 and b.source_company = $2
 		order by b.item, b.serial limit 1`,
 		sys, company, items, serials).Scan(&item, &serial, &site, &warehouse, &location, &legacyID, &runID)
 	switch {

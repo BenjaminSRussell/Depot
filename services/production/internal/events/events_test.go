@@ -6,37 +6,37 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/events"
 )
 
 func TestEventTypesFollowTheKernelRule(t *testing.T) {
 	seen := map[string]bool{}
 	for _, typ := range All() {
 		if !events.ValidType(typ) {
-			t.Errorf("%s does not follow dev.passage.<context>.<entity>.<verb>.v<n>", typ)
+			t.Errorf("%s does not follow dev.depot.<context>.<entity>.<verb>.v<n>", typ)
 		}
 		if seen[typ] {
 			t.Errorf("%s listed twice", typ)
 		}
 		seen[typ] = true
-		want := "passage.production.order"
+		want := "depot.production.order"
 		switch typ {
 		case JournalPosted:
-			want = "passage.production.journal"
+			want = "depot.production.journal"
 		case AsBuiltAssigned, AsBuiltDetached:
-			want = "passage.production.asbuilt"
+			want = "depot.production.asbuilt"
 		case TriggerPointFired:
-			want = "passage.production.triggerpoint"
+			want = "depot.production.triggerpoint"
 		case SubcontractPORequested, SubcontractPOChanged, SubcontractPOCancelled:
-			want = "passage.production.subcontract"
+			want = "depot.production.subcontract"
 		case OperationStatusChanged:
-			want = "passage.production.operation"
+			want = "depot.production.operation"
 		case OrderChangeDetected, OrderChangeApplied, OrderChangeDismissed:
-			want = "passage.production.orderchange"
+			want = "depot.production.orderchange"
 		case ParametersSaved:
-			want = "passage.production.parameters"
+			want = "depot.production.parameters"
 		case CostSnapshotTaken:
-			want = "passage.production.costsnapshot"
+			want = "depot.production.costsnapshot"
 		}
 		if events.Topic(typ) != want {
 			t.Errorf("%s routes to %s, want %s", typ, events.Topic(typ), want)
@@ -83,9 +83,9 @@ func TestAsyncAPIMatchesThePayloads(t *testing.T) {
 		if start < 0 {
 			t.Fatalf("message %s missing", tc.message)
 		}
-		end := strings.Index(spec[start:], "x-passage-type: "+tc.typ)
+		end := strings.Index(spec[start:], "x-depot-type: "+tc.typ)
 		if end < 0 {
-			t.Fatalf("message %s does not carry x-passage-type %s", tc.message, tc.typ)
+			t.Fatalf("message %s does not carry x-depot-type %s", tc.message, tc.typ)
 		}
 		section := spec[start : start+end]
 		encoded, _ := json.Marshal(tc.payload)

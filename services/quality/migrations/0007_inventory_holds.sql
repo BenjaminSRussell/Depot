@@ -27,16 +27,16 @@ create index if not exists quality_hold_link_pending_idx on quality_hold_link (t
 alter table quality_hold_link enable row level security;
 alter table quality_hold_link force row level security;
 create policy quality_hold_link_tenant_access on quality_hold_link as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 create policy quality_hold_link_legal_entity_scope on quality_hold_link as restrictive
-  using (current_setting('passage.legal_entity_scopes', true) = '*'
-         or legal_entity_id::text = any(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  using (current_setting('depot.legal_entity_scopes', true) = '*'
+         or legal_entity_id::text = any(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 do $$
 begin
-  if exists (select 1 from pg_roles where rolname = 'passage_app') then
-    execute 'grant select, insert, update on quality_hold_link to passage_app';
+  if exists (select 1 from pg_roles where rolname = 'depot_app') then
+    execute 'grant select, insert, update on quality_hold_link to depot_app';
   end if;
 end
 $$;

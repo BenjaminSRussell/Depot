@@ -25,7 +25,7 @@ export class FakeEngineering {
   private readonly afterEffect = new Map<Action, Hook>();
 
   readonly fetch: typeof fetch = async (input, init) => {
-    const claims = decodeClaims(new Headers(init?.headers).get("X-Passage-Service-Token"));
+    const claims = decodeClaims(new Headers(init?.headers).get("X-Depot-Service-Token"));
     if (!claims || claims.iss !== "workflow-ts" || claims.aud !== "engineering" || claims.duties.join() !== "engineering.eco.workflow" || !claims.act) {
       return problem(401, "missing or wrong service token");
     }

@@ -182,7 +182,7 @@ Engineering workspace; demo product line with BOMs and routings loaded; where-us
 
 **Phase 1 — Enterprise Structure, Master Data & Engineering Data**
 
-**Goal.** Repeatable, validated loads of AX and SAP master data into Passage with reconciliation reports — the tool every later wave uses for its own data.
+**Goal.** Repeatable, validated loads of AX and SAP master data into Depot with reconciliation reports — the tool every later wave uses for its own data.
 
 **Replaces**
 

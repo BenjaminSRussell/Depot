@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/services/billing/internal/store"
+	"github.com/BenjaminSRussell/depot/services/billing/internal/store"
 )
 
 func (f *fakeStore) PutBillingRule(_ context.Context, r store.BillingRule, ifMatch int) (store.BillingRule, error) {

@@ -162,7 +162,7 @@ type template struct {
 var timeline = []template{
 	{-14 * MinutesPerDay, "Freeze master-data changes in legacy; final pack dry run", "Legacy data steward", 240, false},
 	{-7 * MinutesPerDay, "Second rehearsal; sign off variance report", "Controller", 480, false},
-	{-3 * MinutesPerDay, "Freeze configuration in Passage", "Cutover manager", 120, false},
+	{-3 * MinutesPerDay, "Freeze configuration in Depot", "Cutover manager", 120, false},
 	{-6 * MinutesPerHour, "Legacy transaction freeze (18:00)", "Legacy operations lead", 30, false},
 	{-6 * MinutesPerHour, "Final extracts of master and static reference data", "Migration engineer", 120, false},
 	{0, "Extract transactional packs", "Migration engineer", 180, false},

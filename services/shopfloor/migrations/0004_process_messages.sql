@@ -1,4 +1,4 @@
--- PSG-25 slice 4: process messages and their per-destination deliveries (FR-25.17, BR-25.13).
+-- DPT-25 slice 4: process messages and their per-destination deliveries (FR-25.17, BR-25.13).
 -- Unique (tenant, source, source_message_id) makes ingest idempotent by the source id.
 
 CREATE TABLE IF NOT EXISTS process_message (
@@ -22,8 +22,8 @@ CREATE INDEX IF NOT EXISTS process_message_order ON process_message (tenant_id, 
 ALTER TABLE process_message ENABLE ROW LEVEL SECURITY;
 ALTER TABLE process_message FORCE ROW LEVEL SECURITY;
 CREATE POLICY process_message_tenant_access ON process_message AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 CREATE TABLE IF NOT EXISTS process_message_delivery (
   tenant_id uuid NOT NULL,
@@ -43,5 +43,5 @@ CREATE INDEX IF NOT EXISTS process_message_delivery_due ON process_message_deliv
 ALTER TABLE process_message_delivery ENABLE ROW LEVEL SECURITY;
 ALTER TABLE process_message_delivery FORCE ROW LEVEL SECURITY;
 CREATE POLICY process_message_delivery_tenant_access ON process_message_delivery AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);

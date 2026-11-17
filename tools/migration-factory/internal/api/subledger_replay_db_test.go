@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/tools/migration-factory/internal/domain"
-	"github.com/BenjaminSRussell/passage/tools/migration-factory/internal/replay"
+	"github.com/BenjaminSRussell/depot/tools/migration-factory/internal/domain"
+	"github.com/BenjaminSRussell/depot/tools/migration-factory/internal/replay"
 )
 
 func slDocJSON(seq int, id, area, kind, date, key, amount string) string {
@@ -70,7 +70,7 @@ func TestParallelReplay_SubledgerDocumentsAreDiffedBesideTheTrialBalance(t *test
 		t.Fatalf("april replay (subledger only): %d %s", rec.Code, rec.Body)
 	}
 	if bad.UnexplainedCount != 1 || bad.CanSignOff || bad.Variances[0].Area != "AP" || bad.Variances[0].Key != "V001|USD|2026-04" ||
-		bad.Variances[0].Legacy != "160.000000" || bad.Variances[0].Passage != "100.000000" {
+		bad.Variances[0].Legacy != "160.000000" || bad.Variances[0].Depot != "100.000000" {
 		t.Fatalf("variances %+v", bad.Variances)
 	}
 
@@ -78,7 +78,7 @@ func TestParallelReplay_SubledgerDocumentsAreDiffedBesideTheTrialBalance(t *test
 	may := slBody("2026-05", nil, []string{slDocJSON(1, "AR-5", "AR", "INVOICE", "2026-05-02", "C001", "100")},
 		`,"legacySubledger":[{"area":"AR","key":"C001","currency":"USD","amount":"130"}]`)
 	m := decode[replayDTO](t, do(t, h, request{method: "POST", path: path, tenant: tenantA, duties: allDuties, body: may, le: le1}))
-	if m.UnexplainedCount != 1 || m.Variances[0].Legacy != "130.000000" || m.Variances[0].Passage != "100.000000" {
+	if m.UnexplainedCount != 1 || m.Variances[0].Legacy != "130.000000" || m.Variances[0].Depot != "100.000000" {
 		t.Fatalf("legacy extract variance %+v", m.Variances)
 	}
 }

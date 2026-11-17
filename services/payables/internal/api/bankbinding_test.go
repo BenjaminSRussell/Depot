@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/fieldcrypt"
-	"github.com/BenjaminSRussell/passage/services/payables/internal/party"
+	"github.com/BenjaminSRussell/depot/platform/fieldcrypt"
+	"github.com/BenjaminSRussell/depot/services/payables/internal/party"
 )
 
 func TestBankBinding_ApprovalRecordsAccountIdAndLast4ButNoPlaintext(t *testing.T) {

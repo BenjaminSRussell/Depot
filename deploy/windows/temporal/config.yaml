@@ -1,10 +1,10 @@
-# Default Temporal server configuration laid down by PassageTemporal.msi in %ProgramData%\PassageTemporal\config\passage.yaml.
-# Edit the Postgres connection (a Temporal-owned database, not a Passage service database) before the first start, then
+# Default Temporal server configuration laid down by DepotTemporal.msi in %ProgramData%\DepotTemporal\config\depot.yaml.
+# Edit the Postgres connection (a Temporal-owned database, not a Depot service database) before the first start, then
 # create the schema with temporal-sql-tool (docs/ops/windows-install.md, Temporal). Never use "temporal server start-dev" in production.
 log:
   stdout: false
   level: info
-  outputFile: C:\ProgramData\PassageTemporal\logs\temporal.log
+  outputFile: C:\ProgramData\DepotTemporal\logs\temporal.log
 persistence:
   defaultStore: default
   visibilityStore: visibility

@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/services/metadata/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/metadata/internal/registry"
+	"github.com/BenjaminSRussell/depot/services/metadata/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/metadata/internal/registry"
 )
 
 func baseEntity() *domain.Entity {

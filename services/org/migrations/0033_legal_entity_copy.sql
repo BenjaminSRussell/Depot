@@ -24,15 +24,15 @@ CREATE INDEX IF NOT EXISTS legal_entity_copy_source ON legal_entity_copy (tenant
 ALTER TABLE legal_entity_copy ENABLE ROW LEVEL SECURITY;
 ALTER TABLE legal_entity_copy FORCE ROW LEVEL SECURITY;
 CREATE POLICY legal_entity_copy_tenant_access ON legal_entity_copy AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- Application role privileges, as in 0028_grants.sql. The store only reads and inserts copy rows.
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE format('GRANT USAGE ON SCHEMA %I TO passage_app', current_schema());
-    EXECUTE 'GRANT SELECT, INSERT ON legal_entity_copy TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE format('GRANT USAGE ON SCHEMA %I TO depot_app', current_schema());
+    EXECUTE 'GRANT SELECT, INSERT ON legal_entity_copy TO depot_app';
   END IF;
 END
 $$;

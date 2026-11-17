@@ -144,7 +144,7 @@ export function NewGLRunPage() {
             true,
           )}
           <div className={styles.wide}>
-            <FormField id="gl-accounts" label="Chart of accounts" hint="Main accounts in Passage, separated by commas, spaces or lines." error={errors.accounts}>
+            <FormField id="gl-accounts" label="Chart of accounts" hint="Main accounts in Depot, separated by commas, spaces or lines." error={errors.accounts}>
               {(control) => (
                 <Textarea {...control} mono rows={3} value={values.accounts} invalid={Boolean(errors.accounts)} onChange={(event) => update({ accounts: event.target.value })} />
               )}

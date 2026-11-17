@@ -26,15 +26,15 @@ ALTER TABLE ap_withholding_report ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ap_withholding_report FORCE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS ap_withholding_report_tenant_access ON ap_withholding_report;
 CREATE POLICY ap_withholding_report_tenant_access ON ap_withholding_report AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 DROP POLICY IF EXISTS ap_withholding_report_legal_entity_scope ON ap_withholding_report;
 CREATE POLICY ap_withholding_report_legal_entity_scope ON ap_withholding_report AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 -- The reporter finds the tenants with due reports through this cross-tenant index, kept by a trigger and read only by the SECURITY
--- DEFINER function (FORCE RLS binds the table owner too). passage_app has no grant on the index. Its tenant column is report_tenant, not
+-- DEFINER function (FORCE RLS binds the table owner too). depot_app has no grant on the index. Its tenant column is report_tenant, not
 -- tenant_id: it is the one deliberately cross-tenant table, outside the tenant RLS rule the tests assert for every tenant_id table.
 CREATE TABLE IF NOT EXISTS ap_withholding_report_due (
   report_tenant uuid NOT NULL,
@@ -73,10 +73,10 @@ CREATE TRIGGER ap_withholding_report_due AFTER INSERT OR UPDATE OF status, next_
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE format('GRANT USAGE ON SCHEMA %I TO passage_app', current_schema());
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON ap_withholding_report TO passage_app';
-    EXECUTE 'GRANT EXECUTE ON FUNCTION payables_withholding_report_due_tenants() TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE format('GRANT USAGE ON SCHEMA %I TO depot_app', current_schema());
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON ap_withholding_report TO depot_app';
+    EXECUTE 'GRANT EXECUTE ON FUNCTION payables_withholding_report_due_tenants() TO depot_app';
   END IF;
 END
 $$;

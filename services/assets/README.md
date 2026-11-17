@@ -22,7 +22,7 @@ legal entity of the tenant) and group assets for pooled tax depreciation
 (FR-37.16). The web module is
 `apps/web/src/modules/assets`.
 
-Reference: PSG-37, `docs/prd/phase-7-treasury-controlling.md` section 7.37.
+Reference: DPT-37, `docs/prd/phase-7-treasury-controlling.md` section 7.37.
 The Helm chart is `charts/assets` (the PRD calls it `asset-svc`; the chart is
 named after the service directory, per the repository convention).
 
@@ -35,7 +35,7 @@ internal/domain/       pure rules: Schedule (SL, DB/MACRS), Dispose, ComputeLeas
                        machine and approval levels (no I/O)
 internal/store/        pgx repositories, tenant transactions, idempotency_keys, outbox writes
 internal/api/          chi handlers, DTOs, validation, duties
-internal/events/       event types and payloads (dev.passage.assets.*.v1)
+internal/events/       event types and payloads (dev.depot.assets.*.v1)
 migrations/            0001_assets.sql (RLS on every table, append-only asset_transaction),
                        0002 adjustments, runs and additions, 0003 insurance and capex,
                        0004 lease modifications, rate method and count sessions,
@@ -52,7 +52,7 @@ charts/assets/         Helm chart (liveness /healthz, readiness /readyz, Service
 ## Run
 
 ```
-export DATABASE_URL=postgres://passage_app:...@localhost:5432/passage_assets
+export DATABASE_URL=postgres://depot_app:...@localhost:5432/depot_assets
 export MIGRATE_ON_START=true        # dev only; stage/prod run migrations as a PreSync Job
 go run ./cmd/assets
 ```
@@ -147,7 +147,7 @@ and `authz` until OPA is wired (wave 2 kernel).
   is called and resent unchanged until it answers; a ledger refusal drops it,
   a lost answer keeps it, and a lease with a pending booking cannot be
   remeasured (AST-0027). The ledger entry lands on `lease.recognition_journal_id`
-  and `lease_schedule_line.posted_journal_id` and `dev.passage.assets.lease.posted.v1`
+  and `lease_schedule_line.posted_journal_id` and `dev.depot.assets.lease.posted.v1`
   is written in the same transaction. `GET /v1/leases/{id}/gl-postings` shows
   which journals are booked. Accounts come from `PUT /v1/leases/posting-profile`
   (assets.asset.configure, If-Match to replace; GET by assets.lease.maintain or assets.asset.configure);
@@ -261,11 +261,11 @@ and `authz` until OPA is wired (wave 2 kernel).
 
 ```
 go vet ./... && go test ./...
-PASSAGE_TEST_DATABASE_URL=postgres://... go test ./...   # store tests
-PASSAGE_TEST_APP_DATABASE_URL=postgres://passage_app@... # also runs the RLS test as a non-bypass role
+DEPOT_TEST_DATABASE_URL=postgres://... go test ./...   # store tests
+DEPOT_TEST_APP_DATABASE_URL=postgres://depot_app@... # also runs the RLS test as a non-bypass role
 ```
 
-Store tests use `testkit.DB(t)` and skip without `PASSAGE_TEST_DATABASE_URL`.
+Store tests use `testkit.DB(t)` and skip without `DEPOT_TEST_DATABASE_URL`.
 They cover idempotent replay and key reuse, AC-37.5 on two books, the
 subledger reconciliation (Σ transactions per book = the book's cost and
 accumulated depreciation), the book limit, pagination and RLS; for slice 2 the
@@ -315,7 +315,7 @@ unit (JPY has none). Rates are decimal strings; no floats.
 ## Error codes
 
 Problem details are `application/problem+json` with `code` and `type`
-`https://passage.dev/problems/<code>`.
+`https://depot.dev/problems/<code>`.
 
 | Code | HTTP | Meaning |
 |---|---|---|
@@ -375,15 +375,15 @@ Other PRD message codes (AST-0501, 0520, 0541, 0542) belong to later slices; see
 ## Events
 
 Written to the outbox in the same transaction as the change:
-`dev.passage.assets.asset.acquired.v1` (one per book added),
-`dev.passage.assets.asset.disposed.v1` (one per book disposed),
-`dev.passage.assets.asset.adjusted.v1` (one per adjustment and per book a
+`dev.depot.assets.asset.acquired.v1` (one per book added),
+`dev.depot.assets.asset.disposed.v1` (one per book disposed),
+`dev.depot.assets.asset.adjusted.v1` (one per adjustment and per book a
 financial addition posts to; not in the PRD event table),
-`dev.passage.assets.depreciation.posted.v1` (one per posted run),
-`dev.passage.assets.lease.recognized.v1`,
-`dev.passage.assets.lease.remeasured.v1` (one per modification; not in the PRD
+`dev.depot.assets.depreciation.posted.v1` (one per posted run),
+`dev.depot.assets.lease.recognized.v1`,
+`dev.depot.assets.lease.remeasured.v1` (one per modification; not in the PRD
 event table, added so the ledger sees every change of the liability and ROU),
-`dev.passage.assets.capexrequest.approved.v1` (one per approval, with the
+`dev.depot.assets.capexrequest.approved.v1` (one per approval, with the
 approved variant's amounts per year, for budgeting and the forecast).
 See `events/asyncapi.yaml`.
 

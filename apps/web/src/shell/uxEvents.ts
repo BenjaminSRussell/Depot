@@ -11,7 +11,7 @@ import { localPreferenceStorage, type PreferenceStorage } from "./preferenceStor
 
 export const UX_EVENTS_PATH = "/api/v1/analytics/ux-events";
 export const UX_RECORD_DUTY = "analytics.ux.record";
-export const UX_OPT_OUT_KEY = "passage.ux-telemetry.optout.v1";
+export const UX_OPT_OUT_KEY = "depot.ux-telemetry.optout.v1";
 
 export type UxFlow = "procure_to_pay" | "onboarding";
 
@@ -83,10 +83,10 @@ export class UxEventClient {
     if (this.session) return this.session;
     let id = "";
     try {
-      id = window.sessionStorage.getItem("passage.ux-session.v1") ?? "";
+      id = window.sessionStorage.getItem("depot.ux-session.v1") ?? "";
       if (!id) {
         id = crypto.randomUUID();
-        window.sessionStorage.setItem("passage.ux-session.v1", id);
+        window.sessionStorage.setItem("depot.ux-session.v1", id);
       }
     } catch {
       id = id || crypto.randomUUID();
@@ -110,7 +110,7 @@ export class UxEventClient {
 
   /** The first transaction of a tenant's user is also the last step of the onboarding funnel. Reported once per browser. */
   firstTransaction(): void {
-    const key = `passage.ux.first-transaction.v1.${this.identity}`;
+    const key = `depot.ux.first-transaction.v1.${this.identity}`;
     if (this.identity === "" || this.storage.read(key) === "1") return;
     this.funnelStep("onboarding", "first_transaction");
     this.storage.write(key, "1");

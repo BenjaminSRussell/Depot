@@ -1,4 +1,4 @@
--- PSG-25 slice 13: absence codes and absence pay lines (FR-25.2 absence registrations, FR-25.7
+-- DPT-25 slice 13: absence codes and absence pay lines (FR-25.2 absence registrations, FR-25.7
 -- pay types absence-paid and absence-unpaid). An absence code says whether the time is paid and
 -- at what share of the worker's rate. An absence registration (kind absence) names a code and
 -- covers a closed interval of at most 24 hours; pay:calculate turns its hours into an
@@ -28,8 +28,8 @@ CREATE TABLE IF NOT EXISTS absence_code (
 ALTER TABLE absence_code ENABLE ROW LEVEL SECURITY;
 ALTER TABLE absence_code FORCE ROW LEVEL SECURITY;
 CREATE POLICY absence_code_tenant_access ON absence_code AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 ALTER TABLE time_registration ADD COLUMN IF NOT EXISTS absence_code_id uuid;
 ALTER TABLE time_registration ADD CONSTRAINT time_registration_absence_fk
@@ -45,8 +45,8 @@ ALTER TABLE pay_line ADD CONSTRAINT pay_line_rate_multiplier_check
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON absence_code TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON absence_code TO depot_app';
   END IF;
 END
 $$;

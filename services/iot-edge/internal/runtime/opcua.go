@@ -13,14 +13,14 @@ import (
 	"github.com/gopcua/opcua"
 	"github.com/gopcua/opcua/ua"
 
-	"github.com/BenjaminSRussell/passage/services/iot-edge/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/iot-edge/internal/domain"
 )
 
 // OPCUAConfig is how the connector reaches a plant's OPC-UA server (FR-25.9).
 type OPCUAConfig struct {
 	Endpoint string // opc.tcp://host:4840
 	// SecurityPolicy and SecurityMode select the channel security. "None" (the default) is for the dev and
-	// demo plant only (the connector refuses it outside PASSAGE_ENV=dev, see Insecure); a real plant uses a
+	// demo plant only (the connector refuses it outside DEPOT_ENV=dev, see Insecure); a real plant uses a
 	// signed and encrypted channel with CertFile and KeyFile.
 	SecurityPolicy string // None, Basic256Sha256, Aes128_Sha256_RsaOaep, ...
 	SecurityMode   string // None, Sign, SignAndEncrypt
@@ -74,7 +74,7 @@ func (c OPCUAConfig) Validate() error {
 }
 
 // Insecure reports a channel with security policy None: nothing is signed or encrypted. The connector allows it
-// only when PASSAGE_ENV is dev.
+// only when DEPOT_ENV is dev.
 func (c OPCUAConfig) Insecure() bool { return c.policy() == "None" }
 
 func (c OPCUAConfig) options(ctx context.Context) ([]opcua.Option, error) {

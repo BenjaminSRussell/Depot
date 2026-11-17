@@ -51,10 +51,10 @@ REVOKE ALL ON FUNCTION notify_distribute_can_scan() FROM PUBLIC;
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT EXECUTE ON FUNCTION notify_claim_messages(text[], int, int) TO passage_app';
-    EXECUTE 'GRANT EXECUTE ON FUNCTION notify_fail_unconfirmed_messages(int) TO passage_app';
-    EXECUTE 'GRANT EXECUTE ON FUNCTION notify_distribute_can_scan() TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT EXECUTE ON FUNCTION notify_claim_messages(text[], int, int) TO depot_app';
+    EXECUTE 'GRANT EXECUTE ON FUNCTION notify_fail_unconfirmed_messages(int) TO depot_app';
+    EXECUTE 'GRANT EXECUTE ON FUNCTION notify_distribute_can_scan() TO depot_app';
   END IF;
 END
 $$;

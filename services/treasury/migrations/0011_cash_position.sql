@@ -1,4 +1,4 @@
--- Wave 36 (PSG-36) FR-36.8: intraday account reports (camt.052) behind the cash position.
+-- Wave 36 (DPT-36) FR-36.8: intraday account reports (camt.052) behind the cash position.
 -- A report is one account's balances at one moment; the cash position reads the freshest of the latest
 -- report and the latest statement per bank account. Reports are append-only (a bank sends a new one).
 
@@ -35,25 +35,25 @@ create table intraday_balance (
 alter table intraday_report enable row level security;
 alter table intraday_report force row level security;
 create policy intraday_report_tenant_access on intraday_report as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 create policy intraday_report_legal_entity_scope on intraday_report as restrictive
-  using (current_setting('passage.legal_entity_scopes', true) = '*'
-         or legal_entity_id::text = any(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  using (current_setting('depot.legal_entity_scopes', true) = '*'
+         or legal_entity_id::text = any(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 alter table intraday_balance enable row level security;
 alter table intraday_balance force row level security;
 create policy intraday_balance_tenant_access on intraday_balance as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 create policy intraday_balance_legal_entity_scope on intraday_balance as restrictive
-  using (current_setting('passage.legal_entity_scopes', true) = '*'
-         or legal_entity_id::text = any(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  using (current_setting('depot.legal_entity_scopes', true) = '*'
+         or legal_entity_id::text = any(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT ON intraday_report, intraday_balance TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT ON intraday_report, intraday_balance TO depot_app';
   END IF;
 END
 $$;

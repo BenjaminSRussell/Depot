@@ -7,20 +7,20 @@ metadata:
   name: workflow-ts-consumer
   namespace: kafka
   labels:
-    strimzi.io/cluster: passage
+    strimzi.io/cluster: depot
 spec:
   authentication:
     type: scram-sha-512
   authorization:
     type: simple
     acls:
-      - resource: {type: topic, name: passage.tms.load, patternType: literal}
+      - resource: {type: topic, name: depot.tms.load, patternType: literal}
         operations: [Read, Describe]
-      - resource: {type: topic, name: passage.tms.tender, patternType: literal}
+      - resource: {type: topic, name: depot.tms.tender, patternType: literal}
         operations: [Read, Describe]
-      - resource: {type: topic, name: passage.budget.plan, patternType: literal}
+      - resource: {type: topic, name: depot.budget.plan, patternType: literal}
         operations: [Read, Describe]
-      - resource: {type: topic, name: passage.workflow.tender.dlq, patternType: literal}
+      - resource: {type: topic, name: depot.workflow.tender.dlq, patternType: literal}
         operations: [Write, Describe]
       - resource: {type: group, name: workflow-ts-tender, patternType: literal}
         operations: [Read, Describe]
@@ -28,12 +28,12 @@ spec:
 apiVersion: kafka.strimzi.io/v1beta2
 kind: KafkaTopic
 metadata:
-  name: passage-workflow-tender-dlq
+  name: depot-workflow-tender-dlq
   namespace: kafka
   labels:
-    strimzi.io/cluster: passage
+    strimzi.io/cluster: depot
 spec:
-  topicName: passage.workflow.tender.dlq
+  topicName: depot.workflow.tender.dlq
   partitions: 3
   replicas: 3
   config:

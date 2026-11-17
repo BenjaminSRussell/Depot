@@ -7,8 +7,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/eam/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/eam/internal/domain"
 )
 
 // inProgress creates a work order of typ on the fixture asset and moves it to IN_PROGRESS.
@@ -240,7 +240,7 @@ func TestDowntime_BR445(t *testing.T) {
 	if got, err := f.s.RecordDowntime(f.ctx, wo.ID, DowntimeInput{ResourceID: m12, From: to, To: to.Add(time.Hour)}, "dt-3"); err != nil || got.DowntimeMinutes != 300 {
 		t.Fatalf("adjacent window = %d %v, want 300", got.DowntimeMinutes, err)
 	}
-	if n := f.count(t, `select count(*) from outbox where aggregate_id = $1 and type = 'dev.passage.eam.downtime.recorded.v1'
+	if n := f.count(t, `select count(*) from outbox where aggregate_id = $1 and type = 'dev.depot.eam.downtime.recorded.v1'
 	    and payload->'data'->>'resourceId' = $2`, wo.ID, m12); n != 2 {
 		t.Fatalf("downtime events = %d, want 2", n)
 	}
@@ -299,7 +299,7 @@ func TestTriage_FR446(t *testing.T) {
 	if same, err := f.s.TriageRequest(f.ctx, req.ID, TriageInput{Action: "TRIAGE"}, "tr-3"); err != nil || same.Status != "TRIAGED" {
 		t.Fatalf("repeat triage = %+v %v", same, err)
 	}
-	if n := f.count(t, `select count(*) from outbox where aggregate_id = $1 and type = 'dev.passage.eam.request.triaged.v1'`, req.ID); n != 2 {
+	if n := f.count(t, `select count(*) from outbox where aggregate_id = $1 and type = 'dev.depot.eam.request.triaged.v1'`, req.ID); n != 2 {
 		t.Fatalf("triage events = %d, want 2", n)
 	}
 	if n := f.count(t, `select count(*) from maintenance_request_triage where request_id = $1`, req.ID); n != 2 {
@@ -376,7 +376,7 @@ func TestWarranty_AC4413(t *testing.T) {
 	if _, err := f.s.TransitionWorkOrder(f.ctx, wo.ID, Transition{To: domain.StatusCompleted, Version: v}, "war-c"); err != nil {
 		t.Fatal(err)
 	}
-	if n := f.count(t, `select count(*) from outbox where aggregate_id = $1 and type = 'dev.passage.eam.warranty.claimable.v1'
+	if n := f.count(t, `select count(*) from outbox where aggregate_id = $1 and type = 'dev.depot.eam.warranty.claimable.v1'
 	    and payload->'data'->>'coveredParts' = '350.00' and payload->'data'->>'coveredLabor' = '0.00'
 	    and payload->'data'->>'vendorPartyId' = $2 and payload->'data'->>'warrantyId' = $3`, wo.ID, vendor, w.ID); n != 1 {
 		t.Fatalf("claimable events with the part amount = %d, want 1", n)
@@ -393,7 +393,7 @@ func TestWarranty_AC4413(t *testing.T) {
 	if _, err := f.s.TransitionWorkOrder(f.ctx, none.ID, Transition{To: domain.StatusCompleted, Version: nv}, "war-c2"); err != nil {
 		t.Fatal(err)
 	}
-	if n := f.count(t, `select count(*) from outbox where aggregate_id = $1 and type = 'dev.passage.eam.warranty.claimable.v1'`, none.ID); n != 0 {
+	if n := f.count(t, `select count(*) from outbox where aggregate_id = $1 and type = 'dev.depot.eam.warranty.claimable.v1'`, none.ID); n != 0 {
 		t.Fatalf("claim for labor on a parts-only warranty = %d, want 0", n)
 	}
 	list, err := f.s.ListWarranties(f.ctx, f.asset)

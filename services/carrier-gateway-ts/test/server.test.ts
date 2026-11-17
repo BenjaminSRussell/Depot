@@ -42,7 +42,7 @@ afterAll(() => new Promise<void>((resolve) => server.close(() => resolve())));
 
 async function call(method: string, path: string, opts: { token?: string; body?: unknown; key?: string } = {}) {
   const headers: Record<string, string> = {};
-  if (opts.token !== undefined) headers["x-passage-service-token"] = opts.token;
+  if (opts.token !== undefined) headers["x-depot-service-token"] = opts.token;
   if (opts.body !== undefined) headers["content-type"] = "application/json";
   if (opts.key !== undefined) headers["idempotency-key"] = opts.key;
   const res = await fetch(base + path, { method, headers, ...(opts.body !== undefined ? { body: JSON.stringify(opts.body) } : {}) });

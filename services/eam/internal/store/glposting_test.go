@@ -12,14 +12,14 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/ledgerclient"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/eam/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/eam/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/ledgerclient"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/eam/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/eam/migrations"
 )
 
 const glLegalEntity = "00000000-0000-0000-0000-0000000000e1"
@@ -263,10 +263,10 @@ func TestGLPosting_AppRoleBooksWithoutBypassingRLSOrRewritingTheSubledger(t *tes
 	f.asset = a.ID
 	f.order(domain.TypeInspection, "42.00", "1", "10.00")
 	if res := f.post(); len(res.Booked) != 1 || len(res.Failed) != 0 {
-		t.Fatalf("booking as passage_app: %+v", res)
+		t.Fatalf("booking as depot_app: %+v", res)
 	}
 	if _, _, err := f.s.SavePostingProfile(f.ctx, PostingProfile{LegalEntityID: glLegalEntity, WorkOrderType: "ALL", PartsExpense: "6", LaborExpense: "7", PartsOffset: "8", LaborOffset: "9"}, 0, "admin"); err != nil {
-		t.Fatalf("profile as passage_app: %v", err)
+		t.Fatalf("profile as depot_app: %v", err)
 	}
 	for _, stmt := range []string{`update eam_gl_posting set amount_dr = amount_dr`, `delete from eam_gl_posting`} {
 		err := dbx.WithTenantTx(f.ctx, app, func(tx pgx.Tx) error {

@@ -23,15 +23,15 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/authz"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/authz"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
 
-	"github.com/BenjaminSRussell/passage/services/edi/internal/certtrust"
-	"github.com/BenjaminSRussell/passage/services/edi/internal/cxmlmap"
-	"github.com/BenjaminSRussell/passage/services/edi/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/edi/internal/secrets"
-	"github.com/BenjaminSRussell/passage/services/edi/internal/store"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/certtrust"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/cxmlmap"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/secrets"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/store"
 )
 
 // Service error codes (see README). Catalog codes from PRD §6.35.18 are reused
@@ -68,11 +68,11 @@ const maxInbound = 4 << 20
 
 // DefaultSender is our ISA/GS identity on outbound interchanges when
 // EDI_ISA_QUALIFIER and EDI_ISA_ID are not set.
-var DefaultSender = domain.Party{Qualifier: "ZZ", ID: "PASSAGE"}
+var DefaultSender = domain.Party{Qualifier: "ZZ", ID: "DEPOT"}
 
 // DefaultEdifactSender is our UNB S002 identity on outbound EDIFACT
 // interchanges when EDI_EDIFACT_ID and EDI_EDIFACT_QUALIFIER are not set.
-var DefaultEdifactSender = domain.EdifactParty{ID: "PASSAGE", Qualifier: "ZZZ"}
+var DefaultEdifactSender = domain.EdifactParty{ID: "DEPOT", Qualifier: "ZZZ"}
 
 // API holds the store used by the handlers that persist state. Sender is our
 // ISA06/GS02 identity on outbound documents, EdifactSender our UNB S002

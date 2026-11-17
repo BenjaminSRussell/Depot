@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/tools/e2e/stack"
+	"github.com/BenjaminSRussell/depot/tools/e2e/stack"
 )
 
 func repoRoot(t *testing.T) string {
@@ -23,9 +23,9 @@ func repoRoot(t *testing.T) string {
 
 func startStack(t *testing.T) *stack.Stack {
 	t.Helper()
-	adminDB := os.Getenv("PASSAGE_TEST_DATABASE_URL")
+	adminDB := os.Getenv("DEPOT_TEST_DATABASE_URL")
 	if adminDB == "" {
-		t.Skip("PASSAGE_TEST_DATABASE_URL is not set: the flow test starts the real services against a Postgres database")
+		t.Skip("DEPOT_TEST_DATABASE_URL is not set: the flow test starts the real services against a Postgres database")
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Minute)
 	t.Cleanup(cancel)

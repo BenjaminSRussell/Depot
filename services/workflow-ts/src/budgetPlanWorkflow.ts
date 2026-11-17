@@ -206,7 +206,7 @@ export async function budgetPlanWorkflow(
       if (state.status === "approved" || state.status === "rejected") {
         metricMeter
           .createCounter(
-            "passage_budget_plan_decided",
+            "depot_budget_plan_decided",
             "1",
             "Budget plan submissions that ended",
           )

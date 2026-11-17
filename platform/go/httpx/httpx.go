@@ -1,4 +1,4 @@
-// Package httpx is the HTTP kernel every Passage service uses: router with
+// Package httpx is the HTTP kernel every Depot service uses: router with
 // standard middleware, JSON helpers, RFC 9457 problem details and graceful serve.
 package httpx
 
@@ -17,15 +17,15 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 
-	"github.com/BenjaminSRussell/passage/platform/cloudprofile"
-	"github.com/BenjaminSRussell/passage/platform/logpseudo"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/cloudprofile"
+	"github.com/BenjaminSRussell/depot/platform/logpseudo"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
 )
 
 const RequestTimeout = 30 * time.Second
 
 // Problem is an RFC 9457 problem-details body. Code is the stable, documented
-// Passage error code (e.g. "LED-0001"); Errors carries field-level detail.
+// Depot error code (e.g. "LED-0001"); Errors carries field-level detail.
 type Problem struct {
 	Type     string            `json:"type"`
 	Title    string            `json:"title"`
@@ -62,10 +62,10 @@ func (p *Problem) Error() string { return fmt.Sprintf("%s (%d): %s", p.Code, p.S
 
 // NewProblem builds a problem with the given status and code.
 func NewProblem(status int, code, detail string) *Problem {
-	return &Problem{Type: "https://passage.dev/problems/" + code, Title: http.StatusText(status), Status: status, Code: code, Detail: detail}
+	return &Problem{Type: "https://depot.dev/problems/" + code, Title: http.StatusText(status), Status: status, Code: code, Detail: detail}
 }
 
-// NewRouter returns a chi router with request id, trusted-proxy client IP ($PASSAGE_TRUSTED_PROXIES), structured logging,
+// NewRouter returns a chi router with request id, trusted-proxy client IP ($DEPOT_TRUSTED_PROXIES), structured logging,
 // panic recovery, a 30s timeout and tenant-context extraction installed.
 func NewRouter() *chi.Mux {
 	return newRouter(tenant.Middleware)
@@ -153,7 +153,7 @@ func Fail(w http.ResponseWriter, r *http.Request, err error) {
 // Serve runs the handler on addr until SIGINT/SIGTERM or ctx cancellation,
 // then drains in-flight requests for up to 15s.
 //
-// In a FIPS cloud profile (PASSAGE_CLOUD_PROFILE, #599), or in a binary built with GOFIPS140, Serve
+// In a FIPS cloud profile (DEPOT_CLOUD_PROFILE, #599), or in a binary built with GOFIPS140, Serve
 // refuses to start unless crypto/fips140.Enabled() is true, so every service that serves through it
 // fails closed.
 //

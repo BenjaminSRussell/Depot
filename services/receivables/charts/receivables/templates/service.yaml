@@ -3,12 +3,12 @@ kind: Service
 metadata:
   name: {{ .Release.Name }}-receivables
   labels:
-    app.kubernetes.io/name: passage-receivables
+    app.kubernetes.io/name: depot-receivables
     app.kubernetes.io/instance: {{ .Release.Name }}
 spec:
   type: ClusterIP
   selector:
-    app.kubernetes.io/name: passage-receivables
+    app.kubernetes.io/name: depot-receivables
     app.kubernetes.io/instance: {{ .Release.Name }}
   ports:
     - name: http
@@ -24,11 +24,11 @@ kind: ServiceMonitor
 metadata:
   name: {{ .Release.Name }}-receivables
   labels:
-    app.kubernetes.io/name: passage-receivables
+    app.kubernetes.io/name: depot-receivables
 spec:
   selector:
     matchLabels:
-      app.kubernetes.io/name: passage-receivables
+      app.kubernetes.io/name: depot-receivables
   endpoints:
     - port: admin
       path: /metrics

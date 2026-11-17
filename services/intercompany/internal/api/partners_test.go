@@ -11,11 +11,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/intercompany/internal/api"
-	"github.com/BenjaminSRussell/passage/services/intercompany/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/intercompany/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/intercompany/internal/api"
+	"github.com/BenjaminSRussell/depot/services/intercompany/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/intercompany/internal/store"
 )
 
 // fakePartners is an in-memory PartnerStore with the store's rules: one
@@ -128,8 +128,8 @@ func (c call) on(h http.Handler) *httptest.ResponseRecorder {
 	if t == "" {
 		t = tenantID
 	}
-	req.Header.Set("X-Passage-Tenant", t)
-	req.Header.Set("X-Passage-Duties", c.duties)
+	req.Header.Set("X-Depot-Tenant", t)
+	req.Header.Set("X-Depot-Duties", c.duties)
 	for k, v := range c.headers {
 		req.Header.Set(k, v)
 	}

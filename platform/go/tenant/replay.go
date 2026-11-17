@@ -20,8 +20,8 @@ var (
 
 // WriteReplayMetrics writes the shared replay cache counters in Prometheus text format.
 func WriteReplayMetrics(w io.Writer) {
-	_, _ = fmt.Fprintf(w, "# HELP passage_service_token_replay_store_failures_total Service tokens refused because the shared replay store failed.\n# TYPE passage_service_token_replay_store_failures_total counter\npassage_service_token_replay_store_failures_total %d\n", replayStoreFailures.Load())
-	_, _ = fmt.Fprintf(w, "# HELP passage_service_token_replays_refused_total Service tokens refused as replays by the shared store.\n# TYPE passage_service_token_replays_refused_total counter\npassage_service_token_replays_refused_total %d\n", replaysRefused.Load())
+	_, _ = fmt.Fprintf(w, "# HELP depot_service_token_replay_store_failures_total Service tokens refused because the shared replay store failed.\n# TYPE depot_service_token_replay_store_failures_total counter\ndepot_service_token_replay_store_failures_total %d\n", replayStoreFailures.Load())
+	_, _ = fmt.Fprintf(w, "# HELP depot_service_token_replays_refused_total Service tokens refused as replays by the shared store.\n# TYPE depot_service_token_replays_refused_total counter\ndepot_service_token_replays_refused_total %d\n", replaysRefused.Load())
 }
 
 // ReplayStore remembers service token ids across every replica of a target.
@@ -44,7 +44,7 @@ func NewPostgresReplayStore(pool *pgxpool.Pool) *PostgresReplayStore {
 
 func (s *PostgresReplayStore) Remember(ctx context.Context, tenantID, id string, expires time.Time) (bool, error) {
 	batch := &pgx.Batch{}
-	batch.Queue(`select set_config('passage.tenant_id', $1, true)`, tenantID)
+	batch.Queue(`select set_config('depot.tenant_id', $1, true)`, tenantID)
 	purge := s.purgeDue()
 	if purge {
 		batch.Queue(`select service_token_replay_purge()`)

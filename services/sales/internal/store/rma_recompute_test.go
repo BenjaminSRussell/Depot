@@ -7,7 +7,7 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/services/sales/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/sales/internal/domain"
 )
 
 func (e *rmaEnv) toDispositioned(t *testing.T, qty int64) ReturnOrder {

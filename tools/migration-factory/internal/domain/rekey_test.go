@@ -58,7 +58,7 @@ func TestBuildRekeyExport_PostingAtT0IsExported(t *testing.T) {
 		t.Fatal(err)
 	}
 	if out.Excluded != 0 || len(out.Journals) != 2 {
-		t.Fatalf("a posting at exactly T-0 is made in Passage: %+v", out.Summary())
+		t.Fatalf("a posting at exactly T-0 is made in Depot: %+v", out.Summary())
 	}
 }
 

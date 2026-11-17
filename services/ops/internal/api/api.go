@@ -1,4 +1,4 @@
-// Package api is the ops control plane's HTTP surface (PSG-50, part 1): the region topology, the guarded failover,
+// Package api is the ops control plane's HTTP surface (DPT-50, part 1): the region topology, the guarded failover,
 // the capacity estimate and the region health check DNS reads.
 package api
 
@@ -16,13 +16,13 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 
-	"github.com/BenjaminSRussell/passage/platform/authz"
-	"github.com/BenjaminSRussell/passage/platform/cloudprofile"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/ops/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/ops/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/authz"
+	"github.com/BenjaminSRussell/depot/platform/cloudprofile"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/ops/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/ops/internal/store"
 )
 
 const (
@@ -63,7 +63,7 @@ type Config struct {
 	SLOTargets domain.SLOTargets
 	// CostRates are the unit rates of the cost statements (OPS_COST_RATES); nil refuses to record a statement (COST-1904).
 	CostRates *domain.CostRates
-	// CloudProfile is PASSAGE_CLOUD_PROFILE (#605): tenant placement follows its allowedRegions, and under the eu-data-boundary
+	// CloudProfile is DEPOT_CLOUD_PROFILE (#605): tenant placement follows its allowedRegions, and under the eu-data-boundary
 	// overlay a provision requested without a residency is EU. Nil means no profile restriction.
 	CloudProfile *cloudprofile.Profile
 	// Directory is identity as ops sees it (IDENTITY_URL): the decommission guard and the licence user-count reporter.

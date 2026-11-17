@@ -3,7 +3,7 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { marked } from "marked";
 
-const [input, output, title = "Passage PRD"] = process.argv.slice(2);
+const [input, output, title = "Depot PRD"] = process.argv.slice(2);
 if (!input || !output) {
   console.error("usage: md2html.mjs <input.md> <output.html> [title]");
   process.exit(2);

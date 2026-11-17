@@ -1,6 +1,6 @@
 # costing
 
-Passage inventory costing service: wave 20 (ticket PSG-20, "Inventory Costing & Supplier Collaboration"), **slices 1 to 6**.
+Depot inventory costing service: wave 20 (ticket DPT-20, "Inventory Costing & Supplier Collaboration"), **slices 1 to 6**.
 
 The service owns its tables and applies its own migrations (`migrations/0001_costing.sql`, `0002_activation.sql`,
 `0003_valuation_setup_and_aging.sql`, `0004_cost_transaction.sql`, `0005_adjustment_reconciliation.sql`) through
@@ -27,7 +27,7 @@ Manual cost adjustments (FR-20.6) and stored reconciliation runs that emit `reco
   serialised by an advisory lock; with `expectedValue` (the value the preview showed) a value that
   moved since is refused with `CST-ADJ-006` before any other check. An ON_HAND adjustment of the
   primary valuation that changes the unit cost of positive stock writes
-  `dev.passage.costing.cost.changed.v1` (with `adjustmentId`, warehouse and valuation type) to the
+  `dev.depot.costing.cost.changed.v1` (with `adjustmentId`, warehouse and valuation type) to the
   outbox in the same transaction. Refusals: `CST-ADJ-002` nothing to adjust (or not a receipt),
   `CST-ADJ-003` a unit cost without positive stock, `CST-ADJ-004` no change, `CST-ADJ-005` a negative
   value on positive stock. A replay returns the stored adjustment with 200. The ledger voucher is a
@@ -37,7 +37,7 @@ Manual cost adjustments (FR-20.6) and stored reconciliation runs that emit `reco
 - **Reconciliation runs** `POST /v1/costing/reconciliations` (duty `costing.reconcile`; the job's
   service account or a cost accountant; `Idempotency-Key` required): the same request and tie-out as
   `value-report:tie-out`, stored as a run (rows, differences, net difference, ties). Each group
-  whose difference is not zero writes one `dev.passage.costing.reconciliation.diff.v1` (run,
+  whose difference is not zero writes one `dev.depot.costing.reconciliation.diff.v1` (run,
   legal entity, ledger, date, currency, dimensions, inventory value, ledger balance, diff) to the
   outbox in the same transaction. A replay returns the stored run and emits nothing, even if the
   inventory moved since. `GET /v1/costing/reconciliations` lists runs without rows and
@@ -122,7 +122,7 @@ Valuation setup (FR-20.15, FR-20.16) and stored month-end aging (FR-20.17, 3.20.
   result as month-end evidence that is never edited. Buckets come from a saved set of the same
   legal entity, from `bucketBounds`, or the default. With `valuationLedgerId` the snapshot takes the
   ledger's method and currency. The same transaction writes
-  `dev.passage.costing.agingsnapshot.created.v1` to the outbox (Kafka key: the legal entity). A
+  `dev.depot.costing.agingsnapshot.created.v1` to the outbox (Kafka key: the legal entity). A
   replayed key returns the stored snapshot with 200 and writes nothing; the key with input that
   computes a different snapshot is `idempotency_key_reuse` (compared by a SHA-256 of the computed
   snapshot). `GET /v1/costing/aging/snapshots` pages summaries without lines, newest as-of first;
@@ -158,7 +158,7 @@ Standard cost versions end to end (FR-20.5, BR-20.7): read, fill, compare, previ
 - **Activation** `POST /v1/costing/versions/{id}:activate` with `If-Match: "<version>"`. In one
   transaction it supersedes the ACTIVE standard of each product × site, makes the pending costs
   ACTIVE with the revaluation recorded on each row, marks the version ACTIVE and writes one
-  `dev.passage.costing.cost.changed.v1` per product × site to the outbox. The revaluation is
+  `dev.depot.costing.cost.changed.v1` per product × site to the outbox. The revaluation is
   `(new − old) × on-hand`, rounded half-even to the currency (BR-20.4); where a product × site has
   no standard yet it is `new × on-hand − bookValue`, so the caller must give the book value of
   that stock (`CST-ACT-007`) instead of the service revaluing it from zero. Activations in one
@@ -237,7 +237,7 @@ Everything else in the ticket is listed in [NOT-IMPLEMENTED.md](NOT-IMPLEMENTED.
 
 ```sh
 # from the repo root
-PASSAGE_ENV=dev SERVICE_NAME=costing DATABASE_URL=postgres://... MIGRATE_ON_START=true \
+DEPOT_ENV=dev SERVICE_NAME=costing DATABASE_URL=postgres://... MIGRATE_ON_START=true \
   go run ./services/costing/cmd/costing
 ```
 
@@ -250,21 +250,21 @@ cd services/costing
 go vet ./... && go test ./...
 ```
 
-Store tests use `platform/go/testkit` and skip unless `PASSAGE_TEST_DATABASE_URL` is set. They run
-the queries as a non-superuser role so RLS applies, which needs `PASSAGE_TEST_APP_DATABASE_URL` as
-`passage_app`:
+Store tests use `platform/go/testkit` and skip unless `DEPOT_TEST_DATABASE_URL` is set. They run
+the queries as a non-superuser role so RLS applies, which needs `DEPOT_TEST_APP_DATABASE_URL` as
+`depot_app`:
 
 ```sh
-PASSAGE_TEST_DATABASE_URL=postgres://admin@... PASSAGE_TEST_APP_DATABASE_URL=postgres://passage_app@... go test ./...
+DEPOT_TEST_DATABASE_URL=postgres://admin@... DEPOT_TEST_APP_DATABASE_URL=postgres://depot_app@... go test ./...
 ```
 
 ## Contracts
 
 - HTTP: [`api/openapi.yaml`](api/openapi.yaml)
-- Events: [`events/asyncapi.yaml`](events/asyncapi.yaml). `dev.passage.costing.cost.changed.v1` is
+- Events: [`events/asyncapi.yaml`](events/asyncapi.yaml). `dev.depot.costing.cost.changed.v1` is
   published on activation and on a manual on-hand adjustment of the primary valuation,
-  `dev.passage.costing.agingsnapshot.created.v1` when a snapshot is stored and
-  `dev.passage.costing.reconciliation.diff.v1` per differing group of a stored reconciliation run;
+  `dev.depot.costing.agingsnapshot.created.v1` when a snapshot is stored and
+  `dev.depot.costing.reconciliation.diff.v1` per differing group of a stored reconciliation run;
   the planned catalog is listed under `x-planned-events`.
 - Chart: [`charts/costing`](charts/costing) (`helm lint charts/costing`).
 
@@ -348,5 +348,5 @@ pgregory.net/rapid for tests). No new dependencies in slice 1.
 
 ## Wave reference
 
-PSG-20 · wave 20 · PRD `docs/prd/phase-3-procure-to-pay.md` §3.20 · depends on PSG-19 (waves 16–19 for
+DPT-20 · wave 20 · PRD `docs/prd/phase-3-procure-to-pay.md` §3.20 · depends on DPT-19 (waves 16–19 for
 transactions, receipts, invoices and payments).

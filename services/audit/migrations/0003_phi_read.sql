@@ -24,8 +24,8 @@ CREATE TABLE IF NOT EXISTS phi_read (
 ALTER TABLE phi_read ENABLE ROW LEVEL SECURITY;
 ALTER TABLE phi_read FORCE ROW LEVEL SECURITY;
 CREATE POLICY phi_read_tenant_access ON phi_read AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE INDEX IF NOT EXISTS phi_read_record ON phi_read (tenant_id, entity, record_id, seq);
 CREATE INDEX IF NOT EXISTS phi_read_user ON phi_read (tenant_id, user_id, seq);
 CREATE INDEX IF NOT EXISTS phi_read_time ON phi_read (tenant_id, occurred_at);
@@ -42,13 +42,13 @@ CREATE TRIGGER phi_read_no_truncate
   BEFORE TRUNCATE ON phi_read
   FOR EACH STATEMENT EXECUTE PROCEDURE phi_read_immutable();
 
--- passage_app appends and reads; it never updates, deletes or truncates. Skipped when the role does
+-- depot_app appends and reads; it never updates, deletes or truncates. Skipped when the role does
 -- not exist (developer databases without the role split).
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT ON phi_read TO passage_app';
-    EXECUTE 'GRANT USAGE ON SEQUENCE phi_read_seq_seq TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT ON phi_read TO depot_app';
+    EXECUTE 'GRANT USAGE ON SEQUENCE phi_read_seq_seq TO depot_app';
   END IF;
 END
 $$;

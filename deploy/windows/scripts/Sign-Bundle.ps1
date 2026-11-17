@@ -1,6 +1,6 @@
 <#
   Sign a Burn bundle: detach the engine, sign it, reattach, then sign the bundle. Sign-Files.ps1 supplies the certificate from the environment.
-    Sign-Bundle.ps1 -Bundle C:\out\PassageSetup-1.2.3-x64.exe -Temp $env:RUNNER_TEMP
+    Sign-Bundle.ps1 -Bundle C:\out\DepotSetup-1.2.3-x64.exe -Temp $env:RUNNER_TEMP
 #>
 param(
     [Parameter(Mandatory)] [string] $Bundle,

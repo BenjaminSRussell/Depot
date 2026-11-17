@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/projects/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/projects/internal/domain"
 )
 
 // Wave 41 proof, AC2 (PRD AC-41.3): invoice proposals capture exactly the
@@ -66,8 +66,8 @@ func ac2Qualifies(x ac2Txn, project, ptype, stage, from, to string, requested []
 }
 
 // TestAC2_ProposalsCaptureExactlyTheBillableTransactions generates N
-// transactions (10,000 by default, PASSAGE_PROJECTS_AC2_TXNS to change, seed
-// PASSAGE_PROJECTS_AC2_SEED, default 41) over two time-and-material projects
+// transactions (10,000 by default, DEPOT_PROJECTS_AC2_TXNS to change, seed
+// DEPOT_PROJECTS_AC2_SEED, default 41) over two time-and-material projects
 // and a fixed-price project, through CreateTransaction: every type, both line
 // properties, dates on both sides of every window, ON_ACCOUNT lines on billable,
 // non-billable, ordinary and missing WBS nodes. It then runs eleven billing
@@ -79,8 +79,8 @@ func ac2Qualifies(x ac2Txn, project, ptype, stage, from, to string, requested []
 func TestAC2_ProposalsCaptureExactlyTheBillableTransactions(t *testing.T) {
 	s, _ := setup(t)
 	ctx := tenantCtx(1)
-	n := envInt(t, "PASSAGE_PROJECTS_AC2_TXNS", 10000)
-	seed := envInt(t, "PASSAGE_PROJECTS_AC2_SEED", 41)
+	n := envInt(t, "DEPOT_PROJECTS_AC2_TXNS", 10000)
+	seed := envInt(t, "DEPOT_PROJECTS_AC2_SEED", 41)
 	rng := rand.New(rand.NewPCG(uint64(seed), 4103))
 
 	ptypes := map[string]string{"AC2-TM1": "TIME_MATERIAL", "AC2-TM2": "TIME_MATERIAL", "AC2-FP": "FIXED_PRICE"}

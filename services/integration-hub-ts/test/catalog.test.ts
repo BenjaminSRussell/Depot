@@ -25,17 +25,17 @@ const openapi = (extra: Record<string, unknown> = {}) => ({
   info: { title: "Sales", version: "1.0.0" },
   paths: {
     "/v1/orders": {
-      get: { operationId: "listOrders", summary: "List orders", "x-passage-duty": "sales.order.read" },
-      post: { operationId: "createOrder", summary: "Create an order", "x-passage-duty": "sales.order.write" },
+      get: { operationId: "listOrders", summary: "List orders", "x-depot-duty": "sales.order.read" },
+      post: { operationId: "createOrder", summary: "Create an order", "x-depot-duty": "sales.order.write" },
     },
-    "/v1/orders/{id}": { get: { operationId: "getOrder", summary: "Read an order", "x-passage-duty": "sales.order.read" } },
+    "/v1/orders/{id}": { get: { operationId: "getOrder", summary: "Read an order", "x-depot-duty": "sales.order.read" } },
   },
   ...extra,
 });
 const asyncapi = () => ({
   asyncapi: "3.0.0",
   info: { title: "Sales events", version: "1.0.0" },
-  components: { messages: { orderCreated: { name: "dev.passage.sales.order.created.v1", summary: "An order was created." }, orderShipped: { name: "dev.passage.sales.order.shipped.v1" } } },
+  components: { messages: { orderCreated: { name: "dev.depot.sales.order.created.v1", summary: "An order was created." }, orderShipped: { name: "dev.depot.sales.order.shipped.v1" } } },
 });
 
 /** `depth` nested arrays inside an `x-deep` extension of a valid document. */
@@ -65,12 +65,12 @@ describe("catalog rules", () => {
   });
   test("an AsyncAPI document yields one entry per message", () => {
     const ops = readSpec("event", asyncapi());
-    expect(ops.map((o) => o.path)).toEqual(["dev.passage.sales.order.created.v1", "dev.passage.sales.order.shipped.v1"]);
-    expect(docIssues("event", ops)).toEqual(["dev.passage.sales.order.shipped.v1: no summary"]);
+    expect(ops.map((o) => o.path)).toEqual(["dev.depot.sales.order.created.v1", "dev.depot.sales.order.shipped.v1"]);
+    expect(docIssues("event", ops)).toEqual(["dev.depot.sales.order.shipped.v1: no summary"]);
   });
-  test("the doc gate flags a missing operationId, summary and x-passage-duty", () => {
+  test("the doc gate flags a missing operationId, summary and x-depot-duty", () => {
     const ops = readSpec("api", { openapi: "3.1.0", info: { title: "t", version: "1" }, paths: { "/x": { get: {} } } });
-    expect(docIssues("api", ops)).toEqual(["GET /x: no operationId", "GET /x: no summary", "GET /x: no x-passage-duty"]);
+    expect(docIssues("api", ops)).toEqual(["GET /x: no operationId", "GET /x: no summary", "GET /x: no x-depot-duty"]);
   });
   test("documents of the wrong shape or kind are refused", () => {
     expect(() => readSpec("api", [])).toThrow(SpecError);
@@ -127,7 +127,7 @@ describe("catalog rules", () => {
     expect(() => checkSunset(new Date("2027-11-03T00:00:00Z"), now, 12)).not.toThrow();
     expect(() => checkSunset(new Date("nope"), now, 12)).toThrow(RangeError);
   });
-  test("catalog event types follow the outbox naming and route to passage.hub.catalogentry", () => {
+  test("catalog event types follow the outbox naming and route to depot.hub.catalogentry", () => {
     const types = EVENT_TYPES.filter((t) => t.includes(".catalogentry."));
     expect(types).toHaveLength(4);
     for (const t of types) expect(aggregateTypeOf(t)).toBe("catalogentry");
@@ -181,7 +181,7 @@ describe.skipIf(ownerUrl === undefined)("catalog on Postgres", () => {
     const spec = await hub.call("GET", `/v1/hub/catalog/${res.body.id}/spec`, { tenant: t, duties: READ });
     expect(spec.body).toEqual(openapi());
     const [e] = await events(t);
-    expect(e).toMatchObject({ type: "dev.passage.hub.catalogentry.published.v1", aggregate_type: "catalogentry", aggregate_id: res.body.id });
+    expect(e).toMatchObject({ type: "dev.depot.hub.catalogentry.published.v1", aggregate_type: "catalogentry", aggregate_id: res.body.id });
     expect(e!.payload.data).toMatchObject({ kind: "api", name: "sales-api", spec_version: "1.0.0", lifecycle: "active", sunset_at: null });
   });
 
@@ -191,7 +191,7 @@ describe.skipIf(ownerUrl === undefined)("catalog on Postgres", () => {
     expect(res.status).toBe(201);
     expect(res.body.specFormat).toBe("asyncapi");
     const detail = await hub.call("GET", `/v1/hub/catalog/${res.body.id}`, { tenant: t, duties: READ });
-    expect(detail.body.issues).toEqual(["dev.passage.sales.order.shipped.v1: no summary"]);
+    expect(detail.body.issues).toEqual(["dev.depot.sales.order.shipped.v1: no summary"]);
     expect((await publish(t, { kind: "event", name: "x-events", spec: openapi() })).status).toBe(400);
   });
 
@@ -229,7 +229,7 @@ describe.skipIf(ownerUrl === undefined)("catalog on Postgres", () => {
     const body = `{"kind":"api","name":"deep-api","specVersion":"1.0.0","title":"Deep","ownerService":"sales","spec":${spec}}`;
     const res = await fetch(`${hub.base}/v1/hub/catalog`, {
       method: "POST",
-      headers: { "x-passage-tenant": t, "x-passage-user": randomUUID(), "x-passage-duties": WRITE.join(","), "content-type": "application/json" },
+      headers: { "x-depot-tenant": t, "x-depot-user": randomUUID(), "x-depot-duties": WRITE.join(","), "content-type": "application/json" },
       body,
     });
     expect(res.status).toBe(400);
@@ -324,7 +324,7 @@ describe.skipIf(ownerUrl === undefined)("catalog on Postgres", () => {
     const e = (await publish(t)).body;
     const up = await hub.call("PATCH", `/v1/hub/catalog/${e.id}`, { tenant: t, duties: WRITE }, { version: 1, title: "Sales public API", ownerService: "sales-core" });
     expect(up.body).toMatchObject({ version: 2, title: "Sales public API", ownerService: "sales-core", specVersion: "1.0.0" });
-    const updated = (await events(t)).filter((x) => x.type === "dev.passage.hub.catalogentry.updated.v1");
+    const updated = (await events(t)).filter((x) => x.type === "dev.depot.hub.catalogentry.updated.v1");
     expect(updated.map((x) => x.payload.data)).toEqual([expect.objectContaining({ catalog_entry_id: e.id, title: "Sales public API", owner_service: "sales-core", version: 2 })]);
     expect((await hub.call("PATCH", `/v1/hub/catalog/${e.id}`, { tenant: t, duties: WRITE }, { version: 1, title: "late" })).status).toBe(409);
     expect((await hub.call("PATCH", `/v1/hub/catalog/${e.id}`, { tenant: t, duties: WRITE }, { version: 2, spec: {} })).status).toBe(400);
@@ -381,7 +381,7 @@ describe.skipIf(ownerUrl === undefined)("catalog on Postgres", () => {
     }
     expect((await hub.call("GET", `/v1/hub/catalog/${e.id}/spec`, { tenant: t, duties: READ })).status).toBe(200);
     expect((await events(t)).map((x) => x.type)).toEqual([
-      "dev.passage.hub.catalogentry.published.v1", "dev.passage.hub.catalogentry.deprecated.v1", "dev.passage.hub.catalogentry.retired.v1",
+      "dev.depot.hub.catalogentry.published.v1", "dev.depot.hub.catalogentry.deprecated.v1", "dev.depot.hub.catalogentry.retired.v1",
     ]);
   });
 

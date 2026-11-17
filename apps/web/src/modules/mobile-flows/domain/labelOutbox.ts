@@ -20,7 +20,7 @@ export interface OutboxStorage {
   setItem(key: string, value: string): void;
 }
 
-const KEY = "passage.labelOutbox";
+const KEY = "depot.labelOutbox";
 /** The most labels a device keeps waiting: past it the oldest is dropped with its SSCC reported. */
 export const MAX_WAITING = 200;
 

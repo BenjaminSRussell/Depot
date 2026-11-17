@@ -10,8 +10,8 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/domain"
 )
 
 func serveBody(t *testing.T, status int) (*Client, *http.Request, *string) {
@@ -59,7 +59,7 @@ func TestMarkInvoiced_SignsWithTheServiceGrantAndSendsTheSettlement(t *testing.T
 	if *body != `{"settlementRef":"settlement-9","amount":"1000.5"}` {
 		t.Fatalf("body %s", *body)
 	}
-	for _, h := range []string{"X-Passage-Duties", "X-Passage-User", "X-Passage-Tenant", "X-Passage-Legal-Entity"} {
+	for _, h := range []string{"X-Depot-Duties", "X-Depot-User", "X-Depot-Tenant", "X-Depot-Legal-Entity"} {
 		if got.Header.Get(h) != "" {
 			t.Fatalf("%s must not be sent with a service token", h)
 		}

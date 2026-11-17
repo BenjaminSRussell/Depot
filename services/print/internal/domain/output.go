@@ -5,7 +5,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/ids"
 )
 
 // Output routing (#46-2): where the original and the copies of a business document go.

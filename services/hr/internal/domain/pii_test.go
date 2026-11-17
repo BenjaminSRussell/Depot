@@ -10,7 +10,7 @@ import (
 
 	"pgregory.net/rapid"
 
-	"github.com/BenjaminSRussell/passage/platform/fieldcrypt"
+	"github.com/BenjaminSRussell/depot/platform/fieldcrypt"
 )
 
 func testKeys(t *testing.T, fill byte) *fieldcrypt.Keys {

@@ -1,5 +1,5 @@
 -- Integration hub: the legacy keys of a pushed collection's lines, and the lookup table versions a render read.
--- No new table: the columns are on hub_delivery (tenant_id, row-level security and the passage_app grants of
+-- No new table: the columns are on hub_delivery (tenant_id, row-level security and the depot_app grants of
 -- SELECT, INSERT, UPDATE come from 0001), written by the attempt update the store already makes.
 
 -- [{"index": 0, "legacyKey": "L-1"}, ...]: the key the legacy ERP assigned to each element of the pushed collection (position from 0).

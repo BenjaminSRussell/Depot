@@ -12,10 +12,10 @@ CREATE TABLE IF NOT EXISTS outbox (
 ALTER TABLE outbox ENABLE ROW LEVEL SECURITY;
 ALTER TABLE outbox FORCE ROW LEVEL SECURITY;
 CREATE POLICY outbox_tenant_access ON outbox AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
--- Normalized dimension sets. hash = SHA-256 of the canonical dimension string (passage/invdim).
+-- Normalized dimension sets. hash = SHA-256 of the canonical dimension string (depot/invdim).
 CREATE TABLE IF NOT EXISTS dimension_set (
   tenant_id uuid NOT NULL,
   hash bytea NOT NULL CHECK (octet_length(hash) = 32),
@@ -26,8 +26,8 @@ CREATE TABLE IF NOT EXISTS dimension_set (
 ALTER TABLE dimension_set ENABLE ROW LEVEL SECURITY;
 ALTER TABLE dimension_set FORCE ROW LEVEL SECURITY;
 CREATE POLICY dimension_set_tenant_access ON dimension_set AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 CREATE TABLE IF NOT EXISTS inventory_journal (
   tenant_id uuid NOT NULL,
@@ -52,11 +52,11 @@ CREATE INDEX IF NOT EXISTS inventory_journal_list_idx ON inventory_journal (tena
 ALTER TABLE inventory_journal ENABLE ROW LEVEL SECURITY;
 ALTER TABLE inventory_journal FORCE ROW LEVEL SECURITY;
 CREATE POLICY inventory_journal_tenant_access ON inventory_journal AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY inventory_journal_legal_entity_scope ON inventory_journal AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 CREATE TABLE IF NOT EXISTS inventory_journal_line (
   tenant_id uuid NOT NULL,
@@ -79,8 +79,8 @@ CREATE TABLE IF NOT EXISTS inventory_journal_line (
 ALTER TABLE inventory_journal_line ENABLE ROW LEVEL SECURITY;
 ALTER TABLE inventory_journal_line FORCE ROW LEVEL SECURITY;
 CREATE POLICY inventory_journal_line_tenant_access ON inventory_journal_line AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 CREATE TABLE IF NOT EXISTS inventory_transaction_origin (
   tenant_id uuid NOT NULL,
@@ -98,11 +98,11 @@ CREATE TABLE IF NOT EXISTS inventory_transaction_origin (
 ALTER TABLE inventory_transaction_origin ENABLE ROW LEVEL SECURITY;
 ALTER TABLE inventory_transaction_origin FORCE ROW LEVEL SECURITY;
 CREATE POLICY inventory_transaction_origin_tenant_access ON inventory_transaction_origin AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY inventory_transaction_origin_legal_entity_scope ON inventory_transaction_origin AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 -- Append-only. Status is the current status; history rows arrive with a later slice.
 CREATE TABLE IF NOT EXISTS inventory_transaction (
@@ -160,11 +160,11 @@ CREATE TRIGGER inventory_transaction_append_only BEFORE UPDATE OR DELETE ON inve
 ALTER TABLE inventory_transaction ENABLE ROW LEVEL SECURITY;
 ALTER TABLE inventory_transaction FORCE ROW LEVEL SECURITY;
 CREATE POLICY inventory_transaction_tenant_access ON inventory_transaction AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY inventory_transaction_legal_entity_scope ON inventory_transaction AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 -- Projection, one row per legal entity x product x dimension set. Updated in the
 -- posting transaction. currency is the accounting currency of posted_value, set by
@@ -194,20 +194,20 @@ CREATE TABLE IF NOT EXISTS on_hand (
 ALTER TABLE on_hand ENABLE ROW LEVEL SECURITY;
 ALTER TABLE on_hand FORCE ROW LEVEL SECURITY;
 CREATE POLICY on_hand_tenant_access ON on_hand AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY on_hand_legal_entity_scope ON on_hand AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 -- The application role reads and writes through RLS; it never owns the tables.
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE format('GRANT USAGE ON SCHEMA %I TO passage_app', current_schema());
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON outbox, dimension_set, inventory_journal, inventory_journal_line, on_hand TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON inventory_transaction_origin, inventory_transaction TO passage_app';
-    EXECUTE 'REVOKE DELETE, TRUNCATE ON inventory_transaction_origin, inventory_transaction FROM passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE format('GRANT USAGE ON SCHEMA %I TO depot_app', current_schema());
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON outbox, dimension_set, inventory_journal, inventory_journal_line, on_hand TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON inventory_transaction_origin, inventory_transaction TO depot_app';
+    EXECUTE 'REVOKE DELETE, TRUNCATE ON inventory_transaction_origin, inventory_transaction FROM depot_app';
   END IF;
 END
 $$;

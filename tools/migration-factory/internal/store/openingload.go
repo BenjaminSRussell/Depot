@@ -11,9 +11,9 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
-	mfevents "github.com/BenjaminSRussell/passage/tools/migration-factory/internal/events"
+	mfevents "github.com/BenjaminSRussell/depot/tools/migration-factory/internal/events"
 
-	"github.com/BenjaminSRussell/passage/tools/migration-factory/internal/domain"
+	"github.com/BenjaminSRussell/depot/tools/migration-factory/internal/domain"
 )
 
 // ErrNoOpeningLoad means the run has not been loaded: it has no opening_load row yet.
@@ -35,7 +35,7 @@ func (s *Postgres) GetOpeningLoad(ctx context.Context, runID string) (domain.Ope
 	var l domain.OpeningLoad
 	err := s.tx(ctx, func(tx pgx.Tx) error {
 		var err error
-		l, err = scanOpeningLoad(tx.QueryRow(ctx, `select `+openingColumns+` from opening_load where tenant_id = current_setting('passage.tenant_id', true)::uuid and run_id = $1`, runID))
+		l, err = scanOpeningLoad(tx.QueryRow(ctx, `select `+openingColumns+` from opening_load where tenant_id = current_setting('depot.tenant_id', true)::uuid and run_id = $1`, runID))
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrNoOpeningLoad
 		}
@@ -78,7 +78,7 @@ func (s *Postgres) ClaimOpeningLoad(ctx context.Context, runID, legalEntityID, s
 	var planned []PlannedOpening
 	err := s.tx(ctx, func(tx pgx.Tx) error {
 		var pack, status string
-		err := tx.QueryRow(ctx, `select pack, source_system, source_company, status from pack_run where tenant_id = current_setting('passage.tenant_id', true)::uuid and run_id = $1 for update`, runID).
+		err := tx.QueryRow(ctx, `select pack, source_system, source_company, status from pack_run where tenant_id = current_setting('depot.tenant_id', true)::uuid and run_id = $1 for update`, runID).
 			Scan(&pack, &run.System, &run.Company, &status)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrNotFound
@@ -94,7 +94,7 @@ func (s *Postgres) ClaimOpeningLoad(ctx context.Context, runID, legalEntityID, s
 		if domain.RunStatus(status) != domain.StatusReconciled {
 			return fmt.Errorf("%w: run %s is %s; only a RECONCILED run is loaded", ErrNotLoadable, runID, status)
 		}
-		if _, err := tx.Exec(ctx, `select pg_advisory_xact_lock(hashtextextended('opening|' || current_setting('passage.tenant_id', true) || '|' || $1 || '|' || $2 || '|' || $3, 0))`, pack, run.System, run.Company); err != nil {
+		if _, err := tx.Exec(ctx, `select pg_advisory_xact_lock(hashtextextended('opening|' || current_setting('depot.tenant_id', true) || '|' || $1 || '|' || $2 || '|' || $3, 0))`, pack, run.System, run.Company); err != nil {
 			return fmt.Errorf("lock opening load: %w", err)
 		}
 		query, err := stagedQuery(run.Pack)
@@ -102,16 +102,16 @@ func (s *Postgres) ClaimOpeningLoad(ctx context.Context, runID, legalEntityID, s
 			return err
 		}
 		var staged int
-		if err := tx.QueryRow(ctx, `select count(*) from (`+query+` where o.tenant_id = current_setting('passage.tenant_id', true)::uuid and o.run_id = $1) x`, runID).Scan(&staged); err != nil {
+		if err := tx.QueryRow(ctx, `select count(*) from (`+query+` where o.tenant_id = current_setting('depot.tenant_id', true)::uuid and o.run_id = $1) x`, runID).Scan(&staged); err != nil {
 			return err
 		}
 		var leaseUntil *time.Time
 		var held string
 		var heldStatus string
-		err = tx.QueryRow(ctx, `select status, lease_until, legal_entity_id::text from opening_load where tenant_id = current_setting('passage.tenant_id', true)::uuid and run_id = $1 for update`, runID).Scan(&heldStatus, &leaseUntil, &held)
+		err = tx.QueryRow(ctx, `select status, lease_until, legal_entity_id::text from opening_load where tenant_id = current_setting('depot.tenant_id', true)::uuid and run_id = $1 for update`, runID).Scan(&heldStatus, &leaseUntil, &held)
 		switch {
 		case errors.Is(err, pgx.ErrNoRows):
-			if _, err := tx.Exec(ctx, `insert into opening_load (tenant_id, run_id, target, legal_entity_id, status, staged) values (current_setting('passage.tenant_id', true)::uuid, $1, $2, $3, 'STAGED', $4)`,
+			if _, err := tx.Exec(ctx, `insert into opening_load (tenant_id, run_id, target, legal_entity_id, status, staged) values (current_setting('depot.tenant_id', true)::uuid, $1, $2, $3, 'STAGED', $4)`,
 				runID, target, legalEntityID, staged); err != nil {
 				return scopeErr(err)
 			}
@@ -127,13 +127,13 @@ func (s *Postgres) ClaimOpeningLoad(ctx context.Context, runID, legalEntityID, s
 		}
 		var busy bool
 		if err := tx.QueryRow(ctx, `select coalesce(bool_or(o.status = 'LOADING' and o.lease_until > now()), false) from opening_load o join pack_run p on p.tenant_id = o.tenant_id and p.run_id = o.run_id
-			where o.tenant_id = current_setting('passage.tenant_id', true)::uuid and o.run_id <> $1 and p.pack = $2 and p.source_system = $3 and p.source_company = $4`, runID, pack, run.System, run.Company).Scan(&busy); err != nil {
+			where o.tenant_id = current_setting('depot.tenant_id', true)::uuid and o.run_id <> $1 and p.pack = $2 and p.source_system = $3 and p.source_company = $4`, runID, pack, run.System, run.Company).Scan(&busy); err != nil {
 			return err
 		}
 		if busy {
 			return ErrLoadBusy
 		}
-		rows, err := tx.Query(ctx, query+` where o.tenant_id = current_setting('passage.tenant_id', true)::uuid and o.run_id = $1
+		rows, err := tx.Query(ctx, query+` where o.tenant_id = current_setting('depot.tenant_id', true)::uuid and o.run_id = $1
 			and not exists (select 1 from opening_load_row l where l.tenant_id = o.tenant_id and l.balance_id = o.balance_id and l.status = 'LOADED')
 			and not exists (select 1 from opening_load_batch_row br join opening_load_batch b on b.tenant_id = br.tenant_id and b.run_id = br.run_id and b.batch_key = br.batch_key
 				where br.tenant_id = o.tenant_id and br.balance_id = o.balance_id and b.status = 'PLANNED') order by o.legacy_id`, runID)
@@ -158,10 +158,10 @@ func (s *Postgres) ClaimOpeningLoad(ctx context.Context, runID, legalEntityID, s
 		}
 		if _, err := tx.Exec(ctx, `update opening_load set status = 'LOADING', staged = $2, lease_until = now() + $3::int * interval '1 second', started_by = $4, started_at = now(), finished_at = null,
 				attempts = attempts + 1, last_error = '', version = version + 1
-			where tenant_id = current_setting('passage.tenant_id', true)::uuid and run_id = $1`, runID, staged, int32(lease.Seconds()), startedBy); err != nil {
+			where tenant_id = current_setting('depot.tenant_id', true)::uuid and run_id = $1`, runID, staged, int32(lease.Seconds()), startedBy); err != nil {
 			return err
 		}
-		load, err = scanOpeningLoad(tx.QueryRow(ctx, `select `+openingColumns+` from opening_load where tenant_id = current_setting('passage.tenant_id', true)::uuid and run_id = $1`, runID))
+		load, err = scanOpeningLoad(tx.QueryRow(ctx, `select `+openingColumns+` from opening_load where tenant_id = current_setting('depot.tenant_id', true)::uuid and run_id = $1`, runID))
 		return err
 	})
 	return load, run, planned, pending, err
@@ -178,7 +178,7 @@ type PlannedOpening struct {
 
 func readPlanned(ctx context.Context, tx pgx.Tx, runID string) ([]PlannedOpening, error) {
 	rows, err := tx.Query(ctx, `select batch_key, currency, posting_date, payload from opening_load_batch
-		where tenant_id = current_setting('passage.tenant_id', true)::uuid and run_id = $1 and status = 'PLANNED' order by batch_key`, runID)
+		where tenant_id = current_setting('depot.tenant_id', true)::uuid and run_id = $1 and status = 'PLANNED' order by batch_key`, runID)
 	if err != nil {
 		return nil, err
 	}
@@ -196,7 +196,7 @@ func readPlanned(ctx context.Context, tx pgx.Tx, runID string) ([]PlannedOpening
 		return nil, err
 	}
 	for i := range out {
-		ids, err := tx.Query(ctx, `select balance_id::text from opening_load_batch_row where tenant_id = current_setting('passage.tenant_id', true)::uuid and run_id = $1 and batch_key = $2 order by seq`, runID, out[i].Key)
+		ids, err := tx.Query(ctx, `select balance_id::text from opening_load_batch_row where tenant_id = current_setting('depot.tenant_id', true)::uuid and run_id = $1 and batch_key = $2 order by seq`, runID, out[i].Key)
 		if err != nil {
 			return nil, err
 		}
@@ -223,7 +223,7 @@ func (s *Postgres) PlanOpeningBatch(ctx context.Context, runID, legalEntityID st
 			return err
 		}
 		tag, err := tx.Exec(ctx, `insert into opening_load_batch (tenant_id, run_id, batch_key, legal_entity_id, item_count, status, currency, posting_date, payload)
-			values (current_setting('passage.tenant_id', true)::uuid, $1, $2, $3, $4, 'PLANNED', $5, $6, $7) on conflict do nothing`,
+			values (current_setting('depot.tenant_id', true)::uuid, $1, $2, $3, $4, 'PLANNED', $5, $6, $7) on conflict do nothing`,
 			runID, p.Key, legalEntityID, len(p.BalanceIDs), p.Currency, p.PostingDate, []byte(p.Payload))
 		if err != nil {
 			return err
@@ -232,7 +232,7 @@ func (s *Postgres) PlanOpeningBatch(ctx context.Context, runID, legalEntityID st
 			return nil
 		}
 		for i, id := range p.BalanceIDs {
-			if _, err := tx.Exec(ctx, `insert into opening_load_batch_row (tenant_id, run_id, batch_key, seq, balance_id) values (current_setting('passage.tenant_id', true)::uuid, $1, $2, $3, $4)`, runID, p.Key, i+1, id); err != nil {
+			if _, err := tx.Exec(ctx, `insert into opening_load_batch_row (tenant_id, run_id, batch_key, seq, balance_id) values (current_setting('depot.tenant_id', true)::uuid, $1, $2, $3, $4)`, runID, p.Key, i+1, id); err != nil {
 				return err
 			}
 		}
@@ -243,7 +243,7 @@ func (s *Postgres) PlanOpeningBatch(ctx context.Context, runID, legalEntityID st
 // DropOpeningPlan marks a planned batch DROPPED: the target refused it whole and stored nothing, so its rows are formed into new batches.
 func (s *Postgres) DropOpeningPlan(ctx context.Context, runID, key string) error {
 	return s.tx(ctx, func(tx pgx.Tx) error {
-		_, err := tx.Exec(ctx, `update opening_load_batch set status = 'DROPPED' where tenant_id = current_setting('passage.tenant_id', true)::uuid and run_id = $1 and batch_key = $2 and status = 'PLANNED'`, runID, key)
+		_, err := tx.Exec(ctx, `update opening_load_batch set status = 'DROPPED' where tenant_id = current_setting('depot.tenant_id', true)::uuid and run_id = $1 and batch_key = $2 and status = 'PLANNED'`, runID, key)
 		return err
 	})
 }
@@ -302,13 +302,13 @@ func (s *Postgres) RecordOpeningBatch(ctx context.Context, runID, legalEntityID 
 			return err
 		}
 		if _, err := tx.Exec(ctx, `insert into opening_load_batch (tenant_id, run_id, batch_key, legal_entity_id, item_count, replayed, status)
-			values (current_setting('passage.tenant_id', true)::uuid, $1, $2, $3, $4, $5, 'ACCEPTED')
+			values (current_setting('depot.tenant_id', true)::uuid, $1, $2, $3, $4, $5, 'ACCEPTED')
 			on conflict (tenant_id, run_id, batch_key) do update set status = 'ACCEPTED', replayed = excluded.replayed`, runID, b.BatchKey, legalEntityID, len(b.BalanceIDs), b.Replayed); err != nil {
 			return err
 		}
 		for _, id := range b.BalanceIDs {
 			if _, err := tx.Exec(ctx, `insert into opening_load_row (tenant_id, run_id, balance_id, legal_entity_id, status, batch_key)
-				values (current_setting('passage.tenant_id', true)::uuid, $1, $2, $3, 'LOADED', $4)
+				values (current_setting('depot.tenant_id', true)::uuid, $1, $2, $3, 'LOADED', $4)
 				on conflict (tenant_id, balance_id) do update set status = 'LOADED', batch_key = excluded.batch_key, reject_code = '', reject_detail = '', updated_at = now()`,
 				runID, id, legalEntityID, b.BatchKey); err != nil {
 				return err
@@ -333,7 +333,7 @@ func (s *Postgres) RejectOpeningRows(ctx context.Context, runID, legalEntityID s
 		}
 		for _, r := range rejects {
 			if _, err := tx.Exec(ctx, `insert into opening_load_row (tenant_id, run_id, balance_id, legal_entity_id, status, reject_code, reject_detail)
-				values (current_setting('passage.tenant_id', true)::uuid, $1, $2, $3, 'REJECTED', $4, $5)
+				values (current_setting('depot.tenant_id', true)::uuid, $1, $2, $3, 'REJECTED', $4, $5)
 				on conflict (tenant_id, balance_id) do update set status = 'REJECTED', reject_code = excluded.reject_code, reject_detail = excluded.reject_detail, updated_at = now()
 				where opening_load_row.status <> 'LOADED'`, runID, r.BalanceID, legalEntityID, r.Code, r.Detail); err != nil {
 				return err
@@ -345,7 +345,7 @@ func (s *Postgres) RejectOpeningRows(ctx context.Context, runID, legalEntityID s
 
 func extendOpeningLease(ctx context.Context, tx pgx.Tx, runID string, lease time.Duration) error {
 	tag, err := tx.Exec(ctx, `update opening_load set lease_until = now() + $2::int * interval '1 second'
-		where tenant_id = current_setting('passage.tenant_id', true)::uuid and run_id = $1 and status = 'LOADING'`, runID, int32(lease.Seconds()))
+		where tenant_id = current_setting('depot.tenant_id', true)::uuid and run_id = $1 and status = 'LOADING'`, runID, int32(lease.Seconds()))
 	if err != nil {
 		return err
 	}
@@ -369,7 +369,7 @@ func (s *Postgres) ListOpeningRejects(ctx context.Context, runID string, limit i
 		rows, err := tx.Query(ctx, `select coalesce(o.legacy_id, b.legacy_id), l.reject_code, l.reject_detail from opening_load_row l
 			left join onhand_opening_balance o on o.tenant_id = l.tenant_id and o.balance_id = l.balance_id
 			left join bank_opening_balance b on b.tenant_id = l.tenant_id and b.balance_id = l.balance_id
-			where l.tenant_id = current_setting('passage.tenant_id', true)::uuid and l.run_id = $1 and l.status = 'REJECTED' order by 1 limit $2`, runID, limit)
+			where l.tenant_id = current_setting('depot.tenant_id', true)::uuid and l.run_id = $1 and l.status = 'REJECTED' order by 1 limit $2`, runID, limit)
 		if err != nil {
 			return err
 		}
@@ -400,13 +400,13 @@ type OpeningFinish struct {
 
 // FinishOpeningLoad ends a pass: it recounts the rows, compares the batches the target holds with what the factory loaded
 // for the pack of the company, stores the comparison as control totals and the status, and writes
-// dev.passage.migration.pack.loaded.v1.
+// dev.depot.migration.pack.loaded.v1.
 func (s *Postgres) FinishOpeningLoad(ctx context.Context, runID string, fin OpeningFinish) (domain.OpeningLoad, []domain.ControlTotal, error) {
 	var load domain.OpeningLoad
 	var totals []domain.ControlTotal
 	err := s.tx(ctx, func(tx pgx.Tx) error {
 		var err error
-		load, err = scanOpeningLoad(tx.QueryRow(ctx, `select `+openingColumns+` from opening_load where tenant_id = current_setting('passage.tenant_id', true)::uuid and run_id = $1 for update`, runID))
+		load, err = scanOpeningLoad(tx.QueryRow(ctx, `select `+openingColumns+` from opening_load where tenant_id = current_setting('depot.tenant_id', true)::uuid and run_id = $1 for update`, runID))
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrNoOpeningLoad
 		}
@@ -414,11 +414,11 @@ func (s *Postgres) FinishOpeningLoad(ctx context.Context, runID string, fin Open
 			return err
 		}
 		var pack, system, company string
-		if err := tx.QueryRow(ctx, `select pack, source_system, source_company from pack_run where tenant_id = current_setting('passage.tenant_id', true)::uuid and run_id = $1`, runID).Scan(&pack, &system, &company); err != nil {
+		if err := tx.QueryRow(ctx, `select pack, source_system, source_company from pack_run where tenant_id = current_setting('depot.tenant_id', true)::uuid and run_id = $1`, runID).Scan(&pack, &system, &company); err != nil {
 			return err
 		}
 		if err := tx.QueryRow(ctx, `select count(*) filter (where status = 'LOADED'), count(*) filter (where status = 'REJECTED') from opening_load_row
-			where tenant_id = current_setting('passage.tenant_id', true)::uuid and run_id = $1`, runID).Scan(&load.Loaded, &load.Rejected); err != nil {
+			where tenant_id = current_setting('depot.tenant_id', true)::uuid and run_id = $1`, runID).Scan(&load.Loaded, &load.Rejected); err != nil {
 			return err
 		}
 		load.Pending = max(load.Staged-load.Loaded-load.Rejected, 0)
@@ -472,7 +472,7 @@ func (s *Postgres) FinishOpeningLoad(ctx context.Context, runID string, fin Open
 			}
 		}
 		if _, err := tx.Exec(ctx, `update opening_load set status = $2, loaded = $3, rejected = $4, pending = $5, last_error = $6, lease_until = null, finished_at = now(), version = version + 1
-			where tenant_id = current_setting('passage.tenant_id', true)::uuid and run_id = $1`, runID, load.Status, load.Loaded, load.Rejected, load.Pending, load.LastError); err != nil {
+			where tenant_id = current_setting('depot.tenant_id', true)::uuid and run_id = $1`, runID, load.Status, load.Loaded, load.Rejected, load.Pending, load.LastError); err != nil {
 			return err
 		}
 		match, mismatch := domain.CountTotals(totals)
@@ -482,13 +482,13 @@ func (s *Postgres) FinishOpeningLoad(ctx context.Context, runID string, fin Open
 		}); err != nil {
 			return fmt.Errorf("enqueue pack.loaded: %w", err)
 		}
-		load, err = scanOpeningLoad(tx.QueryRow(ctx, `select `+openingColumns+` from opening_load where tenant_id = current_setting('passage.tenant_id', true)::uuid and run_id = $1`, runID))
+		load, err = scanOpeningLoad(tx.QueryRow(ctx, `select `+openingColumns+` from opening_load where tenant_id = current_setting('depot.tenant_id', true)::uuid and run_id = $1`, runID))
 		return err
 	})
 	return load, totals, err
 }
 
-// OpeningOnHandExpected is the quantity per Passage product that the factory's accepted onhand batches put in the legal entity,
+// OpeningOnHandExpected is the quantity per Depot product that the factory's accepted onhand batches put in the legal entity,
 // from every run and company (the on-hand inquiry does not tell them apart).
 func (s *Postgres) OpeningOnHandExpected(ctx context.Context, legalEntityID string) (map[string]decimal.Decimal, error) {
 	var out map[string]decimal.Decimal
@@ -502,7 +502,7 @@ func (s *Postgres) OpeningOnHandExpected(ctx context.Context, legalEntityID stri
 
 func openingOnHandExpected(ctx context.Context, tx pgx.Tx, legalEntityID string) (map[string]decimal.Decimal, error) {
 	rows, err := tx.Query(ctx, `select b.payload from opening_load_batch b join pack_run r on r.tenant_id = b.tenant_id and r.run_id = b.run_id
-		where b.tenant_id = current_setting('passage.tenant_id', true)::uuid and b.legal_entity_id = $1 and b.status = 'ACCEPTED' and r.pack = $2 and b.payload is not null`,
+		where b.tenant_id = current_setting('depot.tenant_id', true)::uuid and b.legal_entity_id = $1 and b.status = 'ACCEPTED' and r.pack = $2 and b.payload is not null`,
 		legalEntityID, string(domain.PackOnhand))
 	if err != nil {
 		return nil, err
@@ -535,7 +535,7 @@ func openingOnHandExpected(ctx context.Context, tx pgx.Tx, legalEntityID string)
 func openingOnHandValueExpected(ctx context.Context, tx pgx.Tx, legalEntityID string) ([]domain.AccountValue, error) {
 	rows, err := tx.Query(ctx, `select coalesce(r.inventory_account, ''), b.currency, b.payload from opening_load_batch b
 		join pack_run r on r.tenant_id = b.tenant_id and r.run_id = b.run_id
-		where b.tenant_id = current_setting('passage.tenant_id', true)::uuid and b.legal_entity_id = $1 and b.status = 'ACCEPTED' and r.pack = $2 and b.payload is not null`,
+		where b.tenant_id = current_setting('depot.tenant_id', true)::uuid and b.legal_entity_id = $1 and b.status = 'ACCEPTED' and r.pack = $2 and b.payload is not null`,
 		legalEntityID, string(domain.PackOnhand))
 	if err != nil {
 		return nil, err
@@ -596,7 +596,7 @@ func expectedOpeningTotals(ctx context.Context, tx pgx.Tx, pack domain.Pack, sys
 		return out, err
 	}
 	rows, err := tx.Query(ctx, query+` join opening_load_row l on l.tenant_id = o.tenant_id and l.balance_id = o.balance_id and l.status = 'LOADED'
-		where o.tenant_id = current_setting('passage.tenant_id', true)::uuid and o.source_system = $1 and o.source_company = $2 and l.legal_entity_id = $3`, system, company, legalEntityID)
+		where o.tenant_id = current_setting('depot.tenant_id', true)::uuid and o.source_system = $1 and o.source_company = $2 and l.legal_entity_id = $3`, system, company, legalEntityID)
 	if err != nil {
 		return out, err
 	}

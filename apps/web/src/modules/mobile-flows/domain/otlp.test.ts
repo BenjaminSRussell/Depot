@@ -51,7 +51,7 @@ describe("buildSpans", () => {
     expect(json).not.toContain("user-77");
     expect(json).not.toContain("userId");
     const attrs = payload.resourceSpans[0].scopeSpans[0].spans[0].attributes.map((a) => a.key);
-    expect(attrs).toEqual(["passage.flow.code", "passage.step.id", "passage.device.id", "passage.device.model"]);
+    expect(attrs).toEqual(["depot.flow.code", "depot.step.id", "depot.device.id", "depot.device.model"]);
     expect(payload.resourceSpans[0].resource.attributes).toContainEqual({ key: "service.name", value: { stringValue: SERVICE_NAME } });
   });
 

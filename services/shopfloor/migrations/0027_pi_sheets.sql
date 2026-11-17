@@ -30,16 +30,16 @@ CREATE INDEX IF NOT EXISTS pi_sheet_list ON pi_sheet (tenant_id, code, version D
 ALTER TABLE pi_sheet ENABLE ROW LEVEL SECURITY;
 ALTER TABLE pi_sheet FORCE ROW LEVEL SECURITY;
 CREATE POLICY pi_sheet_tenant_access ON pi_sheet AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- A control recipe made from a sheet remembers which one.
 ALTER TABLE control_recipe ADD COLUMN IF NOT EXISTS pi_sheet_id uuid;
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON pi_sheet TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON pi_sheet TO depot_app';
   END IF;
 END
 $$;

@@ -20,11 +20,11 @@ CREATE TABLE IF NOT EXISTS order_line_kept (
 ALTER TABLE order_line_kept ENABLE ROW LEVEL SECURITY;
 ALTER TABLE order_line_kept FORCE ROW LEVEL SECURITY;
 CREATE POLICY order_line_kept_tenant_access ON order_line_kept AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY order_line_kept_legal_entity_access ON order_line_kept AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 CREATE TABLE IF NOT EXISTS fulfillment_exception (
   tenant_id uuid NOT NULL,
@@ -55,16 +55,16 @@ CREATE INDEX IF NOT EXISTS fulfillment_exception_status_idx ON fulfillment_excep
 ALTER TABLE fulfillment_exception ENABLE ROW LEVEL SECURITY;
 ALTER TABLE fulfillment_exception FORCE ROW LEVEL SECURITY;
 CREATE POLICY fulfillment_exception_tenant_access ON fulfillment_exception AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY fulfillment_exception_legal_entity_access ON fulfillment_exception AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON order_line_kept, fulfillment_exception TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON order_line_kept, fulfillment_exception TO depot_app';
   END IF;
 END
 $$;

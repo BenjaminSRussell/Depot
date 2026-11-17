@@ -11,9 +11,9 @@ import (
 
 	"github.com/go-chi/chi/v5/middleware"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/services/pricing/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/pricing/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/services/pricing/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/pricing/internal/store"
 )
 
 // recordsExportColumns is the header of the trade agreements export. Where a column exists in
@@ -30,7 +30,7 @@ var errExportStarted = errors.New("export failed after the response started")
 
 // exportRecords streams the condition records that match the list filters as CSV (§5.26.14
 // trade agreements grid, export). It takes the list's filters, not its limit: up to
-// store.MaxExportRows rows, with X-Passage-Truncated: true when more matched. Rows go to the
+// store.MaxExportRows rows, with X-Depot-Truncated: true when more matched. Rows go to the
 // client as they are read; every text cell is guarded against spreadsheet formula injection.
 func (a *API) exportRecords(w http.ResponseWriter, r *http.Request) {
 	if !validTenant(w, r) {
@@ -65,7 +65,7 @@ func (a *API) exportRecords(w http.ResponseWriter, r *http.Request) {
 		h.Set("Cache-Control", "no-store")
 		h.Set("X-Content-Type-Options", "nosniff")
 		if truncated {
-			h.Set("X-Passage-Truncated", "true")
+			h.Set("X-Depot-Truncated", "true")
 		}
 		w.WriteHeader(http.StatusOK)
 		started = true

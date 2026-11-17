@@ -1,1 +1,1 @@
-"""Passage payment-date prediction (FR-47.15)."""
+"""Depot payment-date prediction (FR-47.15)."""

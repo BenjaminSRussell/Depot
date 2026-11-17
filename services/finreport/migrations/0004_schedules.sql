@@ -1,4 +1,4 @@
--- PSG-1503 (wave 15, slice 3): distribution schedules (FR-15.8). One row per
+-- DPT-1503 (wave 15, slice 3): distribution schedules (FR-15.8). One row per
 -- schedule code; body holds the schedule as the API returns it. Replacing a
 -- schedule is revision-checked with If-Match.
 
@@ -19,5 +19,5 @@ CREATE TABLE IF NOT EXISTS report_schedule (
 ALTER TABLE report_schedule ENABLE ROW LEVEL SECURITY;
 ALTER TABLE report_schedule FORCE ROW LEVEL SECURITY;
 CREATE POLICY report_schedule_tenant_access ON report_schedule AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);

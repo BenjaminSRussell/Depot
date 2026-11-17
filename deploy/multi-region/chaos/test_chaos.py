@@ -38,13 +38,13 @@ class TestExperiments(unittest.TestCase):
         for path in EXPERIMENTS:
             text = read(path)
             with self.subTest(file=path.name):
-                self.assertIn('passage.dev/recovery-budget: "5m"', text)
+                self.assertIn('depot.dev/recovery-budget: "5m"', text)
                 self.assertIn("no failed postings", text)
 
     def test_runbook_link_resolves_to_docs_page(self) -> None:
         for path in EXPERIMENTS:
             text = read(path)
-            match = re.search(r"passage\.dev/runbook: \"https://docs\.passage\.dev/ops/runbooks/([a-z0-9-]+)\"", text)
+            match = re.search(r"depot\.dev/runbook: \"https://docs\.depot\.dev/ops/runbooks/([a-z0-9-]+)\"", text)
             with self.subTest(file=path.name):
                 self.assertIsNotNone(match)
                 assert match is not None

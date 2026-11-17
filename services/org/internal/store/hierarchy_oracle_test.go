@@ -11,11 +11,11 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/org/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/org/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/org/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/org/internal/store"
 )
 
 const (
@@ -29,7 +29,7 @@ const (
 // envPerfTest turns on the as-of p95 assertion. Without it the oracle still checks every sample
 // against domain.ParentAsOf and logs the timings, but no wall-clock budget is asserted, since
 // `go test ./...` runs packages in parallel against one database.
-const envPerfTest = "PASSAGE_PERF_TEST"
+const envPerfTest = "DEPOT_PERF_TEST"
 
 var oraclePurposes = []string{"reporting", "procurement", "expenditure", "security", "centralized_payments"}
 

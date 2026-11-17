@@ -15,9 +15,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/services/migration/internal/connector"
-	"github.com/BenjaminSRussell/passage/services/migration/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/migration/internal/egress"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/connector"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/egress"
 )
 
 // pretend returns a guard that treats erp.acme.test as 10.20.30.40 (allowlisted) while the bytes reach the local server.

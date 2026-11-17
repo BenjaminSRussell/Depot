@@ -1,6 +1,6 @@
 -- FR-9.19 BOM usage and category on the header, FR-9.20 alternative item groups and discontinuation
 -- on the line. Existing rows become production material BOMs with no group. No new table, so the
--- passage_app grants from 0001 (SELECT, INSERT, UPDATE, DELETE on bom_version and bom_line) still apply.
+-- depot_app grants from 0001 (SELECT, INSERT, UPDATE, DELETE on bom_version and bom_line) still apply.
 ALTER TABLE bom_version ADD COLUMN IF NOT EXISTS usage text NOT NULL DEFAULT 'production';
 ALTER TABLE bom_version ADD COLUMN IF NOT EXISTS category text NOT NULL DEFAULT 'material';
 ALTER TABLE bom_line ADD COLUMN IF NOT EXISTS alt_group text NOT NULL DEFAULT '';

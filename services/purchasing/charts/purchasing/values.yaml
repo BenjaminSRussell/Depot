@@ -1,5 +1,5 @@
 image:
-  repository: ghcr.io/benjaminsrussell/passage/purchasing
+  repository: ghcr.io/benjaminsrussell/depot/purchasing
   tag: "0.1.0"
   digest: ""
   pullPolicy: IfNotPresent
@@ -18,7 +18,7 @@ database:
 serviceIdentity:
   publicKeys: ""
   # purchasing signs its calls to budgeting (budget.encumbrance.convert, budget.requisition.check) with this Secret's key "signing-key", mounted at
-  # /var/run/passage/service-identity. Add purchasing's public key to budgeting's serviceIdentity.publicKeys first.
+  # /var/run/depot/service-identity. Add purchasing's public key to budgeting's serviceIdentity.publicKeys first.
   signingKeySecret: ""
   keyId: ""
 

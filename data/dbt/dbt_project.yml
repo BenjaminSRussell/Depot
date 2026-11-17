@@ -1,7 +1,7 @@
-name: passage_analytics
+name: depot_analytics
 version: "1.0.0"
 config-version: 2
-profile: passage_trino
+profile: depot_trino
 
 model-paths: ["models"]
 macro-paths: ["macros"]
@@ -9,7 +9,7 @@ test-paths: ["tests"]
 seed-paths: ["seeds"]
 
 models:
-  passage_analytics:
+  depot_analytics:
     core:
       +schema: core
       +materialized: incremental
@@ -20,5 +20,5 @@ models:
       +materialized: table
 
 seeds:
-  passage_analytics:
+  depot_analytics:
     +schema: core

@@ -3,8 +3,8 @@ package main
 import (
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/revrec/internal/api"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/revrec/internal/api"
 )
 
 // The credit-note consumer starts only when the service principal table gives it the reverse duty, and the platform table

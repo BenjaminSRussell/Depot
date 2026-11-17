@@ -10,11 +10,11 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/receivables/internal/domain"
-	rcvevents "github.com/BenjaminSRussell/passage/services/receivables/internal/events"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/receivables/internal/domain"
+	rcvevents "github.com/BenjaminSRussell/depot/services/receivables/internal/events"
 )
 
 // Row outcomes of an opening-item import.
@@ -93,9 +93,9 @@ func reject(code, format string, args ...any) error {
 
 // ImportOpeningItems loads a cutover snapshot of open items. Each row is keyed by
 // (import source, legacy key): a new key creates the item, a known key whose
-// item is untouched in Passage is updated to the snapshot (an unchanged row
+// item is untouched in Depot is updated to the snapshot (an unchanged row
 // writes nothing), and a known key whose item was settled, partly settled,
-// cleared or deducted in Passage (ever, even if later reversed) is refused,
+// cleared or deducted in Depot (ever, even if later reversed) is refused,
 // because the snapshot's open amount no longer describes it, as is one with an
 // active dispute or a promise to pay that still holds. A known key cannot change
 // its legal entity, customer, currency, kind or side. Every row runs in its own savepoint, so a refused row
@@ -250,7 +250,7 @@ func upsertOpening(ctx context.Context, tx pgx.Tx, tenantID string, in OpeningIm
 			"legacy key %s was loaded as a %s item (%s); the side of a loaded item cannot change",
 			row.LegacyKey, sideOf(curAmount), cur.DocumentNumber)
 	}
-	// A row that matches the item writes nothing, whatever Passage has done with it since.
+	// A row that matches the item writes nothing, whatever Depot has done with it since.
 	if curAmount.Equal(amount) && curOpen.Equal(open) && cur.DocumentNumber == row.DocumentNumber && cur.DocumentDate == row.DocumentDate &&
 		cur.DueDate == row.DueDate && eqStrPtr(cur.CashDiscountDate, row.CashDiscountDate) && sameDiscount(ctx, tx, cur.ID, row.CashDiscountAmount) {
 		return cur.ID, OutcomeUnchanged, nil
@@ -259,13 +259,13 @@ func upsertOpening(ctx context.Context, tx pgx.Tx, tenantID string, in OpeningIm
 	if err != nil {
 		return "", "", err
 	}
-	worked, err := workedInPassage(ctx, tx, cur.ID)
+	worked, err := workedInDepot(ctx, tx, cur.ID)
 	if err != nil {
 		return "", "", err
 	}
 	if (cur.Status != "OPEN" && cur.Status != "PARTIALLY_SETTLED") || !curOpen.Equal(loadedOpen) || worked {
 		return "", "", reject(domain.CodeOpeningSettled,
-			"%s was %s in Passage (open %s, loaded as %s); it is no longer the legacy item, so the snapshot cannot overwrite it",
+			"%s was %s in Depot (open %s, loaded as %s); it is no longer the legacy item, so the snapshot cannot overwrite it",
 			cur.DocumentNumber, settledWord(cur.Status, worked), curOpen.String(), loadedOpen.String())
 	}
 	collecting, err := inCollection(ctx, tx, cur.ID)
@@ -274,7 +274,7 @@ func upsertOpening(ctx context.Context, tx pgx.Tx, tenantID string, in OpeningIm
 	}
 	if collecting != "" {
 		return "", "", reject(domain.CodeOpeningInCollection,
-			"%s has %s in Passage; the snapshot cannot overwrite an item a collector is working", cur.DocumentNumber, collecting)
+			"%s has %s in Depot; the snapshot cannot overwrite an item a collector is working", cur.DocumentNumber, collecting)
 	}
 	_, err = tx.Exec(ctx, `update open_item set document_number = $3, document_date = $4, due_date = $5, amount = $6::numeric,
 		open_amount = $7::numeric, cash_discount_date = $8, cash_discount_amount = $9::numeric, status = $10,
@@ -304,10 +304,10 @@ func sideOf(amount decimal.Decimal) string {
 	return "DEBIT"
 }
 
-// workedInPassage reports whether a payment was ever applied to the item, a down
+// workedInDepot reports whether a payment was ever applied to the item, a down
 // payment cleared against it or a deduction taken from it, even if that was later
 // reversed and the open amount is back where the import left it.
-func workedInPassage(ctx context.Context, tx pgx.Tx, id string) (bool, error) {
+func workedInDepot(ctx context.Context, tx pgx.Tx, id string) (bool, error) {
 	var worked bool
 	err := tx.QueryRow(ctx, `select exists(select 1 from settlement where open_item_id = $1)
 		or exists(select 1 from down_payment_clearing where open_item_id = $1)
@@ -354,7 +354,7 @@ func sameDiscount(ctx context.Context, tx pgx.Tx, id string, want decimal.Decima
 	return same
 }
 
-// ListOpeningImports totals the imported items still in Passage per import
+// ListOpeningImports totals the imported items still in Depot per import
 // source, legal entity and currency (reconciliation against the legacy ledger).
 func (s *Postgres) ListOpeningImports(ctx context.Context, limit int) ([]OpeningImportSummary, error) {
 	out := []OpeningImportSummary{}

@@ -29,7 +29,7 @@ spec:
           env:
             - { name: KC_HTTP_PORT, value: "8080" }
             - { name: KC_HEALTH_ENABLED, value: "true" }
-            - { name: KC_HOSTNAME, value: "https://keycloak.passage.example.invalid" }
+            - { name: KC_HOSTNAME, value: "https://keycloak.depot.example.invalid" }
             - { name: KC_HOSTNAME_STRICT, value: "true" }
             - { name: KC_DB, value: postgres }
             - name: KC_DB_URL
@@ -61,4 +61,4 @@ spec:
       volumes:
         - name: realm
           configMap:
-            name: keycloak-realm-passage
+            name: keycloak-realm-depot

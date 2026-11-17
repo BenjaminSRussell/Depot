@@ -24,19 +24,19 @@ create table outbox (
 alter table identity_audit enable row level security;
 alter table identity_audit force row level security;
 create policy identity_audit_tenant_access on identity_audit as permissive
-  using (tenant_id = nullif(current_setting('passage.tenant_id', true), '')::uuid)
-  with check (tenant_id = nullif(current_setting('passage.tenant_id', true), '')::uuid);
+  using (tenant_id = nullif(current_setting('depot.tenant_id', true), '')::uuid)
+  with check (tenant_id = nullif(current_setting('depot.tenant_id', true), '')::uuid);
 
 alter table outbox enable row level security;
 alter table outbox force row level security;
 create policy outbox_tenant_access on outbox as permissive
-  using (tenant_id = nullif(current_setting('passage.tenant_id', true), '')::uuid)
-  with check (tenant_id = nullif(current_setting('passage.tenant_id', true), '')::uuid);
+  using (tenant_id = nullif(current_setting('depot.tenant_id', true), '')::uuid)
+  with check (tenant_id = nullif(current_setting('depot.tenant_id', true), '')::uuid);
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT ON identity_audit, outbox TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT ON identity_audit, outbox TO depot_app';
   END IF;
 END
 $$;

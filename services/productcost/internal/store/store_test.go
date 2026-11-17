@@ -12,17 +12,17 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/productcost/internal/domain"
-	costevents "github.com/BenjaminSRussell/passage/services/productcost/internal/events"
-	"github.com/BenjaminSRussell/passage/services/productcost/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/productcost/internal/domain"
+	costevents "github.com/BenjaminSRussell/depot/services/productcost/internal/events"
+	"github.com/BenjaminSRussell/depot/services/productcost/migrations"
 )
 
-// setup migrates a fresh schema. With PASSAGE_TEST_APP_DATABASE_URL the store
+// setup migrates a fresh schema. With DEPOT_TEST_APP_DATABASE_URL the store
 // runs as the application role, so row-level security is enforced; otherwise
 // it runs on the admin pool (functional checks only). admin reads the outbox.
 func setup(t *testing.T) (s *Postgres, admin *pgxpool.Pool, rls bool) {

@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
 )
 
 type vectors struct {
@@ -128,7 +128,7 @@ func TestForgedClaimsAreRefused(t *testing.T) {
 				t.Fatal(err)
 			}
 			body := base64.RawURLEncoding.EncodeToString(payload)
-			token := body + "." + base64.RawURLEncoding.EncodeToString(ed25519.Sign(priv, []byte("passage.service-token.v1."+body)))
+			token := body + "." + base64.RawURLEncoding.EncodeToString(ed25519.Sign(priv, []byte("depot.service-token.v1."+body)))
 			if _, err := v.VerifyContext(context.Background(), token); err == nil {
 				t.Fatalf("accepted %v", claims)
 			}

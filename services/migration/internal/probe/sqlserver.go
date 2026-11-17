@@ -27,7 +27,7 @@ var _ mssql.HostDialer = guardDialer{}
 // sqlserverConfig builds the driver's own config struct from a fixed DSN skeleton plus the tenant's settings set on the
 // struct, so no tenant text is ever parsed as connection-string syntax.
 func sqlserverConfig(s SQLSettings, tlsBase *tls.Config) (msdsn.Config, error) {
-	cfg, err := msdsn.Parse("sqlserver://placeholder?app+name=passage-migration-probe&connection+timeout=0&dial+timeout=10")
+	cfg, err := msdsn.Parse("sqlserver://placeholder?app+name=depot-migration-probe&connection+timeout=0&dial+timeout=10")
 	if err != nil {
 		return cfg, err
 	}
@@ -39,7 +39,7 @@ func sqlserverConfig(s SQLSettings, tlsBase *tls.Config) (msdsn.Config, error) {
 	cfg.Protocols = []string{"tcp"}
 	cfg.ProtocolParameters = map[string]interface{}{}
 	cfg.ChangePassword, cfg.ServerSPN, cfg.Workstation = "", "", ""
-	cfg.AppName, cfg.ColumnEncryption, cfg.MultiSubnetFailover = "passage-migration", false, false
+	cfg.AppName, cfg.ColumnEncryption, cfg.MultiSubnetFailover = "depot-migration", false, false
 	switch s.SSLMode {
 	case "disable":
 		cfg.Encryption, cfg.TLSConfig, cfg.TrustServerCertificate = msdsn.EncryptionDisabled, nil, false

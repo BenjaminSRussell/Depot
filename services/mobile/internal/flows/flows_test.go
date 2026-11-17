@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/services/mobile/internal/gs1"
+	"github.com/BenjaminSRussell/depot/services/mobile/internal/gs1"
 )
 
 func TestCoreFlowsAreValid(t *testing.T) {

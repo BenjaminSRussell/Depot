@@ -13,11 +13,11 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
 
-	"github.com/BenjaminSRussell/passage/services/finreport/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/finreport/internal/outputs"
-	"github.com/BenjaminSRussell/passage/services/finreport/internal/store"
+	"github.com/BenjaminSRussell/depot/services/finreport/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/finreport/internal/outputs"
+	"github.com/BenjaminSRussell/depot/services/finreport/internal/store"
 )
 
 // Actor is the user id the job runs as. It is not a service principal: the job

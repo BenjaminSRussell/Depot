@@ -15,7 +15,7 @@ import (
 	"time"
 )
 
-// Entity bindings (integration track S2): which table, endpoint or file of a connection profile feeds which Passage
+// Entity bindings (integration track S2): which table, endpoint or file of a connection profile feeds which Depot
 // entity, with the key and the change cursor extraction needs.
 const (
 	CursorTimestamp  = "timestamp"

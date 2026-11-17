@@ -26,7 +26,7 @@ func BuiltWithFIPS() bool {
 var ErrFIPSRequired = errors.New("cloudprofile: FIPS 140-3 mode is required but crypto/fips140.Enabled() is false")
 
 // CheckFIPS is the fail-closed startup check. It returns an error when the profile named by
-// PASSAGE_CLOUD_PROFILE needs FIPS, or when this binary was built with GOFIPS140, and the FIPS 140-3
+// DEPOT_CLOUD_PROFILE needs FIPS, or when this binary was built with GOFIPS140, and the FIPS 140-3
 // module is not active (for example GODEBUG=fips140=off, or an image built without GOFIPS140 deployed
 // under a gcc profile). An unknown profile name is an error too. A commercial deployment of an ordinary
 // build passes.

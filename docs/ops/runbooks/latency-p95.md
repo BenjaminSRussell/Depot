@@ -1,6 +1,6 @@
 # Runbook: p95 latency above SLO
 
-Alert: `PassageLatencyP95` (wave 5 observability rules, `deploy/observability/charts/observability/templates/alerts.yaml`).
+Alert: `DepotLatencyP95` (wave 5 observability rules, `deploy/observability/charts/observability/templates/alerts.yaml`).
 Fires when the p95 of `http_request_duration_seconds`, over every service and route together, stays above the chart
 value `slo.latencyP95Ms` (default 50 ms, the FR-50.1 entity read budget) for 10 minutes. Severity is the chart value
 `pagerDuty.severity` (default `error`).

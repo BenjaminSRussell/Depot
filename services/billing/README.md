@@ -1,6 +1,6 @@
 # billing
 
-Passage billing context: invoices (wave 29, PSG-29). Slice 1 delivers the free-text
+Depot billing context: invoices (wave 29, DPT-29). Slice 1 delivers the free-text
 invoice path end to end: create a proposal with per-line tax quoted by the tax
 engine, post it (re-quote tax, gap-free `INV-` number, `invoice.posted` in the
 outbox), read it back and list invoices. Slice 3 adds installment plans on the
@@ -95,7 +95,7 @@ code the table does not list is refused with `BIL-0102`.
 
 ```
 go vet ./... && go test ./...
-PASSAGE_TEST_DATABASE_URL=postgres://... go test ./...   # runs the store tests
+DEPOT_TEST_DATABASE_URL=postgres://... go test ./...   # runs the store tests
 ```
 
 Domain tests are table-driven plus a rapid property test (AC-29.1: gross equals the
@@ -111,7 +111,7 @@ subscription, cancels it and bills the period through the API against Postgres).
 them with `python3 gen_*.py` in that directory. API
 tests run through the platform router (tenant headers, duties). Store tests use
 `platform/testkit` and skip without the database; the row-level-security test also
-needs `PASSAGE_TEST_APP_DATABASE_URL` (a non-superuser role) and skips without it.
+needs `DEPOT_TEST_APP_DATABASE_URL` (a non-superuser role) and skips without it.
 
 ## Error codes
 
@@ -173,8 +173,8 @@ needs `PASSAGE_TEST_APP_DATABASE_URL` (a non-superuser role) and skips without i
   so two proposals may each fit but only the first to post succeeds.
 - The installment plan is sent with the proposal until the wave-7 payment terms
   client exists; the invoice due date is the last installment's due date.
-- The PRD's `passage.billing.credit-note.posted.v1` is published as
-  `dev.passage.billing.creditnote.posted.v1` (the platform type grammar has no hyphens).
+- The PRD's `depot.billing.credit-note.posted.v1` is published as
+  `dev.depot.billing.creditnote.posted.v1` (the platform type grammar has no hyphens).
 - `journal_posting_id` holds the ledger entry of the document's invoice journal (FR-29.3)
   once `POST /v1/billing/gl-postings` or the auto-book worker booked it; the event carries null because the journal
   follows the post. `BILLING_GL_PROFILES` (a JSON array, one profile per entity: `legalEntityId`, `ledgerId`,
@@ -212,16 +212,16 @@ needs `PASSAGE_TEST_APP_DATABASE_URL` (a non-superuser role) and skips without i
   403, 408, 429 parks). Operators list reports with `GET /v1/billing/tax-reports?status=PARKED` (`billing.invoice.view`) and
   re-queue one with `POST /v1/billing/tax-reports/{id}:retry` (`billing.invoice.post`); the counter `billing_tax_reports_parked_total`
   counts reports this process parked. A tax outage never blocks a booking. Unset, reports wait PENDING.
-- The `outbox-billing` Debezium connector (`deploy/kafka/connect.yaml`, database `passage_billing`, role `debezium_cdc_billing`,
-  publication `passage_outbox_billing`, migrations 0012 and 0013) relays the outbox to `passage.billing.invoice`, the one channel
+- The `outbox-billing` Debezium connector (`deploy/kafka/connect.yaml`, database `depot_billing`, role `debezium_cdc_billing`,
+  publication `depot_outbox_billing`, migrations 0012 and 0013) relays the outbox to `depot.billing.invoice`, the one channel
   billing's AsyncAPI declares; billing enqueues a single aggregate type (`invoice`), so the connector routes by aggregate type
   without a filter, and a deploy test fails when a second type appears.
-- Booking a credit note's journal writes `dev.passage.billing.creditnote.booked.v1` to the outbox in the same transaction (#29):
+- Booking a credit note's journal writes `dev.depot.billing.creditnote.booked.v1` to the outbox in the same transaction (#29):
   per line the order and product of the credited original line, the credited net, and the allocated amount and its deferred part
   the journal debited (the deferred part is the Dr 2400). `creditnote.posted` cannot carry them: it is published at the post,
   before the journal exists, and a credit note's share is its original's booked share apportioned to the credited net. Revrec's
   credit-note consumer reverses its schedules by exactly these amounts, so its roll-forward keeps tying to GL 2400.
-- Receivables consumes `invoice.posted` and `creditnote.posted` from `passage.billing.invoice` (30-1, consumer group
+- Receivables consumes `invoice.posted` and `creditnote.posted` from `depot.billing.invoice` (30-1, consumer group
   `receivables-billing`): one INVOICE open item per installment (`<number>/<n>`, or `<number>` for the whole gross), one
   CREDIT_NOTE item of minus the gross linked to the original invoice. Billing's number is the open item's document number, so
   the receivables key (legal entity, document number) is shared with items entered by hand. Nothing is added to the events.
@@ -247,8 +247,8 @@ caller names them.
 
 ## Intercompany charges in Invoice mode (#40)
 
-`billing consume` (chart `consumer.*`, off by default) reads intercompany's `dev.passage.interco.chargeinvoice.requested.v1` (topic
-`passage.interco.chargeinvoice`, KafkaUser `deploy/kafka/billing-consumer.yaml`, dead-letter topic `passage.billing.iccharge.dlq`) and
+`billing consume` (chart `consumer.*`, off by default) reads intercompany's `dev.depot.interco.chargeinvoice.requested.v1` (topic
+`depot.interco.chargeinvoice`, KafkaUser `deploy/kafka/billing-consumer.yaml`, dead-letter topic `depot.billing.iccharge.dlq`) and
 raises the lender's FREE_TEXT invoice proposal in the lender's legal entity for the pairing's customer account: one line at the
 charge's price on `BILLING_IC_REVENUE_ACCOUNT` (chart `consumer.icCharge.revenueAccount`, required), with the charge's tax code or
 `BILLING_IC_TAX_CODE`, quoted by the `BILLING_TAX_RATES` engine, due after `BILLING_IC_PAYMENT_TERM_DAYS` (default 30). It runs as the

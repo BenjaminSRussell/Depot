@@ -113,18 +113,18 @@ class FakeMigration implements MigrationClient {
 }
 
 function confirmed(tenantid: string, over: Record<string, unknown> = {}, data: Record<string, unknown> = {}): Record<string, unknown> {
-  // Shaped by services/sales/events/asyncapi.yaml: dev.passage.sales.order.confirmed.v1 with OrderConfirmedData.
+  // Shaped by services/sales/events/asyncapi.yaml: dev.depot.sales.order.confirmed.v1 with OrderConfirmedData.
   return {
     specversion: "1.0",
     id: randomUUID(),
-    source: "/passage/sales/sales",
-    type: "dev.passage.sales.order.confirmed.v1",
+    source: "/depot/sales/sales",
+    type: "dev.depot.sales.order.confirmed.v1",
     subject: "order-" + randomUUID().slice(0, 8),
     time: new Date(T0 * 1000).toISOString(),
     tenantid,
     legalentityid: "22222222-3333-4444-8555-666666666666",
     actor: "11111111-1111-4111-8111-111111111111",
-    passagesequence: 1,
+    depotsequence: 1,
     datacontenttype: "application/json",
     data: {
       order_id: randomUUID(),
@@ -138,7 +138,7 @@ function confirmed(tenantid: string, over: Record<string, unknown> = {}, data: R
     ...over,
   };
 }
-const message = (e: unknown) => ({ topic: "passage.sales.order", partition: 0, offset: "1", key: null, value: Buffer.from(JSON.stringify(e)) });
+const message = (e: unknown) => ({ topic: "depot.sales.order", partition: 0, offset: "1", key: null, value: Buffer.from(JSON.stringify(e)) });
 
 describe.skipIf(ownerUrl === undefined)("rest-push on Postgres", () => {
   let fx: Fixture;
@@ -189,11 +189,11 @@ describe.skipIf(ownerUrl === undefined)("rest-push on Postgres", () => {
       kind: "rest-push",
       name: "Legacy ERP orders",
       url: url("/api/salesorders"),
-      patterns: ["dev.passage.sales.order.confirmed.v1"],
+      patterns: ["dev.depot.sales.order.confirmed.v1"],
       outboundMappingId: MAPPING,
       method: "POST",
       responseKeyPath: "$.data.id",
-      auth: { type: "basic", username: "passage", password: PASSWORD },
+      auth: { type: "basic", username: "depot", password: PASSWORD },
       ...over,
     });
     expect(res.status, JSON.stringify(res.body)).toBe(201);
@@ -215,7 +215,7 @@ describe.skipIf(ownerUrl === undefined)("rest-push on Postgres", () => {
     expect(hit.method).toBe("POST");
     expect(hit.url).toBe("/api/salesorders");
     expect(hit.headers["idempotency-key"]).toBe(e["id"]);
-    expect(hit.headers["authorization"]).toBe(`Basic ${Buffer.from(`passage:${PASSWORD}`).toString("base64")}`);
+    expect(hit.headers["authorization"]).toBe(`Basic ${Buffer.from(`depot:${PASSWORD}`).toString("base64")}`);
     expect(JSON.parse(hit.body)).toMatchObject({ CustAccount: "C-c0ff", CurrencyCode: "USD", NetAmount: "1200.00", Lines: [{ LineNum: 1, ItemId: "ab12cd", Qty: "12" }] });
 
     // The render saw the CloudEvent and the event's legal entity.
@@ -224,7 +224,7 @@ describe.skipIf(ownerUrl === undefined)("rest-push on Postgres", () => {
     // A background push never forwards the producing actor (the event's actor is a user id here, service:sales elsewhere).
     expect(rendered.actor).toBeUndefined();
     expect(migration.xrefs.at(-1)?.actor).toBeUndefined();
-    expect(rendered.event).toMatchObject({ id: e["id"], type: "dev.passage.sales.order.confirmed.v1" });
+    expect(rendered.event).toMatchObject({ id: e["id"], type: "dev.depot.sales.order.confirmed.v1" });
 
     const x = migration.xrefs.at(-1) as XrefInput;
     expect(x).toMatchObject({ tenantId: tenant, mappingId: MAPPING, legacyKey: "SO-1001", eventId: e["id"] });
@@ -403,7 +403,7 @@ describe.skipIf(ownerUrl === undefined)("rest-push on Postgres", () => {
 
   test("lineKeyPath is validated on create: it needs responseKeyPath and one [*]", async () => {
     const tenant = randomUUID();
-    const body = { kind: "rest-push", name: "x", url: url("/api/o"), patterns: ["dev.passage.sales.order.confirmed.v1"], outboundMappingId: MAPPING, auth: { type: "bearer", token: "tok-123456" } };
+    const body = { kind: "rest-push", name: "x", url: url("/api/o"), patterns: ["dev.depot.sales.order.confirmed.v1"], outboundMappingId: MAPPING, auth: { type: "bearer", token: "tok-123456" } };
     const noKey = await hub.call("POST", "/v1/hub/subscriptions", { tenant }, { ...body, lineKeyPath: "lines[*].id" });
     expect(noKey.status).toBe(400);
     const noStar = await hub.call("POST", "/v1/hub/subscriptions", { tenant }, { ...body, responseKeyPath: "$.id", lineKeyPath: "lines.id" });
@@ -522,7 +522,7 @@ describe.skipIf(ownerUrl === undefined)("rest-push on Postgres", () => {
     const tenant = randomUUID();
     const log = vi.spyOn(console, "error").mockImplementation(() => undefined);
     const info = vi.spyOn(console, "log").mockImplementation(() => undefined);
-    const base = { kind: "rest-push", name: "n", url: url("/api/x"), patterns: ["dev.passage.sales.**"], outboundMappingId: MAPPING, auth: { type: "bearer", token: "bearer-token-0123456789" } };
+    const base = { kind: "rest-push", name: "n", url: url("/api/x"), patterns: ["dev.depot.sales.**"], outboundMappingId: MAPPING, auth: { type: "bearer", token: "bearer-token-0123456789" } };
     const post = (over: Record<string, unknown>) => hub.call("POST", "/v1/hub/subscriptions", { tenant }, { ...base, ...over });
 
     expect((await post({ secret: "a-signing-secret-1234" })).status).toBe(400);
@@ -532,7 +532,7 @@ describe.skipIf(ownerUrl === undefined)("rest-push on Postgres", () => {
     expect((await post({ auth: { type: "oauth2-client-credentials", tokenUrl: "http://169.254.169.254/token", clientId: "c", clientSecret: "shhhh-secret" } })).status).toBe(422);
     expect((await post({ method: "DELETE" })).status).toBe(400);
     expect((await post({ outboundMappingId: "x" })).status).toBe(400);
-    expect((await hub.call("POST", "/v1/hub/subscriptions", { tenant }, { name: "w", url: url("/h"), patterns: ["dev.passage.**"], method: "PUT" })).status).toBe(400);
+    expect((await hub.call("POST", "/v1/hub/subscriptions", { tenant }, { name: "w", url: url("/h"), patterns: ["dev.depot.**"], method: "PUT" })).status).toBe(400);
     expect((await hub.call("POST", "/v1/hub/subscriptions", { tenant, duties: ["hub.delivery.read"] }, base)).status).toBe(403);
 
     const created = await post({});
@@ -564,7 +564,7 @@ describe.skipIf(ownerUrl === undefined)("rest-push on Postgres", () => {
     expect(sealed[0]).toBe(1);
 
     // An ordinary webhook subscription is unaffected by rest settings on PATCH.
-    const hook = await hub.call("POST", "/v1/hub/subscriptions", { tenant }, { name: "w", url: url("/h"), patterns: ["dev.passage.**"] });
+    const hook = await hub.call("POST", "/v1/hub/subscriptions", { tenant }, { name: "w", url: url("/h"), patterns: ["dev.depot.**"] });
     expect((await hub.call("PATCH", `/v1/hub/subscriptions/${hook.body.id}`, { tenant }, { version: 1, method: "PUT" })).status).toBe(400);
   });
 
@@ -580,7 +580,7 @@ describe.skipIf(ownerUrl === undefined)("rest-push on Postgres", () => {
     expect(d.status).toBe("dead_letter");
     expect(d.responseExcerpt).not.toContain(PASSWORD);
     // The echoed Basic header decodes to the password, so it is masked too.
-    expect(d.responseExcerpt).not.toContain(Buffer.from(`passage:${PASSWORD}`).toString("base64"));
+    expect(d.responseExcerpt).not.toContain(Buffer.from(`depot:${PASSWORD}`).toString("base64"));
     expect(d.responseExcerpt).toBe("bad credentials: Basic *** / ***");
     expect(JSON.stringify(log.mock.calls)).not.toContain(PASSWORD);
     expect(errors.map((e) => String((e as Error).message)).join("\n")).not.toContain(PASSWORD);
@@ -593,10 +593,10 @@ describe.skipIf(ownerUrl === undefined)("rest-push on Postgres", () => {
     const sample = confirmed(tenant);
     delete sample["tenantid"];
     const xrefs = migration.xrefs.length;
-    const le = { "x-passage-legal-entity": "22222222-3333-4444-8555-666666666666" };
+    const le = { "x-depot-legal-entity": "22222222-3333-4444-8555-666666666666" };
     // The sample's legal entity must be the caller's: another one (or none in scope) is refused, not rendered under the hub's grant.
     expect((await hub.call("POST", `/v1/hub/subscriptions/${sub.id}:test`, { tenant }, { event: sample })).status).toBe(403);
-    expect((await hub.call("POST", `/v1/hub/subscriptions/${sub.id}:test`, { tenant }, { event: sample }, { "x-passage-legal-entity": randomUUID() })).status).toBe(403);
+    expect((await hub.call("POST", `/v1/hub/subscriptions/${sub.id}:test`, { tenant }, { event: sample }, { "x-depot-legal-entity": randomUUID() })).status).toBe(403);
     const dry = await hub.call("POST", `/v1/hub/subscriptions/${sub.id}:test`, { tenant }, { event: sample }, le);
     // The render ran for the calling user, not as the hub.
     expect(migration.renders.at(-1)).toMatchObject({ legalEntityId: "22222222-3333-4444-8555-666666666666", actor: "11111111-1111-4111-8111-111111111111" });
@@ -633,7 +633,7 @@ describe.skipIf(ownerUrl === undefined)("rest-push on Postgres", () => {
   test("without a configured rest pusher, creating a rest-push subscription answers 501", async () => {
     const bare = await api({ store: fx.store, guard: { allowHttp: true, resolve, egressAllow }, clock });
     const res = await bare.call("POST", "/v1/hub/subscriptions", { tenant: randomUUID() }, {
-      kind: "rest-push", name: "n", url: url("/api/x"), patterns: ["dev.passage.sales.**"], outboundMappingId: MAPPING, auth: { type: "bearer", token: "tok-123456789" },
+      kind: "rest-push", name: "n", url: url("/api/x"), patterns: ["dev.depot.sales.**"], outboundMappingId: MAPPING, auth: { type: "bearer", token: "tok-123456789" },
     });
     expect(res.status).toBe(501);
     bare.server.close();

@@ -1,4 +1,4 @@
--- Slice 5 (PSG-4105): the common ancestor of a SIMULATION for the three-way
+-- Slice 5 (DPT-4105): the common ancestor of a SIMULATION for the three-way
 -- transfer into WORKING (FR-41.17, BR-41.14), and forecast models with
 -- forecast-vs-actual (FR-41.20). Additive only.
 
@@ -34,8 +34,8 @@ CREATE TABLE IF NOT EXISTS project_forecast_model (
 ALTER TABLE project_forecast_model ENABLE ROW LEVEL SECURITY;
 ALTER TABLE project_forecast_model FORCE ROW LEVEL SECURITY;
 CREATE POLICY project_forecast_model_tenant_access ON project_forecast_model AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 -- Legal-entity scope through the owning project (itself scoped by RLS).
 CREATE POLICY project_forecast_model_legal_entity_scope ON project_forecast_model AS RESTRICTIVE
   USING (EXISTS (SELECT 1 FROM project p WHERE p.tenant_id = project_forecast_model.tenant_id AND p.id = project_forecast_model.project_id));
@@ -62,8 +62,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS project_forecast_line_key ON project_forecast_
 ALTER TABLE project_forecast_line ENABLE ROW LEVEL SECURITY;
 ALTER TABLE project_forecast_line FORCE ROW LEVEL SECURITY;
 CREATE POLICY project_forecast_line_tenant_access ON project_forecast_line AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY project_forecast_line_legal_entity_scope ON project_forecast_line AS RESTRICTIVE
   USING (EXISTS (SELECT 1 FROM project_forecast_model m
     WHERE m.tenant_id = project_forecast_line.tenant_id AND m.id = project_forecast_line.model_id));
@@ -74,10 +74,10 @@ CREATE POLICY project_forecast_line_legal_entity_scope ON project_forecast_line 
 -- without the role split).
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE format('GRANT USAGE ON SCHEMA %I TO passage_app', current_schema());
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON project_forecast_model TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT, DELETE ON project_forecast_line TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE format('GRANT USAGE ON SCHEMA %I TO depot_app', current_schema());
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON project_forecast_model TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT, DELETE ON project_forecast_line TO depot_app';
   END IF;
 END
 $$;

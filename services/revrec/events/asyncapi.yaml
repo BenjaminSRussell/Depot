@@ -1,9 +1,9 @@
 asyncapi: 3.0.0
 info:
-  title: Passage Revenue Recognition events
+  title: Depot Revenue Recognition events
   version: 0.2.0
   description: >
-    CloudEvents published by the revrec context (PSG-29, slice 2). Each event is
+    CloudEvents published by the revrec context (DPT-29, slice 2). Each event is
     written to the outbox in the transaction that makes the change and relayed
     by Debezium; the Kafka key is the contract id (aggregate revenue_contract),
     so a contract's events stay ordered within each topic. The allocation preview publishes
@@ -13,22 +13,22 @@ info:
 defaultContentType: application/cloudevents+json
 channels:
   revenueContract:
-    address: passage.revrec.contract
+    address: depot.revrec.contract
     description: Outbox relay topic for revenue contract events.
     messages:
       contractAllocated:
         $ref: "#/components/messages/ContractAllocated"
   revenueSchedule:
-    address: passage.revrec.schedule
+    address: depot.revrec.schedule
     description: Outbox relay topic for revenue schedule events.
     messages:
       scheduleRecognized:
         $ref: "#/components/messages/ScheduleRecognized"
   # Consumed by the credit-note consumer (#29, `revrec consume`, group and service principal revrec-creditnotes, dead-letter
-  # topic passage.revrec.creditnotes.dlq). The payload is billing's (services/billing/events/asyncapi.yaml); the other
+  # topic depot.revrec.creditnotes.dlq). The payload is billing's (services/billing/events/asyncapi.yaml); the other
   # billing types on the topic are skipped.
   billingInvoice:
-    address: passage.billing.invoice
+    address: depot.billing.invoice
     messages:
       creditNoteBooked:
         $ref: "#/components/messages/CreditNoteBookedConsumed"
@@ -63,7 +63,7 @@ operations:
 components:
   messages:
     CreditNoteBookedConsumed:
-      name: dev.passage.billing.creditnote.booked.v1
+      name: dev.depot.billing.creditnote.booked.v1
       title: Credit note booked (consumed)
       summary: >-
         Billing booked a credit note's journal. Read: credit_note_id, number,
@@ -93,7 +93,7 @@ components:
                 product: { type: string, format: uuid }
                 deferred: { type: string }
     ContractAllocated:
-      name: dev.passage.revrec.contract.allocated.v1
+      name: dev.depot.revrec.contract.allocated.v1
       contentType: application/cloudevents+json
       payload:
         type: object
@@ -121,7 +121,7 @@ components:
                 allocated: { type: string }
                 method: { type: string, enum: [POINT_IN_TIME, RATABLE, MILESTONE, USAGE] }
     ScheduleRecognized:
-      name: dev.passage.revrec.schedule.recognized.v1
+      name: dev.depot.revrec.schedule.recognized.v1
       contentType: application/cloudevents+json
       payload:
         type: object

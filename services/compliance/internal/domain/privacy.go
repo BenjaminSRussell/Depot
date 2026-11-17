@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/fieldcrypt"
+	"github.com/BenjaminSRussell/depot/platform/fieldcrypt"
 )
 
 // Subject-request, erasure and retention codes (FR-48.10, FR-48.11, BR-48.5, BR-48.6).

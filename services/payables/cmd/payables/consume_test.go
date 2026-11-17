@@ -3,7 +3,7 @@ package main
 import (
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
 )
 
 func TestICChargeConsumer_IsSeeded(t *testing.T) {

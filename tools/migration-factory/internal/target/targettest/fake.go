@@ -20,7 +20,7 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
 )
 
 var (
@@ -79,7 +79,7 @@ type Fake struct {
 	failNext []int
 	// RetryAfter is sent with a 429 or 503 fail.
 	RetryAfter string
-	// Settled lists legacy keys (importSource|legacyKey) that were settled in Passage: an update is AR-OPENING-SETTLED.
+	// Settled lists legacy keys (importSource|legacyKey) that were settled in Depot: an update is AR-OPENING-SETTLED.
 	Settled map[string]bool
 	// Drift is added to every debitOpen the totals report (a defect, to prove the reconciliation catches it).
 	Drift decimal.Decimal
@@ -279,7 +279,7 @@ func (f *Fake) batch(w http.ResponseWriter, r *http.Request) {
 				res.Outcome, res.OpenItemID = "UNCHANGED", &cur.id
 				unchanged++
 			case f.Settled[key]:
-				reject("AR-OPENING-SETTLED", "the item was settled in Passage; the snapshot no longer describes it")
+				reject("AR-OPENING-SETTLED", "the item was settled in Depot; the snapshot no longer describes it")
 			default:
 				pending[key] = &stored{id: cur.id, le: cur.le, source: cur.source, row: it}
 				res.Outcome, res.OpenItemID = "UPDATED", &cur.id

@@ -4,9 +4,9 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/engineering/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/engineering/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/engineering/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/engineering/internal/store"
 )
 
 func newEcr(number string, products ...string) domain.Ecr {
@@ -48,7 +48,7 @@ func TestPostgres_Ecr_LifecycleEventsAndReads(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if got := outboxTypes(t, pool, ctx, e.ID); !slices.Equal(got, []string{"dev.passage.engineering.ecr.approved.v1", "dev.passage.engineering.ecr.submitted.v1"}) {
+	if got := outboxTypes(t, pool, ctx, e.ID); !slices.Equal(got, []string{"dev.depot.engineering.ecr.approved.v1", "dev.depot.engineering.ecr.submitted.v1"}) {
 		t.Fatalf("outbox = %v", got)
 	}
 	got, err := s.GetEcr(ctx, e.ID)
@@ -84,7 +84,7 @@ func TestPostgres_Ecr_LifecycleEventsAndReads(t *testing.T) {
 		}
 		var want []string
 		if from == domain.EcrSubmitted {
-			want = []string{"dev.passage.engineering.ecr.cancelled.v1", "dev.passage.engineering.ecr.submitted.v1"}
+			want = []string{"dev.depot.engineering.ecr.cancelled.v1", "dev.depot.engineering.ecr.submitted.v1"}
 		}
 		if got := outboxTypes(t, pool, ctx, w.ID); !slices.Equal(got, want) {
 			t.Fatalf("withdrawn from %s outbox = %v; want %v", from, got, want)

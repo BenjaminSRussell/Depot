@@ -2,7 +2,7 @@
 // publishes through the outbox (events/asyncapi.yaml).
 package events
 
-import "github.com/BenjaminSRussell/passage/platform/events"
+import "github.com/BenjaminSRussell/depot/platform/events"
 
 // Context is the bounded-context segment of every event type.
 const Context = "assets"

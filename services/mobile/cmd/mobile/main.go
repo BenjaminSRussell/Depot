@@ -11,14 +11,14 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/mobile/internal/api"
-	"github.com/BenjaminSRussell/passage/services/mobile/internal/session"
-	"github.com/BenjaminSRussell/passage/services/mobile/internal/store"
-	"github.com/BenjaminSRussell/passage/services/mobile/internal/warehouse"
-	"github.com/BenjaminSRussell/passage/services/mobile/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/mobile/internal/api"
+	"github.com/BenjaminSRussell/depot/services/mobile/internal/session"
+	"github.com/BenjaminSRussell/depot/services/mobile/internal/store"
+	"github.com/BenjaminSRussell/depot/services/mobile/internal/warehouse"
+	"github.com/BenjaminSRussell/depot/services/mobile/migrations"
 )
 
 const (

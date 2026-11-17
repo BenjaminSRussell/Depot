@@ -1,6 +1,6 @@
--- Legacy delete detection (PSG-10 integration track S4). A delta over a cursor cannot see a row the legacy system
+-- Legacy delete detection (DPT-10 integration track S4). A delta over a cursor cannot see a row the legacy system
 -- deleted, so a binding is read in full on a period (keycheck_hours, 0 turns it off) and the source keys that were
--- loaded earlier and are missing from the full read are recorded here as absent. Nothing is deactivated in Passage:
+-- loaded earlier and are missing from the full read are recorded here as absent. Nothing is deactivated in Depot:
 -- the list is for the operator. A key that comes back leaves the list at the next full read.
 -- keycheck_attempt_at is stamped by every full read, failed or not, and decides when the next one is due, so a full
 -- read that cannot finish (the row cap, the run deadline, the source dropping mid-read) is retried after the period
@@ -30,16 +30,16 @@ CREATE TABLE migration.sync_absent (
 ALTER TABLE migration.sync_absent ENABLE ROW LEVEL SECURITY;
 ALTER TABLE migration.sync_absent FORCE ROW LEVEL SECURITY;
 CREATE POLICY sync_absent_tenant_access ON migration.sync_absent AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY sync_absent_legal_entity_scope ON migration.sync_absent AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*');
+  USING (current_setting('depot.legal_entity_scopes', true) = '*');
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
     -- UPDATE: a key still absent at the next full read is re-stamped; DELETE: a key that came back leaves the list.
-    GRANT SELECT, INSERT, UPDATE, DELETE ON migration.sync_absent TO passage_app;
+    GRANT SELECT, INSERT, UPDATE, DELETE ON migration.sync_absent TO depot_app;
   END IF;
 END
 $$;

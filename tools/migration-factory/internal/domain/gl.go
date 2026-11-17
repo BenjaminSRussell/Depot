@@ -111,12 +111,12 @@ func ExtractBalanced(in []GLBalance) error {
 }
 
 // ReconcileGL finishes a gl_balances run once the accepted balances are held. loaded is how
-// many balances this run inserted; held maps each accepted legacy id to the balance Passage
+// many balances this run inserted; held maps each accepted legacy id to the balance Depot
 // holds for it (loaded now or by an earlier run, with the account, dimensions and currency it was
 // loaded under). openItems are the control totals of an open_items run to reconcile with
 // (BR-49.2), or nil.
 //
-// It computes the FR-49.2 gl_balances totals of the whole extract against what Passage holds:
+// It computes the FR-49.2 gl_balances totals of the whole extract against what Depot holds:
 // the balance per (company, account, dimensions, currency), the count of non-zero combinations,
 // and the trial balance per currency (the loaded debits less credits must equal the extract's,
 // which is zero). With openItems it adds one gl_balances.control_account total per control
@@ -193,7 +193,7 @@ const ControlAccountName = "gl_balances.control_account"
 
 // controlAccountTotals compares, for every (account, currency) of the open items run's
 // open_items.amount_by_account totals, the GL balance loaded for that account against the open
-// items Passage holds for it (BR-49.2). The GL balance is the source. Both sides carry the ledger
+// items Depot holds for it (BR-49.2). The GL balance is the source. Both sides carry the ledger
 // sign, so payables open items are negative like the payables control account.
 func controlAccountTotals(company string, gl []GLBalance, openItems []ControlTotal) ([]ControlTotal, error) {
 	type acct struct{ account, currency string }

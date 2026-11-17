@@ -1,4 +1,4 @@
-# Passage vX.Y.Z
+# Depot vX.Y.Z
 
 <!--
 Release notes template (PRD 9.50.15: version, digest, features by module, migrations, breaking changes,
@@ -13,7 +13,7 @@ Release date: YYYY-MM-DD. Commit: `<git sha>`. Previous release: `vX.Y.Z`.
 
 <!-- Publish by digest only (FR-50.12). One line per image or chart. -->
 
-- `passage-<service>` `sha256:<64 lowercase hex characters>` (chart `passage-<service>` version `X.Y.Z`)
+- `depot-<service>` `sha256:<64 lowercase hex characters>` (chart `depot-<service>` version `X.Y.Z`)
 
 SBOM (SPDX 2.3 JSON) and cosign signature references: `<registry>/<image>@sha256:<digest>`.
 

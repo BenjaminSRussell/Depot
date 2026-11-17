@@ -15,16 +15,16 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/eventing"
-	"github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/issueclaim"
-	"github.com/BenjaminSRussell/passage/platform/money"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/inventory/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/inventory/internal/productunits"
-	"github.com/BenjaminSRussell/passage/services/inventory/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/eventing"
+	"github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/issueclaim"
+	"github.com/BenjaminSRussell/depot/platform/money"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/inventory/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/inventory/internal/productunits"
+	"github.com/BenjaminSRussell/depot/services/inventory/internal/store"
 )
 
 // The postings consumer (#480) books what receiving, sales and fulfillment
@@ -72,17 +72,17 @@ const (
 	PostingsConsumerName = "inventory-postings"
 	// ReceiptPostedType and ReceiptCorrectedType are receiving's
 	// receipt.posted.v1 and receipt.corrected.v1, on ReceiptTopic.
-	ReceiptPostedType    = "dev.passage.receiving.receipt.posted.v1"
-	ReceiptCorrectedType = "dev.passage.receiving.receipt.corrected.v1"
-	ReceiptTopic         = "passage.receiving.receipt"
-	ReceiptSource        = "/passage/receiving/receiving"
+	ReceiptPostedType    = "dev.depot.receiving.receipt.posted.v1"
+	ReceiptCorrectedType = "dev.depot.receiving.receipt.corrected.v1"
+	ReceiptTopic         = "depot.receiving.receipt"
+	ReceiptSource        = "/depot/receiving/receiving"
 	// OrderProgressRecordedType is sales' orderprogress.recorded.v1, on OrderProgressTopic.
-	OrderProgressRecordedType = "dev.passage.sales.orderprogress.recorded.v1"
-	OrderProgressTopic        = "passage.sales.orderprogress"
+	OrderProgressRecordedType = "dev.depot.sales.orderprogress.recorded.v1"
+	OrderProgressTopic        = "depot.sales.orderprogress"
 	SalesSource               = "sales"
 	// PackingSlipCancelledType is fulfillment's packingslip.cancelled.v1, on PackingSlipTopic.
-	PackingSlipCancelledType = "dev.passage.fulfillment.packingslip.cancelled.v1"
-	PackingSlipTopic         = "passage.fulfillment.packingslip"
+	PackingSlipCancelledType = "dev.depot.fulfillment.packingslip.cancelled.v1"
+	PackingSlipTopic         = "depot.fulfillment.packingslip"
 	FulfillmentSource        = "fulfillment"
 
 	// Reason codes of lines the consumer parks or retries.

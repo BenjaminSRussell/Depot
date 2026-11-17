@@ -1,4 +1,4 @@
--- Wave 36 (PSG-36) slice 4: BAI2 and MT940 statements are stored beside camt.053.
+-- Wave 36 (DPT-36) slice 4: BAI2 and MT940 statements are stored beside camt.053.
 -- Expand-only: the format check widens and bank_account gains an optional
 -- statement account number; existing rows stay valid.
 

@@ -8,10 +8,10 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/assets/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/assets/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/assets/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/assets/internal/store"
 )
 
 // workedLease recognizes the PRD FR-37.10 lease: USD 10,000 a year in arrears
@@ -151,7 +151,7 @@ func TestStore_LeaseModificationBR37_8(t *testing.T) {
 	if _, err := s.ModifyLease(ctx, ids.New(), in, "mod-unknown"); problemCode(err) != store.CodeLeaseNotFound {
 		t.Fatalf("unknown lease: err = %v", err)
 	}
-	if types := outboxTypes(t, pool, ctx); types["dev.passage.assets.lease.remeasured.v1"] != 3 {
+	if types := outboxTypes(t, pool, ctx); types["dev.depot.assets.lease.remeasured.v1"] != 3 {
 		t.Fatalf("outbox = %v (three remeasurements, the replay adds none)", types)
 	}
 }

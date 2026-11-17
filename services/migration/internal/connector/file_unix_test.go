@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/services/migration/internal/connector"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/connector"
 )
 
 func TestFile_RejectsAFIFOInTheDropDirectory(t *testing.T) {

@@ -3,7 +3,7 @@ package domain
 import (
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/money"
+	"github.com/BenjaminSRussell/depot/platform/money"
 )
 
 // AssetStatus is the lifecycle of an asset and of one of its books:

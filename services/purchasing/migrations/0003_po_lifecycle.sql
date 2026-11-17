@@ -26,5 +26,5 @@ CREATE TABLE IF NOT EXISTS purchase_order_version (
 ALTER TABLE purchase_order_version ENABLE ROW LEVEL SECURITY;
 ALTER TABLE purchase_order_version FORCE ROW LEVEL SECURITY;
 CREATE POLICY purchase_order_version_tenant_access ON purchase_order_version AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);

@@ -12,7 +12,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/services/print/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/print/internal/domain"
 )
 
 // TCP sends ZPL II or PCL 6 over a raw socket.

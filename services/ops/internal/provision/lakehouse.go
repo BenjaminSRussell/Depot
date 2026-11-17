@@ -44,7 +44,7 @@ func (c IcebergCatalog) EnsureNamespace(ctx context.Context, t Tenant, dry bool)
 	if dry {
 		return fmt.Sprintf("would create Iceberg namespace %s at %s unless it exists", ns, c.route()), nil
 	}
-	body := map[string]any{"namespace": []string{ns}, "properties": map[string]string{"passage.tenant_id": t.ID, "passage.region": t.Region}}
+	body := map[string]any{"namespace": []string{ns}, "properties": map[string]string{"depot.tenant_id": t.ID, "depot.region": t.Region}}
 	st, b, err := doJSON(ctx, c.HTTP, http.MethodPost, c.route(), c.Token, body)
 	if err != nil {
 		return "", fmt.Errorf("lakehouse catalog: %w", err)

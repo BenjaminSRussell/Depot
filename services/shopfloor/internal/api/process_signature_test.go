@@ -8,11 +8,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/shopfloor/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/shopfloor/internal/domain"
 )
 
-// A service-token caller keeps the X-Passage-* headers of whoever called it, so a forged auth time must not let it sign.
+// A service-token caller keeps the X-Depot-* headers of whoever called it, so a forged auth time must not let it sign.
 func TestCheckSignature_ServiceCallerAndMissingAuthTimeAreRefused(t *testing.T) {
 	a := New(&fakeStore{})
 	in := func() *domain.NewMessage {

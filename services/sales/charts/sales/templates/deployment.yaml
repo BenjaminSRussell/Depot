@@ -14,11 +14,11 @@ spec:
   template:
     metadata:
       labels:
-        {{- with include "passage.wiLabels" $ }}{{ . | nindent 8 }}{{- end }}
+        {{- with include "depot.wiLabels" $ }}{{ . | nindent 8 }}{{- end }}
         app.kubernetes.io/name: {{ .Values.serviceName }}
         app.kubernetes.io/instance: {{ .Release.Name }}
     spec:
-      {{- with include "passage.wiServiceAccount" (dict "root" $ "name" "passage-sales") }}{{ . | nindent 6 }}{{- end }}
+      {{- with include "depot.wiServiceAccount" (dict "root" $ "name" "depot-sales") }}{{ . | nindent 6 }}{{- end }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
         {{- if .Values.fieldCrypt.keysSecret }}
@@ -34,9 +34,9 @@ spec:
       containers:
         - name: sales
           {{- if .Values.image.digest }}
-          image: "{{ (include "passage.imageRepository" $) }}@{{ .Values.image.digest }}"
+          image: "{{ (include "depot.imageRepository" $) }}@{{ .Values.image.digest }}"
           {{- else }}
-          image: "{{ (include "passage.imageRepository" $) }}:{{ .Values.image.tag }}"
+          image: "{{ (include "depot.imageRepository" $) }}:{{ .Values.image.tag }}"
           {{- end }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
@@ -45,9 +45,9 @@ spec:
             - name: admin
               containerPort: 9090
           env:
-            {{- include "passage.cloudEnv" $ | nindent 12 }}
-            - name: PASSAGE_ENV
-              value: {{ .Values.config.passageEnv | quote }}
+            {{- include "depot.cloudEnv" $ | nindent 12 }}
+            - name: DEPOT_ENV
+              value: {{ .Values.config.depotEnv | quote }}
             - name: SERVICE_NAME
               value: {{ .Values.serviceName | quote }}
             - name: HTTP_ADDR
@@ -61,20 +61,20 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.databaseSecret.name }}
                   key: {{ .Values.databaseSecret.key }}
-            - name: PASSAGE_SERVICE_NAME
+            - name: DEPOT_SERVICE_NAME
               value: sales
 {{- if .Values.serviceIdentity.publicKeys }}
-            - name: PASSAGE_SERVICE_PUBLIC_KEYS
+            - name: DEPOT_SERVICE_PUBLIC_KEYS
               value: {{ .Values.serviceIdentity.publicKeys | quote }}
 {{- end }}
 {{- if .Values.serviceIdentity.signingKeySecret }}
-            - name: PASSAGE_SERVICE_SIGNING_KEY
+            - name: DEPOT_SERVICE_SIGNING_KEY
               valueFrom:
                 secretKeyRef:
                   name: {{ .Values.serviceIdentity.signingKeySecret | quote }}
                   key: signing-key
 {{- if .Values.serviceIdentity.keyId }}
-            - name: PASSAGE_SERVICE_KEY_ID
+            - name: DEPOT_SERVICE_KEY_ID
               value: {{ .Values.serviceIdentity.keyId | quote }}
 {{- end }}
 {{- end }}
@@ -99,10 +99,10 @@ spec:
             - name: SALES_PORTAL_PRICE_WINDOW_DAYS
               value: {{ .Values.portal.priceWindowDays | quote }}
 {{- if .Values.fieldCrypt.keysSecret }}
-            - { name: FIELDCRYPT_KEYS_FILE, value: /var/run/passage/field-crypt/keys }
+            - { name: FIELDCRYPT_KEYS_FILE, value: /var/run/depot/field-crypt/keys }
             - { name: FIELDCRYPT_CURRENT_KEY_ID, value: {{ .Values.fieldCrypt.currentKeyId | quote }} }
           volumeMounts:
-            - { name: field-crypt, mountPath: /var/run/passage/field-crypt, readOnly: true }
+            - { name: field-crypt, mountPath: /var/run/depot/field-crypt, readOnly: true }
 {{- end }}
           livenessProbe:
             httpGet:

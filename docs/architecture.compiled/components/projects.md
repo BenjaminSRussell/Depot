@@ -1,7 +1,7 @@
 # Projects (project accounting, maintenance, field service)
 
 ## Purpose & Boundaries
-Context `projects` (database `passage_projects`; waves 41, 44-45). Deployables `projects-ts` and `projects-py` (technician dispatch optimization; stateless). No Go service. Owns projects/WBS, project transactions, functional locations, maintenance, installed base, service agreements/cases/work orders. Posts project WIP/POC/billing proposals via `ledger.Post`.
+Context `projects` (database `depot_projects`; waves 41, 44-45). Deployables `projects-ts` and `projects-py` (technician dispatch optimization; stateless). No Go service. Owns projects/WBS, project transactions, functional locations, maintenance, installed base, service agreements/cases/work orders. Posts project WIP/POC/billing proposals via `ledger.Post`.
 
 ## Interfaces
 Prefix `/v1/projects/`: `hour-journals/{id}:post` (ledger.Post WIP; emits `transaction.posted.v1`), `expense-journals/{id}:post`, `invoice-proposals/{id}:approve` (sales creates the invoice from the event), `wip-runs` (202), `projects/{id}/evm`, `maintenance-plans/{id}:generate` (202), `maintenance-work-orders/{id}:release|:complete`, `condition-triggers` (5 s IoT trigger), portal `portal/cases` (customer scope GET/POST), `cases/{id}:escalate|:resolve`, `service-agreements/{id}:check-entitlement`, `dispatch:optimize` (202 via projects-py), `technicians/me/work-orders` (device class), `service-work-orders/{id}:complete` (offline replay idempotent), `GET /reconciliation/{check}` (wip).

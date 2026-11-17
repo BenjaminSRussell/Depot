@@ -12,11 +12,11 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/fx/internal/api"
-	"github.com/BenjaminSRussell/passage/services/fx/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/fx/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/fx/internal/api"
+	"github.com/BenjaminSRussell/depot/services/fx/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/fx/internal/store"
 )
 
 type fakeStore struct {
@@ -98,9 +98,9 @@ func newRouter(f *fakeStore) *chi.Mux {
 func do(r http.Handler, method, path, body, duties string, tenantID string) *httptest.ResponseRecorder {
 	req := httptest.NewRequest(method, path, strings.NewReader(body))
 	if tenantID != "" {
-		req.Header.Set("X-Passage-Tenant", tenantID)
-		req.Header.Set("X-Passage-Legal-Entity", testkit.TenantID(9))
-		req.Header.Set("X-Passage-Duties", duties)
+		req.Header.Set("X-Depot-Tenant", tenantID)
+		req.Header.Set("X-Depot-Legal-Entity", testkit.TenantID(9))
+		req.Header.Set("X-Depot-Duties", duties)
 	}
 	if body != "" {
 		req.Header.Set("Content-Type", "application/json")

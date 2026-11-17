@@ -5,8 +5,8 @@ package store
 // stack (#213); this one drives the store against whatever Postgres the test
 // URLs name, so a regression in the posting or balance-read path shows on a
 // laptop before stage. The numbers depend on the hardware and on the pool size
-// (pool_max_conns in PASSAGE_TEST_APP_DATABASE_URL), so the test only reports
-// them unless PASSAGE_LEDGER_BENCH_MIN_LPS or PASSAGE_LEDGER_BENCH_MAX_P99_MS
+// (pool_max_conns in DEPOT_TEST_APP_DATABASE_URL), so the test only reports
+// them unless DEPOT_LEDGER_BENCH_MIN_LPS or DEPOT_LEDGER_BENCH_MAX_P99_MS
 // set a floor. Run it with scripts/bench-local.sh (issue #476).
 
 import (
@@ -24,24 +24,24 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/ledger/internal/domain"
-	ledgerevents "github.com/BenjaminSRussell/passage/services/ledger/internal/events"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/ledger/internal/domain"
+	ledgerevents "github.com/BenjaminSRussell/depot/services/ledger/internal/events"
 )
 
 const (
 	// envBench enables the benchmark; it is skipped otherwise, also in CI.
-	envBench          = "PASSAGE_LEDGER_BENCH"
-	envBenchSeconds   = "PASSAGE_LEDGER_BENCH_SECONDS"
-	envBenchWarmup    = "PASSAGE_LEDGER_BENCH_WARMUP_SECONDS"
-	envBenchWorkers   = "PASSAGE_LEDGER_BENCH_WORKERS"
-	envBenchLines     = "PASSAGE_LEDGER_BENCH_LINES"
-	envBenchReaders   = "PASSAGE_LEDGER_BENCH_READERS"
-	envBenchLedgers   = "PASSAGE_LEDGER_BENCH_LEDGERS"
-	envBenchReadEvery = "PASSAGE_LEDGER_BENCH_READ_INTERVAL_MS"
-	envBenchMinLPS    = "PASSAGE_LEDGER_BENCH_MIN_LPS"
-	envBenchMaxP99    = "PASSAGE_LEDGER_BENCH_MAX_P99_MS"
-	envBenchOut       = "PASSAGE_LEDGER_BENCH_OUT"
+	envBench          = "DEPOT_LEDGER_BENCH"
+	envBenchSeconds   = "DEPOT_LEDGER_BENCH_SECONDS"
+	envBenchWarmup    = "DEPOT_LEDGER_BENCH_WARMUP_SECONDS"
+	envBenchWorkers   = "DEPOT_LEDGER_BENCH_WORKERS"
+	envBenchLines     = "DEPOT_LEDGER_BENCH_LINES"
+	envBenchReaders   = "DEPOT_LEDGER_BENCH_READERS"
+	envBenchLedgers   = "DEPOT_LEDGER_BENCH_LEDGERS"
+	envBenchReadEvery = "DEPOT_LEDGER_BENCH_READ_INTERVAL_MS"
+	envBenchMinLPS    = "DEPOT_LEDGER_BENCH_MIN_LPS"
+	envBenchMaxP99    = "DEPOT_LEDGER_BENCH_MAX_P99_MS"
+	envBenchOut       = "DEPOT_LEDGER_BENCH_OUT"
 
 	// AC4 target from issue #11, printed next to the measured numbers.
 	ac4TargetLPS   = 5000
@@ -79,7 +79,7 @@ func benchEntry(r *rand.Rand, ledgerID, key string, n int) PostInput {
 	hash, _ := domain.HashPayload(map[string]any{"bench": key})
 	return PostInput{
 		LedgerID: ledgerID, DocumentID: ids.New(), PostingDate: ac1Dates[r.IntN(len(ac1Dates))], Description: "AC4 proxy " + key,
-		Source: ledgerevents.Source{System: "ap", Type: "vendor_invoice", ID: key, URI: "passage://ap/invoices/" + key},
+		Source: ledgerevents.Source{System: "ap", Type: "vendor_invoice", ID: key, URI: "depot://ap/invoices/" + key},
 		Lines:  lines, Key: key, Hash: hash, Actor: "test-user", TraceID: testTrace, Today: testToday,
 	}
 }

@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/services/org/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/services/org/internal/store"
 )
 
 func (f *fakeStore) CopyLegalEntity(_ context.Context, in store.LegalEntityCopyInput, _ string) (store.LegalEntityCopy, error) {

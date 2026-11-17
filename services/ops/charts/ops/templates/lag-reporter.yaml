@@ -23,14 +23,14 @@ spec:
         - name: lag-reporter
           image: {{ include "ops.image" . | quote }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
-          command: ["/passage-ops", "lag-report", "--region", {{ required "lagReporter.region is required" .Values.lagReporter.region | quote }}, "--interval", "{{ .Values.lagReporter.intervalSeconds }}s", "--unknown-lag-s", {{ .Values.lagReporter.unknownLagSeconds | quote }}]
+          command: ["/depot-ops", "lag-report", "--region", {{ required "lagReporter.region is required" .Values.lagReporter.region | quote }}, "--interval", "{{ .Values.lagReporter.intervalSeconds }}s", "--unknown-lag-s", {{ .Values.lagReporter.unknownLagSeconds | quote }}]
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
             capabilities:
               drop: [ALL]
           env:
-            {{- include "passage.cloudEnv" $ | nindent 12 }}
+            {{- include "depot.cloudEnv" $ | nindent 12 }}
             - name: OPS_API_URL
               value: {{ required "lagReporter.apiUrl is required" .Values.lagReporter.apiUrl | quote }}
             - name: OPS_LAG_MODE

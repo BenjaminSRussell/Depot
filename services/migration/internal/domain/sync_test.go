@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/services/migration/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/domain"
 )
 
 func TestCronNext(t *testing.T) {
@@ -96,7 +96,7 @@ func TestPipeline_DeltaRunPassesTheWatermarkAndSkipsAbsentDetection(t *testing.T
 	}
 }
 
-func TestPipeline_PassageSourceOfTruthHoldsChangedRowsAsConflicts(t *testing.T) {
+func TestPipeline_DepotSourceOfTruthHoldsChangedRowsAsConflicts(t *testing.T) {
 	ex := &deltaExtractor{rows: []domain.Record{custRow("C1", "One"), custRow("C2", "Two")}}
 	p, xref, loader := newPipeline(nil)
 	p.Extractor = ex
@@ -104,7 +104,7 @@ func TestPipeline_PassageSourceOfTruthHoldsChangedRowsAsConflicts(t *testing.T) 
 		t.Fatal(err)
 	}
 	callsAfterLoad := loader.Calls
-	// Legacy changed C1 (conflict), left C2, and added C3 (new keys still load: legacy has a record Passage lacks).
+	// Legacy changed C1 (conflict), left C2, and added C3 (new keys still load: legacy has a record Depot lacks).
 	ex.rows = []domain.Record{custRow("C1", "One (legacy edit)"), custRow("C2", "Two"), custRow("C3", "Three")}
 	s := spec(t)
 	s.HoldExisting = true
@@ -122,9 +122,9 @@ func TestPipeline_PassageSourceOfTruthHoldsChangedRowsAsConflicts(t *testing.T) 
 		t.Fatalf("a held row is reported on the MIG-TARGET-DRIFT code: %+v", rep.Rejects)
 	}
 	if loader.Calls != callsAfterLoad+1 || loader.Rows[mustTarget(t, xref, "C1")].Fields["name"] != "One" {
-		t.Fatal("Passage's record must not be overwritten")
+		t.Fatal("Depot's record must not be overwritten")
 	}
-	// Keeping Passage acknowledges that legacy hash: the same row is quiet next time, a further change is reported again.
+	// Keeping Depot acknowledges that legacy hash: the same row is quiet next time, a further change is reported again.
 	s.Acknowledged = map[string]string{"C1": rep.Conflicts[0].ContentHash}
 	rep, _ = p.Run(context.Background(), s)
 	if rep.Conflicted != 0 || len(rep.Rejects) != 0 || rep.Status != domain.StatusSucceeded {

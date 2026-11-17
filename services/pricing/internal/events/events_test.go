@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	pevents "github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/services/pricing/internal/events"
+	pevents "github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/services/pricing/internal/events"
 )
 
 // TestEventsMatchAsyncAPI checks each published type passes the kernel naming rule and
@@ -62,7 +62,7 @@ func TestEventsMatchAsyncAPI(t *testing.T) {
 	}
 	for _, c := range cases {
 		if !pevents.ValidType(c.typ) {
-			t.Errorf("%s is not a valid dev.passage.<ctx>.<entity>.<verb>.v1 type", c.typ)
+			t.Errorf("%s is not a valid dev.depot.<ctx>.<entity>.<verb>.v1 type", c.typ)
 		}
 		if !strings.Contains(spec, "name: "+c.typ) {
 			t.Errorf("asyncapi.yaml has no message named %s", c.typ)

@@ -1,5 +1,5 @@
--- Entity bindings (PSG-10 integration track S2): which table, query, endpoint or file of a connection profile feeds
--- which Passage entity, with the key fields that identify a source row and the optional change cursor delta sync
+-- Entity bindings (DPT-10 integration track S2): which table, query, endpoint or file of a connection profile feeds
+-- which Depot entity, with the key fields that identify a source row and the optional change cursor delta sync
 -- (S4) will read. The source object is validated per profile kind by the service. A binding is disabled, never deleted.
 CREATE TABLE migration.entity_binding (
   tenant_id uuid NOT NULL,
@@ -31,16 +31,16 @@ CREATE INDEX entity_binding_profile_idx ON migration.entity_binding (tenant_id, 
 ALTER TABLE migration.entity_binding ENABLE ROW LEVEL SECURITY;
 ALTER TABLE migration.entity_binding FORCE ROW LEVEL SECURITY;
 CREATE POLICY entity_binding_tenant_access ON migration.entity_binding AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY entity_binding_legal_entity_scope ON migration.entity_binding AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*');
+  USING (current_setting('depot.legal_entity_scopes', true) = '*');
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
     -- UPDATE: the store edits a binding under its version. No DELETE: bindings are disabled, not removed.
-    GRANT SELECT, INSERT, UPDATE ON migration.entity_binding TO passage_app;
+    GRANT SELECT, INSERT, UPDATE ON migration.entity_binding TO depot_app;
   END IF;
 END
 $$;

@@ -11,14 +11,14 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/engineering/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/engineering/internal/store"
-	"github.com/BenjaminSRussell/passage/services/engineering/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/engineering/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/engineering/internal/store"
+	"github.com/BenjaminSRussell/depot/services/engineering/migrations"
 )
 
 var releaseDay = time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC)
@@ -126,8 +126,8 @@ func TestPostgres_ReleaseEco_ExpiresOldActivatesNew(t *testing.T) {
 		events = append(events, typ)
 	}
 	want := []string{
-		"dev.passage.engineering.bomversion.activated.v1", "dev.passage.engineering.bomversion.activated.v1", "dev.passage.engineering.bomversion.expired.v1",
-		"dev.passage.engineering.eco.approved.v1", "dev.passage.engineering.eco.released.v1", "dev.passage.engineering.eco.submitted.v1",
+		"dev.depot.engineering.bomversion.activated.v1", "dev.depot.engineering.bomversion.activated.v1", "dev.depot.engineering.bomversion.expired.v1",
+		"dev.depot.engineering.eco.approved.v1", "dev.depot.engineering.eco.released.v1", "dev.depot.engineering.eco.submitted.v1",
 	}
 	if len(events) != len(want) {
 		t.Fatalf("outbox = %v; want %v", events, want)
@@ -267,7 +267,7 @@ func TestPostgres_CreateActiveVersion_EnqueuesActivatedEvent(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if got := outboxTypes(t, pool, ctx, v.ID); len(got) != 1 || got[0] != "dev.passage.engineering.bomversion.activated.v1" {
+	if got := outboxTypes(t, pool, ctx, v.ID); len(got) != 1 || got[0] != "dev.depot.engineering.bomversion.activated.v1" {
 		t.Fatalf("active insert outbox = %v; want one activated event", got)
 	}
 	if got := outboxTypes(t, pool, ctx, draft.ID); len(got) != 0 {
@@ -460,7 +460,7 @@ func TestPostgres_ActivateBomVersion_EmitsOnceAndRefusesWhenProductHasVersions(t
 			t.Fatalf("activate = %+v, %v; want active at version 2", got, err)
 		}
 	}
-	if types := outboxTypes(t, pool, ctx, first.ID); len(types) != 1 || types[0] != "dev.passage.engineering.bomversion.activated.v1" {
+	if types := outboxTypes(t, pool, ctx, first.ID); len(types) != 1 || types[0] != "dev.depot.engineering.bomversion.activated.v1" {
 		t.Fatalf("outbox = %v; want exactly one bomversion.activated", types)
 	}
 	second := version("BIKE", domain.StatusDraft, releaseDay.AddDate(1, 0, 0), "WHEEL")

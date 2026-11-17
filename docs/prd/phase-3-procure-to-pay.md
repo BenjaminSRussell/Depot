@@ -2,7 +2,7 @@
 
 ## 3.0 Phase overview
 
-**Business outcome at phase exit.** At the end of wave 20 the demo plant buys, receives, pays for and values physical goods on Passage with no AX or SAP system in the loop. Every quantity movement is an immutable inventory transaction carrying physical and financial status plus storage and tracking dimensions (the InventTrans / MSEG role). Buyers run requisition → RFQ → agreement → purchase order under policy-driven approval (PurchReqTable / EBAN through PurchTable / EKKO). Receiving posts inventory and a GR/IR accrual to the universal journal; vendor invoices match 2-way or 3-way inside tolerances or route to an exception queue (VendInvoiceInfoTable / RBKP-RSEG). Open vendor items settle against payment runs that emit ISO 20022 pain.001 and NACHA files (VendSettlement / F110-REGUH). Inventory is valued under FIFO, LIFO, weighted average or standard cost with a close/recalculation job whose value report ties to the GL inventory accounts (InventClosing / CKMLCP). Suppliers acknowledge POs, send ASNs and submit invoices through a portal.
+**Business outcome at phase exit.** At the end of wave 20 the demo plant buys, receives, pays for and values physical goods on Depot with no AX or SAP system in the loop. Every quantity movement is an immutable inventory transaction carrying physical and financial status plus storage and tracking dimensions (the InventTrans / MSEG role). Buyers run requisition → RFQ → agreement → purchase order under policy-driven approval (PurchReqTable / EBAN through PurchTable / EKKO). Receiving posts inventory and a GR/IR accrual to the universal journal; vendor invoices match 2-way or 3-way inside tolerances or route to an exception queue (VendInvoiceInfoTable / RBKP-RSEG). Open vendor items settle against payment runs that emit ISO 20022 pain.001 and NACHA files (VendSettlement / F110-REGUH). Inventory is valued under FIFO, LIFO, weighted average or standard cost with a close/recalculation job whose value report ties to the GL inventory accounts (InventClosing / CKMLCP). Suppliers acknowledge POs, send ASNs and submit invoices through a portal.
 
 **Phase-exit sign-off criteria**
 - Inventory on-hand projection equals SUM(inventory transactions) for a 1M-transaction fixture after a full rebuild; zero rows differ.
@@ -41,21 +41,21 @@
 
 | Event (CloudEvents type) | Producer | Consumers | Payload summary |
 |---|---|---|---|
-| `dev.passage.inventory.transaction.posted.v1` | inventory | costing, planning (w22), analytics | txn id, origin, product, dims, qty, issue/receipt status, physical/financial dates |
-| `dev.passage.inventory.onhand.changed.v1` | inventory | procurement (ATP for PO), sales (w27), warehouse (w31) | product, dim hash, avail_physical, avail_ordered, delta |
-| `dev.passage.inventory.journal.posted.v1` | inventory | ledger (reconciliation), costing | journal id, type, line count, ledger entry id |
-| `dev.passage.procurement.requisition.approved.v1` | procurement | procurement consolidation, budget control (w38) | req id, lines, approver chain |
-| `dev.passage.procurement.po.confirmed.v1` | procurement | inventory (OnOrder txns), supplier-portal, EDI (w35) | po id, version, lines, vendor |
-| `dev.passage.procurement.po.version.created.v1` | procurement | supplier-portal, receiving | po id, version, diff summary |
-| `dev.passage.receiving.receipt.posted.v1` | receiving | inventory, payables (match candidates), costing | receipt id, lines, po lines, qty, GR/IR amount |
-| `dev.passage.payables.invoice.posted.v1` | payables | ledger, costing (PPV/invoice-cost settle), tax (w13) | invoice id, vendor, lines, match status, amounts |
-| `dev.passage.payables.invoice.match.exception.v1` | payables | workflow (Temporal), notifications | invoice id, line, variance type, amounts |
-| `dev.passage.payables.settlement.posted.v1` | payables | ledger, analytics | settlement id, items, discount, fx gain/loss |
-| `dev.passage.payables.payment.sent.v1` | payables | bank connectivity (w36), supplier-portal, cash (w36) | payment id, file id, amount, method, vendor |
-| `dev.passage.payables.payment.status.changed.v1` | payables | notifications, analytics | payment id, old/new status, pain.002 reason code |
-| `dev.passage.costing.close.completed.v1` | costing | ledger, analytics | close id, period, adjustments, duration |
-| `dev.passage.costing.cost.changed.v1` | costing | inventory, planning, product costing (w39) | product, site, version, old/new cost, effective date |
-| `dev.passage.supplier.asn.submitted.v1` | supplier-portal | receiving, warehouse (w31) | asn id, po lines, expected qty, carrier |
+| `dev.depot.inventory.transaction.posted.v1` | inventory | costing, planning (w22), analytics | txn id, origin, product, dims, qty, issue/receipt status, physical/financial dates |
+| `dev.depot.inventory.onhand.changed.v1` | inventory | procurement (ATP for PO), sales (w27), warehouse (w31) | product, dim hash, avail_physical, avail_ordered, delta |
+| `dev.depot.inventory.journal.posted.v1` | inventory | ledger (reconciliation), costing | journal id, type, line count, ledger entry id |
+| `dev.depot.procurement.requisition.approved.v1` | procurement | procurement consolidation, budget control (w38) | req id, lines, approver chain |
+| `dev.depot.procurement.po.confirmed.v1` | procurement | inventory (OnOrder txns), supplier-portal, EDI (w35) | po id, version, lines, vendor |
+| `dev.depot.procurement.po.version.created.v1` | procurement | supplier-portal, receiving | po id, version, diff summary |
+| `dev.depot.receiving.receipt.posted.v1` | receiving | inventory, payables (match candidates), costing | receipt id, lines, po lines, qty, GR/IR amount |
+| `dev.depot.payables.invoice.posted.v1` | payables | ledger, costing (PPV/invoice-cost settle), tax (w13) | invoice id, vendor, lines, match status, amounts |
+| `dev.depot.payables.invoice.match.exception.v1` | payables | workflow (Temporal), notifications | invoice id, line, variance type, amounts |
+| `dev.depot.payables.settlement.posted.v1` | payables | ledger, analytics | settlement id, items, discount, fx gain/loss |
+| `dev.depot.payables.payment.sent.v1` | payables | bank connectivity (w36), supplier-portal, cash (w36) | payment id, file id, amount, method, vendor |
+| `dev.depot.payables.payment.status.changed.v1` | payables | notifications, analytics | payment id, old/new status, pain.002 reason code |
+| `dev.depot.costing.close.completed.v1` | costing | ledger, analytics | close id, period, adjustments, duration |
+| `dev.depot.costing.cost.changed.v1` | costing | inventory, planning, product costing (w39) | product, site, version, old/new cost, effective date |
+| `dev.depot.supplier.asn.submitted.v1` | supplier-portal | receiving, warehouse (w31) | asn id, po lines, expected qty, carrier |
 
 **Phase-level risks**
 
@@ -72,7 +72,7 @@
 
 ### 3.16.1 Scope and business context
 
-Wave 16 creates the inventory ledger that every later quantity-bearing module (purchasing, receiving, production, sales, warehouse) writes to. In AX this is InventTrans with InventTransOrigin, InventSum and InventDim; in SAP it is the material document (MKPF/MSEG) with stock segments in MARD (storage location), MCHB (batch) and MSKA/MSPR (special stock). Before this wave Passage has products with dimension groups (wave 8) and sites/warehouses (wave 6) but no quantities.
+Wave 16 creates the inventory ledger that every later quantity-bearing module (purchasing, receiving, production, sales, warehouse) writes to. In AX this is InventTrans with InventTransOrigin, InventSum and InventDim; in SAP it is the material document (MKPF/MSEG) with stock segments in MARD (storage location), MCHB (batch) and MSKA/MSPR (special stock). Before this wave Depot has products with dimension groups (wave 8) and sites/warehouses (wave 6) but no quantities.
 
 At the end of the wave a user can: load opening balances through a movement journal; move, adjust, transfer and count stock; reserve stock manually or by FEFO/FIFO policy; block or quarantine a batch; run a cycle-count plan; and see on-hand by any combination of site, warehouse, location, batch, serial, inventory status. Every posting produces a balanced universal-journal entry through the wave 11 `Post(JournalEntry)` API.
 
@@ -80,7 +80,7 @@ Out of scope: purchase/sales-driven transactions (waves 17–18, 27), production
 
 **Pain points solved (10x lens)**
 
-| Pain point in AX/SAP today | Root cause | Passage answer in this wave | Measurable 10x target |
+| Pain point in AX/SAP today | Root cause | Depot answer in this wave | Measurable 10x target |
 |---|---|---|---|
 | AX On-hand form (InventOnhand) requires choosing a dimension display (InventDimParm) and re-querying per combination; SAP MMBE shows plant/storage location/batch only, MB52 is a batch report; users export to Excel to get location × batch × status | InventSum is pre-aggregated per InventDimId and queried through fixed display sets; MARD/MCHB are separate tables with no common query | Single `GET /onhand` with `groupBy` any dimension subset, served from one projection; shell grid pivots client-side | Clicks to answer "how much of X in batch B at location L": 9 → 2; query p95 < 50 ms vs 3–10 s |
 | InventSum drift from InventTrans after failed batch or kernel patch; fix is the "Check inventory on-hand" consistency check run at night with users off the system | Dual-write of InventTrans and InventSum under X++ ttsbegin with retry-on-deadlock; no automated compare | Projection updated in the same Postgres transaction; weekly rebuild-and-compare; diff event alerts | Reconciliation effort: 2 h/month manual → 0 (automated, 0 diffs); detection latency: weeks → < 24 h |
@@ -90,7 +90,7 @@ Out of scope: purchase/sales-driven transactions (waves 17–18, 27), production
 
 ### 3.16.2 AX / SAP parity map
 
-| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Passage equivalent | Parity level |
+| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Depot equivalent | Parity level |
 |---|---|---|---|---|
 | Inventory transaction record | InventTrans, InventTransOrigin, InventTransPosting; form InventTrans | MSEG/MKPF (material document), MATDOC in S/4; MB03/MIGO display | `inventory.InventoryTransaction`, `InventoryTransactionOrigin`; screen Inventory transactions | full |
 | On-hand by dimension | InventSum, InventOnhand form, InventDimParm | MARD, MCHB, MSKA; MMBE stock overview, MB52 | `inventory.OnHand` projection; On-hand inquiry | improved (any dimension combination, real time) |
@@ -167,7 +167,7 @@ Out of scope: purchase/sales-driven transactions (waves 17–18, 27), production
 
 - **FR-16.11 Physical and financial dates** — Must. The system shall store `physical_date` (goods movement) and `financial_date` (value recognition) separately; the ledger entry uses `financial_date` and is validated against period control (wave 14) for module INVENTORY.
 
-- **FR-16.12 Daily reconciliation** — Must. The system shall run a job that compares SUM(OnHand.posted_value) by inventory account and dimension to the ledger balance projection and raises `dev.passage.inventory.reconciliation.diff.v1` on any non-zero difference.
+- **FR-16.12 Daily reconciliation** — Must. The system shall run a job that compares SUM(OnHand.posted_value) by inventory account and dimension to the ledger balance projection and raises `dev.depot.inventory.reconciliation.diff.v1` on any non-zero difference.
 
 - **FR-16.13 Inventory transaction inquiry** — Should. The system shall provide a filterable, exportable inquiry over transactions with origin, status, dates and GL voucher drill-down.
 
@@ -178,7 +178,7 @@ Out of scope: purchase/sales-driven transactions (waves 17–18, 27), production
   - `:ship` (AX "Ship transfer order", SAP VL10B + PGI 641) posts in one database transaction a DEDUCTED issue at the from-dimension and a RECEIVED receipt at the transit dimension (`warehouse = transit_warehouse_id`, status `IN_TRANSIT`); cost of the transit receipt equals the cost of the issue (BR-16.3).
   - `:receive` (AX "Receive", SAP MIGO 101 against STO) posts a DEDUCTED issue at the transit dimension and a RECEIVED receipt at the to-dimension with the registered batch/serial/location; under-delivery within `underdelivery_pct` with `close_short=true` closes the line; over-receipt beyond `overdelivery_pct` is rejected with `INV-TRF-002`.
   - `transit_warehouse_id` is mandatory when the legal-entity parameter `transfer_use_transit=true`; otherwise `:ship` performs ship-and-receive in one step (SAP one-step 301).
-  - Transfer order picking release emits `dev.passage.inventory.transfer.release.v1` for wave 31 warehouse work (and wave 28 outbound picking); until those waves exist the shipment is posted from the transfer order screen or PWA.
+  - Transfer order picking release emits `dev.depot.inventory.transfer.release.v1` for wave 31 warehouse work (and wave 28 outbound picking); until those waves exist the shipment is posted from the transfer order screen or PWA.
   - Cancellation of unshipped remaining quantity cancels the ON_ORDER/ORDERED pair; delete of CREATED orders with no postings is allowed (AX "Delete transfer orders").
   - Documents: transfer shipping document and transfer receiving document (3.16.15).
 
@@ -186,7 +186,7 @@ Out of scope: purchase/sales-driven transactions (waves 17–18, 27), production
 
 - **FR-16.17 Ownership dimension, vendor consignment and customer consignment** — Must. The system shall activate the `owner` dimension (D365 InventOwnerId; SAP special stock indicator K) through the tracking dimension group, with `owner = legal entity` by default or a vendor id for vendor-owned stock.
   - `ConsignmentReplenishmentOrder` (vendor, lines product/qty/date/warehouse) receives vendor-owned quantity as RECEIVED transactions with `owner = vendor`, `posted_value = 0`, no ledger entry and no GR/IR (quantity-only stock).
-  - Journal type OWNERSHIP_CHANGE moves quantity from `owner = vendor` to `owner = legal entity` as a paired issue/receipt at the consignment price (wave 17 trade agreement with `consignment=true`, else the replenishment order price), posting Dr inventory / Cr consignment accrual (posting profile account `consignment_accrual`; SAP OBYC KON) and emitting `dev.passage.inventory.ownership.changed.v1`; wave 18 FR-18.16 consumes it to create the consignment settlement invoice (SAP MRKO).
+  - Journal type OWNERSHIP_CHANGE moves quantity from `owner = vendor` to `owner = legal entity` as a paired issue/receipt at the consignment price (wave 17 trade agreement with `consignment=true`, else the replenishment order price), posting Dr inventory / Cr consignment accrual (posting profile account `consignment_accrual`; SAP OBYC KON) and emitting `dev.depot.inventory.ownership.changed.v1`; wave 18 FR-18.16 consumes it to create the consignment settlement invoice (SAP MRKO).
   - When the item model group sets `auto_ownership_change_on_issue=true`, an issue that would consume vendor-owned stock creates the ownership change automatically before the issue; stock determination order (`OWN_FIRST` / `CONSIGNMENT_FIRST`, SAP OSPX) is set per warehouse.
   - A periodic ownership-change batch (3.16.16) converts consumption-driven and age-driven (`max_consignment_days`) quantities.
   - Vendor-owned stock is counted in cycle counts (SAP MIK1) and is excluded from the inventory value report; consignment inventory reports (3.16.14) list vendor-owned quantity by vendor, warehouse and age.
@@ -262,7 +262,7 @@ Out of scope: purchase/sales-driven transactions (waves 17–18, 27), production
 
 **CountPlan / CountSheet**: plan id, name, selection (abc_class[], warehouse_ids[], location_range, max_days_since_count, sample_pct), frequency (cron), tolerance_qty_pct, tolerance_value, blind (bool); sheet id, plan_id, status (OPEN, COUNTED, APPROVED, POSTED), lines (product, dims, expected_qty, counted_qty, variance_qty, counted_by, counted_at).
 
-Invariants: Σ qty over transactions with physical status for a (product, dimension set) = OnHand.physical_invent; posted_value changes only through financial status transitions and wave 20 adjustments; a serial has at most one open physical receipt not matched by an issue; DimensionSet hash is deterministic across services (shared Go package `passage/invdim`). Indexing: InventoryTransaction (tenant, product, dimension_set, physical_date), (origin_id), partial index on open statuses; OnHand clustered by (tenant, product); monthly range partitions on InventoryTransaction by physical_date when a tenant exceeds 20M rows.
+Invariants: Σ qty over transactions with physical status for a (product, dimension set) = OnHand.physical_invent; posted_value changes only through financial status transitions and wave 20 adjustments; a serial has at most one open physical receipt not matched by an issue; DimensionSet hash is deterministic across services (shared Go package `depot/invdim`). Indexing: InventoryTransaction (tenant, product, dimension_set, physical_date), (origin_id), partial index on open statuses; OnHand clustered by (tenant, product); monthly range partitions on InventoryTransaction by physical_date when a tenant exceeds 20M rows.
 
 ### 3.16.5 APIs and events
 
@@ -286,13 +286,13 @@ Commands: `CreateJournal`, `AddLines`, `PostJournal` (validates period control, 
 
 | Event | Trigger | Payload fields | Consumers |
 |---|---|---|---|
-| `dev.passage.inventory.transaction.posted.v1` | any transaction insert or status change | transaction_id, origin, product_id, dimension_set, qty, issue_status, receipt_status, physical_date, financial_date, cost_amount_* | costing, analytics, planning |
-| `dev.passage.inventory.onhand.changed.v1` | OnHand row update | product_id, dimension_set, avail_physical, avail_ordered, delta_bucket, delta_qty | procurement, sales, warehouse |
-| `dev.passage.inventory.journal.posted.v1` | journal reaches POSTED | journal_id, type, lines, ledger_entry_id, posting_date | ledger reconciliation, costing |
-| `dev.passage.inventory.reservation.created.v1` / `.released.v1` | reservation lifecycle | reservation_id, demand, product, dims, qty, policy | sales, production |
-| `dev.passage.inventory.reconciliation.diff.v1` | daily job finds diff ≠ 0 | account, dimension, inventory_value, ledger_balance, diff | alerting |
-| `dev.passage.inventory.transfer.shipped.v1` / `.received.v1` / `.release.v1` | transfer order ship / receive / picking release | transfer_order_id, lines (product, dims, qty), from/to/transit warehouse, ship_date, receipt_date | planning (w22), warehouse (w31), fulfillment (w28), analytics |
-| `dev.passage.inventory.ownership.changed.v1` | OWNERSHIP_CHANGE journal posted | journal_id, vendor_id, lines (product, dims, qty, consignment_price, amount_acct), ledger_entry_id | payables (w18 consignment settlement), supplier-portal (w20), analytics |
+| `dev.depot.inventory.transaction.posted.v1` | any transaction insert or status change | transaction_id, origin, product_id, dimension_set, qty, issue_status, receipt_status, physical_date, financial_date, cost_amount_* | costing, analytics, planning |
+| `dev.depot.inventory.onhand.changed.v1` | OnHand row update | product_id, dimension_set, avail_physical, avail_ordered, delta_bucket, delta_qty | procurement, sales, warehouse |
+| `dev.depot.inventory.journal.posted.v1` | journal reaches POSTED | journal_id, type, lines, ledger_entry_id, posting_date | ledger reconciliation, costing |
+| `dev.depot.inventory.reservation.created.v1` / `.released.v1` | reservation lifecycle | reservation_id, demand, product, dims, qty, policy | sales, production |
+| `dev.depot.inventory.reconciliation.diff.v1` | daily job finds diff ≠ 0 | account, dimension, inventory_value, ledger_balance, diff | alerting |
+| `dev.depot.inventory.transfer.shipped.v1` / `.received.v1` / `.release.v1` | transfer order ship / receive / picking release | transfer_order_id, lines (product, dims, qty), from/to/transit warehouse, ship_date, receipt_date | planning (w22), warehouse (w31), fulfillment (w28), analytics |
+| `dev.depot.inventory.ownership.changed.v1` | OWNERSHIP_CHANGE journal posted | journal_id, vendor_id, lines (product, dims, qty, consignment_price, amount_acct), ledger_entry_id | payables (w18 consignment settlement), supplier-portal (w20), analytics |
 
 ### 3.16.6 User experience
 
@@ -361,15 +361,15 @@ Fixtures: `inv-demo-plant` (200 products, 3 sites, 6 warehouses, 400 locations, 
 | Period control | contract | journals:post | AC-16.7 |
 | PWA offline count | E2E (Playwright) | count sheet | counts queued offline sync without loss |
 
-Reconciliation checks: Σ OnHand.posted_value per inventory account = ledger balance; Σ transaction qty (physical) = OnHand.physical_invent; count sheet variance total = COUNT journal total; AX migration: InventSum.PostedQty + Received + Registered − Deducted − Picked = Passage physical_invent per InventDimId.
+Reconciliation checks: Σ OnHand.posted_value per inventory account = ledger balance; Σ transaction qty (physical) = OnHand.physical_invent; count sheet variance total = COUNT journal total; AX migration: InventSum.PostedQty + Received + Registered − Deducted − Picked = Depot physical_invent per InventDimId.
 
 ### 3.16.10 Deployment and operations
 
-Helm chart `passage-inventory` (Deployment ×3, HPA 3–12 on CPU 70%, Postgres CloudNativePG cluster `inventory-db` 3 instances, outbox Debezium connector `inventory-outbox`). Config: `INV_NEGATIVE_DEFAULT=forbid`, `INV_RESERVATION_TTL_HOURS=0`, `INV_JOURNAL_MAX_LINES=10000`, `INV_RECON_CRON=0 2 * * *`. Migrations via Atlas from entity metadata (`inventory/v16.*`). Feature flags: `inv.fefo_policy`, `inv.count_pwa`, `inv.transfer_cost_diff` (off until w20). Scheduled jobs (Temporal cron): daily reconciliation 02:00 tenant local, count sheet generation per plan cron, weekly rebuild-and-compare Sunday 03:00. SLOs: journal post p95 < 2 s for 1,000 lines; on-hand query p95 < 50 ms; event lag p95 < 5 s. Alerts: reconciliation diff ≠ 0 (page), outbox lag > 60 s (ticket), negative on-hand where forbidden (page, indicates bug). Runbook: rebuild projection, replay outbox, reverse journal. Rollback: Argo CD digest rollback; migrations are additive in this wave (no destructive change), so downgrade is safe.
+Helm chart `depot-inventory` (Deployment ×3, HPA 3–12 on CPU 70%, Postgres CloudNativePG cluster `inventory-db` 3 instances, outbox Debezium connector `inventory-outbox`). Config: `INV_NEGATIVE_DEFAULT=forbid`, `INV_RESERVATION_TTL_HOURS=0`, `INV_JOURNAL_MAX_LINES=10000`, `INV_RECON_CRON=0 2 * * *`. Migrations via Atlas from entity metadata (`inventory/v16.*`). Feature flags: `inv.fefo_policy`, `inv.count_pwa`, `inv.transfer_cost_diff` (off until w20). Scheduled jobs (Temporal cron): daily reconciliation 02:00 tenant local, count sheet generation per plan cron, weekly rebuild-and-compare Sunday 03:00. SLOs: journal post p95 < 2 s for 1,000 lines; on-hand query p95 < 50 ms; event lag p95 < 5 s. Alerts: reconciliation diff ≠ 0 (page), outbox lag > 60 s (ticket), negative on-hand where forbidden (page, indicates bug). Runbook: rebuild projection, replay outbox, reverse journal. Rollback: Argo CD digest rollback; migrations are additive in this wave (no destructive change), so downgrade is safe.
 
 ### 3.16.11 Migration from AX / SAP
 
-| Source | Passage entity | Notes |
+| Source | Depot entity | Notes |
 |---|---|---|
 | AX InventSum (per InventDimId) | OPENING_BALANCE journal lines → InventoryTransaction + OnHand | PostedQty+Received+Registered−Deducted−Picked → qty; PostedValue+PhysicalValue → cost; reserved/ordered buckets not migrated (open orders re-created in w17/w27) |
 | AX InventDim | DimensionSet | map InventSiteId→site, InventLocationId→warehouse, wMSLocationId→location, InventBatchId→batch, InventSerialId→serial, InventStatusId→inventory_status |
@@ -381,7 +381,7 @@ Helm chart `passage-inventory` (Deployment ×3, HPA 3–12 on CPU 70%, Postgres 
 | SAP MBEW (LBKUM, SALK3, VERPR/STPRS) | cost on opening lines | value = SALK3 split proportionally by qty |
 | SAP MSEG/MKPF history | InventoryTransaction history | BWART → status mapping table (101, 102, 261, 262, 301, 311, 551, 561) |
 
-Transformation notes: dimension hash computed after mapping; quantities converted to Passage inventory unit via MARM/UnitOfMeasureConversion; opening journal posts with financial_date = cutover date − 1 and offset account = migration clearing account. Validation: Σ migrated qty per product/site equals source extract; Σ value equals source within 0.01 × product count; no serial duplicates. Not migrated: InventSum reservation buckets (recreated by open documents), AX quarantine orders (re-entered manually; typically < 50), SAP special stock O (subcontracting; wave 21); special stock K migrates as `owner = vendor` stock per FR-16.17, InventClosing history (wave 20 decides).
+Transformation notes: dimension hash computed after mapping; quantities converted to Depot inventory unit via MARM/UnitOfMeasureConversion; opening journal posts with financial_date = cutover date − 1 and offset account = migration clearing account. Validation: Σ migrated qty per product/site equals source extract; Σ value equals source within 0.01 × product count; no serial duplicates. Not migrated: InventSum reservation buckets (recreated by open documents), AX quarantine orders (re-entered manually; typically < 50), SAP special stock O (subcontracting; wave 21); special stock K migrates as `owner = vendor` stock per FR-16.17, InventClosing history (wave 20 decides).
 
 ### 3.16.12 Dependencies, risks, open questions
 
@@ -614,7 +614,7 @@ At the end of the wave a requester can raise a requisition that routes by amount
 
 **Pain points solved (10x lens)**
 
-| Pain point in AX/SAP today | Root cause | Passage answer in this wave | Measurable 10x target |
+| Pain point in AX/SAP today | Root cause | Depot answer in this wave | Measurable 10x target |
 |---|---|---|---|
 | AX purchase order confirmation runs PurchFormLetter with totals recalculation and PDF through SSRS; 20–90 s per PO on a loaded AOS; ME21N saves fast but output (NEU message, ME9F) depends on a scheduled RSNAST00 job | Synchronous document class chain plus report server; SAP output via NAST condition technique and batch | Confirmation is a state transition that enqueues rendering (Temporal activity) and emits `po.confirmed`; PDF rendered by a stateless worker within 3 s | Confirm latency: 20–90 s → < 2 s UI, PDF < 5 s; no batch wait |
 | Price lookup in AX (PriceDisc class, PriceDiscTable search over 3 account codes × 3 item codes) is opaque; buyers cannot see why a price was chosen; SAP condition analysis (ME23N > Conditions > Analysis) exists but is 6 clicks deep | No explain output; access sequence hidden | Every PO line carries `price_source` (agreement id, trade agreement id, last price, manual) with an "explain" popover; `GET /pricing/explain` | Clicks to see why a price applied: 6–8 → 1; price disputes per 1,000 POs: tracked, target −80% |
@@ -624,7 +624,7 @@ At the end of the wave a requester can raise a requisition that routes by amount
 
 ### 3.17.2 AX / SAP parity map
 
-| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Passage equivalent | Parity level |
+| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Depot equivalent | Parity level |
 |---|---|---|---|---|
 | Purchase requisition | PurchReqTable, PurchReqLine; forms PurchReqTable, PurchReqReview workflow; policies (PurchReqControlRule) | EBAN/EBKN; ME51N/ME52N/ME53N; release strategy ME54N; ME57 assign source | `procurement.PurchaseRequisition`, `RequisitionLine`; Requisition workspace; policy matrix | full |
 | Approval policy | Purchasing policies (PurchPolicy), amount bands via workflow conditions, category access policy | Release strategy (release groups/codes, classification characteristics CEBAN) | `ApprovalPolicy` (bands, category, org unit, requester role) compiled to Temporal workflow input | improved |
@@ -702,7 +702,7 @@ At the end of the wave a requester can raise a requisition that routes by amount
 - **FR-17.14 Buyer workspace** — Should. The system shall show the buyer the queue of approved requisition lines, RFQs awaiting replies, POs awaiting confirmation, agreements near expiry (< 30 days) or near limit (> 90 %).
 
 - **FR-17.15 Scheduling agreements and releases** — Must. The system shall support a `SchedulingAgreement` (SAP ME31L type LP/LPA; AX agreement with delivery schedule) per vendor × product × site with target quantity, validity, price terms, `release_profile` (FRC forecast horizon days, JIT horizon days, firm zone days, trade-off zone days, release frequency), and a `ReleaseSchedule` of dated quantities maintained manually in this wave and by wave 22 MRP later.
-  - A release run (manual `:release` or the job in 3.17.16; SAP ME84) snapshots the schedule into a numbered `Release` (kind FRC or JIT) carrying per-line cumulative released quantity, cumulative received quantity (from wave 18 receipts) and the last receipt reference; the release document is rendered (3.17.15) and emitted as `dev.passage.procurement.sa.release.created.v1` for wave 35 EDI DELFOR/DELJIT.
+  - A release run (manual `:release` or the job in 3.17.16; SAP ME84) snapshots the schedule into a numbered `Release` (kind FRC or JIT) carrying per-line cumulative released quantity, cumulative received quantity (from wave 18 receipts) and the last receipt reference; the release document is rendered (3.17.15) and emitted as `dev.depot.procurement.sa.release.created.v1` for wave 35 EDI DELFOR/DELJIT.
   - Schedule lines inside the firm zone cannot be reduced without a reason code; lines in the trade-off zone warn; beyond it they are forecast only.
   - Each schedule line writes an ORDERED inventory transaction (wave 16) like a PO delivery schedule; receipts reference the schedule line.
   - Inquiry "Monitor scheduling agreement releases" lists agreements with open cumulative quantity, last release date, next release due, and release documentation per release number (SAP ME85/ME86).
@@ -798,15 +798,15 @@ Commands: `SubmitRequisition` (account structure valid, lines ≥ 1, no closed c
 
 | Event | Trigger | Payload fields | Consumers |
 |---|---|---|---|
-| `dev.passage.procurement.requisition.submitted.v1` / `.approved.v1` / `.rejected.v1` | workflow transitions | requisition_id, lines (product, qty, amount), total, approver chain, policy_version | notifications, budget (w38), analytics |
-| `dev.passage.procurement.rfq.sent.v1` / `.awarded.v1` | RFQ send/award | rfq_id, vendors, lines, awarded vendor per line | supplier-portal (w20), notifications |
-| `dev.passage.procurement.po.confirmed.v1` | confirm | po_id, version_no, vendor_id, lines (product, qty, unit, price, delivery dates, site/warehouse), totals, output channel | inventory, receiving (w18), supplier-portal, EDI (w35), analytics |
-| `dev.passage.procurement.po.version.created.v1` | any confirmed version > 1 | po_id, version_no, patch, reapproval_required | supplier-portal, receiving |
-| `dev.passage.procurement.po.cancelled.v1` | cancel | po_id, lines cancelled, remaining qty | inventory (cancel ORDERED), supplier-portal |
-| `dev.passage.procurement.agreement.threshold.v1` | released ≥ 90 % or expiry < 30 d | agreement_id, line, pct, expiry | notifications |
-| `dev.passage.procurement.sa.release.created.v1` | scheduling agreement release run | agreement_id, release_number, kind (FRC/JIT), vendor_id, lines (product, schedule dates, qty, cumulative released, cumulative received) | EDI (w35 DELFOR/DELJIT), supplier-portal (w20), planning (w22) |
-| `dev.passage.procurement.policy.changed.v1` / `signinglimit.changed.v1` | policy version activated / signing limit approved | policy_id, type, version, hierarchy purpose; worker_id, document type, limits | procurement (re-evaluation), expense (w43), audit (w48) |
-| `dev.passage.procurement.po.repriced.v1` | `:reprice` applied | po_id, version_no, lines (old price, new price, delta), invoiced lines passed to payables | payables (w18 subsequent debit/credit), analytics |
+| `dev.depot.procurement.requisition.submitted.v1` / `.approved.v1` / `.rejected.v1` | workflow transitions | requisition_id, lines (product, qty, amount), total, approver chain, policy_version | notifications, budget (w38), analytics |
+| `dev.depot.procurement.rfq.sent.v1` / `.awarded.v1` | RFQ send/award | rfq_id, vendors, lines, awarded vendor per line | supplier-portal (w20), notifications |
+| `dev.depot.procurement.po.confirmed.v1` | confirm | po_id, version_no, vendor_id, lines (product, qty, unit, price, delivery dates, site/warehouse), totals, output channel | inventory, receiving (w18), supplier-portal, EDI (w35), analytics |
+| `dev.depot.procurement.po.version.created.v1` | any confirmed version > 1 | po_id, version_no, patch, reapproval_required | supplier-portal, receiving |
+| `dev.depot.procurement.po.cancelled.v1` | cancel | po_id, lines cancelled, remaining qty | inventory (cancel ORDERED), supplier-portal |
+| `dev.depot.procurement.agreement.threshold.v1` | released ≥ 90 % or expiry < 30 d | agreement_id, line, pct, expiry | notifications |
+| `dev.depot.procurement.sa.release.created.v1` | scheduling agreement release run | agreement_id, release_number, kind (FRC/JIT), vendor_id, lines (product, schedule dates, qty, cumulative released, cumulative received) | EDI (w35 DELFOR/DELJIT), supplier-portal (w20), planning (w22) |
+| `dev.depot.procurement.policy.changed.v1` / `signinglimit.changed.v1` | policy version activated / signing limit approved | policy_id, type, version, hierarchy purpose; worker_id, document type, limits | procurement (re-evaluation), expense (w43), audit (w48) |
+| `dev.depot.procurement.po.repriced.v1` | `:reprice` applied | po_id, version_no, lines (old price, new price, delta), invoiced lines passed to payables | payables (w18 subsequent debit/credit), analytics |
 
 ### 3.17.6 User experience
 
@@ -885,11 +885,11 @@ Reconciliation checks: Σ requisition lines CONSOLIDATED = Σ PO lines with requ
 
 ### 3.17.10 Deployment and operations
 
-Helm chart `passage-procurement` (API Deployment ×3, render worker ×2, Temporal worker ×2, CloudNativePG `procurement-db`, outbox connector). Config: `PRC_CONSOLIDATION_WINDOW_DAYS=7`, `PRC_CHANGE_MGMT_DEFAULT=true`, `PRC_RFQ_LATE_POLICY=flag`, `PRC_PDF_TIMEOUT_S=20`. Migrations `procurement/v17.*`. Feature flags: `prc.rfq_portal_replies` (on in w20), `prc.edi_output` (w35), `prc.delivery_date_pricing`. Jobs: agreement threshold scan daily 06:00; RFQ deadline closer hourly; approval SLA escalation (Temporal timers). SLOs: PO create/confirm API p95 < 500 ms; requisition submit to workflow start < 2 s; PDF < 5 s p95. Alerts: workflow task backlog > 100 for 10 min; render failures > 5/h; pricing lookup p95 > 50 ms. Runbook: re-render document, restart stuck approval (Temporal signal), re-emit `po.confirmed`. Rollback: additive migrations; flag off `prc.change_mgmt` if version logic misbehaves (POs remain confirmable without versions).
+Helm chart `depot-procurement` (API Deployment ×3, render worker ×2, Temporal worker ×2, CloudNativePG `procurement-db`, outbox connector). Config: `PRC_CONSOLIDATION_WINDOW_DAYS=7`, `PRC_CHANGE_MGMT_DEFAULT=true`, `PRC_RFQ_LATE_POLICY=flag`, `PRC_PDF_TIMEOUT_S=20`. Migrations `procurement/v17.*`. Feature flags: `prc.rfq_portal_replies` (on in w20), `prc.edi_output` (w35), `prc.delivery_date_pricing`. Jobs: agreement threshold scan daily 06:00; RFQ deadline closer hourly; approval SLA escalation (Temporal timers). SLOs: PO create/confirm API p95 < 500 ms; requisition submit to workflow start < 2 s; PDF < 5 s p95. Alerts: workflow task backlog > 100 for 10 min; render failures > 5/h; pricing lookup p95 > 50 ms. Runbook: re-render document, restart stuck approval (Temporal signal), re-emit `po.confirmed`. Rollback: additive migrations; flag off `prc.change_mgmt` if version logic misbehaves (POs remain confirmable without versions).
 
 ### 3.17.11 Migration from AX / SAP
 
-| Source | Passage entity | Notes |
+| Source | Depot entity | Notes |
 |---|---|---|
 | AX PurchTable/PurchLine (open: PurchStatus Backorder, open qty > 0) | PurchaseOrder/Line version 1, approval_status CONFIRMED | remaining qty = PurchQty − received; received history not migrated (opening on-hand covers stock) |
 | AX PurchAgreementHeader/Line, AgreementLineReleasedLine | PurchaseAgreement/Line with released totals | released computed from source releases |
@@ -1130,7 +1130,7 @@ Out of scope: payment (wave 19), warehouse-directed put-away and license plates 
 
 **Pain points solved (10x lens)**
 
-| Pain point in AX/SAP today | Root cause | Passage answer in this wave | Measurable 10x target |
+| Pain point in AX/SAP today | Root cause | Depot answer in this wave | Measurable 10x target |
 |---|---|---|---|
 | AX pending vendor invoice form (VendInvoiceInfoTable) runs "Match product receipts" as a dialog, then matching icons update only after "Update match status"; users re-key invoice lines from paper; SAP MIRO proposes lines but the tolerance log (RBKP block indicator, MRBR release) is a separate transaction | Matching is a form-triggered class (VendInvoiceMatch), not an engine; capture is manual | Matching engine runs on every invoice save and on every receipt posting (re-match candidates), status visible inline; OCR adapter pre-fills lines; `MatchResult` per line with variances | Invoice entry time: 4–6 min → < 60 s; manual re-match steps: 3 → 0 |
 | GR/IR reconciliation: AX "Accrued purchases" report and SAP MR11 (GR/IR maintenance) plus F.19 regrouping are month-end chores; differences hide for months | GR/IR balance is an account balance with no per-PO-line open-item ledger in AX; SAP EKBE requires MR11 to clear residuals | `GrirOpenItem` per PO line × receipt, cleared by invoice line; GR/IR report = Σ open items and must equal the account balance (daily reconciliation) | Month-end GR/IR effort: 4–8 h → < 15 min; unexplained residual: non-zero → 0 |
@@ -1140,7 +1140,7 @@ Out of scope: payment (wave 19), warehouse-directed put-away and license plates 
 
 ### 3.18.2 AX / SAP parity map
 
-| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Passage equivalent | Parity level |
+| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Depot equivalent | Parity level |
 |---|---|---|---|---|
 | Arrival / registration | Arrival overview (WMSArrivalOverview), arrival journal (WMSJournalTable type Reception), registration (InventTransRegister) | Inbound delivery VL31N, GR into blocked stock (103/105), quality inspection stock | `Arrival` (ARRIVED), `Registration` (REGISTERED) steps on ReceiptLine; arrival overview screen | full |
 | Product receipt | PurchFormLetter_PackingSlip → VendPackingSlipJour/Trans, InventTrans Received, ledger posting PurchPackingSlip/accrual | MIGO 101 → MKPF/MSEG, EKBE (VGABE 1), GR/IR via WRX, inventory BSX | `ProductReceipt`/`ReceiptLine`; RECEIVED transactions; ledger entry Dr inventory / Cr GR/IR | full |
@@ -1213,7 +1213,7 @@ Out of scope: payment (wave 19), warehouse-directed put-away and license plates 
 
 - **FR-18.15 Stochastic (random-sample) invoice block** — Must. The system shall evaluate on every invoice reaching MATCHED a `stochastic_block` rule from the matching policy scope (SAP OMRX T169P): `threshold_amount` (acct ccy) and `percentage`; invoices with total ≥ threshold are blocked with probability `percentage` % (linear decrease below threshold proportional to total/threshold), using a seeded CSPRNG with the invoice id so the decision is reproducible; a blocked invoice gets match status `AUDIT_SAMPLE`, is routed to the AP auditor queue (duty InvoiceAuditRelease), and is released or rejected with reason; the sample rate actually achieved is reported monthly.
 
-- **FR-18.16 Consignment settlement** — Must. The system shall consume `dev.passage.inventory.ownership.changed.v1` (wave 16 FR-16.17) and, per vendor and settlement frequency (`consignment_settlement_frequency` DAILY/WEEKLY/MONTHLY, SAP MRKO), create and post a `VendorInvoice` of kind CONSIGNMENT with one line per ownership change line (product, qty, consignment price, tax group from the trade agreement), clearing the consignment accrual (Dr consignment accrual / Cr vendor control), skipping matching (status MATCHED by construction), and sending a consignment settlement statement (3.18.15) to the vendor; when `consignment_self_billing=false` the vendor's own invoice is matched against the ownership change lines instead (2-way to accrual).
+- **FR-18.16 Consignment settlement** — Must. The system shall consume `dev.depot.inventory.ownership.changed.v1` (wave 16 FR-16.17) and, per vendor and settlement frequency (`consignment_settlement_frequency` DAILY/WEEKLY/MONTHLY, SAP MRKO), create and post a `VendorInvoice` of kind CONSIGNMENT with one line per ownership change line (product, qty, consignment price, tax group from the trade agreement), clearing the consignment accrual (Dr consignment accrual / Cr vendor control), skipping matching (status MATCHED by construction), and sending a consignment settlement statement (3.18.15) to the vendor; when `consignment_self_billing=false` the vendor's own invoice is matched against the ownership change lines instead (2-way to accrual).
 
 - **FR-18.17 Invoicing plan settlement run** — Should. The system shall run daily (3.18.16; SAP MRIS) over wave 17 invoicing plan rows with `due_date ≤ run date` and status OPEN, creating per vendor a `VendorInvoice` kind PLAN with lines for each due row (amount, tax group of the PO line, account assignment), posting it when `settle_without_receipt=true` and the plan is marked ERS-like (`auto_post=true`), otherwise leaving it in DRAFT for the vendor's invoice to be matched 2-way to the plan row; plan rows move to INVOICED with the invoice reference.
 
@@ -1293,15 +1293,15 @@ Commands: `PostReceipt` (open period, over-delivery, serial uniqueness, PO confi
 
 | Event | Trigger | Payload fields | Consumers |
 |---|---|---|---|
-| `dev.passage.receiving.receipt.posted.v1` | receipt POSTED | receipt_id, po_id, lines (po_line, qty, dims, batch, serials, amount_acct), ledger_entry_id | inventory, payables (re-match, ERS), costing, supplier-portal |
-| `dev.passage.receiving.receipt.corrected.v1` | correction/cancel | receipt_id, delta lines | payables, costing |
-| `dev.passage.payables.invoice.captured.v1` | DRAFT created from adapter | invoice_id, vendor, source, confidence | notifications |
-| `dev.passage.payables.invoice.match.exception.v1` | variance status | invoice_id, line_id, status, variances, assignee | workflow, notifications |
-| `dev.passage.payables.invoice.posted.v1` | POSTED | invoice_id, vendor_transaction_id, lines, totals, grir cleared amounts, ledger_entry_id | ledger reconciliation, costing, tax, analytics |
-| `dev.passage.payables.grir.cleared.v1` | GrirOpenItem CLEARED/WRITTEN_OFF | open_item_id, amounts | analytics |
-| `dev.passage.receiving.service-entry-sheet.accepted.v1` / `.revoked.v1` | sheet accepted / revoked | sheet_id, po_id, po_line_id, vendor_id, lines (service item, qty, amount, account assignment), grir amounts, ledger_entry_id | payables (match, ERS), costing (expense), project accounting (w41), supplier-portal (w20) |
-| `dev.passage.payables.invoice.audit-sampled.v1` | stochastic block applied | invoice_id, vendor_id, total, rule (threshold, percentage), assignee | workflow, notifications, audit (w48) |
-| `dev.passage.payables.consignment.settled.v1` | consignment settlement invoice posted | invoice_id, vendor_id, ownership change journal ids, lines, total | supplier-portal (w20), analytics |
+| `dev.depot.receiving.receipt.posted.v1` | receipt POSTED | receipt_id, po_id, lines (po_line, qty, dims, batch, serials, amount_acct), ledger_entry_id | inventory, payables (re-match, ERS), costing, supplier-portal |
+| `dev.depot.receiving.receipt.corrected.v1` | correction/cancel | receipt_id, delta lines | payables, costing |
+| `dev.depot.payables.invoice.captured.v1` | DRAFT created from adapter | invoice_id, vendor, source, confidence | notifications |
+| `dev.depot.payables.invoice.match.exception.v1` | variance status | invoice_id, line_id, status, variances, assignee | workflow, notifications |
+| `dev.depot.payables.invoice.posted.v1` | POSTED | invoice_id, vendor_transaction_id, lines, totals, grir cleared amounts, ledger_entry_id | ledger reconciliation, costing, tax, analytics |
+| `dev.depot.payables.grir.cleared.v1` | GrirOpenItem CLEARED/WRITTEN_OFF | open_item_id, amounts | analytics |
+| `dev.depot.receiving.service-entry-sheet.accepted.v1` / `.revoked.v1` | sheet accepted / revoked | sheet_id, po_id, po_line_id, vendor_id, lines (service item, qty, amount, account assignment), grir amounts, ledger_entry_id | payables (match, ERS), costing (expense), project accounting (w41), supplier-portal (w20) |
+| `dev.depot.payables.invoice.audit-sampled.v1` | stochastic block applied | invoice_id, vendor_id, total, rule (threshold, percentage), assignee | workflow, notifications, audit (w48) |
+| `dev.depot.payables.consignment.settled.v1` | consignment settlement invoice posted | invoice_id, vendor_id, ownership change journal ids, lines, total | supplier-portal (w20), analytics |
 
 ### 3.18.6 User experience
 
@@ -1376,11 +1376,11 @@ Reconciliation checks: Σ GrirOpenItem = GR/IR ledger balance; Σ VendorTransact
 
 ### 3.18.10 Deployment and operations
 
-Helm charts: `passage-procurement` gains the receiving module (same Postgres, separate Deployment `receiving-api` ×2); `passage-payables` (API ×3, matching worker ×2, Temporal worker ×2, CloudNativePG `payables-db`, outbox connector). Config: `AP_SMALL_DIFF_DEFAULT=0.50`, `AP_PRICE_TOL_PCT=2.0`, `AP_QTY_TOL_PCT=5.0`, `AP_DUP_WINDOW_MONTHS=24`, `AP_EXCEPTION_SLA_DAYS=3`, `RCV_OVER_DELIVERY_PCT=0`. Migrations `procurement/v18.*`, `payables/v18.*`. Flags: `ap.ocr_adapter`, `ap.ers`, `ap.ubl_intake` (w35), `rcv.pwa`. Jobs: GR/IR reconciliation daily 02:30; exception SLA timers (Temporal); ERS consumer (Kafka consumer group `payables-ers`). SLOs: receipt post p95 < 1.5 s; invoice post p95 < 2 s; matching evaluate p95 < 100 ms; event lag < 5 s. Alerts: GR/IR diff ≠ 0 (page); exception backlog > 50 (ticket); ERS consumer lag > 100 messages. Runbook: re-run match for invoice set, reprocess failed capture payloads from DLQ topic `payables.capture.dlq`, write off GR/IR residual with approval. Rollback: additive migrations; disable `ap.ers` consumer; invoices in EXCEPTION are unaffected by rollback of the matching worker.
+Helm charts: `depot-procurement` gains the receiving module (same Postgres, separate Deployment `receiving-api` ×2); `depot-payables` (API ×3, matching worker ×2, Temporal worker ×2, CloudNativePG `payables-db`, outbox connector). Config: `AP_SMALL_DIFF_DEFAULT=0.50`, `AP_PRICE_TOL_PCT=2.0`, `AP_QTY_TOL_PCT=5.0`, `AP_DUP_WINDOW_MONTHS=24`, `AP_EXCEPTION_SLA_DAYS=3`, `RCV_OVER_DELIVERY_PCT=0`. Migrations `procurement/v18.*`, `payables/v18.*`. Flags: `ap.ocr_adapter`, `ap.ers`, `ap.ubl_intake` (w35), `rcv.pwa`. Jobs: GR/IR reconciliation daily 02:30; exception SLA timers (Temporal); ERS consumer (Kafka consumer group `payables-ers`). SLOs: receipt post p95 < 1.5 s; invoice post p95 < 2 s; matching evaluate p95 < 100 ms; event lag < 5 s. Alerts: GR/IR diff ≠ 0 (page); exception backlog > 50 (ticket); ERS consumer lag > 100 messages. Runbook: re-run match for invoice set, reprocess failed capture payloads from DLQ topic `payables.capture.dlq`, write off GR/IR residual with approval. Rollback: additive migrations; disable `ap.ers` consumer; invoices in EXCEPTION are unaffected by rollback of the matching worker.
 
 ### 3.18.11 Migration from AX / SAP
 
-| Source | Passage entity | Notes |
+| Source | Depot entity | Notes |
 |---|---|---|
 | AX VendPackingSlipJour/Trans for open PO lines (received not invoiced) | ProductReceipt POSTED + GrirOpenItem | amount from VendPackingSlipTrans value; creates GR/IR opening balance matched to GL migration |
 | AX VendInvoiceInfoTable (pending invoices) | VendorInvoice DRAFT | re-matched on load |
@@ -1592,7 +1592,7 @@ Out of scope: bank statement reconciliation and cash positioning (wave 36, which
 
 **Pain points solved (10x lens)**
 
-| Pain point in AX/SAP today | Root cause | Passage answer in this wave | Measurable 10x target |
+| Pain point in AX/SAP today | Root cause | Depot answer in this wave | Measurable 10x target |
 |---|---|---|---|
 | AX payment proposal (VendPaymProposal) runs as a modal dialog from the payment journal, locks the journal while running, and must be re-run from scratch to change selection; SAP F110 parameters → proposal → edit proposal → payment run → print is five screens, with proposal logs (REGUP exceptions) read in a separate list | Proposal is a transient batch producing journal lines; no proposal entity | `PaymentProposal` is a persisted entity with selection criteria, line-level include/exclude, holds, and re-selection diff; approve → run is one action | Screens per payment run: 5–7 → 2; time from "select" to "approved file": 45 min → < 5 min |
 | Settlement in AX via "Settle open transactions" (CustVendOpenTransManager) silently computes discount and FX differences; users discover realized gain/loss or discount-lost postings only in the ledger; SAP F-53 shows the clearing document but FX difference accounts (OB09) are hidden until posted | No preview of settlement postings | `POST /settlements:preview` returns the exact journal (discount, FX gain/loss, write-off) before commit; UI shows it inline | Unexpected settlement postings found at month-end: typical 5–20/month → 0; review time per settlement: 2 min → 10 s |
@@ -1602,7 +1602,7 @@ Out of scope: bank statement reconciliation and cash positioning (wave 36, which
 
 ### 3.19.2 AX / SAP parity map
 
-| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Passage equivalent | Parity level |
+| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Depot equivalent | Parity level |
 |---|---|---|---|---|
 | Vendor open items | VendTrans, VendTransOpen; Vendor transactions form; VendTable balance | BSIK (open), BSAK (cleared), FBL1N | `VendorTransaction` with `open_amount`; vendor transactions screen | full |
 | Settlement | VendSettlement, CustVendOpenTransManager (Settle open transactions), marking (SpecTrans), partial settlement, cross-rate | Clearing F-44/F-53/F-51, residual/partial payment, BSE_CLR, AUGBL | `Settlement`, `SettlementLine`; manual, during payment, automatic | full |
@@ -1761,15 +1761,15 @@ Commands: `CommitSettlement` (same vendor, no held items, rates available, AP pe
 
 | Event | Trigger | Payload fields | Consumers |
 |---|---|---|---|
-| `dev.passage.payables.settlement.posted.v1` / `.reversed.v1` | settlement commit/reverse | settlement_id, vendor_id, lines (ids, applied, discount, fx_diff), ledger_entry_id | ledger reconciliation, analytics |
-| `dev.passage.payables.proposal.approved.v1` | approval complete | proposal_id, totals by currency, payment_date | notifications |
-| `dev.passage.payables.payment.posted.v1` | payment journal posted | payment_id, vendor, amount, method, bank account, settled items | cash (w36), analytics |
-| `dev.passage.payables.payment.sent.v1` | file generated & marked sent | payment_id, file_id, format, end_to_end_id | bank connectivity (w36), supplier-portal (w20) |
-| `dev.passage.payables.payment.status.changed.v1` | pain.002/NACHA return | payment_id, old_status, new_status, reason_code | notifications, supplier-portal |
-| `dev.passage.payables.aging.reconciled.v1` | daily job | as_of, vendor_group, open_total, control_balance, diff | alerting |
-| `dev.passage.payables.prenote.status.changed.v1` | prenote sent / confirmed / rejected / NOC applied | vendor_id, bank_account_id, old_status, new_status, return_code | notifications, vendor master (w7) |
-| `dev.passage.payables.vendor-bank-account.changed.v1` | bank account change approved | vendor_id, bank_account_id, changed fields (masked), approved_by, cooling_until | notifications (vendor contact), audit (w48), security monitoring |
-| `dev.passage.payables.balance-confirmation.replied.v1` | vendor reply captured | run_id, vendor_id, our_balance, vendor_balance, status | notifications, audit (w48) |
+| `dev.depot.payables.settlement.posted.v1` / `.reversed.v1` | settlement commit/reverse | settlement_id, vendor_id, lines (ids, applied, discount, fx_diff), ledger_entry_id | ledger reconciliation, analytics |
+| `dev.depot.payables.proposal.approved.v1` | approval complete | proposal_id, totals by currency, payment_date | notifications |
+| `dev.depot.payables.payment.posted.v1` | payment journal posted | payment_id, vendor, amount, method, bank account, settled items | cash (w36), analytics |
+| `dev.depot.payables.payment.sent.v1` | file generated & marked sent | payment_id, file_id, format, end_to_end_id | bank connectivity (w36), supplier-portal (w20) |
+| `dev.depot.payables.payment.status.changed.v1` | pain.002/NACHA return | payment_id, old_status, new_status, reason_code | notifications, supplier-portal |
+| `dev.depot.payables.aging.reconciled.v1` | daily job | as_of, vendor_group, open_total, control_balance, diff | alerting |
+| `dev.depot.payables.prenote.status.changed.v1` | prenote sent / confirmed / rejected / NOC applied | vendor_id, bank_account_id, old_status, new_status, return_code | notifications, vendor master (w7) |
+| `dev.depot.payables.vendor-bank-account.changed.v1` | bank account change approved | vendor_id, bank_account_id, changed fields (masked), approved_by, cooling_until | notifications (vendor contact), audit (w48), security monitoring |
+| `dev.depot.payables.balance-confirmation.replied.v1` | vendor reply captured | run_id, vendor_id, our_balance, vendor_balance, status | notifications, audit (w48) |
 
 ### 3.19.6 User experience
 
@@ -1843,11 +1843,11 @@ Reconciliation checks: Σ VendorTransaction.open_amount_acct per control account
 
 ### 3.19.10 Deployment and operations
 
-Helm chart `passage-payables` extended: payment-run Temporal worker ×2, file generator worker ×2, object store bucket `passage-payment-files` (S3-compatible, server-side encryption, 7-year retention, write-once). Config: `AP_WRITE_OFF_LIMIT=1.00`, `AP_DISCOUNT_LOOKAHEAD_DAYS=7`, `AP_COST_OF_CAPITAL_PCT=8`, `AP_MIN_PAYMENT=1.00`, `AP_FILE_RETENTION_DAYS=2555`. Migrations `payables/v19.*`. Flags: `ap.nacha`, `ap.checks`, `ap.positive_pay`, `ap.auto_settle_credit_notes`, `ap.structured_remittance`. Jobs: aging reconciliation daily 03:00; discount-expiry digest daily 07:00; pain.002 poller (wave 36 replaces with bank connectivity). SLOs: settlement preview p95 < 300 ms; proposal selection of 10k items < 10 s; file generation < 30 s for 2,000 payments. Alerts: aging diff ≠ 0 (page); payment run failed activity > 3 retries (page); files generated but not downloaded/transmitted within 4 h (ticket); rejected payments > 1 % of a run (ticket). Runbook: resume stuck run (Temporal), regenerate file, reverse payment, correct vendor bank account and re-propose. Rollback: additive migrations; payment files already transmitted are not affected; disable `ap.*` format flags to stop generation.
+Helm chart `depot-payables` extended: payment-run Temporal worker ×2, file generator worker ×2, object store bucket `depot-payment-files` (S3-compatible, server-side encryption, 7-year retention, write-once). Config: `AP_WRITE_OFF_LIMIT=1.00`, `AP_DISCOUNT_LOOKAHEAD_DAYS=7`, `AP_COST_OF_CAPITAL_PCT=8`, `AP_MIN_PAYMENT=1.00`, `AP_FILE_RETENTION_DAYS=2555`. Migrations `payables/v19.*`. Flags: `ap.nacha`, `ap.checks`, `ap.positive_pay`, `ap.auto_settle_credit_notes`, `ap.structured_remittance`. Jobs: aging reconciliation daily 03:00; discount-expiry digest daily 07:00; pain.002 poller (wave 36 replaces with bank connectivity). SLOs: settlement preview p95 < 300 ms; proposal selection of 10k items < 10 s; file generation < 30 s for 2,000 payments. Alerts: aging diff ≠ 0 (page); payment run failed activity > 3 retries (page); files generated but not downloaded/transmitted within 4 h (ticket); rejected payments > 1 % of a run (ticket). Runbook: resume stuck run (Temporal), regenerate file, reverse payment, correct vendor bank account and re-propose. Rollback: additive migrations; payment files already transmitted are not affected; disable `ap.*` format flags to stop generation.
 
 ### 3.19.11 Migration from AX / SAP
 
-| Source | Passage entity | Notes |
+| Source | Depot entity | Notes |
 |---|---|---|
 | AX VendTrans + VendTransOpen (open items) | VendorTransaction OPEN/PARTIALLY_SETTLED | AmountCur/AmountMST → amount_txn/acct; VendTransOpen.AmountCur → open; CashDiscDate, DueDate; vendor balance Σ must equal migrated AP control |
 | AX VendSettlement history | not migrated | closed history in lakehouse |
@@ -2060,13 +2060,13 @@ Open questions:
 
 Wave 20 makes inventory value correct. Waves 16–18 wrote `cost_amount_physical` and `cost_amount_posted` on every inventory transaction at the running estimate (receipt price, running average on issues). This wave adds the costing engine that settles issues against receipts under the item model group's method — FIFO, LIFO, weighted average (running or periodic) or standard cost — and the inventory close/recalculation job (AX InventClosing with InventSettlement and InventCostTrans; SAP material ledger period-end closing CKMLCP with CKMLPP/CKMLCR and MBEW price control S/V, MR21 price change, MR22 debit/credit) that posts `cost_amount_adjustment` rows and GL adjustments so that the inventory value report ties to the GL inventory accounts by site, warehouse, item group and financial dimension. Standard cost captures purchase price variance (PPV) on receipt and invoice. Costing versions (AX CostingVersion/InventItemPrice; SAP CK11N/CK24 marking and release for material-level prices) hold planned and standard costs by product × site with activation and revaluation of on-hand.
 
-The supplier portal (D365 vendor collaboration; SAP Ariba Supplier Network / SNC) at `supplier.<env>.passage.dev` lets vendor users acknowledge POs (accept/reject/propose changes), send ASNs, reply to RFQs (wave 17 hook), submit invoices against POs (wave 18 `:capture` source PORTAL), view payment status and advices (wave 19), and exchange documents.
+The supplier portal (D365 vendor collaboration; SAP Ariba Supplier Network / SNC) at `supplier.<env>.depot.dev` lets vendor users acknowledge POs (accept/reject/propose changes), send ASNs, reply to RFQs (wave 17 hook), submit invoices against POs (wave 18 `:capture` source PORTAL), view payment status and advices (wave 19), and exchange documents.
 
 Out of scope: BOM cost roll-up, costing sheets and production variance decomposition (wave 39), production order WIP settlement (wave 21 uses this engine for its receipts/issues), landed cost (wave 34), cost accounting ledger (wave 38), portal e-invoicing via Peppol (wave 35), supplier onboarding/qualification workflow (v1.x).
 
 **Pain points solved (10x lens)**
 
-| Pain point in AX/SAP today | Root cause | Passage answer in this wave | Measurable 10x target |
+| Pain point in AX/SAP today | Root cause | Depot answer in this wave | Measurable 10x target |
 |---|---|---|---|
 | AX inventory close (InventClosing) takes 4–12 h for large companies, blocks posting in the period, fails on unsettled negative issues with cryptic "cannot settle" messages, and must be cancelled and re-run end to end | Single-threaded settlement per item in X++ with helper threads; whole-period scope; no incremental | Close runs as a Temporal workflow with per-product child workflows (parallelism 32), incremental from the last closed date, resumable, with a pre-check report listing items that cannot settle and why | Close duration on 1M transactions: 4–12 h → < 20 min; re-run after failure: full → incremental from checkpoint |
 | Inventory value does not tie to the GL: AX "Inventory value report" (InventValueReport) requires report configuration (InventValueReportSetup) and still differs from the GL because of manual journals and timing; SAP MB5L vs FAGLB03 differences investigated monthly | Value report computed from InventTrans; GL has postings from other sources; no per-dimension open-item relationship | Value report is a projection from `CostTransaction` rows with the GL voucher on each; daily reconciliation per inventory account × dimension; every difference row drills to the causing voucher | Monthly inventory-to-GL reconciliation: 1–3 days → < 1 h; unexplained differences: non-zero → 0 |
@@ -2076,7 +2076,7 @@ Out of scope: BOM cost roll-up, costing sheets and production variance decomposi
 
 ### 3.20.2 AX / SAP parity map
 
-| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Passage equivalent | Parity level |
+| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Depot equivalent | Parity level |
 |---|---|---|---|---|
 | Costing method per item | InventModelGroup.InventModel (FIFO, LIFO, LIFO date, Weighted avg, Weighted avg date, Standard cost, Moving average) | MBEW VPRSV (S standard / V moving average), material ledger actual costing for periodic | `ItemModelGroup.costing_method` (FIFO, LIFO, LIFO_DATE, WEIGHTED_AVG_RUNNING, WEIGHTED_AVG_PERIODIC, STANDARD, MOVING_AVG) | full |
 | Inventory close | InventClosing, InventSettlement, InventCostTrans, InventClosingRecalculation; Close and adjustment form | CKMLCP (material ledger cockpit: selection, determine sequence, single/multi-level price determination, post closing), CKMLPP/CKMLCR | `InventoryClose` workflow, `CostSettlement`, `CostTransaction` | full |
@@ -2234,15 +2234,15 @@ Commands: `StartClose` (period open, no running close for entity, close_date ≥
 
 | Event | Trigger | Payload fields | Consumers |
 |---|---|---|---|
-| `dev.passage.costing.close.completed.v1` / `.cancelled.v1` / `.failed.v1` | close lifecycle | close_id, entity, close_date, kind, products, settlements, adjustment_total, duration_s, exceptions_count | ledger reconciliation, notifications, analytics |
-| `dev.passage.costing.cost.changed.v1` | activation, manual adjustment affecting unit cost | product_id, site_id, version, old_cost, new_cost, effective_from, revaluation_amount | inventory (cost price cache), planning (w22), product costing (w39) |
-| `dev.passage.costing.reconciliation.diff.v1` | daily tie-out diff ≠ 0 | account, dimension, inventory_value, ledger_balance, diff, sample vouchers | alerting |
-| `dev.passage.supplier.po.acknowledged.v1` | portal ack | po_id, version, response, proposed changes | procurement (pending change), notifications |
-| `dev.passage.supplier.asn.submitted.v1` | ASN submit | asn_id, po_id, lines, expected_arrival, tracking | receiving (expected lines), warehouse (w31), notifications |
-| `dev.passage.supplier.invoice.submitted.v1` | portal invoice | invoice_id (payables), vendor_id, po_id, total | payables (already captured), notifications |
-| `dev.passage.supplier.vendor-request.submitted.v1` / `.approved.v1` / `.rejected.v1` | vendor request lifecycle | request_id, type, prospect (name, country, tax id masked), category, questionnaire score | party master (w7 vendor creation), notifications, compliance screening |
-| `dev.passage.supplier.document.acknowledged.v1` | recipient acknowledges distributed document | distribution_id, document_id, version, vendor_id, user_id, acknowledged_at | quality (w33), notifications |
-| `dev.passage.costing.aging.snapshot.created.v1` | aging snapshot stored | snapshot_id, entity, as_of, valuation_ledger, totals per bucket | analytics, close checklist (w14) |
+| `dev.depot.costing.close.completed.v1` / `.cancelled.v1` / `.failed.v1` | close lifecycle | close_id, entity, close_date, kind, products, settlements, adjustment_total, duration_s, exceptions_count | ledger reconciliation, notifications, analytics |
+| `dev.depot.costing.cost.changed.v1` | activation, manual adjustment affecting unit cost | product_id, site_id, version, old_cost, new_cost, effective_from, revaluation_amount | inventory (cost price cache), planning (w22), product costing (w39) |
+| `dev.depot.costing.reconciliation.diff.v1` | daily tie-out diff ≠ 0 | account, dimension, inventory_value, ledger_balance, diff, sample vouchers | alerting |
+| `dev.depot.supplier.po.acknowledged.v1` | portal ack | po_id, version, response, proposed changes | procurement (pending change), notifications |
+| `dev.depot.supplier.asn.submitted.v1` | ASN submit | asn_id, po_id, lines, expected_arrival, tracking | receiving (expected lines), warehouse (w31), notifications |
+| `dev.depot.supplier.invoice.submitted.v1` | portal invoice | invoice_id (payables), vendor_id, po_id, total | payables (already captured), notifications |
+| `dev.depot.supplier.vendor-request.submitted.v1` / `.approved.v1` / `.rejected.v1` | vendor request lifecycle | request_id, type, prospect (name, country, tax id masked), category, questionnaire score | party master (w7 vendor creation), notifications, compliance screening |
+| `dev.depot.supplier.document.acknowledged.v1` | recipient acknowledges distributed document | distribution_id, document_id, version, vendor_id, user_id, acknowledged_at | quality (w33), notifications |
+| `dev.depot.costing.aging.snapshot.created.v1` | aging snapshot stored | snapshot_id, entity, as_of, valuation_ledger, totals per bucket | analytics, close checklist (w14) |
 
 ### 3.20.6 User experience
 
@@ -2319,11 +2319,11 @@ Reconciliation checks: Σ CostTransaction per inventory account = ledger balance
 
 ### 3.20.10 Deployment and operations
 
-Helm charts: `passage-costing` (API ×2, Temporal close workers ×4 with CPU 2 each, schema `costing` in `inventory-db`), `passage-supplier-portal` (React app served by the shell at `supplier.<env>.passage.dev`, BFF ×2 in TypeScript, CloudNativePG `supplier-db`, Keycloak realm `suppliers` provisioned by Helm hook, Envoy Gateway route with rate limiting and WAF rules). Config: `CST_CLOSE_PARALLELISM=32`, `CST_LOCK_WAIT_S=5`, `CST_LEVEL_DEFAULT=SITE`, `CST_ALLOW_ZERO_COST=false`, `PORTAL_RATE_LIMIT_USER=60`, `PORTAL_UPLOAD_MAX_MB=25`, `PORTAL_ACK_DUE_DAYS=2`. Migrations `inventory/v20.*` (costing schema), `supplier/v20.*`. Flags: `cst.moving_avg`, `cst.marking`, `portal.rfq_replies`, `portal.invoice_submit`, `portal.mfa_required`. Jobs: reconciliation daily 02:15; ack-overdue scan daily 08:00; portal inactive-user cleanup weekly. SLOs: value report p95 < 5 s; cost lookup p95 < 20 ms; close < 20 min per 1M txns; portal page load p95 < 1.5 s; portal availability 99.9 %. Alerts: reconciliation diff ≠ 0 (page); close FAILED (page); close running > 60 min (ticket); portal auth failures > 100/min from one IP (security ticket, auto-block). Runbook: resume close, cancel close, re-run reconciliation, rotate portal realm client secret, revoke vendor user. Rollback: additive migrations; costing schema can be disabled (flag `cst.enabled=false` reverts to wave 16 running estimate without data loss); portal can be taken down independently (DNS) without affecting internal flows.
+Helm charts: `depot-costing` (API ×2, Temporal close workers ×4 with CPU 2 each, schema `costing` in `inventory-db`), `depot-supplier-portal` (React app served by the shell at `supplier.<env>.depot.dev`, BFF ×2 in TypeScript, CloudNativePG `supplier-db`, Keycloak realm `suppliers` provisioned by Helm hook, Envoy Gateway route with rate limiting and WAF rules). Config: `CST_CLOSE_PARALLELISM=32`, `CST_LOCK_WAIT_S=5`, `CST_LEVEL_DEFAULT=SITE`, `CST_ALLOW_ZERO_COST=false`, `PORTAL_RATE_LIMIT_USER=60`, `PORTAL_UPLOAD_MAX_MB=25`, `PORTAL_ACK_DUE_DAYS=2`. Migrations `inventory/v20.*` (costing schema), `supplier/v20.*`. Flags: `cst.moving_avg`, `cst.marking`, `portal.rfq_replies`, `portal.invoice_submit`, `portal.mfa_required`. Jobs: reconciliation daily 02:15; ack-overdue scan daily 08:00; portal inactive-user cleanup weekly. SLOs: value report p95 < 5 s; cost lookup p95 < 20 ms; close < 20 min per 1M txns; portal page load p95 < 1.5 s; portal availability 99.9 %. Alerts: reconciliation diff ≠ 0 (page); close FAILED (page); close running > 60 min (ticket); portal auth failures > 100/min from one IP (security ticket, auto-block). Runbook: resume close, cancel close, re-run reconciliation, rotate portal realm client secret, revoke vendor user. Rollback: additive migrations; costing schema can be disabled (flag `cst.enabled=false` reverts to wave 16 running estimate without data loss); portal can be taken down independently (DNS) without affecting internal flows.
 
 ### 3.20.11 Migration from AX / SAP
 
-| Source | Passage entity | Notes |
+| Source | Depot entity | Notes |
 |---|---|---|
 | AX InventModelGroup.InventModel | ItemModelGroup.costing_method | FIFO→FIFO, LIFO→LIFO, LIFODate→LIFO_DATE, WeightedAvg→WEIGHTED_AVG_PERIODIC, WeightedAvgDate→WEIGHTED_AVG_RUNNING, StdCost→STANDARD, MovingAverage→MOVING_AVG |
 | AX InventItemPrice (active, PriceType Cost) per CostingVersion | ItemCost ACTIVE in version `MIG-STD` | per site; pending prices migrated as PENDING |

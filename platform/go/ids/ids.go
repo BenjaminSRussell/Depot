@@ -1,5 +1,5 @@
 // Package ids issues UUIDv7 identifiers: time-ordered, 128-bit, stored in
-// Postgres uuid columns. Every Passage primary key uses New(). (The
+// Postgres uuid columns. Every Depot primary key uses New(). (The
 // architecture's identifier decision: UUIDv7, not ULID.)
 package ids
 

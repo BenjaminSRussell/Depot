@@ -6,8 +6,8 @@ info:
     CloudEvents 1.0 envelope from platform/go/events; payloads below are the data member.
     Every event is written to the outbox in the same transaction as the change it reports and
     relayed by Debezium (wave 4); an idempotent replay emits nothing. The envelope's `actor`
-    is the caller. Event types follow dev.passage.<context>.<entity>.<verb>.v<n>; the kernel
-    rule allows no hyphen, so the PRD's passage.production.order.status-changed.v1 is
+    is the caller. Event types follow dev.depot.<context>.<entity>.<verb>.v<n>; the kernel
+    rule allows no hyphen, so the PRD's depot.production.order.status-changed.v1 is
     order.statuschanged (see NOT-IMPLEMENTED.md). journal.posted and order.settled carry the
     balanced ledger lines for the general ledger (wave 11) to book. subcontract.porequested (the
     PRD's subcontract.po-requested) asks purchasing (wave 17) for the vendor PO of each subcontract
@@ -22,8 +22,8 @@ info:
     order.scheduled reports :schedule (infinite capacity): the order's dates and its dated jobs,
     for scheduling (wave 23) and the shop floor (wave 25). parameters.saved reports the production parameters of a site created or replaced (PRD 4.21.13).
 channels:
-  passage.production.order:
-    address: passage.production.order
+  depot.production.order:
+    address: depot.production.order
     description: Keyed by order id, so the events of one order stay ordered.
     messages:
       created:
@@ -38,28 +38,28 @@ channels:
         $ref: '#/components/messages/orderSettled'
       bomedited:
         $ref: '#/components/messages/orderBOMEdited'
-  passage.production.journal:
-    address: passage.production.journal
+  depot.production.journal:
+    address: depot.production.journal
     description: Keyed by order id (the outbox aggregate), so an order's journals stay ordered.
     messages:
       posted:
         $ref: '#/components/messages/journalPosted'
-  passage.production.asbuilt:
-    address: passage.production.asbuilt
+  depot.production.asbuilt:
+    address: depot.production.asbuilt
     description: Keyed by order id (the outbox aggregate), so an order's genealogy stays ordered.
     messages:
       assigned:
         $ref: '#/components/messages/asBuiltAssigned'
       detached:
         $ref: '#/components/messages/asBuiltDetached'
-  passage.production.triggerpoint:
-    address: passage.production.triggerpoint
+  depot.production.triggerpoint:
+    address: depot.production.triggerpoint
     description: Keyed by order id (the outbox aggregate), so an order's firings stay ordered.
     messages:
       fired:
         $ref: '#/components/messages/triggerPointFired'
-  passage.production.subcontract:
-    address: passage.production.subcontract
+  depot.production.subcontract:
+    address: depot.production.subcontract
     description: Keyed by order id (the outbox aggregate), so an order's requests stay ordered.
     messages:
       porequested:
@@ -68,14 +68,14 @@ channels:
         $ref: '#/components/messages/subcontractPOChanged'
       pocancelled:
         $ref: '#/components/messages/subcontractPOCancelled'
-  passage.production.operation:
-    address: passage.production.operation
+  depot.production.operation:
+    address: depot.production.operation
     description: Keyed by order id (the outbox aggregate), so an order's operation changes stay ordered.
     messages:
       statuschanged:
         $ref: '#/components/messages/operationStatusChanged'
-  passage.production.orderchange:
-    address: passage.production.orderchange
+  depot.production.orderchange:
+    address: depot.production.orderchange
     description: Keyed by order id (the outbox aggregate), so an order's changes stay ordered with its other events.
     messages:
       detected:
@@ -84,20 +84,20 @@ channels:
         $ref: '#/components/messages/orderChangeApplied'
       dismissed:
         $ref: '#/components/messages/orderChangeDismissed'
-  passage.production.costsnapshot:
-    address: passage.production.costsnapshot
+  depot.production.costsnapshot:
+    address: depot.production.costsnapshot
     description: Keyed by legal entity id (the outbox aggregate), so the runs of one legal entity stay ordered.
     messages:
       taken:
         $ref: '#/components/messages/costSnapshotTaken'
-  passage.production.parameters:
-    address: passage.production.parameters
+  depot.production.parameters:
+    address: depot.production.parameters
     description: Keyed by legal entity id (the outbox aggregate), so the changes of one legal entity's parameters stay ordered.
     messages:
       saved:
         $ref: '#/components/messages/parametersSaved'
-  passage.planning.plannedorder:
-    address: passage.planning.plannedorder
+  depot.planning.plannedorder:
+    address: depot.planning.plannedorder
     description: |
       Planning's firmed planned orders (w22, FR-22.10), consumed by the `production-planning` consumer.
       A planned order of order_type production is stored in the planned order intake with its
@@ -109,8 +109,8 @@ channels:
     messages:
       firmed:
         $ref: '#/components/messages/plannedOrderFirmed'
-  passage.shopfloor.registration:
-    address: passage.shopfloor.registration
+  depot.shopfloor.registration:
+    address: depot.shopfloor.registration
     description: |
       The shop floor's stored registrations (w25), consumed by the `production-shopfloor` consumer
       (#481, AC-25.1). A closed job-stop that names an order posts a job card on the order's process
@@ -122,8 +122,8 @@ channels:
     messages:
       posted:
         $ref: '#/components/messages/registrationPosted'
-  passage.shopfloor.registration-corrected:
-    address: passage.shopfloor.registration-corrected
+  depot.shopfloor.registration-corrected:
+    address: depot.shopfloor.registration-corrected
     description: |
       The shop floor's registration corrections, consumed by the `production-shopfloor` consumer: the
       job card of a corrected job-stop is reversed and, for positive hours, booked again at the same
@@ -135,99 +135,99 @@ channels:
 operations:
   receiveRegistrationPosted:
     action: receive
-    channel: { $ref: '#/channels/passage.shopfloor.registration' }
-    messages: [{ $ref: '#/channels/passage.shopfloor.registration/messages/posted' }]
+    channel: { $ref: '#/channels/depot.shopfloor.registration' }
+    messages: [{ $ref: '#/channels/depot.shopfloor.registration/messages/posted' }]
   receiveRegistrationCorrected:
     action: receive
-    channel: { $ref: '#/channels/passage.shopfloor.registration-corrected' }
-    messages: [{ $ref: '#/channels/passage.shopfloor.registration-corrected/messages/corrected' }]
+    channel: { $ref: '#/channels/depot.shopfloor.registration-corrected' }
+    messages: [{ $ref: '#/channels/depot.shopfloor.registration-corrected/messages/corrected' }]
   receivePlannedOrderFirmed:
     action: receive
-    channel: { $ref: '#/channels/passage.planning.plannedorder' }
-    messages: [{ $ref: '#/channels/passage.planning.plannedorder/messages/firmed' }]
+    channel: { $ref: '#/channels/depot.planning.plannedorder' }
+    messages: [{ $ref: '#/channels/depot.planning.plannedorder/messages/firmed' }]
   onOrderCreated:
     action: send
-    channel: { $ref: '#/channels/passage.production.order' }
-    messages: [{ $ref: '#/channels/passage.production.order/messages/created' }]
+    channel: { $ref: '#/channels/depot.production.order' }
+    messages: [{ $ref: '#/channels/depot.production.order/messages/created' }]
   onOrderUpdated:
     action: send
-    channel: { $ref: '#/channels/passage.production.order' }
-    messages: [{ $ref: '#/channels/passage.production.order/messages/updated' }]
+    channel: { $ref: '#/channels/depot.production.order' }
+    messages: [{ $ref: '#/channels/depot.production.order/messages/updated' }]
   onOrderStatusChanged:
     action: send
-    channel: { $ref: '#/channels/passage.production.order' }
-    messages: [{ $ref: '#/channels/passage.production.order/messages/statuschanged' }]
+    channel: { $ref: '#/channels/depot.production.order' }
+    messages: [{ $ref: '#/channels/depot.production.order/messages/statuschanged' }]
   onOrderScheduled:
     action: send
-    channel: { $ref: '#/channels/passage.production.order' }
-    messages: [{ $ref: '#/channels/passage.production.order/messages/scheduled' }]
+    channel: { $ref: '#/channels/depot.production.order' }
+    messages: [{ $ref: '#/channels/depot.production.order/messages/scheduled' }]
   onOrderSettled:
     action: send
-    channel: { $ref: '#/channels/passage.production.order' }
-    messages: [{ $ref: '#/channels/passage.production.order/messages/settled' }]
+    channel: { $ref: '#/channels/depot.production.order' }
+    messages: [{ $ref: '#/channels/depot.production.order/messages/settled' }]
   onOrderBOMEdited:
     action: send
-    channel: { $ref: '#/channels/passage.production.order' }
-    messages: [{ $ref: '#/channels/passage.production.order/messages/bomedited' }]
+    channel: { $ref: '#/channels/depot.production.order' }
+    messages: [{ $ref: '#/channels/depot.production.order/messages/bomedited' }]
   onJournalPosted:
     action: send
-    channel: { $ref: '#/channels/passage.production.journal' }
-    messages: [{ $ref: '#/channels/passage.production.journal/messages/posted' }]
+    channel: { $ref: '#/channels/depot.production.journal' }
+    messages: [{ $ref: '#/channels/depot.production.journal/messages/posted' }]
   onAsBuiltAssigned:
     action: send
-    channel: { $ref: '#/channels/passage.production.asbuilt' }
-    messages: [{ $ref: '#/channels/passage.production.asbuilt/messages/assigned' }]
+    channel: { $ref: '#/channels/depot.production.asbuilt' }
+    messages: [{ $ref: '#/channels/depot.production.asbuilt/messages/assigned' }]
   onAsBuiltDetached:
     action: send
-    channel: { $ref: '#/channels/passage.production.asbuilt' }
-    messages: [{ $ref: '#/channels/passage.production.asbuilt/messages/detached' }]
+    channel: { $ref: '#/channels/depot.production.asbuilt' }
+    messages: [{ $ref: '#/channels/depot.production.asbuilt/messages/detached' }]
   onTriggerPointFired:
     action: send
-    channel: { $ref: '#/channels/passage.production.triggerpoint' }
-    messages: [{ $ref: '#/channels/passage.production.triggerpoint/messages/fired' }]
+    channel: { $ref: '#/channels/depot.production.triggerpoint' }
+    messages: [{ $ref: '#/channels/depot.production.triggerpoint/messages/fired' }]
   onSubcontractPORequested:
     action: send
-    channel: { $ref: '#/channels/passage.production.subcontract' }
-    messages: [{ $ref: '#/channels/passage.production.subcontract/messages/porequested' }]
+    channel: { $ref: '#/channels/depot.production.subcontract' }
+    messages: [{ $ref: '#/channels/depot.production.subcontract/messages/porequested' }]
   onSubcontractPOChanged:
     action: send
-    channel: { $ref: '#/channels/passage.production.subcontract' }
-    messages: [{ $ref: '#/channels/passage.production.subcontract/messages/pochanged' }]
+    channel: { $ref: '#/channels/depot.production.subcontract' }
+    messages: [{ $ref: '#/channels/depot.production.subcontract/messages/pochanged' }]
   onSubcontractPOCancelled:
     action: send
-    channel: { $ref: '#/channels/passage.production.subcontract' }
-    messages: [{ $ref: '#/channels/passage.production.subcontract/messages/pocancelled' }]
+    channel: { $ref: '#/channels/depot.production.subcontract' }
+    messages: [{ $ref: '#/channels/depot.production.subcontract/messages/pocancelled' }]
   onOperationStatusChanged:
     action: send
-    channel: { $ref: '#/channels/passage.production.operation' }
-    messages: [{ $ref: '#/channels/passage.production.operation/messages/statuschanged' }]
+    channel: { $ref: '#/channels/depot.production.operation' }
+    messages: [{ $ref: '#/channels/depot.production.operation/messages/statuschanged' }]
   onOrderChangeDetected:
     action: send
-    channel: { $ref: '#/channels/passage.production.orderchange' }
-    messages: [{ $ref: '#/channels/passage.production.orderchange/messages/detected' }]
+    channel: { $ref: '#/channels/depot.production.orderchange' }
+    messages: [{ $ref: '#/channels/depot.production.orderchange/messages/detected' }]
   onOrderChangeApplied:
     action: send
-    channel: { $ref: '#/channels/passage.production.orderchange' }
-    messages: [{ $ref: '#/channels/passage.production.orderchange/messages/applied' }]
+    channel: { $ref: '#/channels/depot.production.orderchange' }
+    messages: [{ $ref: '#/channels/depot.production.orderchange/messages/applied' }]
   onOrderChangeDismissed:
     action: send
-    channel: { $ref: '#/channels/passage.production.orderchange' }
-    messages: [{ $ref: '#/channels/passage.production.orderchange/messages/dismissed' }]
+    channel: { $ref: '#/channels/depot.production.orderchange' }
+    messages: [{ $ref: '#/channels/depot.production.orderchange/messages/dismissed' }]
   onParametersSaved:
     action: send
-    channel: { $ref: '#/channels/passage.production.parameters' }
-    messages: [{ $ref: '#/channels/passage.production.parameters/messages/saved' }]
+    channel: { $ref: '#/channels/depot.production.parameters' }
+    messages: [{ $ref: '#/channels/depot.production.parameters/messages/saved' }]
   onCostSnapshotTaken:
     action: send
-    channel: { $ref: '#/channels/passage.production.costsnapshot' }
-    messages: [{ $ref: '#/channels/passage.production.costsnapshot/messages/taken' }]
+    channel: { $ref: '#/channels/depot.production.costsnapshot' }
+    messages: [{ $ref: '#/channels/depot.production.costsnapshot/messages/taken' }]
 components:
   messages:
     registrationPosted:
       name: posted
-      x-passage-type: dev.passage.shopfloor.registration.posted.v1
+      x-depot-type: dev.depot.shopfloor.registration.posted.v1
       title: A shop-floor registration was stored (received from the shop floor)
-      description: 'Consumed, not published: the shop floor''s dev.passage.shopfloor.registration.posted.v1. Only the fields production reads are listed.'
+      description: 'Consumed, not published: the shop floor''s dev.depot.shopfloor.registration.posted.v1. Only the fields production reads are listed.'
       payload:
         type: object
         required: [registrationId, kind]
@@ -241,9 +241,9 @@ components:
           costRateCurrency: { type: string, description: The currency of costRate. }
     registrationCorrected:
       name: corrected
-      x-passage-type: dev.passage.shopfloor.registration.corrected.v1
+      x-depot-type: dev.depot.shopfloor.registration.corrected.v1
       title: A shop-floor registration was corrected (received from the shop floor)
-      description: 'Consumed, not published: the shop floor''s dev.passage.shopfloor.registration.corrected.v1. Only the fields production reads are listed.'
+      description: 'Consumed, not published: the shop floor''s dev.depot.shopfloor.registration.corrected.v1. Only the fields production reads are listed.'
       payload:
         type: object
         required: [registrationId, kind]
@@ -254,7 +254,7 @@ components:
     plannedOrderFirmed:
       name: firmed
       title: A planned order was firmed (received from planning)
-      description: 'Consumed, not published: planning''s dev.passage.planning.plannedorder.firmed.v1. Only the fields production reads are listed; the others are planning''s.'
+      description: 'Consumed, not published: planning''s dev.depot.planning.plannedorder.firmed.v1. Only the fields production reads are listed; the others are planning''s.'
       payload:
         type: object
         required: [planned_order_id, plan_version_id, batch_id, order_type, target_id, item_id, site_id, qty, order_date, delivery_date]
@@ -273,7 +273,7 @@ components:
           delivery_date: { type: string, format: date }
           quota_arrangement_id: { type: [string, 'null'], format: uuid }
           quota_source_id: { type: [string, 'null'], format: uuid }
-      x-passage-type: dev.passage.planning.plannedorder.firmed.v1
+      x-depot-type: dev.depot.planning.plannedorder.firmed.v1
     orderCreated:
       name: created
       title: Production order created
@@ -294,7 +294,7 @@ components:
           originId: { type: [string, 'null'], format: uuid }
           configurationId: { type: [string, 'null'], format: uuid, description: 'The saved configuration a SalesOrderLine order is built to; null on other origins.' }
           reworkReference: { oneOf: [{ type: 'null' }, { $ref: '#/components/schemas/reworkReference' }], description: 'Set on a rework order (originType Rework) that names its original order, batch or serial (FR-21.20).' }
-      x-passage-type: dev.passage.production.order.created.v1
+      x-depot-type: dev.depot.production.order.created.v1
     orderUpdated:
       name: updated
       title: Production order header edited
@@ -309,7 +309,7 @@ components:
           status: { type: string }
           version: { type: integer }
           actor: { type: string }
-      x-passage-type: dev.passage.production.order.updated.v1
+      x-depot-type: dev.depot.production.order.updated.v1
     orderStatusChanged:
       name: statuschanged
       title: Production order status changed
@@ -335,7 +335,7 @@ components:
           endDate: { type: [string, 'null'], format: date, description: The order's scheduled end date; null while it is unscheduled. }
           actor: { type: string }
           occurredAt: { type: string, format: date-time }
-      x-passage-type: dev.passage.production.order.statuschanged.v1
+      x-depot-type: dev.depot.production.order.statuschanged.v1
     orderScheduled:
       name: scheduled
       title: Production order scheduled
@@ -390,7 +390,7 @@ components:
           occurredAt: { type: string, format: date-time }
           finiteRunId: { type: string, description: 'Reason finite only, when the caller named the scheduling run the windows come from; absent otherwise.' }
           compressedOperations: { type: array, items: { type: integer }, description: 'Reason finite only: operations whose window is shorter than their jobs'' planned hours; absent when none.' }
-      x-passage-type: dev.passage.production.order.scheduled.v1
+      x-depot-type: dev.depot.production.order.scheduled.v1
     orderSettled:
       name: settled
       title: Production order settled at End
@@ -412,7 +412,7 @@ components:
           variances: { type: array, items: { $ref: '#/components/schemas/variance' } }
           postings: { type: array, items: { $ref: '#/components/schemas/posting' } }
           reworkCapitalized: { type: string, description: 'Rework orders with output at a site with rework.capitalize only: the remaining WIP (the rework cost; negative when more was received than consumed) moved into finished goods (posting type rework-capitalized) instead of variances; absent otherwise. Inventory and costing add it to the value of the order''s report-finished receipts in proportion to their quantity, without a GL voucher of their own (the settlement postings carry it).' }
-      x-passage-type: dev.passage.production.order.settled.v1
+      x-depot-type: dev.depot.production.order.settled.v1
     orderBOMEdited:
       name: bomedited
       title: Production order BOM or route edited
@@ -432,7 +432,7 @@ components:
           lines: { type: array, items: { $ref: '#/components/schemas/requirementLine' } }
           plannedCost: { oneOf: [{ $ref: '#/components/schemas/costByGroup' }, { type: 'null' }] }
           actor: { type: string }
-      x-passage-type: dev.passage.production.order.bomedited.v1
+      x-depot-type: dev.depot.production.order.bomedited.v1
     journalPosted:
       name: posted
       title: Production journal posted
@@ -461,7 +461,7 @@ components:
           lines: { type: array, items: { $ref: '#/components/schemas/journalLine' } }
           postings: { type: array, items: { $ref: '#/components/schemas/posting' } }
           journalEntryId: { type: [string, 'null'], format: uuid }
-      x-passage-type: dev.passage.production.journal.posted.v1
+      x-depot-type: dev.depot.production.journal.posted.v1
     asBuiltAssigned:
       name: assigned
       title: As-built record assigned
@@ -484,7 +484,7 @@ components:
           assignedBy: { type: string }
           assignedAt: { type: string, format: date-time }
           detachedAt: { type: [string, 'null'], format: date-time }
-      x-passage-type: dev.passage.production.asbuilt.assigned.v1
+      x-depot-type: dev.depot.production.asbuilt.assigned.v1
     asBuiltDetached:
       name: detached
       title: As-built record detached
@@ -504,7 +504,7 @@ components:
           assignedBy: { type: string }
           assignedAt: { type: string, format: date-time }
           detachedAt: { type: [string, 'null'], format: date-time }
-      x-passage-type: dev.passage.production.asbuilt.detached.v1
+      x-depot-type: dev.depot.production.asbuilt.detached.v1
     triggerPointFired:
       name: fired
       title: Trigger point fired
@@ -536,7 +536,7 @@ components:
           insertedOperations: { type: array, items: { type: integer } }
           reworkOrderId: { type: [string, 'null'], format: uuid }
           actor: { type: string }
-      x-passage-type: dev.passage.production.triggerpoint.fired.v1
+      x-depot-type: dev.depot.production.triggerpoint.fired.v1
     subcontractPORequested:
       name: porequested
       title: Subcontract purchase order requested
@@ -562,7 +562,7 @@ components:
           currency: { type: string }
           dueDate: { type: [string, 'null'], format: date, description: The order's delivery date until scheduling (wave 23) dates the operation. }
           actor: { type: string }
-      x-passage-type: dev.passage.production.subcontract.porequested.v1
+      x-depot-type: dev.depot.production.subcontract.porequested.v1
     subcontractPOChanged:
       name: pochanged
       title: Subcontract purchase order changed
@@ -591,7 +591,7 @@ components:
           previousDueDate: { type: [string, 'null'], format: date, description: The due date purchasing last received. }
           dueDate: { type: [string, 'null'], format: date, description: The order's delivery date now, until scheduling (wave 23) dates the operation. }
           actor: { type: string }
-      x-passage-type: dev.passage.production.subcontract.pochanged.v1
+      x-depot-type: dev.depot.production.subcontract.pochanged.v1
     subcontractPOCancelled:
       name: pocancelled
       title: Subcontract purchase order request withdrawn
@@ -616,7 +616,7 @@ components:
           currency: { type: string }
           reason: { type: string, enum: [order-cancelled, operation-removed, subcontract-off, vendor-changed] }
           actor: { type: string }
-      x-passage-type: dev.passage.production.subcontract.pocancelled.v1
+      x-depot-type: dev.depot.production.subcontract.pocancelled.v1
     operationStatusChanged:
       name: statuschanged
       title: Operation finished or reopened
@@ -640,7 +640,7 @@ components:
           orderVersion: { type: integer, description: The order version after the change. }
           actor: { type: string }
           occurredAt: { type: string, format: date-time }
-      x-passage-type: dev.passage.production.operation.statuschanged.v1
+      x-depot-type: dev.depot.production.operation.statuschanged.v1
     orderChangeDetected:
       name: detected
       title: Order change detected
@@ -662,7 +662,7 @@ components:
           orderVersion: { type: integer, description: The order version after the event. }
           actor: { type: string }
           occurredAt: { type: string, format: date-time }
-      x-passage-type: dev.passage.production.orderchange.detected.v1
+      x-depot-type: dev.depot.production.orderchange.detected.v1
     orderChangeApplied:
       name: applied
       title: Order change applied
@@ -684,7 +684,7 @@ components:
           orderVersion: { type: integer, description: The order version after the event. }
           actor: { type: string }
           occurredAt: { type: string, format: date-time }
-      x-passage-type: dev.passage.production.orderchange.applied.v1
+      x-depot-type: dev.depot.production.orderchange.applied.v1
     orderChangeDismissed:
       name: dismissed
       title: Order change dismissed
@@ -706,7 +706,7 @@ components:
           orderVersion: { type: integer, description: The order version after the event. }
           actor: { type: string }
           occurredAt: { type: string, format: date-time }
-      x-passage-type: dev.passage.production.orderchange.dismissed.v1
+      x-depot-type: dev.depot.production.orderchange.dismissed.v1
     parametersSaved:
       name: saved
       title: Production parameters saved
@@ -733,7 +733,7 @@ components:
           version: { type: integer }
           actor: { type: string }
           occurredAt: { type: string, format: date-time }
-      x-passage-type: dev.passage.production.parameters.saved.v1
+      x-depot-type: dev.depot.production.parameters.saved.v1
     costSnapshotTaken:
       name: taken
       title: Order cost snapshot taken
@@ -747,7 +747,7 @@ components:
           orders: { type: integer, description: Open orders written (Estimated to ReportedAsFinished). }
           actor: { type: string }
           occurredAt: { type: string, format: date-time }
-      x-passage-type: dev.passage.production.costsnapshot.taken.v1
+      x-depot-type: dev.depot.production.costsnapshot.taken.v1
   schemas:
     scheduledJob:
       type: object

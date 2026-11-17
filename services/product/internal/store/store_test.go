@@ -9,13 +9,13 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/product/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/product/internal/store"
-	"github.com/BenjaminSRussell/passage/services/product/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/product/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/product/internal/store"
+	"github.com/BenjaminSRussell/depot/services/product/migrations"
 )
 
 func principal(n int) tenant.Principal {
@@ -32,10 +32,10 @@ func newStore(t *testing.T, n int) (*store.Postgres, context.Context) {
 }
 
 func grantApp(ctx context.Context, admin *pgxpool.Pool, schema string) error {
-	if _, err := admin.Exec(ctx, "grant usage on schema "+schema+" to passage_app"); err != nil {
+	if _, err := admin.Exec(ctx, "grant usage on schema "+schema+" to depot_app"); err != nil {
 		return err
 	}
-	_, err := admin.Exec(ctx, "grant select, insert, update, delete on all tables in schema "+schema+" to passage_app")
+	_, err := admin.Exec(ctx, "grant select, insert, update, delete on all tables in schema "+schema+" to depot_app")
 	return err
 }
 
@@ -55,8 +55,8 @@ func TestMigrationsApplyWithRLS(t *testing.T) {
 	var currentUser string
 	var roleSuper, roleBypass bool
 	metadataErr := pool.QueryRow(ctx, `select current_user, r.rolsuper, r.rolbypassrls from pg_roles r where r.rolname = current_user`).Scan(&currentUser, &roleSuper, &roleBypass)
-	if metadataErr != nil || currentUser != "passage_app" || roleSuper || roleBypass {
-		t.Fatalf("RLS test must use non-bypass passage_app role: user=%q super=%v bypass=%v err=%v", currentUser, roleSuper, roleBypass, metadataErr)
+	if metadataErr != nil || currentUser != "depot_app" || roleSuper || roleBypass {
+		t.Fatalf("RLS test must use non-bypass depot_app role: user=%q super=%v bypass=%v err=%v", currentUser, roleSuper, roleBypass, metadataErr)
 	}
 	for _, table := range []string{"product", "released_product", "product_identifier", "outbox", "idempotency_keys"} {
 		var enabled, forced bool
@@ -312,7 +312,7 @@ func TestImportConflictsNameTheExistingProductAndUpdateUsesVersion(t *testing.T)
 	}
 }
 
-// appStore runs as the NOSUPERUSER NOBYPASSRLS passage_app role so tenant
+// appStore runs as the NOSUPERUSER NOBYPASSRLS depot_app role so tenant
 // isolation is enforced by row-level security, not by the queries alone.
 func appStore(t *testing.T) (*store.Postgres, *pgxpool.Pool) {
 	t.Helper()
@@ -362,12 +362,12 @@ func TestImportIDsAndNumbersAreScopedToTheTenantUnderRLS(t *testing.T) {
 	var events int
 	var fields string
 	if err := admin.QueryRow(context.Background(), `select count(*), coalesce(min(payload->'data'->>'changedFields'),'') from outbox where type=$1 and tenant_id=$2`,
-		"dev.passage.product.product.updated.v1", testkit.TenantID(2)).Scan(&events, &fields); err != nil || events != 1 || fields != `["name"]` {
+		"dev.depot.product.product.updated.v1", testkit.TenantID(2)).Scan(&events, &fields); err != nil || events != 1 || fields != `["name"]` {
 		t.Fatalf("one product.updated event for tenant 2 naming the changed field, got %d %s %v", events, fields, err)
 	}
 	var indexed bool
 	if err := admin.QueryRow(context.Background(), `select payload->'data'->>'name' = 'Tenant two' and coalesce(payload->'data'->>'productNumber','') <> '' and coalesce(payload->'data'->>'lifecycleState','') <> '' from outbox where type=$1 and tenant_id=$2`,
-		"dev.passage.product.product.updated.v1", testkit.TenantID(2)).Scan(&indexed); err != nil || !indexed {
+		"dev.depot.product.product.updated.v1", testkit.TenantID(2)).Scan(&indexed); err != nil || !indexed {
 		t.Fatalf("product.updated must carry name, number and lifecycle state for the search index: %v %v", indexed, err)
 	}
 	if _, err := s.UpdateProduct(tenant.With(context.Background(), principal(3)), id, domain.ProductPatch{Name: &name}, 1); !errors.As(err, &pr) || pr.Status != 404 {

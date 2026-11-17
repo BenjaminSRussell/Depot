@@ -16,7 +16,7 @@ afterEach(() => {
 
 describe("the default log line", () => {
   it("never carries the raw actor id under the eu-data-boundary overlay", async () => {
-    vi.stubEnv("PASSAGE_CLOUD_PROFILE", "commercial+eu-data-boundary");
+    vi.stubEnv("DEPOT_CLOUD_PROFILE", "commercial+eu-data-boundary");
     vi.stubEnv("FIELDCRYPT_KEYS", `k1=${KEY_B64}`);
     vi.stubEnv("FIELDCRYPT_CURRENT_KEY_ID", "k1");
     const written: string[] = [];
@@ -37,7 +37,7 @@ describe("the default log line", () => {
     try {
       const res = await fetch(`http://127.0.0.1:${(server.address() as AddressInfo).port}/v1/carrier/labels`, {
         method: "POST",
-        headers: { "x-passage-service-token": signer.mint(), "idempotency-key": "k-log-1", "content-type": "application/json" },
+        headers: { "x-depot-service-token": signer.mint(), "idempotency-key": "k-log-1", "content-type": "application/json" },
         body: JSON.stringify({ shipFrom: US_FROM, shipTo: US_TO, parcels: [SMALL], carrier: "sandbox", service: "GROUND", reference: "SH-1" }),
       });
       expect(res.status).toBe(201);

@@ -5,11 +5,11 @@ package events
 import (
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/events"
 )
 
 // Source is the CloudEvents source of every event this service emits.
-const Source = "passage/migration-factory"
+const Source = "depot/migration-factory"
 
 var (
 	// PackReconciled is written when a pack run's reconciliation step has computed its totals.
@@ -27,7 +27,7 @@ var (
 	// ToleranceConfigured is written when a control-total tolerance is set or changed (FR-49.2).
 	ToleranceConfigured = events.Type("migration", "tolerance", "configured", 1)
 	// CoexistenceChanged is written when an entity kind's coexistence flag flips (FR-49.7): a cutover
-	// to Passage suspends the legacy adapter's flow for it, a flip back to LEGACY resumes it.
+	// to Depot suspends the legacy adapter's flow for it, a flip back to LEGACY resumes it.
 	CoexistenceChanged = events.Type("migration", "coexistence", "changed", 1)
 )
 
@@ -36,7 +36,7 @@ func All() []string {
 	return []string{PackReconciled, PackLoaded, ParallelRunDiffed, CutoverStepCompleted, CutoverPlanRolledBack, CutoverDecisionRecorded, ToleranceConfigured, CoexistenceChanged}
 }
 
-// PackReconciledData is the payload of dev.passage.migration.pack.reconciled.v1.
+// PackReconciledData is the payload of dev.depot.migration.pack.reconciled.v1.
 type PackReconciledData struct {
 	RunID          string `json:"run_id"`
 	Pack           string `json:"pack"`
@@ -49,7 +49,7 @@ type PackReconciledData struct {
 	RecordsLoaded  int    `json:"records_loaded"`
 }
 
-// PackLoadedData is the payload of dev.passage.migration.pack.loaded.v1: how the rows of a run came out at the
+// PackLoadedData is the payload of dev.depot.migration.pack.loaded.v1: how the rows of a run came out at the
 // target and whether the target's totals equal what the factory sent.
 type PackLoadedData struct {
 	RunID          string `json:"run_id"`
@@ -69,7 +69,7 @@ type PackLoadedData struct {
 	TotalsMismatch int    `json:"totals_mismatch"`
 }
 
-// ParallelRunDiffedData is the payload of dev.passage.migration.parallelrun.diffed.v1. Amounts
+// ParallelRunDiffedData is the payload of dev.depot.migration.parallelrun.diffed.v1. Amounts
 // are decimal strings.
 type ParallelRunDiffedData struct {
 	ParallelRunID     string `json:"parallel_run_id"`
@@ -80,7 +80,7 @@ type ParallelRunDiffedData struct {
 	UnexplainedAmount string `json:"unexplained_amount"`
 }
 
-// CutoverStepCompletedData is the payload of dev.passage.cutover.step.completed.v1.
+// CutoverStepCompletedData is the payload of dev.depot.cutover.step.completed.v1.
 type CutoverStepCompletedData struct {
 	PlanID            string `json:"plan_id"`
 	StepID            int    `json:"step_id"`
@@ -90,7 +90,7 @@ type CutoverStepCompletedData struct {
 	CompletedBy       string `json:"completed_by"`
 }
 
-// CutoverPlanRolledBackData is the payload of dev.passage.cutover.plan.rolledback.v1. The
+// CutoverPlanRolledBackData is the payload of dev.depot.cutover.plan.rolledback.v1. The
 // re-keying line counts tell the legacy side how much to re-key; the files themselves are read
 // from GET /cutover/plans/{id}/rekeying/{file}. CoexistenceResumed lists the entity kinds the
 // rollback handed back to the legacy system, so the integration hub resumes their coexistence
@@ -115,7 +115,7 @@ type CoexistenceEntry struct {
 	Version       int    `json:"version"`
 }
 
-// CoexistenceChangedData is the payload of dev.passage.migration.coexistence.changed.v1. PlanID is
+// CoexistenceChangedData is the payload of dev.depot.migration.coexistence.changed.v1. PlanID is
 // set when a cutover rollback flipped the flag back.
 type CoexistenceChangedData struct {
 	SourceSystem  string     `json:"source_system"`
@@ -128,7 +128,7 @@ type CoexistenceChangedData struct {
 	PlanID        string     `json:"plan_id,omitempty"`
 }
 
-// CutoverDecisionRecordedData is the payload of dev.passage.cutover.decision.recorded.v1.
+// CutoverDecisionRecordedData is the payload of dev.depot.cutover.decision.recorded.v1.
 // OpenItems lists the checklist items not met when the decision was taken (empty for a GO).
 type CutoverDecisionRecordedData struct {
 	PlanID    string   `json:"plan_id"`
@@ -142,13 +142,13 @@ type CutoverDecisionRecordedData struct {
 	Timestamp string                  `json:"timestamp"`
 }
 
-// CutoverDecisionWaiver is one waived pack on dev.passage.cutover.decision.recorded.v1.
+// CutoverDecisionWaiver is one waived pack on dev.depot.cutover.decision.recorded.v1.
 type CutoverDecisionWaiver struct {
 	Pack   string `json:"pack"`
 	Reason string `json:"reason"`
 }
 
-// ToleranceConfiguredData is the payload of dev.passage.migration.tolerance.configured.v1. Amounts are
+// ToleranceConfiguredData is the payload of dev.depot.migration.tolerance.configured.v1. Amounts are
 // decimal strings.
 type ToleranceConfiguredData struct {
 	Pack           string `json:"pack"`

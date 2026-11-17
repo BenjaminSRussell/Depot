@@ -17,8 +17,8 @@ CREATE TABLE IF NOT EXISTS hierarchy_type (
 ALTER TABLE hierarchy_type ENABLE ROW LEVEL SECURITY;
 ALTER TABLE hierarchy_type FORCE ROW LEVEL SECURITY;
 CREATE POLICY hierarchy_type_tenant_access ON hierarchy_type AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 CREATE TABLE IF NOT EXISTS hierarchy_version (
   tenant_id uuid NOT NULL,
@@ -45,8 +45,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS hierarchy_version_one_draft ON hierarchy_versi
 ALTER TABLE hierarchy_version ENABLE ROW LEVEL SECURITY;
 ALTER TABLE hierarchy_version FORCE ROW LEVEL SECURITY;
 CREATE POLICY hierarchy_version_tenant_access ON hierarchy_version AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 CREATE TABLE IF NOT EXISTS hierarchy_node (
   tenant_id uuid NOT NULL,
@@ -65,5 +65,5 @@ CREATE TABLE IF NOT EXISTS hierarchy_node (
 ALTER TABLE hierarchy_node ENABLE ROW LEVEL SECURITY;
 ALTER TABLE hierarchy_node FORCE ROW LEVEL SECURITY;
 CREATE POLICY hierarchy_node_tenant_access ON hierarchy_node AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);

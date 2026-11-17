@@ -14,5 +14,5 @@ serviceMonitor:
 ingress:
   enabled: true
   className: traefik
-  host: app.local.passage.dev
-  clusterIssuer: passage-local-ca
+  host: app.local.depot.dev
+  clusterIssuer: depot-local-ca

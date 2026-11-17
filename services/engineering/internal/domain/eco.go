@@ -5,7 +5,7 @@ import (
 	"slices"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/services/engineering/internal/events"
+	"github.com/BenjaminSRussell/depot/services/engineering/internal/events"
 )
 
 const dateLayout = "2006-01-02"

@@ -5,7 +5,7 @@ package cdc
 import (
 	"context"
 
-	"github.com/BenjaminSRussell/passage/services/audit/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/audit/internal/domain"
 )
 
 // Consumer applies one CDC change. The HTTP ingest adapter and a future

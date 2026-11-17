@@ -1,6 +1,6 @@
 # payroll
 
-Payroll engine, wave 43 (PSG-43), slice 1.
+Payroll engine, wave 43 (DPT-43), slice 1.
 
 ## What it does
 
@@ -80,7 +80,7 @@ charts/payroll/         Helm chart
 ## Run
 
 ```
-PASSAGE_ENV=dev SERVICE_NAME=payroll DATABASE_URL=postgres://... \
+DEPOT_ENV=dev SERVICE_NAME=payroll DATABASE_URL=postgres://... \
   HTTP_ADDR=:8080 go run ./cmd/payroll
 ```
 
@@ -91,7 +91,7 @@ go vet ./... && go test ./...
 ```
 
 Domain tests are pure. API and store tests use `platform/go/testkit` and are skipped
-unless `PASSAGE_TEST_DATABASE_URL` is set.
+unless `DEPOT_TEST_DATABASE_URL` is set.
 
 ## Endpoints
 
@@ -113,7 +113,7 @@ them post and reconciliation answer 503 PAY-GL-002.
 
 ## Error codes
 
-Problem details use `type: https://passage.dev/problems/<code>`.
+Problem details use `type: https://depot.dev/problems/<code>`.
 
 | Code         | HTTP | Meaning                                                              |
 |--------------|------|----------------------------------------------------------------------|
@@ -142,5 +142,5 @@ for property tests). No new third-party dependencies.
 
 ## Wave reference
 
-PSG-43 / wave 43, PRD section 8.43. Depends on wave 42 (HR), wave 25 (time), wave 18
+DPT-43 / wave 43, PRD section 8.43. Depends on wave 42 (HR), wave 25 (time), wave 18
 (AP), wave 19 (payments), wave 36 (bank files), wave 13 (tax codes), wave 12 (FX).

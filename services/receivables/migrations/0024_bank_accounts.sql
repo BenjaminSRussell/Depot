@@ -15,16 +15,16 @@ CREATE TABLE IF NOT EXISTS ar_bank_account (
 ALTER TABLE ar_bank_account ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ar_bank_account FORCE ROW LEVEL SECURITY;
 CREATE POLICY ar_bank_account_tenant_access ON ar_bank_account AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY ar_bank_account_legal_entity_scope ON ar_bank_account AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 ALTER TABLE payment ADD COLUMN IF NOT EXISTS bank_account_ref text CHECK (bank_account_ref IS NULL OR bank_account_ref ~ '^[A-Z0-9]{1,40}$');
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON ar_bank_account TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON ar_bank_account TO depot_app';
   END IF;
 END
 $$;

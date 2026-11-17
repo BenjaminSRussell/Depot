@@ -63,7 +63,7 @@ async function main(): Promise<void> {
   // AGENTS_RUN_ENGINE=temporal: runs are workflows (workflow-ts) that call these steps; the in-process engine stays the dev default.
   const approvalHours = cfg.approvalExpiryHours ?? 72;
   const serviceSigner = cfg.runEngine === "temporal" ? serviceSignerFromEnv(process.env, (path) => readFileSync(path, "utf8")) : undefined;
-  if (cfg.runEngine === "temporal" && serviceSigner === undefined) throw new Error("AGENTS_RUN_ENGINE=temporal needs PASSAGE_SERVICE_SIGNING_KEY or PASSAGE_SERVICE_SIGNING_KEY_FILE: agents signs its calls to workflow-ts");
+  if (cfg.runEngine === "temporal" && serviceSigner === undefined) throw new Error("AGENTS_RUN_ENGINE=temporal needs DEPOT_SERVICE_SIGNING_KEY or DEPOT_SERVICE_SIGNING_KEY_FILE: agents signs its calls to workflow-ts");
   const stepsService =
     cfg.runEngine === "temporal"
       ? createRunSteps({

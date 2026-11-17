@@ -20,15 +20,15 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/money"
-	"github.com/BenjaminSRussell/passage/platform/outbox"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/assets/internal/domain"
-	assetevents "github.com/BenjaminSRussell/passage/services/assets/internal/events"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/money"
+	"github.com/BenjaminSRussell/depot/platform/outbox"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/assets/internal/domain"
+	assetevents "github.com/BenjaminSRussell/depot/services/assets/internal/events"
 )
 
 // Stable error codes raised by the store (listed in the README).
@@ -43,7 +43,7 @@ const (
 	CodeIdempotencyReuse = "idempotency_key_reuse"
 
 	uniqueViolation = "23505"
-	eventSource     = "/passage/assets/assets"
+	eventSource     = "/depot/assets/assets"
 )
 
 // Store is the persistence contract the API depends on.

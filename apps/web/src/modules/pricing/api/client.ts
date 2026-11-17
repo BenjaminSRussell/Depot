@@ -240,7 +240,7 @@ export async function exportConditionRecords(filter: RecordFilter = {}, signal?:
     csv,
     filename: disposition?.[1] ?? "trade-agreements.csv",
     count: Math.max(parseCsv(csv).filter((row) => row.some((cell) => cell !== "")).length - 1, 0),
-    truncated: res.headers.get("X-Passage-Truncated") === "true",
+    truncated: res.headers.get("X-Depot-Truncated") === "true",
   };
 }
 

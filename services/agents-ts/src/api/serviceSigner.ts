@@ -1,5 +1,5 @@
-// Signs the service tokens agents presents to workflow-ts in X-Passage-Service-Token: the wire format platform/go/tenant
-// ServiceSigner.Mint writes and workflow-ts's verifier (and the Go verifier) read: Ed25519 over "passage.service-token.v1." + body,
+// Signs the service tokens agents presents to workflow-ts in X-Depot-Service-Token: the wire format platform/go/tenant
+// ServiceSigner.Mint writes and workflow-ts's verifier (and the Go verifier) read: Ed25519 over "depot.service-token.v1." + body,
 // 60 s lifetime, tenant-level (no legal entity) because an agent run belongs to a tenant, with the run's user as the actor.
 //
 // The grant mirrors service_grants.agents.workflow-ts in policies/authz/data.json and the serviceGrants table in
@@ -12,7 +12,7 @@ export const WORKFLOW_AUDIENCE = "workflow-ts";
 export const DUTY_RUN_SIGNAL = "agents.run.signal";
 export const WORKFLOW_GRANT: readonly string[] = [DUTY_RUN_SIGNAL];
 
-const TOKEN_CONTEXT = "passage.service-token.v1.";
+const TOKEN_CONTEXT = "depot.service-token.v1.";
 const PKCS8_ED25519_PREFIX = Buffer.from("302e020100300506032b657004220420", "hex");
 const TTL_S = 60;
 
@@ -38,8 +38,8 @@ export function createServiceSigner(o: { seedBase64: string; keyId?: string; now
 }
 
 export function serviceSignerFromEnv(env: Record<string, string | undefined>, readFile: (path: string) => string): ServiceSigner | undefined {
-  const file = env["PASSAGE_SERVICE_SIGNING_KEY_FILE"];
-  const seed = file ? readFile(file) : (env["PASSAGE_SERVICE_SIGNING_KEY"] ?? "");
+  const file = env["DEPOT_SERVICE_SIGNING_KEY_FILE"];
+  const seed = file ? readFile(file) : (env["DEPOT_SERVICE_SIGNING_KEY"] ?? "");
   if (!seed.trim()) return undefined;
-  return createServiceSigner({ seedBase64: seed, ...(env["PASSAGE_SERVICE_KEY_ID"] ? { keyId: env["PASSAGE_SERVICE_KEY_ID"] } : {}) });
+  return createServiceSigner({ seedBase64: seed, ...(env["DEPOT_SERVICE_KEY_ID"] ? { keyId: env["DEPOT_SERVICE_KEY_ID"] } : {}) });
 }

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Region pair and parameter-range checker for the multi-region values (PSG-50, BR-50.1, PRD 9.50.13).
+"""Region pair and parameter-range checker for the multi-region values (DPT-50, BR-50.1, PRD 9.50.13).
 
 `values.schema.json` checks one region's values at a time when Helm renders it. It cannot see the other region
 of the pair, so a failover edit that leaves two PRIMARY files, or swaps MirrorMaker 2 in one file only, would
@@ -245,7 +245,7 @@ def _check_backup(name: str, doc: dict[str, Any], selector: str, allowed: list[s
 
     On ``provider: aks`` the store must be azure-blob. Whatever the provider, a profile that restricts regions refuses an
     s3 destination (``backup.store: s3`` or an ``s3://`` path): a bucket's region cannot be shown to be one of the
-    profile's Azure regions, and the chart's s3 default is ``s3://passage-pg-backups-<region.id>/`` with no check at all
+    profile's Azure regions, and the chart's s3 default is ``s3://depot-pg-backups-<region.id>/`` with no check at all
     (#605). An azure-blob account must sit in the region itself and that region must be in allowedRegions.
     """
     problems: list[str] = []

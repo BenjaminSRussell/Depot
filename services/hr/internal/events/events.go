@@ -1,7 +1,7 @@
 // Package events holds the HR event type constants and payloads (8.42.5).
 package events
 
-import "github.com/BenjaminSRussell/passage/platform/events"
+import "github.com/BenjaminSRussell/depot/platform/events"
 
 const Context = "hr"
 

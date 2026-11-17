@@ -8,11 +8,11 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
 
-	"github.com/BenjaminSRussell/passage/tools/migration-factory/internal/domain"
+	"github.com/BenjaminSRussell/depot/tools/migration-factory/internal/domain"
 )
 
 // dutyOpeningTargetRelease is api.DutyOpeningTargetRelease; the tenant-wide transaction checks it.
@@ -45,7 +45,7 @@ type OpeningRelease struct {
 func readOpeningMapping(ctx context.Context, tx pgx.Tx, system, company string) (*openingTarget, error) {
 	var t openingTarget
 	err := tx.QueryRow(ctx, `select target_legal_entity_id::text, ledger_id from gl_opening_mapping
-		where tenant_id = current_setting('passage.tenant_id', true)::uuid and source_system = $1 and source_company = $2`, system, company).Scan(&t.legalEntityID, &t.ledgerID)
+		where tenant_id = current_setting('depot.tenant_id', true)::uuid and source_system = $1 and source_company = $2`, system, company).Scan(&t.legalEntityID, &t.ledgerID)
 	if err == pgx.ErrNoRows {
 		return nil, nil
 	}
@@ -55,7 +55,7 @@ func readOpeningMapping(ctx context.Context, tx pgx.Tx, system, company string) 
 // lockOpeningCompany serialises the writes that decide a company's opening target (the plan's mapping and the
 // first posting's pin), so neither can be recorded against the other's stale read.
 func lockOpeningCompany(ctx context.Context, tx pgx.Tx, system, company string) error {
-	_, err := tx.Exec(ctx, `select pg_advisory_xact_lock(hashtextextended('gl-opening|' || current_setting('passage.tenant_id', true) || '|' || $1 || '|' || $2, 0))`, system, company)
+	_, err := tx.Exec(ctx, `select pg_advisory_xact_lock(hashtextextended('gl-opening|' || current_setting('depot.tenant_id', true) || '|' || $1 || '|' || $2, 0))`, system, company)
 	return err
 }
 
@@ -70,7 +70,7 @@ func (s *Postgres) SetOpeningMapping(ctx context.Context, planID string, system 
 	var out OpeningMapping
 	err := s.tx(ctx, func(tx pgx.Tx) error {
 		var one int
-		if err := tx.QueryRow(ctx, `select 1 from cutover_plan where tenant_id = current_setting('passage.tenant_id', true)::uuid and plan_id = $1`, planID).Scan(&one); err != nil {
+		if err := tx.QueryRow(ctx, `select 1 from cutover_plan where tenant_id = current_setting('depot.tenant_id', true)::uuid and plan_id = $1`, planID).Scan(&one); err != nil {
 			if err == pgx.ErrNoRows {
 				return ErrNotFound
 			}
@@ -87,7 +87,7 @@ func (s *Postgres) SetOpeningMapping(ctx context.Context, planID string, system 
 			return openingTargetTaken(company)
 		}
 		var posted int
-		if err := tx.QueryRow(ctx, `select count(*) from gl_opening_posting where tenant_id = current_setting('passage.tenant_id', true)::uuid
+		if err := tx.QueryRow(ctx, `select count(*) from gl_opening_posting where tenant_id = current_setting('depot.tenant_id', true)::uuid
 			and source_system = $1 and source_company = $2 and (legal_entity_id <> $3 or ledger_id <> $4)`, string(system), company, legalEntityID, ledgerID).Scan(&posted); err != nil {
 			return err
 		}
@@ -95,7 +95,7 @@ func (s *Postgres) SetOpeningMapping(ctx context.Context, planID string, system 
 			return openingTargetTaken(company)
 		}
 		return tx.QueryRow(ctx, `insert into gl_opening_mapping (tenant_id, source_system, source_company, plan_id, target_legal_entity_id, ledger_id, set_by)
-			values (current_setting('passage.tenant_id', true)::uuid, $1, $2, $3, $4, $5, $6)
+			values (current_setting('depot.tenant_id', true)::uuid, $1, $2, $3, $4, $5, $6)
 			on conflict (tenant_id, source_system, source_company) do update
 			set plan_id = excluded.plan_id, target_legal_entity_id = excluded.target_legal_entity_id, ledger_id = excluded.ledger_id, set_by = excluded.set_by, set_at = now()
 			returning source_system, source_company, plan_id::text, target_legal_entity_id::text, ledger_id, set_by, set_at`,
@@ -110,7 +110,7 @@ func (s *Postgres) ListOpeningMappings(ctx context.Context, planID string) ([]Op
 	var out []OpeningMapping
 	err := s.tx(ctx, func(tx pgx.Tx) error {
 		rows, err := tx.Query(ctx, `select source_system, source_company, plan_id::text, target_legal_entity_id::text, ledger_id, set_by, set_at
-			from gl_opening_mapping where tenant_id = current_setting('passage.tenant_id', true)::uuid and plan_id = $1
+			from gl_opening_mapping where tenant_id = current_setting('depot.tenant_id', true)::uuid and plan_id = $1
 			order by source_system, source_company`, planID)
 		if err != nil {
 			return err
@@ -150,7 +150,7 @@ func (s *Postgres) ReleaseOpeningTarget(ctx context.Context, system domain.Sourc
 			return err
 		}
 		var posting int
-		if err := tx.QueryRow(ctx, `select count(*) from gl_opening_posting_lease where tenant_id = current_setting('passage.tenant_id', true)::uuid
+		if err := tx.QueryRow(ctx, `select count(*) from gl_opening_posting_lease where tenant_id = current_setting('depot.tenant_id', true)::uuid
 			and source_system = $1 and source_company = $2 and expires_at > now()`, string(system), company).Scan(&posting); err != nil {
 			return err
 		}
@@ -166,20 +166,20 @@ func (s *Postgres) ReleaseOpeningTarget(ctx context.Context, system domain.Sourc
 			return fmt.Errorf("%w: the opening balances of %s are not pinned to a legal entity", domain.ErrNotFound, company)
 		}
 		var posted int
-		if err := tx.QueryRow(ctx, `select count(*) from gl_opening_posting where tenant_id = current_setting('passage.tenant_id', true)::uuid
+		if err := tx.QueryRow(ctx, `select count(*) from gl_opening_posting where tenant_id = current_setting('depot.tenant_id', true)::uuid
 			and source_system = $1 and source_company = $2`, string(system), company).Scan(&posted); err != nil {
 			return err
 		}
 		if posted > 0 {
 			return fmt.Errorf("%w: %s already has opening journals posted; the target cannot be released, reverse them in the ledger", domain.ErrTransition, company)
 		}
-		if _, err := tx.Exec(ctx, `delete from gl_opening_target where tenant_id = current_setting('passage.tenant_id', true)::uuid
+		if _, err := tx.Exec(ctx, `delete from gl_opening_target where tenant_id = current_setting('depot.tenant_id', true)::uuid
 			and source_system = $1 and source_company = $2`, string(system), company); err != nil {
 			return err
 		}
 		out = OpeningRelease{ReleaseID: ids.New(), SourceSystem: system, SourceCompany: company, LegalEntityID: pin.legalEntityID, LedgerID: pin.ledgerID, Reason: reason, ReleasedBy: by}
 		return tx.QueryRow(ctx, `insert into gl_opening_target_release (release_id, tenant_id, source_system, source_company, released_legal_entity_id, released_ledger_id, reason, released_by)
-			values ($1, current_setting('passage.tenant_id', true)::uuid, $2, $3, $4, $5, $6, $7) returning released_at`,
+			values ($1, current_setting('depot.tenant_id', true)::uuid, $2, $3, $4, $5, $6, $7) returning released_at`,
 			out.ReleaseID, string(system), company, pin.legalEntityID, pin.ledgerID, reason, by).Scan(&out.ReleasedAt)
 	})
 	return out, err

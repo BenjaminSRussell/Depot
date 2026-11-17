@@ -1,4 +1,4 @@
--- Field service, slice 2 (PSG-4502): case status lifecycle with SLA pause and
+-- Field service, slice 2 (DPT-4502): case status lifecycle with SLA pause and
 -- resume, response and resolution warning instants, emitted SLA alerts, case
 -- versions for If-Match, and work-order completion, follow-ups and first-time fix.
 -- No new tables: every column lands on a table that already has tenant RLS and
@@ -42,8 +42,8 @@ CREATE INDEX IF NOT EXISTS service_work_order_completed ON service_work_order (t
 -- exist (developer databases without the role split).
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT UPDATE ON service_case TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT UPDATE ON service_case TO depot_app';
   END IF;
 END
 $$;

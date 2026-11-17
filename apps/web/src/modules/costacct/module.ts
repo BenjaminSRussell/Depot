@@ -1,5 +1,5 @@
 import { createElement } from "react";
-import type { PassageModule } from "../registry";
+import type { DepotModule } from "../registry";
 import { AllocationRunDetailPage, AllocationRunsPage, NewAllocationRunPage } from "./AllocationRunsPage";
 import { BehaviorRulesPage, CreateBehaviorRulePage } from "./BehaviorRulesPage";
 import { CostElementsPage, CreateCostElementPage } from "./CostElementsPage";
@@ -10,7 +10,7 @@ import { ReconciliationPage } from "./ReconciliationPage";
 import { TemplateDetailPage, TemplateEditorPage, TemplateRunDetailPage, TemplatesPage } from "./TemplatesPage";
 import { NewTopDownRunPage, TopDownRunDetailPage, TopDownRunsPage } from "./TopDownRunsPage";
 
-const costacct: PassageModule = {
+const costacct: DepotModule = {
   id: "costacct",
   title: "Cost accounting",
   description: "Cost objects and elements, mirrored journal cost classified fixed or variable, reciprocal allocation runs and reruns, top-down distribution, internal order settlement, statistical measures, template allocation, cost object hierarchies with collection and distribution at a node, and the cost ledger reconciliation.",

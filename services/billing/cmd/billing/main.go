@@ -10,17 +10,17 @@ import (
 	"os"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ledgerclient"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/billing/internal/api"
-	"github.com/BenjaminSRussell/passage/services/billing/internal/periods"
-	"github.com/BenjaminSRussell/passage/services/billing/internal/revrec"
-	"github.com/BenjaminSRussell/passage/services/billing/internal/salesreport"
-	"github.com/BenjaminSRussell/passage/services/billing/internal/store"
-	"github.com/BenjaminSRussell/passage/services/billing/internal/taxreport"
-	"github.com/BenjaminSRussell/passage/services/billing/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ledgerclient"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/billing/internal/api"
+	"github.com/BenjaminSRussell/depot/services/billing/internal/periods"
+	"github.com/BenjaminSRussell/depot/services/billing/internal/revrec"
+	"github.com/BenjaminSRussell/depot/services/billing/internal/salesreport"
+	"github.com/BenjaminSRussell/depot/services/billing/internal/store"
+	"github.com/BenjaminSRussell/depot/services/billing/internal/taxreport"
+	"github.com/BenjaminSRussell/depot/services/billing/migrations"
 )
 
 const (

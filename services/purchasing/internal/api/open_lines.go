@@ -3,8 +3,8 @@ package api
 import (
 	"net/http"
 
-	"github.com/BenjaminSRussell/passage/services/purchasing/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/purchasing/internal/store"
+	"github.com/BenjaminSRussell/depot/services/purchasing/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/purchasing/internal/store"
 )
 
 // listOpenOrderLines is GET /purchase-order-lines: open supply, the lines of confirmed purchase

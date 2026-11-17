@@ -1,5 +1,5 @@
 import { matchPath } from "react-router-dom";
-import type { NavItem, PassageModule } from "../modules/registry";
+import type { NavItem, DepotModule } from "../modules/registry";
 import { copy } from "./copy";
 
 export interface PageMeta {
@@ -11,11 +11,11 @@ function isExact(to: string, pathname: string): boolean {
   return matchPath({ path: to, end: true }, pathname) !== null;
 }
 
-function workspaceOf(module: PassageModule): { title: string; to: string } {
+function workspaceOf(module: DepotModule): { title: string; to: string } {
   return { title: module.title, to: module.nav[0]?.to ?? "/" };
 }
 
-export function resolvePage(pathname: string, modules: PassageModule[], shellNav: NavItem[]): PageMeta {
+export function resolvePage(pathname: string, modules: DepotModule[], shellNav: NavItem[]): PageMeta {
   if (pathname === "/whats-new") {
     return { title: copy.whatsNew.pageTitle };
   }

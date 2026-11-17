@@ -9,19 +9,19 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/platform/outbox"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/analytics/internal/domain"
-	analyticsevents "github.com/BenjaminSRussell/passage/services/analytics/internal/events"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/outbox"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/analytics/internal/domain"
+	analyticsevents "github.com/BenjaminSRussell/depot/services/analytics/internal/events"
 )
 
 const eventSource = "analytics"
 
 // ownTenant repeats the RLS predicate in queries, so a connection that bypasses
 // row-level security (a superuser, the migration role) still reads one tenant.
-const ownTenant = `tenant_id = current_setting('passage.tenant_id', true)::uuid`
+const ownTenant = `tenant_id = current_setting('depot.tenant_id', true)::uuid`
 
 const reconColumns = `legal_entity_id::text, metric_id, recon_date::text, currency, semantic_value, source_value,
 	delta, tolerance, status, consecutive_ok_days, trusted`

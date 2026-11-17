@@ -3,8 +3,8 @@ package main
 import (
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/inventory/internal/api"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/inventory/internal/api"
 )
 
 // The postings consumer starts only when the service principal table gives it
@@ -31,8 +31,8 @@ func TestPostingsUnits(t *testing.T) {
 	if _, err := postingsUnits(func(k string) string { return map[string]string{"PRODUCT_URL": "http://product"}[k] }); err == nil {
 		t.Fatal("PRODUCT_URL without a signing key accepted")
 	}
-	env := map[string]string{"PRODUCT_URL": "http://product", "PASSAGE_SERVICE_NAME": "inventory",
-		"PASSAGE_SERVICE_SIGNING_KEY": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="}
+	env := map[string]string{"PRODUCT_URL": "http://product", "DEPOT_SERVICE_NAME": "inventory",
+		"DEPOT_SERVICE_SIGNING_KEY": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="}
 	if c, err := postingsUnits(func(k string) string { return env[k] }); c == nil || err != nil {
 		t.Fatalf("configured: %v %v", c, err)
 	}

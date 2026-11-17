@@ -1,4 +1,4 @@
-// Package money is the only way Passage represents amounts: a decimal value
+// Package money is the only way Depot represents amounts: a decimal value
 // with a currency, rounded to the ISO 4217 minor unit of that currency.
 package money
 
@@ -80,7 +80,9 @@ func (a Amount) Mul(f decimal.Decimal) Amount {
 func (a Amount) IsZero() bool { return a.Value.IsZero() }
 
 // String renders "123.45 USD".
-func (a Amount) String() string { return a.Value.StringFixed(MinorUnits(a.Currency)) + " " + a.Currency }
+func (a Amount) String() string {
+	return a.Value.StringFixed(MinorUnits(a.Currency)) + " " + a.Currency
+}
 
 // Allocate splits a into n parts whose sum is exactly a, distributing the
 // remainder one minor unit at a time from the first part (largest-remainder).

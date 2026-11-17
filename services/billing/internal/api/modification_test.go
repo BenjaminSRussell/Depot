@@ -10,8 +10,8 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/services/billing/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/billing/internal/store"
+	"github.com/BenjaminSRussell/depot/services/billing/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/billing/internal/store"
 )
 
 // postedOrderInvoice is a posted shipment invoice of order uuid(70): support (product uuid(81), 1,200.00, tax 228.00) and a

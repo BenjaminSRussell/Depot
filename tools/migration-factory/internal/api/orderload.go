@@ -8,13 +8,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
 
-	"github.com/BenjaminSRussell/passage/tools/migration-factory/internal/domain"
-	"github.com/BenjaminSRussell/passage/tools/migration-factory/internal/store"
-	"github.com/BenjaminSRussell/passage/tools/migration-factory/internal/target"
+	"github.com/BenjaminSRussell/depot/tools/migration-factory/internal/domain"
+	"github.com/BenjaminSRussell/depot/tools/migration-factory/internal/store"
+	"github.com/BenjaminSRussell/depot/tools/migration-factory/internal/target"
 )
 
 // Problem codes of the open orders load (#49).
@@ -43,7 +43,7 @@ type orderLoadRequest struct {
 	// SiteID and WarehouseID are where sales ships from and purchasing receives to: the extract carries neither.
 	SiteID      string `json:"siteId"`
 	WarehouseID string `json:"warehouseId"`
-	// Products, Customers and Vendors map a legacy item, customer or vendor to its Passage id; an id the party migration loaded is
+	// Products, Customers and Vendors map a legacy item, customer or vendor to its Depot id; an id the party migration loaded is
 	// found through the cross-reference, and one that is already a UUID needs no entry.
 	Products  map[string]string `json:"products"`
 	Customers map[string]string `json:"customers"`
@@ -138,7 +138,7 @@ func (s *Server) orderTarget(orderType string) OrderTarget {
 	return s.sales
 }
 
-// resolveOrderMasters fills the maps of the request with the Passage ids the party and product migrations loaded, found through the
+// resolveOrderMasters fills the maps of the request with the Depot ids the party and product migrations loaded, found through the
 // cross-reference for every legacy item, customer and vendor of the pending lines that is not mapped and is not a UUID: the key is
 // the legacy company and the code (company|code, as the migration service keys a record), else the code alone.
 func (s *Server) resolveOrderMasters(ctx context.Context, tenantID, legalEntityID string, sys domain.SourceSystem, company string, pending []store.PendingOrderLine, req *orderLoadRequest) error {
@@ -246,7 +246,7 @@ func (s *Server) runOrderLoad(w http.ResponseWriter, r *http.Request) {
 	if (needSales && (s.sales == nil || !s.sales.Configured())) || (needPurchasing && (s.purchasing == nil || !s.purchasing.Configured())) {
 		s.abandonOrders(ctx, id, errors.New("a target is not configured"))
 		httpx.Fail(w, r, httpx.NewProblem(http.StatusServiceUnavailable, CodeOrdersNotConfigured,
-			"the sales or purchasing target is not configured: set SALES_URL and PURCHASING_URL and the service signing key (PASSAGE_SERVICE_NAME=migration-factory, PASSAGE_SERVICE_SIGNING_KEY)"))
+			"the sales or purchasing target is not configured: set SALES_URL and PURCHASING_URL and the service signing key (DEPOT_SERVICE_NAME=migration-factory, DEPOT_SERVICE_SIGNING_KEY)"))
 		return
 	}
 	if err := s.resolveOrderMasters(ctx, p.TenantID, req.LegalEntityID, domain.SourceSystem(run.System), run.Company, pending, &req); err != nil {

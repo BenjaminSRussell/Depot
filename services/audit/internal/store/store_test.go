@@ -8,12 +8,12 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/audit/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/audit/internal/store"
-	"github.com/BenjaminSRussell/passage/services/audit/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/audit/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/audit/internal/store"
+	"github.com/BenjaminSRussell/depot/services/audit/migrations"
 )
 
 func principal(n int) tenant.Principal {
@@ -93,8 +93,8 @@ func TestMigrationsApplyWithRLSAndImmutability(t *testing.T) {
 	var currentUser string
 	var roleSuper, roleBypass bool
 	metadataErr := pool.QueryRow(ctx, `select current_user, r.rolsuper, r.rolbypassrls from pg_roles r where r.rolname = current_user`).Scan(&currentUser, &roleSuper, &roleBypass)
-	if metadataErr != nil || currentUser != "passage_app" || roleSuper || roleBypass {
-		t.Fatalf("RLS test must use non-bypass passage_app role: user=%q super=%v bypass=%v err=%v", currentUser, roleSuper, roleBypass, metadataErr)
+	if metadataErr != nil || currentUser != "depot_app" || roleSuper || roleBypass {
+		t.Fatalf("RLS test must use non-bypass depot_app role: user=%q super=%v bypass=%v err=%v", currentUser, roleSuper, roleBypass, metadataErr)
 	}
 	for _, table := range []string{"audit_entry", "alert_rule", "alert_inbox", "outbox"} {
 		var enabled, forced bool

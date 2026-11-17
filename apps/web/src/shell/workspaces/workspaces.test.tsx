@@ -2,13 +2,13 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it } from "vitest";
-import type { PassageModule } from "../../modules/registry";
+import type { DepotModule } from "../../modules/registry";
 import { AllFeaturesPage } from "../pages/AllFeaturesPage";
 import { HomePage } from "../pages/HomePage";
 import { Shell } from "../Shell";
 import { pageViolations } from "../testing/fakeServer";
 
-const modules: PassageModule[] = [
+const modules: DepotModule[] = [
   {
     id: "ledger",
     title: "General ledger",
@@ -39,7 +39,7 @@ const modules: PassageModule[] = [
   },
 ];
 
-function renderShell(path = "/", duties: string[] = [], shellModules: PassageModule[] = modules) {
+function renderShell(path = "/", duties: string[] = [], shellModules: DepotModule[] = modules) {
   return render(
     <MemoryRouter initialEntries={[path]}>
       <Routes>
@@ -101,7 +101,7 @@ describe("workspace switcher", () => {
   });
 
   it("still shows a workspace the user never dropped, even if their saved choices predate it", () => {
-    window.localStorage.setItem("passage.workspaces.v1", JSON.stringify({ dropped: ["ap-clerk"] }));
+    window.localStorage.setItem("depot.workspaces.v1", JSON.stringify({ dropped: ["ap-clerk"] }));
     renderShell();
     const names = within(screen.getByLabelText("Workspace")).getAllByRole("option").map((o) => o.textContent);
     expect(names).toEqual(["Accounts receivable", "Accounting and close", "Administration"]);
@@ -128,7 +128,7 @@ describe("workspace switcher", () => {
   });
 
   it("falls back to all workspaces when saved choices are unreadable", () => {
-    window.localStorage.setItem("passage.workspaces.v1", "{not json");
+    window.localStorage.setItem("depot.workspaces.v1", "{not json");
     renderShell();
     expect(screen.getByLabelText("Workspace")).toHaveValue("ap-clerk");
   });
@@ -250,7 +250,7 @@ describe("home", () => {
   });
 
   it("caps the home cards for users who hold many workspaces", () => {
-    const buyer: PassageModule = {
+    const buyer: DepotModule = {
       id: "purchasing",
       title: "Purchasing",
       routes: [],

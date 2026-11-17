@@ -11,12 +11,12 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/outbox"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/outbox"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
 )
 
 // CodeReconciliationNotFound: no such reconciliation run.
@@ -25,7 +25,7 @@ const (
 	reconciliationAggType      = "reconciliation_run"
 )
 
-// ReconciliationDiffEventType is dev.passage.costing.reconciliation.diff.v1,
+// ReconciliationDiffEventType is dev.depot.costing.reconciliation.diff.v1,
 // one per differing group of a reconciliation run (FR-20.4).
 var ReconciliationDiffEventType = events.Type("costing", "reconciliation", "diff", 1)
 
@@ -64,7 +64,7 @@ type ReconciliationPage struct {
 	Next  string
 }
 
-// reconciliationDiff is the payload of dev.passage.costing.reconciliation.diff.v1
+// reconciliationDiff is the payload of dev.depot.costing.reconciliation.diff.v1
 // (3.20.5). The group's dimensions stand for the PRD's account and dimension
 // until posting profiles resolve accounts; sample vouchers are not sent yet.
 type reconciliationDiff struct {

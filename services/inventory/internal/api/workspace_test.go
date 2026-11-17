@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/inventory/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/inventory/internal/store"
 )
 
 var lastRecon = time.Date(2026, 10, 27, 2, 0, 0, 0, time.UTC)

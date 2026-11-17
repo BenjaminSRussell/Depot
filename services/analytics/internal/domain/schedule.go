@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/ids"
 )
 
 // Schedule and export limits (FR-46.9, FR-46.10, BR-46.7, §9.46.13).

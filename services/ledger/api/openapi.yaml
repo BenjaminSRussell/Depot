@@ -1,17 +1,17 @@
 openapi: 3.1.0
 info:
-  title: Passage Ledger API
+  title: Depot Ledger API
   version: 0.1.0
   description: |
-    Universal journal, chart of accounts and balance projection (wave 11, PSG-11).
+    Universal journal, chart of accounts and balance projection (wave 11, DPT-11).
     Every route is mounted under /v1/ledger except /readyz. Errors are RFC 9457
     problem details (application/problem+json) with a stable `code`; rule rejections
     are 422 with a `violations[]` array of {code, lineIndex, field, message}.
-    Each operation names the duty it requires in `x-passage-duty` (enforced with
+    Each operation names the duty it requires in `x-depot-duty` (enforced with
     the platform's authz.RequireDuty; 403 AUTH-0003 without it). Money amounts are
     decimal strings at the currency's ISO 4217 minor-unit scale, never numbers.
 servers:
-  - url: https://api.{env}.passage.dev
+  - url: https://api.{env}.depot.dev
     variables:
       env: { default: dev }
 tags:
@@ -50,7 +50,7 @@ components:
         result instead of a page, up to 50,000 rows, under the same duty, filters, validation and legal-entity scope
         as the JSON read; limit is ignored. Cells that start with = + - @, a tab or a carriage return are prefixed
         with an apostrophe so a spreadsheet does not run them; plain numbers (a negative amount) are written as is.
-        A longer result is cut at the 50,000th row and flagged in X-Passage-Export-Truncated before the first byte.
+        A longer result is cut at the 50,000th row and flagged in X-Depot-Export-Truncated before the first byte.
         The file is streamed: a failure after the first byte cuts the connection rather than ending a short file.
       schema: { type: string, enum: [json, csv], default: json }
     ChartCode:
@@ -123,7 +123,7 @@ components:
       type: object
       required: [type, title, status]
       properties:
-        type: { type: string, format: uri, example: "https://passage.dev/problems/LEDGER_UNBALANCED" }
+        type: { type: string, format: uri, example: "https://depot.dev/problems/LEDGER_UNBALANCED" }
         title: { type: string }
         status: { type: integer }
         detail: { type: string }
@@ -1614,7 +1614,7 @@ paths:
       tags: [journal]
       operationId: listJournalNames
       summary: List journal names
-      x-passage-duty: ledger.journal.read
+      x-depot-duty: ledger.journal.read
       responses:
         "200":
           description: Every journal name of the tenant, by code
@@ -1634,7 +1634,7 @@ paths:
       tags: [journal]
       operationId: getJournalName
       summary: Get a journal name
-      x-passage-duty: ledger.journal.read
+      x-depot-duty: ledger.journal.read
       parameters:
         - $ref: "#/components/parameters/JournalNameCode"
       responses:
@@ -1652,7 +1652,7 @@ paths:
       tags: [journal]
       operationId: putJournalName
       summary: Create or replace a journal name
-      x-passage-duty: ledger.setup.write
+      x-depot-duty: ledger.setup.write
       description: |
         Creates (201) or replaces (200) a journal name; naturally idempotent. Names are deactivated,
         never deleted. A change applies to the next action on each batch: submit reads requiresApproval,
@@ -1691,7 +1691,7 @@ paths:
       tags: [journal]
       operationId: listJournalBatches
       summary: List manual journal batches (also readable with ledger.inbox.read, which carries nothing else)
-      x-passage-duty: ledger.journal.read
+      x-depot-duty: ledger.journal.read
       parameters:
         - { name: ledger, in: query, schema: { type: string, format: uuid } }
         - { name: status, in: query, schema: { $ref: "#/components/schemas/BatchStatus" } }
@@ -1717,7 +1717,7 @@ paths:
     post:
       tags: [journal]
       operationId: createJournalBatch
-      x-passage-duty: ledger.journal.write
+      x-depot-duty: ledger.journal.write
       description: |
         Creates a draft batch (FR-11.9). Line shape and amount scale are checked here (400); posting rules
         (accounts, dimensions, currency, balance, dates) run at submit and post. The journal name must be
@@ -1746,7 +1746,7 @@ paths:
       tags: [journal]
       operationId: getJournalBatch
       summary: Get a manual journal batch with its lines
-      x-passage-duty: ledger.journal.read
+      x-depot-duty: ledger.journal.read
       parameters:
         - name: id
           in: path
@@ -1766,7 +1766,7 @@ paths:
     patch:
       tags: [journal]
       operationId: patchJournalBatch
-      x-passage-duty: ledger.journal.write
+      x-depot-duty: ledger.journal.write
       description: |
         Edits the header and, when `lines` is present, replaces every line. Any edit of a validated,
         approved or rejected batch returns it to draft and clears its submit and approval (BR-11.10);
@@ -1801,7 +1801,7 @@ paths:
     post:
       tags: [journal]
       operationId: submitJournalBatch
-      x-passage-duty: ledger.journal.write
+      x-depot-duty: ledger.journal.write
       description: |
         Validates every line with the posting rules (the journal name's allowReconAccounts applies). Success
         moves a draft to validated, and on to in_approval when the journal name requires approval; a validated
@@ -1832,7 +1832,7 @@ paths:
     post:
       tags: [journal]
       operationId: approveJournalBatch
-      x-passage-duty: ledger.journal.approve
+      x-depot-duty: ledger.journal.approve
       description: |
         in_approval to approved. The approver may not be the submitter unless the journal name allows
         self-approval (403 LEDGER_SELF_APPROVAL). Approval runs here until the wave 4 Temporal workflow
@@ -1861,7 +1861,7 @@ paths:
     post:
       tags: [journal]
       operationId: rejectJournalBatch
-      x-passage-duty: ledger.journal.approve
+      x-depot-duty: ledger.journal.approve
       description: |
         in_approval to rejected.
       parameters:
@@ -1888,7 +1888,7 @@ paths:
     post:
       tags: [journal]
       operationId: cancelJournalBatch
-      x-passage-duty: ledger.journal.write
+      x-depot-duty: ledger.journal.write
       description: |
         draft, validated or rejected to cancelled.
       parameters:
@@ -1915,7 +1915,7 @@ paths:
     post:
       tags: [journal]
       operationId: postJournalBatch
-      x-passage-duty: ledger.journal.post
+      x-depot-duty: ledger.journal.post
       description: |
         Posts the batch as one journal entry (source ledger/manual_journal, documentId = batch id) through
         the posting pipeline, and marks the batch posted with the entry id in the same transaction. An
@@ -1968,7 +1968,7 @@ paths:
       tags: [structures]
       operationId: listAccountStructures
       summary: List the account structures of a ledger
-      x-passage-duty: ledger.journal.read
+      x-depot-duty: ledger.journal.read
       responses:
         "200":
           description: Every version of the ledger's account structures, by name then version
@@ -1998,7 +1998,7 @@ paths:
       tags: [structures]
       operationId: getAccountStructure
       summary: Get an account structure
-      x-passage-duty: ledger.journal.read
+      x-depot-duty: ledger.journal.read
       responses:
         "200":
           description: One structure version
@@ -2013,7 +2013,7 @@ paths:
     put:
       tags: [structures]
       operationId: putAccountStructure
-      x-passage-duty: ledger.structure.write
+      x-depot-duty: ledger.structure.write
       description: |
         Creates (201) or replaces (200) a version. Drafts change freely; setting status to
         active activates the version. An active version is immutable except that it may be
@@ -2065,7 +2065,7 @@ paths:
       tags: [structures]
       operationId: listDimensionValues
       summary: List the dimension values of a ledger
-      x-passage-duty: ledger.journal.read
+      x-depot-duty: ledger.journal.read
       responses:
         "200":
           description: Registered financial dimension values, by attribute then value
@@ -2098,7 +2098,7 @@ paths:
     put:
       tags: [structures]
       operationId: putDimensionValue
-      x-passage-duty: ledger.dimension.write
+      x-depot-duty: ledger.dimension.write
       description: |
         Creates (201) or replaces (200) a registered value. Replacing needs If-Match with the value's lockVersion
         (428 without, 412 when stale). Suspended or out-of-date values are refused by posting (LEDGER_DIMENSION_INACTIVE).
@@ -2136,7 +2136,7 @@ paths:
       tags: [ledgers]
       operationId: listLedgers
       summary: List ledgers
-      x-passage-duty: ledger.journal.read
+      x-depot-duty: ledger.journal.read
       description: Ledgers visible to the caller's legal-entity scope, ordered by legal entity then code, 100 per page; pass nextCursor back as cursor for the next page.
       parameters:
         - { name: legalEntityId, in: query, required: false, description: Only the ledgers of this legal entity, schema: { type: string, format: uuid } }
@@ -2161,7 +2161,7 @@ paths:
       tags: [ledgers]
       operationId: createLedger
       summary: Create a ledger
-      x-passage-duty: ledger.ledger.write
+      x-depot-duty: ledger.ledger.write
       requestBody:
         required: true
         content:
@@ -2200,7 +2200,7 @@ paths:
       tags: [ledgers]
       operationId: getLedger
       summary: Get a ledger
-      x-passage-duty: ledger.journal.read
+      x-depot-duty: ledger.journal.read
       parameters:
         - $ref: "#/components/parameters/LedgerId"
       responses:
@@ -2220,9 +2220,9 @@ paths:
         Fields that are omitted keep their value; an empty string clears one. addDimensionAttributes only appends
         (a line combination id hashes the attributes in ledger order, so a later append gives lines that hold no value
         for it a new combination id: balances stay correct and sum per account, but those rows split). If-Match carries the ledger version
-        (412 LEDGER_VERSION_CONFLICT when it changed). Each change announces dev.passage.ledger.rules.changed.v1
+        (412 LEDGER_VERSION_CONFLICT when it changed). Each change announces dev.depot.ledger.rules.changed.v1
         with kind ledger_settings.
-      x-passage-duty: ledger.ledger.write
+      x-depot-duty: ledger.ledger.write
       parameters:
         - $ref: "#/components/parameters/LedgerId"
         - name: If-Match
@@ -2250,7 +2250,7 @@ paths:
       tags: [charts]
       operationId: listAccounts
       summary: List the accounts of a chart
-      x-passage-duty: ledger.journal.read
+      x-depot-duty: ledger.journal.read
       description: >-
         One keyset page of accounts as JSON. With format=csv it is the chart of accounts export: every account from
         the after cursor as one CSV file (chart, account_number, name, account_type, is_postable, suspended_from,
@@ -2285,8 +2285,8 @@ paths:
             text/csv:
               schema: { type: string }
           headers:
-            X-Passage-Export-Truncated: { $ref: "#/components/headers/ExportTruncated" }
-            X-Passage-Export-Next-Cursor: { $ref: "#/components/headers/ExportNextCursor" }
+            X-Depot-Export-Truncated: { $ref: "#/components/headers/ExportTruncated" }
+            X-Depot-Export-Next-Cursor: { $ref: "#/components/headers/ExportNextCursor" }
         "400": { $ref: "#/components/responses/Problem400" }
         "401": { $ref: "#/components/responses/Problem401" }
         "403": { $ref: "#/components/responses/Problem403" }
@@ -2295,7 +2295,7 @@ paths:
       tags: [charts]
       operationId: getAccount
       summary: Read one account of a chart
-      x-passage-duty: ledger.journal.read
+      x-depot-duty: ledger.journal.read
       description: Returns the account with its lockVersion as ETag, to send as If-Match when replacing it.
       parameters:
         - $ref: "#/components/parameters/ChartCode"
@@ -2314,7 +2314,7 @@ paths:
     put:
       tags: [charts]
       operationId: putAccount
-      x-passage-duty: ledger.account.write
+      x-depot-duty: ledger.account.write
       description: |
         Creates (201) or replaces (200) a main account. Naturally idempotent. Replacing needs If-Match with the account's
         lockVersion (428 without, 412 when stale); the response carries the new ETag.
@@ -2363,7 +2363,7 @@ paths:
     post:
       tags: [journal]
       operationId: postEntry
-      x-passage-duty: ledger.journal.post
+      x-depot-duty: ledger.journal.post
       description: |
         Posts one balanced entry atomically or rejects it entirely. Pipeline: schema,
         ledger resolution, posting-date window, account existence, postability and suspension,
@@ -2418,7 +2418,7 @@ paths:
     get:
       tags: [journal]
       operationId: listLedgerSets
-      x-passage-duty: ledger.journal.read
+      x-depot-duty: ledger.journal.read
       description: Ledger sets visible to the caller's legal-entity scope, ordered by legal entity then code, 100 per page; pass nextCursor back as cursor for the next page.
       parameters:
         - { name: cursor, in: query, required: false, description: The nextCursor of the previous page, schema: { type: string, format: uuid } }
@@ -2441,7 +2441,7 @@ paths:
     post:
       tags: [journal]
       operationId: createLedgerSet
-      x-passage-duty: ledger.setup.write
+      x-depot-duty: ledger.setup.write
       description: |
         Creates a set of one leading ledger and at least one parallel ledger (FR-12.7). Every ledger of a set
         belongs to one legal entity and has the same accounting currency; a set is immutable. Set codes are unique
@@ -2470,7 +2470,7 @@ paths:
       tags: [journal]
       operationId: getLedgerSet
       summary: Get a ledger set with its members
-      x-passage-duty: ledger.journal.read
+      x-depot-duty: ledger.journal.read
       parameters:
         - $ref: "#/components/parameters/LedgerSetId"
       responses:
@@ -2487,7 +2487,7 @@ paths:
     post:
       tags: [journal]
       operationId: postSetEntry
-      x-passage-duty: ledger.journal.post
+      x-depot-duty: ledger.journal.post
       description: |
         Posts one source document to every ledger of the set in one transaction: all ledgers receive a balanced
         entry sharing documentId, or none does. Each ledger applies its own account mappings (valid on the posting
@@ -2531,7 +2531,7 @@ paths:
     get:
       tags: [journal]
       operationId: listAccountMappings
-      x-passage-duty: ledger.journal.read
+      x-depot-duty: ledger.journal.read
       description: Every account mapping of this ledger, ordered by source account then effectiveFrom, 100 per page; pass nextCursor back as cursor for the next page. 404 LEDGER_NOT_FOUND for a ledger outside the caller's scope.
       parameters:
         - $ref: "#/components/parameters/LedgerId"
@@ -2556,7 +2556,7 @@ paths:
     post:
       tags: [journal]
       operationId: createAccountMapping
-      x-passage-duty: ledger.setup.write
+      x-depot-duty: ledger.setup.write
       description: |
         Remaps a source account to a target account of this ledger's chart for set postings dated on or after
         effectiveFrom (BR-12.6). The latest mapping per source account valid on the posting date applies.
@@ -2588,7 +2588,7 @@ paths:
       tags: [journal]
       operationId: getEntry
       summary: Get a posted journal entry with its lines
-      x-passage-duty: ledger.journal.read
+      x-depot-duty: ledger.journal.read
       parameters:
         - $ref: "#/components/parameters/EntryId"
       responses:
@@ -2604,7 +2604,7 @@ paths:
     post:
       tags: [journal]
       operationId: reverseEntry
-      x-passage-duty: ledger.journal.reverse
+      x-depot-duty: ledger.journal.reverse
       description: |
         Creates an exact negating entry linked to the original (reversalOfEntryId; lines carry
         reversalOfLineId). An entry can be reversed once (LEDGER_REVERSAL_ALREADY_REVERSED); a
@@ -2657,7 +2657,7 @@ paths:
     post:
       tags: [journal]
       operationId: validateEntry
-      x-passage-duty: ledger.journal.post
+      x-depot-duty: ledger.journal.post
       description: Dry run of the posting rules. Returns every violation in one response; writes nothing. A dry run against a non-leading ledger of a ledger set also needs ledger.journal.postledger (FB50L, 403 AUTH-0003), as the real post does.
       requestBody:
         required: true
@@ -2679,11 +2679,11 @@ paths:
       tags: [journal]
       operationId: listJournalLines
       summary: Query the posted lines of a ledger
-      x-passage-duty: ledger.journal.read
+      x-depot-duty: ledger.journal.read
       description: |
         With format=csv the same filters export every matching line in posting order as one CSV file (one column per
         dimension attribute of the ledger, sorted, named dim.{ATTRIBUTE}), up to 50,000 lines; a longer result is cut
-        and X-Passage-Export-Next-Cursor is the cursor to continue from.
+        and X-Depot-Export-Next-Cursor is the cursor to continue from.
 
         Ledger transactions inquiry (FR-11.14): posted lines of one ledger in posting order
         (posting sequence, line number). account_from/account_to compare account numbers as text
@@ -2723,8 +2723,8 @@ paths:
             text/csv:
               schema: { type: string }
           headers:
-            X-Passage-Export-Truncated: { $ref: "#/components/headers/ExportTruncated" }
-            X-Passage-Export-Next-Cursor: { $ref: "#/components/headers/ExportNextCursor" }
+            X-Depot-Export-Truncated: { $ref: "#/components/headers/ExportTruncated" }
+            X-Depot-Export-Next-Cursor: { $ref: "#/components/headers/ExportNextCursor" }
         "400": { $ref: "#/components/responses/Problem400" }
         "401": { $ref: "#/components/responses/Problem401" }
         "403": { $ref: "#/components/responses/Problem403" }
@@ -2733,7 +2733,7 @@ paths:
     get:
       tags: [balances]
       operationId: partnerBalances
-      x-passage-duty: ledger.balance.read
+      x-depot-duty: ledger.balance.read
       summary: Intercompany balances by account and trading partner
       description: >-
         The lines that carry a trading partner (#40), summed per account and partner over a period range and account
@@ -2779,7 +2779,7 @@ paths:
     get:
       tags: [balances]
       operationId: trialBalance
-      x-passage-duty: ledger.balance.read
+      x-depot-duty: ledger.balance.read
       summary: Trial balance by account and dimension
       description: >-
         Trial balance per account from the balance projection, for a period range and account range, in the
@@ -2852,7 +2852,7 @@ paths:
     post:
       tags: [ops]
       operationId: rebuildBalances
-      x-passage-duty: ledger.balance.rebuild
+      x-depot-duty: ledger.balance.rebuild
       description: Rebuilds the balance projection of one ledger from the journal and reports differing rows.
       requestBody:
         required: true
@@ -2877,7 +2877,7 @@ paths:
     get:
       tags: [reasons]
       operationId: listReasonCodes
-      x-passage-duty: ledger.journal.read
+      x-depot-duty: ledger.journal.read
       description: Shared financial reason codes of the tenant (FR-11.15), ordered by code.
       responses:
         "200":
@@ -2897,7 +2897,7 @@ paths:
       tags: [reasons]
       operationId: getReasonCode
       summary: Get a reason code
-      x-passage-duty: ledger.journal.read
+      x-depot-duty: ledger.journal.read
       parameters:
         - name: code
           in: path
@@ -2915,7 +2915,7 @@ paths:
     put:
       tags: [reasons]
       operationId: putReasonCode
-      x-passage-duty: ledger.reason.write
+      x-depot-duty: ledger.reason.write
       description: |
         Creates (201) or replaces (200) a reason code. Naturally idempotent. Codes are deactivated
         with active = false, never deleted, because journal entries reference them.
@@ -2961,7 +2961,7 @@ paths:
     get:
       tags: [templates]
       operationId: listDescriptionTemplates
-      x-passage-duty: ledger.journal.read
+      x-depot-duty: ledger.journal.read
       description: |
         Default description templates (FR-11.17): the tenant templates and the legal entity templates
         inside the caller's legal-entity scope, ordered by sourceType, language, tenant first.
@@ -2983,7 +2983,7 @@ paths:
       tags: [templates]
       operationId: getDescriptionTemplate
       summary: Get a default description template
-      x-passage-duty: ledger.journal.read
+      x-depot-duty: ledger.journal.read
       parameters:
         - name: id
           in: path
@@ -3003,7 +3003,7 @@ paths:
     put:
       tags: [templates]
       operationId: putDescriptionTemplate
-      x-passage-duty: ledger.setup.write
+      x-depot-duty: ledger.setup.write
       description: |
         Creates (201) or replaces (200) a default description template (FR-11.17). Naturally
         idempotent. Every placeholder %1..%9 in the template must be bound in fieldBindings and every
@@ -3049,7 +3049,7 @@ paths:
       tags: [recurring]
       operationId: listRecurringJournals
       summary: List recurring journals
-      x-passage-duty: ledger.journal.read
+      x-depot-duty: ledger.journal.read
       description: Recurring journal templates (FR-11.10) in the caller's legal-entity scope, by next run date then name.
       parameters:
         - name: status
@@ -3078,7 +3078,7 @@ paths:
       tags: [recurring]
       operationId: getRecurringJournal
       summary: Get a recurring journal with its lines
-      x-passage-duty: ledger.journal.read
+      x-depot-duty: ledger.journal.read
       parameters:
         - name: id
           in: path
@@ -3099,7 +3099,7 @@ paths:
       tags: [recurring]
       operationId: putRecurringJournal
       summary: Create or replace a recurring journal
-      x-passage-duty: ledger.journal.write
+      x-depot-duty: ledger.journal.write
       description: |
         Creates (201) or replaces (200) a recurring journal (FR-11.10): a journal template with a calendar
         schedule. Lines are fixed amounts or percentages of the base amount. Naturally idempotent. A
@@ -3149,7 +3149,7 @@ paths:
       tags: [recurring]
       operationId: pauseRecurringJournal
       summary: Pause a recurring journal
-      x-passage-duty: ledger.journal.write
+      x-depot-duty: ledger.journal.write
       description: A paused template generates nothing until it is resumed.
       parameters:
         - name: id
@@ -3175,7 +3175,7 @@ paths:
       tags: [recurring]
       operationId: resumeRecurringJournal
       summary: Resume a recurring journal
-      x-passage-duty: ledger.journal.write
+      x-depot-duty: ledger.journal.write
       description: Resumes a paused template. Runs missed while paused are skipped; the next run date moves to the first scheduled date on or after today.
       parameters:
         - name: id
@@ -3201,7 +3201,7 @@ paths:
       tags: [recurring]
       operationId: generateRecurringJournal
       summary: Generate the draft batch of a scheduled date
-      x-passage-duty: ledger.journal.write
+      x-depot-duty: ledger.journal.write
       description: |
         Creates one draft journal batch for the scheduled date, with the date as posting date, and
         records the run, in one transaction. The date is required (send the template's nextRunDate for
@@ -3211,7 +3211,7 @@ paths:
         that already has a run returns that run with 200 and creates nothing, so a scheduler that fires
         twice is safe. A run at or after the next run date advances the schedule to the next date after
         it; an earlier (catch-up) date leaves it. The batch then follows the normal lifecycle (submit,
-        approve, post). Emits dev.passage.ledger.recurring.generated.v1.
+        approve, post). Emits dev.depot.ledger.recurring.generated.v1.
       parameters:
         - name: id
           in: path
@@ -3249,7 +3249,7 @@ paths:
       tags: [recurring]
       operationId: listRecurringJournalRuns
       summary: List the generated batches of a recurring journal
-      x-passage-duty: ledger.journal.read
+      x-depot-duty: ledger.journal.read
       parameters:
         - name: id
           in: path
@@ -3300,7 +3300,7 @@ paths:
       tags: [clearing]
       operationId: listOpenItemAccounts
       summary: List open-item account settings of a ledger
-      x-passage-duty: ledger.journal.read
+      x-depot-duty: ledger.journal.read
       description: Every account that was switched on or off for open-item management in the ledger, with the count of its items still open.
       parameters:
         - name: ledger
@@ -3325,7 +3325,7 @@ paths:
       tags: [clearing]
       operationId: putOpenItemAccount
       summary: Switch open-item management of an account on or off
-      x-passage-duty: ledger.account.write
+      x-depot-duty: ledger.account.write
       description: |
         When on, every non-zero line posted on the account in this ledger creates an open item
         (FR-11.19). Only postable balance-sheet accounts that are not customer or vendor
@@ -3369,7 +3369,7 @@ paths:
       tags: [clearing]
       operationId: activateOpenItemAccount
       summary: Activate open-item management for an account that has a balance
-      x-passage-duty: ledger.balance.rebuild
+      x-depot-duty: ledger.balance.rebuild
       description: |
         Activation run (FR-11.19, FAGL_SWITCH_TO_OPEN_ITEM semantics), duty "Administer ledger"
         (ledger.balance.rebuild). In one transaction under the ledger lock, which every posting also
@@ -3387,7 +3387,7 @@ paths:
         switch-off answers 409 LEDGER_OI_OPEN_ITEMS_EXIST. An account without lines is activated with
         zero items. A repeat with the same Idempotency-Key and body returns the stored run; another
         body under the same key is 409 LEDGER_IDEMPOTENCY_CONFLICT. Announces
-        dev.passage.ledger.openitem.activated.v1.
+        dev.depot.ledger.openitem.activated.v1.
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
         - name: ledger
@@ -3425,7 +3425,7 @@ paths:
       tags: [clearing]
       operationId: listOpenItemActivations
       summary: List open-item activation runs of a ledger
-      x-passage-duty: ledger.journal.read
+      x-depot-duty: ledger.journal.read
       description: The activation runs of the ledger, newest first, at most 200.
       parameters:
         - name: ledger
@@ -3450,7 +3450,7 @@ paths:
       tags: [clearing]
       operationId: listToleranceGroups
       summary: List tolerance groups of a ledger
-      x-passage-duty: ledger.journal.read
+      x-depot-duty: ledger.journal.read
       parameters:
         - name: ledger
           in: path
@@ -3474,7 +3474,7 @@ paths:
       tags: [clearing]
       operationId: getToleranceGroup
       summary: Get a tolerance group
-      x-passage-duty: ledger.journal.read
+      x-depot-duty: ledger.journal.read
       parameters:
         - name: ledger
           in: path
@@ -3499,7 +3499,7 @@ paths:
       tags: [clearing]
       operationId: putToleranceGroup
       summary: Create or replace a tolerance group
-      x-passage-duty: ledger.clearing.rules
+      x-depot-duty: ledger.clearing.rules
       description: |
         A tolerance group is the largest residual a manual clearing may write off to its difference
         account (OBA0 semantics, BR-11.12): a debit residual up to the debit limit, a credit residual
@@ -3551,7 +3551,7 @@ paths:
       tags: [clearing]
       operationId: listOpenItems
       summary: List open items of a ledger
-      x-passage-duty: ledger.journal.read
+      x-depot-duty: ledger.journal.read
       description: |
         Open items of open-item managed accounts, oldest first, one keyset page at a time. Status
         open also returns reset_open items, which can be cleared again. Dimension filters are exact
@@ -3578,7 +3578,7 @@ paths:
       tags: [clearing]
       operationId: simulateClearing
       summary: Preview the residual and outcome of a clearing
-      x-passage-duty: ledger.clearing.write
+      x-depot-duty: ledger.clearing.write
       description: Stateless. Applies the same checks as POST /clearings and reports the residual and what would happen to it, without writing anything.
       requestBody:
         required: true
@@ -3602,7 +3602,7 @@ paths:
       tags: [clearing]
       operationId: listClearings
       summary: List clearing documents of a ledger
-      x-passage-duty: ledger.journal.read
+      x-depot-duty: ledger.journal.read
       description: Newest first, one keyset page (limit, default 100, at most 200; cursor from nextCursor).
       parameters:
         - { name: ledger, in: query, required: true, schema: { type: string, format: uuid } }
@@ -3628,7 +3628,7 @@ paths:
       tags: [clearing]
       operationId: createClearing
       summary: Clear open items
-      x-passage-duty: ledger.clearing.write
+      x-depot-duty: ledger.clearing.write
       description: |
         Manual clearing (F-03 semantics) of 2 to 10,000 open items of one open-item managed account,
         in one transaction. A zero net clears them. A residual within the named tolerance group (its
@@ -3639,7 +3639,7 @@ paths:
         new open item when residualItem is true and is otherwise refused (LEDGER_CLEARING_UNBALANCED,
         422). An item already in a clearing is LEDGER_OPEN_ITEM_ALREADY_CLEARED (409). The clearing
         date may not precede the latest posting date of the items. A repeated Idempotency-Key returns
-        the same document with 200. Emits dev.passage.ledger.openitem.cleared.v1.
+        the same document with 200. Emits dev.depot.ledger.openitem.cleared.v1.
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
         - $ref: "#/components/parameters/Traceparent"
@@ -3670,7 +3670,7 @@ paths:
       tags: [clearing]
       operationId: getClearing
       summary: Get a clearing document with its items
-      x-passage-duty: ledger.journal.read
+      x-depot-duty: ledger.journal.read
       parameters:
         - name: id
           in: path
@@ -3690,7 +3690,7 @@ paths:
       tags: [clearing]
       operationId: resetClearing
       summary: Reset a clearing document
-      x-passage-duty: ledger.clearing.reset
+      x-depot-duty: ledger.clearing.reset
       description: |
         Resets the clearing as a whole (BR-11.13) with a required reason code: an active shared reason
         code that applies to ledger (LEDGER_REASON_REQUIRED, 422, when unknown, inactive or missing a
@@ -3698,7 +3698,7 @@ paths:
         reversed with the reason code and its two items are voided, and a residual
         item is voided, which needs it to be still open (LEDGER_CLEARING_RESIDUAL_USED, 409).
         Resetting a reset document is LEDGER_CLEARING_ALREADY_RESET (409) unless the Idempotency-Key
-        is the one that reset it, which returns the document. Emits dev.passage.ledger.openitem.cleared.v1
+        is the one that reset it, which returns the document. Emits dev.depot.ledger.openitem.cleared.v1
         with status reset.
       parameters:
         - name: id
@@ -3729,7 +3729,7 @@ paths:
       tags: [clearing]
       operationId: listAutoClearingRules
       summary: List automatic clearing rules of a ledger
-      x-passage-duty: ledger.journal.read
+      x-depot-duty: ledger.journal.read
       description: In run order (sequence, then name).
       parameters:
         - name: ledger
@@ -3754,7 +3754,7 @@ paths:
       tags: [clearing]
       operationId: getAutoClearingRule
       summary: Get an automatic clearing rule
-      x-passage-duty: ledger.journal.read
+      x-depot-duty: ledger.journal.read
       parameters:
         - name: ledger
           in: path
@@ -3779,7 +3779,7 @@ paths:
       tags: [clearing]
       operationId: putAutoClearingRule
       summary: Create or replace an automatic clearing rule
-      x-passage-duty: ledger.clearing.rules
+      x-depot-duty: ledger.clearing.rules
       description: |
         A rule (OB74 semantics, FR-11.20) names an account range and up to five ordered criteria that
         group the open items of each account. The id is chosen by the caller. A group that nets to zero
@@ -3832,7 +3832,7 @@ paths:
       tags: [clearing]
       operationId: runAutoClearing
       summary: Run automatic clearing
-      x-passage-duty: ledger.clearing.run
+      x-depot-duty: ledger.clearing.run
       description: |
         Groups the open items of every active rule (or one rule) and clears each group that nets to
         zero, or within the rule's tolerance, as its own clearing document (mode auto, idempotency key
@@ -3841,7 +3841,7 @@ paths:
         and the run continues. simulate writes nothing and returns the proposed and skipped groups
         (200). clear stores the run and its group log under the Idempotency-Key (201; a repeat with the
         same body returns the stored run with 200, another body is LEDGER_IDEMPOTENCY_CONFLICT, 409).
-        Each cleared group emits dev.passage.ledger.openitem.cleared.v1.
+        Each cleared group emits dev.depot.ledger.openitem.cleared.v1.
       parameters:
         - name: Idempotency-Key
           in: header
@@ -3876,7 +3876,7 @@ paths:
       tags: [clearing]
       operationId: listAutoClearingRuns
       summary: List stored automatic clearing runs
-      x-passage-duty: ledger.journal.read
+      x-depot-duty: ledger.journal.read
       description: Newest first, at most 100, without the group log.
       parameters:
         - { name: ledger, in: query, required: true, schema: { type: string, format: uuid } }
@@ -3899,7 +3899,7 @@ paths:
       tags: [clearing]
       operationId: getAutoClearingRun
       summary: Get an automatic clearing run with its group log
-      x-passage-duty: ledger.journal.read
+      x-depot-duty: ledger.journal.read
       parameters:
         - name: id
           in: path
@@ -3919,7 +3919,7 @@ paths:
       tags: [derivation]
       operationId: listLookupTables
       summary: List the lookup tables of a ledger
-      x-passage-duty: ledger.journal.read
+      x-depot-duty: ledger.journal.read
       description: Lookup tables by name, without rows. Fetch one table to read its rows.
       parameters:
         - { name: ledger, in: path, required: true, schema: { type: string, format: uuid } }
@@ -3940,7 +3940,7 @@ paths:
       tags: [derivation]
       operationId: getLookupTable
       summary: Get a lookup table with its rows
-      x-passage-duty: ledger.journal.read
+      x-depot-duty: ledger.journal.read
       parameters:
         - { name: ledger, in: path, required: true, schema: { type: string, format: uuid } }
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
@@ -3959,14 +3959,14 @@ paths:
       tags: [derivation]
       operationId: putLookupTable
       summary: Create or replace a lookup table and its rows
-      x-passage-duty: ledger.rules.write
+      x-depot-duty: ledger.rules.write
       description: |
         A lookup table maps a source tuple to one target dimension value (FR-11.22). Rows match on
         the full tuple with * wildcards; the row with the fewest wildcards wins, then the latest
         validFrom, and only rows valid on the posting date apply (BR-11.14). The call replaces all
         rows (at most 5,000; CSV import is not built). A replace is checked against If-Match when
         sent (412 LEDGER_VERSION_CONFLICT). The definition cannot change while a strategy step
-        uses the table. Announces dev.passage.ledger.rules.changed.v1.
+        uses the table. Announces dev.depot.ledger.rules.changed.v1.
       parameters:
         - { name: ledger, in: path, required: true, schema: { type: string, format: uuid } }
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
@@ -4007,7 +4007,7 @@ paths:
       tags: [derivation]
       operationId: listSplittingRules
       summary: List the document splitting rules of a ledger
-      x-passage-duty: ledger.journal.read
+      x-depot-duty: ledger.journal.read
       description: Splitting rules by source type (FR-11.23).
       parameters:
         - { name: ledger, in: path, required: true, schema: { type: string, format: uuid } }
@@ -4028,7 +4028,7 @@ paths:
       tags: [derivation]
       operationId: getSplittingRule
       summary: Get a document splitting rule
-      x-passage-duty: ledger.journal.read
+      x-depot-duty: ledger.journal.read
       description: One splitting rule; its version is in the ETag header.
       parameters:
         - { name: ledger, in: path, required: true, schema: { type: string, format: uuid } }
@@ -4048,7 +4048,7 @@ paths:
       tags: [derivation]
       operationId: putSplittingRule
       summary: Create or replace a document splitting rule
-      x-passage-duty: ledger.rules.write
+      x-depot-duty: ledger.rules.write
       description: |
         Document splitting (FR-11.23, BR-11.15) for entries of one source type. Lines that carry none of
         the splitting dimensions inherit them from the carrying lines in proportion to the carrying lines'
@@ -4063,7 +4063,7 @@ paths:
         postable asset, liability or equity account that is not a reconciliation account.
         One rule exists per ledger and source type. A replace is checked against If-Match when sent
         (412 LEDGER_VERSION_CONFLICT); repeating a PUT with the same content returns 200 with the version
-        unchanged and announces nothing. Otherwise announces dev.passage.ledger.rules.changed.v1 with kind
+        unchanged and announces nothing. Otherwise announces dev.depot.ledger.rules.changed.v1 with kind
         splitting_rule.
       parameters:
         - { name: ledger, in: path, required: true, schema: { type: string, format: uuid } }
@@ -4105,7 +4105,7 @@ paths:
       tags: [derivation]
       operationId: listRealignments
       summary: List the dimension realignment runs of a ledger
-      x-passage-duty: ledger.journal.read
+      x-depot-duty: ledger.journal.read
       description: Runs newest first, without their previews (get one run for its affected rows).
       parameters:
         - { name: ledger, in: path, required: true, schema: { type: string, format: uuid } }
@@ -4125,7 +4125,7 @@ paths:
       tags: [derivation]
       operationId: createRealignment
       summary: Simulate a dimension realignment run
-      x-passage-duty: ledger.realignment.run
+      x-depot-duty: ledger.realignment.run
       description: |
         Dimension realignment (FR-11.24) restates posted balances without touching a posted line. The filter
         (account range, period range of at most 60 periods) and the mapping (per dimension attribute, old
@@ -4164,7 +4164,7 @@ paths:
       tags: [derivation]
       operationId: getRealignment
       summary: Get a dimension realignment run
-      x-passage-duty: ledger.journal.read
+      x-depot-duty: ledger.journal.read
       description: One run with its affected rows, status, reason and the entries it posted and reversed.
       parameters:
         - { name: ledger, in: path, required: true, schema: { type: string, format: uuid } }
@@ -4183,7 +4183,7 @@ paths:
       tags: [derivation]
       operationId: postRealignment
       summary: Post a proposed dimension realignment run
-      x-passage-duty: ledger.realignment.run
+      x-depot-duty: ledger.realignment.run
       description: |
         Re-reads the balances under the ledger lock and posts one reclassification entry per period (a period
         with more than 5,000 moved balances posts several), dated the period's last day (today while the
@@ -4198,7 +4198,7 @@ paths:
         hold or closed with duty ledger.period.postclosed, else 422 LEDGER_REALIGNMENT_PERIOD_CLOSED and
         nothing is posted. Needs an active reason code of the shared catalogue that applies to ledger, with
         a comment when the code requires one. The stored preview is replaced by the posted rows. A repeat on
-        a posted run returns it unchanged. Announces dev.passage.ledger.realignment.completed.v1.
+        a posted run returns it unchanged. Announces dev.depot.ledger.realignment.completed.v1.
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
         - { name: ledger, in: path, required: true, schema: { type: string, format: uuid } }
@@ -4225,7 +4225,7 @@ paths:
       tags: [derivation]
       operationId: reverseRealignment
       summary: Reverse a posted dimension realignment run
-      x-passage-duty: ledger.realignment.run
+      x-depot-duty: ledger.realignment.run
       description: |
         Reverses every reclassification entry of a posted run in one transaction, with the given reason
         code and the normal reversal rules, so the balance of every combination returns to its value
@@ -4234,7 +4234,7 @@ paths:
         postingDate moves every reversal into an open period instead (the cumulative balances return,
         the closed periods keep the restatement). The reversing entries carry the run and isRealignment too. A run that is not
         posted is 409 LEDGER_REALIGNMENT_STATE; a repeat on a reversed run returns it unchanged.
-        Announces dev.passage.ledger.realignment.completed.v1 with reversal true.
+        Announces dev.depot.ledger.realignment.completed.v1 with reversal true.
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
         - { name: ledger, in: path, required: true, schema: { type: string, format: uuid } }
@@ -4261,7 +4261,7 @@ paths:
       tags: [derivation]
       operationId: cancelRealignment
       summary: Cancel a proposed dimension realignment run
-      x-passage-duty: ledger.realignment.run
+      x-depot-duty: ledger.realignment.run
       description: Drops a proposed run; nothing was posted by it. A run in any other status is 409 LEDGER_REALIGNMENT_STATE; a repeat on a cancelled run returns it unchanged.
       parameters:
         - { name: ledger, in: path, required: true, schema: { type: string, format: uuid } }
@@ -4287,7 +4287,7 @@ paths:
       tags: [derivation]
       operationId: listDerivationStrategies
       summary: List the derivation strategy versions of a ledger
-      x-passage-duty: ledger.journal.read
+      x-depot-duty: ledger.journal.read
       description: Versions newest first, each with its steps and status (draft, active, retired).
       parameters:
         - { name: ledger, in: path, required: true, schema: { type: string, format: uuid } }
@@ -4308,7 +4308,7 @@ paths:
       tags: [derivation]
       operationId: getDerivationStrategy
       summary: Get one derivation strategy version
-      x-passage-duty: ledger.journal.read
+      x-depot-duty: ledger.journal.read
       parameters:
         - { name: ledger, in: path, required: true, schema: { type: string, format: uuid } }
         - { name: version, in: path, required: true, schema: { type: integer, minimum: 1 } }
@@ -4327,7 +4327,7 @@ paths:
       tags: [derivation]
       operationId: putDerivationStrategy
       summary: Create the next draft version or replace a draft
-      x-passage-duty: ledger.rules.write
+      x-depot-duty: ledger.rules.write
       description: |
         A new version number must be the highest existing one plus one. Only a draft is replaced
         (409 LEDGER_DERIVATION_STRATEGY_NOT_DRAFT); a replace is checked against If-Match when sent.
@@ -4376,11 +4376,11 @@ paths:
       tags: [derivation]
       operationId: activateDerivationStrategy
       summary: Activate a draft derivation strategy
-      x-passage-duty: ledger.rules.write
+      x-depot-duty: ledger.rules.write
       description: |
         Validates the draft against the ledger's dimension attributes and lookup tables (422
         LEDGER_DERIVATION_INVALID), retires the active version and activates this one in one
-        transaction, and announces dev.passage.ledger.rules.changed.v1. Activating the active
+        transaction, and announces dev.depot.ledger.rules.changed.v1. Activating the active
         version again changes nothing. Postings from then on run the steps and record the
         step ids on each line they changed.
       parameters:
@@ -4411,7 +4411,7 @@ paths:
       tags: [advanced-rules]
       operationId: listAdvancedRules
       summary: List the advanced rules of a ledger
-      x-passage-duty: ledger.journal.read
+      x-depot-duty: ledger.journal.read
       description: Every advanced rule of the ledger, by structure version, priority and name; structureId narrows the list to one structure version.
       parameters:
         - { name: ledger, in: path, required: true, schema: { type: string, format: uuid } }
@@ -4435,7 +4435,7 @@ paths:
       tags: [advanced-rules]
       operationId: getAdvancedRule
       summary: Get one advanced rule
-      x-passage-duty: ledger.journal.read
+      x-depot-duty: ledger.journal.read
       parameters:
         - { name: ledger, in: path, required: true, schema: { type: string, format: uuid } }
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
@@ -4454,7 +4454,7 @@ paths:
       tags: [advanced-rules]
       operationId: putAdvancedRule
       summary: Create or replace an advanced rule
-      x-passage-duty: ledger.structure.write
+      x-depot-duty: ledger.structure.write
       description: |
         Creates (201) or replaces (200) an advanced rule of a draft account structure version (FR-11.16,
         AC-11.18). When a line matches the filter, the rule's segments and constraint rows are appended to
@@ -4467,7 +4467,7 @@ paths:
         once the version is active. Definition problems (unknown attribute, a segment the structure already has,
         a malformed token, more than 20 segments in all) are 422 with every violation, under
         LEDGER_ADVANCED_RULE_INVALID or LEDGER_ADVANCED_RULE_SEGMENT_LIMIT. Announces
-        dev.passage.ledger.rules.changed.v1 with kind advanced_rule.
+        dev.depot.ledger.rules.changed.v1 with kind advanced_rule.
       parameters:
         - { name: ledger, in: path, required: true, schema: { type: string, format: uuid } }
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
@@ -4508,7 +4508,7 @@ paths:
       tags: [attachments]
       operationId: listBatchAttachments
       summary: List the attachments and notes of a journal batch
-      x-passage-duty: ledger.journal.read
+      x-depot-duty: ledger.journal.read
       description: |
         The files and notes of the batch, oldest first (FR-11.11, FR-11.18). For a posted batch every file
         carries retainedUntil, the posting date plus its retention class.
@@ -4533,7 +4533,7 @@ paths:
       tags: [attachments]
       operationId: putBatchAttachment
       summary: Add an attachment or a note to a journal batch
-      x-passage-duty: ledger.journal.write
+      x-depot-duty: ledger.journal.write
       description: |
         Adds a file reference or a note under an id the client chooses (FR-11.11, FR-11.18); the request is
         idempotent on that id. The ledger stores the metadata and the store reference (an object-storage key under the
@@ -4542,7 +4542,7 @@ paths:
         files and 200 notes. Re-sending the stored content answers 200 and changes nothing; other content under
         the id is 409 LEDGER_ATTACHMENT_CONFLICT. A posted or cancelled batch is immutable (409 LEDGER_BATCH_STATE).
         Malformed content is 422 LEDGER_ATTACHMENT_INVALID with every violation. Announces
-        dev.passage.ledger.batch.attachmentchanged.v1 with action added.
+        dev.depot.ledger.batch.attachmentchanged.v1 with action added.
       parameters:
         - $ref: "#/components/parameters/EntryId"
         - $ref: "#/components/parameters/AttachmentId"
@@ -4572,12 +4572,12 @@ paths:
       tags: [attachments]
       operationId: deleteBatchAttachment
       summary: Remove an attachment or a note from a journal batch
-      x-passage-duty: ledger.journal.write
+      x-depot-duty: ledger.journal.write
       description: |
         Before the batch is posted an attachment or note can be removed freely. After posting a file is retained
         for its retention class from the posting date: removing it earlier is 409 LEDGER_ATTACHMENT_RETAINED,
         and a note of a posted batch is 409 LEDGER_BATCH_STATE. Announces
-        dev.passage.ledger.batch.attachmentchanged.v1 with action removed.
+        dev.depot.ledger.batch.attachmentchanged.v1 with action removed.
       parameters:
         - $ref: "#/components/parameters/EntryId"
         - $ref: "#/components/parameters/AttachmentId"
@@ -4594,7 +4594,7 @@ paths:
       tags: [attachments]
       operationId: listEntryAttachments
       summary: List the attachments and notes of the batch that was posted as an entry
-      x-passage-duty: ledger.journal.read
+      x-depot-duty: ledger.journal.read
       description: |
         The voucher's attachments stay readable from the posted entry (FR-11.18). An entry that did not come
         from a journal batch has none.
@@ -4619,7 +4619,7 @@ paths:
       tags: [validation]
       operationId: listValidationRules
       summary: List the validation rules of a ledger
-      x-passage-duty: ledger.journal.read
+      x-depot-duty: ledger.journal.read
       description: Every rule, active or not, in evaluation order (sequence, then name).
       parameters:
         - { name: ledger, in: path, required: true, schema: { type: string, format: uuid } }
@@ -4640,7 +4640,7 @@ paths:
       tags: [validation]
       operationId: getValidationRule
       summary: Get one validation rule
-      x-passage-duty: ledger.journal.read
+      x-depot-duty: ledger.journal.read
       parameters:
         - { name: ledger, in: path, required: true, schema: { type: string, format: uuid } }
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
@@ -4659,7 +4659,7 @@ paths:
       tags: [validation]
       operationId: putValidationRule
       summary: Create or replace a validation rule
-      x-passage-duty: ledger.rules.write
+      x-depot-duty: ledger.rules.write
       description: |
         A rule has a prerequisite and a check, each a list of conditions that must all hold. It fails on a
         line (level line) or on the entry (level header) when its prerequisite holds and its check does not
@@ -4668,7 +4668,7 @@ paths:
         with 422 LEDGER_VALIDATION_RULE_FAILED naming the rule and `lineIndex`; a warning rule returns the same
         problem in `warnings` of the dry run and as a notice on the posted entry. A replace is checked against
         If-Match when sent. Shape problems (unknown field, wrong number of values, a header rule reading a line
-        field) are 422 LEDGER_VALIDATION_RULE_INVALID. Announces dev.passage.ledger.rules.changed.v1.
+        field) are 422 LEDGER_VALIDATION_RULE_INVALID. Announces dev.depot.ledger.rules.changed.v1.
       parameters:
         - { name: ledger, in: path, required: true, schema: { type: string, format: uuid } }
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }

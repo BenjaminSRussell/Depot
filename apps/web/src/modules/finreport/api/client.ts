@@ -939,11 +939,11 @@ export async function exportAuditTrail(q: AuditQuery): Promise<AuditExport> {
   if (!res.ok) {
     throw await toError(res);
   }
-  const id = res.headers.get("X-Passage-Export-Id") ?? "";
+  const id = res.headers.get("X-Depot-Export-Id") ?? "";
   return {
     id,
-    sha256: res.headers.get("X-Passage-Export-Sha256") ?? "",
-    entries: Number(res.headers.get("X-Passage-Export-Entries") ?? "0"),
+    sha256: res.headers.get("X-Depot-Export-Sha256") ?? "",
+    entries: Number(res.headers.get("X-Depot-Export-Entries") ?? "0"),
     fileName: `audit-trail-${id || "export"}.csv`,
     csv: await res.text(),
   };

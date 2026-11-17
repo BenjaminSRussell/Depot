@@ -5,8 +5,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/money"
-	"github.com/BenjaminSRussell/passage/services/engineering/internal/events"
+	"github.com/BenjaminSRussell/depot/platform/money"
+	"github.com/BenjaminSRussell/depot/services/engineering/internal/events"
 	"github.com/shopspring/decimal"
 )
 

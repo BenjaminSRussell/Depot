@@ -17,13 +17,13 @@ create table gl_opening_posting_lease (
 alter table gl_opening_posting_lease enable row level security;
 alter table gl_opening_posting_lease force row level security;
 create policy gl_opening_posting_lease_tenant_access on gl_opening_posting_lease as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON gl_opening_posting_lease TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON gl_opening_posting_lease TO depot_app';
   END IF;
 END
 $$;

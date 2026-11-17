@@ -12,11 +12,11 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/outbox"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/outbox"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/domain"
 )
 
 var ErrSheetNotFound = errors.New("service entry sheet not found")
@@ -295,7 +295,7 @@ func (s *Postgres) AcceptSheet(ctx context.Context, id, by string, fn SheetAccep
 		}
 		for _, evt := range accepted {
 			aggregate, aggregateID := sheetAggregate, id
-			if evt.Type == "dev.passage.receiving.receipt.posted.v1" {
+			if evt.Type == "dev.depot.receiving.receipt.posted.v1" {
 				aggregate, aggregateID = receiptAggregate, rec.ID
 			}
 			if err := outbox.Enqueue(ctx, tx, aggregate, aggregateID, evt); err != nil {

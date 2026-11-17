@@ -7,8 +7,8 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/services/pricing/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/pricing/internal/store"
+	"github.com/BenjaminSRussell/depot/services/pricing/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/pricing/internal/store"
 )
 
 func str(s string) *string { return &s }
@@ -87,9 +87,9 @@ func TestPostgres_RebateReviseAndClose(t *testing.T) {
 	var revised, closed int
 	for _, row := range outboxRows(t, ctx, pool) {
 		switch row.Type {
-		case "dev.passage.pricing.rebateagreement.revised.v1":
+		case "dev.depot.pricing.rebateagreement.revised.v1":
 			revised++
-		case "dev.passage.pricing.rebateagreement.closed.v1":
+		case "dev.depot.pricing.rebateagreement.closed.v1":
 			closed++
 			if row.Data["status"] != "CLOSED" || row.Data["valid_to"] != "2026-09-30" || row.Data["agreement_id"] != a.ID {
 				t.Fatalf("closed event = %v", row.Data)

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Game-day baseline manifest and post-failover verifier (PSG-50, FR-50.6 steps 2 and 5, fx-gameday).
+"""Game-day baseline manifest and post-failover verifier (DPT-50, FR-50.6 steps 2 and 5, fx-gameday).
 
 Two commands:
 
@@ -43,7 +43,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-SCHEMA = "passage.gameday.baseline/v1"
+SCHEMA = "depot.gameday.baseline/v1"
 
 
 class FactsError(ValueError):

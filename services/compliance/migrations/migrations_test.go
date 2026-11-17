@@ -4,11 +4,11 @@ import (
 	"context"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
 )
 
-// TestMigrationsApplyWithRLS runs against PASSAGE_TEST_DATABASE_URL and is
+// TestMigrationsApplyWithRLS runs against DEPOT_TEST_DATABASE_URL and is
 // skipped without it: migrations apply on an empty schema, apply again as a
 // no-op, and every tenant table enables and forces row-level security.
 func TestMigrationsApplyWithRLS(t *testing.T) {

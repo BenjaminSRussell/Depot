@@ -20,12 +20,12 @@ import {
 } from "./tenderTriggers.js";
 import { handlePlanSubmitted, planSubmittedType, type PlanSubmittedEvent } from "./budgetPlanTriggers.js";
 
-/** Topics of transport's outbox (platform/go/events.Topic): passage.<context>.<entity>. */
-export const TENDER_TOPICS = ["passage.tms.load", "passage.tms.tender"] as const;
+/** Topics of transport's outbox (platform/go/events.Topic): depot.<context>.<entity>. */
+export const TENDER_TOPICS = ["depot.tms.load", "depot.tms.tender"] as const;
 /** Topic of budgeting's outbox: plan.submitted starts budgetPlanWorkflow. */
-export const BUDGET_PLAN_TOPICS = ["passage.budget.plan"] as const;
+export const BUDGET_PLAN_TOPICS = ["depot.budget.plan"] as const;
 export const DEFAULT_GROUP = "workflow-ts-tender";
-export const DEFAULT_DLQ_TOPIC = "passage.workflow.tender.dlq";
+export const DEFAULT_DLQ_TOPIC = "depot.workflow.tender.dlq";
 
 // The platform's dead-letter headers (platform/go/eventing/kafka).
 export const HEADER_DLQ_REASON = "x-dlq-reason";

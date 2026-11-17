@@ -95,8 +95,8 @@ func TestKeycloakRealmPinsWebAuthnPolicy(t *testing.T) {
 				t.Errorf("%s%s is not pinned in the export", prefix, key)
 			}
 		}
-		if policy.RpEntityName != "Passage" || policy.RpID != host {
-			t.Errorf("%s RP = %q/%q, want Passage/%s (the host of KC_HOSTNAME)", prefix, policy.RpEntityName, policy.RpID, host)
+		if policy.RpEntityName != "Depot" || policy.RpID != host {
+			t.Errorf("%s RP = %q/%q, want Depot/%s (the host of KC_HOSTNAME)", prefix, policy.RpEntityName, policy.RpID, host)
 		}
 		if policy.UserVerificationRequirement != "required" || policy.AttestationConveyancePreference != "none" {
 			t.Errorf("%s user verification %q, attestation %q, want required and none", prefix, policy.UserVerificationRequirement, policy.AttestationConveyancePreference)

@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/services/shopfloor/internal/store"
+	"github.com/BenjaminSRussell/depot/services/shopfloor/internal/store"
 )
 
 // autoClockFake records the sweep and review calls on top of the base fake.

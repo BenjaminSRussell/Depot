@@ -93,7 +93,7 @@ func TestReconcileOpenOrders_MatchAndQuarantineMismatch(t *testing.T) {
 			t.Errorf("sales value %s", c.Source.String())
 		}
 	}
-	// A quarantined line is part of the source and not of what Passage holds: the run stays LOADED.
+	// A quarantined line is part of the source and not of what Depot holds: the run stays LOADED.
 	extra := append(append([]OpenOrderLine{}, lines...), orderLine("L4", "SALES", "SO4", "1", "BOLT", "C1", "2", "0", "1"))
 	if r := run(extra); r.Status != StatusLoaded || !r.HasMismatch() {
 		t.Fatalf("with quarantine: %s", r.Status)

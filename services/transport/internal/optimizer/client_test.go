@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/services/transport/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/transport/internal/domain"
 )
 
 func sampleRequest() domain.RouteRequest {

@@ -11,11 +11,11 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/transport/internal/api"
-	"github.com/BenjaminSRussell/passage/services/transport/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/transport/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/transport/internal/api"
+	"github.com/BenjaminSRussell/depot/services/transport/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/transport/internal/store"
 )
 
 func (f *fakeStore) CreateTender(_ context.Context, in domain.Tender, idem store.Idem, now time.Time) (domain.Tender, error) {

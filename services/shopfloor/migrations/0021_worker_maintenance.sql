@@ -1,4 +1,4 @@
--- PSG-25 slice 22: worker maintenance (D2a'). A supervisor edits a worker's own fields and
+-- DPT-25 slice 22: worker maintenance (D2a'). A supervisor edits a worker's own fields and
 -- deactivates a worker who left (with a reason) or reactivates one who returned. The three
 -- columns record the latest deactivation; they are null for an active worker. `worker` already
 -- carries tenant_id with forced row-level security and is granted to the application role

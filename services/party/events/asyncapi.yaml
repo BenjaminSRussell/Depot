@@ -4,8 +4,8 @@ info:
   version: 0.2.0
   description: CloudEvents 1.0 envelope from platform/go/events; payloads below are the data member. No payload carries dob, gender or a government id.
 channels:
-  passage.party.party:
-    address: passage.party.party
+  depot.party.party:
+    address: depot.party.party
     messages:
       created:
         $ref: '#/components/messages/partyCreated'
@@ -13,15 +13,15 @@ channels:
         $ref: '#/components/messages/partyUpdated'
       merged:
         $ref: '#/components/messages/partyMerged'
-  passage.party.customer:
-    address: passage.party.customer
+  depot.party.customer:
+    address: depot.party.customer
     messages:
       created:
         $ref: '#/components/messages/customerCreated'
       updated:
         $ref: '#/components/messages/customerUpdated'
-  passage.party.change:
-    address: passage.party.change
+  depot.party.change:
+    address: depot.party.change
     messages:
       requested:
         $ref: '#/components/messages/changeRequested'
@@ -29,30 +29,30 @@ channels:
         $ref: '#/components/messages/changeApproved'
       rejected:
         $ref: '#/components/messages/changeRejected'
-  passage.party.merge:
-    address: passage.party.merge
+  depot.party.merge:
+    address: depot.party.merge
     messages:
       requested:
         $ref: '#/components/messages/mergeRequested'
       rejected:
         $ref: '#/components/messages/mergeRejected'
-  passage.party.protectedfields:
-    address: passage.party.protectedfields
+  depot.party.protectedfields:
+    address: depot.party.protectedfields
     messages:
       updated:
         $ref: '#/components/messages/protectedFieldsUpdated'
-  passage.party.vendorbank:
-    address: passage.party.vendorbank
+  depot.party.vendorbank:
+    address: depot.party.vendorbank
     messages:
       revealed:
         $ref: '#/components/messages/vendorBankRevealed'
-  passage.party.vendorgroup:
-    address: passage.party.vendorgroup
+  depot.party.vendorgroup:
+    address: depot.party.vendorgroup
     messages:
       created:
         $ref: '#/components/messages/vendorGroupCreated'
-  passage.party.vendorinvite:
-    address: passage.party.vendorinvite
+  depot.party.vendorinvite:
+    address: depot.party.vendorinvite
     messages:
       created:
         $ref: '#/components/messages/vendorInviteCreated'
@@ -61,64 +61,64 @@ channels:
 operations:
   onVendorInviteCreated:
     action: send
-    channel: { $ref: '#/channels/passage.party.vendorinvite' }
-    messages: [{ $ref: '#/channels/passage.party.vendorinvite/messages/created' }]
+    channel: { $ref: '#/channels/depot.party.vendorinvite' }
+    messages: [{ $ref: '#/channels/depot.party.vendorinvite/messages/created' }]
   onVendorInviteAccepted:
     action: send
-    channel: { $ref: '#/channels/passage.party.vendorinvite' }
-    messages: [{ $ref: '#/channels/passage.party.vendorinvite/messages/accepted' }]
+    channel: { $ref: '#/channels/depot.party.vendorinvite' }
+    messages: [{ $ref: '#/channels/depot.party.vendorinvite/messages/accepted' }]
   onMergeRequested:
     action: send
-    channel: { $ref: '#/channels/passage.party.merge' }
-    messages: [{ $ref: '#/channels/passage.party.merge/messages/requested' }]
+    channel: { $ref: '#/channels/depot.party.merge' }
+    messages: [{ $ref: '#/channels/depot.party.merge/messages/requested' }]
   onMergeRejected:
     action: send
-    channel: { $ref: '#/channels/passage.party.merge' }
-    messages: [{ $ref: '#/channels/passage.party.merge/messages/rejected' }]
+    channel: { $ref: '#/channels/depot.party.merge' }
+    messages: [{ $ref: '#/channels/depot.party.merge/messages/rejected' }]
   onVendorGroupCreated:
     action: send
-    channel: { $ref: '#/channels/passage.party.vendorgroup' }
-    messages: [{ $ref: '#/channels/passage.party.vendorgroup/messages/created' }]
+    channel: { $ref: '#/channels/depot.party.vendorgroup' }
+    messages: [{ $ref: '#/channels/depot.party.vendorgroup/messages/created' }]
   onVendorBankRevealed:
     action: send
-    channel: { $ref: '#/channels/passage.party.vendorbank' }
-    messages: [{ $ref: '#/channels/passage.party.vendorbank/messages/revealed' }]
+    channel: { $ref: '#/channels/depot.party.vendorbank' }
+    messages: [{ $ref: '#/channels/depot.party.vendorbank/messages/revealed' }]
   onProtectedFieldsUpdated:
     action: send
-    channel: { $ref: '#/channels/passage.party.protectedfields' }
-    messages: [{ $ref: '#/channels/passage.party.protectedfields/messages/updated' }]
+    channel: { $ref: '#/channels/depot.party.protectedfields' }
+    messages: [{ $ref: '#/channels/depot.party.protectedfields/messages/updated' }]
   onCustomerCreated:
     action: send
-    channel: { $ref: '#/channels/passage.party.customer' }
-    messages: [{ $ref: '#/channels/passage.party.customer/messages/created' }]
+    channel: { $ref: '#/channels/depot.party.customer' }
+    messages: [{ $ref: '#/channels/depot.party.customer/messages/created' }]
   onCustomerUpdated:
     action: send
-    channel: { $ref: '#/channels/passage.party.customer' }
-    messages: [{ $ref: '#/channels/passage.party.customer/messages/updated' }]
+    channel: { $ref: '#/channels/depot.party.customer' }
+    messages: [{ $ref: '#/channels/depot.party.customer/messages/updated' }]
   onChangeRequested:
     action: send
-    channel: { $ref: '#/channels/passage.party.change' }
-    messages: [{ $ref: '#/channels/passage.party.change/messages/requested' }]
+    channel: { $ref: '#/channels/depot.party.change' }
+    messages: [{ $ref: '#/channels/depot.party.change/messages/requested' }]
   onChangeApproved:
     action: send
-    channel: { $ref: '#/channels/passage.party.change' }
-    messages: [{ $ref: '#/channels/passage.party.change/messages/approved' }]
+    channel: { $ref: '#/channels/depot.party.change' }
+    messages: [{ $ref: '#/channels/depot.party.change/messages/approved' }]
   onChangeRejected:
     action: send
-    channel: { $ref: '#/channels/passage.party.change' }
-    messages: [{ $ref: '#/channels/passage.party.change/messages/rejected' }]
+    channel: { $ref: '#/channels/depot.party.change' }
+    messages: [{ $ref: '#/channels/depot.party.change/messages/rejected' }]
   onPartyCreated:
     action: send
-    channel: { $ref: '#/channels/passage.party.party' }
-    messages: [{ $ref: '#/channels/passage.party.party/messages/created' }]
+    channel: { $ref: '#/channels/depot.party.party' }
+    messages: [{ $ref: '#/channels/depot.party.party/messages/created' }]
   onPartyUpdated:
     action: send
-    channel: { $ref: '#/channels/passage.party.party' }
-    messages: [{ $ref: '#/channels/passage.party.party/messages/updated' }]
+    channel: { $ref: '#/channels/depot.party.party' }
+    messages: [{ $ref: '#/channels/depot.party.party/messages/updated' }]
   onPartyMerged:
     action: send
-    channel: { $ref: '#/channels/passage.party.party' }
-    messages: [{ $ref: '#/channels/passage.party.party/messages/merged' }]
+    channel: { $ref: '#/channels/depot.party.party' }
+    messages: [{ $ref: '#/channels/depot.party.party/messages/merged' }]
 components:
   messages:
     partyCreated:
@@ -135,7 +135,7 @@ components:
           name: { type: string }
           status: { type: string, description: the party status at creation; read by the search index }
           version: { type: integer }
-      x-passage-type: dev.passage.party.party.created.v1
+      x-depot-type: dev.depot.party.party.created.v1
     partyUpdated:
       name: updated
       title: Party updated
@@ -151,7 +151,7 @@ components:
           status: { type: string }
           changed_fields: { type: array, items: { type: string } }
           version: { type: integer }
-      x-passage-type: dev.passage.party.party.updated.v1
+      x-depot-type: dev.depot.party.party.updated.v1
     partyMerged:
       name: merged
       title: Party merged
@@ -181,7 +181,7 @@ components:
               name: { type: string }
               status: { type: string }
               version: { type: integer }
-      x-passage-type: dev.passage.party.party.merged.v1
+      x-depot-type: dev.depot.party.party.merged.v1
     customerCreated:
       name: created
       title: Customer role created
@@ -198,7 +198,7 @@ components:
           currency_code: { type: string }
           credit_limit: { type: string, nullable: true, description: "Decimal with at most 2 places; null when none was set." }
           blocked: { type: string, enum: [none, invoice, all] }
-      x-passage-type: dev.passage.party.customer.created.v1
+      x-depot-type: dev.depot.party.customer.created.v1
     customerUpdated:
       name: updated
       title: Customer updated
@@ -211,35 +211,35 @@ components:
           legal_entity_id: { type: string, format: uuid }
           changed_fields: { type: array, items: { type: string } }
           credit_limit: { type: string, description: Decimal with at most 2 places. }
-      x-passage-type: dev.passage.party.customer.updated.v1
+      x-depot-type: dev.depot.party.customer.updated.v1
     changeRequested:
       name: requested
       title: Change approval requested
       description: A protected-field change (credit limit increase) is held in pending_change and is not applied. The approval workflow starts from this event and decides through POST /v1/party/pending-changes/{id}:approve or :reject.
       payload: { $ref: '#/components/schemas/Change' }
-      x-passage-type: dev.passage.party.change.requested.v1
+      x-depot-type: dev.depot.party.change.requested.v1
     changeApproved:
       name: approved
       title: Change approved and applied
       payload: { $ref: '#/components/schemas/Change' }
-      x-passage-type: dev.passage.party.change.approved.v1
+      x-depot-type: dev.depot.party.change.approved.v1
     changeRejected:
       name: rejected
       title: Change rejected and discarded
       payload: { $ref: '#/components/schemas/Change' }
-      x-passage-type: dev.passage.party.change.rejected.v1
+      x-depot-type: dev.depot.party.change.rejected.v1
     mergeRequested:
       name: requested
       title: Party merge approval requested
       description: POST /v1/party/parties/{id}:merge records the request in merge_request and merges nothing. The workflow-ts merge approval starts from this event; a user other than requested_by decides it, and workflow-ts calls POST /v1/party/merge-requests/{id}:approve (which merges and emits party.merged) or :reject.
       payload: { $ref: '#/components/schemas/MergeRequestEvent' }
-      x-passage-type: dev.passage.party.merge.requested.v1
+      x-depot-type: dev.depot.party.merge.requested.v1
     mergeRejected:
       name: rejected
       title: Party merge rejected
       description: The request is closed and nothing was merged. decided_by is the approver workflow-ts authenticated.
       payload: { $ref: '#/components/schemas/MergeRequestEvent' }
-      x-passage-type: dev.passage.party.merge.rejected.v1
+      x-depot-type: dev.depot.party.merge.rejected.v1
     protectedFieldsUpdated:
       name: updated
       title: Protected fields updated
@@ -253,7 +253,7 @@ components:
           after: { type: array, items: { type: string } }
           actor_user_id: { type: string }
           updated_at: { type: string, format: date-time }
-      x-passage-type: dev.passage.party.protectedfields.updated.v1
+      x-depot-type: dev.depot.party.protectedfields.updated.v1
     vendorGroupCreated:
       name: created
       title: Vendor group created
@@ -265,7 +265,7 @@ components:
           vendor_group_id: { type: string, format: uuid }
           code: { type: string, pattern: '^[A-Z0-9_-]{1,10}$' }
           name: { type: string }
-      x-passage-type: dev.passage.party.vendorgroup.created.v1
+      x-depot-type: dev.depot.party.vendorgroup.created.v1
     vendorBankRevealed:
       name: revealed
       title: Vendor bank details revealed
@@ -280,21 +280,21 @@ components:
           actor_service: { type: string }
           account_count: { type: integer }
           revealed_at: { type: string, format: date-time }
-      x-passage-type: dev.passage.party.vendorbank.revealed.v1
+      x-depot-type: dev.depot.party.vendorbank.revealed.v1
     vendorInviteCreated:
       name: created
       title: Vendor user invited
       description: A vendor administrator invited a colleague to the supplier portal. The event carries the address and the expiry and never the token; the token was shown once to the administrator.
       payload:
         $ref: '#/components/schemas/VendorInvite'
-      x-passage-type: dev.passage.party.vendorinvite.created.v1
+      x-depot-type: dev.depot.party.vendorinvite.created.v1
     vendorInviteAccepted:
       name: accepted
       title: Vendor user invitation accepted
       description: The invited colleague used the token. The portal creates the identity-provider user at that moment.
       payload:
         $ref: '#/components/schemas/VendorInvite'
-      x-passage-type: dev.passage.party.vendorinvite.accepted.v1
+      x-depot-type: dev.depot.party.vendorinvite.accepted.v1
   schemas:
     VendorInvite:
       type: object

@@ -3,8 +3,8 @@ package store
 import (
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/services/receivables/internal/domain"
-	rcvevents "github.com/BenjaminSRussell/passage/services/receivables/internal/events"
+	"github.com/BenjaminSRussell/depot/services/receivables/internal/domain"
+	rcvevents "github.com/BenjaminSRussell/depot/services/receivables/internal/events"
 )
 
 // A payment of 500.00 applied to two installments (333.34 and 166.66). Unapplying the first settlement reopens that installment only,

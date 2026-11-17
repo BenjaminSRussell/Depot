@@ -1,3 +1,3 @@
-"""Passage statistical forecast service."""
+"""Depot statistical forecast service."""
 
 __version__ = "0.1.0"

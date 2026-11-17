@@ -1,7 +1,7 @@
-// Package cloudprofile is the Go side of the Passage cloud profile (#599).
+// Package cloudprofile is the Go side of the Depot cloud profile (#599).
 //
 // One deployment runs in one Microsoft cloud environment, named by a base profile (commercial, gcc, gcc-high,
-// dod, china) and optional overlays (eu-data-boundary, hipaa), written "gcc+hipaa" in PASSAGE_CLOUD_PROFILE.
+// dod, china) and optional overlays (eu-data-boundary, hipaa), written "gcc+hipaa" in DEPOT_CLOUD_PROFILE.
 // The data is deploy/cloud-profiles/profiles.json, embedded here as profiles.json (a generated copy; a test
 // and `python3 deploy/cloud-profiles/cloudprofile.py sync --check` fail when it drifts). No Azure hostname
 // belongs anywhere else in Go code: read it from the resolved profile.
@@ -20,7 +20,7 @@ import (
 
 // EnvProfile names the profile a process runs under, for example "gcc" or "gcc+hipaa". Helm sets it from
 // global.cloudProfile and global.cloudOverlays. Unset means commercial.
-const EnvProfile = "PASSAGE_CLOUD_PROFILE"
+const EnvProfile = "DEPOT_CLOUD_PROFILE"
 
 //go:embed profiles.json
 var profilesJSON []byte
@@ -153,7 +153,7 @@ type Profile struct {
 	IdleTimeoutMinutes int
 	// BAACoveredServices are the Azure services that may hold PHI (hipaa overlay); empty without it.
 	BAACoveredServices []string
-	// PhiServices are the Passage services whose data may include PHI (hipaa overlay).
+	// PhiServices are the Depot services whose data may include PHI (hipaa overlay).
 	PhiServices []string
 	// AzurePolicyInitiative is the policy set definition id OpenTofu assigns under the hipaa overlay.
 	AzurePolicyInitiative string
@@ -178,7 +178,7 @@ func ParseSelector(selector string) (string, []string) {
 	return base, overlays
 }
 
-// FromEnv resolves the profile named by PASSAGE_CLOUD_PROFILE. A name it does not know is an error, so a
+// FromEnv resolves the profile named by DEPOT_CLOUD_PROFILE. A name it does not know is an error, so a
 // typo fails closed instead of falling back to commercial.
 func FromEnv(getenv func(string) string) (*Profile, error) {
 	base, overlays := ParseSelector(getenv(EnvProfile))
@@ -337,7 +337,7 @@ func (p *Profile) AllowsRegion(region string) bool {
 // Endpoint returns one endpoint value, for example "graphRoot".
 func (p *Profile) Endpoint(key string) string { return p.Endpoints[key] }
 
-// Selector is the PASSAGE_CLOUD_PROFILE form of the profile, "gcc+hipaa".
+// Selector is the DEPOT_CLOUD_PROFILE form of the profile, "gcc+hipaa".
 func (p *Profile) Selector() string {
 	return strings.Join(append([]string{p.Name}, p.Overlays...), "+")
 }

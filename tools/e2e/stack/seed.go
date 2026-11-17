@@ -7,12 +7,12 @@ import (
 )
 
 const (
-	ChartCode  = "PASSAGE"
-	LedgerCode = "PASSAGE"
+	ChartCode  = "DEPOT"
+	LedgerCode = "DEPOT"
 	Currency   = "USD"
 )
 
-// Posting accounts receiving uses by default under PASSAGE_ALLOW_FAKES=1 (services/receiving/cmd/receiving/ports.go).
+// Posting accounts receiving uses by default under DEPOT_ALLOW_FAKES=1 (services/receiving/cmd/receiving/ports.go).
 var seedAccounts = []struct{ Number, Name, Type string }{
 	{"1400", "Inventory", "asset"},
 	{"1570", "Input tax", "asset"},
@@ -36,7 +36,7 @@ func (s *Stack) SeedLedger(ctx context.Context) (string, error) {
 	admin := Client{Base: s.URL("ledger"), Principal: Principal{User: "seed", Duties: []string{"ledger.ledger.write", "ledger.account.write"}}}
 	if id == "" {
 		resp, err := admin.Must(ctx, http.MethodPost, "/v1/ledger/ledgers", map[string]any{
-			"legalEntityId": LegalEntity, "code": LedgerCode, "name": "Passage dev ledger", "chartCode": ChartCode, "currency": Currency,
+			"legalEntityId": LegalEntity, "code": LedgerCode, "name": "Depot dev ledger", "chartCode": ChartCode, "currency": Currency,
 		}, nil, http.StatusCreated)
 		if err != nil {
 			return "", err

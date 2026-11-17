@@ -31,11 +31,11 @@ CREATE INDEX IF NOT EXISTS collection_case_customer_idx ON collection_case (tena
 ALTER TABLE collection_case ENABLE ROW LEVEL SECURITY;
 ALTER TABLE collection_case FORCE ROW LEVEL SECURITY;
 CREATE POLICY collection_case_tenant_access ON collection_case AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY collection_case_legal_entity_scope ON collection_case AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 CREATE TABLE IF NOT EXISTS balance_confirmation_run (
   tenant_id uuid NOT NULL,
@@ -55,11 +55,11 @@ CREATE INDEX IF NOT EXISTS balance_confirmation_run_created_idx ON balance_confi
 ALTER TABLE balance_confirmation_run ENABLE ROW LEVEL SECURITY;
 ALTER TABLE balance_confirmation_run FORCE ROW LEVEL SECURITY;
 CREATE POLICY balance_confirmation_run_tenant_access ON balance_confirmation_run AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY balance_confirmation_run_legal_entity_scope ON balance_confirmation_run AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 CREATE TABLE IF NOT EXISTS balance_confirmation (
   tenant_id uuid NOT NULL,
@@ -85,8 +85,8 @@ CREATE TABLE IF NOT EXISTS balance_confirmation (
 ALTER TABLE balance_confirmation ENABLE ROW LEVEL SECURITY;
 ALTER TABLE balance_confirmation FORCE ROW LEVEL SECURITY;
 CREATE POLICY balance_confirmation_tenant_access ON balance_confirmation AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY balance_confirmation_legal_entity_scope ON balance_confirmation AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));

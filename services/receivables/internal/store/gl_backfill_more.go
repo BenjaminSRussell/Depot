@@ -6,7 +6,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/services/receivables/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/receivables/internal/domain"
 )
 
 // backfillQueued counts, per source, the journals one backfill pass queued for what happened before 30-2 posted them.

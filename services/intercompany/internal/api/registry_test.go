@@ -12,18 +12,18 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/fxclient"
-	"github.com/BenjaminSRussell/passage/platform/ledgerclient"
-	"github.com/BenjaminSRussell/passage/platform/orgclient"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/intercompany/internal/api"
-	"github.com/BenjaminSRussell/passage/services/intercompany/internal/ledgerrecon"
-	"github.com/BenjaminSRussell/passage/services/intercompany/internal/posting"
-	"github.com/BenjaminSRussell/passage/services/intercompany/internal/store"
-	"github.com/BenjaminSRussell/passage/services/intercompany/internal/taxclient"
-	"github.com/BenjaminSRussell/passage/services/intercompany/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/fxclient"
+	"github.com/BenjaminSRussell/depot/platform/ledgerclient"
+	"github.com/BenjaminSRussell/depot/platform/orgclient"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/intercompany/internal/api"
+	"github.com/BenjaminSRussell/depot/services/intercompany/internal/ledgerrecon"
+	"github.com/BenjaminSRussell/depot/services/intercompany/internal/posting"
+	"github.com/BenjaminSRussell/depot/services/intercompany/internal/store"
+	"github.com/BenjaminSRussell/depot/services/intercompany/internal/taxclient"
+	"github.com/BenjaminSRussell/depot/services/intercompany/migrations"
 )
 
 type registryEnv struct {
@@ -59,7 +59,7 @@ func newRegistryEnv(t *testing.T) *registryEnv {
 const cfgDuties = postDuties + "," + api.DutyConfigure
 
 func asConfigurer(h http.Handler, method, path, key, body string) *httptest.ResponseRecorder {
-	headers := map[string]string{"X-Passage-User": "user-7", tenant.HeaderLegalEntity: leA + "," + leB}
+	headers := map[string]string{"X-Depot-User": "user-7", tenant.HeaderLegalEntity: leA + "," + leB}
 	if key != "" {
 		headers["Idempotency-Key"] = key
 	}
@@ -103,7 +103,7 @@ func TestRegistry_StoredSetupReplacesWhatRequestsSent(t *testing.T) {
 	}
 	// A matrix that names an unregistered entity is refused, and a registry entry outside the caller's scope too.
 	e.put(t, http.MethodPut, "/v1/interco/matrix", `{"rows":[{"entityA":"A","entityB":"Z","dueFrom":"1","dueTo":"2"}]}`, http.StatusUnprocessableEntity)
-	rec := call{method: http.MethodPut, path: "/v1/interco/entities/C", duties: cfgDuties, headers: map[string]string{"X-Passage-User": "u", "X-Passage-Legal-Entity": leA},
+	rec := call{method: http.MethodPut, path: "/v1/interco/entities/C", duties: cfgDuties, headers: map[string]string{"X-Depot-User": "u", "X-Depot-Legal-Entity": leA},
 		body: fmt.Sprintf(`{"legalEntityId":%q,"ledgerId":"L-B","currency":"EUR"}`, leB)}.on(e.h)
 	if rec.Code != http.StatusForbidden && rec.Code != http.StatusBadRequest {
 		t.Fatalf("out of scope = %d %s", rec.Code, rec.Body.String())
@@ -349,7 +349,7 @@ func TestCharge_PricedFromStoredPricesWithCrossBorderTax(t *testing.T) {
 		t.Fatalf("invoice mode = %+v, entries %d -> %d", inv, before, len(e.fake.Entries()))
 	}
 	var events int
-	if err := e.pool.QueryRow(context.Background(), `select count(*) from outbox where type = 'dev.passage.interco.chargeinvoice.requested.v1'`).Scan(&events); err != nil {
+	if err := e.pool.QueryRow(context.Background(), `select count(*) from outbox where type = 'dev.depot.interco.chargeinvoice.requested.v1'`).Scan(&events); err != nil {
 		t.Fatal(err)
 	}
 	if events != 1 {
@@ -358,7 +358,7 @@ func TestCharge_PricedFromStoredPricesWithCrossBorderTax(t *testing.T) {
 	// The event names both legal entities, so billing and payables raise the documents there (#40).
 	var lender, borrower string
 	if err := e.pool.QueryRow(context.Background(), `select payload->'data'->>'lenderLegalEntityId', payload->'data'->>'borrowerLegalEntityId' from outbox
-		where type = 'dev.passage.interco.chargeinvoice.requested.v1'`).Scan(&lender, &borrower); err != nil || lender != leA || borrower != leB {
+		where type = 'dev.depot.interco.chargeinvoice.requested.v1'`).Scan(&lender, &borrower); err != nil || lender != leA || borrower != leB {
 		t.Errorf("legal entities = %q %q, %v", lender, borrower, err)
 	}
 
@@ -367,7 +367,7 @@ func TestCharge_PricedFromStoredPricesWithCrossBorderTax(t *testing.T) {
 	flag := func(source string) bool {
 		var on bool
 		if err := e.pool.QueryRow(context.Background(), `select (payload->'data'->>'autoPostInvoice')::boolean from outbox
-			where type = 'dev.passage.interco.chargeinvoice.requested.v1' and payload->'data'->>'sourceId' = $1`, source).Scan(&on); err != nil {
+			where type = 'dev.depot.interco.chargeinvoice.requested.v1' and payload->'data'->>'sourceId' = $1`, source).Scan(&on); err != nil {
 			t.Fatalf("event of %s: %v", source, err)
 		}
 		return on

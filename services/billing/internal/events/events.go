@@ -2,17 +2,17 @@
 // events/asyncapi.yaml). Payload fields are snake_case per the catalog.
 package events
 
-import "github.com/BenjaminSRussell/passage/platform/events"
+import "github.com/BenjaminSRussell/depot/platform/events"
 
-// InvoicePosted is dev.passage.billing.invoice.posted.v1.
+// InvoicePosted is dev.depot.billing.invoice.posted.v1.
 var InvoicePosted = events.Type("billing", "invoice", "posted", 1)
 
-// CreditNotePosted is dev.passage.billing.creditnote.posted.v1. The PRD writes
+// CreditNotePosted is dev.depot.billing.creditnote.posted.v1. The PRD writes
 // the entity as "credit-note"; the platform event grammar allows lowercase
 // letters and digits only, so the entity is "creditnote" (like "packingslip").
 var CreditNotePosted = events.Type("billing", "creditnote", "posted", 1)
 
-// CreditNoteBooked is dev.passage.billing.creditnote.booked.v1: the credit
+// CreditNoteBooked is dev.depot.billing.creditnote.booked.v1: the credit
 // note's journal was booked in the general ledger (POST /v1/billing/gl-postings).
 // It carries, per line, the allocated amount and the deferred part (Dr 2400)
 // the journal reversed, which billing only knows once the original invoice is

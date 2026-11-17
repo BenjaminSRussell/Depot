@@ -12,9 +12,9 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/services/lean/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/lean/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/services/lean/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/lean/internal/store"
 )
 
 const (
@@ -189,10 +189,10 @@ func (c call) do(h http.Handler) *httptest.ResponseRecorder {
 	req := httptest.NewRequest(c.method, c.path, strings.NewReader(c.body))
 	req.Header.Set("Content-Type", "application/json")
 	if !c.noTenant {
-		req.Header.Set("X-Passage-Tenant", tenantID)
-		req.Header.Set("X-Passage-User", "lean-1")
+		req.Header.Set("X-Depot-Tenant", tenantID)
+		req.Header.Set("X-Depot-User", "lean-1")
 	}
-	req.Header.Set("X-Passage-Duties", c.duties)
+	req.Header.Set("X-Depot-Duties", c.duties)
 	for k, v := range c.headers {
 		req.Header.Set(k, v)
 	}

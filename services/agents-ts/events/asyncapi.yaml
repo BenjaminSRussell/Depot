@@ -1,6 +1,6 @@
 asyncapi: 3.0.0
 info:
-  title: Passage agent runtime events
+  title: Depot agent runtime events
   version: 0.3.0
   description: |
     PRD 9.47.5 events, CloudEvents 1.0 envelope; the schemas below are the
@@ -28,11 +28,11 @@ components:
       type: string
       description: Event types planned for the wiring slice; additive-only evolution.
       enum:
-        - dev.passage.agent.run.completed.v1
-        - dev.passage.agent.approval.requested.v1
-        - dev.passage.agent.budget.threshold.v1
-        - dev.passage.agent.killswitch.changed.v1
-        - dev.passage.agent.version.promoted.v1
+        - dev.depot.agent.run.completed.v1
+        - dev.depot.agent.approval.requested.v1
+        - dev.depot.agent.budget.threshold.v1
+        - dev.depot.agent.killswitch.changed.v1
+        - dev.depot.agent.version.promoted.v1
     RunCompletedData:
       type: object
       description: Emitted at run end. Tool names and decisions only; no inputs, outputs or display text (PII stays out of events).

@@ -30,8 +30,8 @@ metadata:
   name: {{ .Name }}
   namespace: {{ .Namespace }}
   labels:
-    app.kubernetes.io/part-of: passage
-    passage.dev/purpose: tenant-restore-scratch
+    app.kubernetes.io/part-of: depot
+    depot.dev/purpose: tenant-restore-scratch
 spec:
   instances: 1
   imageName: {{ .Image }}
@@ -41,8 +41,8 @@ spec:
   bootstrap:
     recovery:
       source: origin
-      database: passage
-      owner: passage_owner
+      database: depot
+      owner: depot_owner
       recoveryTarget:
         targetTime: "{{ .TargetTimeText }}"
   externalClusters:

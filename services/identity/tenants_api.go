@@ -16,12 +16,12 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/BenjaminSRussell/passage/platform/cloudprofile"
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/residency"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/cloudprofile"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/residency"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
 )
 
 const (
@@ -142,7 +142,7 @@ type createTenantRequest struct {
 
 func grantTenantAdmin(ctx context.Context, tx pgx.Tx, tenantID, actor, userID, reason string) (roleAssignmentResource, error) {
 	var granted roleAssignmentResource
-	if _, err := tx.Exec(ctx, `select set_config('passage.tenant_id', $1, true), set_config('passage.legal_entity_scopes', '*', true)`, tenantID); err != nil {
+	if _, err := tx.Exec(ctx, `select set_config('depot.tenant_id', $1, true), set_config('depot.legal_entity_scopes', '*', true)`, tenantID); err != nil {
 		return granted, err
 	}
 	rows, err := tx.Query(ctx, `insert into identity_role_assignments (tenant_id, assignment_id, user_id, role, reason, granted_by)
@@ -221,7 +221,7 @@ func (a *TenantsAPI) create(w http.ResponseWriter, r *http.Request) {
 	created := tenantResource{}
 	tenantID := ids.New()
 	err := pgx.BeginFunc(r.Context(), a.pool, func(tx pgx.Tx) error {
-		if _, err := tx.Exec(r.Context(), `select set_config('passage.tenant_id', $1, true), set_config('passage.operator_context', $2, true)`, tenantID, a.operatorTenantID); err != nil {
+		if _, err := tx.Exec(r.Context(), `select set_config('depot.tenant_id', $1, true), set_config('depot.operator_context', $2, true)`, tenantID, a.operatorTenantID); err != nil {
 			return err
 		}
 		rows, err := tx.Query(r.Context(), `insert into identity_tenants (tenant_id, realm_name, display_name, residency, region) values ($1, $2, $3, $4, nullif($5, '')) returning `+tenantColumns,
@@ -233,7 +233,7 @@ func (a *TenantsAPI) create(w http.ResponseWriter, r *http.Request) {
 			return err
 		}
 		// The operator context covers the tenant row only; the rest of the transaction runs without it.
-		if _, err := tx.Exec(r.Context(), `select set_config('passage.operator_context', '', true)`); err != nil {
+		if _, err := tx.Exec(r.Context(), `select set_config('depot.operator_context', '', true)`); err != nil {
 			return err
 		}
 		if err := record(r.Context(), tx, tenantID, p.UserID, "tenant", tenantID, "created", created); err != nil {
@@ -251,7 +251,7 @@ func (a *TenantsAPI) create(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			return err
 		}
-		if _, err := tx.Exec(r.Context(), `select set_config('passage.tenant_id', $1, true)`, p.TenantID); err != nil {
+		if _, err := tx.Exec(r.Context(), `select set_config('depot.tenant_id', $1, true)`, p.TenantID); err != nil {
 			return err
 		}
 		return insertAudit(r.Context(), tx, p.TenantID, p.UserID, "tenant", tenantID, "created", detail)
@@ -310,7 +310,7 @@ func (a *TenantsAPI) grantAdmin(w http.ResponseWriter, r *http.Request) {
 	var granted roleAssignmentResource
 	err := pgx.BeginFunc(r.Context(), a.pool, func(tx pgx.Tx) error {
 		var status, idpSubject string
-		if _, err := tx.Exec(r.Context(), `select set_config('passage.tenant_id', $1, true)`, id); err != nil {
+		if _, err := tx.Exec(r.Context(), `select set_config('depot.tenant_id', $1, true)`, id); err != nil {
 			return err
 		}
 		var tenantStatus string
@@ -342,7 +342,7 @@ func (a *TenantsAPI) grantAdmin(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			return err
 		}
-		if _, err := tx.Exec(r.Context(), `select set_config('passage.tenant_id', $1, true)`, p.TenantID); err != nil {
+		if _, err := tx.Exec(r.Context(), `select set_config('depot.tenant_id', $1, true)`, p.TenantID); err != nil {
 			return err
 		}
 		return insertAudit(r.Context(), tx, p.TenantID, p.UserID, "tenant", id, "administrator-granted", detail)

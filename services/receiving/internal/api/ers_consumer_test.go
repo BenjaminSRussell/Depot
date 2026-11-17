@@ -6,11 +6,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/eventing"
-	"github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/api"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/eventing"
+	"github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/api"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/domain"
 )
 
 func (rg *rig) receiptPostedEvent(t *testing.T) events.Event {
@@ -44,7 +44,7 @@ func TestErsConsumer_SettlesAPostedReceiptOnceAndRecordsTheServiceActor(t *testi
 
 	invoices := 0
 	for _, e := range rg.st.Events() {
-		if e.Type == "dev.passage.payables.invoice.sampled.v1" {
+		if e.Type == "dev.depot.payables.invoice.sampled.v1" {
 			invoices++
 		}
 	}
@@ -67,7 +67,7 @@ func TestErsConsumer_SettlesAPostedReceiptOnceAndRecordsTheServiceActor(t *testi
 func invoiceIDFromEvents(t *testing.T, rg *rig) string {
 	t.Helper()
 	for _, e := range rg.st.Events() {
-		if e.Type == "dev.passage.payables.invoice.sampled.v1" {
+		if e.Type == "dev.depot.payables.invoice.sampled.v1" {
 			return e.Subject
 		}
 	}

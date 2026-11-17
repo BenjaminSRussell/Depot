@@ -31,13 +31,13 @@ CREATE INDEX IF NOT EXISTS approval_request_pending ON approval_request (tenant_
 ALTER TABLE approval_request ENABLE ROW LEVEL SECURITY;
 ALTER TABLE approval_request FORCE ROW LEVEL SECURITY;
 CREATE POLICY approval_request_tenant_access ON approval_request AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON approval_request TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON approval_request TO depot_app';
   END IF;
 END
 $$;

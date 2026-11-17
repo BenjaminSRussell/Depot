@@ -15,8 +15,8 @@ import (
 )
 
 const (
-	scratchURLEnv = "PASSAGE_RESTORE_SCRATCH_URL"
-	liveURLEnv    = "PASSAGE_RESTORE_LIVE_URL"
+	scratchURLEnv = "DEPOT_RESTORE_SCRATCH_URL"
+	liveURLEnv    = "DEPOT_RESTORE_LIVE_URL"
 )
 
 func main() {
@@ -48,8 +48,8 @@ func runManifest(args []string, out io.Writer, now time.Time) error {
 	var spec ScratchSpec
 	var target string
 	fs.StringVar(&spec.Name, "name", "", "name of the scratch cluster to create")
-	fs.StringVar(&spec.Namespace, "namespace", "passage-data", "namespace of the cluster")
-	fs.StringVar(&spec.SourceName, "source", "passage-pg", "name of the cluster whose backups are restored")
+	fs.StringVar(&spec.Namespace, "namespace", "depot-data", "namespace of the cluster")
+	fs.StringVar(&spec.SourceName, "source", "depot-pg", "name of the cluster whose backups are restored")
 	fs.StringVar(&spec.StoreName, "object-store", "", "barman-cloud ObjectStore (default <source>-backup)")
 	fs.StringVar(&target, "target-time", "", "recover to this RFC 3339 timestamp")
 	fs.StringVar(&spec.Image, "image", "ghcr.io/cloudnative-pg/postgresql:17", "Postgres image; must match the source cluster's major version")
@@ -136,8 +136,8 @@ func runDrill(ctx context.Context, args []string, out io.Writer, getenv func(str
 }
 
 const (
-	cloneSourceEnv = "PASSAGE_CLONE_SOURCE_URL"
-	cloneTargetEnv = "PASSAGE_CLONE_TARGET_URL"
+	cloneSourceEnv = "DEPOT_CLONE_SOURCE_URL"
+	cloneTargetEnv = "DEPOT_CLONE_TARGET_URL"
 )
 
 func runClone(ctx context.Context, args []string, out io.Writer, getenv func(string) string) error {

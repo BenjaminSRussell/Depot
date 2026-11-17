@@ -11,7 +11,7 @@ export const json = (body: unknown, status = 200, headers: Record<string, string
   new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json", ...headers } });
 
 export const problem = (status: number, code: string, detail: string, errors?: Record<string, string>) =>
-  json({ type: `https://passage.dev/problems/${code}`, title: "Problem", status, code, detail, errors }, status);
+  json({ type: `https://depot.dev/problems/${code}`, title: "Problem", status, code, detail, errors }, status);
 
 export type Handler = (url: string, init: RequestInit) => Response | Promise<Response>;
 

@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	evts "github.com/BenjaminSRussell/passage/services/warehouse/internal/events"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	evts "github.com/BenjaminSRussell/depot/services/warehouse/internal/events"
 )
 
 func TestStore_ConfirmShippedPublishesShipmentShippedOnce(t *testing.T) {

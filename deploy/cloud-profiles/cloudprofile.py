@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Passage cloud profile (#599): load, resolve and render the one profile table.
+"""Depot cloud profile (#599): load, resolve and render the one profile table.
 
 `profiles.json` is the single place an Azure hostname, a FIPS requirement or an allowed region is written down.
 Everything else is generated from it or reads it:
@@ -13,10 +13,10 @@ Everything else is generated from it or reads it:
     python3 deploy/cloud-profiles/cloudprofile.py sync           # rewrite the generated copies
     python3 deploy/cloud-profiles/cloudprofile.py sync --check   # exit 1 when a copy has drifted
     python3 deploy/cloud-profiles/cloudprofile.py check          # key parity and data rules
-    python3 deploy/cloud-profiles/cloudprofile.py values gcc [--overlay hipaa] [--registry passage.azurecr.io]
+    python3 deploy/cloud-profiles/cloudprofile.py values gcc [--overlay hipaa] [--registry depot.azurecr.io]
     python3 deploy/cloud-profiles/cloudprofile.py tofu-vars gcc-high+hipaa > gcc-high-hipaa.tfvars.json
 
-A profile selector is a base profile plus optional overlays written `gcc+hipaa` (env var PASSAGE_CLOUD_PROFILE)
+A profile selector is a base profile plus optional overlays written `gcc+hipaa` (env var DEPOT_CLOUD_PROFILE)
 or `cloudProfile: gcc` with `cloudOverlays: [hipaa]` (Helm). One deployment is one profile: tokens from one cloud
 are not accepted in another, so there is no runtime fallback list. Stdlib only, Python 3.11+.
 """
@@ -38,7 +38,7 @@ TOFU_DIR = HERE / "tofu"
 GO_COPY = REPO / "platform" / "go" / "cloudprofile" / "profiles.json"
 TS_COPY = REPO / "services" / "agents-ts" / "src" / "cloudprofile" / "profiles.generated.ts"
 
-ENV_PROFILE = "PASSAGE_CLOUD_PROFILE"
+ENV_PROFILE = "DEPOT_CLOUD_PROFILE"
 STATUSES = ("verified", "unverified")
 DEPLOYMENT_KEYS = (
     "azureEnvironment", "privateCluster", "customerManagedKeys", "managedHsm", "isolatedNodes", "isolatedNodesRegions",
@@ -235,7 +235,7 @@ def helm_values(r: dict[str, Any], registry: str = "") -> str:
             "cloudOverlays": r["overlays"],
             "cloudName": r["cloud"],
             "fips": r["fips"],
-            # Every profile is an Azure cloud: ExternalSecret references use Key Vault naming (see passage.secretKey).
+            # Every profile is an Azure cloud: ExternalSecret references use Key Vault naming (see depot.secretKey).
             "secretStoreProvider": "azure-key-vault",
             "imageRegistry": registry,
             "imageRegistryRequired": r["requireMirror"],

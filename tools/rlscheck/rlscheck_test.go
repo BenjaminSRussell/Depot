@@ -14,11 +14,11 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
 )
 
-const appRole = "passage_app"
+const appRole = "depot_app"
 
 const (
 	problemNotForced   = "rls-not-enabled-and-forced"
@@ -51,22 +51,22 @@ func (v violation) key() string { return v.Service + "." + v.Table + ":" + v.Pro
 
 const tenantColumn = `(^|[^._[:alnum:]])tenant_id([^._[:alnum:]]|$)`
 
-const tenantExpr = tenantColumn + `[^=]*= *[A-Za-z_(]*current_setting\(.passage\.tenant_id.`
+const tenantExpr = tenantColumn + `[^=]*= *[A-Za-z_(]*current_setting\(.depot\.tenant_id.`
 
 const tableFactsQuery = `
 select c.relname, c.relrowsecurity, c.relforcerowsecurity,
   exists (select 1 from pg_attribute a where a.attrelid = c.oid and a.attname = 'tenant_id' and not a.attisdropped),
   exists (select 1 from pg_policies p where p.schemaname = n.nspname and p.tablename = c.relname and p.permissive = 'PERMISSIVE'
-          and p.cmd in ('ALL', 'SELECT') and (p.roles = '{public}' or 'passage_app' = any (p.roles))
+          and p.cmd in ('ALL', 'SELECT') and (p.roles = '{public}' or 'depot_app' = any (p.roles))
           and p.qual ~ '` + tenantExpr + `'
           and (p.with_check is null or p.with_check ~ '` + tenantExpr + `')),
   exists (select 1 from pg_attribute a where a.attrelid = c.oid and a.attname = 'legal_entity_id' and not a.attisdropped),
   exists (select 1 from pg_policies p where p.schemaname = n.nspname and p.tablename = c.relname and p.permissive = 'RESTRICTIVE'
-          and p.cmd = 'ALL' and (p.roles = '{public}' or 'passage_app' = any (p.roles))
-          and p.qual like '%legal_entity_id%' and p.qual like '%passage.legal_entity_scopes%'
-          and (p.with_check is null or p.with_check like '%passage.legal_entity_scopes%')),
+          and p.cmd = 'ALL' and (p.roles = '{public}' or 'depot_app' = any (p.roles))
+          and p.qual like '%legal_entity_id%' and p.qual like '%depot.legal_entity_scopes%'
+          and (p.with_check is null or p.with_check like '%depot.legal_entity_scopes%')),
   exists (select 1 from pg_policies p where p.schemaname = n.nspname and p.tablename = c.relname and p.permissive = 'PERMISSIVE'
-          and (p.roles = '{public}' or 'passage_app' = any (p.roles))
+          and (p.roles = '{public}' or 'depot_app' = any (p.roles))
           and (coalesce(p.qual, '') || ' ' || coalesce(p.with_check, '')) !~ '` + tenantColumn + `'),
   exists (select 1 from pg_policies p where p.schemaname = n.nspname and p.tablename = c.relname and p.permissive = 'RESTRICTIVE'
           and (coalesce(p.qual, '') || ' ' || coalesce(p.with_check, '')) ~* 'legal_entity_id[[:space:])]+is[[:space:]]+null')

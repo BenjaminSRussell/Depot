@@ -4,14 +4,14 @@ info:
   version: 0.4.0
   description: Product master, variants, released products, GS1 identifiers and configurator.
 servers:
-  - url: https://app.local.passage.dev
+  - url: https://app.local.depot.dev
 paths:
   /v1/product/products:
     post:
       operationId: createProduct
       summary: Create a product
       description: 'Also accepted with duty product.import.write (migration loader). Only that duty may supply id.'
-      x-passage-duty: product.write
+      x-depot-duty: product.write
       parameters:
         - { name: Idempotency-Key, in: header, schema: { type: string } }
       requestBody:
@@ -27,7 +27,7 @@ paths:
       operationId: listProducts
       summary: List products
       description: 'Products and masters (not variants) in product-number order. q matches number, name or search name; a page holds at most limit items and nextCursor, when present, is passed back as cursor.'
-      x-passage-duty: product.read
+      x-depot-duty: product.read
       parameters:
         - { name: q, in: query, schema: { type: string } }
         - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
@@ -39,8 +39,8 @@ paths:
     get:
       operationId: getProduct
       summary: Get a product
-      x-passage-duty: product.read
-      x-passage-duty-alternatives: [product.import.read]
+      x-depot-duty: product.read
+      x-depot-duty-alternatives: [product.import.read]
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -50,7 +50,7 @@ paths:
       operationId: updateProduct
       summary: Update a product
       description: 'Partial update of name, description, searchName, lifecycleState, itemGroupId (empty clears it), batchTracked, serialTracked and catchWeight under If-Match (the product version). lifecycleState follows BR-8.1 (draft to active, active to phase_out, phase_out to active or obsolete; obsolete is terminal) and a move to active needs every required attribute (BR-8.9). Writes product.updated with the changed fields; a patch that changes nothing keeps the version and writes no event. Also accepted with duty product.import.write.'
-      x-passage-duty: product.write
+      x-depot-duty: product.write
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - { name: If-Match, in: header, required: true, schema: { type: string }, description: The product version. }
@@ -69,7 +69,7 @@ paths:
       operationId: explodeVariants
       summary: Explode master variants
       description: 'Also accepted with duty product.variants.explode (batch job).'
-      x-passage-duty: product.write
+      x-depot-duty: product.write
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       requestBody:
@@ -92,7 +92,7 @@ paths:
     get:
       operationId: lookupVariant
       summary: Look up a variant by dimension values
-      x-passage-duty: product.read
+      x-depot-duty: product.read
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - { name: size, in: query, schema: { type: string } }
@@ -106,7 +106,7 @@ paths:
       operationId: releaseProduct
       summary: Release a product to a legal entity
       description: 'Also accepted with duty product.import.write, only for the token legal entity. Sites and warehouses are confirmed with org when ORG_BASE_URL is set; for a service caller product signs that lookup itself.'
-      x-passage-duty: product.release
+      x-depot-duty: product.release
       responses:
         '201': { description: Released product. }
         '403': { description: 'AUTH-0003: an import caller named a legal entity outside its token.', content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } } }
@@ -117,7 +117,7 @@ paths:
       operationId: listReleasedProducts
       summary: List released product ids
       description: 'Also accepted with duty product.released.read (batch job).'
-      x-passage-duty: product.read
+      x-depot-duty: product.read
       parameters:
         - { name: after, in: query, schema: { type: string, format: uuid }, description: Keyset cursor; the last id of the previous page. }
         - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 500, default: 500 } }
@@ -128,7 +128,7 @@ paths:
     get:
       operationId: resolveSiteDefault
       summary: Resolve a released product's site default
-      x-passage-duty: product.read
+      x-depot-duty: product.read
       parameters:
         - { name: id, in: path, required: true, schema: { type: string } }
         - { name: siteId, in: path, required: true, schema: { type: string } }
@@ -138,7 +138,7 @@ paths:
     put:
       operationId: putSiteDefault
       summary: Replace a released product's site default
-      x-passage-duty: product.released.write
+      x-depot-duty: product.released.write
       parameters:
         - { name: id, in: path, required: true, schema: { type: string } }
         - { name: siteId, in: path, required: true, schema: { type: string } }
@@ -150,7 +150,7 @@ paths:
     get:
       operationId: processPolicy
       summary: Evaluate the lifecycle process policy
-      x-passage-duty: product.read
+      x-depot-duty: product.read
       parameters:
         - { name: id, in: path, required: true, schema: { type: string } }
         - { name: process, in: query, required: true, schema: { type: string } }
@@ -161,7 +161,7 @@ paths:
     post:
       operationId: validateGTIN
       summary: Validate a GTIN check digit
-      x-passage-duty: product.read
+      x-depot-duty: product.read
       requestBody:
         required: true
         content: { application/json: { schema: { type: object, required: [value], properties: { value: { type: string } } } } }
@@ -172,7 +172,7 @@ paths:
     post:
       operationId: solveConfiguration
       summary: Solve a product configuration
-      x-passage-duty: product.configure
+      x-depot-duty: product.configure
       parameters:
         - { name: id, in: path, required: true, schema: { type: string } }
       responses:
@@ -182,7 +182,7 @@ paths:
     get:
       operationId: getSavedConfiguration
       summary: Get a saved configuration
-      x-passage-duty: product.configuration.read
+      x-depot-duty: product.configuration.read
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - { name: productId, in: query, required: true, schema: { type: string, format: uuid } }
@@ -200,8 +200,8 @@ paths:
         Product-specific conversions first, then class conversions (FR-8.7). Without `to` the quantity is
         converted into the base (inventory) unit of `product`, which the answer names in `to` (#480); the
         service-only duty product.uom.convert (the inventory postings consumer) reaches this operation only.
-      x-passage-duty: product.read
-      x-passage-duty-alternatives: [product.uom.convert]
+      x-depot-duty: product.read
+      x-depot-duty-alternatives: [product.uom.convert]
       parameters:
         - { name: product, in: query, schema: { type: string }, description: 'Required when to is omitted.' }
         - { name: from, in: query, required: true, schema: { type: string } }
@@ -213,13 +213,13 @@ paths:
   /healthz:
     get:
       operationId: liveness
-      x-passage-duty: public
+      x-depot-duty: public
       responses:
         '200': { description: Process is alive. }
   /readyz:
     get:
       operationId: readiness
-      x-passage-duty: public
+      x-depot-duty: public
       responses:
         '200': { description: Database reachable. }
         '503': { description: Database unreachable. }
@@ -227,7 +227,7 @@ paths:
     post:
       operationId: createDimensionGroup
       summary: Create a dimension group
-      x-passage-duty: product.setup.write
+      x-depot-duty: product.setup.write
       responses:
         '201': { description: Dimension group created. }
         default: { $ref: '#/components/responses/Problem' }
@@ -235,13 +235,13 @@ paths:
     get:
       operationId: listItemGroups
       summary: List item groups
-      x-passage-duty: product.read
+      x-depot-duty: product.read
       responses:
         '200': { description: 'Item groups in code order: {items: [{ID, Code, Name}]}.' }
     post:
       operationId: createItemGroup
       summary: Create an item group
-      x-passage-duty: product.setup.write
+      x-depot-duty: product.setup.write
       responses:
         '201': { description: Item group created. }
         default: { $ref: '#/components/responses/Problem' }
@@ -249,7 +249,7 @@ paths:
     post:
       operationId: createItemModelGroup
       summary: Create an item model group
-      x-passage-duty: product.setup.write
+      x-depot-duty: product.setup.write
       responses:
         '201': { description: Item model group created. }
         default: { $ref: '#/components/responses/Problem' }
@@ -257,7 +257,7 @@ paths:
     get:
       operationId: searchProducts
       summary: Search products
-      x-passage-duty: product.read
+      x-depot-duty: product.read
       parameters:
         - { name: q, in: query, schema: { type: string }, description: Search text. }
       responses:
@@ -268,7 +268,7 @@ paths:
       operationId: productNames
       summary: Number and name of up to 200 products by id
       description: 'Also accepted with the service-only duty product.names.read (sales labels the customer portal lines with it). Unknown ids are left out.'
-      x-passage-duty: product.read
+      x-depot-duty: product.read
       parameters:
         - { name: ids, in: query, required: true, schema: { type: string }, description: Comma-separated product ids. }
       responses:
@@ -279,8 +279,8 @@ paths:
       operationId: productCustoms
       summary: Customs attributes of products (#13)
       description: 'The commodity code, country of origin and net weight (kg per base unit) of up to 200 products, read from the product attributes INTRASTAT_COMMODITY_CODE, INTRASTAT_ORIGIN_COUNTRY and INTRASTAT_NET_WEIGHT_KG (the tenant defines and sets them with POST /products/{id}/attributes); an attribute not set is an empty string, unknown ids are left out. Also accepted with the service-only duty product.customs.read, which fulfillment and receiving hold to report the lines of a shipment or a receipt for Intrastat.'
-      x-passage-duty: product.read
-      x-passage-duty-alternatives: [product.customs.read]
+      x-depot-duty: product.read
+      x-depot-duty-alternatives: [product.customs.read]
       parameters:
         - { name: ids, in: query, required: true, description: Comma-separated product ids, at most 200., schema: { type: string } }
       responses:
@@ -308,7 +308,7 @@ paths:
       operationId: setProductAttributes
       summary: Set product attributes
       description: 'Also accepted with duty product.import.write.'
-      x-passage-duty: product.write
+      x-depot-duty: product.write
       parameters:
         - { name: id, in: path, required: true, schema: { type: string } }
       responses:
@@ -319,7 +319,7 @@ paths:
       operationId: addProductIdentifier
       summary: Add a product identifier
       description: 'Also accepted with duty product.import.write.'
-      x-passage-duty: product.write
+      x-depot-duty: product.write
       parameters:
         - { name: id, in: path, required: true, schema: { type: string } }
       responses:
@@ -330,7 +330,7 @@ paths:
       operationId: addProductRelation
       summary: Add a product relation
       description: 'Also accepted with duty product.import.write.'
-      x-passage-duty: product.write
+      x-depot-duty: product.write
       parameters:
         - { name: id, in: path, required: true, schema: { type: string } }
       responses:
@@ -341,7 +341,7 @@ paths:
       operationId: patchReleasedProduct
       summary: Update a released product
       description: 'Also accepted with duty product.import.write, only for released products of the token legal entity. lifecycleState follows BR-8.1 and may not be more alive than the product.'
-      x-passage-duty: product.released.write
+      x-depot-duty: product.released.write
       parameters:
         - { name: id, in: path, required: true, schema: { type: string } }
       responses:
@@ -353,7 +353,7 @@ paths:
       operationId: allocateGTIN
       summary: Allocate a GTIN-13 to a product
       description: 'Allocates the next GTIN-13 from the tenant GS1 prefix and stores it as an identifier of productId.'
-      x-passage-duty: product.gtin.allocate
+      x-depot-duty: product.gtin.allocate
       parameters:
         - { name: productId, in: query, required: true, schema: { type: string, format: uuid } }
       requestBody:
@@ -365,7 +365,7 @@ paths:
     get:
       operationId: getGTIN
       summary: Get the product identifier for a GTIN
-      x-passage-duty: product.read
+      x-depot-duty: product.read
       parameters:
         - { name: gtin, in: path, required: true, schema: { type: string } }
       responses:
@@ -375,7 +375,7 @@ paths:
     get:
       operationId: getBarcode
       summary: Render an EAN-13 barcode
-      x-passage-duty: product.read
+      x-depot-duty: product.read
       parameters:
         - { name: gtin, in: path, required: true, schema: { type: string } }
       responses:
@@ -385,7 +385,7 @@ paths:
     post:
       operationId: runGroupChange
       summary: Run a group change
-      x-passage-duty: product.jobs.write
+      x-depot-duty: product.jobs.write
       requestBody:
         required: true
         content: { application/json: { schema: { $ref: '#/components/schemas/GroupChangeRequest' } } }

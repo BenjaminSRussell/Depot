@@ -8,9 +8,9 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/costacct/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/costacct/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/costacct/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/costacct/internal/store"
 )
 
 const (

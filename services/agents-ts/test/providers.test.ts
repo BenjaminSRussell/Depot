@@ -5,7 +5,7 @@ import type { ModelProvider } from "../src/runtime/engine.js";
 import { runAgent } from "../src/runtime/engine.js";
 import { APPROVER, FakeApprovals, FakeTools, makeDeps, makeRequest, postDescriptor, REAL_IBAN, TENANT } from "./fakes.js";
 
-const ALLOWED = ["passage.ap.invoice.post"];
+const ALLOWED = ["depot.ap.invoice.post"];
 const ARGS = { remitTo: "[IBAN-1]", invoiceId: "INV-7" };
 const AMOUNT = { amount: "1200.00", currency: "USD" };
 
@@ -32,7 +32,7 @@ const anthropicAnswer = {
       type: "tool_use",
       id: "toolu_1",
       name: "propose_action",
-      input: { text: "Coded to the posting account.", tool: "passage.ap.invoice.post", args: ARGS, confidence: 0.8, amount: AMOUNT },
+      input: { text: "Coded to the posting account.", tool: "depot.ap.invoice.post", args: ARGS, confidence: 0.8, amount: AMOUNT },
     },
   ],
   usage: { input_tokens: 120, output_tokens: 45 },
@@ -49,7 +49,7 @@ const openAiAnswer = {
             type: "function",
             function: {
               name: "propose_action",
-              arguments: JSON.stringify({ text: "Coded to the posting account.", tool: "passage.ap.invoice.post", args: ARGS, confidence: 0.8, amount: AMOUNT }),
+              arguments: JSON.stringify({ text: "Coded to the posting account.", tool: "depot.ap.invoice.post", args: ARGS, confidence: 0.8, amount: AMOUNT }),
             },
           },
         ],
@@ -61,7 +61,7 @@ const openAiAnswer = {
 
 const expected = {
   text: "Coded to the posting account.",
-  proposal: { tool: "passage.ap.invoice.post", args: ARGS, confidence: 0.8, amount: AMOUNT },
+  proposal: { tool: "depot.ap.invoice.post", args: ARGS, confidence: 0.8, amount: AMOUNT },
   usage: { tokensIn: 120, tokensOut: 45 },
 };
 
@@ -244,7 +244,7 @@ describe("provider failure handling (BR-47.9)", () => {
 
   it("rejects a proposal whose args are not an object", async () => {
     const body = {
-      content: [{ type: "tool_use", name: "propose_action", input: { text: "t", tool: "passage.ap.invoice.post", args: "INV-7", confidence: 0.9, amount: AMOUNT } }],
+      content: [{ type: "tool_use", name: "propose_action", input: { text: "t", tool: "depot.ap.invoice.post", args: "INV-7", confidence: 0.9, amount: AMOUNT } }],
     };
     const p = createAnthropicProvider({ apiKey: "k", model: "m", fetchFn: fakeFetch(200, body, []) });
     await expect(p.complete({ system: "s", user: "u", allowedTools: ALLOWED })).rejects.toMatchObject({ code: "AGT-0206", outage: false });
@@ -259,7 +259,7 @@ describe("provider failure handling (BR-47.9)", () => {
 
   it("rejects a proposal naming a tool outside the allow-list", async () => {
     const bad = {
-      content: [{ type: "tool_use", name: "propose_action", input: { text: "t", tool: "passage.ledger.journal.reverse", args: {}, confidence: 0.9, amount: AMOUNT } }],
+      content: [{ type: "tool_use", name: "propose_action", input: { text: "t", tool: "depot.ledger.journal.reverse", args: {}, confidence: 0.9, amount: AMOUNT } }],
     };
     const p = createAnthropicProvider({ apiKey: "k", model: "m", fetchFn: fakeFetch(200, bad, []) });
     await expect(p.complete({ system: "s", user: "u", allowedTools: ALLOWED })).rejects.toMatchObject({ code: "AGT-0206" });
@@ -267,10 +267,10 @@ describe("provider failure handling (BR-47.9)", () => {
 
   it("rejects a non-decimal amount or confidence outside 0..1", async () => {
     const badAmount = {
-      content: [{ type: "tool_use", name: "propose_action", input: { text: "t", tool: "passage.ap.invoice.post", args: {}, confidence: 0.9, amount: { amount: "12,00", currency: "USD" } } }],
+      content: [{ type: "tool_use", name: "propose_action", input: { text: "t", tool: "depot.ap.invoice.post", args: {}, confidence: 0.9, amount: { amount: "12,00", currency: "USD" } } }],
     };
     const badConf = {
-      content: [{ type: "tool_use", name: "propose_action", input: { text: "t", tool: "passage.ap.invoice.post", args: {}, confidence: 1.5, amount: AMOUNT } }],
+      content: [{ type: "tool_use", name: "propose_action", input: { text: "t", tool: "depot.ap.invoice.post", args: {}, confidence: 1.5, amount: AMOUNT } }],
     };
     for (const body of [badAmount, badConf]) {
       const p = createAnthropicProvider({ apiKey: "k", model: "m", fetchFn: fakeFetch(200, body, []) });
@@ -289,7 +289,7 @@ describe("runAgent through each adapter", () => {
     const seenA: Seen[] = [];
     const seenO: Seen[] = [];
     for (const { name, provider } of providers(seenA, seenO)) {
-      const tools = new FakeTools({ "passage.ap.invoice.post": postDescriptor });
+      const tools = new FakeTools({ "depot.ap.invoice.post": postDescriptor });
       const approvals = new FakeApprovals({ decision: "APPROVED", approverUserId: APPROVER });
       const result = await runAgent(makeDeps({ provider, tools, approvals }), makeRequest());
       expect(result.status, name).toBe("COMMITTED");
@@ -299,7 +299,7 @@ describe("runAgent through each adapter", () => {
   });
 
   it("a provider outage ends the run FAILED with AGT-0206 and calls no tool", async () => {
-    const tools = new FakeTools({ "passage.ap.invoice.post": postDescriptor });
+    const tools = new FakeTools({ "depot.ap.invoice.post": postDescriptor });
     const provider = createAnthropicProvider({ apiKey: "k", model: "m", fetchFn: fakeFetch(503, {}, []) });
     const result = await runAgent(makeDeps({ provider, tools, approvals: new FakeApprovals({ decision: "APPROVED", approverUserId: APPROVER }) }), makeRequest());
     expect(result).toMatchObject({ status: "FAILED", code: "AGT-0206" });

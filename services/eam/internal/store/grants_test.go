@@ -10,9 +10,9 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/eam/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/eam/migrations"
 )
 
 func TestGrants_AppRoleNumbersLocksAndAppendOnly(t *testing.T) {
@@ -24,17 +24,17 @@ func TestGrants_AppRoleNumbersLocksAndAppendOnly(t *testing.T) {
 	ctx := testkit.Ctx(testkit.TenantID(1))
 	a, err := s.CreateAsset(ctx, Asset{Name: "Pump", AssetType: "PUMP", SiteID: testkit.TenantID(9), Criticality: 3}, "g-asset")
 	if err != nil {
-		t.Fatalf("asset number sequence as passage_app: %v", err)
+		t.Fatalf("asset number sequence as depot_app: %v", err)
 	}
 	if _, err := s.ActivateAsset(ctx, a.ID, a.Version); err != nil {
 		t.Fatal(err)
 	}
 	wo, err := s.CreateWorkOrder(ctx, WorkOrder{AssetID: a.ID, Type: "CORRECTIVE", Status: "CREATED", Priority: 3, Currency: "USD"}, "g-wo")
 	if err != nil {
-		t.Fatalf("work order number sequence as passage_app: %v", err)
+		t.Fatalf("work order number sequence as depot_app: %v", err)
 	}
 	if _, err := s.RecordLabor(ctx, wo.ID, decimal.NewFromInt(2), decimal.NewFromInt(10), nil, "g-labor"); err != nil {
-		t.Fatalf("labor locks and updates the work order as passage_app: %v", err)
+		t.Fatalf("labor locks and updates the work order as depot_app: %v", err)
 	}
 	for _, stmt := range []string{
 		`update work_order_labor set hours = hours`,

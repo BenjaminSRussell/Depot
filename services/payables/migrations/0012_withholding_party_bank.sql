@@ -27,8 +27,8 @@ DROP TRIGGER IF EXISTS ap_payment_proposal_group_bank_guard ON ap_payment_propos
 CREATE TRIGGER ap_payment_proposal_group_bank_guard BEFORE UPDATE ON ap_payment_proposal_group FOR EACH ROW EXECUTE FUNCTION ap_payment_proposal_group_bank_guard();
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT UPDATE (bank_account_id, bank_fingerprint, bank_key_id, bank_last4) ON ap_payment_proposal_group TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT UPDATE (bank_account_id, bank_fingerprint, bank_key_id, bank_last4) ON ap_payment_proposal_group TO depot_app';
   END IF;
 END
 $$;

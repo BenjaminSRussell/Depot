@@ -4,7 +4,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
  * The caller of the agents API: the tenant and user of the verified bearer token, and the duties it carries (auth.ts).
- * The X-Passage-* edge headers are never trusted on their own.
+ * The X-Depot-* edge headers are never trusted on their own.
  */
 export interface Principal {
   userId: string;

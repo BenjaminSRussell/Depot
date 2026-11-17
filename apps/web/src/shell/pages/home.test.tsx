@@ -2,7 +2,7 @@ import { cleanup, render, screen, waitFor, within } from "@testing-library/react
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it } from "vitest";
-import { loadModules, type PassageModule } from "../../modules/registry";
+import { loadModules, type DepotModule } from "../../modules/registry";
 import { Shell } from "../Shell";
 import { json, pageViolations, server, useFakeServer } from "../testing/fakeServer";
 import { HomePage } from "./HomePage";
@@ -12,7 +12,7 @@ useFakeServer();
 
 const MAX_HOME_LINKS = 30;
 
-const modules: PassageModule[] = [
+const modules: DepotModule[] = [
   {
     id: "ledger",
     title: "General ledger",
@@ -35,7 +35,7 @@ const item = (n: number) => ({
   createdAt: "2026-11-01T00:00:00Z",
 });
 
-function renderHome(duties: string[], shellModules: PassageModule[] = modules) {
+function renderHome(duties: string[], shellModules: DepotModule[] = modules) {
   return render(
     <MemoryRouter>
       <Routes>

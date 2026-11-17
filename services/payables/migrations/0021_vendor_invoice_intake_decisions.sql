@@ -18,8 +18,8 @@ CREATE INDEX IF NOT EXISTS ap_vendor_invoice_intake_waiting ON ap_vendor_invoice
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT UPDATE (status, decided_at, decided_by, decision_note, vendor_invoice_id) ON ap_vendor_invoice_intake TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT UPDATE (status, decided_at, decided_by, decision_note, vendor_invoice_id) ON ap_vendor_invoice_intake TO depot_app';
   END IF;
 END
 $$;

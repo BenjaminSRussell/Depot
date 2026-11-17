@@ -19,11 +19,11 @@ create table tax_settlement_run (
 alter table tax_settlement_run enable row level security;
 alter table tax_settlement_run force row level security;
 create policy tax_settlement_run_tenant_access on tax_settlement_run as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 create policy tax_settlement_run_legal_entity_scope on tax_settlement_run as restrictive
-  using (current_setting('passage.legal_entity_scopes', true) = '*'
-         or legal_entity_id::text = any(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  using (current_setting('depot.legal_entity_scopes', true) = '*'
+         or legal_entity_id::text = any(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 create table tax_transaction (
   tenant_id uuid not null,
@@ -42,11 +42,11 @@ create index tax_transaction_period_idx on tax_transaction (tenant_id, legal_ent
 alter table tax_transaction enable row level security;
 alter table tax_transaction force row level security;
 create policy tax_transaction_tenant_access on tax_transaction as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 create policy tax_transaction_legal_entity_scope on tax_transaction as restrictive
-  using (current_setting('passage.legal_entity_scopes', true) = '*'
-         or legal_entity_id::text = any(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  using (current_setting('depot.legal_entity_scopes', true) = '*'
+         or legal_entity_id::text = any(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 create table tax_recommit_queue (
   tenant_id uuid not null,
@@ -67,11 +67,11 @@ create index tax_recommit_queue_pending_idx on tax_recommit_queue (tenant_id, le
 alter table tax_recommit_queue enable row level security;
 alter table tax_recommit_queue force row level security;
 create policy tax_recommit_queue_tenant_access on tax_recommit_queue as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 create policy tax_recommit_queue_legal_entity_scope on tax_recommit_queue as restrictive
-  using (current_setting('passage.legal_entity_scopes', true) = '*'
-         or legal_entity_id::text = any(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  using (current_setting('depot.legal_entity_scopes', true) = '*'
+         or legal_entity_id::text = any(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 create table tax_ledger_config (
   tenant_id uuid not null,
@@ -84,11 +84,11 @@ create table tax_ledger_config (
 alter table tax_ledger_config enable row level security;
 alter table tax_ledger_config force row level security;
 create policy tax_ledger_config_tenant_access on tax_ledger_config as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 create policy tax_ledger_config_legal_entity_scope on tax_ledger_config as restrictive
-  using (current_setting('passage.legal_entity_scopes', true) = '*'
-         or legal_entity_id::text = any(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  using (current_setting('depot.legal_entity_scopes', true) = '*'
+         or legal_entity_id::text = any(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 create table outbox (
   id text primary key,
@@ -102,5 +102,5 @@ create table outbox (
 alter table outbox enable row level security;
 alter table outbox force row level security;
 create policy outbox_tenant_access on outbox as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);

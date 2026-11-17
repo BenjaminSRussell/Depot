@@ -126,7 +126,7 @@ export function NewBankRunPage() {
           {text("freeze", "Legacy freeze (UTC)", "The cutoff must not be after it.", { type: "datetime-local" })}
           {text("quarantineMaxPct", "Quarantine limit (%)", "The load stops above this share. Default 1.", { inputMode: "decimal" }, true)}
           <div className={styles.wide}>
-            <FormField id="bk-bankAccounts" label="Bank account master" hint="Bank account ids in Passage, separated by commas, spaces or lines." error={errors.bankAccounts}>
+            <FormField id="bk-bankAccounts" label="Bank account master" hint="Bank account ids in Depot, separated by commas, spaces or lines." error={errors.bankAccounts}>
               {(control) => (
                 <Textarea {...control} mono rows={3} value={values.bankAccounts} invalid={Boolean(errors.bankAccounts)} onChange={(event) => update({ bankAccounts: event.target.value })} />
               )}

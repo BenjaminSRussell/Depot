@@ -63,14 +63,14 @@ def test_the_signer_refuses_what_the_grant_does_not_cover():
 
 
 def test_the_signer_reads_its_key_from_the_environment():
-    env = {"PASSAGE_SERVICE_SIGNING_KEY": SEED, "PASSAGE_SERVICE_NAME": "prediction", "PASSAGE_SERVICE_KEY_ID": "k1"}
+    env = {"DEPOT_SERVICE_SIGNING_KEY": SEED, "DEPOT_SERVICE_NAME": "prediction", "DEPOT_SERVICE_KEY_ID": "k1"}
     signer = ServiceSigner.from_env(env.get)
     assert signer is not None and signer.mint("receivables", TENANT, LE, ["receivables.prediction.read"])
     assert ServiceSigner.from_env({}.get) is None
     with pytest.raises(SignerError):
-        ServiceSigner.from_env({**env, "PASSAGE_SERVICE_NAME": "ledger"}.get)
+        ServiceSigner.from_env({**env, "DEPOT_SERVICE_NAME": "ledger"}.get)
     with pytest.raises(SignerError):
-        ServiceSigner.from_env({"PASSAGE_SERVICE_SIGNING_KEY": "AAAA"}.get)
+        ServiceSigner.from_env({"DEPOT_SERVICE_SIGNING_KEY": "AAAA"}.get)
 
 
 class FakeReceivables:

@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/ids"
 )
 
 // The connector's calls arrive through the edge gateway, which terminates its mTLS with the edge CA and forwards the
@@ -25,9 +25,9 @@ type EdgeTenantLookup interface {
 
 const (
 	headerXFCC    = "X-Forwarded-Client-Cert"
-	headerTenant  = "X-Passage-Tenant"
-	headerUser    = "X-Passage-User"
-	headerDuties  = "X-Passage-Duties"
+	headerTenant  = "X-Depot-Tenant"
+	headerUser    = "X-Depot-User"
+	headerDuties  = "X-Depot-Duties"
 	connectorDuty = DutyEdgeConnect
 )
 
@@ -61,7 +61,7 @@ func EdgeCertIdentity(lookup EdgeTenantLookup) func(http.Handler) http.Handler {
 }
 
 // certCommonName reads the common name out of a single-element X-Forwarded-Client-Cert value, such as
-// By=spiffe://x;Hash=abc;Subject="CN=edge:0195...,O=Passage". A value with more than one element (a chain of proxies)
+// By=spiffe://x;Hash=abc;Subject="CN=edge:0195...,O=Depot". A value with more than one element (a chain of proxies)
 // is ambiguous and gives no name.
 func certCommonName(xfcc string) (string, bool) {
 	parts := splitOutsideQuotes(xfcc, ',')

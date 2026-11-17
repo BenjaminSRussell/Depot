@@ -11,7 +11,7 @@ variable "provider_kind" {
 
 variable "name" {
   type    = string
-  default = "passage-local"
+  default = "depot-local"
 }
 
 variable "node_pools" {
@@ -131,16 +131,16 @@ variable "azure_policy_initiative_id" {
 }
 
 variable "fieldcrypt_service_accounts" {
-  description = "Service accounts that unwrap fieldcrypt keys; empty uses the module default (hr, party, payables, receiving, sales, compliance, migration in namespace passage)."
+  description = "Service accounts that unwrap fieldcrypt keys; empty uses the module default (hr, party, payables, receiving, sales, compliance, migration in namespace depot)."
   type        = list(object({ namespace = string, service_account = string }))
   default = [
-    { namespace = "passage", service_account = "passage-hr" },
-    { namespace = "passage", service_account = "passage-party" },
-    { namespace = "passage", service_account = "passage-payables" },
-    { namespace = "passage", service_account = "passage-receiving" },
-    { namespace = "passage", service_account = "passage-sales" },
-    { namespace = "passage", service_account = "passage-compliance" },
-    { namespace = "passage", service_account = "passage-migration" },
+    { namespace = "depot", service_account = "depot-hr" },
+    { namespace = "depot", service_account = "depot-party" },
+    { namespace = "depot", service_account = "depot-payables" },
+    { namespace = "depot", service_account = "depot-receiving" },
+    { namespace = "depot", service_account = "depot-sales" },
+    { namespace = "depot", service_account = "depot-compliance" },
+    { namespace = "depot", service_account = "depot-migration" },
   ]
 }
 

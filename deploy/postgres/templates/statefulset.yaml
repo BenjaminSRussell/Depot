@@ -25,7 +25,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: postgres
-          image: {{ include "passage.mirrorImage" (dict "root" $ "ref" .Values.image) | quote }}
+          image: {{ include "depot.mirrorImage" (dict "root" $ "ref" .Values.image) | quote }}
           {{- if .Values.cdc.enabled }}
           args:
             - -c
@@ -40,7 +40,7 @@ spec:
             capabilities:
               drop: [ALL]
           env:
-            - { name: POSTGRES_USER, value: passage }
+            - { name: POSTGRES_USER, value: depot }
             - { name: POSTGRES_DB, value: {{ required "database is required" .Values.database | quote }} }
             - { name: PGDATA, value: /var/lib/postgresql/data/pgdata }
             - { name: POSTGRES_PASSWORD_FILE, value: /run/secrets/outbox-postgres/POSTGRES_PASSWORD }
@@ -48,7 +48,7 @@ spec:
             - { name: pg, containerPort: 5432 }
           readinessProbe:
             exec:
-              command: [pg_isready, -U, passage, -d, {{ .Values.database | quote }}]
+              command: [pg_isready, -U, depot, -d, {{ .Values.database | quote }}]
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           volumeMounts:

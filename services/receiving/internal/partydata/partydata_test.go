@@ -8,10 +8,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/partydata"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/partydata"
 )
 
 const (
@@ -42,7 +42,7 @@ func servers(t *testing.T, partyStatus int) (*httptest.Server, *httptest.Server)
 		case r.URL.Path == "/v1/org/addresses" && strings.Contains(r.URL.RawQuery, "ownerType=party") && strings.Contains(r.URL.RawQuery, "ownerId="+partyID):
 			_, _ = w.Write([]byte(`{"items":[{"id":"` + addrID + `","ownerType":"party","countryCode":"DE","formatted":"Hauptstr 1, 10115 Berlin","purposes":[{"purpose":"business","primary":true}]}]}`))
 		case r.URL.Path == "/v1/org/legal-entities/"+leID:
-			_, _ = w.Write([]byte(`{"name":"Passage Werke AG","country":"DE","registrationNumber":"HRB 999","primaryAddressId":"` + addrID + `"}`))
+			_, _ = w.Write([]byte(`{"name":"Depot Werke AG","country":"DE","registrationNumber":"HRB 999","primaryAddressId":"` + addrID + `"}`))
 		case r.URL.Path == "/v1/org/addresses/"+addrID:
 			_, _ = w.Write([]byte(`{"id":"` + addrID + `","countryCode":"DE","formatted":"Ring 5, 80331 Muenchen","purposes":[{"purpose":"invoice","primary":true},{"purpose":"business","primary":false}]}`))
 		default:
@@ -64,7 +64,7 @@ func TestSelfBillParties_ReadsSupplierAndCustomerFromTheMasters(t *testing.T) {
 	if got.Supplier.Name != "Acme Supplies GmbH" || got.Supplier.Address != "Hauptstr 1, 10115 Berlin" || got.Supplier.Country != "DE" || got.Supplier.RegistrationNumber != "HRB 123" {
 		t.Fatalf("supplier %+v", got.Supplier)
 	}
-	if got.Customer.Name != "Passage Werke AG" || got.Customer.Address != "Ring 5, 80331 Muenchen" || got.Customer.Country != "DE" || got.Customer.RegistrationNumber != "HRB 999" {
+	if got.Customer.Name != "Depot Werke AG" || got.Customer.Address != "Ring 5, 80331 Muenchen" || got.Customer.Country != "DE" || got.Customer.RegistrationNumber != "HRB 999" {
 		t.Fatalf("customer %+v", got.Customer)
 	}
 }
@@ -94,7 +94,7 @@ func TestSelfBillParties_RefusesASupplierWithoutAnAddressAndPrefersTheInvoiceAdd
 		case "/v1/org/addresses":
 			_, _ = w.Write([]byte(`{"items":` + items + `}`))
 		case "/v1/org/legal-entities/" + leID:
-			_, _ = w.Write([]byte(`{"name":"Passage","country":"DE"}`))
+			_, _ = w.Write([]byte(`{"name":"Depot","country":"DE"}`))
 		}
 	}))
 	t.Cleanup(party.Close)

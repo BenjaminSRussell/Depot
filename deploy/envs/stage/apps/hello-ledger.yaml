@@ -8,7 +8,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/BenjaminSRussell/Passage.git
+    repoURL: https://github.com/BenjaminSRussell/Depot.git
     targetRevision: main
     path: services/platform-health/charts/hello-ledger
     helm:
@@ -20,8 +20,8 @@ spec:
         replicaCount: 2
         ingress:
           enabled: true
-          host: stage.passage.dev
-          clusterIssuer: passage-stage-ca
+          host: stage.depot.dev
+          clusterIssuer: depot-stage-ca
   destination:
     name: stage
     namespace: hello-ledger

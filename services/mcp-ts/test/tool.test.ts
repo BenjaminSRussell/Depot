@@ -6,15 +6,15 @@ import { readTool, writeTool } from "./fixtures.js";
 
 describe("validateToolDefinition", () => {
   const cases: Array<{ name: string; tool: ReturnType<typeof readTool>; want: string | null }> = [
-    { name: "valid read tool", tool: readTool("passage.ap.invoice.list", "APInvoiceRead"), want: null },
-    { name: "valid three-segment tool", tool: readTool("passage.knowledge.search", "mcp.copilot.use"), want: null },
+    { name: "valid read tool", tool: readTool("depot.ap.invoice.list", "APInvoiceRead"), want: null },
+    { name: "valid three-segment tool", tool: readTool("depot.knowledge.search", "mcp.copilot.use"), want: null },
     { name: "bad name", tool: readTool("ap.invoice.list", "APInvoiceRead"), want: "must match" },
-    { name: "missing duty", tool: readTool("passage.ap.invoice.list", ""), want: "x-passage-duty" },
-    { name: "write tool without approval", tool: writeTool("passage.ap.invoice.post", "APInvoicePost", { approvalMode: "none" }), want: "write tools" },
-    { name: "GET marked as write", tool: readTool("passage.ap.invoice.list", "APInvoiceRead", { readOnly: false }), want: "GET tools" },
+    { name: "missing duty", tool: readTool("depot.ap.invoice.list", ""), want: "x-depot-duty" },
+    { name: "write tool without approval", tool: writeTool("depot.ap.invoice.post", "APInvoicePost", { approvalMode: "none" }), want: "write tools" },
+    { name: "GET marked as write", tool: readTool("depot.ap.invoice.list", "APInvoiceRead", { readOnly: false }), want: "GET tools" },
     {
       name: "tenant_id declared in schema",
-      tool: readTool("passage.ap.invoice.list", "APInvoiceRead", {
+      tool: readTool("depot.ap.invoice.list", "APInvoiceRead", {
         inputSchema: { type: "object", properties: { tenant_id: { type: "string" } } },
       }),
       want: "tenant_id",
@@ -31,13 +31,13 @@ describe("validateToolDefinition", () => {
 });
 
 describe("toMcpTool wire shape", () => {
-  it("removes tenant_id from the schema and declares Passage extensions", () => {
-    const t = readTool("passage.ap.invoice.list", "APInvoiceRead", {
+  it("removes tenant_id from the schema and declares Depot extensions", () => {
+    const t = readTool("depot.ap.invoice.list", "APInvoiceRead", {
       inputSchema: { type: "object", properties: { status: { type: "string" } }, required: ["status"] },
     });
     const wire = toMcpTool(t);
-    expect(wire["x-passage-duty"]).toBe("APInvoiceRead");
-    expect(wire["x-passage-approval"]).toBe("none");
+    expect(wire["x-depot-duty"]).toBe("APInvoiceRead");
+    expect(wire["x-depot-approval"]).toBe("none");
     expect(wire.annotations).toEqual({ readOnlyHint: true, destructiveHint: false, idempotentHint: true });
     expect(stripTenantId({ properties: { tenant_id: {}, a: {} }, required: ["tenant_id", "a"] })).toEqual({
       properties: { a: {} },
@@ -49,17 +49,17 @@ describe("toMcpTool wire shape", () => {
 describe("buildCatalog and visibleTools (AC-47.1)", () => {
   it("lists only tools whose duty the user holds", () => {
     const cat = buildCatalog([
-      readTool("passage.ap.invoice.list", "APInvoiceRead"),
-      writeTool("passage.ap.invoice.post", "APInvoicePost", { approvalMode: "approve_before_commit" }),
+      readTool("depot.ap.invoice.list", "APInvoiceRead"),
+      writeTool("depot.ap.invoice.post", "APInvoicePost", { approvalMode: "approve_before_commit" }),
     ]);
-    expect(visibleTools(cat, new Set(["APInvoiceRead"])).map((t) => t.name)).toEqual(["passage.ap.invoice.list"]);
+    expect(visibleTools(cat, new Set(["APInvoiceRead"])).map((t) => t.name)).toEqual(["depot.ap.invoice.list"]);
     expect(visibleTools(cat, new Set()).length).toBe(0);
   });
 
   it("rejects duplicate names and invalid definitions together", () => {
-    const dup = readTool("passage.ap.invoice.list", "APInvoiceRead");
+    const dup = readTool("depot.ap.invoice.list", "APInvoiceRead");
     expect(() => buildCatalog([dup, dup])).toThrow(CatalogError);
-    expect(() => buildCatalog([readTool("bad", "")])).toThrow(/passage/);
+    expect(() => buildCatalog([readTool("bad", "")])).toThrow(/depot/);
   });
 });
 
@@ -70,8 +70,8 @@ describe("toolsFromOpenApi", () => {
         get: {
           operationId: "getInvoice",
           summary: "Get a vendor invoice",
-          "x-passage-tool": "passage.ap.invoice.get",
-          "x-passage-duty": "APInvoiceRead",
+          "x-depot-tool": "depot.ap.invoice.get",
+          "x-depot-duty": "APInvoiceRead",
           parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
           responses: { "200": { content: { "application/json": { schema: { type: "object" } } } } },
         },
@@ -80,9 +80,9 @@ describe("toolsFromOpenApi", () => {
       "/v1/ap/invoices/{id}:propose-coding": {
         post: {
           operationId: "proposeCoding",
-          "x-passage-tool": "passage.ap.invoice.propose_coding",
-          "x-passage-duty": "APInvoiceCode",
-          "x-passage-approval": "suggest",
+          "x-depot-tool": "depot.ap.invoice.propose_coding",
+          "x-depot-duty": "APInvoiceCode",
+          "x-depot-approval": "suggest",
           parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
           requestBody: {
             content: {
@@ -96,9 +96,9 @@ describe("toolsFromOpenApi", () => {
     },
   };
 
-  it("generates tools only for operations that carry x-passage-tool", () => {
+  it("generates tools only for operations that carry x-depot-tool", () => {
     const tools = toolsFromOpenApi(doc);
-    expect(tools.map((t) => t.name)).toEqual(["passage.ap.invoice.get", "passage.ap.invoice.propose_coding"]);
+    expect(tools.map((t) => t.name)).toEqual(["depot.ap.invoice.get", "depot.ap.invoice.propose_coding"]);
     const get = tools[0];
     expect(get?.readOnly).toBe(true);
     expect(get?.sourceRef).toBe("getInvoice");
@@ -115,8 +115,8 @@ describe("toolsFromOpenApi", () => {
       paths: {
         "/v1/ap/invoices": {
           get: {
-            "x-passage-tool": "passage.ap.invoice.list",
-            "x-passage-duty": "APInvoiceRead",
+            "x-depot-tool": "depot.ap.invoice.list",
+            "x-depot-duty": "APInvoiceRead",
             parameters: [
               { name: "tenant_id", in: "query", required: true, schema: { type: "string" } },
               { name: "Idempotency-Key", in: "header", schema: { type: "string" } },
@@ -133,7 +133,7 @@ describe("toolsFromOpenApi", () => {
 
   it("refuses an operation with no duty", () => {
     expect(() =>
-      toolsFromOpenApi({ paths: { "/v1/x": { get: { "x-passage-tool": "passage.x.y.read" } } } }),
-    ).toThrow(/x-passage-duty/);
+      toolsFromOpenApi({ paths: { "/v1/x": { get: { "x-depot-tool": "depot.x.y.read" } } } }),
+    ).toThrow(/x-depot-duty/);
   });
 });

@@ -1,4 +1,4 @@
-// Cube configuration for the Passage semantic layer (FR-46.7).
+// Cube configuration for the Depot semantic layer (FR-46.7).
 //
 // Row-level security mirrors the OPA data-scope decision. The analytics API
 // passes the caller's legal-entity ids in the Cube security context (from the

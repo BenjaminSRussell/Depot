@@ -9,7 +9,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/BenjaminSRussell/passage/services/assets/internal/api"
+	"github.com/BenjaminSRussell/depot/services/assets/internal/api"
 )
 
 // TestRoutesMatchOpenAPI keeps api/openapi.yaml in step with the router: every

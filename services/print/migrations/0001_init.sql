@@ -19,8 +19,8 @@ CREATE TABLE IF NOT EXISTS print_device (
 ALTER TABLE print_device ENABLE ROW LEVEL SECURITY;
 ALTER TABLE print_device FORCE ROW LEVEL SECURITY;
 CREATE POLICY print_device_tenant_access ON print_device AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 CREATE TABLE IF NOT EXISTS print_job (
   tenant_id uuid NOT NULL,
@@ -47,8 +47,8 @@ CREATE INDEX IF NOT EXISTS print_job_log ON print_job (tenant_id, created_at DES
 ALTER TABLE print_job ENABLE ROW LEVEL SECURITY;
 ALTER TABLE print_job FORCE ROW LEVEL SECURITY;
 CREATE POLICY print_job_tenant_access ON print_job AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- Transactional outbox relayed by Debezium. Tenant RLS like every other table
 -- (the relay connects with a BYPASSRLS replication role).
@@ -65,5 +65,5 @@ CREATE TABLE IF NOT EXISTS outbox (
 ALTER TABLE outbox ENABLE ROW LEVEL SECURITY;
 ALTER TABLE outbox FORCE ROW LEVEL SECURITY;
 CREATE POLICY outbox_tenant_access ON outbox AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);

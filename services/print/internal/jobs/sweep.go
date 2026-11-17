@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
 )
 
 // SweepInterval is how often stale QUEUED jobs are looked for (§6.32.16: every 15 s).

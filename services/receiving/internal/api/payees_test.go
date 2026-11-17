@@ -10,11 +10,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/api"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/store"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/store/memstore"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/api"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/store"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/store/memstore"
 )
 
 const payeesPath = "/v1/receiving/one-time-payees"
@@ -115,7 +115,7 @@ func TestOneTimePayee_DutyUserAndScope(t *testing.T) {
 	rg := newRig(domain.PeriodOpen)
 	problemCode(t, rg.call(http.MethodPost, payeesPath, payeeJSON(nil), duty("receiving.receipt.maintain", rg.key())), http.StatusForbidden, "AUTH-0003")
 	noUser := duty("receiving.vendor-invoice.post", rg.key())
-	delete(noUser, "X-Passage-User")
+	delete(noUser, "X-Depot-User")
 	problemCode(t, rg.call(http.MethodPost, payeesPath, payeeJSON(nil), noUser), http.StatusUnauthorized, "AUTH-0001")
 	problemCode(t, rg.call(http.MethodPost, payeesPath, payeeJSON(map[string]any{"legalEntityId": ledgerID}), duty("receiving.vendor-invoice.post", rg.key())), http.StatusForbidden, "AUTH-0003")
 	problemCode(t, rg.call(http.MethodPost, payeesPath, payeeJSON(nil), headers{"Idempotency-Key": "k"}), http.StatusUnauthorized, "AUTH-0001")
@@ -154,7 +154,7 @@ func TestInvoice_ReferencesAOneTimePayeeAndEventsCarryItsIdOnly(t *testing.T) {
 	}
 	evts := rg.st.Events()
 	posted := evts[len(evts)-1]
-	if posted.Type != "dev.passage.payables.invoice.posted.v1" || !strings.Contains(string(posted.Data), `"one_time_payee_id":"`+payeeID+`"`) {
+	if posted.Type != "dev.depot.payables.invoice.posted.v1" || !strings.Contains(string(posted.Data), `"one_time_payee_id":"`+payeeID+`"`) {
 		t.Fatalf("event %s %s", posted.Type, posted.Data)
 	}
 	for _, e := range evts {
@@ -200,7 +200,7 @@ func TestInvoice_AuditHoldAndReleaseKeepThePayeeOnBothEvents(t *testing.T) {
 		}
 		assertNoPII(t, "event "+e.Type, string(e.Data))
 	}
-	want := []string{"dev.passage.payables.invoice.sampled.v1", "dev.passage.payables.invoice.posted.v1"}
+	want := []string{"dev.depot.payables.invoice.sampled.v1", "dev.depot.payables.invoice.posted.v1"}
 	if fmt.Sprint(withPayee) != fmt.Sprint(want) {
 		t.Fatalf("events carrying the payee: %v, want %v", withPayee, want)
 	}

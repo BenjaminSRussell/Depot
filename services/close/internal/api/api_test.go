@@ -15,12 +15,12 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/close/internal/api"
-	"github.com/BenjaminSRussell/passage/services/close/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/close/internal/ledger"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/close/internal/api"
+	"github.com/BenjaminSRussell/depot/services/close/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/close/internal/ledger"
 )
 
 const checkPath = "/v1/close/period-statuses:check"
@@ -66,8 +66,8 @@ func newRouter(s fakeStore) (*chi.Mux, *api.API) {
 func do(r http.Handler, method, path, payload string, tenantHeader bool, duties string) *httptest.ResponseRecorder {
 	req := httptest.NewRequest(method, path, strings.NewReader(payload))
 	if tenantHeader {
-		req.Header.Set("X-Passage-Tenant", testkit.TenantID(1))
-		req.Header.Set("X-Passage-Duties", duties)
+		req.Header.Set("X-Depot-Tenant", testkit.TenantID(1))
+		req.Header.Set("X-Depot-Duties", duties)
 	}
 	rec := httptest.NewRecorder()
 	r.ServeHTTP(rec, req)
@@ -183,10 +183,10 @@ func resolveQuery(ledger, date string) string {
 
 func doResolve(r http.Handler, target, legalEntity, duties string) *httptest.ResponseRecorder {
 	req := httptest.NewRequest(http.MethodGet, target, nil)
-	req.Header.Set("X-Passage-Tenant", testkit.TenantID(1))
-	req.Header.Set("X-Passage-Duties", duties)
+	req.Header.Set("X-Depot-Tenant", testkit.TenantID(1))
+	req.Header.Set("X-Depot-Duties", duties)
 	if legalEntity != "" {
-		req.Header.Set("X-Passage-Legal-Entity", legalEntity)
+		req.Header.Set("X-Depot-Legal-Entity", legalEntity)
 	}
 	rec := httptest.NewRecorder()
 	r.ServeHTTP(rec, req)
@@ -283,10 +283,10 @@ func TestRegisterPeriod(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			r := registerRouter(tc.store, fakeLedger{owner: entity})
 			req := httptest.NewRequest(http.MethodPut, "/v1/close/periods/"+period, strings.NewReader(tc.payload))
-			req.Header.Set("X-Passage-Tenant", testkit.TenantID(1))
-			req.Header.Set("X-Passage-Duties", tc.duties)
+			req.Header.Set("X-Depot-Tenant", testkit.TenantID(1))
+			req.Header.Set("X-Depot-Duties", tc.duties)
 			if tc.entity != "" {
-				req.Header.Set("X-Passage-Legal-Entity", tc.entity)
+				req.Header.Set("X-Depot-Legal-Entity", tc.entity)
 			}
 			rec := httptest.NewRecorder()
 			r.ServeHTTP(rec, req)
@@ -303,10 +303,10 @@ func TestRegisterPeriod_LegalEntityComesFromTheCaller(t *testing.T) {
 	r := registerRouter(fakeStore{created: true, registered: &got}, fakeLedger{owner: entity})
 	send := func(payload string) *httptest.ResponseRecorder {
 		req := httptest.NewRequest(http.MethodPut, "/v1/close/periods/"+period, strings.NewReader(payload))
-		req.Header.Set("X-Passage-Tenant", testkit.TenantID(1))
-		req.Header.Set("X-Passage-Duties", "period.maintain")
-		req.Header.Set("X-Passage-User", "user-1")
-		req.Header.Set("X-Passage-Legal-Entity", entity)
+		req.Header.Set("X-Depot-Tenant", testkit.TenantID(1))
+		req.Header.Set("X-Depot-Duties", "period.maintain")
+		req.Header.Set("X-Depot-User", "user-1")
+		req.Header.Set("X-Depot-Legal-Entity", entity)
 		rec := httptest.NewRecorder()
 		r.ServeHTTP(rec, req)
 		return rec
@@ -362,10 +362,10 @@ func TestRegisterPeriod_LedgerOwnershipIsAskedOfTheLedgerService(t *testing.T) {
 			var got domain.PeriodRegistration
 			r := registerRouter(fakeStore{created: true, registered: &got}, ledger.New(srv.URL, nil, signer))
 			req := httptest.NewRequest(http.MethodPut, "/v1/close/periods/"+period, strings.NewReader(payload))
-			req.Header.Set("X-Passage-Tenant", testkit.TenantID(1))
-			req.Header.Set("X-Passage-Duties", "period.maintain")
-			req.Header.Set("X-Passage-User", "user-1")
-			req.Header.Set("X-Passage-Legal-Entity", entity)
+			req.Header.Set("X-Depot-Tenant", testkit.TenantID(1))
+			req.Header.Set("X-Depot-Duties", "period.maintain")
+			req.Header.Set("X-Depot-User", "user-1")
+			req.Header.Set("X-Depot-Legal-Entity", entity)
 			rec := httptest.NewRecorder()
 			r.ServeHTTP(rec, req)
 			if rec.Code != tc.wantStatus || (got.FiscalPeriodID != "") != tc.wantStore || gotToken == "" {
@@ -379,10 +379,10 @@ func TestRegisterPeriod_LedgerOwnershipIsAskedOfTheLedgerService(t *testing.T) {
 		var got domain.PeriodRegistration
 		r := registerRouter(fakeStore{created: true, registered: &got}, ledger.New(srv.URL, nil, signer))
 		req := httptest.NewRequest(http.MethodPut, "/v1/close/periods/"+period, strings.NewReader(payload))
-		req.Header.Set("X-Passage-Tenant", testkit.TenantID(1))
-		req.Header.Set("X-Passage-Duties", "period.maintain")
-		req.Header.Set("X-Passage-User", "user-1")
-		req.Header.Set("X-Passage-Legal-Entity", entity)
+		req.Header.Set("X-Depot-Tenant", testkit.TenantID(1))
+		req.Header.Set("X-Depot-Duties", "period.maintain")
+		req.Header.Set("X-Depot-User", "user-1")
+		req.Header.Set("X-Depot-Legal-Entity", entity)
 		rec := httptest.NewRecorder()
 		r.ServeHTTP(rec, req)
 		if rec.Code != http.StatusServiceUnavailable || got.FiscalPeriodID != "" {
@@ -392,10 +392,10 @@ func TestRegisterPeriod_LedgerOwnershipIsAskedOfTheLedgerService(t *testing.T) {
 	t.Run("no ledger configured fails closed", func(t *testing.T) {
 		r := registerRouter(fakeStore{created: true}, nil)
 		req := httptest.NewRequest(http.MethodPut, "/v1/close/periods/"+period, strings.NewReader(payload))
-		req.Header.Set("X-Passage-Tenant", testkit.TenantID(1))
-		req.Header.Set("X-Passage-Duties", "period.maintain")
-		req.Header.Set("X-Passage-User", "user-1")
-		req.Header.Set("X-Passage-Legal-Entity", entity)
+		req.Header.Set("X-Depot-Tenant", testkit.TenantID(1))
+		req.Header.Set("X-Depot-Duties", "period.maintain")
+		req.Header.Set("X-Depot-User", "user-1")
+		req.Header.Set("X-Depot-Legal-Entity", entity)
 		rec := httptest.NewRecorder()
 		r.ServeHTTP(rec, req)
 		if rec.Code != http.StatusServiceUnavailable {

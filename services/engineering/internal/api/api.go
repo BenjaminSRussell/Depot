@@ -19,12 +19,12 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/authz"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/engineering/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/engineering/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/authz"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/engineering/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/engineering/internal/store"
 )
 
 const (
@@ -47,7 +47,7 @@ const (
 	// draft BOM and route versions from a legacy extract and reads them back by id for reconciliation.
 	dutyImportWrite     = "engineering.import.write"
 	dutyImportRead      = "engineering.import.read"
-	reauthHeader        = "X-Passage-Reauth-Assertion"
+	reauthHeader        = "X-Depot-Reauth-Assertion"
 	dateLayout          = "2006-01-02"
 	validationDetail    = "request failed validation"
 	maxIDLength         = 64

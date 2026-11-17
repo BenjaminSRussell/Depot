@@ -10,13 +10,13 @@ import check_release_notes as crn
 DIGEST = "sha256:" + "a" * 64
 TEMPLATE = Path(__file__).resolve().parents[1] / "release-notes-template.md"
 
-GOOD = f"""# Passage v1.0.0
+GOOD = f"""# Depot v1.0.0
 
 Release date: 2026-11-01.
 
 ## Images and charts
 
-- `passage-org` {DIGEST}
+- `depot-org` {DIGEST}
 
 ## Features by module
 
@@ -60,8 +60,8 @@ class TestCheck(unittest.TestCase):
         self.assertEqual(crn.check(GOOD.replace("v1.0.0", "v1.0.0-rc.1")), [])
 
     def test_bad_title_fails(self):
-        errors = crn.check(GOOD.replace("# Passage v1.0.0", "# Passage one"))
-        self.assertIn("missing title line '# Passage vX.Y.Z'", errors)
+        errors = crn.check(GOOD.replace("# Depot v1.0.0", "# Depot one"))
+        self.assertIn("missing title line '# Depot vX.Y.Z'", errors)
 
     def test_each_required_section_is_needed(self):
         for name in crn.REQUIRED:
@@ -78,7 +78,7 @@ class TestCheck(unittest.TestCase):
         self.assertIn("empty section '## CVE fixes'", crn.check(text))
 
     def test_images_need_a_digest(self):
-        text = GOOD.replace(DIGEST, "passage-org:latest")
+        text = GOOD.replace(DIGEST, "depot-org:latest")
         self.assertIn(
             "Images and charts has no sha256 digest (images are published by digest)",
             crn.check(text),
@@ -87,7 +87,7 @@ class TestCheck(unittest.TestCase):
     def test_unedited_template_fails_on_digest_title_and_placeholders(self):
         errors = crn.check(TEMPLATE.read_text(encoding="utf-8"))
         self.assertIn("Images and charts has no sha256 digest (images are published by digest)", errors)
-        self.assertIn("missing title line '# Passage vX.Y.Z'", errors)
+        self.assertIn("missing title line '# Depot vX.Y.Z'", errors)
         left = next(e for e in errors if e.startswith("template placeholders left"))
         for placeholder in ("<git sha>", "<module>", "YYYY-MM-DD", "NNNN"):
             self.assertIn(placeholder, left)
@@ -106,10 +106,10 @@ class TestCheck(unittest.TestCase):
             .replace("YYYY-MM-DD", "2026-11-02")
             .replace("`<git sha>`", "`1a2b3c4`")
             .replace("`vX.Y.Z`", "`v0.9.0`")
-            .replace("passage-<service>", "passage-org")
+            .replace("depot-<service>", "depot-org")
             .replace("sha256:<64 lowercase hex characters>", DIGEST)
             .replace("version `X.Y.Z`", "version `1.0.0`")
-            .replace("`<registry>/<image>@sha256:<digest>`", f"`ghcr.io/passage/org@{DIGEST}`")
+            .replace("`<registry>/<image>@sha256:<digest>`", f"`ghcr.io/depot/org@{DIGEST}`")
             .replace("### <module>", "### Organisation")
             .replace("- <feature, with its PRD requirement id, for example FR-NN.N>", "- Legal entities (FR-2.1)")
             .replace("`NNNN_<name>.sql`", "`0007_party_index.sql`")
@@ -118,7 +118,7 @@ class TestCheck(unittest.TestCase):
         self.assertEqual(crn.check(filled), [])
 
     def test_html_tags_and_autolinks_are_not_placeholders(self):
-        text = GOOD.replace("Roll back to v0.9.0 by digest.", "Roll back to v0.9.0<br>see <https://docs.passage.dev/ops>.")
+        text = GOOD.replace("Roll back to v0.9.0 by digest.", "Roll back to v0.9.0<br>see <https://docs.depot.dev/ops>.")
         self.assertEqual(crn.check(text), [])
 
     def test_breaking_changes_must_be_none_unless_allowed(self):
@@ -164,7 +164,7 @@ class TestMain(unittest.TestCase):
             good = Path(tmp) / "v1.md"
             good.write_text(GOOD, encoding="utf-8")
             evidence = Path(tmp) / "evidence.json"
-            body = {"schema": "passage.ops.compat-evidence/v1", "release": "v1.0.0", "verdict": "FAIL", "breakingServices": 1}
+            body = {"schema": "depot.ops.compat-evidence/v1", "release": "v1.0.0", "verdict": "FAIL", "breakingServices": 1}
             evidence.write_text(json.dumps(body), encoding="utf-8")
             self.assertEqual(crn.main([str(good), "--compat-evidence", str(evidence)]), 1)
             evidence.write_text(json.dumps({**body, "verdict": "PASS", "breakingServices": 0}), encoding="utf-8")

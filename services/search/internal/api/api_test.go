@@ -11,13 +11,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/search/internal/store"
-	"github.com/BenjaminSRussell/passage/services/search/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/search/internal/store"
+	"github.com/BenjaminSRussell/depot/services/search/migrations"
 )
 
 const (
@@ -82,10 +82,10 @@ type response struct {
 
 func (h *harness) get(rawQuery, scopes, duties string) *httptest.ResponseRecorder {
 	r := httptest.NewRequest(http.MethodGet, "/v1/search?"+rawQuery, nil)
-	r.Header.Set("X-Passage-Tenant", testkit.TenantID(1))
-	r.Header.Set("X-Passage-Legal-Entity", scopes)
-	r.Header.Set("X-Passage-User", "alice")
-	r.Header.Set("X-Passage-Duties", duties)
+	r.Header.Set("X-Depot-Tenant", testkit.TenantID(1))
+	r.Header.Set("X-Depot-Legal-Entity", scopes)
+	r.Header.Set("X-Depot-User", "alice")
+	r.Header.Set("X-Depot-Duties", duties)
 	rec := httptest.NewRecorder()
 	h.h.ServeHTTP(rec, r)
 	return rec

@@ -6,9 +6,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
 
-	"github.com/BenjaminSRussell/passage/services/finreport/internal/firing"
+	"github.com/BenjaminSRussell/depot/services/finreport/internal/firing"
 )
 
 type fakeFirer struct {

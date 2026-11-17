@@ -15,11 +15,11 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/services/edi/internal/delivery"
-	ediev "github.com/BenjaminSRussell/passage/services/edi/internal/events"
-	"github.com/BenjaminSRussell/passage/services/edi/internal/store"
-	"github.com/BenjaminSRussell/passage/services/edi/internal/transport"
-	"github.com/BenjaminSRussell/passage/services/edi/internal/transport/transporttest"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/delivery"
+	ediev "github.com/BenjaminSRussell/depot/services/edi/internal/events"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/store"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/transport"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/transport/transporttest"
 )
 
 // The partner simulator over the transports (AC-35.1): the same distributor,
@@ -104,7 +104,7 @@ func simStatus(isa13 string) string {
 	}}}})
 }
 
-const simRemittanceOut = `{"traceNumber":"ACH-PSG-31","paymentDate":"20261107","method":"ACH","currency":"EUR","amount":"148.00",
+const simRemittanceOut = `{"traceNumber":"ACH-DPT-31","paymentDate":"20261107","method":"ACH","currency":"EUR","amount":"148.00",
 "payer":{"name":"Demo Manufacturer","gln":"4006403333338"},"payee":{"name":"Demo Distributor","gln":"4000001234561"},
 "items":[{"invoiceNumber":"CB-301","invoiceDate":"20261101","paid":"100.00","invoiced":"100.00","discount":"0"},
 {"invoiceNumber":"CB-302","paid":"48.00","invoiced":"50.00","discount":"2.00"}]}`
@@ -134,7 +134,7 @@ func TestPartnerSim_X12RemittanceStatusAndTA1OverAS2(t *testing.T) {
 	}
 	// fromUs runs the dispatcher and reads what reached the distributor's
 	// AS2 server since the last call. Everything we send it, documents and
-	// acknowledgments, comes from PASSAGE on one gap-free ISA13 sequence.
+	// acknowledgments, comes from DEPOT on one gap-free ISA13 sequence.
 	seen, lastISA13 := 0, 0
 	fromUs := func(want int) []simDoc {
 		t.Helper()
@@ -145,7 +145,7 @@ func TestPartnerSim_X12RemittanceStatusAndTA1OverAS2(t *testing.T) {
 		for _, m := range got {
 			d := simParse(t, string(m.Payload))
 			lastISA13++
-			if m.ContentType != transport.ContentX12 || strings.TrimSpace(d.isa[6]) != "PASSAGE" || strings.TrimSpace(d.isa[8]) != "DISTRIBUTOR" ||
+			if m.ContentType != transport.ContentX12 || strings.TrimSpace(d.isa[6]) != "DEPOT" || strings.TrimSpace(d.isa[8]) != "DISTRIBUTOR" ||
 				d.isa[13] != fmt.Sprintf("%09d", lastISA13) || d.isa[15] != "T" {
 				t.Fatalf("from us: %s %v, want ISA13 %d", m.ContentType, d.isa, lastISA13)
 			}
@@ -237,7 +237,7 @@ func TestPartnerSim_X12RemittanceStatusAndTA1OverAS2(t *testing.T) {
 
 	// 3. Our 820 and 214, read by the distributor.
 	remOut := simOutbound(t, e, "820", "rem-out", simRemittanceOut)
-	stOut := simOutbound(t, e, "214", "st-out", simStatusOut("PRO-PSG-9", false))
+	stOut := simOutbound(t, e, "214", "st-out", simStatusOut("PRO-DPT-9", false))
 	docs := fromUs(2)
 	byFID := map[string]simDoc{}
 	for _, d := range docs {
@@ -259,7 +259,7 @@ func TestPartnerSim_X12RemittanceStatusAndTA1OverAS2(t *testing.T) {
 		invoices = append(invoices, rmr[2]+"="+rmr[4]+"/"+rmr[5]+"-"+rmr[6])
 	}
 	if !decimal.RequireFromString(bpr[2]).Equal(paid) || bpr[2] != "148.00" || bpr[4] != "ACH" || bpr[16] != "20261107" ||
-		simFind(rtx.body, "TRN")[0][2] != "ACH-PSG-31" || strings.Join(invoices, " ") != "CB-301=100.00/100.00-0.00 CB-302=48.00/50.00-2.00" ||
+		simFind(rtx.body, "TRN")[0][2] != "ACH-DPT-31" || strings.Join(invoices, " ") != "CB-301=100.00/100.00-0.00 CB-302=48.00/50.00-2.00" ||
 		simFind(rtx.body, "N1")[1].String() != "N1*PE*Demo Distributor*92*4000001234561" {
 		t.Fatalf("820 as read by the distributor: %s", body(rtx))
 	}
@@ -270,7 +270,7 @@ func TestPartnerSim_X12RemittanceStatusAndTA1OverAS2(t *testing.T) {
 			events = append(events, s[1]+":"+at7[1]+"/"+at7[2]+"@"+at7[5]+at7[6]+at7[7])
 		}
 	}
-	if b10 := simFind(stx.body, "B10")[0]; b10.String() != "B10*PRO-PSG-9*SHIP-88001*DHLD" || strings.Join(events, " ") != "1:AF/NS@202610230700LT" ||
+	if b10 := simFind(stx.body, "B10")[0]; b10.String() != "B10*PRO-DPT-9*SHIP-88001*DHLD" || strings.Join(events, " ") != "1:AF/NS@202610230700LT" ||
 		len(simFind(stx.body, "L11")) != 2 {
 		t.Fatalf("214 as read by the distributor: %s", body(stx))
 	}
@@ -282,7 +282,7 @@ func TestPartnerSim_X12RemittanceStatusAndTA1OverAS2(t *testing.T) {
 		simGroup{fid: "FA", control: "504", sets: []simSet{simAckSet("QM", stx.gsControl, []simAnswer{{"214", stx.control, "E"}}, "E")}}))
 
 	// 4. A second 214 is refused at the interchange level with a TA1 R.
-	stOut2 := simOutbound(t, e, "214", "st-out-2", simStatusOut("PRO-PSG-10", true))
+	stOut2 := simOutbound(t, e, "214", "st-out-2", simStatusOut("PRO-DPT-10", true))
 	d2 := fromUs(1)[0]
 	if d2.txs[0].set != "214" || len(simFind(d2.txs[0].body, "LX")) != 2 {
 		t.Fatalf("second 214: %+v", d2.txs)
@@ -368,7 +368,7 @@ func TestPartnerSim_EdifactRoundTripOverSFTP(t *testing.T) {
 		}
 	}
 	// fromUs runs the dispatcher and reads the files it uploaded, by file
-	// name. Every interchange we send the distributor comes from PASSAGE:ZZZ
+	// name. Every interchange we send the distributor comes from DEPOT:ZZZ
 	// in UNOC syntax 3, flagged as a test, on one gap-free reference sequence.
 	seen, lastRef := map[string]bool{}, 0
 	fromUs := func(want int) map[string]simEdiDoc {
@@ -405,7 +405,7 @@ func TestPartnerSim_EdifactRoundTripOverSFTP(t *testing.T) {
 			seen[name] = true
 			d := read(name)
 			lastRef++
-			if !strings.HasSuffix(name, ".edi") || d.unb.v(1, 1) != "UNOC" || d.unb.v(1, 2) != "3" || d.unb.v(2, 1)+":"+d.unb.v(2, 2) != "PASSAGE:ZZZ" ||
+			if !strings.HasSuffix(name, ".edi") || d.unb.v(1, 1) != "UNOC" || d.unb.v(1, 2) != "3" || d.unb.v(2, 1)+":"+d.unb.v(2, 2) != "DEPOT:ZZZ" ||
 				d.unb.v(3, 1)+":"+d.unb.v(3, 2) != simGLN+":14" || d.unb.v(5, 1) != strconv.Itoa(lastRef) || d.unb.v(11, 1) != "1" || len(d.msgs) != 1 {
 				t.Fatalf("from us: %s %v, want reference %d", name, d.unb, lastRef)
 			}
@@ -499,7 +499,7 @@ func TestPartnerSim_EdifactRoundTripOverSFTP(t *testing.T) {
 		lines = append(lines, s.String())
 	}
 	cntPos := strconv.Itoa(len(badCount.body) + 1) // UNH is 1
-	if want := "UCI+5001+" + simGLN + ":14+PASSAGE:ZZZ+7 UCM+2+ORDERS:D:96A:UN:EAN008+4+29 UCS+" + cntPos + "+29 UCD+29+1:2"; strings.Join(lines, " ") != want {
+	if want := "UCI+5001+" + simGLN + ":14+DEPOT:ZZZ+7 UCM+2+ORDERS:D:96A:UN:EAN008+4+29 UCS+" + cntPos + "+29 UCD+29+1:2"; strings.Join(lines, " ") != want {
 		t.Fatalf("CONTRL\n got %s\nwant %s", strings.Join(lines, " "), want)
 	}
 	d := simDetail(t, e, simInterchangeID(t, e, "IN", "EDIFACT", "5001"))
@@ -581,7 +581,7 @@ func TestPartnerSim_EdifactRoundTripOverSFTP(t *testing.T) {
 	// 2. The same interchange in another file: a duplicate, CONTRL UCI 4 26.
 	put("eu-5001-again.edi", interchange)
 	dup := fromUs(1)["CONTRL"]
-	if len(dup.msgs) != 1 || len(dup.msgs[0].body) != 1 || dup.msgs[0].body[0].String() != "UCI+5001+"+simGLN+":14+PASSAGE:ZZZ+4+26" {
+	if len(dup.msgs) != 1 || len(dup.msgs[0].body) != 1 || dup.msgs[0].body[0].String() != "UCI+5001+"+simGLN+":14+DEPOT:ZZZ+4+26" {
 		t.Fatalf("CONTRL for the duplicate: %+v", dup.msgs)
 	}
 

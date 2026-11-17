@@ -1,8 +1,8 @@
 # numbering
 
-Number sequence service for Passage (wave 5). Issues per-legal-entity numbers in `gap_free`, `continuous` or `non_continuous` mode. Gap-free allocation takes a row lock and is proven by a 10k-concurrent Jepsen-style test.
+Number sequence service for Depot (wave 5). Issues per-legal-entity numbers in `gap_free`, `continuous` or `non_continuous` mode. Gap-free allocation takes a row lock and is proven by a 10k-concurrent Jepsen-style test.
 
-Run: `DATABASE_URL=postgres://... MIGRATE_ON_START=true go run ./cmd/numbering`. Test: `go vet ./... && go test ./...`; store tests need `PASSAGE_TEST_DATABASE_URL` (role without BYPASSRLS). RLS proof also needs `PASSAGE_TEST_APP_DATABASE_URL` as `passage_app`.
+Run: `DATABASE_URL=postgres://... MIGRATE_ON_START=true go run ./cmd/numbering`. Test: `go vet ./... && go test ./...`; store tests need `DEPOT_TEST_DATABASE_URL` (role without BYPASSRLS). RLS proof also needs `DEPOT_TEST_APP_DATABASE_URL` as `depot_app`.
 
 ## Configuration
 
@@ -21,7 +21,7 @@ Run: `DATABASE_URL=postgres://... MIGRATE_ON_START=true go run ./cmd/numbering`.
 | `POST /v1/numbering/sequences/{code}/next` (optional `Idempotency-Key`) | `numbering.write` or `numbering.sequence.allocate` |
 | `GET /healthz`, `GET /readyz`, `GET /metrics` on the admin port | public |
 
-Contract: `api/openapi.yaml`. Event: `dev.passage.numbering.sequence.allocated.v1`. The legal-entity header is `X-Passage-Legal-Entity`.
+Contract: `api/openapi.yaml`. Event: `dev.depot.numbering.sequence.allocated.v1`. The legal-entity header is `X-Depot-Legal-Entity`.
 
 OPA duties `numbering.sequence.view` (GET) and `numbering.sequence.maintain` (GET, POST) authorize `/v1/numbering` and its child paths.
 

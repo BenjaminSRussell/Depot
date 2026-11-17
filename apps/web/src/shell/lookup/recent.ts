@@ -3,7 +3,7 @@ import type { LookupEntityKey, LookupOption } from "./entities";
 const MAX_RECENT = 5;
 
 const keyFor = (identity: string, entity: LookupEntityKey) =>
-  `passage.lookup.recent.${identity}.${entity}`;
+  `depot.lookup.recent.${identity}.${entity}`;
 
 export function readRecent(identity: string, entity: LookupEntityKey): LookupOption[] {
   if (identity === "") {

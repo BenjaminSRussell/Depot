@@ -15,11 +15,11 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/services/identity"
+	"github.com/BenjaminSRussell/depot/services/identity"
 )
 
 const (
-	fakeClientID = "passage-identity-deprovision"
+	fakeClientID = "depot-identity-deprovision"
 	fakeSecret   = "fake-secret-value-for-tests"
 	kcUserID     = "40000000-0000-0000-0000-000000000001"
 	testTenant   = "00000000-0000-0000-0000-000000000001"

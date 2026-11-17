@@ -23,9 +23,9 @@ CREATE TABLE IF NOT EXISTS project (
 ALTER TABLE project ENABLE ROW LEVEL SECURITY;
 ALTER TABLE project FORCE ROW LEVEL SECURITY;
 CREATE POLICY project_tenant_access ON project AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY project_legal_entity_scope ON project AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 CREATE INDEX IF NOT EXISTS project_stage_idx ON project (tenant_id, stage, id);

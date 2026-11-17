@@ -10,7 +10,7 @@ import (
 	"strings"
 )
 
-// Punchout sessions (#35, 35-3). A requester opens a supplier's catalog from Passage: for cXML the buyer system sends a
+// Punchout sessions (#35, 35-3). A requester opens a supplier's catalog from Depot: for cXML the buyer system sends a
 // PunchOutSetupRequest and the supplier answers with the StartPage URL the browser is sent to; for SAP OCI the browser is sent to
 // the supplier's URL with the HOOK_URL it must post the cart back to. Either way the cart comes back to the session's return URL
 // and is validated by ValidatePunchout (BR-35.13).
@@ -29,7 +29,7 @@ func BuildPunchOutSetupRequest(payloadID, timestamp, buyerIdentity, supplierIden
 		`<cXML payloadID="` + esc(payloadID) + `" timestamp="` + esc(timestamp) + `">` +
 		`<Header><From><Credential domain="NetworkId"><Identity>` + esc(buyerIdentity) + `</Identity></Credential></From>` +
 		`<To><Credential domain="NetworkId"><Identity>` + esc(supplierIdentity) + `</Identity></Credential></To>` +
-		`<Sender>` + sender.String() + `<UserAgent>Passage EDI</UserAgent></Sender></Header>` +
+		`<Sender>` + sender.String() + `<UserAgent>Depot EDI</UserAgent></Sender></Header>` +
 		`<Request><PunchOutSetupRequest operation="create"><BuyerCookie>` + esc(buyerCookie) + `</BuyerCookie>` +
 		`<BrowserFormPost><URL>` + esc(returnURL) + `</URL></BrowserFormPost></PunchOutSetupRequest></Request></cXML>`
 }

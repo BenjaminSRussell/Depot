@@ -32,10 +32,10 @@ function parseAddr(value: string, name: string): { host: string; port: number } 
 
 /** 12-factor config (kernel conventions). Invalid config is an error at startup. */
 export function loadConfig(env: NodeJS.ProcessEnv): Config {
-  const apiUrl = env.PASSAGE_API_URL ?? "";
-  const openApiFile = env.PASSAGE_OPENAPI_JSON ?? "";
-  if (!/^https?:\/\//.test(apiUrl)) throw new Error("PASSAGE_API_URL must be an http(s) URL");
-  if (openApiFile === "") throw new Error("PASSAGE_OPENAPI_JSON must point to the OpenAPI document as JSON");
+  const apiUrl = env.DEPOT_API_URL ?? "";
+  const openApiFile = env.DEPOT_OPENAPI_JSON ?? "";
+  if (!/^https?:\/\//.test(apiUrl)) throw new Error("DEPOT_API_URL must be an http(s) URL");
+  if (openApiFile === "") throw new Error("DEPOT_OPENAPI_JSON must point to the OpenAPI document as JSON");
   const { host, port } = parseAddr(env.HTTP_ADDR ?? "0.0.0.0:8080", "HTTP_ADDR");
   const admin = parseAddr(env.ADMIN_ADDR ?? "0.0.0.0:9090", "ADMIN_ADDR");
   if (admin.port === port) throw new Error("ADMIN_ADDR must use a different port from HTTP_ADDR");

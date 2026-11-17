@@ -22,14 +22,14 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
 
-	"github.com/BenjaminSRussell/passage/services/edi/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/edi/internal/safenet"
-	"github.com/BenjaminSRussell/passage/services/edi/internal/sources"
-	"github.com/BenjaminSRussell/passage/services/edi/internal/store"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/safenet"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/sources"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/store"
 )
 
 // Punchout sessions (#35, 35-3). POST /punchout/sessions opens a supplier's catalog for the requester: it records the session,
@@ -365,7 +365,7 @@ func (a *API) cancelPunchoutSession(w http.ResponseWriter, r *http.Request) {
 }
 
 // punchoutReturn takes the cart back from the supplier's page (the requester's browser posts it) or from the supplier's server. It
-// is on the public listener and needs no Passage identity: the session id in the path and the secret in the query select and open one
+// is on the public listener and needs no Depot identity: the session id in the path and the secret in the query select and open one
 // session. cXML arrives as the raw body or in the cxml-urlencoded or cxml-base64 field of a form post; OCI as NEW_ITEM-... fields.
 func (a *API) punchoutReturn(w http.ResponseWriter, r *http.Request) {
 	sid, token := chi.URLParam(r, "session"), r.URL.Query().Get("t")
@@ -433,10 +433,10 @@ func (a *API) punchoutReturn(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	if res.CartRejected {
 		w.WriteHeader(http.StatusUnprocessableEntity)
-		_, _ = fmt.Fprintf(w, "The cart was not accepted: its total differs from its lines (%s). Return to Passage and try again.\n", domain.CodePunchoutTotal)
+		_, _ = fmt.Fprintf(w, "The cart was not accepted: its total differs from its lines (%s). Return to Depot and try again.\n", domain.CodePunchoutTotal)
 		return
 	}
-	_, _ = fmt.Fprintf(w, "Cart received with %d line(s). Return to Passage to continue.\n", len(res.Lines))
+	_, _ = fmt.Fprintf(w, "Cart received with %d line(s). Return to Depot to continue.\n", len(res.Lines))
 }
 
 func (a *API) readReturnedCart(r *http.Request, sess store.PunchoutSession) (domain.RawCart, error) {

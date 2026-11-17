@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-// Tenant licence rules (PSG-50, FR-50.12, BR-50.8, AC-50.8); docs/ops/tools/license_state.py is the same rule table in Python.
+// Tenant licence rules (DPT-50, FR-50.12, BR-50.8, AC-50.8); docs/ops/tools/license_state.py is the same rule table in Python.
 const (
 	DefaultGraceDays  = 30
 	MaxGraceDays      = 60

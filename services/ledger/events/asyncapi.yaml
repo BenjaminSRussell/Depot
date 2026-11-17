@@ -1,33 +1,33 @@
 asyncapi: 3.0.0
 info:
-  title: Passage Ledger events
+  title: Depot Ledger events
   version: 0.1.0
   description: |
     Events published by the ledger service through the transactional outbox (Debezium relays
     outbox rows to Kafka). Every event is a CloudEvents 1.0 envelope with source
-    /passage/ledger/ledger and the tenant in `tenantid`. Schema evolution is additive only.
+    /depot/ledger/ledger and the tenant in `tenantid`. Schema evolution is additive only.
 defaultContentType: application/cloudevents+json
 channels:
   journalPosted:
-    address: passage.ledger.journal
+    address: depot.ledger.journal
     description: Journal entries committed (posting and reversal entries are both posted entries).
     messages:
       journalPosted:
         $ref: "#/components/messages/JournalPosted"
   journalReversed:
-    address: passage.ledger.journal
+    address: depot.ledger.journal
     description: Reversal committed; the reversing entry is also announced as journal.posted.
     messages:
       journalReversed:
         $ref: "#/components/messages/JournalReversed"
   balanceRebuilt:
-    address: passage.ledger.balance
+    address: depot.ledger.balance
     description: Balance projection rebuild finished.
     messages:
       balanceRebuilt:
         $ref: "#/components/messages/BalanceRebuilt"
   batchStatusChanged:
-    address: passage.ledger.batch
+    address: depot.ledger.batch
     description: |
       A manual journal batch changed status (BR-11.10), written to the outbox in the transaction
       that changed it (aggregate type journal_batch). The PRD's batch.status-changed is spelled
@@ -36,7 +36,7 @@ channels:
       batchStatusChanged:
         $ref: "#/components/messages/BatchStatusChanged"
   recurringGenerated:
-    address: passage.ledger.recurring
+    address: depot.ledger.recurring
     description: |
       A recurring journal (FR-11.10) created a draft batch for a scheduled date, written to the outbox
       in the transaction that created the batch (aggregate type recurring_journal).
@@ -44,7 +44,7 @@ channels:
       recurringGenerated:
         $ref: "#/components/messages/RecurringGenerated"
   openItemCleared:
-    address: passage.ledger.openitem
+    address: depot.ledger.openitem
     description: |
       A clearing document (FR-11.19) was committed or reset, written to the outbox in the transaction
       that changed it (aggregate type clearing). The PRD's open-item.cleared is spelled openitem
@@ -53,7 +53,7 @@ channels:
       openItemCleared:
         $ref: "#/components/messages/OpenItemCleared"
   openItemActivated:
-    address: passage.ledger.openitem
+    address: depot.ledger.openitem
     description: |
       An activation run (FR-11.19) switched open-item management on for an account that had a balance
       and carried its lines in as open items (one opening item per non-zero dimension combination and
@@ -63,7 +63,7 @@ channels:
       openItemActivated:
         $ref: "#/components/messages/OpenItemActivated"
   rulesChanged:
-    address: passage.ledger.rules
+    address: depot.ledger.rules
     description: |
       A derivation strategy was activated or a lookup table or splitting rule was replaced (FR-11.22, FR-11.23), written to the
       outbox in the same transaction (aggregate type derivation_strategy, lookup_table or splitting_rule). Posting
@@ -72,7 +72,7 @@ channels:
       rulesChanged:
         $ref: "#/components/messages/RulesChanged"
   realignmentCompleted:
-    address: passage.ledger.realignment
+    address: depot.ledger.realignment
     description: |
       A dimension realignment run (FR-11.24) was posted or reversed, written to the outbox in the same
       transaction that posts or reverses its reclassification entries (aggregate type realignment_run).
@@ -81,7 +81,7 @@ channels:
       realignmentCompleted:
         $ref: "#/components/messages/RealignmentCompleted"
   batchAttachmentChanged:
-    address: passage.ledger.batch
+    address: depot.ledger.batch
     description: |
       An attachment or note was added to or removed from a journal batch (FR-11.11, FR-11.18), written
       to the outbox in the same transaction (aggregate type batch_attachment). The file itself is not in
@@ -133,7 +133,7 @@ operations:
 components:
   messages:
     JournalPosted:
-      name: dev.passage.ledger.journal.posted.v1
+      name: dev.depot.ledger.journal.posted.v1
       title: Journal entry posted
       summary: Journal entry posted.
       contentType: application/cloudevents+json
@@ -141,8 +141,8 @@ components:
         type: object
         required: [type, source, tenantid, subject, data]
         properties:
-          type: { const: dev.passage.ledger.journal.posted.v1 }
-          source: { const: /passage/ledger/ledger }
+          type: { const: dev.depot.ledger.journal.posted.v1 }
+          source: { const: /depot/ledger/ledger }
           tenantid: { type: string, format: uuid }
           subject: { type: string, description: Entry id }
           legalentityid: { type: string, format: uuid, description: The ledger's legal entity (CloudEvents extension, same value as data.legalEntityId) }
@@ -174,7 +174,7 @@ components:
                   uri: { type: string }
               traceId: { type: string, minLength: 32, maxLength: 32 }
     JournalReversed:
-      name: dev.passage.ledger.journal.reversed.v1
+      name: dev.depot.ledger.journal.reversed.v1
       title: Journal entry reversed
       summary: Journal entry reversed.
       contentType: application/cloudevents+json
@@ -182,8 +182,8 @@ components:
         type: object
         required: [type, source, tenantid, subject, data]
         properties:
-          type: { const: dev.passage.ledger.journal.reversed.v1 }
-          source: { const: /passage/ledger/ledger }
+          type: { const: dev.depot.ledger.journal.reversed.v1 }
+          source: { const: /depot/ledger/ledger }
           tenantid: { type: string, format: uuid }
           subject: { type: string, description: Original entry id }
           data:
@@ -197,7 +197,7 @@ components:
               reasonCode: { type: string, description: Shared reason code (FR-11.15); present when the reversal carried one }
               reasonComment: { type: string, maxLength: 255 }
     BatchStatusChanged:
-      name: dev.passage.ledger.batch.statuschanged.v1
+      name: dev.depot.ledger.batch.statuschanged.v1
       title: Journal batch changed status
       summary: Journal batch changed status.
       contentType: application/cloudevents+json
@@ -205,8 +205,8 @@ components:
         type: object
         required: [type, source, tenantid, subject, data]
         properties:
-          type: { const: dev.passage.ledger.batch.statuschanged.v1 }
-          source: { const: /passage/ledger/ledger }
+          type: { const: dev.depot.ledger.batch.statuschanged.v1 }
+          source: { const: /depot/ledger/ledger }
           tenantid: { type: string, format: uuid }
           subject: { type: string, format: uuid, description: Batch id }
           data:
@@ -221,7 +221,7 @@ components:
               actor: { type: string, description: User who caused the transition }
               postedEntryId: { type: string, format: uuid, description: Set when to = posted }
     BatchAttachmentChanged:
-      name: dev.passage.ledger.batch.attachmentchanged.v1
+      name: dev.depot.ledger.batch.attachmentchanged.v1
       title: Journal batch attachment changed
       summary: An attachment or note was added to or removed from a journal batch.
       contentType: application/cloudevents+json
@@ -229,8 +229,8 @@ components:
         type: object
         required: [type, source, tenantid, subject, data]
         properties:
-          type: { const: dev.passage.ledger.batch.attachmentchanged.v1 }
-          source: { const: /passage/ledger/ledger }
+          type: { const: dev.depot.ledger.batch.attachmentchanged.v1 }
+          source: { const: /depot/ledger/ledger }
           tenantid: { type: string, format: uuid }
           subject: { type: string, format: uuid, description: Attachment id }
           data:
@@ -244,7 +244,7 @@ components:
               action: { type: string, enum: [added, removed] }
               actor: { type: string, description: User who changed the batch }
     RecurringGenerated:
-      name: dev.passage.ledger.recurring.generated.v1
+      name: dev.depot.ledger.recurring.generated.v1
       title: Recurring journal generated
       summary: Recurring journal generated a draft batch.
       contentType: application/cloudevents+json
@@ -252,8 +252,8 @@ components:
         type: object
         required: [type, source, tenantid, subject, data]
         properties:
-          type: { const: dev.passage.ledger.recurring.generated.v1 }
-          source: { const: /passage/ledger/ledger }
+          type: { const: dev.depot.ledger.recurring.generated.v1 }
+          source: { const: /depot/ledger/ledger }
           tenantid: { type: string, format: uuid }
           subject: { type: string, format: uuid, description: Recurring journal id }
           data:
@@ -267,7 +267,7 @@ components:
               scheduledDate: { type: string, format: date, description: Run date, also the posting date of the draft batch }
               actor: { type: string, description: User who generated the batch }
     OpenItemCleared:
-      name: dev.passage.ledger.openitem.cleared.v1
+      name: dev.depot.ledger.openitem.cleared.v1
       title: Open items cleared
       summary: A clearing document was committed or reset.
       contentType: application/cloudevents+json
@@ -275,8 +275,8 @@ components:
         type: object
         required: [type, source, tenantid, subject, data]
         properties:
-          type: { const: dev.passage.ledger.openitem.cleared.v1 }
-          source: { const: /passage/ledger/ledger }
+          type: { const: dev.depot.ledger.openitem.cleared.v1 }
+          source: { const: /depot/ledger/ledger }
           tenantid: { type: string, format: uuid }
           subject: { type: string, format: uuid, description: Clearing document id }
           data:
@@ -295,7 +295,7 @@ components:
               reasonCode: { type: string, description: Reset reason code }
               actor: { type: string }
     OpenItemActivated:
-      name: dev.passage.ledger.openitem.activated.v1
+      name: dev.depot.ledger.openitem.activated.v1
       title: Open-item management activated
       summary: An activation run created the opening open items of an account.
       contentType: application/cloudevents+json
@@ -303,8 +303,8 @@ components:
         type: object
         required: [type, source, tenantid, subject, data]
         properties:
-          type: { const: dev.passage.ledger.openitem.activated.v1 }
-          source: { const: /passage/ledger/ledger }
+          type: { const: dev.depot.ledger.openitem.activated.v1 }
+          source: { const: /depot/ledger/ledger }
           tenantid: { type: string, format: uuid }
           subject: { type: string, format: uuid, description: Activation run id }
           data:
@@ -321,7 +321,7 @@ components:
               totalCredit: { type: string, description: Sum of the credit items the run created, decimal string in the ledger currency }
               actor: { type: string }
     BalanceRebuilt:
-      name: dev.passage.ledger.balance.rebuilt.v1
+      name: dev.depot.ledger.balance.rebuilt.v1
       title: Balance projection rebuilt
       summary: Balance projection rebuilt.
       contentType: application/cloudevents+json
@@ -329,8 +329,8 @@ components:
         type: object
         required: [type, source, tenantid, subject, data]
         properties:
-          type: { const: dev.passage.ledger.balance.rebuilt.v1 }
-          source: { const: /passage/ledger/ledger }
+          type: { const: dev.depot.ledger.balance.rebuilt.v1 }
+          source: { const: /depot/ledger/ledger }
           tenantid: { type: string, format: uuid }
           subject: { type: string, description: Ledger id }
           data:
@@ -343,7 +343,7 @@ components:
               rowsDiffering: { type: integer, format: int64, description: Greater than zero raises a P1 alert }
               durationMs: { type: integer, format: int64 }
     RealignmentCompleted:
-      name: dev.passage.ledger.realignment.completed.v1
+      name: dev.depot.ledger.realignment.completed.v1
       title: Dimension realignment completed
       summary: A dimension realignment run was posted, or reversed as a unit.
       contentType: application/cloudevents+json
@@ -351,8 +351,8 @@ components:
         type: object
         required: [type, source, tenantid, subject, data]
         properties:
-          type: { const: dev.passage.ledger.realignment.completed.v1 }
-          source: { const: /passage/ledger/ledger }
+          type: { const: dev.depot.ledger.realignment.completed.v1 }
+          source: { const: /depot/ledger/ledger }
           tenantid: { type: string, format: uuid }
           subject: { type: string, format: uuid, description: The realignment run id }
           data:
@@ -368,7 +368,7 @@ components:
               reversal: { type: boolean }
               actor: { type: string }
     RulesChanged:
-      name: dev.passage.ledger.rules.changed.v1
+      name: dev.depot.ledger.rules.changed.v1
       title: Ledger rules changed
       summary: A derivation strategy was activated, a lookup table or document splitting rule was replaced, or a validation rule or advanced rule was saved.
       contentType: application/cloudevents+json
@@ -376,8 +376,8 @@ components:
         type: object
         required: [type, source, tenantid, subject, data]
         properties:
-          type: { const: dev.passage.ledger.rules.changed.v1 }
-          source: { const: /passage/ledger/ledger }
+          type: { const: dev.depot.ledger.rules.changed.v1 }
+          source: { const: /depot/ledger/ledger }
           tenantid: { type: string, format: uuid }
           subject: { type: string, format: uuid, description: Strategy row id, lookup table id, validation rule id or advanced rule id }
           data:

@@ -1,4 +1,4 @@
-# NOT-IMPLEMENTED — apps/supplier-portal (PSG-20, #511)
+# NOT-IMPLEMENTED — apps/supplier-portal (DPT-20, #511)
 
 | Deliverable or AC | Status | Reason |
 |---|---|---|

@@ -10,12 +10,12 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/shopfloor/internal/domain"
-	sfevents "github.com/BenjaminSRussell/passage/services/shopfloor/internal/events"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/shopfloor/internal/domain"
+	sfevents "github.com/BenjaminSRussell/depot/services/shopfloor/internal/events"
 )
 
 // Process message catalog codes raised by the store (see README).
@@ -95,7 +95,7 @@ func deliveryNotFound() error {
 }
 
 // IngestProcessMessage stores a validated message and one delivery per destination
-// of its category, with dev.passage.shopfloor.processmessage.received.v1 in the same
+// of its category, with dev.depot.shopfloor.processmessage.received.v1 in the same
 // transaction. The Kafka destination is the outbox row itself, so it is delivered at
 // commit. A replay of (source, sourceMessageId) returns the stored message and
 // writes nothing (FR-25.17: idempotent by source message id).
@@ -343,7 +343,7 @@ func (s *Postgres) mutateDelivery(ctx context.Context, messageID, destination st
 // with a destination in error can be deleted (SF-0119); a deleted one cannot be
 // deleted again (SF-0120). The row is kept for audit with who deleted it and why,
 // leaves the monitor, cannot be reported or reprocessed, and the retry sweep skips
-// it. dev.passage.shopfloor.processmessage.deleted.v1 names the destinations that
+// it. dev.depot.shopfloor.processmessage.deleted.v1 names the destinations that
 // never received the message, so the EBR consumer can record the exception.
 func (s *Postgres) DeleteProcessMessage(ctx context.Context, messageID, reason string, now time.Time, idem Idem) (ProcessMessage, error) {
 	p, _ := tenant.FromContext(ctx)

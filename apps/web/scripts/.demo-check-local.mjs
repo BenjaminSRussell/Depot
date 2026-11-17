@@ -5,7 +5,7 @@
 //
 // Per path it prints one JSON line: unhandled API calls (misses), console and page errors, alert texts, whether a
 // loading skeleton is still showing, full UUIDs visible in the main area (uuids; reported, not failed), and the
-// screenshot file. Paths are app paths, without the /Passage base.
+// screenshot file. Paths are app paths, without the /Depot base.
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { chromium } from "@playwright/test";
@@ -13,7 +13,7 @@ import { chromium } from "@playwright/test";
 const args = process.argv.slice(2);
 let port = 4301;
 let out = "demo-check";
-let base = "/Passage";
+let base = "/Depot";
 const paths = [];
 for (let i = 0; i < args.length; i++) {
   if (args[i] === "--port") port = Number(args[++i]);
@@ -35,7 +35,7 @@ for (const path of paths) {
   page.on("pageerror", (e) => errors.push(`pageerror: ${e.message}`));
   await page.goto(`http://localhost:${port}${base}${path}`, { waitUntil: "networkidle" });
   await page.waitForTimeout(800);
-  const misses = await page.evaluate(() => window.__passageDemoMisses ?? null);
+  const misses = await page.evaluate(() => window.__depotDemoMisses ?? null);
   // Hidden alerts (an empty form error summary, for one) are not on screen, so they are not reported.
   const alerts = await page.locator('[role="alert"]:visible').allInnerTexts();
   const loading = await page.locator('[aria-busy="true"]').count();

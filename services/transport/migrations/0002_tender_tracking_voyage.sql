@@ -42,8 +42,8 @@ CREATE INDEX IF NOT EXISTS tender_created ON tender (tenant_id, created_at DESC)
 ALTER TABLE tender ENABLE ROW LEVEL SECURITY;
 ALTER TABLE tender FORCE ROW LEVEL SECURITY;
 CREATE POLICY tender_tenant_access ON tender AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- Status reports per load and stop (FR-34.6). Source and ref are the ingest
 -- idempotency key (§6.34.5).
@@ -66,8 +66,8 @@ CREATE INDEX IF NOT EXISTS tracking_event_created ON tracking_event (tenant_id, 
 ALTER TABLE tracking_event ENABLE ROW LEVEL SECURITY;
 ALTER TABLE tracking_event FORCE ROW LEVEL SECURITY;
 CREATE POLICY tracking_event_tenant_access ON tracking_event AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- Landed-cost voyages (FR-34.9, FR-34.12). Legs, containers, folios, cost lines,
 -- receipt lines and allocations are JSON documents owned by the voyage.
@@ -99,13 +99,13 @@ CREATE INDEX IF NOT EXISTS voyage_status ON voyage (tenant_id, status, created_a
 ALTER TABLE voyage ENABLE ROW LEVEL SECURITY;
 ALTER TABLE voyage FORCE ROW LEVEL SECURITY;
 CREATE POLICY voyage_tenant_access ON voyage AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON tender, tracking_event, voyage TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON tender, tracking_event, voyage TO depot_app';
   END IF;
 END
 $$;

@@ -40,7 +40,7 @@ function Entry({ term, children }: { term: string; children: React.ReactNode }) 
   );
 }
 
-/** Outbound mappings: how a Passage event becomes the request the integration hub pushes to the legacy ERP. */
+/** Outbound mappings: how a Depot event becomes the request the integration hub pushes to the legacy ERP. */
 export function OutboundListPage() {
   const navigate = useNavigate();
   const canWrite = holdsDuty(usePrincipalDuties(), DUTY_OUTBOUND_WRITE);
@@ -60,7 +60,7 @@ export function OutboundListPage() {
     <div className={styles.stack}>
       <PageHeader
         title="Outbound mappings"
-        description="How a Passage event, such as a confirmed sales order or a posted invoice, becomes the request body the integration hub pushes to the customer's legacy ERP. Customers and products are written with the legacy keys the migration recorded."
+        description="How a Depot event, such as a confirmed sales order or a posted invoice, becomes the request body the integration hub pushes to the customer's legacy ERP. Customers and products are written with the legacy keys the migration recorded."
         actions={
           canWrite ? (
             <Link className={buttonClassName("primary")} to="/migration/outbound/new">

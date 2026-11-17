@@ -7,8 +7,8 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/services/budgeting/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/budgeting/internal/store"
+	"github.com/BenjaminSRussell/depot/services/budgeting/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/budgeting/internal/store"
 )
 
 const generatePath = planPath + "/scenarios/" + scenarioID + ":generate"

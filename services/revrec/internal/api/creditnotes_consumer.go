@@ -12,13 +12,13 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/eventing"
-	"github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/money"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/revrec/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/eventing"
+	"github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/money"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/revrec/internal/store"
 )
 
 // The credit-note consumer (BR-29.6, AC-29.6, #29 P3) reads billing's creditnote.booked, written when billing books a credit
@@ -35,8 +35,8 @@ const (
 	CreditNoteConsumerName = "revrec-creditnotes"
 	// CreditNoteBookedType is billing's creditnote.booked.v1 on BillingInvoiceTopic (billing routes its outbox by aggregate,
 	// "invoice", so invoices and credit notes share the topic; the consumer skips the other types).
-	CreditNoteBookedType = "dev.passage.billing.creditnote.booked.v1"
-	BillingInvoiceTopic  = "passage.billing.invoice"
+	CreditNoteBookedType = "dev.depot.billing.creditnote.booked.v1"
+	BillingInvoiceTopic  = "depot.billing.invoice"
 	BillingSource        = "billing"
 
 	dutyCreditNoteReverse = "revrec.creditnote.reverse"

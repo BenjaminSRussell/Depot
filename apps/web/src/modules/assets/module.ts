@@ -1,5 +1,5 @@
 import { createElement } from "react";
-import type { PassageModule } from "../registry";
+import type { DepotModule } from "../registry";
 import { AddBookPage } from "./AddBookPage";
 import { NewAdditionPage } from "./AdditionPage";
 import { AdjustPage } from "./AdjustPage";
@@ -20,7 +20,7 @@ import { RunDetailPage, RunsPage } from "./RunsPage";
 import { TerminateLeasePage } from "./TerminateLeasePage";
 import { TransferPage } from "./TransferPage";
 
-const assets: PassageModule = {
+const assets: DepotModule = {
   id: "assets",
   title: "Fixed assets",
   description:

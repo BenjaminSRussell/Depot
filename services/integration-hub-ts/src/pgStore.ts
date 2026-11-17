@@ -1,6 +1,6 @@
 // Postgres persistence for the integration hub (FR-35.9): subscriptions,
 // deliveries and attempts, every query inside a transaction that sets
-// passage.tenant_id so row-level security scopes it to one tenant.
+// depot.tenant_id so row-level security scopes it to one tenant.
 //
 // PgDeliveryStore implements the Dispatcher's synchronous DeliveryStore for one
 // subscription. It is loaded from the database, the Dispatcher mutates it, and
@@ -252,11 +252,11 @@ export function decodeCursor(cursor: string): { createdAt: string; id: string } 
 
 /**
  * Delivering one of the hub's own outcome events (webhook.delivered or webhook.deadlettered,
- * when the hub consumes passage.hub.webhook and a subscription matches it) writes no outcome
+ * when the hub consumes depot.hub.webhook and a subscription matches it) writes no outcome
  * event of its own: otherwise every delivery would feed the next one without end.
  */
 function isOutcomeEvent(type: string): boolean {
-  return type.startsWith("dev.passage.hub.webhook.");
+  return type.startsWith("dev.depot.hub.webhook.");
 }
 
 /** The subscription event payload: identity and shape only; the URL, secret and credentials never leave the store. */
@@ -269,7 +269,7 @@ export function filterEventOf(tenantId: string, e: HubEvent): FilterEvent {
   return {
     attributes: {
       id: e.eventId, type: e.type, subject: e.aggregateId, time: new Date(e.occurredAt * 1000).toISOString(), tenantid: tenantId,
-      source: e.source, actor: e.actor, legalentityid: e.legalEntityId, passagesequence: e.sequence,
+      source: e.source, actor: e.actor, legalentityid: e.legalEntityId, depotsequence: e.sequence,
     },
     data: e.data,
   };
@@ -413,7 +413,7 @@ export class HubStore {
     const client = await this.pool.connect();
     try {
       await client.query("begin");
-      await client.query("select set_config('passage.tenant_id', $1, true)", [tenantId]);
+      await client.query("select set_config('depot.tenant_id', $1, true)", [tenantId]);
       const out = await fn(client);
       await client.query("commit");
       return out;
@@ -445,7 +445,7 @@ export class HubStore {
       if (res.rows[0] !== undefined) {
         const subscription = toSubscription(res.rows[0]);
         await enqueue(c, tenantId, {
-          type: "dev.passage.hub.subscription.created.v1", aggregateId: subscription.id,
+          type: "dev.depot.hub.subscription.created.v1", aggregateId: subscription.id,
           actor: input.createdBy, data: subscriptionData(subscription),
         });
         return { subscription, created: true };
@@ -509,7 +509,7 @@ export class HubStore {
       );
       if (res.rows[0] !== undefined) {
         const subscription = toSubscription(res.rows[0]);
-        await enqueue(c, tenantId, { type: "dev.passage.hub.subscription.updated.v1", aggregateId: id, actor, data: subscriptionData(subscription) });
+        await enqueue(c, tenantId, { type: "dev.depot.hub.subscription.updated.v1", aggregateId: id, actor, data: subscriptionData(subscription) });
         return subscription;
       }
       throw new VersionConflictError();
@@ -551,7 +551,7 @@ export class HubStore {
       }
       const subscription = toSubscription(res.rows[0]);
       await enqueue(c, tenantId, {
-        type: "dev.passage.hub.subscription.secretrotated.v1", aggregateId: id, actor,
+        type: "dev.depot.hub.subscription.secretrotated.v1", aggregateId: id, actor,
         data: { ...subscriptionData(subscription), secret_rotated_at: subscription.secretRotatedAt, previous_secret_expires_at: subscription.previousSecretExpiresAt },
       });
       return subscription;
@@ -628,7 +628,7 @@ export class HubStore {
       if (res.rows[0] === undefined) {
         return false;
       }
-      await enqueue(c, tenantId, { type: "dev.passage.hub.subscription.deleted.v1", aggregateId: id, actor, data: subscriptionData(toSubscription(res.rows[0])) });
+      await enqueue(c, tenantId, { type: "dev.depot.hub.subscription.deleted.v1", aggregateId: id, actor, data: subscriptionData(toSubscription(res.rows[0])) });
       return true;
     });
   }
@@ -689,7 +689,7 @@ export class HubStore {
           continue;
         }
         // Echo suppression: a rest-push subscription never sends the legacy system what the legacy system's own
-        // import wrote into Passage.
+        // import wrote into Depot.
         if (sub.kind === "rest-push" && event.actor === ECHO_ACTOR) {
           continue;
         }
@@ -813,7 +813,7 @@ export class HubStore {
       );
       if (resumed.rows[0] !== undefined) {
         const subscription = toSubscription(resumed.rows[0]);
-        await enqueue(c, tenantId, { type: "dev.passage.hub.subscription.resumed.v1", aggregateId: id, actor, data: subscriptionData(subscription) });
+        await enqueue(c, tenantId, { type: "dev.depot.hub.subscription.resumed.v1", aggregateId: id, actor, data: subscriptionData(subscription) });
         return subscription;
       }
       const res = await c.query<SubRow>(`select ${COLUMNS_SUB} from hub_subscription where id = $1`, [id]);
@@ -825,7 +825,7 @@ export class HubStore {
    * Replays the subscription's recorded deliveries (delivered or dead-lettered)
    * from `fromSeconds` (BR-35.9): at most `cap` events whose type still matches
    * the subscription's current patterns become pending again as replays (sent
-   * with ce-passagereplay: true), oldest first; the dispatcher's per-aggregate
+   * with ce-depotreplay: true), oldest first; the dispatcher's per-aggregate
    * order applies when they are sent. Everything runs in the subscription's
    * tenant, so another tenant's events cannot be reached. `truncated` is true
    * when more matching events remain after the cap. HUB-0118 dead letters are
@@ -1002,7 +1002,7 @@ export class PgDeliveryStore implements DeliveryStore {
         const row = done.rows[0];
         if (row !== undefined && !isOutcomeEvent(row.event_type)) {
           await enqueue(c, this.#tenantId, {
-            type: "dev.passage.hub.webhook.delivered.v1", aggregateId: sub, actor: null,
+            type: "dev.depot.hub.webhook.delivered.v1", aggregateId: sub, actor: null,
             data: { subscription_id: sub, event_id: op.eventId, attempts: row.attempts },
           });
         }
@@ -1017,7 +1017,7 @@ export class PgDeliveryStore implements DeliveryStore {
         const row = dead.rows[0];
         if (row !== undefined && !isOutcomeEvent(row.event_type)) {
           await enqueue(c, this.#tenantId, {
-            type: "dev.passage.hub.webhook.deadlettered.v1", aggregateId: sub, actor: null,
+            type: "dev.depot.hub.webhook.deadlettered.v1", aggregateId: sub, actor: null,
             data: { subscription_id: sub, event_id: op.letter.event.eventId, attempts: op.letter.attempts, code: op.letter.code, last_status: op.letter.lastStatus },
           });
         }
@@ -1032,7 +1032,7 @@ export class PgDeliveryStore implements DeliveryStore {
         );
         if (moved.rows[0] !== undefined) {
           await enqueue(c, this.#tenantId, {
-            type: op.paused ? "dev.passage.hub.subscription.paused.v1" : "dev.passage.hub.subscription.resumed.v1",
+            type: op.paused ? "dev.depot.hub.subscription.paused.v1" : "dev.depot.hub.subscription.resumed.v1",
             aggregateId: sub, actor: null, data: subscriptionData(toSubscription(moved.rows[0])),
           });
         }

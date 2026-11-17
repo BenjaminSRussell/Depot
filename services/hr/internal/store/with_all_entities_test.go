@@ -6,10 +6,10 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
 )
 
 func TestWithAllEntitiesRestoresTheScopeWhenTheCallbackFails(t *testing.T) {
@@ -20,7 +20,7 @@ func TestWithAllEntitiesRestoresTheScopeWhenTheCallbackFails(t *testing.T) {
 	err := dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
 		scope := func() string {
 			var v string
-			if err := tx.QueryRow(ctx, `select coalesce(current_setting('passage.legal_entity_scopes', true), '')`).Scan(&v); err != nil {
+			if err := tx.QueryRow(ctx, `select coalesce(current_setting('depot.legal_entity_scopes', true), '')`).Scan(&v); err != nil {
 				t.Fatal(err)
 			}
 			return v

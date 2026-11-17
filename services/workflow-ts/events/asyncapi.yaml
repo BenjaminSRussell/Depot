@@ -1,26 +1,26 @@
 asyncapi: 3.0.0
 info:
-  title: Passage metadata event contract
+  title: Depot metadata event contract
   version: 1.0.0
   description: Events workflow-ts consumes. The Wave 03 entity definition boundary consumed by Wave 04 schema registration, and transport's load release that starts the tender cascade.
 servers:
   kafka:
-    host: passage-kafka-bootstrap.kafka.svc:9093
+    host: depot-kafka-bootstrap.kafka.svc:9093
     protocol: kafka-secure
 channels:
   entityDefinition:
-    address: passage.platform.entitydefinition
+    address: depot.platform.entitydefinition
     messages:
       changed:
         $ref: '#/components/messages/EntityDefinitionChanged'
   load:
-    address: passage.tms.load
+    address: depot.tms.load
     description: Topic for load events from services/transport; subject is the load id. transport publishes load.released from POST /v1/transport/loads/{id}:release; src/eventConsumer.ts consumes it.
     messages:
       released:
         $ref: '#/components/messages/LoadReleased'
   tender:
-    address: passage.tms.tender
+    address: depot.tms.tender
     description: Topic for tender outcomes from services/transport (its events/asyncapi.yaml has the payload); subject is the tender id.
     messages:
       accepted:
@@ -38,13 +38,13 @@ operations:
       $ref: '#/channels/load'
     summary: Starts tenderWorkflow for the load (src/tenderTriggers.ts).
     description: >-
-      Contract on the producer. Only transport (source /passage/tms/transport) publishes it, and transport fills
+      Contract on the producer. Only transport (source /depot/tms/transport) publishes it, and transport fills
       data.releasedBy and data.legalEntityScope from the gateway-verified principal of the release request
-      (X-Passage-User, X-Passage-Legal-Entity), never from the request body; it does not publish a release whose load is
+      (X-Depot-User, X-Depot-Legal-Entity), never from the request body; it does not publish a release whose load is
       outside that scope. workflow-ts mints the tender's scoped=true transport.tender.execute token from these fields,
       and refuses the event from any other source. A redelivered release does not tender the load twice: the tender
       start is keyed on data.releaseId. Consumer group workflow-ts-tender (src/eventConsumer.ts); an event the workflow
-      refuses goes to passage.workflow.tender.dlq.
+      refuses goes to depot.workflow.tender.dlq.
   receiveTenderOutcome:
     action: receive
     channel:
@@ -56,32 +56,32 @@ operations:
 components:
   messages:
     EntityDefinitionChanged:
-      name: dev.passage.platform.entitydefinition.changed.v1
+      name: dev.depot.platform.entitydefinition.changed.v1
       contentType: application/cloudevents+json
       payload:
         $ref: ../schemas/current/platform.entitydefinition.changed.v1.json
     LoadReleased:
-      name: dev.passage.tms.load.released.v1
+      name: dev.depot.tms.load.released.v1
       contentType: application/cloudevents+json
       payload:
         $ref: ../schemas/current/tms.load.released.v1.json
     TenderAccepted:
-      name: dev.passage.tms.tender.accepted.v1
+      name: dev.depot.tms.tender.accepted.v1
       contentType: application/cloudevents+json
       payload:
         type: object
         required: [type, tenantid, data]
         properties:
-          type: { type: string, const: dev.passage.tms.tender.accepted.v1 }
+          type: { type: string, const: dev.depot.tms.tender.accepted.v1 }
           tenantid: { type: string }
           data: { type: object, required: [loadId], properties: { loadId: { type: string } } }
     TenderDeclined:
-      name: dev.passage.tms.tender.declined.v1
+      name: dev.depot.tms.tender.declined.v1
       contentType: application/cloudevents+json
       payload:
         type: object
         required: [type, tenantid, data]
         properties:
-          type: { type: string, const: dev.passage.tms.tender.declined.v1 }
+          type: { type: string, const: dev.depot.tms.tender.declined.v1 }
           tenantid: { type: string }
           data: { type: object, required: [loadId], properties: { loadId: { type: string } } }

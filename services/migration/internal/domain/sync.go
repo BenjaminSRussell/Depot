@@ -10,8 +10,8 @@ import (
 
 // Delta sync (integration track S4).
 const (
-	SourceLegacy  = "legacy"
-	SourcePassage = "passage"
+	SourceLegacy = "legacy"
+	SourceDepot  = "depot"
 
 	SyncOK        = "succeeded"
 	SyncPartial   = "partial"
@@ -23,7 +23,7 @@ const (
 	ConflictAccepted = "accepted"
 
 	ResolveAcceptLegacy = "accept_legacy"
-	ResolveKeepPassage  = "keep_passage"
+	ResolveKeepDepot    = "keep_depot"
 
 	// DefaultKeyCheckHours is how often a binding with a cursor is read in full to find rows the legacy system deleted.
 	DefaultKeyCheckHours = 24
@@ -88,7 +88,7 @@ func DeltaSince(typ, watermark string) string {
 }
 
 // ValidSourceOfTruth reports whether s names the system that wins when both changed a record.
-func ValidSourceOfTruth(s string) bool { return s == SourceLegacy || s == SourcePassage }
+func ValidSourceOfTruth(s string) bool { return s == SourceLegacy || s == SourceDepot }
 
 // SyncBackoff is how long a binding waits after its failures-th consecutive failure before it may run again, on top
 // of its schedule: none below BackoffAfter, then 15 minutes doubling per failure up to 24 hours.

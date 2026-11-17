@@ -1,4 +1,4 @@
-# NOT-IMPLEMENTED: mobile (PSG-32, wave 32)
+# NOT-IMPLEMENTED: mobile (DPT-32, wave 32)
 
 | Item | Source | Status | Reason |
 | --- | --- | --- | --- |

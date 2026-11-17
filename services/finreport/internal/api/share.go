@@ -14,11 +14,11 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
 
-	"github.com/BenjaminSRussell/passage/services/finreport/internal/store"
+	"github.com/BenjaminSRussell/depot/services/finreport/internal/store"
 )
 
 // DutyShare is "Share report library files" (FR-15.8): create, list and revoke
@@ -172,7 +172,7 @@ func logSharedRequests(next http.Handler) http.Handler {
 	})
 }
 
-// sharedContent serves the file a share link names, with no Passage identity:
+// sharedContent serves the file a share link names, with no Depot identity:
 // the token is the authority. Every answer is uncacheable, never framed or run
 // as a page (the stored file may be HTML), and the page that links here is not
 // sent along as a referrer.
@@ -197,7 +197,7 @@ func (a *API) sharedContent(w http.ResponseWriter, r *http.Request) {
 	h.Set("Content-Type", sf.Entry.ContentType)
 	h.Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, safeFileName(sf.Entry.FileName)))
 	h.Set("ETag", `"`+sf.Entry.SHA256+`"`)
-	h.Set("X-Passage-Content-Sha256", sf.Entry.SHA256)
+	h.Set("X-Depot-Content-Sha256", sf.Entry.SHA256)
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write(sf.Content)
 }

@@ -16,8 +16,8 @@ func TestRND001_ScalesWithTheTuplesDocuments(t *testing.T) {
 	}
 	legacy := TBLines(TrialBalanceFromDocuments(docs), "2026-03", "legacy", counts)
 	// The ledger rounds every line to cents: 6000 holds 61.00 and 2000 holds -61.00, legacy 61.012.
-	passage := []Line{{Area: "TB", Key: "6000|USD|2026-03", Passage: d("61")}, {Area: "TB", Key: "2000|USD|2026-03", Passage: d("-61")}}
-	vs := Diff(legacy, passage, DefaultRules(), Explanations{})
+	depot := []Line{{Area: "TB", Key: "6000|USD|2026-03", Depot: d("61")}, {Area: "TB", Key: "2000|USD|2026-03", Depot: d("-61")}}
+	vs := Diff(legacy, depot, DefaultRules(), Explanations{})
 	if len(vs) != 2 {
 		t.Fatalf("variances %+v", vs)
 	}
@@ -28,7 +28,7 @@ func TestRND001_ScalesWithTheTuplesDocuments(t *testing.T) {
 	}
 	// The same delta on a tuple without a document count is one document's worth: UNEXPLAINED.
 	bare := TBLines(TrialBalanceFromDocuments(docs), "2026-03", "legacy", nil)
-	for _, v := range Diff(bare, passage, DefaultRules(), Explanations{}) {
+	for _, v := range Diff(bare, depot, DefaultRules(), Explanations{}) {
 		if v.Class != ClassUnexplained {
 			t.Fatalf("without a document count the tuple is one document: %+v", v)
 		}
@@ -40,17 +40,17 @@ func TestRND001_ScalesWithTheTuplesDocuments(t *testing.T) {
 			legacy6000 = append(legacy6000, l)
 		}
 	}
-	far := []Line{{Area: "TB", Key: "6000|USD|2026-03", Passage: d("60.98")}}
+	far := []Line{{Area: "TB", Key: "6000|USD|2026-03", Depot: d("60.98")}}
 	if v := Diff(legacy6000, far, DefaultRules(), Explanations{}); len(v) != 1 || v[0].Class != ClassUnexplained {
 		t.Fatalf("0.032 over 3 documents: %+v", v)
 	}
 	// A rule that is not per document keeps its flat limit whatever the count.
 	flat := []Rule{{ID: "FLAT", MaxAbs: d("0.01")}}
-	if v := Diff(legacy, passage, flat, Explanations{}); v[0].Class != ClassUnexplained {
+	if v := Diff(legacy, depot, flat, Explanations{}); v[0].Class != ClassUnexplained {
 		t.Fatalf("flat rule: %+v", v[0])
 	}
 	// The count is part of the input hash only when given.
-	in := ParallelInput{Period: "2026-03", SourceSystem: SourceAX2012, Legacy: bare, Passage: passage}
+	in := ParallelInput{Period: "2026-03", SourceSystem: SourceAX2012, Legacy: bare, Depot: depot}
 	with := in
 	with.Legacy = legacy
 	if in.Hash() == with.Hash() {

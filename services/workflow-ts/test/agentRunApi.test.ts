@@ -17,7 +17,7 @@ function mint(over: Record<string, unknown> = {}): string {
   const iat = Math.floor(NOW / 1000);
   const claims = { iss: "agents", aud: "workflow-ts", tid: "00000000-0000-0000-0000-000000000001", act: "alice", duties: ["agents.run.signal"], iat, exp: iat + 60, jti: randomBytes(8).toString("hex"), ...over };
   const body = Buffer.from(JSON.stringify(claims)).toString("base64url");
-  return `${body}.${sign(null, Buffer.from(`passage.service-token.v1.${body}`), privateKey).toString("base64url")}`;
+  return `${body}.${sign(null, Buffer.from(`depot.service-token.v1.${body}`), privateKey).toString("base64url")}`;
 }
 
 const TENANT = "00000000-0000-0000-0000-000000000001";
@@ -48,7 +48,7 @@ describe("agent run workflow routes", () => {
 
   beforeAll(async () => {
     const agentsVerifier = createVerifier({ keys: parsePublicKeys(`agents=${publicB64}`), now: () => NOW });
-    server = createServer(createDecisionHandler(client, { taskQueue: "passage-approvals", agentsVerifier }));
+    server = createServer(createDecisionHandler(client, { taskQueue: "depot-approvals", agentsVerifier }));
     await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
     base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
   });
@@ -61,12 +61,12 @@ describe("agent run workflow routes", () => {
   });
 
   const post = (path: string, body: unknown, headers: Record<string, string>) => fetch(`${base}${path}`, { method: "POST", headers, body: JSON.stringify(body) });
-  const asAgents = (over: Record<string, unknown> = {}) => ({ "x-passage-service-token": mint(over) });
+  const asAgents = (over: Record<string, unknown> = {}) => ({ "x-depot-service-token": mint(over) });
 
   it("starts the run's workflow for the token's tenant and user with ids only, under a workflow id that carries the tenant", async () => {
     const res = await post(`/v1/workflows/agent-runs/${RUN}:start`, {}, asAgents());
     expect(res.status).toBe(202);
-    expect(started).toEqual([{ workflowId: `agent-run:${TENANT}:${RUN}`, taskQueue: "passage-approvals", args: [{ tenantId: TENANT, runId: RUN, actor: "alice" }] }]);
+    expect(started).toEqual([{ workflowId: `agent-run:${TENANT}:${RUN}`, taskQueue: "depot-approvals", args: [{ tenantId: TENANT, runId: RUN, actor: "alice" }] }]);
   });
 
   it("the same run id of another tenant is another workflow", async () => {
@@ -87,8 +87,8 @@ describe("agent run workflow routes", () => {
   });
 
   it("refuses everything that is not a valid agents service token: edge headers, a user's duties, a wrong audience, grant, issuer, tenant-less or legal-entity token", async () => {
-    const edge = { "X-Passage-Tenant": TENANT, "X-Passage-User": "alice", "X-Passage-Duties": "agents.invoke,agents.run.read,agents.run.signal" };
-    for (const headers of [edge, {}, { "x-passage-service-token": "garbage" }, asAgents({ aud: "payables" }), asAgents({ duties: ["agents.run.read"] }), asAgents({ iss: "payables" }), asAgents({ le: "00000000-0000-0000-0000-0000000000a1" }), asAgents({ act: "service:other" }), asAgents({ exp: Math.floor(NOW / 1000) - 5 })]) {
+    const edge = { "X-Depot-Tenant": TENANT, "X-Depot-User": "alice", "X-Depot-Duties": "agents.invoke,agents.run.read,agents.run.signal" };
+    for (const headers of [edge, {}, { "x-depot-service-token": "garbage" }, asAgents({ aud: "payables" }), asAgents({ duties: ["agents.run.read"] }), asAgents({ iss: "payables" }), asAgents({ le: "00000000-0000-0000-0000-0000000000a1" }), asAgents({ act: "service:other" }), asAgents({ exp: Math.floor(NOW / 1000) - 5 })]) {
       expect((await post(`/v1/workflows/agent-runs/${RUN}:start`, {}, headers)).status).toBe(401);
       expect((await post(`/v1/workflows/agent-runs/${RUN}:approval-decided`, { actionId: "a1" }, headers)).status).toBe(401);
     }

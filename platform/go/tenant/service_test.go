@@ -15,7 +15,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
 )
 
 var epoch = time.Date(2026, 10, 29, 12, 0, 0, 0, time.UTC)
@@ -141,7 +141,7 @@ func TestUmbrellaDutiesAreNotServiceGranted(t *testing.T) {
 				t.Fatal(err)
 			}
 			body := base64.RawURLEncoding.EncodeToString(payload)
-			return body + "." + base64.RawURLEncoding.EncodeToString(ed25519.Sign(priv, []byte("passage.service-token.v1."+body)))
+			return body + "." + base64.RawURLEncoding.EncodeToString(ed25519.Sign(priv, []byte("depot.service-token.v1."+body)))
 		}
 		if _, err := verifier.Verify(sign("narrow", tc.narrow)); err != nil {
 			t.Fatalf("%s -> %s: narrow %s refused: %v", tc.iss, tc.aud, tc.narrow, err)
@@ -741,7 +741,7 @@ func TestTenantLevelMergeTokenNamesNoLegalEntityAndTravelsAlone(t *testing.T) {
 			Iat: now.Unix(), Exp: now.Add(tenant.ServiceTokenMaxTTL).Unix(), Jti: jti,
 		})
 		body := base64.RawURLEncoding.EncodeToString(payload)
-		return body + "." + base64.RawURLEncoding.EncodeToString(ed25519.Sign(priv, []byte("passage.service-token.v1."+body)))
+		return body + "." + base64.RawURLEncoding.EncodeToString(ed25519.Sign(priv, []byte("depot.service-token.v1."+body)))
 	}
 	if _, err := verifier.Verify(sign("ok", "", "party.merge.execute")); err != nil {
 		t.Fatalf("a hand-signed tenant-level token: %v", err)

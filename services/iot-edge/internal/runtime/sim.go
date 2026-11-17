@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/services/iot-edge/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/iot-edge/internal/domain"
 )
 
 // SimMachine is one simulated machine: a count tag whose absolute 32-bit counter rises every tick,

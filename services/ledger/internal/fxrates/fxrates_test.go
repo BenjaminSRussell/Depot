@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/ledger/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/ledger/internal/store"
 )
 
 const testEntity = "00000000-0000-0000-0000-0000000000e1"
@@ -17,7 +17,7 @@ const testEntity = "00000000-0000-0000-0000-0000000000e1"
 func signer(t *testing.T) *tenant.ServiceSigner {
 	t.Helper()
 	s, err := tenant.ServiceSignerFromEnv(func(k string) string {
-		return map[string]string{"PASSAGE_SERVICE_NAME": "ledger", "PASSAGE_SERVICE_SIGNING_KEY": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="}[k]
+		return map[string]string{"DEPOT_SERVICE_NAME": "ledger", "DEPOT_SERVICE_SIGNING_KEY": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="}[k]
 	})
 	if err != nil || s == nil {
 		t.Fatalf("signer: %v %v", s, err)

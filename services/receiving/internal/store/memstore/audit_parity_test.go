@@ -8,16 +8,16 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/store"
 )
 
 func invoiceEvent(t *testing.T, p tenant.Principal, verb, id string) events.Event {
 	t.Helper()
-	evt, err := events.New(events.Type("payables", "invoice", verb, 1), "/passage/receiving/receiving", id, p.TenantID, map[string]string{"invoice": id})
+	evt, err := events.New(events.Type("payables", "invoice", verb, 1), "/depot/receiving/receiving", id, p.TenantID, map[string]string{"invoice": id})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -77,7 +77,7 @@ func setErs(t *testing.T, b backend, p tenant.Principal, entity, vendor string, 
 
 func reject(b backend, p tenant.Principal, inv store.Invoice, by, reason string) (store.Invoice, error) {
 	return b.st.RejectInvoice(ctxOf(p), inv.ID, inv.LegalEntityID, by, reason, func(held store.Invoice) (events.Event, error) {
-		return events.New(events.Type("payables", "invoice", "rejected", 1), "/passage/receiving/receiving", held.ID, p.TenantID, map[string]string{"invoice": held.ID})
+		return events.New(events.Type("payables", "invoice", "rejected", 1), "/depot/receiving/receiving", held.ID, p.TenantID, map[string]string{"invoice": held.ID})
 	})
 }
 

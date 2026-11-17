@@ -10,13 +10,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
 
-	"github.com/BenjaminSRussell/passage/tools/migration-factory/internal/domain"
-	"github.com/BenjaminSRussell/passage/tools/migration-factory/internal/store"
-	"github.com/BenjaminSRussell/passage/tools/migration-factory/internal/target"
+	"github.com/BenjaminSRussell/depot/tools/migration-factory/internal/domain"
+	"github.com/BenjaminSRussell/depot/tools/migration-factory/internal/store"
+	"github.com/BenjaminSRussell/depot/tools/migration-factory/internal/target"
 )
 
 // Problem codes of the opening load (H-S9-1, H-S10-1).
@@ -55,7 +55,7 @@ type openingLoadRequest struct {
 	// the cutover date and either may be sent for either pack.
 	PostingDate string `json:"postingDate"`
 	AsOf        string `json:"asOf"`
-	// Products maps a legacy item to the Passage product id and BankAccounts a legacy bank account to the treasury bank
+	// Products maps a legacy item to the Depot product id and BankAccounts a legacy bank account to the treasury bank
 	// account id; an id that is already a UUID needs no entry.
 	Products     map[string]string `json:"products"`
 	BankAccounts map[string]string `json:"bankAccounts"`
@@ -256,7 +256,7 @@ func (s *Server) runOpeningLoad(w http.ResponseWriter, r *http.Request) {
 	if (domain.TargetOfPack(run.Pack) == domain.TargetInventory && (s.inventory == nil || !s.inventory.Configured())) ||
 		(domain.TargetOfPack(run.Pack) == domain.TargetTreasury && (s.treasury == nil || !s.treasury.Configured())) {
 		httpx.Fail(w, r, httpx.NewProblem(http.StatusServiceUnavailable, CodeOpeningNotConfigured,
-			"the "+domain.TargetOfPack(run.Pack)+" target is not configured: set INVENTORY_URL or TREASURY_URL and the service signing key (PASSAGE_SERVICE_NAME=migration-factory, PASSAGE_SERVICE_SIGNING_KEY)"))
+			"the "+domain.TargetOfPack(run.Pack)+" target is not configured: set INVENTORY_URL or TREASURY_URL and the service signing key (DEPOT_SERVICE_NAME=migration-factory, DEPOT_SERVICE_SIGNING_KEY)"))
 		return
 	}
 	ctx := r.Context()

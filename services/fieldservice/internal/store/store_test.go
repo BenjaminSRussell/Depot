@@ -12,13 +12,13 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/fieldservice/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/fieldservice/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/fieldservice/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/fieldservice/migrations"
 )
 
 // principalCtx carries a tenant with no legal-entity scope, so the restrictive
@@ -268,7 +268,7 @@ func TestStore_IncludedHoursAreConsumedAcrossOrders(t *testing.T) {
 
 	var payload []byte
 	if err := dbx.WithTenantTx(f.ctx, f.s.pool, func(tx pgx.Tx) error {
-		return tx.QueryRow(f.ctx, `select payload from outbox where aggregate_id = $1 and type = 'dev.passage.service.workorder.posted.v1'`, first.ID).Scan(&payload)
+		return tx.QueryRow(f.ctx, `select payload from outbox where aggregate_id = $1 and type = 'dev.depot.service.workorder.posted.v1'`, first.ID).Scan(&payload)
 	}); err != nil {
 		t.Fatal(err)
 	}

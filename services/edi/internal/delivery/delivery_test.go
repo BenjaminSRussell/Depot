@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/services/edi/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/domain"
 )
 
 func TestBackoffDoublesFromAMinuteToAnHour(t *testing.T) {

@@ -5,10 +5,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/inventory/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/inventory/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/inventory/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/inventory/internal/store"
 )
 
 // A plan that includes vendor-owned stock counts it (SAP MIK1) and posts the
@@ -134,7 +134,7 @@ func TestVendorOwnedCountAnnouncesTheBucketItMoved(t *testing.T) {
 		posted := countVendor(t, s, ctx, plan, product, c.qty)
 		var bucket, delta string
 		if err := admin.QueryRow(context.Background(), `select o.payload->'data'->>'deltaBucket', o.payload->'data'->>'deltaQty'
-			from outbox o where o.tenant_id = $1 and o.type = 'dev.passage.inventory.onhand.changed.v1'
+			from outbox o where o.tenant_id = $1 and o.type = 'dev.depot.inventory.onhand.changed.v1'
 			  and o.payload->'data'->>'productId' = $2 order by o.created_at desc, o.id desc limit 1`,
 			testkit.TenantID(1), product).Scan(&bucket, &delta); err != nil {
 			t.Fatal(err)

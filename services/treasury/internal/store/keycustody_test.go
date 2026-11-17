@@ -25,8 +25,8 @@ import (
 	"github.com/pkg/sftp"
 	"golang.org/x/crypto/ssh"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/treasury/internal/bankconnect"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/treasury/internal/bankconnect"
 )
 
 func startSFTPServer(t *testing.T, allowed ssh.PublicKey) (addr, hostPrint string) {

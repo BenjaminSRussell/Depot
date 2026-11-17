@@ -32,18 +32,18 @@ CREATE INDEX IF NOT EXISTS free_goods_rule_resolve_ix ON free_goods_rule (tenant
 ALTER TABLE free_goods_rule ENABLE ROW LEVEL SECURITY;
 ALTER TABLE free_goods_rule FORCE ROW LEVEL SECURITY;
 CREATE POLICY free_goods_rule_tenant_access ON free_goods_rule AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY free_goods_rule_legal_entity_scope ON free_goods_rule AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 -- Application role privileges. The store inserts rules and updates (withdraws) or row-locks
 -- them; it never deletes. Skipped when the role does not exist.
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON free_goods_rule TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON free_goods_rule TO depot_app';
   END IF;
 END
 $$;

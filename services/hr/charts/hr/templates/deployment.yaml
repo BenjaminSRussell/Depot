@@ -1,24 +1,24 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ .Release.Name }}-passage-hr
+  name: {{ .Release.Name }}-depot-hr
   labels:
-    app.kubernetes.io/name: passage-hr
+    app.kubernetes.io/name: depot-hr
     app.kubernetes.io/instance: {{ .Release.Name }}
 spec:
   replicas: {{ .Values.replicaCount }}
   selector:
     matchLabels:
-      app.kubernetes.io/name: passage-hr
+      app.kubernetes.io/name: depot-hr
       app.kubernetes.io/instance: {{ .Release.Name }}
   template:
     metadata:
       labels:
-        {{- with include "passage.wiLabels" $ }}{{ . | nindent 8 }}{{- end }}
-        app.kubernetes.io/name: passage-hr
+        {{- with include "depot.wiLabels" $ }}{{ . | nindent 8 }}{{- end }}
+        app.kubernetes.io/name: depot-hr
         app.kubernetes.io/instance: {{ .Release.Name }}
     spec:
-      {{- with include "passage.wiServiceAccount" (dict "root" $ "name" "passage-hr") }}{{ . | nindent 6 }}{{- end }}
+      {{- with include "depot.wiServiceAccount" (dict "root" $ "name" "depot-hr") }}{{ . | nindent 6 }}{{- end }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       volumes:
@@ -38,7 +38,7 @@ spec:
         {{- end }}
       containers:
         - name: hr
-          image: "{{ (include "passage.imageRepository" $) }}{{ if .Values.image.digest }}@{{ .Values.image.digest }}{{ else }}:{{ .Values.image.tag }}{{ end }}"
+          image: "{{ (include "depot.imageRepository" $) }}{{ if .Values.image.digest }}@{{ .Values.image.digest }}{{ else }}:{{ .Values.image.tag }}{{ end }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           securityContext:
             {{- toYaml .Values.containerSecurityContext | nindent 12 }}
@@ -48,9 +48,9 @@ spec:
             - name: admin
               containerPort: {{ .Values.service.adminPort }}
           env:
-            {{- include "passage.cloudEnv" $ | nindent 12 }}
+            {{- include "depot.cloudEnv" $ | nindent 12 }}
             - name: SERVICE_NAME
-              value: passage-hr
+              value: depot-hr
             - name: HTTP_ADDR
               value: ":{{ .Values.service.httpPort }}"
             - name: ADMIN_ADDR
@@ -71,18 +71,18 @@ spec:
               value: {{ .Values.config.retentionPurgeEnabled | quote }}
 {{- /* PHI read auditing (#606): rendered only when it is set or the hipaa overlay can turn it on, so a default render is unchanged. */}}
 {{- if or .Values.config.phiReadAudit (has "hipaa" (((.Values.global | default dict).cloudOverlays) | default list)) }}
-            - name: PASSAGE_PHI_READ_AUDIT
+            - name: DEPOT_PHI_READ_AUDIT
               value: {{ .Values.config.phiReadAudit | quote }}
             - name: AUDIT_URL
               value: {{ .Values.auditUrl | default (printf "http://audit-audit.%s.svc:8080" .Release.Namespace) | quote }}
 {{- end }}
 {{- if .Values.serviceIdentity.signingKeySecret }}
-            - name: PASSAGE_SERVICE_NAME
+            - name: DEPOT_SERVICE_NAME
               value: hr
-            - name: PASSAGE_SERVICE_SIGNING_KEY_FILE
-              value: /var/run/passage/service-identity/signing-key
+            - name: DEPOT_SERVICE_SIGNING_KEY_FILE
+              value: /var/run/depot/service-identity/signing-key
 {{- if .Values.serviceIdentity.keyId }}
-            - name: PASSAGE_SERVICE_KEY_ID
+            - name: DEPOT_SERVICE_KEY_ID
               value: {{ .Values.serviceIdentity.keyId | quote }}
 {{- end }}
 {{- end }}
@@ -98,7 +98,7 @@ spec:
                   key: {{ .Values.secret.piiKeyKey }}
                   optional: true
             - name: FIELDCRYPT_KEYS_FILE
-              value: /var/run/passage/field-crypt/keys
+              value: /var/run/depot/field-crypt/keys
             - name: FIELDCRYPT_CURRENT_KEY_ID
               valueFrom:
                 secretKeyRef:
@@ -106,11 +106,11 @@ spec:
                   key: {{ .Values.secret.fieldcryptCurrentKeyIdKey }}
           volumeMounts:
             - name: field-crypt
-              mountPath: /var/run/passage/field-crypt
+              mountPath: /var/run/depot/field-crypt
               readOnly: true
             {{- if .Values.serviceIdentity.signingKeySecret }}
             - name: service-identity
-              mountPath: /var/run/passage/service-identity
+              mountPath: /var/run/depot/service-identity
               readOnly: true
             {{- end }}
           livenessProbe:

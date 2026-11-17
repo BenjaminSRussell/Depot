@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/services/consolidation/internal/api"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/services/consolidation/internal/api"
 )
 
 const tenantID = "01890a5d-ac96-774b-bcce-b302099a8057"
@@ -40,10 +40,10 @@ func do(a *api.API, path, tenant, duties, body string) *httptest.ResponseRecorde
 	req := httptest.NewRequest(http.MethodPost, path, strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	if tenant != "" {
-		req.Header.Set("X-Passage-Tenant", tenant)
+		req.Header.Set("X-Depot-Tenant", tenant)
 	}
 	if duties != "" {
-		req.Header.Set("X-Passage-Duties", duties)
+		req.Header.Set("X-Depot-Duties", duties)
 	}
 	rec := httptest.NewRecorder()
 	r.ServeHTTP(rec, req)

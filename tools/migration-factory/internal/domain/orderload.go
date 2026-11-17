@@ -39,8 +39,8 @@ const (
 	CodeOrderCurrency   = "MIG-LOAD-ORDER-CURRENCY"
 )
 
-// OrderMaps are what a run fixes for building opening order lines: the map from a legacy item to the Passage product id, from a
-// legacy customer or vendor to its Passage id (an id that is already a UUID needs no entry), and the site and warehouse the lines
+// OrderMaps are what a run fixes for building opening order lines: the map from a legacy item to the Depot product id, from a
+// legacy customer or vendor to its Depot id (an id that is already a UUID needs no entry), and the site and warehouse the lines
 // are delivered from or to (the open_orders extract carries neither).
 type OrderMaps struct {
 	Products    map[string]string
@@ -94,7 +94,7 @@ func BuildOrderItem(o OpenOrderLine, m OrderMaps) (OrderItem, string, string) {
 	}
 	product := pick(m.Products, o.Item)
 	if product == "" {
-		return OrderItem{}, CodeRefUnresolved, fmt.Sprintf("item %q has no Passage product id: name it in products or load the item master through the party migration", o.Item)
+		return OrderItem{}, CodeRefUnresolved, fmt.Sprintf("item %q has no Depot product id: name it in products or load the item master through the party migration", o.Item)
 	}
 	partyMap, label := m.Customers, "customer"
 	if o.OrderType == OrderPurchase {
@@ -102,7 +102,7 @@ func BuildOrderItem(o OpenOrderLine, m OrderMaps) (OrderItem, string, string) {
 	}
 	party := pick(partyMap, o.Party)
 	if party == "" {
-		return OrderItem{}, CodeRefUnresolved, fmt.Sprintf("%s %q has no Passage %s id: name it in %ss or load it through the party migration", label, o.Party, label, label)
+		return OrderItem{}, CodeRefUnresolved, fmt.Sprintf("%s %q has no Depot %s id: name it in %ss or load it through the party migration", label, o.Party, label, label)
 	}
 	lineNo, err := strconv.Atoi(strings.TrimSpace(o.LineNumber))
 	if err != nil || lineNo < 1 {

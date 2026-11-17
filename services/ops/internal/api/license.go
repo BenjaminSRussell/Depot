@@ -13,11 +13,11 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/ops/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/ops/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/ops/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/ops/internal/store"
 )
 
 func (a *API) now() time.Time {
@@ -140,20 +140,20 @@ func (a *API) getLicense(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, http.StatusOK, a.licenseView(rec, active))
 }
 
-// writeLicenseMetrics emits passage_license_days_to_expiry per licensed tenant, which the licence expiry alerts read.
+// writeLicenseMetrics emits depot_license_days_to_expiry per licensed tenant, which the licence expiry alerts read.
 func (a *API) writeLicenseMetrics(w io.Writer, r *http.Request) {
 	list, err := a.store.Licenses(r.Context())
 	if err != nil {
 		slog.Error("licence metrics", "err", err)
 		return
 	}
-	_, _ = fmt.Fprint(w, "# HELP passage_license_days_to_expiry Days until a tenant's licence expires (negative once expired).\n# TYPE passage_license_days_to_expiry gauge\n")
+	_, _ = fmt.Fprint(w, "# HELP depot_license_days_to_expiry Days until a tenant's licence expires (negative once expired).\n# TYPE depot_license_days_to_expiry gauge\n")
 	for _, rec := range list {
 		st, err := domain.EvaluateLicense(rec.License, 0, a.now())
 		if err != nil {
 			continue
 		}
-		_, _ = fmt.Fprintf(w, "passage_license_days_to_expiry{tenant_id=%q} %d\n", rec.License.TenantID, st.DaysToExpiry)
+		_, _ = fmt.Fprintf(w, "depot_license_days_to_expiry{tenant_id=%q} %d\n", rec.License.TenantID, st.DaysToExpiry)
 	}
 }
 

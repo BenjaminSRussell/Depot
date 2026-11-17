@@ -1,4 +1,4 @@
-"""Route reader for the services' OpenAPI files (PSG-50). Shared by test_smoke12.py and verify_paths.py.
+"""Route reader for the services' OpenAPI files (DPT-50). Shared by test_smoke12.py and verify_paths.py.
 
 Stdlib only, so it reads the top-level `paths:` block by indentation instead of parsing YAML. Gateway
 paths are `/api/v1/<prefix>/...`; the gateway rewrites them to the services' `/v1/<prefix>/...`.

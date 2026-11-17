@@ -6,7 +6,7 @@ import (
 	"testing"
 	"testing/quick"
 
-	"github.com/BenjaminSRussell/passage/services/party/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/party/internal/domain"
 )
 
 func ptr(s string) *string { return &s }

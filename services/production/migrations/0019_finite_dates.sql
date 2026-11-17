@@ -10,5 +10,5 @@ ALTER TABLE production_order
   ADD COLUMN IF NOT EXISTS finite_run_id text,
   ADD COLUMN IF NOT EXISTS finite_scheduled_at timestamptz,
   ADD COLUMN IF NOT EXISTS finite_compressed_opers integer[] NOT NULL DEFAULT '{}';
--- production_order is already granted SELECT, INSERT and UPDATE to passage_app; production_job
+-- production_order is already granted SELECT, INSERT and UPDATE to depot_app; production_job
 -- UPDATE came with 0018 and the store deletes and inserts jobs as :schedule does.

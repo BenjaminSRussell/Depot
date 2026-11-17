@@ -12,14 +12,14 @@ import (
 
 // Keycloak is the RealmAdmin over the Keycloak Admin REST API. It takes a token with the client-credentials grant of a configured
 // admin client (in AdminRealm, normally "master"), then creates the realm "<RealmPrefix><tenant id>" from TemplatePath (the realm
-// export deploy/keycloak/realm-passage.json, with the tenant substituted) or, without a template, from a minimal realm that holds
-// the settings and the passage-services client identity and the services need. A realm that already exists is a success.
+// export deploy/keycloak/realm-depot.json, with the tenant substituted) or, without a template, from a minimal realm that holds
+// the settings and the depot-services client identity and the services need. A realm that already exists is a success.
 type Keycloak struct {
 	BaseURL      string // https://keycloak.example/ (no /realms or /admin suffix)
 	AdminRealm   string // default master
 	ClientID     string
 	ClientSecret string
-	RealmPrefix  string // default "passage-"
+	RealmPrefix  string // default "depot-"
 	TemplatePath string // optional realm JSON; REPLACE_WITH_TENANT_ID is replaced by the tenant id
 	HTTP         *http.Client
 }
@@ -29,7 +29,7 @@ var ErrRealmTemplate = fmt.Errorf("realm template")
 
 func (k Keycloak) prefix() string {
 	if k.RealmPrefix == "" {
-		return "passage-"
+		return "depot-"
 	}
 	return k.RealmPrefix
 }
@@ -102,11 +102,11 @@ func (k Keycloak) realmBody(t Tenant, realm string) (map[string]any, error) {
 	// provisioning, so the template's are not imported (they would carry another tenant's example endpoints).
 	delete(doc, "identityProviders")
 	delete(doc, "identityProviderMappers")
-	// The service account of passage-services has no tenant_id attribute, so its tid claim is fixed to the tenant, as in the minimal realm.
+	// The service account of depot-services has no tenant_id attribute, so its tid claim is fixed to the tenant, as in the minimal realm.
 	if clients, ok := doc["clients"].([]any); ok {
 		for _, c := range clients {
 			cl, ok := c.(map[string]any)
-			if !ok || cl["clientId"] != "passage-services" {
+			if !ok || cl["clientId"] != "depot-services" {
 				continue
 			}
 			var keep []any
@@ -156,11 +156,11 @@ func minimalRealm(t Tenant, realm string) map[string]any {
 		"eventsEnabled": true, "adminEventsEnabled": true,
 		"roles": map[string]any{"realm": []map[string]string{{"name": "supplier-user"}, {"name": "supplier-admin"}, {"name": "customer-user"}}},
 		"clients": []map[string]any{{
-			"clientId": "passage-services", "name": "Passage services and SCIM", "enabled": true, "protocol": "openid-connect",
+			"clientId": "depot-services", "name": "Depot services and SCIM", "enabled": true, "protocol": "openid-connect",
 			"publicClient": false, "standardFlowEnabled": false, "implicitFlowEnabled": false, "directAccessGrantsEnabled": false, "serviceAccountsEnabled": true,
 			"protocolMappers": []map[string]any{
-				{"name": "audience-passage-api", "protocol": "openid-connect", "protocolMapper": "oidc-audience-mapper",
-					"config": map[string]string{"included.custom.audience": "passage-api", "id.token.claim": "false", "access.token.claim": "true"}},
+				{"name": "audience-depot-api", "protocol": "openid-connect", "protocolMapper": "oidc-audience-mapper",
+					"config": map[string]string{"included.custom.audience": "depot-api", "id.token.claim": "false", "access.token.claim": "true"}},
 				tidMapper(t.ID),
 				mapper("le", "legal_entity_id"), mapper("duties", "duties"), mapper("tier", "tier"),
 			},
@@ -173,7 +173,7 @@ func (k Keycloak) EnsureRealm(ctx context.Context, t Tenant, dry bool) (string, 
 	if err != nil {
 		return "", err
 	}
-	src := "a minimal realm with the passage-services client"
+	src := "a minimal realm with the depot-services client"
 	if k.TemplatePath != "" {
 		src = "the realm template " + k.TemplatePath
 	}

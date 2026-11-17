@@ -12,7 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/ids"
 )
 
 const insufficientPrivilege = "42501"
@@ -33,10 +33,10 @@ func AssertTenantRLS(t *testing.T, admin *pgxpool.Pool) {
 	rows, err := admin.Query(ctx, `
 select c.relname, c.relrowsecurity, c.relforcerowsecurity,
   exists (select 1 from pg_policies p where p.schemaname = n.nspname and p.tablename = c.relname and p.permissive = 'PERMISSIVE'
-          and p.qual like '%passage.tenant_id%' and p.with_check like '%passage.tenant_id%'),
+          and p.qual like '%depot.tenant_id%' and p.with_check like '%depot.tenant_id%'),
   exists (select 1 from pg_attribute a where a.attrelid = c.oid and a.attname = 'legal_entity_id' and not a.attisdropped),
   exists (select 1 from pg_policies p where p.schemaname = n.nspname and p.tablename = c.relname and p.permissive = 'RESTRICTIVE'
-          and p.qual like '%passage.legal_entity_scopes%')
+          and p.qual like '%depot.legal_entity_scopes%')
 from pg_class c
 join pg_namespace n on n.oid = c.relnamespace
 where n.nspname = current_schema() and c.relkind in ('r', 'p')
@@ -184,7 +184,7 @@ func inScope(app *pgxpool.Pool, tenantID, scopes string, fn func(tx pgx.Tx) erro
 	if err != nil {
 		return err
 	}
-	if _, err := tx.Exec(ctx, `select set_config('passage.tenant_id', $1, true), set_config('passage.legal_entity_scopes', $2, true)`, tenantID, scopes); err != nil {
+	if _, err := tx.Exec(ctx, `select set_config('depot.tenant_id', $1, true), set_config('depot.legal_entity_scopes', $2, true)`, tenantID, scopes); err != nil {
 		_ = tx.Rollback(ctx)
 		return err
 	}

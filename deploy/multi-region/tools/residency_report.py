@@ -19,7 +19,7 @@ replica, the MirrorMaker 2 target, the peer's backups and object store), so each
   objectStore  ``objectStore.region`` of each region of the pair            stated, else region.id (derived)
   kafka        ``kafka.localAlias`` and ``kafka.remoteAlias``               stated
   backups      azure-blob: ``backup.azure.storageAccountRegion``            stated
-               s3: ``backup.s3.region``, else the bucket named by ``backup.destinationPath`` (``s3://passage-pg-backups-<id>/``),
+               s3: ``backup.s3.region``, else the bucket named by ``backup.destinationPath`` (``s3://depot-pg-backups-<id>/``),
                else region.id, the chart default                            derived
 
 ``derived`` marks a region the values do not state and the tool infers from region.id. Output is one row per tenant per
@@ -58,7 +58,7 @@ VALUES_DIR = HERE.parent / "values"
 CHART_VALUES = HERE.parent / "chart" / "values.yaml"
 RESIDENCY_TABLE = HERE.parents[2] / "platform" / "go" / "residency" / "residency.json"
 STORES = ("database", "objectStore", "kafka", "backups")
-S3_BUCKET = re.compile(r"^s3://passage-pg-backups-([a-z0-9-]+)/?$")
+S3_BUCKET = re.compile(r"^s3://depot-pg-backups-([a-z0-9-]+)/?$")
 CSV_COLUMNS = ("tenantId", "name", "residency", "region", "store", "regions", "derived", "source", "status", "outside")
 
 

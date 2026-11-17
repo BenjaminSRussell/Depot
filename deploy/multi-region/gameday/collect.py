@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Facts collector for the game day (PSG-50, FR-50.6 steps 2 and 5, fx-gameday).
+"""Facts collector for the game day (DPT-50, FR-50.6 steps 2 and 5, fx-gameday).
 
 Reads a live region and writes the facts JSON that ``baseline.py`` consumes. It is the step the game-day
 runbook calls "the collector": run it before failure injection (baseline) and again after failover
@@ -19,8 +19,8 @@ The spec is operator-supplied because the ledger, inventory and sequence tables 
       },
       "rows":      {"ledger.journal_line": "select count(*) from ledger.journal_line"},
       "sequences": {"fiscal-invoice-FR": "select json_agg(n order by n) from ..."},
-      "offsets_cluster": "passage-kafka-eu-central",
-      "offsets_cmd": ["kafka-get-offsets", "--bootstrap-server", "passage-kafka-bootstrap:9093"]
+      "offsets_cluster": "depot-kafka-eu-central",
+      "offsets_cmd": ["kafka-get-offsets", "--bootstrap-server", "depot-kafka-bootstrap:9093"]
     }
 
 Rules:

@@ -10,7 +10,7 @@ hold release queue, supplementary item rules with a stateless evaluation, and
 MANDATORY supplementary lines added to orders at commit that follow their
 parent line, and product proposal rules (cross-sell, up-sell, accessory) with
 a stateless evaluation at line commit and recorded acceptance. Wave 27, slices
-1 to 6 of PSG-27. Reference:
+1 to 6 of DPT-27. Reference:
 `docs/prd/phase-5-order-to-cash.md` §5.27.
 
 Out of these slices (see `NOT-IMPLEMENTED.md`): agreements for several products and
@@ -24,8 +24,8 @@ order's own key, and the Temporal release workflow.
 
 ```sh
 cd services/sales
-export DATABASE_URL=postgres://passage_app:...@localhost:5432/passage_sales
-export DATABASE_MIGRATOR_URL=postgres://passage_owner:...@localhost:5432/passage_sales
+export DATABASE_URL=postgres://depot_app:...@localhost:5432/depot_sales
+export DATABASE_MIGRATOR_URL=postgres://depot_owner:...@localhost:5432/depot_sales
 export MIGRATE_ON_START=true   # local development only; stage/prod run migrations as an Argo PreSync Job
 go run ./cmd/sales
 ```
@@ -43,7 +43,7 @@ mounts the keys file and `fieldCrypt.currentKeyId` names the current key).
 ```sh
 go vet ./...
 go test ./...                                       # DB tests skip without the variable
-PASSAGE_TEST_DATABASE_URL=postgres://... go test ./...   # run store and RLS tests
+DEPOT_TEST_DATABASE_URL=postgres://... go test ./...   # run store and RLS tests
 ```
 
 - `internal/domain`: table-driven and property tests (`pgregory.net/rapid`) for
@@ -62,7 +62,7 @@ PASSAGE_TEST_DATABASE_URL=postgres://... go test ./...   # run store and RLS tes
   PATCH/cancel/history contracts, the release check and backorder preview, wire
   formats, and that every route is in `api/openapi.yaml` and back; with the
   database, the intake load proof (500 orders/min open loop, p99 < 500 ms,
-  exactly once; `-short` skips it, `PASSAGE_SALES_INTAKE_MINUTES` lengthens it).
+  exactly once; `-short` skips it, `DEPOT_SALES_INTAKE_MINUTES` lengthens it).
 - `internal/events`: every event type is in `events/asyncapi.yaml` and back.
 - `internal/store`: create with idempotent replay and key reuse, the CREDIT hold
   and the release that confirms the order (AC-27.3) with the outbox rows each
@@ -79,7 +79,7 @@ PASSAGE_TEST_DATABASE_URL=postgres://... go test ./...   # run store and RLS tes
   key reuse, `agreement.released`), validity and concurrent releases that never
   overdraw; holds applied by hand (FRAUD blocks confirm, one per type, SoD on
   release, none on a cancelled order). Uses `platform/go/testkit`, skipped without
-  `PASSAGE_TEST_DATABASE_URL`.
+  `DEPOT_TEST_DATABASE_URL`.
 
 Web module: `apps/web/src/modules/sales` — sales orders list, new order, order
 detail (confirm, release holds, credit rules, change history), order change
@@ -97,11 +97,11 @@ Contract: `api/openapi.yaml`. Events: `events/asyncapi.yaml`.
 
 Events are written to the outbox in the transaction that makes the change. The `outbox-sales`
 Debezium connector (`deploy/kafka/connect.yaml`) streams the outbox through the
-`passage_outbox_sales` publication (migration 0039) as the `debezium_cdc_sales` role (grants in
-migration 0040) and routes each event by its type to `passage.sales.<entity>`, the AsyncAPI
+`depot_outbox_sales` publication (migration 0039) as the `debezium_cdc_sales` role (grants in
+migration 0040) and routes each event by its type to `depot.sales.<entity>`, the AsyncAPI
 channel (`events.Topic`), not by `aggregate_type`: most order-side events share aggregate_type
-`order`, but `orderprogress.recorded` lands on `passage.sales.orderprogress` (read by inventory's
-postings consumer) and `orderhold.*` on `passage.sales.orderhold` (read by fulfillment). A new
+`order`, but `orderprogress.recorded` lands on `depot.sales.orderprogress` (read by inventory's
+postings consumer) and `orderhold.*` on `depot.sales.orderhold` (read by fulfillment). A new
 entity needs a literal ACL for the `debezium` Kafka user in `connect.yaml`.
 
 | Method | Path | Duty | Notes |
@@ -148,7 +148,7 @@ entity needs a literal ACL for the `debezium` Kafka user in `connect.yaml`.
 | GET / PUT | `/v1/sales/customers/{customerId}/change-policy` | `sales.order.read` / `sales.order.approve` | `legalEntityId` required; `approvalRequired` switch, off at version 0, with an optional `approvalThreshold` + `thresholdCurrency` (changes of a confirmed order apply at once while the value they move, summed per line and over every change applied without approval, stays below it, so splitting a change does not avoid approval; a cancellation moves the whole total; another currency always needs approval) and `approverIds` (identity user ids: only these users approve or reject, `SLS-0150`, or change and cancel the customer's confirmed orders without a request); PUT takes `If-Match` (`"0"` to create), replaces `approvalRequired` and each member it names (`null` / `[]` clears) and keeps the members it leaves out; `changepolicy.changed` |
 | GET | `/v1/sales/credit-profiles` | `sales.order.read` | Optional `legalEntityId`, `limit` |
 | GET | `/v1/sales/credit-exposure` | `sales.order.read` | Credit exposure by customer ranked by limit used; `legalEntityId`, `customerId`, `status`, `minUtilizationPct`, `limit` |
-| GET / PUT | `/v1/sales/credit-profiles/{customerId}` | `sales.order.read` / `sales.credit.maintain` | `legalEntityId` query or the caller's `Passage-Legal-Entity`; PUT takes `If-Match` (`"0"` to create) |
+| GET / PUT | `/v1/sales/credit-profiles/{customerId}` | `sales.order.read` / `sales.credit.maintain` | `legalEntityId` query or the caller's `Depot-Legal-Entity`; PUT takes `If-Match` (`"0"` to create) |
 | GET / POST | `/v1/sales/quotations` | `sales.order.read` / `sales.quotation.maintain` | List (`legalEntityId`, `customerId`, `status`, `limit`) without lines; create a DRAFT with `Idempotency-Key`, numbered `SQ-`, validity default +30 days, probability 50 |
 | GET | `/v1/sales/quotations/{id}` | `sales.order.read` | With lines; converted lines name their order |
 | POST | `/v1/sales/quotations/{id}:send` | `sales.quotation.maintain` | `If-Match`; DRAFT to SENT while valid |
@@ -317,7 +317,7 @@ entity needs a literal ACL for the `debezium` Kafka user in `connect.yaml`.
 ## Error codes
 
 Problem details are `application/problem+json` with `type` =
-`https://passage.dev/problems/<code>`.
+`https://depot.dev/problems/<code>`.
 
 | Code | HTTP | Meaning |
 |---|---|---|

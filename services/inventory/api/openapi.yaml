@@ -1,6 +1,6 @@
 openapi: 3.1.0
 info:
-  title: Passage Inventory
+  title: Depot Inventory
   version: 0.16.7
   description: |
     Inventory journals, posting, the on-hand and transaction inquiries, reservations, blocking
@@ -13,7 +13,7 @@ info:
     is in the journal (accounting) currency, rounded to its minor unit. Browser calls use
     /api/v1/inventory/..., which the web BFF rewrites to these paths.
 servers:
-  - url: https://api.{env}.passage.dev
+  - url: https://api.{env}.depot.dev
     variables:
       env:
         default: dev
@@ -30,7 +30,7 @@ paths:
         scope is AUTH-0003 (403). With journalNameId the name must exist in the caller's scope
         (404 INV-JNLN-NOT-FOUND) and be active, of the journal's legal entity and type (422
         INV-JNL-007); a MOVEMENT journal without offsetAccountId takes the name's default.
-      x-passage-duty: inventory.journal.write
+      x-depot-duty: inventory.journal.write
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
@@ -62,7 +62,7 @@ paths:
     get:
       operationId: listInventoryJournals
       summary: List journal headers, newest first (posted journals by type, PRD 3.16.14)
-      x-passage-duty: inventory.read
+      x-depot-duty: inventory.read
       parameters:
         - { name: status, in: query, schema: { $ref: '#/components/schemas/JournalStatus' } }
         - { name: type, in: query, schema: { $ref: '#/components/schemas/JournalType' } }
@@ -89,7 +89,7 @@ paths:
     get:
       operationId: getInventoryJournal
       summary: Read a journal with its lines and, once posted, its GL entry
-      x-passage-duty: inventory.read
+      x-depot-duty: inventory.read
       parameters:
         - $ref: '#/components/parameters/JournalId'
       responses:
@@ -112,7 +112,7 @@ paths:
         decimals (INV-UOM-002) and, for a serial, quantity ±1 (INV-SER-002). owner and
         license_plate are reserved and rejected. A line with a clientKey already on the journal is
         a replay: skipped when identical, idempotency_key_reuse (422) when different.
-      x-passage-duty: inventory.journal.write
+      x-depot-duty: inventory.journal.write
       parameters:
         - $ref: '#/components/parameters/JournalId'
       requestBody:
@@ -151,7 +151,7 @@ paths:
         On a plan without freezeStock it flags the counted lines of such a sheet for recount instead and reopens the sheet (BR-16.8, countsheet.changed RECOUNT_REQUESTED).
         A journal whose journal name requires approval posts only from APPROVED; a post from DRAFT
         is refused (422 INV-JNL-008).
-      x-passage-duty: inventory.journal.post
+      x-depot-duty: inventory.journal.post
       parameters:
         - $ref: '#/components/parameters/JournalId'
         - $ref: '#/components/parameters/IfMatch'
@@ -181,7 +181,7 @@ paths:
         opening account like any posted journal. `batchKey` makes a resend a replay (200 with `Idempotent-Replayed`, a half-finished call is
         completed); the same key with other content is 422 INV-OPB-002. 422 INV-OPB-001 names invalid rows (`errors` keyed `items[row].field`).
         `qty` is positive, `costPrice` is the unit cost; the posted value is the sum of qty times costPrice. 503 INV-OPB-003 when not enabled. A reference opens stock once per legal entity across batches: a reference another batch already reserved is 422 INV-OPB-005 with the rows named, and nothing of the batch is reserved or posted.
-      x-passage-duty: inventory.import.write
+      x-depot-duty: inventory.import.write
       requestBody:
         required: true
         content:
@@ -226,7 +226,7 @@ paths:
     get:
       operationId: listOpeningStockBatches
       summary: The opening stock batches of a legal entity, in key order, with their quantity and value
-      x-passage-duty: inventory.import.read
+      x-depot-duty: inventory.import.read
       parameters:
         - { name: legal_entity, in: query, required: true, schema: { type: string, format: uuid } }
         - { name: cursor, in: query, schema: { type: string } }
@@ -259,7 +259,7 @@ paths:
         transactions at a financial status with a financial date on or before asOf. Availability,
         ordered and reserved quantities are not kept per date: availPhysical, availOrdered,
         reservedPhysical, reservedOrdered and heldPhysical are omitted in a replay.
-      x-passage-duty: inventory.read
+      x-depot-duty: inventory.read
       parameters:
         - { name: asOf, in: query, description: 'Replay date (YYYY-MM-DD, inclusive); omit for the current projection', schema: { type: string, format: date } }
         - { name: product, in: query, schema: { type: string, format: uuid } }
@@ -300,7 +300,7 @@ paths:
         inventoryStatus, owner and segment keep the transactions whose dimension set holds every
         named value (the drill-down from an on-hand row); a value over 100 characters is a 400.
         legalEntity only narrows: a caller sees no rows outside its legal-entity scope.
-      x-passage-duty: inventory.read
+      x-depot-duty: inventory.read
       parameters:
         - { name: q, in: query, description: Only transactions whose reference contains it, ignoring case (the transaction lookup), schema: { type: string, maxLength: 100 } }
         - { name: product, in: query, schema: { type: string, format: uuid } }
@@ -355,7 +355,7 @@ paths:
         that arrived: one that arrived whole changes kind and gets convertedAt, one that arrived in part
         is split (the arrived part becomes a new allocation of the same request, the rest stays ORDERED).
         Each conversion publishes reservation.converted.
-      x-passage-duty: inventory.reservation.write
+      x-depot-duty: inventory.reservation.write
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
@@ -383,7 +383,7 @@ paths:
     get:
       operationId: listInventoryReservations
       summary: Reservation inquiry, newest first
-      x-passage-duty: inventory.read
+      x-depot-duty: inventory.read
       parameters:
         - { name: product, in: query, schema: { type: string, format: uuid } }
         - { name: status, in: query, schema: { type: string, enum: [ACTIVE, RELEASED, CONSUMED] } }
@@ -421,7 +421,7 @@ paths:
         caller reserves it; the reservation re-checks under the row locks. MANUAL ranks like FIFO and
         applies no expiry cut-off, since a manual reservation names one dimension set; the segment rule
         applies to it as it does to a manual reservation.
-      x-passage-duty: inventory.read
+      x-depot-duty: inventory.read
       parameters:
         - { name: legalEntityId, in: query, required: true, description: Legal entity of the stock, schema: { type: string, format: uuid } }
         - { name: productId, in: query, required: true, description: Product to list stock of, schema: { type: string, format: uuid } }
@@ -468,7 +468,7 @@ paths:
         with a tenant-wide principal. Each release re-checks the reservation under its row lock and skips one
         another transaction holds, so concurrent runs never release a reservation twice, and repeating the call
         releases only what is still due. Meant for a scheduler or an operator.
-      x-passage-duty: inventory.reservation.write
+      x-depot-duty: inventory.reservation.write
       parameters:
         - { name: limit, in: query, description: Most reservations released in this call (1 to 500, default 200), schema: { type: integer, minimum: 1, maximum: 500, default: 200 } }
       responses:
@@ -493,7 +493,7 @@ paths:
       operationId: releaseInventoryReservation
       summary: Release a reservation (idempotent)
       description: An ACTIVE reservation returns its quantity to availability; any other is returned unchanged.
-      x-passage-duty: inventory.reservation.write
+      x-depot-duty: inventory.reservation.write
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -510,7 +510,7 @@ paths:
       operationId: putInventoryBatchExpiry
       summary: Set a batch's expiry date, the FEFO input
       description: Local copy of the wave 8 batch expiry until batch master data is published. null means the batch never expires.
-      x-passage-duty: inventory.batch.write
+      x-depot-duty: inventory.batch.write
       parameters:
         - { name: productId, in: path, required: true, schema: { type: string, format: uuid } }
         - { name: batchId, in: path, required: true, schema: { type: string, minLength: 1, maxLength: 60 } }
@@ -551,7 +551,7 @@ paths:
         (BR-16.10). The quantity must be available physical stock at the source (INV-BLK-003).
         A row held by an unfinished sheet of a freezeStock count plan is refused (409 INV-CNT-002).
         On a plan without freezeStock it flags the counted lines of such a sheet for recount instead and reopens the sheet (BR-16.8, countsheet.changed RECOUNT_REQUESTED); 409 INV-CNT-009 when that sheet is locked by another action at the moment (retry).
-      x-passage-duty: inventory.blocking.write
+      x-depot-duty: inventory.blocking.write
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
@@ -583,7 +583,7 @@ paths:
     get:
       operationId: listInventoryBlockings
       summary: Blocking and quarantine inquiry, newest first (at most 200)
-      x-passage-duty: inventory.read
+      x-depot-duty: inventory.read
       parameters:
         - { name: state, in: query, schema: { type: string, enum: [ACTIVE, RELEASED] } }
         - { name: product, in: query, schema: { type: string, format: uuid } }
@@ -620,7 +620,7 @@ paths:
         blocking is returned unchanged. A row held by an unfinished sheet of a freezeStock count plan is
         refused (409 INV-CNT-002).
         On a plan without freezeStock it flags the counted lines of such a sheet for recount instead and reopens the sheet (BR-16.8, countsheet.changed RECOUNT_REQUESTED); 409 INV-CNT-009 when that sheet is locked by another action at the moment (retry).
-      x-passage-duty: inventory.blocking.write
+      x-depot-duty: inventory.blocking.write
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - $ref: '#/components/parameters/IfMatch'
@@ -658,10 +658,10 @@ paths:
         PURCHASED receipt valued at the running average (no GL effect), and sets targetStatus BLOCKED
         on the blocking, which stays ACTIVE with a higher version. Only an active quarantine moves
         (422 INV-BLK-006 when it is no longer active, 422 INV-BLK-007 when it is already blocked).
-        Requires If-Match. Emits dev.passage.inventory.blocking.escalated.v1. A row held by an
+        Requires If-Match. Emits dev.depot.inventory.blocking.escalated.v1. A row held by an
         unfinished sheet of a freezeStock count plan is refused (409 INV-CNT-002).
         On a plan without freezeStock it flags the counted lines of such a sheet for recount instead and reopens the sheet (BR-16.8, countsheet.changed RECOUNT_REQUESTED); 409 INV-CNT-009 when that sheet is locked by another action at the moment (retry).
-      x-passage-duty: inventory.blocking.write
+      x-depot-duty: inventory.blocking.write
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - $ref: '#/components/parameters/IfMatch'
@@ -690,7 +690,7 @@ paths:
         is then refused with INV-JNL-008) and, for MOVEMENT, may carry a default offset account. The
         code is upper-cased and unique per legal entity (409 INV-JNLN-001). The code, legal entity
         and journal type cannot change afterwards.
-      x-passage-duty: inventory.journal-name.write
+      x-depot-duty: inventory.journal-name.write
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
@@ -722,7 +722,7 @@ paths:
     get:
       operationId: listInventoryJournalNames
       summary: List journal names by legal entity and code (at most 200)
-      x-passage-duty: inventory.read
+      x-depot-duty: inventory.read
       parameters:
         - { name: legalEntityId, in: query, schema: { type: string, format: uuid } }
         - { name: journalType, in: query, schema: { $ref: '#/components/schemas/JournalType' } }
@@ -747,7 +747,7 @@ paths:
     get:
       operationId: getInventoryJournalName
       summary: Read one journal name
-      x-passage-duty: inventory.read
+      x-depot-duty: inventory.read
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -768,7 +768,7 @@ paths:
         Requires If-Match. An inactive name refuses new journals (INV-JNL-007); journals already
         created under it keep it. A DRAFT journal under a name that now requires approval must be
         approved before it posts.
-      x-passage-duty: inventory.journal-name.write
+      x-depot-duty: inventory.journal-name.write
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - $ref: '#/components/parameters/IfMatch'
@@ -807,7 +807,7 @@ paths:
         Reserved quantity, blocked and quarantined stock and vendor-owned stock cannot be held.
         The service duty inventory.hold.apply may call this operation and the release-source
         operation, and no other.
-      x-passage-duty: inventory.hold.write
+      x-depot-duty: inventory.hold.write
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
@@ -835,7 +835,7 @@ paths:
     get:
       operationId: listInventoryHolds
       summary: Hold inquiry, newest first
-      x-passage-duty: inventory.read
+      x-depot-duty: inventory.read
       parameters:
         - { name: state, in: query, schema: { type: string, enum: [ACTIVE, RELEASED] } }
         - { name: product, in: query, schema: { type: string, format: uuid } }
@@ -864,7 +864,7 @@ paths:
       description: |
         Returns qty (the whole remaining hold when omitted) to availability. A release above the
         held quantity is INV-HLD-004. Requires If-Match. A released hold is returned unchanged.
-      x-passage-duty: inventory.hold.write
+      x-depot-duty: inventory.hold.write
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - $ref: '#/components/parameters/IfMatch'
@@ -898,7 +898,7 @@ paths:
         Releases active holds of the source (sourceType, sourceRef), oldest first, until at most
         keepQty (default 0) remains held for it. The call states the end level, not a delta, so
         repeating it releases nothing more and a source with no active hold answers an empty list.
-      x-passage-duty: inventory.hold.write
+      x-depot-duty: inventory.hold.write
       requestBody:
         required: true
         content:
@@ -950,7 +950,7 @@ paths:
         BLOCKED and QUARANTINE rows are not counted. Inventory's own issues (journals other than
         counts, status steps, transfers, blockings) are weighed against the same claims. The
         Idempotency-Key names the claim; a repeat is a replay.
-      x-passage-duty: inventory.issue.claim
+      x-depot-duty: inventory.issue.claim
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
@@ -981,7 +981,7 @@ paths:
     post:
       operationId: releaseInventoryIssueClaim
       summary: Withdraw a claim whose movement did not commit
-      x-passage-duty: inventory.issue.claim
+      x-depot-duty: inventory.issue.claim
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
       responses:
@@ -995,7 +995,7 @@ paths:
       operationId: createInventoryCountPlan
       summary: Create a cycle count plan (FR-16.9)
       description: tolerancePct defaults to 5 and toleranceValue to 100 (3.16.13). warehouse is a warehouse dimension value; empty counts every warehouse of the legal entity.
-      x-passage-duty: inventory.count.write
+      x-depot-duty: inventory.count.write
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
@@ -1023,7 +1023,7 @@ paths:
     get:
       operationId: listInventoryCountPlans
       summary: List count plans, newest first (at most 200)
-      x-passage-duty: inventory.read
+      x-depot-duty: inventory.read
       responses:
         '200':
           description: Count plans
@@ -1043,7 +1043,7 @@ paths:
       operationId: generateInventoryCountSheet
       summary: Generate an OPEN count sheet from the plan's current stock
       description: One line per on-hand row with physical stock, expected at its physical quantity now. The Idempotency-Key makes a retry return the same sheet.
-      x-passage-duty: inventory.count.write
+      x-depot-duty: inventory.count.write
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - $ref: '#/components/parameters/IdempotencyKey'
@@ -1072,7 +1072,7 @@ paths:
     get:
       operationId: listInventoryCountSheets
       summary: List count sheet headers, newest first (at most 200)
-      x-passage-duty: inventory.read
+      x-depot-duty: inventory.read
       parameters:
         - { name: planId, in: query, schema: { type: string, format: uuid } }
         - { name: status, in: query, schema: { type: string, enum: [OPEN, COUNTED, APPROVED, POSTED, CANCELLED] } }
@@ -1096,7 +1096,7 @@ paths:
       operationId: getInventoryCountSheet
       summary: Read a count sheet with its lines
       description: Until a blind sheet is POSTED or CANCELLED, expectedQty is null for callers without inventory.count.approve.
-      x-passage-duty: inventory.read
+      x-depot-duty: inventory.read
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -1115,7 +1115,7 @@ paths:
       operationId: enterInventoryCount
       summary: Record the counted quantity of one line of an OPEN sheet
       description: Requires If-Match with the sheet version; each entry moves the version on. A later entry replaces an earlier one.
-      x-passage-duty: inventory.count.write
+      x-depot-duty: inventory.count.write
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - { name: lineId, in: path, required: true, schema: { type: string, format: uuid } }
@@ -1164,7 +1164,7 @@ paths:
         posting caller holding inventory.count.approve.
         Its COUNT journal is exempt from the sheet's own freeze but not from another unfinished freezeStock sheet on the same rows (409 INV-CNT-002). Emits countsheet.changed (POSTED).
         Its COUNT journal also flags the counted lines of other unfinished sheets without freezeStock on the same rows (BR-16.8; 409 INV-CNT-009 when such a sheet is locked by another action, retry).
-      x-passage-duty: inventory.count.post
+      x-depot-duty: inventory.count.post
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - $ref: '#/components/parameters/IfMatch'
@@ -1192,7 +1192,7 @@ paths:
         Closes counting: the sheet becomes COUNTED and takes no further entries. Needs at least one
         counted line (INV-CNT-005) and no outstanding recount (INV-CNT-006). Requires If-Match.
         Emits countsheet.changed (SUBMITTED).
-      x-passage-duty: inventory.count.write
+      x-depot-duty: inventory.count.write
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - $ref: '#/components/parameters/IfMatch'
@@ -1220,7 +1220,7 @@ paths:
         A supervisor accepts the counted quantities, including variances above tolerance, which then
         post without a further approval. On a four-eyes plan the approver must not be one of the
         counters (403 INV-CNT-007). Requires If-Match. Emits countsheet.changed (APPROVED).
-      x-passage-duty: inventory.count.approve
+      x-depot-duty: inventory.count.approve
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - $ref: '#/components/parameters/IfMatch'
@@ -1247,7 +1247,7 @@ paths:
       description: |
         A sheet that is OPEN, COUNTED or APPROVED becomes CANCELLED; a POSTED sheet cannot be
         cancelled. Requires If-Match. Emits countsheet.changed (CANCELLED).
-      x-passage-duty: inventory.count.write
+      x-depot-duty: inventory.count.write
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - $ref: '#/components/parameters/IfMatch'
@@ -1275,7 +1275,7 @@ paths:
         A supervisor flags a counted line with a reason. The sheet returns to OPEN, any approval is
         cleared, and the line must be entered again before the sheet can be submitted or posted
         (INV-CNT-006). Requires If-Match. Emits countsheet.changed (RECOUNT_REQUESTED).
-      x-passage-duty: inventory.count.approve
+      x-depot-duty: inventory.count.approve
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - { name: lineId, in: path, required: true, schema: { type: string, format: uuid } }
@@ -1329,7 +1329,7 @@ paths:
         true); with a different body it is idempotency_key_reuse (422). The key of a deleted order
         stays taken: a create retried with it is idempotency_key_reuse (409) naming the deleted
         order, never a new order. A legal entity outside the caller's scope is AUTH-0003 (403).
-      x-passage-duty: inventory.transfer.write
+      x-depot-duty: inventory.transfer.write
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
@@ -1361,7 +1361,7 @@ paths:
     get:
       operationId: listTransferOrders
       summary: Transfer orders with their lines, newest first (at most 200)
-      x-passage-duty: inventory.read
+      x-depot-duty: inventory.read
       parameters:
         - { name: status, in: query, schema: { $ref: '#/components/schemas/TransferStatus' } }
       responses:
@@ -1383,7 +1383,7 @@ paths:
     get:
       operationId: getTransferOrder
       summary: Read a transfer order with its lines
-      x-passage-duty: inventory.read
+      x-depot-duty: inventory.read
       parameters:
         - $ref: '#/components/parameters/TransferId'
       responses:
@@ -1413,7 +1413,7 @@ paths:
         A change that leaves more reserved against the receiving dimension set's expected receipt than
         it still expects (a shorter or removed line) is INV-RES-004 (422) and changes nothing; release
         the reservations first.
-      x-passage-duty: inventory.transfer.write
+      x-depot-duty: inventory.transfer.write
       parameters:
         - $ref: '#/components/parameters/TransferId'
         - $ref: '#/components/parameters/IfMatch'
@@ -1450,7 +1450,7 @@ paths:
         TRANSFER_ORDER are left alone, as by a cancel. The order's Idempotency-Key stays taken: a
         create retried with it is idempotency_key_reuse (409). A concurrent ship or edit of the
         same order is serialised with the delete; the loser gets 412 or 404.
-      x-passage-duty: inventory.transfer.write
+      x-depot-duty: inventory.transfer.write
       parameters:
         - $ref: '#/components/parameters/TransferId'
         - $ref: '#/components/parameters/IfMatch'
@@ -1469,7 +1469,7 @@ paths:
       description: |
         Only a DRAFT order can be confirmed (INV-TRF-006). The order is then visible to shipping
         and announced by transfer.changed with status CREATED and every line. Requires If-Match.
-      x-passage-duty: inventory.transfer.write
+      x-depot-duty: inventory.transfer.write
       parameters:
         - $ref: '#/components/parameters/TransferId'
         - $ref: '#/components/parameters/IfMatch'
@@ -1508,14 +1508,14 @@ paths:
         (default today) is the date of this shipment's transactions and event; the order's shipDate is
         its first (earliest) shipment, so a later partial shipment does not restart the late-receipt
         clock of quantity already in transit. Emits
-        dev.passage.inventory.transfer.shipped.v1. Requires If-Match (428 when absent, 412 on
+        dev.depot.inventory.transfer.shipped.v1. Requires If-Match (428 when absent, 412 on
         mismatch); an order CANCELLED or RECEIVED is INV-TRF-006. A one-step shipment is the receipt,
         so reservations made against the receiving dimension set's expected receipt (against ORDERED)
         convert to PHYSICAL for the quantity shipped, oldest first, in the same transaction
         (reservation.converted).
         A row held by an unfinished sheet of a freezeStock count plan is refused (409 INV-CNT-002).
         On a plan without freezeStock it flags the counted lines of such a sheet for recount instead and reopens the sheet (BR-16.8, countsheet.changed RECOUNT_REQUESTED); 409 INV-CNT-009 when that sheet is locked by another action at the moment (retry).
-      x-passage-duty: inventory.transfer.post
+      x-depot-duty: inventory.transfer.post
       parameters:
         - $ref: '#/components/parameters/TransferId'
         - $ref: '#/components/parameters/IfMatch'
@@ -1567,14 +1567,14 @@ paths:
         stays in transit for investigation. Receiving more than shipped plus overdeliveryPct is
         INV-TRF-002; an allowed over-delivery moves straight from the shipping warehouse and raises
         the line's shipped quantity. A closed line is INV-TRF-006, an unknown line INV-TRF-004.
-        Emits dev.passage.inventory.transfer.received.v1. Requires If-Match. Reservations made against
+        Emits dev.depot.inventory.transfer.received.v1. Requires If-Match. Reservations made against
         the receiving dimension set's expected receipt (against ORDERED) convert to PHYSICAL for the
         quantity received, oldest first, in the same transaction (reservation.converted). A closeShort
         that gives up expected receipt those reservations still rely on once the received quantity
         converted is INV-RES-004 (422) and changes nothing; release the reservations first.
         A row held by an unfinished sheet of a freezeStock count plan is refused (409 INV-CNT-002).
         On a plan without freezeStock it flags the counted lines of such a sheet for recount instead and reopens the sheet (BR-16.8, countsheet.changed RECOUNT_REQUESTED); 409 INV-CNT-009 when that sheet is locked by another action at the moment (retry).
-      x-passage-duty: inventory.transfer.post
+      x-depot-duty: inventory.transfer.post
       parameters:
         - $ref: '#/components/parameters/TransferId'
         - $ref: '#/components/parameters/IfMatch'
@@ -1608,7 +1608,7 @@ paths:
         INV-TRF-003; a received or cancelled order is INV-TRF-006. An order whose expected receipt
         reservations (against ORDERED) still rely on is INV-RES-004 (422) until they are released.
         Requires If-Match.
-      x-passage-duty: inventory.transfer.write
+      x-depot-duty: inventory.transfer.write
       parameters:
         - $ref: '#/components/parameters/TransferId'
         - $ref: '#/components/parameters/IfMatch'
@@ -1631,7 +1631,7 @@ paths:
       operationId: listStockInTransit
       summary: Stock in transit by transfer order line, oldest shipment first (FR-16.16, SAP MB5T)
       description: Two-step lines with shipped quantity not yet received, including lines closed short (closedShort, for investigation). At most 1,000 rows.
-      x-passage-duty: inventory.read
+      x-depot-duty: inventory.read
       responses:
         '200':
           description: Lines in transit
@@ -1655,7 +1655,7 @@ paths:
         Each level gives the minimum below which the truck is replenished and the maximum it is replenished
         up to, in the product's inventory unit; the truck is replenished from sourceWarehouseId. Levels of
         products not listed are removed. The response lists the truck's levels with what it holds.
-      x-passage-duty: inventory.truck-stock.write
+      x-depot-duty: inventory.truck-stock.write
       requestBody:
         required: true
         content:
@@ -1678,7 +1678,7 @@ paths:
         onHandQty is the available physical stock of the truck's site and warehouse; inboundQty is what open
         transfer orders (DRAFT, CREATED, SHIPPED, PARTIALLY_RECEIVED) still have to deliver to it. short is
         true when the two together are below the minimum.
-      x-passage-duty: inventory.read
+      x-depot-duty: inventory.read
       parameters:
         - { name: legalEntityId, in: query, required: true, schema: { type: string, format: uuid } }
         - { name: siteId, in: query, schema: { type: string }, description: With warehouseId, one truck }
@@ -1703,7 +1703,7 @@ paths:
         source warehouse for the quantity that brings every short product up to its maximum. The order is
         keyed by the truck, the day and the lines, so a repeated run adds nothing, and a truck whose shortfall
         is already on its way gets no second order. Completing a work order runs the same check for its truck.
-      x-passage-duty: inventory.transfer.write
+      x-depot-duty: inventory.transfer.write
       requestBody:
         required: true
         content:
@@ -1742,7 +1742,7 @@ paths:
         quantity still in transit and not closed short is due on the order's plannedReceiptDate when it has
         one, otherwise lateReceiptDays after its ship date (LATE_RECEIPT). daysLate counts the days past the due date and is 0 for a line on time. With
         late=true only late lines are returned.
-      x-passage-duty: inventory.read
+      x-depot-duty: inventory.read
       parameters:
         - { name: legalEntityId, in: query, schema: { type: string, format: uuid }, description: Legal entity owning the order }
         - { name: status, in: query, schema: { type: string, enum: [CREATED, SHIPPED, PARTIALLY_RECEIVED, RECEIVED, CANCELLED] }, description: Order status }
@@ -1782,7 +1782,7 @@ paths:
         (valueBasis JOURNAL), otherwise the running average of the on-hand row today rounded to 6 decimals
         as posting rounds it (valueBasis ESTIMATE). totalsByCounter sums gain, loss and net value
         per counter and currency over the returned lines. from and to bound the day the line was counted (UTC).
-      x-passage-duty: inventory.read
+      x-depot-duty: inventory.read
       parameters:
         - { name: legalEntityId, in: query, schema: { type: string, format: uuid }, description: Legal entity owning the sheet }
         - { name: planId, in: query, schema: { type: string, format: uuid }, description: Count plan }
@@ -1819,7 +1819,7 @@ paths:
         zero, largest shortfall first, at most 1,000. firstNegativeDate is the first physical date of the
         current negative run: the day after whose movements (netted per day) the physical quantity went
         below zero and has stayed below zero since. It is absent when the transactions do not show it.
-      x-passage-duty: inventory.read
+      x-depot-duty: inventory.read
       parameters:
         - { name: legalEntityId, in: query, schema: { type: string, format: uuid }, description: Legal entity }
         - { name: productId, in: query, schema: { type: string, format: uuid }, description: Product }
@@ -1853,7 +1853,7 @@ paths:
         active reservations, and
         the number of transfer orders in every status (statuses without orders carry 0). Counts are read under
         row-level security, so a legal entity the caller may not see contributes nothing.
-      x-passage-duty: inventory.read
+      x-depot-duty: inventory.read
       parameters:
         - { name: legalEntityId, in: query, schema: { type: string, format: uuid }, description: Count one legal entity only }
       responses:
@@ -1875,7 +1875,7 @@ paths:
         errors otherwise). direction FORWARD lists the issues (where the stock went), BACKWARD the receipts
         (where it came from), BOTH (the default) every movement. With BOTH each movement that changes
         physical stock carries running, the traced physical balance of its legal entity and product after it.
-      x-passage-duty: inventory.read
+      x-depot-duty: inventory.read
       parameters:
         - { name: batchId, in: query, schema: { type: string }, description: Batch to trace }
         - { name: serialId, in: query, schema: { type: string }, description: Serial number to trace }
@@ -1906,7 +1906,7 @@ paths:
       description: |
         One row per product and dimension set that has inventory transactions, ordered by product and first
         use, at most 1,000. activeDimensions names the dimensions the set carries.
-      x-passage-duty: inventory.read
+      x-depot-duty: inventory.read
       parameters:
         - { name: legalEntityId, in: query, schema: { type: string, format: uuid }, description: Legal entity }
         - { name: productId, in: query, schema: { type: string, format: uuid }, description: Product }
@@ -1937,7 +1937,7 @@ paths:
         zero-value items take zeroClass (C, or N for not classified). Runs are immutable. Only
         criterion VALUE is available. A repeated Idempotency-Key returns the stored run (200); with a
         different body it is idempotency_key_reuse (422).
-      x-passage-duty: inventory.abc.write
+      x-depot-duty: inventory.abc.write
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
@@ -1965,7 +1965,7 @@ paths:
     get:
       operationId: listAbcRuns
       summary: Latest ABC runs, newest first, with class counts and no items (at most 100)
-      x-passage-duty: inventory.read
+      x-depot-duty: inventory.read
       responses:
         '200':
           description: ABC runs
@@ -1984,7 +1984,7 @@ paths:
     get:
       operationId: getAbcRun
       summary: Read an ABC run with its items, highest value first (ABC classification report)
-      x-passage-duty: inventory.read
+      x-depot-duty: inventory.read
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -2013,7 +2013,7 @@ paths:
         most an hour); a refusal the ledger repeats, an entry that cannot balance (INV-GL-004) or
         the fifth failure parks it until gl-postings:requeue. 503 INV-GL-005 when LEDGER_URL is not
         configured.
-      x-passage-duty: inventory.gl.post
+      x-depot-duty: inventory.gl.post
       requestBody:
         required: true
         content:
@@ -2063,7 +2063,7 @@ paths:
       operationId: requeueParkedInventoryGLPostings
       summary: Make the legal entity's parked GL postings due again
       description: Parked postings return to pending with a fresh attempt count and are resent under their own key by the next gl-postings call.
-      x-passage-duty: inventory.gl.post
+      x-depot-duty: inventory.gl.post
       requestBody:
         required: true
         content:
@@ -2100,10 +2100,10 @@ paths:
         manual journals (LEDGER_OVERRIDE, AC-16.9). The run also counts the on-hand rows with
         negative physical stock (FR-16.4). The run date is today (UTC); a re-run on the same day
         recomputes and overwrites that day's row (the run id stays), so no Idempotency-Key is
-        needed. A non-zero difference publishes dev.passage.inventory.reconciliation.diff.v1 in the
+        needed. A non-zero difference publishes dev.depot.inventory.reconciliation.diff.v1 in the
         same transaction. 422 INV-JNL-005 when no inventory account is configured; 403 AUTH-0003
         for a legal entity outside the caller's scope.
-      x-passage-duty: inventory.admin
+      x-depot-duty: inventory.admin
       requestBody:
         required: true
         content:
@@ -2129,7 +2129,7 @@ paths:
     get:
       operationId: listInventoryReconciliations
       summary: Reconciliation runs, newest run date first (at most 200); the inventory-to-ledger reconciliation report
-      x-passage-duty: inventory.read
+      x-depot-duty: inventory.read
       parameters:
         - { name: legalEntityId, in: query, required: false, schema: { type: string, format: uuid } }
         - { name: status, in: query, required: false, schema: { type: string, enum: [MATCHED, DIFFERENCE] } }
@@ -2152,7 +2152,7 @@ paths:
     get:
       operationId: getInventoryReconciliation
       summary: Read one reconciliation run (404 INV-REC-001 when unknown or outside the caller's scope)
-      x-passage-duty: inventory.read
+      x-depot-duty: inventory.read
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -2178,7 +2178,7 @@ paths:
         cannot be reversed out (INV-NEG-001). A reversal takes no extra lines. A journal has one
         reversal: repeating the request returns it (200, Idempotent-Replayed). 409 INV-JNL-004
         when the journal is not POSTED.
-      x-passage-duty: inventory.journal.write
+      x-depot-duty: inventory.journal.write
       parameters:
         - $ref: '#/components/parameters/JournalId'
       requestBody:
@@ -2229,7 +2229,7 @@ paths:
         does (403 AUTH-0003 otherwise).
         Idempotency-Key is required: repeating the request returns the first copy (200,
         Idempotent-Replayed); the same key with another posting date is 422 idempotency_key_reuse.
-      x-passage-duty: inventory.journal.write
+      x-depot-duty: inventory.journal.write
       parameters:
         - $ref: '#/components/parameters/JournalId'
         - $ref: '#/components/parameters/IdempotencyKey'
@@ -2272,7 +2272,7 @@ paths:
         Numbers come from the legal entity's TAG- sequence (TAG-000001, ...), so a tag number is
         used once (BR-16.15). The Idempotency-Key makes a retry return the same range; the same key
         for another plan or count is idempotency_key_reuse.
-      x-passage-duty: inventory.count.write
+      x-depot-duty: inventory.count.write
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - $ref: '#/components/parameters/IdempotencyKey'
@@ -2309,7 +2309,7 @@ paths:
       operationId: listInventoryCountTags
       summary: List a plan's count tags in number order, optionally of one status
       description: Lists the missing and void tags before a transfer (FR-16.18).
-      x-passage-duty: inventory.read
+      x-depot-duty: inventory.read
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - { name: status, in: query, schema: { $ref: '#/components/schemas/CountTagStatus' } }
@@ -2335,7 +2335,7 @@ paths:
         transfer (INV-TAG-002) unless markOpenMissing, which marks them MISSING and needs the
         supervisor duty inventory.count.approve (403 INV-TAG-006 without it, BR-16.15). No used
         tag is INV-TAG-004. The Idempotency-Key makes a retry return the same sheet.
-      x-passage-duty: inventory.count.write
+      x-depot-duty: inventory.count.write
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - $ref: '#/components/parameters/IdempotencyKey'
@@ -2378,7 +2378,7 @@ paths:
         with the tag version. A used tag is INV-TAG-001, a void, missing or transferred tag
         INV-TAG-003. site is mandatory (INV-DIM-001); a plan's warehouse is filled in when absent
         and another warehouse is refused; a serial counts 0 or 1 (INV-SER-002).
-      x-passage-duty: inventory.count.write
+      x-depot-duty: inventory.count.write
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - $ref: '#/components/parameters/IfMatch'
@@ -2413,7 +2413,7 @@ paths:
     post:
       operationId: voidInventoryCountTag
       summary: Void an OPEN or USED tag that has not been transferred
-      x-passage-duty: inventory.count.write
+      x-depot-duty: inventory.count.write
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - $ref: '#/components/parameters/IfMatch'
@@ -2443,7 +2443,7 @@ paths:
         would return (for example INV-NEG-001, INV-OWN-002, INV-SER-001). Any other status is
         INV-JNL-004 (409). The result holds for the stock at the time of the call.
         A row held by an unfinished sheet of a freezeStock count plan answers 409 INV-CNT-002.
-      x-passage-duty: inventory.journal.write
+      x-depot-duty: inventory.journal.write
       parameters:
         - $ref: '#/components/parameters/JournalId'
       responses:
@@ -2474,7 +2474,7 @@ paths:
         DRAFT -> SUBMITTED. The line rules are checked again (a journal without lines or with an
         invalid line cannot be submitted). A SUBMITTED journal takes no lines and cannot be posted
         until approved. Any other status is INV-JNL-004 (409). Requires If-Match.
-      x-passage-duty: inventory.journal.write
+      x-depot-duty: inventory.journal.write
       parameters:
         - $ref: '#/components/parameters/JournalId'
         - $ref: '#/components/parameters/IfMatch'
@@ -2501,7 +2501,7 @@ paths:
       description: |
         SUBMITTED -> APPROVED, the approval task of InventoryJournalPost. An APPROVED journal is
         posted with :post. Any other status is INV-JNL-004 (409). Requires If-Match.
-      x-passage-duty: inventory.journal.post
+      x-depot-duty: inventory.journal.post
       parameters:
         - $ref: '#/components/parameters/JournalId'
         - $ref: '#/components/parameters/IfMatch'
@@ -2528,7 +2528,7 @@ paths:
       description: |
         SUBMITTED -> REJECTED. A rejected journal is reopened to DRAFT (:reopen) or cancelled.
         Any other status is INV-JNL-004 (409). Requires If-Match.
-      x-passage-duty: inventory.journal.post
+      x-depot-duty: inventory.journal.post
       parameters:
         - $ref: '#/components/parameters/JournalId'
         - $ref: '#/components/parameters/IfMatch'
@@ -2555,7 +2555,7 @@ paths:
       description: |
         REJECTED -> DRAFT, so lines can be corrected and the journal submitted again. Any other
         status is INV-JNL-004 (409). Requires If-Match.
-      x-passage-duty: inventory.journal.write
+      x-depot-duty: inventory.journal.write
       parameters:
         - $ref: '#/components/parameters/JournalId'
         - $ref: '#/components/parameters/IfMatch'
@@ -2583,7 +2583,7 @@ paths:
         DRAFT or REJECTED -> CANCELLED; nothing was posted, so nothing is reversed. A reversal
         draft cannot be cancelled (it is its original's one reversal). Any other status is
         INV-JNL-004 (409). Requires If-Match.
-      x-passage-duty: inventory.journal.write
+      x-depot-duty: inventory.journal.write
       parameters:
         - $ref: '#/components/parameters/JournalId'
         - $ref: '#/components/parameters/IfMatch'
@@ -2614,7 +2614,7 @@ paths:
         owner come from the order. Creating it posts nothing. A repeated Idempotency-Key with the
         same body returns the order (200, Idempotent-Replayed: true); with a different body it is
         idempotency_key_reuse (422).
-      x-passage-duty: inventory.consignment.write
+      x-depot-duty: inventory.consignment.write
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
@@ -2645,7 +2645,7 @@ paths:
     get:
       operationId: listConsignmentOrders
       summary: List replenishment orders, newest first (at most 500)
-      x-passage-duty: inventory.read
+      x-depot-duty: inventory.read
       parameters:
         - { name: status, in: query, schema: { $ref: '#/components/schemas/ConsignmentStatus' } }
         - { name: vendor, in: query, schema: { type: string } }
@@ -2668,7 +2668,7 @@ paths:
     get:
       operationId: getConsignmentOrder
       summary: Get a replenishment order with its lines
-      x-passage-duty: inventory.read
+      x-depot-duty: inventory.read
       parameters:
         - $ref: '#/components/parameters/ConsignmentId'
       responses:
@@ -2696,7 +2696,7 @@ paths:
         A row held by an unfinished sheet of a freezeStock plan that includes vendor-owned stock is
         refused (409 INV-CNT-002); on a plan without the freeze the receipt flags the counted line
         for recount (BR-16.8).
-      x-passage-duty: inventory.consignment.write
+      x-depot-duty: inventory.consignment.write
       parameters:
         - $ref: '#/components/parameters/ConsignmentId'
         - $ref: '#/components/parameters/IfMatch'
@@ -2731,9 +2731,9 @@ paths:
         the order takes no further receipt. Nothing moves in the ledger or the on-hand projection.
         An order nothing was received against is INV-CNS-005 (cancel it instead); a RECEIVED,
         CLOSED or CANCELLED order is INV-CNS-003. The optional reason (at most 200 characters) is
-        kept with who closed it and when, and the call emits dev.passage.inventory.consignment.closed.v1
+        kept with who closed it and when, and the call emits dev.depot.inventory.consignment.closed.v1
         in the same transaction. Requires If-Match.
-      x-passage-duty: inventory.consignment.write
+      x-depot-duty: inventory.consignment.write
       parameters:
         - $ref: '#/components/parameters/ConsignmentId'
         - $ref: '#/components/parameters/IfMatch'
@@ -2769,9 +2769,9 @@ paths:
         Ends a CREATED order. A cancelled order takes no receipt and expects no quantity. An order
         with receipts is INV-CNS-004 (close it instead); an ended order is INV-CNS-003. The optional
         reason (at most 200 characters) is kept with who cancelled it and when, and the call emits
-        dev.passage.inventory.consignment.closed.v1 with disposition CANCELLED in the same
+        dev.depot.inventory.consignment.closed.v1 with disposition CANCELLED in the same
         transaction. Requires If-Match.
-      x-passage-duty: inventory.consignment.write
+      x-depot-duty: inventory.consignment.write
       parameters:
         - $ref: '#/components/parameters/ConsignmentId'
         - $ref: '#/components/parameters/IfMatch'
@@ -2808,7 +2808,7 @@ paths:
         most 500 rows). consignmentPrice is the price of the vendor's latest replenishment line for
         the product and statisticalValue qty x price in its currency: a statistic, not posted value
         (vendor-owned stock is never valued). Both are null when no order carries a price.
-      x-passage-duty: inventory.read
+      x-depot-duty: inventory.read
       parameters:
         - { name: vendor, in: query, schema: { type: string } }
       responses:
@@ -2836,7 +2836,7 @@ paths:
         100 listed; diffCount is exact). With repair=true each differing row is locked in posting
         lock order, rebuilt again under the lock and overwritten. Internal path: not exposed by
         the web BFF.
-      x-passage-duty: inventory.admin
+      x-depot-duty: inventory.admin
       parameters:
         - { name: repair, in: query, schema: { type: boolean, default: false } }
       responses:
@@ -2879,7 +2879,7 @@ paths:
         Covers the legal entities the caller can see. At most limit orders are examined per call, in
         order id order; while more is true, call again with after set to next. Internal path: not
         exposed by the web BFF.
-      x-passage-duty: inventory.admin
+      x-depot-duty: inventory.admin
       parameters:
         - { name: limit, in: query, description: Most orders examined in this call (1 to 500, default 200), schema: { type: integer, minimum: 1, maximum: 500, default: 200 } }
         - { name: after, in: query, description: Continue after this transfer order id (the next of the previous call), schema: { type: string, format: uuid } }
@@ -2910,7 +2910,7 @@ paths:
         at another status is INV-STP-001.
         Refused with 409 INV-CNT-002 while the row is held by an unfinished sheet of a freezeStock count plan.
         On a plan without freezeStock it flags the counted lines of such a sheet for recount instead and reopens the sheet (BR-16.8, countsheet.changed RECOUNT_REQUESTED); 409 INV-CNT-009 when that sheet is locked by another action at the moment (retry).
-      x-passage-duty: inventory.transaction.step
+      x-depot-duty: inventory.transaction.step
       parameters:
         - $ref: '#/components/parameters/TransactionId'
         - $ref: '#/components/parameters/IdempotencyKey'
@@ -2947,7 +2947,7 @@ paths:
         at another status is INV-STP-001.
         Refused with 409 INV-CNT-002 while the row is held by an unfinished sheet of a freezeStock count plan.
         On a plan without freezeStock it flags the counted lines of such a sheet for recount instead and reopens the sheet (BR-16.8, countsheet.changed RECOUNT_REQUESTED); 409 INV-CNT-009 when that sheet is locked by another action at the moment (retry).
-      x-passage-duty: inventory.transaction.step
+      x-depot-duty: inventory.transaction.step
       parameters:
         - $ref: '#/components/parameters/TransactionId'
         - $ref: '#/components/parameters/IdempotencyKey'
@@ -2982,7 +2982,7 @@ paths:
         negative policy checked (INV-NEG-001 / INV-NEG-002), writes a status-change audit row and
         emits transaction.posted and onhand.changed in the same database transaction. A transaction
         at another status is INV-STP-001.
-      x-passage-duty: inventory.transaction.step
+      x-depot-duty: inventory.transaction.step
       parameters:
         - $ref: '#/components/parameters/TransactionId'
         - $ref: '#/components/parameters/IdempotencyKey'
@@ -3012,7 +3012,7 @@ paths:
     get:
       operationId: getInventoryTransaction
       summary: One transaction with its origin and status history (FR-16.13)
-      x-passage-duty: inventory.read
+      x-depot-duty: inventory.read
       parameters:
         - $ref: '#/components/parameters/TransactionId'
       responses:
@@ -3028,7 +3028,7 @@ paths:
     get:
       operationId: listInventoryStatusChanges
       summary: Status-change inquiry, newest first (FR-16.1, BR-16.1)
-      x-passage-duty: inventory.read
+      x-depot-duty: inventory.read
       parameters:
         - { name: transaction, in: query, schema: { type: string, format: uuid } }
         - { name: command, in: query, schema: { $ref: '#/components/schemas/StatusCommand' } }
@@ -3069,7 +3069,7 @@ paths:
         oldest first, up to the quantity that arrived. Internal path: not exposed by the web BFF.
         A move that changes the physical quantity of a row held by an unfinished sheet of a freezeStock count plan is refused (409 INV-CNT-002).
         On a plan without freezeStock it flags the counted lines of such a sheet for recount instead and reopens the sheet (BR-16.8, countsheet.changed RECOUNT_REQUESTED); 409 INV-CNT-009 when that sheet is locked by another action at the moment (retry).
-      x-passage-duty: inventory.transaction.apply
+      x-depot-duty: inventory.transaction.apply
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
@@ -3109,7 +3109,7 @@ paths:
         `return-receipt:` key prefix is reserved: POST /v1/inventory/journals refuses it (400), so a
         journal user cannot plant a journal under an RMA line's key. The service duty holds only this
         route, not the general journal duties. Internal path: not exposed by the web BFF.
-      x-passage-duty: inventory.return-receipt.post
+      x-depot-duty: inventory.return-receipt.post
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
@@ -3220,7 +3220,7 @@ components:
         positive quantity and the consignment price as costPrice. It posts a DEDUCTED issue of the
         vendor-owned stock at value 0 and a PURCHASED receipt at the same dimensions without owner
         at quantity x price, Dr inventory / Cr consignment accrual, and emits
-        dev.passage.inventory.ownership.changed.v1. More than the available vendor-owned quantity
+        dev.depot.inventory.ownership.changed.v1. More than the available vendor-owned quantity
         is INV-OWN-002; it cannot be reversed. A TRANSFER journal moves stock between two
         dimension sets of the legal entity (location to location, warehouse to warehouse, segment
         to segment): each line names the source (dimensions), the destination (toDimensions) and a
@@ -4222,7 +4222,7 @@ components:
       type: object
       required: [type, title, status]
       properties:
-        type: { type: string, format: uri, example: 'https://passage.dev/problems/INV-NEG-001' }
+        type: { type: string, format: uri, example: 'https://depot.dev/problems/INV-NEG-001' }
         title: { type: string }
         status: { type: integer }
         detail: { type: string }

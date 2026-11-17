@@ -12,12 +12,12 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
 
-	"github.com/BenjaminSRussell/passage/services/finreport/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/finreport/internal/events"
+	"github.com/BenjaminSRussell/depot/services/finreport/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/finreport/internal/events"
 )
 
 var apr1 = time.Date(2026, 4, 1, 2, 0, 0, 0, time.UTC)
@@ -330,7 +330,7 @@ func TestLibrary_AppRoleCannotRewriteStoredFiles(t *testing.T) {
 			return err
 		})
 		if err == nil || !strings.Contains(err.Error(), "permission denied") {
-			t.Errorf("%s as passage_app = %v, want permission denied", q, err)
+			t.Errorf("%s as depot_app = %v, want permission denied", q, err)
 		}
 	}
 	err := dbx.WithTenantTx(f.ctx, f.st.pool, func(tx pgx.Tx) error {
@@ -338,6 +338,6 @@ func TestLibrary_AppRoleCannotRewriteStoredFiles(t *testing.T) {
 		return err
 	})
 	if err == nil || !strings.Contains(err.Error(), "retained until") {
-		t.Errorf("delete of a retained file as passage_app = %v, want the retention refusal", err)
+		t.Errorf("delete of a retained file as depot_app = %v, want the retention refusal", err)
 	}
 }

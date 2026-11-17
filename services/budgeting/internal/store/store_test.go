@@ -11,14 +11,14 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/budgeting/internal/domain"
-	budgetevents "github.com/BenjaminSRussell/passage/services/budgeting/internal/events"
-	"github.com/BenjaminSRussell/passage/services/budgeting/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/budgeting/internal/domain"
+	budgetevents "github.com/BenjaminSRussell/depot/services/budgeting/internal/events"
+	"github.com/BenjaminSRussell/depot/services/budgeting/migrations"
 )
 
 // testCtx carries a principal with no legal-entity scope so RLS shows every row.

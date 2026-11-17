@@ -1,12 +1,12 @@
 openapi: 3.1.0
 info:
-  title: Passage carrier gateway
+  title: Depot carrier gateway
   version: 0.1.0
   description: >
-    Rate shopping, label purchase and tracking between Passage services and the
+    Rate shopping, label purchase and tracking between Depot services and the
     carriers (wave 28 AC4, #482). Service-to-service only: every /v1 operation
-    needs an X-Passage-Service-Token (platform/go/tenant format) addressed to
-    carrier-gateway and carrying the operation's x-passage-duty. Granted to
+    needs an X-Depot-Service-Token (platform/go/tenant format) addressed to
+    carrier-gateway and carrying the operation's x-depot-duty. Granted to
     fulfillment (all three duties) and transport (rates and tracking).
     Money is a decimal string with two places; weights are kilograms (three
     places) and dimensions centimetres (one place).
@@ -25,7 +25,7 @@ paths:
     get:
       operationId: listCarriers
       summary: The configured carriers and their services
-      x-passage-duty: carrier.rate.quote
+      x-depot-duty: carrier.rate.quote
       responses:
         "200":
           description: Carriers
@@ -52,7 +52,7 @@ paths:
       description: >
         A carrier that refuses (unknown service, destination not served) or is down
         is listed in failures; the others still answer. Read-only, no Idempotency-Key.
-      x-passage-duty: carrier.rate.quote
+      x-depot-duty: carrier.rate.quote
       requestBody:
         required: true
         content:
@@ -88,7 +88,7 @@ paths:
         The key is scoped to the token's tenant, legal entity and issuer. A repeat
         with the same request returns the stored label with 200 and created false;
         a repeat with a different request is 422 CGW-0422.
-      x-passage-duty: carrier.label.create
+      x-depot-duty: carrier.label.create
       parameters:
         - { name: Idempotency-Key, in: header, required: true, schema: { type: string, pattern: '^[\x21-\x7e]{1,128}$' } }
       requestBody:
@@ -117,7 +117,7 @@ paths:
     get:
       operationId: track
       summary: The carrier's tracking events for a tracking number, oldest first
-      x-passage-duty: carrier.tracking.read
+      x-depot-duty: carrier.tracking.read
       parameters:
         - { name: carrier, in: path, required: true, schema: { type: string, pattern: '^[a-z0-9-]{2,32}$' } }
         - { name: trackingNumber, in: path, required: true, schema: { type: string, pattern: '^[A-Za-z0-9-]{1,64}$' } }
@@ -130,7 +130,7 @@ paths:
         "503": { description: CGW-0105, content: { application/problem+json: { schema: { $ref: "#/components/schemas/Problem" } } } }
 components:
   securitySchemes:
-    serviceToken: { type: apiKey, in: header, name: X-Passage-Service-Token }
+    serviceToken: { type: apiKey, in: header, name: X-Depot-Service-Token }
   responses:
     Problem:
       description: "CGW-0401 token missing or invalid, CGW-0403 token lacks the duty, CGW-0415 not JSON"

@@ -1,5 +1,5 @@
-image: { repository: ghcr.io/benjaminsrussell/passage-agents, digest: "", tag: "", pullPolicy: IfNotPresent }
-# Secret with the key DATABASE_URL (database passage_agents, role passage_app).
+image: { repository: ghcr.io/benjaminsrussell/depot-agents, digest: "", tag: "", pullPolicy: IfNotPresent }
+# Secret with the key DATABASE_URL (database depot_agents, role depot_app).
 databaseSecret: agents-db
 # Run the migrations at start, as the owner role. Off by default: migrations run from the pipeline.
 migrateOnStart: false
@@ -8,7 +8,7 @@ migrateOnStart: false
 replicaCount: 2
 killSwitchPollMs: 1000
 # The MCP gateway every tool call goes through, with the caller's own token.
-mcpUrl: http://mcp-gateway.passage.svc.cluster.local:8080
+mcpUrl: http://mcp-gateway.depot.svc.cluster.local:8080
 model:
   # anthropic, openai (OpenAI-compatible and Azure OpenAI) or bedrock.
   provider: anthropic
@@ -42,7 +42,7 @@ approvalExpiryHours: ""
 # "agents=<base64>". workflowUrl is the workflow-ts Service (named `workflows`). workflow-ts's pods are admitted to the API port by
 # networkPolicy.workflowPodLabels (the same namespace).
 runEngine: inprocess
-workflowUrl: http://workflows.passage.svc:8080
+workflowUrl: http://workflows.depot.svc:8080
 servicePublicKeys: ""
 serviceIdentity:
   # Secret with the key `signing-key` (the base64 32-byte Ed25519 seed of the service `agents`).
@@ -52,18 +52,18 @@ serviceIdentity:
 selfApprovalLimit: { amount: "0", currency: USD }
 # An agent runs only when the newest eval_run of its exact definition passed (AGT-0204 otherwise). The eval pipeline
 # records its report with `node dist/cli/record-eval.js report.json`, using this release's image and model settings and
-# the owner (migration) role's DATABASE_URL: the pods' passage_app role may only read eval_run (FR-47.10).
+# the owner (migration) role's DATABASE_URL: the pods' depot_app role may only read eval_run (FR-47.10).
 resources:
   requests: { cpu: 50m, memory: 128Mi }
   limits: { cpu: 500m, memory: 512Mi }
 serviceMonitor: { enabled: false }
 # Caller authentication: the runtime verifies every caller's bearer token itself (RS256, issuer, audience, expiry) and
-# never trusts the X-Passage-* edge headers on their own. issuer is the realm that signs the tokens; the keys come from
+# never trusts the X-Depot-* edge headers on their own. issuer is the realm that signs the tokens; the keys come from
 # jwksUrl (the realm's certs endpoint) or from a ConfigMap holding the key set (the gateway's localJWKS). The process
 # refuses to start without an issuer and keys.
 auth:
   issuer: ""
-  audience: passage-api
+  audience: depot-api
   jwksUrl: ""
   jwksConfigMap: { name: "", key: jwks }
 # Who may open a connection to the API port: the edge gateway's namespaces and, for an in-cluster caller such as a

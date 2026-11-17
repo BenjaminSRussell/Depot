@@ -5,8 +5,8 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/services/lean/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/services/lean/internal/domain"
 )
 
 // CodeNotFixedRule refuses the count check of a rule that is not fixed: only a

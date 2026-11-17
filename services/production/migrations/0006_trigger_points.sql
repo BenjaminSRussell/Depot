@@ -62,28 +62,28 @@ ALTER TABLE production_trigger_point ENABLE ROW LEVEL SECURITY;
 ALTER TABLE production_trigger_point FORCE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS production_trigger_point_tenant_access ON production_trigger_point;
 CREATE POLICY production_trigger_point_tenant_access ON production_trigger_point AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 DROP POLICY IF EXISTS production_trigger_point_legal_entity_scope ON production_trigger_point;
 CREATE POLICY production_trigger_point_legal_entity_scope ON production_trigger_point AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 ALTER TABLE production_trigger_firing ENABLE ROW LEVEL SECURITY;
 ALTER TABLE production_trigger_firing FORCE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS production_trigger_firing_tenant_access ON production_trigger_firing;
 CREATE POLICY production_trigger_firing_tenant_access ON production_trigger_firing AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 DROP POLICY IF EXISTS production_trigger_firing_legal_entity_scope ON production_trigger_firing;
 CREATE POLICY production_trigger_firing_legal_entity_scope ON production_trigger_firing AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON production_trigger_point, production_trigger_firing TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON production_trigger_point, production_trigger_firing TO depot_app';
   END IF;
 END
 $$;

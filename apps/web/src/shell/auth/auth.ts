@@ -1,6 +1,6 @@
 import { authorizeUrl, CALLBACK_PATH, configuredOidc, endpoints, LOGOUT_PATH, randomToken, sessionFrom, type OidcConfig, type Session, type TokenResponse } from "./oidc";
 
-const PENDING_KEY = "passage.oidc.pending";
+const PENDING_KEY = "depot.oidc.pending";
 const REFRESH_MARGIN_MS = 30_000;
 
 interface Pending {
@@ -132,7 +132,7 @@ export function createAuth(config: OidcConfig, env: AuthEnv): Auth {
   return { ensureSession, accessToken, login: () => login(), reauthenticate: () => login(true), logout };
 }
 
-const BEARER_INSTALLED = Symbol.for("passage.bearerFetch");
+const BEARER_INSTALLED = Symbol.for("depot.bearerFetch");
 
 export function installBearerFetch(auth: Auth, origin: string, target: { fetch: typeof fetch } = globalThis): void {
   if (BEARER_INSTALLED in target.fetch) return;

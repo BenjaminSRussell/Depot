@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/services/sales/internal/store"
+	"github.com/BenjaminSRussell/depot/services/sales/internal/store"
 )
 
 func TestParameters_IntakeDedupWindow(t *testing.T) {

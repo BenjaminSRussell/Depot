@@ -14,7 +14,7 @@ import { bootstrapAuth, createAuth, installBearerFetch, type AuthEnv } from "./a
 import { checkAxeAA } from "../a11y";
 import { authorizeUrl, challengeS256, endpoints, sessionFrom, type OidcConfig } from "./oidc";
 
-const config: OidcConfig = { issuer: "http://localhost:8080/realms/passage", clientId: "passage-web" };
+const config: OidcConfig = { issuer: "http://localhost:8080/realms/depot", clientId: "depot-web" };
 const origin = "http://localhost:5173";
 
 function jwt(claims: Record<string, unknown>): string {
@@ -55,7 +55,7 @@ describe("PKCE", () => {
     expect(url.origin + url.pathname).toBe(endpoints(config.issuer).authorize);
     expect(Object.fromEntries(url.searchParams)).toMatchObject({
       response_type: "code",
-      client_id: "passage-web",
+      client_id: "depot-web",
       redirect_uri: `${origin}/auth/callback`,
       code_challenge_method: "S256",
       state: "state-1",
@@ -81,7 +81,7 @@ describe("step-up", () => {
     const url = new URL(assign.mock.calls[0][0]);
     expect(url.searchParams.get("prompt")).toBe("login");
     expect(url.searchParams.get("max_age")).toBe("0");
-    expect(JSON.parse(store.get("passage.oidc.pending") ?? "{}").returnTo).toBe("/shopfloor/kiosk/pi/abc");
+    expect(JSON.parse(store.get("depot.oidc.pending") ?? "{}").returnTo).toBe("/shopfloor/kiosk/pi/abc");
   });
 });
 
@@ -106,18 +106,18 @@ describe("login flow", () => {
     expect(await auth.ensureSession()).toBeNull();
     await auth.login();
     expect(assign).toHaveBeenCalledOnce();
-    expect(JSON.parse(store.get("passage.oidc.pending") ?? "{}").returnTo).toBe("/ledger/accounts?q=1");
+    expect(JSON.parse(store.get("depot.oidc.pending") ?? "{}").returnTo).toBe("/ledger/accounts?q=1");
   });
 
   it("exchanges the code with the stored verifier and returns to the saved page", async () => {
     const start = envAt("/ledger/accounts", "");
     await createAuth(config, start.env).login();
-    const pending = JSON.parse(start.store.get("passage.oidc.pending") ?? "{}") as { state: string; verifier: string };
+    const pending = JSON.parse(start.store.get("depot.oidc.pending") ?? "{}") as { state: string; verifier: string };
 
     const callback = envAt("/auth/callback", `?code=abc&state=${pending.state}`, () =>
       new Response(JSON.stringify({ access_token: tokenFor("user-1", ADMIN_DUTIES), refresh_token: "r", expires_in: 300 })),
     );
-    callback.store.set("passage.oidc.pending", start.store.get("passage.oidc.pending") ?? "");
+    callback.store.set("depot.oidc.pending", start.store.get("depot.oidc.pending") ?? "");
     const session = await createAuth(config, callback.env).ensureSession();
 
     expect(session?.duties).toContain("audit.read");
@@ -128,12 +128,12 @@ describe("login flow", () => {
     expect(form.get("code_verifier")).toBe(pending.verifier);
     expect(form.get("grant_type")).toBe("authorization_code");
     expect(callback.replaceUrl).toHaveBeenCalledWith("/ledger/accounts");
-    expect(callback.store.has("passage.oidc.pending")).toBe(false);
+    expect(callback.store.has("depot.oidc.pending")).toBe(false);
   });
 
   it("refuses a callback whose state this browser did not issue", async () => {
     const { env, store, fetcher } = envAt("/auth/callback", "?code=abc&state=forged");
-    store.set("passage.oidc.pending", JSON.stringify({ state: "real", verifier: "v", returnTo: "/" }));
+    store.set("depot.oidc.pending", JSON.stringify({ state: "real", verifier: "v", returnTo: "/" }));
     await expect(createAuth(config, env).ensureSession()).rejects.toThrow(/did not match/);
     expect(fetcher).not.toHaveBeenCalled();
   });
@@ -145,7 +145,7 @@ describe("login flow", () => {
 
   it("surfaces an error from Keycloak", async () => {
     const { env, store } = envAt("/auth/callback", "?error=access_denied&error_description=nope");
-    store.set("passage.oidc.pending", JSON.stringify({ state: "s", verifier: "v", returnTo: "/" }));
+    store.set("depot.oidc.pending", JSON.stringify({ state: "s", verifier: "v", returnTo: "/" }));
     await expect(createAuth(config, env).ensureSession()).rejects.toThrow(/nope/);
   });
 
@@ -153,7 +153,7 @@ describe("login flow", () => {
     const { env, store, fetcher } = envAt("/auth/callback", "?code=abc&state=s", () =>
       new Response(JSON.stringify({ access_token: tokenFor("u", CLERK_DUTIES), expires_in: 300 })),
     );
-    store.set("passage.oidc.pending", JSON.stringify({ state: "s", verifier: "v", returnTo: "/" }));
+    store.set("depot.oidc.pending", JSON.stringify({ state: "s", verifier: "v", returnTo: "/" }));
     const auth = createAuth(config, env);
     const [first, second] = await Promise.all([auth.ensureSession(), auth.ensureSession()]);
     expect(first).toBe(second);
@@ -166,7 +166,7 @@ describe("logout", () => {
     const { env, store, assign } = envAt("/auth/callback", "?code=c&state=s", () =>
       new Response(JSON.stringify({ access_token: tokenFor("u", ADMIN_DUTIES), id_token: "id.token.value", expires_in: 300 })),
     );
-    store.set("passage.oidc.pending", JSON.stringify({ state: "s", verifier: "v", returnTo: "/" }));
+    store.set("depot.oidc.pending", JSON.stringify({ state: "s", verifier: "v", returnTo: "/" }));
     const auth = createAuth(config, env);
     await auth.ensureSession();
     auth.logout();
@@ -188,7 +188,7 @@ describe("bearer fetch", () => {
     const { env, store } = envAt("/auth/callback", "?code=c&state=s", () =>
       new Response(JSON.stringify({ access_token: tokenFor("u", ADMIN_DUTIES), expires_in: 300 })),
     );
-    store.set("passage.oidc.pending", JSON.stringify({ state: "s", verifier: "v", returnTo: "/" }));
+    store.set("depot.oidc.pending", JSON.stringify({ state: "s", verifier: "v", returnTo: "/" }));
     const auth = createAuth(config, env);
     await auth.ensureSession();
     installBearerFetch(auth, origin, target);
@@ -299,7 +299,7 @@ describe("main.tsx wiring under StrictMode", () => {
     const { env, store, assign, fetcher } = envAt("/auth/callback", "?code=c&state=s", () =>
       new Response(JSON.stringify({ access_token: tokenFor("u", CLERK_DUTIES), expires_in: 300 })),
     );
-    store.set("passage.oidc.pending", JSON.stringify({ state: "s", verifier: "v", returnTo: "/" }));
+    store.set("depot.oidc.pending", JSON.stringify({ state: "s", verifier: "v", returnTo: "/" }));
     const auth = bootstrapAuth(config, env, target);
     const wrapped = target.fetch;
     bootstrapAuth(config, envAt("/", "").env, target);
@@ -325,7 +325,7 @@ describe("main.tsx wiring under StrictMode", () => {
     const { env, store } = envAt("/auth/callback", "?code=c&state=s", () =>
       new Response(JSON.stringify({ access_token: tokenFor("u", CLERK_DUTIES), expires_in: 300 })),
     );
-    store.set("passage.oidc.pending", JSON.stringify({ state: "s", verifier: "v", returnTo: "/" }));
+    store.set("depot.oidc.pending", JSON.stringify({ state: "s", verifier: "v", returnTo: "/" }));
     render(
       <AuthRoot auth={bootstrapAuth(config, env, { fetch: (async () => new Response("{}")) as typeof fetch })} requireAuth>
         {(_duties, identity) => <p>identity {identity}</p>}

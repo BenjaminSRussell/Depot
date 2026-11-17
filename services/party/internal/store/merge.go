@@ -12,12 +12,12 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/outbox"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/party/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/outbox"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/party/internal/domain"
 )
 
 const DutyMerge = "party.merge"
@@ -110,7 +110,7 @@ func (s *Postgres) Merge(ctx context.Context, req MergeRequest) (MergeResult, er
 }
 
 // mergeIn runs the merge inside tx, which must already see every legal entity
-// of the tenant (passage.legal_entity_scopes = '*'). req ids are canonical.
+// of the tenant (depot.legal_entity_scopes = '*'). req ids are canonical.
 func mergeIn(ctx context.Context, tx pgx.Tx, tenantID string, req MergeRequest) (MergeResult, error) {
 	var res MergeResult
 	rows, err := lockParties(ctx, tx, tenantID, req.WinnerID, req.LoserID)

@@ -10,9 +10,9 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/treasury/internal/domain"
-	tevents "github.com/BenjaminSRussell/passage/services/treasury/internal/events"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/treasury/internal/domain"
+	tevents "github.com/BenjaminSRussell/depot/services/treasury/internal/events"
 )
 
 func issue(t *testing.T, s *Postgres, ctx context.Context, accountID, key string) Check {
@@ -332,7 +332,7 @@ func TestLoan_ScheduleStoredAndReplayed(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	in := NewLoan{LegalEntityID: le, Role: "lender", CounterpartyName: "Passage Holdings BV", Principal: "1000000", Currency: "EUR",
+	in := NewLoan{LegalEntityID: le, Role: "lender", CounterpartyName: "Depot Holdings BV", Principal: "1000000", Currency: "EUR",
 		StartDate: "2026-06-01", MaturityDate: "2026-09-01", ScheduleType: "Bullet", FixedRate: "0.03", DayCount: "ACT/360", PeriodMonths: 1, Schedule: schedule}
 	loan, err := s.CreateLoan(ctx, in, "loan-1")
 	if err != nil {

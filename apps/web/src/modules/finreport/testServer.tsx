@@ -28,7 +28,7 @@ export function text(status: number, body: string, headers?: Record<string, stri
 }
 
 export function problem(status: number, code: string, detail: string): Reply {
-  return json(status, { type: `https://passage.dev/problems/${code}`, title: "Error", status, code, detail });
+  return json(status, { type: `https://depot.dev/problems/${code}`, title: "Error", status, code, detail });
 }
 
 /** Installs the fetch stub for the calling test file. */

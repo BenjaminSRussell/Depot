@@ -35,5 +35,5 @@ CREATE TABLE IF NOT EXISTS invoice_installment (
 ALTER TABLE invoice_installment ENABLE ROW LEVEL SECURITY;
 ALTER TABLE invoice_installment FORCE ROW LEVEL SECURITY;
 CREATE POLICY invoice_installment_tenant_access ON invoice_installment AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);

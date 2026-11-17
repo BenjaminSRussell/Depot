@@ -1,6 +1,6 @@
 # fieldservice (wave 45, slices 1 to 7)
 
-Service management core of Passage: service agreements with SLA profiles, the
+Service management core of Depot: service agreements with SLA profiles, the
 entitlement resolver, SLA clocks on service cases with the case status machine,
 pause and resume, the SLA monitor (warning and breach events), service work orders
 with coverage-aware billing, the work-order status machine with follow-up orders and
@@ -17,7 +17,7 @@ service management (agreements, service orders, service objects), the AX/D365 ca
 framework (CaseDetail, CaseCategory, CaseProcess) and SAP CS (service orders,
 installed base, warranty check, solution database, WTY warranty claims) for these slices.
 
-Wave reference: PSG-45 / `docs/prd/phase-8-projects-people-service.md` section 8.45.
+Wave reference: DPT-45 / `docs/prd/phase-8-projects-people-service.md` section 8.45.
 Dependencies on earlier waves (locations, pricing, serial shipments, invoicing,
 workers) are reached through events or handoffs; see `NOT-IMPLEMENTED.md`.
 
@@ -35,16 +35,16 @@ internal/store          Postgres repositories under RLS (dbx.WithTenantTx), idem
 internal/api            HTTP handlers under /v1/service and /v1/cases, validation, problem details
 internal/events         event types and payloads (see events/asyncapi.yaml)
 migrations/             0001_init.sql (RLS, tenant_id first, money numeric(20,6) + currency),
-                        0002/0003 passage_app grants, 0004_case_lifecycle.sql (case version, pause,
+                        0002/0003 depot_app grants, 0004_case_lifecycle.sql (case version, pause,
                         warning instants, emitted alerts; work-order completion, follow-up, first-time fix),
                         0005_objects_activities_knowledge.sql (service objects, activities, knowledge
-                        articles and votes, with their passage_app grants),
+                        articles and votes, with their depot_app grants),
                         0006_generic_cases.sql (case processes, categories, generic cases,
-                        associations and the case log, with their passage_app grants),
+                        associations and the case log, with their depot_app grants),
                         0007 supplier claims and email intake, 0008_agreement_lifecycle_visits.sql
                         (agreement version and status log, included-visit consumption),
                         0009_dispatch.sql (technicians, work-order scheduling and assignment columns,
-                        published dispatch runs, with their passage_app grants),
+                        published dispatch runs, with their depot_app grants),
                         0011_dispatch_optimization.sql (optimizer runs: snapshot, result, outcome, backoff)
 api/openapi.yaml        OpenAPI 3.1 for every endpoint
 events/asyncapi.yaml    AsyncAPI 3 for every event published
@@ -168,29 +168,29 @@ and the assignment). Times on these screens are UTC.
 ## Run
 
 ```
-export DATABASE_URL=postgres://passage_app:...@localhost:5432/passage_service
+export DATABASE_URL=postgres://depot_app:...@localhost:5432/depot_service
 export MIGRATE_ON_START=true          # dev only
 go run ./cmd/fieldservice             # HTTP_ADDR :8080, ADMIN_ADDR :9090
 ```
 
-Environment: `DATABASE_URL` (required), `MIGRATE_ON_START`, `HTTP_ADDR`, `ADMIN_ADDR`, `DISPATCH_URL` (base URL of passage-dispatch; without it optimizations answer 503 `SVC-DSP-017`) with the service-token signing key.
+Environment: `DATABASE_URL` (required), `MIGRATE_ON_START`, `HTTP_ADDR`, `ADMIN_ADDR`, `DISPATCH_URL` (base URL of depot-dispatch; without it optimizations answer 503 `SVC-DSP-017`) with the service-token signing key.
 
 ## Test
 
 ```
 go vet ./... && go test ./...
-PASSAGE_TEST_DATABASE_URL=postgres://... PASSAGE_TEST_APP_DATABASE_URL=postgres://passage_app:...@... go test ./...
-# store and API tests against Postgres, application queries as the NOSUPERUSER NOBYPASSRLS passage_app
+DEPOT_TEST_DATABASE_URL=postgres://... DEPOT_TEST_APP_DATABASE_URL=postgres://depot_app:...@... go test ./...
+# store and API tests against Postgres, application queries as the NOSUPERUSER NOBYPASSRLS depot_app
 ```
 
 Domain tests are table-driven plus `pgregory.net/rapid` properties (calendar
 add/subtract inverse, DST-safe). Store and API tests use `platform/testkit` and skip
-without `PASSAGE_TEST_DATABASE_URL`.
+without `DEPOT_TEST_DATABASE_URL`.
 
 ## Behaviour notes
 
 - Technician day and captures (FR-45.8, issue #45): `GET /v1/service/technicians/{id|me}/day` returns the published route of a local day (own worker or office staff only); `PUT /work-orders/{id}/captures/{captureId}` stores a PNG or JPEG idempotently (photos 1,600 px, signatures PNG, 2 MB; type read from the bytes); the action log takes PHOTO and CHECKLIST, a required open checklist item refuses COMPLETE (`SVC-WO-003`), the completed event carries the truck and the consumed PART lines for inventory (BR-45.7). Migration 0012. The app is `apps/technician`.
-- Dispatch optimization (BR-45.3, issue #45): a request snapshots the territory-day's open work orders, qualified technicians and held visits into one run for passage-dispatch (CP-SAT, greedy fallback), over a service token carrying only `dispatch.run.create` or `dispatch.run.read`. There is no background worker: `:sync` polls the run. A failure backs off `min(3600, 60*2^n)` seconds and parks at the 5th failure, or at once when dispatch refuses the problem (400/422); `:retry` revives a parked run. `:accept` writes the plan through the normal assignment path, one savepoint per visit, reports what it could not apply, and a second accept returns the stored outcome. A held visit the technician no longer qualifies for (skill, territory, shift or window changed since the assignment) takes the technician out of the run with the reason `HELD_VISIT_STALE`, listed with the visit in `skipped` so a dispatcher can fix the assignment; the other technicians are still planned. Held visits are the technician's visits on the day in all of the technician's territories, not only the run's; one from the night before that ended before the shift starts is ignored. A work order no technician can reach within a day's travel and a technician with nothing within reach are skipped as `TOO_FAR`. A territory-day holds at most 300 held visits: the technician at the cut-off and every technician after it by id are skipped as `OVER_LIMIT`, even one with no visits. A run still QUEUED or RUNNING after 10 minutes counts as a failure and is submitted again, and each `:retry` starts a new idempotency generation (`<id>:<generation>:<attempt>`) so dispatch does not replay the earlier failed run. Requesting needs a caller scoped to the one legal entity (403 otherwise).
+- Dispatch optimization (BR-45.3, issue #45): a request snapshots the territory-day's open work orders, qualified technicians and held visits into one run for depot-dispatch (CP-SAT, greedy fallback), over a service token carrying only `dispatch.run.create` or `dispatch.run.read`. There is no background worker: `:sync` polls the run. A failure backs off `min(3600, 60*2^n)` seconds and parks at the 5th failure, or at once when dispatch refuses the problem (400/422); `:retry` revives a parked run. `:accept` writes the plan through the normal assignment path, one savepoint per visit, reports what it could not apply, and a second accept returns the stored outcome. A held visit the technician no longer qualifies for (skill, territory, shift or window changed since the assignment) takes the technician out of the run with the reason `HELD_VISIT_STALE`, listed with the visit in `skipped` so a dispatcher can fix the assignment; the other technicians are still planned. Held visits are the technician's visits on the day in all of the technician's territories, not only the run's; one from the night before that ended before the shift starts is ignored. A work order no technician can reach within a day's travel and a technician with nothing within reach are skipped as `TOO_FAR`. A territory-day holds at most 300 held visits: the technician at the cut-off and every technician after it by id are skipped as `OVER_LIMIT`, even one with no visits. A run still QUEUED or RUNNING after 10 minutes counts as a failure and is submitted again, and each `:retry` starts a new idempotency generation (`<id>:<generation>:<attempt>`) so dispatch does not replay the earlier failed run. Requesting needs a caller scoped to the one legal entity (403 otherwise).
 - SLA clocks count business minutes of the profile calendar (Monday to Friday between
   opening and closing, the profile's holidays excluded) in the profile's time zone
   (`time/tzdata` is embedded); a 24x7 profile counts wall-clock minutes.
@@ -232,7 +232,7 @@ without `PASSAGE_TEST_DATABASE_URL`.
   other than the author, `KB-PUB-001`) or sent back, PUBLISHED retired or revised
   into a new DRAFT version (one open version at a time, `KB-ART-003`). Publishing
   retires the earlier PUBLISHED version of the same language in the same transaction
-  (`KB-PUB-002` warning) and writes `dev.passage.knowledge.article.published.v1`.
+  (`KB-PUB-002` warning) and writes `dev.depot.knowledge.article.published.v1`.
   Search ranks PUBLISHED articles of the language by ts_rank (normalized to the best
   match) × 0.6 + item 0.25 + incident type 0.10 + asset type 0.05 and returns the top
   5 by default. Each user has one helpfulness vote per version; the helpful percent
@@ -282,7 +282,7 @@ without `PASSAGE_TEST_DATABASE_URL`.
   `{entityType: "case", entityId: <case id>}` and whose subject equals the template.
   A refusal is `CASE-STG-001` and names what is missing. Back one stage needs a
   reason; anything else is `CASE-STG-002`. Each move is logged and writes
-  `dev.passage.case.stage.changed.v1` in the same transaction.
+  `dev.depot.case.stage.changed.v1` in the same transaction.
 - Status: OPEN to RESOLVED (a resolution code, from the category's list when it has
   one: `CASE-RES-001`, `CASE-RES-002`) or CANCELED; RESOLVED to CLOSED. CANCELED is
   final. `:reopen` takes a RESOLVED or CLOSED case: within the category's reopen
@@ -312,7 +312,7 @@ without `PASSAGE_TEST_DATABASE_URL`.
   ACCEPTED, PARTIALLY_ACCEPTED or REJECTED (`/decision`; never more than claimed per
   line: `SVC-SWC-003`) → SETTLED by the credit note quoting the vendor reference and
   crediting exactly the accepted total, which writes
-  `dev.passage.service.supplierclaim.settled.v1` for the GL warranty recovery →
+  `dev.depot.service.supplierclaim.settled.v1` for the GL warranty recovery →
   CLOSED. A REJECTED claim closes with its reason and posts nothing.
 - Email intake (FR-45.16, BR-45.13): a mailbox maps an address to a legal entity
   and a default category (not SERVICE, CUSTOMER_SERVICE or COLLECTIONS). An inbound
@@ -348,7 +348,7 @@ without `PASSAGE_TEST_DATABASE_URL`.
 
 ## Error codes
 
-Problem details use `application/problem+json`; `type` is `https://passage.dev/problems/<code>`.
+Problem details use `application/problem+json`; `type` is `https://depot.dev/problems/<code>`.
 
 | Code | HTTP | Meaning |
 |---|---|---|

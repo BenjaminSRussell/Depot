@@ -3,7 +3,7 @@ package domain
 import (
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/money"
+	"github.com/BenjaminSRussell/depot/platform/money"
 )
 
 // maxRateScale is the most decimals a cost rate may carry (numeric(20,6)).

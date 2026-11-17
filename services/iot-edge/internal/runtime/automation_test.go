@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/services/iot-edge/internal/mfs"
+	"github.com/BenjaminSRussell/depot/services/iot-edge/internal/mfs"
 )
 
 const (

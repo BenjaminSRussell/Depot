@@ -1,4 +1,4 @@
-{{- if include "passage-mr.fenced" . }}
+{{- if include "depot-mr.fenced" . }}
 # Network half of the fence (BR-50.1, FR-50.5). The Postgres pods of this
 # region accept traffic only from their own cluster and the CNPG operator, so
 # no application, pooler or replication client can reach them. No other policy
@@ -12,7 +12,7 @@ metadata:
   name: {{ .Values.postgres.clusterName }}-fence
   namespace: {{ .Values.region.namespace }}
   labels:
-    {{- include "passage-mr.labels" . | nindent 4 }}
+    {{- include "depot-mr.labels" . | nindent 4 }}
 spec:
   podSelector:
     matchLabels:

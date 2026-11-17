@@ -15,7 +15,7 @@ import (
 func dec(s string) decimal.Decimal { return decimal.RequireFromString(s) }
 
 var (
-	us        = Party{Qualifier: "ZZ", ID: "PASSAGE"}
+	us        = Party{Qualifier: "ZZ", ID: "DEPOT"}
 	them      = Party{Qualifier: "ZZ", ID: "DISTRIBUTOR"}
 	generated = time.Date(2026, 10, 21, 12, 0, 0, 0, time.UTC)
 )

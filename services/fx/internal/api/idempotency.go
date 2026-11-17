@@ -6,7 +6,7 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
 )
 
 const (

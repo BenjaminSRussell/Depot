@@ -7,13 +7,13 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/numbering/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/numbering/internal/store"
-	"github.com/BenjaminSRussell/passage/services/numbering/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/numbering/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/numbering/internal/store"
+	"github.com/BenjaminSRussell/depot/services/numbering/migrations"
 )
 
 func principal(n int) tenant.Principal {
@@ -107,8 +107,8 @@ func TestMigrationsApplyWithRLS(t *testing.T) {
 	var currentUser string
 	var roleSuper, roleBypass bool
 	metadataErr := pool.QueryRow(ctx, `select current_user, r.rolsuper, r.rolbypassrls from pg_roles r where r.rolname = current_user`).Scan(&currentUser, &roleSuper, &roleBypass)
-	if metadataErr != nil || currentUser != "passage_app" || roleSuper || roleBypass {
-		t.Fatalf("RLS test must use non-bypass passage_app role: user=%q super=%v bypass=%v err=%v", currentUser, roleSuper, roleBypass, metadataErr)
+	if metadataErr != nil || currentUser != "depot_app" || roleSuper || roleBypass {
+		t.Fatalf("RLS test must use non-bypass depot_app role: user=%q super=%v bypass=%v err=%v", currentUser, roleSuper, roleBypass, metadataErr)
 	}
 	for _, table := range []string{"number_sequence", "number_sequence_state", "number_allocation", "outbox"} {
 		var enabled, forced bool

@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/services/transport/internal/api"
-	"github.com/BenjaminSRussell/passage/services/transport/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/transport/internal/api"
+	"github.com/BenjaminSRussell/depot/services/transport/internal/domain"
 )
 
 func TestCarrierServices_CreateNormalisesTheCodeAndValidates(t *testing.T) {

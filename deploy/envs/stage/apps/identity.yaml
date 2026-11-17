@@ -10,7 +10,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/BenjaminSRussell/Passage.git
+    repoURL: https://github.com/BenjaminSRussell/Depot.git
     targetRevision: main
     path: services/identity/charts/identity
     helm:

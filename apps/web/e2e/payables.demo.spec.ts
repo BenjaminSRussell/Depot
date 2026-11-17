@@ -15,7 +15,7 @@ async function blockingViolations(page: Page): Promise<string[]> {
 
 /** Payables and print requests the demo backend had no handler for. */
 async function unhandled(page: Page): Promise<string[]> {
-  const misses = await page.evaluate(() => (window as unknown as { __passageDemoMisses?: string[] }).__passageDemoMisses ?? []);
+  const misses = await page.evaluate(() => (window as unknown as { __depotDemoMisses?: string[] }).__depotDemoMisses ?? []);
   return misses.filter((m) => /\/(payables|print)\//.test(m));
 }
 

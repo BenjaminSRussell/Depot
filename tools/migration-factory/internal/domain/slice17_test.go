@@ -257,17 +257,17 @@ func TestReplay_ValidateOrderAndTrialBalance(t *testing.T) {
 }
 
 // BR-49.10: a cut-over entity refuses legacy changes made at or after its cutover, a known legacy
-// id matches its Passage record, and a batch keeps only the latest change of a record.
+// id matches its Depot record, and a batch keeps only the latest change of a record.
 func TestCoexistence_RouteInbound(t *testing.T) {
 	cut := time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC)
 	f := CoexistFlag{SourceSystem: SourceAX2012, Company: "USMF", Entity: "customer", Mode: CoexistLegacy}
 	if err := f.SetMode(CoexistLegacy, "u", cut); err == nil {
 		t.Fatal("setting the current mode must be refused")
 	}
-	if err := f.SetMode(CoexistPassage, "", cut); err == nil {
+	if err := f.SetMode(CoexistDepot, "", cut); err == nil {
 		t.Fatal("an unsigned change must be refused")
 	}
-	if err := f.SetMode(CoexistPassage, "mgr", cut); err != nil || f.Version != 1 || f.CutoverAt == nil {
+	if err := f.SetMode(CoexistDepot, "mgr", cut); err != nil || f.Version != 1 || f.CutoverAt == nil {
 		t.Fatalf("cutover %+v %v", f, err)
 	}
 	in := []InboundRecord{
@@ -284,7 +284,7 @@ func TestCoexistence_RouteInbound(t *testing.T) {
 			t.Fatalf("record %d: %s, want %s (%s)", i, r.Decision, want[i], r.Reason)
 		}
 	}
-	if got[0].PassageID != "p-1" || !strings.HasPrefix(got[1].Reason, MsgCoexistCutOver) {
+	if got[0].DepotID != "p-1" || !strings.HasPrefix(got[1].Reason, MsgCoexistCutOver) {
 		t.Fatalf("routed %+v", got[:2])
 	}
 	if err := f.SetMode(CoexistLegacy, "mgr", cut.Add(time.Hour)); err != nil || f.CutoverAt != nil || f.Version != 2 {

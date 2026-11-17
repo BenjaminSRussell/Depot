@@ -8,10 +8,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/eam/internal/store"
-	"github.com/BenjaminSRussell/passage/services/eam/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/eam/internal/store"
+	"github.com/BenjaminSRussell/depot/services/eam/migrations"
 )
 
 // The validation and authorization paths below return before any store call,
@@ -34,11 +34,11 @@ func call(t *testing.T, h http.Handler, method, path, body string, headers map[s
 
 func headers(duties string) map[string]string {
 	return map[string]string{
-		"X-Passage-Tenant":       testkit.TenantID(1),
-		"X-Passage-Duties":       duties,
-		"Idempotency-Key":        "key-1",
-		"X-Passage-User":         "user-1",
-		"X-Passage-Legal-Entity": "00000000-0000-0000-0000-0000000000e1",
+		"X-Depot-Tenant":       testkit.TenantID(1),
+		"X-Depot-Duties":       duties,
+		"Idempotency-Key":      "key-1",
+		"X-Depot-User":         "user-1",
+		"X-Depot-Legal-Entity": "00000000-0000-0000-0000-0000000000e1",
 	}
 }
 
@@ -64,7 +64,7 @@ func TestCreateAsset_ValidationAndIdempotency(t *testing.T) {
 		body   string
 		status int
 	}{
-		{"missing idempotency key", map[string]string{"X-Passage-Tenant": testkit.TenantID(1), "X-Passage-Duties": "eam.asset.maintain"},
+		{"missing idempotency key", map[string]string{"X-Depot-Tenant": testkit.TenantID(1), "X-Depot-Duties": "eam.asset.maintain"},
 			`{}`, http.StatusBadRequest},
 		{"criticality out of range", headers("eam.asset.maintain"),
 			`{"name":"Pump","assetType":"PUMP","siteId":"` + testkit.TenantID(2) + `","criticality":9}`, http.StatusBadRequest},

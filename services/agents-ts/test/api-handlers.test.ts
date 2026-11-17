@@ -62,7 +62,7 @@ describe("caller authentication (verified bearer token)", () => {
   });
 
   it.each([
-    ["edge headers alone, no token", { "x-passage-tenant": T1, "x-passage-user": ADMIN, "x-passage-duties": "agents.admin" }],
+    ["edge headers alone, no token", { "x-depot-tenant": T1, "x-depot-user": ADMIN, "x-depot-duties": "agents.admin" }],
     ["a non-bearer authorization", { authorization: `Basic ${tokenFor(T1, ADMIN, "agents.admin")}` }],
     ["a malformed token", bearer("not.a.jwt.at-all")],
     ["a token signed by another key", bearer(signToken({ tid: T1, sub: ADMIN, duties: "agents.admin" }, { key: foreignKey }))],
@@ -75,9 +75,9 @@ describe("caller authentication (verified bearer token)", () => {
     ["no tenant", bearer(signToken({ sub: ADMIN }))],
     ["the nil platform tenant", bearer(signToken({ tid: "00000000-0000-0000-0000-000000000000", sub: ADMIN }))],
     ["no user", bearer(signToken({ tid: T1 }))],
-    ["a tenant header naming another tenant", { ...edgeHeaders(T1, ADMIN, "agents.admin"), "x-passage-tenant": T2 }],
-    ["a user header naming another user", { ...edgeHeaders(T1, ADMIN, "agents.admin"), "x-passage-user": SUP }],
-    ["a duties header adding a duty", { ...edgeHeaders(T1, CLERK, "agents.view"), "x-passage-duties": "agents.view,agents.admin" }],
+    ["a tenant header naming another tenant", { ...edgeHeaders(T1, ADMIN, "agents.admin"), "x-depot-tenant": T2 }],
+    ["a user header naming another user", { ...edgeHeaders(T1, ADMIN, "agents.admin"), "x-depot-user": SUP }],
+    ["a duties header adding a duty", { ...edgeHeaders(T1, CLERK, "agents.view"), "x-depot-duties": "agents.view,agents.admin" }],
   ])("refuses %s with 401 AGT-0401", async (_name, headers) => {
     expect(await thrown(() => testAuthenticate(headers))).toMatchObject({ status: 401, code: "AGT-0401" });
   });
@@ -150,7 +150,7 @@ describe("handleKillSwitchCommand (AC-47.6)", () => {
     expect(out.body).toEqual({ scope: "TENANT", tenantId: T1, active: true, version: 1, changedAt: NOW.toISOString(), byUser: ADMIN });
     expect(out$.events).toEqual([
       {
-        type: "dev.passage.agent.killswitch.changed.v1",
+        type: "dev.depot.agent.killswitch.changed.v1",
         tenantId: T1,
         data: { scope: "TENANT", tenant_id: T1, active: true, by_user: ADMIN, version: 1, changed_at: NOW.toISOString() },
       },
@@ -414,14 +414,14 @@ describe("KillSwitchFeed (FR-47.12)", () => {
     changed_at: NOW.toISOString(),
     ...over,
   });
-  const TYPE = "dev.passage.agent.killswitch.changed.v1";
+  const TYPE = "dev.depot.agent.killswitch.changed.v1";
 
   it("applies, reports duplicates and ignores other event types", () => {
     const reg = new KillSwitchRegistry(() => 0);
     const feed = new KillSwitchFeed(reg);
     expect(feed.handle({ type: TYPE, tenantid: T1, data: data() })).toBe("applied");
     expect(feed.handle({ type: TYPE, tenantid: T1, data: data() })).toBe("duplicate");
-    expect(feed.handle({ type: "dev.passage.agent.run.completed.v1", tenantid: T1, data: {} })).toBe("ignored");
+    expect(feed.handle({ type: "dev.depot.agent.run.completed.v1", tenantid: T1, data: {} })).toBe("ignored");
     expect(reg.isHalted(T1)).toBe(true);
     expect(reg.isHalted(T2)).toBe(false);
   });

@@ -10,15 +10,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/eventing"
-	"github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/scheduling/internal/api"
-	"github.com/BenjaminSRussell/passage/services/scheduling/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/scheduling/internal/store"
-	"github.com/BenjaminSRussell/passage/services/scheduling/internal/testdb"
+	"github.com/BenjaminSRussell/depot/platform/eventing"
+	"github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/scheduling/internal/api"
+	"github.com/BenjaminSRussell/depot/services/scheduling/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/scheduling/internal/store"
+	"github.com/BenjaminSRussell/depot/services/scheduling/internal/testdb"
 )
 
 type fakeSource struct {
@@ -103,7 +103,7 @@ func downtimeRecord(t *testing.T, offset int64, eventID, tenantID, resourceID, d
 	if err != nil {
 		t.Fatal(err)
 	}
-	evt := events.Event{SpecVersion: "1.0", ID: eventID, Source: "/passage/eam", Type: api.DowntimeRecordedType, Time: time.Now().UTC(),
+	evt := events.Event{SpecVersion: "1.0", ID: eventID, Source: "/depot/eam", Type: api.DowntimeRecordedType, Time: time.Now().UTC(),
 		DataContentType: "application/json", Data: data, TenantID: tenantID}
 	value, err := json.Marshal(evt)
 	if err != nil {
@@ -163,7 +163,7 @@ func TestDowntimeConsumer_AnotherTenantsResourceIsNotFoundAndDeadLettered(t *tes
 		t.Fatalf("dead-lettered %+v, want offsets 1 and 2", dlq.sent)
 	}
 	for _, p := range dlq.sent {
-		if p.topic != "passage.eam.downtime.dlq" || p.reason != "permanent" {
+		if p.topic != "depot.eam.downtime.dlq" || p.reason != "permanent" {
 			t.Fatalf("parked %+v", p)
 		}
 	}
@@ -225,15 +225,15 @@ func TestKafkaConfig(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.Password != "s3cret" || cfg.Group != "scheduling-downtime" || len(cfg.Topics) != 1 || cfg.Topics[0] != "passage.eam.downtime" {
+	if cfg.Password != "s3cret" || cfg.Group != "scheduling-downtime" || len(cfg.Topics) != 1 || cfg.Topics[0] != "depot.eam.downtime" {
 		t.Fatalf("config = %+v", cfg)
 	}
 	orders, err := orderKafkaConfig(env(map[string]string{"KAFKA_BROKERS": "a:9093", "KAFKA_GROUP": "downtime-override", "KAFKA_USERNAME": "scheduling-consumer", "KAFKA_PASSWORD_FILE": passwordFile}))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if orders.Group != "scheduling-order-import" || orders.Password != "s3cret" || len(orders.Topics) != 1 || orders.Topics[0] != "passage.production.order" {
-		t.Fatalf("order config = %+v, want its own group (KAFKA_GROUP is the downtime consumer's) on passage.production.order", orders)
+	if orders.Group != "scheduling-order-import" || orders.Password != "s3cret" || len(orders.Topics) != 1 || orders.Topics[0] != "depot.production.order" {
+		t.Fatalf("order config = %+v, want its own group (KAFKA_GROUP is the downtime consumer's) on depot.production.order", orders)
 	}
 	orders, err = orderKafkaConfig(env(map[string]string{"KAFKA_BROKERS": "a:9093", "KAFKA_ORDER_GROUP": "orders-blue"}))
 	if err != nil || orders.Group != "orders-blue" {

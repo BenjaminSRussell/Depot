@@ -12,11 +12,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/api"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/store/memstore"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/api"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/store/memstore"
 )
 
 const (
@@ -32,7 +32,7 @@ var (
 	testTax     = domain.FakeTaxCalculator{Result: domain.TaxResult{Code: "VAT0"}}
 	testParties = domain.FakeSelfBillParties{Parties: domain.SelfBillParties{
 		Supplier: domain.SelfBillParty{Name: "Acme Supplies GmbH", Address: "Hauptstr 1, 10115 Berlin", Country: "DE", RegistrationNumber: "HRB 123"},
-		Customer: domain.SelfBillParty{Name: "Passage Werke AG", Address: "Ring 5, 80331 Muenchen", Country: "DE", RegistrationNumber: "HRB 999"},
+		Customer: domain.SelfBillParty{Name: "Depot Werke AG", Address: "Ring 5, 80331 Muenchen", Country: "DE", RegistrationNumber: "HRB 999"},
 	}}
 )
 
@@ -77,7 +77,7 @@ func (rg *rig) key() string {
 }
 
 func duty(name, key string, extra ...string) headers {
-	h := headers{"X-Passage-Tenant": testkit.TenantID(1), "X-Passage-Legal-Entity": legalEntityID, "X-Passage-Duties": name, "Idempotency-Key": key, "X-Passage-User": "test-user"}
+	h := headers{"X-Depot-Tenant": testkit.TenantID(1), "X-Depot-Legal-Entity": legalEntityID, "X-Depot-Duties": name, "Idempotency-Key": key, "X-Depot-User": "test-user"}
 	for i := 0; i+1 < len(extra); i += 2 {
 		h[extra[i]] = extra[i+1]
 	}
@@ -197,8 +197,8 @@ func TestDirectReceipt_ValidationAndAuth(t *testing.T) {
 	}
 	problemCode(t, rg.call(http.MethodPost, receiptsPath, directBody("P", 10, 4, ""), duty("receiving.ap.inquire", "k")), http.StatusForbidden, "AUTH-0003")
 	problemCode(t, rg.call(http.MethodPost, receiptsPath, directBody("P", 10, 4, ""), headers{"Idempotency-Key": "k"}), http.StatusUnauthorized, "AUTH-0001")
-	problemCode(t, rg.call(http.MethodPost, receiptsPath, directBody("P", 10, 4, ""), duty("receiving.receipt.maintain", "k", "X-Passage-Legal-Entity", ledgerID)), http.StatusForbidden, "AUTH-0003")
-	problemCode(t, rg.call(http.MethodPost, receiptsPath, directBody("P", 10, 4, ""), headers{"X-Passage-Tenant": testkit.TenantID(1), "X-Passage-Duties": "receiving.receipt.maintain"}), http.StatusBadRequest, "COM-0001")
+	problemCode(t, rg.call(http.MethodPost, receiptsPath, directBody("P", 10, 4, ""), duty("receiving.receipt.maintain", "k", "X-Depot-Legal-Entity", ledgerID)), http.StatusForbidden, "AUTH-0003")
+	problemCode(t, rg.call(http.MethodPost, receiptsPath, directBody("P", 10, 4, ""), headers{"X-Depot-Tenant": testkit.TenantID(1), "X-Depot-Duties": "receiving.receipt.maintain"}), http.StatusBadRequest, "COM-0001")
 }
 
 func TestDirectReceipt_CallerWithoutEntityScopeIsForbidden(t *testing.T) {
@@ -289,7 +289,7 @@ func TestPost_LedgerEventAndGrirInOneStep(t *testing.T) {
 	if len(rg.ledger.Entries) != 1 || rg.ledger.Entries[0].IdempotencyKey != "post:receiving:productreceipt:"+got.ID+":receipt" {
 		t.Fatalf("ledger entries %+v", rg.ledger.Entries)
 	}
-	if evts := rg.st.Events(); len(evts) != 1 || evts[0].Type != "dev.passage.receiving.receipt.posted.v1" || !strings.Contains(string(evts[0].Data), `"ledger_entry_id":"fake-entry-1"`) {
+	if evts := rg.st.Events(); len(evts) != 1 || evts[0].Type != "dev.depot.receiving.receipt.posted.v1" || !strings.Contains(string(evts[0].Data), `"ledger_entry_id":"fake-entry-1"`) {
 		t.Fatalf("events %+v", evts)
 	}
 	page := decode[struct {
@@ -376,7 +376,7 @@ func TestCorrect_CreditsNeverBelowInvoicedQuantity(t *testing.T) {
 		t.Fatalf("GR/IR balance %s after receipt, invoice and correction, want 0 (everything received is invoiced)", balance)
 	}
 	evts := rg.st.Events()
-	if evts[len(evts)-1].Type != "dev.passage.receiving.receipt.corrected.v1" || !strings.Contains(string(evts[len(evts)-1].Data), `"qty_delta":"-60"`) {
+	if evts[len(evts)-1].Type != "dev.depot.receiving.receipt.corrected.v1" || !strings.Contains(string(evts[len(evts)-1].Data), `"qty_delta":"-60"`) {
 		t.Fatalf("events %+v", evts)
 	}
 	page := decode[struct {
@@ -442,7 +442,7 @@ func TestCancel_ByState(t *testing.T) {
 		t.Fatalf("cancelled grir %+v", cleared)
 	}
 	evts := rg.st.Events()
-	if evts[len(evts)-1].Type != "dev.passage.receiving.receipt.corrected.v1" || !strings.Contains(string(evts[len(evts)-1].Data), `"kind":"CANCELLATION"`) {
+	if evts[len(evts)-1].Type != "dev.depot.receiving.receipt.corrected.v1" || !strings.Contains(string(evts[len(evts)-1].Data), `"kind":"CANCELLATION"`) {
 		t.Fatalf("events %+v", evts)
 	}
 }
@@ -471,7 +471,7 @@ func TestInvoice_PostsClearsGrirAndEmits(t *testing.T) {
 		t.Fatalf("invoice entry %+v grir %s ap %s", entry, rg.ledger.Balance("2100"), rg.ledger.Balance("2000"))
 	}
 	evts := rg.st.Events()
-	if evts[len(evts)-1].Type != "dev.passage.payables.invoice.posted.v1" || !strings.Contains(string(evts[len(evts)-1].Data), `"invoice_number":"INV-1"`) {
+	if evts[len(evts)-1].Type != "dev.depot.payables.invoice.posted.v1" || !strings.Contains(string(evts[len(evts)-1].Data), `"invoice_number":"INV-1"`) {
 		t.Fatalf("events %+v", evts)
 	}
 	page := decode[struct {
@@ -503,7 +503,7 @@ func TestInvoice_EventCarriesVendorGroupFromParty(t *testing.T) {
 			decode[invoiceJSON](t, rg.call(http.MethodPost, invoicesPath, invoiceBody("INV-1", r.ID, 4, ""), rg.apPoster()), http.StatusCreated)
 			evts := rg.st.Events()
 			data := string(evts[len(evts)-1].Data)
-			if evts[len(evts)-1].Type != "dev.passage.payables.invoice.posted.v1" {
+			if evts[len(evts)-1].Type != "dev.depot.payables.invoice.posted.v1" {
 				t.Fatalf("last event %s", evts[len(evts)-1].Type)
 			}
 			if tc.want != "" && !strings.Contains(data, tc.want) {
@@ -533,7 +533,7 @@ func TestInvoice_Rejections(t *testing.T) {
 	other := strings.Replace(invoiceBody("INV-4", r.ID, 1, ""), vendorID, "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", 1)
 	problemCode(t, rg.call(http.MethodPost, invoicesPath, other, rg.apPoster()), http.StatusUnprocessableEntity, "RCV-VAL-001")
 	problemCode(t, rg.call(http.MethodPost, invoicesPath, invoiceBody("INV-5", r.ID, 1, ""), duty("receiving.receipt.post", "k")), http.StatusForbidden, "AUTH-0003")
-	problemCode(t, rg.call(http.MethodPost, invoicesPath, invoiceBody("INV-5", r.ID, 1, ""), duty("receiving.vendor-invoice.post", "k", "X-Passage-Legal-Entity", ledgerID)), http.StatusForbidden, "AUTH-0003")
+	problemCode(t, rg.call(http.MethodPost, invoicesPath, invoiceBody("INV-5", r.ID, 1, ""), duty("receiving.vendor-invoice.post", "k", "X-Depot-Legal-Entity", ledgerID)), http.StatusForbidden, "AUTH-0003")
 	if len(rg.ledger.Entries) != entries {
 		t.Fatalf("rejected invoices reached the ledger: %d entries, want %d", len(rg.ledger.Entries), entries)
 	}
@@ -550,7 +550,7 @@ func TestInvoice_LedgerIDMustMatchTheConfiguredLedgerAndMayBeOmitted(t *testing.
 		t.Fatalf("an invoice for a foreign ledger reached the ledger: %d entries, want %d", len(rg.ledger.Entries), entries)
 	}
 
-	problemCode(t, rg.call(http.MethodPost, invoicesPath, foreign, duty("receiving.vendor-invoice.post", "k", "X-Passage-Legal-Entity", ledgerID)), http.StatusForbidden, "AUTH-0003")
+	problemCode(t, rg.call(http.MethodPost, invoicesPath, foreign, duty("receiving.vendor-invoice.post", "k", "X-Depot-Legal-Entity", ledgerID)), http.StatusForbidden, "AUTH-0003")
 
 	omitted := strings.Replace(invoiceBody("INV-2", r.ID, 1, ""), `"ledgerId":"`+ledgerID+`",`, "", 1)
 	got := decode[invoiceJSON](t, rg.call(http.MethodPost, invoicesPath, omitted, rg.apPoster()), http.StatusCreated)

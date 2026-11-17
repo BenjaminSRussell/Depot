@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Expand/contract linter for SQL migrations (PSG-50, FR-50.7, BR-50.7, OPS-1707).
+"""Expand/contract linter for SQL migrations (DPT-50, FR-50.7, BR-50.7, OPS-1707).
 
 BR-50.7: a migration that drops a column cannot ship in the same release as the code that stops
 using it. During a rolling deploy the previous release (N-1) keeps running against the migrated

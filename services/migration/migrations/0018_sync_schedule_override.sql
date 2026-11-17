@@ -1,4 +1,4 @@
--- Per-binding sync schedules (PSG-10 integration track S4). A binding used to take the scheduleCron of the lowest-id
+-- Per-binding sync schedules (DPT-10 integration track S4). A binding used to take the scheduleCron of the lowest-id
 -- active migrate project on its profile and nothing else, so a customer's customers table and its rarely-changing
 -- price table ran on the same clock. schedule_override is the binding's own cron (five fields, UTC, at least 15
 -- minutes between runs, checked by the API); when it is set it wins, when it is null the project's cron stays the

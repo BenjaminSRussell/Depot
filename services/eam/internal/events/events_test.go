@@ -5,7 +5,7 @@ import (
 	"regexp"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/events"
 )
 
 // TestEventTypes_AreValid checks every published type against the kernel naming rule.
@@ -24,7 +24,7 @@ func TestAsyncAPIDocumentsEveryType(t *testing.T) {
 		t.Fatal(err)
 	}
 	documented := map[string]bool{}
-	for _, m := range regexp.MustCompile(`(?m)^\s+name: (dev\.passage\.\S+)$`).FindAllStringSubmatch(string(spec), -1) {
+	for _, m := range regexp.MustCompile(`(?m)^\s+name: (dev\.depot\.\S+)$`).FindAllStringSubmatch(string(spec), -1) {
 		documented[m[1]] = true
 	}
 	for _, typ := range All() {

@@ -60,7 +60,7 @@ func TestTenantFeaturesToggleIsAuditedAndTenantScoped(t *testing.T) {
 
 	t.Run("the change is audited and emits one event", func(t *testing.T) {
 		audit, events := f.auditAndEvents(t, f.tenantA)
-		if len(audit) != 1 || audit[0] != "tenantfeatures.updated|admin-1" || len(events) != 1 || events[0] != "dev.passage.identity.tenantfeatures.updated.v1" {
+		if len(audit) != 1 || audit[0] != "tenantfeatures.updated|admin-1" || len(events) != 1 || events[0] != "dev.depot.identity.tenantfeatures.updated.v1" {
 			t.Fatalf("audit = %v events = %v", audit, events)
 		}
 	})

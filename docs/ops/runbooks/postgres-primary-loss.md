@@ -1,6 +1,6 @@
 # Runbook: Postgres primary loss (FR-50.2, FR-50.5)
 
-Symptoms: the `passage-pg-rw` service (CNPG cluster `passage-pg` in `passage-data`) has no endpoint,
+Symptoms: the `depot-pg-rw` service (CNPG cluster `depot-pg` in `depot-data`) has no endpoint,
 `cnpg_collector_up` drops, or the application readiness probe (`/readyz`, `SELECT 1` under 500 ms) fails
 for every service in the region.
 
@@ -11,26 +11,26 @@ transaction is lost. This runbook covers the case where the automatic promotion 
 the whole region is affected.
 
 ## 1. Single pod loss (automatic)
-1. `kubectl cnpg status passage-pg -n passage-data`. Confirm a new primary is elected and the `rw`
+1. `kubectl cnpg status depot-pg -n depot-data`. Confirm a new primary is elected and the `rw`
    service points to it.
-2. Services reconnect through the pooler (`passage-pg-pooler-rw`). Expect a failed-request window of
+2. Services reconnect through the pooler (`depot-pg-pooler-rw`). Expect a failed-request window of
    seconds. Check that the outbox backlog (unpublished outbox rows per service) drains within 5 minutes.
 3. Do not restart the lost pod by hand while CNPG is recovering it. Wait for it to rejoin as a replica.
 
 ## 2. Primary lost and no automatic promotion (within the region)
 1. Fence the region's writes before promoting anything, as in [failover](failover.md) step 1:
-   `ALTER ROLE passage_app NOLOGIN` and terminate its sessions on any instance that still answers, then
+   `ALTER ROLE depot_app NOLOGIN` and terminate its sessions on any instance that still answers, then
    scale application pods to zero.
 2. Pick the most advanced synchronous standby (`pg_stat_replication`, highest `replay_lsn`).
-3. Promote it with `kubectl cnpg promote passage-pg <instance> -n passage-data`. Record the LSN.
-4. `ALTER ROLE passage_app LOGIN` on the new primary and scale pods back up. Run the readiness check.
+3. Promote it with `kubectl cnpg promote depot-pg <instance> -n depot-data`. Record the LSN.
+4. `ALTER ROLE depot_app LOGIN` on the new primary and scale pods back up. Run the readiness check.
 5. Rebuild the lost node as a replica from the new primary (CNPG does this when the pod is recreated).
 
 ## 3. Whole region lost
 Go to [failover](failover.md). The RPO is the lag of the passive region at fence time (target <= 5 min,
 gated by `FAILOVER_MAX_LAG_S` = 300 s). Asynchronous cross-region streaming is the source of that gap.
 `cnpg.cross_region_sync.ledger` (`postgres.crossRegionSyncLedger`) would make the ledger RPO zero, but
-the chart only publishes the flag to `passage-ops`: CNPG replica clusters replicate asynchronously, so
+the chart only publishes the flag to `depot-ops`: CNPG replica clusters replicate asynchronously, so
 until that handoff is built every tenant has the asynchronous RPO.
 
 ## 4. Verify after any primary change

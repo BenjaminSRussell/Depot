@@ -11,12 +11,12 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
 
-	"github.com/BenjaminSRussell/passage/tools/migration-factory/internal/domain"
-	"github.com/BenjaminSRussell/passage/tools/migration-factory/internal/dq"
-	"github.com/BenjaminSRussell/passage/tools/migration-factory/internal/store"
+	"github.com/BenjaminSRussell/depot/tools/migration-factory/internal/domain"
+	"github.com/BenjaminSRussell/depot/tools/migration-factory/internal/dq"
+	"github.com/BenjaminSRussell/depot/tools/migration-factory/internal/store"
 )
 
 type recordDTO struct {
@@ -40,7 +40,7 @@ type extractRecordDTO struct {
 	OriginalAmount     string  `json:"originalAmount,omitempty"`
 	CashDiscountDate   *string `json:"cashDiscountDate,omitempty"`
 	CashDiscountAmount string  `json:"cashDiscountAmount,omitempty"`
-	// VendorID is the Passage vendor of an AP line when it is not named in load.payables.vendorIds.
+	// VendorID is the Depot vendor of an AP line when it is not named in load.payables.vendorIds.
 	VendorID string `json:"vendorId,omitempty"`
 }
 
@@ -54,7 +54,7 @@ type loadRequestDTO struct {
 	Payables *payablesRequestDTO `json:"payables,omitempty"`
 }
 
-// payablesRequestDTO names the Passage vendor of each legacy vendor.
+// payablesRequestDTO names the Depot vendor of each legacy vendor.
 type payablesRequestDTO struct {
 	VendorIDs map[string]string `json:"vendorIds,omitempty"`
 }

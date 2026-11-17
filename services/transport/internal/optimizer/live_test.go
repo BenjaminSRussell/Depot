@@ -6,16 +6,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/services/transport/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/transport/internal/domain"
 )
 
 // TestClient_LiveOptimizerContract runs the client against a real routing-py
-// (uvicorn tms_optimizer.api:app) when PASSAGE_TEST_OPTIMIZER_URL is set, so the
+// (uvicorn tms_optimizer.api:app) when DEPOT_TEST_OPTIMIZER_URL is set, so the
 // Go and Python wire formats are checked against each other.
 func TestClient_LiveOptimizerContract(t *testing.T) {
-	url := os.Getenv("PASSAGE_TEST_OPTIMIZER_URL")
+	url := os.Getenv("DEPOT_TEST_OPTIMIZER_URL")
 	if url == "" {
-		t.Skip("PASSAGE_TEST_OPTIMIZER_URL not set; skipping the live optimizer contract test")
+		t.Skip("DEPOT_TEST_OPTIMIZER_URL not set; skipping the live optimizer contract test")
 	}
 	c := New(url, nil)
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)

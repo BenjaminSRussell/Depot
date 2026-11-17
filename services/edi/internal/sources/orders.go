@@ -13,8 +13,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/edi/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/domain"
 )
 
 // The calls the cXML exchange makes on purchasing and receiving (#35, 35-4): read a purchase order to send it as an OrderRequest,

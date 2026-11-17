@@ -10,17 +10,17 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/eventing"
-	"github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/eventing"
+	"github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/store"
 )
 
 const (
 	ErsConsumerName     = "receiving-ers"
-	ReceiptPostedType   = "dev.passage.receiving.receipt.posted.v1"
-	ReceiptPostedTopic  = "passage.receiving.receipt"
+	ReceiptPostedType   = "dev.depot.receiving.receipt.posted.v1"
+	ReceiptPostedTopic  = "depot.receiving.receipt"
 	ersSettleTimeout    = 30 * time.Second
 	ersConsumerSkipNote = "receipt.posted did not settle"
 )

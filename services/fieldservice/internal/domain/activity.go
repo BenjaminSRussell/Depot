@@ -92,10 +92,10 @@ func ICalendar(entries []CalendarEntry, stamp time.Time) string {
 	const layout = "20060102T150405Z"
 	write("BEGIN:VCALENDAR")
 	write("VERSION:2.0")
-	write("PRODID:-//Passage//Field Service//EN")
+	write("PRODID:-//Depot//Field Service//EN")
 	for _, e := range entries {
 		write("BEGIN:VEVENT")
-		write("UID:" + icalEscape(e.UID) + "@passage")
+		write("UID:" + icalEscape(e.UID) + "@depot")
 		write("DTSTAMP:" + stamp.UTC().Format(layout))
 		write("DTSTART:" + e.Start.UTC().Format(layout))
 		if e.End != nil && !e.End.Before(e.Start) {

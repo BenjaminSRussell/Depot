@@ -24,7 +24,7 @@ from tms_optimizer.logpseudo import install_logging
 
 install_logging(os.environ)  # eu-data-boundary overlay or LOG_PSEUDONYMIZE=true: person values and emails in log lines are pseudonymized (#605)
 
-app = FastAPI(title="passage-tms-optimizer", version="0.1.0")
+app = FastAPI(title="depot-tms-optimizer", version="0.1.0")
 
 
 class _Model(BaseModel):

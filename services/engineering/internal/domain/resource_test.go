@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/services/engineering/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/engineering/internal/domain"
 )
 
 func ids(rs []domain.Resource) []string {

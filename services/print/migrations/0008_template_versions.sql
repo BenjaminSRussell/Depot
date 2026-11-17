@@ -16,8 +16,8 @@ CREATE TABLE IF NOT EXISTS print_document_template_version (
 ALTER TABLE print_document_template_version ENABLE ROW LEVEL SECURITY;
 ALTER TABLE print_document_template_version FORCE ROW LEVEL SECURITY;
 CREATE POLICY print_document_template_version_tenant_access ON print_document_template_version AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- The templates saved before this migration keep their current version as their first recorded one. The migration
 -- sets no tenant, so under the forced policies an owner that is not a superuser (the deployed shape) would read no row
@@ -33,8 +33,8 @@ ALTER TABLE print_document_template_version FORCE ROW LEVEL SECURITY;
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT ON print_document_template_version TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT ON print_document_template_version TO depot_app';
   END IF;
 END
 $$;

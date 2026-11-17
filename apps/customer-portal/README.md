@@ -1,6 +1,6 @@
 # customer-portal
 
-Customer-facing portal for wave 30 (PSG-30, issue #30; FR-30.14, FR-30.25), served at `customer.<env>.passage.dev`. A standalone Vite +
+Customer-facing portal for wave 30 (DPT-30, issue #30; FR-30.14, FR-30.25), served at `customer.<env>.depot.dev`. A standalone Vite +
 React 19 app (like `apps/supplier-portal`), not a shell module: customers are external users who must never reach the internal
 shell. It talks only to its BFF, `services/customer-portal-ts`. It reads, and makes three writes for the customer itself: an order, a return and a card or bank account payment.
 
@@ -32,7 +32,7 @@ an offline page and never stores an API response or a page; serve `sw.js` from t
 The customer picks open invoices and amounts; `POST /api/v1/payment-intents` (one Idempotency-Key per submit) has receivables create a
 Stripe PaymentIntent and answer its client secret. Only then is Stripe.js loaded, from `https://js.stripe.com/v3/` by a script tag
 (`src/stripe.ts`, no npm dependency), and the Payment Element is mounted in Stripe's iframe: the card number, CVC and bank details go
-from the browser to Stripe and never reach Passage (PCI SAQ A). The serving edge's Content-Security-Policy, when one is added, must allow
+from the browser to Stripe and never reach Depot (PCI SAQ A). The serving edge's Content-Security-Policy, when one is added, must allow
 `https://js.stripe.com` for scripts and frames and `https://api.stripe.com` for connections. After `confirmPayment` (or a 3-D Secure
 redirect back to `/pay/:id`) the page reads the payment from receivables, which changes it only on Stripe's signature-verified webhook.
 While a payment waits for the customer it holds its invoices; "Change the amounts" cancels it (`POST /api/v1/payment-intents/:id/cancel`)

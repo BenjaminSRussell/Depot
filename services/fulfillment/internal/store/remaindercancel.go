@@ -10,10 +10,10 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/fulfillment/internal/domain"
-	fulevents "github.com/BenjaminSRussell/passage/services/fulfillment/internal/events"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/fulfillment/internal/domain"
+	fulevents "github.com/BenjaminSRussell/depot/services/fulfillment/internal/events"
 )
 
 // RemainderLineIn is one line of sales' order.remaindercancelled.v1: the quantity the order line keeps.
@@ -74,7 +74,7 @@ func (s *Postgres) ApplyOrderRemainderCancelled(ctx context.Context, tx pgx.Tx, 
 		return res, errors.New("tenant context is required")
 	}
 	var saved string
-	if err := tx.QueryRow(ctx, `select coalesce(current_setting('passage.legal_entity_scopes', true), ''), set_config('passage.legal_entity_scopes', $1, true)`,
+	if err := tx.QueryRow(ctx, `select coalesce(current_setting('depot.legal_entity_scopes', true), ''), set_config('depot.legal_entity_scopes', $1, true)`,
 		strings.ToLower(in.LegalEntityID)).Scan(&saved, new(string)); err != nil {
 		return res, err
 	}
@@ -82,7 +82,7 @@ func (s *Postgres) ApplyOrderRemainderCancelled(ctx context.Context, tx pgx.Tx, 
 	if err != nil {
 		return res, err
 	}
-	_, err = tx.Exec(ctx, `select set_config('passage.legal_entity_scopes', $1, true)`, saved)
+	_, err = tx.Exec(ctx, `select set_config('depot.legal_entity_scopes', $1, true)`, saved)
 	return res, err
 }
 

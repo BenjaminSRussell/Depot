@@ -7,7 +7,7 @@ The back end of `apps/customer-portal`. TypeScript on Node 24 (types stripped, n
 
 | Part | Responsibility |
 |---|---|
-| `src/oidc.ts` | Code flow with PKCE (S256) against the Keycloak client `passage-portal-customer`. Verifies the ID token (RS256 from the realm JWKS, issuer, audience, expiry, nonce) and requires the `customer-user` realm role plus `tid`, `customer_id` and `le` claims. The access token is never used |
+| `src/oidc.ts` | Code flow with PKCE (S256) against the Keycloak client `depot-portal-customer`. Verifies the ID token (RS256 from the realm JWKS, issuer, audience, expiry, nonce) and requires the `customer-user` realm role plus `tid`, `customer_id` and `le` claims. The access token is never used |
 | `src/session.ts`, `src/redisStore.ts`, `src/resp.ts` | Sessions behind an HttpOnly `__Host-` cookie (30 min idle, 8 h absolute), single-use login state, CSRF token, per-session rate limit (300 calls a minute, one counter across pods when the store is shared). The store is an interface: in memory for development, or a Valkey or Redis server shared by the pods (`SESSION_STORE_URL`; a small RESP client, no dependency). An unreachable store is 503, never a sign-out |
 | `src/serviceToken.ts` | Signs service tokens (Ed25519, `platform/go/tenant` format) with `iss: customer-portal`, the session's tenant and one legal entity, `act` = contact, and `cus` = the customer. Grants: the customer-portal duties on receivables (read, and pay), billing and sales only |
 | `src/routes.ts` | The table of `/api/v1/*` routes and the one upstream call each becomes, with the one duty each carries. Reads are GET; the only writes are `POST /orders`, `POST /returns` `POST /payment-intents` and `POST /payment-intents/:id/cancel` (a card or ACH payment of the customer's own open items; receivables creates the Stripe PaymentIntent and answers only its client secret) |
@@ -28,9 +28,9 @@ writes need a CSRF token, a same-origin `Origin`, a JSON body up to 64 KiB and a
 ## Run
 
 Environment: `OIDC_ISSUER`, `OIDC_CLIENT_SECRET`, `OIDC_REDIRECT_URI`, `APP_ORIGIN`, `RECEIVABLES_URL`, `BILLING_URL`, `SALES_URL`, `PARTY_URL`, `IDENTITY_URL`, `PRINT_URL`,
-`PASSAGE_SERVICE_SIGNING_KEY` (or `_FILE`); optional `OIDC_CLIENT_ID`, endpoint overrides (`OIDC_END_SESSION_ENDPOINT`,
+`DEPOT_SERVICE_SIGNING_KEY` (or `_FILE`); optional `OIDC_CLIENT_ID`, endpoint overrides (`OIDC_END_SESSION_ENDPOINT`,
 `OIDC_POST_LOGOUT_REDIRECT_URI`), `SESSION_STORE_URL` with `SESSION_STORE_PASSWORD` (or `_FILE`), `HTTP_ADDR`, `COOKIE_SECURE=false`
-(local http). The services (receivables, billing, sales, party, identity and print) trust this key through `PASSAGE_SERVICE_PUBLIC_KEYS`
+(local http). The services (receivables, billing, sales, party, identity and print) trust this key through `DEPOT_SERVICE_PUBLIC_KEYS`
 (`customer-portal=<base64 public key>`).
 
 ```
@@ -49,4 +49,4 @@ The BFF implements OIDC back-channel logout (`POST /bff/backchannel-logout`, no 
 signature from the realm keys, issuer, audience, the logout event, `jti`, a recent `iat`, no `nonce`, a `sid` or `sub`) and deletes the
 portal sessions of that Keycloak session (or of that user when only `sub` is named), in memory or in the shared store (indexes by `sid`
 and `sub`). Identity's disable and remap call Keycloak's user logout, which sends the logout token to the client's
-`backchannel.logout.url` (set in `deploy/keycloak/realm-passage.json`); the edge must route that path to the BFF from Keycloak.
+`backchannel.logout.url` (set in `deploy/keycloak/realm-depot.json`); the edge must route that path to the BFF from Keycloak.

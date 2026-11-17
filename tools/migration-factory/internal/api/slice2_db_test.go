@@ -8,8 +8,8 @@ import (
 )
 
 // Database tests for slice 2: quarantine release, the legacy cross-reference lookup, the
-// parallel-run review and project beginning balances. They skip without PASSAGE_TEST_DATABASE_URL
-// and run as passage_app when PASSAGE_TEST_APP_DATABASE_URL is set.
+// parallel-run review and project beginning balances. They skip without DEPOT_TEST_DATABASE_URL
+// and run as depot_app when DEPOT_TEST_APP_DATABASE_URL is set.
 
 func releasePath(runID string, seq int) string {
 	return fmt.Sprintf("/api/v1/migration/runs/%s/quarantine/%d/release", runID, seq)
@@ -68,7 +68,7 @@ func TestRelease_CorrectedRecordLoadsAndReconcilesTheRun(t *testing.T) {
 	if n := count(t, admin, `select count(*) from legacy_xref where run_id = $1`, run.RunID); n != 200 {
 		t.Fatalf("legacy_xref rows = %d", n)
 	}
-	if n := count(t, admin, `select count(*) from outbox where type = 'dev.passage.migration.pack.reconciled.v1' and aggregate_id = $1`, run.RunID); n != 2 {
+	if n := count(t, admin, `select count(*) from outbox where type = 'dev.depot.migration.pack.reconciled.v1' and aggregate_id = $1`, run.RunID); n != 2 {
 		t.Fatalf("pack.reconciled events = %d, want the run's and the reconciling release's", n)
 	}
 	// The stored run reads back the same.
@@ -91,10 +91,10 @@ func TestRelease_CorrectedRecordLoadsAndReconcilesTheRun(t *testing.T) {
 
 	// The released record resolves through the cross-reference (FR-49.3).
 	x := decode[struct{ Items []xrefDTO }](t, do(t, h, request{method: "GET", path: "/api/v1/migration/xref?system=AX2012&table=open_items&id=OI-BAD", tenant: tenantA}))
-	if len(x.Items) != 1 || x.Items[0].Company != "USMF" || x.Items[0].PassageEntity != "open_item" || x.Items[0].RunID != run.RunID {
+	if len(x.Items) != 1 || x.Items[0].Company != "USMF" || x.Items[0].DepotEntity != "open_item" || x.Items[0].RunID != run.RunID {
 		t.Fatalf("xref %+v", x.Items)
 	}
-	back := decode[struct{ Items []xrefDTO }](t, do(t, h, request{method: "GET", path: "/api/v1/migration/xref?passageEntity=open_item&passageId=" + x.Items[0].PassageID, tenant: tenantA}))
+	back := decode[struct{ Items []xrefDTO }](t, do(t, h, request{method: "GET", path: "/api/v1/migration/xref?depotEntity=open_item&depotId=" + x.Items[0].DepotID, tenant: tenantA}))
 	if len(back.Items) != 1 || back.Items[0].LegacyID != "OI-BAD" {
 		t.Fatalf("reverse xref %+v", back.Items)
 	}
@@ -106,10 +106,10 @@ func TestRelease_CorrectedRecordLoadsAndReconcilesTheRun(t *testing.T) {
 	}
 }
 
-func parallelBody(period, passage1100 string) string {
+func parallelBody(period, depot1100 string) string {
 	return fmt.Sprintf(`{"period":%q,"sourceSystem":"AX2012","documentsReplayed":42000,"revenue":"1000000",
 		"legacy":[{"area":"TB","key":"USMF|4000|USD","amount":"500000.00"},{"area":"TB","key":"USMF|1100|USD","amount":"120.00"},{"area":"AR","key":"CIV-00123","amount":"99.99"}],
-		"passage":[{"area":"TB","key":"USMF|4000|USD","amount":"500000.01"},{"area":"TB","key":"USMF|1100|USD","amount":%q},{"area":"AR","key":"CIV-00123","amount":"99.99"}]}`, period, passage1100)
+		"depot":[{"area":"TB","key":"USMF|4000|USD","amount":"500000.01"},{"area":"TB","key":"USMF|1100|USD","amount":%q},{"area":"AR","key":"CIV-00123","amount":"99.99"}]}`, period, depot1100)
 }
 
 func TestParallelRun_DiffExplainSignOff(t *testing.T) {
@@ -126,7 +126,7 @@ func TestParallelRun_DiffExplainSignOff(t *testing.T) {
 	if len(run.Variances) != 2 {
 		t.Fatalf("variances %+v", run.Variances)
 	}
-	if n := count(t, admin, `select count(*) from outbox where type = 'dev.passage.migration.parallelrun.diffed.v1' and aggregate_id = $1`, run.ParallelRunID); n != 1 {
+	if n := count(t, admin, `select count(*) from outbox where type = 'dev.depot.migration.parallelrun.diffed.v1' and aggregate_id = $1`, run.ParallelRunID); n != 1 {
 		t.Fatalf("parallelrun.diffed events = %d", n)
 	}
 
@@ -229,7 +229,7 @@ func TestProjectWIP_OpeningLinesReconcilePerProject(t *testing.T) {
 	if n := count(t, admin, `select count(*) from project_opening_line where run_id = $1 and beginning_balance`, run.RunID); n != 120 {
 		t.Fatalf("AC-49.11: opening lines = %d", n)
 	}
-	if n := count(t, admin, `select count(*) from legacy_xref where run_id = $1 and passage_entity = 'project_opening_line'`, run.RunID); n != 120 {
+	if n := count(t, admin, `select count(*) from legacy_xref where run_id = $1 and depot_entity = 'project_opening_line'`, run.RunID); n != 120 {
 		t.Fatalf("xref rows = %d", n)
 	}
 

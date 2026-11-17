@@ -1,9 +1,9 @@
 openapi: 3.1.0
 info:
-  title: Passage Purchasing API
+  title: Depot Purchasing API
   version: 0.9.0
   description: |
-    Wave 17 (PSG-17) slices 1 to 9: purchase requisitions with policy-routed approval,
+    Wave 17 (DPT-17) slices 1 to 9: purchase requisitions with policy-routed approval,
     consolidation of approved requisition lines into purchase orders, purchase orders
     with agreement and trade-agreement pricing, the purchase order lifecycle (submit,
     approve, reject, confirm, cancel) with versioned change management, purchase
@@ -20,7 +20,7 @@ info:
     Mounted at /v1/procurement. The browser reaches the same paths under /api/v1/procurement
     through the web BFF. Errors are RFC 9457 problem details; see README for codes.
 servers:
-  - url: https://api.{env}.passage.dev
+  - url: https://api.{env}.depot.dev
     variables:
       env:
         default: dev
@@ -411,7 +411,7 @@ components:
       type: object
       required: [type, title, status]
       properties:
-        type: { type: string, format: uri, example: "https://passage.dev/problems/PRC-PRICE-001" }
+        type: { type: string, format: uri, example: "https://depot.dev/problems/PRC-PRICE-001" }
         title: { type: string }
         status: { type: integer }
         detail: { type: string }
@@ -2427,7 +2427,7 @@ paths:
   /v1/procurement/opening-orders:
     post:
       operationId: importOpeningPurchaseOrder
-      x-passage-duty: procurement.opening-order.import
+      x-depot-duty: procurement.opening-order.import
       description: >-
         Cutover import of purchase orders still open in the legacy system, called by the migration factory with a service token. All
         or nothing, 1 to 1000 lines of one legal entity, numbered from 1 in errors. Every line has a unique reference (the legacy line id),
@@ -2483,7 +2483,7 @@ paths:
         '500': { $ref: '#/components/responses/Problem' }
     get:
       operationId: listOpeningPurchaseOrders
-      x-passage-duty: procurement.opening-order.read
+      x-depot-duty: procurement.opening-order.read
       description: >-
         Imported opening batches of one legal entity (legal_entity), newest first, optionally one batch_key, with keyset paging (limit 1 to 200, default 50;
         pass the previous nextCursor as cursor). orderCount, lineCount, openQty and openValue are read back from the stored lines, so the loader can verify what landed
@@ -2512,7 +2512,7 @@ paths:
   /v1/procurement/requisitions:
     post:
       operationId: createRequisition
-      x-passage-duty: procurement.requisition.create
+      x-depot-duty: procurement.requisition.create
       summary: Create a DRAFT requisition (duty procurement.requisition.create)
       parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
       requestBody:
@@ -2534,7 +2534,7 @@ paths:
         '422': { description: "Validation (COM-0001, including a catalogEntryId the caller cannot see or a unit or product that differs from the entry), PRC-REQ-002 (more than 500 lines), PRC-CAT-004 (catalog not published to the legal entity and unit today), PRC-CAT-006 (catalog currency differs) or idempotency_key_reuse", content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } } }
     get:
       operationId: listRequisitions
-      x-passage-duty: procurement.requisition.create
+      x-depot-duty: procurement.requisition.create
       summary: List requisitions newest first (duty procurement.requisition.create)
       parameters:
         - { name: status, in: query, required: false, schema: { type: string, enum: [DRAFT, IN_REVIEW, APPROVED, REJECTED, CLOSED, CANCELLED] } }
@@ -2551,7 +2551,7 @@ paths:
   /v1/procurement/requisitions/{id}:
     get:
       operationId: getRequisition
-      x-passage-duty: procurement.requisition.create
+      x-depot-duty: procurement.requisition.create
       summary: Read a requisition (ETag = version; duty procurement.requisition.create or procurement.requisition.approve)
       parameters: [{ $ref: '#/components/parameters/Id' }]
       responses:
@@ -2565,7 +2565,7 @@ paths:
         '404': { description: Not found, content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } } }
     patch:
       operationId: updateRequisition
-      x-passage-duty: procurement.requisition.create
+      x-depot-duty: procurement.requisition.create
       summary: Edit a DRAFT requisition - its operating unit, currency or lines (BR-17.1; duty procurement.requisition.create)
       description: >-
         Only the requester (PRC-REQ-004), and only while the requisition is DRAFT: a new one, one reopened after a rejection, or one
@@ -2600,7 +2600,7 @@ paths:
   /v1/procurement/requisitions/{id}:submit:
     post:
       operationId: submitRequisition
-      x-passage-duty: procurement.requisition.create
+      x-depot-duty: procurement.requisition.create
       summary: Submit for approval; routes by amount and category; APPROVED when the chain is empty. A replayed Idempotency-Key returns the requisition as it is now.
       description: >-
         A requester whose REQUISITION spending limit in the requisition currency is below the total, or whose limit is past its recertification date
@@ -2624,7 +2624,7 @@ paths:
   /v1/procurement/requisitions/{id}:approve:
     post:
       operationId: approveRequisition
-      x-passage-duty: procurement.requisition.approve
+      x-depot-duty: procurement.requisition.approve
       summary: Approve the requisition's current level; APPROVED after the last level (BR-17.1; duty procurement.requisition.approve)
       description: >-
         Moves an IN_REVIEW requisition one level up its approverChain and, after the last level, to APPROVED with requisition.approved.v1.
@@ -2662,7 +2662,7 @@ paths:
   /v1/procurement/requisitions/{id}:reject:
     post:
       operationId: rejectRequisition
-      x-passage-duty: procurement.requisition.approve
+      x-depot-duty: procurement.requisition.approve
       summary: Send an IN_REVIEW requisition back with a reason; REJECTED (BR-17.1; duty procurement.requisition.approve)
       description: >-
         Moves an IN_REVIEW requisition to REJECTED and writes requisition.rejected.v1 with the level that rejected and the reason.
@@ -2695,7 +2695,7 @@ paths:
   /v1/procurement/requisitions/{id}:reopen:
     post:
       operationId: reopenRequisition
-      x-passage-duty: procurement.requisition.create
+      x-depot-duty: procurement.requisition.create
       summary: Return a REJECTED requisition to DRAFT so it can be submitted again (BR-17.1; duty procurement.requisition.create)
       description: >-
         Only the requester (PRC-REQ-004). The approver chain and the levels approved are cleared; submitting routes it afresh.
@@ -2720,7 +2720,7 @@ paths:
   /v1/procurement/requisitions/{id}:cancel:
     post:
       operationId: cancelRequisition
-      x-passage-duty: procurement.requisition.create
+      x-depot-duty: procurement.requisition.create
       summary: Cancel a DRAFT, REJECTED or APPROVED requisition and its OPEN lines (BR-17.1; duty procurement.requisition.create)
       description: >-
         Only the requester (PRC-REQ-004). An APPROVED requisition can be cancelled only while every line is still OPEN or already cancelled (a line already
@@ -2753,7 +2753,7 @@ paths:
   /v1/procurement/requisitions/{id}:withdraw:
     post:
       operationId: withdrawRequisition
-      x-passage-duty: procurement.requisition.create
+      x-depot-duty: procurement.requisition.create
       summary: Take an IN_REVIEW requisition back to DRAFT before any level approved it (BR-17.1; duty procurement.requisition.create)
       description: >-
         Only the requester (PRC-REQ-004), and only while no approval level has approved (PRC-REQ-STATE afterwards: the approvers then send
@@ -2787,7 +2787,7 @@ paths:
   /v1/procurement/requisitions/{id}:cancel-line:
     post:
       operationId: cancelRequisitionLine
-      x-passage-duty: procurement.requisition.create
+      x-depot-duty: procurement.requisition.create
       summary: Cancel one OPEN line of an APPROVED requisition while the rest continues (BR-17.1; duty procurement.requisition.create)
       description: >-
         Only the requester (PRC-REQ-004). The line must be OPEN on an APPROVED requisition and not held by a running RFQ (PRC-REQ-006); a
@@ -2824,7 +2824,7 @@ paths:
   /v1/procurement/requisition-approvals:
     get:
       operationId: listRequisitionApprovals
-      x-passage-duty: procurement.requisition.approve
+      x-depot-duty: procurement.requisition.approve
       summary: The approver's inbox - IN_REVIEW requisitions with the role that decides next (BR-17.1; duty procurement.requisition.approve or procurement.purchase-order.inquire)
       description: >-
         Newest first. The caller's own requisitions are left out because they cannot decide on them. The batch service's My work inbox reads this list with the narrow duty procurement.inbox.read. The role is the next
@@ -2846,7 +2846,7 @@ paths:
   /v1/procurement/requisition-lines:
     get:
       operationId: listOpenRequisitionLines
-      x-passage-duty: procurement.purchase-order.maintain
+      x-depot-duty: procurement.purchase-order.maintain
       summary: Consolidation queue - OPEN lines of APPROVED requisitions, newest first (FR-17.3; duty procurement.purchase-order.maintain)
       parameters:
         - { name: sourcing, in: query, required: false, description: "NEEDS_SOURCING keeps lines with no preferred vendor; HAS_VENDOR those with one.", schema: { type: string, enum: [NEEDS_SOURCING, HAS_VENDOR] } }
@@ -2864,7 +2864,7 @@ paths:
   /v1/procurement/requisition-lines/{id}:split:
     post:
       operationId: splitRequisitionLine
-      x-passage-duty: procurement.purchase-order.maintain
+      x-depot-duty: procurement.purchase-order.maintain
       summary: Split an OPEN requisition line into several lines so the parts can be ordered separately (FR-17.3; duty procurement.purchase-order.maintain)
       description: >-
         Cuts one new OPEN line out of the line for each quantity in the body; the original keeps what is left, which must stay
@@ -2902,7 +2902,7 @@ paths:
   /v1/procurement/purchase-order-lines:
     get:
       operationId: listOpenOrderLines
-      x-passage-duty: procurement.purchase-order.inquire
+      x-depot-duty: procurement.purchase-order.inquire
       summary: Open supply - lines of CONFIRMED purchase orders with quantity left to receive, by delivery date (duty procurement.purchase-order.inquire)
       description: |
         Returns the lines of CONFIRMED purchase orders that are OPEN and not fully received, with the
@@ -2930,7 +2930,7 @@ paths:
   /v1/procurement/inquiries/open-orders-by-vendor:
     get:
       operationId: listOpenOrdersByVendor
-      x-passage-duty: procurement.purchase-order.inquire
+      x-depot-duty: procurement.purchase-order.inquire
       summary: Open orders by vendor and currency - count, open value and overdue share of CONFIRMED purchase orders (PRD 3.17.14; duty procurement.purchase-order.inquire)
       description: |
         One row per vendor and currency over the lines of CONFIRMED purchase orders that are OPEN and not
@@ -2956,7 +2956,7 @@ paths:
   /v1/procurement/inquiries/overdue-lines:
     get:
       operationId: listOverdueLines
-      x-passage-duty: procurement.purchase-order.inquire
+      x-depot-duty: procurement.purchase-order.inquire
       summary: Overdue purchase order lines - open lines of CONFIRMED orders past their due date, oldest due first (PRD 3.17.14; duty procurement.purchase-order.inquire)
       description: |
         Lines of CONFIRMED purchase orders that are OPEN with quantity still to receive and a due date before
@@ -2982,7 +2982,7 @@ paths:
   /v1/procurement/inquiries/backordered-lines:
     get:
       operationId: listBackorderedLines
-      x-passage-duty: procurement.purchase-order.inquire
+      x-depot-duty: procurement.purchase-order.inquire
       summary: Backordered purchase order lines - open lines of CONFIRMED orders received in part, earliest due first (PRD 3.17.14; duty procurement.purchase-order.inquire)
       description: |
         Lines of CONFIRMED purchase orders that are OPEN, with some quantity received and some still to
@@ -3011,7 +3011,7 @@ paths:
   /v1/procurement/inquiries/expiring-agreements:
     get:
       operationId: listExpiringAgreements
-      x-passage-duty: procurement.purchase-order.inquire
+      x-depot-duty: procurement.purchase-order.inquire
       summary: Purchase agreements ending soon or already lapsed, soonest first (PRD 3.17.14, FR-17.14; duty procurement.purchase-order.inquire)
       description: |
         EFFECTIVE and ON_HOLD agreements whose end date is on or before asOf plus withinDays (default 30,
@@ -3038,7 +3038,7 @@ paths:
   /v1/procurement/inquiries/near-limit-agreements:
     get:
       operationId: listNearLimitAgreementLines
-      x-passage-duty: procurement.purchase-order.inquire
+      x-depot-duty: procurement.purchase-order.inquire
       summary: Agreement lines released to the threshold of their commitment, most released first (FR-17.14; duty procurement.purchase-order.inquire)
       description: |
         Lines of EFFECTIVE purchase agreements whose released quantity (QUANTITY lines) or released
@@ -3066,7 +3066,7 @@ paths:
   /v1/procurement/inquiries/change-orders:
     get:
       operationId: listChangeOrders
-      x-passage-duty: procurement.purchase-order.inquire
+      x-depot-duty: procurement.purchase-order.inquire
       summary: Confirmed purchase orders with a change waiting for re-approval, longest waiting first (FR-17.14; duty procurement.purchase-order.inquire)
       description: |
         IN_REVIEW purchase orders that already have a confirmed version and an unconfirmed next version
@@ -3090,7 +3090,7 @@ paths:
   /v1/procurement/inquiries/price-history:
     get:
       operationId: listPriceHistory
-      x-passage-duty: procurement.purchase-order.inquire
+      x-depot-duty: procurement.purchase-order.inquire
       summary: Order price history of a product - priced lines of approved purchase orders, newest first (PRD 3.17.14; duty procurement.purchase-order.inquire)
       description: |
         The lines of one product on purchase orders that reached approval (APPROVED, CONFIRMED, FINALIZED),
@@ -3116,7 +3116,7 @@ paths:
   /v1/procurement/requisitions:consolidate:
     post:
       operationId: consolidateRequisitions
-      x-passage-duty: procurement.purchase-order.maintain
+      x-depot-duty: procurement.purchase-order.maintain
       summary: Create DRAFT purchase orders from approved requisition lines, one per legal entity, vendor, currency, site, warehouse and delivery window (FR-17.3; duty procurement.purchase-order.maintain). A replayed Idempotency-Key returns the POs the lines went into.
       parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
       requestBody:
@@ -3138,7 +3138,7 @@ paths:
   /v1/procurement/requisition-releases:
     post:
       operationId: releaseRequisitions
-      x-passage-duty: procurement.purchase-order.maintain
+      x-depot-duty: procurement.purchase-order.maintain
       summary: Release the approved requisition lines of a legal entity into DRAFT purchase orders and record the run (FR-17.3, PRD 3.17.16; duty procurement.purchase-order.maintain)
       description: >-
         Reads the OPEN lines of APPROVED requisitions of the legal entity that no running RFQ holds and that have a
@@ -3171,7 +3171,7 @@ paths:
         '422': { description: "Validation (COM-0001), window outside 1-60 (PRC-CONS-001) or idempotency_key_reuse", content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } } }
     get:
       operationId: listReleaseRuns
-      x-passage-duty: procurement.purchase-order.inquire
+      x-depot-duty: procurement.purchase-order.inquire
       summary: List requisition release runs, newest first (duty procurement.purchase-order.inquire)
       parameters:
         - { name: legalEntityId, in: query, required: false, description: Only runs for this legal entity, schema: { type: string, format: uuid } }
@@ -3190,7 +3190,7 @@ paths:
   /v1/procurement/requisition-releases/{id}:
     get:
       operationId: getReleaseRun
-      x-passage-duty: procurement.purchase-order.inquire
+      x-depot-duty: procurement.purchase-order.inquire
       summary: Read one requisition release run with the orders it created and the lines it skipped (duty procurement.purchase-order.inquire)
       parameters: [{ $ref: '#/components/parameters/Id' }]
       responses:
@@ -3206,7 +3206,7 @@ paths:
   /v1/procurement/purchase-orders:reprice:
     post:
       operationId: repricePurchaseOrders
-      x-passage-duty: procurement.purchase-order.inquire or procurement.purchase-order.confirm
+      x-depot-duty: procurement.purchase-order.inquire or procurement.purchase-order.confirm
       summary: Preview or apply the subsequent price change run over a page of CONFIRMED POs (FR-17.22, AC-17.16)
       description: |
         Visits, in id order, CONFIRMED POs with an open line priced from a trade agreement and not drawn
@@ -3239,7 +3239,7 @@ paths:
   /v1/procurement/purchase-orders:
     post:
       operationId: createPurchaseOrder
-      x-passage-duty: procurement.purchase-order.maintain
+      x-depot-duty: procurement.purchase-order.maintain
       summary: Create a DRAFT purchase order, pricing lines from trade agreements when unitPrice is omitted
       parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
       requestBody:
@@ -3262,7 +3262,7 @@ paths:
         '422': { description: "Validation, missing price (PRC-PRICE-001), requisition of another legal entity (PRC-REQ-005), a PO line whose quantity or unit differs from the requisition line it names (PRC-REQ-008), agreement rules (PRC-AGR-003 HARD limit, PRC-AGR-005 validity, PRC-AGR-006 party, PRC-AGR-007 not EFFECTIVE, PRC-AGR-008 product or unit), vendor not assigned to (or BLOCKED for) the category of a line under HARD category access (PRC-CAT-002), a category that differs from the requisition line's (COM-0001), a charge code that is inactive or of another legal entity (PRC-CHG-004) or a charge calc that differs from its code's (PRC-CHG-005)", content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } } }
     get:
       operationId: listPurchaseOrders
-      x-passage-duty: procurement.purchase-order.inquire
+      x-depot-duty: procurement.purchase-order.inquire
       summary: List purchase orders newest first (duty procurement.purchase-order.inquire)
       parameters:
         - { name: approvalStatus, in: query, required: false, schema: { type: string, enum: [DRAFT, IN_REVIEW, APPROVED, REJECTED, CONFIRMED, FINALIZED, CANCELLED] } }
@@ -3280,7 +3280,7 @@ paths:
   /v1/procurement/purchase-orders/{id}:
     get:
       operationId: getPurchaseOrder
-      x-passage-duty: procurement.purchase-order.inquire or procurement.purchase-order.lookup
+      x-depot-duty: procurement.purchase-order.inquire or procurement.purchase-order.lookup
       summary: Read a purchase order (ETag = row version; duty procurement.purchase-order.inquire)
       parameters: [{ $ref: '#/components/parameters/Id' }]
       responses:
@@ -3294,7 +3294,7 @@ paths:
         '404': { description: Not found, content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } } }
     patch:
       operationId: editPurchaseOrder
-      x-passage-duty: procurement.purchase-order.maintain
+      x-depot-duty: procurement.purchase-order.maintain
       summary: Replace the lines and charges of a PO (FR-17.8, BR-17.8; duty procurement.purchase-order.maintain)
       description: |
         The body is the whole order as on create. A line with lineNo changes that existing line; a line
@@ -3339,7 +3339,7 @@ paths:
   /v1/procurement/purchase-orders/{id}:submit:
     post:
       operationId: submitPurchaseOrder
-      x-passage-duty: procurement.purchase-order.maintain
+      x-depot-duty: procurement.purchase-order.maintain
       summary: DRAFT or REJECTED to IN_REVIEW (duty procurement.purchase-order.maintain). A replayed Idempotency-Key returns the PO as it is now.
       parameters:
         - { $ref: '#/components/parameters/Id' }
@@ -3361,7 +3361,7 @@ paths:
   /v1/procurement/purchase-orders/{id}:approve:
     post:
       operationId: approvePurchaseOrder
-      x-passage-duty: procurement.purchase-order.confirm
+      x-depot-duty: procurement.purchase-order.confirm
       summary: IN_REVIEW to APPROVED (duty procurement.purchase-order.confirm; stands in for the wave 4 approval task)
       parameters:
         - { $ref: '#/components/parameters/Id' }
@@ -3384,7 +3384,7 @@ paths:
   /v1/procurement/purchase-orders/{id}:reject:
     post:
       operationId: rejectPurchaseOrder
-      x-passage-duty: procurement.purchase-order.confirm
+      x-depot-duty: procurement.purchase-order.confirm
       summary: IN_REVIEW to REJECTED (duty procurement.purchase-order.confirm). A rejected PO is edited and submitted again; a rejected change to a confirmed PO can also be edited back to the confirmed content.
       parameters:
         - { $ref: '#/components/parameters/Id' }
@@ -3407,7 +3407,7 @@ paths:
   /v1/procurement/purchase-orders/{id}:confirm:
     post:
       operationId: confirmPurchaseOrder
-      x-passage-duty: procurement.purchase-order.confirm
+      x-depot-duty: procurement.purchase-order.confirm
       summary: APPROVED to CONFIRMED (duty procurement.purchase-order.confirm). Confirms version 1, or the pending change version, and writes po.confirmed (and poversion.created above version 1).
       parameters:
         - { $ref: '#/components/parameters/Id' }
@@ -3430,7 +3430,7 @@ paths:
   /v1/procurement/purchase-orders/{id}:cancel:
     post:
       operationId: cancelPurchaseOrder
-      x-passage-duty: procurement.purchase-order.maintain
+      x-depot-duty: procurement.purchase-order.maintain
       summary: Cancel every open line of a PO with nothing received or invoiced (BR-17.2; duty procurement.purchase-order.maintain). Returns agreement releases and requisition lines and writes po.cancelled.
       parameters:
         - { $ref: '#/components/parameters/Id' }
@@ -3452,7 +3452,7 @@ paths:
   /v1/procurement/purchase-orders/{id}:reprice:
     post:
       operationId: repricePurchaseOrder
-      x-passage-duty: procurement.purchase-order.inquire or procurement.purchase-order.confirm
+      x-depot-duty: procurement.purchase-order.inquire or procurement.purchase-order.confirm
       summary: Preview or apply a subsequent price change on one CONFIRMED PO (FR-17.22, BR-17.18, AC-17.16)
       description: |
         Moves open, un-invoiced lines priced from a trade agreement (price_source TRADE_AGREEMENT:<id>) to
@@ -3503,7 +3503,7 @@ paths:
   /v1/procurement/purchase-orders/{id}/versions:
     get:
       operationId: listPurchaseOrderVersions
-      x-passage-duty: procurement.purchase-order.inquire
+      x-depot-duty: procurement.purchase-order.inquire
       summary: Every stored version of a PO, oldest first, a pending change included (FR-17.8; duty procurement.purchase-order.inquire)
       parameters: [{ $ref: '#/components/parameters/Id' }]
       responses:
@@ -3522,7 +3522,7 @@ paths:
   /v1/procurement/purchase-orders/{id}/versions/{n}/diff:
     get:
       operationId: getPurchaseOrderVersionDiff
-      x-passage-duty: procurement.purchase-order.inquire
+      x-depot-duty: procurement.purchase-order.inquire
       summary: JSON Patch (RFC 6902) from version n-1 to version n (duty procurement.purchase-order.inquire)
       parameters:
         - { $ref: '#/components/parameters/Id' }
@@ -3550,7 +3550,7 @@ paths:
   /v1/procurement/purchase-orders/{id}/invoicing-plans:
     get:
       operationId: listInvoicingPlans
-      x-passage-duty: procurement.purchase-order.inquire or procurement.purchase-order.lookup
+      x-depot-duty: procurement.purchase-order.inquire or procurement.purchase-order.lookup
       summary: Every invoicing plan of a PO in line order (FR-17.21; duty procurement.purchase-order.inquire)
       parameters: [{ $ref: '#/components/parameters/Id' }]
       responses:
@@ -3567,7 +3567,7 @@ paths:
   /v1/procurement/purchase-orders/{id}/lines/{lineNo}/invoicing-plan:
     get:
       operationId: getInvoicingPlan
-      x-passage-duty: procurement.purchase-order.inquire
+      x-depot-duty: procurement.purchase-order.inquire
       summary: The invoicing plan of one PO line (ETag = PO row version; duty procurement.purchase-order.inquire)
       parameters: [{ $ref: '#/components/parameters/Id' }, { $ref: '#/components/parameters/LineNo' }]
       responses:
@@ -3582,7 +3582,7 @@ paths:
         '422': { description: Bad id or line number (COM-0001), content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } } }
     put:
       operationId: putInvoicingPlan
-      x-passage-duty: procurement.purchase-order.maintain
+      x-depot-duty: procurement.purchase-order.maintain
       summary: Replace the invoicing plan of one PO line, rows generated from the line amount (FR-17.21, BR-17.17; duty procurement.purchase-order.maintain)
       description: >-
         If-Match is the PO row version; the write bumps it and the answer's ETag is the new one. A later PO edit
@@ -3610,7 +3610,7 @@ paths:
         '428': { description: If-Match absent (PRC-IFMATCH-001), content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } } }
     delete:
       operationId: deleteInvoicingPlan
-      x-passage-duty: procurement.purchase-order.maintain
+      x-depot-duty: procurement.purchase-order.maintain
       summary: Remove the invoicing plan of one PO line (duty procurement.purchase-order.maintain)
       parameters:
         - { $ref: '#/components/parameters/Id' }
@@ -3628,7 +3628,7 @@ paths:
   /v1/procurement/purchase-orders/{id}/lines/{lineNo}/invoicing-plan/rows/{seq}/settlement:
     put:
       operationId: settleInvoicingPlanRow
-      x-passage-duty: procurement.invoicing-plan.settle
+      x-depot-duty: procurement.invoicing-plan.settle
       summary: Receiving reports that it settled a plan row; the row becomes INVOICED (#289; duty procurement.invoicing-plan.settle, held only by receiving's service grant)
       description: >-
         Service-only: 403 unless the call carries a verified service token from receiving. Idempotent per row and
@@ -3674,7 +3674,7 @@ paths:
   /v1/procurement/purchase-orders/{id}/delivery-schedules:
     get:
       operationId: listDeliverySchedules
-      x-passage-duty: procurement.purchase-order.inquire
+      x-depot-duty: procurement.purchase-order.inquire
       summary: Every delivery schedule of a PO in line order (FR-17.10; duty procurement.purchase-order.inquire)
       parameters: [{ $ref: '#/components/parameters/Id' }]
       responses:
@@ -3692,7 +3692,7 @@ paths:
   /v1/procurement/purchase-orders/{id}/lines/{lineNo}/delivery-schedule:
     get:
       operationId: getDeliverySchedule
-      x-passage-duty: procurement.purchase-order.inquire
+      x-depot-duty: procurement.purchase-order.inquire
       summary: The delivery schedule of one PO line (ETag = PO row version; duty procurement.purchase-order.inquire)
       parameters: [{ $ref: '#/components/parameters/Id' }, { $ref: '#/components/parameters/LineNo' }]
       responses:
@@ -3707,7 +3707,7 @@ paths:
         '422': { description: Bad id or line number (COM-0001), content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } } }
     put:
       operationId: putDeliverySchedule
-      x-passage-duty: procurement.purchase-order.maintain
+      x-depot-duty: procurement.purchase-order.maintain
       summary: Replace the delivery schedule of one PO line; the rows add up to the line quantity (FR-17.10; duty procurement.purchase-order.maintain)
       description: >-
         Rows are numbered in delivery date order. Allowed on a DRAFT or REJECTED PO only; a confirmed PO changes
@@ -3740,7 +3740,7 @@ paths:
         '428': { description: If-Match absent (PRC-IFMATCH-001), content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } } }
     delete:
       operationId: deleteDeliverySchedule
-      x-passage-duty: procurement.purchase-order.maintain
+      x-depot-duty: procurement.purchase-order.maintain
       summary: Remove the delivery schedule of one PO line (duty procurement.purchase-order.maintain)
       parameters:
         - { $ref: '#/components/parameters/Id' }
@@ -3758,7 +3758,7 @@ paths:
   /v1/procurement/purchase-orders/{id}/lines/{lineNo}/delivery-schedule/rows/{seq}/confirmation:
     put:
       operationId: confirmDeliveryDate
-      x-passage-duty: procurement.purchase-order.maintain
+      x-depot-duty: procurement.purchase-order.maintain
       summary: Record the date the vendor confirmed for one delivery schedule row of a CONFIRMED PO (FR-17.10; duty procurement.purchase-order.maintain)
       description: >-
         Writes deliveryschedule.confirmed.v1. Setting the date the row already has changes nothing, writes no
@@ -3794,7 +3794,7 @@ paths:
   /v1/procurement/pricing/lookup:
     get:
       operationId: lookupPrice
-      x-passage-duty: procurement.purchase-order.maintain
+      x-depot-duty: procurement.purchase-order.maintain
       summary: Resolve the trade agreement price with explain (FR-17.6; duty procurement.purchase-order.maintain)
       parameters:
         - { name: vendor, in: query, required: true, schema: { type: string, format: uuid } }
@@ -3816,7 +3816,7 @@ paths:
   /v1/procurement/trade-agreements:
     post:
       operationId: createTradeAgreement
-      x-passage-duty: procurement.trade-agreement.maintain
+      x-depot-duty: procurement.trade-agreement.maintain
       summary: Create an ACTIVE PRICE trade agreement row (duty procurement.trade-agreement.maintain)
       parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
       requestBody:
@@ -3835,7 +3835,7 @@ paths:
         '422': { description: Validation or idempotency_key_reuse, content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } } }
     get:
       operationId: listTradeAgreements
-      x-passage-duty: procurement.trade-agreement.maintain
+      x-depot-duty: procurement.trade-agreement.maintain
       summary: List trade agreement rows newest first (duty procurement.trade-agreement.maintain)
       parameters:
         - { name: accountId, in: query, required: false, schema: { type: string, format: uuid } }
@@ -3853,7 +3853,7 @@ paths:
   /v1/procurement/trade-agreements/{id}:
     get:
       operationId: getTradeAgreement
-      x-passage-duty: procurement.trade-agreement.maintain
+      x-depot-duty: procurement.trade-agreement.maintain
       summary: Read a trade agreement row (duty procurement.trade-agreement.maintain)
       parameters: [{ $ref: '#/components/parameters/Id' }]
       responses:
@@ -3866,7 +3866,7 @@ paths:
   /v1/procurement/agreements:
     post:
       operationId: createPurchaseAgreement
-      x-passage-duty: procurement.agreement.maintain
+      x-depot-duty: procurement.agreement.maintain
       summary: Create a purchase agreement, EFFECTIVE unless DRAFT is asked for (FR-17.5; duty procurement.agreement.maintain)
       parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
       requestBody:
@@ -3887,7 +3887,7 @@ paths:
         '422': { description: "Validation, more than 500 lines (PRC-AGR-002) or idempotency_key_reuse", content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } } }
     get:
       operationId: listPurchaseAgreements
-      x-passage-duty: procurement.agreement.maintain
+      x-depot-duty: procurement.agreement.maintain
       summary: List purchase agreements newest first with their highest release level (duty procurement.agreement.maintain)
       parameters:
         - { name: status, in: query, required: false, schema: { type: string, enum: [DRAFT, EFFECTIVE, ON_HOLD, CLOSED] } }
@@ -3904,7 +3904,7 @@ paths:
   /v1/procurement/agreement-lines:
     get:
       operationId: listAgreementLines
-      x-passage-duty: procurement.purchase-order.inquire or procurement.purchase-order.lookup
+      x-depot-duty: procurement.purchase-order.inquire or procurement.purchase-order.lookup
       summary: Lines of purchase agreements for a picker, newest first (duty procurement.purchase-order.inquire or procurement.purchase-order.lookup)
       description: The lookup of the purchase order and service forms. q keeps the lines of agreements whose number contains it, number is the exact agreement number.
       parameters:
@@ -3927,7 +3927,7 @@ paths:
   /v1/procurement/agreement-lines/{id}:
     get:
       operationId: getAgreementLine
-      x-passage-duty: procurement.purchase-order.inquire or procurement.purchase-order.lookup
+      x-depot-duty: procurement.purchase-order.inquire or procurement.purchase-order.lookup
       summary: One agreement line by id (the line lookup's resolve)
       parameters: [{ $ref: '#/components/parameters/Id' }]
       responses:
@@ -3941,7 +3941,7 @@ paths:
   /v1/procurement/agreements/{id}:
     get:
       operationId: getPurchaseAgreement
-      x-passage-duty: procurement.agreement.maintain
+      x-depot-duty: procurement.agreement.maintain
       summary: Read a purchase agreement with its lines and releases (ETag = version; duty procurement.agreement.maintain)
       parameters: [{ $ref: '#/components/parameters/Id' }]
       responses:
@@ -3956,7 +3956,7 @@ paths:
   /v1/procurement/agreements/{id}:activate:
     post:
       operationId: activatePurchaseAgreement
-      x-passage-duty: procurement.agreement.maintain
+      x-depot-duty: procurement.agreement.maintain
       summary: Activate a DRAFT or ON_HOLD agreement (duty procurement.agreement.maintain). A replayed Idempotency-Key returns the agreement as it is now.
       parameters:
         - { $ref: '#/components/parameters/Id' }
@@ -3976,7 +3976,7 @@ paths:
   /v1/procurement/agreements/{id}:hold:
     post:
       operationId: holdPurchaseAgreement
-      x-passage-duty: procurement.agreement.maintain
+      x-depot-duty: procurement.agreement.maintain
       summary: Put an EFFECTIVE agreement on hold; releases are refused (PRC-AGR-007) (duty procurement.agreement.maintain). A replayed Idempotency-Key returns the agreement as it is now.
       parameters:
         - { $ref: '#/components/parameters/Id' }
@@ -3996,7 +3996,7 @@ paths:
   /v1/procurement/agreements/{id}:close:
     post:
       operationId: closePurchaseAgreement
-      x-passage-duty: procurement.agreement.maintain
+      x-depot-duty: procurement.agreement.maintain
       summary: Close an EFFECTIVE or ON_HOLD agreement (duty procurement.agreement.maintain). A replayed Idempotency-Key returns the agreement as it is now.
       parameters:
         - { $ref: '#/components/parameters/Id' }
@@ -4016,7 +4016,7 @@ paths:
   /v1/procurement/scheduling-agreements:
     post:
       operationId: createSchedulingAgreement
-      x-passage-duty: procurement.agreement.maintain
+      x-depot-duty: procurement.agreement.maintain
       summary: Create a scheduling agreement with its release schedule (FR-17.15; duty procurement.agreement.maintain)
       parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
       requestBody:
@@ -4037,7 +4037,7 @@ paths:
         '422': { description: Validation (COM-0001) or idempotency_key_reuse, content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } } }
     get:
       operationId: listSchedulingAgreements
-      x-passage-duty: procurement.agreement.maintain or procurement.purchase-order.inquire
+      x-depot-duty: procurement.agreement.maintain or procurement.purchase-order.inquire
       summary: Monitor scheduling agreement releases, newest first (FR-17.15, 3.17.14; duty procurement.agreement.maintain or procurement.purchase-order.inquire)
       parameters:
         - { name: vendorId, in: query, required: false, schema: { type: string, format: uuid } }
@@ -4054,7 +4054,7 @@ paths:
   /v1/procurement/scheduling-agreements/{id}:
     get:
       operationId: getSchedulingAgreement
-      x-passage-duty: procurement.agreement.maintain or procurement.purchase-order.inquire
+      x-depot-duty: procurement.agreement.maintain or procurement.purchase-order.inquire
       summary: Read a scheduling agreement with its schedule and today's zones (ETag = version; duty procurement.agreement.maintain or procurement.purchase-order.inquire)
       parameters: [{ $ref: '#/components/parameters/Id' }]
       responses:
@@ -4069,7 +4069,7 @@ paths:
   /v1/procurement/scheduling-agreements/{id}:release:
     post:
       operationId: releaseSchedulingAgreement
-      x-passage-duty: procurement.agreement.maintain
+      x-depot-duty: procurement.agreement.maintain
       summary: >-
         Run a release (SAP ME84): snapshot the schedule as the next FRC or JIT release with cumulative
         quantities and write sarelease.created.v1 (FR-17.15; duty procurement.agreement.maintain). A run with the same
@@ -4099,7 +4099,7 @@ paths:
   /v1/procurement/scheduling-agreements/{id}/schedule:
     put:
       operationId: replaceSchedule
-      x-passage-duty: procurement.agreement.maintain
+      x-depot-duty: procurement.agreement.maintain
       summary: >-
         Replace the release schedule (FR-17.15, BR-17.13; duty procurement.agreement.maintain). Zones are judged on today:
         reducing, moving or removing a FIRM line needs a reason code, a TRADEOFF reduction comes back as a warning.
@@ -4127,7 +4127,7 @@ paths:
   /v1/procurement/scheduling-agreements/{id}/releases:
     get:
       operationId: listSchedulingReleases
-      x-passage-duty: procurement.agreement.maintain or procurement.purchase-order.inquire
+      x-depot-duty: procurement.agreement.maintain or procurement.purchase-order.inquire
       summary: Release headers of an agreement in release order (SAP ME85; duty procurement.agreement.maintain or procurement.purchase-order.inquire)
       parameters: [{ $ref: '#/components/parameters/Id' }]
       responses:
@@ -4140,7 +4140,7 @@ paths:
   /v1/procurement/scheduling-agreements/{id}/releases/{releaseNo}:
     get:
       operationId: getSchedulingRelease
-      x-passage-duty: procurement.agreement.maintain or procurement.purchase-order.inquire
+      x-depot-duty: procurement.agreement.maintain or procurement.purchase-order.inquire
       summary: Release documentation for one release number (SAP ME86; duty procurement.agreement.maintain or procurement.purchase-order.inquire)
       parameters:
         - { $ref: '#/components/parameters/Id' }
@@ -4156,7 +4156,7 @@ paths:
   /v1/procurement/rfq-types:
     post:
       operationId: createRFQType
-      x-passage-duty: procurement.policy.maintain
+      x-depot-duty: procurement.policy.maintain
       summary: Create an RFQ type of a legal entity (FR-17.19; duty procurement.policy.maintain)
       description: >-
         An RFQ type sets whether its RFQs are sealed, whether they may be amended, the ranking rule and a default scoring group.
@@ -4183,7 +4183,7 @@ paths:
         '422': { description: Validation - code, name, ranking rule, criteria (COM-0001) or idempotency_key_reuse, content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } } }
     get:
       operationId: listRFQTypes
-      x-passage-duty: procurement.policy.maintain or procurement.rfq.maintain or procurement.rfq.award
+      x-depot-duty: procurement.policy.maintain or procurement.rfq.maintain or procurement.rfq.award
       summary: List RFQ types, newest first (FR-17.19)
       parameters:
         - { name: legalEntityId, in: query, required: false, schema: { type: string, format: uuid } }
@@ -4202,7 +4202,7 @@ paths:
   /v1/procurement/rfq-types/{id}:
     get:
       operationId: getRFQType
-      x-passage-duty: procurement.policy.maintain or procurement.rfq.maintain or procurement.rfq.award
+      x-depot-duty: procurement.policy.maintain or procurement.rfq.maintain or procurement.rfq.award
       summary: Read one RFQ type with its default scoring criteria (FR-17.19)
       parameters: [{ $ref: '#/components/parameters/Id' }]
       responses:
@@ -4219,7 +4219,7 @@ paths:
         '422': { description: id is not a UUID (COM-0001), content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } } }
     put:
       operationId: changeRFQType
-      x-passage-duty: procurement.policy.maintain
+      x-depot-duty: procurement.policy.maintain
       summary: Change an RFQ type under If-Match (FR-17.19; duty procurement.policy.maintain)
       description: >-
         PUT is idempotent, so no Idempotency-Key is taken. It replaces name, flags, rankingRule, status and the default criteria; the
@@ -4250,7 +4250,7 @@ paths:
   /v1/procurement/rfqs:
     post:
       operationId: createRFQ
-      x-passage-duty: procurement.rfq.maintain
+      x-depot-duty: procurement.rfq.maintain
       summary: Create a DRAFT request for quotation with lines and a reply deadline (FR-17.4; duty procurement.rfq.maintain)
       parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
       requestBody:
@@ -4271,7 +4271,7 @@ paths:
         '422': { description: "Validation (COM-0001): deadline not in the future, unknown ranking rule, WEIGHTED_SCORE without criteria, bad criteria, no lines or more than 500, line without product or description; or idempotency_key_reuse", content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } } }
     get:
       operationId: listRFQs
-      x-passage-duty: procurement.rfq.maintain or procurement.rfq.award
+      x-depot-duty: procurement.rfq.maintain or procurement.rfq.award
       summary: List RFQs newest first with line, vendor and reply counts (duty procurement.rfq.maintain or procurement.rfq.award)
       parameters:
         - { name: status, in: query, required: false, description: 'Comma-separated statuses, e.g. SENT,REPLIES_OPEN', schema: { type: string } }
@@ -4287,7 +4287,7 @@ paths:
   /v1/procurement/rfqs:from-requisitions:
     post:
       operationId: createRFQFromRequisitions
-      x-passage-duty: procurement.rfq.maintain
+      x-depot-duty: procurement.rfq.maintain
       summary: Start a DRAFT request for quotation from approved requisition lines that need sourcing (FR-17.3, FR-17.4; duty procurement.rfq.maintain)
       description: >-
         Each requisition line becomes one RFQ line with its product, description, quantity, unit and requested date; the
@@ -4316,7 +4316,7 @@ paths:
   /v1/procurement/rfqs/{id}:
     get:
       operationId: getRFQ
-      x-passage-duty: procurement.rfq.maintain or procurement.rfq.award
+      x-depot-duty: procurement.rfq.maintain or procurement.rfq.award
       summary: Read an RFQ with lines, invitations, replies, criteria and scores (ETag = version; duty procurement.rfq.maintain or procurement.rfq.award)
       description: >-
         A sealed RFQ before its deadline is answered with repliesSealed=true and no replies or scores (BR-17.16);
@@ -4333,7 +4333,7 @@ paths:
         '404': { description: Not found (PRC-RFQ-NOT-FOUND), content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } } }
     put:
       operationId: editRFQ
-      x-passage-duty: procurement.rfq.maintain
+      x-depot-duty: procurement.rfq.maintain
       summary: Edit the deadline, ranking rule, sealed flag and scoring criteria of a DRAFT RFQ under If-Match (FR-17.19; duty procurement.rfq.maintain)
       description: >-
         Only a DRAFT RFQ is edited (409 PRC-RFQ-STATE); a sent RFQ changes through an amendment. The scoring group is replaced as a
@@ -4364,7 +4364,7 @@ paths:
   /v1/procurement/rfqs/{id}/amendments:
     post:
       operationId: amendRFQ
-      x-passage-duty: procurement.rfq.maintain
+      x-depot-duty: procurement.rfq.maintain
       summary: Issue an amendment (addendum) to a sent RFQ (FR-17.19; duty procurement.rfq.maintain)
       description: >-
         The RFQ must be SENT or REPLIES_OPEN and its type must allow amendments (422 PRC-RFQ-008). The amendment carries a summary,
@@ -4398,7 +4398,7 @@ paths:
   /v1/procurement/rfqs/{id}/amendments/{no}/acknowledgements/{vendorId}:
     put:
       operationId: acknowledgeRFQAmendment
-      x-passage-duty: procurement.rfq.maintain
+      x-depot-duty: procurement.rfq.maintain
       summary: Record that an invited vendor acknowledged an amendment (FR-17.19; duty procurement.rfq.maintain)
       description: >-
         Idempotent: a second call keeps the first acknowledgement time. It does not change the RFQ version. The vendor portal records
@@ -4421,7 +4421,7 @@ paths:
   /v1/procurement/rfqs/{id}:send:
     post:
       operationId: sendRFQ
-      x-passage-duty: procurement.rfq.maintain
+      x-depot-duty: procurement.rfq.maintain
       summary: Invite vendors and move a DRAFT RFQ to SENT; writes rfq.sent.v1 (duty procurement.rfq.maintain). A replayed Idempotency-Key returns the RFQ as it is now.
       parameters:
         - { $ref: '#/components/parameters/Id' }
@@ -4453,7 +4453,7 @@ paths:
   /v1/procurement/rfqs/{id}:close:
     post:
       operationId: closeRFQ
-      x-passage-duty: procurement.rfq.maintain
+      x-depot-duty: procurement.rfq.maintain
       summary: Stop taking replies, SENT or REPLIES_OPEN to CLOSED (duty procurement.rfq.maintain). A replayed Idempotency-Key returns the RFQ as it is now.
       parameters:
         - { $ref: '#/components/parameters/Id' }
@@ -4475,7 +4475,7 @@ paths:
   /v1/procurement/rfqs/{id}:cancel:
     post:
       operationId: cancelRFQ
-      x-passage-duty: procurement.rfq.maintain
+      x-depot-duty: procurement.rfq.maintain
       summary: Cancel an RFQ that is not yet awarded (duty procurement.rfq.maintain). A replayed Idempotency-Key returns the RFQ as it is now.
       parameters:
         - { $ref: '#/components/parameters/Id' }
@@ -4497,7 +4497,7 @@ paths:
   /v1/procurement/rfqs/{id}:award:
     post:
       operationId: awardRFQ
-      x-passage-duty: procurement.rfq.award
+      x-depot-duty: procurement.rfq.award
       summary: Award lines to replies and create one DRAFT purchase order per winning vendor and currency (FR-17.4; duty procurement.rfq.award)
       description: >-
         Each awarded line becomes a PO line with the RFQ quantity and unit, the reply price and price unit
@@ -4536,7 +4536,7 @@ paths:
   /v1/procurement/rfqs/{id}/replies:
     post:
       operationId: recordRFQReplies
-      x-passage-duty: procurement.rfq.maintain
+      x-depot-duty: procurement.rfq.maintain
       summary: Record an invited vendor's prices for lines of a SENT or REPLIES_OPEN RFQ (FR-17.4; duty procurement.rfq.maintain)
       description: >-
         A reply received after the deadline is stored with late=true and answered with a PRC-RFQ-003 warning
@@ -4567,7 +4567,7 @@ paths:
   /v1/procurement/rfqs/{id}/compare:
     get:
       operationId: compareRFQ
-      x-passage-duty: procurement.rfq.maintain or procurement.rfq.award
+      x-depot-duty: procurement.rfq.maintain or procurement.rfq.award
       summary: Rank the replies per line by the RFQ's rule or ?rule=; late replies are listed as excluded (FR-17.4, BR-17.11, FR-17.19; duty procurement.rfq.maintain or procurement.rfq.award)
       description: >-
         A sealed RFQ is refused before its deadline (403 PRC-RFQ-004); the first comparison or read after the
@@ -4587,7 +4587,7 @@ paths:
   /v1/procurement/rfqs/{id}/scores/{vendorId}:
     put:
       operationId: scoreRFQVendor
-      x-passage-duty: procurement.rfq.award
+      x-depot-duty: procurement.rfq.award
       summary: Record the buyer's 1–10 scores of an invited vendor on the RFQ's criteria (FR-17.19; duty procurement.rfq.award)
       description: >-
         Replaces the vendor's earlier score on each criterion named and bumps the RFQ version. The RFQ must be SENT,
@@ -4617,7 +4617,7 @@ paths:
   /v1/procurement/purchasing-policies:
     get:
       operationId: listPurchasingPolicies
-      x-passage-duty: procurement.policy.maintain or procurement.purchase-order.inquire
+      x-depot-duty: procurement.policy.maintain or procurement.purchase-order.inquire
       summary: List the saved purchasing policies of the caller's legal entities (FR-17.13)
       responses:
         '200':
@@ -4634,7 +4634,7 @@ paths:
   /v1/procurement/purchasing-policies/{legalEntityId}:
     get:
       operationId: getPurchasingPolicy
-      x-passage-duty: procurement.policy.maintain or procurement.purchase-order.inquire
+      x-depot-duty: procurement.policy.maintain or procurement.purchase-order.inquire
       summary: Read the purchasing policy of a legal entity (FR-17.13)
       description: A legal entity with no saved policy answers the defaults at version 0. The ETag is the version PUT takes as If-Match.
       parameters:
@@ -4652,7 +4652,7 @@ paths:
         '422': { description: legalEntityId is not a UUID (COM-0001), content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } } }
     put:
       operationId: putPurchasingPolicy
-      x-passage-duty: procurement.policy.maintain
+      x-depot-duty: procurement.policy.maintain
       summary: Save the purchasing policy of a legal entity (FR-17.13, BR-17.7, PO four-eyes)
       description: >-
         Replaces the three settings under If-Match: 0 creates the policy, n replaces version n. PUT is idempotent, so no
@@ -4682,7 +4682,7 @@ paths:
   /v1/procurement/catalogs:
     post:
       operationId: createCatalog
-      x-passage-duty: procurement.catalog.maintain
+      x-depot-duty: procurement.catalog.maintain
       summary: Create a DRAFT procurement catalog with optional entries (FR-17.18; duty procurement.catalog.maintain)
       parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
       requestBody:
@@ -4703,7 +4703,7 @@ paths:
         '422': { description: "Validation (COM-0001), too many entries (PRC-CAT-007) or idempotency_key_reuse", content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } } }
     get:
       operationId: listCatalogs
-      x-passage-duty: procurement.catalog.maintain or procurement.purchase-order.inquire
+      x-depot-duty: procurement.catalog.maintain or procurement.purchase-order.inquire
       summary: List procurement catalogs, newest first (FR-17.18; duty procurement.catalog.maintain or procurement.purchase-order.inquire)
       parameters:
         - { name: status, in: query, required: false, schema: { type: string, enum: [DRAFT, PUBLISHED, RETIRED] } }
@@ -4721,7 +4721,7 @@ paths:
   /v1/procurement/catalogs/{id}:
     get:
       operationId: getCatalog
-      x-passage-duty: procurement.catalog.maintain or procurement.purchase-order.inquire
+      x-depot-duty: procurement.catalog.maintain or procurement.purchase-order.inquire
       summary: Read a catalog with its entries (ETag = version; duty procurement.catalog.maintain or procurement.purchase-order.inquire)
       parameters: [{ $ref: '#/components/parameters/Id' }]
       responses:
@@ -4737,7 +4737,7 @@ paths:
   /v1/procurement/catalogs/{id}:publish:
     post:
       operationId: publishCatalog
-      x-passage-duty: procurement.catalog.maintain
+      x-depot-duty: procurement.catalog.maintain
       summary: Publish a DRAFT catalog with at least one entry to its operating units (FR-17.18; duty procurement.catalog.maintain). Writes catalog.published.v1. A replayed Idempotency-Key returns the catalog as it is now.
       parameters:
         - { $ref: '#/components/parameters/Id' }
@@ -4759,7 +4759,7 @@ paths:
   /v1/procurement/catalogs/{id}:retire:
     post:
       operationId: retireCatalog
-      x-passage-duty: procurement.catalog.maintain
+      x-depot-duty: procurement.catalog.maintain
       summary: Retire a PUBLISHED catalog; requesters stop seeing its entries (FR-17.18; duty procurement.catalog.maintain). Writes catalog.retired.v1. A replayed Idempotency-Key returns the catalog as it is now.
       parameters:
         - { $ref: '#/components/parameters/Id' }
@@ -4780,7 +4780,7 @@ paths:
   /v1/procurement/catalogs/{id}/entries:
     get:
       operationId: listCatalogEntries
-      x-passage-duty: procurement.catalog.maintain or procurement.purchase-order.inquire
+      x-depot-duty: procurement.catalog.maintain or procurement.purchase-order.inquire
       summary: Page the entries of a catalog in entry order (FR-17.18; duty procurement.catalog.maintain or procurement.purchase-order.inquire)
       description: >-
         A catalog holds up to 50,000 entries, so reads return them a page at a time; GET /catalogs/{id} carries the first page.
@@ -4799,7 +4799,7 @@ paths:
         '422': { $ref: '#/components/responses/Problem' }
     post:
       operationId: addCatalogEntries
-      x-passage-duty: procurement.catalog.maintain
+      x-depot-duty: procurement.catalog.maintain
       summary: Add entries to a DRAFT catalog (FR-17.18; duty procurement.catalog.maintain). A replayed Idempotency-Key returns the catalog as it is now.
       parameters:
         - { $ref: '#/components/parameters/Id' }
@@ -4826,7 +4826,7 @@ paths:
   /v1/procurement/catalogs/{id}/entries/{entryId}:
     delete:
       operationId: removeCatalogEntry
-      x-passage-duty: procurement.catalog.maintain
+      x-depot-duty: procurement.catalog.maintain
       summary: Remove an entry from a DRAFT catalog (FR-17.18; duty procurement.catalog.maintain)
       parameters:
         - { $ref: '#/components/parameters/Id' }
@@ -4847,7 +4847,7 @@ paths:
   /v1/procurement/catalog-entries:
     get:
       operationId: searchCatalogEntries
-      x-passage-duty: procurement.requisition.create or procurement.catalog.maintain
+      x-depot-duty: procurement.requisition.create or procurement.catalog.maintain
       summary: Search the requisition picker (FR-17.18; duty procurement.requisition.create or procurement.catalog.maintain)
       description: >-
         Entries of PUBLISHED catalogs valid on the date (default today) and published to the operating unit, or
@@ -4872,7 +4872,7 @@ paths:
   /v1/procurement/catalogs/{id}/vendor-import:
     post:
       operationId: stageVendorCatalogImport
-      x-passage-duty: procurement.catalog.maintain
+      x-depot-duty: procurement.catalog.maintain
       summary: Stage a vendor catalog file against a DRAFT or PUBLISHED catalog (FR-17.18, AC-17.13; duty procurement.catalog.maintain)
       description: >-
         Every row is validated like a catalog entry and staged as ACCEPTABLE, or ERROR with its reason (PRC-CAT-005); a vendor
@@ -4905,7 +4905,7 @@ paths:
   /v1/procurement/catalog-imports:
     get:
       operationId: listCatalogImports
-      x-passage-duty: procurement.catalog.maintain or procurement.purchase-order.inquire
+      x-depot-duty: procurement.catalog.maintain or procurement.purchase-order.inquire
       summary: List staged vendor catalog imports, newest first (FR-17.18; duty procurement.catalog.maintain or procurement.purchase-order.inquire)
       parameters:
         - { name: catalogId, in: query, required: false, schema: { type: string, format: uuid } }
@@ -4923,7 +4923,7 @@ paths:
   /v1/procurement/catalog-imports/{id}:
     get:
       operationId: getCatalogImport
-      x-passage-duty: procurement.catalog.maintain or procurement.purchase-order.inquire
+      x-depot-duty: procurement.catalog.maintain or procurement.purchase-order.inquire
       summary: Read a vendor catalog import with its row counts (ETag = version; duty procurement.catalog.maintain or procurement.purchase-order.inquire)
       parameters: [{ $ref: '#/components/parameters/Id' }]
       responses:
@@ -4939,7 +4939,7 @@ paths:
   /v1/procurement/catalog-imports/{id}/rows:
     get:
       operationId: listCatalogImportRows
-      x-passage-duty: procurement.catalog.maintain or procurement.purchase-order.inquire
+      x-depot-duty: procurement.catalog.maintain or procurement.purchase-order.inquire
       summary: List the staged rows of an import in file order (FR-17.18; duty procurement.catalog.maintain or procurement.purchase-order.inquire)
       parameters:
         - { $ref: '#/components/parameters/Id' }
@@ -4958,7 +4958,7 @@ paths:
   /v1/procurement/catalog-imports/{id}/decisions:
     post:
       operationId: decideCatalogImportRows
-      x-passage-duty: procurement.catalog.maintain
+      x-depot-duty: procurement.catalog.maintain
       summary: Accept or reject staged rows of an import (FR-17.18, AC-17.13; duty procurement.catalog.maintain)
       description: >-
         Allowed while the import is STAGED. An ERROR row cannot be accepted (PRC-CAT-005). A rejected row can be accepted
@@ -4989,7 +4989,7 @@ paths:
   /v1/procurement/catalog-imports/{id}:commit:
     post:
       operationId: commitCatalogImport
-      x-passage-duty: procurement.catalog.maintain
+      x-depot-duty: procurement.catalog.maintain
       summary: Add the accepted rows of an import to the catalog (FR-17.18, AC-17.13; duty procurement.catalog.maintain). Writes catalogimport.committed.v1.
       description: >-
         Rows still ACCEPTABLE (undecided), rejected and ERROR rows stay out. The catalog may be DRAFT or PUBLISHED, so the entries are visible in the requisition picker at once when it is published; the catalog version rises by one. A replayed Idempotency-Key returns the import as it is now.
@@ -5013,7 +5013,7 @@ paths:
   /v1/procurement/catalog-imports/{id}:cancel:
     post:
       operationId: cancelCatalogImport
-      x-passage-duty: procurement.catalog.maintain
+      x-depot-duty: procurement.catalog.maintain
       summary: Cancel a staged import; the catalog is untouched (FR-17.18; duty procurement.catalog.maintain)
       description: >-
         The import stays as the record. A replayed Idempotency-Key returns the import as it is now.
@@ -5036,7 +5036,7 @@ paths:
   /v1/procurement/category-vendors:
     post:
       operationId: createCategoryVendorAssignment
-      x-passage-duty: procurement.category.maintain
+      x-depot-duty: procurement.category.maintain
       summary: Assign a vendor to a procurement category with a status and validity window (FR-17.20; duty procurement.category.maintain)
       description: >-
         A category with at least one APPROVED or PROVISIONAL assignment (any window) is restricted: under the legal entity's HARD category
@@ -5065,7 +5065,7 @@ paths:
         '422': { description: "Validation - status, window, category or ids (COM-0001) or idempotency_key_reuse", content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } } }
     get:
       operationId: listCategoryVendorAssignments
-      x-passage-duty: procurement.category.maintain or procurement.purchase-order.inquire
+      x-depot-duty: procurement.category.maintain or procurement.purchase-order.inquire
       summary: List category vendor assignments, newest first (FR-17.20)
       parameters:
         - { name: legalEntityId, in: query, required: false, schema: { type: string, format: uuid } }
@@ -5086,7 +5086,7 @@ paths:
   /v1/procurement/category-vendors/{id}:
     get:
       operationId: getCategoryVendorAssignment
-      x-passage-duty: procurement.category.maintain or procurement.purchase-order.inquire
+      x-depot-duty: procurement.category.maintain or procurement.purchase-order.inquire
       summary: Read one category vendor assignment (FR-17.20)
       parameters: [{ $ref: '#/components/parameters/Id' }]
       responses:
@@ -5103,7 +5103,7 @@ paths:
         '422': { description: id is not a UUID (COM-0001), content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } } }
     put:
       operationId: changeCategoryVendorAssignment
-      x-passage-duty: procurement.category.maintain
+      x-depot-duty: procurement.category.maintain
       summary: Change the status, validity window and notes of an assignment under If-Match (FR-17.20; duty procurement.category.maintain)
       description: PUT is idempotent, so no Idempotency-Key is taken. The vendor and category of an assignment do not change. Writes categoryvendor.changed.v1.
       parameters:
@@ -5132,7 +5132,7 @@ paths:
   /v1/procurement/budget-calls:
     get:
       operationId: listBudgetCalls
-      x-passage-duty: procurement.purchase-order.inquire
+      x-depot-duty: procurement.purchase-order.inquire
       summary: Calls to budget control that purchasing owes, oldest first (FR-38.5)
       description: >-
         A purchase order created from requisition lines owes budget control one conversion per line (the pre-encumbrance becomes the
@@ -5158,7 +5158,7 @@ paths:
   /v1/procurement/budget-calls:retry:
     post:
       operationId: retryBudgetCalls
-      x-passage-duty: procurement.purchase-order.maintain
+      x-depot-duty: procurement.purchase-order.maintain
       summary: Repeat the pending calls to budget control (oldest 100)
       description: >-
         Safe to repeat: every call has a stable idempotency key at budgeting. Meant for a scheduled job and for the buyer's
@@ -5181,7 +5181,7 @@ paths:
   /v1/procurement/inbound-changes:
     get:
       operationId: listInboundChanges
-      x-passage-duty: procurement.purchase-order.inquire
+      x-depot-duty: procurement.purchase-order.inquire
       summary: List the changes other services asked of purchase orders, newest first (slice 18)
       description: >-
         One row per planning message a planner applied to a purchase order (message.applied.v1) and per closed drop-ship remainder
@@ -5207,7 +5207,7 @@ paths:
   /v1/procurement/inbound-changes/{id}:
     get:
       operationId: getInboundChange
-      x-passage-duty: procurement.purchase-order.inquire
+      x-depot-duty: procurement.purchase-order.inquire
       summary: Read one change another service asked of a purchase order (slice 18)
       parameters: [{ $ref: '#/components/parameters/Id' }]
       responses:
@@ -5223,7 +5223,7 @@ paths:
   /v1/procurement/inbound-changes/{id}:acknowledge:
     post:
       operationId: acknowledgeInboundChange
-      x-passage-duty: procurement.purchase-order.maintain
+      x-depot-duty: procurement.purchase-order.maintain
       summary: Acknowledge a refused inbound change the buyer dealt with by hand (slice 19)
       description: >-
         Settles a REFUSED change nobody has settled as ACKNOWLEDGED, with an optional note, so it leaves the buyer's queue. The purchase order is not touched and the status stays REFUSED. Writes inboundchange.resolved.v1. 409 PRC-INB-008 for a change that is not REFUSED or already settled. A replayed Idempotency-Key returns the change as it is now.
@@ -5250,7 +5250,7 @@ paths:
   /v1/procurement/inbound-changes/{id}:retry:
     post:
       operationId: retryInboundChange
-      x-passage-duty: procurement.purchase-order.maintain
+      x-depot-duty: procurement.purchase-order.maintain
       summary: Run a refused inbound change again against the purchase order as it is now (slice 19)
       description: >-
         Plans the original request again (the message, or the drop-ship quantity) against the current order and applies it through the PO change management path as the caller, who needs procurement.purchase-order.maintain. The change keeps its row and idempotency key: it becomes APPLIED or IGNORED and RETRIED (inboundchange.resolved.v1, with the order's own po.confirmed.v1 and poversion.created.v1 when a line moved), or stays REFUSED with the new reason and one more attempt. 409 PRC-INB-008 for a change that is not REFUSED or already settled. A replayed Idempotency-Key returns the change as it is now.
@@ -5277,7 +5277,7 @@ paths:
   /v1/procurement/charge-codes:
     post:
       operationId: createChargeCode
-      x-passage-duty: procurement.policy.maintain
+      x-depot-duty: procurement.policy.maintain
       summary: Create a charge code of a legal entity (FR-17.9; duty procurement.policy.maintain)
       description: >-
         A charge code names a kind of charge (freight, handling, customs) with its calculation, default value, debit and credit sides
@@ -5304,7 +5304,7 @@ paths:
         '422': { description: "Validation - code, calc, value, sides or ids (COM-0001) or idempotency_key_reuse", content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } } }
     get:
       operationId: listChargeCodes
-      x-passage-duty: procurement.policy.maintain or procurement.purchase-order.inquire
+      x-depot-duty: procurement.policy.maintain or procurement.purchase-order.inquire
       summary: List charge codes, newest first (FR-17.9)
       parameters:
         - { name: legalEntityId, in: query, required: false, schema: { type: string, format: uuid } }
@@ -5324,7 +5324,7 @@ paths:
   /v1/procurement/charge-codes/{id}:
     get:
       operationId: getChargeCode
-      x-passage-duty: procurement.policy.maintain or procurement.purchase-order.inquire
+      x-depot-duty: procurement.policy.maintain or procurement.purchase-order.inquire
       summary: Read one charge code (FR-17.9)
       parameters: [{ $ref: '#/components/parameters/Id' }]
       responses:
@@ -5341,7 +5341,7 @@ paths:
         '422': { description: id is not a UUID (COM-0001), content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } } }
     put:
       operationId: changeChargeCode
-      x-passage-duty: procurement.policy.maintain
+      x-depot-duty: procurement.policy.maintain
       summary: Change a charge code under If-Match (FR-17.9; duty procurement.policy.maintain)
       description: >-
         PUT is idempotent, so no Idempotency-Key is taken. It replaces name, calc, defaultValue, the sides, allocationRule and status;
@@ -5374,7 +5374,7 @@ paths:
   /v1/procurement/auto-charges:
     post:
       operationId: createAutoCharge
-      x-passage-duty: procurement.policy.maintain
+      x-depot-duty: procurement.policy.maintain
       summary: Create an auto charge that adds a charge code to matching POs (FR-17.9; duty procurement.policy.maintain)
       description: >-
         An auto charge is keyed on one vendor, one vendor group or every vendor of the legal entity, and may carry a value that overrides the
@@ -5402,7 +5402,7 @@ paths:
         '422': { description: "Validation (COM-0001), the charge code is inactive or of another legal entity (PRC-CHG-004), or idempotency_key_reuse", content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } } }
     get:
       operationId: listAutoCharges
-      x-passage-duty: procurement.policy.maintain or procurement.purchase-order.inquire
+      x-depot-duty: procurement.policy.maintain or procurement.purchase-order.inquire
       summary: List auto charges, newest first (FR-17.9)
       parameters:
         - { name: legalEntityId, in: query, required: false, schema: { type: string, format: uuid } }
@@ -5422,7 +5422,7 @@ paths:
   /v1/procurement/auto-charges/{id}:
     get:
       operationId: getAutoCharge
-      x-passage-duty: procurement.policy.maintain or procurement.purchase-order.inquire
+      x-depot-duty: procurement.policy.maintain or procurement.purchase-order.inquire
       summary: Read one auto charge (FR-17.9)
       parameters: [{ $ref: '#/components/parameters/Id' }]
       responses:
@@ -5439,7 +5439,7 @@ paths:
         '422': { description: id is not a UUID (COM-0001), content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } } }
     put:
       operationId: changeAutoCharge
-      x-passage-duty: procurement.policy.maintain
+      x-depot-duty: procurement.policy.maintain
       summary: Change an auto charge under If-Match (FR-17.9; duty procurement.policy.maintain)
       description: >-
         PUT is idempotent, so no Idempotency-Key is taken. It replaces value, minOrderAmount, currency, validFrom, validTo and status;
@@ -5470,7 +5470,7 @@ paths:
   /v1/procurement/category-managers:
     post:
       operationId: createCategoryManager
-      x-passage-duty: procurement.category.maintain
+      x-depot-duty: procurement.category.maintain
       summary: Make a worker a manager of a procurement category (FR-17.20; duty procurement.category.maintain)
       description: Writes categorymanager.assigned.v1. A replayed Idempotency-Key returns the first row.
       parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
@@ -5492,7 +5492,7 @@ paths:
         '422': { description: Validation (COM-0001) or idempotency_key_reuse, content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } } }
     get:
       operationId: listCategoryManagers
-      x-passage-duty: procurement.category.maintain or procurement.purchase-order.inquire
+      x-depot-duty: procurement.category.maintain or procurement.purchase-order.inquire
       summary: List category managers, newest first (FR-17.20)
       parameters:
         - { name: legalEntityId, in: query, required: false, schema: { type: string, format: uuid } }
@@ -5512,7 +5512,7 @@ paths:
   /v1/procurement/category-managers/{id}:
     delete:
       operationId: deleteCategoryManager
-      x-passage-duty: procurement.category.maintain
+      x-depot-duty: procurement.category.maintain
       summary: Remove a category manager (FR-17.20; duty procurement.category.maintain)
       description: Writes categorymanager.removed.v1.
       parameters: [{ $ref: '#/components/parameters/Id' }]
@@ -5525,7 +5525,7 @@ paths:
   /v1/procurement/signing-limit-requests:
     post:
       operationId: createSigningLimitRequest
-      x-passage-duty: procurement.requisition.create
+      x-depot-duty: procurement.requisition.create
       summary: Request a worker's signing limit for a document type and currency (FR-17.17; duty procurement.requisition.create)
       description: >-
         The request is PENDING until a holder of procurement.signing-limit.approve approves or rejects it; the limit is written only by approval.
@@ -5550,7 +5550,7 @@ paths:
         '422': { description: "Validation - ids, document type, currency or limits (COM-0001) or idempotency_key_reuse", content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } } }
     get:
       operationId: listSigningLimitRequests
-      x-passage-duty: procurement.signing-limit.approve or procurement.purchase-order.inquire
+      x-depot-duty: procurement.signing-limit.approve or procurement.purchase-order.inquire
       summary: List signing limit requests, newest first (FR-17.17)
       parameters:
         - { name: legalEntityId, in: query, required: false, schema: { type: string, format: uuid } }
@@ -5570,7 +5570,7 @@ paths:
   /v1/procurement/signing-limit-requests/{id}:
     get:
       operationId: getSigningLimitRequest
-      x-passage-duty: procurement.signing-limit.approve or procurement.purchase-order.inquire
+      x-depot-duty: procurement.signing-limit.approve or procurement.purchase-order.inquire
       summary: Read one signing limit request (FR-17.17)
       parameters: [{ $ref: '#/components/parameters/Id' }]
       responses:
@@ -5588,7 +5588,7 @@ paths:
   /v1/procurement/signing-limit-requests/{id}:approve:
     post:
       operationId: approveSigningLimitRequest
-      x-passage-duty: procurement.signing-limit.approve
+      x-depot-duty: procurement.signing-limit.approve
       summary: Approve a PENDING signing limit request and write the worker's limit (FR-17.17; duty procurement.signing-limit.approve)
       description: >-
         Writes the limit for the worker, document type and currency (a new limit, or the existing one at its next version) with a recertification date 12 months out, and signinglimit.changed.v1, in one transaction. The requester and the worker cannot approve (PRC-SL-003). A replayed Idempotency-Key returns the request as it is now.
@@ -5620,7 +5620,7 @@ paths:
   /v1/procurement/signing-limit-requests/{id}:reject:
     post:
       operationId: rejectSigningLimitRequest
-      x-passage-duty: procurement.signing-limit.approve
+      x-depot-duty: procurement.signing-limit.approve
       summary: Reject a PENDING signing limit request (FR-17.17; duty procurement.signing-limit.approve)
       description: >-
         The limit is not changed. The requester and the worker cannot reject (PRC-SL-003). A replayed Idempotency-Key returns the request as it is now.
@@ -5652,7 +5652,7 @@ paths:
   /v1/procurement/signing-limits:
     get:
       operationId: listSigningLimits
-      x-passage-duty: procurement.signing-limit.approve or procurement.purchase-order.inquire
+      x-depot-duty: procurement.signing-limit.approve or procurement.purchase-order.inquire
       summary: List signing limits, newest first (FR-17.17)
       parameters:
         - { name: legalEntityId, in: query, required: false, schema: { type: string, format: uuid } }
@@ -5673,7 +5673,7 @@ paths:
   /v1/procurement/signing-limits/evaluation:
     get:
       operationId: evaluateSigningLimit
-      x-passage-duty: procurement.signing-limit.approve or procurement.purchase-order.inquire
+      x-depot-duty: procurement.signing-limit.approve or procurement.purchase-order.inquire
       summary: What a worker's limit does to a document of an amount, as requester and as approver (FR-17.17, BR-17.15)
       description: >-
         Compares the amount with the worker's limit for the document type in the currency. Limits are not converted between currencies. As approver the rule fails closed: no limit in the currency (none at all, or only in other currencies) is an approval limit of zero (PRC-SL-002). As requester, limits only in other currencies add the level; no limit at all adds none.
@@ -5695,7 +5695,7 @@ paths:
   /v1/procurement/signing-limits/{id}:
     get:
       operationId: getSigningLimit
-      x-passage-duty: procurement.signing-limit.approve or procurement.purchase-order.inquire
+      x-depot-duty: procurement.signing-limit.approve or procurement.purchase-order.inquire
       summary: Read one signing limit (FR-17.17)
       parameters: [{ $ref: '#/components/parameters/Id' }]
       responses:
@@ -5713,7 +5713,7 @@ paths:
   /v1/procurement/signing-limits/{id}:recertify:
     post:
       operationId: recertifySigningLimit
-      x-passage-duty: procurement.signing-limit.approve
+      x-depot-duty: procurement.signing-limit.approve
       summary: Recertify a signing limit for another 12 months (FR-17.17; duty procurement.signing-limit.approve)
       description: >-
         Moves recertifyBy to 12 months after today and writes signinglimit.changed.v1. The worker cannot recertify their own limit (PRC-SL-003). An expired limit cannot approve, and escalates the worker's own documents, until it is recertified.
@@ -5739,7 +5739,7 @@ paths:
   /v1/procurement/purchase-orders/{id}/service-lines:
     get:
       operationId: listServiceSpecs
-      x-passage-duty: procurement.purchase-order.inquire or procurement.purchase-order.lookup
+      x-depot-duty: procurement.purchase-order.inquire or procurement.purchase-order.lookup
       summary: The service lines of a purchase order with their outlines and limits (FR-17.23)
       parameters: [{ $ref: '#/components/parameters/Id' }]
       responses:
@@ -5755,7 +5755,7 @@ paths:
   /v1/procurement/purchase-orders/{id}/lines/{lineNo}/service:
     get:
       operationId: getServiceSpec
-      x-passage-duty: procurement.purchase-order.inquire or procurement.purchase-order.lookup
+      x-depot-duty: procurement.purchase-order.inquire or procurement.purchase-order.lookup
       summary: The service specification of one PO line (ETag = PO row version)
       parameters: [{ $ref: '#/components/parameters/Id' }, { $ref: '#/components/parameters/LineNo' }]
       responses:
@@ -5772,7 +5772,7 @@ paths:
         '422': { description: Bad id or line number (COM-0001), content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } } }
     put:
       operationId: putServiceSpec
-      x-passage-duty: procurement.purchase-order.maintain
+      x-depot-duty: procurement.purchase-order.maintain
       summary: Save the service specification of one PO line, which makes it a SERVICE line (FR-17.23; duty procurement.purchase-order.maintain)
       description: >-
         Replaces any earlier specification: the value limit and expected value for unplanned services, the optional contract limit (an
@@ -5805,7 +5805,7 @@ paths:
         '428': { description: If-Match absent (PRC-IFMATCH-001), content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } } }
     delete:
       operationId: deleteServiceSpec
-      x-passage-duty: procurement.purchase-order.maintain
+      x-depot-duty: procurement.purchase-order.maintain
       summary: Remove the service specification of one PO line, which becomes a plain line again (duty procurement.purchase-order.maintain)
       parameters:
         - { $ref: '#/components/parameters/Id' }
@@ -5825,7 +5825,7 @@ paths:
   /v1/procurement/purchase-orders/{id}/lines/{lineNo}/service/limit-check:
     get:
       operationId: checkServiceLimit
-      x-passage-duty: procurement.purchase-order.inquire or procurement.purchase-order.lookup
+      x-depot-duty: procurement.purchase-order.inquire or procurement.purchase-order.lookup
       summary: Whether an entry of unplanned services fits the line's limits (BR-17.19, AC-17.17)
       description: >-
         Wave 18 asks for a service entry sheet. The unplanned services already entered (unplanned, which the caller keeps) plus the
@@ -5852,7 +5852,7 @@ paths:
   /v1/procurement/model-service-specs:
     post:
       operationId: createModelServiceSpec
-      x-passage-duty: procurement.policy.maintain
+      x-depot-duty: procurement.policy.maintain
       summary: Create a model service specification of a legal entity (FR-17.23; duty procurement.policy.maintain)
       description: >-
         A model is a reusable outline (SAP ML10-ML12) priced in one currency; a service line takes a copy by modelId and the model can
@@ -5878,7 +5878,7 @@ paths:
         '422': { description: "Validation - code, currency, outline (COM-0001), outline total mismatch (PRC-SRV-004) or idempotency_key_reuse", content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } } }
     get:
       operationId: listModelServiceSpecs
-      x-passage-duty: procurement.policy.maintain or procurement.purchase-order.inquire
+      x-depot-duty: procurement.policy.maintain or procurement.purchase-order.inquire
       summary: List model service specifications, newest first, without outlines (FR-17.23)
       parameters:
         - { name: legalEntityId, in: query, required: false, schema: { type: string, format: uuid } }
@@ -5898,7 +5898,7 @@ paths:
   /v1/procurement/model-service-specs/{id}:
     get:
       operationId: getModelServiceSpec
-      x-passage-duty: procurement.policy.maintain or procurement.purchase-order.inquire
+      x-depot-duty: procurement.policy.maintain or procurement.purchase-order.inquire
       summary: Read one model service specification with its outline (FR-17.23)
       parameters: [{ $ref: '#/components/parameters/Id' }]
       responses:
@@ -5915,7 +5915,7 @@ paths:
         '422': { description: id is not a UUID (COM-0001), content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } } }
     put:
       operationId: changeModelServiceSpec
-      x-passage-duty: procurement.policy.maintain
+      x-depot-duty: procurement.policy.maintain
       summary: Change a model service specification under If-Match (FR-17.23; duty procurement.policy.maintain)
       description: >-
         PUT is idempotent, so no Idempotency-Key is taken. It replaces name, currency, status and outline; the code and the legal entity
@@ -5946,7 +5946,7 @@ paths:
   /v1/procurement/acknowledgements/awaiting:
     get:
       operationId: listPurchaseOrdersAwaitingAcknowledgement
-      x-passage-duty: procurement.purchase-order.inquire
+      x-depot-duty: procurement.purchase-order.inquire
       summary: Confirmed POs whose current version no vendor has answered yet, newest first (duty procurement.purchase-order.inquire)
       parameters: [{ $ref: '#/components/parameters/Limit' }, { $ref: '#/components/parameters/Cursor' }]
       responses:
@@ -5960,7 +5960,7 @@ paths:
   /v1/procurement/acknowledgements:
     get:
       operationId: listAcknowledgements
-      x-passage-duty: procurement.purchase-order.inquire
+      x-depot-duty: procurement.purchase-order.inquire
       summary: Vendor answers, newest first; pending=true lists the proposals nobody has decided (duty procurement.purchase-order.inquire)
       parameters:
         - { name: purchaseOrderId, in: query, required: false, schema: { type: string, format: uuid } }
@@ -5979,7 +5979,7 @@ paths:
   /v1/procurement/purchase-orders/{id}/acknowledgements:
     get:
       operationId: listPurchaseOrderAcknowledgements
-      x-passage-duty: procurement.purchase-order.inquire
+      x-depot-duty: procurement.purchase-order.inquire
       summary: Every vendor answer to one PO, newest first (duty procurement.purchase-order.inquire)
       parameters: [{ $ref: '#/components/parameters/Id' }, { $ref: '#/components/parameters/Limit' }, { $ref: '#/components/parameters/Cursor' }]
       responses:
@@ -5993,7 +5993,7 @@ paths:
   /v1/procurement/acknowledgements/{id}:approve:
     post:
       operationId: approveAcknowledgement
-      x-passage-duty: procurement.purchase-order.confirm
+      x-depot-duty: procurement.purchase-order.confirm
       summary: Approve a vendor's proposed changes; the PO moves to its next version (duty procurement.purchase-order.confirm)
       parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
       requestBody:
@@ -6015,7 +6015,7 @@ paths:
   /v1/procurement/acknowledgements/{id}:decline:
     post:
       operationId: declineAcknowledgement
-      x-passage-duty: procurement.purchase-order.confirm
+      x-depot-duty: procurement.purchase-order.confirm
       summary: Decline a vendor's proposed changes; the order is unchanged (duty procurement.purchase-order.confirm)
       parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
       requestBody:
@@ -6036,7 +6036,7 @@ paths:
   /v1/procurement/vendor/purchase-orders:
     get:
       operationId: listVendorPurchaseOrders
-      x-passage-duty: procurement.vendor-portal.read
+      x-depot-duty: procurement.vendor-portal.read
       summary: The calling vendor's confirmed POs, newest first. The vendor comes from the verified credential only (service-only duty procurement.vendor-portal.read)
       parameters: [{ $ref: '#/components/parameters/Limit' }, { $ref: '#/components/parameters/Cursor' }]
       responses:
@@ -6050,7 +6050,7 @@ paths:
   /v1/procurement/vendor/purchase-orders/{id}:
     get:
       operationId: getVendorPurchaseOrder
-      x-passage-duty: procurement.vendor-portal.read
+      x-depot-duty: procurement.vendor-portal.read
       summary: One of the calling vendor's POs, with its answers; another vendor's PO is 404 (service-only duty procurement.vendor-portal.read)
       parameters: [{ $ref: '#/components/parameters/Id' }]
       responses:
@@ -6064,7 +6064,7 @@ paths:
   /v1/procurement/vendor/purchase-orders/{id}/acknowledgements:
     post:
       operationId: acknowledgeVendorPurchaseOrder
-      x-passage-duty: procurement.vendor-portal.acknowledge
+      x-depot-duty: procurement.vendor-portal.acknowledge
       summary: Accept, reject or propose line changes to the current version of the calling vendor's PO (service-only duty procurement.vendor-portal.acknowledge)
       parameters: [{ $ref: '#/components/parameters/Id' }, { $ref: '#/components/parameters/IdempotencyKey' }]
       requestBody:

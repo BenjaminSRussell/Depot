@@ -6,7 +6,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
 )
 
 // VendorProfile says the partner is one of our vendors: its inbound 810 is a vendor invoice for this vendor in this legal entity.

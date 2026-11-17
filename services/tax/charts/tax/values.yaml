@@ -31,7 +31,7 @@ consumer:
     brokers: ""
     group: tax-intrastat
     username: tax-consumer
-    dlqTopic: passage.tax.intrastat.dlq
+    dlqTopic: depot.tax.intrastat.dlq
     secret: ""
   resources:
     requests: { cpu: 50m, memory: 64Mi }

@@ -11,16 +11,16 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/fieldcrypt"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/party/internal/api"
-	"github.com/BenjaminSRussell/passage/services/party/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/party/internal/numbering"
-	"github.com/BenjaminSRussell/passage/services/party/internal/store"
-	"github.com/BenjaminSRussell/passage/services/party/internal/vies"
-	"github.com/BenjaminSRussell/passage/services/party/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/fieldcrypt"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/party/internal/api"
+	"github.com/BenjaminSRussell/depot/services/party/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/party/internal/numbering"
+	"github.com/BenjaminSRussell/depot/services/party/internal/store"
+	"github.com/BenjaminSRussell/depot/services/party/internal/vies"
+	"github.com/BenjaminSRussell/depot/services/party/migrations"
 )
 
 const (

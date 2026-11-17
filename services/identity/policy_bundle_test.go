@@ -26,7 +26,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/BenjaminSRussell/passage/services/identity"
+	"github.com/BenjaminSRussell/depot/services/identity"
 )
 
 const (
@@ -226,7 +226,7 @@ func TestPolicyCompileReadPolicyNeedsOperatorSessionAndFlag(t *testing.T) {
 	read := func(tenantID, flag string) int {
 		var n int
 		err := pgx.BeginFunc(ctx, f.app, func(tx pgx.Tx) error {
-			if _, err := tx.Exec(ctx, `select set_config('passage.tenant_id', $1, true), set_config('passage.legal_entity_scopes', '*', true), set_config('passage.policy_compile', $2, true)`, tenantID, flag); err != nil {
+			if _, err := tx.Exec(ctx, `select set_config('depot.tenant_id', $1, true), set_config('depot.legal_entity_scopes', '*', true), set_config('depot.policy_compile', $2, true)`, tenantID, flag); err != nil {
 				return err
 			}
 			return tx.QueryRow(ctx, `select count(*) from identity_role_assignments where tenant_id <> $1`, tenantID).Scan(&n)
@@ -439,8 +439,8 @@ func TestSidecarConfigActivatesTheSignedBundle(t *testing.T) {
 	}
 	rendered := strings.NewReplacer(
 		"https://identity-bundle:8443", server.URL,
-		"/etc/passage/opa-bundle/ca.pem", caPath,
-		"/etc/passage/opa-bundle/token", tokenPath,
+		"/etc/depot/opa-bundle/ca.pem", caPath,
+		"/etc/depot/opa-bundle/token", tokenPath,
 		"min_delay_seconds: 10", "min_delay_seconds: 1",
 		"max_delay_seconds: 20", "max_delay_seconds: 2",
 		"persist: true", "persist: false",

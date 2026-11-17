@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
 )
 
 // WMS_LOCK_TIMEOUT_MIN is the PRD lock_timeout_min parameter: 5 to 240, default 30.
@@ -55,16 +55,16 @@ func TestRunRefusesServiceTokensWithoutTheSharedReplayCache(t *testing.T) {
 	q.Set("search_path", schema)
 	dbURL.RawQuery = q.Encode()
 	env := map[string]string{
-		"DATABASE_URL":                  dbURL.String(),
-		"HTTP_ADDR":                     "127.0.0.1:0",
-		"ADMIN_ADDR":                    "127.0.0.1:0",
-		tenant.EnvServiceName:           "warehouse",
-		tenant.EnvServicePublicKeys:     "mobile=" + base64.StdEncoding.EncodeToString(pub),
-		"MIGRATE_ON_START":              "",
-		"WMS_LOCK_TIMEOUT_MIN":          "",
-		"PASSAGE_SERVICE_REPLAY_SIZE":   "",
-		"PASSAGE_INVENTORY_URL":         "",
-		"PASSAGE_INVENTORY_SERVICE_KEY": "",
+		"DATABASE_URL":                dbURL.String(),
+		"HTTP_ADDR":                   "127.0.0.1:0",
+		"ADMIN_ADDR":                  "127.0.0.1:0",
+		tenant.EnvServiceName:         "warehouse",
+		tenant.EnvServicePublicKeys:   "mobile=" + base64.StdEncoding.EncodeToString(pub),
+		"MIGRATE_ON_START":            "",
+		"WMS_LOCK_TIMEOUT_MIN":        "",
+		"DEPOT_SERVICE_REPLAY_SIZE":   "",
+		"DEPOT_INVENTORY_URL":         "",
+		"DEPOT_INVENTORY_SERVICE_KEY": "",
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()

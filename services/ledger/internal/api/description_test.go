@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/services/ledger/internal/store"
+	"github.com/BenjaminSRussell/depot/services/ledger/internal/store"
 )
 
 const testTemplate = "0190a000-0000-7000-8000-0000000000a1"

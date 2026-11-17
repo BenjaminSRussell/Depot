@@ -10,9 +10,9 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/ledgerclient"
+	"github.com/BenjaminSRussell/depot/platform/ledgerclient"
 
-	"github.com/BenjaminSRussell/passage/tools/migration-factory/internal/domain"
+	"github.com/BenjaminSRussell/depot/tools/migration-factory/internal/domain"
 )
 
 // MaxCompensationsPerRun bounds the journals one compensation run posts; More says whether due
@@ -65,7 +65,7 @@ func rolledBackPlan(ctx context.Context, tx pgx.Tx, planID string) (domain.Plan,
 		return domain.Plan{}, time.Time{}, err
 	}
 	var at *time.Time
-	if err := tx.QueryRow(ctx, `select rolled_back_at from cutover_plan where tenant_id = current_setting('passage.tenant_id', true)::uuid and plan_id = $1`,
+	if err := tx.QueryRow(ctx, `select rolled_back_at from cutover_plan where tenant_id = current_setting('depot.tenant_id', true)::uuid and plan_id = $1`,
 		planID).Scan(&at); err != nil {
 		return domain.Plan{}, time.Time{}, err
 	}
@@ -77,7 +77,7 @@ func rolledBackPlan(ctx context.Context, tx pgx.Tx, planID string) (domain.Plan,
 
 func readPinned(ctx context.Context, tx pgx.Tx, planID string) ([]EntityLedger, error) {
 	rows, err := tx.Query(ctx, `select entity, legal_entity_id::text, ledger_id from rollback_ledger
-		where tenant_id = current_setting('passage.tenant_id', true)::uuid and plan_id = $1 order by entity`, planID)
+		where tenant_id = current_setting('depot.tenant_id', true)::uuid and plan_id = $1 order by entity`, planID)
 	if err != nil {
 		return nil, fmt.Errorf("read rollback_ledger: %w", err)
 	}
@@ -102,7 +102,7 @@ func readPinnedMap(ctx context.Context, tx pgx.Tx, planID string) (map[string]En
 
 func readJournals(ctx context.Context, tx pgx.Tx, planID string) ([]domain.RekeyPosting, error) {
 	rows, err := tx.Query(ctx, `select entity, document_ref, line, posted_at, account, dimensions, currency, amount::text, text
-		from rekey_line where tenant_id = current_setting('passage.tenant_id', true)::uuid and plan_id = $1 and kind = 'JOURNAL' order by seq`, planID)
+		from rekey_line where tenant_id = current_setting('depot.tenant_id', true)::uuid and plan_id = $1 and kind = 'JOURNAL' order by seq`, planID)
 	if err != nil {
 		return nil, fmt.Errorf("read rekey_line: %w", err)
 	}
@@ -120,7 +120,7 @@ func readJournals(ctx context.Context, tx pgx.Tx, planID string) ([]domain.Rekey
 
 func readCompensations(ctx context.Context, tx pgx.Tx, planID string) ([]domain.Compensation, error) {
 	rows, err := tx.Query(ctx, `select entity, document_ref, currency, idempotency_key, status, attempts, last_code, next_attempt_at, entry_id, posted_at
-		from rollback_compensation where tenant_id = current_setting('passage.tenant_id', true)::uuid and plan_id = $1
+		from rollback_compensation where tenant_id = current_setting('depot.tenant_id', true)::uuid and plan_id = $1
 		order by entity, created_at, document_ref, currency`, planID)
 	if err != nil {
 		return nil, fmt.Errorf("read rollback_compensation: %w", err)
@@ -179,7 +179,7 @@ func (s *Postgres) pinRollbackLedgers(ctx context.Context, ledger ledgerclient.L
 	return s.tx(ctx, func(tx pgx.Tx) error {
 		for _, l := range fresh {
 			if _, err := tx.Exec(ctx, `insert into rollback_ledger (tenant_id, plan_id, entity, legal_entity_id, ledger_id, pinned_by)
-				values (current_setting('passage.tenant_id', true)::uuid, $1, $2, $3, $4, $5) on conflict do nothing`,
+				values (current_setting('depot.tenant_id', true)::uuid, $1, $2, $3, $4, $5) on conflict do nothing`,
 				plan.PlanID, l.Entity, l.LegalEntityID, l.LedgerID, in.By); err != nil {
 				return fmt.Errorf("insert rollback_ledger: %w", err)
 			}
@@ -227,14 +227,14 @@ func (s *Postgres) PostCompensations(ctx context.Context, ledger ledgerclient.Le
 		}
 		for _, c := range domain.PlanCompensations(plan.PlanID, journals) {
 			if _, err := tx.Exec(ctx, `insert into rollback_compensation (tenant_id, plan_id, entity, document_ref, currency, idempotency_key, next_attempt_at)
-				values (current_setting('passage.tenant_id', true)::uuid, $1, $2, $3, $4, $5, $6) on conflict do nothing`,
+				values (current_setting('depot.tenant_id', true)::uuid, $1, $2, $3, $4, $5, $6) on conflict do nothing`,
 				plan.PlanID, c.Entity, c.DocumentRef, c.Currency, c.Key, in.Now); err != nil {
 				return fmt.Errorf("insert rollback_compensation: %w", err)
 			}
 		}
 		if in.RetryParked {
 			if _, err := tx.Exec(ctx, `update rollback_compensation set status = 'PENDING', attempts = 0, next_attempt_at = $2
-				where tenant_id = current_setting('passage.tenant_id', true)::uuid and plan_id = $1 and status = 'PARKED'`, plan.PlanID, in.Now); err != nil {
+				where tenant_id = current_setting('depot.tenant_id', true)::uuid and plan_id = $1 and status = 'PARKED'`, plan.PlanID, in.Now); err != nil {
 				return fmt.Errorf("retry parked compensations: %w", err)
 			}
 		}
@@ -285,7 +285,7 @@ func (s *Postgres) recordCompensation(ctx context.Context, planID string, c doma
 	return s.tx(ctx, func(tx pgx.Tx) error {
 		if postErr == nil {
 			_, err := tx.Exec(ctx, `update rollback_compensation set status = 'POSTED', entry_id = $5, posted_at = $6, last_code = ''
-				where tenant_id = current_setting('passage.tenant_id', true)::uuid and plan_id = $1 and entity = $2 and document_ref = $3 and currency = $4
+				where tenant_id = current_setting('depot.tenant_id', true)::uuid and plan_id = $1 and entity = $2 and document_ref = $3 and currency = $4
 				and status <> 'POSTED'`, planID, c.Entity, c.DocumentRef, c.Currency, entryID, now)
 			return err
 		}
@@ -300,7 +300,7 @@ func (s *Postgres) recordCompensation(ctx context.Context, planID string, c doma
 		slog.ErrorContext(ctx, "rollback compensation not posted", "plan", planID, "entity", c.Entity, "document", c.DocumentRef, "key", c.Key, "code", code, "err", postErr)
 		domain.FailCompensation(&c, code, rejected, now)
 		_, err := tx.Exec(ctx, `update rollback_compensation set status = $5, attempts = $6, last_code = $7, next_attempt_at = $8
-			where tenant_id = current_setting('passage.tenant_id', true)::uuid and plan_id = $1 and entity = $2 and document_ref = $3 and currency = $4
+			where tenant_id = current_setting('depot.tenant_id', true)::uuid and plan_id = $1 and entity = $2 and document_ref = $3 and currency = $4
 			and status = 'PENDING'`, planID, c.Entity, c.DocumentRef, c.Currency, string(c.Status), c.Attempts, c.LastCode, c.NextAttemptAt)
 		return err
 	})

@@ -44,19 +44,19 @@ CREATE UNIQUE INDEX IF NOT EXISTS address_purpose_primary ON address_purpose (te
 ALTER TABLE postal_address ENABLE ROW LEVEL SECURITY;
 ALTER TABLE postal_address FORCE ROW LEVEL SECURITY;
 CREATE POLICY postal_address_tenant_access ON postal_address AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY postal_address_legal_entity_scope ON postal_address AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
          OR legal_entity_id IS NULL
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 ALTER TABLE address_purpose ENABLE ROW LEVEL SECURITY;
 ALTER TABLE address_purpose FORCE ROW LEVEL SECURITY;
 CREATE POLICY address_purpose_tenant_access ON address_purpose AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY address_purpose_legal_entity_scope ON address_purpose AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
          OR legal_entity_id IS NULL
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));

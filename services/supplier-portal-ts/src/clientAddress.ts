@@ -1,11 +1,11 @@
 // The address a public request came from, for the per-client rate limit. The same rule as platform/go/httpx TrustedRealIP:
-// X-Forwarded-For is read only when the TCP peer is a configured trusted proxy (PASSAGE_TRUSTED_PROXIES, CIDRs or bare
+// X-Forwarded-For is read only when the TCP peer is a configured trusted proxy (DEPOT_TRUSTED_PROXIES, CIDRs or bare
 // addresses), and it is walked right to left past the trusted proxies, so a client cannot choose its address by sending the
 // header itself or by prepending entries. With no trusted proxies the address is always the TCP peer's.
 
 import { BlockList, isIP } from "node:net";
 
-export const TRUSTED_PROXIES_ENV = "PASSAGE_TRUSTED_PROXIES";
+export const TRUSTED_PROXIES_ENV = "DEPOT_TRUSTED_PROXIES";
 
 export interface TrustedProxies {
   readonly list: BlockList;
@@ -30,7 +30,7 @@ function normalize(raw: string | undefined): { address: string; family: "ipv4" |
   return undefined;
 }
 
-/** Parses PASSAGE_TRUSTED_PROXIES. Empty means none. An entry that is not an address or CIDR stops the service: a typo must not silently trust nobody or everybody. */
+/** Parses DEPOT_TRUSTED_PROXIES. Empty means none. An entry that is not an address or CIDR stops the service: a typo must not silently trust nobody or everybody. */
 export function parseTrustedProxies(raw: string | undefined): TrustedProxies {
   const list = new BlockList();
   let size = 0;

@@ -10,8 +10,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
 )
 
 const tenantA = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
@@ -21,7 +21,7 @@ func needDB(t *testing.T) (ownerURL, appURL string) {
 	t.Helper()
 	ownerURL, appURL = os.Getenv(testkit.EnvURL), os.Getenv(testkit.EnvAppURL)
 	if ownerURL == "" || appURL == "" {
-		t.Skip("PASSAGE_TEST_DATABASE_URL and PASSAGE_TEST_APP_DATABASE_URL are not set")
+		t.Skip("DEPOT_TEST_DATABASE_URL and DEPOT_TEST_APP_DATABASE_URL are not set")
 	}
 	return
 }
@@ -62,7 +62,7 @@ func withUser(t *testing.T, raw, user, pass string) string {
 	return u.String()
 }
 
-// purgeRole is a login role that may delete (the purge credentials) and is not passage_app and has no BYPASSRLS.
+// purgeRole is a login role that may delete (the purge credentials) and is not depot_app and has no BYPASSRLS.
 func purgeRole(t *testing.T, ownerURL, appURL string) string {
 	t.Helper()
 	exec(t, ownerURL, `do $$ begin if not exists (select 1 from pg_roles where rolname = 'provtest_purger') then
@@ -82,7 +82,7 @@ func shapedSchema(t *testing.T, ownerURL, schema string, extra string) {
 	t.Helper()
 	pol := func(tbl string) string {
 		return `alter table ` + schema + `.` + tbl + ` enable row level security; alter table ` + schema + `.` + tbl + ` force row level security;
-		create policy p on ` + schema + `.` + tbl + ` using (tenant_id = nullif(current_setting('passage.tenant_id', true), '')::uuid);`
+		create policy p on ` + schema + `.` + tbl + ` using (tenant_id = nullif(current_setting('depot.tenant_id', true), '')::uuid);`
 	}
 	exec(t, ownerURL, `drop schema if exists `+schema+` cascade; create schema `+schema+`;
 	create table `+schema+`.parent (tenant_id uuid not null, id int not null, primary key (tenant_id, id));
@@ -92,8 +92,8 @@ func shapedSchema(t *testing.T, ownerURL, schema string, extra string) {
 	insert into `+schema+`.parent values ('`+tenantA+`', 1), ('`+tenantB+`', 1);
 	insert into `+schema+`.child values ('`+tenantA+`', 1, 1), ('`+tenantB+`', 1, 1);
 	insert into `+schema+`.identity_tenants values ('`+tenantA+`');`+pol("parent")+pol("child")+pol("identity_tenants")+extra+`
-	grant usage on schema `+schema+` to passage_app, provtest_purger;
-	grant select, insert, update, delete on all tables in schema `+schema+` to passage_app, provtest_purger;`)
+	grant usage on schema `+schema+` to depot_app, provtest_purger;
+	grant select, insert, update, delete on all tables in schema `+schema+` to depot_app, provtest_purger;`)
 	t.Cleanup(func() { exec(t, ownerURL, "drop schema if exists "+schema+" cascade") })
 }
 
@@ -139,17 +139,17 @@ func TestVerifyRefusesWeakSchemasAndTheOwnerRole(t *testing.T) {
 	create table `+schema+`.ref (tenant_id uuid not null, code text not null, primary key (tenant_id, code));
 	insert into `+schema+`.ref values ('00000000-0000-0000-0000-000000000000', 'X');
 	alter table `+schema+`.ref enable row level security; alter table `+schema+`.ref force row level security;
-	create policy p on `+schema+`.ref using (tenant_id in (nullif(current_setting('passage.tenant_id', true), '')::uuid, '00000000-0000-0000-0000-000000000000'));
+	create policy p on `+schema+`.ref using (tenant_id in (nullif(current_setting('depot.tenant_id', true), '')::uuid, '00000000-0000-0000-0000-000000000000'));
 	create table `+schema+`.service_token_replay (tenant_id uuid not null, jti text not null, primary key (tenant_id, jti));
 	alter table `+schema+`.service_token_replay enable row level security;
-	create policy p on `+schema+`.service_token_replay using (tenant_id = nullif(current_setting('passage.tenant_id', true), '')::uuid);
-	grant select on `+schema+`.ref, `+schema+`.service_token_replay to passage_app;`)
+	create policy p on `+schema+`.service_token_replay using (tenant_id = nullif(current_setting('depot.tenant_id', true), '')::uuid);
+	grant select on `+schema+`.ref, `+schema+`.service_token_replay to depot_app;`)
 	d := Databases{URLs: map[string]string{"ledger": appURL}, Schemas: []string{schema}}
 	if _, err := d.EnsureDatabases(context.Background(), Tenant{ID: tenantA}, false); err != nil {
 		t.Fatalf("exemptions were refused: %v", err)
 	}
 	exec(t, ownerURL, `create table `+schema+`.plain (tenant_id uuid not null); alter table `+schema+`.plain enable row level security;
-		grant select on `+schema+`.plain to passage_app`)
+		grant select on `+schema+`.plain to depot_app`)
 	if _, err := d.EnsureDatabases(context.Background(), Tenant{ID: tenantA}, false); err == nil || !strings.Contains(err.Error(), schema+".plain") {
 		t.Fatalf("a not-forced table was accepted: %v", err)
 	}
@@ -166,7 +166,7 @@ func TestVerifyFlagsRowsOfOtherTenants(t *testing.T) {
 	create table `+schema+`.leaky (tenant_id uuid not null); insert into `+schema+`.leaky values ('`+tenantB+`');
 	alter table `+schema+`.leaky enable row level security; alter table `+schema+`.leaky force row level security;
 	create policy p on `+schema+`.leaky using (true);
-	grant select on `+schema+`.leaky to passage_app;`)
+	grant select on `+schema+`.leaky to depot_app;`)
 	_, err := (Databases{URLs: map[string]string{"svc": appURL}, Schemas: []string{schema}}).EnsureDatabases(context.Background(), Tenant{ID: tenantA}, false)
 	if err == nil || !strings.Contains(err.Error(), "leaky shows 1 rows of other tenants") {
 		t.Fatalf("%v", err)
@@ -204,11 +204,11 @@ func TestPurgeDeletesInFKOrderRetainsImmutableAndListsOtherKeys(t *testing.T) {
 	create function `+schema+`.no_delete() returns trigger language plpgsql as $f$ begin raise exception 'append-only'; end $f$;
 	create trigger no_del before delete on `+schema+`.audit_log for each row execute function `+schema+`.no_delete();
 	alter table `+schema+`.audit_log enable row level security; alter table `+schema+`.audit_log force row level security;
-	create policy p on `+schema+`.audit_log using (tenant_id = nullif(current_setting('passage.tenant_id', true), '')::uuid);
+	create policy p on `+schema+`.audit_log using (tenant_id = nullif(current_setting('depot.tenant_id', true), '')::uuid);
 	create table `+schema+`.report_due (report_tenant uuid primary key); insert into `+schema+`.report_due values ('`+tenantA+`');
 	create table `+schema+`.nogrant (tenant_id uuid not null); insert into `+schema+`.nogrant values ('`+tenantA+`');
 	alter table `+schema+`.nogrant enable row level security; alter table `+schema+`.nogrant force row level security;
-	create policy p on `+schema+`.nogrant using (tenant_id = nullif(current_setting('passage.tenant_id', true), '')::uuid);`)
+	create policy p on `+schema+`.nogrant using (tenant_id = nullif(current_setting('depot.tenant_id', true), '')::uuid);`)
 	exec(t, ownerURL, `revoke delete on `+schema+`.nogrant from provtest_purger`)
 	p := Purger{URLs: map[string]string{"svc": purgeURL}, Schemas: []string{schema}}
 	rep, err := p.Purge(context.Background(), tenantA)
@@ -243,7 +243,7 @@ func TestPurgeFailsWhenPolicyHidesRowsFromTheDelete(t *testing.T) {
 	shapedSchema(t, ownerURL, schema, `
 	create table `+schema+`.readonly_t (tenant_id uuid not null); insert into `+schema+`.readonly_t values ('`+tenantA+`');
 	alter table `+schema+`.readonly_t enable row level security; alter table `+schema+`.readonly_t force row level security;
-	create policy p on `+schema+`.readonly_t for select using (tenant_id = nullif(current_setting('passage.tenant_id', true), '')::uuid);
+	create policy p on `+schema+`.readonly_t for select using (tenant_id = nullif(current_setting('depot.tenant_id', true), '')::uuid);
 	grant delete on `+schema+`.readonly_t to provtest_purger;`)
 	_, err := (Purger{URLs: map[string]string{"svc": purgeURL}, Schemas: []string{schema}}).Purge(context.Background(), tenantA)
 	if err == nil || !strings.Contains(err.Error(), "readonly_t has 1 rows left") {
@@ -274,12 +274,12 @@ func TestPurgeRollsBackEveryDatabaseWhenOneFails(t *testing.T) {
 	}
 	_ = c.Close(context.Background())
 	owner2 := dbURL(ownerURL, second)
-	exec(t, owner2, `grant all on schema public to passage_app, provtest_purger`)
+	exec(t, owner2, `grant all on schema public to depot_app, provtest_purger`)
 	shapedSchema(t, ownerURL, schema, "")
 	shapedSchema(t, owner2, schema, `
 	create table `+schema+`.trap (tenant_id uuid not null); insert into `+schema+`.trap values ('`+tenantA+`');
 	alter table `+schema+`.trap enable row level security; alter table `+schema+`.trap force row level security;
-	create policy p on `+schema+`.trap for select using (tenant_id = nullif(current_setting('passage.tenant_id', true), '')::uuid);
+	create policy p on `+schema+`.trap for select using (tenant_id = nullif(current_setting('depot.tenant_id', true), '')::uuid);
 	grant delete on `+schema+`.trap to provtest_purger;`)
 	_, err = (Purger{URLs: map[string]string{"a": purgeURL, "b": dbURL(purgeURL, second)}, Schemas: []string{schema}}).Purge(context.Background(), tenantA)
 	if err == nil || !strings.Contains(err.Error(), "b: rows remain") || strings.Contains(err.Error(), "a: ") || !strings.Contains(err.Error(), "every transaction was rolled back") {

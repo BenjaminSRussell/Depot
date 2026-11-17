@@ -1,10 +1,10 @@
 import { createElement } from "react";
-import type { PassageModule } from "../registry";
+import type { DepotModule } from "../registry";
 import { CatalogPage, ProductDetail, ProductHome, ReleasedPage } from "./pages";
 import { ItemGroupsPage } from "./ItemGroupsPage";
 import { EditProductPage, NewProductPage } from "./ProductForms";
 
-const product: PassageModule = {
+const product: DepotModule = {
   id: "product",
   title: "Product information",
   description: "Products, masters and what's released to each legal entity.",

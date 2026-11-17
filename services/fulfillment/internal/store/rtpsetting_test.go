@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	fulevents "github.com/BenjaminSRussell/passage/services/fulfillment/internal/events"
-	"github.com/BenjaminSRussell/passage/services/fulfillment/internal/store"
+	fulevents "github.com/BenjaminSRussell/depot/services/fulfillment/internal/events"
+	"github.com/BenjaminSRussell/depot/services/fulfillment/internal/store"
 )
 
 // returnableSlip packs the shipment's lines into returnable pallets (one per

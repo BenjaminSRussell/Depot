@@ -11,12 +11,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/shopfloor/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/shopfloor/internal/store"
-	"github.com/BenjaminSRussell/passage/services/shopfloor/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/shopfloor/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/shopfloor/internal/store"
+	"github.com/BenjaminSRussell/depot/services/shopfloor/migrations"
 )
 
 func (f *fakeStore) CreateControlRecipe(_ context.Context, in store.ControlRecipeInput, by string, _ store.Idem) (store.ControlRecipe, error) {
@@ -141,9 +141,9 @@ func TestHTTP_ControlRecipeLifecycleWriteAuditAndResend(t *testing.T) {
 	send := func(method, path, body, duties, user string) *httptest.ResponseRecorder {
 		calls++
 		req := httptest.NewRequest(method, path, strings.NewReader(body))
-		req.Header.Set("X-Passage-Tenant", testkit.TenantID(1))
-		req.Header.Set("X-Passage-User", user)
-		req.Header.Set("X-Passage-Duties", duties)
+		req.Header.Set("X-Depot-Tenant", testkit.TenantID(1))
+		req.Header.Set("X-Depot-User", user)
+		req.Header.Set("X-Depot-Duties", duties)
 		req.Header.Set("Idempotency-Key", fmt.Sprintf("call-%d", calls))
 		rec := httptest.NewRecorder()
 		h.ServeHTTP(rec, req)

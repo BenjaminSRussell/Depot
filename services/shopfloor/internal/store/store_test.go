@@ -10,17 +10,17 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/shopfloor/internal/domain"
-	sfevents "github.com/BenjaminSRussell/passage/services/shopfloor/internal/events"
-	"github.com/BenjaminSRussell/passage/services/shopfloor/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/shopfloor/internal/domain"
+	sfevents "github.com/BenjaminSRussell/depot/services/shopfloor/internal/events"
+	"github.com/BenjaminSRussell/depot/services/shopfloor/migrations"
 )
 
-// setup needs PASSAGE_TEST_DATABASE_URL (testkit skips without it) and the
-// application-role URL: the repository runs as passage_app, so row-level
+// setup needs DEPOT_TEST_DATABASE_URL (testkit skips without it) and the
+// application-role URL: the repository runs as depot_app, so row-level
 // security is enforced exactly as in production. admin is for assertions.
 func setup(t *testing.T) (s *Postgres, app, admin *pgxpool.Pool) {
 	t.Helper()
@@ -39,7 +39,7 @@ func inTenant(t *testing.T, pool *pgxpool.Pool, tenantID string, fn func(tx pgx.
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := tx.Exec(ctx, `select set_config('passage.tenant_id', $1, true)`, tenantID); err != nil {
+	if _, err := tx.Exec(ctx, `select set_config('depot.tenant_id', $1, true)`, tenantID); err != nil {
 		t.Fatal(err)
 	}
 	if err := fn(tx); err != nil {
@@ -204,7 +204,7 @@ func TestPayLineTrigger_BlocksChangesToApprovedDay(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() { _ = tx.Rollback(context.Background()) }()
-	if _, err := tx.Exec(context.Background(), `select set_config('passage.tenant_id', $1, true)`, tenantID); err != nil {
+	if _, err := tx.Exec(context.Background(), `select set_config('depot.tenant_id', $1, true)`, tenantID); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := tx.Exec(context.Background(), `update pay_line set hours = 1 where worker_id = $1`, worker); err == nil {

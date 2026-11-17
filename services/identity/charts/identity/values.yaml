@@ -9,11 +9,11 @@ migrateOnStart: false
 operatorTenantId: ""
 scim:
   issuerBase: ""
-  audience: passage-api
+  audience: depot-api
   opaUrl: ""
 # SCIM deprovisioning (active=false or DELETE) is queued in identity_keycloak_deprovisions either way; with
 # keycloakDeprovision.enabled a worker disables the Keycloak user and logs out its sessions through each tenant
-# realm's passage-identity-deprovision service account (realm-management manage-users only, see
+# realm's depot-identity-deprovision service account (realm-management manage-users only, see
 # deploy/keycloak/README.md). Needs operatorTenantId (the worker lists tenants as the operator) and an https
 # adminUrl (Keycloak's root URL). The client secrets live in the Secret `secretName`, one key per realm name,
 # mounted read-only; with externalSecret.enabled the chart renders the ESO ExternalSecret that fills it from
@@ -21,21 +21,21 @@ scim:
 keycloakDeprovision:
   enabled: false
   adminUrl: ""
-  clientId: passage-identity-deprovision
+  clientId: depot-identity-deprovision
   interval: 30s
   secretName: identity-keycloak
   externalSecret:
     enabled: true
-    storeName: passage
+    storeName: depot
     environment: ""
-    pathPrefix: passage/{env}/identity/keycloak
+    pathPrefix: depot/{env}/identity/keycloak
     refreshInterval: 1h
     realms: []
 # Customer portal contact invitations (#30) use the same Keycloak admin client as the deprovisioning worker, so they are on when
 # keycloakDeprovision.enabled is. The invitation email leads to the portal client's redirect once the contact has verified the
 # address, chosen a password and registered an authenticator; without a redirectUri Keycloak shows its own confirmation page.
 customerPortal:
-  clientId: passage-portal-customer
+  clientId: depot-portal-customer
   redirectUri: ""
 bundle:
   enabled: false
@@ -45,12 +45,12 @@ bundle:
 networkPolicy:
   gatewayNamespaces: [envoy-gateway-system]
   gatewayPodLabels:
-    gateway.envoyproxy.io/owning-gateway-name: passage-api
+    gateway.envoyproxy.io/owning-gateway-name: depot-api
     gateway.envoyproxy.io/owning-gateway-namespace: hello-ledger
   allowSameNamespace: false
   opaNamespaces: []
   opaPodLabels:
-    passage.io/opa-sidecar: "true"
+    depot.io/opa-sidecar: "true"
   # Namespaces whose Prometheus pods may scrape the admin port (9090, /metrics only); empty admits no scraper.
   metricsNamespaces: []
   metricsPodLabels:

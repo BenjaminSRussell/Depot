@@ -397,7 +397,7 @@ describe("locations page", () => {
     await waitFor(() => expect(callsTo(fetchMock, "POST", "/locations")).toHaveLength(1));
     const [, init] = callsTo(fetchMock, "POST", "/locations")[0];
     expect(JSON.parse(String(init?.body))).toEqual({ warehouseId: "w-1", code: "B-01", name: "Aisle 2", type: "receiving" });
-    expect(new Headers(init?.headers).get("X-Passage-LegalEntity")).toBe("le-1");
+    expect(new Headers(init?.headers).get("X-Depot-LegalEntity")).toBe("le-1");
     expect(new Headers(init?.headers).get("Idempotency-Key")).toBeTruthy();
 
     await user.click(await screen.findByRole("button", { name: "Deactivate location A-01" }));
@@ -405,7 +405,7 @@ describe("locations page", () => {
     await waitFor(() => expect(callsTo(fetchMock, "PATCH", "/locations/l-1")).toHaveLength(1));
     const [, patch] = callsTo(fetchMock, "PATCH", "/locations/l-1")[0];
     expect(JSON.parse(String(patch?.body))).toEqual({ version: 2, status: "inactive" });
-    expect(new Headers(patch?.headers).get("X-Passage-LegalEntity")).toBe("le-1");
+    expect(new Headers(patch?.headers).get("X-Depot-LegalEntity")).toBe("le-1");
   });
 
   it("shows a duplicate code on the field", async () => {

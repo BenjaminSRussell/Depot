@@ -1,5 +1,5 @@
-// Verifies the signed service tokens workflow-ts presents in X-Passage-Service-Token on the run-step routes: the same
-// format and checks as platform/go/tenant ServiceVerifier.VerifyContext (Ed25519 over "passage.service-token.v1." + body,
+// Verifies the signed service tokens workflow-ts presents in X-Depot-Service-Token on the run-step routes: the same
+// format and checks as platform/go/tenant ServiceVerifier.VerifyContext (Ed25519 over "depot.service-token.v1." + body,
 // addressed to this service, at most 60 s lifetime, 5 s clock skew, a canonical tenant, every duty within the issuer's
 // grant to agents, a token id never seen before). The token is tenant-level: it names the tenant and the run's
 // invoking user, and no legal entity (a run is not bound to one).
@@ -10,8 +10,8 @@
 import { createPublicKey, verify, type KeyObject } from "node:crypto";
 
 export const SERVICE_NAME = "agents";
-export const HEADER = "x-passage-service-token";
-const TOKEN_CONTEXT = "passage.service-token.v1.";
+export const HEADER = "x-depot-service-token";
+const TOKEN_CONTEXT = "depot.service-token.v1.";
 const MAX_TTL_S = 60;
 const CLOCK_SKEW_S = 5;
 const MAX_TOKEN_SIZE = 4096;
@@ -102,7 +102,7 @@ export function createVerifier(options: VerifierOptions): ServiceTokenVerifier {
   };
 }
 
-/** Parses PASSAGE_SERVICE_PUBLIC_KEYS: comma separated `name[:kid]=base64 Ed25519 public key` (as the Go verifier). */
+/** Parses DEPOT_SERVICE_PUBLIC_KEYS: comma separated `name[:kid]=base64 Ed25519 public key` (as the Go verifier). */
 export function parsePublicKeys(raw: string): Map<string, Map<string, KeyObject>> {
   const keys = new Map<string, Map<string, KeyObject>>();
   for (const entry of raw.split(",").map((e) => e.trim()).filter((e) => e !== "")) {
@@ -110,9 +110,9 @@ export function parsePublicKeys(raw: string): Map<string, Map<string, KeyObject>
     const id = eq < 0 ? entry : entry.slice(0, eq);
     const [name = "", kid = ""] = id.split(/:(.*)/s);
     const pub = eq < 0 ? Buffer.alloc(0) : Buffer.from(entry.slice(eq + 1), "base64");
-    if (eq < 0 || name === "" || pub.length !== 32) throw new TypeError(`PASSAGE_SERVICE_PUBLIC_KEYS entry ${JSON.stringify(id)} is not name[:kid]=base64 Ed25519 public key`);
+    if (eq < 0 || name === "" || pub.length !== 32) throw new TypeError(`DEPOT_SERVICE_PUBLIC_KEYS entry ${JSON.stringify(id)} is not name[:kid]=base64 Ed25519 public key`);
     const byKid = keys.get(name) ?? new Map<string, KeyObject>();
-    if (byKid.has(kid)) throw new TypeError(`PASSAGE_SERVICE_PUBLIC_KEYS repeats ${name}:${kid}`);
+    if (byKid.has(kid)) throw new TypeError(`DEPOT_SERVICE_PUBLIC_KEYS repeats ${name}:${kid}`);
     byKid.set(kid, createPublicKey({ key: Buffer.concat([SPKI_ED25519_PREFIX, pub]), format: "der", type: "spki" }));
     keys.set(name, byKid);
   }

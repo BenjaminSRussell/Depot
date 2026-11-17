@@ -1,4 +1,4 @@
--- PSG-25 slice 23: idle time as a DowntimeRecord (FR-25.11, BR-25.6, D4). A RUNNING machine that
+-- DPT-25 slice 23: idle time as a DowntimeRecord (FR-25.11, BR-25.6, D4). A RUNNING machine that
 -- sends no count for its idle threshold is idle, and the scheduled andon sweep now opens a
 -- downtime for it (an idle machine sends no event that could). `cause` tells that record from a
 -- downtime the machine reported (DOWN); a count or a state that leaves RUNNING (DOWN, SETUP,

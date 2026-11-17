@@ -9,13 +9,13 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/platform/outbox"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/batch/internal/eventing"
-	"github.com/BenjaminSRussell/passage/services/batch/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/outbox"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/batch/internal/eventing"
+	"github.com/BenjaminSRussell/depot/services/batch/migrations"
 )
 
 type recordingPublisher struct {
@@ -38,7 +38,7 @@ func TestPg_CrashBetweenPublishAndAckDeliversExactlyOnce(t *testing.T) {
 	if err := dbx.Migrate(ctx, pool, migrations.FS); err != nil {
 		t.Fatal(err)
 	}
-	evt, err := events.New("dev.passage.platform.legalentity.created.v1", "/passage/platform/test", "agg-1", tenantID, map[string]string{"id": "agg-1"})
+	evt, err := events.New("dev.depot.platform.legalentity.created.v1", "/depot/platform/test", "agg-1", tenantID, map[string]string{"id": "agg-1"})
 	if err != nil {
 		t.Fatal(err)
 	}

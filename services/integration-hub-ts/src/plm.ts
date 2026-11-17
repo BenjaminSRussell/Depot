@@ -63,13 +63,13 @@ export interface PlmEco {
   effectivityDate: string; // YYYY-MM-DD
 }
 
-/** What Passage already holds for the part when the ECO arrives. */
+/** What Depot already holds for the part when the ECO arrives. */
 export interface ImportState {
   /** Keys "partNumber|revision" already imported. */
   importedKeys: ReadonlySet<string>;
   /** Latest imported revision of the part, if any. */
   latestRevision?: string;
-  /** BOM versions of the part already released in Passage; these are never overwritten. */
+  /** BOM versions of the part already released in Depot; these are never overwritten. */
   releasedBomVersions: ReadonlySet<string>;
 }
 
@@ -94,7 +94,7 @@ export function importKey(partNumber: string, revision: string): string {
  * Applies BR-35.16 to one ECO. Order of checks:
  *  1. The same part and revision already imported: DUPLICATE, nothing changes.
  *  2. A revision older than the latest imported one: STALE, nothing changes.
- *  3. A BOM version already released in Passage: TASK, never an overwrite.
+ *  3. A BOM version already released in Depot: TASK, never an overwrite.
  *  4. Effectivity before today: moved to today with EDI-0139.
  * `today` is a YYYY-MM-DD date in the tenant's business calendar.
  */
@@ -124,7 +124,7 @@ export function decideEcoImport(
       action: "TASK",
       effectivityDate: eco.effectivityDate,
       issues: [],
-      reason: `BOM version ${eco.bomVersion} is already released in Passage`,
+      reason: `BOM version ${eco.bomVersion} is already released in Depot`,
     };
   }
   if (eco.effectivityDate < today) {

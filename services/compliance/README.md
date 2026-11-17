@@ -1,6 +1,6 @@
-# compliance (PSG-48, wave 48, slices 1 to 5)
+# compliance (DPT-48, wave 48, slices 1 to 5)
 
-Compliance controls for Passage. Slice 1 ships segregation of duties (SoD): the rules engine, pre-save
+Compliance controls for Depot. Slice 1 ships segregation of duties (SoD): the rules engine, pre-save
 simulation, evaluation of a user's effective roles with stored conflicts, and the mitigation and
 risk-acceptance workflow, plus the compliance workspace screens in `apps/web/src/modules/compliance`.
 Slice 2 adds the rules of three later features as pure, tested functions (breach notification clocks,
@@ -67,11 +67,11 @@ campaign, incident step and export policy screens.
 | `POST /v1/compliance/export-governance:evaluate` | compliance.view | slice 5, read-only: the export policy decision for one download |
 | `POST /v1/compliance/read-log:classify` | compliance.view | slice 5, read-only: which fields of a read the read-log policy covers |
 
-- Events (`events/asyncapi.yaml`): `dev.passage.sod.conflict.detected.v1`, `dev.passage.sod.mitigation.approved.v1`,
-  `dev.passage.trade.screening.hit.v1` (slice 4, keyed by hit id, written with the hit),
-  `dev.passage.privacy.request.completed.v1` (slice 5, keyed by request id, written with the close),
-  `dev.passage.privacy.hold.placed.v1` and `.released.v1` (slice 6, keyed by hold id; the reason is not in the event),
-  `dev.passage.privacy.erasure.requested.v1` (slice 6, keyed by erasure id, topic `passage.privacy.erasure`). The
+- Events (`events/asyncapi.yaml`): `dev.depot.sod.conflict.detected.v1`, `dev.depot.sod.mitigation.approved.v1`,
+  `dev.depot.trade.screening.hit.v1` (slice 4, keyed by hit id, written with the hit),
+  `dev.depot.privacy.request.completed.v1` (slice 5, keyed by request id, written with the close),
+  `dev.depot.privacy.hold.placed.v1` and `.released.v1` (slice 6, keyed by hold id; the reason is not in the event),
+  `dev.depot.privacy.erasure.requested.v1` (slice 6, keyed by erasure id, topic `depot.privacy.erasure`). The
   slice 2 and 3 endpoints, the export check and the slice 5 rule endpoints store nothing and emit nothing.
 - `GET /readyz` pings Postgres; admin `/metrics` counts simulations and blocked simulations.
 
@@ -115,7 +115,7 @@ Slice 3 domain rules (pure):
 
 Simulation reads the user's recorded conflict states; a caller cannot claim a mitigation in the request
 (the draft's `mitigatedRuleIds` field is gone and an unknown field is a 400). The break-glass requester is
-the calling user (`X-Passage-User`), and the tenant settings, not the request, decide the length cap and
+the calling user (`X-Depot-User`), and the tenant settings, not the request, decide the length cap and
 self-activation.
 
 Slice 4 (FR-48.19, FR-48.20):
@@ -181,7 +181,7 @@ Slice 6 (FR-48.11, FR-48.10, AC-48.7; `0006_legal_hold.sql`, `0007_service_token
 
 ## Legal holds, retention and erasure
 
-- `legal_hold` (RLS on tenant and, restrictively, on legal-entity scope; `passage_app` has no DELETE): a hold names a
+- `legal_hold` (RLS on tenant and, restrictively, on legal-entity scope; `depot_app` has no DELETE): a hold names a
   legal entity and at least one of `subjectRef`, `dataClass`, `recordRef`. Every field set on the hold must equal the
   target's, and a hold on a data class also covers a target that names no class (an erasure of a subject reaches every
   class). A target without a `subjectRef` is not covered by a subject hold, so the holder names the record or class too
@@ -213,8 +213,8 @@ Slice 6 (FR-48.11, FR-48.10, AC-48.7; `0006_legal_hold.sql`, `0007_service_token
   must be in the token's scope, and any non-200 or unparsable answer means held. HR would call it per candidate with
   `dataClass=CANDIDATE`, the candidate's `recordRef` and `subjectRef`, and keep the candidate when `held` is true.
 - Participants today: `receiving` (one-time payees, `AP_PAYEE`): consumer `receiving-erasure` on
-  `passage.privacy.erasure` and `POST /v1/receiving/one-time-payees:erase`.
-- Verifying service tokens needs `PASSAGE_SERVICE_NAME=compliance` and `PASSAGE_SERVICE_PUBLIC_KEYS` (chart
+  `depot.privacy.erasure` and `POST /v1/receiving/one-time-payees:erase`.
+- Verifying service tokens needs `DEPOT_SERVICE_NAME=compliance` and `DEPOT_SERVICE_PUBLIC_KEYS` (chart
   `serviceIdentity.publicKeys`); the shared replay cache is `service_token_replay` (`0007`).
 
 ## Run and test
@@ -222,12 +222,12 @@ Slice 6 (FR-48.11, FR-48.10, AC-48.7; `0006_legal_hold.sql`, `0007_service_token
 ```
 DATABASE_URL=postgres://... MIGRATE_ON_START=true go run ./cmd/compliance
 go vet ./... && go test ./...
-PASSAGE_TEST_DATABASE_URL=postgres://admin... PASSAGE_TEST_APP_DATABASE_URL=postgres://passage_app... go test ./...
+DEPOT_TEST_DATABASE_URL=postgres://admin... DEPOT_TEST_APP_DATABASE_URL=postgres://depot_app... go test ./...
 ```
 
-Without `PASSAGE_TEST_DATABASE_URL` the store and migration tests skip. With it they apply the migrations,
-assert RLS on every tenant table, and, with `PASSAGE_TEST_APP_DATABASE_URL`, run the store as
-`passage_app` (NOBYPASSRLS) on the real grants of `0003_grants.sql` and `0004_screening.sql`, probe cross-tenant isolation and
+Without `DEPOT_TEST_DATABASE_URL` the store and migration tests skip. With it they apply the migrations,
+assert RLS on every tenant table, and, with `DEPOT_TEST_APP_DATABASE_URL`, run the store as
+`depot_app` (NOBYPASSRLS) on the real grants of `0003_grants.sql` and `0004_screening.sql`, probe cross-tenant isolation and
 check the append-only tables refuse UPDATE and DELETE.
 
 Fixture `testdata/sod-50.json` (fx-sod-50) plants 50 users across the seed rules.
@@ -247,7 +247,7 @@ document, the case machine never skips a state and no break-glass session exceed
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `DATABASE_URL` | required | Postgres (`passage_app` role, RLS enforced) |
+| `DATABASE_URL` | required | Postgres (`depot_app` role, RLS enforced) |
 | `MIGRATE_ON_START` | unset | `true` applies migrations at start (dev only) |
 | `SOD_BLOCK_HIGH` | `true` | tenant policy `sod.block_high`; `false` reports without blocking |
 | `SOD_MAX_MITIGATION_DAYS` | `365` | tenant policy `sod.max_mitigation_days`, 1..730 |
@@ -333,12 +333,12 @@ document, the case machine never skips a state and no break-glass session exceed
 ## Deploy
 
 `charts/compliance` (`helm lint` clean): Deployment, Service, optional ServiceMonitor; `DATABASE_URL`
-from the `passage-compliance-db` secret; the tenant policies (`SOD_*`, `AUDIT_CASE_ARCHIVE_DAYS`,
+from the `depot-compliance-db` secret; the tenant policies (`SOD_*`, `AUDIT_CASE_ARCHIVE_DAYS`,
 `BREAKGLASS_*`, `SCREENING_THRESHOLD`, `TRADE_LICENSE_CHECK`) from values. `Dockerfile` builds from the repository root.
 
 ## Wave reference
 
-PSG-48 slice 1: FR-48.4, FR-48.5 and BR-48.1 for the seed rule set; AC2, AC-48.2, AC-48.3, AC-48.4.
+DPT-48 slice 1: FR-48.4, FR-48.5 and BR-48.1 for the seed rule set; AC2, AC-48.2, AC-48.3, AC-48.4.
 Slice 2: the rules of FR-48.13 (BR-48.11, BR-48.12; AC-48.12 lockout), FR-48.14 (BR-48.14; AC-48.13 on
 the pure rule) and FR-48.29 (BR-48.18; AC-48.19 deadline). Slice 3: the rule kernel of FR-48.14 (all
 rule types), the case machine and grouping of FR-48.15, and the planning part of FR-48.23 (BR-48.19;

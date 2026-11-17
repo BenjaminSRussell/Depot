@@ -13,7 +13,7 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/services/receivables/internal/fixtures"
+	"github.com/BenjaminSRussell/depot/services/receivables/internal/fixtures"
 )
 
 // cashAppPayment is one cash-app-500 payment as the matcher sees it, with the

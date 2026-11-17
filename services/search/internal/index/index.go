@@ -10,57 +10,57 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/eventing"
-	"github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/search/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/eventing"
+	"github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/search/internal/store"
 )
 
 const (
 	ConsumerName = "search-index"
 
-	PartyTopic   = "passage.party.party"
-	ProductTopic = "passage.product.product"
+	PartyTopic   = "depot.party.party"
+	ProductTopic = "depot.product.product"
 	// PurchaseOrderTopic is purchasing's po channel, not its outbox aggregate
 	// type (purchase_order): outbox-purchasing routes by the event type's entity.
-	PurchaseOrderTopic = "passage.procurement.po"
-	ReceiptTopic       = "passage.receiving.receipt"
-	VendorInvoiceTopic = "passage.receiving.vendorinvoice"
-	SalesOrderTopic    = "passage.sales.order"
+	PurchaseOrderTopic = "depot.procurement.po"
+	ReceiptTopic       = "depot.receiving.receipt"
+	VendorInvoiceTopic = "depot.receiving.vendorinvoice"
+	SalesOrderTopic    = "depot.sales.order"
 	// PackingSlipTopic is fulfillment's packingslip channel: outbox-fulfillment
 	// routes by the event type's entity, so packingslip.posted and .cancelled
 	// land there although fulfillment writes them under aggregate type shipment.
-	PackingSlipTopic    = "passage.fulfillment.packingslip"
-	BillingInvoiceTopic = "passage.billing.invoice"
+	PackingSlipTopic    = "depot.fulfillment.packingslip"
+	BillingInvoiceTopic = "depot.billing.invoice"
 	// ProductionOrderTopic is production's order channel, not its outbox
 	// aggregate type: production writes every event under one aggregate type
 	// and names the topic after the event type's entity, as sales does.
-	ProductionOrderTopic = "passage.production.order"
-	WorkerTopic          = "passage.hr.worker"
+	ProductionOrderTopic = "depot.production.order"
+	WorkerTopic          = "depot.hr.worker"
 
-	PartyCreatedType       = "dev.passage.party.party.created.v1"
-	PartyUpdatedType       = "dev.passage.party.party.updated.v1"
-	PartyMergedType        = "dev.passage.party.party.merged.v1"
-	ProductCreatedType     = "dev.passage.product.product.created.v1"
-	ProductUpdatedType     = "dev.passage.product.product.updated.v1"
-	PurchaseOrderConfirmed = "dev.passage.procurement.po.confirmed.v1"
-	PurchaseOrderCancelled = "dev.passage.procurement.po.cancelled.v1"
+	PartyCreatedType       = "dev.depot.party.party.created.v1"
+	PartyUpdatedType       = "dev.depot.party.party.updated.v1"
+	PartyMergedType        = "dev.depot.party.party.merged.v1"
+	ProductCreatedType     = "dev.depot.product.product.created.v1"
+	ProductUpdatedType     = "dev.depot.product.product.updated.v1"
+	PurchaseOrderConfirmed = "dev.depot.procurement.po.confirmed.v1"
+	PurchaseOrderCancelled = "dev.depot.procurement.po.cancelled.v1"
 
-	ReceiptPostedType         = "dev.passage.receiving.receipt.posted.v1"
-	ReceiptCorrectedType      = "dev.passage.receiving.receipt.corrected.v1"
-	VendorInvoicePostedType   = "dev.passage.payables.invoice.posted.v1"
-	SalesOrderConfirmedType   = "dev.passage.sales.order.confirmed.v1"
-	PackingSlipPostedType     = "dev.passage.fulfillment.packingslip.posted.v1"
-	PackingSlipCancelledType  = "dev.passage.fulfillment.packingslip.cancelled.v1"
-	CustomerInvoicePostedType = "dev.passage.billing.invoice.posted.v1"
-	CreditNotePostedType      = "dev.passage.billing.creditnote.posted.v1"
+	ReceiptPostedType         = "dev.depot.receiving.receipt.posted.v1"
+	ReceiptCorrectedType      = "dev.depot.receiving.receipt.corrected.v1"
+	VendorInvoicePostedType   = "dev.depot.payables.invoice.posted.v1"
+	SalesOrderConfirmedType   = "dev.depot.sales.order.confirmed.v1"
+	PackingSlipPostedType     = "dev.depot.fulfillment.packingslip.posted.v1"
+	PackingSlipCancelledType  = "dev.depot.fulfillment.packingslip.cancelled.v1"
+	CustomerInvoicePostedType = "dev.depot.billing.invoice.posted.v1"
+	CreditNotePostedType      = "dev.depot.billing.creditnote.posted.v1"
 
-	ProductionOrderCreatedType       = "dev.passage.production.order.created.v1"
-	ProductionOrderStatusChangedType = "dev.passage.production.order.statuschanged.v1"
-	WorkerCreatedType                = "dev.passage.hr.worker.created.v1"
+	ProductionOrderCreatedType       = "dev.depot.production.order.created.v1"
+	ProductionOrderStatusChangedType = "dev.depot.production.order.statuschanged.v1"
+	WorkerCreatedType                = "dev.depot.hr.worker.created.v1"
 
-	receivingSource   = "/passage/receiving/receiving"
+	receivingSource   = "/depot/receiving/receiving"
 	salesSource       = "sales"
 	fulfillmentSource = "fulfillment"
 	billingSource     = "billing"
@@ -70,9 +70,9 @@ const (
 	statusCancelled   = "CANCELLED"
 	statusConfirmed   = "CONFIRMED"
 
-	partySource         = "/passage/party/party"
-	productSource       = "passage://product"
-	purchasingSource    = "/passage/procurement/purchasing"
+	partySource         = "/depot/party/party"
+	productSource       = "depot://product"
+	purchasingSource    = "/depot/procurement/purchasing"
 	statusMerged        = "MERGED"
 	statusPOConfirmed   = "CONFIRMED"
 	statusPOCancelled   = "CANCELLED"

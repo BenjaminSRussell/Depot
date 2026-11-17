@@ -39,41 +39,41 @@ CREATE TABLE IF NOT EXISTS ledger_account_mapping (
 ALTER TABLE ledger_set ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ledger_set FORCE ROW LEVEL SECURITY;
 CREATE POLICY ledger_set_tenant_access ON ledger_set AS PERMISSIVE
-    USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-    WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+    USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+    WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY ledger_set_legal_entity_scope ON ledger_set AS RESTRICTIVE
-    USING (current_setting('passage.legal_entity_scopes', true) = '*'
-           OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')))
-    WITH CHECK (current_setting('passage.legal_entity_scopes', true) = '*'
-           OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+    USING (current_setting('depot.legal_entity_scopes', true) = '*'
+           OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')))
+    WITH CHECK (current_setting('depot.legal_entity_scopes', true) = '*'
+           OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 ALTER TABLE ledger_set_member ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ledger_set_member FORCE ROW LEVEL SECURITY;
 CREATE POLICY ledger_set_member_tenant_access ON ledger_set_member AS PERMISSIVE
-    USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-    WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+    USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+    WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY ledger_set_member_legal_entity_scope ON ledger_set_member AS RESTRICTIVE
-    USING (current_setting('passage.legal_entity_scopes', true) = '*'
-           OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')))
-    WITH CHECK (current_setting('passage.legal_entity_scopes', true) = '*'
-           OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+    USING (current_setting('depot.legal_entity_scopes', true) = '*'
+           OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')))
+    WITH CHECK (current_setting('depot.legal_entity_scopes', true) = '*'
+           OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 ALTER TABLE ledger_account_mapping ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ledger_account_mapping FORCE ROW LEVEL SECURITY;
 CREATE POLICY ledger_account_mapping_tenant_access ON ledger_account_mapping AS PERMISSIVE
-    USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-    WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+    USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+    WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY ledger_account_mapping_legal_entity_scope ON ledger_account_mapping AS RESTRICTIVE
-    USING (current_setting('passage.legal_entity_scopes', true) = '*'
-           OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')))
-    WITH CHECK (current_setting('passage.legal_entity_scopes', true) = '*'
-           OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+    USING (current_setting('depot.legal_entity_scopes', true) = '*'
+           OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')))
+    WITH CHECK (current_setting('depot.legal_entity_scopes', true) = '*'
+           OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'REVOKE UPDATE, DELETE, TRUNCATE ON ledger_set, ledger_set_member, ledger_account_mapping FROM passage_app';
-    EXECUTE 'GRANT SELECT, INSERT ON ledger_set, ledger_set_member, ledger_account_mapping TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'REVOKE UPDATE, DELETE, TRUNCATE ON ledger_set, ledger_set_member, ledger_account_mapping FROM depot_app';
+    EXECUTE 'GRANT SELECT, INSERT ON ledger_set, ledger_set_member, ledger_account_mapping TO depot_app';
   END IF;
 END
 $$;

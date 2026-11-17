@@ -9,14 +9,14 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/money"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/revrec/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/revrec/internal/store"
-	"github.com/BenjaminSRussell/passage/services/revrec/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/money"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/revrec/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/revrec/internal/store"
+	"github.com/BenjaminSRussell/depot/services/revrec/migrations"
 )
 
 type fakeBilling struct {

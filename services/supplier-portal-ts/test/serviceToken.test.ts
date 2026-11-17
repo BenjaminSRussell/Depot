@@ -17,7 +17,7 @@ describe("service tokens", () => {
     const token = signer.mint("purchasing", { tenantId: TENANT, legalEntityId: LE_1, userId: "user-1", vendorId: VENDOR_A });
     const [body, sig] = token.split(".") as [string, string];
     const priv = createPrivateKey({ key: Buffer.concat([Buffer.from("302e020100300506032b657004220420", "hex"), seed]), format: "der", type: "pkcs8" });
-    expect(verify(null, Buffer.from(`passage.service-token.v1.${body}`), createPublicKey(priv), Buffer.from(sig, "base64url"))).toBe(true);
+    expect(verify(null, Buffer.from(`depot.service-token.v1.${body}`), createPublicKey(priv), Buffer.from(sig, "base64url"))).toBe(true);
     expect(tokenClaims(token)).toEqual({
       iss: SERVICE_NAME, kid: "k1", aud: "purchasing", tid: TENANT, le: LE_1, act: "user-1", vnd: VENDOR_A,
       duties: ["procurement.vendor-portal.read", "procurement.vendor-portal.acknowledge"], iat: 1000, exp: 1060, jti: "jti-1",

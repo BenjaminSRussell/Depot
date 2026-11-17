@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/BenjaminSRussell/passage/platform/phiaudit"
+	"github.com/BenjaminSRussell/depot/platform/phiaudit"
 )
 
 // Break-glass review (#606, HIPAA emergency access). A read recorded with a purpose that starts with the reserved

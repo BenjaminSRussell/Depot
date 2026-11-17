@@ -7,12 +7,12 @@ import (
 
 	"github.com/jackc/pgx/v5/pgconn"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/shopfloor/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/shopfloor/internal/domain"
 )
 
-// FR-25.17 and BR-25.13 through Postgres as passage_app: a tenant with no row gets the built-in
+// FR-25.17 and BR-25.13 through Postgres as depot_app: a tenant with no row gets the built-in
 // defaults; a row of a built-in code overrides it (destinations, reject flag, definitions); a custom
 // code is routed and checked by its row; an inactive row refuses messages (SF-0165); an unknown code
 // is SF-0164; a row is versioned (SF-0143), its code unique (SF-0142), tenant-scoped, and every save
@@ -97,7 +97,7 @@ func TestProcessCategory_MasterOverridesDefaults(t *testing.T) {
 	if _, err := s.ResolveProcessCategory(other, "pi-weigh"); problemCode(err) != CodeCategoryNotFound {
 		t.Fatalf("other tenant resolve = %v", err)
 	}
-	if n := countEvents(t, admin, tenantID, "dev.passage.shopfloor.processcategory.saved.v1"); n != 3 {
+	if n := countEvents(t, admin, tenantID, "dev.depot.shopfloor.processcategory.saved.v1"); n != 3 {
 		t.Fatalf("processcategory.saved events = %d, want 3 (two creates and an update)", n)
 	}
 }
@@ -139,7 +139,7 @@ func TestProcessCategory_RoutesMessageByRow(t *testing.T) {
 			t.Fatal(err)
 		}
 		defer func() { _ = tx.Rollback(bg) }()
-		if _, err := tx.Exec(bg, `select set_config('passage.tenant_id', $1, true)`, tenantID); err != nil {
+		if _, err := tx.Exec(bg, `select set_config('depot.tenant_id', $1, true)`, tenantID); err != nil {
 			t.Fatal(err)
 		}
 		_, err = tx.Exec(bg, `insert into process_message (tenant_id, id, source, source_message_id, category_code, order_id, phase_path,

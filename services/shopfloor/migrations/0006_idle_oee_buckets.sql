@@ -1,4 +1,4 @@
--- PSG-25 slice 6: the per-machine idle threshold (BR-25.6, parameter "Idle threshold s",
+-- DPT-25 slice 6: the per-machine idle threshold (BR-25.6, parameter "Idle threshold s",
 -- default 300, 30 to 3,600) and the stored OEE buckets written by the rollup (FR-25.10,
 -- PRD OeeBucket, retention 3 years). Every table is tenant scoped with forced RLS.
 
@@ -34,16 +34,16 @@ CREATE TABLE IF NOT EXISTS oee_bucket (
 ALTER TABLE oee_bucket ENABLE ROW LEVEL SECURITY;
 ALTER TABLE oee_bucket FORCE ROW LEVEL SECURITY;
 CREATE POLICY oee_bucket_tenant_access ON oee_bucket AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- 0004 created process_message and process_message_delivery without granting them to the
--- application role, so the service could not read or write them under passage_app; the
+-- application role, so the service could not read or write them under depot_app; the
 -- grant is added here because applied migrations are not edited.
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON oee_bucket, process_message, process_message_delivery TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON oee_bucket, process_message, process_message_delivery TO depot_app';
   END IF;
 END
 $$;

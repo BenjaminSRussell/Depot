@@ -1,6 +1,6 @@
 # warehouse-mobile
 
-Handheld warehouse app (wave 32, PSG-32). A Vite + React PWA for Zebra and Honeywell
+Handheld warehouse app (wave 32, DPT-32). A Vite + React PWA for Zebra and Honeywell
 scanners and any PWA-capable browser. The flow runtime runs the same step graphs the
 designer publishes (`apps/web/src/modules/mobile-flows`), so flows change without an app
 release.
@@ -24,22 +24,22 @@ release.
   production builds. It caches the shell, its build assets and the manifest at install so the
   app starts offline, and never caches writes or `/api/`, `/mobile/`, `/print/`, `/rfid/` and
   `/wms/` requests. The policy and its tests are `shellCache.ts` in the web module.
-- Service session and replay (FR-32.1): with a warehouse provisioned (`localStorage["passage.warehouseId"]`)
+- Service session and replay (FR-32.1): with a warehouse provisioned (`localStorage["depot.warehouseId"]`)
   the app starts a mobile service session, beats it, and signs out on close; replay sends the
   user who queued each entry, the session and an RFC 3339 capture time (`sessionKeeper.ts`,
   `replayApply.ts`).
 - Label on receive (FR-32.7): after a put-away of an SSCC plate the worker scans the item label and the
   LP label prints through the routing rules (`ReceiveLabelPanel.tsx`, `receiveLabel.ts`).
-- RFID and voice (FR-32.9): `passage:rfid` rounds from the shell are decoded (`epc.ts`, `rfid.ts`) into the
+- RFID and voice (FR-32.9): `depot:rfid` rounds from the shell are decoded (`epc.ts`, `rfid.ts`) into the
   GS1 scans the runner takes; a `VoiceAdapter` passed as `voice` speaks prompts and answers steps from
   spoken digits and commands (`voice.ts`).
 - Scanner intents (FR-32.10): the native shell forwards each decoded scan as a
-  `passage:scan` event (`scanBridge.ts`). A scan that arrives while a confirm, display or
+  `depot:scan` event (`scanBridge.ts`). A scan that arrives while a confirm, display or
   other non-scan step has focus is ignored and logged on the device (AC-32.7).
 - Step telemetry (FR-32.11): every evaluated step records its duration and outcome, kept
   for 90 days (`telemetry.ts`). It stays on the device until the KPI ingest exists.
 - Layout (`src/app.css`, `layout.ts`): 320 px and up, text never below 16 px, 48 px targets
-  (64 px in large-target mode, `localStorage["passage.largeTargets"] = "true"`), and
+  (64 px in large-target mode, `localStorage["depot.largeTargets"] = "true"`), and
   right-to-left direction for Arabic, Hebrew, Persian and Urdu locales.
 - Shared domain, imported from the web module rather than copied (one source of truth,
   tested by the web toolchain), all under `apps/web/src/modules/mobile-flows/domain`:
@@ -57,13 +57,13 @@ pnpm test               # vitest over this app (no tests yet; the shared domain 
 pnpm build
 ```
 
-The device id and user id are read from `localStorage["passage.deviceId"]` and
-`localStorage["passage.userId"]`. Provisioning sets them until device sign-in exists.
+The device id and user id are read from `localStorage["depot.deviceId"]` and
+`localStorage["depot.userId"]`. Provisioning sets them until device sign-in exists.
 
 ## Scanner input
 
 Keyboard wedge: the scan input is focused on scan steps and Enter submits. DataWedge and
-Honeywell scans arrive from the Android shell as `passage:scan` events whose detail is
+Honeywell scans arrive from the Android shell as `depot:scan` events whose detail is
 `{ source: "DATAWEDGE" | "HONEYWELL_DC", extras }`; the data extra is
 `com.symbol.datawedge.data_string` for DataWedge and `data` for Honeywell, with the AIM
 symbology prefix (for example `]C1`) left in place. The extra names must be confirmed

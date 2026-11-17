@@ -9,13 +9,13 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/org/internal/api"
-	"github.com/BenjaminSRussell/passage/services/org/internal/store"
-	"github.com/BenjaminSRussell/passage/services/org/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/org/internal/api"
+	"github.com/BenjaminSRussell/depot/services/org/internal/store"
+	"github.com/BenjaminSRussell/depot/services/org/migrations"
 )
 
 func TestDemoCompany_Postgres_LoadsOnceAndIsRepeatable(t *testing.T) {
@@ -78,7 +78,7 @@ func newDemoEnv(t *testing.T) demoEnv {
 }
 
 func (e demoEnv) post(path, duties string) (int, []byte) {
-	rec := doWithoutTenantAdmin(e.r, http.MethodPost, path, "", duties, true, "X-Passage-User", "admin-1")
+	rec := doWithoutTenantAdmin(e.r, http.MethodPost, path, "", duties, true, "X-Depot-User", "admin-1")
 	return rec.Code, rec.Body.Bytes()
 }
 
@@ -157,7 +157,7 @@ func TestDemoCompanyReset_Postgres_RemovesAndReloadsOnlyDemoRecords(t *testing.T
 	if le, err := e.st.GetLegalEntity(e.ctx, after["USMF"]); err != nil || le.Name != "Demo Manufacturing USA" {
 		t.Fatalf("USMF after reset = %+v %v, want the demo name back", le, err)
 	}
-	if n := e.count(`select count(*) from outbox where type = 'dev.passage.org.democompany.removed.v1' and payload->'data'->>'actor' = 'admin-1'`); n != 1 {
+	if n := e.count(`select count(*) from outbox where type = 'dev.depot.org.democompany.removed.v1' and payload->'data'->>'actor' = 'admin-1'`); n != 1 {
 		t.Fatalf("removed events naming the actor = %d, want 1", n)
 	}
 	if n := e.count(`select count(*) from warehouse where tenant_id = $1 and code in ('DET-MAIN', 'AUS-MAIN')`, testkit.TenantID(1)); n != 2 {
@@ -186,7 +186,7 @@ func TestDemoCompanyReset_Postgres_RefusesWhenOtherRecordsHangOffTheDemo(t *test
 	if e.entityIDs()["USMF"] != usmf {
 		t.Fatal("a refused reset must delete nothing")
 	}
-	if n := e.count(`select count(*) from outbox where type = 'dev.passage.org.democompany.removed.v1'`); n != 0 {
+	if n := e.count(`select count(*) from outbox where type = 'dev.depot.org.democompany.removed.v1'`); n != 0 {
 		t.Fatalf("a refused reset emitted %d removed events", n)
 	}
 }
@@ -205,7 +205,7 @@ func TestDemoCompanyReset_PassesStoreProblemsThrough(t *testing.T) {
 	if rec.Code != http.StatusConflict || !strings.Contains(rec.Body.String(), store.CodeDemoCompanyInUse) {
 		t.Fatalf("reset = %d %s", rec.Code, rec.Body.String())
 	}
-	scoped := do(r, http.MethodPost, "/v1/org/demo-company:reset", "", "org.demo-company.manage", true, "X-Passage-Legal-Entity", testkit.TenantID(9))
+	scoped := do(r, http.MethodPost, "/v1/org/demo-company:reset", "", "org.demo-company.manage", true, "X-Depot-Legal-Entity", testkit.TenantID(9))
 	if scoped.Code != http.StatusForbidden {
 		t.Fatalf("a legal-entity scoped reset = %d, want 403", scoped.Code)
 	}

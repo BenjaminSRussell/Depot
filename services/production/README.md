@@ -1,6 +1,6 @@
 # production
 
-Production orders for Passage (wave 21, ticket PSG-21, PRD section 4.21). Slice 1 covers the
+Production orders for Depot (wave 21, ticket DPT-21, PRD section 4.21). Slice 1 covers the
 order itself; slice 2 adds journals, WIP postings and settlement; slice 3 adds rework orders and
 as-built genealogy; slice 4 adds the bulk status update, and split and merge (slice 11: split of a Started order with the WIP transfer); slice 5 adds
 order-specific BOM and route edits and the WIP balance and variance reports; slice 6 adds trigger
@@ -341,28 +341,28 @@ DATABASE_URL=postgres://... MIGRATE_ON_START=true go run ./cmd/production
 | `PRODUCTION_AUTOSTART_ON_FEEDBACK` | `true` | a route card on a Released order starts it |
 | `PRODUCTION_ESTIMATE_ON_CREATE` | `false` | a new order is estimated in its create transaction (4.21.13 "Estimate on create") |
 
-The gateway supplies the principal through the `X-Passage-Tenant`, `X-Passage-Legal-Entity`,
-`X-Passage-User` and `X-Passage-Duties` headers until wave 2 replaces them with JWT validation.
+The gateway supplies the principal through the `X-Depot-Tenant`, `X-Depot-Legal-Entity`,
+`X-Depot-User` and `X-Depot-Duties` headers until wave 2 replaces them with JWT validation.
 The routes are `/v1/production/...`; the gateway serves them under `/api`.
 
 ## Test
 
 ```
 go vet ./... && go test ./...
-PASSAGE_TEST_DATABASE_URL=postgres://... go test ./...                     # store and HTTP tests on a database
-PASSAGE_TEST_APP_DATABASE_URL=postgres://passage_app:...@.../... (also)    # the RLS test under the app role
-PASSAGE_PERF_TEST=1 go test -run PostLatency200Lines ./internal/store/    # (with the database URL) assert the 200-line post p95 < 2 s
+DEPOT_TEST_DATABASE_URL=postgres://... go test ./...                     # store and HTTP tests on a database
+DEPOT_TEST_APP_DATABASE_URL=postgres://depot_app:...@.../... (also)    # the RLS test under the app role
+DEPOT_PERF_TEST=1 go test -run PostLatency200Lines ./internal/store/    # (with the database URL) assert the 200-line post p95 < 2 s
 python3 -I internal/domain/testdata/gen_prod_orders_50.py                  # regenerate the AC2 domain fixture
 python3 -I internal/store/testdata/gen_costing_50.py                       # regenerate the AC2 database fixture
 ```
 
 The `RealLedger` tests (W21 AC4, #478) also build `services/ledger/cmd/ledger` from this tree (or use the binary in
-`PASSAGE_TEST_LEDGER_BIN`), run it on a throwaway schema of the same server with period control off and only
+`DEPOT_TEST_LEDGER_BIN`), run it on a throwaway schema of the same server with period control off and only
 production's service key trusted, and book and reconcile WIP through the real `ledgerclient` over HTTP with signed
 service tokens. They skip with the other database tests, and under `-short`.
 
-Database tests skip when `PASSAGE_TEST_DATABASE_URL` is unset; the RLS test also needs a
-non-superuser `passage_app` role (`PASSAGE_TEST_APP_DATABASE_URL`). The domain tests are pure and
+Database tests skip when `DEPOT_TEST_DATABASE_URL` is unset; the RLS test also needs a
+non-superuser `depot_app` role (`DEPOT_TEST_APP_DATABASE_URL`). The domain tests are pure and
 include `pgregory.net/rapid` property tests for the state machine, report-as-finished limits,
 phantom explosion, backflush rounding, the settlement identity, proportional consumption,
 drift-free RAF receipts and the variances clearing the posted WIP in every currency precision.
@@ -384,7 +384,7 @@ and five orders of 100 units, each 3 units of raw material per unit at 10.00 and
 
 ```
 DATABASE_URL=postgres://... go run ./cmd/demoplant -migrate                # seed tenant ...0001, legal entity ...00e1
-DATABASE_URL=postgres://... LEDGER_URL=http://ledger:8080 PASSAGE_SERVICE_SIGNING_KEY=... \
+DATABASE_URL=postgres://... LEDGER_URL=http://ledger:8080 DEPOT_SERVICE_SIGNING_KEY=... \
   go run ./cmd/demoplant -ledger-id <ledger UUID>                           # also book the WIP and print the reconciliation
 ```
 
@@ -418,7 +418,7 @@ wave 2 (`policies/`).
 
 ## Error codes
 
-Problems are RFC 9457 with `type` `https://passage.dev/problems/<code>`.
+Problems are RFC 9457 with `type` `https://depot.dev/problems/<code>`.
 
 | Code | HTTP | Meaning (PRD message) |
 |---|---|---|
@@ -491,7 +491,7 @@ The stable PROD-00nn service codes are not yet carried in the problem body, beca
 
 ## Wave reference
 
-PSG-21 (wave 21), slices PSG-2101 to PSG-2106. Depends on PSG-20 (costing). Later slices: job
+DPT-21 (wave 21), slices DPT-2101 to DPT-2106. Depends on DPT-20 (costing). Later slices: job
 cards, subcontracting, the split of Started orders with the WIP transfer of BR-21.11 and order
 change management. See `NOT-IMPLEMENTED.md`.
 
@@ -656,7 +656,7 @@ Slice 25:
   posts each closed job-stop as a job card at the worker cost rate (BR-25.9), re-booking it on a
   correction. It runs as service principal `production-shopfloor` (duty
   `production.jobcard.shopfloor`), reads the order's legal entity first and posts pinned to it;
-  refusals are dead-lettered to `passage.shopfloor.registration.dlq`, other failures retried with backoff.
+  refusals are dead-lettered to `depot.shopfloor.registration.dlq`, other failures retried with backoff.
 - `GET /v1/production/planned-intake` (status, site, keyset paging) and `GET …/{id}`;
   `POST …/{id}:convert` creates the production order under the planned order's `target_id` with the
   row's legal entity, product, site, quantity, delivery date and warehouse, originType `PlannedOrder`,

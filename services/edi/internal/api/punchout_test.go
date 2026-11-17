@@ -12,10 +12,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
 
-	"github.com/BenjaminSRussell/passage/services/edi/internal/sources"
-	"github.com/BenjaminSRussell/passage/services/edi/internal/store"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/sources"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/store"
 )
 
 const (
@@ -71,7 +71,7 @@ func punchoutSetup(t *testing.T, supplierURL string) (*API, http.Handler, http.H
 	a.AS2PublicURL, a.AllowInsecureAS2 = "https://as2.test", true
 	reqs := &fakeRequisitions{}
 	a.Requisitions = reqs
-	cfg := `{"setupUrl":"` + supplierURL + `","buyerIdentity":"BUYER-PASSAGE","supplierIdentity":"SUPPLIER-1","currencies":["USD"],"uomMap":{"CA":"CS"},"tolerancePct":"5",
+	cfg := `{"setupUrl":"` + supplierURL + `","buyerIdentity":"BUYER-DEPOT","supplierIdentity":"SUPPLIER-1","currencies":["USD"],"uomMap":{"CA":"CS"},"tolerancePct":"5",
 "referencePrices":{"SEAL-100":"25.00","OIL-5L":"43.50"}}`
 	if rec := do(t, h, http.MethodPut, "/edi/v1/partners/"+partner+"/punchout", cfg, "edi.admin", srcScope); rec.Code != http.StatusOK {
 		t.Fatalf("supplier: %d %s", rec.Code, rec.Body.String())
@@ -115,7 +115,7 @@ func TestPunchout_CXMLSessionReturnAndRequisition(t *testing.T) {
 	if strings.Contains(rec.Body.String(), "secret") || strings.Contains(rec.Body.String(), "buyerCookie") {
 		t.Fatalf("credentials leaked: %s", rec.Body.String())
 	}
-	for _, want := range []string{`operation="create"`, "<Identity>BUYER-PASSAGE</Identity>", "<Identity>SUPPLIER-1</Identity>", "https://as2.test/punchout/v1/return/" + sess.ID} {
+	for _, want := range []string{`operation="create"`, "<Identity>BUYER-DEPOT</Identity>", "<Identity>SUPPLIER-1</Identity>", "https://as2.test/punchout/v1/return/" + sess.ID} {
 		if !strings.Contains(sup.request, want) {
 			t.Errorf("setup request lacks %q: %s", want, sup.request)
 		}

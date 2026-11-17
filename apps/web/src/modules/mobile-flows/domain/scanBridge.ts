@@ -1,12 +1,12 @@
 // Scanner intent bridge (FR-32.10, AC-32.7). The native shell (Zebra DataWedge, Honeywell Data
-// Collection) receives each decoded intent and forwards it to the page as a "passage:scan"
+// Collection) receives each decoded intent and forwards it to the page as a "depot:scan"
 // CustomEvent whose detail is the ScanIntent below. This module validates the detail and
 // returns the raw value; the runner decides whether the focused step accepts it. Pure apart
 // from the EventTarget the caller passes in.
 
 import type { ScanSource } from "./scanRouting";
 
-export const SCAN_EVENT = "passage:scan";
+export const SCAN_EVENT = "depot:scan";
 
 /** Longest raw scan accepted. Longer data is a fault in the capture profile, not a barcode. */
 export const MAX_SCAN_LENGTH = 512;

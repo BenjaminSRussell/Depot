@@ -47,11 +47,11 @@ CREATE INDEX IF NOT EXISTS service_wo_capture_order ON service_wo_capture (tenan
 ALTER TABLE service_wo_capture ENABLE ROW LEVEL SECURITY;
 ALTER TABLE service_wo_capture FORCE ROW LEVEL SECURITY;
 CREATE POLICY service_wo_capture_tenant_access ON service_wo_capture AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY service_wo_capture_legal_entity_scope ON service_wo_capture AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 -- The truck as an inventory address: site and warehouse, plus the location inside it when
 -- the truck is a location of a warehouse (truck_location_id, as before). The completed
@@ -63,9 +63,9 @@ ALTER TABLE service_technician ADD CONSTRAINT service_technician_truck_ck
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE format('GRANT USAGE ON SCHEMA %I TO passage_app', current_schema());
-    EXECUTE 'GRANT SELECT, INSERT ON service_wo_capture TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE format('GRANT USAGE ON SCHEMA %I TO depot_app', current_schema());
+    EXECUTE 'GRANT SELECT, INSERT ON service_wo_capture TO depot_app';
   END IF;
 END
 $$;

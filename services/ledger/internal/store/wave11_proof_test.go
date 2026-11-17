@@ -23,16 +23,16 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/ledger/internal/domain"
-	ledgerevents "github.com/BenjaminSRussell/passage/services/ledger/internal/events"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/ledger/internal/domain"
+	ledgerevents "github.com/BenjaminSRussell/depot/services/ledger/internal/events"
 )
 
 const (
 	// envAC1Entries raises the entry count; the issue's full run is 1000000.
-	envAC1Entries = "PASSAGE_LEDGER_AC1_ENTRIES"
+	envAC1Entries = "DEPOT_LEDGER_AC1_ENTRIES"
 	// envAC1Seed replays a failing run with the seed it logged.
-	envAC1Seed       = "PASSAGE_LEDGER_AC1_SEED"
+	envAC1Seed       = "DEPOT_LEDGER_AC1_SEED"
 	ac1DefaultCount  = 2000
 	ac1DefaultSeed   = 20261031
 	ac1Workers       = 64
@@ -155,7 +155,7 @@ func ac1Input(seed uint64, i int, g ac1Entry, ledgerID string) PostInput {
 	}
 	return PostInput{
 		LedgerID: ledgerID, DocumentID: ids.New(), PostingDate: g.date, Description: "AC1 " + key,
-		Source: ledgerevents.Source{System: "ap", Type: "vendor_invoice", ID: key, URI: "passage://ap/invoices/" + key},
+		Source: ledgerevents.Source{System: "ap", Type: "vendor_invoice", ID: key, URI: "depot://ap/invoices/" + key},
 		Lines:  lines, Key: key, Hash: hash, Actor: "test-user", TraceID: testTrace, Today: testToday,
 	}
 }
@@ -186,7 +186,7 @@ func percentile(d []time.Duration, p float64) time.Duration {
 // issue #11 Proof AC1: random balanced entries posted by 64 workers over four
 // ledgers; every ledger's trial balance nets to zero and equals the generator's
 // books; the balance projection equals a re-aggregation of journal_line row by
-// row. Run with PASSAGE_LEDGER_AC1_ENTRIES=1000000 for the full count.
+// row. Run with DEPOT_LEDGER_AC1_ENTRIES=1000000 for the full count.
 func TestPostgres_AC1_RandomConcurrentEntriesBalanceAndProjectionEqualsJournal(t *testing.T) {
 	e, _ := setup(t)
 	for num, a := range map[string]Account{

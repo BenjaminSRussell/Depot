@@ -1,6 +1,6 @@
 import { createElement } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import type { PassageModule } from "../registry";
+import type { DepotModule } from "../registry";
 import { KillSwitchPage } from "./KillSwitchPage";
 import { CopilotHome } from "./pages";
 import { ToolCatalogPage } from "./ToolCatalogPage";
@@ -16,7 +16,7 @@ function ToolDetailRoute() {
   return createElement(ToolDetailPage, { name });
 }
 
-const copilot: PassageModule = {
+const copilot: DepotModule = {
   id: "copilot",
   title: "Copilot",
   description: "Ask questions, explain records and draft text with cited answers, see the tools the copilot can call for you, and halt agent runs with the kill switch.",

@@ -25,7 +25,7 @@ from prediction.domain import (
 )
 
 
-# The legal entities a call acts for: None is every legal entity of the tenant (the Postgres repository sets passage.legal_entity_scopes to '*'),
+# The legal entities a call acts for: None is every legal entity of the tenant (the Postgres repository sets depot.legal_entity_scopes to '*'),
 # a sequence is exactly those entities, and an empty one sees nothing.
 Entities = Sequence[str] | None
 
@@ -221,7 +221,7 @@ class InMemoryRepository:
         return Dso(round(days / total, 1), n, f"{total:.2f}", f"{late / total:.4f}", scored)
 
 
-SCORED_EVENT = "dev.passage.prediction.payment.scored.v1"
+SCORED_EVENT = "dev.depot.prediction.payment.scored.v1"
 
 
 def scored_event(p: Prediction) -> dict[str, object]:

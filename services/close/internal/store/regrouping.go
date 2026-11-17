@@ -9,12 +9,12 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/outbox"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/close/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/outbox"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/close/internal/domain"
 )
 
 func (s *Postgres) PutRegroupingRule(ctx context.Context, in domain.StoredRegroupingRule) (domain.StoredRegroupingRule, error) {
@@ -28,7 +28,7 @@ func (s *Postgres) PutRegroupingRule(ctx context.Context, in domain.StoredRegrou
 	}
 	err = dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
 		_, err := tx.Exec(ctx, `insert into regrouping_rule(tenant_id, legal_entity_id, ledger_id, code, sort_method, source_account, buckets, adjustment_account, target_account, normal_balance, sequence, updated_by)
-			values(current_setting('passage.tenant_id')::uuid, $1, $2, $3, $4, $5, $6::jsonb, $7, $8, $9, $10, $11)
+			values(current_setting('depot.tenant_id')::uuid, $1, $2, $3, $4, $5, $6::jsonb, $7, $8, $9, $10, $11)
 			on conflict (tenant_id, ledger_id, code) do update set sort_method = excluded.sort_method, source_account = excluded.source_account, buckets = excluded.buckets,
 				adjustment_account = excluded.adjustment_account, target_account = excluded.target_account, normal_balance = excluded.normal_balance, sequence = excluded.sequence, updated_by = excluded.updated_by, updated_at = now()`,
 			in.LegalEntityID, in.LedgerID, in.Code, in.SortMethod, in.SourceAccount, buckets, in.AdjustmentAccount, in.TargetAccount, in.NormalBalance, in.Sequence, p.UserID)
@@ -83,7 +83,7 @@ func (s *Postgres) SaveRegroupingRun(ctx context.Context, in domain.RegroupingRu
 	var saved domain.RegroupingRun
 	err = dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
 		tag, err := tx.Exec(ctx, `insert into regrouping_run(tenant_id, id, legal_entity_id, ledger_id, key_date, rule_codes, mode, status, proposal, idempotency_key, request_hash, created_by)
-			values(current_setting('passage.tenant_id')::uuid, $1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, $10, $11)
+			values(current_setting('depot.tenant_id')::uuid, $1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, $10, $11)
 			on conflict (tenant_id, idempotency_key) do nothing`,
 			in.ID, in.LegalEntityID, in.LedgerID, in.KeyDate, in.RuleCodes, in.Mode, in.Status, proposal, key, requestHash, in.CreatedBy)
 		if err != nil {

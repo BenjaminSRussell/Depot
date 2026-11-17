@@ -25,7 +25,7 @@ func TestRenderDocument_ReturnsPDF(t *testing.T) {
 func TestRenderDocument_ReportsPagesAndNoUnprintableCharactersForPlainText(t *testing.T) {
 	h := router(newMemStore(), &fakeSender{})
 	rec := call(t, h, http.MethodPost, "/print/v1/documents:render", poDoc, "print.document.render", "")
-	if rec.Header().Get("X-Passage-Document-Pages") != "1" || rec.Header().Get("X-Passage-Unprintable-Characters") != "" {
+	if rec.Header().Get("X-Depot-Document-Pages") != "1" || rec.Header().Get("X-Depot-Unprintable-Characters") != "" {
 		t.Fatalf("headers = %v", rec.Header())
 	}
 }
@@ -42,7 +42,7 @@ func TestRenderDocument_AcceptsUnicodeAndCountsWhatTheFontsLack(t *testing.T) {
 		t.Fatalf("got %d %s", rec.Code, rec.Body.String()[:min(200, rec.Body.Len())])
 	}
 	// Polish, Czech, Greek and Cyrillic are drawn; the four CJK characters are not.
-	if got := rec.Header().Get("X-Passage-Unprintable-Characters"); got != "4" {
+	if got := rec.Header().Get("X-Depot-Unprintable-Characters"); got != "4" {
 		t.Fatalf("unprintable characters = %q, want 4", got)
 	}
 	if !strings.Contains(rec.Body.String(), "/Encoding /Identity-H") || !strings.Contains(rec.Body.String(), "/ToUnicode") {
@@ -64,8 +64,8 @@ func TestRenderDocument_RendersARemittanceAdvice(t *testing.T) {
 	if rec.Code != http.StatusOK || !strings.HasPrefix(rec.Body.String(), "%PDF-") {
 		t.Fatalf("got %d %s", rec.Code, rec.Body.String()[:min(200, rec.Body.Len())])
 	}
-	if rec.Header().Get("X-Passage-Document-Pages") != "1" {
-		t.Fatalf("pages = %q", rec.Header().Get("X-Passage-Document-Pages"))
+	if rec.Header().Get("X-Depot-Document-Pages") != "1" {
+		t.Fatalf("pages = %q", rec.Header().Get("X-Depot-Document-Pages"))
 	}
 }
 
@@ -96,7 +96,7 @@ func TestRenderDocument_NeedsItsOwnDuty(t *testing.T) {
 }
 
 // The ops control plane's tenant cost statement (#50), as services/ops sends it with its own service-only duty.
-const opsStatementDoc = `{"documentType":"PERIODIC_STATEMENT","number":"Cost statement 2026-10","legalEntity":{"name":"Passage Cloud"},` +
+const opsStatementDoc = `{"documentType":"PERIODIC_STATEMENT","number":"Cost statement 2026-10","legalEntity":{"name":"Depot Cloud"},` +
 	`"fields":[{"label":"Tenant","value":"0190a5f2-7b1c-7d3e-8a4f-0000000000aa"},{"label":"Month","value":"2026-10"},{"label":"Model version","value":"promql-v1"}],` +
 	`"body":"Metered use of the platform for the month, priced at the published unit rates.",` +
 	`"columns":[{"header":"Dimension"},{"header":"Quantity","align":"R"},{"header":"Cost USD","align":"R"}],` +

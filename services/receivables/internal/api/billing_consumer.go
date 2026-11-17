@@ -11,13 +11,13 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/eventing"
-	"github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/receivables/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/receivables/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/eventing"
+	"github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/receivables/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/receivables/internal/store"
 )
 
 // The billing consumer (#30, 30-1) opens the receivables of billing's posted documents. invoice.posted opens one open item per
@@ -38,11 +38,11 @@ const (
 	BillingConsumerName = "receivables-billing"
 	// BillingInvoiceTopic carries billing's invoice.posted and creditnote.posted (billing routes its outbox by aggregate, so
 	// invoices and credit notes share the topic; the consumer skips the other types).
-	BillingInvoiceTopic = "passage.billing.invoice"
+	BillingInvoiceTopic = "depot.billing.invoice"
 	BillingSource       = "billing"
 
-	InvoicePostedType    = "dev.passage.billing.invoice.posted.v1"
-	CreditNotePostedType = "dev.passage.billing.creditnote.posted.v1"
+	InvoicePostedType    = "dev.depot.billing.invoice.posted.v1"
+	CreditNotePostedType = "dev.depot.billing.creditnote.posted.v1"
 
 	dutyBillingOpenItem = "receivables.openitem.from-billing"
 )

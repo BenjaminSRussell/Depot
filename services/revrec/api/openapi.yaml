@@ -1,16 +1,16 @@
 openapi: 3.1.0
 info:
-  title: Passage Revenue Recognition API
+  title: Depot Revenue Recognition API
   version: 0.2.0
   description: >
-    ASC 606 / IFRS 15 revenue recognition (PSG-29, slices 1 and 2): the
+    ASC 606 / IFRS 15 revenue recognition (DPT-29, slices 1 and 2): the
     stateless allocation preview, persisted revenue contracts with SSP
     allocation and schedules, milestone satisfaction, period recognition runs
     and the deferred revenue roll-forward. Duties are enforced with
     platform/authz: 401 AUTH-0001 without a principal, 403 AUTH-0003 without
     the duty or outside the caller's legal-entity scope.
 servers:
-  - url: https://api.{env}.passage.dev
+  - url: https://api.{env}.depot.dev
     variables:
       env:
         default: dev
@@ -19,7 +19,7 @@ paths:
     post:
       operationId: previewAllocation
       summary: Allocate a transaction price across performance obligations by SSP and return ratable schedules.
-      x-passage-duty: revrec.view (RevRecView)
+      x-depot-duty: revrec.view (RevRecView)
       description: >
         Pure computation: nothing is stored and no event is emitted. Allocation
         follows BR-29.1 (proportional to SSP, residual to the rule's obligation)
@@ -49,14 +49,14 @@ paths:
     post:
       operationId: createContract
       summary: Create a revenue contract, allocate its transaction price by SSP and plan its schedules (FR-29.7, FR-29.8).
-      x-passage-duty: revrec.maintain (RevRecMaintain)
+      x-depot-duty: revrec.maintain (RevRecMaintain)
       description: >
         POINT_IN_TIME obligations are recognized at their transfer date
         (satisfiedOn) because the invoice credits that revenue directly;
         MILESTONE obligations wait for :satisfy; RATABLE obligations get one
         line per calendar month of the term, dated at the period end; USAGE
         obligations have no line until usage posts. Emits
-        dev.passage.revrec.contract.allocated.v1. A contract with nothing left
+        dev.depot.revrec.contract.allocated.v1. A contract with nothing left
         to recognize is COMPLETE at once. BIL-0009 warns for a RESIDUAL SSP.
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
@@ -89,7 +89,7 @@ paths:
     get:
       operationId: listContracts
       summary: Revenue contracts inquiry (§5.29.14), newest first, with recognized and remaining amounts.
-      x-passage-duty: revrec.view (RevRecView)
+      x-depot-duty: revrec.view (RevRecView)
       parameters:
         - { name: legalEntityId, in: query, schema: { type: string, format: uuid } }
         - { name: customerId, in: query, schema: { type: string, format: uuid } }
@@ -118,7 +118,7 @@ paths:
     get:
       operationId: getContract
       summary: A revenue contract with its obligations and schedule lines.
-      x-passage-duty: revrec.view (RevRecView)
+      x-depot-duty: revrec.view (RevRecView)
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -136,14 +136,14 @@ paths:
     post:
       operationId: allocateContract
       summary: Modify a contract by adding obligations for products first invoiced after it was opened.
-      x-passage-duty: revrec.maintain (RevRecMaintain)
+      x-depot-duty: revrec.maintain (RevRecMaintain)
       description: >
         The added goods or services are accounted for as a separate contract (ASC 606-10-25-12): `transactionPriceIncrease`
         is allocated over the new obligations only, the contract's transaction price grows by it, and the obligations and
         schedules already there keep their allocation. A completed contract is reopened when a new obligation has
         recognition left. The new lines are numbered after the last. REV-0105 (409) when the contract already has an
         obligation for a product, REV-0104 (409) for a cancelled contract. If-Match, when sent, must carry the contract
-        version the caller reviewed. Emits dev.passage.revrec.contract.allocated.v1 again with every obligation.
+        version the caller reviewed. Emits dev.depot.revrec.contract.allocated.v1 again with every obligation.
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - { name: If-Match, in: header, required: false, schema: { type: string }, description: 'Contract version as an entity tag, e.g. "1".' }
@@ -171,7 +171,7 @@ paths:
     post:
       operationId: modifyContract
       summary: Re-allocate a contract's existing obligations after a price change or an SSP revision (prospective or cumulative catch-up).
-      x-passage-duty: revrec.maintain (RevRecMaintain)
+      x-depot-duty: revrec.maintain (RevRecMaintain)
       description: >
         ASC 606-10-25-10 to 25-13 and IFRS 15.20 to 15.21. `PROSPECTIVE` (the remaining goods are distinct): the consideration
         still to recognize, the new transaction price less what is already recognized or booked by the invoice, is allocated over
@@ -193,7 +193,7 @@ paths:
         (`billingStatus` NONE) because the customer owes the same. Each modification stores each
         obligation's allocation change on its effective date, and the roll-forward adds it in that period. Adding goods or services is
         `:allocate`. If-Match is required and must carry the contract version the caller reviewed. Emits
-        dev.passage.revrec.contract.allocated.v1 again, and schedule.recognized for a milestone catch-up.
+        dev.depot.revrec.contract.allocated.v1 again, and schedule.recognized for a milestone catch-up.
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - { name: If-Match, in: header, required: true, schema: { type: string }, description: 'Contract version as an entity tag, e.g. "1". Required (428 without it): the price change is relative, so a repeat of the same call finds the version moved on and is refused with 412 instead of applying twice.' }
@@ -222,7 +222,7 @@ paths:
     post:
       operationId: retryModificationBilling
       summary: Put a parked billing request of a contract modification back in the queue.
-      x-passage-duty: revrec.post (RevRecPost)
+      x-depot-duty: revrec.post (RevRecPost)
       description: >
         `id` is the modification id. A PARKED request goes back to PENDING with its attempts reset and the same body and key; the
         reporter (BILLING_URL) sends it on its next run. A PENDING or BILLED request is returned as it is.
@@ -250,9 +250,9 @@ paths:
     post:
       operationId: satisfyMilestone
       summary: Satisfy a MILESTONE obligation and recognize its revenue (Dr 2400 / Cr 4000).
-      x-passage-duty: revrec.maintain (RevRecMaintain)
+      x-depot-duty: revrec.maintain (RevRecMaintain)
       description: >
-        `id` is the obligation id. Emits dev.passage.revrec.schedule.recognized.v1
+        `id` is the obligation id. Emits dev.depot.revrec.schedule.recognized.v1
         and bumps the contract version. A retry with the same date returns the
         recorded satisfaction (Idempotent-Replayed: true) and changes nothing,
         so no Idempotency-Key is needed. If-Match, when sent, must carry the
@@ -289,7 +289,7 @@ paths:
     get:
       operationId: listRecognitionTemplates
       summary: List how products are recognized when a contract is opened from a posted invoice (29-4).
-      x-passage-duty: revrec.view (RevRecView)
+      x-depot-duty: revrec.view (RevRecView)
       responses:
         "200":
           description: Templates by product.
@@ -308,7 +308,7 @@ paths:
     put:
       operationId: putRecognitionTemplate
       summary: Set how a product is recognized when a contract is opened from a posted invoice (29-4).
-      x-passage-duty: revrec.maintain (RevRecMaintain)
+      x-depot-duty: revrec.maintain (RevRecMaintain)
       description: >
         `id` is the product id. The revrec invoice consumer opens one contract per invoiced order with one
         obligation per product, its invoiced net as the SSP. A RATABLE template spreads the obligation over
@@ -343,10 +343,10 @@ paths:
     post:
       operationId: runRecognition
       summary: Recognize every due RATABLE schedule line of a legal entity through a period end (FR-29.8).
-      x-passage-duty: revrec.post (RevRecPost)
+      x-depot-duty: revrec.post (RevRecPost)
       description: >
         Key = (legal entity, period end): the first call creates the run (201)
-        and emits one dev.passage.revrec.schedule.recognized.v1 per line; a
+        and emits one dev.depot.revrec.schedule.recognized.v1 per line; a
         rerun returns the recorded run (200, Idempotent-Replayed) and recognizes
         nothing twice. Lines are recognized on the period end. A period end
         after today is refused (REV-0007).
@@ -380,7 +380,7 @@ paths:
     get:
       operationId: listRecognitionRuns
       summary: Recognition runs, latest period first.
-      x-passage-duty: revrec.view (RevRecView)
+      x-depot-duty: revrec.view (RevRecView)
       parameters:
         - { name: legalEntityId, in: query, schema: { type: string, format: uuid } }
         - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 100 } }
@@ -403,7 +403,7 @@ paths:
     get:
       operationId: getRollForward
       summary: Deferred revenue roll-forward of one legal entity and currency, or of one contract, for a calendar month (FR-29.9).
-      x-passage-duty: revrec.view (RevRecView)
+      x-depot-duty: revrec.view (RevRecView)
       description: >
         Opening + additions − recognized + reversed + adjustments = closing.
         Additions are the RATABLE and MILESTONE allocations of contracts dated in
@@ -437,7 +437,7 @@ paths:
     post:
       operationId: postJournal
       summary: Post recognized revenue to the general ledger as Dr 2400 contract liability / Cr 4000 revenue (§5.29.9).
-      x-passage-duty: revrec.post (RevRecPost)
+      x-depot-duty: revrec.post (RevRecPost)
       description: >
         Claims every recognized, not yet posted RATABLE and MILESTONE line
         recognized on or before `through` (default the last completed month end) and posts one ledger
@@ -483,7 +483,7 @@ paths:
     get:
       operationId: getGLReconciliation
       summary: Reconcile the revenue recognized and the deferred revenue balance through a month with GL 2400 (§5.29.9).
-      x-passage-duty: revrec.view (RevRecView)
+      x-depot-duty: revrec.view (RevRecView)
       description: >
         Compares the cumulative revenue recognized by the roll-forward through
         the month end with the ledger's 2400 debit total through the same
@@ -891,7 +891,7 @@ components:
       type: object
       required: [type, title, status]
       properties:
-        type: { type: string, format: uri, description: "https://passage.dev/problems/<code>" }
+        type: { type: string, format: uri, description: "https://depot.dev/problems/<code>" }
         title: { type: string }
         status: { type: integer }
         detail: { type: string }

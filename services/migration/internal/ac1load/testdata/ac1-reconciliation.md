@@ -4,7 +4,7 @@ Seeded load of 50k customers, 20k vendors, 100k items and 10k BOMs through the m
 
 **Result: PASS**
 
-- Commit: 20ae238e3acdfb484a4345653eddb00d9c7a45d7, host: Zacharys-MacBook-Pro, database: PostgreSQL 16.15 (Homebrew) on aarch64-apple-darwin27.0.0, compiled by Apple clang version 21.0.0 (clang-2100.3.34.2), 64-bit, role: passage_app
+- Commit: 20ae238e3acdfb484a4345653eddb00d9c7a45d7, host: Zacharys-MacBook-Pro, database: PostgreSQL 16.15 (Homebrew) on aarch64-apple-darwin27.0.0, compiled by Apple clang version 21.0.0 (clang-2100.3.34.2), 64-bit, role: depot_app
 - Elapsed: 1m59.93299425s (budget 30m0s)
 - Volumes: customers 50000, vendors 20000, items 100000, boms 10000
 

@@ -29,13 +29,13 @@ CREATE TRIGGER consolidation_collection_partner_line_no_truncate BEFORE TRUNCATE
 ALTER TABLE consolidation_collection_partner_line ENABLE ROW LEVEL SECURITY;
 ALTER TABLE consolidation_collection_partner_line FORCE ROW LEVEL SECURITY;
 CREATE POLICY consolidation_collection_partner_line_tenant_access ON consolidation_collection_partner_line AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT ON consolidation_collection_partner_line TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT ON consolidation_collection_partner_line TO depot_app';
   END IF;
 END
 $$;

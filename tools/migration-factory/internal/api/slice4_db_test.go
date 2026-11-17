@@ -86,7 +86,7 @@ func TestCutoverStep_StartTimesAndMeasuresTheStep(t *testing.T) {
 			t.Fatalf("measured completion: %+v", s)
 		}
 	}
-	if n := count(t, admin, `select count(*) from outbox where type = 'dev.passage.cutover.step.completed.v1' and aggregate_id = $1`, plan.PlanID); n != 1 {
+	if n := count(t, admin, `select count(*) from outbox where type = 'dev.depot.cutover.step.completed.v1' and aggregate_id = $1`, plan.PlanID); n != 1 {
 		t.Fatalf("step.completed events = %d, want 1 (starting writes none)", n)
 	}
 

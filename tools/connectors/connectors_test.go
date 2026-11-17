@@ -6,7 +6,7 @@ import (
 	"testing"
 	"testing/fstest"
 
-	"github.com/BenjaminSRussell/passage/tools/connectors"
+	"github.com/BenjaminSRussell/depot/tools/connectors"
 )
 
 func TestSpecs(t *testing.T) {

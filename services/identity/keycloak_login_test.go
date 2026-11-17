@@ -26,12 +26,12 @@ import (
 )
 
 // These tests drive real Keycloak logins. They run only when
-// PASSAGE_TEST_KEYCLOAK_URL is set (the keycloak job in .github/workflows/ci.yml).
+// DEPOT_TEST_KEYCLOAK_URL is set (the keycloak job in .github/workflows/ci.yml).
 
 const (
-	samlEntityID        = "https://auth.passage.example.invalid/realms/passage"
+	samlEntityID        = "https://auth.depot.example.invalid/realms/depot"
 	otpPeriod           = 30
-	deprovisionClientID = "passage-identity-deprovision"
+	deprovisionClientID = "depot-identity-deprovision"
 )
 
 var (
@@ -127,7 +127,7 @@ func newBrowserLogin(t *testing.T, base string) *browserLogin {
 }
 
 // settle follows redirects until Keycloak answers with a page, or redirects to
-// the passage-web callback (returned as callback).
+// the depot-web callback (returned as callback).
 func (b *browserLogin) settle(resp *http.Response) (callback, page string) {
 	b.t.Helper()
 	for range 20 {
@@ -154,7 +154,7 @@ func (b *browserLogin) settle(resp *http.Response) (callback, page string) {
 	return "", ""
 }
 
-// login runs the authorization-code flow with PKCE for passage-web, answering
+// login runs the authorization-code flow with PKCE for depot-web, answering
 // the password form, TOTP enrolment, the OTP form, SAML POST bindings and the
 // first-broker-login profile review. It returns the callback query, or nil when
 // Keycloak keeps showing the password form (the login was refused).
@@ -189,7 +189,7 @@ func (b *browserLogin) login(user *loginUser, idpHint string) (url.Values, strin
 	return callbackQuery(b.t, callback, state), verifier
 }
 
-// authorizationRequest builds passage-web's authorization-code request with PKCE S256 against
+// authorizationRequest builds depot-web's authorization-code request with PKCE S256 against
 // base and returns its URL, the code verifier and the state.
 func authorizationRequest(base, idpHint string) (authURL, verifier, state string) {
 	verifierBytes := make([]byte, 32)
@@ -198,7 +198,7 @@ func authorizationRequest(base, idpHint string) (authURL, verifier, state string
 	challenge := sha256.Sum256([]byte(verifier))
 	state = "s-" + verifier[:8]
 	query := url.Values{
-		"client_id": {"passage-web"}, "response_type": {"code"}, "scope": {"openid"}, "redirect_uri": {webCallbackURL},
+		"client_id": {"depot-web"}, "response_type": {"code"}, "scope": {"openid"}, "redirect_uri": {webCallbackURL},
 		"code_challenge": {base64.RawURLEncoding.EncodeToString(challenge[:])}, "code_challenge_method": {"S256"}, "state": {state},
 	}
 	if idpHint != "" {
@@ -207,7 +207,7 @@ func authorizationRequest(base, idpHint string) (authURL, verifier, state string
 	return base + "/realms/" + realmName + "/protocol/openid-connect/auth?" + query.Encode(), verifier, state
 }
 
-// callbackQuery checks that the passage-web callback carries the request's state and a code.
+// callbackQuery checks that the depot-web callback carries the request's state and a code.
 func callbackQuery(t *testing.T, callback, state string) url.Values {
 	t.Helper()
 	parsed, err := url.Parse(callback)
@@ -262,7 +262,7 @@ type tokenSet struct {
 
 func (b *browserLogin) token(form url.Values) (int, tokenSet) {
 	b.t.Helper()
-	form.Set("client_id", "passage-web")
+	form.Set("client_id", "depot-web")
 	resp, err := b.client.PostForm(b.base+"/realms/"+realmName+"/protocol/openid-connect/token", form)
 	if err != nil {
 		b.t.Fatal(err)
@@ -299,7 +299,7 @@ func randomSuffix(t *testing.T) string {
 // authorization code with PKCE, TOTP enrolment, a second login through the OTP
 // form, identity accepting the token with the duty claims, and then the user
 // deprovisioned the way SCIM deprovisioning reaches Keycloak (KeycloakAdmin as
-// the passage-identity-deprovision service account): disabled, sessions logged
+// the depot-identity-deprovision service account): disabled, sessions logged
 // out, refresh and fresh login refused, token attributes kept.
 func TestKeycloakOIDCLoginWithOTPThenDeprovision(t *testing.T) {
 	admin, base, client := keycloakAdminOrSkip(t)
@@ -376,7 +376,7 @@ func TestKeycloakOIDCLoginWithOTPThenDeprovision(t *testing.T) {
 	}
 }
 
-// deprovisionClient is identity's KeycloakAdmin as the realm's passage-identity-deprovision service account, with
+// deprovisionClient is identity's KeycloakAdmin as the realm's depot-identity-deprovision service account, with
 // the secret Keycloak generated at import read through SecretsDir as the identity pod reads it.
 func deprovisionClient(t *testing.T, admin *keycloakAdmin, base string, client *http.Client) *KeycloakAdmin {
 	t.Helper()
@@ -429,7 +429,7 @@ func TestKeycloakDeprovisionClientHoldsManageUsersOnly(t *testing.T) {
 			t.Errorf("%s /admin/realms/%s%s = %d %v %.200s, want %d", tc.method, tc.realm, tc.path, status, err, raw, tc.want)
 		}
 	}
-	// Its token is issued by the passage realm, so another realm's admin API does not accept it at all.
+	// Its token is issued by the depot realm, so another realm's admin API does not accept it at all.
 	token, err := k.token(ctx, realmName, false)
 	if err != nil {
 		t.Fatal(err)
@@ -442,14 +442,14 @@ func TestKeycloakDeprovisionClientHoldsManageUsersOnly(t *testing.T) {
 	}
 	_ = resp.Body.Close()
 	if resp.StatusCode != http.StatusUnauthorized && resp.StatusCode != http.StatusForbidden {
-		t.Errorf("master realm users with the passage service account = %d, want 401 or 403", resp.StatusCode)
+		t.Errorf("master realm users with the depot service account = %d, want 401 or 403", resp.StatusCode)
 	}
 }
 
 // TestKeycloakFederatedLoginThroughOIDCAndSAMLIdPs is the AC3 two-IdP login
 // with Keycloak-to-Keycloak stand-ins: two upstream realms in the same server,
 // one wired to corporate-oidc and one to corporate-saml. Each federated user
-// must enrol TOTP through passage-post-broker-mfa and get a token identity
+// must enrol TOTP through depot-post-broker-mfa and get a token identity
 // accepts, with tid from the realm's hardcoded mapper and no duties.
 func TestKeycloakFederatedLoginThroughOIDCAndSAMLIdPs(t *testing.T) {
 	admin, base, client := keycloakAdminOrSkip(t)
@@ -472,12 +472,12 @@ func TestKeycloakFederatedLoginThroughOIDCAndSAMLIdPs(t *testing.T) {
 			if alias == "corporate-oidc" {
 				secret := "ci-" + randomSuffix(t) + randomSuffix(t)
 				admin.do(http.MethodPost, "/admin/realms/"+upstream+"/clients", map[string]any{
-					"clientId": "passage-broker", "protocol": "openid-connect", "publicClient": false, "secret": secret,
+					"clientId": "depot-broker", "protocol": "openid-connect", "publicClient": false, "secret": secret,
 					"standardFlowEnabled": true, "directAccessGrantsEnabled": false, "redirectUris": []string{endpoint},
 				}, http.StatusCreated)
 				config = map[string]string{
 					"authorizationUrl": issuer + "/protocol/openid-connect/auth", "tokenUrl": issuer + "/protocol/openid-connect/token",
-					"jwksUrl": issuer + "/protocol/openid-connect/certs", "issuer": issuer, "clientId": "passage-broker", "clientSecret": secret,
+					"jwksUrl": issuer + "/protocol/openid-connect/certs", "issuer": issuer, "clientId": "depot-broker", "clientSecret": secret,
 				}
 			} else {
 				admin.do(http.MethodPost, "/admin/realms/"+upstream+"/clients", map[string]any{
@@ -528,7 +528,7 @@ func TestKeycloakFederatedLoginThroughOIDCAndSAMLIdPs(t *testing.T) {
 				IdentityProvider string `json:"identityProvider"`
 			}
 			if err := json.Unmarshal(admin.do(http.MethodGet, "/admin/realms/"+realmName+"/users/"+principal.UserID+"/federated-identity", nil, http.StatusOK), &links); err != nil || len(links) != 1 || links[0].IdentityProvider != alias {
-				t.Fatalf("passage user %s federated links = %v (%v), want one link to %s", principal.UserID, links, err, alias)
+				t.Fatalf("depot user %s federated links = %v (%v), want one link to %s", principal.UserID, links, err, alias)
 			}
 		})
 	}

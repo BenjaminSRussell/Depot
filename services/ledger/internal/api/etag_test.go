@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/services/ledger/internal/store"
+	"github.com/BenjaminSRussell/depot/services/ledger/internal/store"
 )
 
 // The five configuration PUTs read If-Match as the entity tag (lockVersion), hand it to the store (which

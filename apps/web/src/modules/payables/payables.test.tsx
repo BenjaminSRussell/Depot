@@ -28,7 +28,7 @@ function Where() {
 }
 
 function renderAt(path: string, duties: string[] = READ) {
-  window.localStorage.setItem("passage.workContext.t.u", JSON.stringify({ legalEntityId: LE, siteId: "" }));
+  window.localStorage.setItem("depot.workContext.t.u", JSON.stringify({ legalEntityId: LE, siteId: "" }));
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>

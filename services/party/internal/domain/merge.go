@@ -79,10 +79,10 @@ func Survive(winner, loser Side, rules map[string]Rule) (map[string]string, erro
 }
 
 const (
-	EventSource     = "/passage/party/party"
+	EventSource     = "/depot/party/party"
 	AggregateParty  = "party"
 	RoleCustomer    = "customer"
-	PartyMergedType = "dev.passage.party.party.merged.v1"
+	PartyMergedType = "dev.depot.party.party.merged.v1"
 )
 
 type RoleIDMapping struct {

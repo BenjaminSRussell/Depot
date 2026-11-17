@@ -3,7 +3,7 @@ package domain
 import (
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/money"
+	"github.com/BenjaminSRussell/depot/platform/money"
 )
 
 // ChargePricing is the priced intercompany charge (FR-40.13): the lending

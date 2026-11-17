@@ -2,21 +2,21 @@ asyncapi: 3.0.0
 info:
   title: costacct events
   version: 0.1.0
-  description: Events published by the costacct service (wave 38, slices 1 to 5). CloudEvents 1.0, source /passage/controlling/costacct.
+  description: Events published by the costacct service (wave 38, slices 1 to 5). CloudEvents 1.0, source /depot/controlling/costacct.
 defaultContentType: application/cloudevents+json
 channels:
   costEntryCreated:
-    address: passage.controlling.costentry
+    address: depot.controlling.costentry
     messages:
       costEntryCreated:
         $ref: '#/components/messages/CostEntryCreated'
   allocationCompleted:
-    address: passage.controlling.allocation
+    address: depot.controlling.allocation
     messages:
       allocationCompleted:
         $ref: '#/components/messages/AllocationCompleted'
   hierarchyDistributed:
-    address: passage.controlling.hierarchy
+    address: depot.controlling.hierarchy
     messages:
       hierarchyDistributed:
         $ref: '#/components/messages/HierarchyDistributed'
@@ -36,15 +36,15 @@ operations:
 components:
   messages:
     CostEntryCreated:
-      name: dev.passage.controlling.costentry.created.v1
+      name: dev.depot.controlling.costentry.created.v1
       payload:
         $ref: '#/components/schemas/CostEntryCreatedData'
     AllocationCompleted:
-      name: dev.passage.controlling.allocation.completed.v1
+      name: dev.depot.controlling.allocation.completed.v1
       payload:
         $ref: '#/components/schemas/AllocationCompletedData'
     HierarchyDistributed:
-      name: dev.passage.controlling.hierarchy.distributed.v1
+      name: dev.depot.controlling.hierarchy.distributed.v1
       payload:
         $ref: '#/components/schemas/HierarchyDistributedData'
   schemas:

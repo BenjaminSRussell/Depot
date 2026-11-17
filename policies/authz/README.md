@@ -43,7 +43,7 @@ Each permission is a route template matched with `glob.match(pattern, ["/", ":"]
 
 ## Costing route prefixes
 
-`costing` (Wave 20 inventory costing, dotted `costing.*` duties) owns `/v1/costing/...`. `productcost` (Wave 39 product costing, `productcost.*` duties) owns `/v1/product-costing/...`, so the two duty families never share a route template (#342). In the web dev proxy only, `/api/v1/product-costing/...` resolves to `PASSAGE_SVC_PRODUCT_COSTING_URL`; `deploy/gateway/httproutes.yaml` has no productcost route yet.
+`costing` (Wave 20 inventory costing, dotted `costing.*` duties) owns `/v1/costing/...`. `productcost` (Wave 39 product costing, `productcost.*` duties) owns `/v1/product-costing/...`, so the two duty families never share a route template (#342). In the web dev proxy only, `/api/v1/product-costing/...` resolves to `DEPOT_SVC_PRODUCT_COSTING_URL`; `deploy/gateway/httproutes.yaml` has no productcost route yet.
 
 ## Path input
 

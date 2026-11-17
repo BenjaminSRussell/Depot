@@ -1,4 +1,4 @@
--- Field service, slice 1 (PSG-45): SLA profiles, agreements, cases, work orders,
+-- Field service, slice 1 (DPT-45): SLA profiles, agreements, cases, work orders,
 -- entitlement usage, number counters, outbox and idempotency. Every table is
 -- tenant-scoped under RLS; legal-entity-bearing tables add the restrictive scope policy.
 
@@ -14,8 +14,8 @@ CREATE TABLE IF NOT EXISTS outbox (
 ALTER TABLE outbox ENABLE ROW LEVEL SECURITY;
 ALTER TABLE outbox FORCE ROW LEVEL SECURITY;
 CREATE POLICY outbox_tenant_access ON outbox AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 CREATE TABLE IF NOT EXISTS idempotency_keys (
   tenant_id uuid NOT NULL,
@@ -29,8 +29,8 @@ CREATE TABLE IF NOT EXISTS idempotency_keys (
 ALTER TABLE idempotency_keys ENABLE ROW LEVEL SECURITY;
 ALTER TABLE idempotency_keys FORCE ROW LEVEL SECURITY;
 CREATE POLICY idempotency_keys_tenant_access ON idempotency_keys AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 CREATE TABLE IF NOT EXISTS service_number_counter (
   tenant_id uuid NOT NULL,
@@ -41,8 +41,8 @@ CREATE TABLE IF NOT EXISTS service_number_counter (
 ALTER TABLE service_number_counter ENABLE ROW LEVEL SECURITY;
 ALTER TABLE service_number_counter FORCE ROW LEVEL SECURITY;
 CREATE POLICY service_number_counter_tenant_access ON service_number_counter AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 CREATE TABLE IF NOT EXISTS service_sla_profile (
   tenant_id uuid NOT NULL,
@@ -67,8 +67,8 @@ CREATE TABLE IF NOT EXISTS service_sla_profile (
 ALTER TABLE service_sla_profile ENABLE ROW LEVEL SECURITY;
 ALTER TABLE service_sla_profile FORCE ROW LEVEL SECURITY;
 CREATE POLICY service_sla_profile_tenant_access ON service_sla_profile AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 CREATE TABLE IF NOT EXISTS service_agreement (
   tenant_id uuid NOT NULL,
@@ -97,11 +97,11 @@ CREATE INDEX IF NOT EXISTS service_agreement_recent ON service_agreement (tenant
 ALTER TABLE service_agreement ENABLE ROW LEVEL SECURITY;
 ALTER TABLE service_agreement FORCE ROW LEVEL SECURITY;
 CREATE POLICY service_agreement_tenant_access ON service_agreement AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY service_agreement_legal_entity_scope ON service_agreement AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 CREATE TABLE IF NOT EXISTS service_case (
   tenant_id uuid NOT NULL,
@@ -136,11 +136,11 @@ CREATE INDEX IF NOT EXISTS service_case_recent ON service_case (tenant_id, creat
 ALTER TABLE service_case ENABLE ROW LEVEL SECURITY;
 ALTER TABLE service_case FORCE ROW LEVEL SECURITY;
 CREATE POLICY service_case_tenant_access ON service_case AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY service_case_legal_entity_scope ON service_case AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 CREATE TABLE IF NOT EXISTS service_work_order (
   tenant_id uuid NOT NULL,
@@ -178,11 +178,11 @@ CREATE INDEX IF NOT EXISTS service_work_order_case ON service_work_order (tenant
 ALTER TABLE service_work_order ENABLE ROW LEVEL SECURITY;
 ALTER TABLE service_work_order FORCE ROW LEVEL SECURITY;
 CREATE POLICY service_work_order_tenant_access ON service_work_order AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY service_work_order_legal_entity_scope ON service_work_order AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 CREATE TABLE IF NOT EXISTS service_entitlement_usage (
   tenant_id uuid NOT NULL,
@@ -199,5 +199,5 @@ CREATE INDEX IF NOT EXISTS service_entitlement_usage_agreement ON service_entitl
 ALTER TABLE service_entitlement_usage ENABLE ROW LEVEL SECURITY;
 ALTER TABLE service_entitlement_usage FORCE ROW LEVEL SECURITY;
 CREATE POLICY service_entitlement_usage_tenant_access ON service_entitlement_usage AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);

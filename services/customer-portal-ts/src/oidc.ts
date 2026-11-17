@@ -1,4 +1,4 @@
-// OpenID Connect code flow with PKCE against the Keycloak client `passage-portal-customer` (confidential, secret from the
+// OpenID Connect code flow with PKCE against the Keycloak client `depot-portal-customer` (confidential, secret from the
 // environment). The ID token is verified here (RS256, issuer, audience, expiry, nonce) and mapped to a customer identity;
 // the access token is never used or stored. A sign-in without the customer-user role, a tenant and a customer is refused.
 

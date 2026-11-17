@@ -1,5 +1,5 @@
 import { createElement } from "react";
-import type { PassageModule } from "../registry";
+import type { DepotModule } from "../registry";
 import { ArchivePage, ArchivePartitionPage } from "./ArchivePage";
 import { DashboardCreatePage, DashboardDetailPage, DashboardsPage } from "./DashboardsPage";
 import { DataQualityPage, DQRuleCreatePage, DQRuleDetailPage } from "./DataQualityPage";
@@ -11,7 +11,7 @@ import { ReconciliationPage } from "./ReconciliationPage";
 import { ScheduleCreatePage, ScheduleDetailPage, SchedulesPage } from "./SchedulesPage";
 import { UxTelemetryPage } from "./UxTelemetryPage";
 
-const analytics: PassageModule = {
+const analytics: DepotModule = {
   id: "analytics",
   title: "Analytics",
   description:

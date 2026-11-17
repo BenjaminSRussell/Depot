@@ -4,8 +4,8 @@ import { CesqlSyntaxError, compileFilter, filterFor, MAX_EXPRESSION_LENGTH, vali
 
 const event: FilterEvent = {
   attributes: {
-    id: "ev-1", type: "dev.passage.sales.order.confirmed.v1", subject: "order-1", source: "passage/sales", tenantid: "t",
-    legalentityid: "le-1", time: "2026-11-03T10:00:00.000Z", passagesequence: 7,
+    id: "ev-1", type: "dev.depot.sales.order.confirmed.v1", subject: "order-1", source: "depot/sales", tenantid: "t",
+    legalentityid: "le-1", time: "2026-11-03T10:00:00.000Z", depotsequence: 7,
   },
   data: { currency: "USD", net_total: "1200.00", qty: 12, flag: true, customer: { id: "c-1", tier: "gold" }, lines: [1, 2], none: null, ratio: 1.5 },
 };
@@ -13,7 +13,7 @@ const ok = (src: string, e: FilterEvent = event) => compileFilter(src).matches(e
 
 describe("CESQL filter", () => {
   test.each([
-    ["type = 'dev.passage.sales.order.confirmed.v1'", true],
+    ["type = 'dev.depot.sales.order.confirmed.v1'", true],
     ["type = 'other'", false],
     ["type != 'other' AND data.currency = 'USD'", true],
     ["data.currency <> 'EUR'", true],
@@ -43,7 +43,7 @@ describe("CESQL filter", () => {
     ["CONCAT_WS('/', 'a', 'b') = 'a/b' AND TRIM('  x ') = 'x'", true],
     ["LEFT(subject, 5) = 'order' AND RIGHT(subject, 1) = '1' AND SUBSTRING(subject, 7) = '1' AND SUBSTRING(subject, 1, 5) = 'order'", true],
     ["ABS(-4) = 4 AND INT('12') = 12 AND STRING(12) = '12' AND BOOL('true')", true],
-    ["passagesequence >= 7", true],
+    ["depotsequence >= 7", true],
     ["(data.currency = 'EUR' OR data.currency = 'USD') AND NOT (data.qty < 5)", true],
     ["data.currency = \"USD\"", true],
     ["subject = 'it\\'s' OR subject = 'order-1'", true],

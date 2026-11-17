@@ -8,9 +8,9 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/services/budgeting/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/budgeting/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/services/budgeting/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/budgeting/internal/store"
 )
 
 // The base fake refuses reservation commands; reservationFake records them.

@@ -13,8 +13,8 @@ CREATE TABLE IF NOT EXISTS andon_setting (
 ALTER TABLE andon_setting ENABLE ROW LEVEL SECURITY;
 ALTER TABLE andon_setting FORCE ROW LEVEL SECURITY;
 CREATE POLICY andon_setting_tenant_access ON andon_setting AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 ALTER TABLE edge_write_audit ADD COLUMN IF NOT EXISTS node_type text NOT NULL DEFAULT '' CHECK (char_length(node_type) <= 20);
 
@@ -54,10 +54,10 @@ REVOKE ALL ON FUNCTION edge_node_tenant_cert(uuid, text) FROM PUBLIC;
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON andon_setting TO passage_app';
-    EXECUTE 'GRANT UPDATE ON edge_certificate TO passage_app';
-    EXECUTE 'GRANT EXECUTE ON FUNCTION edge_node_tenant_cert(uuid, text) TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON andon_setting TO depot_app';
+    EXECUTE 'GRANT UPDATE ON edge_certificate TO depot_app';
+    EXECUTE 'GRANT EXECUTE ON FUNCTION edge_node_tenant_cert(uuid, text) TO depot_app';
   END IF;
 END
 $$;

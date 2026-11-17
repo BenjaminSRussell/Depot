@@ -1,12 +1,12 @@
-// Service tokens the hub presents to other Passage services (the same token format as
-// services/workflow-ts/src/serviceToken.ts: Ed25519 over "passage.service-token.v1." + body,
+// Service tokens the hub presents to other Depot services (the same token format as
+// services/workflow-ts/src/serviceToken.ts: Ed25519 over "depot.service-token.v1." + body,
 // 60 second lifetime, one tenant, one legal entity, the acting principal and a fixed duty grant).
 // The signer name is `integration-hub`; the receiving service must list the hub's public key in
-// PASSAGE_SERVICE_PUBLIC_KEYS and grant `integration-hub` its duties (handoff, NOT-IMPLEMENTED.md).
+// DEPOT_SERVICE_PUBLIC_KEYS and grant `integration-hub` its duties (handoff, NOT-IMPLEMENTED.md).
 
 import { createPrivateKey, randomBytes, sign } from "node:crypto";
 
-const TOKEN_CONTEXT = "passage.service-token.v1.";
+const TOKEN_CONTEXT = "depot.service-token.v1.";
 const TOKEN_TTL_SECONDS = 60;
 const PKCS8_ED25519_PREFIX = Buffer.from("302e020100300506032b657004220420", "hex");
 const SEED_BYTES = 32;
@@ -77,8 +77,8 @@ export function createServiceTokenSigner(options: SignerOptions): ServiceTokenSi
 }
 
 export function serviceTokenSignerFromEnv(env: NodeJS.ProcessEnv, readFile: (path: string) => string): ServiceTokenSigner | null {
-  const file = env["PASSAGE_SERVICE_SIGNING_KEY_FILE"];
-  const seedBase64 = file ? readFile(file) : (env["PASSAGE_SERVICE_SIGNING_KEY"] ?? "");
+  const file = env["DEPOT_SERVICE_SIGNING_KEY_FILE"];
+  const seedBase64 = file ? readFile(file) : (env["DEPOT_SERVICE_SIGNING_KEY"] ?? "");
   if (!seedBase64.trim()) return null;
-  return createServiceTokenSigner({ seedBase64, ...(env["PASSAGE_SERVICE_KEY_ID"] ? { keyId: env["PASSAGE_SERVICE_KEY_ID"] } : {}) });
+  return createServiceTokenSigner({ seedBase64, ...(env["DEPOT_SERVICE_KEY_ID"] ? { keyId: env["DEPOT_SERVICE_KEY_ID"] } : {}) });
 }

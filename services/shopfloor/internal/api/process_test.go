@@ -12,10 +12,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/shopfloor/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/shopfloor/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/shopfloor/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/shopfloor/internal/store"
 )
 
 const (
@@ -544,8 +544,8 @@ func TestProcessMessage_DeleteNeedsReasonKeyAndDestinationInError(t *testing.T) 
 // Deletion is audited, so it needs an authenticated user and not only a tenant.
 func TestProcessMessage_DeleteNeedsUser(t *testing.T) {
 	r := httptest.NewRequest(http.MethodPost, "/v1/shopfloor/process-messages/"+messageID+":delete", strings.NewReader(`{"reason":"x"}`))
-	r.Header.Set("X-Passage-Tenant", testkit.TenantID(1))
-	r.Header.Set("X-Passage-Duties", processDuty)
+	r.Header.Set("X-Depot-Tenant", testkit.TenantID(1))
+	r.Header.Set("X-Depot-Duties", processDuty)
 	r.Header.Set("Idempotency-Key", "k")
 	rec := httptest.NewRecorder()
 	newRouter(&processFake{}).ServeHTTP(rec, r)

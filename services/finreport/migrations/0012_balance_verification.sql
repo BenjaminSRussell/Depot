@@ -1,4 +1,4 @@
--- PSG-1510 (wave 15, slice 10): balance verification against the ledger (FR-15.1).
+-- DPT-1510 (wave 15, slice 10): balance verification against the ledger (FR-15.1).
 -- One row per check of the reporting read model against the ledger's trial
 -- balance of the same ledger: the net per account the read model holds
 -- (currency type acct, all periods) against the ledger's GET /v1/ledger/balances.
@@ -32,17 +32,17 @@ CREATE INDEX IF NOT EXISTS balance_verification_ledger ON balance_verification (
 ALTER TABLE balance_verification ENABLE ROW LEVEL SECURITY;
 ALTER TABLE balance_verification FORCE ROW LEVEL SECURITY;
 CREATE POLICY balance_verification_tenant_access ON balance_verification AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY balance_verification_legal_entity_scope ON balance_verification AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 -- Verifications are append-only: the store inserts and reads them.
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT ON balance_verification TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT ON balance_verification TO depot_app';
   END IF;
 END
 $$;

@@ -36,11 +36,11 @@ CREATE INDEX IF NOT EXISTS planning_scenario_plan ON planning_scenario (tenant_i
 ALTER TABLE planning_scenario ENABLE ROW LEVEL SECURITY;
 ALTER TABLE planning_scenario FORCE ROW LEVEL SECURITY;
 CREATE POLICY planning_scenario_tenant_access ON planning_scenario AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY planning_scenario_legal_entity_scope ON planning_scenario AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 -- A simulation run writes its own plan version of kind 'simulation'. It is
 -- never current (the operational pointer is untouched, BR-22.14) and its
@@ -55,8 +55,8 @@ ALTER TABLE plan_version ADD CONSTRAINT plan_version_simulation_check CHECK ((ki
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON planning_scenario TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON planning_scenario TO depot_app';
   END IF;
 END
 $$;

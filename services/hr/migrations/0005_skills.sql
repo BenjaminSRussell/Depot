@@ -68,36 +68,36 @@ CREATE TABLE IF NOT EXISTS position_skill_requirement (
 ALTER TABLE hr_skill ENABLE ROW LEVEL SECURITY;
 ALTER TABLE hr_skill FORCE ROW LEVEL SECURITY;
 CREATE POLICY hr_skill_tenant_access ON hr_skill AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 ALTER TABLE worker_skill ENABLE ROW LEVEL SECURITY;
 ALTER TABLE worker_skill FORCE ROW LEVEL SECURITY;
 CREATE POLICY worker_skill_tenant_access ON worker_skill AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 ALTER TABLE hr_certification ENABLE ROW LEVEL SECURITY;
 ALTER TABLE hr_certification FORCE ROW LEVEL SECURITY;
 CREATE POLICY hr_certification_tenant_access ON hr_certification AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 ALTER TABLE position_skill_requirement ENABLE ROW LEVEL SECURITY;
 ALTER TABLE position_skill_requirement FORCE ROW LEVEL SECURITY;
 CREATE POLICY position_skill_requirement_tenant_access ON position_skill_requirement AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- Application-role grants (0004_grants.sql pattern): the catalog and
 -- certificates are append-only; ratings and position requirements are
 -- upserted, and a requirement can be removed.
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT ON hr_skill, hr_certification TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON worker_skill TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON position_skill_requirement TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT ON hr_skill, hr_certification TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON worker_skill TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON position_skill_requirement TO depot_app';
   END IF;
 END
 $$;

@@ -87,10 +87,10 @@ BEGIN
   LOOP
     EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', t);
     EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY', t);
-    EXECUTE format('CREATE POLICY %I ON %I AS PERMISSIVE USING (tenant_id = current_setting(''passage.tenant_id'', true)::uuid) WITH CHECK (tenant_id = current_setting(''passage.tenant_id'', true)::uuid)',
+    EXECUTE format('CREATE POLICY %I ON %I AS PERMISSIVE USING (tenant_id = current_setting(''depot.tenant_id'', true)::uuid) WITH CHECK (tenant_id = current_setting(''depot.tenant_id'', true)::uuid)',
                    t || '_tenant_access', t);
   END LOOP;
-  EXECUTE format('CREATE POLICY %I ON %I AS RESTRICTIVE USING (current_setting(''passage.legal_entity_scopes'', true) = ''*'' OR legal_entity_id::text = ANY(string_to_array(current_setting(''passage.legal_entity_scopes'', true), '',''))) WITH CHECK (current_setting(''passage.legal_entity_scopes'', true) = ''*'' OR legal_entity_id::text = ANY(string_to_array(current_setting(''passage.legal_entity_scopes'', true), '','')))',
+  EXECUTE format('CREATE POLICY %I ON %I AS RESTRICTIVE USING (current_setting(''depot.legal_entity_scopes'', true) = ''*'' OR legal_entity_id::text = ANY(string_to_array(current_setting(''depot.legal_entity_scopes'', true), '',''))) WITH CHECK (current_setting(''depot.legal_entity_scopes'', true) = ''*'' OR legal_entity_id::text = ANY(string_to_array(current_setting(''depot.legal_entity_scopes'', true), '','')))',
                  'rfq_type_legal_entity_scope', 'rfq_type');
 END $$;
 
@@ -110,20 +110,20 @@ BEGIN
   LOOP
     EXECUTE format(
       'CREATE POLICY %I ON %I AS RESTRICTIVE USING (
-         current_setting(''passage.legal_entity_scopes'', true) = ''*''
+         current_setting(''depot.legal_entity_scopes'', true) = ''*''
          OR EXISTS (
            SELECT 1 FROM %I AS scope_parent
            WHERE scope_parent.tenant_id = %I.tenant_id
              AND scope_parent.id = %I.%I
-             AND scope_parent.legal_entity_id::text = ANY(string_to_array(current_setting(''passage.legal_entity_scopes'', true), '',''))
+             AND scope_parent.legal_entity_id::text = ANY(string_to_array(current_setting(''depot.legal_entity_scopes'', true), '',''))
          )
        ) WITH CHECK (
-         current_setting(''passage.legal_entity_scopes'', true) = ''*''
+         current_setting(''depot.legal_entity_scopes'', true) = ''*''
          OR EXISTS (
            SELECT 1 FROM %I AS scope_parent
            WHERE scope_parent.tenant_id = %I.tenant_id
              AND scope_parent.id = %I.%I
-             AND scope_parent.legal_entity_id::text = ANY(string_to_array(current_setting(''passage.legal_entity_scopes'', true), '',''))
+             AND scope_parent.legal_entity_id::text = ANY(string_to_array(current_setting(''depot.legal_entity_scopes'', true), '',''))
          )
        )',
       child_table || '_legal_entity_scope', child_table, parent_table,
@@ -133,15 +133,15 @@ BEGIN
   END LOOP;
 END $$;
 
--- passage_app: a type is changed in place (UPDATE) and its default criteria replaced as a set (DELETE); amendments
+-- depot_app: a type is changed in place (UPDATE) and its default criteria replaced as a set (DELETE); amendments
 -- are append-only and an acknowledgement is set on its row; a draft RFQ's scoring criteria are replaced as a set.
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON rfq_type, purchase_rfq_amendment_ack TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT, DELETE ON rfq_type_criterion TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT ON purchase_rfq_amendment TO passage_app';
-    EXECUTE 'GRANT DELETE ON purchase_rfq_criterion TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON rfq_type, purchase_rfq_amendment_ack TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT, DELETE ON rfq_type_criterion TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT ON purchase_rfq_amendment TO depot_app';
+    EXECUTE 'GRANT DELETE ON purchase_rfq_criterion TO depot_app';
   END IF;
 END
 $$;

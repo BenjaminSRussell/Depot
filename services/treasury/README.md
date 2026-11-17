@@ -1,6 +1,6 @@
 # treasury
 
-Treasury bounded context (Go). Wave 36 (PSG-36), slice 1: bank accounts and
+Treasury bounded context (Go). Wave 36 (DPT-36), slice 1: bank accounts and
 their lifecycle, bank statement import (camt.053), the cash forecast, and the
 pure matching-score engine (domain only, not yet behind an API). Slice 3:
 checks with gap-free numbers, void and reprint; bank facilities with letters
@@ -19,7 +19,7 @@ Screens live in `apps/web/src/modules/treasury`.
 ## Run
 
 ```sh
-export DATABASE_URL=postgres://passage_app:...@localhost:5432/passage_treasury
+export DATABASE_URL=postgres://depot_app:...@localhost:5432/depot_treasury
 export MIGRATE_ON_START=true          # dev only; stage/prod run migrations as a PreSync Job
 export TREASURY_MAX_FILE_MB=50        # 1-200, default 50
 go run ./cmd/treasury                 # HTTP :8080, admin (/metrics) :9090
@@ -33,11 +33,11 @@ Env: `DATABASE_URL` (required), `MIGRATE_ON_START`, `TREASURY_MAX_FILE_MB`,
 
 ```sh
 go vet ./... && go test -count=1 ./...
-PASSAGE_TEST_DATABASE_URL=postgres://... go test -count=1 ./...   # runs DB tests
+DEPOT_TEST_DATABASE_URL=postgres://... go test -count=1 ./...   # runs DB tests
 ```
 
-Store tests need `PASSAGE_TEST_DATABASE_URL` (admin, applies migrations) and
-`PASSAGE_TEST_APP_DATABASE_URL` (a non-superuser role, so row-level security
+Store tests need `DEPOT_TEST_DATABASE_URL` (admin, applies migrations) and
+`DEPOT_TEST_APP_DATABASE_URL` (a non-superuser role, so row-level security
 applies); they skip without them. API tests use an in-memory fake store and
 always run, including the OpenAPI-matches-routes contract test.
 
@@ -79,7 +79,7 @@ import is idempotent on the file's SHA-256 (BR-36.8).
 Checks: the number comes from `bank_account.next_check_number` under a row
 lock, so numbers are gap-free per account; a void keeps the number, a reprint
 voids the old check and prints a new one on the next number in one
-transaction. Every void writes `dev.passage.treasury.check.voided.v1` to the
+transaction. Every void writes `dev.depot.treasury.check.voided.v1` to the
 outbox; `positivePayVoid` is true when the check was sent or stopped (BR-36.5).
 
 Facilities: utilization is the sum of open instruments; an instrument that
@@ -109,12 +109,12 @@ A reference-only candidate (the reference agrees, amount, date or payer does not
 A rule that does not require the reference never auto-matches a candidate whose reference contradicts a usable reference of the line (8 or more characters, not a placeholder); it is suggested.
 A bank account has at most 20 active rules, its own and the entity-wide ones (TRS-0489). Item amounts are trimmed before they are validated and stored.
 All creates take `Idempotency-Key`; `:deactivate` and `:unmatch` take `If-Match`. Events:
-`dev.passage.treasury.reconciliation.matched.v1` and `...unmatched.v1`.
+`dev.depot.treasury.reconciliation.matched.v1` and `...unmatched.v1`.
 
 Bank reconciliation (FR-36.5, migration `0010_bank_reconciliation.sql`): one header per statement, so per bank account and period.
 `POST /bank-reconciliations` opens it from a statement (`statementId`, the caller's `bookBalance` and `outstandingAmount`, the book items not yet on the statement; `Idempotency-Key`), `:set-balances` corrects both until the period closes, `GET /bank-reconciliations` lists by `bankAccountId`, `legalEntityId`, `state`, `periodFrom` and `periodTo` (newest period first, `limit` up to 100, `cursor` from `nextCursor`), and `GET /bank-reconciliations/{id}` returns the header with its summary of matched, excluded and unmatched lines. The book balance is stated by the caller, not read from the ledger: each change is written to `bank_reconciliation_event` (`balances_set`, with the actor and the old and new values), the reconciliation answers `bookBalanceSource: "stated"` with `bookBalanceStatedBy` and `bookBalanceStatedAt`, and the person who last stated it cannot close the period (TRS-0520). It also moves by the line amount when a transaction is created from a line, so state it before creating transactions or leave those entries out of it; otherwise they are counted twice. `difference` is `closing - (book + outstanding + excluded lines)`; a positive `outstandingAmount` is book payments not yet on the statement (outstanding checks), a negative one is book receipts not yet on it (deposits in transit).
 States `open`, `closed`, `reopened`. `POST /{id}/lines/{lineNo}:exclude` (reason required) and `:include` take a line out of the count and back; a matched line must be unmatched first.
-Close (`:close`, duty `treasury.reconciliation.close`, `If-Match`): every line must be matched or excluded (TRS-0507), the difference zero (TRS-0410) and no transaction from a line still being posted or held for a person (TRS-0517; `errors.pendingLines` lists the line numbers). It records who closed it and when. A second close answers 200 with the closed reconciliation unchanged. While closed, triggers in the database refuse any change to the period's lines, matches, exclusions and line transactions (TRS-0506), and a trigger on the header lets a closed reconciliation change only by being reopened by another person with a reason, with the balances frozen. The same triggers hold for the application role, so no route and no SQL run as `passage_app` can alter a closed period; a database superuser or the table owner can still bypass them. Two closes at once close once; closing and reopening of one bank account serialize on an advisory lock.
+Close (`:close`, duty `treasury.reconciliation.close`, `If-Match`): every line must be matched or excluded (TRS-0507), the difference zero (TRS-0410) and no transaction from a line still being posted or held for a person (TRS-0517; `errors.pendingLines` lists the line numbers). It records who closed it and when. A second close answers 200 with the closed reconciliation unchanged. While closed, triggers in the database refuse any change to the period's lines, matches, exclusions and line transactions (TRS-0506), and a trigger on the header lets a closed reconciliation change only by being reopened by another person with a reason, with the balances frozen. The same triggers hold for the application role, so no route and no SQL run as `depot_app` can alter a closed period; a database superuser or the table owner can still bypass them. Two closes at once close once; closing and reopening of one bank account serialize on an advisory lock.
 Reopen (`:reopen`, duty `treasury.reconciliation.reopen`, `If-Match`, `reason` required, stored with the actor and time and written to `bank_reconciliation_event`): the person who closed the period cannot reopen it (TRS-0509, four eyes); it is refused (TRS-0508) while any later period of the same bank account is closed, so periods reopen latest first and a closed period never rests on an open earlier one; only a closed reconciliation can be reopened (TRS-0510). A reopened reconciliation accepts changes and closes again.
 Create a transaction from a line (`POST /{id}/lines/{lineNo}:create-transaction`, body `kind` of `bank_fee` (money out), `interest` or `unknown_receipt` (money in), duty `treasury.reconciliation.post`): the line currency must equal the account currency and the amount has at most the currency's minor units (TRS-0512). The service records the transaction as pending, posts a two-line journal through `platform/go/ledgerclient` and then, in one database transaction, stores the entry id, matches the line to it and moves the book balance. A bank fee debits the fee account and credits the bank; interest and unknown receipts debit the bank and credit the interest or suspense account (negative interest reverses the sides). The ledger key is derived from the statement and line, so repeating the request, also after a lost answer, never posts twice; a line with its transaction answers 200 with it. A ledger or profile refusal gives 422 TRS-0518 with `errors.ledgerCode`, releases the line for another try (also as another kind) and matches nothing. A ledger that does not answer gives 503 TRS-0519 and leaves the transaction pending; repeating the request finishes it, and so does a repeat after the ledger accepted the entry but the match could not be saved. Once an attempt went unanswered the entry may already exist, so a later 4xx or an idempotency conflict (`LEDGER_IDEMPOTENCY_CONFLICT`) never releases the line: it is held for a person (409 TRS-0522) and repeating is refused. A 401, 403 or 429 from the ledger is not a refusal and gives 503 TRS-0519. A pending or held transaction blocks the close (TRS-0517) until it is finished, refused or abandoned, and an `:exclude` of that line is refused (TRS-0516). `POST /{id}/lines/{lineNo}:abandon` (duty `treasury.reconciliation.abandon`, `reason` required) gives up a transaction the ledger will never accept after someone checked the general ledger by hand; it is audited (`line_abandoned`) and leaves the line unmatched, to exclude or match. The match created from a transaction cannot be unmatched (TRS-0521); reverse the entry in the general ledger instead.
 Posting profile: `TREASURY_GL_PROFILES` is a JSON array, one entry per legal entity: `{"legalEntityId", "ledgerId", "bankAccounts": {"<bank account id>": "<ledger account>"}, "feeAccount", "interestAccount", "suspenseAccount"}`. `LEDGER_URL` and the service signing key (the `ledgerclient.FromEnv` variables) enable the ledger client; without it the create-transaction route answers 503 TRS-0514, as do all reconciliation routes when the store is not wired. The `treasury` service holds only `ledger.entry.post` at the ledger.
@@ -134,7 +134,7 @@ naming).
 
 ## Error codes
 
-Problems use `type` `https://passage.dev/problems/<code>` and carry `code` and
+Problems use `type` `https://depot.dev/problems/<code>` and carry `code` and
 `serviceCode`.
 
 | code | HTTP | meaning |

@@ -3,7 +3,7 @@
   "images": [
     {
       "match": "ghcr.io/benjaminsrussell/*",
-      "certificateIdentityRegexp": "^https://github\\.com/BenjaminSRussell/Passage/\\.github/workflows/ci\\.yml@refs/(heads/main|tags/v.+)$",
+      "certificateIdentityRegexp": "^https://github\\.com/BenjaminSRussell/Depot/\\.github/workflows/ci\\.yml@refs/(heads/main|tags/v.+)$",
       "certificateOidcIssuer": "https://token.actions.githubusercontent.com",
       "source": "the release job in .github/workflows/ci.yml signs keylessly; the same identity as deploy/policies/admission/verify-signed-images.yaml"
     },

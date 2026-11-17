@@ -1,6 +1,6 @@
 asyncapi: 3.0.0
 info:
-  title: Passage Inventory events
+  title: Depot Inventory events
   version: 0.16.7
   description: |
     Published through the transactional outbox in the same database transaction as the
@@ -9,22 +9,22 @@ info:
 defaultContentType: application/json
 channels:
   transactionPosted:
-    address: passage.inventory.transaction
+    address: depot.inventory.transaction
     messages:
       transactionPosted:
         $ref: '#/components/messages/TransactionPosted'
   onhandChanged:
-    address: passage.inventory.onhand
+    address: depot.inventory.onhand
     messages:
       onhandChanged:
         $ref: '#/components/messages/OnhandChanged'
   journalPosted:
-    address: passage.inventory.journal
+    address: depot.inventory.journal
     messages:
       journalPosted:
         $ref: '#/components/messages/JournalPosted'
   reservation:
-    address: passage.inventory.reservation
+    address: depot.inventory.reservation
     messages:
       reservationCreated:
         $ref: '#/components/messages/ReservationCreated'
@@ -33,7 +33,7 @@ channels:
       reservationConverted:
         $ref: '#/components/messages/ReservationConverted'
   blocking:
-    address: passage.inventory.blocking
+    address: depot.inventory.blocking
     messages:
       blockingCreated:
         $ref: '#/components/messages/BlockingCreated'
@@ -42,14 +42,14 @@ channels:
       blockingEscalated:
         $ref: '#/components/messages/BlockingEscalated'
   hold:
-    address: passage.inventory.hold
+    address: depot.inventory.hold
     messages:
       holdPlaced:
         $ref: '#/components/messages/HoldPlaced'
       holdReleased:
         $ref: '#/components/messages/HoldReleased'
   transfer:
-    address: passage.inventory.transfer
+    address: depot.inventory.transfer
     messages:
       transferShipped:
         $ref: '#/components/messages/TransferShipped'
@@ -58,54 +58,54 @@ channels:
       transferChanged:
         $ref: '#/components/messages/TransferChanged'
   ownershipChanged:
-    address: passage.inventory.ownership
+    address: depot.inventory.ownership
     messages:
       ownershipChanged:
         $ref: '#/components/messages/OwnershipChanged'
   consignmentClosed:
-    address: passage.inventory.consignment
+    address: depot.inventory.consignment
     messages:
       consignmentClosed:
         $ref: '#/components/messages/ConsignmentClosed'
   countSheet:
-    address: passage.inventory.countsheet
+    address: depot.inventory.countsheet
     messages:
       countSheetChanged:
         $ref: '#/components/messages/CountSheetChanged'
   journalName:
-    address: passage.inventory.journalname
+    address: depot.inventory.journalname
     messages:
       journalNameCreated:
         $ref: '#/components/messages/JournalNameCreated'
       journalNameUpdated:
         $ref: '#/components/messages/JournalNameUpdated'
   reconciliationDiff:
-    address: passage.inventory.reconciliation
+    address: depot.inventory.reconciliation
     messages:
       reconciliationDiff:
         $ref: '#/components/messages/ReconciliationDiff'
   # Consumed by the postings consumer (#480, `inventory consume`, group and service principal inventory-postings,
-  # dead-letter topic passage.inventory.postings.dlq). The payloads are the producers' (their asyncapi.yaml); the
+  # dead-letter topic depot.inventory.postings.dlq). The payloads are the producers' (their asyncapi.yaml); the
   # shared fixtures in testdata/catchweight-flow are checked against both sides.
   receivingReceipt:
-    address: passage.receiving.receipt
+    address: depot.receiving.receipt
     messages:
       receiptPosted:
         $ref: '#/components/messages/ReceiptPostedConsumed'
       receiptCorrected:
         $ref: '#/components/messages/ReceiptCorrectedConsumed'
   salesOrderProgress:
-    address: passage.sales.orderprogress
+    address: depot.sales.orderprogress
     messages:
       orderProgressRecorded:
         $ref: '#/components/messages/OrderProgressRecordedConsumed'
   fulfillmentPackingSlip:
-    address: passage.fulfillment.packingslip
+    address: depot.fulfillment.packingslip
     messages:
       packingSlipCancelled:
         $ref: '#/components/messages/PackingSlipCancelledConsumed'
   serviceWorkOrderCompleted:
-    address: passage.service.workorder.completed
+    address: depot.service.workorder.completed
     messages:
       workOrderCompleted:
         $ref: '#/components/messages/WorkOrderCompletedConsumed'
@@ -191,7 +191,7 @@ operations:
 components:
   messages:
     ReceiptPostedConsumed:
-      name: dev.passage.receiving.receipt.posted.v1
+      name: dev.depot.receiving.receipt.posted.v1
       title: Receipt posted (consumed)
       summary: >-
         Receiving posted a receipt. Read: receipt_id, receipt_number, legal_entity_id, posting_date, currency and per line
@@ -201,7 +201,7 @@ components:
       contentType: application/cloudevents+json
       payload: { $ref: '#/components/schemas/ConsumedPayload' }
     ReceiptCorrectedConsumed:
-      name: dev.passage.receiving.receipt.corrected.v1
+      name: dev.depot.receiving.receipt.corrected.v1
       title: Receipt corrected (consumed)
       summary: >-
         Receiving corrected (CORRECTION) or cancelled (CANCELLATION) a posted receipt. Read: receipt_id, receipt_number,
@@ -210,7 +210,7 @@ components:
       contentType: application/cloudevents+json
       payload: { $ref: '#/components/schemas/ConsumedPayload' }
     OrderProgressRecordedConsumed:
-      name: dev.passage.sales.orderprogress.recorded.v1
+      name: dev.depot.sales.orderprogress.recorded.v1
       title: Order progress recorded (consumed)
       summary: >-
         Sales recorded a delivery or invoice report; only DELIVERED moves stock. Read: progress_id, order_id,
@@ -219,7 +219,7 @@ components:
       contentType: application/cloudevents+json
       payload: { $ref: '#/components/schemas/ConsumedPayload' }
     PackingSlipCancelledConsumed:
-      name: dev.passage.fulfillment.packingslip.cancelled.v1
+      name: dev.depot.fulfillment.packingslip.cancelled.v1
       title: Packing slip cancelled (consumed)
       summary: >-
         Fulfillment cancelled a posted packing slip. Read: packing_slip_id, packing_slip_number, reversal_id, order_id,
@@ -228,7 +228,7 @@ components:
       contentType: application/json
       payload: { $ref: '#/components/schemas/ConsumedPayload' }
     WorkOrderCompletedConsumed:
-      name: dev.passage.service.workorder.completed.v1
+      name: dev.depot.service.workorder.completed.v1
       title: Service work order completed (consumed)
       summary: >-
         Field service completed a work order. Read: workOrderId, number, legalEntityId, completedAt, currency, truck
@@ -240,160 +240,160 @@ components:
     TransactionPosted:
       title: Inventory transaction posted
       summary: An inventory transaction was registered or moved to a new status; carries the dimension, quantity and posted value.
-      name: dev.passage.inventory.transaction.posted.v1
-      x-passage-type: dev.passage.inventory.transaction.posted.v1
+      name: dev.depot.inventory.transaction.posted.v1
+      x-depot-type: dev.depot.inventory.transaction.posted.v1
       contentType: application/json
       payload:
         $ref: '#/components/schemas/TransactionPostedData'
     OnhandChanged:
       title: On-hand changed
       summary: The on-hand projection of one dimension combination changed.
-      name: dev.passage.inventory.onhand.changed.v1
-      x-passage-type: dev.passage.inventory.onhand.changed.v1
+      name: dev.depot.inventory.onhand.changed.v1
+      x-depot-type: dev.depot.inventory.onhand.changed.v1
       contentType: application/json
       payload:
         $ref: '#/components/schemas/OnhandChangedData'
     JournalPosted:
       title: Inventory journal posted
       summary: An inventory journal was posted and its lines became ledger transactions.
-      name: dev.passage.inventory.journal.posted.v1
-      x-passage-type: dev.passage.inventory.journal.posted.v1
+      name: dev.depot.inventory.journal.posted.v1
+      x-depot-type: dev.depot.inventory.journal.posted.v1
       contentType: application/json
       payload:
         $ref: '#/components/schemas/JournalPostedData'
     ReservationCreated:
       title: Reservation created
       summary: Stock was reserved against a dimension combination.
-      name: dev.passage.inventory.reservation.created.v1
-      x-passage-type: dev.passage.inventory.reservation.created.v1
+      name: dev.depot.inventory.reservation.created.v1
+      x-depot-type: dev.depot.inventory.reservation.created.v1
       contentType: application/json
       payload:
         $ref: '#/components/schemas/ReservationData'
     ReservationReleased:
       title: Reservation released
       summary: A reservation was released and its quantity returned to available.
-      name: dev.passage.inventory.reservation.released.v1
-      x-passage-type: dev.passage.inventory.reservation.released.v1
+      name: dev.depot.inventory.reservation.released.v1
+      x-depot-type: dev.depot.inventory.reservation.released.v1
       contentType: application/json
       payload:
         $ref: '#/components/schemas/ReservationData'
     ReservationConverted:
       title: Reservation converted
       summary: A reservation against an expected receipt became a physical reservation because the receipt arrived.
-      name: dev.passage.inventory.reservation.converted.v1
-      x-passage-type: dev.passage.inventory.reservation.converted.v1
+      name: dev.depot.inventory.reservation.converted.v1
+      x-depot-type: dev.depot.inventory.reservation.converted.v1
       contentType: application/json
       payload:
         $ref: '#/components/schemas/ReservationData'
     BlockingCreated:
       title: Blocking created
       summary: A quantity was blocked or quarantined with a reason.
-      name: dev.passage.inventory.blocking.created.v1
-      x-passage-type: dev.passage.inventory.blocking.created.v1
+      name: dev.depot.inventory.blocking.created.v1
+      x-depot-type: dev.depot.inventory.blocking.created.v1
       contentType: application/json
       payload:
         $ref: '#/components/schemas/BlockingData'
     BlockingReleased:
       title: Blocking released
       summary: A blocking was released back to a usable inventory status.
-      name: dev.passage.inventory.blocking.released.v1
-      x-passage-type: dev.passage.inventory.blocking.released.v1
+      name: dev.depot.inventory.blocking.released.v1
+      x-depot-type: dev.depot.inventory.blocking.released.v1
       contentType: application/json
       payload:
         $ref: '#/components/schemas/BlockingData'
     BlockingEscalated:
       title: Quarantine moved to blocked
       summary: An active quarantine was moved to the BLOCKED inventory status (QUARANTINE to BLOCKED transition); targetStatus is BLOCKED.
-      name: dev.passage.inventory.blocking.escalated.v1
-      x-passage-type: dev.passage.inventory.blocking.escalated.v1
+      name: dev.depot.inventory.blocking.escalated.v1
+      x-depot-type: dev.depot.inventory.blocking.escalated.v1
       contentType: application/json
       payload:
         $ref: '#/components/schemas/BlockingData'
     HoldPlaced:
       title: Hold placed
       summary: A quantity was held out of availability for a reason and a source document.
-      name: dev.passage.inventory.hold.placed.v1
-      x-passage-type: dev.passage.inventory.hold.placed.v1
+      name: dev.depot.inventory.hold.placed.v1
+      x-depot-type: dev.depot.inventory.hold.placed.v1
       contentType: application/json
       payload:
         $ref: '#/components/schemas/HoldData'
     HoldReleased:
       title: Hold released
       summary: All or part of a hold was released back to availability; state RELEASED when nothing remains held.
-      name: dev.passage.inventory.hold.released.v1
-      x-passage-type: dev.passage.inventory.hold.released.v1
+      name: dev.depot.inventory.hold.released.v1
+      x-depot-type: dev.depot.inventory.hold.released.v1
       contentType: application/json
       payload:
         $ref: '#/components/schemas/HoldData'
     JournalNameCreated:
       title: Journal name created
       summary: A journal name was created for a legal entity.
-      name: dev.passage.inventory.journalname.created.v1
-      x-passage-type: dev.passage.inventory.journalname.created.v1
+      name: dev.depot.inventory.journalname.created.v1
+      x-depot-type: dev.depot.inventory.journalname.created.v1
       contentType: application/json
       payload:
         $ref: '#/components/schemas/JournalNameData'
     JournalNameUpdated:
       title: Journal name updated
       summary: The description, approval rule, offset account or active flag of a journal name changed.
-      name: dev.passage.inventory.journalname.updated.v1
-      x-passage-type: dev.passage.inventory.journalname.updated.v1
+      name: dev.depot.inventory.journalname.updated.v1
+      x-depot-type: dev.depot.inventory.journalname.updated.v1
       contentType: application/json
       payload:
         $ref: '#/components/schemas/JournalNameData'
     TransferShipped:
       title: Transfer shipped
       summary: A transfer order shipped and stock moved into the in-transit warehouse.
-      name: dev.passage.inventory.transfer.shipped.v1
-      x-passage-type: dev.passage.inventory.transfer.shipped.v1
+      name: dev.depot.inventory.transfer.shipped.v1
+      x-depot-type: dev.depot.inventory.transfer.shipped.v1
       contentType: application/json
       payload:
         $ref: '#/components/schemas/TransferData'
     TransferReceived:
       title: Transfer received
       summary: A transfer order was received at the destination warehouse.
-      name: dev.passage.inventory.transfer.received.v1
-      x-passage-type: dev.passage.inventory.transfer.received.v1
+      name: dev.depot.inventory.transfer.received.v1
+      x-depot-type: dev.depot.inventory.transfer.received.v1
       contentType: application/json
       payload:
         $ref: '#/components/schemas/TransferData'
     TransferChanged:
       title: Transfer changed
       summary: A CREATED transfer order was edited, confirmed from a draft, deleted (status DELETED) or an order was cancelled.
-      name: dev.passage.inventory.transfer.changed.v1
-      x-passage-type: dev.passage.inventory.transfer.changed.v1
+      name: dev.depot.inventory.transfer.changed.v1
+      x-depot-type: dev.depot.inventory.transfer.changed.v1
       contentType: application/json
       payload:
         $ref: '#/components/schemas/TransferData'
     OwnershipChanged:
       title: Ownership changed
       summary: Vendor-owned consignment stock became legal-entity owned.
-      name: dev.passage.inventory.ownership.changed.v1
-      x-passage-type: dev.passage.inventory.ownership.changed.v1
+      name: dev.depot.inventory.ownership.changed.v1
+      x-depot-type: dev.depot.inventory.ownership.changed.v1
       contentType: application/json
       payload:
         $ref: '#/components/schemas/OwnershipChangedData'
     ConsignmentClosed:
       title: Consignment order closed
       summary: A vendor replenishment order was closed (partly received, open quantity given up) or cancelled (nothing received).
-      name: dev.passage.inventory.consignment.closed.v1
-      x-passage-type: dev.passage.inventory.consignment.closed.v1
+      name: dev.depot.inventory.consignment.closed.v1
+      x-depot-type: dev.depot.inventory.consignment.closed.v1
       contentType: application/json
       payload:
         $ref: '#/components/schemas/ConsignmentClosedData'
     CountSheetChanged:
       title: Count sheet changed
       summary: A count sheet moved through its review steps; the action names which one.
-      name: dev.passage.inventory.countsheet.changed.v1
-      x-passage-type: dev.passage.inventory.countsheet.changed.v1
+      name: dev.depot.inventory.countsheet.changed.v1
+      x-depot-type: dev.depot.inventory.countsheet.changed.v1
       contentType: application/json
       payload:
         $ref: '#/components/schemas/CountSheetChangedData'
     ReconciliationDiff:
       title: Reconciliation difference
       summary: A daily inventory-to-ledger run found a non-zero difference.
-      name: dev.passage.inventory.reconciliation.diff.v1
-      x-passage-type: dev.passage.inventory.reconciliation.diff.v1
+      name: dev.depot.inventory.reconciliation.diff.v1
+      x-depot-type: dev.depot.inventory.reconciliation.diff.v1
       contentType: application/json
       payload:
         $ref: '#/components/schemas/ReconciliationDiffData'

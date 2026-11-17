@@ -115,7 +115,7 @@ export class IndexedDbStore<V> implements KeyValueStore<V> {
   private db: Promise<IDBDatabase> | null = null;
 
   constructor(
-    private readonly dbName = "passage-warehouse-mobile",
+    private readonly dbName = "depot-warehouse-mobile",
     private readonly storeName = "kv",
   ) {}
 

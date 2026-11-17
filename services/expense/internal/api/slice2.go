@@ -9,9 +9,9 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	platformmoney "github.com/BenjaminSRussell/passage/platform/money"
-	"github.com/BenjaminSRussell/passage/services/expense/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	platformmoney "github.com/BenjaminSRussell/depot/platform/money"
+	"github.com/BenjaminSRussell/depot/services/expense/internal/domain"
 )
 
 const (

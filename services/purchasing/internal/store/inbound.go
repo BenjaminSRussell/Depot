@@ -11,12 +11,12 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/money"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/purchasing/internal/domain"
-	purchasingevents "github.com/BenjaminSRussell/passage/services/purchasing/internal/events"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/money"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/purchasing/internal/domain"
+	purchasingevents "github.com/BenjaminSRussell/depot/services/purchasing/internal/events"
 )
 
 // CodeInboundChangeNotFound is a change id the caller cannot see.
@@ -297,14 +297,14 @@ func withEventScope(ctx context.Context, tx pgx.Tx, legalEntityID string, fn fun
 		return errors.New("tenant context and a legal entity id are required")
 	}
 	var saved string
-	if err := tx.QueryRow(ctx, `select coalesce(current_setting('passage.legal_entity_scopes', true), ''), set_config('passage.legal_entity_scopes', $1, true)`,
+	if err := tx.QueryRow(ctx, `select coalesce(current_setting('depot.legal_entity_scopes', true), ''), set_config('depot.legal_entity_scopes', $1, true)`,
 		strings.ToLower(legalEntityID)).Scan(&saved, new(string)); err != nil {
 		return err
 	}
 	if err := fn(); err != nil {
 		return err
 	}
-	_, err := tx.Exec(ctx, `select set_config('passage.legal_entity_scopes', $1, true)`, saved)
+	_, err := tx.Exec(ctx, `select set_config('depot.legal_entity_scopes', $1, true)`, saved)
 	return err
 }
 

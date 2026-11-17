@@ -94,38 +94,38 @@ CREATE TABLE IF NOT EXISTS returnable_packaging_balance (
 ALTER TABLE container_type ENABLE ROW LEVEL SECURITY;
 ALTER TABLE container_type FORCE ROW LEVEL SECURITY;
 CREATE POLICY container_type_tenant_access ON container_type AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 ALTER TABLE packing_rule ENABLE ROW LEVEL SECURITY;
 ALTER TABLE packing_rule FORCE ROW LEVEL SECURITY;
 CREATE POLICY packing_rule_tenant_access ON packing_rule AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 ALTER TABLE product_packaging ENABLE ROW LEVEL SECURITY;
 ALTER TABLE product_packaging FORCE ROW LEVEL SECURITY;
 CREATE POLICY product_packaging_tenant_access ON product_packaging AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 ALTER TABLE packaging_fee_rate ENABLE ROW LEVEL SECURITY;
 ALTER TABLE packaging_fee_rate FORCE ROW LEVEL SECURITY;
 CREATE POLICY packaging_fee_rate_tenant_access ON packaging_fee_rate AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 ALTER TABLE packaging_fee_line ENABLE ROW LEVEL SECURITY;
 ALTER TABLE packaging_fee_line FORCE ROW LEVEL SECURITY;
 CREATE POLICY packaging_fee_line_tenant_access ON packaging_fee_line AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY packaging_fee_line_legal_entity_scope ON packaging_fee_line AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 ALTER TABLE returnable_packaging_balance ENABLE ROW LEVEL SECURITY;
 ALTER TABLE returnable_packaging_balance FORCE ROW LEVEL SECURITY;
 CREATE POLICY returnable_packaging_balance_tenant_access ON returnable_packaging_balance AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);

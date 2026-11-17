@@ -95,7 +95,7 @@ func cxmlWrap(c CXMLCredentials, payloadID string, at time.Time, body string) st
 	return `<?xml version="1.0" encoding="UTF-8"?>` + "\n" +
 		`<cXML payloadID="` + xmlAttr(payloadID) + `" timestamp="` + at.UTC().Format(time.RFC3339) + `">` +
 		`<Header><From>` + cred(c.From) + `</From><To>` + cred(c.To) + `</To><Sender><Credential domain="NetworkId"><Identity>` + xmlAttr(c.From) +
-		`</Identity><SharedSecret>` + xmlAttr(c.Secret) + `</SharedSecret></Credential><UserAgent>Passage EDI</UserAgent></Sender></Header>` +
+		`</Identity><SharedSecret>` + xmlAttr(c.Secret) + `</SharedSecret></Credential><UserAgent>Depot EDI</UserAgent></Sender></Header>` +
 		`<Request deploymentMode="production">` + body + `</Request></cXML>`
 }
 

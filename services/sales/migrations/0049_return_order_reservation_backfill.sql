@@ -5,8 +5,8 @@ ALTER TABLE return_order ADD COLUMN IF NOT EXISTS reservation_backfilled_at time
 -- A credit receivables never confirmed can be recomputed (#557): its stored tax reversal is replaced.
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT DELETE ON return_order_tax TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT DELETE ON return_order_tax TO depot_app';
   END IF;
 END
 $$;

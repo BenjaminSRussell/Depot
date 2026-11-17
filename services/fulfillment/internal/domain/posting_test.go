@@ -4,7 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/money"
+	"github.com/BenjaminSRussell/depot/platform/money"
 )
 
 // TestPackingSlipPosting_Matrix covers the BR-28.1 rows that the packing-slip

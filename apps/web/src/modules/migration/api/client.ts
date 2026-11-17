@@ -273,9 +273,9 @@ export interface XrefEntry {
   sourceKey: string;
   targetId: string;
   contentHash?: string;
-  /** Set when the legacy record was merged into another Passage record. */
+  /** Set when the legacy record was merged into another Depot record. */
   mergedIntoTargetId?: string;
-  /** The legal entity of the Passage record; absent for tenant-wide master data and rows no stored data could place. */
+  /** The legal entity of the Depot record; absent for tenant-wide master data and rows no stored data could place. */
   legalEntityId?: string;
   updatedAt: string;
 }
@@ -476,7 +476,7 @@ export const testConnection = (id: string) => send<ConnectionTestResult>(`/conne
 export type CursorType = "timestamp" | "int" | "rowversion";
 export type BindingSource = Record<string, unknown>;
 
-/** Which table, query, endpoint or file of a connection feeds which Passage entity. */
+/** Which table, query, endpoint or file of a connection feeds which Depot entity. */
 export interface EntityBinding {
   id: string;
   connectionProfileId: string;
@@ -565,7 +565,7 @@ export const previewDraftBinding = (input: BindingInput, options: PreviewOptions
 
 // ---- Delta sync (integration track S4) ----
 
-export type SourceOfTruth = "legacy" | "passage";
+export type SourceOfTruth = "legacy" | "depot";
 export type SyncRunStatus = "succeeded" | "partial" | "failed" | "abandoned";
 
 export interface SyncStatus {
@@ -609,7 +609,7 @@ export interface SyncStatus {
   absentCount: number;
 }
 
-/** A legacy key that was loaded earlier and is missing from the source; nothing is deactivated in Passage. */
+/** A legacy key that was loaded earlier and is missing from the source; nothing is deactivated in Depot. */
 export interface SyncAbsent {
   bindingId: string;
   sourceKey: string;
@@ -620,7 +620,7 @@ export interface SyncAbsent {
 }
 
 export type ConflictStatus = "open" | "kept" | "accepted";
-export type ConflictResolution = "accept_legacy" | "keep_passage";
+export type ConflictResolution = "accept_legacy" | "keep_depot";
 
 export interface SyncConflict {
   id: string;
@@ -657,7 +657,7 @@ export const listConflicts = (filter: { bindingId?: string; status?: string; cur
 export const resolveConflict = (id: string, version: number, resolution: ConflictResolution) =>
   send<SyncConflict>(`/sync-conflicts/${encodeURIComponent(id)}:resolve`, { method: "POST", body: JSON.stringify({ resolution, version }) });
 
-// ---- Outbound mappings (integration track S5): Passage events pushed to the legacy ERP ----
+// ---- Outbound mappings (integration track S5): Depot events pushed to the legacy ERP ----
 
 export type OutboundStatus = "active" | "archived";
 
@@ -703,7 +703,7 @@ export interface OutboundCollection {
   rejectWhen?: Record<string, unknown>[];
 }
 
-/** One version of an outbound mapping. `mapping` is the mapping DSL read in the Passage-to-legacy direction. */
+/** One version of an outbound mapping. `mapping` is the mapping DSL read in the Depot-to-legacy direction. */
 export interface OutboundDefinition {
   eventType: string;
   subject?: { entity: string; idPath: string };

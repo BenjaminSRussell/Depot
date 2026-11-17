@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	testIssuer = "http://127.0.0.1:8080/realms/passage"
+	testIssuer = "http://127.0.0.1:8080/realms/depot"
 	testTenant = "00000000-0000-0000-0000-000000000001"
 	adminUser  = "00000000-0000-0000-0000-0000000000a1"
 	clerkUser  = "00000000-0000-0000-0000-0000000000c1"
@@ -83,7 +83,7 @@ func newFixture(t *testing.T) *fixture {
 		"DEVGATEWAY_ISSUER": testIssuer, "DEVGATEWAY_JWKS_URL": jwks.URL, "DEVGATEWAY_TENANT_ID": testTenant, "DEVGATEWAY_OPA_URL": opa.URL,
 	}
 	handler, err := buildHandler(func(k string) string { return getenv[k] }, []string{
-		"PASSAGE_SVC_NUMBERING_URL=" + f.upstream.URL, "PASSAGE_SVC_PARTY_URL=" + f.upstream.URL, "UNRELATED=1",
+		"DEPOT_SVC_NUMBERING_URL=" + f.upstream.URL, "DEPOT_SVC_PARTY_URL=" + f.upstream.URL, "UNRELATED=1",
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -97,7 +97,7 @@ func (f *fixture) token(t *testing.T, sub string, mutate func(map[string]any)) s
 	t.Helper()
 	now := time.Now()
 	claims := map[string]any{
-		"iss": testIssuer, "sub": sub, "tid": testTenant, "aud": []string{"passage-api"},
+		"iss": testIssuer, "sub": sub, "tid": testTenant, "aud": []string{"depot-api"},
 		"iat": now.Unix(), "exp": now.Add(5 * time.Minute).Unix(),
 		"le": "00000000-0000-0000-0000-0000000000e1", "duties": "numbering.write,party.party.read", "tier": "standard",
 	}
@@ -141,7 +141,7 @@ func TestGatewayRejectsRequestsWithoutAValidToken(t *testing.T) {
 		t.Fatalf("no token: status %d, want 401", got)
 	}
 	forged := f.get(t, "/api/v1/numbering/sequences", "", map[string]string{
-		"X-Passage-Tenant": testTenant, "X-Passage-User": adminUser, "X-Passage-Duties": "numbering.write",
+		"X-Depot-Tenant": testTenant, "X-Depot-User": adminUser, "X-Depot-Duties": "numbering.write",
 	})
 	if forged.StatusCode != http.StatusUnauthorized {
 		t.Fatalf("forged identity headers without a token: status %d, want 401", forged.StatusCode)
@@ -162,23 +162,23 @@ func TestGatewayRejectsRequestsWithoutAValidToken(t *testing.T) {
 func TestGatewayForwardsVerifiedIdentityAndDropsForgedHeaders(t *testing.T) {
 	f := newFixture(t)
 	resp := f.get(t, "/api/v1/numbering/sequences", f.token(t, adminUser, nil), map[string]string{
-		"X-Passage-Duties": "audit.read,identity.user.maintain", "X-Passage-User": clerkUser, "X-Passage-Tenant": "forged", "X-Passage-Extra": "x",
+		"X-Depot-Duties": "audit.read,identity.user.maintain", "X-Depot-User": clerkUser, "X-Depot-Tenant": "forged", "X-Depot-Extra": "x",
 	})
 	if resp.StatusCode != http.StatusNoContent {
 		t.Fatalf("admin status %d, want 204", resp.StatusCode)
 	}
 	seen, path := <-f.seen, <-f.seenPath
 	want := map[string]string{
-		"X-Passage-Tenant": testTenant, "X-Passage-User": adminUser, "X-Passage-Legal-Entity": "00000000-0000-0000-0000-0000000000e1",
-		"X-Passage-Duties": "numbering.write,party.party.read", "X-Passage-Tier": "standard",
+		"X-Depot-Tenant": testTenant, "X-Depot-User": adminUser, "X-Depot-Legal-Entity": "00000000-0000-0000-0000-0000000000e1",
+		"X-Depot-Duties": "numbering.write,party.party.read", "X-Depot-Tier": "standard",
 	}
 	for k, v := range want {
 		if got := seen.Get(k); got != v {
 			t.Errorf("%s = %q, want %q", k, got, v)
 		}
 	}
-	if seen.Get("X-Passage-Extra") != "" {
-		t.Error("unknown X-Passage header reached the upstream")
+	if seen.Get("X-Depot-Extra") != "" {
+		t.Error("unknown X-Depot header reached the upstream")
 	}
 	if seen.Get("Authorization") != "" {
 		t.Error("bearer token reached the upstream")
@@ -235,15 +235,15 @@ func TestGatewayAnswers404ForBareAPIAndLookalikePrefixes(t *testing.T) {
 	}
 }
 
-func TestUpstreamsFromReadsPassageSvcVariables(t *testing.T) {
-	got, err := upstreamsFrom([]string{"PASSAGE_SVC_LEDGER_URL=http://127.0.0.1:1", "PASSAGE_SVC_URL=http://x", "OTHER=1"})
+func TestUpstreamsFromReadsDepotSvcVariables(t *testing.T) {
+	got, err := upstreamsFrom([]string{"DEPOT_SVC_LEDGER_URL=http://127.0.0.1:1", "DEPOT_SVC_URL=http://x", "OTHER=1"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(got) != 1 || got["ledger"] == nil || got["ledger"].String() != (&url.URL{Scheme: "http", Host: "127.0.0.1:1"}).String() {
 		t.Fatalf("upstreams = %v", got)
 	}
-	if _, err := upstreamsFrom([]string{"PASSAGE_SVC_LEDGER_URL=not a url"}); err == nil {
+	if _, err := upstreamsFrom([]string{"DEPOT_SVC_LEDGER_URL=not a url"}); err == nil {
 		t.Fatal("malformed upstream accepted")
 	}
 	if _, err := upstreamsFrom(nil); err == nil {
@@ -253,13 +253,13 @@ func TestUpstreamsFromReadsPassageSvcVariables(t *testing.T) {
 
 func TestGatewayKeepsIdentityHeadersNamedInTheConnectionHeader(t *testing.T) {
 	f := newFixture(t)
-	named := "close, X-Passage-Legal-Entity, X-Passage-Tenant, X-Passage-User, X-Passage-Duties, X-Passage-Tier"
+	named := "close, X-Depot-Legal-Entity, X-Depot-Tenant, X-Depot-User, X-Depot-Duties, X-Depot-Tier"
 	resp := f.get(t, "/api/v1/numbering/sequences", f.token(t, adminUser, nil), map[string]string{"Connection": named})
 	if resp.StatusCode != http.StatusNoContent {
 		t.Fatalf("status %d, want 204", resp.StatusCode)
 	}
 	seen := <-f.seen
-	for _, h := range []string{"X-Passage-Legal-Entity", "X-Passage-Tenant", "X-Passage-User", "X-Passage-Duties", "X-Passage-Tier"} {
+	for _, h := range []string{"X-Depot-Legal-Entity", "X-Depot-Tenant", "X-Depot-User", "X-Depot-Duties", "X-Depot-Tier"} {
 		if seen.Get(h) == "" {
 			t.Errorf("%s was dropped by a Connection header naming it", h)
 		}
@@ -298,18 +298,18 @@ func TestGatewayRefusesPathsThatAreNotCanonical(t *testing.T) {
 func TestGatewayForwardsLegalEntitySelectionOnlyWhenTheTokenHoldsIt(t *testing.T) {
 	f := newFixture(t)
 	own := "00000000-0000-0000-0000-0000000000e1"
-	ok := f.get(t, "/api/v1/party/parties", f.token(t, adminUser, nil), map[string]string{"X-Passage-LegalEntity": own, "X-Passage-LegalEntity-Scope": "all"})
+	ok := f.get(t, "/api/v1/party/parties", f.token(t, adminUser, nil), map[string]string{"X-Depot-LegalEntity": own, "X-Depot-LegalEntity-Scope": "all"})
 	if ok.StatusCode != http.StatusNoContent {
 		t.Fatalf("own legal entity: status %d, want 204", ok.StatusCode)
 	}
 	seen := <-f.seen
-	if seen.Get("X-Passage-LegalEntity") != own {
-		t.Errorf("selection = %q, want %q", seen.Get("X-Passage-LegalEntity"), own)
+	if seen.Get("X-Depot-LegalEntity") != own {
+		t.Errorf("selection = %q, want %q", seen.Get("X-Depot-LegalEntity"), own)
 	}
-	if seen.Get("X-Passage-LegalEntity-Scope") != "all" {
-		t.Errorf("scope = %q: like the Envoy gateway, the scope request passes through for the service to gate on org.switcher.all-scope", seen.Get("X-Passage-LegalEntity-Scope"))
+	if seen.Get("X-Depot-LegalEntity-Scope") != "all" {
+		t.Errorf("scope = %q: like the Envoy gateway, the scope request passes through for the service to gate on org.switcher.all-scope", seen.Get("X-Depot-LegalEntity-Scope"))
 	}
-	other := f.get(t, "/api/v1/party/parties", f.token(t, adminUser, nil), map[string]string{"X-Passage-LegalEntity": "00000000-0000-0000-0000-0000000000e2"})
+	other := f.get(t, "/api/v1/party/parties", f.token(t, adminUser, nil), map[string]string{"X-Depot-LegalEntity": "00000000-0000-0000-0000-0000000000e2"})
 	if other.StatusCode != http.StatusForbidden {
 		t.Fatalf("foreign legal entity: status %d, want 403", other.StatusCode)
 	}
@@ -327,7 +327,7 @@ func TestDevGuardsRefuseNonLoopbackUnlessOverridden(t *testing.T) {
 		for k, v := range extra {
 			env[k] = v
 		}
-		_, err := buildHandler(func(k string) string { return env[k] }, []string{"PASSAGE_SVC_PARTY_URL=" + upstream})
+		_, err := buildHandler(func(k string) string { return env[k] }, []string{"DEPOT_SVC_PARTY_URL=" + upstream})
 		return err
 	}
 	if err := build(nil, "http://10.0.0.5:8080"); err == nil {
@@ -348,19 +348,19 @@ func TestDevGuardsRefuseNonLoopbackUnlessOverridden(t *testing.T) {
 func TestGatewayForwardsTheAuthTimeOfTheToken(t *testing.T) {
 	f := newFixture(t)
 	at := time.Now().Add(-2 * time.Minute).Unix()
-	resp := f.get(t, "/api/v1/numbering/sequences", f.token(t, adminUser, func(c map[string]any) { c["auth_time"] = at }), map[string]string{"X-Passage-Auth-Time": "1"})
+	resp := f.get(t, "/api/v1/numbering/sequences", f.token(t, adminUser, func(c map[string]any) { c["auth_time"] = at }), map[string]string{"X-Depot-Auth-Time": "1"})
 	if resp.StatusCode != http.StatusNoContent {
 		t.Fatalf("status %d, want 204", resp.StatusCode)
 	}
-	if got := (<-f.seen).Get("X-Passage-Auth-Time"); got != strconv.FormatInt(at, 10) {
-		t.Fatalf("X-Passage-Auth-Time = %q, want %d", got, at)
+	if got := (<-f.seen).Get("X-Depot-Auth-Time"); got != strconv.FormatInt(at, 10) {
+		t.Fatalf("X-Depot-Auth-Time = %q, want %d", got, at)
 	}
 	// A token without auth_time forwards none, and a client's own value is dropped.
-	resp = f.get(t, "/api/v1/numbering/sequences", f.token(t, adminUser, nil), map[string]string{"X-Passage-Auth-Time": "9999999999"})
+	resp = f.get(t, "/api/v1/numbering/sequences", f.token(t, adminUser, nil), map[string]string{"X-Depot-Auth-Time": "9999999999"})
 	if resp.StatusCode != http.StatusNoContent {
 		t.Fatalf("status %d, want 204", resp.StatusCode)
 	}
-	if got := (<-f.seen).Get("X-Passage-Auth-Time"); got != "" {
-		t.Fatalf("X-Passage-Auth-Time = %q, want none", got)
+	if got := (<-f.seen).Get("X-Depot-Auth-Time"); got != "" {
+		t.Fatalf("X-Depot-Auth-Time = %q, want none", got)
 	}
 }

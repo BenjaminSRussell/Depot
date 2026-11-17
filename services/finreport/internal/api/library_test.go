@@ -8,10 +8,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
 
-	"github.com/BenjaminSRussell/passage/services/finreport/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/finreport/internal/store"
+	"github.com/BenjaminSRussell/depot/services/finreport/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/finreport/internal/store"
 )
 
 const libUUID = "33333333-3333-3333-3333-333333333333"
@@ -125,7 +125,7 @@ func TestLibraryContent_ServesTheStoredBytesWithTheirDigest(t *testing.T) {
 	}
 	h := w.Header()
 	if h.Get("Content-Type") != "text/csv; charset=utf-8" || h.Get("ETag") != `"`+strings.Repeat("ab", 32)+`"` ||
-		h.Get("X-Passage-Content-Sha256") != strings.Repeat("ab", 32) ||
+		h.Get("X-Depot-Content-Sha256") != strings.Repeat("ab", 32) ||
 		h.Get("Content-Disposition") != `attachment; filename="BS-STD-22222222-2026-03.csv"` {
 		t.Fatalf("headers %v", h)
 	}

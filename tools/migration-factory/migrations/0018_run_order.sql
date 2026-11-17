@@ -24,17 +24,17 @@ create table pack_run_order (
 alter table pack_run_order enable row level security;
 alter table pack_run_order force row level security;
 create policy pack_run_order_tenant_access on pack_run_order as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
--- Application role privileges. The rows are insert-only for passage_app: a release adds an order
+-- Application role privileges. The rows are insert-only for depot_app: a release adds an order
 -- (on conflict do nothing needs no UPDATE) and nothing updates or deletes one. Skipped when the
 -- role does not exist.
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE format('GRANT USAGE ON SCHEMA %I TO passage_app', current_schema());
-    EXECUTE 'GRANT SELECT, INSERT ON pack_run_order TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE format('GRANT USAGE ON SCHEMA %I TO depot_app', current_schema());
+    EXECUTE 'GRANT SELECT, INSERT ON pack_run_order TO depot_app';
   END IF;
 END
 $$;

@@ -10,12 +10,12 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/quality/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/quality/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/quality/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/quality/migrations"
 )
 
 func setup(t *testing.T) (*Postgres, *pgxpool.Pool, context.Context) {
@@ -119,7 +119,7 @@ func TestPostgres_OrderLifecycleWritesOutbox(t *testing.T) {
 		}
 		types = append(types, typ)
 	}
-	want := []string{"dev.passage.quality.order.created.v1", "dev.passage.quality.result.recorded.v1", "dev.passage.quality.usagedecision.posted.v1"}
+	want := []string{"dev.depot.quality.order.created.v1", "dev.depot.quality.result.recorded.v1", "dev.depot.quality.usagedecision.posted.v1"}
 	if len(types) != len(want) {
 		t.Fatalf("outbox types %v, want %v", types, want)
 	}
@@ -250,7 +250,7 @@ func TestPostgres_RowLevelSecurity(t *testing.T) {
 		if _, err := tx.Exec(bg, `set local role quality_rls_probe`); err != nil {
 			t.Fatal(err)
 		}
-		if _, err := tx.Exec(bg, `select set_config('passage.tenant_id', $1, true)`, tenantID); err != nil {
+		if _, err := tx.Exec(bg, `select set_config('depot.tenant_id', $1, true)`, tenantID); err != nil {
 			t.Fatal(err)
 		}
 		var n int

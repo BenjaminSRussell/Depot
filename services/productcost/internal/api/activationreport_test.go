@@ -9,10 +9,10 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/productcost/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/productcost/internal/inventory"
-	"github.com/BenjaminSRussell/passage/services/productcost/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/productcost/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/productcost/internal/inventory"
+	"github.com/BenjaminSRussell/depot/services/productcost/internal/store"
 )
 
 func reportActivation(qty string) *store.Activation {

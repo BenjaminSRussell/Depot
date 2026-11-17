@@ -8,7 +8,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/services/fulfillment/internal/store"
+	"github.com/BenjaminSRussell/depot/services/fulfillment/internal/store"
 )
 
 // shipmentCustoms reads the Intrastat data of a shipment's customer and products from the party and product masters, before the post:

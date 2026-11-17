@@ -10,13 +10,13 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/fieldcrypt"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/hr/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/hr/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/fieldcrypt"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/hr/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/hr/migrations"
 )
 
 func appStore(t *testing.T) (*Postgres, context.Context) {
@@ -79,7 +79,7 @@ func TestGrants_LockedPathsWorkAsAppRole(t *testing.T) {
 }
 
 // TestGrants_ResealWorksAsAppRoleOnSealedColumnsOnly: 0007 grants UPDATE on the
-// two sealed columns, so hr reseal-pii runs as passage_app while the row's keys
+// two sealed columns, so hr reseal-pii runs as depot_app while the row's keys
 // stay fixed and worker_pii still cannot be deleted.
 func TestGrants_ResealWorksAsAppRoleOnSealedColumnsOnly(t *testing.T) {
 	s, ctx := appStore(t)
@@ -107,7 +107,7 @@ func TestGrants_ResealWorksAsAppRoleOnSealedColumnsOnly(t *testing.T) {
 }
 
 // TestGrants_SkillPathsWorkAsAppRole runs every skills write and read as
-// passage_app: catalog insert, rating insert then update, certificate insert,
+// depot_app: catalog insert, rating insert then update, certificate insert,
 // requirement upsert and delete, gap, search and the expiring inquiry. A
 // missing grant on a 0005 table fails here with 42501.
 func TestGrants_SkillPathsWorkAsAppRole(t *testing.T) {
@@ -147,7 +147,7 @@ func TestGrants_SkillPathsWorkAsAppRole(t *testing.T) {
 }
 
 // TestGrants_CoursePathsWorkAsAppRole runs every course write and read as
-// passage_app: catalog and outcome inserts, a session insert and its FOR
+// depot_app: catalog and outcome inserts, a session insert and its FOR
 // UPDATE seat lock, registration insert and status updates, waitlist
 // promotion, approval and a PASS that upserts worker_skill and inserts
 // hr_certification. A missing grant on a 0006 table fails here with 42501.

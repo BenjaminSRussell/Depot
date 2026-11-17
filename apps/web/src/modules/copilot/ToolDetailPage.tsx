@@ -61,7 +61,7 @@ export function ToolDetailPage({ name, load = listTools }: ToolDetailPageProps) 
     );
   }
 
-  const approval = tool["x-passage-approval"];
+  const approval = tool["x-depot-approval"];
   return (
     <div className={styles.stack}>
       <PageHeader title={tool.name} description={tool.description} meta={<Badge tone={approvalTone(approval)}>{approvalLabel(approval)}</Badge>} />
@@ -73,7 +73,7 @@ export function ToolDetailPage({ name, load = listTools }: ToolDetailPageProps) 
           </div>
           <div className={styles.entry}>
             <dt className={styles.term}>Required duty</dt>
-            <dd className={`${styles.value} ${styles.mono}`}>{tool["x-passage-duty"]}</dd>
+            <dd className={`${styles.value} ${styles.mono}`}>{tool["x-depot-duty"]}</dd>
           </div>
           <div className={styles.entry}>
             <dt className={styles.term}>Approval</dt>

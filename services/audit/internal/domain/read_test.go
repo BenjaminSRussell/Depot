@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/services/audit/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/audit/internal/domain"
 )
 
 var readNow = time.Date(2026, 11, 11, 12, 0, 0, 0, time.UTC)

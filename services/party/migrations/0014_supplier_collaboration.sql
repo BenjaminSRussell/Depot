@@ -131,18 +131,18 @@ BEGIN
     EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY', t);
     EXECUTE format('DROP POLICY IF EXISTS %I ON %I', t || '_tenant_access', t);
     EXECUTE format($p$CREATE POLICY %I ON %I AS PERMISSIVE
-      USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-      WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid)$p$, t || '_tenant_access', t);
+      USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+      WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid)$p$, t || '_tenant_access', t);
     EXECUTE format('DROP POLICY IF EXISTS %I ON %I', t || '_legal_entity_scope', t);
     EXECUTE format($p$CREATE POLICY %I ON %I AS RESTRICTIVE
-      USING (current_setting('passage.legal_entity_scopes', true) = '*'
-             OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')))
-      WITH CHECK (current_setting('passage.legal_entity_scopes', true) = '*'
-             OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')))$p$, t || '_legal_entity_scope', t);
+      USING (current_setting('depot.legal_entity_scopes', true) = '*'
+             OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')))
+      WITH CHECK (current_setting('depot.legal_entity_scopes', true) = '*'
+             OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')))$p$, t || '_legal_entity_scope', t);
   END LOOP;
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT ON vendor_questionnaire, vendor_document, controlled_document, vendor_portal_audit TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON vendor_request, controlled_distribution TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT ON vendor_questionnaire, vendor_document, controlled_document, vendor_portal_audit TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON vendor_request, controlled_distribution TO depot_app';
   END IF;
 END
 $$;

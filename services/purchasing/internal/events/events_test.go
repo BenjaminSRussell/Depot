@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	platformevents "github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/services/purchasing/internal/events"
+	platformevents "github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/services/purchasing/internal/events"
 )
 
 var allTypes = map[string]string{
@@ -59,9 +59,9 @@ var allTypes = map[string]string{
 func TestEventTypesFollowTheNamingRule(t *testing.T) {
 	for typ, entity := range allTypes {
 		if !platformevents.ValidType(typ) {
-			t.Errorf("%s does not match dev.passage.<context>.<entity>.<verb>.v<n>", typ)
+			t.Errorf("%s does not match dev.depot.<context>.<entity>.<verb>.v<n>", typ)
 		}
-		if want := "passage." + events.Context + "." + entity; platformevents.Topic(typ) != want {
+		if want := "depot." + events.Context + "." + entity; platformevents.Topic(typ) != want {
 			t.Errorf("%s routes to topic %s, want %s", typ, platformevents.Topic(typ), want)
 		}
 	}

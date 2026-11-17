@@ -9,12 +9,12 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/party/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/party/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/party/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/party/internal/store"
 )
 
 type supplierRig struct {
@@ -23,8 +23,8 @@ type supplierRig struct {
 	buyer, approve context.Context
 	// approveEdit holds party.write besides the decide duty: it can approve a profile change.
 	approveEdit context.Context
-	vendorA        string
-	vendorB        string
+	vendorA     string
+	vendorB     string
 }
 
 // withDuty adds a duty to the principal in ctx.
@@ -303,7 +303,7 @@ func TestSupplier_ApprovingAProfileChangeAppliesItToTheVendorsParty(t *testing.T
 	if applied != "languageCode,legalName,tradeName" {
 		t.Errorf("audit detail %q, want the changed fields", applied)
 	}
-	if got := outboxTypes(t, r.app); !strings.Contains(got, "dev.passage.party.party.updated.v1") {
+	if got := outboxTypes(t, r.app); !strings.Contains(got, "dev.depot.party.party.updated.v1") {
 		t.Errorf("outbox %s has no party.updated.v1", got)
 	}
 	// Another vendor's party is untouched.

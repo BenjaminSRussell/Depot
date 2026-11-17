@@ -7,7 +7,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/services/identity"
+	"github.com/BenjaminSRussell/depot/services/identity"
 )
 
 func contactSpec() identity.ContactSpec {
@@ -81,17 +81,17 @@ func TestKeycloakAdminNeedsTheCustomerRoleInTheRealm(t *testing.T) {
 func TestKeycloakAdminSendsTheInvitationWithTheRequiredActions(t *testing.T) {
 	kc := newFakeKeycloak(t)
 	k := kc.admin(t, "acme")
-	if err := k.SendInvitation(context.Background(), "acme", kcUserID, identity.Invitation{ClientID: "passage-portal-customer", RedirectURI: "https://customer.example/"}); err != nil {
+	if err := k.SendInvitation(context.Background(), "acme", kcUserID, identity.Invitation{ClientID: "depot-portal-customer", RedirectURI: "https://customer.example/"}); err != nil {
 		t.Fatal(err)
 	}
-	if err := k.SendInvitation(context.Background(), "acme", kcUserID, identity.Invitation{ClientID: "passage-portal-customer"}); err != nil {
+	if err := k.SendInvitation(context.Background(), "acme", kcUserID, identity.Invitation{ClientID: "depot-portal-customer"}); err != nil {
 		t.Fatal(err)
 	}
 	if len(kc.emails) != 2 {
 		t.Fatalf("emails %v", kc.emails)
 	}
 	with, without := kc.emails[0], kc.emails[1]
-	if with.query.Get("client_id") != "passage-portal-customer" || with.query.Get("redirect_uri") != "https://customer.example/" || with.query.Get("lifespan") != "604800" || !slices.Contains(with.actions, "CONFIGURE_TOTP") {
+	if with.query.Get("client_id") != "depot-portal-customer" || with.query.Get("redirect_uri") != "https://customer.example/" || with.query.Get("lifespan") != "604800" || !slices.Contains(with.actions, "CONFIGURE_TOTP") {
 		t.Fatalf("with a redirect: %+v", with)
 	}
 	if without.query.Has("client_id") || without.query.Has("redirect_uri") {

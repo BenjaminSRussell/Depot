@@ -1,4 +1,4 @@
-# Passage — Product Requirements Document
+# Depot — Product Requirements Document
 
 | | |
 |---|---|
@@ -45,12 +45,12 @@ Microsoft Dynamics AX (Axapta → AX 2012 → D365 Finance & Supply Chain) and S
 - **Architecturally dated** — monolithic application servers, synchronous batch frameworks, and vendor-locked cloud operation (LCS, RISE).
 - **Hard to integrate and extend with AI** — bolted-on copilots that can't act safely across the system.
 
-Passage is a ground-up rebuild of the complete feature surface of AX/SAP as an open-architecture, cloud-agnostic platform: Kubernetes-native, Postgres-per-domain, Kafka-eventing, metadata-driven, with AI agents as first-class, governed actors.
+Depot is a ground-up rebuild of the complete feature surface of AX/SAP as an open-architecture, cloud-agnostic platform: Kubernetes-native, Postgres-per-domain, Kafka-eventing, metadata-driven, with AI agents as first-class, governed actors.
 
 ## 2. Goals and non-goals
 
 ### Goals
-1. **Feature parity**: every AX 2012 / D365 F&SCM and SAP ECC / S/4 module in scope (§5) has an equivalent in Passage, mapped wave-by-wave.
+1. **Feature parity**: every AX 2012 / D365 F&SCM and SAP ECC / S/4 module in scope (§5) has an equivalent in Depot, mapped wave-by-wave.
 2. **Provable delivery**: every one of the 50 waves ends with an artifact that is (a) **provable** — automated tests and fixtures that demonstrate correctness, (b) **testable** — a stakeholder can exercise it in a running environment, and (c) **deployable** — it ships to a Kubernetes environment through the GitOps pipeline.
 3. **Sequential, top-down**: waves are strictly ordered; each wave depends only on earlier waves (dependency graph is a chain with stated back-references). A manufacturer can go live at the end of wave 30; full AX/SAP parity at wave 50.
 4. **Cloud-agnostic and self-hostable**: runs on any conformant Kubernetes (EKS/GKE/AKS/bare-metal/k3d) with no provider-specific managed services in the critical path.
@@ -90,9 +90,9 @@ Passage is a ground-up rebuild of the complete feature surface of AX/SAP as an o
 5. **Idempotent, replayable, auditable.** Posting APIs take idempotency keys; audit is derived from CDC, not from application code that can forget.
 6. **Ship the thin vertical slice.** A wave is done when a stakeholder can run the business process on a deployed environment with reconciled numbers — not when the code is written.
 
-## 5. Scope map — AX/SAP modules → Passage phases
+## 5. Scope map — AX/SAP modules → Depot phases
 
-| AX / D365 module | SAP module | Passage phase (waves) |
+| AX / D365 module | SAP module | Depot phase (waves) |
 |---|---|---|
 | AOT, security, workflow, batch, LCS, number sequences, DB log | DDIC, PFCG, Business Workflow, SM36, STMS, SNRO, CDHDR | **0 Foundation (1–5)** |
 | Org model, global address book, products, BOM/route, DIXF | Enterprise structure, Business Partner, material master, CS/CA, LSMW | **1 Master data (6–10)** |
@@ -222,7 +222,7 @@ Phase-level requirements below are the contract; wave-level detail (deliverables
 - **Workflow**: Temporal for approvals, batch, agents.
 - **Identity/authz**: Keycloak, OPA/Rego.
 - **Frontend**: React + module federation shell; PWA for shop floor, warehouse and field mobile.
-- **AI**: MCP server over Passage APIs; Claude as default model via a provider-agnostic layer; eval harness in CI.
+- **AI**: MCP server over Depot APIs; Claude as default model via a provider-agnostic layer; eval harness in CI.
 - **Observability**: OpenTelemetry → Prometheus/Tempo/Loki/Grafana.
 
 ## 10. Success metrics
@@ -230,7 +230,7 @@ Phase-level requirements below are the contract; wave-level detail (deliverables
 | Milestone | Metric |
 |---|---|
 | Wave 5 | Platform demo: deploy → login → extend entity → approve workflow → trace a request, all live. |
-| Wave 15 | A period closed in Passage with statements that tie to the trial balance to the cent. |
+| Wave 15 | A period closed in Depot with statements that tie to the trial balance to the cent. |
 | Wave 30 | Demo manufacturer runs one simulated month buy → make → sell → collect; all subledgers reconcile; stakeholder sign-off. |
 | Wave 40 | Group consolidation produced; finance parity sign-off by a practicing controller. |
 | Wave 50 | First customer month-end in production; load/DR targets met; v1.0 released. |
@@ -276,11 +276,11 @@ Phase-level requirements below are the contract; wave-level detail (deliverables
 
 \newpage
 
-# Part 0A — The 10× Thesis: What Top-Tier Manufacturing ERPs Get Wrong and How Passage Fixes It
+# Part 0A — The 10× Thesis: What Top-Tier Manufacturing ERPs Get Wrong and How Depot Fixes It
 
-Passage is not a cheaper AX or a friendlier SAP. It emulates the full capability surface of the best manufacturing ERPs — SAP S/4HANA, Dynamics 365 Finance & Supply Chain, Infor LN / CloudSuite Industrial, Epicor Kinetic, IFS Cloud and Plex — and then removes the structural reasons those systems are slow, error-prone, expensive to use and closed. "10×" is measured, per wave, on four axes:
+Depot is not a cheaper AX or a friendlier SAP. It emulates the full capability surface of the best manufacturing ERPs — SAP S/4HANA, Dynamics 365 Finance & Supply Chain, Infor LN / CloudSuite Industrial, Epicor Kinetic, IFS Cloud and Plex — and then removes the structural reasons those systems are slow, error-prone, expensive to use and closed. "10×" is measured, per wave, on four axes:
 
-| Axis | What we measure | Baseline (typical AX 2012 / D365 / S/4 deployment) | Passage target |
+| Axis | What we measure | Baseline (typical AX 2012 / D365 / S/4 deployment) | Depot target |
 |---|---|---|---|
 | **Easier** | Clicks and screens per task; training hours to competence; share of tasks completed without a super-user | Sales order with 5 lines: 40–60 clicks across 4 forms; AP clerk training 3–5 days | ≤ 1/10 of clicks; a new user completes a guided task in < 30 min |
 | **Faster** | Latency of the business answer (not the screen): MRP, inventory close, ATP, period close, report | MRP regeneration 2–8 h nightly; inventory close 1–6 h; month-end close 5–10 business days | MRP incremental < 2 min, full < 10 min; close continuous; statements real-time |
@@ -289,11 +289,11 @@ Passage is not a cheaper AX or a friendlier SAP. It emulates the full capability
 
 ## 0A.1 The structural pain-point ledger
 
-Each pain point below names the AX/SAP mechanism that causes it, the root cause, the Passage design that removes it, and the wave where it ships. Wave files repeat this at wave granularity under "Pain points solved (10× lens)".
+Each pain point below names the AX/SAP mechanism that causes it, the root cause, the Depot design that removes it, and the wave where it ships. Wave files repeat this at wave granularity under "Pain points solved (10× lens)".
 
 ### A. Usability
 
-| # | Pain point today | Where it lives in AX / SAP | Root cause | Passage answer | Wave |
+| # | Pain point today | Where it lives in AX / SAP | Root cause | Depot answer | Wave |
 |---|---|---|---|---|---|
 | U1 | Dozens of forms to complete one business task; fields scattered across tabs and FastTabs | AX `SalesTable` form with 20+ tabs; SAP `VA01` header/item/schedule-line screens | Forms mirror tables, not tasks | Task-oriented screens generated from metadata with the *task* as the unit (order intake, receipt, close task); line grids with inline edit; the full document on one scrollable page | 5, 27 |
 | U2 | Lookups require knowing the code (vendor account, main account, item number) | `MainAccount` lookup in `LedgerJournalTrans`; SAP GL account search help | Keys are the primary identifier; search is secondary | Global typeahead on name/description/any attribute, ranked by recency and role; keys shown but never typed | 5 |
@@ -307,7 +307,7 @@ Each pain point below names the AX/SAP mechanism that causes it, the root cause,
 
 ### B. Speed
 
-| # | Pain point today | Where it lives in AX / SAP | Root cause | Passage answer | Wave |
+| # | Pain point today | Where it lives in AX / SAP | Root cause | Depot answer | Wave |
 |---|---|---|---|---|---|
 | S1 | MRP runs overnight; planners work on stale data; a changed order waits until tomorrow | AX `ReqCalc` regeneration; SAP `MD01` total planning | Full regeneration over all items; pegging recomputed from scratch | Net-change planning engine keyed by events (order/receipt/BOM change) with incremental re-plan of affected low-level codes; full regen < 10 min for 50k items | 22 |
 | S2 | Inventory close/recalculation blocks posting for hours | AX `InventClosing`; SAP material ledger `CKMLCP` | Settlement of issues to receipts is a batch over all transactions | Running costing (continuous settlement on each issue for FIFO/avg) so close is a verification pass, not a computation; partitioned by item | 20 |
@@ -319,7 +319,7 @@ Each pain point below names the AX/SAP mechanism that causes it, the root cause,
 
 ### C. Accuracy
 
-| # | Pain point today | Where it lives in AX / SAP | Root cause | Passage answer | Wave |
+| # | Pain point today | Where it lives in AX / SAP | Root cause | Depot answer | Wave |
 |---|---|---|---|---|---|
 | A1 | Subledgers drift from the GL (inventory value ≠ inventory account; AR aging ≠ AR control) | `InventSum` vs `GeneralJournalAccountEntry`; SAP `BSID` vs `SKB1` balances | Subledgers post to the GL through separate code paths with their own rounding | One posting API; subledgers are projections of the same event stream; daily machine reconciliation with zero unexplained breaks as a release gate | 11, 16, 19, 30 |
 | A2 | Rounding and FX differences appear as "penny" entries | AX `LedgerJournalTrans` rounding to accounting currency; SAP `BSEG` rounding differences | Rounding at line level then summing | Three-currency amounts stored per line; rounding applied once at document level with explicit rounding lines; ISO 4217 minor units enforced | 12 |
@@ -331,7 +331,7 @@ Each pain point below names the AX/SAP mechanism that causes it, the root cause,
 
 ### D. Openness and interoperability
 
-| # | Pain point today | Where it lives in AX / SAP | Root cause | Passage answer | Wave |
+| # | Pain point today | Where it lives in AX / SAP | Root cause | Depot answer | Wave |
 |---|---|---|---|---|---|
 | O1 | Each interface is a project (AIF service, IDoc mapping, custom data entity) | AX AIF/`DMF` entities; SAP `WE20` partner profiles, PI/PO | Integration surface is bespoke per object | Every entity and event is published automatically (OpenAPI, AsyncAPI, MCP) from metadata; new entity ⇒ new API with no work | 3, 4, 35 |
 | O2 | External systems poll for changes | `DMF` change tracking; SAP change pointers (`BDCP2`) | No event stream | Kafka topics per entity with CloudEvents, replay from any offset, webhooks for partners | 4 |
@@ -342,7 +342,7 @@ Each pain point below names the AX/SAP mechanism that causes it, the root cause,
 
 ## 0A.2 Interoperability contract ("all systems on the network can use it")
 
-Passage treats the ERP as a service on the customer's network, not a destination. Every capability is reachable through the same eight surfaces with one identity and one policy engine:
+Depot treats the ERP as a service on the customer's network, not a destination. Every capability is reachable through the same eight surfaces with one identity and one policy engine:
 
 | Surface | Used by | Auth | Guarantee |
 |---|---|---|---|
@@ -406,19 +406,19 @@ And we remove the parts that exist only because of their era: batch-first proces
 
 | Event (CloudEvents type) | Producer | Consumers | Payload summary |
 |---|---|---|---|
-| dev.passage.identity.user.created.v1 / .deactivated.v1 | identity | audit, workflow (assignee cache), shell | user_id, tenant_id, email, status |
-| dev.passage.authz.role-assignment.granted.v1 / .revoked.v1 | authz | audit, OPA bundle builder | user_id, role_id, legal_entity_ids, effective_from/to |
-| dev.passage.authz.policy.compiled.v1 | authz | OPA sidecars (bundle pull), audit | bundle_version, sha256, role_count |
-| dev.passage.metadata.entity.published.v1 | metadata-registry | generator, events (topic/schema), shell (form cache) | entity_name, version, diff summary |
-| dev.passage.metadata.extension.applied.v1 | metadata-registry | generator, audit, shell | package_id, entity_name, fields_added, enum_values_added |
-| dev.passage.workflow.instance.submitted.v1 / .completed.v1 | workflow | owning entity service, audit, shell inbox | instance_id, entity, record_id, outcome |
-| dev.passage.workflow.workitem.assigned.v1 / .escalated.v1 | workflow | shell inbox, notifications | workitem_id, assignee_id, due_at |
-| dev.passage.batch.run.completed.v1 / .failed.v1 | workflow (batch) | shell job monitor, alerting | job_id, run_id, rows_processed, error |
-| dev.passage.audit.entry.recorded.v1 | audit | shell audit viewer (live), analytics (wave 46) | entry_id, entity, record_id, operation, hash |
-| dev.passage.rules.ruleset.published.v1 | metadata-registry | every service holding compiled rule trees, audit | code, version, tables, row_count |
-| dev.passage.notify.message.sent.v1 / .failed.v1 / .bounced.v1 | notify | audit, alerting, identity | message_id, channel, template_code, recipient_user_id |
-| dev.passage.docs.attachment.available.v1 / .purged.v1 | docs | shell, audit, OCR capture (wave 18) | attachment_id, version_no, document_type, links |
-| dev.passage.alerts.alert.fired.v1 | shell-bff (alert evaluator) | notify, shell | rule_id, entity, record_id, recipient_id |
+| dev.depot.identity.user.created.v1 / .deactivated.v1 | identity | audit, workflow (assignee cache), shell | user_id, tenant_id, email, status |
+| dev.depot.authz.role-assignment.granted.v1 / .revoked.v1 | authz | audit, OPA bundle builder | user_id, role_id, legal_entity_ids, effective_from/to |
+| dev.depot.authz.policy.compiled.v1 | authz | OPA sidecars (bundle pull), audit | bundle_version, sha256, role_count |
+| dev.depot.metadata.entity.published.v1 | metadata-registry | generator, events (topic/schema), shell (form cache) | entity_name, version, diff summary |
+| dev.depot.metadata.extension.applied.v1 | metadata-registry | generator, audit, shell | package_id, entity_name, fields_added, enum_values_added |
+| dev.depot.workflow.instance.submitted.v1 / .completed.v1 | workflow | owning entity service, audit, shell inbox | instance_id, entity, record_id, outcome |
+| dev.depot.workflow.workitem.assigned.v1 / .escalated.v1 | workflow | shell inbox, notifications | workitem_id, assignee_id, due_at |
+| dev.depot.batch.run.completed.v1 / .failed.v1 | workflow (batch) | shell job monitor, alerting | job_id, run_id, rows_processed, error |
+| dev.depot.audit.entry.recorded.v1 | audit | shell audit viewer (live), analytics (wave 46) | entry_id, entity, record_id, operation, hash |
+| dev.depot.rules.ruleset.published.v1 | metadata-registry | every service holding compiled rule trees, audit | code, version, tables, row_count |
+| dev.depot.notify.message.sent.v1 / .failed.v1 / .bounced.v1 | notify | audit, alerting, identity | message_id, channel, template_code, recipient_user_id |
+| dev.depot.docs.attachment.available.v1 / .purged.v1 | docs | shell, audit, OCR capture (wave 18) | attachment_id, version_no, document_type, links |
+| dev.depot.alerts.alert.fired.v1 | shell-bff (alert evaluator) | notify, shell | rule_id, entity, record_id, recipient_id |
 
 **Phase-level risks**
 
@@ -441,7 +441,7 @@ AX ships code as LCS deployable packages built on a build VM and applied with Ax
 
 #### Pain points solved (10x lens)
 
-| Pain point in AX/SAP today | Root cause | Passage answer in this wave | Measurable 10x target |
+| Pain point in AX/SAP today | Root cause | Depot answer in this wave | Measurable 10x target |
 |---|---|---|---|
 | Applying an LCS deployable package to a D365 sandbox takes 2–4 h of downtime and a service request for production; a failed apply means a database restore | Package = whole-system binary; environment managed by vendor tooling | Per-service OCI image + Helm chart, promoted by digest through Argo CD; rolling update with no downtime | Merge → running in env: 4 h → < 15 min; downtime per release: hours → 0 |
 | STMS transport import to PRD (STMS_IMPORT) is a manual queue with no automatic back-out; a bad transport is reversed by hand-building a transport of copies | Transports carry object deltas, not immutable artifacts | Immutable digests; rollback is a one-line overlay revert | Rollback: 1–3 h and a Basis ticket → < 5 min, self-service |
@@ -451,13 +451,13 @@ AX ships code as LCS deployable packages built on a build VM and applied with Ax
 
 ### 0.1.2 AX / SAP parity map
 
-| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Passage equivalent | Parity |
+| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Depot equivalent | Parity |
 |---|---|---|---|---|
 | Package a release | LCS deployable package, `AxUtil export` model store, AXModel files | STMS transport request (E070/E071), `tp export` | OCI image (digest) + Helm chart version in `deploy/` | improved |
 | Build and validate | Build VM, `AxBuild.exe`, Best Practice checks | SE80 activation, ATC (code inspector SCI), ABAP unit | GitHub Actions: lint, unit, container build, SBOM, scan | improved |
 | Environment tiers | LCS dev/test/UAT/prod topology | STMS transport route DEV→QAS→PRD, STMS_QA | Argo CD app-of-apps per environment: dev, stage, prod | full |
-| Promote between tiers | LCS "apply package" to the next environment | STMS import queue, `tp import`, STMS_IMPORT | `passage promote --to stage --digest sha256:…` opens a PR against the env overlay | full |
-| Rollback | Restore DB + model store, "AOT revert" | Transport of copies back-out, SNOTE de-implement | Argo CD rollback to prior digest, `passage rollback --env stage` | improved |
+| Promote between tiers | LCS "apply package" to the next environment | STMS import queue, `tp import`, STMS_IMPORT | `depot promote --to stage --digest sha256:…` opens a PR against the env overlay | full |
+| Rollback | Restore DB + model store, "AOT revert" | Transport of copies back-out, SNOTE de-implement | Argo CD rollback to prior digest, `depot rollback --env stage` | improved |
 | Code signing / trust | Strong-name model signing (`AxUtil … /key`) | Digitally signed SAP Notes, TMS trusted systems | cosign keyless signatures, policy-controller admission denies unsigned images | improved |
 | Hotfix path | KB hotfix via LCS, binary update | SNOTE note implementation, SPAU | Hotfix branch → cherry-pick → same pipeline, same gates | full |
 | Deployment log / history | LCS environment history, AxUpdateInstaller logs | STMS import log, SLOG/ALOG | Argo CD history + GitHub Deployments API + `platform.release` table | improved |
@@ -465,25 +465,25 @@ AX ships code as LCS deployable packages built on a build VM and applied with Ax
 
 ### 0.1.3 Functional requirements
 
-- **FR-1.1 Monorepo layout** — Must. The system shall keep all Passage source in one repository with the layout `services/go/<svc>`, `services/ts/<svc>`, `services/py/<svc>`, `web/shell`, `web/remotes/<name>`, `deploy/charts/<svc>`, `deploy/envs/{dev,stage,prod}`, `infra/modules/<provider>`, `metadata/entities`, `docs/`.
+- **FR-1.1 Monorepo layout** — Must. The system shall keep all Depot source in one repository with the layout `services/go/<svc>`, `services/ts/<svc>`, `services/py/<svc>`, `web/shell`, `web/remotes/<name>`, `deploy/charts/<svc>`, `deploy/envs/{dev,stage,prod}`, `infra/modules/<provider>`, `metadata/entities`, `docs/`.
   - Notes: each service owns a `Dockerfile`, `Makefile`, `CODEOWNERS` entry and a Helm chart; CI path filters build only changed services; a `go.work` and `pnpm` workspace root pin toolchain versions (Go 1.25, Node 24, Python 3.12).
 - **FR-1.2 Cluster bootstrap module** — Must. The system shall provide an OpenTofu module `infra/modules/cluster` with one variable interface (`provider ∈ {k3d, eks, gke, aks, baremetal}`, `name`, `node_pools[]`, `kubernetes_version`) that outputs a kubeconfig and installs the base add-ons.
   - Notes: base add-ons are Argo CD, Envoy Gateway, cert-manager, External Secrets Operator, CloudNativePG operator, sigstore policy-controller, metrics-server; provider modules contain only networking, node pools and storage classes; k3d module runs with 3 agent nodes and 8 GB RAM.
 - **FR-1.3 Argo CD app-of-apps** — Must. The system shall define a root Application per environment that reconciles child Applications from `deploy/envs/<env>/apps/*.yaml`, each pinning a chart version and an image digest.
   - Notes: sync policy automated for dev, manual-approve PR for stage and prod; prune and self-heal enabled; sync waves order operators (−2), databases (−1), services (0), gateway routes (1).
 - **FR-1.4 Digest-only promotion** — Must. The system shall promote images by immutable digest; tags are informational only.
-  - Notes: `passage promote` rewrites `image.digest` in the target overlay and opens a PR with the SBOM diff and scan summary; promotion to prod requires the digest to have run in stage for ≥ 60 minutes with no SLO burn alert.
+  - Notes: `depot promote` rewrites `image.digest` in the target overlay and opens a PR with the SBOM diff and scan summary; promotion to prod requires the digest to have run in stage for ≥ 60 minutes with no SLO burn alert.
 - **FR-1.5 CI pipeline** — Must. The system shall run on every PR and on `main`: lint (golangci-lint, eslint, ruff), unit tests with coverage ≥ 70% per service, container build (BuildKit, reproducible), Syft SBOM (SPDX 2.3), Grype and Trivy scan, cosign sign and attest.
-  - Notes: required checks block merge; `main` builds push to the registry under `ghcr.io/passage/<svc>@sha256:…`; median PR pipeline ≤ 8 minutes; cache keyed by lockfile hash.
+  - Notes: required checks block merge; `main` builds push to the registry under `ghcr.io/depot/<svc>@sha256:…`; median PR pipeline ≤ 8 minutes; cache keyed by lockfile hash.
 - **FR-1.6 Vulnerability gate** — Must. The system shall fail the build on any CRITICAL finding, or any HIGH finding older than 14 days with a fix available, unless an exception file `.vuln-exceptions.yaml` lists the CVE with an expiry ≤ 30 days.
-- **FR-1.7 Signature verification admission** — Must. The system shall reject any pod whose image lacks a valid cosign signature from the repository identity (`https://github.com/passage/*` OIDC issuer) in namespaces labelled `passage.dev/verified=true`.
+- **FR-1.7 Signature verification admission** — Must. The system shall reject any pod whose image lacks a valid cosign signature from the repository identity (`https://github.com/depot/*` OIDC issuer) in namespaces labelled `depot.dev/verified=true`.
   - Notes: SLSA provenance attestation level 2 at wave 1, level 3 target by wave 48; a negative test deploys an unsigned image and asserts the admission denial message.
 - **FR-1.8 `hello-ledger` placeholder** — Must. The system shall deploy a Go service with one Postgres table that proves the path: migration on start, REST endpoints, health probes, TLS ingress, metrics endpoint.
-- **FR-1.9 Local parity** — Must. `make deploy-local` shall stand up k3d, Argo CD and `hello-ledger` behind `https://app.local.passage.dev` with a locally trusted cert-manager CA in under 10 minutes on a 16 GB laptop.
-- **FR-1.10 Rollback** — Must. The system shall roll back any environment to the previous release by digest in ≤ 5 minutes via `passage rollback --env <env>` (which reverts the overlay commit) or the Argo CD history UI.
+- **FR-1.9 Local parity** — Must. `make deploy-local` shall stand up k3d, Argo CD and `hello-ledger` behind `https://app.local.depot.dev` with a locally trusted cert-manager CA in under 10 minutes on a 16 GB laptop.
+- **FR-1.10 Rollback** — Must. The system shall roll back any environment to the previous release by digest in ≤ 5 minutes via `depot rollback --env <env>` (which reverts the overlay commit) or the Argo CD history UI.
   - Notes: database migrations in Phase 0 are additive-only so rollback never requires a down migration; a rollback records a `Release` row with `kind=rollback`.
 - **FR-1.11 Secrets and config** — Must. The system shall source all secrets from Vault through External Secrets Operator; no secret value appears in Git, Helm values or CI logs.
-  - Notes: config via ConfigMap generated from `deploy/envs/<env>/values.yaml`; secret names follow `passage/<env>/<svc>/<key>`.
+  - Notes: config via ConfigMap generated from `deploy/envs/<env>/values.yaml`; secret names follow `depot/<env>/<svc>/<key>`.
 
 ### 0.1.4 Data model
 
@@ -510,7 +510,7 @@ AX ships code as LCS deployable packages built on a build VM and applied with Ax
 | argo_root_app | text | yes | app-of-apps name |
 | promotion_policy | enum | yes | auto, pr_approval |
 | soak_minutes | int | yes | default 0 dev, 60 stage→prod |
-| base_url | text | yes | `https://app.<env>.passage.dev` |
+| base_url | text | yes | `https://app.<env>.depot.dev` |
 
 **HelloLedgerEntry** (`hello_ledger.entry`)
 
@@ -537,14 +537,14 @@ Invariants: one `Release` row per (service, image_digest); at most one `deployed
 | GET | /v1/platform/releases?service=&env= | Release history | n/a | View platform releases |
 | POST | /v1/platform/releases/{id}/promote | Open promotion PR | release id + env | Maintain platform releases |
 
-CLI commands `passage promote`, `passage rollback`, `passage status` call these endpoints or edit the overlay directly.
+CLI commands `depot promote`, `depot rollback`, `depot status` call these endpoints or edit the overlay directly.
 
 | Event | Trigger | Payload fields | Consumers |
 |---|---|---|---|
-| dev.passage.platform.release.built.v1 | CI publishes signed image | release_id, service, image_digest, git_sha, sbom_url | registry DB writer |
-| dev.passage.platform.release.promoted.v1 | Argo sync Healthy in target env | release_id, environment, actor, previous_digest | audit (wave 5), shell notifications |
-| dev.passage.platform.release.rolledback.v1 | Rollback sync Healthy | release_id, environment, actor, reason | audit, alerting |
-| dev.passage.hello.entry.created.v1 | Entry insert | entry_id, amount_minor, currency | none (proves outbox path in wave 4) |
+| dev.depot.platform.release.built.v1 | CI publishes signed image | release_id, service, image_digest, git_sha, sbom_url | registry DB writer |
+| dev.depot.platform.release.promoted.v1 | Argo sync Healthy in target env | release_id, environment, actor, previous_digest | audit (wave 5), shell notifications |
+| dev.depot.platform.release.rolledback.v1 | Rollback sync Healthy | release_id, environment, actor, reason | audit, alerting |
+| dev.depot.hello.entry.created.v1 | Entry insert | entry_id, amount_minor, currency | none (proves outbox path in wave 4) |
 
 In wave 1 events are written as CloudEvents JSON to stdout and to the registry DB; Kafka transport replaces the sink in wave 4 without changing types.
 
@@ -574,8 +574,8 @@ Interaction rules: promotion PRs are templated with a checklist (soak time met, 
 - **AC-1.1** Given a PR with an injected lint error, When CI runs, Then the `lint` check fails and merge is blocked. (FR-1.5)
 - **AC-1.2** Given a PR with a failing unit test, When CI runs, Then `unit` fails and the failing assertion is annotated inline. (FR-1.5)
 - **AC-1.3** Given a clean macOS or Linux laptop with Docker, When `make deploy-local` runs, Then Argo CD and hello-ledger are reachable over TLS within 10 minutes. (FR-1.9)
-- **AC-1.4** Given a signed image in dev, When `passage promote --to stage` is merged, Then Argo shows Healthy with that digest within 15 minutes of merge. (FR-1.3, FR-1.4)
-- **AC-1.5** Given stage running digest B after A, When `passage rollback --env stage` runs, Then Argo history shows A active within 5 minutes and a `rolled_back` Release row exists. (FR-1.10)
+- **AC-1.4** Given a signed image in dev, When `depot promote --to stage` is merged, Then Argo shows Healthy with that digest within 15 minutes of merge. (FR-1.3, FR-1.4)
+- **AC-1.5** Given stage running digest B after A, When `depot rollback --env stage` runs, Then Argo history shows A active within 5 minutes and a `rolled_back` Release row exists. (FR-1.10)
 - **AC-1.6** Given an unsigned image applied to a verified namespace, When the pod is created, Then admission denies it with a message naming the missing signature. (FR-1.7)
 - **AC-1.7** Given an image with one CRITICAL CVE, When CI runs, Then the scan gate fails; adding a valid exception with expiry in 10 days passes it. (FR-1.6)
 - **AC-1.8** Given a secret in Vault, When hello-ledger starts, Then it reads `DATABASE_URL` via ESO and the value is absent from Git, values files and CI logs (grep check). (FR-1.11)
@@ -598,7 +598,7 @@ Reconciliation: `Release` rows with status `deployed_<env>` equal the digests in
 
 ### 0.1.10 Deployment and operations
 
-Charts: `deploy/charts/platform-base` (umbrella for operators), `deploy/charts/hello-ledger`. Config: `values.yaml` per env; env vars `PASSAGE_ENV`, `OTEL_EXPORTER_OTLP_ENDPOINT` (used from wave 5), `DATABASE_URL` (ESO). Migrations: Atlas, additive-only, run as an init job. Feature flags: none. Scheduled jobs: nightly release reconciliation. SLOs: pipeline p50 ≤ 8 min, promotion merge→Healthy p95 ≤ 15 min, hello-ledger availability 99.9%. Alerts: `ArgoAppDegraded` > 10 min, `PipelineFailureRate` > 20% over 1 h, `AdmissionDeniedSpike`. Runbook entries: Argo out of sync, failed migration job, expired local CA. Rollback: `passage rollback`, then verify `/v1/version`.
+Charts: `deploy/charts/platform-base` (umbrella for operators), `deploy/charts/hello-ledger`. Config: `values.yaml` per env; env vars `DEPOT_ENV`, `OTEL_EXPORTER_OTLP_ENDPOINT` (used from wave 5), `DATABASE_URL` (ESO). Migrations: Atlas, additive-only, run as an init job. Feature flags: none. Scheduled jobs: nightly release reconciliation. SLOs: pipeline p50 ≤ 8 min, promotion merge→Healthy p95 ≤ 15 min, hello-ledger availability 99.9%. Alerts: `ArgoAppDegraded` > 10 min, `PipelineFailureRate` > 20% over 1 h, `AdmissionDeniedSpike`. Runbook entries: Argo out of sync, failed migration job, expired local CA. Rollback: `depot rollback`, then verify `/v1/version`.
 
 ### 0.1.11 Migration from AX / SAP
 
@@ -624,20 +624,20 @@ Platform parameters live in Git (`deploy/envs/<env>/values.yaml`, `infra/modules
 |---|---|---|---|---|---|---|---|
 | `cluster.provider` | cluster (OpenTofu variable) | enum | `k3d` | k3d, eks, gke, aks, baremetal | selects the provider sub-module for networking, node pools, storage classes | LCS environment topology (cloud-hosted / on-premises) | SAP system landscape (SLD, STMS system overview) |
 | `cluster.kubernetes_version` | cluster | semver | 1.31 | n−2 … n of upstream | pins the control plane and node pools | LCS platform update version | Kernel / SAP_BASIS release (System → Status) |
-| `cluster.node_pools[]` | cluster | list of {name, size, count, labels} | 3 × 8 GB (k3d) | provider-specific | sizes compute; `passage.dev/workload` label routes stateful sets | LCS environment sizing (tier) | SM51 application servers, RZ12 logon groups |
+| `cluster.node_pools[]` | cluster | list of {name, size, count, labels} | 3 × 8 GB (k3d) | provider-specific | sizes compute; `depot.dev/workload` label routes stateful sets | LCS environment sizing (tier) | SM51 application servers, RZ12 logon groups |
 | `environment.promotion_policy` | environment (`platform.environment`) | enum | auto (dev), pr_approval (stage, prod) | auto, pr_approval | auto-sync vs. PR with required reviewers | LCS "apply package" approval | STMS_QA quality assurance approval, STMS transport route target group |
 | `environment.soak_minutes` | environment | int | 0 dev, 60 stage | 0–1,440 | minimum time a digest must run in the prior tier before promotion | none | none (manual import scheduling in STMS_IMPORT) |
 | `argo.sync.self_heal`, `argo.sync.prune` | environment overlay | bool | true, true | true/false | drift corrected automatically; removed manifests deleted | none | `tp` profile parameter `repeatonerror` (closest) |
 | `argo.sync_waves` | overlay annotation | ordered ints | operators −2, databases −1, services 0, routes 1 | −10 … 10 | start order per sync | AxUpdateInstaller step order | STMS import order / import all |
-| `ci.unit_coverage_min_pct` | repository (`.passage-ci.yaml`) | int | 70 | 0–100 | fails the `unit` check below threshold | Best Practice check severity | ATC check variant (SCI) priority |
+| `ci.unit_coverage_min_pct` | repository (`.depot-ci.yaml`) | int | 70 | 0–100 | fails the `unit` check below threshold | Best Practice check severity | ATC check variant (SCI) priority |
 | `ci.vuln.fail_on` | repository | enum set | critical, high_with_fix_older_than_14d | critical, high, high_with_fix_older_than_14d, medium | scan gate policy (FR-1.6) | none | none (SAP Security Notes via SysRec) |
 | `ci.vuln.exception_max_days` | repository | int | 30 | 1–90 | maximum validity of a `.vuln-exceptions.yaml` entry | none | none |
 | `ci.sbom.format` | repository | enum | spdx-2.3 | spdx-2.3, cyclonedx-1.6 | SBOM attestation format | none | none |
-| `admission.verified_namespace_label` | cluster (policy-controller `ClusterImagePolicy`) | string | `passage.dev/verified=true` | label selector | namespaces where unsigned images are denied | strong-name signing requirement for models (`AxUtil /key`) | TMS trusted systems (SE06, SMT1) |
-| `admission.oidc_identity` | cluster | regex | `https://github.com/passage/.*` | issuer + subject regex | identity accepted by cosign keyless verification | none | none |
+| `admission.verified_namespace_label` | cluster (policy-controller `ClusterImagePolicy`) | string | `depot.dev/verified=true` | label selector | namespaces where unsigned images are denied | strong-name signing requirement for models (`AxUtil /key`) | TMS trusted systems (SE06, SMT1) |
+| `admission.oidc_identity` | cluster | regex | `https://github.com/depot/.*` | issuer + subject regex | identity accepted by cosign keyless verification | none | none |
 | `registry.image_retention_days` | registry | int | 180 | 30–3,650 | untagged, unreferenced digests deleted after this | LCS asset library retention | none (transport files kept in `/usr/sap/trans`) |
 | `registry.sbom_retention_years` | registry | int | 7 | 1–10 | SBOM and attestation retention | none | none |
-| `secrets.path_template` | cluster (ESO `ClusterSecretStore`) | string | `passage/<env>/<svc>/<key>` | Vault KV v2 path | where every service secret is read from | none (web.config / AOS config) | SECSTORE (secure storage), RSECADMIN |
+| `secrets.path_template` | cluster (ESO `ClusterSecretStore`) | string | `depot/<env>/<svc>/<key>` | Vault KV v2 path | where every service secret is read from | none (web.config / AOS config) | SECSTORE (secure storage), RSECADMIN |
 | `local.profile` | developer (`make deploy-local PROFILE=`) | enum | full | min, full | `min` omits observability and Temporal UI to fit 16 GB | OneBox VHD size | NetWeaver developer edition install profile |
 | `hello_ledger.idempotency_window_hours` | service values | int | 24 | 1–168 | replay window for `Idempotency-Key` | none | none |
 
@@ -664,7 +664,7 @@ No printed documents. Electronic artifacts produced by the wave:
 |---|---|---|---|---|---|
 | SBOM | every `main` build | SPDX document: creator, package list (name, version, license, PURL), relationships, digest it describes | SPDX 2.3 JSON, attached to the image as a cosign attestation | identified by image digest, no sequence | retained 7 years (BR-1.7); evidence for wave 48 SOC 2 CC8.1 |
 | Provenance attestation | every signed build | in-toto statement: builder id, source repo + sha, materials, build config | in-toto JSON (SLSA v1), Rekor transparency log entry | Rekor log index | retained with the image; immutable in Rekor |
-| Promotion PR summary | `passage promote` | title (service, from → to env, digest), checklist (soak met, scan clean, rollback target), SBOM diff table, scan summary | GitHub PR body (Markdown) | PR number | retained with repository history |
+| Promotion PR summary | `depot promote` | title (service, from → to env, digest), checklist (soak met, scan clean, rollback target), SBOM diff table, scan summary | GitHub PR body (Markdown) | PR number | retained with repository history |
 | Release notes (per promotion to prod) | PR merge to prod overlay | commits since previous prod digest grouped by Conventional Commit type, linked issues | Markdown in GitHub Deployment description | release id | none |
 
 ### 0.1.16 Periodic and batch jobs
@@ -680,22 +680,22 @@ No printed documents. Electronic artifacts produced by the wave:
 
 ### 0.1.17 Security duties and privileges
 
-Wave 1 has no OPA-enforced API yet (wave 2); the duties below are enforced by GitHub branch protection, CODEOWNERS, Argo CD RBAC (mapped from GitHub teams) and Vault policies, and are re-declared as Passage duties in wave 2 so the same names hold later.
+Wave 1 has no OPA-enforced API yet (wave 2); the duties below are enforced by GitHub branch protection, CODEOWNERS, Argo CD RBAC (mapped from GitHub teams) and Vault policies, and are re-declared as Depot duties in wave 2 so the same names hold later.
 
 | Duty | Privileges (entry points) | Segregation-of-duties conflicts | Default roles that include it |
 |---|---|---|---|
-| View platform releases | `GET /v1/platform/releases`, Argo CD read-only UI, `passage status` | none | Platform engineer, Release manager, Auditor |
-| Maintain platform releases | `POST /v1/platform/releases/{id}/promote` (dev → stage), `passage promote --to stage`, merge to `deploy/envs/dev`, `deploy/envs/stage` | with Approve production promotion (same person cannot author and sole-approve the prod PR; enforced by required reviewers ≠ author) | Platform engineer |
-| Approve production promotion | review + merge of PRs touching `deploy/envs/prod` (CODEOWNERS `@passage/release-managers`) | with Maintain vulnerability exceptions | Release manager |
-| Rollback environment | `passage rollback --env <env>`, Argo CD rollback action | none (rollback is always allowed to anyone who can promote to that env) | Platform engineer (dev, stage), Release manager (prod) |
-| Maintain vulnerability exceptions | edit `.vuln-exceptions.yaml` (CODEOWNERS `@passage/security`) | with Approve production promotion | Security engineer |
+| View platform releases | `GET /v1/platform/releases`, Argo CD read-only UI, `depot status` | none | Platform engineer, Release manager, Auditor |
+| Maintain platform releases | `POST /v1/platform/releases/{id}/promote` (dev → stage), `depot promote --to stage`, merge to `deploy/envs/dev`, `deploy/envs/stage` | with Approve production promotion (same person cannot author and sole-approve the prod PR; enforced by required reviewers ≠ author) | Platform engineer |
+| Approve production promotion | review + merge of PRs touching `deploy/envs/prod` (CODEOWNERS `@depot/release-managers`) | with Maintain vulnerability exceptions | Release manager |
+| Rollback environment | `depot rollback --env <env>`, Argo CD rollback action | none (rollback is always allowed to anyone who can promote to that env) | Platform engineer (dev, stage), Release manager (prod) |
+| Maintain vulnerability exceptions | edit `.vuln-exceptions.yaml` (CODEOWNERS `@depot/security`) | with Approve production promotion | Security engineer |
 | Maintain cluster configuration | `tofu apply` on `infra/`, edit `deploy/charts/platform-base` | with Maintain secrets (one person should not hold both cluster admin and Vault root) | Platform engineer |
-| Maintain secrets | Vault policy `passage/<env>/*` write; ESO `ClusterSecretStore` edit | with Maintain cluster configuration | Security engineer |
+| Maintain secrets | Vault policy `depot/<env>/*` write; ESO `ClusterSecretStore` edit | with Maintain cluster configuration | Security engineer |
 | Maintain hello ledger | `POST /v1/hello-ledger/entries` (token-gated from wave 2) | none | Platform engineer (demo only) |
 
 ### 0.1.18 Message catalog
 
-Codes `PLT-01xx` are emitted by CI checks, the `passage` CLI, the admission controller and the hello-ledger service; CI messages are also written as GitHub check annotations.
+Codes `PLT-01xx` are emitted by CI checks, the `depot` CLI, the admission controller and the hello-ledger service; CI messages are also written as GitHub check annotations.
 
 | Code | Severity | User text | Cause | Remediation | Raised by |
 |---|---|---|---|---|---|
@@ -703,7 +703,7 @@ Codes `PLT-01xx` are emitted by CI checks, the `passage` CLI, the admission cont
 | PLT-0102 | error | Promotion to prod blocked: digest ran {minutes} of {required} soak minutes in stage | soak not met | wait, or lower `soak_minutes` with Release manager approval | BR-1.3 |
 | PLT-0103 | error | Promotion to prod blocked: SLO burn alert `{alert}` fired during soak | `SLOBurnRateHigh` within the window | investigate the alert; re-soak after fix | BR-1.3 |
 | PLT-0104 | warning | A promotion of {service} to {env} is already open (#{pr}); this PR was closed | concurrent promotion | wait for the first PR | BR-1.4 |
-| PLT-0105 | error | No rollback target: no earlier `deployed_{env}` release with a different digest | first release in the environment | deploy an earlier digest explicitly with `passage promote --digest` | BR-1.6 |
+| PLT-0105 | error | No rollback target: no earlier `deployed_{env}` release with a different digest | first release in the environment | deploy an earlier digest explicitly with `depot promote --digest` | BR-1.6 |
 | PLT-0106 | error | Vulnerability exception for {cve} expired on {date} | exception past expiry | renew with new justification (≤ 30 days) or fix | BR-1.5, FR-1.6 |
 | PLT-0107 | error | Scan gate failed: {n} CRITICAL / {m} actionable HIGH findings | FR-1.6 policy | upgrade the package or add a justified exception | FR-1.6 |
 | PLT-0108 | error | Pod denied: image {image} has no valid cosign signature from `{identity}` | admission policy | build through CI; never push hand-built images to verified namespaces | FR-1.7 |
@@ -749,11 +749,11 @@ No `GAP` or `PARTIAL` row in coverage-ax.md §12.99 or coverage-sap.md §13.99 i
 
 ### 0.2.1 Scope and business context
 
-AX 2012 authorizes through `SecurityRole` → `SecurityDuty` → `SecurityPrivilege` → `SecurityEntryPoint` with access levels (NoAccess, Read, Update, Create, Correct, Delete), table permissions in the AOT, extensible data security policies (XDS) and `UserInfo` rows tied to Active Directory; companies are isolated by `DataAreaId` on every per-company table. SAP uses `SU01` user masters (USR02), `PFCG` roles (AGR_DEFINE, AGR_1251 field values, AGR_USERS), authorization objects such as `S_TCODE`, `F_BKPF_BUK` (company code) and `M_MATE_WRK` (plant), `SU24` proposals, `SU53` failed-check traces, and `MANDT` for client isolation. Wave 2 gives Passage one identity provider (Keycloak) federated to Entra ID, Okta or Google, SCIM provisioning, an AX-shaped role model compiled to Rego, OPA as a sidecar on every service, Envoy Gateway JWT validation with per-tenant rate limits, and Postgres RLS on every table. At the end of the wave a user logs in once, lands in a legal entity, and every API call is allowed or denied by policy, not code. Out of scope: segregation-of-duties conflict analysis (wave 48), position hierarchies (wave 42), record-level XDS-style data policies beyond tenant and legal entity (wave 15 adds dimension security), customer-facing portals (waves 20, 30).
+AX 2012 authorizes through `SecurityRole` → `SecurityDuty` → `SecurityPrivilege` → `SecurityEntryPoint` with access levels (NoAccess, Read, Update, Create, Correct, Delete), table permissions in the AOT, extensible data security policies (XDS) and `UserInfo` rows tied to Active Directory; companies are isolated by `DataAreaId` on every per-company table. SAP uses `SU01` user masters (USR02), `PFCG` roles (AGR_DEFINE, AGR_1251 field values, AGR_USERS), authorization objects such as `S_TCODE`, `F_BKPF_BUK` (company code) and `M_MATE_WRK` (plant), `SU24` proposals, `SU53` failed-check traces, and `MANDT` for client isolation. Wave 2 gives Depot one identity provider (Keycloak) federated to Entra ID, Okta or Google, SCIM provisioning, an AX-shaped role model compiled to Rego, OPA as a sidecar on every service, Envoy Gateway JWT validation with per-tenant rate limits, and Postgres RLS on every table. At the end of the wave a user logs in once, lands in a legal entity, and every API call is allowed or denied by policy, not code. Out of scope: segregation-of-duties conflict analysis (wave 48), position hierarchies (wave 42), record-level XDS-style data policies beyond tenant and legal entity (wave 15 adds dimension security), customer-facing portals (waves 20, 30).
 
 #### Pain points solved (10x lens)
 
-| Pain point in AX/SAP today | Root cause | Passage answer in this wave | Measurable 10x target |
+| Pain point in AX/SAP today | Root cause | Depot answer in this wave | Measurable 10x target |
 |---|---|---|---|
 | Diagnosing "no authorization" in SAP needs SU53 on the user's session, then SUIM, then PFCG edit, role generation and user comparison (PFCG → Authorizations → Generate → User tab → User comparison): 6 screens and often a transport | Authorization data lives in profiles generated from roles; failures are only visible in the user's own buffer | Every 403 carries `duty_missing`; the effective-permission viewer shows the decision trace for any user × entity × action; assignment takes effect in ≤ 30 s without a transport | Access-fix cycle: 1–3 days (ticket + transport window) → < 5 min; screens: 6 → 1 |
 | AX security development: a new entry point needs a privilege, duty and role in the AOT, synchronization and an AOS restart; D365 needs a build and package | Security objects are AOT metadata compiled into the model store | Role/duty/privilege are data compiled to a Rego bundle on save | Role change to live: 1–2 h (AX) / 4 h (D365 package) → ≤ 5 s compile + 10 s propagation |
@@ -763,7 +763,7 @@ AX 2012 authorizes through `SecurityRole` → `SecurityDuty` → `SecurityPrivil
 
 ### 0.2.2 AX / SAP parity map
 
-| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Passage equivalent | Parity |
+| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Depot equivalent | Parity |
 |---|---|---|---|---|
 | User master | `UserInfo`, SysUserInfoPage form, AD import wizard | SU01, USR02/USR21, SU10 mass maintenance | identity `User` entity, Admin UI Users, SCIM /Users | full |
 | Role | `SecurityRole`, SysSecRoles form | PFCG single/composite/derived roles, AGR_DEFINE | authz `Role` (+ `derived_from` for org-level variants) | full |
@@ -783,8 +783,8 @@ AX 2012 authorizes through `SecurityRole` → `SecurityDuty` → `SecurityPrivil
   - Notes: deprovision sets `status=deprovisioned`, revokes sessions within 60 s, never deletes the row (audit needs it).
 - **FR-2.3 Tenant and legal entity model** — Must. The system shall model `Tenant` → `LegalEntity` → `Site` (shell only; detailed in wave 6) and stamp `tenant_id` on every table in every domain database.
   - Notes: `legal_entity_id` is stamped on per-company tables (AX `SaveDataPerCompany=Yes` equivalent, declared in metadata in wave 3); a user's current legal entity is a session attribute, not a token claim, so switching does not require re-login.
-- **FR-2.4 Row-level security** — Must. Every table shall have `ENABLE ROW LEVEL SECURITY` and `FORCE ROW LEVEL SECURITY` with policy `tenant_id = current_setting('passage.tenant_id')::uuid`; services connect as role `passage_app` with `NOBYPASSRLS` and set the variable with `SET LOCAL` inside every transaction.
-  - Notes: a missing `passage.tenant_id` yields zero rows, not an error; migrations run as `passage_owner`, which is also NOBYPASSRLS; a CI check fails if any table lacks the policy.
+- **FR-2.4 Row-level security** — Must. Every table shall have `ENABLE ROW LEVEL SECURITY` and `FORCE ROW LEVEL SECURITY` with policy `tenant_id = current_setting('depot.tenant_id')::uuid`; services connect as role `depot_app` with `NOBYPASSRLS` and set the variable with `SET LOCAL` inside every transaction.
+  - Notes: a missing `depot.tenant_id` yields zero rows, not an error; migrations run as `depot_owner`, which is also NOBYPASSRLS; a CI check fails if any table lacks the policy.
 - **FR-2.5 Role/duty/privilege model** — Must. The system shall store Role → Duty → Privilege → Permission where Permission = (entity, action, field_mask?, condition?), and compile the closure into one Rego bundle per tenant.
   - Notes: actions are read, create, update, correct, delete, post, approve, export; `correct` retains AX semantics (edit date-effective rows); 20 seeded duties ship (Maintain users, Maintain security roles, Maintain vendors, View vendors, Maintain entity metadata, Apply extensions, Maintain workflows, Approve workflow, Maintain batch jobs, View batch history, Maintain number sequences, View audit log, Import data, Export data, Maintain platform releases, View platform releases, Maintain tenants, Maintain legal entities, Maintain saved views, Maintain hello ledger).
 - **FR-2.6 Policy compilation** — Must. The system shall compile a bundle within 5 s of any role/duty/privilege/assignment change and distribute it to OPA sidecars via bundle polling (interval 10 s) with the version in `pv`.
@@ -868,11 +868,11 @@ Commands validate: email RFC 5322; role code `^[A-Za-z][A-Za-z0-9]{2,63}$`; assi
 
 | Event | Trigger | Payload fields | Consumers |
 |---|---|---|---|
-| dev.passage.identity.user.created.v1 | User insert (UI, SCIM, federation first login) | user_id, tenant_id, email, kind, source | workflow, audit, shell |
-| dev.passage.identity.user.status-changed.v1 | status transition | user_id, from, to, actor, reason | audit, session revoker |
-| dev.passage.authz.role-assignment.granted.v1 / revoked.v1 | assignment insert/delete | assignment_id, user_id, role_id, legal_entity_ids, effective_from, effective_to | policy compiler, audit |
-| dev.passage.authz.policy.compiled.v1 | bundle built | tenant_id, bundle_version, sha256 | OPA sidecars, audit |
-| dev.passage.identity.login.succeeded.v1 / failed.v1 | Keycloak event listener | user_id, ip, idp, amr | audit, anomaly alert |
+| dev.depot.identity.user.created.v1 | User insert (UI, SCIM, federation first login) | user_id, tenant_id, email, kind, source | workflow, audit, shell |
+| dev.depot.identity.user.status-changed.v1 | status transition | user_id, from, to, actor, reason | audit, session revoker |
+| dev.depot.authz.role-assignment.granted.v1 / revoked.v1 | assignment insert/delete | assignment_id, user_id, role_id, legal_entity_ids, effective_from, effective_to | policy compiler, audit |
+| dev.depot.authz.policy.compiled.v1 | bundle built | tenant_id, bundle_version, sha256 | OPA sidecars, audit |
+| dev.depot.identity.login.succeeded.v1 / failed.v1 | Keycloak event listener | user_id, ip, idp, amr | audit, anomaly alert |
 
 ### 0.2.6 User experience
 
@@ -903,7 +903,7 @@ Rules: all grids are keyboard navigable (wave 5 shell completes this); role edit
 ### 0.2.8 Acceptance criteria
 
 - **AC-2.1** Given a user with duty "Maintain vendors", When they `PUT /vendors/{id}` (stub entity), Then 200; Given a user without it, Then 403 with `duty_missing`. Table-driven across 20 duties. (FR-2.5, FR-2.7)
-- **AC-2.2** Given tenant A's app session, When a query filters `tenant_id = <tenant B>`, Then zero rows are returned under `passage_app`. (FR-2.4)
+- **AC-2.2** Given tenant A's app session, When a query filters `tenant_id = <tenant B>`, Then zero rows are returned under `depot_app`. (FR-2.4)
 - **AC-2.3** Given two Keycloak realms federated to a stand-in Keycloak IdP in CI, When a user logs in through each, Then both sessions carry the correct `tid` and land in the user's default legal entity. (FR-2.1, FR-2.3)
 - **AC-2.4** Given 100 random (user, entity, action, legal entity) tuples, When effective-permission report and `POST /v1/authz/decision` are compared, Then they agree 100%. (FR-2.6, FR-2.10)
 - **AC-2.5** Given a SCIM PATCH deactivating a user, When processed, Then `status=deprovisioned`, refresh tokens are revoked within 60 s and the row persists. (FR-2.2)
@@ -934,16 +934,16 @@ Charts: `keycloak` (with CNPG database, 2 replicas), `identity`, `authz` (compil
 
 ### 0.2.11 Migration from AX / SAP
 
-| Source | Passage entity | Notes |
+| Source | Depot entity | Notes |
 |---|---|---|
 | AX `UserInfo` (id, name, networkAlias, enable) | User | `networkAlias` → username; `enable=0` → disabled |
 | AX `SecurityUserRole` (user, securityRole, validFrom/validTo) | RoleAssignment | dates carried; `OMUserRoleOrganization` rows → `legal_entity_ids` |
-| AX `SecurityRole` / `SecurityDuty` / `SecurityPrivilege` + `SecurityRoleTaskGrant`, `SecurityTaskEntryPoint` | Role / Duty / Privilege | custom (CUS/VAR layer) roles only; SYS roles are mapped by name to Passage seeds |
+| AX `SecurityRole` / `SecurityDuty` / `SecurityPrivilege` + `SecurityRoleTaskGrant`, `SecurityTaskEntryPoint` | Role / Duty / Privilege | custom (CUS/VAR layer) roles only; SYS roles are mapped by name to Depot seeds |
 | SAP USR02 (BNAME, UFLAG, GLTGV/GLTGB) | User | UFLAG 64/128 → locked; GLTGV/GLTGB → status dates |
 | SAP AGR_USERS (AGR_NAME, UNAME, FROM_DAT, TO_DAT) | RoleAssignment | dates carried |
-| SAP AGR_DEFINE / AGR_1251 (OBJECT, FIELD, LOW/HIGH) | Role / Duty / Privilege | authorization objects map via a crosswalk file to Passage permissions; BUKRS values → legal_entity_ids |
+| SAP AGR_DEFINE / AGR_1251 (OBJECT, FIELD, LOW/HIGH) | Role / Duty / Privilege | authorization objects map via a crosswalk file to Depot permissions; BUKRS values → legal_entity_ids |
 
-Transformations run through the wave 10 migration framework; this wave ships only the crosswalk format and a dry-run report. Not migrated: passwords (federated), SU24 proposals, AX entry-point grants on forms that have no Passage equivalent (reported as "unmapped" with counts).
+Transformations run through the wave 10 migration framework; this wave ships only the crosswalk format and a dry-run report. Not migrated: passwords (federated), SU24 proposals, AX entry-point grants on forms that have no Depot equivalent (reported as "unmapped" with counts).
 
 ### 0.2.12 Dependencies, risks, open questions
 
@@ -955,7 +955,7 @@ Depends on: wave 1 (cluster, Argo, Vault/ESO, gateway).
 | Rego closure bundle size for large role models | Medium | Medium | Partial evaluation; bundle per tenant; limit 50k permissions |
 | SAML IdPs with non-standard attribute names | Medium | Low | Mapper templates for Entra ID, Okta, ADFS |
 
-Open questions: (1) Field-level masks in P0 or deferred to wave 15 — default: masks compiled but enforced only for PII-flagged fields; decide by wave 3. (2) Session legal entity in a cookie vs header — default header `X-Passage-Legal-Entity`; decide by wave 5. (3) Tenant realm per tenant vs shared realm with groups — default per tenant; decide by wave 2 mid-point.
+Open questions: (1) Field-level masks in P0 or deferred to wave 15 — default: masks compiled but enforced only for PII-flagged fields; decide by wave 3. (2) Session legal entity in a cookie vs header — default header `X-Depot-Legal-Entity`; decide by wave 5. (3) Tenant realm per tenant vs shared realm with groups — default per tenant; decide by wave 2 mid-point.
 
 ### 0.2.13 Parameters and setup
 
@@ -979,7 +979,7 @@ Tenant-scoped values are rows of `identity.tenant_settings` (edited on the Admin
 | `authz.recompile_time` | tenant | HH:MM tenant time zone | 00:05 | any | nightly effective-date recompile (BR-2.5) | none | PFUD / PFCG_TIME_DEPENDENCY job |
 | `gateway.rate_limit.sustained_rps`, `gateway.rate_limit.burst` | tenant | int, int | 1,000, 2,000 | 100–50,000 | FR-2.8 limits; 429 with `Retry-After` | none | ICM `icm/max_conn`, `rdisp/tm_max_no` |
 | `gateway.jwks_cache_minutes` | environment | int | 5 | 1–60 | JWKS refresh | none | none |
-| `session.legal_entity_header` | environment | string | `X-Passage-Legal-Entity` | header name | carries the current legal entity (open question 2) | `changecompany()` / company switch | SU3 default parameter BUK |
+| `session.legal_entity_header` | environment | string | `X-Depot-Legal-Entity` | header name | carries the current legal entity (open question 2) | `changecompany()` / company switch | SU3 default parameter BUK |
 | `tenant.time_zone`, `tenant.default_currency` | tenant | IANA tz, ISO 4217 | `UTC`, `USD` | valid values | effective-date evaluation, defaults for later waves | System parameters → General (time zone), CompanyInfo currency | SCC4 client, OY01 country, OB22 company code currency |
 | `legal_entity.country` | legal entity | ISO 3166-1 alpha-2 | required | valid code | country-pack hook (0.2.20) | Legal entities form → Addresses (country/region) | OX02 company code country |
 | `agent.max_sponsor_subset` | tenant | bool | true | true | agents may hold only a subset of the sponsor's roles (FR-2.11) | none | SU01 reference user |
@@ -998,7 +998,7 @@ Tenant-scoped values are rows of `identity.tenant_settings` (edited on the Admin
 | Online sessions | list inquiry | tenant, user | user, session start, last activity, IdP, client; action: revoke | Keycloak sessions API | Online users (SysUsersOnline) | SM04, AL08 |
 | Expiring role assignments | operational report | horizon (default 30 days) | user, role, effective_to, granted by | `authz.role_assignment` | none | PFCG_TIME_DEPENDENCY log |
 | Authorization denials | KPI / operational | period, duty, entity, user | denials per duty per hour, top users, top entities | OPA decision logs (Loki) → `authz.decision_stat` | none | SU53 (per user), SM20 RFC/auth failures |
-| SCIM reconciliation | operational report | last run | users in IdP not in Passage, deprovisioned in IdP still active, group → role mismatches | SCIM sync job output | AD import wizard log | SAP IPS job log, CUA distribution log (SCUL) |
+| SCIM reconciliation | operational report | last run | users in IdP not in Depot, deprovisioned in IdP still active, group → role mismatches | SCIM sync job output | AD import wizard log | SAP IPS job log, CUA distribution log (SCUL) |
 | Policy bundle versions | list inquiry | tenant | version, sha256, compiled at, role count, permission count, trigger | `authz.bundle` | none | PFCG profile generation log |
 | Tenant and legal entity list | list inquiry | status | code, name, country, currency, time zone, user count | `identity.tenant`, `identity.legal_entity` | Legal entities (OMLegalEntity) | OX02 company codes, SCC4 clients |
 
@@ -1104,7 +1104,7 @@ In AX every business object is an AOT artifact: a Table with properties (`TableG
 
 #### Pain points solved (10x lens)
 
-| Pain point in AX/SAP today | Root cause | Passage answer in this wave | Measurable 10x target |
+| Pain point in AX/SAP today | Root cause | Depot answer in this wave | Measurable 10x target |
 |---|---|---|---|
 | Adding one field to VendTable in D365: table extension, EDT, form extension, data entity extension, label, build, deployable package, LCS apply — a 2–5 day developer task with an environment outage | Schema, API, form and entity are separate artifacts kept in sync by hand | One `x_` field in an `ExtensionPackage`: migration, API, client, JSON Schema and (wave 5) form generated and applied with zero downtime | Field addition: 2–5 days + outage → < 60 s, no outage; artifacts touched by hand: 6 → 1 |
 | SAP append structure on LFA1 needs SE11, activation (table conversion risk on large tables), CMOD/BAdI for validation, SE51 screen exit, and a transport through DEV→QAS→PRD | DDIC activation rewrites tables; UI exits are separate from DDIC | Additive `ADD COLUMN` with fast default, `CREATE INDEX CONCURRENTLY`, declarative validation in the same package | Lock time on a 100M-row table: minutes → < 2 s; transport cycle: 1–2 weeks → one PR |
@@ -1114,7 +1114,7 @@ In AX every business object is an AOT artifact: a Table with properties (`TableG
 
 ### 0.3.2 AX / SAP parity map
 
-| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Passage equivalent | Parity |
+| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Depot equivalent | Parity |
 |---|---|---|---|---|
 | Table definition | AOT Tables node, `TableGroup`, `SaveDataPerCompany`, `RecId`, `RecVersion`, `DataAreaId`, `Partition` | DD02L, delivery class, MANDT, SE11 | `EntityDefinition` YAML; system fields id, tenant_id, legal_entity_id, version, created_*, updated_* | full |
 | Typed fields | Extended Data Types (StringSize, Label, HelpText), `SysDictField` | Domains (DD01L) + data elements (DD04L) | `TypeDefinition` (EDT) + `FieldDefinition` | full |
@@ -1144,7 +1144,7 @@ In AX every business object is an AOT artifact: a Table with properties (`TableG
 - **FR-3.7 Lifecycle hooks** — Must. The system shall execute hooks in order initValue → validateField (per changed field) → validateWrite → write → afterWrite, and validateDelete → delete → afterDelete; declarative hooks are expressions returning `{ok, code, message, field}`; coded hooks are Go/TS functions registered by name in the owning service.
   - Notes: validation errors return 422 with `errors[]{field, code, message}`; a coded hook that panics rolls back the transaction and returns 500 with a trace id.
 - **FR-3.8 Metadata registry** — Must. The system shall store every definition version, expose diff between versions, publish an immutable version on approval, and serve the current version to generators, the gateway and the shell with ETag caching.
-  - Notes: registry DB is `metadata`; publishing emits `dev.passage.metadata.entity.published.v1`; registry read p95 ≤ 20 ms.
+  - Notes: registry DB is `metadata`; publishing emits `dev.depot.metadata.entity.published.v1`; registry read p95 ≤ 20 ms.
 - **FR-3.9 Extension packages** — Must. Customers shall create an `ExtensionPackage` (layer customer or partner) that adds fields (prefixed `x_`), enum values (code ≥ 1000), indexes, declarative hooks and labels to any `sys` entity; applying a package generates and runs the migration, regenerates OpenAPI/JSON Schema and invalidates the shell form cache with zero downtime.
   - Notes: limits: 200 extension fields per entity, 50 enum values per enum per package; packages are versioned and reversible only while additive.
 - **FR-3.10 Backward compatibility** — Must. CI shall run the previous published version's generated TypeScript client against the new server and fail on any breaking change (removed field, type change, required added, enum value removed); additive changes pass.
@@ -1269,13 +1269,13 @@ Invariants: a published version is immutable; field names unique per entity acro
 
 | Event | Trigger | Payload fields | Consumers |
 |---|---|---|---|
-| dev.passage.rules.ruleset.published.v1 | rule set publish | code, version, tables[], row_count | services holding compiled trees (reload), audit |
-| dev.passage.metadata.usage.snapshot.v1 | nightly snapshot | tenant_id, snapshot_date, active_users_30d, active_users_90d | analytics (wave 46), licensing report (PRD §12 Q1) |
-| dev.passage.metadata.entity.published.v1 | publish | entity, domain, version, api_major, diff_summary{added, changed, removed} | generator pipeline, events (wave 4), shell |
-| dev.passage.metadata.entity.deprecated.v1 | deprecate | entity, version, sunset_date | shell, API docs |
-| dev.passage.metadata.extension.applied.v1 | apply success | package_id, code, version, entities[], fields_added, enum_values_added, migration_id | audit, shell, generator |
-| dev.passage.metadata.extension.failed.v1 | apply failure | package_id, stage, error | alerting |
-| dev.passage.metadata.schema.migrated.v1 | Atlas job completes | domain, migration_id, duration_ms | audit |
+| dev.depot.rules.ruleset.published.v1 | rule set publish | code, version, tables[], row_count | services holding compiled trees (reload), audit |
+| dev.depot.metadata.usage.snapshot.v1 | nightly snapshot | tenant_id, snapshot_date, active_users_30d, active_users_90d | analytics (wave 46), licensing report (PRD §12 Q1) |
+| dev.depot.metadata.entity.published.v1 | publish | entity, domain, version, api_major, diff_summary{added, changed, removed} | generator pipeline, events (wave 4), shell |
+| dev.depot.metadata.entity.deprecated.v1 | deprecate | entity, version, sunset_date | shell, API docs |
+| dev.depot.metadata.extension.applied.v1 | apply success | package_id, code, version, entities[], fields_added, enum_values_added, migration_id | audit, shell, generator |
+| dev.depot.metadata.extension.failed.v1 | apply failure | package_id, stage, error | alerting |
+| dev.depot.metadata.schema.migrated.v1 | Atlas job completes | domain, migration_id, duration_ms | audit |
 
 ### 0.3.6 User experience
 
@@ -1336,18 +1336,18 @@ Reconciliation: registry field count per published entity equals `information_sc
 
 ### 0.3.10 Deployment and operations
 
-Charts: `metadata-registry` (Go, CNPG `metadata` database), `passage-gen` runs in CI and as an in-cluster Job for extension apply. Config: `REGISTRY_URL`, `GEN_OUTPUT_DIR`, `ATLAS_DEV_URL` (scratch database for migration planning). Migrations: generated; applied by Argo pre-sync hook with `atlas migrate apply --tx-mode all`. Feature flags: `metadata.extensions.enabled` per tenant. Scheduled jobs: nightly drift check (registry vs live schema). SLOs: registry availability 99.9%, read p95 ≤ 20 ms, extension apply ≤ 60 s. Alerts: `SchemaDrift`, `ExtensionApplyFailed`, `MigrationJobFailed`. Runbook: failed migration (mark package failed, run `atlas migrate down` only in dev), registry restore from CNPG backup. Rollback: registry and generated services roll back together by digest; because migrations are additive the previous digest runs against the newer schema.
+Charts: `metadata-registry` (Go, CNPG `metadata` database), `depot-gen` runs in CI and as an in-cluster Job for extension apply. Config: `REGISTRY_URL`, `GEN_OUTPUT_DIR`, `ATLAS_DEV_URL` (scratch database for migration planning). Migrations: generated; applied by Argo pre-sync hook with `atlas migrate apply --tx-mode all`. Feature flags: `metadata.extensions.enabled` per tenant. Scheduled jobs: nightly drift check (registry vs live schema). SLOs: registry availability 99.9%, read p95 ≤ 20 ms, extension apply ≤ 60 s. Alerts: `SchemaDrift`, `ExtensionApplyFailed`, `MigrationJobFailed`. Runbook: failed migration (mark package failed, run `atlas migrate down` only in dev), registry restore from CNPG backup. Rollback: registry and generated services roll back together by digest; because migrations are additive the previous digest runs against the newer schema.
 
 ### 0.3.11 Migration from AX / SAP
 
-| Source | Passage entity | Notes |
+| Source | Depot entity | Notes |
 |---|---|---|
-| AX AOT Tables (via `SysDictTable` export or AxModel XML) with `TableGroup`, `SaveDataPerCompany` | EntityDefinition | only customer-layer (CUS/VAR/USR) tables and fields are candidates; SYS tables map to Passage entities by crosswalk |
+| AX AOT Tables (via `SysDictTable` export or AxModel XML) with `TableGroup`, `SaveDataPerCompany` | EntityDefinition | only customer-layer (CUS/VAR/USR) tables and fields are candidates; SYS tables map to Depot entities by crosswalk |
 | AX EDTs, Base Enums | TypeDefinition, EnumDefinition | enum values keep their integer codes where < 1000 |
 | AX table extensions (`.extension` XML) | ExtensionPackage | field additions become `x_` fields |
 | SAP DD02L/DD03L for Z*/Y* tables, append structures, CI_* includes | EntityDefinition / ExtensionPackage | DD04L data elements → TypeDefinition; DD07L fixed values → EnumValue |
 
-Transformation is a definition import (`passage-gen import-ax`, `import-sap`) producing draft YAML for review; nothing is auto-published. Not migrated: X++ table methods and ABAP user exits (code), SAP delivery-class semantics, AX `CacheLookup` and `Partition`.
+Transformation is a definition import (`depot-gen import-ax`, `import-sap`) producing draft YAML for review; nothing is auto-published. Not migrated: X++ table methods and ABAP user exits (code), SAP delivery-class semantics, AX `CacheLookup` and `Partition`.
 
 ### 0.3.12 Dependencies, risks, open questions
 
@@ -1412,9 +1412,9 @@ No printed documents. Electronic documents:
 |---|---|---|---|---|---|
 | OpenAPI 3.1 document per entity | publish | info (entity, version, api_major), paths, components (schemas from JSON Schema), security scheme | JSON, YAML | version = entity version | retained for every published version (immutable) |
 | JSON Schema per entity | publish | `$id`, properties with types/formats, required, enum values | JSON Schema 2020-12 | same | same |
-| TypeScript client package | publish | typed fetch client, request/response types | npm tarball `@passage/client-<domain>@<version>` | semver from version | retained in registry 7 years (same as images) |
+| TypeScript client package | publish | typed fetch client, request/response types | npm tarball `@depot/client-<domain>@<version>` | semver from version | retained in registry 7 years (same as images) |
 | Migration file | publish / extension apply | Atlas SQL with header (entity, version, package) | `.sql` under `migrations/<domain>/` | timestamped Atlas name | permanent in Git |
-| Extension package manifest | package validated | code, layer, version, targets, dry-run SQL, lock estimate | YAML (`passage-gen export`) | package code + version | permanent in `metadata.extension_package` |
+| Extension package manifest | package validated | code, layer, version, targets, dry-run SQL, lock estimate | YAML (`depot-gen export`) | package code + version | permanent in `metadata.extension_package` |
 | Rule set export | administrator action | tables with columns, rows (conditions, results, effective dates, layer) | CSV per table, YAML for the whole set | rule set code + version | retained with the version |
 | Usage report export | administrator action | snapshot rows | CSV, JSON | none | retained by requester; snapshots 3 years |
 
@@ -1512,7 +1512,7 @@ AX runs approvals through the workflow framework (`WorkflowTable`, `WorkflowVers
 
 #### Pain points solved (10x lens)
 
-| Pain point in AX/SAP today | Root cause | Passage answer in this wave | Measurable 10x target |
+| Pain point in AX/SAP today | Root cause | Depot answer in this wave | Measurable 10x target |
 |---|---|---|---|
 | Downstream systems (MES, WMS, BI) poll `ModifiedDateTime` on AX tables or wait for the nightly IDoc/BD21 change-pointer job; IDocs stuck in status 51/64 are reprocessed by hand in BD87 | No reliable push of changes; outbound integration is batch | Every committed change is a CloudEvent on Kafka via Debezium outbox within 500 ms; consumers subscribe, never poll | Change-to-consumer latency: 15 min–24 h → < 2 s p95; manual reprocessing runs per week: dozens → 0 (DLQ with reason, replayable) |
 | AX workflow approvals: the workflow batch job (`WorkflowMessageProcessingTask`) runs every minute and the work-item list is refreshed manually; escalation "due dates" silently fail when the batch server is down | Workflow runtime is a polling batch job on the AOS | Temporal workflows with durable timers; work item pushed to the inbox by event | Submit-to-inbox latency: 1–5 min → < 2 s; missed escalations due to batch outage: possible → 0 (timers survive restarts) |
@@ -1522,7 +1522,7 @@ AX runs approvals through the workflow framework (`WorkflowTable`, `WorkflowVers
 
 ### 0.4.2 AX / SAP parity map
 
-| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Passage equivalent | Parity |
+| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Depot equivalent | Parity |
 |---|---|---|---|---|
 | Change notification | Business events (D365 `BusinessEventsBase`), AIF outbound ports, alerts (`EventInbox`) | Event type linkage SWE2, change pointers BD21, IDoc outbound | CloudEvents on Kafka via outbox; AsyncAPI per topic | improved |
 | Reliable publish | AIF queue (`AifGatewayQueue`), dual-write risk in X++ | tRFC/qRFC (SM58), IDoc status 03 | Debezium outbox event router; exactly-once effect | improved |
@@ -1538,11 +1538,11 @@ AX runs approvals through the workflow framework (`WorkflowTable`, `WorkflowVers
 
 ### 0.4.3 Functional requirements
 
-- **FR-4.1 Kafka and topics** — Must. The system shall run Strimzi-managed Kafka (3 brokers in cloud, 1 in k3d, KRaft) with topics named `passage.<domain>.<aggregate>` (the version lives in the CloudEvents type), partition key = aggregate id, 12 partitions default, retention 7 days (entity-state topics compacted), and CloudEvents 1.0 JSON envelopes with extensions `tenantid`, `legalentityid`, `traceparent`, `actor`.
+- **FR-4.1 Kafka and topics** — Must. The system shall run Strimzi-managed Kafka (3 brokers in cloud, 1 in k3d, KRaft) with topics named `depot.<domain>.<aggregate>` (the version lives in the CloudEvents type), partition key = aggregate id, 12 partitions default, retention 7 days (entity-state topics compacted), and CloudEvents 1.0 JSON envelopes with extensions `tenantid`, `legalentityid`, `traceparent`, `actor`.
   - Notes: no per-tenant topics; consumers filter by `tenantid` header; max message 1 MB, larger payloads use a claim-check reference (object storage URL).
 - **FR-4.2 Transactional outbox** — Must. Every service shall write domain changes and an `outbox_event` row in the same transaction; Debezium (one connector per domain database, pgoutput) with the outbox event router publishes and never writes to Kafka from application code.
   - Notes: outbox columns id, aggregate_type, aggregate_id, event_type, payload (jsonb), headers (jsonb), created_at; rows deleted after 24 h by a sweep; publish lag p95 ≤ 500 ms.
-- **FR-4.3 Schema registry** — Must. Event payload schemas shall be JSON Schema derived from the metadata registry (`dev.passage.<domain>.<entity>.<verb>.v<n>` ↔ entity version) registered with BACKWARD_TRANSITIVE compatibility; CI rejects an incompatible schema.
+- **FR-4.3 Schema registry** — Must. Event payload schemas shall be JSON Schema derived from the metadata registry (`dev.depot.<domain>.<entity>.<verb>.v<n>` ↔ entity version) registered with BACKWARD_TRANSITIVE compatibility; CI rejects an incompatible schema.
 - **FR-4.4 AsyncAPI generation** — Must. The generator from wave 3 shall emit an AsyncAPI 3.0 document per domain listing topics, event types and schemas; published at `/v1/events/asyncapi/{domain}`.
 - **FR-4.5 Consumer library** — Must. Go and TS libraries shall provide idempotent consumption keyed by CloudEvents `id` (dedupe table per consumer group, 7-day window), ordered processing per partition, retry with exponential backoff (1 s → 5 min, 10 attempts) and a per-topic dead-letter topic `…dlq`.
 - **FR-4.6 Temporal cluster** — Must. The system shall run Temporal (CNPG persistence, 1 namespace per environment, `tenant_id` as a search attribute) with Go and TS SDK wrappers that inject tenant, actor and trace context into every workflow and activity.
@@ -1553,10 +1553,10 @@ AX runs approvals through the workflow framework (`WorkflowTable`, `WorkflowVers
 - **FR-4.9 Batch job framework** — Must. The system shall define jobs (`BatchJob`: handler name, parameters JSON Schema, partition strategy range|hash|list, partition count ≤ 256, concurrency ≤ 32, priority A/B/C, retry policy), schedule them by cron (tenant time zone) or on demand, execute each partition as a Temporal activity with checkpoints every N rows (default 10,000) and resume from the last checkpoint after failure.
   - Notes: statuses waiting, scheduled, executing, ended, error, hold, canceling, canceled; max run time default 6 h; a job may declare `exclusive=true` to prevent overlapping runs.
 - **FR-4.10 Job monitor** — Must. The system shall show runs, tasks, progress (rows/sec, ETA), logs and errors; allow cancel, hold, resume and rerun-failed-partitions; retain history 90 days.
-- **FR-4.11 Metadata-changed events** — Must. The metadata registry shall emit `dev.passage.metadata.entity.published.v1` through its own outbox (first production consumer of the backbone).
+- **FR-4.11 Metadata-changed events** — Must. The metadata registry shall emit `dev.depot.metadata.entity.published.v1` through its own outbox (first production consumer of the backbone).
 - **FR-4.12 Chaos and replay** — Should. The platform shall support topic replay from an offset or timestamp per consumer group and ship a chaos test that kills a service between commit and publish.
 - **FR-4.13 Outbound email and message delivery** — Must. The system shall provide a `notify` service (TS) with a provider adapter interface (`Send`, `GetStatus`, `IngestBounce`) implemented for SMTP (STARTTLS or implicit TLS, credentials via ESO) and for an HTTP API provider (the SMTP relay is the P0 default per open question 2); a per-tenant sender identity (from address, display name, reply-to, envelope domain whose SPF/DKIM/DMARC are the customer's responsibility and are checked by a "verify sender" action); an `OutboundMessage` queue (channel email | in_app | webhook; status queued → sending → sent | failed | bounced; attempts; provider message id); a distributor job (every 60 s, batch 500, 5 attempts with backoff 1 min → 1 h); a mail sending mode per tenant (`immediate` for workflow and alerts, `batch` for digests and reports); attachments ≤ 10 MB total per message; an outbound status inquiry; manual retry; and a bounce webhook/IMAP ingest that marks the message `bounced` and, after 3 hard bounces, flags the recipient user (`identity.user.email_status=bouncing`).
-  - Notes: in-app messages are rows in the same table read by the shell notification tray (wave 5) via SSE; webhook deliveries sign the body with HMAC-SHA256 (`X-Passage-Signature`) and retry on non-2xx; messages are retained 90 days (body) and 3 years (metadata); a tenant with no sender identity falls back to the platform default `no-reply@<env>.passage.dev` with a warning on the parameters form; the service never generates email in test environments unless `notify.allowlist_domains` matches the recipient.
+  - Notes: in-app messages are rows in the same table read by the shell notification tray (wave 5) via SSE; webhook deliveries sign the body with HMAC-SHA256 (`X-Depot-Signature`) and retry on non-2xx; messages are retained 90 days (body) and 3 years (metadata); a tenant with no sender identity falls back to the platform default `no-reply@<env>.depot.dev` with a warning on the parameters form; the service never generates email in test environments unless `notify.allowlist_domains` matches the recipient.
 - **FR-4.14 Message templates and notification settings** — Must. The system shall provide `MessageTemplate` (code, channel, language, subject, body in Mustache syntax with placeholders resolved from the entity record via metadata (`{{record.number}}`, `{{record.amount | money}}`), the workflow context (`{{workitem.due_at | date}}`, `{{instance.submitted_by.display_name}}`, `{{link}}` deep link to the work item or record) and standard texts from wave 5 (`{{text:CODE}}`); an HTML layout wrapper per tenant (logo, footer); versioning and `sys`/`customer` layers so customers override shipped templates per language); shipped `sys` templates for `workflow.workitem.assigned`, `.escalated`, `.delegated`, `instance.completed`, `instance.change_requested`, `batch.run.failed`, `identity.user.invited`; per-user `NotificationPreference` (per event class: in_app, email, none; digest none | daily at HH:MM | weekly on day; language; quiet hours); per-`WorkflowDefinition` flags (notify_on_assign, notify_on_escalate, notify_submitter_on_complete, comment_required); and a "preview with sample record" action.
   - Notes: rendering is fail-closed — a missing placeholder or render error marks the message `failed` with NTF-0407 instead of sending a blank; templates are rendered in the recipient's language, falling back to the tenant default then `en`; digests aggregate pending in-app items into one email at the chosen time (BR-4.12); user-level workflow delegation stays in `WorkItem` (FR-4.7) and is referenced, not duplicated, by preferences.
 
@@ -1570,7 +1570,7 @@ AX runs approvals through the workflow framework (`WorkflowTable`, `WorkflowVers
 | tenant_id | uuid | yes | RLS; copied to header `tenantid` |
 | aggregate_type | varchar(64) | yes | entity name; routes to topic |
 | aggregate_id | uuid | yes | partition key |
-| event_type | varchar(128) | yes | `dev.passage.<domain>.<entity>.<verb>.v<n>` |
+| event_type | varchar(128) | yes | `dev.depot.<domain>.<entity>.<verb>.v<n>` |
 | payload | jsonb | yes | CloudEvents `data` |
 | headers | jsonb | yes | traceparent, actor, legalentityid, schema_version |
 | created_at | timestamptz | yes | CloudEvents `time` |
@@ -1679,14 +1679,14 @@ Validation: approve/reject require a comment when the definition flags `comment_
 
 | Event | Trigger | Payload fields | Consumers |
 |---|---|---|---|
-| dev.passage.workflow.instance.submitted.v1 | submit | instance_id, entity, record_id, definition_version, submitted_by | owning service (sets record status), audit |
-| dev.passage.workflow.workitem.assigned.v1 | step entered / delegated | workitem_id, instance_id, assignee_id, due_at, step | shell inbox, notifier |
-| dev.passage.workflow.workitem.escalated.v1 | SLA timer fired | workitem_id, from_assignee, to_assignee, action | notifier, audit |
-| dev.passage.workflow.instance.completed.v1 | terminal status | instance_id, outcome (approved/rejected/canceled/recalled), completed_at | owning service, audit, shell |
-| dev.passage.batch.run.started.v1 / completed.v1 / failed.v1 | run transitions | job_code, run_id, rows_total, rows_done, duration_ms, error | job monitor, alerting, audit |
-| dev.passage.metadata.entity.published.v1 | registry outbox | (see wave 3) | events service (topic/schema create) |
-| dev.passage.notify.message.sent.v1 / failed.v1 / bounced.v1 | distributor outcome | message_id, channel, template_code, recipient_user_id (no address in payload), attempts, error | audit, alerting (`NotifyFailureRate`), identity (bounce flag) |
-| dev.passage.notify.template.published.v1 | template publish | code, version, language, layer | notify workers (cache reload), audit |
+| dev.depot.workflow.instance.submitted.v1 | submit | instance_id, entity, record_id, definition_version, submitted_by | owning service (sets record status), audit |
+| dev.depot.workflow.workitem.assigned.v1 | step entered / delegated | workitem_id, instance_id, assignee_id, due_at, step | shell inbox, notifier |
+| dev.depot.workflow.workitem.escalated.v1 | SLA timer fired | workitem_id, from_assignee, to_assignee, action | notifier, audit |
+| dev.depot.workflow.instance.completed.v1 | terminal status | instance_id, outcome (approved/rejected/canceled/recalled), completed_at | owning service, audit, shell |
+| dev.depot.batch.run.started.v1 / completed.v1 / failed.v1 | run transitions | job_code, run_id, rows_total, rows_done, duration_ms, error | job monitor, alerting, audit |
+| dev.depot.metadata.entity.published.v1 | registry outbox | (see wave 3) | events service (topic/schema create) |
+| dev.depot.notify.message.sent.v1 / failed.v1 / bounced.v1 | distributor outcome | message_id, channel, template_code, recipient_user_id (no address in payload), attempts, error | audit, alerting (`NotifyFailureRate`), identity (bounce flag) |
+| dev.depot.notify.template.published.v1 | template publish | code, version, language, layer | notify workers (cache reload), audit |
 
 ### 0.4.6 User experience
 
@@ -1727,7 +1727,7 @@ Rules: bulk approve is limited to 100 items per action and requires a confirmati
 - **AC-4.2** Given a 3-level chain (role → user → expression) with 4-hour SLAs, When step 2's assignee delegates and step 3 times out with `delegate_to admin`, Then the instance completes approved after simulated clock advance and the timeline shows 5 work items. (FR-4.7)
 - **AC-4.3** Given a batch job over 1,000,000 synthetic rows in 16 hash partitions, When the worker pod is killed at ~40%, Then the run resumes and ends with rows_done = 1,000,000 and no duplicate side effects. (FR-4.9)
 - **AC-4.4** Given a schema change that removes a required field, When CI registers it, Then the registry rejects it with the incompatible path. (FR-4.3)
-- **AC-4.5** Given an entity publish in the registry, When the outbox is captured, Then a message on topic `passage.metadata.entity` with type `dev.passage.metadata.entity.published.v1` exists within 1 s. (FR-4.11)
+- **AC-4.5** Given an entity publish in the registry, When the outbox is captured, Then a message on topic `depot.metadata.entity` with type `dev.depot.metadata.entity.published.v1` exists within 1 s. (FR-4.11)
 - **AC-4.6** Given a submitter recalls after step 1 approved, When the action is sent, Then 409 `RECALL_NOT_ALLOWED`. (BR-4.1)
 - **AC-4.7** Given a consumer group replay from `T-1h`, When executed, Then events are redelivered and the dedupe table suppresses side effects for already-processed ids. (FR-4.12)
 - **AC-4.8** Given an exclusive job with a running instance, When a second run is requested, Then 409 `RUN_OVERLAP`. (FR-4.9)
@@ -1760,10 +1760,10 @@ Charts: `strimzi-kafka` (cluster CR), `debezium-connect` (one connector per doma
 
 ### 0.4.11 Migration from AX / SAP
 
-| Source | Passage entity | Notes |
+| Source | Depot entity | Notes |
 |---|---|---|
 | AX `WorkflowTable` / `WorkflowVersionTable` (approval elements, conditions) | WorkflowDefinition | exported via workflow export XML; steps mapped where assignee type is user/role; hierarchy-based assignees flagged for wave 42 |
-| AX `BatchJob` / `Batch` / `SysRecurrence` | BatchJob | only jobs whose handler has a Passage equivalent (listed per later wave); recurrence → cron |
+| AX `BatchJob` / `Batch` / `SysRecurrence` | BatchJob | only jobs whose handler has a Depot equivalent (listed per later wave); recurrence → cron |
 | SAP TBTCO/TBTCP (job name, program, variant, period) | BatchJob | same rule; variants → params |
 | SAP SWDD workflow templates (WS*), PFAC rules | WorkflowDefinition | manual rebuild from a generated inventory report |
 | In-flight work items (`WorkflowWorkItemTable`, SWWWIHEAD) | not migrated | cut over by completing or canceling in the source system (wave 49 runbook) |
@@ -1805,11 +1805,11 @@ Tenant values live on Admin workspace → Workflow parameters, Batch parameters 
 | `batch.history_retention_days` | tenant | int | 90 | 30–730 | FR-4.10 | Batch job history cleanup | SM37 → delete old jobs (RSBTCDEL2) |
 | `notify.provider` | tenant | enum | smtp | smtp, http_api | FR-4.13 adapter | Email parameters → SMTP / Exchange | SCOT SMTP node |
 | `notify.smtp.host`, `.port`, `.tls`, `.credential_ref` | tenant | string, int, enum, secret ref | platform relay, 587, starttls, ESO path | — | outbound SMTP | Email parameters → SMTP server, port, SSL, user/password | SCOT node → host, port, TLS, logon data |
-| `notify.sender.from`, `.display_name`, `.reply_to` | tenant (legal entity override) | email, string, email | `no-reply@<env>.passage.dev` | verified domain | sender identity | Email parameters → "Send from" | SCOT default domain, SO_USER_AUTOMATIC |
+| `notify.sender.from`, `.display_name`, `.reply_to` | tenant (legal entity override) | email, string, email | `no-reply@<env>.depot.dev` | verified domain | sender identity | Email parameters → "Send from" | SCOT default domain, SO_USER_AUTOMATIC |
 | `notify.mode` | tenant | enum per event class | immediate (workflow, alerts), batch (digests) | immediate, batch | when the distributor sends | Mail sending mode: batch / client | SCOT send job RSCONN01 period |
 | `notify.distributor_interval_seconds` | environment | int | 60 | 15–900 | distributor polling | Email distributor batch recurrence | RSCONN01 job period |
 | `notify.max_attempts` | tenant | int | 5 | 1–10 | BR-4.11 | Email distributor "Retries" | SCOT retry settings |
-| `notify.allowlist_domains` | environment | domain list | empty in prod, `passage.dev` in dev/stage | domains | non-prod recipient guard | none | SCOT address area restrictions |
+| `notify.allowlist_domains` | environment | domain list | empty in prod, `depot.dev` in dev/stage | domains | non-prod recipient guard | none | SCOT address area restrictions |
 | `notify.body_retention_days`, `notify.metadata_retention_years` | tenant | int, int | 90, 3 | 7–365, 1–10 | outbound history retention | Outbound email status cleanup | SOST reorg (RSBCS_REORG) |
 | `notify.default_language` | tenant | BCP 47 | en | any | template fallback | Email templates default language | SO10 language key fallback |
 
@@ -1838,7 +1838,7 @@ Tenant values live on Admin workspace → Workflow parameters, Batch parameters 
 | Completion email to submitter | `instance.completed` with `notify_submitter_on_complete` | outcome, approver, comment, link | email | none | same |
 | Daily / weekly digest | digest schedule (BR-4.12) | list of pending items grouped by entity with due dates | email | none | same |
 | Batch failure email | `batch.run.failed` to job owner | job, run, failed partitions, first error, link to monitor | email | none | same |
-| Webhook delivery | subscribed event class | CloudEvents JSON body, `X-Passage-Signature` | HTTPS POST | CloudEvents `id` | delivery log 3 years |
+| Webhook delivery | subscribed event class | CloudEvents JSON body, `X-Depot-Signature` | HTTPS POST | CloudEvents `id` | delivery log 3 years |
 | AsyncAPI document | metadata publish | channels, messages, schemas | AsyncAPI 3.0 YAML/JSON | entity version | retained per version |
 
 ### 0.4.16 Periodic and batch jobs
@@ -1936,11 +1936,11 @@ Tenant values live on Admin workspace → Workflow parameters, Batch parameters 
 
 ### 0.5.1 Scope and business context
 
-AX users work in list pages and details forms generated from the AOT (form datasources, `ListPageInteraction`, action panes, FactBoxes, `SysQueryForm` advanced filters, `SysLastValue` personalization, `SysTableLookup` lookups, Infolog) and D365 workspaces, saved views and the Excel add-in; SAP users work in SAP GUI dynpros and ALV grids with layout variants, F4 search helps, SE16N, and the Fiori launchpad with catalogs and groups. Document numbering comes from AX `NumberSequenceTable` / `NumberSequenceReference` / `NumberSequenceScope` (shared, company, legal entity, fiscal calendar period, operating unit) with continuous and non-continuous modes and `NumberSequenceList` pre-allocation, or SAP `SNRO` number range objects with `NRIV` intervals, buffering (`NRIV_LOKAL`) and gap-free settings. Change tracking is AX `SysDatabaseLog` / `SysDatabaseLogSetup` (Insert/Update/Delete/RenameKey) or SAP change documents (`CDHDR`/`CDPOS`, `SCDO` objects, `DBTABLOG` table logging). Monitoring is LCS environment monitoring or Solution Manager / ST03N / SM21 / ST22. Wave 5 replaces all of this with a React module-federation shell, a metadata-driven form renderer, a number sequence service with a Jepsen-tested gap-free mode, an audit service that derives field-level history from CDC into a hash-chained append-only store, OpenTelemetry across every service into Prometheus/Tempo/Loki/Grafana, and CSV/XLSX import-export against any entity. At wave end the admin workspace runs at `app.<env>.passage.dev` and Phase 0 is demonstrated to stakeholders. Out of scope: full-text search across business documents and analytics content beyond attachment text (wave 46), report designer (wave 15), mobile PWA (wave 32), localization of labels (wave 48), fiscal-period scopes for sequences (wave 6 supplies calendars; scope type is reserved here).
+AX users work in list pages and details forms generated from the AOT (form datasources, `ListPageInteraction`, action panes, FactBoxes, `SysQueryForm` advanced filters, `SysLastValue` personalization, `SysTableLookup` lookups, Infolog) and D365 workspaces, saved views and the Excel add-in; SAP users work in SAP GUI dynpros and ALV grids with layout variants, F4 search helps, SE16N, and the Fiori launchpad with catalogs and groups. Document numbering comes from AX `NumberSequenceTable` / `NumberSequenceReference` / `NumberSequenceScope` (shared, company, legal entity, fiscal calendar period, operating unit) with continuous and non-continuous modes and `NumberSequenceList` pre-allocation, or SAP `SNRO` number range objects with `NRIV` intervals, buffering (`NRIV_LOKAL`) and gap-free settings. Change tracking is AX `SysDatabaseLog` / `SysDatabaseLogSetup` (Insert/Update/Delete/RenameKey) or SAP change documents (`CDHDR`/`CDPOS`, `SCDO` objects, `DBTABLOG` table logging). Monitoring is LCS environment monitoring or Solution Manager / ST03N / SM21 / ST22. Wave 5 replaces all of this with a React module-federation shell, a metadata-driven form renderer, a number sequence service with a Jepsen-tested gap-free mode, an audit service that derives field-level history from CDC into a hash-chained append-only store, OpenTelemetry across every service into Prometheus/Tempo/Loki/Grafana, and CSV/XLSX import-export against any entity. At wave end the admin workspace runs at `app.<env>.depot.dev` and Phase 0 is demonstrated to stakeholders. Out of scope: full-text search across business documents and analytics content beyond attachment text (wave 46), report designer (wave 15), mobile PWA (wave 32), localization of labels (wave 48), fiscal-period scopes for sequences (wave 6 supplies calendars; scope type is reserved here).
 
 #### Pain points solved (10x lens)
 
-| Pain point in AX/SAP today | Root cause | Passage answer in this wave | Measurable 10x target |
+| Pain point in AX/SAP today | Root cause | Depot answer in this wave | Measurable 10x target |
 |---|---|---|---|
 | Editing 50 vendor records in AX means 50 details-form round trips (open, edit, save) or an Excel add-in session that fails on the first validation error; SAP needs an LSMW recording or XK02 one by one | Forms are record-at-a-time; bulk edit is an external tool | Grid inline edit, bulk edit of a field across ≤ 1,000 selected rows, validated per row with per-row error reporting | Clicks for 50 edits: ~300 → ~6; failed bulk sessions due to one bad row: all-or-nothing → partial with error file |
 | Continuous number sequences in AX serialize on `NumberSequenceTable` for the whole transaction, causing lock waits on sales-order entry; SAP gap-free NRIV without buffering shows as `NRIV` lock contention in SM12 | Lock held for the caller's full transaction | Allocation row with reserved → used/released lifecycle; lock held only for the allocation statement | Gap-free allocation p99: 100s of ms under load → ≤ 30 ms; buffered p99 ≤ 2 ms; gaps and duplicates: 0 (Jepsen-tested) |
@@ -1950,7 +1950,7 @@ AX users work in list pages and details forms generated from the AOT (form datas
 
 ### 0.5.2 AX / SAP parity map
 
-| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Passage equivalent | Parity |
+| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Depot equivalent | Parity |
 |---|---|---|---|---|
 | Navigation / workspaces | Navigation pane, area pages, D365 workspaces and tiles | Fiori launchpad (FLP), catalogs/groups, SAP menu (SE43) | Shell navigation by workspace, tiles bound to saved views | full |
 | List page | List page framework, `ListPageInteraction`, action pane, quick filter | ALV grid (SALV), SE16N, layout variants | Generated list page with grid, filters, saved views | full |
@@ -1981,7 +1981,7 @@ AX users work in list pages and details forms generated from the AOT (form datas
   - Notes: references bind (entity, field, legal entity) to a sequence, mirroring `NumberSequenceReference`; `numseq(<code>)` is a valid field default from wave 3.
 - **FR-5.9 Gap-free and buffered allocation** — Must. Continuous sequences shall allocate inside the caller's transaction with a `SELECT … FOR UPDATE` on the sequence/scope row and record an `Allocation` row (status reserved → used | released); a rollback releases the number to be reused by the next caller; p99 ≤ 30 ms at 500 rps per sequence. Non-continuous sequences shall pre-allocate a block per service instance and serve from memory, p99 ≤ 2 ms; unused numbers in a block are lost on restart (documented, like `NRIV_LOKAL`).
 - **FR-5.10 Audit capture** — Must. The audit service shall consume Debezium change events for every table whose entity or field has `audit=true`, and write `AuditEntry` (operation insert/update/delete, actor from `updated_by`, `trace_id` from the transaction's outbox header or `pg_current_xact_id` correlation, `occurred_at`) and `AuditField` rows for changed fields only, with `pii=sensitive` values stored as SHA-256 digests plus masked display.
-  - Notes: entry visible in the viewer within 2 s (p95) of commit; the audit database is `audit`, separate from domain databases; role `passage_app` has INSERT and SELECT only.
+  - Notes: entry visible in the viewer within 2 s (p95) of commit; the audit database is `audit`, separate from domain databases; role `depot_app` has INSERT and SELECT only.
 - **FR-5.11 Immutable hash chain** — Must. Each `AuditEntry` shall store `prev_hash` (previous entry for the same tenant) and `hash = SHA-256(prev_hash ‖ canonical_json(entry + fields))`; a daily job writes the chain head per tenant to an anchor table and to object storage; `GET …/verify` recomputes a range.
 - **FR-5.12 Audit viewer** — Must. From any record the user shall open "History" showing entries with user, time, trace id, operation and before/after per field, filterable by field and date, exportable; a global audit workspace searches by entity, record, user, date range.
 - **FR-5.13 OpenTelemetry** — Must. Every service shall emit traces (W3C `traceparent` propagated gateway → service → Postgres spans → outbox header → Kafka consumer → Temporal activities), RED metrics (`http_server_requests`, `db_query_duration`, `kafka_consume_lag`, `temporal_activity_duration`) and structured JSON logs with `trace_id`, `tenant_id`, `actor`; the shell emits browser spans for navigation and API calls.
@@ -2134,15 +2134,15 @@ Invariants: `next ≤ largest` unless `wrap`; for continuous sequences the set o
 
 | Event | Trigger | Payload fields | Consumers |
 |---|---|---|---|
-| dev.passage.numseq.number.allocated.v1 | continuous allocation `used` or `released` | sequence_code, scope_value, number, status, tx_ref, actor | audit |
-| dev.passage.audit.entry.recorded.v1 | entry committed | entry_id, tenant_id, entity, record_id, operation, hash, seq | shell live history, analytics (wave 46) |
-| dev.passage.audit.chain.anchored.v1 | daily anchor | tenant_id, seq, hash, anchor_ref | compliance evidence (wave 48) |
-| dev.passage.io.import.completed.v1 / failed.v1 | import terminal | import_id, entity, rows_ok, rows_failed, error_file_ref | shell inbox, audit |
-| dev.passage.ui.view.shared.v1 | saved view shared | view_id, entity, role_id, owner | shell cache |
-| dev.passage.docs.attachment.available.v1 / quarantined.v1 | scan outcome | attachment_id, version_no, document_type, links[], sha256, size | shell (refresh panel), audit, OCR capture (wave 18) |
-| dev.passage.docs.attachment.purged.v1 / archived.v1 | retention job | attachment_id, retention class, reason | audit, compliance evidence (wave 48) |
-| dev.passage.alerts.alert.fired.v1 | rule match | rule_id, entity, record_id, recipient_id, delivery | notify (wave 4), shell alert badge |
-| dev.passage.texts.standard-text.published.v1 | publish | code, language, version | notify template cache, layouts (wave 46) |
+| dev.depot.numseq.number.allocated.v1 | continuous allocation `used` or `released` | sequence_code, scope_value, number, status, tx_ref, actor | audit |
+| dev.depot.audit.entry.recorded.v1 | entry committed | entry_id, tenant_id, entity, record_id, operation, hash, seq | shell live history, analytics (wave 46) |
+| dev.depot.audit.chain.anchored.v1 | daily anchor | tenant_id, seq, hash, anchor_ref | compliance evidence (wave 48) |
+| dev.depot.io.import.completed.v1 / failed.v1 | import terminal | import_id, entity, rows_ok, rows_failed, error_file_ref | shell inbox, audit |
+| dev.depot.ui.view.shared.v1 | saved view shared | view_id, entity, role_id, owner | shell cache |
+| dev.depot.docs.attachment.available.v1 / quarantined.v1 | scan outcome | attachment_id, version_no, document_type, links[], sha256, size | shell (refresh panel), audit, OCR capture (wave 18) |
+| dev.depot.docs.attachment.purged.v1 / archived.v1 | retention job | attachment_id, retention class, reason | audit, compliance evidence (wave 48) |
+| dev.depot.alerts.alert.fired.v1 | rule match | rule_id, entity, record_id, recipient_id, delivery | notify (wave 4), shell alert badge |
+| dev.depot.texts.standard-text.published.v1 | publish | code, language, version | notify template cache, layouts (wave 46) |
 
 ### 0.5.6 User experience
 
@@ -2225,13 +2225,13 @@ Charts: `shell-web` (static assets behind the gateway, remotes manifest in Confi
 
 ### 0.5.11 Migration from AX / SAP
 
-| Source | Passage entity | Notes |
+| Source | Depot entity | Notes |
 |---|---|---|
 | AX `NumberSequenceTable` (NumberSequence, Txt, Format, Lowest, Highest, NextRec, Continuous, Manual, InUse, Wrap) + `NumberSequenceScope` | NumberSequence | `Format` `###-######` converted to segments; `NextRec` → `next` after cutover freeze; scope `DataAreaId` → legal entity code |
-| AX `NumberSequenceReference` (DataTypeId → NumberSequenceId) | sequence reference | EDT name mapped to Passage entity/field by crosswalk |
+| AX `NumberSequenceReference` (DataTypeId → NumberSequenceId) | sequence reference | EDT name mapped to Depot entity/field by crosswalk |
 | SAP NRIV (OBJECT, SUBOBJECT, NRRANGENR, FROMNUMBER, TONUMBER, NRLEVEL, EXTERNIND) | NumberSequence | SUBOBJECT (BUKRS) → scope value; EXTERNIND='X' → manual; buffering settings from TNRO → block_size |
 | AX `SysDatabaseLog` (table, recId, logType, createdBy, createdDateTime, data container) | AuditEntry/AuditField (read-only import) | loaded as historical entries with `source=ax`, excluded from the hash chain (separate chain `legacy`) |
-| SAP CDHDR/CDPOS (OBJECTCLAS, OBJECTID, CHANGENR, USERNAME, UDATE, UTIME, TABNAME, FNAME, VALUE_OLD, VALUE_NEW) | AuditEntry/AuditField | same treatment; OBJECTID resolved to Passage record ids via the migration run ledger (wave 10) |
+| SAP CDHDR/CDPOS (OBJECTCLAS, OBJECTID, CHANGENR, USERNAME, UDATE, UTIME, TABNAME, FNAME, VALUE_OLD, VALUE_NEW) | AuditEntry/AuditField | same treatment; OBJECTID resolved to Depot record ids via the migration run ledger (wave 10) |
 | D365 saved views / AX `SysLastValue` usage data; SAP ALV layout variants (LTDX) | SavedView | optional; only named, shared variants are imported |
 | AX `DocuRef` (RefTableId, RefRecId, TypeId, Name, Notes, Restriction) + `DocuValue` (FileName, FileType, Path / File container) + `DocuType` | Attachment / AttachmentVersion / AttachmentLink / DocumentType | file content copied from the archive directory, database container or SharePoint location to object storage; RefTableId/RefRecId resolved via the wave 10 run ledger; notes → kind=note |
 | SAP GOS (SRGBTBREL, SOOD, SOFFCONT1), ArchiveLink (TOA01–TOA03, TOAAT), DMS (DRAW, DRAD object links, originals in KPro) | same | content fetched via `SO_DOCUMENT_READ_API1` / ArchiveLink HTTP or KPro export; DRAD links → AttachmentLink; DMS versions → AttachmentVersion |
@@ -2279,7 +2279,7 @@ Values live on Admin workspace → Shell parameters, Number sequence parameters,
 | `alerts.due_date_time` | tenant | HH:MM tenant tz | 06:00 | any | daily due-date evaluation | Alert parameters → Due-date alert batch recurrence (`EventJobDueDate`) | ALRTCATDEF scheduling, SWE2 deadline events |
 | `alerts.max_per_rule_per_hour` | tenant | int | 500 | 10–10,000 | runaway-rule suspension (ALR-0505) | none | none |
 | `alerts.retention_days` | tenant | int | 90 | 7–365 | alert inbox retention | Alert parameters → "Alerts retention" (EventParameters) | ALRTPROC cleanup (SALRT_DELETE) |
-| `alerts.drilldown_base_url` | environment | URL | `https://app.<env>.passage.dev` | URL | deep-link target in alert email | Alert parameters → Drill-down target | Fiori launchpad intent base |
+| `alerts.drilldown_base_url` | environment | URL | `https://app.<env>.depot.dev` | URL | deep-link target in alert email | Alert parameters → Drill-down target | Fiori launchpad intent base |
 | `io.max_import_rows`, `io.staging_retention_days` | tenant | int, int | 1,000,000, 7 | ≤ 5 M, 1–30 | import size and staging cleanup | Data management parameters (DMFParameters) → staging cleanup | LSMW / Migration Cockpit project retention |
 | `otel.sampling.ratio`, `otel.sampling.latency_threshold_ms` | environment | decimal, int | 1.0 dev / 0.1 stage-prod, 1,000 | 0–1, 100–10,000 | FR-5.13 tail sampling | LCS trace capture settings | ST05 / SAT trace settings |
 | `alerting.webhook_url`, `alerting.routes` | environment | ESO ref, YAML | PagerDuty-compatible | — | Alertmanager routing (FR-5.14) | LCS monitoring alerts | Solution Manager alerting (CCMS RZ20 thresholds) |
@@ -2310,7 +2310,7 @@ No printed business documents (wave 15/46 layouts consume FR-5.18 texts and FR-5
 
 | Document | Trigger | Layout elements | Formats | Numbering sequence | Legal / retention requirement |
 |---|---|---|---|---|---|
-| List export | user export of a view (FR-5.15) | header row (column labels), rows per view, footer row with export time, user, filter, legal entity | CSV (UTF-8, RFC 4180), XLSX | none | not retained by Passage after 7 days (download link expiry) |
+| List export | user export of a view (FR-5.15) | header row (column labels), rows per view, footer row with export time, user, filter, legal entity | CSV (UTF-8, RFC 4180), XLSX | none | not retained by Depot after 7 days (download link expiry) |
 | Import error file | import validation | original columns + `row`, `field`, `code`, `message` | CSV, XLSX | import id | 7 days |
 | Audit history export | audit viewer export | entity, record, entries, chain seq range, verification result | CSV, JSON (with hashes for third-party verification) | none | requester's custody; source entries retained per 0.5.4 |
 | Audit chain anchor | daily job | tenant, seq, hash, timestamp | JSON object in WORM bucket | per-tenant seq | 10 years, object lock (compliance mode) |
@@ -2448,7 +2448,7 @@ No printed business documents (wave 15/46 layouts consume FR-5.18 texts and FR-5
 
 ## 1.0 Phase overview
 
-**Business outcome at phase exit.** A master-data steward can model the demo manufacturer end to end on Passage without touching AX or SAP: three legal entities, two plants, five warehouses and their hierarchies; one governed party record per customer, vendor and contact; a 500-item, 50-master product catalog released per legal entity; multi-level BOMs and routings under engineering change control; and a migration framework that has loaded all of it from a synthetic AX extract with 100% reconciliation. Every later phase (journal in wave 11, inventory in wave 16, orders in wave 26) filters by this enterprise structure, posts against these parties and products, and loads its own legacy data through this framework.
+**Business outcome at phase exit.** A master-data steward can model the demo manufacturer end to end on Depot without touching AX or SAP: three legal entities, two plants, five warehouses and their hierarchies; one governed party record per customer, vendor and contact; a 500-item, 50-master product catalog released per legal entity; multi-level BOMs and routings under engineering change control; and a migration framework that has loaded all of it from a synthetic AX extract with 100% reconciliation. Every later phase (journal in wave 11, inventory in wave 16, orders in wave 26) filters by this enterprise structure, posts against these parties and products, and loads its own legacy data through this framework.
 
 **Phase-exit sign-off criteria**
 - `make demo-seed` loads the demo manufacturer (3 legal entities, 2 sites, 5 warehouses, 3 hierarchy purposes) in under 2 minutes and every list page re-scopes on legal-entity switch (property test over 20 entities, 0 leaks).
@@ -2486,20 +2486,20 @@ No printed business documents (wave 15/46 layouts consume FR-5.18 texts and FR-5
 
 | Event name | Producer | Consumers | Payload summary |
 |---|---|---|---|
-| dev.passage.org.legalentity.created.v1 | org-service | party, product, ledger (w11), shell | legal_entity_id, code, name, country, currency, fiscal_calendar_id |
-| dev.passage.org.hierarchy.version.activated.v1 | org-service | security (OPA bundle), reporting, procurement | hierarchy_type_id, version_id, effective_from, node_count |
-| dev.passage.org.site.created.v1 / warehouse.created.v1 | org-service | product (released defaults), inventory (w16) | id, legal_entity_id, parent ids, address_id |
-| dev.passage.org.fiscalcalendar.generated.v1 | org-service | ledger (w11), period close (w14) | calendar_id, pattern, period_count, year |
-| dev.passage.party.created.v1 / updated.v1 | party-service | search index, migration, audit | party_id, type, name, primary_address_id |
-| dev.passage.party.customer.created.v1 / vendor.created.v1 | party-service | AR (w30), AP (w19), sales (w26), purchasing (w17) | party_id, legal_entity_id, account_number, group, terms |
-| dev.passage.party.merged.v1 | party-service | every service holding party_id FKs | survivor_id, merged_ids[], reference_rewrite_count |
-| dev.passage.party.change.approved.v1 | party-service (Temporal) | audit, notification | party_id, field, old, new, approver |
-| dev.passage.product.created.v1 / variant.created.v1 | product-service | engineering, inventory, pricing (w26) | product_id, master_id, dimension_values |
-| dev.passage.product.released.v1 | product-service | inventory, purchasing, sales, costing | product_id, legal_entity_id, item_model_group_id, defaults |
-| dev.passage.engineering.bom.version.activated.v1 | engineering-service | planning (w22), production (w21), costing (w39) | bom_version_id, product_id, site_id, effective_from, line_count |
-| dev.passage.engineering.route.version.activated.v1 | engineering-service | planning, scheduling (w23), production | route_version_id, operations[] |
-| dev.passage.engineering.eco.released.v1 | engineering-service | notification, audit, PLM adapter | eco_id, affected_versions[], release_date |
-| dev.passage.migration.run.completed.v1 | migration-service | notification, reconciliation UI, audit | run_id, project_id, counts{staged, loaded, rejected}, hash_match |
+| dev.depot.org.legalentity.created.v1 | org-service | party, product, ledger (w11), shell | legal_entity_id, code, name, country, currency, fiscal_calendar_id |
+| dev.depot.org.hierarchy.version.activated.v1 | org-service | security (OPA bundle), reporting, procurement | hierarchy_type_id, version_id, effective_from, node_count |
+| dev.depot.org.site.created.v1 / warehouse.created.v1 | org-service | product (released defaults), inventory (w16) | id, legal_entity_id, parent ids, address_id |
+| dev.depot.org.fiscalcalendar.generated.v1 | org-service | ledger (w11), period close (w14) | calendar_id, pattern, period_count, year |
+| dev.depot.party.created.v1 / updated.v1 | party-service | search index, migration, audit | party_id, type, name, primary_address_id |
+| dev.depot.party.customer.created.v1 / vendor.created.v1 | party-service | AR (w30), AP (w19), sales (w26), purchasing (w17) | party_id, legal_entity_id, account_number, group, terms |
+| dev.depot.party.merged.v1 | party-service | every service holding party_id FKs | survivor_id, merged_ids[], reference_rewrite_count |
+| dev.depot.party.change.approved.v1 | party-service (Temporal) | audit, notification | party_id, field, old, new, approver |
+| dev.depot.product.created.v1 / variant.created.v1 | product-service | engineering, inventory, pricing (w26) | product_id, master_id, dimension_values |
+| dev.depot.product.released.v1 | product-service | inventory, purchasing, sales, costing | product_id, legal_entity_id, item_model_group_id, defaults |
+| dev.depot.engineering.bom.version.activated.v1 | engineering-service | planning (w22), production (w21), costing (w39) | bom_version_id, product_id, site_id, effective_from, line_count |
+| dev.depot.engineering.route.version.activated.v1 | engineering-service | planning, scheduling (w23), production | route_version_id, operations[] |
+| dev.depot.engineering.eco.released.v1 | engineering-service | notification, audit, PLM adapter | eco_id, affected_versions[], release_date |
+| dev.depot.migration.run.completed.v1 | migration-service | notification, reconciliation UI, audit | run_id, project_id, counts{staged, loaded, rejected}, hash_match |
 
 **Phase-level risks**
 
@@ -2522,7 +2522,7 @@ Out of scope: ledger period *statuses* (wave 14 owns open/closed per module), wa
 
 **Pain points solved (10x lens)**
 
-| Pain point in AX/SAP today | Root cause | Passage answer in this wave | Measurable 10x target |
+| Pain point in AX/SAP today | Root cause | Depot answer in this wave | Measurable 10x target |
 |---|---|---|---|
 | AX organization hierarchy designer (OMHierarchyRelationship) only shows one effective date at a time; previewing "what changes on 2026-07-01" means publishing and re-opening; a mistaken publish cannot be undone | Hierarchy relationships are stored as flat ValidFrom/ValidTo rows with no version concept | Versioned trees with draft/published states, as-of slider and a diff view before publish (FR-6.3, FR-6.11) | Preview clicks 9→1; wrong-date publishes recoverable in 100% of cases via superseding version |
 | SAP enterprise structure (OX02/OX10/OX09/OX18/OB29) requires 6+ IMG transactions plus assignments to define one plant; a missing assignment surfaces only when the first goods movement fails | Configuration spread across customizing tables (T001, T001W, T001K, T001L, T024E) with assignment tables between them | One `Site` create carries its legal entity, calendar and default warehouse; invariants are checked at save, not at first transaction (FR-6.5) | Transactions 6→1; structural errors found at save: 100% vs ~0% |
@@ -2532,7 +2532,7 @@ Out of scope: ledger period *statuses* (wave 14 owns open/closed per module), wa
 
 ### 1.6.2 AX / SAP parity map
 
-| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Passage equivalent | Parity |
+| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Depot equivalent | Parity |
 |---|---|---|---|---|
 | Legal entity | CompanyInfo, `OMLegalEntity` form, DataAreaId | T001 company code (OX02) | org-service `LegalEntity`; Legal entities screen | full |
 | Operating units | OMOperatingUnit (dept, cost center, BU, value stream) | Cost center CSKS (KS01), profit center CEPC, controlling area TKA01 | `OperatingUnit` with `type` enum | full |
@@ -2580,13 +2580,13 @@ Out of scope: ledger period *statuses* (wave 14 owns open/closed per module), wa
 - **FR-6.9 UoM conversions** — Must. The system shall store conversions as `factor` and `offset` with numeric(28,12) precision and compute any-to-any within a class by path search of at most two hops.
   - Round-trip of 1 unit through A→B→A must return exactly 1 to 12 decimal places for the 50-pair fixture.
   - Temperature uses the offset (°C→°F: factor 1.8, offset 32).
-- **FR-6.10 Legal-entity context switch** — Must. The system shall carry `X-Passage-LegalEntity` on every request; generated list pages filter by it, and the OPA policy denies requests for entities the user has no role assignment in.
+- **FR-6.10 Legal-entity context switch** — Must. The system shall carry `X-Depot-LegalEntity` on every request; generated list pages filter by it, and the OPA policy denies requests for entities the user has no role assignment in.
 - **FR-6.11 Hierarchy designer UI** — Should. The system shall provide a drag-and-drop tree editor with an effective-date slider that previews the tree as of a chosen date and highlights nodes that change between versions.
 - **FR-6.12 Seed and export** — Should. The system shall export and import the complete organization model as a versioned JSON package (used by `make demo-seed` and by the migration framework in wave 10).
 - **FR-6.13 Address validation adapter** — Could. The system shall expose an address-validation adapter interface (normalize, suggest) with a null default; third-party adapters are out of scope for this wave.
 - **FR-6.14 Teams and team types** — Should. The system shall maintain team types (code, name, allowed member kinds `user` / `party`) and teams (code unique per tenant, name, description, team type, optional owning operating unit, `effective_from`/`effective_to`, status) with members (Keycloak user id or wave-7 party id, member role `member` / `lead`, `valid_from`/`valid_to`).
   - Teams are cross-organization groups, not hierarchy nodes; they are referenced by stewardship ownership (FR-7.11 `owner_team_id`), wave-4 work-item queues, address-book access (FR-7.18) and readiness-check assignment (FR-9.17).
-  - Limits: 5,000 teams per tenant, 2,000 members per team; membership changes publish `dev.passage.org.team.membership.changed.v1` (team_id, added[], removed[], as_of).
+  - Limits: 5,000 teams per tenant, 2,000 members per team; membership changes publish `dev.depot.org.team.membership.changed.v1` (team_id, added[], removed[], as_of).
   - Membership criteria (AX OMTeamMembershipCriterion) are an optional Rego filter over user attributes (e.g. `department == "D100"`), evaluated nightly by job ORG-J5; manual members are never removed by the rule.
 - **FR-6.15 Legal-entity copy from template** — Should. The system shall create a legal entity by copying an existing legal entity or a template package: number sequences (reset to start values), fiscal calendar assignment, parameters (§1.6.13), address purposes, and optionally sites and warehouses; code, name, country and accounting currency are supplied by the user.
   - Runs as Temporal workflow `copy-le-{target_code}`; every copied object receives a new id; transactional data is never copied.
@@ -2678,13 +2678,13 @@ Commands validate: codes against regex; address against country rules; hierarchy
 
 | Event (CloudEvents type) | Trigger | Payload fields | Consumers |
 |---|---|---|---|
-| dev.passage.org.legalentity.created.v1 | commit of legal entity | id, code, name, country_code, accounting_currency, time_zone | party, product, ledger, shell switcher |
-| dev.passage.org.legalentity.updated.v1 | PATCH commit | id, changed_fields[], version | shell, search |
-| dev.passage.org.operatingunit.created.v1 | commit | id, type, code, name | reporting, ledger dimensions |
-| dev.passage.org.hierarchy.version.activated.v1 | publish | hierarchy_type_id, purposes[], version_id, effective_from, node_count | OPA bundle builder, reporting, procurement |
-| dev.passage.org.site.created.v1 / warehouse.created.v1 / location.created.v1 | commit | id, legal_entity_id, parent_id, type, address_id | product, inventory |
-| dev.passage.org.address.changed.v1 | new address version | address_id, owner_type, owner_id, purposes[], valid_from | document services |
-| dev.passage.org.fiscalcalendar.generated.v1 | generate | calendar_id, fiscal_year, periods[] | ledger, period close |
+| dev.depot.org.legalentity.created.v1 | commit of legal entity | id, code, name, country_code, accounting_currency, time_zone | party, product, ledger, shell switcher |
+| dev.depot.org.legalentity.updated.v1 | PATCH commit | id, changed_fields[], version | shell, search |
+| dev.depot.org.operatingunit.created.v1 | commit | id, type, code, name | reporting, ledger dimensions |
+| dev.depot.org.hierarchy.version.activated.v1 | publish | hierarchy_type_id, purposes[], version_id, effective_from, node_count | OPA bundle builder, reporting, procurement |
+| dev.depot.org.site.created.v1 / warehouse.created.v1 / location.created.v1 | commit | id, legal_entity_id, parent_id, type, address_id | product, inventory |
+| dev.depot.org.address.changed.v1 | new address version | address_id, owner_type, owner_id, purposes[], valid_from | document services |
+| dev.depot.org.fiscalcalendar.generated.v1 | generate | calendar_id, fiscal_year, periods[] | ledger, period close |
 
 ### 1.6.6 User experience
 
@@ -2720,7 +2720,7 @@ Interaction rules: all grids support inline edit with validation on blur and a s
 ### 1.6.8 Acceptance criteria
 
 - **AC-6.1** (FR-6.3, FR-6.4) Given 1,000 effective-dated nodes across 5 purposes with 3 versions each, when the as-of API is called for 10,000 random (node, date) pairs, then every parent matches the fixture oracle and p95 latency < 20 ms.
-- **AC-6.2** (FR-6.10) Given a user assigned to legal entities USMF and DEMF, when they switch from USMF to DEMF, then all 20 generated list pages show only DEMF rows and a direct API call with `X-Passage-LegalEntity: FRMF` returns 403.
+- **AC-6.2** (FR-6.10) Given a user assigned to legal entities USMF and DEMF, when they switch from USMF to DEMF, then all 20 generated list pages show only DEMF rows and a direct API call with `X-Depot-LegalEntity: FRMF` returns 403.
 - **AC-6.3** (FR-6.9) Given the 50-pair conversion fixture, when each quantity is converted A→B→A, then the result equals the input to 12 decimal places.
 - **AC-6.4** (FR-6.7) Given calendar patterns 4-4-5, 13-period and calendar-year for fiscal 2026, when generated, then period boundaries equal the committed fixture files exactly, including the 53rd week in the 4-4-5 variant for 2028.
 - **AC-6.5** (FR-6.3, BR-6.2) Given a published version effective 2026-01-01, when a draft with `effective_from` 2025-12-01 is published without the backdate duty, then the request is rejected with 403 and no version changes state.
@@ -2751,11 +2751,11 @@ Reconciliation: node count per published version = closure rows with depth 0; co
 
 ### 1.6.10 Deployment and operations
 
-Helm chart `passage-org` (Deployment ×2 replicas, CloudNativePG cluster `org-db` with 3 instances, Debezium connector CR for the outbox table). Config: `ORG_HIERARCHY_MAX_NODES=50000`, `ORG_GEOCODER=null`, `ORG_SEED_PACKAGE=demo-manufacturer`. Migrations via Atlas from entity metadata, applied by an Argo CD pre-sync Job. Feature flags: `org.hierarchy_designer`, `org.address_validation_adapter`. Scheduled job: nightly closure-table integrity check (Temporal cron `0 2 * * *`). SLOs: read p95 < 50 ms, as-of p95 < 20 ms, availability 99.9%. Alerts: outbox lag > 60 s, closure integrity failure, OPA bundle rebuild older than 5 min after a security hierarchy activation. Runbook: "Hierarchy publish stuck" (check Temporal workflow `publish-hierarchy-{id}`), "Rebuild closure table" (`passagectl org rebuild-closure --version`). Rollback: Argo rollback to the previous digest; migrations in this wave are additive only, so no down-migration is needed.
+Helm chart `depot-org` (Deployment ×2 replicas, CloudNativePG cluster `org-db` with 3 instances, Debezium connector CR for the outbox table). Config: `ORG_HIERARCHY_MAX_NODES=50000`, `ORG_GEOCODER=null`, `ORG_SEED_PACKAGE=demo-manufacturer`. Migrations via Atlas from entity metadata, applied by an Argo CD pre-sync Job. Feature flags: `org.hierarchy_designer`, `org.address_validation_adapter`. Scheduled job: nightly closure-table integrity check (Temporal cron `0 2 * * *`). SLOs: read p95 < 50 ms, as-of p95 < 20 ms, availability 99.9%. Alerts: outbox lag > 60 s, closure integrity failure, OPA bundle rebuild older than 5 min after a security hierarchy activation. Runbook: "Hierarchy publish stuck" (check Temporal workflow `publish-hierarchy-{id}`), "Rebuild closure table" (`depotctl org rebuild-closure --version`). Rollback: Argo rollback to the previous digest; migrations in this wave are additive only, so no down-migration is needed.
 
 ### 1.6.11 Migration from AX / SAP
 
-| Source | Passage entity | Notes |
+| Source | Depot entity | Notes |
 |---|---|---|
 | AX CompanyInfo / OMLegalEntity (DataAreaId, Name, LanguageId, CurrencyCode via Ledger) | LegalEntity | DataAreaId → code (upper-cased); Ledger.AccountingCurrency → accounting_currency |
 | AX OMOperatingUnit (OMOperatingUnitNumber, OMOperatingUnitType) | OperatingUnit | type enum 1..4 → department/cost_center/business_unit/value_stream |
@@ -2771,7 +2771,7 @@ Helm chart `passage-org` (Deployment ×2 replicas, CloudNativePG cluster `org-db
 | SAP T009 / T009B | FiscalCalendar, FiscalPeriod | special periods 13–16 → adjustment periods when `sap_special_periods=true` |
 | SAP T006 / T006A / TCURC / TCURX / T005 | reference data | matched to ISO seed by code; unmatched custom units created |
 
-Validation: every migrated warehouse resolves to a site; every address passes country rules or lands in the exception queue; hierarchy versions must tile without gaps. Not migrated: AX `OMInternalOrganization` team records (no Passage equivalent in v1), SAP sales/purchasing organizations (modeled in waves 17 and 26 as procurement and sales hierarchies), SAP client (MANDT) which maps to tenant by configuration.
+Validation: every migrated warehouse resolves to a site; every address passes country rules or lands in the exception queue; hierarchy versions must tile without gaps. Not migrated: AX `OMInternalOrganization` team records (no Depot equivalent in v1), SAP sales/purchasing organizations (modeled in waves 17 and 26 as procurement and sales hierarchies), SAP client (MANDT) which maps to tenant by configuration.
 
 ### 1.6.12 Dependencies, risks, open questions
 
@@ -2926,7 +2926,7 @@ Out of scope: customer/vendor transactions and balances, bank account verificati
 
 **Pain points solved (10x lens)**
 
-| Pain point in AX/SAP today | Root cause | Passage answer in this wave | Measurable 10x target |
+| Pain point in AX/SAP today | Root cause | Depot answer in this wave | Measurable 10x target |
 |---|---|---|---|
 | In ECC the same supplier who is also a customer exists as LFA1 and KNA1 with two addresses that drift; S/4 CVI (`CVI_FS_CHECK_CUSTOMIZING`, `MDS_LOAD_COCKPIT`) is a months-long synchronization project | Two masters designed independently, linked by KNA1-LIFNR / LFA1-KUNNR cross references | Party is the only identity; roles reference it; addresses are shared by purpose (FR-7.1, FR-7.2) | Duplicate identities per real-world entity 2+→1; address drift incidents 0 |
 | AX duplicate check on DirPartyTable is exact-name only (`DirPartyTable.checkDuplicate`); near-duplicates ("ACME Corp." vs "Acme Corporation") pass and are found at year-end | No probabilistic matching | Fellegi-Sunter model (Splink) on name/tax id/address/phone with blocking (FR-7.5) | Planted near-duplicates caught: recall ≥ 0.90 vs ≈0.30 for exact match |
@@ -2936,7 +2936,7 @@ Out of scope: customer/vendor transactions and balances, bank account verificati
 
 ### 1.7.2 AX / SAP parity map
 
-| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Passage equivalent | Parity |
+| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Depot equivalent | Parity |
 |---|---|---|---|---|
 | Party | DirPartyTable, DirPerson, DirOrganization, DirPartyTable form (Global address book) | BUT000 (BP), BUT100 roles; ECC KNA1/LFA1 as separate masters | party-service `Party` with `party_type` person/organization | full |
 | Customer role | CustTable (AccountNum, CustGroup, PaymentTermId, CreditMax, InvoiceAccount), CustGroup, Customers list page | KNA1 (KUNNR), KNB1 (company code), KNVV (sales area), XD01/FD01 | `CustomerRole` (party_id, legal_entity_id) | full (sales-area data KNVV arrives in wave 26) |
@@ -2972,7 +2972,7 @@ Out of scope: customer/vendor transactions and balances, bank account verificati
   - IRS TIN matching adapter is an interface with a recorded fixture implementation in v1.
 - **FR-7.5 Duplicate detection** — Must. The system shall score candidate pairs on every create/update and on demand, using blocking on (normalized name first 4 chars | tax id | postal code+street number | phone last 7 | email domain) and a Fellegi-Sunter model with comparison levels for name (Jaro-Winkler ≥ 0.92 / ≥ 0.85 / else), tax id (exact), address (street+postal exact / postal only / else), phone, email.
   - Match weight ≥ 12 (probability ≈ 0.99) auto-flags as `likely_duplicate`; 6–12 flags `possible`; below 6 ignored.
-  - Create with a `likely_duplicate` candidate returns 409 with the candidates unless `X-Passage-Override-Duplicate: true` and the duty "Override duplicate check".
+  - Create with a `likely_duplicate` candidate returns 409 with the candidates unless `X-Depot-Override-Duplicate: true` and the duty "Override duplicate check".
   - Scoring of a single party against 1M parties completes in < 300 ms using blocking indexes.
 - **FR-7.6 Merge workflow and survivorship** — Must. The system shall merge N parties into one survivor through a Temporal workflow: pick survivor, resolve field conflicts by survivorship rules (most-recently-verified tax id, most-recently-updated address, non-empty wins, manual override), union roles (conflicting roles in the same legal entity require explicit choice), then rewrite references in every consuming service via `party.merged.v1` with acknowledgement tracking.
   - Merge is reversible for 30 days through a stored pre-merge snapshot.
@@ -3069,7 +3069,7 @@ Invariants: a party with status `merged` has no active roles; `account_number` n
 | GET | /party/v1/parties/{id} | Read (follows merged_into) | n/a | View parties |
 | PATCH | /party/v1/parties/{id} | Update; protected fields → pending change | version check | Maintain parties |
 | GET | /party/v1/parties:search?q=&role=customer&legalEntity= | Typeahead | n/a | View parties |
-| POST | /party/v1/parties/{id}/roles/customer | Add customer role in `X-Passage-LegalEntity` | key header | Maintain customers |
+| POST | /party/v1/parties/{id}/roles/customer | Add customer role in `X-Depot-LegalEntity` | key header | Maintain customers |
 | POST | /party/v1/parties/{id}/roles/vendor | Add vendor role | key header | Maintain vendors |
 | POST | /party/v1/parties/{id}/tax-registrations | Add and validate | key header | Maintain parties |
 | POST | /party/v1/tax-registrations/{id}:validate | Re-run adapter | idempotent (cached 30 d) | Maintain parties |
@@ -3083,14 +3083,14 @@ Validation: tax registration format per country before adapter call; role creati
 
 | Event | Trigger | Payload fields | Consumers |
 |---|---|---|---|
-| dev.passage.party.created.v1 | commit | party_id, party_number, party_type, name, primary_address_id | search index, migration, audit |
-| dev.passage.party.updated.v1 | commit of non-protected change | party_id, changed_fields[], version | search, consumers caching names |
-| dev.passage.party.customer.created.v1 | role commit | party_id, legal_entity_id, account_number, customer_group_id, payment_term_id, posting_profile_id, currency_code | AR, sales, pricing, credit |
-| dev.passage.party.vendor.created.v1 | role commit | party_id, legal_entity_id, account_number, vendor_group_id, payment_term_id | AP, purchasing |
-| dev.passage.party.duplicate.flagged.v1 | score ≥ 6 | candidate_id, party_a_id, party_b_id, match_weight | stewardship queue, notification |
-| dev.passage.party.merged.v1 | merge workflow enters awaiting_ack | survivor_id, merged_ids[], role_map{old_account→new_account}, merge_case_id | every service with party FKs; each replies on `dev.passage.party.merge.ack.v1` |
-| dev.passage.party.change.approved.v1 / rejected.v1 | workflow decision | party_id, field, old, new, approver_id, reason | audit, notification |
-| dev.passage.party.taxregistration.validated.v1 | adapter result | registration_id, status, source, validated_at | tax (wave 13), audit |
+| dev.depot.party.created.v1 | commit | party_id, party_number, party_type, name, primary_address_id | search index, migration, audit |
+| dev.depot.party.updated.v1 | commit of non-protected change | party_id, changed_fields[], version | search, consumers caching names |
+| dev.depot.party.customer.created.v1 | role commit | party_id, legal_entity_id, account_number, customer_group_id, payment_term_id, posting_profile_id, currency_code | AR, sales, pricing, credit |
+| dev.depot.party.vendor.created.v1 | role commit | party_id, legal_entity_id, account_number, vendor_group_id, payment_term_id | AP, purchasing |
+| dev.depot.party.duplicate.flagged.v1 | score ≥ 6 | candidate_id, party_a_id, party_b_id, match_weight | stewardship queue, notification |
+| dev.depot.party.merged.v1 | merge workflow enters awaiting_ack | survivor_id, merged_ids[], role_map{old_account→new_account}, merge_case_id | every service with party FKs; each replies on `dev.depot.party.merge.ack.v1` |
+| dev.depot.party.change.approved.v1 / rejected.v1 | workflow decision | party_id, field, old, new, approver_id, reason | audit, notification |
+| dev.depot.party.taxregistration.validated.v1 | adapter result | registration_id, status, source, validated_at | tax (wave 13), audit |
 
 ### 1.7.6 User experience
 
@@ -3122,7 +3122,7 @@ Interaction rules: the create-party dialog runs dedup after name and country are
 - **BR-7.11** Concurrent merges touching the same party are serialized by a Temporal workflow id `merge-{tenant}-{min(party_ids)}`; the second request receives 409 with the running case id.
 - **BR-7.12** Import rows with a `likely_duplicate` candidate are loaded with status `active` and a candidate record; they are not rejected, because migrations must be complete and reviewed afterward.
 - **BR-7.13** Installment amounts: `amount_i = round(total × pct_i / 100)` using the currency's general rounding (FR-6.16); the last installment absorbs the remainder (`total − Σ previous`); percent lines must sum to exactly 100.00 (`PTY-SCHED-PCT-SUM`); each due date applies BR-7.7 to the baseline (invoice) date.
-- **BR-7.14** Certification status is computed daily: `valid` while today < `valid_to − reminder_days`; `expiring` inside the window; `expired` after `valid_to`; `revoked` only manually with reason; each change emits `dev.passage.party.certification.status.changed.v1`.
+- **BR-7.14** Certification status is computed daily: `valid` while today < `valid_to − reminder_days`; `expiring` inside the window; `expired` after `valid_to`; `revoked` only manually with reason; each change emits `dev.depot.party.certification.status.changed.v1`.
 - **BR-7.15** One-time roles cannot carry credit limits, bank accounts, tax registrations or posting-profile overrides on the role (`PTY-ONETIME-FIELD`); they cannot be merged as survivors.
 - **BR-7.16** `head_office_of` requires both ends to hold the same role type (Customer–Customer or Vendor–Vendor) in the same legal entity; changing the head office while the branch has open items is refused through a wave-30/19 callback (returns "no open items" until those waves exist).
 - **BR-7.17** A permitted payee must be an active party with at least one verified bank account; removal takes effect immediately, addition only after approval.
@@ -3165,11 +3165,11 @@ Reconciliation: count(roles) per legal entity in import = source row count; Σ o
 
 ### 1.7.10 Deployment and operations
 
-Helm chart `passage-party` (service ×2, CloudNativePG `party-db`, Debezium connector, Splink scoring worker as a Python Deployment with 2 replicas, Temporal namespace `party`). Config: `PARTY_DEDUP_LIKELY_WEIGHT=12`, `PARTY_DEDUP_POSSIBLE_WEIGHT=6`, `PARTY_VIES_TIMEOUT_MS=5000`, `PARTY_MERGE_ACK_TIMEOUT_MIN=10`, `PARTY_APPROVAL_SLA_BUSINESS_DAYS=2`. Migrations additive via Atlas. Feature flags: `party.online_tax_validation`, `party.merge_revert`, `party.pii_masking` (default on). Scheduled jobs: weekly full re-score; daily VIES re-validation of registrations older than 30 days (max 5,000 per run); hourly stale-merge sweeper. SLOs: create p95 < 400 ms including dedup; search p95 < 100 ms; merge completion p95 < 5 min. Alerts: merge awaiting ack > 10 min; VIES failure rate > 20% over 15 min; duplicate queue > 1,000 open. Runbook entries: "Consumer not acking merge" (list registered consumers, `passagectl party merge-status`), "Re-train Splink model" (export labeled pairs, run `party-train`, publish model version). Rollback: previous digest; the Splink model version is pinned in config so a rollback restores scoring behavior.
+Helm chart `depot-party` (service ×2, CloudNativePG `party-db`, Debezium connector, Splink scoring worker as a Python Deployment with 2 replicas, Temporal namespace `party`). Config: `PARTY_DEDUP_LIKELY_WEIGHT=12`, `PARTY_DEDUP_POSSIBLE_WEIGHT=6`, `PARTY_VIES_TIMEOUT_MS=5000`, `PARTY_MERGE_ACK_TIMEOUT_MIN=10`, `PARTY_APPROVAL_SLA_BUSINESS_DAYS=2`. Migrations additive via Atlas. Feature flags: `party.online_tax_validation`, `party.merge_revert`, `party.pii_masking` (default on). Scheduled jobs: weekly full re-score; daily VIES re-validation of registrations older than 30 days (max 5,000 per run); hourly stale-merge sweeper. SLOs: create p95 < 400 ms including dedup; search p95 < 100 ms; merge completion p95 < 5 min. Alerts: merge awaiting ack > 10 min; VIES failure rate > 20% over 15 min; duplicate queue > 1,000 open. Runbook entries: "Consumer not acking merge" (list registered consumers, `depotctl party merge-status`), "Re-train Splink model" (export labeled pairs, run `party-train`, publish model version). Rollback: previous digest; the Splink model version is pinned in config so a rollback restores scoring behavior.
 
 ### 1.7.11 Migration from AX / SAP
 
-| Source | Passage entity | Notes |
+| Source | Depot entity | Notes |
 |---|---|---|
 | AX DirPartyTable (PartyNumber, Name, NameAlias, InstanceRelationType, LanguageId) | Party | InstanceRelationType DirPerson/DirOrganization → party_type |
 | AX DirPerson (FirstName, MiddleName, LastName, Gender, BirthDate via DirPersonName) | Party.person | names from DirPersonName valid-time current row |
@@ -3184,7 +3184,7 @@ Helm chart `passage-party` (service ×2, CloudNativePG `party-db`, Debezium conn
 | SAP LFA1 (LIFNR, NAME1, STCEG, SPERR, SPERM) + LFB1 (BUKRS, AKONT, ZTERM) | Party, VendorRole | KNA1-LIFNR / LFA1-KUNNR cross references pre-merge the party |
 | SAP BUT000 (PARTNER, TYPE, NAME_ORG1, NAME_FIRST, NAME_LAST) + BUT100 (RLTYP FLCU01/FLVN01/BUP001) + DFKKBPTAXNUM | Party, roles, TaxRegistration | roles map FLCU01→customer, FLVN01→vendor, BUP001→contact |
 | SAP ADRC / ADR2 / ADR6 / KNVK | PartyAddress, ElectronicAddress, ContactRole | ADR2 TEL_NUMBER + TELNR_CALL merged |
-| SAP T052 (ZTERM, ZTAGG, ZTAG1..3, ZPRZ1..2), TINC, KNKK (KLIMK, CTLPC) | PaymentTerm, DeliveryTerm, CreditProfile | T052 day-limit variants produce one Passage term per variant |
+| SAP T052 (ZTERM, ZTAGG, ZTAG1..3, ZPRZ1..2), TINC, KNKK (KLIMK, CTLPC) | PaymentTerm, DeliveryTerm, CreditProfile | T052 day-limit variants produce one Depot term per variant |
 
 Transformation notes: AX `Party` RecId joins are resolved through DirPartyTable.PartyNumber; SAP customer and vendor numbers are kept as `account_number` when they fit 20 characters, else a new sequence number is assigned and the SAP number stored as alias. Validation: every role must resolve to a legal entity and a group; tax ids failing format go to the stewardship queue, not rejection. Not migrated: AX `DirPartyRelationship` types other than contact-for; SAP sales-area (KNVV) and purchasing-org (LFM1) data (waves 26 and 17); SAP dunning data KNB5 (wave 30); AX `CustTrans`/`VendTrans` open items (transactional packs in wave 49).
 
@@ -3278,7 +3278,7 @@ Open questions: (1) Do Prospect roles need a number sequence or stay numberless 
 | Steward master data | duplicates, stewardship queue, PTY-J1/J7 results | none | Master data steward |
 | Merge parties | merge cases, `:revert` | Maintain vendors (same party), to prevent payee substitution | Master data steward lead |
 | Approve master data changes | `pending-changes/{id}:approve/:reject` | Maintain vendors / Maintain customers (no self-approval, BR-7.8) | AP manager, Credit manager, Controller |
-| Override duplicate check | `X-Passage-Override-Duplicate` | none | Master data steward lead |
+| Override duplicate check | `X-Depot-Override-Duplicate` | none | Master data steward lead |
 | Read personal data | `pii.read`; DSAR export | Administer migration (bulk export risk) | Privacy officer, HR administrator |
 
 ### 1.7.18 Message catalog
@@ -3290,7 +3290,7 @@ Open questions: (1) Do Prospect roles need a number sequence or stay numberless 
 | PTY-TAX-FORMAT | error | "{type} {number} does not match the {country} format." | Regex failure | Correct the number | FR-7.4 |
 | PTY-TAX-CHECKDIGIT | error | "Check digit of {number} is wrong." | Algorithm failure (mod-97, mod-89, mod-36) | Correct the number | FR-7.4 |
 | PTY-TAX-UNVERIFIED | warning | "Online validation unavailable; saved as unverified." | VIES/TIN timeout | None; PTY-J2 retries | FR-7.4 |
-| PTY-ROLE-LE-HEADER | error | "Select a legal entity before adding a role." | Missing `X-Passage-LegalEntity` | Set the entity | FR-7.2 |
+| PTY-ROLE-LE-HEADER | error | "Select a legal entity before adding a role." | Missing `X-Depot-LegalEntity` | Set the entity | FR-7.2 |
 | PTY-ROLE-GROUP-MISSING | error | "Group {code} does not exist in {entity}." | Unknown group | Create or pick a group | FR-7.3 |
 | PTY-MERGE-RUNNING | error | "Merge case {id} is already running for this party." | Concurrent merge | Wait for the running case | BR-7.11 |
 | PTY-MERGE-REVERT-BLOCKED | error | "{service} cannot split post-merge transactions." | Consumer refuses revert | Correct manually | BR-7.2 |
@@ -3349,7 +3349,7 @@ Out of scope: on-hand, costing values and inventory postings (waves 16, 20), sal
 
 **Pain points solved (10x lens)**
 
-| Pain point in AX/SAP today | Root cause | Passage answer in this wave | Measurable 10x target |
+| Pain point in AX/SAP today | Root cause | Depot answer in this wave | Measurable 10x target |
 |---|---|---|---|
 | Releasing an AX product to 10 companies means 10 passes through "Release products" plus editing InventTable defaults (item group, model group, site, warehouse) in each company; a missed default blocks the first PO with "Item model group not specified" | Release is a per-company copy with no template | Release profiles: one call releases to N entities with defaults derived from item group and site; missing-default check at release (FR-8.4) | Clicks per 10-entity release 60→3; first-transaction failures from missing defaults →0 |
 | SAP MM01 walks 15–20 views (basic, purchasing, MRP 1–4, accounting, costing); a material is "created" but unusable in a plant until every view is extended (MM01 extend) | View-based material master with per-plant/storage segments (MARC/MARD) each needing separate maintenance | One product record plus released-product per entity; plant-level data derives from site defaults (FR-8.4) | Time to a usable material in a new plant 25 min→<1 min |
@@ -3359,7 +3359,7 @@ Out of scope: on-hand, costing values and inventory postings (waves 16, 20), sal
 
 ### 1.8.2 AX / SAP parity map
 
-| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Passage equivalent | Parity |
+| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Depot equivalent | Parity |
 |---|---|---|---|---|
 | Shared product | EcoResProduct, EcoResDistinctProduct, EcoResProductMaster, Product details form, ProductNumber | MARA (MATNR, MTART, MEINS, MATKL), MM01/MM02/MM03 | product-service `Product` (product_type item/service, subtype product/master) | full |
 | Variants and dimensions | EcoResProductDimensionGroup, EcoResSize/Color/Style/Configuration, EcoResDistinctProductVariant, EcoResProductVariantDimensionValue | Generic material + variants (MARA-SATNR, KZKFG), characteristics CABN/CAWN | `DimensionGroup`, `DimensionValue`, `ProductVariant` | full |
@@ -3404,7 +3404,7 @@ Out of scope: on-hand, costing values and inventory postings (waves 16, 20), sal
 - **FR-8.12 Product search and catalogs** — Should. The system shall provide typeahead over product number, name, GTIN and attribute values, filtered by legal entity and category, p95 < 100 ms at 1M products, and allow catalogs as named category subtrees with a validity range.
 - **FR-8.13 Product relations** — Should. The system shall maintain relation types (seeded: accessory, cross_sell, up_sell, substitute, spare_part, consumable, same_family; tenant-extensible) with a `symmetric` flag, and relations from a product or variant to another product or variant with sort order and `valid_from`/`valid_to`.
   - Maximum 200 relations per product; symmetric types create and delete the inverse in the same transaction.
-  - Sales order entry (waves 26–27) reads `GET /product/v1/products/{id}/relations?type=` for suggestions; event `dev.passage.product.relation.changed.v1`.
+  - Sales order entry (waves 26–27) reads `GET /product/v1/products/{id}/relations?type=` for suggestions; event `dev.depot.product.relation.changed.v1`.
 - **FR-8.14 Configurable lifecycle states with process policies** — Must. The system shall let tenants define lifecycle states (code, name, category ∈ {draft, active, phase_out, obsolete} from FR-8.10, `default_for_new`, applies to product / released product / engineering version) and, per state, a policy of `allow`, `warn` or `block` for each business process: purchase_requisition, purchase_order, sales_quotation, sales_order, transfer_order, production_order, bom_line_use, master_planning, inventory_receipt, inventory_issue, counting, return_order.
   - `GET /product/v1/released-products/{id}/process-policy?process=` answers in < 10 ms p95; consumers cache the result and refresh on `releasedproduct.updated.v1`.
   - FR-8.10 boolean blocks stay as overrides (BR-8.12).
@@ -3503,12 +3503,12 @@ Validation: dimension values must exist in the dimension group; release rejects 
 
 | Event | Trigger | Payload fields | Consumers |
 |---|---|---|---|
-| dev.passage.product.created.v1 | commit | product_id, product_number, subtype, product_type, base_uom | engineering, search |
-| dev.passage.product.variant.created.v1 | per explosion checkpoint (batched, ≤ 500 ids) | master_id, variant_ids[], dimension_values[] | engineering, pricing, inventory |
-| dev.passage.product.released.v1 | release commit | product_id, legal_entity_id, item_number, item_group_id, item_model_group_id, default_site_id, default_warehouse_id, uoms | inventory, purchasing, sales, costing, planning |
-| dev.passage.product.releasedproduct.updated.v1 | PATCH | released_product_id, changed_fields[], blocks, lifecycle_state | all transactional services |
-| dev.passage.product.identifier.added.v1 | commit | product_id, type, value, uom_id | WMS (wave 31), EDI (wave 35) |
-| dev.passage.product.configuration.solved.v1 | solve returning a variant | model_id, master_id, selections, result_product_id | sales (wave 27), engineering |
+| dev.depot.product.created.v1 | commit | product_id, product_number, subtype, product_type, base_uom | engineering, search |
+| dev.depot.product.variant.created.v1 | per explosion checkpoint (batched, ≤ 500 ids) | master_id, variant_ids[], dimension_values[] | engineering, pricing, inventory |
+| dev.depot.product.released.v1 | release commit | product_id, legal_entity_id, item_number, item_group_id, item_model_group_id, default_site_id, default_warehouse_id, uoms | inventory, purchasing, sales, costing, planning |
+| dev.depot.product.releasedproduct.updated.v1 | PATCH | released_product_id, changed_fields[], blocks, lifecycle_state | all transactional services |
+| dev.depot.product.identifier.added.v1 | commit | product_id, type, value, uom_id | WMS (wave 31), EDI (wave 35) |
+| dev.depot.product.configuration.solved.v1 | solve returning a variant | model_id, master_id, selections, result_product_id | sales (wave 27), engineering |
 
 ### 1.8.6 User experience
 
@@ -3584,11 +3584,11 @@ Reconciliation: count(variants) = |size| × |color| × |style| × |config| for f
 
 ### 1.8.10 Deployment and operations
 
-Helm chart `passage-product` (Go service ×2, CloudNativePG `product-db`, Debezium connector, `product-configurator` Python worker with OR-Tools, 2 replicas, 1 CPU / 1 GiB each). Config: `PRODUCT_MAX_VARIANTS=10000`, `PRODUCT_EXPLODE_CHECKPOINT=500`, `PRODUCT_CFG_TIME_LIMIT_MS=2000`, `PRODUCT_GS1_PREFIX` per tenant in the tenant settings entity, object storage bucket `passage-product-media`. Feature flags: `product.configurator`, `product.gs1_allocation`, `product.catalogs`. Scheduled jobs: nightly incomplete-attribute report; weekly orphan media sweep. SLOs: read p95 < 50 ms; release of 1,000 products < 60 s; solve p95 < 500 ms. Alerts: explosion job failed; configurator worker queue depth > 100; media bucket errors. Runbook: "Explosion job stuck" (Temporal `explode-{master_id}` inspect, resume from checkpoint), "Re-apply release profile". Rollback: previous digest; additive migrations only.
+Helm chart `depot-product` (Go service ×2, CloudNativePG `product-db`, Debezium connector, `product-configurator` Python worker with OR-Tools, 2 replicas, 1 CPU / 1 GiB each). Config: `PRODUCT_MAX_VARIANTS=10000`, `PRODUCT_EXPLODE_CHECKPOINT=500`, `PRODUCT_CFG_TIME_LIMIT_MS=2000`, `PRODUCT_GS1_PREFIX` per tenant in the tenant settings entity, object storage bucket `depot-product-media`. Feature flags: `product.configurator`, `product.gs1_allocation`, `product.catalogs`. Scheduled jobs: nightly incomplete-attribute report; weekly orphan media sweep. SLOs: read p95 < 50 ms; release of 1,000 products < 60 s; solve p95 < 500 ms. Alerts: explosion job failed; configurator worker queue depth > 100; media bucket errors. Runbook: "Explosion job stuck" (Temporal `explode-{master_id}` inspect, resume from checkpoint), "Re-apply release profile". Rollback: previous digest; additive migrations only.
 
 ### 1.8.11 Migration from AX / SAP
 
-| Source | Passage entity | Notes |
+| Source | Depot entity | Notes |
 |---|---|---|
 | AX EcoResProduct (DisplayProductNumber, ProductType, InstanceRelationType), EcoResProductTranslation (Name, Description) | Product, translations | InstanceRelationType EcoResProductMaster → subtype master |
 | AX EcoResProductMaster + EcoResProductDimensionGroup, EcoResProductMasterDimensionValue (Size/Color/Style/Configuration tables) | DimensionGroup, DimensionValue | dimension names kept as AX names unless renamed in mapping |
@@ -3778,7 +3778,7 @@ Out of scope: production orders (wave 21), capacity scheduling and Gantt (wave 2
 
 **Pain points solved (10x lens)**
 
-| Pain point in AX/SAP today | Root cause | Passage answer in this wave | Measurable 10x target |
+| Pain point in AX/SAP today | Root cause | Depot answer in this wave | Measurable 10x target |
 |---|---|---|---|
 | AX BOM designer (BOMDesigner form) loads a 7-level, 2,000-component BOM in 30–90 s and the "Calculate" explosion runs as a batch (BOMCalcJob) that users wait minutes for | Recursive X++ explosion row by row over BOMVersion/BOM | Closure-table-backed explosion service; 2,000 components in < 500 ms (FR-9.9) | Explosion 60 s–5 min→<0.5 s |
 | SAP CS03 shows one BOM alternative at one date; "what is active on 2026-06-01" means CS03 with a key date, CS80 where-used, and CC03 change number, three transactions and still no diff | BOM validity scattered across STKO/STPO DATUV with AENNR change numbers | Versioned BOMs with as-of resolution, side-by-side version diff and effective-date preview (FR-9.1, FR-9.3) | Transactions to answer "what is active when" 3→1; clicks 15→2 |
@@ -3788,7 +3788,7 @@ Out of scope: production orders (wave 21), capacity scheduling and Gantt (wave 2
 
 ### 1.9.2 AX / SAP parity map
 
-| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Passage equivalent | Parity |
+| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Depot equivalent | Parity |
 |---|---|---|---|---|
 | BOM header / version | BOMTable (BOMId, Name, ItemGroupId, SiteId), BOMVersion (ItemId, BOMId, FromDate, ToDate, FromQty, ToQty, Active, Approved) | STKO (STLNR, STLAL, BMENG, DATUV), MAST (MATNR, WERKS, STLNR, STLAL), STAS, CS01/CS02/CS03 | engineering-service `BomHeader`, `BomVersion` | full |
 | BOM lines | BOM (LineNum, ItemId, BOMQty, BOMQtySerie, UnitId, FromDate, ToDate, ScrapConst, ScrapVar, BOMType Item/Phantom/Pegged/Vendor, Position, RoundUp, Formula) | STPO (POSNR, IDNRK, MENGE, MEINS, AUSCH, DUMPS phantom, ALPOS, POSTP item category, DATUV) | `BomLine` | full |
@@ -3942,12 +3942,12 @@ Validation: line set replacement runs cycle, unit-convertibility and component-s
 
 | Event | Trigger | Payload fields | Consumers |
 |---|---|---|---|
-| dev.passage.engineering.bom.version.activated.v1 | activation (direct or ECO) | bom_version_id, product_id, site_id, effective_from, effective_to, line_count, supersedes_version_id | planning, production, costing |
-| dev.passage.engineering.bom.version.expired.v1 | expiry by ECO | bom_version_id, effective_to, eco_id | planning, production |
-| dev.passage.engineering.route.version.activated.v1 | activation | route_version_id, product_id, site_id, operations[{no, resource requirements}] | planning, scheduling, production |
-| dev.passage.engineering.resource.changed.v1 | resource/calendar commit | resource_id, site_id, calendar_id, efficiency_pct, changed_fields[] | scheduling, shop floor |
-| dev.passage.engineering.eco.submitted.v1 / approved.v1 / released.v1 | workflow transitions | eco_id, eco_number, affected_versions[], release_date, approver_id | notification, audit, PLM adapter |
-| dev.passage.engineering.calendar.generated.v1 | generate | calendar_id, from, to, open_days | scheduling |
+| dev.depot.engineering.bom.version.activated.v1 | activation (direct or ECO) | bom_version_id, product_id, site_id, effective_from, effective_to, line_count, supersedes_version_id | planning, production, costing |
+| dev.depot.engineering.bom.version.expired.v1 | expiry by ECO | bom_version_id, effective_to, eco_id | planning, production |
+| dev.depot.engineering.route.version.activated.v1 | activation | route_version_id, product_id, site_id, operations[{no, resource requirements}] | planning, scheduling, production |
+| dev.depot.engineering.resource.changed.v1 | resource/calendar commit | resource_id, site_id, calendar_id, efficiency_pct, changed_fields[] | scheduling, shop floor |
+| dev.depot.engineering.eco.submitted.v1 / approved.v1 / released.v1 | workflow transitions | eco_id, eco_number, affected_versions[], release_date, approver_id | notification, audit, PLM adapter |
+| dev.depot.engineering.calendar.generated.v1 | generate | calendar_id, from, to, open_days | scheduling |
 
 ### 1.9.6 User experience
 
@@ -4027,11 +4027,11 @@ Reconciliation: Σ flattened explosion quantities = Σ over tree leaves; active 
 
 ### 1.9.10 Deployment and operations
 
-Helm chart `passage-engineering` (Go service ×2, CloudNativePG `engineering-db`, Debezium connector, Temporal namespace `engineering`). Config: `ENG_BOM_MAX_LINES=5000`, `ENG_BOM_MAX_DEPTH=25`, `ENG_ROUTE_MAX_OPS=500`, `ENG_ECO_MAX_VERSIONS=500`, `ENG_EXPLODE_CACHE_TTL_S=300`. Feature flags: `engineering.direct_activation` (default off in production tenants), `engineering.formulas`, `engineering.plm_inbound`. Scheduled jobs: nightly overlap check; nightly expiry job setting `expired` on versions whose `effective_to` passed; 30-day expiry warning digest. SLOs: explode p95 < 500 ms; resolve p95 < 30 ms; ECO release p95 < 60 s. Alerts: overlap check finds > 0 rows; ECO stuck in `scheduled` past release_date + 10 min; explosion errors > 1% of calls. Runbook: "ECO compensation ran" (review error note, re-validate drafts, resubmit), "Rebuild product closure" (`passagectl eng rebuild-closure`). Rollback: previous digest; migrations additive.
+Helm chart `depot-engineering` (Go service ×2, CloudNativePG `engineering-db`, Debezium connector, Temporal namespace `engineering`). Config: `ENG_BOM_MAX_LINES=5000`, `ENG_BOM_MAX_DEPTH=25`, `ENG_ROUTE_MAX_OPS=500`, `ENG_ECO_MAX_VERSIONS=500`, `ENG_EXPLODE_CACHE_TTL_S=300`. Feature flags: `engineering.direct_activation` (default off in production tenants), `engineering.formulas`, `engineering.plm_inbound`. Scheduled jobs: nightly overlap check; nightly expiry job setting `expired` on versions whose `effective_to` passed; 30-day expiry warning digest. SLOs: explode p95 < 500 ms; resolve p95 < 30 ms; ECO release p95 < 60 s. Alerts: overlap check finds > 0 rows; ECO stuck in `scheduled` past release_date + 10 min; explosion errors > 1% of calls. Runbook: "ECO compensation ran" (review error note, re-validate drafts, resubmit), "Rebuild product closure" (`depotctl eng rebuild-closure`). Rollback: previous digest; migrations additive.
 
 ### 1.9.11 Migration from AX / SAP
 
-| Source | Passage entity | Notes |
+| Source | Depot entity | Notes |
 |---|---|---|
 | AX BOMTable (BOMId, Name, SiteId, ItemGroupId) | BomHeader | |
 | AX BOMVersion (ItemId, BOMId, FromDate, ToDate, FromQty, ToQty, Active, Approved, ApprovedBy, InventDimId→site) | BomVersion | Active=Yes → active; Approved without Active → draft with approved_by; date 1900-01-01 → null |
@@ -4245,7 +4245,7 @@ Out of scope: transactional data packs (open items, on-hand, open orders — wav
 
 **Pain points solved (10x lens)**
 
-| Pain point in AX/SAP today | Root cause | Passage answer in this wave | Measurable 10x target |
+| Pain point in AX/SAP today | Root cause | Depot answer in this wave | Measurable 10x target |
 |---|---|---|---|
 | DIXF staging-to-target fails at row 48,213 of 100,000 with "Function DMFEntityWriter... has been incorrectly called"; the partial load leaves half-created customers and the fix is manual SQL cleanup before re-run | Non-idempotent target writes; errors swallowed into DMFExecution log | Every load is idempotent by natural key and run id; failed rows go to the exception queue, successful rows stay; re-run touches only changed rows (FR-10.6, FR-10.7) | Re-run cost after failure: hours of cleanup→0; duplicate rows after re-run 0 |
 | LSMW requires recording a transaction (XD01) screen by screen; a screen layout change in a support pack breaks the recording silently | Batch-input emulation of GUI screens | Loads go through versioned public APIs with contract tests (FR-10.5) | Recording breakage per upgrade: recurring→0 |
@@ -4255,7 +4255,7 @@ Out of scope: transactional data packs (open items, on-hand, open orders — wav
 
 ### 1.10.2 AX / SAP parity map
 
-| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Passage equivalent | Parity |
+| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Depot equivalent | Parity |
 |---|---|---|---|---|
 | Migration project / definition | DMFDefinitionGroup, D365 data project, data package (manifest + package header) | LSMW project/subproject/object; LTMC migration project | migration-service `MigrationProject` with `MappingSpec` versions | full |
 | Source extraction | DIXF ODBC/file source, AX SQL direct, D365 entity export | RFC (RFC_READ_TABLE, BAPIs), OData, SE16 extracts, IDoc outbound | `Connector` (ax-odbc, d365-odata, sap-rfc, sap-odata, csv/parquet) | full |
@@ -4281,7 +4281,7 @@ Out of scope: transactional data packs (open items, on-hand, open orders — wav
 - **FR-10.3 Mapping DSL** — Must. The system shall express mappings as versioned YAML: source object, target entity, key definition (natural key columns), field rules (`copy`, `const`, `concat`, `lookup` against staged or target tables, `enum` with explicit table and default, `coerce` with type and format, `expr` in a restricted expression language, `default`), and `reject_when` conditions with reason codes.
   - Type coercions: AX `utcdatetime`/SAP `DATS`+`TIMS` to timestamptz with source zone; `NoYes` and `X`/blank to boolean; decimals with explicit scale; trim and codepage normalization.
   - Every mapping ships unit tests (input row → expected output or rejection) runnable in CI.
-- **FR-10.4 Validation stage** — Must. The system shall validate staged, mapped rows with declarative expectations (not null, unique, FK-exists in target or staging, regex, range, set membership, row-count within ±N% of previous run) and a target-API dry run that calls the wave 6–9 endpoints with `X-Passage-Dry-Run: true` to collect business validation errors without writing.
+- **FR-10.4 Validation stage** — Must. The system shall validate staged, mapped rows with declarative expectations (not null, unique, FK-exists in target or staging, regex, range, set membership, row-count within ±N% of previous run) and a target-API dry run that calls the wave 6–9 endpoints with `X-Depot-Dry-Run: true` to collect business validation errors without writing.
   - Validation output: per-row status (ok, warn, reject) with reason codes; a run proceeds to load only when rejects ≤ the project's threshold (default 0.5%).
 - **FR-10.5 Load through public APIs** — Must. The system shall load exclusively through versioned bulk endpoints (`POST /org/v1/import`, `/party/v1/parties:bulk`, `/product/v1/products:bulk`, `/engineering/v1/bom-versions:bulk`, …) with batches of 500 and `Idempotency-Key = sha256(run_id, object, natural_key)`, never by direct SQL into domain databases.
 - **FR-10.6 Parallel, checkpointed, resumable loads** — Must. The system shall partition each object by hash of the natural key into N workers (default 8), checkpoint every batch in the run ledger, and resume from the last checkpoint after worker or pod failure without duplicates.
@@ -4292,7 +4292,7 @@ Out of scope: transactional data packs (open items, on-hand, open orders — wav
 - **FR-10.9 Exception queue and re-run** — Must. The system shall list rejected and mismatched rows with reason, source key, mapped payload and target response; a user may edit the staged row, add a mapping override, or mark `accepted_difference` with a reason, then re-run only the exception set.
 - **FR-10.10 Run ledger and lineage** — Must. The system shall keep an append-only ledger: for every loaded target record, the run id, source object, source key, content hash and mapped payload hash, queryable from the target record's audit tab ("migrated from AX CustTable US-00123 in run 42").
 - **FR-10.11 Migration workspace** — Must. The system shall provide a workspace with project list, run history, per-stage progress, reconciliation report (downloadable as XLSX/PDF for sign-off), and exception queue.
-- **FR-10.12 Packaging** — Should. The system shall package connectors and standard mapping packs as Helm sub-charts and OCI artifacts (`passage-migration-ax`, `passage-migration-sap`) versioned independently of the core service.
+- **FR-10.12 Packaging** — Should. The system shall package connectors and standard mapping packs as Helm sub-charts and OCI artifacts (`depot-migration-ax`, `depot-migration-sap`) versioned independently of the core service.
 - **FR-10.13 PII handling in staging** — Must. The system shall encrypt PII-flagged staging columns at rest with a per-project key, purge staging data after a configurable retention (default 30 days after the run is signed off), and exclude PII from exception-queue exports unless the user holds `pii.read`.
 - **FR-10.14 Copy entity data between legal entities** — Should. The system shall support a project type `copy` whose source is a tenant legal entity and whose target is another legal entity in the same tenant, reusing the mapping DSL with identity rules plus key-rewrite rules (source code → target code), dry run, idempotent load and reconciliation; supported objects: customer and vendor roles, released products with site defaults, BOM and route versions, resources and calendars.
 - **FR-10.15 Configuration data packages** — Should. The system shall export setup data (the parameters of §1.6.13–§1.9.13, groups, terms, lifecycle states, document types, nomenclatures, readiness and release policies, mapping specs) as a versioned package (JSON bodies, manifest with schema version, dependency order, sha256 per file, signature by the tenant key) and import it into another tenant or environment after a dry-run diff showing create / update / unchanged per record; deletes are never applied.
@@ -4374,11 +4374,11 @@ Validation: run start rejects if any object's mapping tests fail or a dependency
 
 | Event | Trigger | Payload fields | Consumers |
 |---|---|---|---|
-| dev.passage.migration.run.started.v1 | run start | run_id, project_id, mode, objects[], mapping_versions | notification, audit |
-| dev.passage.migration.run.stage.completed.v1 | each stage | run_id, object, stage, counts | workspace progress, audit |
-| dev.passage.migration.run.completed.v1 | terminal status | run_id, status, counts{staged, loaded, rejected, skipped, mismatched}, hash_match bool | notification, reconciliation UI, audit |
-| dev.passage.migration.exception.raised.v1 | reject or mismatch | run_id, object, source_key, reason_code | stewardship queue (wave 7 style) |
-| dev.passage.migration.run.signedoff.v1 | sign-off | run_id, signed_off_by, purge_at | audit, purge job |
+| dev.depot.migration.run.started.v1 | run start | run_id, project_id, mode, objects[], mapping_versions | notification, audit |
+| dev.depot.migration.run.stage.completed.v1 | each stage | run_id, object, stage, counts | workspace progress, audit |
+| dev.depot.migration.run.completed.v1 | terminal status | run_id, status, counts{staged, loaded, rejected, skipped, mismatched}, hash_match bool | notification, reconciliation UI, audit |
+| dev.depot.migration.exception.raised.v1 | reject or mismatch | run_id, object, source_key, reason_code | stewardship queue (wave 7 style) |
+| dev.depot.migration.run.signedoff.v1 | sign-off | run_id, signed_off_by, purge_at | audit, purge job |
 
 ### 1.10.6 User experience
 
@@ -4438,7 +4438,7 @@ Fixtures: `migration/ax-seed/` (generated AX-shaped CSVs with real column names:
 | Full load performance | performance | end-to-end run | < 30 min, reconciled |
 | Idempotent re-run | E2E | run twice | 0 loaded second time |
 | Pod-kill resume | chaos | loaders | no duplicate idempotency keys |
-| Dry run isolation | contract | target APIs | 0 writes on `X-Passage-Dry-Run` |
+| Dry run isolation | contract | target APIs | 0 writes on `X-Depot-Dry-Run` |
 | Connector contracts | contract (recorded) | ax-odbc, d365-odata, sap-rfc, sap-odata, file | schema probes and paging match fixtures |
 | Reconciliation math | property | hash totals and sampling | injected drift in 1 of 10k rows detected ≥ 99% with widened sample |
 | Exception re-run | E2E | exceptions_only | parent reaches reconciled |
@@ -4449,7 +4449,7 @@ Reconciliation checks: source count = staged; staged = mapped + rejected; mapped
 
 ### 1.10.10 Deployment and operations
 
-Helm chart `passage-migration` (TS orchestration service ×2, Go loader workers as a scalable Deployment 2–16 replicas via HPA on queue depth, CloudNativePG `migration-db` with staging partitions on a separate tablespace, Temporal namespace `migration`); sub-charts `passage-migration-ax` (ODBC driver image with FreeTDS, mapping packs) and `passage-migration-sap` (RFC SDK not redistributable: image expects the customer-mounted NW RFC library; OData path works without it). Config: `MIG_WORKERS_DEFAULT=8`, `MIG_BATCH_SIZE=500`, `MIG_REJECT_THRESHOLD_PCT=0.5`, `MIG_SAMPLE_PCT=1`, `MIG_STAGING_RETENTION_DAYS=30`, `MIG_PII_KEY_RING` (Vault path), connector secrets in Vault. Feature flags: `migration.retire_missing`, `migration.overwrite_drift`, `migration.sap_rfc`. Scheduled jobs: hourly purge timer check; nightly lineage integrity check. SLOs: loader throughput ≥ 100 rows/s per worker sustained; run monitor update lag < 2 s; availability 99.5% (non-critical path). Alerts: run `failed`; batch retry rate > 5%; staging tablespace > 80%; connector auth failure. Runbook: "Resume a failed run" (`passagectl mig resume --run`), "Rotate PII key" (re-encrypt staging for active runs), "Widen sample manually". Rollback: previous digest; staging schema per run is unaffected; mapping packs are OCI artifacts pinned by digest in the project.
+Helm chart `depot-migration` (TS orchestration service ×2, Go loader workers as a scalable Deployment 2–16 replicas via HPA on queue depth, CloudNativePG `migration-db` with staging partitions on a separate tablespace, Temporal namespace `migration`); sub-charts `depot-migration-ax` (ODBC driver image with FreeTDS, mapping packs) and `depot-migration-sap` (RFC SDK not redistributable: image expects the customer-mounted NW RFC library; OData path works without it). Config: `MIG_WORKERS_DEFAULT=8`, `MIG_BATCH_SIZE=500`, `MIG_REJECT_THRESHOLD_PCT=0.5`, `MIG_SAMPLE_PCT=1`, `MIG_STAGING_RETENTION_DAYS=30`, `MIG_PII_KEY_RING` (Vault path), connector secrets in Vault. Feature flags: `migration.retire_missing`, `migration.overwrite_drift`, `migration.sap_rfc`. Scheduled jobs: hourly purge timer check; nightly lineage integrity check. SLOs: loader throughput ≥ 100 rows/s per worker sustained; run monitor update lag < 2 s; availability 99.5% (non-critical path). Alerts: run `failed`; batch retry rate > 5%; staging tablespace > 80%; connector auth failure. Runbook: "Resume a failed run" (`depotctl mig resume --run`), "Rotate PII key" (re-encrypt staging for active runs), "Widen sample manually". Rollback: previous digest; staging schema per run is unaffected; mapping packs are OCI artifacts pinned by digest in the project.
 
 ### 1.10.11 Migration from AX / SAP
 
@@ -4471,7 +4471,7 @@ Transformation notes are owned by the waves above; this wave contributes the sha
 
 ### 1.10.12 Dependencies, risks, open questions
 
-Depends on: waves 6, 7, 8 and 9 (bulk endpoints with `X-Passage-Dry-Run` support and natural-key upsert semantics), wave 4 (Temporal, outbox), wave 5 (audit tab integration for lineage, import/export tool), wave 2 (service-account duties, Vault secrets).
+Depends on: waves 6, 7, 8 and 9 (bulk endpoints with `X-Depot-Dry-Run` support and natural-key upsert semantics), wave 4 (Temporal, outbox), wave 5 (audit tab integration for lineage, import/export tool), wave 2 (service-account duties, Vault secrets).
 
 | Risk | Likelihood | Impact | Mitigation |
 |---|---|---|---|
@@ -4501,8 +4501,8 @@ Open questions: (1) Is the mapping DSL YAML plus a restricted expression languag
 | `mig.cutover_at` | project | timestamptz | none | future timestamp | Stops recurring runs | — | — |
 | `mig.signoff.approvers` | project | int | 2 | 1–3 | Required signatures (§1.10.15) | — | — |
 | `mig.connector.paging` | connector | record | ax-odbc 10,000 RecIds; d365 `$top` 10,000; RFC_READ_TABLE ROWCOUNT 50,000 | per connector | Extraction page size | Entity paging / skip staging | RFC_READ_TABLE ROWCOUNT / ROWSKIPS |
-| `mig.pii_key_ring` | project | Vault path | `passage/mig/{project}` | Vault paths | FR-10.13 | — | — |
-| `mig.package.signing_key` | tenant | Vault path | `passage/config-signing` | Vault paths | FR-10.15 | — | — |
+| `mig.pii_key_ring` | project | Vault path | `depot/mig/{project}` | Vault paths | FR-10.13 | — | — |
+| `mig.package.signing_key` | tenant | Vault path | `depot/config-signing` | Vault paths | FR-10.15 | — | — |
 
 ### 1.10.14 Inquiries and reports
 
@@ -4615,7 +4615,7 @@ No row in the AX gap register (§12.99) or the SAP gap register (§13.99) carrie
 
 ## 2.0 Phase overview
 
-**Business outcome at phase exit.** At the end of wave 15 a controller closes a fiscal period for the demo manufacturer's three legal entities entirely inside Passage: every financial fact lives in one append-only universal journal (`ledger` service, Go + Postgres) that balances by construction; each line carries transaction, accounting and reporting currency amounts and is posted simultaneously to the leading, local-GAAP and tax ledgers; tax is determined and settled to the cent; periods are controlled per ledger × module; allocations, accruals and year-end carry-forward are automated; and the balance sheet, income statement and cash flow statement are generated from the journal with drill-down to the originating document. Every later module (inventory, AP, AR, assets, projects) posts only through the wave 11 posting API — there is no second path to the general ledger.
+**Business outcome at phase exit.** At the end of wave 15 a controller closes a fiscal period for the demo manufacturer's three legal entities entirely inside Depot: every financial fact lives in one append-only universal journal (`ledger` service, Go + Postgres) that balances by construction; each line carries transaction, accounting and reporting currency amounts and is posted simultaneously to the leading, local-GAAP and tax ledgers; tax is determined and settled to the cent; periods are controlled per ledger × module; allocations, accruals and year-end carry-forward are automated; and the balance sheet, income statement and cash flow statement are generated from the journal with drill-down to the originating document. Every later module (inventory, AP, AR, assets, projects) posts only through the wave 11 posting API — there is no second path to the general ledger.
 
 **Phase-exit sign-off criteria**
 - Trial balance for each demo entity and each ledger sums to 0.00 in all three currencies after 1M synthetic lines; balance projection equals a full re-aggregation of the journal (zero rows differ).
@@ -4645,19 +4645,19 @@ No row in the AX gap register (§12.99) or the SAP gap register (§13.99) carrie
 
 | Event (CloudEvents type) | Producer | Consumers | Payload summary |
 |---|---|---|---|
-| dev.passage.ledger.journal.posted.v1 | ledger | reporting, tax, audit, lakehouse, all subledgers (waves 16+) | entry id, ledger id, document id, posting date, period, line count, totals per currency type, source ref, trace id |
-| dev.passage.ledger.journal.reversed.v1 | ledger | reporting, tax, subledgers | original entry id, reversing entry id, reason code |
-| dev.passage.ledger.balance.rebuilt.v1 | ledger | reporting, ops alerting | ledger id, high-water sequence, rows, diffs |
-| dev.passage.fx.rate.published.v1 | fx | ledger, reporting, AP/AR (later) | rate type, pair, valid_from, rate, source, previous rate |
-| dev.passage.fx.provider.degraded.v1 | fx | ops alerting | provider, last success, fallback mode |
-| dev.passage.ledger.revaluation.completed.v1 | ledger | reporting, close | run id, ledger, period, unrealized gain/loss totals, entry ids |
-| dev.passage.tax.calculated.v1 | tax | document services (waves 17+, 26+) | document ref, lines, tax amounts, provider used, fallback flag |
-| dev.passage.tax.settled.v1 | tax | reporting, ledger | settlement period, payable/receivable totals, entry id |
-| dev.passage.close.period.status-changed.v1 | ledger | all posting services, close, reporting | ledger, period, module, old → new status, actor, approvals |
-| dev.passage.close.task.completed.v1 | close | close board, notifications | run id, task id, assignee, evidence link |
-| dev.passage.ledger.allocation.completed.v1 | ledger | reporting, close | run id, rule ids, iterations, entry ids |
-| dev.passage.ledger.year-end.closed.v1 | ledger | reporting, close | ledger, fiscal year, opening entry ids, retained earnings per dimension |
-| dev.passage.reporting.statement.generated.v1 | reporting | distribution, audit | run id, definition id, period, hash, output URIs |
+| dev.depot.ledger.journal.posted.v1 | ledger | reporting, tax, audit, lakehouse, all subledgers (waves 16+) | entry id, ledger id, document id, posting date, period, line count, totals per currency type, source ref, trace id |
+| dev.depot.ledger.journal.reversed.v1 | ledger | reporting, tax, subledgers | original entry id, reversing entry id, reason code |
+| dev.depot.ledger.balance.rebuilt.v1 | ledger | reporting, ops alerting | ledger id, high-water sequence, rows, diffs |
+| dev.depot.fx.rate.published.v1 | fx | ledger, reporting, AP/AR (later) | rate type, pair, valid_from, rate, source, previous rate |
+| dev.depot.fx.provider.degraded.v1 | fx | ops alerting | provider, last success, fallback mode |
+| dev.depot.ledger.revaluation.completed.v1 | ledger | reporting, close | run id, ledger, period, unrealized gain/loss totals, entry ids |
+| dev.depot.tax.calculated.v1 | tax | document services (waves 17+, 26+) | document ref, lines, tax amounts, provider used, fallback flag |
+| dev.depot.tax.settled.v1 | tax | reporting, ledger | settlement period, payable/receivable totals, entry id |
+| dev.depot.close.period.status-changed.v1 | ledger | all posting services, close, reporting | ledger, period, module, old → new status, actor, approvals |
+| dev.depot.close.task.completed.v1 | close | close board, notifications | run id, task id, assignee, evidence link |
+| dev.depot.ledger.allocation.completed.v1 | ledger | reporting, close | run id, rule ids, iterations, entry ids |
+| dev.depot.ledger.year-end.closed.v1 | ledger | reporting, close | ledger, fiscal year, opening entry ids, retained earnings per dimension |
+| dev.depot.reporting.statement.generated.v1 | reporting | distribution, audit | run id, definition id, period, hash, output URIs |
 
 **Phase-level risks**
 
@@ -4682,18 +4682,18 @@ Out of scope: multiple currencies beyond a single accounting currency (wave 12),
 
 **Pain points solved (10x lens)**
 
-| Pain point in AX/SAP today | Root cause | Passage answer in this wave | Measurable 10x target |
+| Pain point in AX/SAP today | Root cause | Depot answer in this wave | Measurable 10x target |
 |---|---|---|---|
 | AX `LedgerJournalTable` form: posting a 2,000-line journal runs `LedgerJournalCheckPost` synchronously; validation errors surface one at a time in the Infolog after minutes of processing, forcing repeated post attempts | Validation and posting interleaved in X++ with per-line dimension lookups against `DimensionAttributeValueCombination` | `POST /ledger/validate` returns every violation with `line_index` in one pass; posting is a single atomic transaction | Validation of 2,000 lines < 1 s (vs 2–5 min); all errors in one response (vs 1 per attempt) |
 | SAP FB50/F-02: a document that fails mid-posting (dump, lock on `NRIV` number range) can consume a document number or leave a parked `VBKPF` that is re-keyed | Number assignment and insert into `BKPF`/`BSEG` are not one atomic unit with the application-level checks | Gap-free `posting_sequence` assigned inside the same Postgres transaction; idempotency key makes retries safe | 0 lost numbers; 0 duplicate postings under crash test; retry needs 0 user action |
 | Integrations double-post when a timeout hides a success (AIF/IDoc retries, Data management framework re-runs) | No idempotency contract on `LedgerJournalTrans` import or BAPI_ACC_DOCUMENT_POST | `Idempotency-Key` header with 400-day retention; same key + same payload → replay, different payload → 409 | Duplicate-post incidents 1–3/month typical → 0 |
 | AX trial balance list page / SAP FAGLB03 are read from totals tables (`FAGLFLEXT`) that drift from line items after failed batches; reconciliation jobs (RFINDEX) run for hours | Totals maintained by separate update paths from line inserts | `Balance` upserted in the posting transaction; rebuild-and-compare job emits a diff count | Balance vs journal drift = 0 rows; rebuild of 10M lines < 15 min (vs multi-hour RFINDEX) |
 | Reaching the source document from a GL line takes 6–10 clicks (AX voucher transactions → origin → subledger; SAP FB03 → environment → document flow) | Linkage stored in `SubledgerVoucherGeneralJournalEntry` / `BKPF-AWKEY` with per-module resolution logic | Every entry carries `source.uri`; UI resolves it as one link; `trace_id` on every entry | Clicks to source 8 → 1; any posting traceable through Tempo end-to-end |
-| External systems (MES, BI, PLM) need custom X++/ABAP or middleware to learn that a posting happened | No event stream from the ledger; polling on `GeneralJournalEntry`/`ACDOCA` timestamps | `dev.passage.ledger.journal.posted.v1` on Kafka via outbox, AsyncAPI-described, plus REST/MCP | Integration lead time weeks → same day; event lag p95 < 2 s (vs 15-min+ polling) |
+| External systems (MES, BI, PLM) need custom X++/ABAP or middleware to learn that a posting happened | No event stream from the ledger; polling on `GeneralJournalEntry`/`ACDOCA` timestamps | `dev.depot.ledger.journal.posted.v1` on Kafka via outbox, AsyncAPI-described, plus REST/MCP | Integration lead time weeks → same day; event lag p95 < 2 s (vs 15-min+ polling) |
 
 ### 2.11.2 AX / SAP parity map
 
-| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Passage equivalent | Parity |
+| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Depot equivalent | Parity |
 |---|---|---|---|---|
 | Chart of accounts and main accounts | `MainAccount`, `LedgerChartOfAccounts`, form MainAccountListPage | `SKA1` (chart), `SKB1` (company-code view), FS00, OB13 | `ledger.MainAccount`, `ledger.ChartOfAccounts`; screen Chart of accounts | full |
 | Financial dimensions | `DimensionAttribute`, `DimensionAttributeValue`, `DimensionFinancialTag` | CO objects (cost center `CSKS`, profit center `CEPC`), ACDOCA fields `RCNTR`, `PRCTR`, `RBUSA` | `ledger.DimensionAttribute`, `ledger.DimensionValue` (up to 20 per ledger) | full |
@@ -4724,7 +4724,7 @@ Out of scope: multiple currencies beyond a single accounting currency (wave 12),
   - A chart of accounts may be shared across legal entities (SAP `SKA1` semantics); company-specific attributes (`SKB1` semantics: suspended, posting allowed, default dimensions) live on `MainAccountLedgerSetting`.
   - Main account id is 1–20 characters, alphanumeric, unique per chart; type ∈ {asset, liability, equity, revenue, expense, profit_and_loss_total, balance_sheet_total, reporting}; totals and reporting types are non-postable.
   - Maximum 50,000 main accounts per chart; 500 charts per tenant.
-- **FR-11.2 Financial dimensions** — Must. The system shall support up to 20 dimension attributes per ledger, each backed either by a Passage entity (department, cost center, site, project, customer, vendor, item) or by a custom value list.
+- **FR-11.2 Financial dimensions** — Must. The system shall support up to 20 dimension attributes per ledger, each backed either by a Depot entity (department, cost center, site, project, customer, vendor, item) or by a custom value list.
   - Dimension values are effective-dated (`active_from`, `active_to`) and may be suspended; values from backing entities are synchronized by consuming that entity's CloudEvents.
   - Default dimensions on master data (party, product, site) are stored as a `DimensionCombination` id and merged at posting time by precedence: explicit line > source document header > master data default > account default.
 - **FR-11.3 Account structures and validation** — Must. The system shall validate every line's (main account, dimensions) tuple against the ledger's active account structures before posting.
@@ -4845,7 +4845,7 @@ Out of scope: multiple currencies beyond a single accounting currency (wave 12),
 | fiscal_period_id | uuid | yes | FK FiscalPeriod (wave 6) resolved from posting_date |
 | document_date | date | no | |
 | description | text(255) | no | |
-| source_system / source_type / source_id / source_uri | text | yes | e.g. `ledger`, `manual_journal`, batch id, `passage://ledger/journal-batches/{id}` |
+| source_system / source_type / source_id / source_uri | text | yes | e.g. `ledger`, `manual_journal`, batch id, `depot://ledger/journal-batches/{id}` |
 | idempotency_key | text(128) | yes | unique (tenant_id, legal_entity_id, idempotency_key) |
 | payload_hash | bytea(32) | yes | SHA-256 of canonical request |
 | reversal_of_entry_id | uuid | no | FK JournalEntry |
@@ -4973,7 +4973,7 @@ Idempotency-Key: ap-invoice-7F3A-post
 { "ledger_group": "ALL" | "ledger_id": "...",
   "document_id": "uuid", "posting_date": "2026-03-31", "document_date": "2026-03-28",
   "description": "Vendor invoice 7F3A",
-  "source": {"system":"ap","type":"vendor_invoice","id":"7F3A","uri":"passage://ap/invoices/7F3A"},
+  "source": {"system":"ap","type":"vendor_invoice","id":"7F3A","uri":"depot://ap/invoices/7F3A"},
   "lines": [
     {"line_number":1,"account":"6010","dimensions":{"DEPT":"D100","CC":"C200"},
      "debit_credit":"D","amount":{"currency":"USD","value":"1250.00"},"text":"Freight"},
@@ -4986,14 +4986,14 @@ Response 201: `{ "entries":[{"id","ledger_id","voucher","posting_sequence","fisc
 
 | Event | Trigger | Payload fields | Consumers |
 |---|---|---|---|
-| dev.passage.ledger.journal.posted.v1 | entry committed | entry_id, ledger_id, document_id, voucher, posting_sequence, posting_date, fiscal_period_id, line_count, totals{txn[],acct,rpt}, source, trace_id | reporting, tax, audit, lakehouse, subledgers |
-| dev.passage.ledger.journal.reversed.v1 | reversal committed | original_entry_id, reversing_entry_id, reason_code, posting_date | reporting, subledgers |
-| dev.passage.ledger.batch.status-changed.v1 | batch transition | batch_id, journal_name, from, to, actor, workflow_run_id | notifications, audit |
-| dev.passage.ledger.balance.rebuilt.v1 | rebuild finished | ledger_id, high_water_sequence, rows_written, rows_differing, duration_ms | ops alerting |
-| dev.passage.ledger.account.changed.v1 | account/structure change | chart_id, account_number, change_type, effective_from | reporting, dimension sync |
-| dev.passage.ledger.open-item.cleared.v1 | clearing document committed or reset | clearing_document_id, ledger_id, account, mode, item_ids, difference_amount, fx_difference_entry_id, status (cleared/reset), reason_code | bank reconciliation (wave 36), AP/AR (waves 19/30), reporting, audit |
-| dev.passage.ledger.realignment.completed.v1 | realignment posted or reversed | run_id, ledger_id, period_range, combinations_affected, entry_ids, reversal | reporting, audit |
-| dev.passage.ledger.rules.changed.v1 | validation rule, derivation strategy or splitting rule activated | ledger_id, kind, id, version, actor | posting cache, audit |
+| dev.depot.ledger.journal.posted.v1 | entry committed | entry_id, ledger_id, document_id, voucher, posting_sequence, posting_date, fiscal_period_id, line_count, totals{txn[],acct,rpt}, source, trace_id | reporting, tax, audit, lakehouse, subledgers |
+| dev.depot.ledger.journal.reversed.v1 | reversal committed | original_entry_id, reversing_entry_id, reason_code, posting_date | reporting, subledgers |
+| dev.depot.ledger.batch.status-changed.v1 | batch transition | batch_id, journal_name, from, to, actor, workflow_run_id | notifications, audit |
+| dev.depot.ledger.balance.rebuilt.v1 | rebuild finished | ledger_id, high_water_sequence, rows_written, rows_differing, duration_ms | ops alerting |
+| dev.depot.ledger.account.changed.v1 | account/structure change | chart_id, account_number, change_type, effective_from | reporting, dimension sync |
+| dev.depot.ledger.open-item.cleared.v1 | clearing document committed or reset | clearing_document_id, ledger_id, account, mode, item_ids, difference_amount, fx_difference_entry_id, status (cleared/reset), reason_code | bank reconciliation (wave 36), AP/AR (waves 19/30), reporting, audit |
+| dev.depot.ledger.realignment.completed.v1 | realignment posted or reversed | run_id, ledger_id, period_range, combinations_affected, entry_ids, reversal | reporting, audit |
+| dev.depot.ledger.rules.changed.v1 | validation rule, derivation strategy or splitting rule activated | ledger_id, kind, id, version, actor | posting cache, audit |
 
 Open-item contract for subledgers (used by waves 18/19/30): a service registers an item source `{source_type, resolver_uri}`; the clearing engine calls `resolver_uri` to fetch candidate items and posts the clearing through the same `ClearingDocument` path; the source service consumes `open-item.cleared` to update its own status. The posting request accepts per line `"clear_item_ids": [...]` (FR-11.19) and the derivation/splitting/validation stages run in the order shown in the command pipeline below.
 
@@ -5081,20 +5081,20 @@ Reconciliation checks: Σ Balance per (ledger, period) = 0; Σ Balance per accou
 
 ### 2.11.10 Deployment and operations
 
-Helm chart `passage-ledger` (deployment, HPA 3–12 pods on CPU 60%, PodDisruptionBudget 2, CloudNativePG cluster `ledger-db` 3 instances, Kafka topics `ledger.journal`, `ledger.batch`, Debezium outbox connector). Config: `LEDGER_MAX_LINES=10000`, `LEDGER_IDEMPOTENCY_TTL_DAYS=400`, `LEDGER_REBUILD_CHUNK_LINES=5000000`, `LEDGER_FUTURE_DATE_DAYS=366`. Migrations via Atlas generated from entity metadata; partitions for the next fiscal year created by a monthly job. Feature flags: `ledger.recurring_journals`, `ledger.advanced_rules`. Scheduled jobs (Temporal): nightly `balance-verify` (rebuild into shadow, compare, no swap unless diff), monthly `create-partitions`, recurring journal generator. SLOs: posting availability 99.9%; posting p99 < 200 ms; `journal.posted` publish lag p95 < 2 s. Alerts: balance verify diff > 0 (P1), sequence gap detected (P1), outbox lag > 60 s (P2), posting error rate > 1% over 5 min (P2). Runbook: rebuild procedure, sequence gap investigation, idempotency table growth. Rollback: Argo CD previous digest; schema migrations are additive-only in this wave; no data rollback required because the journal is append-only.
+Helm chart `depot-ledger` (deployment, HPA 3–12 pods on CPU 60%, PodDisruptionBudget 2, CloudNativePG cluster `ledger-db` 3 instances, Kafka topics `ledger.journal`, `ledger.batch`, Debezium outbox connector). Config: `LEDGER_MAX_LINES=10000`, `LEDGER_IDEMPOTENCY_TTL_DAYS=400`, `LEDGER_REBUILD_CHUNK_LINES=5000000`, `LEDGER_FUTURE_DATE_DAYS=366`. Migrations via Atlas generated from entity metadata; partitions for the next fiscal year created by a monthly job. Feature flags: `ledger.recurring_journals`, `ledger.advanced_rules`. Scheduled jobs (Temporal): nightly `balance-verify` (rebuild into shadow, compare, no swap unless diff), monthly `create-partitions`, recurring journal generator. SLOs: posting availability 99.9%; posting p99 < 200 ms; `journal.posted` publish lag p95 < 2 s. Alerts: balance verify diff > 0 (P1), sequence gap detected (P1), outbox lag > 60 s (P2), posting error rate > 1% over 5 min (P2). Runbook: rebuild procedure, sequence gap investigation, idempotency table growth. Rollback: Argo CD previous digest; schema migrations are additive-only in this wave; no data rollback required because the journal is append-only.
 
 ### 2.11.11 Migration from AX / SAP
 
-| Source | Passage entity | Notes |
+| Source | Depot entity | Notes |
 |---|---|---|
 | AX `MainAccount`, `LedgerChartOfAccounts`, `MainAccountLegalEntity` | MainAccount, ChartOfAccounts, MainAccountLedgerSetting | type mapping from `MainAccountType`; suspended → `suspended_from` |
-| AX `DimensionAttribute`, `DimensionAttributeValue`, `DimensionFinancialTag` | DimensionAttribute, DimensionValue | entity-backed attributes re-bound to Passage parties/sites; custom lists copied |
+| AX `DimensionAttribute`, `DimensionAttributeValue`, `DimensionFinancialTag` | DimensionAttribute, DimensionValue | entity-backed attributes re-bound to Depot parties/sites; custom lists copied |
 | AX `DimensionHierarchy` (account structures), `DimensionConstraintTree/Node` | AccountStructure(+Constraint) | advanced rules flattened into constraint rows; activated version 1 |
 | AX `DimensionAttributeValueCombination` | DimensionCombination | recomputed from tuples; `RecId` kept in `legacy_ref` for cross-reference |
 | AX `GeneralJournalEntry`/`GeneralJournalAccountEntry` (closing balances only) | JournalEntry (period 0) | opening balances per combination; detail history not migrated in Phase 2 (wave 49 transactional packs) |
 | SAP `SKA1`/`SKAT`/`SKB1` | ChartOfAccounts, MainAccount, MainAccountLedgerSetting | `XSPEB` (blocked) → suspended; `MITKZ` → reconciliation_account_type |
 | SAP `CSKS`, `CEPC`, `TGSB` | DimensionValue (CC, PC, BA attributes) | validity dates preserved |
-| SAP `FAGLFLEXT`/`ACDOCA` closing balances by period | JournalEntry (period 0) | per ledger (`RLDNR`) → Passage ledger |
+| SAP `FAGLFLEXT`/`ACDOCA` closing balances by period | JournalEntry (period 0) | per ledger (`RLDNR`) → Depot ledger |
 | AX `ReasonTable`, `ReasonTableRef` | ReasonCode | `applies_to` from the Ledger/Bank/Cust/Vend/Asset flags |
 | AX `DimensionHierarchy` (advanced rule structures), `DimensionAdvancedRule`, `DimensionRuleCriteria` | AdvancedRule (+ structure) | criteria → filter; structure segments → appended segments |
 | AX `TransactionTxt` (default descriptions) | DescriptionTemplate | `%1`–`%3` mapped to field bindings per transaction type |
@@ -5328,7 +5328,7 @@ After this wave a user can post a EUR invoice into a USD-accounting entity with 
 
 **Pain points solved (10x lens)**
 
-| Pain point in AX/SAP today | Root cause | Passage answer in this wave | Measurable 10x target |
+| Pain point in AX/SAP today | Root cause | Depot answer in this wave | Measurable 10x target |
 |---|---|---|---|
 | SAP OB08 / `TCURR`: rates entered per 100 units with `TCURF` factors; a wrong factor silently converts amounts 100x; no deviation check | Factor table separate from rate table; no validation against the previous rate | Rates stored as plain `numeric(20,10)` "1 from = rate to"; > 10% deviation requires confirmation and emits a warning event | Factor-related misposting incidents → 0; deviation flagged in < 100 ms at entry |
 | AX `ExchangeRate` import batch (`ExchangeRateProviderImport`) runs on a batch group; a failed run leaves no rate and postings fail hours later with "no exchange rate" | Batch framework with no fallback or alerting | Temporal schedule with retries; last-known rate stays valid; `fx.provider.degraded` alerts immediately | Posting failures from missing rates → 0; outage detected < 1 min (vs discovered at posting) |
@@ -5338,7 +5338,7 @@ After this wave a user can post a EUR invoice into a USD-accounting entity with 
 
 ### 2.12.2 AX / SAP parity map
 
-| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Passage equivalent | Parity |
+| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Depot equivalent | Parity |
 |---|---|---|---|---|
 | Exchange rate types | `ExchangeRateType`, Currency exchange rate types form | `TCURV` (rate types M, EURX, P), OB07 | `fx.ExchangeRateType` | full |
 | Exchange rates | `ExchangeRate`, `ExchangeRateCurrencyPair`, OB08-style form | `TCURR`, OB08, `TCURF` (factors) | `fx.ExchangeRate` with `from`, `to`, `valid_from`, `rate` numeric(20,10); factor handled by rate precision | full |
@@ -5472,11 +5472,11 @@ Commands: `PublishRate` (rate > 0, currencies enabled, 10% deviation warning), `
 
 | Event | Trigger | Payload fields | Consumers |
 |---|---|---|---|
-| dev.passage.fx.rate.published.v1 | rate committed | rate_type, from, to, valid_from, rate, previous_rate, source, deviation_pct | ledger cache, reporting, AP/AR |
-| dev.passage.fx.provider.degraded.v1 | import failure after retries | provider, last_success_at, rate_type, error | ops alerting |
-| dev.passage.ledger.revaluation.completed.v1 | run posted | run_id, ledger_id, period, rate_type, gain_total, loss_total, posting_entry_id, reversal_entry_id | reporting, close |
-| dev.passage.ledger.translation.completed.v1 | translation posted | run_id, ledger_id, period, cta_amount, entry_id | reporting, close |
-| dev.passage.fx.series.published.v1 | market data point committed | series_code, kind, valid_from, value, previous_value, source, deviation_pct | treasury (wave 36), budgeting (wave 38), subscription pricing (wave 29) |
+| dev.depot.fx.rate.published.v1 | rate committed | rate_type, from, to, valid_from, rate, previous_rate, source, deviation_pct | ledger cache, reporting, AP/AR |
+| dev.depot.fx.provider.degraded.v1 | import failure after retries | provider, last_success_at, rate_type, error | ops alerting |
+| dev.depot.ledger.revaluation.completed.v1 | run posted | run_id, ledger_id, period, rate_type, gain_total, loss_total, posting_entry_id, reversal_entry_id | reporting, close |
+| dev.depot.ledger.translation.completed.v1 | translation posted | run_id, ledger_id, period, cta_amount, entry_id | reporting, close |
+| dev.depot.fx.series.published.v1 | market data point committed | series_code, kind, valid_from, value, previous_value, source, deviation_pct | treasury (wave 36), budgeting (wave 38), subscription pricing (wave 29) |
 
 ### 2.12.6 User experience
 
@@ -5549,11 +5549,11 @@ Reconciliation: per ledger per currency type TB = 0; Σ revaluation adjustments 
 
 ### 2.12.10 Deployment and operations
 
-Helm chart `passage-fx` (deployment 2–6 pods, CloudNativePG `fx-db`, topics `fx.rates`, `fx.providers`); `passage-ledger` upgraded with currency policy tables. Config: `FX_MAX_RATE_AGE_DAYS=5`, `FX_PROVIDER_TIMEOUT_S=10`, `FX_DEVIATION_WARN_PCT=10`, `LEDGER_ROUNDING_MODE=half_away_from_zero`. Migrations: add `amount_rpt`/`currency_txn` backfill for wave 11 entries (= accounting amounts), add `ledger_group`, `currency_policy`, `revaluation_*`. Feature flags: `fx.triangulation`, `ledger.parallel_ledgers`, `ledger.translation`. Scheduled jobs: ECB import 16:30 CET business days; OXR hourly (if licensed); month-end revaluation on the close checklist (wave 14). SLOs: rate lookup p99 < 5 ms; import success ≥ 99% of business days. Alerts: provider degraded (P2), stale rate used in posting > 100/h (P3), revaluation run failure (P2). Runbook: manual rate entry during provider outage; re-run revaluation after rate correction (reverse then re-run). Rollback: digest rollback; feature flags off disable parallel posting (entries then go only to the leading ledger — documented as a degraded mode, not for production).
+Helm chart `depot-fx` (deployment 2–6 pods, CloudNativePG `fx-db`, topics `fx.rates`, `fx.providers`); `depot-ledger` upgraded with currency policy tables. Config: `FX_MAX_RATE_AGE_DAYS=5`, `FX_PROVIDER_TIMEOUT_S=10`, `FX_DEVIATION_WARN_PCT=10`, `LEDGER_ROUNDING_MODE=half_away_from_zero`. Migrations: add `amount_rpt`/`currency_txn` backfill for wave 11 entries (= accounting amounts), add `ledger_group`, `currency_policy`, `revaluation_*`. Feature flags: `fx.triangulation`, `ledger.parallel_ledgers`, `ledger.translation`. Scheduled jobs: ECB import 16:30 CET business days; OXR hourly (if licensed); month-end revaluation on the close checklist (wave 14). SLOs: rate lookup p99 < 5 ms; import success ≥ 99% of business days. Alerts: provider degraded (P2), stale rate used in posting > 100/h (P3), revaluation run failure (P2). Runbook: manual rate entry during provider outage; re-run revaluation after rate correction (reverse then re-run). Rollback: digest rollback; feature flags off disable parallel posting (entries then go only to the leading ledger — documented as a degraded mode, not for production).
 
 ### 2.12.11 Migration from AX / SAP
 
-| Source | Passage entity | Notes |
+| Source | Depot entity | Notes |
 |---|---|---|
 | AX `ExchangeRateType`, `ExchangeRateCurrencyPair`, `ExchangeRate` | ExchangeRateType, ExchangeRate | AX stores rate per 100 units by default → divided; `ValidFrom` preserved |
 | AX `Ledger` (accounting/reporting currency, posting layers) | Ledger, LedgerGroup | Current → leading; Operations/Tax layers → additional ledgers only if the customer used them |
@@ -5725,7 +5725,7 @@ After this wave a manual journal or any later document gets correct tax lines fo
 
 **Pain points solved (10x lens)**
 
-| Pain point in AX/SAP today | Root cause | Passage answer in this wave | Measurable 10x target |
+| Pain point in AX/SAP today | Root cause | Depot answer in this wave | Measurable 10x target |
 |---|---|---|---|
 | SAP FTXP: a tax code is a single rate per procedure step with no validity dates; a rate change (e.g., DE 19% → 16% in 2020) forces new codes and mass master-data updates in `KNVI`/`MLAN` | `T007A` has no effective dating | `TaxRate` rows are effective-dated under a stable `TaxCode`; groups and parties keep their assignments | Rate change rollout 2–5 days of config → 1 rate row; zero master-data touches |
 | AX `TaxTrans` and SAP `BSET` show the result but not why: users cannot see which group intersection, exemption or jurisdiction produced the amount; support tickets replay the document in a test client | Determination logic in X++ `Tax` class / condition technique with no trace output | `POST /tax/calculate:explain` returns `determination_trace[]` step by step; tester screen renders it | "Why this tax?" investigation 30–60 min → < 1 min |
@@ -5735,7 +5735,7 @@ After this wave a manual journal or any later document gets correct tax lines fo
 
 ### 2.13.2 AX / SAP parity map
 
-| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Passage equivalent | Parity |
+| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Depot equivalent | Parity |
 |---|---|---|---|---|
 | Tax codes and rates | `TaxTable`, `TaxData` (effective-dated values, limits) | `T007A` (tax codes), FTXP, condition records `KONP`/`A003` | `tax.TaxCode`, `tax.TaxRate` (effective-dated, bracketed) | full |
 | Party-side tax group | `TaxGroupHeading`, `TaxGroupData`, Sales tax groups form | Customer/vendor tax classification (`KNVI`/`LFA1-STKZU`), tax category on BP | `tax.TaxGroup` (N:M TaxCode) | full |
@@ -5903,13 +5903,13 @@ Validation: every line has resolvable groups or an override; dates within code v
 
 | Event | Trigger | Payload fields | Consumers |
 |---|---|---|---|
-| dev.passage.tax.calculated.v1 | calculate with commit intent | document ref, engine, fallback, totals per code, trace_id | document services, audit |
-| dev.passage.tax.transaction.recorded.v1 | TaxTransaction linked to journal line | transaction id, code, period, base, tax, direction, journal_line_id | reporting, lakehouse |
-| dev.passage.tax.settled.v1 | settlement posted | run id, authority, period, output, input, net, entry_id, version | reporting, ledger |
-| dev.passage.tax.provider.fallback.v1 | provider failure | provider, document ref, error, retry_after | ops, AP/AR recommit job |
-| dev.passage.tax.rate.changed.v1 | rate row created | code, valid_from, rate_pct, previous | document services cache |
-| dev.passage.tax.intrastat.exported.v1 | declaration export completed | export_run_id, legal_entity, period, direction, line_count, total_value, format, hash | audit, wave 48 submission connectors |
-| dev.passage.tax.withholding.remitted.v1 | remittance run posted | run_id, authority, section, period, total_withheld, entry_id, remittance_reference | AP (wave 19), reporting, wave 48 returns |
+| dev.depot.tax.calculated.v1 | calculate with commit intent | document ref, engine, fallback, totals per code, trace_id | document services, audit |
+| dev.depot.tax.transaction.recorded.v1 | TaxTransaction linked to journal line | transaction id, code, period, base, tax, direction, journal_line_id | reporting, lakehouse |
+| dev.depot.tax.settled.v1 | settlement posted | run id, authority, period, output, input, net, entry_id, version | reporting, ledger |
+| dev.depot.tax.provider.fallback.v1 | provider failure | provider, document ref, error, retry_after | ops, AP/AR recommit job |
+| dev.depot.tax.rate.changed.v1 | rate row created | code, valid_from, rate_pct, previous | document services cache |
+| dev.depot.tax.intrastat.exported.v1 | declaration export completed | export_run_id, legal_entity, period, direction, line_count, total_value, format, hash | audit, wave 48 submission connectors |
+| dev.depot.tax.withholding.remitted.v1 | remittance run posted | run_id, authority, section, period, total_withheld, entry_id, remittance_reference | AP (wave 19), reporting, wave 48 returns |
 
 `IntrastatSource` contract (used by waves 18/27/28/29): a document service registers `{source_type, resolver_uri}`; at transfer the tax service calls the resolver for posted documents in the period and receives lines with trade fields; documents reversed after transfer produce negative lines on the next transfer.
 
@@ -5989,11 +5989,11 @@ Reconciliation: Σ TaxTransaction per code and period = GL tax account movement;
 
 ### 2.13.10 Deployment and operations
 
-Helm chart `passage-tax` (deployment 3–10 pods, CloudNativePG `tax-db`, topics `tax.calculations`, `tax.transactions`, `tax.settlements`; Kafka consumer of `ledger.journal`). Config: `TAX_PROVIDER_TIMEOUT_MS=2000`, `TAX_PROVIDER_RETRIES=1`, `TAX_PAYLOAD_RETENTION_DAYS=395`, `TAX_DEFAULT_ROUNDING=per_document`. Secrets: provider credentials in Vault paths `tax/providers/{le}`. Migrations: tax schema; partitions per fiscal year. Feature flags: `tax.provider.avalara`, `tax.provider.vertex`, `tax.extracts.saft`. Scheduled jobs: provider recommit retry (hourly), certificate expiry notifications (daily), settlement reminders per period. SLOs: calculate p99 < 50 ms (internal), availability 99.9%, provider fallback rate < 0.5%/day. Alerts: fallback rate > 2% over 1 h (P2), commit retry queue > 100 (P2), settlement mismatch (P2). Runbook: provider outage, re-commit queue drain, rate correction after posting (reverse documents, never edit transactions). Rollback: digest rollback; flags disable providers (internal engine only).
+Helm chart `depot-tax` (deployment 3–10 pods, CloudNativePG `tax-db`, topics `tax.calculations`, `tax.transactions`, `tax.settlements`; Kafka consumer of `ledger.journal`). Config: `TAX_PROVIDER_TIMEOUT_MS=2000`, `TAX_PROVIDER_RETRIES=1`, `TAX_PAYLOAD_RETENTION_DAYS=395`, `TAX_DEFAULT_ROUNDING=per_document`. Secrets: provider credentials in Vault paths `tax/providers/{le}`. Migrations: tax schema; partitions per fiscal year. Feature flags: `tax.provider.avalara`, `tax.provider.vertex`, `tax.extracts.saft`. Scheduled jobs: provider recommit retry (hourly), certificate expiry notifications (daily), settlement reminders per period. SLOs: calculate p99 < 50 ms (internal), availability 99.9%, provider fallback rate < 0.5%/day. Alerts: fallback rate > 2% over 1 h (P2), commit retry queue > 100 (P2), settlement mismatch (P2). Runbook: provider outage, re-commit queue drain, rate correction after posting (reverse documents, never edit transactions). Rollback: digest rollback; flags disable providers (internal engine only).
 
 ### 2.13.11 Migration from AX / SAP
 
-| Source | Passage entity | Notes |
+| Source | Depot entity | Notes |
 |---|---|---|
 | AX `TaxTable`, `TaxData`, `TaxAuthorityAddress`, `TaxPeriodHead` | TaxCode, TaxRate, authority Party, TaxSettlementPeriod | `TaxData` intervals → brackets; ledger posting group `TaxLedgerAccountGroup` → accounts |
 | AX `TaxGroupHeading`/`TaxGroupData`, `TaxItemGroupHeading`/`TaxItemGroupData` | TaxGroup, ItemTaxGroup | exempt flags preserved |
@@ -6010,7 +6010,7 @@ Helm chart `passage-tax` (deployment 3–10 pods, CloudNativePG `tax-db`, topics
 | SAP `T604`, `T605`, `T616`, `T618`, `MARC-STAWN`, `VEIAV` (open period) | CommodityCode, IntrastatTransactionCode, TransportMode, Port, product commodity code, IntrastatLine | `VEIAV` rows for the current period only |
 | SAP `T059P`/`T059Z` sections, J1INCHLN challan history (open quarter) | WithholdingRemittanceRun (posted, historical reference only) | prior certificates not re-issued |
 
-Validation: code counts; a 200-document sample recalculated in Passage matches the source tax to the cent; unsettled totals per code match. Not migrated: settled history (kept in the legacy archive), provider transaction logs.
+Validation: code counts; a 200-document sample recalculated in Depot matches the source tax to the cent; unsettled totals per code match. Not migrated: settled history (kept in the legacy archive), provider transaction logs.
 
 ### 2.13.12 Dependencies, risks, open questions
 
@@ -6188,13 +6188,13 @@ Open questions: (1) Settlement counterpart as tax authority Party (vendor role) 
 
 ### 2.14.1 Scope and business context
 
-AX controls posting through `LedgerPeriod` statuses (open, on hold, closed) per module (`LedgerPeriodModuleAccessControl`) and offers the financial period close workspace, allocation rules (`LedgerAllocation`), accrual schemes and year-end close; SAP uses OB52 posting period intervals per account type with authorization groups, the Financial Closing Cockpit, assessment/distribution cycles (KSV5/KSU5), the accrual engine and balance carry-forward (FAGLGVTR). Wave 14 adds to Passage: a period-control matrix enforced inside the posting API; a close checklist run on Temporal with templates, dependencies and a cross-entity board; an allocation engine (fixed, basis, iterative) with reversal; accrual schemes and recurring journal scheduling (completing FR-11.10); and year-end close with carry-forward per dimension.
+AX controls posting through `LedgerPeriod` statuses (open, on hold, closed) per module (`LedgerPeriodModuleAccessControl`) and offers the financial period close workspace, allocation rules (`LedgerAllocation`), accrual schemes and year-end close; SAP uses OB52 posting period intervals per account type with authorization groups, the Financial Closing Cockpit, assessment/distribution cycles (KSV5/KSU5), the accrual engine and balance carry-forward (FAGLGVTR). Wave 14 adds to Depot: a period-control matrix enforced inside the posting API; a close checklist run on Temporal with templates, dependencies and a cross-entity board; an allocation engine (fixed, basis, iterative) with reversal; accrual schemes and recurring journal scheduling (completing FR-11.10); and year-end close with carry-forward per dimension.
 
 After this wave a controller can close March 2026 for three entities from one board, with every subledger path rejected after close, allocations and accruals posted and reversed on schedule, and year-end producing opening balances. Out of scope: subledger-specific close tasks (inventory close wave 20, AP/AR aging waves 19/30), consolidation (wave 40), budget vs actual (wave 38).
 
 **Pain points solved (10x lens)**
 
-| Pain point in AX/SAP today | Root cause | Passage answer in this wave | Measurable 10x target |
+| Pain point in AX/SAP today | Root cause | Depot answer in this wave | Measurable 10x target |
 |---|---|---|---|
 | SAP OB52 (`T001B`): closing a period is an edit of interval rows per account type and company code, done by Basis/FI power users across many company codes; a typo opens the wrong range and postings land in a closed month | Period control is a maintenance view, not a controlled transition with validation | Period-control grid with state machine (BR-14.3), GL-closes-last rule, bulk close across ledgers with confirmation | Close of 3 entities × 10 modules: 30 OB52 edits → 1 bulk action; wrong-period postings → 0 |
 | Reopening a closed period in AX (Ledger calendar form) or SAP is a single-user action with no approval; auditors find silent reopenings in the database log weeks later | No workflow on period status | Reopen requires two approvers, a reason, an expiry timer and emits `close.period.status-changed` | Unapproved reopenings → 0; audit evidence available in < 1 s rather than at audit time |
@@ -6204,7 +6204,7 @@ After this wave a controller can close March 2026 for three entities from one bo
 
 ### 2.14.2 AX / SAP parity map
 
-| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Passage equivalent | Parity |
+| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Depot equivalent | Parity |
 |---|---|---|---|---|
 | Period status | `LedgerPeriod` (Open/On hold/Closed), Ledger calendar form | `T001B` intervals via OB52 (periods 1–12, 13–16 special) | `ledger.PeriodStatus` per ledger × period × module | full |
 | Module access control | `LedgerPeriodModuleAccessControl`, user groups per module | OB52 authorization group (`BRGRU`), account type (+, A, D, K, M, S) | PeriodStatus.module × `allowed_group_id` | full |
@@ -6230,7 +6230,7 @@ After this wave a controller can close March 2026 for three entities from one bo
   - Each reopen increments `reopen_count` and emits `close.period.status-changed` with both approvers.
 - **FR-14.4 Close templates and runs** — Must. The system shall define close templates (tasks with module, description, assignee role, due offset in business days from period end, dependencies, evidence requirement, automation hook) and instantiate a `CloseRun` per (template, period, set of legal entities).
   - Maximum 500 tasks per template; dependencies form a DAG (cycle rejected on save).
-  - Automation hooks call Passage jobs (revaluation, allocation, accrual, settlement, year-end, statement pack) and mark the task complete when the job emits its completion event.
+  - Automation hooks call Depot jobs (revaluation, allocation, accrual, settlement, year-end, statement pack) and mark the task complete when the job emits its completion event.
 - **FR-14.5 Close board** — Must. The system shall show tasks across entities by status (not started, in progress, blocked, completed, skipped) with due dates, owners, overdue counts, and allow bulk reassignment and evidence attachment.
 - **FR-14.6 Allocation rules** — Must. The system shall define allocation rules with source (account/dimension filter, period, ledger), destination (account/dimension targets), method ∈ {fixed_percentage, fixed_weight, equally, basis}, basis source (balances of statistical or financial accounts by dimension, e.g., headcount), offset account, and `allocate_from_zero` behavior.
   - Percentages must sum to 100.000000 (tolerance 0); weights normalized; basis computed from the Balance projection for the period.
@@ -6344,13 +6344,13 @@ Commands: `TransitionPeriodStatus` (validates FR-14.2 ordering; closing with unp
 
 | Event | Trigger | Payload fields | Consumers |
 |---|---|---|---|
-| dev.passage.close.period.status-changed.v1 | PeriodStatus transition | ledger_id, fiscal_period_id, module, from, to, actor, approvals[], reason | all posting services (cache), close, reporting, audit |
-| dev.passage.close.run.created.v1 | run instantiated | run_id, template_id, period, legal_entity_ids, task_count | notifications |
-| dev.passage.close.task.completed.v1 | task completed/skipped | run_id, task_id, status, actor, evidence_uri, late (bool) | board, notifications, reporting |
-| dev.passage.ledger.allocation.completed.v1 | run posted/reversed | run_id, rule_ids, period, iterations, entry_ids, reversal | reporting, close |
-| dev.passage.ledger.accrual.scheduled.v1 | scheme applied | source_entry_id, scheme, occurrences[] (dates, amounts) | close board |
-| dev.passage.ledger.year-end.closed.v1 | year-end posted | ledger_id, fiscal_year_id, closing_entry_ids, opening_entry_ids, retained_earnings_total | reporting, close |
-| dev.passage.ledger.regrouping.completed.v1 | regrouping posted or reversed | run_id, ledger_id, key_date, rule_ids, totals per adjustment account, entry_ids, reversal | reporting, close |
+| dev.depot.close.period.status-changed.v1 | PeriodStatus transition | ledger_id, fiscal_period_id, module, from, to, actor, approvals[], reason | all posting services (cache), close, reporting, audit |
+| dev.depot.close.run.created.v1 | run instantiated | run_id, template_id, period, legal_entity_ids, task_count | notifications |
+| dev.depot.close.task.completed.v1 | task completed/skipped | run_id, task_id, status, actor, evidence_uri, late (bool) | board, notifications, reporting |
+| dev.depot.ledger.allocation.completed.v1 | run posted/reversed | run_id, rule_ids, period, iterations, entry_ids, reversal | reporting, close |
+| dev.depot.ledger.accrual.scheduled.v1 | scheme applied | source_entry_id, scheme, occurrences[] (dates, amounts) | close board |
+| dev.depot.ledger.year-end.closed.v1 | year-end posted | ledger_id, fiscal_year_id, closing_entry_ids, opening_entry_ids, retained_earnings_total | reporting, close |
+| dev.depot.ledger.regrouping.completed.v1 | regrouping posted or reversed | run_id, ledger_id, key_date, rule_ids, totals per adjustment account, entry_ids, reversal | reporting, close |
 
 ### 2.14.6 User experience
 
@@ -6427,11 +6427,11 @@ Reconciliation: Σ allocation destinations = Σ sources per run; Σ accrual occu
 
 ### 2.14.10 Deployment and operations
 
-Helm charts: `passage-close` (TypeScript service, 2–4 pods, CloudNativePG `close-db`, Temporal namespace `close`), `passage-ledger` upgraded (period status, allocation, accrual, year-end). Config: `CLOSE_REOPEN_DEFAULT_DAYS=3`, `CLOSE_LOCK_WAIT_MS=5000`, `ALLOC_MAX_ITERATIONS=100`, `ALLOC_CONVERGENCE_FRACTION=0.5`. Migrations: `period_status` seeded from fiscal calendars (`never_opened`), existing demo periods set `open`. Feature flags: `close.reopen_workflow` (always on in prod), `ledger.iterative_allocations`. Scheduled jobs: accrual and recurring journal generators (Temporal schedules), reopen expiry timers, close reminder notifications (daily 08:00 entity time zone). SLOs: period decision adds < 2 ms to posting p99; close board p95 < 500 ms for 1,000 tasks. Alerts: reopen without expiry (P2), posting rejected rate for closed periods > 50/h (P3, indicates a subledger misconfiguration), allocation non-convergence (P3). Runbook: emergency reopen, stuck close lock, re-running year-end. Rollback: digest rollback; period status rows are retained; disabling the flag never bypasses period control.
+Helm charts: `depot-close` (TypeScript service, 2–4 pods, CloudNativePG `close-db`, Temporal namespace `close`), `depot-ledger` upgraded (period status, allocation, accrual, year-end). Config: `CLOSE_REOPEN_DEFAULT_DAYS=3`, `CLOSE_LOCK_WAIT_MS=5000`, `ALLOC_MAX_ITERATIONS=100`, `ALLOC_CONVERGENCE_FRACTION=0.5`. Migrations: `period_status` seeded from fiscal calendars (`never_opened`), existing demo periods set `open`. Feature flags: `close.reopen_workflow` (always on in prod), `ledger.iterative_allocations`. Scheduled jobs: accrual and recurring journal generators (Temporal schedules), reopen expiry timers, close reminder notifications (daily 08:00 entity time zone). SLOs: period decision adds < 2 ms to posting p99; close board p95 < 500 ms for 1,000 tasks. Alerts: reopen without expiry (P2), posting rejected rate for closed periods > 50/h (P3, indicates a subledger misconfiguration), allocation non-convergence (P3). Runbook: emergency reopen, stuck close lock, re-running year-end. Rollback: digest rollback; period status rows are retained; disabling the flag never bypasses period control.
 
 ### 2.14.11 Migration from AX / SAP
 
-| Source | Passage entity | Notes |
+| Source | Depot entity | Notes |
 |---|---|---|
 | AX `LedgerPeriod`, `LedgerPeriodModuleAccessControl`, `LedgerFiscalCalendarPeriod` | PeriodStatus | statuses copied; modules mapped (Ledger→GL, VendInvoice→AP, CustInvoice→AR, Inventory→INV, Asset→FA, Project→PROJ, Sales tax→TAX, Bank→BANK) |
 | AX `LedgerAllocation`, `LedgerAllocationRule*` (basis/destination/source) | AllocationRule | basis "statistical" → basis spec on statistical accounts |
@@ -6602,23 +6602,23 @@ No external electronic documents in this wave.
 
 ### 2.15.1 Scope and business context
 
-AX ships Management Reporter (row, column, reporting tree definitions over dimensions) plus trial balance and ledger transaction inquiries; SAP uses financial statement versions (OB58, `T011`/`T011T`, `FAGL_011*`), Fiori financial statement apps and document-flow drill-down. Wave 15 builds the `reporting` service (Go, with its own Postgres read model fed by ledger events) with a row/column/tree report designer, standard statements (trial balance, balance sheet, P&L, cash flow indirect, comparatives, by-entity consolidated view), drill-down to the journal line and source document, scheduled distribution with row-level security on dimensions, and the audit trail report. This is the Phase 2 exit wave: finance stakeholders sign off a closed period produced entirely from Passage.
+AX ships Management Reporter (row, column, reporting tree definitions over dimensions) plus trial balance and ledger transaction inquiries; SAP uses financial statement versions (OB58, `T011`/`T011T`, `FAGL_011*`), Fiori financial statement apps and document-flow drill-down. Wave 15 builds the `reporting` service (Go, with its own Postgres read model fed by ledger events) with a row/column/tree report designer, standard statements (trial balance, balance sheet, P&L, cash flow indirect, comparatives, by-entity consolidated view), drill-down to the journal line and source document, scheduled distribution with row-level security on dimensions, and the audit trail report. This is the Phase 2 exit wave: finance stakeholders sign off a closed period produced entirely from Depot.
 
 Out of scope: group consolidation with eliminations and translation (wave 40), budgets (wave 38), lakehouse analytics and dashboards (wave 46), XBRL/iXBRL (wave 48).
 
 **Pain points solved (10x lens)**
 
-| Pain point in AX/SAP today | Root cause | Passage answer in this wave | Measurable 10x target |
+| Pain point in AX/SAP today | Root cause | Depot answer in this wave | Measurable 10x target |
 |---|---|---|---|
 | Management Reporter reads from its own data mart refreshed by an integration service; statements lag the GL by 15–60 min and the mart silently breaks after AX upgrades or dimension changes | Separate ETL (MR integration) with no "as of" stamping | Read model fed by `journal.posted` events with per-ledger HWM; every statement shows the sequence it reflects; nightly zero-diff verify | Statement lag p95 < 10 s (vs 15–60 min); "mart out of sync" incidents → 0 |
 | SAP F.01/RFBILA00 and FSV (OB58) drill to FAGLL03 but lose the FSV context; reaching the source document from a balance-sheet line is 7+ screens and often impossible for migrated items | Hierarchy, totals and line items are separate programs without a shared key | Drill-down contract (BR-15.4): cell → balance keys → lines → `source_uri` → trace id, with sums that must equal the cell | Clicks balance → document 7 → 3; drill sum mismatches → 0 (property-tested) |
-| Report designer in MR requires a Windows client, separate security (tree security) and definitions that cannot be versioned or promoted between environments except by manual export | Desktop tooling, no API, no versioning | Web designer, JSON export/import with schema version, immutable published versions, OPA dimension security shared with the rest of Passage | Definition promotion dev → prod 1 h manual → < 1 min API call; security rule sets 2 → 1 |
+| Report designer in MR requires a Windows client, separate security (tree security) and definitions that cannot be versioned or promoted between environments except by manual export | Desktop tooling, no API, no versioning | Web designer, JSON export/import with schema version, immutable published versions, OPA dimension security shared with the rest of Depot | Definition promotion dev → prod 1 h manual → < 1 min API call; security rule sets 2 → 1 |
 | Cash flow statement is hand-built in Excel from the trial balance because MR/FSV cash flow setups are fragile and do not reconcile | No tagging model linking balance movements to cash flow categories with an enforced check | `cash_flow_tag` on rows, `CF-STD` indirect derivation with `CF_UNRECONCILED` failure and a "not classified" check row | Cash flow preparation 1–2 days/period → generated in < 20 s with 0.00 reconciliation enforced |
 | Audit requests ("who posted, who approved, when was the period reopened") require pulling `SysDatabaseLog` / `CDHDR` extracts and workflow history separately, usually by IT | Audit data spread across logs with no finance-facing report | Audit trail report over CDC audit + ledger events with hashed export | Audit evidence turnaround days → minutes; controller self-service, 0 IT tickets |
 
 ### 2.15.2 AX / SAP parity map
 
-| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Passage equivalent | Parity |
+| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Depot equivalent | Parity |
 |---|---|---|---|---|
 | Report definitions | Management Reporter row/column/tree definitions, report definitions | Financial statement version (OB58, `T011`, `FAGL_011PC/ZC`), Report Painter/Writer | `reporting.ReportDefinition` (rows, columns, tree) | full |
 | Row definitions | MR row: description, link to financial dimensions, format codes (TOT, CAL), normal balance | FSV nodes with account intervals, debit/credit split, net result | `ReportRow` with kind ∈ {account_range, dimension_filter, total, calculation, header} | full |
@@ -6649,13 +6649,13 @@ Out of scope: group consolidation with eliminations and translation (wave 40), b
   - Consolidated-by-entity view: side-by-side columns per legal entity and a simple sum column in reporting currency (no eliminations; wave 40).
 - **FR-15.6 Statement runs** — Must. A run evaluates a definition for parameters and stores `StatementCell` values with the balance keys used, the HWM, duration, and a SHA-256 of the result; outputs rendered as HTML (interactive), PDF, XLSX and CSV.
   - 2,000-row × 12-column statement over 200k balances completes in < 20 s.
-- **FR-15.7 Drill-down** — Must. From any cell: (1) balances view listing the (account, combination, period) keys with amounts summing to the cell; (2) journal lines for a selected key or the whole cell, paginated, with `voucher`, date, D/C, amounts, source; (3) source document link (`source_uri` resolved to a Passage route or external URL) and `trace_id` link to Tempo.
+- **FR-15.7 Drill-down** — Must. From any cell: (1) balances view listing the (account, combination, period) keys with amounts summing to the cell; (2) journal lines for a selected key or the whole cell, paginated, with `voucher`, date, D/C, amounts, source; (3) source document link (`source_uri` resolved to a Depot route or external URL) and `trace_id` link to Tempo.
   - Drill honors the viewer's dimension security; the line sum shown equals the cell value exactly or the UI displays a reconciliation warning with the filtered-out amount (never silently).
 - **FR-15.8 Scheduling and distribution** — Must. Definitions can be scheduled (cron or close-checklist hook) to run per entity set and distribute via email (PDF/XLSX attachments ≤ 20 MB, else link), shared link with expiry, and a report library with retention (default 7 years for statements run against closed periods, 90 days for ad-hoc).
 - **FR-15.9 Row-level security on dimensions** — Must. OPA policies grant dimension values (e.g., cost centers) per user; balance queries, statements, drill-down and exports are filtered server-side; a report run by a scheduler uses the recipient's permissions per rendered copy.
 - **FR-15.10 Audit trail report** — Must. The system shall report for a period and ledger: entries posted (who, when, source, idempotency replay flag), batch approvals (submitter, approvers, timestamps), reversals, period status changes including reopen approvals, rate overrides, tax fallbacks, allocation and year-end runs; exportable to CSV/PDF with a hash.
 - **FR-15.11 Definition import/export** — Must. Definitions round-trip as JSON (schema-versioned) for backup, environment promotion and Management Reporter conversion.
-- **FR-15.12 Management Reporter and FSV converters** — Should. The migration framework shall convert MR row/column/tree definitions (from the MR database `ControlRowDetail`, `ControlColumnDetail`, `ControlTreeDetail`) and SAP FSV (`T011`, `FAGL_011PC`, `FAGL_011ZC`) into Passage definitions with a conversion report of unsupported constructs.
+- **FR-15.12 Management Reporter and FSV converters** — Should. The migration framework shall convert MR row/column/tree definitions (from the MR database `ControlRowDetail`, `ControlColumnDetail`, `ControlTreeDetail`) and SAP FSV (`T011`, `FAGL_011PC`, `FAGL_011ZC`) into Depot definitions with a conversion report of unsupported constructs.
 - **FR-15.13 Derived financial hierarchies** — Must. The system shall maintain derived hierarchies: trees whose leaf assignment is derived by rules rather than listed, over (a) main account categories (each main account carries `category_id`; categories nest under hierarchy nodes) and (b) dimension values (nodes with membership rules: value ranges, wildcards, attribute filters such as `cost_center.region = EMEA`), with effective-dated versions.
   - A derived hierarchy can be used as a row set (one row per node, totals rolled up, leaves expanded on demand) and as a reporting tree (FR-15.4); statements record the hierarchy version used.
   - Validation on publish: every postable account (or every active dimension value) maps to exactly one leaf node, or is listed in an "unassigned" check node that must be empty for `strict = true` hierarchies (`REPORT_HIERARCHY_UNASSIGNED`); overlaps are rejected (`REPORT_HIERARCHY_OVERLAP`).
@@ -6756,12 +6756,12 @@ Queries and validation: `RunStatement` requires a published definition, period e
 
 | Event | Trigger | Payload fields | Consumers |
 |---|---|---|---|
-| dev.passage.reporting.statement.generated.v1 | run completed | run_id, definition code/version, parameters, hwm_by_ledger, result_hash, outputs[] | distribution, close (automation hook), audit |
-| dev.passage.reporting.statement.failed.v1 | run failed | run_id, error, stage | ops, requester notification |
-| dev.passage.reporting.definition.published.v1 | publish | code, version, actor, diff_summary | audit, cache |
-| dev.passage.reporting.lag.exceeded.v1 | lag > threshold for 60 s | ledger_id, lag_seconds, hwm_ledger, hwm_reporting | ops alerting, close board |
-| dev.passage.reporting.distribution.sent.v1 | email/link delivered | run_id, recipients (hashed), format, size | audit |
-| dev.passage.reporting.hierarchy.unassigned.v1 | new account or dimension value matches no leaf | hierarchy code, version, member_id, member kind | hierarchy owner notification, close board |
+| dev.depot.reporting.statement.generated.v1 | run completed | run_id, definition code/version, parameters, hwm_by_ledger, result_hash, outputs[] | distribution, close (automation hook), audit |
+| dev.depot.reporting.statement.failed.v1 | run failed | run_id, error, stage | ops, requester notification |
+| dev.depot.reporting.definition.published.v1 | publish | code, version, actor, diff_summary | audit, cache |
+| dev.depot.reporting.lag.exceeded.v1 | lag > threshold for 60 s | ledger_id, lag_seconds, hwm_ledger, hwm_reporting | ops alerting, close board |
+| dev.depot.reporting.distribution.sent.v1 | email/link delivered | run_id, recipients (hashed), format, size | audit |
+| dev.depot.reporting.hierarchy.unassigned.v1 | new account or dimension value matches no leaf | hierarchy code, version, member_id, member kind | hierarchy owner notification, close board |
 
 ### 2.15.6 User experience
 
@@ -6806,7 +6806,7 @@ Interaction rules: designer previews render within 3 s against the demo dataset 
 - **AC-15.8** (FR-15.8) Given a nightly schedule for 3 entities, when it fires, then PDF and XLSX outputs are in the library and the email is sent with attachments < 20 MB.
 - **AC-15.9** (FR-15.10) Given a reopened period with a posting and re-close, when the audit trail runs, then it lists the reopen with both approvers, the posting, and the re-close in order with trace ids.
 - **AC-15.10** (FR-15.6) Given 200k balances, when a 2,000 × 12 statement runs, then it completes in < 20 s.
-- **AC-15.11** (Phase exit) Given the finance stakeholders' review, when they compare the Passage statement pack to the AX/SAP-derived expectations for the demo period, then every line ties and sign-off is recorded in the wave 15 issue.
+- **AC-15.11** (Phase exit) Given the finance stakeholders' review, when they compare the Depot statement pack to the AX/SAP-derived expectations for the demo period, then every line ties and sign-off is recorded in the wave 15 issue.
 - **AC-15.12** (FR-15.13, BR-15.13) Given a derived hierarchy over main account categories with `strict = true`, when a new postable account without a category is created, then publish of the next version is rejected with `REPORT_HIERARCHY_UNASSIGNED` naming the account and `hierarchy.unassigned` is emitted; after assigning the category, `BS-STD` run with the hierarchy as row set ties to `TB-STD` to the cent.
 - **AC-15.13** (FR-15.14) Given the demo period with every P&L line carrying `FUNC_AREA`, when `PL-FUNC` runs, then its net result equals `PL-STD` net result to the cent and the check row is 0.00.
 
@@ -6830,11 +6830,11 @@ Reconciliation: `ReportingBalance` = `ledger.Balance` nightly (0 diffs); TB clos
 
 ### 2.15.10 Deployment and operations
 
-Helm chart `passage-reporting` (Go service 3–8 pods, CloudNativePG `reporting-db` 3 instances with 1 read replica for statement runs, Kafka consumer group `reporting-balances`, renderer sidecar for PDF (Chromium headless) with 2 CPU limit). Config: `REPORTING_MAX_LAG_S=30`, `REPORTING_PAGE_SIZE=500`, `REPORTING_CELL_KEY_LIMIT=50000`, `REPORTING_RETENTION_CLOSED_YEARS=7`, `REPORTING_RETENTION_ADHOC_DAYS=90`. Migrations: reporting schema; backfill of `ReportingBalance` from the ledger via a one-time replay of `ledger.journal` topic (compacted snapshot + replay). Feature flags: `reporting.cash_flow`, `reporting.multi_ledger_columns`, `reporting.pdf`. Scheduled jobs: nightly `reporting-balance-verify`, nightly statement pack for demo entities (23:00 UTC), library retention sweep (weekly), audit completeness check (daily). SLOs: read-model lag p95 < 10 s; statement run p95 < 20 s (reference size); drill level 2 first page p95 < 300 ms; availability 99.9%. Alerts: lag > 60 s (P2), verify diff > 0 (P1), audit completeness diff (P1), PDF renderer failures > 5% (P3). Runbook: rebuild read model from ledger replay (≈ 15 min per 10M lines), stuck run cancellation, retention restore from object storage. Rollback: digest rollback; read model can be rebuilt from the journal at any time, so no data rollback is needed.
+Helm chart `depot-reporting` (Go service 3–8 pods, CloudNativePG `reporting-db` 3 instances with 1 read replica for statement runs, Kafka consumer group `reporting-balances`, renderer sidecar for PDF (Chromium headless) with 2 CPU limit). Config: `REPORTING_MAX_LAG_S=30`, `REPORTING_PAGE_SIZE=500`, `REPORTING_CELL_KEY_LIMIT=50000`, `REPORTING_RETENTION_CLOSED_YEARS=7`, `REPORTING_RETENTION_ADHOC_DAYS=90`. Migrations: reporting schema; backfill of `ReportingBalance` from the ledger via a one-time replay of `ledger.journal` topic (compacted snapshot + replay). Feature flags: `reporting.cash_flow`, `reporting.multi_ledger_columns`, `reporting.pdf`. Scheduled jobs: nightly `reporting-balance-verify`, nightly statement pack for demo entities (23:00 UTC), library retention sweep (weekly), audit completeness check (daily). SLOs: read-model lag p95 < 10 s; statement run p95 < 20 s (reference size); drill level 2 first page p95 < 300 ms; availability 99.9%. Alerts: lag > 60 s (P2), verify diff > 0 (P1), audit completeness diff (P1), PDF renderer failures > 5% (P3). Runbook: rebuild read model from ledger replay (≈ 15 min per 10M lines), stuck run cancellation, retention restore from object storage. Rollback: digest rollback; read model can be rebuilt from the journal at any time, so no data rollback is needed.
 
 ### 2.15.11 Migration from AX / SAP
 
-| Source | Passage entity | Notes |
+| Source | Depot entity | Notes |
 |---|---|---|
 | Management Reporter `ControlRowDetail`, `ControlColumnDetail`, `ControlTreeDetail`, `ControlReport` | ReportRow, ReportColumn, ReportTree, ReportDefinition | row link types (FD, dimension sets) → account_range/dimension_filter; CALC with +−×÷ converted; unsupported: XBRL tags, cross-report links (listed) |
 | AX trial balance / inquiry saved queries | not migrated | standard definitions replace them |
@@ -6842,7 +6842,7 @@ Helm chart `passage-reporting` (Go service 3–8 pods, CloudNativePG `reporting-
 | SAP Report Painter libraries | not migrated | re-authored in the designer; conversion report lists them |
 | AX `MainAccountCategory`, `DimensionHierarchy` (derived hierarchies), MR reporting trees | MainAccountCategory, DerivedHierarchy, HierarchyNode | category → `MainAccount.category_id`; derived hierarchy rules copied as membership rules |
 | SAP account groups / G/L hierarchies (`SETHEADER`/`SETNODE`/`SETLEAF` class 0109), profit center groups (KCH1) | DerivedHierarchy (subject main_account or dimension_value) | set intervals → range rules |
-| AX database log / SAP CDHDR history | not migrated | legacy audit remains in the archive; Passage audit begins at cutover |
+| AX database log / SAP CDHDR history | not migrated | legacy audit remains in the archive; Depot audit begins at cutover |
 
 Validation: converted definitions run against migrated opening balances and are compared to the legacy final statements for the cutover period (tolerance 0.00 after sign normalization); conversion report reviewed by the controller.
 
@@ -6992,7 +6992,7 @@ XBRL / iXBRL filings are wave 48.
 
 ## 3.0 Phase overview
 
-**Business outcome at phase exit.** At the end of wave 20 the demo plant buys, receives, pays for and values physical goods on Passage with no AX or SAP system in the loop. Every quantity movement is an immutable inventory transaction carrying physical and financial status plus storage and tracking dimensions (the InventTrans / MSEG role). Buyers run requisition → RFQ → agreement → purchase order under policy-driven approval (PurchReqTable / EBAN through PurchTable / EKKO). Receiving posts inventory and a GR/IR accrual to the universal journal; vendor invoices match 2-way or 3-way inside tolerances or route to an exception queue (VendInvoiceInfoTable / RBKP-RSEG). Open vendor items settle against payment runs that emit ISO 20022 pain.001 and NACHA files (VendSettlement / F110-REGUH). Inventory is valued under FIFO, LIFO, weighted average or standard cost with a close/recalculation job whose value report ties to the GL inventory accounts (InventClosing / CKMLCP). Suppliers acknowledge POs, send ASNs and submit invoices through a portal.
+**Business outcome at phase exit.** At the end of wave 20 the demo plant buys, receives, pays for and values physical goods on Depot with no AX or SAP system in the loop. Every quantity movement is an immutable inventory transaction carrying physical and financial status plus storage and tracking dimensions (the InventTrans / MSEG role). Buyers run requisition → RFQ → agreement → purchase order under policy-driven approval (PurchReqTable / EBAN through PurchTable / EKKO). Receiving posts inventory and a GR/IR accrual to the universal journal; vendor invoices match 2-way or 3-way inside tolerances or route to an exception queue (VendInvoiceInfoTable / RBKP-RSEG). Open vendor items settle against payment runs that emit ISO 20022 pain.001 and NACHA files (VendSettlement / F110-REGUH). Inventory is valued under FIFO, LIFO, weighted average or standard cost with a close/recalculation job whose value report ties to the GL inventory accounts (InventClosing / CKMLCP). Suppliers acknowledge POs, send ASNs and submit invoices through a portal.
 
 **Phase-exit sign-off criteria**
 - Inventory on-hand projection equals SUM(inventory transactions) for a 1M-transaction fixture after a full rebuild; zero rows differ.
@@ -7031,21 +7031,21 @@ XBRL / iXBRL filings are wave 48.
 
 | Event (CloudEvents type) | Producer | Consumers | Payload summary |
 |---|---|---|---|
-| `dev.passage.inventory.transaction.posted.v1` | inventory | costing, planning (w22), analytics | txn id, origin, product, dims, qty, issue/receipt status, physical/financial dates |
-| `dev.passage.inventory.onhand.changed.v1` | inventory | procurement (ATP for PO), sales (w27), warehouse (w31) | product, dim hash, avail_physical, avail_ordered, delta |
-| `dev.passage.inventory.journal.posted.v1` | inventory | ledger (reconciliation), costing | journal id, type, line count, ledger entry id |
-| `dev.passage.procurement.requisition.approved.v1` | procurement | procurement consolidation, budget control (w38) | req id, lines, approver chain |
-| `dev.passage.procurement.po.confirmed.v1` | procurement | inventory (OnOrder txns), supplier-portal, EDI (w35) | po id, version, lines, vendor |
-| `dev.passage.procurement.po.version.created.v1` | procurement | supplier-portal, receiving | po id, version, diff summary |
-| `dev.passage.receiving.receipt.posted.v1` | receiving | inventory, payables (match candidates), costing | receipt id, lines, po lines, qty, GR/IR amount |
-| `dev.passage.payables.invoice.posted.v1` | payables | ledger, costing (PPV/invoice-cost settle), tax (w13) | invoice id, vendor, lines, match status, amounts |
-| `dev.passage.payables.invoice.match.exception.v1` | payables | workflow (Temporal), notifications | invoice id, line, variance type, amounts |
-| `dev.passage.payables.settlement.posted.v1` | payables | ledger, analytics | settlement id, items, discount, fx gain/loss |
-| `dev.passage.payables.payment.sent.v1` | payables | bank connectivity (w36), supplier-portal, cash (w36) | payment id, file id, amount, method, vendor |
-| `dev.passage.payables.payment.status.changed.v1` | payables | notifications, analytics | payment id, old/new status, pain.002 reason code |
-| `dev.passage.costing.close.completed.v1` | costing | ledger, analytics | close id, period, adjustments, duration |
-| `dev.passage.costing.cost.changed.v1` | costing | inventory, planning, product costing (w39) | product, site, version, old/new cost, effective date |
-| `dev.passage.supplier.asn.submitted.v1` | supplier-portal | receiving, warehouse (w31) | asn id, po lines, expected qty, carrier |
+| `dev.depot.inventory.transaction.posted.v1` | inventory | costing, planning (w22), analytics | txn id, origin, product, dims, qty, issue/receipt status, physical/financial dates |
+| `dev.depot.inventory.onhand.changed.v1` | inventory | procurement (ATP for PO), sales (w27), warehouse (w31) | product, dim hash, avail_physical, avail_ordered, delta |
+| `dev.depot.inventory.journal.posted.v1` | inventory | ledger (reconciliation), costing | journal id, type, line count, ledger entry id |
+| `dev.depot.procurement.requisition.approved.v1` | procurement | procurement consolidation, budget control (w38) | req id, lines, approver chain |
+| `dev.depot.procurement.po.confirmed.v1` | procurement | inventory (OnOrder txns), supplier-portal, EDI (w35) | po id, version, lines, vendor |
+| `dev.depot.procurement.po.version.created.v1` | procurement | supplier-portal, receiving | po id, version, diff summary |
+| `dev.depot.receiving.receipt.posted.v1` | receiving | inventory, payables (match candidates), costing | receipt id, lines, po lines, qty, GR/IR amount |
+| `dev.depot.payables.invoice.posted.v1` | payables | ledger, costing (PPV/invoice-cost settle), tax (w13) | invoice id, vendor, lines, match status, amounts |
+| `dev.depot.payables.invoice.match.exception.v1` | payables | workflow (Temporal), notifications | invoice id, line, variance type, amounts |
+| `dev.depot.payables.settlement.posted.v1` | payables | ledger, analytics | settlement id, items, discount, fx gain/loss |
+| `dev.depot.payables.payment.sent.v1` | payables | bank connectivity (w36), supplier-portal, cash (w36) | payment id, file id, amount, method, vendor |
+| `dev.depot.payables.payment.status.changed.v1` | payables | notifications, analytics | payment id, old/new status, pain.002 reason code |
+| `dev.depot.costing.close.completed.v1` | costing | ledger, analytics | close id, period, adjustments, duration |
+| `dev.depot.costing.cost.changed.v1` | costing | inventory, planning, product costing (w39) | product, site, version, old/new cost, effective date |
+| `dev.depot.supplier.asn.submitted.v1` | supplier-portal | receiving, warehouse (w31) | asn id, po lines, expected qty, carrier |
 
 **Phase-level risks**
 
@@ -7062,7 +7062,7 @@ XBRL / iXBRL filings are wave 48.
 
 ### 3.16.1 Scope and business context
 
-Wave 16 creates the inventory ledger that every later quantity-bearing module (purchasing, receiving, production, sales, warehouse) writes to. In AX this is InventTrans with InventTransOrigin, InventSum and InventDim; in SAP it is the material document (MKPF/MSEG) with stock segments in MARD (storage location), MCHB (batch) and MSKA/MSPR (special stock). Before this wave Passage has products with dimension groups (wave 8) and sites/warehouses (wave 6) but no quantities.
+Wave 16 creates the inventory ledger that every later quantity-bearing module (purchasing, receiving, production, sales, warehouse) writes to. In AX this is InventTrans with InventTransOrigin, InventSum and InventDim; in SAP it is the material document (MKPF/MSEG) with stock segments in MARD (storage location), MCHB (batch) and MSKA/MSPR (special stock). Before this wave Depot has products with dimension groups (wave 8) and sites/warehouses (wave 6) but no quantities.
 
 At the end of the wave a user can: load opening balances through a movement journal; move, adjust, transfer and count stock; reserve stock manually or by FEFO/FIFO policy; block or quarantine a batch; run a cycle-count plan; and see on-hand by any combination of site, warehouse, location, batch, serial, inventory status. Every posting produces a balanced universal-journal entry through the wave 11 `Post(JournalEntry)` API.
 
@@ -7070,7 +7070,7 @@ Out of scope: purchase/sales-driven transactions (waves 17–18, 27), production
 
 **Pain points solved (10x lens)**
 
-| Pain point in AX/SAP today | Root cause | Passage answer in this wave | Measurable 10x target |
+| Pain point in AX/SAP today | Root cause | Depot answer in this wave | Measurable 10x target |
 |---|---|---|---|
 | AX On-hand form (InventOnhand) requires choosing a dimension display (InventDimParm) and re-querying per combination; SAP MMBE shows plant/storage location/batch only, MB52 is a batch report; users export to Excel to get location × batch × status | InventSum is pre-aggregated per InventDimId and queried through fixed display sets; MARD/MCHB are separate tables with no common query | Single `GET /onhand` with `groupBy` any dimension subset, served from one projection; shell grid pivots client-side | Clicks to answer "how much of X in batch B at location L": 9 → 2; query p95 < 50 ms vs 3–10 s |
 | InventSum drift from InventTrans after failed batch or kernel patch; fix is the "Check inventory on-hand" consistency check run at night with users off the system | Dual-write of InventTrans and InventSum under X++ ttsbegin with retry-on-deadlock; no automated compare | Projection updated in the same Postgres transaction; weekly rebuild-and-compare; diff event alerts | Reconciliation effort: 2 h/month manual → 0 (automated, 0 diffs); detection latency: weeks → < 24 h |
@@ -7080,7 +7080,7 @@ Out of scope: purchase/sales-driven transactions (waves 17–18, 27), production
 
 ### 3.16.2 AX / SAP parity map
 
-| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Passage equivalent | Parity level |
+| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Depot equivalent | Parity level |
 |---|---|---|---|---|
 | Inventory transaction record | InventTrans, InventTransOrigin, InventTransPosting; form InventTrans | MSEG/MKPF (material document), MATDOC in S/4; MB03/MIGO display | `inventory.InventoryTransaction`, `InventoryTransactionOrigin`; screen Inventory transactions | full |
 | On-hand by dimension | InventSum, InventOnhand form, InventDimParm | MARD, MCHB, MSKA; MMBE stock overview, MB52 | `inventory.OnHand` projection; On-hand inquiry | improved (any dimension combination, real time) |
@@ -7157,7 +7157,7 @@ Out of scope: purchase/sales-driven transactions (waves 17–18, 27), production
 
 - **FR-16.11 Physical and financial dates** — Must. The system shall store `physical_date` (goods movement) and `financial_date` (value recognition) separately; the ledger entry uses `financial_date` and is validated against period control (wave 14) for module INVENTORY.
 
-- **FR-16.12 Daily reconciliation** — Must. The system shall run a job that compares SUM(OnHand.posted_value) by inventory account and dimension to the ledger balance projection and raises `dev.passage.inventory.reconciliation.diff.v1` on any non-zero difference.
+- **FR-16.12 Daily reconciliation** — Must. The system shall run a job that compares SUM(OnHand.posted_value) by inventory account and dimension to the ledger balance projection and raises `dev.depot.inventory.reconciliation.diff.v1` on any non-zero difference.
 
 - **FR-16.13 Inventory transaction inquiry** — Should. The system shall provide a filterable, exportable inquiry over transactions with origin, status, dates and GL voucher drill-down.
 
@@ -7168,7 +7168,7 @@ Out of scope: purchase/sales-driven transactions (waves 17–18, 27), production
   - `:ship` (AX "Ship transfer order", SAP VL10B + PGI 641) posts in one database transaction a DEDUCTED issue at the from-dimension and a RECEIVED receipt at the transit dimension (`warehouse = transit_warehouse_id`, status `IN_TRANSIT`); cost of the transit receipt equals the cost of the issue (BR-16.3).
   - `:receive` (AX "Receive", SAP MIGO 101 against STO) posts a DEDUCTED issue at the transit dimension and a RECEIVED receipt at the to-dimension with the registered batch/serial/location; under-delivery within `underdelivery_pct` with `close_short=true` closes the line; over-receipt beyond `overdelivery_pct` is rejected with `INV-TRF-002`.
   - `transit_warehouse_id` is mandatory when the legal-entity parameter `transfer_use_transit=true`; otherwise `:ship` performs ship-and-receive in one step (SAP one-step 301).
-  - Transfer order picking release emits `dev.passage.inventory.transfer.release.v1` for wave 31 warehouse work (and wave 28 outbound picking); until those waves exist the shipment is posted from the transfer order screen or PWA.
+  - Transfer order picking release emits `dev.depot.inventory.transfer.release.v1` for wave 31 warehouse work (and wave 28 outbound picking); until those waves exist the shipment is posted from the transfer order screen or PWA.
   - Cancellation of unshipped remaining quantity cancels the ON_ORDER/ORDERED pair; delete of CREATED orders with no postings is allowed (AX "Delete transfer orders").
   - Documents: transfer shipping document and transfer receiving document (3.16.15).
 
@@ -7176,7 +7176,7 @@ Out of scope: purchase/sales-driven transactions (waves 17–18, 27), production
 
 - **FR-16.17 Ownership dimension, vendor consignment and customer consignment** — Must. The system shall activate the `owner` dimension (D365 InventOwnerId; SAP special stock indicator K) through the tracking dimension group, with `owner = legal entity` by default or a vendor id for vendor-owned stock.
   - `ConsignmentReplenishmentOrder` (vendor, lines product/qty/date/warehouse) receives vendor-owned quantity as RECEIVED transactions with `owner = vendor`, `posted_value = 0`, no ledger entry and no GR/IR (quantity-only stock).
-  - Journal type OWNERSHIP_CHANGE moves quantity from `owner = vendor` to `owner = legal entity` as a paired issue/receipt at the consignment price (wave 17 trade agreement with `consignment=true`, else the replenishment order price), posting Dr inventory / Cr consignment accrual (posting profile account `consignment_accrual`; SAP OBYC KON) and emitting `dev.passage.inventory.ownership.changed.v1`; wave 18 FR-18.16 consumes it to create the consignment settlement invoice (SAP MRKO).
+  - Journal type OWNERSHIP_CHANGE moves quantity from `owner = vendor` to `owner = legal entity` as a paired issue/receipt at the consignment price (wave 17 trade agreement with `consignment=true`, else the replenishment order price), posting Dr inventory / Cr consignment accrual (posting profile account `consignment_accrual`; SAP OBYC KON) and emitting `dev.depot.inventory.ownership.changed.v1`; wave 18 FR-18.16 consumes it to create the consignment settlement invoice (SAP MRKO).
   - When the item model group sets `auto_ownership_change_on_issue=true`, an issue that would consume vendor-owned stock creates the ownership change automatically before the issue; stock determination order (`OWN_FIRST` / `CONSIGNMENT_FIRST`, SAP OSPX) is set per warehouse.
   - A periodic ownership-change batch (3.16.16) converts consumption-driven and age-driven (`max_consignment_days`) quantities.
   - Vendor-owned stock is counted in cycle counts (SAP MIK1) and is excluded from the inventory value report; consignment inventory reports (3.16.14) list vendor-owned quantity by vendor, warehouse and age.
@@ -7252,7 +7252,7 @@ Out of scope: purchase/sales-driven transactions (waves 17–18, 27), production
 
 **CountPlan / CountSheet**: plan id, name, selection (abc_class[], warehouse_ids[], location_range, max_days_since_count, sample_pct), frequency (cron), tolerance_qty_pct, tolerance_value, blind (bool); sheet id, plan_id, status (OPEN, COUNTED, APPROVED, POSTED), lines (product, dims, expected_qty, counted_qty, variance_qty, counted_by, counted_at).
 
-Invariants: Σ qty over transactions with physical status for a (product, dimension set) = OnHand.physical_invent; posted_value changes only through financial status transitions and wave 20 adjustments; a serial has at most one open physical receipt not matched by an issue; DimensionSet hash is deterministic across services (shared Go package `passage/invdim`). Indexing: InventoryTransaction (tenant, product, dimension_set, physical_date), (origin_id), partial index on open statuses; OnHand clustered by (tenant, product); monthly range partitions on InventoryTransaction by physical_date when a tenant exceeds 20M rows.
+Invariants: Σ qty over transactions with physical status for a (product, dimension set) = OnHand.physical_invent; posted_value changes only through financial status transitions and wave 20 adjustments; a serial has at most one open physical receipt not matched by an issue; DimensionSet hash is deterministic across services (shared Go package `depot/invdim`). Indexing: InventoryTransaction (tenant, product, dimension_set, physical_date), (origin_id), partial index on open statuses; OnHand clustered by (tenant, product); monthly range partitions on InventoryTransaction by physical_date when a tenant exceeds 20M rows.
 
 ### 3.16.5 APIs and events
 
@@ -7276,13 +7276,13 @@ Commands: `CreateJournal`, `AddLines`, `PostJournal` (validates period control, 
 
 | Event | Trigger | Payload fields | Consumers |
 |---|---|---|---|
-| `dev.passage.inventory.transaction.posted.v1` | any transaction insert or status change | transaction_id, origin, product_id, dimension_set, qty, issue_status, receipt_status, physical_date, financial_date, cost_amount_* | costing, analytics, planning |
-| `dev.passage.inventory.onhand.changed.v1` | OnHand row update | product_id, dimension_set, avail_physical, avail_ordered, delta_bucket, delta_qty | procurement, sales, warehouse |
-| `dev.passage.inventory.journal.posted.v1` | journal reaches POSTED | journal_id, type, lines, ledger_entry_id, posting_date | ledger reconciliation, costing |
-| `dev.passage.inventory.reservation.created.v1` / `.released.v1` | reservation lifecycle | reservation_id, demand, product, dims, qty, policy | sales, production |
-| `dev.passage.inventory.reconciliation.diff.v1` | daily job finds diff ≠ 0 | account, dimension, inventory_value, ledger_balance, diff | alerting |
-| `dev.passage.inventory.transfer.shipped.v1` / `.received.v1` / `.release.v1` | transfer order ship / receive / picking release | transfer_order_id, lines (product, dims, qty), from/to/transit warehouse, ship_date, receipt_date | planning (w22), warehouse (w31), fulfillment (w28), analytics |
-| `dev.passage.inventory.ownership.changed.v1` | OWNERSHIP_CHANGE journal posted | journal_id, vendor_id, lines (product, dims, qty, consignment_price, amount_acct), ledger_entry_id | payables (w18 consignment settlement), supplier-portal (w20), analytics |
+| `dev.depot.inventory.transaction.posted.v1` | any transaction insert or status change | transaction_id, origin, product_id, dimension_set, qty, issue_status, receipt_status, physical_date, financial_date, cost_amount_* | costing, analytics, planning |
+| `dev.depot.inventory.onhand.changed.v1` | OnHand row update | product_id, dimension_set, avail_physical, avail_ordered, delta_bucket, delta_qty | procurement, sales, warehouse |
+| `dev.depot.inventory.journal.posted.v1` | journal reaches POSTED | journal_id, type, lines, ledger_entry_id, posting_date | ledger reconciliation, costing |
+| `dev.depot.inventory.reservation.created.v1` / `.released.v1` | reservation lifecycle | reservation_id, demand, product, dims, qty, policy | sales, production |
+| `dev.depot.inventory.reconciliation.diff.v1` | daily job finds diff ≠ 0 | account, dimension, inventory_value, ledger_balance, diff | alerting |
+| `dev.depot.inventory.transfer.shipped.v1` / `.received.v1` / `.release.v1` | transfer order ship / receive / picking release | transfer_order_id, lines (product, dims, qty), from/to/transit warehouse, ship_date, receipt_date | planning (w22), warehouse (w31), fulfillment (w28), analytics |
+| `dev.depot.inventory.ownership.changed.v1` | OWNERSHIP_CHANGE journal posted | journal_id, vendor_id, lines (product, dims, qty, consignment_price, amount_acct), ledger_entry_id | payables (w18 consignment settlement), supplier-portal (w20), analytics |
 
 ### 3.16.6 User experience
 
@@ -7351,15 +7351,15 @@ Fixtures: `inv-demo-plant` (200 products, 3 sites, 6 warehouses, 400 locations, 
 | Period control | contract | journals:post | AC-16.7 |
 | PWA offline count | E2E (Playwright) | count sheet | counts queued offline sync without loss |
 
-Reconciliation checks: Σ OnHand.posted_value per inventory account = ledger balance; Σ transaction qty (physical) = OnHand.physical_invent; count sheet variance total = COUNT journal total; AX migration: InventSum.PostedQty + Received + Registered − Deducted − Picked = Passage physical_invent per InventDimId.
+Reconciliation checks: Σ OnHand.posted_value per inventory account = ledger balance; Σ transaction qty (physical) = OnHand.physical_invent; count sheet variance total = COUNT journal total; AX migration: InventSum.PostedQty + Received + Registered − Deducted − Picked = Depot physical_invent per InventDimId.
 
 ### 3.16.10 Deployment and operations
 
-Helm chart `passage-inventory` (Deployment ×3, HPA 3–12 on CPU 70%, Postgres CloudNativePG cluster `inventory-db` 3 instances, outbox Debezium connector `inventory-outbox`). Config: `INV_NEGATIVE_DEFAULT=forbid`, `INV_RESERVATION_TTL_HOURS=0`, `INV_JOURNAL_MAX_LINES=10000`, `INV_RECON_CRON=0 2 * * *`. Migrations via Atlas from entity metadata (`inventory/v16.*`). Feature flags: `inv.fefo_policy`, `inv.count_pwa`, `inv.transfer_cost_diff` (off until w20). Scheduled jobs (Temporal cron): daily reconciliation 02:00 tenant local, count sheet generation per plan cron, weekly rebuild-and-compare Sunday 03:00. SLOs: journal post p95 < 2 s for 1,000 lines; on-hand query p95 < 50 ms; event lag p95 < 5 s. Alerts: reconciliation diff ≠ 0 (page), outbox lag > 60 s (ticket), negative on-hand where forbidden (page, indicates bug). Runbook: rebuild projection, replay outbox, reverse journal. Rollback: Argo CD digest rollback; migrations are additive in this wave (no destructive change), so downgrade is safe.
+Helm chart `depot-inventory` (Deployment ×3, HPA 3–12 on CPU 70%, Postgres CloudNativePG cluster `inventory-db` 3 instances, outbox Debezium connector `inventory-outbox`). Config: `INV_NEGATIVE_DEFAULT=forbid`, `INV_RESERVATION_TTL_HOURS=0`, `INV_JOURNAL_MAX_LINES=10000`, `INV_RECON_CRON=0 2 * * *`. Migrations via Atlas from entity metadata (`inventory/v16.*`). Feature flags: `inv.fefo_policy`, `inv.count_pwa`, `inv.transfer_cost_diff` (off until w20). Scheduled jobs (Temporal cron): daily reconciliation 02:00 tenant local, count sheet generation per plan cron, weekly rebuild-and-compare Sunday 03:00. SLOs: journal post p95 < 2 s for 1,000 lines; on-hand query p95 < 50 ms; event lag p95 < 5 s. Alerts: reconciliation diff ≠ 0 (page), outbox lag > 60 s (ticket), negative on-hand where forbidden (page, indicates bug). Runbook: rebuild projection, replay outbox, reverse journal. Rollback: Argo CD digest rollback; migrations are additive in this wave (no destructive change), so downgrade is safe.
 
 ### 3.16.11 Migration from AX / SAP
 
-| Source | Passage entity | Notes |
+| Source | Depot entity | Notes |
 |---|---|---|
 | AX InventSum (per InventDimId) | OPENING_BALANCE journal lines → InventoryTransaction + OnHand | PostedQty+Received+Registered−Deducted−Picked → qty; PostedValue+PhysicalValue → cost; reserved/ordered buckets not migrated (open orders re-created in w17/w27) |
 | AX InventDim | DimensionSet | map InventSiteId→site, InventLocationId→warehouse, wMSLocationId→location, InventBatchId→batch, InventSerialId→serial, InventStatusId→inventory_status |
@@ -7371,7 +7371,7 @@ Helm chart `passage-inventory` (Deployment ×3, HPA 3–12 on CPU 70%, Postgres 
 | SAP MBEW (LBKUM, SALK3, VERPR/STPRS) | cost on opening lines | value = SALK3 split proportionally by qty |
 | SAP MSEG/MKPF history | InventoryTransaction history | BWART → status mapping table (101, 102, 261, 262, 301, 311, 551, 561) |
 
-Transformation notes: dimension hash computed after mapping; quantities converted to Passage inventory unit via MARM/UnitOfMeasureConversion; opening journal posts with financial_date = cutover date − 1 and offset account = migration clearing account. Validation: Σ migrated qty per product/site equals source extract; Σ value equals source within 0.01 × product count; no serial duplicates. Not migrated: InventSum reservation buckets (recreated by open documents), AX quarantine orders (re-entered manually; typically < 50), SAP special stock O (subcontracting; wave 21); special stock K migrates as `owner = vendor` stock per FR-16.17, InventClosing history (wave 20 decides).
+Transformation notes: dimension hash computed after mapping; quantities converted to Depot inventory unit via MARM/UnitOfMeasureConversion; opening journal posts with financial_date = cutover date − 1 and offset account = migration clearing account. Validation: Σ migrated qty per product/site equals source extract; Σ value equals source within 0.01 × product count; no serial duplicates. Not migrated: InventSum reservation buckets (recreated by open documents), AX quarantine orders (re-entered manually; typically < 50), SAP special stock O (subcontracting; wave 21); special stock K migrates as `owner = vendor` stock per FR-16.17, InventClosing history (wave 20 decides).
 
 ### 3.16.12 Dependencies, risks, open questions
 
@@ -7604,7 +7604,7 @@ At the end of the wave a requester can raise a requisition that routes by amount
 
 **Pain points solved (10x lens)**
 
-| Pain point in AX/SAP today | Root cause | Passage answer in this wave | Measurable 10x target |
+| Pain point in AX/SAP today | Root cause | Depot answer in this wave | Measurable 10x target |
 |---|---|---|---|
 | AX purchase order confirmation runs PurchFormLetter with totals recalculation and PDF through SSRS; 20–90 s per PO on a loaded AOS; ME21N saves fast but output (NEU message, ME9F) depends on a scheduled RSNAST00 job | Synchronous document class chain plus report server; SAP output via NAST condition technique and batch | Confirmation is a state transition that enqueues rendering (Temporal activity) and emits `po.confirmed`; PDF rendered by a stateless worker within 3 s | Confirm latency: 20–90 s → < 2 s UI, PDF < 5 s; no batch wait |
 | Price lookup in AX (PriceDisc class, PriceDiscTable search over 3 account codes × 3 item codes) is opaque; buyers cannot see why a price was chosen; SAP condition analysis (ME23N > Conditions > Analysis) exists but is 6 clicks deep | No explain output; access sequence hidden | Every PO line carries `price_source` (agreement id, trade agreement id, last price, manual) with an "explain" popover; `GET /pricing/explain` | Clicks to see why a price applied: 6–8 → 1; price disputes per 1,000 POs: tracked, target −80% |
@@ -7614,7 +7614,7 @@ At the end of the wave a requester can raise a requisition that routes by amount
 
 ### 3.17.2 AX / SAP parity map
 
-| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Passage equivalent | Parity level |
+| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Depot equivalent | Parity level |
 |---|---|---|---|---|
 | Purchase requisition | PurchReqTable, PurchReqLine; forms PurchReqTable, PurchReqReview workflow; policies (PurchReqControlRule) | EBAN/EBKN; ME51N/ME52N/ME53N; release strategy ME54N; ME57 assign source | `procurement.PurchaseRequisition`, `RequisitionLine`; Requisition workspace; policy matrix | full |
 | Approval policy | Purchasing policies (PurchPolicy), amount bands via workflow conditions, category access policy | Release strategy (release groups/codes, classification characteristics CEBAN) | `ApprovalPolicy` (bands, category, org unit, requester role) compiled to Temporal workflow input | improved |
@@ -7692,7 +7692,7 @@ At the end of the wave a requester can raise a requisition that routes by amount
 - **FR-17.14 Buyer workspace** — Should. The system shall show the buyer the queue of approved requisition lines, RFQs awaiting replies, POs awaiting confirmation, agreements near expiry (< 30 days) or near limit (> 90 %).
 
 - **FR-17.15 Scheduling agreements and releases** — Must. The system shall support a `SchedulingAgreement` (SAP ME31L type LP/LPA; AX agreement with delivery schedule) per vendor × product × site with target quantity, validity, price terms, `release_profile` (FRC forecast horizon days, JIT horizon days, firm zone days, trade-off zone days, release frequency), and a `ReleaseSchedule` of dated quantities maintained manually in this wave and by wave 22 MRP later.
-  - A release run (manual `:release` or the job in 3.17.16; SAP ME84) snapshots the schedule into a numbered `Release` (kind FRC or JIT) carrying per-line cumulative released quantity, cumulative received quantity (from wave 18 receipts) and the last receipt reference; the release document is rendered (3.17.15) and emitted as `dev.passage.procurement.sa.release.created.v1` for wave 35 EDI DELFOR/DELJIT.
+  - A release run (manual `:release` or the job in 3.17.16; SAP ME84) snapshots the schedule into a numbered `Release` (kind FRC or JIT) carrying per-line cumulative released quantity, cumulative received quantity (from wave 18 receipts) and the last receipt reference; the release document is rendered (3.17.15) and emitted as `dev.depot.procurement.sa.release.created.v1` for wave 35 EDI DELFOR/DELJIT.
   - Schedule lines inside the firm zone cannot be reduced without a reason code; lines in the trade-off zone warn; beyond it they are forecast only.
   - Each schedule line writes an ORDERED inventory transaction (wave 16) like a PO delivery schedule; receipts reference the schedule line.
   - Inquiry "Monitor scheduling agreement releases" lists agreements with open cumulative quantity, last release date, next release due, and release documentation per release number (SAP ME85/ME86).
@@ -7788,15 +7788,15 @@ Commands: `SubmitRequisition` (account structure valid, lines ≥ 1, no closed c
 
 | Event | Trigger | Payload fields | Consumers |
 |---|---|---|---|
-| `dev.passage.procurement.requisition.submitted.v1` / `.approved.v1` / `.rejected.v1` | workflow transitions | requisition_id, lines (product, qty, amount), total, approver chain, policy_version | notifications, budget (w38), analytics |
-| `dev.passage.procurement.rfq.sent.v1` / `.awarded.v1` | RFQ send/award | rfq_id, vendors, lines, awarded vendor per line | supplier-portal (w20), notifications |
-| `dev.passage.procurement.po.confirmed.v1` | confirm | po_id, version_no, vendor_id, lines (product, qty, unit, price, delivery dates, site/warehouse), totals, output channel | inventory, receiving (w18), supplier-portal, EDI (w35), analytics |
-| `dev.passage.procurement.po.version.created.v1` | any confirmed version > 1 | po_id, version_no, patch, reapproval_required | supplier-portal, receiving |
-| `dev.passage.procurement.po.cancelled.v1` | cancel | po_id, lines cancelled, remaining qty | inventory (cancel ORDERED), supplier-portal |
-| `dev.passage.procurement.agreement.threshold.v1` | released ≥ 90 % or expiry < 30 d | agreement_id, line, pct, expiry | notifications |
-| `dev.passage.procurement.sa.release.created.v1` | scheduling agreement release run | agreement_id, release_number, kind (FRC/JIT), vendor_id, lines (product, schedule dates, qty, cumulative released, cumulative received) | EDI (w35 DELFOR/DELJIT), supplier-portal (w20), planning (w22) |
-| `dev.passage.procurement.policy.changed.v1` / `signinglimit.changed.v1` | policy version activated / signing limit approved | policy_id, type, version, hierarchy purpose; worker_id, document type, limits | procurement (re-evaluation), expense (w43), audit (w48) |
-| `dev.passage.procurement.po.repriced.v1` | `:reprice` applied | po_id, version_no, lines (old price, new price, delta), invoiced lines passed to payables | payables (w18 subsequent debit/credit), analytics |
+| `dev.depot.procurement.requisition.submitted.v1` / `.approved.v1` / `.rejected.v1` | workflow transitions | requisition_id, lines (product, qty, amount), total, approver chain, policy_version | notifications, budget (w38), analytics |
+| `dev.depot.procurement.rfq.sent.v1` / `.awarded.v1` | RFQ send/award | rfq_id, vendors, lines, awarded vendor per line | supplier-portal (w20), notifications |
+| `dev.depot.procurement.po.confirmed.v1` | confirm | po_id, version_no, vendor_id, lines (product, qty, unit, price, delivery dates, site/warehouse), totals, output channel | inventory, receiving (w18), supplier-portal, EDI (w35), analytics |
+| `dev.depot.procurement.po.version.created.v1` | any confirmed version > 1 | po_id, version_no, patch, reapproval_required | supplier-portal, receiving |
+| `dev.depot.procurement.po.cancelled.v1` | cancel | po_id, lines cancelled, remaining qty | inventory (cancel ORDERED), supplier-portal |
+| `dev.depot.procurement.agreement.threshold.v1` | released ≥ 90 % or expiry < 30 d | agreement_id, line, pct, expiry | notifications |
+| `dev.depot.procurement.sa.release.created.v1` | scheduling agreement release run | agreement_id, release_number, kind (FRC/JIT), vendor_id, lines (product, schedule dates, qty, cumulative released, cumulative received) | EDI (w35 DELFOR/DELJIT), supplier-portal (w20), planning (w22) |
+| `dev.depot.procurement.policy.changed.v1` / `signinglimit.changed.v1` | policy version activated / signing limit approved | policy_id, type, version, hierarchy purpose; worker_id, document type, limits | procurement (re-evaluation), expense (w43), audit (w48) |
+| `dev.depot.procurement.po.repriced.v1` | `:reprice` applied | po_id, version_no, lines (old price, new price, delta), invoiced lines passed to payables | payables (w18 subsequent debit/credit), analytics |
 
 ### 3.17.6 User experience
 
@@ -7875,11 +7875,11 @@ Reconciliation checks: Σ requisition lines CONSOLIDATED = Σ PO lines with requ
 
 ### 3.17.10 Deployment and operations
 
-Helm chart `passage-procurement` (API Deployment ×3, render worker ×2, Temporal worker ×2, CloudNativePG `procurement-db`, outbox connector). Config: `PRC_CONSOLIDATION_WINDOW_DAYS=7`, `PRC_CHANGE_MGMT_DEFAULT=true`, `PRC_RFQ_LATE_POLICY=flag`, `PRC_PDF_TIMEOUT_S=20`. Migrations `procurement/v17.*`. Feature flags: `prc.rfq_portal_replies` (on in w20), `prc.edi_output` (w35), `prc.delivery_date_pricing`. Jobs: agreement threshold scan daily 06:00; RFQ deadline closer hourly; approval SLA escalation (Temporal timers). SLOs: PO create/confirm API p95 < 500 ms; requisition submit to workflow start < 2 s; PDF < 5 s p95. Alerts: workflow task backlog > 100 for 10 min; render failures > 5/h; pricing lookup p95 > 50 ms. Runbook: re-render document, restart stuck approval (Temporal signal), re-emit `po.confirmed`. Rollback: additive migrations; flag off `prc.change_mgmt` if version logic misbehaves (POs remain confirmable without versions).
+Helm chart `depot-procurement` (API Deployment ×3, render worker ×2, Temporal worker ×2, CloudNativePG `procurement-db`, outbox connector). Config: `PRC_CONSOLIDATION_WINDOW_DAYS=7`, `PRC_CHANGE_MGMT_DEFAULT=true`, `PRC_RFQ_LATE_POLICY=flag`, `PRC_PDF_TIMEOUT_S=20`. Migrations `procurement/v17.*`. Feature flags: `prc.rfq_portal_replies` (on in w20), `prc.edi_output` (w35), `prc.delivery_date_pricing`. Jobs: agreement threshold scan daily 06:00; RFQ deadline closer hourly; approval SLA escalation (Temporal timers). SLOs: PO create/confirm API p95 < 500 ms; requisition submit to workflow start < 2 s; PDF < 5 s p95. Alerts: workflow task backlog > 100 for 10 min; render failures > 5/h; pricing lookup p95 > 50 ms. Runbook: re-render document, restart stuck approval (Temporal signal), re-emit `po.confirmed`. Rollback: additive migrations; flag off `prc.change_mgmt` if version logic misbehaves (POs remain confirmable without versions).
 
 ### 3.17.11 Migration from AX / SAP
 
-| Source | Passage entity | Notes |
+| Source | Depot entity | Notes |
 |---|---|---|
 | AX PurchTable/PurchLine (open: PurchStatus Backorder, open qty > 0) | PurchaseOrder/Line version 1, approval_status CONFIRMED | remaining qty = PurchQty − received; received history not migrated (opening on-hand covers stock) |
 | AX PurchAgreementHeader/Line, AgreementLineReleasedLine | PurchaseAgreement/Line with released totals | released computed from source releases |
@@ -8120,7 +8120,7 @@ Out of scope: payment (wave 19), warehouse-directed put-away and license plates 
 
 **Pain points solved (10x lens)**
 
-| Pain point in AX/SAP today | Root cause | Passage answer in this wave | Measurable 10x target |
+| Pain point in AX/SAP today | Root cause | Depot answer in this wave | Measurable 10x target |
 |---|---|---|---|
 | AX pending vendor invoice form (VendInvoiceInfoTable) runs "Match product receipts" as a dialog, then matching icons update only after "Update match status"; users re-key invoice lines from paper; SAP MIRO proposes lines but the tolerance log (RBKP block indicator, MRBR release) is a separate transaction | Matching is a form-triggered class (VendInvoiceMatch), not an engine; capture is manual | Matching engine runs on every invoice save and on every receipt posting (re-match candidates), status visible inline; OCR adapter pre-fills lines; `MatchResult` per line with variances | Invoice entry time: 4–6 min → < 60 s; manual re-match steps: 3 → 0 |
 | GR/IR reconciliation: AX "Accrued purchases" report and SAP MR11 (GR/IR maintenance) plus F.19 regrouping are month-end chores; differences hide for months | GR/IR balance is an account balance with no per-PO-line open-item ledger in AX; SAP EKBE requires MR11 to clear residuals | `GrirOpenItem` per PO line × receipt, cleared by invoice line; GR/IR report = Σ open items and must equal the account balance (daily reconciliation) | Month-end GR/IR effort: 4–8 h → < 15 min; unexplained residual: non-zero → 0 |
@@ -8130,7 +8130,7 @@ Out of scope: payment (wave 19), warehouse-directed put-away and license plates 
 
 ### 3.18.2 AX / SAP parity map
 
-| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Passage equivalent | Parity level |
+| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Depot equivalent | Parity level |
 |---|---|---|---|---|
 | Arrival / registration | Arrival overview (WMSArrivalOverview), arrival journal (WMSJournalTable type Reception), registration (InventTransRegister) | Inbound delivery VL31N, GR into blocked stock (103/105), quality inspection stock | `Arrival` (ARRIVED), `Registration` (REGISTERED) steps on ReceiptLine; arrival overview screen | full |
 | Product receipt | PurchFormLetter_PackingSlip → VendPackingSlipJour/Trans, InventTrans Received, ledger posting PurchPackingSlip/accrual | MIGO 101 → MKPF/MSEG, EKBE (VGABE 1), GR/IR via WRX, inventory BSX | `ProductReceipt`/`ReceiptLine`; RECEIVED transactions; ledger entry Dr inventory / Cr GR/IR | full |
@@ -8203,7 +8203,7 @@ Out of scope: payment (wave 19), warehouse-directed put-away and license plates 
 
 - **FR-18.15 Stochastic (random-sample) invoice block** — Must. The system shall evaluate on every invoice reaching MATCHED a `stochastic_block` rule from the matching policy scope (SAP OMRX T169P): `threshold_amount` (acct ccy) and `percentage`; invoices with total ≥ threshold are blocked with probability `percentage` % (linear decrease below threshold proportional to total/threshold), using a seeded CSPRNG with the invoice id so the decision is reproducible; a blocked invoice gets match status `AUDIT_SAMPLE`, is routed to the AP auditor queue (duty InvoiceAuditRelease), and is released or rejected with reason; the sample rate actually achieved is reported monthly.
 
-- **FR-18.16 Consignment settlement** — Must. The system shall consume `dev.passage.inventory.ownership.changed.v1` (wave 16 FR-16.17) and, per vendor and settlement frequency (`consignment_settlement_frequency` DAILY/WEEKLY/MONTHLY, SAP MRKO), create and post a `VendorInvoice` of kind CONSIGNMENT with one line per ownership change line (product, qty, consignment price, tax group from the trade agreement), clearing the consignment accrual (Dr consignment accrual / Cr vendor control), skipping matching (status MATCHED by construction), and sending a consignment settlement statement (3.18.15) to the vendor; when `consignment_self_billing=false` the vendor's own invoice is matched against the ownership change lines instead (2-way to accrual).
+- **FR-18.16 Consignment settlement** — Must. The system shall consume `dev.depot.inventory.ownership.changed.v1` (wave 16 FR-16.17) and, per vendor and settlement frequency (`consignment_settlement_frequency` DAILY/WEEKLY/MONTHLY, SAP MRKO), create and post a `VendorInvoice` of kind CONSIGNMENT with one line per ownership change line (product, qty, consignment price, tax group from the trade agreement), clearing the consignment accrual (Dr consignment accrual / Cr vendor control), skipping matching (status MATCHED by construction), and sending a consignment settlement statement (3.18.15) to the vendor; when `consignment_self_billing=false` the vendor's own invoice is matched against the ownership change lines instead (2-way to accrual).
 
 - **FR-18.17 Invoicing plan settlement run** — Should. The system shall run daily (3.18.16; SAP MRIS) over wave 17 invoicing plan rows with `due_date ≤ run date` and status OPEN, creating per vendor a `VendorInvoice` kind PLAN with lines for each due row (amount, tax group of the PO line, account assignment), posting it when `settle_without_receipt=true` and the plan is marked ERS-like (`auto_post=true`), otherwise leaving it in DRAFT for the vendor's invoice to be matched 2-way to the plan row; plan rows move to INVOICED with the invoice reference.
 
@@ -8283,15 +8283,15 @@ Commands: `PostReceipt` (open period, over-delivery, serial uniqueness, PO confi
 
 | Event | Trigger | Payload fields | Consumers |
 |---|---|---|---|
-| `dev.passage.receiving.receipt.posted.v1` | receipt POSTED | receipt_id, po_id, lines (po_line, qty, dims, batch, serials, amount_acct), ledger_entry_id | inventory, payables (re-match, ERS), costing, supplier-portal |
-| `dev.passage.receiving.receipt.corrected.v1` | correction/cancel | receipt_id, delta lines | payables, costing |
-| `dev.passage.payables.invoice.captured.v1` | DRAFT created from adapter | invoice_id, vendor, source, confidence | notifications |
-| `dev.passage.payables.invoice.match.exception.v1` | variance status | invoice_id, line_id, status, variances, assignee | workflow, notifications |
-| `dev.passage.payables.invoice.posted.v1` | POSTED | invoice_id, vendor_transaction_id, lines, totals, grir cleared amounts, ledger_entry_id | ledger reconciliation, costing, tax, analytics |
-| `dev.passage.payables.grir.cleared.v1` | GrirOpenItem CLEARED/WRITTEN_OFF | open_item_id, amounts | analytics |
-| `dev.passage.receiving.service-entry-sheet.accepted.v1` / `.revoked.v1` | sheet accepted / revoked | sheet_id, po_id, po_line_id, vendor_id, lines (service item, qty, amount, account assignment), grir amounts, ledger_entry_id | payables (match, ERS), costing (expense), project accounting (w41), supplier-portal (w20) |
-| `dev.passage.payables.invoice.audit-sampled.v1` | stochastic block applied | invoice_id, vendor_id, total, rule (threshold, percentage), assignee | workflow, notifications, audit (w48) |
-| `dev.passage.payables.consignment.settled.v1` | consignment settlement invoice posted | invoice_id, vendor_id, ownership change journal ids, lines, total | supplier-portal (w20), analytics |
+| `dev.depot.receiving.receipt.posted.v1` | receipt POSTED | receipt_id, po_id, lines (po_line, qty, dims, batch, serials, amount_acct), ledger_entry_id | inventory, payables (re-match, ERS), costing, supplier-portal |
+| `dev.depot.receiving.receipt.corrected.v1` | correction/cancel | receipt_id, delta lines | payables, costing |
+| `dev.depot.payables.invoice.captured.v1` | DRAFT created from adapter | invoice_id, vendor, source, confidence | notifications |
+| `dev.depot.payables.invoice.match.exception.v1` | variance status | invoice_id, line_id, status, variances, assignee | workflow, notifications |
+| `dev.depot.payables.invoice.posted.v1` | POSTED | invoice_id, vendor_transaction_id, lines, totals, grir cleared amounts, ledger_entry_id | ledger reconciliation, costing, tax, analytics |
+| `dev.depot.payables.grir.cleared.v1` | GrirOpenItem CLEARED/WRITTEN_OFF | open_item_id, amounts | analytics |
+| `dev.depot.receiving.service-entry-sheet.accepted.v1` / `.revoked.v1` | sheet accepted / revoked | sheet_id, po_id, po_line_id, vendor_id, lines (service item, qty, amount, account assignment), grir amounts, ledger_entry_id | payables (match, ERS), costing (expense), project accounting (w41), supplier-portal (w20) |
+| `dev.depot.payables.invoice.audit-sampled.v1` | stochastic block applied | invoice_id, vendor_id, total, rule (threshold, percentage), assignee | workflow, notifications, audit (w48) |
+| `dev.depot.payables.consignment.settled.v1` | consignment settlement invoice posted | invoice_id, vendor_id, ownership change journal ids, lines, total | supplier-portal (w20), analytics |
 
 ### 3.18.6 User experience
 
@@ -8366,11 +8366,11 @@ Reconciliation checks: Σ GrirOpenItem = GR/IR ledger balance; Σ VendorTransact
 
 ### 3.18.10 Deployment and operations
 
-Helm charts: `passage-procurement` gains the receiving module (same Postgres, separate Deployment `receiving-api` ×2); `passage-payables` (API ×3, matching worker ×2, Temporal worker ×2, CloudNativePG `payables-db`, outbox connector). Config: `AP_SMALL_DIFF_DEFAULT=0.50`, `AP_PRICE_TOL_PCT=2.0`, `AP_QTY_TOL_PCT=5.0`, `AP_DUP_WINDOW_MONTHS=24`, `AP_EXCEPTION_SLA_DAYS=3`, `RCV_OVER_DELIVERY_PCT=0`. Migrations `procurement/v18.*`, `payables/v18.*`. Flags: `ap.ocr_adapter`, `ap.ers`, `ap.ubl_intake` (w35), `rcv.pwa`. Jobs: GR/IR reconciliation daily 02:30; exception SLA timers (Temporal); ERS consumer (Kafka consumer group `payables-ers`). SLOs: receipt post p95 < 1.5 s; invoice post p95 < 2 s; matching evaluate p95 < 100 ms; event lag < 5 s. Alerts: GR/IR diff ≠ 0 (page); exception backlog > 50 (ticket); ERS consumer lag > 100 messages. Runbook: re-run match for invoice set, reprocess failed capture payloads from DLQ topic `payables.capture.dlq`, write off GR/IR residual with approval. Rollback: additive migrations; disable `ap.ers` consumer; invoices in EXCEPTION are unaffected by rollback of the matching worker.
+Helm charts: `depot-procurement` gains the receiving module (same Postgres, separate Deployment `receiving-api` ×2); `depot-payables` (API ×3, matching worker ×2, Temporal worker ×2, CloudNativePG `payables-db`, outbox connector). Config: `AP_SMALL_DIFF_DEFAULT=0.50`, `AP_PRICE_TOL_PCT=2.0`, `AP_QTY_TOL_PCT=5.0`, `AP_DUP_WINDOW_MONTHS=24`, `AP_EXCEPTION_SLA_DAYS=3`, `RCV_OVER_DELIVERY_PCT=0`. Migrations `procurement/v18.*`, `payables/v18.*`. Flags: `ap.ocr_adapter`, `ap.ers`, `ap.ubl_intake` (w35), `rcv.pwa`. Jobs: GR/IR reconciliation daily 02:30; exception SLA timers (Temporal); ERS consumer (Kafka consumer group `payables-ers`). SLOs: receipt post p95 < 1.5 s; invoice post p95 < 2 s; matching evaluate p95 < 100 ms; event lag < 5 s. Alerts: GR/IR diff ≠ 0 (page); exception backlog > 50 (ticket); ERS consumer lag > 100 messages. Runbook: re-run match for invoice set, reprocess failed capture payloads from DLQ topic `payables.capture.dlq`, write off GR/IR residual with approval. Rollback: additive migrations; disable `ap.ers` consumer; invoices in EXCEPTION are unaffected by rollback of the matching worker.
 
 ### 3.18.11 Migration from AX / SAP
 
-| Source | Passage entity | Notes |
+| Source | Depot entity | Notes |
 |---|---|---|
 | AX VendPackingSlipJour/Trans for open PO lines (received not invoiced) | ProductReceipt POSTED + GrirOpenItem | amount from VendPackingSlipTrans value; creates GR/IR opening balance matched to GL migration |
 | AX VendInvoiceInfoTable (pending invoices) | VendorInvoice DRAFT | re-matched on load |
@@ -8582,7 +8582,7 @@ Out of scope: bank statement reconciliation and cash positioning (wave 36, which
 
 **Pain points solved (10x lens)**
 
-| Pain point in AX/SAP today | Root cause | Passage answer in this wave | Measurable 10x target |
+| Pain point in AX/SAP today | Root cause | Depot answer in this wave | Measurable 10x target |
 |---|---|---|---|
 | AX payment proposal (VendPaymProposal) runs as a modal dialog from the payment journal, locks the journal while running, and must be re-run from scratch to change selection; SAP F110 parameters → proposal → edit proposal → payment run → print is five screens, with proposal logs (REGUP exceptions) read in a separate list | Proposal is a transient batch producing journal lines; no proposal entity | `PaymentProposal` is a persisted entity with selection criteria, line-level include/exclude, holds, and re-selection diff; approve → run is one action | Screens per payment run: 5–7 → 2; time from "select" to "approved file": 45 min → < 5 min |
 | Settlement in AX via "Settle open transactions" (CustVendOpenTransManager) silently computes discount and FX differences; users discover realized gain/loss or discount-lost postings only in the ledger; SAP F-53 shows the clearing document but FX difference accounts (OB09) are hidden until posted | No preview of settlement postings | `POST /settlements:preview` returns the exact journal (discount, FX gain/loss, write-off) before commit; UI shows it inline | Unexpected settlement postings found at month-end: typical 5–20/month → 0; review time per settlement: 2 min → 10 s |
@@ -8592,7 +8592,7 @@ Out of scope: bank statement reconciliation and cash positioning (wave 36, which
 
 ### 3.19.2 AX / SAP parity map
 
-| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Passage equivalent | Parity level |
+| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Depot equivalent | Parity level |
 |---|---|---|---|---|
 | Vendor open items | VendTrans, VendTransOpen; Vendor transactions form; VendTable balance | BSIK (open), BSAK (cleared), FBL1N | `VendorTransaction` with `open_amount`; vendor transactions screen | full |
 | Settlement | VendSettlement, CustVendOpenTransManager (Settle open transactions), marking (SpecTrans), partial settlement, cross-rate | Clearing F-44/F-53/F-51, residual/partial payment, BSE_CLR, AUGBL | `Settlement`, `SettlementLine`; manual, during payment, automatic | full |
@@ -8751,15 +8751,15 @@ Commands: `CommitSettlement` (same vendor, no held items, rates available, AP pe
 
 | Event | Trigger | Payload fields | Consumers |
 |---|---|---|---|
-| `dev.passage.payables.settlement.posted.v1` / `.reversed.v1` | settlement commit/reverse | settlement_id, vendor_id, lines (ids, applied, discount, fx_diff), ledger_entry_id | ledger reconciliation, analytics |
-| `dev.passage.payables.proposal.approved.v1` | approval complete | proposal_id, totals by currency, payment_date | notifications |
-| `dev.passage.payables.payment.posted.v1` | payment journal posted | payment_id, vendor, amount, method, bank account, settled items | cash (w36), analytics |
-| `dev.passage.payables.payment.sent.v1` | file generated & marked sent | payment_id, file_id, format, end_to_end_id | bank connectivity (w36), supplier-portal (w20) |
-| `dev.passage.payables.payment.status.changed.v1` | pain.002/NACHA return | payment_id, old_status, new_status, reason_code | notifications, supplier-portal |
-| `dev.passage.payables.aging.reconciled.v1` | daily job | as_of, vendor_group, open_total, control_balance, diff | alerting |
-| `dev.passage.payables.prenote.status.changed.v1` | prenote sent / confirmed / rejected / NOC applied | vendor_id, bank_account_id, old_status, new_status, return_code | notifications, vendor master (w7) |
-| `dev.passage.payables.vendor-bank-account.changed.v1` | bank account change approved | vendor_id, bank_account_id, changed fields (masked), approved_by, cooling_until | notifications (vendor contact), audit (w48), security monitoring |
-| `dev.passage.payables.balance-confirmation.replied.v1` | vendor reply captured | run_id, vendor_id, our_balance, vendor_balance, status | notifications, audit (w48) |
+| `dev.depot.payables.settlement.posted.v1` / `.reversed.v1` | settlement commit/reverse | settlement_id, vendor_id, lines (ids, applied, discount, fx_diff), ledger_entry_id | ledger reconciliation, analytics |
+| `dev.depot.payables.proposal.approved.v1` | approval complete | proposal_id, totals by currency, payment_date | notifications |
+| `dev.depot.payables.payment.posted.v1` | payment journal posted | payment_id, vendor, amount, method, bank account, settled items | cash (w36), analytics |
+| `dev.depot.payables.payment.sent.v1` | file generated & marked sent | payment_id, file_id, format, end_to_end_id | bank connectivity (w36), supplier-portal (w20) |
+| `dev.depot.payables.payment.status.changed.v1` | pain.002/NACHA return | payment_id, old_status, new_status, reason_code | notifications, supplier-portal |
+| `dev.depot.payables.aging.reconciled.v1` | daily job | as_of, vendor_group, open_total, control_balance, diff | alerting |
+| `dev.depot.payables.prenote.status.changed.v1` | prenote sent / confirmed / rejected / NOC applied | vendor_id, bank_account_id, old_status, new_status, return_code | notifications, vendor master (w7) |
+| `dev.depot.payables.vendor-bank-account.changed.v1` | bank account change approved | vendor_id, bank_account_id, changed fields (masked), approved_by, cooling_until | notifications (vendor contact), audit (w48), security monitoring |
+| `dev.depot.payables.balance-confirmation.replied.v1` | vendor reply captured | run_id, vendor_id, our_balance, vendor_balance, status | notifications, audit (w48) |
 
 ### 3.19.6 User experience
 
@@ -8833,11 +8833,11 @@ Reconciliation checks: Σ VendorTransaction.open_amount_acct per control account
 
 ### 3.19.10 Deployment and operations
 
-Helm chart `passage-payables` extended: payment-run Temporal worker ×2, file generator worker ×2, object store bucket `passage-payment-files` (S3-compatible, server-side encryption, 7-year retention, write-once). Config: `AP_WRITE_OFF_LIMIT=1.00`, `AP_DISCOUNT_LOOKAHEAD_DAYS=7`, `AP_COST_OF_CAPITAL_PCT=8`, `AP_MIN_PAYMENT=1.00`, `AP_FILE_RETENTION_DAYS=2555`. Migrations `payables/v19.*`. Flags: `ap.nacha`, `ap.checks`, `ap.positive_pay`, `ap.auto_settle_credit_notes`, `ap.structured_remittance`. Jobs: aging reconciliation daily 03:00; discount-expiry digest daily 07:00; pain.002 poller (wave 36 replaces with bank connectivity). SLOs: settlement preview p95 < 300 ms; proposal selection of 10k items < 10 s; file generation < 30 s for 2,000 payments. Alerts: aging diff ≠ 0 (page); payment run failed activity > 3 retries (page); files generated but not downloaded/transmitted within 4 h (ticket); rejected payments > 1 % of a run (ticket). Runbook: resume stuck run (Temporal), regenerate file, reverse payment, correct vendor bank account and re-propose. Rollback: additive migrations; payment files already transmitted are not affected; disable `ap.*` format flags to stop generation.
+Helm chart `depot-payables` extended: payment-run Temporal worker ×2, file generator worker ×2, object store bucket `depot-payment-files` (S3-compatible, server-side encryption, 7-year retention, write-once). Config: `AP_WRITE_OFF_LIMIT=1.00`, `AP_DISCOUNT_LOOKAHEAD_DAYS=7`, `AP_COST_OF_CAPITAL_PCT=8`, `AP_MIN_PAYMENT=1.00`, `AP_FILE_RETENTION_DAYS=2555`. Migrations `payables/v19.*`. Flags: `ap.nacha`, `ap.checks`, `ap.positive_pay`, `ap.auto_settle_credit_notes`, `ap.structured_remittance`. Jobs: aging reconciliation daily 03:00; discount-expiry digest daily 07:00; pain.002 poller (wave 36 replaces with bank connectivity). SLOs: settlement preview p95 < 300 ms; proposal selection of 10k items < 10 s; file generation < 30 s for 2,000 payments. Alerts: aging diff ≠ 0 (page); payment run failed activity > 3 retries (page); files generated but not downloaded/transmitted within 4 h (ticket); rejected payments > 1 % of a run (ticket). Runbook: resume stuck run (Temporal), regenerate file, reverse payment, correct vendor bank account and re-propose. Rollback: additive migrations; payment files already transmitted are not affected; disable `ap.*` format flags to stop generation.
 
 ### 3.19.11 Migration from AX / SAP
 
-| Source | Passage entity | Notes |
+| Source | Depot entity | Notes |
 |---|---|---|
 | AX VendTrans + VendTransOpen (open items) | VendorTransaction OPEN/PARTIALLY_SETTLED | AmountCur/AmountMST → amount_txn/acct; VendTransOpen.AmountCur → open; CashDiscDate, DueDate; vendor balance Σ must equal migrated AP control |
 | AX VendSettlement history | not migrated | closed history in lakehouse |
@@ -9050,13 +9050,13 @@ Open questions:
 
 Wave 20 makes inventory value correct. Waves 16–18 wrote `cost_amount_physical` and `cost_amount_posted` on every inventory transaction at the running estimate (receipt price, running average on issues). This wave adds the costing engine that settles issues against receipts under the item model group's method — FIFO, LIFO, weighted average (running or periodic) or standard cost — and the inventory close/recalculation job (AX InventClosing with InventSettlement and InventCostTrans; SAP material ledger period-end closing CKMLCP with CKMLPP/CKMLCR and MBEW price control S/V, MR21 price change, MR22 debit/credit) that posts `cost_amount_adjustment` rows and GL adjustments so that the inventory value report ties to the GL inventory accounts by site, warehouse, item group and financial dimension. Standard cost captures purchase price variance (PPV) on receipt and invoice. Costing versions (AX CostingVersion/InventItemPrice; SAP CK11N/CK24 marking and release for material-level prices) hold planned and standard costs by product × site with activation and revaluation of on-hand.
 
-The supplier portal (D365 vendor collaboration; SAP Ariba Supplier Network / SNC) at `supplier.<env>.passage.dev` lets vendor users acknowledge POs (accept/reject/propose changes), send ASNs, reply to RFQs (wave 17 hook), submit invoices against POs (wave 18 `:capture` source PORTAL), view payment status and advices (wave 19), and exchange documents.
+The supplier portal (D365 vendor collaboration; SAP Ariba Supplier Network / SNC) at `supplier.<env>.depot.dev` lets vendor users acknowledge POs (accept/reject/propose changes), send ASNs, reply to RFQs (wave 17 hook), submit invoices against POs (wave 18 `:capture` source PORTAL), view payment status and advices (wave 19), and exchange documents.
 
 Out of scope: BOM cost roll-up, costing sheets and production variance decomposition (wave 39), production order WIP settlement (wave 21 uses this engine for its receipts/issues), landed cost (wave 34), cost accounting ledger (wave 38), portal e-invoicing via Peppol (wave 35), supplier onboarding/qualification workflow (v1.x).
 
 **Pain points solved (10x lens)**
 
-| Pain point in AX/SAP today | Root cause | Passage answer in this wave | Measurable 10x target |
+| Pain point in AX/SAP today | Root cause | Depot answer in this wave | Measurable 10x target |
 |---|---|---|---|
 | AX inventory close (InventClosing) takes 4–12 h for large companies, blocks posting in the period, fails on unsettled negative issues with cryptic "cannot settle" messages, and must be cancelled and re-run end to end | Single-threaded settlement per item in X++ with helper threads; whole-period scope; no incremental | Close runs as a Temporal workflow with per-product child workflows (parallelism 32), incremental from the last closed date, resumable, with a pre-check report listing items that cannot settle and why | Close duration on 1M transactions: 4–12 h → < 20 min; re-run after failure: full → incremental from checkpoint |
 | Inventory value does not tie to the GL: AX "Inventory value report" (InventValueReport) requires report configuration (InventValueReportSetup) and still differs from the GL because of manual journals and timing; SAP MB5L vs FAGLB03 differences investigated monthly | Value report computed from InventTrans; GL has postings from other sources; no per-dimension open-item relationship | Value report is a projection from `CostTransaction` rows with the GL voucher on each; daily reconciliation per inventory account × dimension; every difference row drills to the causing voucher | Monthly inventory-to-GL reconciliation: 1–3 days → < 1 h; unexplained differences: non-zero → 0 |
@@ -9066,7 +9066,7 @@ Out of scope: BOM cost roll-up, costing sheets and production variance decomposi
 
 ### 3.20.2 AX / SAP parity map
 
-| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Passage equivalent | Parity level |
+| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Depot equivalent | Parity level |
 |---|---|---|---|---|
 | Costing method per item | InventModelGroup.InventModel (FIFO, LIFO, LIFO date, Weighted avg, Weighted avg date, Standard cost, Moving average) | MBEW VPRSV (S standard / V moving average), material ledger actual costing for periodic | `ItemModelGroup.costing_method` (FIFO, LIFO, LIFO_DATE, WEIGHTED_AVG_RUNNING, WEIGHTED_AVG_PERIODIC, STANDARD, MOVING_AVG) | full |
 | Inventory close | InventClosing, InventSettlement, InventCostTrans, InventClosingRecalculation; Close and adjustment form | CKMLCP (material ledger cockpit: selection, determine sequence, single/multi-level price determination, post closing), CKMLPP/CKMLCR | `InventoryClose` workflow, `CostSettlement`, `CostTransaction` | full |
@@ -9224,15 +9224,15 @@ Commands: `StartClose` (period open, no running close for entity, close_date ≥
 
 | Event | Trigger | Payload fields | Consumers |
 |---|---|---|---|
-| `dev.passage.costing.close.completed.v1` / `.cancelled.v1` / `.failed.v1` | close lifecycle | close_id, entity, close_date, kind, products, settlements, adjustment_total, duration_s, exceptions_count | ledger reconciliation, notifications, analytics |
-| `dev.passage.costing.cost.changed.v1` | activation, manual adjustment affecting unit cost | product_id, site_id, version, old_cost, new_cost, effective_from, revaluation_amount | inventory (cost price cache), planning (w22), product costing (w39) |
-| `dev.passage.costing.reconciliation.diff.v1` | daily tie-out diff ≠ 0 | account, dimension, inventory_value, ledger_balance, diff, sample vouchers | alerting |
-| `dev.passage.supplier.po.acknowledged.v1` | portal ack | po_id, version, response, proposed changes | procurement (pending change), notifications |
-| `dev.passage.supplier.asn.submitted.v1` | ASN submit | asn_id, po_id, lines, expected_arrival, tracking | receiving (expected lines), warehouse (w31), notifications |
-| `dev.passage.supplier.invoice.submitted.v1` | portal invoice | invoice_id (payables), vendor_id, po_id, total | payables (already captured), notifications |
-| `dev.passage.supplier.vendor-request.submitted.v1` / `.approved.v1` / `.rejected.v1` | vendor request lifecycle | request_id, type, prospect (name, country, tax id masked), category, questionnaire score | party master (w7 vendor creation), notifications, compliance screening |
-| `dev.passage.supplier.document.acknowledged.v1` | recipient acknowledges distributed document | distribution_id, document_id, version, vendor_id, user_id, acknowledged_at | quality (w33), notifications |
-| `dev.passage.costing.aging.snapshot.created.v1` | aging snapshot stored | snapshot_id, entity, as_of, valuation_ledger, totals per bucket | analytics, close checklist (w14) |
+| `dev.depot.costing.close.completed.v1` / `.cancelled.v1` / `.failed.v1` | close lifecycle | close_id, entity, close_date, kind, products, settlements, adjustment_total, duration_s, exceptions_count | ledger reconciliation, notifications, analytics |
+| `dev.depot.costing.cost.changed.v1` | activation, manual adjustment affecting unit cost | product_id, site_id, version, old_cost, new_cost, effective_from, revaluation_amount | inventory (cost price cache), planning (w22), product costing (w39) |
+| `dev.depot.costing.reconciliation.diff.v1` | daily tie-out diff ≠ 0 | account, dimension, inventory_value, ledger_balance, diff, sample vouchers | alerting |
+| `dev.depot.supplier.po.acknowledged.v1` | portal ack | po_id, version, response, proposed changes | procurement (pending change), notifications |
+| `dev.depot.supplier.asn.submitted.v1` | ASN submit | asn_id, po_id, lines, expected_arrival, tracking | receiving (expected lines), warehouse (w31), notifications |
+| `dev.depot.supplier.invoice.submitted.v1` | portal invoice | invoice_id (payables), vendor_id, po_id, total | payables (already captured), notifications |
+| `dev.depot.supplier.vendor-request.submitted.v1` / `.approved.v1` / `.rejected.v1` | vendor request lifecycle | request_id, type, prospect (name, country, tax id masked), category, questionnaire score | party master (w7 vendor creation), notifications, compliance screening |
+| `dev.depot.supplier.document.acknowledged.v1` | recipient acknowledges distributed document | distribution_id, document_id, version, vendor_id, user_id, acknowledged_at | quality (w33), notifications |
+| `dev.depot.costing.aging.snapshot.created.v1` | aging snapshot stored | snapshot_id, entity, as_of, valuation_ledger, totals per bucket | analytics, close checklist (w14) |
 
 ### 3.20.6 User experience
 
@@ -9309,11 +9309,11 @@ Reconciliation checks: Σ CostTransaction per inventory account = ledger balance
 
 ### 3.20.10 Deployment and operations
 
-Helm charts: `passage-costing` (API ×2, Temporal close workers ×4 with CPU 2 each, schema `costing` in `inventory-db`), `passage-supplier-portal` (React app served by the shell at `supplier.<env>.passage.dev`, BFF ×2 in TypeScript, CloudNativePG `supplier-db`, Keycloak realm `suppliers` provisioned by Helm hook, Envoy Gateway route with rate limiting and WAF rules). Config: `CST_CLOSE_PARALLELISM=32`, `CST_LOCK_WAIT_S=5`, `CST_LEVEL_DEFAULT=SITE`, `CST_ALLOW_ZERO_COST=false`, `PORTAL_RATE_LIMIT_USER=60`, `PORTAL_UPLOAD_MAX_MB=25`, `PORTAL_ACK_DUE_DAYS=2`. Migrations `inventory/v20.*` (costing schema), `supplier/v20.*`. Flags: `cst.moving_avg`, `cst.marking`, `portal.rfq_replies`, `portal.invoice_submit`, `portal.mfa_required`. Jobs: reconciliation daily 02:15; ack-overdue scan daily 08:00; portal inactive-user cleanup weekly. SLOs: value report p95 < 5 s; cost lookup p95 < 20 ms; close < 20 min per 1M txns; portal page load p95 < 1.5 s; portal availability 99.9 %. Alerts: reconciliation diff ≠ 0 (page); close FAILED (page); close running > 60 min (ticket); portal auth failures > 100/min from one IP (security ticket, auto-block). Runbook: resume close, cancel close, re-run reconciliation, rotate portal realm client secret, revoke vendor user. Rollback: additive migrations; costing schema can be disabled (flag `cst.enabled=false` reverts to wave 16 running estimate without data loss); portal can be taken down independently (DNS) without affecting internal flows.
+Helm charts: `depot-costing` (API ×2, Temporal close workers ×4 with CPU 2 each, schema `costing` in `inventory-db`), `depot-supplier-portal` (React app served by the shell at `supplier.<env>.depot.dev`, BFF ×2 in TypeScript, CloudNativePG `supplier-db`, Keycloak realm `suppliers` provisioned by Helm hook, Envoy Gateway route with rate limiting and WAF rules). Config: `CST_CLOSE_PARALLELISM=32`, `CST_LOCK_WAIT_S=5`, `CST_LEVEL_DEFAULT=SITE`, `CST_ALLOW_ZERO_COST=false`, `PORTAL_RATE_LIMIT_USER=60`, `PORTAL_UPLOAD_MAX_MB=25`, `PORTAL_ACK_DUE_DAYS=2`. Migrations `inventory/v20.*` (costing schema), `supplier/v20.*`. Flags: `cst.moving_avg`, `cst.marking`, `portal.rfq_replies`, `portal.invoice_submit`, `portal.mfa_required`. Jobs: reconciliation daily 02:15; ack-overdue scan daily 08:00; portal inactive-user cleanup weekly. SLOs: value report p95 < 5 s; cost lookup p95 < 20 ms; close < 20 min per 1M txns; portal page load p95 < 1.5 s; portal availability 99.9 %. Alerts: reconciliation diff ≠ 0 (page); close FAILED (page); close running > 60 min (ticket); portal auth failures > 100/min from one IP (security ticket, auto-block). Runbook: resume close, cancel close, re-run reconciliation, rotate portal realm client secret, revoke vendor user. Rollback: additive migrations; costing schema can be disabled (flag `cst.enabled=false` reverts to wave 16 running estimate without data loss); portal can be taken down independently (DNS) without affecting internal flows.
 
 ### 3.20.11 Migration from AX / SAP
 
-| Source | Passage entity | Notes |
+| Source | Depot entity | Notes |
 |---|---|---|
 | AX InventModelGroup.InventModel | ItemModelGroup.costing_method | FIFO→FIFO, LIFO→LIFO, LIFODate→LIFO_DATE, WeightedAvg→WEIGHTED_AVG_PERIODIC, WeightedAvgDate→WEIGHTED_AVG_RUNNING, StdCost→STANDARD, MovingAverage→MOVING_AVG |
 | AX InventItemPrice (active, PriceType Cost) per CostingVersion | ItemCost ACTIVE in version `MIG-STD` | per site; pending prices migrated as PENDING |
@@ -9460,6 +9460,7 @@ Open questions:
 | SUP-ACK-001 | error | Only the latest PO version {version} can be acknowledged | BR-20.9 | Open the latest version | FR-20.9 |
 | SUP-ASN-001 | error | ASN quantity {qty} exceeds remaining {remaining} plus tolerance | BR-20.10 | Correct quantity | FR-20.10 |
 | SUP-ASN-002 | error | Tracking number {tracking} already used on ASN {asn} | BR-20.10 | Use the correct tracking number | FR-20.10 |
+| SUP-ASN-003 | error | ASN {asn} already started receipt {receipt} | BR-20.10 | Open the existing receipt | FR-20.10 |
 | SUP-INV-001 | error | Invoice price {price} differs from PO price {po_price}; price override not enabled | BR-20.11 | Contact the buyer | FR-20.11 |
 | SUP-AUTH-001 | error | Not found | Cross-vendor access attempt (404 by design) | None | FR-20.12 |
 | SUP-RATE-001 | error | Too many requests; retry after {seconds} s | Rate limit | Retry later | FR-20.12 |
@@ -9534,7 +9535,7 @@ Open questions:
 
 ## 4.0 Phase overview
 
-**Business outcome at phase exit.** A discrete or process manufacturer can run its plant on Passage: master planning nets demand against supply across a multi-level BOM and generates planned purchase, production and transfer orders; planners firm those into production or batch orders, schedule them against finite resource capacity on a Gantt, release them to the floor, and operators execute them from a kiosk while machines report counts over OPC-UA/MQTT. Every material issue, route consumption and report-as-finished posts WIP through the universal journal (wave 11) and the inventory ledger (wave 16); order end settles actual against planned cost and posts variances. Lean plants run kanban replenishment and production flows with periodic backflush costing. The phase-exit demo (wave 25 proof) manufactures a configured product from planned order to finished goods with full costing, and the WIP, inventory and variance accounts reconcile to the journal.
+**Business outcome at phase exit.** A discrete or process manufacturer can run its plant on Depot: master planning nets demand against supply across a multi-level BOM and generates planned purchase, production and transfer orders; planners firm those into production or batch orders, schedule them against finite resource capacity on a Gantt, release them to the floor, and operators execute them from a kiosk while machines report counts over OPC-UA/MQTT. Every material issue, route consumption and report-as-finished posts WIP through the universal journal (wave 11) and the inventory ledger (wave 16); order end settles actual against planned cost and posts variances. Lean plants run kanban replenishment and production flows with periodic backflush costing. The phase-exit demo (wave 25 proof) manufactures a configured product from planned order to finished goods with full costing, and the WIP, inventory and variance accounts reconcile to the journal.
 
 **Phase-exit sign-off criteria**
 - 100% of production order status transitions in the wave-21 state machine are covered by a property test; every illegal transition is rejected and every legal one posts the fixture-defined inventory and GL entries.
@@ -9565,15 +9566,15 @@ Open questions:
 
 | Event (CloudEvents type) | Producer | Consumers | Payload summary |
 |---|---|---|---|
-| `passage.production.order.status-changed.v1` | production | planning, scheduling, shopfloor, lean, analytics | orderId, from, to, qty, dates, actor |
-| `dev.passage.production.journal.posted.v1` | production | inventory (w16), ledger (w11), planning | journalId, type, lines[item, qty, cost], journalEntryId |
-| `dev.passage.production.order.settled.v1` | production | ledger, costing (w20), analytics | orderId, actualCost, plannedCost, variances[] |
-| `dev.passage.planning.plan.completed.v1` | planning | production, purchasing (w17), scheduling | planVersionId, counts, duration, messages |
-| `passage.planning.planned-order.firmed.v1` | planning | production, purchasing, inventory | plannedOrderId, targetType, targetId |
-| `dev.passage.scheduling.job.scheduled.v1` | scheduling | production, shopfloor, planning | jobId, resourceId, start, end, runId |
-| `passage.lean.kanban.state-changed.v1` | lean | production, inventory, shopfloor | kanbanId, from, to, handlingUnits |
-| `dev.passage.shopfloor.registration.posted.v1` | shopfloor | production, payroll (w43) | registrationId, workerId, jobId, hours, payType |
-| `dev.passage.shopfloor.machine.event.v1` | iot-edge → shopfloor | shopfloor (OEE), production, analytics | machineId, resourceId, kind, counts, state, ts |
+| `depot.production.order.status-changed.v1` | production | planning, scheduling, shopfloor, lean, analytics | orderId, from, to, qty, dates, actor |
+| `dev.depot.production.journal.posted.v1` | production | inventory (w16), ledger (w11), planning | journalId, type, lines[item, qty, cost], journalEntryId |
+| `dev.depot.production.order.settled.v1` | production | ledger, costing (w20), analytics | orderId, actualCost, plannedCost, variances[] |
+| `dev.depot.planning.plan.completed.v1` | planning | production, purchasing (w17), scheduling | planVersionId, counts, duration, messages |
+| `depot.planning.planned-order.firmed.v1` | planning | production, purchasing, inventory | plannedOrderId, targetType, targetId |
+| `dev.depot.scheduling.job.scheduled.v1` | scheduling | production, shopfloor, planning | jobId, resourceId, start, end, runId |
+| `depot.lean.kanban.state-changed.v1` | lean | production, inventory, shopfloor | kanbanId, from, to, handlingUnits |
+| `dev.depot.shopfloor.registration.posted.v1` | shopfloor | production, payroll (w43) | registrationId, workerId, jobId, hours, payType |
+| `dev.depot.shopfloor.machine.event.v1` | iot-edge → shopfloor | shopfloor (OEE), production, analytics | machineId, resourceId, kind, counts, state, ts |
 
 **Phase-level risks**
 
@@ -9590,13 +9591,13 @@ Open questions:
 
 ### 4.21.1 Scope and business context
 
-Wave 21 is where Passage first consumes components and produces finished goods. Before it, the demo plant buys, receives, pays and values inventory (phase 3) but cannot transform it. After it, a production supervisor can create a production order for a BOM/route item, estimate its planned cost, release it, start it (auto-consuming materials by backflush or manually via a picking list), report route time on route and job cards, report quantities as finished including by-/co-products and scrap, and end the order so that actual cost settles against planned cost with material, labor and overhead variances posted to the GL. Subcontracted operations create a linked purchase order to the vendor.
+Wave 21 is where Depot first consumes components and produces finished goods. Before it, the demo plant buys, receives, pays and values inventory (phase 3) but cannot transform it. After it, a production supervisor can create a production order for a BOM/route item, estimate its planned cost, release it, start it (auto-consuming materials by backflush or manually via a picking list), report route time on route and job cards, report quantities as finished including by-/co-products and scrap, and end the order so that actual cost settles against planned cost with material, labor and overhead variances posted to the GL. Subcontracted operations create a linked purchase order to the vendor.
 
 Out of scope: scheduling against capacity (wave 23; wave 21 schedules with infinite capacity only), MRP-generated orders (wave 22), formula/batch orders, co-product allocation methods beyond the basic by-quantity method (wave 24), operator kiosk and time registration (wave 25), standard-cost roll-up and activation (wave 39; wave 21 reads an active standard or weighted-average cost from wave 20).
 
 **Pain points solved (10x lens)**
 
-| Pain point in AX/SAP today | Root cause | Passage answer in this wave | Measurable 10x target |
+| Pain point in AX/SAP today | Root cause | Depot answer in this wave | Measurable 10x target |
 |---|---|---|---|
 | AX ProdTable status update dialogs (Estimate → Schedule → Release → Start) each open a modal with 8–15 parameters (ProdParmStartUp, ProdParmRelease); a supervisor clicks ~40 times to take one order to Started; SAP CO02 needs CO01 → release → CO11N → MIGO 261 across four transactions | Each status is a separate parameter table and batch class (ProdMultiStartUp); no sensible defaults persisted per site | One `:start` command with site-level defaults; parameter overrides only in an "advanced" drawer; bulk start on the list page | Clicks per order to Started 40 → 3; bulk 500 orders in < 5 min |
 | WIP vs GL drift is found at month-end: AX ProdCalcTrans and the ledger disagree after a failed ProdUpd posting left half a journal; SAP KKAX WIP calculation runs as a batch (CO88 settlement) hours before close | Non-atomic multi-table posting (ProdJournal → InventTrans → LedgerTrans) without idempotency; WIP computed periodically rather than per posting | Journal post is one transaction with idempotency key; WipPosting rows per journal; nightly reconciliation job, delta alerts | WIP reconciliation effort 2 days/month → 0; drift detected < 24 h instead of at close |
@@ -9606,7 +9607,7 @@ Out of scope: scheduling against capacity (wave 23; wave 21 schedules with infin
 
 ### 4.21.2 AX / SAP parity map
 
-| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Passage equivalent | Parity |
+| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Depot equivalent | Parity |
 |---|---|---|---|---|
 | Production order header | ProdTable, ProdStatus enum, form ProdTable, menu item ProdTable | AUFK/AFKO/AFPO, CO01/CO02/CO03 | `production` service, entity ProductionOrder, screen Production orders | full |
 | Order BOM and route snapshot | ProdBOM, ProdRoute, ProdRouteJob (ProdUpdCreate explosion) | RESB (components), AFVC/AFVV (operations), order read of BOM/routing | ProductionBomLine, ProductionOperation, ProductionJob | full |
@@ -9654,7 +9655,7 @@ Out of scope: scheduling against capacity (wave 23; wave 21 schedules with infin
 - **FR-21.13 Posting profiles** — Must. The system shall resolve ledger accounts for each posting type (picking list issue, picking list offset, WIP issue, WIP account, RAF receipt, RAF offset, variance accounts per variance type) by item group × site, falling back to All.
 - **FR-21.14 Co-product RAF (basic)** — Could. The system shall accept RAF lines for co-/by-products declared on the BOM (w9), allocating cost by quantity only; allocation methods arrive in wave 24.
 - **FR-21.15 Order split and merge** — Should. The system shall split a production order in status Created…Started into two orders (original keeps the remaining quantity; the new order receives `splitQty`), carrying BOM lines, operations and jobs proportionally, and shall merge orders of the same product, BOM/route version and site that are in status ≤ Released into one.
-  - Notes: Split of a Started order distributes posted consumption and route hours proportionally to the split ratio unless `allocation=keep-on-original`; WIP postings move via an internal transfer journal (Dr WIP new / Cr WIP original) so each order's WIP stays reconcilable. Split quantity must be ≥ the item's minimum order quantity and a multiple of the item's multiple. Scheduled jobs of the new order are rescheduled (w23) with the original's dates as the preferred window. Merge is refused if either order has posted journals. AX ProdSplit and SAP CO02 split both stop at Released; Passage allows Started with the allocation rules above.
+  - Notes: Split of a Started order distributes posted consumption and route hours proportionally to the split ratio unless `allocation=keep-on-original`; WIP postings move via an internal transfer journal (Dr WIP new / Cr WIP original) so each order's WIP stays reconcilable. Split quantity must be ≥ the item's minimum order quantity and a multiple of the item's multiple. Scheduled jobs of the new order are rescheduled (w23) with the original's dates as the preferred window. Merge is refused if either order has posted journals. AX ProdSplit and SAP CO02 split both stop at Released; Depot allows Started with the allocation rules above.
 - **FR-21.16 Order change management** — Should. The system shall detect, for open orders (status < Started, or Started with `ocm.allowStarted`), that the BOM or route version they snapshot has been superseded by an ECO (w9 `bom.version.activated` / `route.version.activated` events) and shall offer `:apply-change` that re-explodes the order and reports the delta (added/removed/changed lines and operations) with a change cost = Σ (new planned cost − old planned cost) plus a configurable change-cost surcharge per OCM profile.
   - Notes: OCM profile per item group × site: `automatic` (apply at next status transition), `manual` (planner confirms), `none` (ignore). Lines already consumed are never removed; they become `substituted` and feed the production substitution variance (BR-21.6). Each application writes an OrderChangeRecord (ECO id, before/after snapshot hash, change cost, actor). Configured products (w8) re-explode through the configurator with the stored configuration; a changed model that no longer yields the same configuration raises `OCM_CONFIG_DRIFT` and requires manual review.
 - **FR-21.17 Trigger points** — Should. The system shall evaluate TriggerPoint rules on operation feedback events (route card / job card post, operation status change, qty_error > 0, quality check fail from w25) and perform the configured function: insert a rework operation sequence after the current operation (standard operation set from w9), create a rework order (FR-21.20) for the error quantity, release the next operation, start a Temporal workflow, or raise a notification.
@@ -9735,11 +9736,11 @@ Commands: `CreateOrder` (validates product released, BOM/route active as of deli
 
 | Event | Trigger | Payload fields | Consumers |
 |---|---|---|---|
-| `dev.passage.production.order.created.v1` | order committed | orderId, orderNumber, productId, qty, siteId, deliveryDate, originType, originId | planning, analytics |
-| `passage.production.order.status-changed.v1` | any transition | orderId, from, to, qty, startDate, endDate, actor, occurredAt | planning, scheduling, shopfloor, lean |
-| `dev.passage.production.journal.posted.v1` | journal posted | journalId, orderId, type, postingDate, lines[{itemId, qty, unitCost, operNumber, hours}], journalEntryId | inventory, ledger, planning |
-| `dev.passage.production.order.settled.v1` | End posted | orderId, plannedCost{material,labor,overhead,subcontract}, actualCost{…}, variances[{type,costGroup,amount}] | ledger, costing, analytics |
-| `passage.production.subcontract.po-requested.v1` | release of subcontract op | orderId, operNumber, vendorId, serviceItemId, qty, dueDate | purchasing |
+| `dev.depot.production.order.created.v1` | order committed | orderId, orderNumber, productId, qty, siteId, deliveryDate, originType, originId | planning, analytics |
+| `depot.production.order.status-changed.v1` | any transition | orderId, from, to, qty, startDate, endDate, actor, occurredAt | planning, scheduling, shopfloor, lean |
+| `dev.depot.production.journal.posted.v1` | journal posted | journalId, orderId, type, postingDate, lines[{itemId, qty, unitCost, operNumber, hours}], journalEntryId | inventory, ledger, planning |
+| `dev.depot.production.order.settled.v1` | End posted | orderId, plannedCost{material,labor,overhead,subcontract}, actualCost{…}, variances[{type,costGroup,amount}] | ledger, costing, analytics |
+| `depot.production.subcontract.po-requested.v1` | release of subcontract op | orderId, operNumber, vendorId, serviceItemId, qty, dueDate | purchasing |
 
 ### 4.21.6 User experience
 
@@ -9829,7 +9830,7 @@ Helm chart `production` (Go service, 3 replicas, HPA on CPU 70%), `production-db
 
 ### 4.21.11 Migration from AX / SAP
 
-| Source | Passage entity | Notes |
+| Source | Depot entity | Notes |
 |---|---|---|
 | ProdTable (AX) / AUFK+AFKO+AFPO (SAP) | ProductionOrder | status map per FR-21.2; only open orders (status < Ended / not TECO) |
 | ProdBOM / RESB | ProductionBomLine | qty_required recomputed; consumed qty from InventTrans / MSEG 261 |
@@ -9987,7 +9988,7 @@ Open questions: (1) Should Cancelled be exposed for Released orders with reserva
 
 | Register row (inventory section + AX form or SAP T-code) | Status before | Disposition | Note |
 |---|---|---|---|
-| AX 12.22.1 Production control — Production order → Split / Group (ProdSplit) [AX #195] | PARTIAL-21 | ADDED as FR-21.15 | Split and merge with proportional WIP allocation (BR-21.11); AX stops at Released, Passage allows Started |
+| AX 12.22.1 Production control — Production order → Split / Group (ProdSplit) [AX #195] | PARTIAL-21 | ADDED as FR-21.15 | Split and merge with proportional WIP allocation (BR-21.11); AX stops at Released, Depot allows Started |
 | SAP 13.21 PP — Rework (CO07 / trigger points CO31 / CO33) [SAP #245] | PARTIAL-21 | ADDED as FR-21.17, FR-21.20 | Trigger points insert rework operations or create rework orders; rework order semantics of CO07 |
 | SAP 13.21 PP — Order split (CO02 → split), order change management (OCM: COCM / COCM1) [#246] | PARTIAL-21 | ADDED as FR-21.15, FR-21.16 | Split per FR-21.15; OCM detection, delta preview and change cost per FR-21.16 / BR-21.12 |
 | SAP 13.21 PP Customizing — OPMP / OPM trigger points (TTRIG) [#249] | PARTIAL-21 | ADDED as FR-21.17 | Trigger point definitions on w9 route operations; parameter "Trigger points enabled" in 4.21.13 |
@@ -10005,7 +10006,7 @@ Wave 22 gives planners the engine that decides what to make, buy and move. Befor
 
 **Pain points solved (10x lens)**
 
-| Pain point in AX/SAP today | Root cause | Passage answer in this wave | Measurable 10x target |
+| Pain point in AX/SAP today | Root cause | Depot answer in this wave | Measurable 10x target |
 |---|---|---|---|
 | Nightly MRP regeneration takes hours: AX ReqCalcTask on 50k items runs 3–6 h with helper threads contending on ReqTrans; SAP MD01 NEUPL regenerative run 2–4 h; Epicor Kinetic "MRP Full Regen" and Infor LN "Order Planning" routinely 4+ h, so planners work on yesterday's plan | Row-at-a-time netting with database round trips per item; planned orders deleted and recreated in place | In-memory level-by-level engine with sparse buckets, snapshot per PlanVersion, pointer swap; dynamic net-change within 60 s of an order event | 50k items 4 h → < 10 min; net change 4 h → 60 s |
 | No live pegging: AX ReqTransCov is only populated during the run and lost on re-run; SAP MD04 pegged requirements (MD09) require multi-level order report and are unavailable for planned orders mid-run; Plex "Where Used/Demand" pegging is single-level | Pegging stored as a transient by-product of the run | Pegging rows persisted per version; `/pegging` explain tree to any depth; "Explain this plan" in the UI | Time to answer "why is this planned order here" 20 min → < 5 s; 100% of qty explained |
@@ -10015,7 +10016,7 @@ Wave 22 gives planners the engine that decides what to make, buy and move. Befor
 
 ### 4.22.2 AX / SAP parity map
 
-| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Passage equivalent | Parity |
+| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Depot equivalent | Parity |
 |---|---|---|---|---|
 | Plan definition | ReqPlan (static/dynamic), ReqPlanVersion | MRP area, planning run parameters (MD01/MD02 processing keys NETCH/NEUPL) | Plan, PlanVersion | full |
 | Coverage group | ReqGroup (ReqPOType: Requirement/Period/MinMax/Manual) | MRP type (PD/VB/ND), lot-sizing procedure (T438A: EX, TB, FX, WB), MRP group | CoverageGroup | full |
@@ -10122,11 +10123,11 @@ Invariants (additions): for a DdmrpBuffer, top_of_red = red_base + red_safety < 
 
 | Event | Trigger | Payload fields | Consumers |
 |---|---|---|---|
-| `dev.passage.planning.plan.started.v1` | run begins | planId, versionId, kind, scope | analytics |
-| `dev.passage.planning.plan.completed.v1` | version becomes current | planId, versionId, itemsPlanned, plannedOrders{purchase,production,transfer}, messages, durationMs, planHash | production, purchasing, scheduling |
-| `passage.planning.planned-order.firmed.v1` | firm | plannedOrderId, orderType, targetId, qty, dates | production, purchasing, inventory |
-| `dev.passage.planning.message.raised.v1` | message created | requirementId, refType, refId, action, delayDays | purchasing, sales (w27), notifications |
-| `dev.passage.planning.forecast.published.v1` | consensus approved | modelId, version, items, horizonPeriods | planning run |
+| `dev.depot.planning.plan.started.v1` | run begins | planId, versionId, kind, scope | analytics |
+| `dev.depot.planning.plan.completed.v1` | version becomes current | planId, versionId, itemsPlanned, plannedOrders{purchase,production,transfer}, messages, durationMs, planHash | production, purchasing, scheduling |
+| `depot.planning.planned-order.firmed.v1` | firm | plannedOrderId, orderType, targetId, qty, dates | production, purchasing, inventory |
+| `dev.depot.planning.message.raised.v1` | message created | requirementId, refType, refId, action, delayDays | purchasing, sales (w27), notifications |
+| `dev.depot.planning.forecast.published.v1` | consensus approved | modelId, version, items, horizonPeriods | planning run |
 
 ### 4.22.6 User experience
 
@@ -10216,7 +10217,7 @@ Helm charts `planning` (Go, 2 replicas API + 1 planner worker pool with 8 CPU / 
 
 ### 4.22.11 Migration from AX / SAP
 
-| Source | Passage entity | Notes |
+| Source | Depot entity | Notes |
 |---|---|---|
 | ReqGroup (AX) / T438A + MRP type config (SAP) | CoverageGroup | ReqPOType→coverage_code; SAP lot-size EX→Requirement, TB→Period, FX→fixed qty via ItemCoverage standard qty, WB→Period(7) |
 | ReqItemTable / MARC MRP views | ItemCoverage | DISMM PD/VB/ND; EISBE→safety; DISLS; PLIFZ→lead time |
@@ -10224,7 +10225,7 @@ Helm charts `planning` (Go, 2 replicas API + 1 planner worker pool with 8 CPU / 
 | ReqPO (firmed only) / PLAF (firmed, PLAF-AUFFX = X) | PlannedOrder status firmed | unfirmed planned orders are not migrated — regenerated by the first run |
 | ReqTrans, ReqTransCov / MDTB | not migrated | regenerated |
 
-Validation: first Passage plan vs last legacy plan on identical snapshot: planned order count within ±5% and 95% of planned orders match item/date ±1 day. Not migrated: planning history, AX ReqCalcTask logs, SAP MRP lists.
+Validation: first Depot plan vs last legacy plan on identical snapshot: planned order count within ±5% and 95% of planned orders match item/date ±1 day. Not migrated: planning history, AX ReqCalcTask logs, SAP MRP lists.
 
 **Migration addendum (FR-22.16–22.19).** SAP T461P strategy groups map to PlanningStrategy (10 → mts-net, 11 → mts-gross, 20 → mto, 40 → assemble-to-order-final, 50/52 → plan-without-final-assembly, 70 → subassembly; 25/26/30/59/60/63/74/81/82 → nearest strategy with a migration warning). SAP EQUK/EQUP → QuotaArrangement/QuotaSource with allocated qty carried over. SAP MDLV/MDLG/MDLW → ItemCoverage planning_scope. S/4 DDMRP buffer data (PPH_DD_*) → BufferProfile/DdmrpBuffer with recalculation on first run. AX ReqPlan static plans used as simulations → ScenarioOverride with demand_source = forecast-version. AX ReqReduceKey + ReqPOType combinations → strategy per mapping table delivered with the w10 migration templates.
 
@@ -10394,7 +10395,7 @@ Wave 23 replaces the infinite-capacity dating of waves 21–22 with a scheduler 
 
 **Pain points solved (10x lens)**
 
-| Pain point in AX/SAP today | Root cause | Passage answer in this wave | Measurable 10x target |
+| Pain point in AX/SAP today | Root cause | Depot answer in this wave | Measurable 10x target |
 |---|---|---|---|
 | AX job scheduling on a 2,000-job plant takes 20–40 min (WrkCtrCapRes rebuilt per order in X++); SAP CM21 capacity leveling is manual dispatch per work center and PP/DS needs a separate APO/embedded install with CIF integration | Scheduling runs per order inside the status-update dialog; capacity reservations stored row-by-row; finite scheduling is an add-on product | Scheduler service with materialized UTC capacity intervals, GiST exclusion constraint, site-level run with checkpoints | 5,000 operations 30 min → < 60 s; no separate product |
 | Gantt is read-mostly: D365 Gantt drag does not validate secondary resources or calendars until save; SAP CM21 planning board shows overloads but cannot propagate to dependent orders; Epicor Kinetic Multi-Resource Scheduling requires the APS module and locks the board during save | Validation happens server-side after commit; no dependency graph in the board | `:move` with `dryRun` preview showing violations and dependent impact before commit; canvas Gantt | Reschedule-and-verify 15 min → < 30 s; zero committed double-bookings |
@@ -10404,7 +10405,7 @@ Wave 23 replaces the infinite-capacity dating of waves 21–22 with a scheduler 
 
 ### 4.23.2 AX / SAP parity map
 
-| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Passage equivalent | Parity |
+| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Depot equivalent | Parity |
 |---|---|---|---|---|
 | Operations scheduling | ProdTable scheduling (operations), WrkCtrCapRes (capacity reservations), scheduling direction | Lead-time scheduling (CA97), capacity requirements KBED/KBEZ | ScheduleRun mode `operations`, ResourceCapacity | full |
 | Job scheduling | Job scheduling (ProdRouteJob), WrkCtrCapRes by job | Detailed scheduling (PP/DS), SAP APO | mode `jobs` (minute level) | full |
@@ -10486,10 +10487,10 @@ Invariants (additions): consecutive scheduled jobs of an order chain using a net
 
 | Event | Trigger | Payload fields | Consumers |
 |---|---|---|---|
-| `dev.passage.scheduling.run.completed.v1` | run done | runId, scope, operations, makespanMinutes, totalLatenessMinutes, solverStatus | production, planning |
-| `dev.passage.scheduling.job.scheduled.v1` | job placed/moved | jobId, orderId, operNumber, resourceId, start, end, runId, firmed | production, shopfloor |
-| `passage.scheduling.order.dates-changed.v1` | order start/end changed | orderId, start, end, lateMinutes | production, planning, sales (w27) |
-| `dev.passage.scheduling.bottleneck.detected.v1` | load > threshold | resourceId, periods[], loadPct | notifications |
+| `dev.depot.scheduling.run.completed.v1` | run done | runId, scope, operations, makespanMinutes, totalLatenessMinutes, solverStatus | production, planning |
+| `dev.depot.scheduling.job.scheduled.v1` | job placed/moved | jobId, orderId, operNumber, resourceId, start, end, runId, firmed | production, shopfloor |
+| `depot.scheduling.order.dates-changed.v1` | order start/end changed | orderId, start, end, lateMinutes | production, planning, sales (w27) |
+| `dev.depot.scheduling.bottleneck.detected.v1` | load > threshold | resourceId, periods[], loadPct | notifications |
 
 ### 4.23.6 User experience
 
@@ -10557,13 +10558,13 @@ Helm: `scheduling` (Go, 2 API replicas + 2 worker replicas, 4 CPU / 8 GB), `sche
 
 ### 4.23.11 Migration from AX / SAP
 
-| Source | Passage entity | Notes |
+| Source | Depot entity | Notes |
 |---|---|---|
 | WrkCtrCapRes (AX) / KBED+KBEZ (SAP) | ScheduledJob | only for open orders; re-scheduled on first run, legacy dates kept as `firmed` if the order is Started |
 | WrkCtrTable capacity/efficiency, WorkCalendar / CR02 capacity header, factory calendar | ResourceCapacity (materialized) | from w9 resources and calendars |
 | ProdRouteJob dates / AFVV dates | ProductionJob planned dates | preserved for reference |
 
-Not migrated: historical capacity reservations, PP/DS optimizer profiles, AX scheduling parameters (re-set in Passage).
+Not migrated: historical capacity reservations, PP/DS optimizer profiles, AX scheduling parameters (re-set in Depot).
 
 ### 4.23.12 Dependencies, risks, open questions
 
@@ -10708,7 +10709,7 @@ Wave 24 extends production to two further modes. Process manufacturers (food, ch
 
 **Pain points solved (10x lens)**
 
-| Pain point in AX/SAP today | Root cause | Passage answer in this wave | Measurable 10x target |
+| Pain point in AX/SAP today | Root cause | Depot answer in this wave | Measurable 10x target |
 |---|---|---|---|
 | Rescaling a batch order in AX (PmfProdTable "Rescale batch") recomputes lines but silently rounds to the inventory unit precision and does not preserve percent totals; SAP COR2 quantity change re-reads the recipe and drops manual line edits | Scaling implemented as re-explosion; rounding residual not tracked | BR-24.1 scaling with residual assigned to the largest scalable line, side-by-side preview, manual edits preserved | Percent-controlled Σ = 100.0000 on 100% of batches; rescale 12 clicks → 2 |
 | Potency adjustment is manual: AX requires the batch potency on InventBatch to be keyed before picking and the picking list does not recompute compensating lines automatically; SAP active-ingredient management needs batch characteristics plus custom proportion units | Potency not part of the consumption proposal | BR-24.2 proposal computes active and compensating quantities from recorded batch attributes | Potency re-keying 0 (attributes recorded once); consumption error < 0.1% |
@@ -10718,7 +10719,7 @@ Wave 24 extends production to two further modes. Process manufacturers (food, ch
 
 ### 4.24.2 AX / SAP parity map
 
-| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Passage equivalent | Parity |
+| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Depot equivalent | Parity |
 |---|---|---|---|---|
 | Formula | PmfFormula, BOMVersion with PmfFormulaSize, PmfFormulaLine (scalable, percent-controlled) | Master recipe (C201), material list in recipe, base quantity | Formula (BomVersion subtype), FormulaLine | full |
 | Batch order | ProdTable with ProdType=Batch (PmfProdTable), batch order status = ProdStatus | Process order (COR1/COR2), AUFK with order category 40 | BatchOrder (ProductionOrder subtype) | full |
@@ -10837,12 +10838,12 @@ Invariants (additions): a sealed ElectronicBatchRecord's content_hash equals SHA
 
 | Event | Trigger | Payload fields | Consumers |
 |---|---|---|---|
-| `passage.production.batch-order.created.v1` | batch order created | orderId, formulaVersionId, batchSize, scaleFactor, coProducts[] | planning, analytics |
-| `passage.production.batch.attributes-recorded.v1` | attribute values saved | batchId, itemId, values[{attributeId, value}], potency | quality (w33), sales (w27) |
-| `passage.production.co-product.allocated.v1` | End of batch order | orderId, lines[{itemId, method, pct, amount}], byProductBurden | ledger, costing |
-| `dev.passage.lean.kanban.created.v1` | kanban generated | kanbanId, ruleId, qty, eventRefType, eventRefId, due | production, shopfloor |
-| `passage.lean.kanban.state-changed.v1` | job/kanban transition | kanbanId, jobId, from, to, qty, scrap, handlingUnits | production, inventory, shopfloor |
-| `passage.lean.flow-period.settled.v1` | period settled | flowId, period, materialCost, conversionCost, outputValue, variance, journalEntryId | ledger, analytics |
+| `depot.production.batch-order.created.v1` | batch order created | orderId, formulaVersionId, batchSize, scaleFactor, coProducts[] | planning, analytics |
+| `depot.production.batch.attributes-recorded.v1` | attribute values saved | batchId, itemId, values[{attributeId, value}], potency | quality (w33), sales (w27) |
+| `depot.production.co-product.allocated.v1` | End of batch order | orderId, lines[{itemId, method, pct, amount}], byProductBurden | ledger, costing |
+| `dev.depot.lean.kanban.created.v1` | kanban generated | kanbanId, ruleId, qty, eventRefType, eventRefId, due | production, shopfloor |
+| `depot.lean.kanban.state-changed.v1` | job/kanban transition | kanbanId, jobId, from, to, qty, scrap, handlingUnits | production, inventory, shopfloor |
+| `depot.lean.flow-period.settled.v1` | period settled | flowId, period, materialCost, conversionCost, outputValue, variance, journalEntryId | ledger, analytics |
 
 ### 4.24.6 User experience
 
@@ -10920,7 +10921,7 @@ Helm: `production` extended (flag `prod.process`), `lean` (Go, 2 replicas), `lea
 
 ### 4.24.11 Migration from AX / SAP
 
-| Source | Passage entity | Notes |
+| Source | Depot entity | Notes |
 |---|---|---|
 | PmfFormula/BOMVersion+BOM lines (AX) / PLKO+PLPO+STPO recipe (SAP) | Formula, FormulaLine | formula size → base quantity; percent lines derived from quantities when SAP recipe is in base units |
 | PmfCoByProd / co-product apportionment (TKKAA) | CoProductLine on formula | TCA percentages from apportionment structure |
@@ -11072,7 +11073,7 @@ Open questions: (1) Should by-product `recycled` (negative issue) be supported i
 - **21 CFR Part 11 (US) and EU GMP Annex 11**: FR-24.22 implements 11.10(e) audit trail via the signature log and w5 audit, 11.50 manifestation, 11.70 record linkage, 11.100 uniqueness (Keycloak subject), 11.200 two-component re-authentication, 11.300 controls (password policy and lockout from w2). Validation package (IQ/OQ scripts, traceability matrix to these clauses) is a wave 48 deliverable; this wave provides the OQ test cases from 4.24.9 and AC-24.15/AC-24.16.
 - **Retention**: EBR retention per country/regime (US 21 CFR 211.180: expiry + 1 year; EU: max(expiry + 1 year, 5 years after certification); some countries require 10 years for blood/plasma products) set by the w48 retention policy; legal hold blocks purge.
 - **Food labeling**: batch label content (allergen declaration, lot code formats, best-before vs use-by wording, e.g., EU Regulation 1169/2011) is rendered by country-specific templates in wave 48 packs via the `production.label.render` extension point.
-- **Catch weight**: legal-for-trade weighing (OIML R76 / NIST Handbook 44) is a device concern; Passage stores the scale id and certification reference on catch-weight RAF lines when provided.
+- **Catch weight**: legal-for-trade weighing (OIML R76 / NIST Handbook 44) is a device concern; Depot stores the scale id and certification reference on catch-weight RAF lines when provided.
 - **Excise / alcohol**: bonded-production reporting (US TTB Form 5110.40, EU EMCS) is a wave 48 country-pack item fed from batch order consumption and RAF events through `production.statutory-extract`.
 - **Language**: batch tickets, CoA and EBR render in the site language; signature meanings are stored as codes and rendered per locale.
 - **Extension points**: `production.label.render`, `production.statutory-extract`, `signature.strategy.resolve` (OPA), `ebr.section.provider` (additional EBR sections such as environmental monitoring).
@@ -11123,7 +11124,7 @@ Wave 25 puts production on the floor. Operators use a touch kiosk (PWA) to clock
 
 **Pain points solved (10x lens)**
 
-| Pain point in AX/SAP today | Root cause | Passage answer in this wave | Measurable 10x target |
+| Pain point in AX/SAP today | Root cause | Depot answer in this wave | Measurable 10x target |
 |---|---|---|---|
 | Job-card re-keying: AX JmgTermReg registrations are "calculated" and "transferred" by a supervisor before ProdJournalRoute lines exist, so route cards are re-keyed or posted a day late; SAP CO11N confirmations are typed by a clerk from paper tickets; Infor LN and Epicor Kinetic MES data collection posts labor in a nightly batch | Registration and production posting are separate modules joined by a transfer job | Registration stop generates and posts the job-card journal (option immediate); reversal on edit | Labor posting latency 24 h → < 5 s; re-keyed tickets 0 |
 | Kiosk needs the AOS: AX terminal registration (JmgTermReg form) is a thick client; D365 production floor execution requires connectivity; Plex is cloud-only with no offline mode | No client-side queue or idempotent replay | PWA with IndexedDB queue, client UUIDs, conflict flags | Lost registrations during outages → 0 over a 30-min disconnect |
@@ -11133,7 +11134,7 @@ Wave 25 puts production on the floor. Operators use a touch kiosk (PWA) to clock
 
 ### 4.25.2 AX / SAP parity map
 
-| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Passage equivalent | Parity |
+| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Depot equivalent | Parity |
 |---|---|---|---|---|
 | Job registration terminal | JmgTermReg (terminal registration form), JmgJobTable, JmgRegistration, D365 production floor execution | SAP MII / Digital Manufacturing shop floor UI, PP-PDC terminals, CO11N | Kiosk PWA, `shopfloor-bff`, TimeRegistration | full |
 | Clock in/out, absence | JmgStampJournalTable (raw), JmgTmpRegistration, JmgAbsenceCode, JmgProfileTable | Time events (CATS/PT), HR time types | Registration kinds clock-in/out, absence; ProfileDay | full |
@@ -11164,7 +11165,7 @@ Wave 25 puts production on the floor. Operators use a touch kiosk (PWA) to clock
 - **FR-25.6 Instructions and documents** — Must. The kiosk shall show operation instructions (markdown) and attachments (PDF, images, video ≤ 50 MB) cached for offline use.
 - **FR-25.7 Pay calculation** — Must. The system shall calculate PayLines per worker-day from registrations using the worker's profile (day types, shift windows, breaks) and pay agreement rules: base, overtime after daily/weekly thresholds, shift premium, flex balance.
   - Notes: Defaults: overtime > 8.00 h/day at 1.5×, > 40.00 h/week at 1.5×, Sunday 2.0×; rounding per BR-25.2; max 24 h/day validation.
-- **FR-25.8 Approval and export** — Must. Supervisors shall approve per worker-day (bulk by team), with edits audited; approved days are locked and exported as `dev.passage.shopfloor.payday.approved.v1` for w43 and as CSV.
+- **FR-25.8 Approval and export** — Must. Supervisors shall approve per worker-day (bulk by team), with edits audited; approved days are locked and exported as `dev.depot.shopfloor.payday.approved.v1` for w43 and as CSV.
 - **FR-25.9 IoT ingestion** — Must. The `iot-edge` connector shall subscribe to OPC-UA nodes (via `gopcua`) and MQTT topics (Mosquitto/EMQX, QoS 1), normalize to the MachineEvent schema (BR-25.4), buffer locally (SQLite ring, 24 h), and publish to Kafka topic `shopfloor.machine-events` with idempotent producer and per-machine monotonic sequence.
 - **FR-25.10 OEE** — Must. The system shall compute OEE per resource per 15-minute bucket and shift (BR-25.5) from machine events and planned time from the w23 schedule/calendar, with dashboard lag p95 < 5 s.
 - **FR-25.11 Downtime and andon** — Must. The system shall open a DowntimeRecord when a machine reports DOWN or no count for > `idle_threshold_s` (default 300), require a reason code within the kiosk, and raise an AndonAlert (kiosk banner + notification) on downtime > 10 min, scrap rate > 5% in a bucket, or quality fail.
@@ -11230,11 +11231,11 @@ Invariants (additions): every completed PiSheetRun has an archive_json_id whose 
 
 | Event | Trigger | Payload fields | Consumers |
 |---|---|---|---|
-| `dev.passage.shopfloor.registration.posted.v1` | registration stored | registrationId, workerId, kind, jobId, hours, qtyGood, qtyScrap, offline | production (job card), analytics |
-| `dev.passage.shopfloor.machine.event.v1` | edge publish | see BR-25.4 | shopfloor OEE, production, maintenance (w44) |
-| `passage.shopfloor.oee.bucket-updated.v1` | bucket recomputed | resourceId, bucketStart, availability, performance, quality, oee | dashboards (w46) |
-| `dev.passage.shopfloor.andon.raised.v1` | alert condition | alertId, resourceId, kind, severity, jobId, startedAt | notifications, kiosk |
-| `dev.passage.shopfloor.payday.approved.v1` | approval | workerId, workDate, payLines[{type, hours, multiplier, amount}], approvedBy | payroll (w43) |
+| `dev.depot.shopfloor.registration.posted.v1` | registration stored | registrationId, workerId, kind, jobId, hours, qtyGood, qtyScrap, offline | production (job card), analytics |
+| `dev.depot.shopfloor.machine.event.v1` | edge publish | see BR-25.4 | shopfloor OEE, production, maintenance (w44) |
+| `depot.shopfloor.oee.bucket-updated.v1` | bucket recomputed | resourceId, bucketStart, availability, performance, quality, oee | dashboards (w46) |
+| `dev.depot.shopfloor.andon.raised.v1` | alert condition | alertId, resourceId, kind, severity, jobId, startedAt | notifications, kiosk |
+| `dev.depot.shopfloor.payday.approved.v1` | approval | workerId, workDate, payLines[{type, hours, multiplier, amount}], approvedBy | payroll (w43) |
 
 ### 4.25.6 User experience
 
@@ -11254,7 +11255,7 @@ Interaction rules: kiosk targets ≥ 48 px, no hover-only affordances, numeric k
 - **BR-25.1 Time attribution.** Hours for a job registration = (stopped_at − started_at) minus breaks that fall inside per the profile; bundle hours split by Σ qty_good (fallback equal split); hours rounded to 0.01 h on the job-card journal.
 - **BR-25.2 Rounding and tolerances.** Clock-in within tolerance_before_min (default 10) of shift start rounds to shift start; clock-out within tolerance_after_min (default 5) rounds to shift end; otherwise round to nearest rounding_minutes (default 1, max 15).
 - **BR-25.3 Missing clock-out.** At shift end + 4 h a missing clock-out auto-closes at shift end with flag `missing-clock-out`; the day cannot be approved until a supervisor confirms or edits.
-- **BR-25.4 Machine event schema.** CloudEvents envelope `type: dev.passage.shopfloor.machine.event.v1`, `source: urn:passage:iot-edge:<site>:<edgeId>`, `subject: <machineId>`, `id: <machineId>-<seq>`, `time: <device ts RFC 3339>`, `datacontenttype: application/json`, `data`: `{ "machineId": "M-101", "resourceId": "uuid", "seq": 184233, "kind": "count|state|downtime|alarm|measurement", "ts": "2026-10-21T08:15:03.250Z", "goodCount": 12, "rejectCount": 1, "state": "RUNNING", "reasonCode": null, "measurement": {"name": "temp_c", "value": 71.4, "unit": "Cel"}, "jobId": null, "tags": {"line": "L1"} }`. Counts are deltas since the previous count event; absolute counters are converted at the edge with rollover detection (32-bit). Events older than 7 days or with seq ≤ last seen are dropped and counted in a metric.
+- **BR-25.4 Machine event schema.** CloudEvents envelope `type: dev.depot.shopfloor.machine.event.v1`, `source: urn:depot:iot-edge:<site>:<edgeId>`, `subject: <machineId>`, `id: <machineId>-<seq>`, `time: <device ts RFC 3339>`, `datacontenttype: application/json`, `data`: `{ "machineId": "M-101", "resourceId": "uuid", "seq": 184233, "kind": "count|state|downtime|alarm|measurement", "ts": "2026-10-21T08:15:03.250Z", "goodCount": 12, "rejectCount": 1, "state": "RUNNING", "reasonCode": null, "measurement": {"name": "temp_c", "value": 71.4, "unit": "Cel"}, "jobId": null, "tags": {"line": "L1"} }`. Counts are deltas since the previous count event; absolute counters are converted at the edge with rollover detection (32-bit). Events older than 7 days or with seq ≤ last seen are dropped and counted in a metric.
 - **BR-25.5 OEE formula (ISO 22400 aligned).** Availability = run_minutes / planned_minutes; Performance = (ideal_cycle_s × total_count / 60) / run_minutes, capped at 1.0 with an over-rate flag; Quality = good_count / total_count (1.0 if total = 0); OEE = A × P × Q. Planned minutes = scheduled open minutes minus planned downtime (category planned). Example shift: planned 480 min, unplanned down 60 → A = 0.875; ideal cycle 60 s, total 380 → P = 380 / 420 = 0.9048; good 361 → Q = 0.95; OEE = 0.7522. Buckets roll up to shift/day by summing minutes and counts, not by averaging ratios.
 - **BR-25.6 Idle detection.** No count event for idle_threshold_s while state = RUNNING flips the bucket to IDLE from the last count; a later count closes the idle gap.
 - **BR-25.7 Offline conflict resolution.** Replayed registrations are accepted in client timestamp order; a job-start for a job that was finished server-side while offline is accepted but flagged `job-finished-conflict` for supervisor review; a duplicate client UUID is a no-op; clock skew > 5 min between device and server is corrected by the offset measured at reconnect and recorded.
@@ -11307,16 +11308,16 @@ Helm: `shopfloor` (Go, 3 replicas; Kafka consumer group `shopfloor-oee`), `shopf
 
 ### 4.25.11 Migration from AX / SAP
 
-| Source | Passage entity | Notes |
+| Source | Depot entity | Notes |
 |---|---|---|
 | JmgEmployee / HR mini-master (PA0001) | Worker | badge ids, default resource, profile |
 | JmgProfileTable, JmgProfileDay / work schedule rules (T508A) | ProfileDay | shifts, breaks, rounding |
 | JmgPayAgreement, JmgPayTable / wage types, time evaluation rules | PayRule config | overtime thresholds and multipliers |
-| JmgAbsenceCode, Jmg error cause codes / absence types, AFRU.GRUND | reason codes | mapped to Passage code lists |
+| JmgAbsenceCode, Jmg error cause codes / absence types, AFRU.GRUND | reason codes | mapped to Depot code lists |
 | JmgStampJournalTable, JmgRegistration (last 90 days) / CATSDB, AFRU | TimeRegistration (history, status exported) | read-only history for balances |
 | Flex balances (JmgFlexTrans) / time accounts (PT_BAL00) | opening flex balance per worker | one opening line |
 
-Validation: flex balances per worker equal legacy at cutover; pay lines for the last closed week recomputed in Passage match legacy within 0.01 h per worker. Not migrated: raw terminal logs older than 90 days, machine data (none in AX/SAP core), MII configurations.
+Validation: flex balances per worker equal legacy at cutover; pay lines for the last closed week recomputed in Depot match legacy within 0.01 h per worker. Not migrated: raw terminal logs older than 90 days, machine data (none in AX/SAP core), MII configurations.
 
 ### 4.25.12 Dependencies, risks, open questions
 
@@ -11485,7 +11486,7 @@ Related row owned by another wave: SAP #193 EWM Material Flow System (propose 32
 
 ## 5.0 Phase overview
 
-**Business outcome at phase exit.** At the end of wave 30 a manufacturer runs the complete buy → make → sell → collect loop on Passage. A sales rep quotes and takes an order at a deterministically resolved price; the order is promised against cumulative ATP and checked against credit; the warehouse picks, packs and ships it with a posted packing slip that moves inventory cost to the universal journal; billing posts the invoice with tax and an ASC 606 / IFRS 15 recognition schedule; cash is applied from lockbox, remittance or bank statement; collections runs dunning and disputes; returns flow through RMA to credit note; and every subledger reconciles to the journal by automated check. Wave 30 is the first go-live candidate.
+**Business outcome at phase exit.** At the end of wave 30 a manufacturer runs the complete buy → make → sell → collect loop on Depot. A sales rep quotes and takes an order at a deterministically resolved price; the order is promised against cumulative ATP and checked against credit; the warehouse picks, packs and ships it with a posted packing slip that moves inventory cost to the universal journal; billing posts the invoice with tax and an ASC 606 / IFRS 15 recognition schedule; cash is applied from lockbox, remittance or bank statement; collections runs dunning and disputes; returns flow through RMA to credit note; and every subledger reconciles to the journal by automated check. Wave 30 is the first go-live candidate.
 
 **Phase-exit sign-off criteria** (each produces an artifact in `reconciliation/phase-5-exit/`):
 - One simulated 31-day month (fixture period 2027-03) runs end-to-end on `stage` for demo entities DMF-US (USD) and DMF-DE (EUR): ≥ 200 purchase orders received (Phase 3), ≥ 150 production orders reported as finished (Phase 4), 1,000 sales orders, ≥ 900 shipments, ≥ 950 invoices including ≥ 40 bundles with revenue schedules, 600 customer payments across manual / BAI2 lockbox / camt.053, one dunning run, 30 RMAs, one rebate settlement, inventory close and period close for 2027-03.
@@ -11509,20 +11510,20 @@ Related row owned by another wave: SAP #193 EWM Material Flow System (propose 32
 | open_item, payment, settlement, lockbox_batch, dunning_run, dispute, interest_note, return_order | receivables (receivables_db, Go) + collections-workflows (TS, Temporal) | → invoice, customer, camt.053 statement, journal |
 | portal_user, payment_intent | customer-portal (portal_db, TS BFF) + payments-gateway (TS) | → party contact (w7), open_item, Stripe/Adyen adapter |
 
-**Cross-wave event catalog** (CloudEvents on Kafka topics `passage.<domain>`, Avro in schema registry, Debezium outbox)
+**Cross-wave event catalog** (CloudEvents on Kafka topics `depot.<domain>`, Avro in schema registry, Debezium outbox)
 
 | Event | Producer | Consumers | Payload summary |
 |---|---|---|---|
-| passage.pricing.condition-record.activated.v1 | pricing | sales cache, analytics | id, type, keys, validity, version |
-| passage.pricing.rebate-accrual.posted.v1 | pricing | ledger, receivables | agreement, period, amount, journal ref |
-| dev.passage.sales.order.confirmed.v1 | sales | planning, fulfillment, credit, analytics | order, customer, lines with confirmed dates, totals |
-| passage.sales.order-hold.applied.v1 / released.v1 | sales | fulfillment, collections, portal | order, hold type, reason, actor |
-| passage.fulfillment.packing-slip.posted.v1 | fulfillment | billing, inventory, ledger, sales, portal | slip, lines, qty, cost snapshot, journal ref |
-| dev.passage.billing.invoice.posted.v1 | billing | receivables, revrec, ledger, pricing, portal | invoice, lines, tax, totals, due date |
-| dev.passage.revrec.schedule.recognized.v1 | revrec | ledger, analytics | schedule line, obligation, amount, period |
-| dev.passage.receivables.payment.applied.v1 | receivables | ledger, sales (credit), portal | payment, settlements[], residual |
-| passage.receivables.customer-balance.changed.v1 | receivables | sales credit, portal | customer, balance, overdue, oldest item days, dunning level |
-| passage.receivables.return-order.dispositioned.v1 | receivables | fulfillment, billing, inventory | RMA line, disposition, qty, restocking |
+| depot.pricing.condition-record.activated.v1 | pricing | sales cache, analytics | id, type, keys, validity, version |
+| depot.pricing.rebate-accrual.posted.v1 | pricing | ledger, receivables | agreement, period, amount, journal ref |
+| dev.depot.sales.order.confirmed.v1 | sales | planning, fulfillment, credit, analytics | order, customer, lines with confirmed dates, totals |
+| depot.sales.order-hold.applied.v1 / released.v1 | sales | fulfillment, collections, portal | order, hold type, reason, actor |
+| depot.fulfillment.packing-slip.posted.v1 | fulfillment | billing, inventory, ledger, sales, portal | slip, lines, qty, cost snapshot, journal ref |
+| dev.depot.billing.invoice.posted.v1 | billing | receivables, revrec, ledger, pricing, portal | invoice, lines, tax, totals, due date |
+| dev.depot.revrec.schedule.recognized.v1 | revrec | ledger, analytics | schedule line, obligation, amount, period |
+| dev.depot.receivables.payment.applied.v1 | receivables | ledger, sales (credit), portal | payment, settlements[], residual |
+| depot.receivables.customer-balance.changed.v1 | receivables | sales credit, portal | customer, balance, overdue, oldest item days, dunning level |
+| depot.receivables.return-order.dispositioned.v1 | receivables | fulfillment, billing, inventory | RMA line, disposition, qty, restocking |
 
 **Phase-level risks**
 
@@ -11542,7 +11543,7 @@ Every order, quotation, invoice and rebate in Phase 5 depends on a price that is
 
 **Pain points solved (10x lens)**
 
-| Pain point in AX/SAP today | Root cause | Passage answer in this wave | Measurable 10x target |
+| Pain point in AX/SAP today | Root cause | Depot answer in this wave | Measurable 10x target |
 |---|---|---|---|
 | Nobody can say why a line priced at 93.40: AX "Find next" results are invisible on SalesLine; SAP needs the VA01 condition "Analysis" screen per line | Resolution is a side effect inside the order form (PriceDisc class / RV61A formulas), not a queryable function | `POST /pricing/resolve?explain=true` returns the access-by-access trace, stored with the line as `price_explain_ref` | "Why this price": 20–40 min consultant trace → < 10 s self-service; 100% of lines traced |
 | Mass price change is a multi-hour, non-atomic job: PriceDiscAdmTrans posts row by row and leaves half-applied prices on failure; VK12 mass change has no undo | Row loop in X++/ABAP without a transaction boundary across the set | price_journal validates fully, posts in one transaction and reverses with one action | 100k prices: 3–6 h plus cleanup → < 120 s; rollback 1 action |
@@ -11552,7 +11553,7 @@ Every order, quotation, invoice and rebate in Phase 5 depends on a price that is
 
 ### 5.26.2 AX / SAP parity map
 
-| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Passage equivalent | Parity |
+| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Depot equivalent | Parity |
 |---|---|---|---|---|
 | Sales price agreements | PriceDiscTable (Relation=PriceSales), PriceDiscAdmTable/Trans journal | VK11/VK12/VK13, KONH/KONP, A004/A005/A305, PR00 | condition_record type PRICE | full |
 | Line discount | PriceDiscTable (LineDiscSales), PriceDiscGroup | K004/K005/K007, KONP-KBETR | condition_record LINE_DISC | full |
@@ -11640,11 +11641,11 @@ Validation: resolve requires legal_entity_id, customer_id, currency, pricing_dat
 
 | Event | Trigger | Payload fields | Consumers |
 |---|---|---|---|
-| passage.pricing.condition-record.activated.v1 | activate / journal post | id, type, keys, currency, validity, version, journal_id, retroactive | sales cache, analytics |
-| passage.pricing.condition-record.withdrawn.v1 | withdraw / reverse | id, version, reason | sales cache |
-| dev.passage.pricing.journal.posted.v1 | post / reverse | journal_id, line_count, reversed_journal_id | audit |
-| passage.pricing.rebate-accrual.posted.v1 | invoice.posted consumed | agreement_id, period_id, invoice_line_id, amount, currency, journal_posting_id | ledger, receivables |
-| dev.passage.pricing.commission.calculated.v1 | invoice.posted consumed | invoice_line_id, sales_rep_id, basis, rate, amount | Phase 8 |
+| depot.pricing.condition-record.activated.v1 | activate / journal post | id, type, keys, currency, validity, version, journal_id, retroactive | sales cache, analytics |
+| depot.pricing.condition-record.withdrawn.v1 | withdraw / reverse | id, version, reason | sales cache |
+| dev.depot.pricing.journal.posted.v1 | post / reverse | journal_id, line_count, reversed_journal_id | audit |
+| depot.pricing.rebate-accrual.posted.v1 | invoice.posted consumed | agreement_id, period_id, invoice_line_id, amount, currency, journal_posting_id | ledger, receivables |
+| dev.depot.pricing.commission.calculated.v1 | invoice.posted consumed | invoice_line_id, sales_rep_id, basis, rate, amount | Phase 8 |
 
 ### 5.26.6 User experience
 
@@ -11708,11 +11709,11 @@ Fixtures: `pricing-500` (hand-built from AX trade-agreement and SAP RVAA01 examp
 Reconciliation: Σ rebate_accrual per (agreement, period) = journal postings tagged `source=rebate_accrual`; journal snapshots replay to current record versions.
 
 ### 5.26.10 Deployment and operations
-Helm `passage-pricing` (Go, 3 replicas, HPA CPU 70%); CloudNativePG `pricing-db` (3 instances); Atlas migrations from metadata, additive-only. Config: `PRICING_CACHE_TTL=60s`, `PRICING_MAX_LINES=500`, `PRICING_EXPLAIN_MAX_BYTES=65536`. Flags: `pricing.search_next`, `pricing.sap_procedure`, `pricing.commission_hooks`. Temporal jobs: nightly expiry 00:10 entity-local; rebate recompute at period end. SLOs: 99.95% availability, p95 20 ms. Alerts: invalidation lag > 5 s, error rate > 0.5%, journal post > 300 s. Runbook: cache rebuild, journal reversal, procedure version rollback. Rollback: previous image digest via Argo CD.
+Helm `depot-pricing` (Go, 3 replicas, HPA CPU 70%); CloudNativePG `pricing-db` (3 instances); Atlas migrations from metadata, additive-only. Config: `PRICING_CACHE_TTL=60s`, `PRICING_MAX_LINES=500`, `PRICING_EXPLAIN_MAX_BYTES=65536`. Flags: `pricing.search_next`, `pricing.sap_procedure`, `pricing.commission_hooks`. Temporal jobs: nightly expiry 00:10 entity-local; rebate recompute at period end. SLOs: 99.95% availability, p95 20 ms. Alerts: invalidation lag > 5 s, error rate > 0.5%, journal post > 300 s. Runbook: cache rebuild, journal reversal, procedure version rollback. Rollback: previous image digest via Argo CD.
 
 ### 5.26.11 Migration from AX / SAP
 
-| Source | Passage entity | Notes |
+| Source | Depot entity | Notes |
 |---|---|---|
 | PriceDiscTable (Relation, AccountCode/Relation, ItemCode/Relation, QuantityAmount, Amount, Percent1/2, Currency, FromDate/ToDate, SearchAgain) | condition_record | Table/GroupId/All → customer/group/all; Relation → type; SearchAgain → search_next |
 | PriceDiscGroup; CustTable price/discount groups | customer_pricing_group, product_pricing_group | one group per AX type |
@@ -11922,7 +11923,7 @@ Wave 27 ships the `sales` service: quotations with conversion, sales agreements,
 
 **Pain points solved (10x lens)**
 
-| Pain point in AX/SAP today | Root cause | Passage answer in this wave | Measurable 10x target |
+| Pain point in AX/SAP today | Root cause | Depot answer in this wave | Measurable 10x target |
 |---|---|---|---|
 | Promise dates go stale after a planning run: AX ATP is recomputed only when the "Available ship and receipt dates" dialog opens; SAP VBEP dates change only on VA02 re-check or the nightly V_V2 rescheduling batch | ATP computed on demand inside the form; supply changes do not re-promise open lines | atp_bucket projection from inventory/planning events (lag < 30 s); re-promise on `order.changed` and supply cancellation; backward propagation (BR-27.1) | Promise accuracy ~70% → ≥ 95%; re-promise latency nightly → < 30 s |
 | Credit holds are opaque: SalesOrderHold shows a code; OVA8 writes only VBAK-CMGST and the VKM1 list | Rules evaluated inside posting classes; only the final status persists | `credit-check.evaluated` stores every rule, value and threshold; release queue shows the failing rule | Analyst lookup per release 5–8 min (FD32/CustTable) → < 30 s; 2-business-day SLA by timer |
@@ -11932,7 +11933,7 @@ Wave 27 ships the `sales` service: quotations with conversion, sales agreements,
 
 ### 5.27.2 AX / SAP parity map
 
-| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Passage equivalent | Parity |
+| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Depot equivalent | Parity |
 |---|---|---|---|---|
 | Quotations | SalesQuotationTable/Line, SalesQuotationStatus | VA21/VA22, VBAK VBTYP B; VA11 inquiries | sales_quotation, …:convert | full |
 | Sales orders | SalesTable/SalesLine, SalesStatus, SalesLineStatus, SalesType | VA01/VA02, VBAK/VBAP/VBEP, item categories TAN/TAS | sales_order, sales_order_line, order_schedule_line | full |
@@ -12023,12 +12024,12 @@ Validation: confirm rejects unpriced lines (unless manual), quantity ≤ 0, cust
 
 | Event | Trigger | Payload fields | Consumers |
 |---|---|---|---|
-| dev.passage.sales.order.confirmed.v1 | confirm | order_id, customer_id, currency, lines[{line_id, product, dims, qty, site, warehouse, confirmed_ship_date}], totals, version | fulfillment, planning (w22), credit, analytics |
-| dev.passage.sales.order.changed.v1 / cancelled.v1 | PATCH / cancel | order_id, version, diff[] or line_ids, reason | fulfillment, planning, portal |
-| dev.passage.sales.atp.promised.v1 | confirm with ATP/CTP | line_id, requested, confirmed, bucket_date, source | planning, portal |
-| passage.sales.order-hold.applied.v1 / released.v1 | hold lifecycle | order_id, hold_type, reason, actor, workflow_run_id | fulfillment, collections, portal |
-| passage.sales.credit-check.evaluated.v1 | any check | customer_id, order_id, rules[{id, result, value, threshold}], outcome | audit, collections |
-| dev.passage.sales.quotation.converted.v1 | convert | quotation_id, order_id, lines | analytics, CRM |
+| dev.depot.sales.order.confirmed.v1 | confirm | order_id, customer_id, currency, lines[{line_id, product, dims, qty, site, warehouse, confirmed_ship_date}], totals, version | fulfillment, planning (w22), credit, analytics |
+| dev.depot.sales.order.changed.v1 / cancelled.v1 | PATCH / cancel | order_id, version, diff[] or line_ids, reason | fulfillment, planning, portal |
+| dev.depot.sales.atp.promised.v1 | confirm with ATP/CTP | line_id, requested, confirmed, bucket_date, source | planning, portal |
+| depot.sales.order-hold.applied.v1 / released.v1 | hold lifecycle | order_id, hold_type, reason, actor, workflow_run_id | fulfillment, collections, portal |
+| depot.sales.credit-check.evaluated.v1 | any check | customer_id, order_id, rules[{id, result, value, threshold}], outcome | audit, collections |
+| dev.depot.sales.quotation.converted.v1 | convert | quotation_id, order_id, lines | analytics, CRM |
 
 ### 5.27.6 User experience
 
@@ -12092,11 +12093,11 @@ Fixtures: `atp-100` (from SAP OVZ9 and AX ATP examples with expected dates); `cr
 Reconciliation: Σ open confirmed order amounts per customer = credit_profile.exposure.open_orders; wave 16 reservations = Σ RESERVED line quantities; nightly rebuilt ATP projection = incremental projection (diff 0).
 
 ### 5.27.10 Deployment and operations
-Helm `passage-sales` (Go, 3 replicas, HPA on RPS); `sales-db`; Temporal namespace `sales`. Config: `ATP_TIME_FENCE_DEFAULT_DAYS=30`, `ATP_INCLUDE_PLANNED_ORDERS=false`, `CREDIT_CHECK_POINTS=confirm,release`, `INTAKE_RATE_LIMIT_PER_KEY=1000/min`. Flags: `sales.ctp`, `sales.alternative_items`, `sales.change_approval`. Jobs: ATP rebuild 01:00 entity-local; quotation expiry hourly; credit review warnings daily. SLOs: create p99 500 ms, 99.95% availability, projection lag < 30 s. Alerts: lag > 120 s, hold queue age > 2 business days, intake 5xx > 0.1%. Runbook: projection rebuild, stuck release workflow, re-promise after supply cancellation. Rollback: previous digest; additive migrations.
+Helm `depot-sales` (Go, 3 replicas, HPA on RPS); `sales-db`; Temporal namespace `sales`. Config: `ATP_TIME_FENCE_DEFAULT_DAYS=30`, `ATP_INCLUDE_PLANNED_ORDERS=false`, `CREDIT_CHECK_POINTS=confirm,release`, `INTAKE_RATE_LIMIT_PER_KEY=1000/min`. Flags: `sales.ctp`, `sales.alternative_items`, `sales.change_approval`. Jobs: ATP rebuild 01:00 entity-local; quotation expiry hourly; credit review warnings daily. SLOs: create p99 500 ms, 99.95% availability, projection lag < 30 s. Alerts: lag > 120 s, hold queue age > 2 business days, intake 5xx > 0.1%. Runbook: projection rebuild, stuck release workflow, re-promise after supply cancellation. Rollback: previous digest; additive migrations.
 
 ### 5.27.11 Migration from AX / SAP
 
-| Source | Passage entity | Notes |
+| Source | Depot entity | Notes |
 |---|---|---|
 | SalesTable (SalesId, CustAccount, InvoiceAccount, CurrencyCode, SalesStatus) + SalesLine (ItemId, InventDimId, SalesQty, SalesPrice, LinePercent, RemainSalesPhysical/Financial) | sales_order, lines | open orders only (Backorder, or Delivered with financial remainder); InventDim → dims + site/warehouse |
 | SalesQuotationTable/Line (Sent); SalesAgreementHeader/Line | sales_quotation; sales_agreement | remaining commitment from released qty |
@@ -12277,7 +12278,7 @@ Wave 28 ships the `fulfillment` service and the `carrier-gateway` adapter. Confi
 
 **Pain points solved (10x lens)**
 
-| Pain point in AX/SAP today | Root cause | Passage answer in this wave | Measurable 10x target |
+| Pain point in AX/SAP today | Root cause | Depot answer in this wave | Measurable 10x target |
 |---|---|---|---|
 | Delivered-not-invoiced never ties: AX "Cost of units delivered" via InventPosting drifts from CustPackingSlipJour after invoice cancellations; SAP PGI posts COGS at once so revenue and COGS land in different periods | Physical and financial postings decoupled across SalesFormLetter classes; reconciliation is a month-end report | Packing slip and invoice share one cost_snapshot_id; DNI projection reconciled to GL 1405 daily; AX-style and PGI-style matrices by policy | Month-end DNI reconciliation 4–8 h → 0 (daily, diff 0.00) |
 | Packing-slip posting blocks the user 5–20 s and fails opaquely ("Update has been cancelled"; VL02N "posting period closed" after picking) | Synchronous multi-table update with late validation | Pre-validation at PACKED (period, holds, dims, negative stock) and a Temporal saga with compensation | Failures discovered after pick ~3% → < 0.1%; post p95 < 2 s |
@@ -12287,7 +12288,7 @@ Wave 28 ships the `fulfillment` service and the `carrier-gateway` adapter. Confi
 
 ### 5.28.2 AX / SAP parity map
 
-| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Passage equivalent | Parity |
+| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Depot equivalent | Parity |
 |---|---|---|---|---|
 | Release to warehouse | Release to warehouse, SalesLine.ReleaseStatus, InventPickingList | VL01N/VL10, LIKP/LIPS | shipment (release rules) | full |
 | Picking | WMSPickingRoute, WMSOrderTrans, picking list registration | LT03 transfer order (LTAP); EWM warehouse task | pick_work | partial (advanced w31) |
@@ -12361,11 +12362,11 @@ Validation: post requires status PACKED, no ACTIVE hold, posting date in an open
 
 | Event | Trigger | Payload fields | Consumers |
 |---|---|---|---|
-| dev.passage.fulfillment.shipment.released.v1 | release | shipment_id, order_id, warehouse, lines | sales, analytics |
-| dev.passage.fulfillment.pick.confirmed.v1 | pick confirm | wave_id, lines[{order_line_id, qty, dims, location}] | inventory, sales |
-| passage.fulfillment.packing-slip.posted.v1 / cancelled.v1 | saga complete / cancel | packing_slip_id, order_id, lines[{order_line_id, qty, cost_amount, cost_snapshot_id}], journal_posting_id, posting_date | billing, sales, inventory, ledger, portal, credit |
-| dev.passage.fulfillment.asn.issued.v1 | post | shipment_id, containers[{sscc, lines}], carrier, tracking | EDI (w35) |
-| passage.fulfillment.shipment.tracking-updated.v1 | poll / webhook | shipment_id, tracking_number, status, event | portal, sales |
+| dev.depot.fulfillment.shipment.released.v1 | release | shipment_id, order_id, warehouse, lines | sales, analytics |
+| dev.depot.fulfillment.pick.confirmed.v1 | pick confirm | wave_id, lines[{order_line_id, qty, dims, location}] | inventory, sales |
+| depot.fulfillment.packing-slip.posted.v1 / cancelled.v1 | saga complete / cancel | packing_slip_id, order_id, lines[{order_line_id, qty, cost_amount, cost_snapshot_id}], journal_posting_id, posting_date | billing, sales, inventory, ledger, portal, credit |
+| dev.depot.fulfillment.asn.issued.v1 | post | shipment_id, containers[{sscc, lines}], carrier, tracking | EDI (w35) |
+| depot.fulfillment.shipment.tracking-updated.v1 | poll / webhook | shipment_id, tracking_number, status, event | portal, sales |
 
 ### 5.28.6 User experience
 
@@ -12437,11 +12438,11 @@ Fixtures: `warehouse-sim-1k` (1,000 orders, 120 products, 3 warehouses, batch/se
 Reconciliation: Σ inventory issue cost = Σ journal Cr 1400 from fulfillment; DNI projection = GL 1405; line delivered_qty = Σ slip qty.
 
 ### 5.28.10 Deployment and operations
-Helm `passage-fulfillment` (Go), `passage-carrier-gateway` (TS; egress via Envoy, provider secrets in Vault), `fulfillment-db`; PWA served by the shell. Config: `RELEASE_HORIZON_DAYS=2`, `WAVE_MAX_LINES=200`, `GS1_COMPANY_PREFIX` per entity, `COGS_AT_SHIPMENT=false`. Flags: `fulfillment.consolidation`, `fulfillment.asn`, `fulfillment.mobile_pick`. Jobs: release every 15 min per warehouse; tracking poll 30 min; DNI check 02:00. SLOs: post p95 < 2 s, saga completion 99.9% within 60 s. Alerts: PENDING > 10 min, carrier error rate > 5%, DNI diff ≠ 0. Runbook: resume stuck saga, re-print label, manual tracking. Rollback: previous digest; Temporal workflow versioning lets in-flight sagas finish on old code.
+Helm `depot-fulfillment` (Go), `depot-carrier-gateway` (TS; egress via Envoy, provider secrets in Vault), `fulfillment-db`; PWA served by the shell. Config: `RELEASE_HORIZON_DAYS=2`, `WAVE_MAX_LINES=200`, `GS1_COMPANY_PREFIX` per entity, `COGS_AT_SHIPMENT=false`. Flags: `fulfillment.consolidation`, `fulfillment.asn`, `fulfillment.mobile_pick`. Jobs: release every 15 min per warehouse; tracking poll 30 min; DNI check 02:00. SLOs: post p95 < 2 s, saga completion 99.9% within 60 s. Alerts: PENDING > 10 min, carrier error rate > 5%, DNI diff ≠ 0. Runbook: resume stuck saga, re-print label, manual tracking. Rollback: previous digest; Temporal workflow versioning lets in-flight sagas finish on old code.
 
 ### 5.28.11 Migration from AX / SAP
 
-| Source | Passage entity | Notes |
+| Source | Depot entity | Notes |
 |---|---|---|
 | CustPackingSlipJour/Trans with uninvoiced remainder | packing_slip, DNI opening balance | cost from InventTrans.CostAmountPhysical |
 | WMSShipment, WMSPickingRoute (open); WHSContainerTable | shipment, pick_work, container | open picks reset to RELEASED; SSCC retained |
@@ -12606,7 +12607,7 @@ Wave 29 ships the `billing` and `revrec` services. Posted packing slips and elig
 
 **Pain points solved (10x lens)**
 
-| Pain point in AX/SAP today | Root cause | Passage answer in this wave | Measurable 10x target |
+| Pain point in AX/SAP today | Root cause | Depot answer in this wave | Measurable 10x target |
 |---|---|---|---|
 | Bundle allocation lives in spreadsheets: D365 RevRecSchedule needs revenue prices per item and cannot explain allocation; SAP RAR (FARR_D_*) is a separate engine with its own posting run and FARR_RECON reconciliation | Rev rec bolted on after billing; allocation inputs not on the order | Revenue contract created at post from order lines with SSP order BR-29.2; allocation and schedules visible on the contract and in the invoice trace | Close-time rev rec effort 2–3 days → < 2 h review; 40/40 fixtures reproducible |
 | Invoice totals differ from the order by cents (SalesLine rounding per form letter; MWST vs. BSEG rounding) | Each document re-rounds | Engine net reused; per-line tax; totals property-tested | Cent discrepancies ~0.5% of invoices → 0 |
@@ -12616,7 +12617,7 @@ Wave 29 ships the `billing` and `revrec` services. Posted packing slips and elig
 
 ### 5.29.2 AX / SAP parity map
 
-| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Passage equivalent | Parity |
+| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Depot equivalent | Parity |
 |---|---|---|---|---|
 | Invoice from shipment | SalesFormLetter_Invoice, CustInvoiceJour/CustInvoiceTrans, summary update | VF01/VF04, VBRK/VBRP, copy control VTFL | invoice (SHIPMENT, CONSOLIDATED) | full |
 | Free-text invoice | CustInvoiceTable/CustInvoiceLine | FB70; order-related billing (DR) | invoice type FREE_TEXT | full |
@@ -12697,11 +12698,11 @@ Validation: post rejects closed AR/GL period, lines without revenue account, tax
 
 | Event | Trigger | Payload fields | Consumers |
 |---|---|---|---|
-| dev.passage.billing.invoice.posted.v1 | post | invoice_id, number, type, customer, invoice_account, currency, dates, lines[{order_line_id, product, qty, net, tax, revenue_account, obligation_id}], totals, journal_posting_id, intercompany | receivables, revrec, ledger, pricing, portal, sales |
-| passage.billing.credit-note.posted.v1 | post | credit_note_id, original_invoice_id, lines, totals, journal_posting_id | receivables, revrec, ledger, portal |
-| dev.passage.revrec.contract.allocated.v1 | allocate | contract_id, obligations[{id, ssp, allocated, method}] | analytics, audit |
-| dev.passage.revrec.schedule.recognized.v1 | run / event | schedule_id, obligation_id, period_id, amount, journal_posting_id | ledger, analytics |
-| dev.passage.billing.subscription.billed.v1 | daily job | subscription_id, invoice_id, period, proration | portal, analytics |
+| dev.depot.billing.invoice.posted.v1 | post | invoice_id, number, type, customer, invoice_account, currency, dates, lines[{order_line_id, product, qty, net, tax, revenue_account, obligation_id}], totals, journal_posting_id, intercompany | receivables, revrec, ledger, pricing, portal, sales |
+| depot.billing.credit-note.posted.v1 | post | credit_note_id, original_invoice_id, lines, totals, journal_posting_id | receivables, revrec, ledger, portal |
+| dev.depot.revrec.contract.allocated.v1 | allocate | contract_id, obligations[{id, ssp, allocated, method}] | analytics, audit |
+| dev.depot.revrec.schedule.recognized.v1 | run / event | schedule_id, obligation_id, period_id, amount, journal_posting_id | ledger, analytics |
+| dev.depot.billing.subscription.billed.v1 | daily job | subscription_id, invoice_id, period, proration | portal, analytics |
 
 ### 5.29.6 User experience
 
@@ -12766,11 +12767,11 @@ Fixtures: `asc606-40` (bundles with SSPs, discounts, milestones, modifications; 
 Reconciliation: Σ POSTED gross − credit notes = AR additions = GL 1200 debits from billing; recognized revenue = GL 4000 credits from billing + revrec; DNI reversals = slip costs invoiced.
 
 ### 5.29.10 Deployment and operations
-Helm `passage-billing`, `passage-revrec` (Go); `billing-db`, `revrec-db`; docgen templates in a ConfigMap per entity. Config: `BILLING_MAX_LINES=2000`, `BILLING_BATCH_MAX=500`, `REVREC_RESIDUAL_RULE=largest`, `USAGE_LATE_DAYS=45`. Flags: `billing.consolidation`, `billing.subscriptions`, `revrec.usage`, `billing.einvoice`. Jobs: subscription billing 03:00; recognition run on period-close trigger (w14) plus nightly preview; roll-forward check 02:30. SLOs: post p95 < 3 s, 99.95% availability. Alerts: failed posts > 1% in 15 min, roll-forward diff ≠ 0, run > 30 min. Runbook: re-run proposal, same-day reversal, regenerate document. Rollback: previous digest; recognition run idempotent per period.
+Helm `depot-billing`, `depot-revrec` (Go); `billing-db`, `revrec-db`; docgen templates in a ConfigMap per entity. Config: `BILLING_MAX_LINES=2000`, `BILLING_BATCH_MAX=500`, `REVREC_RESIDUAL_RULE=largest`, `USAGE_LATE_DAYS=45`. Flags: `billing.consolidation`, `billing.subscriptions`, `revrec.usage`, `billing.einvoice`. Jobs: subscription billing 03:00; recognition run on period-close trigger (w14) plus nightly preview; roll-forward check 02:30. SLOs: post p95 < 3 s, 99.95% availability. Alerts: failed posts > 1% in 15 min, roll-forward diff ≠ 0, run > 30 min. Runbook: re-run proposal, same-day reversal, regenerate document. Rollback: previous digest; recognition run idempotent per period.
 
 ### 5.29.11 Migration from AX / SAP
 
-| Source | Passage entity | Notes |
+| Source | Depot entity | Notes |
 |---|---|---|
 | CustInvoiceJour/Trans and CustInvoiceTable/Line with open CustTransOpen | invoice (POSTED), lines | header amounts and due dates; lines for trace |
 | RevRecSchedule / RevRecContract (D365) | revenue_contract, obligations, unrecognized schedules | unrecognized = opening 2400 |
@@ -12935,11 +12936,11 @@ Validation: Σ migrated open balances = legacy AR trial balance per customer; Σ
 ## 5.30 Wave 30: Accounts Receivable, Collections, Returns & Customer Portal
 
 ### 5.30.1 Scope and business context
-Wave 30 closes the loop. The `receivables` service applies cash (manual, BAI2 lockbox, remittance advice, camt.053 with ML-assisted suggestions) and settles open items; `collections-workflows` (TS on Temporal) runs aging, dunning, interest notes, promises to pay, disputes and risk scoring; return orders flow through RMA dispositions to inventory and credit notes; wave 26 accruals settle; statements are produced; and the customer portal at `customer.<env>.passage.dev` exposes orders, invoices, payments (Stripe/Adyen sandbox), returns and documents. The wave ends with the Phase 5 exit: the demo manufacturer's one-month simulation with reconciled subledgers and stakeholder sign-off. Out of scope: non-customer bank reconciliation and cash forecasting (wave 36), collections-agency integration, portal self-registration beyond invited contacts, bills of exchange (wave 36), generic case management (wave 45). Added from the coverage registers (§5.30.21): SEPA direct debit mandates and pain.008, deductions workbench, minimal collection cases, correspondence framework with email templates, balance confirmations, down payments and security deposits, distributor chargebacks, vendor dunning, GL/intercompany interest, portal guided configuration and returnable packaging charges.
+Wave 30 closes the loop. The `receivables` service applies cash (manual, BAI2 lockbox, remittance advice, camt.053 with ML-assisted suggestions) and settles open items; `collections-workflows` (TS on Temporal) runs aging, dunning, interest notes, promises to pay, disputes and risk scoring; return orders flow through RMA dispositions to inventory and credit notes; wave 26 accruals settle; statements are produced; and the customer portal at `customer.<env>.depot.dev` exposes orders, invoices, payments (Stripe/Adyen sandbox), returns and documents. The wave ends with the Phase 5 exit: the demo manufacturer's one-month simulation with reconciled subledgers and stakeholder sign-off. Out of scope: non-customer bank reconciliation and cash forecasting (wave 36), collections-agency integration, portal self-registration beyond invited contacts, bills of exchange (wave 36), generic case management (wave 45). Added from the coverage registers (§5.30.21): SEPA direct debit mandates and pain.008, deductions workbench, minimal collection cases, correspondence framework with email templates, balance confirmations, down payments and security deposits, distributor chargebacks, vendor dunning, GL/intercompany interest, portal guided configuration and returnable packaging charges.
 
 **Pain points solved (10x lens)**
 
-| Pain point in AX/SAP today | Root cause | Passage answer in this wave | Measurable 10x target |
+| Pain point in AX/SAP today | Root cause | Depot answer in this wave | Measurable 10x target |
 |---|---|---|---|
 | Cash application is manual: AX settle open transactions (CustOpenTrans) makes the clerk find invoices per check; SAP F-28 plus FLB2 post-processing lands 30–50% of payments on account | Exact-reference matching only; no scoring, subset-sum or remittance parsing | BR-30.1 scored rules R1–R7, auto-apply ≥ 85, ML-ranked suggestions across lockbox, camt.053, remittance and portal | Auto-match 40–60% → ≥ 90%; clerk time per payment 3 min → < 20 s; false matches 0 |
 | Dunning produces wrong letters: F150 MHNK proposals ignore disputes without FSCM; CustCollectionLetterJour cannot skip promised items | Exclusion state not part of selection | Exclusions from open_item.dispute_id/promise_id at issue time; grace, interval and minimum rules (BR-30.2) | Retracted letters ~5% → 0; run preparation 2 h → < 10 min |
@@ -12949,7 +12950,7 @@ Wave 30 closes the loop. The `receivables` service applies cash (manual, BAI2 lo
 
 ### 5.30.2 AX / SAP parity map
 
-| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Passage equivalent | Parity |
+| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Depot equivalent | Parity |
 |---|---|---|---|---|
 | Payments and settlement | CustPaymJournal (LedgerJournalTrans), CustTrans/CustSettlement, CustPaymModeTable | F-28, F-32, BSID → BSAD, OB41 | payment, settlement, open_item | full |
 | Lockbox | CustLockbox (BAI2 import) | FLB2 / FLB1 (BAI2) | lockbox_batch | full |
@@ -13042,13 +13043,13 @@ Validation: apply requires Σ settlements + on-account residual = payment amount
 
 | Event | Trigger | Payload fields | Consumers |
 |---|---|---|---|
-| dev.passage.receivables.payment.received.v1 | import / manual / portal | payment_id, source, amount, currency, payer, remittance[] | matcher, analytics |
-| dev.passage.receivables.payment.applied.v1 | apply | payment_id, settlements[{open_item_id, amount, discount, write_off, fx}], residual, journal_posting_id | ledger, sales credit, portal, collections |
-| passage.receivables.customer-balance.changed.v1 | any open item change | customer_id, balance, overdue, oldest_item_days, dunning_level, risk_score | sales credit, portal |
-| passage.receivables.dunning-letter.issued.v1 | issue | run_id, customer_id, level, items[], fee, document_ref | docgen, portal, sales (hold at level 4) |
-| dev.passage.receivables.dispute.opened.v1 / resolved.v1 | dispute lifecycle | dispute_id, open_item_id, amount, reason, resolution | collections, billing, analytics |
-| passage.receivables.return-order.authorized.v1 / dispositioned.v1 | RMA | rma_id, line, disposition, qty, restocking, credit_note_id | fulfillment, inventory, billing, portal |
-| dev.passage.pricing.rebate.settled.v1 | settlement | agreement_id, period_id, amount, credit_note_id | ledger, receivables, analytics |
+| dev.depot.receivables.payment.received.v1 | import / manual / portal | payment_id, source, amount, currency, payer, remittance[] | matcher, analytics |
+| dev.depot.receivables.payment.applied.v1 | apply | payment_id, settlements[{open_item_id, amount, discount, write_off, fx}], residual, journal_posting_id | ledger, sales credit, portal, collections |
+| depot.receivables.customer-balance.changed.v1 | any open item change | customer_id, balance, overdue, oldest_item_days, dunning_level, risk_score | sales credit, portal |
+| depot.receivables.dunning-letter.issued.v1 | issue | run_id, customer_id, level, items[], fee, document_ref | docgen, portal, sales (hold at level 4) |
+| dev.depot.receivables.dispute.opened.v1 / resolved.v1 | dispute lifecycle | dispute_id, open_item_id, amount, reason, resolution | collections, billing, analytics |
+| depot.receivables.return-order.authorized.v1 / dispositioned.v1 | RMA | rma_id, line, disposition, qty, restocking, credit_note_id | fulfillment, inventory, billing, portal |
+| dev.depot.pricing.rebate.settled.v1 | settlement | agreement_id, period_id, amount, credit_note_id | ledger, receivables, analytics |
 
 ### 5.30.6 User experience
 
@@ -13062,7 +13063,7 @@ Validation: apply requires Σ settlements + on-account residual = payment amount
 | Return order (RMA) | authorize, receive, inspect, disposition, credit | lines, disposition, restocking, credit preview | ReturnMaintain |
 | Customer portal | place order, view invoices/documents, pay, request return, track | orders, invoices, balance, payments, RMAs, tracking | PortalCustomer |
 
-Interaction rules: cash application keyboard flow (J/K candidates, Enter accept, A apply) and bulk accept of all ≥ 85 suggestions; worklist saved filters; dunning preview opens the rendered letter; portal is mobile-first; provider hosted fields so no card data touches Passage.
+Interaction rules: cash application keyboard flow (J/K candidates, Enter accept, A apply) and bulk accept of all ≥ 85 suggestions; worklist saved filters; dunning preview opens the rendered letter; portal is mobile-first; provider hosted fields so no card data touches Depot.
 
 ### 5.30.7 Business rules and edge cases
 - **BR-30.1 Cash application matching rules and scores.** Candidates are open items of the identified customer (all customers when unidentified). Score per candidate set: R1 exact document number in remittance/RmtInf/check memo +60; R2 amount = open amount of one item +30, or = Σ open of a subset of ≤ 5 items (0.00 tolerance) +25; R3 amount = open − available cash discount with discount date ≥ value_date +28; R4 payer bank account hash (MICR/IBAN) matches the customer's bank account +15; R5 payer name Jaro-Winkler ≥ 0.92 to customer or invoice account +10; R6 value_date within 7 days of due date +5; R7 short by < 1% or < 50.00 USD / 45.00 EUR +20 with a mandatory short-pay reason. Decision: auto-apply when exactly one set scores ≥ 85 and the runner-up ≤ winner − 20; 60–84 → SUGGESTED for one-click; < 60 → ON_ACCOUNT (1205) with top-3 suggestions kept. The ML ranker may reorder sets below 85 but cannot raise one above it. Every auto-application is reversible within the open period.
@@ -13118,18 +13119,18 @@ Fixtures: `cash-app-500` (300 BAI2 checks, 150 camt.053 entries, 50 remittances;
 Reconciliation: Σ open_amount = GL 1200; Σ ON_ACCOUNT = GL 1205; daily settlements = GL 1000/1010 debits from receivables; fees = GL 4300; interest = GL 4310; RMA receipts = wave 16 receipts = GL 1400 debits from returns; rebate settlements = GL 2150 debits; deferred revenue, DNI, inventory, WIP, AP and tax checks re-run on simulation data; trial balance balanced.
 
 ### 5.30.10 Deployment and operations
-Helm `passage-receivables` (Go), `passage-collections-workflows` (TS, Temporal namespace `collections`), `passage-customer-portal` (React + TS BFF; ingress `customer.<env>.passage.dev`; Keycloak realm `portal`), `passage-payments-gateway` (TS; provider keys in Vault; PCI scope limited to tokens), matcher ranker (Python, CPU). Databases `receivables-db`, `portal-db`. Config: `MATCH_AUTO_THRESHOLD=85`, `MATCH_MARGIN=20`, `DUNNING_INTERVAL_DAYS=10`, `RMA_EXPIRY_DAYS=30`, `WRITE_OFF_TOLERANCE=5.00/0.5%`. Flags: `ar.ml_ranker`, `ar.camt053`, `collections.interest`, `portal.payments`, `portal.returns`. Jobs: aging and risk score 01:30; lockbox/camt.053 SFTP poll every 15 min; dunning proposal weekly (issue manual); statements on the 1st; rebate settlement after period close; interest monthly. SLOs: open-items read p95 < 100 ms, apply p95 < 1 s, portal 99.9%, webhook processing < 60 s. Alerts: unapplied cash > 2% of monthly receipts for 3 days, webhook failures, reconciliation diff ≠ 0, run stuck in DRAFT > 7 days. Runbook: reverse a mis-application, re-import a file, re-issue a letter, rotate provider keys. Rollback: previous digest per deployable; Temporal workflows versioned.
+Helm `depot-receivables` (Go), `depot-collections-workflows` (TS, Temporal namespace `collections`), `depot-customer-portal` (React + TS BFF; ingress `customer.<env>.depot.dev`; Keycloak realm `portal`), `depot-payments-gateway` (TS; provider keys in Vault; PCI scope limited to tokens), matcher ranker (Python, CPU). Databases `receivables-db`, `portal-db`. Config: `MATCH_AUTO_THRESHOLD=85`, `MATCH_MARGIN=20`, `DUNNING_INTERVAL_DAYS=10`, `RMA_EXPIRY_DAYS=30`, `WRITE_OFF_TOLERANCE=5.00/0.5%`. Flags: `ar.ml_ranker`, `ar.camt053`, `collections.interest`, `portal.payments`, `portal.returns`. Jobs: aging and risk score 01:30; lockbox/camt.053 SFTP poll every 15 min; dunning proposal weekly (issue manual); statements on the 1st; rebate settlement after period close; interest monthly. SLOs: open-items read p95 < 100 ms, apply p95 < 1 s, portal 99.9%, webhook processing < 60 s. Alerts: unapplied cash > 2% of monthly receipts for 3 days, webhook failures, reconciliation diff ≠ 0, run stuck in DRAFT > 7 days. Runbook: reverse a mis-application, re-import a file, re-issue a letter, rotate provider keys. Rollback: previous digest per deployable; Temporal workflows versioned.
 
 ### 5.30.11 Migration from AX / SAP
 
-| Source | Passage entity | Notes |
+| Source | Depot entity | Notes |
 |---|---|---|
 | CustTrans + CustTransOpen (open); CustSettlement (current year) | open_item; settlement history | AmountCur/AmountMST → amounts; CollectionLetterCode → dunning_level |
 | CustCollectionLetterJour (last), CustInterestJour (open) | dunning history; open_item INTEREST | |
 | ReturnTable / SalesLine (ReturnStatus not Closed) | return_order | disposition codes → BR-30.3 |
 | BSID (open), BSAD (current year) | open_item; settlement history | MANSP → dunning_block; MSCHL/MANST → level |
 | MHNK/MHND (last run); UDM_DISPUTE (open); VBAK RE/LR (open) | dunning history; dispute; return_order | |
-| KONA/VBOX open accruals | rebate_accrual opening | settled in Passage |
+| KONA/VBOX open accruals | rebate_accrual opening | settled in Depot |
 
 Validation: Σ open items per customer = legacy AR aging to the cent; open dispute and RMA counts equal; dunning levels per item equal. Not migrated: cleared items before the current fiscal year, collection notes (lakehouse), legacy statements, CustPaymModeTable/lockbox setup (manual).
 
@@ -13300,7 +13301,7 @@ Validation: Σ open items per customer = legacy AR aging to the cent; open dispu
 - Statements and confirmations: language, date and number formats per customer locale; balance confirmations support audit standards (ISA 505 external confirmations) with immutable replies.
 - Bills of exchange (IT RiBa, ES pagaré, FR LCR, JP tegata) are not supported in v1; wave 36 adds treasury instruments and country packs enable them.
 - Down payments: tax on advance payments (EU art. 65 VAT Directive) enabled per pack; DE requires a down-payment invoice with tax.
-- Privacy and PCI: card data never touches Passage (SAQ-A); IBANs are stored encrypted and displayed masked; collection notes and case activities are personal data subject to w48 retention (7 years, then pseudonymized); portal contacts can export their data.
+- Privacy and PCI: card data never touches Depot (SAQ-A); IBANs are stored encrypted and displayed masked; collection notes and case activities are personal data subject to w48 retention (7 years, then pseudonymized); portal contacts can export their data.
 - Retention: open-item history and settlements 10 years (GoBD); dunning letters 7 years; R-transaction evidence 13 months minimum.
 - Extension points: correspondence template slots, dunning procedure legal-text slot, interest rule provider, payment-file format registry (w19) and the chargeback EDI mapper (w35).
 
@@ -13389,29 +13390,29 @@ Validation: Σ open items per customer = legacy AR aging to the cent; open dispu
 
 | Event (CloudEvents type) | Producer | Consumers | Payload summary |
 |---|---|---|---|
-| dev.passage.wms.work.created.v1 | wms | wms-mobile, analytics | work_id, work_type, warehouse, priority, lines[] |
-| dev.passage.wms.work.completed.v1 | wms | inventory, sales-fulfillment, production | work_id, lines with from/to location, LP, qty |
-| dev.passage.wms.load.shipped.v1 | wms | tms, sales-fulfillment, edi (856) | load_id, shipments[], LPs/SSCCs, carrier, ship_date |
-| dev.passage.wms.receipt.registered.v1 | wms | purchasing (wave 18), quality | receipt_id, po lines, LPs, qty |
-| dev.passage.quality.order.created.v1 | quality | wms (block quant), analytics | quality_order_id, trigger, item, quant_ref, sample_size |
-| dev.passage.quality.usagedecision.posted.v1 | quality | wms, inventory, purchasing, production | quality_order_id, decision, accept_qty, reject_qty |
-| dev.passage.quality.nonconformance.created.v1 | quality | workflow, vendor-scorecard | ncr_id, source, severity, item, vendor |
-| dev.passage.tms.shipment.rated.v1 | tms | sales (freight charge), analytics | shipment_id, carrier, service, charges[], total |
-| dev.passage.tms.tender.accepted.v1 | tms | wms (dock), edi (204/990) | load_id, carrier, pickup_window |
-| dev.passage.tms.freightbill.matched.v1 | tms | accounts-payable (wave 19), costing (wave 20) | freight_bill_id, invoice_id, variance, landed_cost_lines[] |
-| dev.passage.edi.message.received.v1 | edi | purchasing, sales, ap | partner, standard, transaction_set, control numbers, document ref |
-| dev.passage.edi.message.sent.v1 | edi | analytics, integration-hub | partner, transaction_set, ack status |
-| dev.passage.hub.webhook.delivered.v1 | integration-hub | analytics | subscription_id, event_id, attempt, status |
-| dev.passage.wms.crossdock.allocated.v1 | wms | sales-fulfillment, analytics | receipt_id, demand_line_ref, qty, staging_location |
-| dev.passage.wms.automation.fault.v1 | wms | wms-mobile, alerting | channel_id, communication_point, lp_id, fault_code |
-| dev.passage.quality.compliance.blocked.v1 | quality | sales, purchasing | item_id, region, list_id, action (BLOCK/WARN), source_ref |
-| dev.passage.quality.sds.distributed.v1 | quality | sales-fulfillment, customer portal | item_id, sds_version, customer_id, shipment_id |
-| dev.passage.tms.goodsintransit.shipped.v1 | tms | inventory, costing | voyage_id, container_ids, lines[], estimated_costs[] |
-| dev.passage.tms.gate.checkedin.v1 / checkedout.v1 | tms | wms (door work), analytics | visit_id, appointment_id, tu_id, seal_no, door_or_slot |
-| dev.passage.tms.dgcheck.failed.v1 | tms | planners, wms | load_id, rule_ids[], classes[] |
-| dev.passage.tms.screening.held.v1 | tms | sales, compliance tasks | load_id, party_id, status, list_version |
-| dev.passage.edi.selfbilling.matched.v1 | edi | accounts receivable (wave 29), cash application (wave 30) | document_id, customer_id, matched_lines, differences[] |
-| dev.passage.hub.punchout.returned.v1 | integration-hub | purchasing (wave 17) | session_id, supplier_id, lines[], rejected[] |
+| dev.depot.wms.work.created.v1 | wms | wms-mobile, analytics | work_id, work_type, warehouse, priority, lines[] |
+| dev.depot.wms.work.completed.v1 | wms | inventory, sales-fulfillment, production | work_id, lines with from/to location, LP, qty |
+| dev.depot.wms.load.shipped.v1 | wms | tms, sales-fulfillment, edi (856) | load_id, shipments[], LPs/SSCCs, carrier, ship_date |
+| dev.depot.wms.receipt.registered.v1 | wms | purchasing (wave 18), quality | receipt_id, po lines, LPs, qty |
+| dev.depot.quality.order.created.v1 | quality | wms (block quant), analytics | quality_order_id, trigger, item, quant_ref, sample_size |
+| dev.depot.quality.usagedecision.posted.v1 | quality | wms, inventory, purchasing, production | quality_order_id, decision, accept_qty, reject_qty |
+| dev.depot.quality.nonconformance.created.v1 | quality | workflow, vendor-scorecard | ncr_id, source, severity, item, vendor |
+| dev.depot.tms.shipment.rated.v1 | tms | sales (freight charge), analytics | shipment_id, carrier, service, charges[], total |
+| dev.depot.tms.tender.accepted.v1 | tms | wms (dock), edi (204/990) | load_id, carrier, pickup_window |
+| dev.depot.tms.freightbill.matched.v1 | tms | accounts-payable (wave 19), costing (wave 20) | freight_bill_id, invoice_id, variance, landed_cost_lines[] |
+| dev.depot.edi.message.received.v1 | edi | purchasing, sales, ap | partner, standard, transaction_set, control numbers, document ref |
+| dev.depot.edi.message.sent.v1 | edi | analytics, integration-hub | partner, transaction_set, ack status |
+| dev.depot.hub.webhook.delivered.v1 | integration-hub | analytics | subscription_id, event_id, attempt, status |
+| dev.depot.wms.crossdock.allocated.v1 | wms | sales-fulfillment, analytics | receipt_id, demand_line_ref, qty, staging_location |
+| dev.depot.wms.automation.fault.v1 | wms | wms-mobile, alerting | channel_id, communication_point, lp_id, fault_code |
+| dev.depot.quality.compliance.blocked.v1 | quality | sales, purchasing | item_id, region, list_id, action (BLOCK/WARN), source_ref |
+| dev.depot.quality.sds.distributed.v1 | quality | sales-fulfillment, customer portal | item_id, sds_version, customer_id, shipment_id |
+| dev.depot.tms.goodsintransit.shipped.v1 | tms | inventory, costing | voyage_id, container_ids, lines[], estimated_costs[] |
+| dev.depot.tms.gate.checkedin.v1 / checkedout.v1 | tms | wms (door work), analytics | visit_id, appointment_id, tu_id, seal_no, door_or_slot |
+| dev.depot.tms.dgcheck.failed.v1 | tms | planners, wms | load_id, rule_ids[], classes[] |
+| dev.depot.tms.screening.held.v1 | tms | sales, compliance tasks | load_id, party_id, status, list_version |
+| dev.depot.edi.selfbilling.matched.v1 | edi | accounts receivable (wave 29), cash application (wave 30) | document_id, customer_id, matched_lines, differences[] |
+| dev.depot.hub.punchout.returned.v1 | integration-hub | purchasing (wave 17) | session_id, supplier_id, lines[], rejected[] |
 
 **Phase-level risks**
 
@@ -13434,7 +13435,7 @@ Wave 28 ships sales orders from simple warehouses (item × location on-hand, man
 
 **Pain points solved (10x lens)**
 
-| Pain point in AX/SAP today | Root cause | Passage answer in this wave | Measurable 10x target |
+| Pain point in AX/SAP today | Root cause | Depot answer in this wave | Measurable 10x target |
 |---|---|---|---|
 | D365 location directives (WHSLocationDirective form) fail silently: work is created with blank put location or "no location found" only visible in the work details after wave processing; debugging requires the "Location directive failures" log (10.0.x) or SQL on WHSWorkLine | Directive evaluation is a batch-side X++ class with no trace; query ranges are opaque | `/location-directives:simulate` returns a rule-by-rule trace; blocked work has status `BLOCKED_NO_LOCATION` with the failing step on the wave | Time to diagnose a directive miss: 30–60 min (consultant with SQL) → < 1 min from the trace; 0 silent blanks |
 | EWM put-away bin determination (/SCWM/T333 storage type search sequence + bin type + storage section) spans 6 IMG nodes; a change needs a transport and a test cycle | Configuration split across customizing tables with cross-dependencies | One LocationDirective entity with ordered lines/actions, versioned metadata, simulate-before-save | Setup clicks for a new put-away rule: ~40 across 6 transactions → ≤ 8 in one designer; change lead time days → minutes |
@@ -13444,7 +13445,7 @@ Wave 28 ships sales orders from simple warehouses (item × location on-hand, man
 
 ### 6.31.2 AX / SAP parity map
 
-| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Passage equivalent | Parity |
+| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Depot equivalent | Parity |
 |---|---|---|---|---|
 | Location master | WMSLocation, WHSLocationProfile, WHSZone, WHSLocationFormat; form WHSLocation | /SCWM/LAGP storage bins, /SCWM/T301 storage types, sections /SCWM/T302, bin types /SCWM/T303 | wms.Location, Zone, LocationProfile | full |
 | License plates / HUs | WHSLicensePlate, WHSContainerTable | /SCWM/HUHDR, /SCWM/HUITM, packaging material | wms.LicensePlate (nested), Quant | full |
@@ -13471,7 +13472,7 @@ Wave 28 ships sales orders from simple warehouses (item × location on-hand, man
 - **FR-31.1 Location hierarchy with profiles** — Must. The system shall model locations as `warehouse / zone / aisle / rack / shelf / bin` with a LocationProfile that defines capacity (weight, volume, LP count, item count), mixing rules and allowed LP behavior.
   - Notes: capacity limits are checked when work is created and again at confirmation; a location with `allow_mixed_items = false` rejects a second item; location name is generated from a LocationFormat (`A-01-02-03` → aisle 1, rack 2, shelf 3); maximum 1,000,000 locations per warehouse.
 - **FR-31.2 Nested license plates** — Must. The system shall track inventory on license plates that nest (pallet → case → inner) to depth 5, with a single move of a parent moving all children atomically.
-  - Notes: LP id is an SSCC-18 when generated by Passage (extension digit 0, GS1 company prefix from wave 8 config); external LPs are accepted up to 40 characters; an LP can be at exactly one location or in transit on one Work.
+  - Notes: LP id is an SSCC-18 when generated by Depot (extension digit 0, GS1 company prefix from wave 8 config); external LPs are accepted up to 40 characters; an LP can be at exactly one location or in transit on one Work.
 - **FR-31.3 Location directives** — Must. The system shall resolve a destination (put-away) or source (pick) location for each work line by evaluating ordered directives, lines and actions as specified in BR-31.1.
   - Notes: directive scope = work order type × warehouse × optional query on item/customer/vendor; strategies: `consolidate`, `fifo`, `lifo`, `fefo`, `empty_location`, `match_packing_quantity`, `round_up_to_lp`; evaluation p95 < 200 ms per line at 50,000 locations.
 - **FR-31.4 Work templates** — Must. The system shall create Work from templates whose lines define pick/put pairs, work class, stop-after-line and max lines/LPs per work header.
@@ -13591,11 +13592,11 @@ Commands (CQRS): `CreateWorkFromOrderLines` validates all lines belong to one wa
 
 | Event | Trigger | Payload fields | Consumers |
 |---|---|---|---|
-| dev.passage.wms.work.created.v1 | Work header committed | work_id, work_type, warehouse_id, priority, wave_id, lines[] | wms-mobile, analytics |
-| dev.passage.wms.work.completed.v1 | last line confirmed | work_id, lines[{item, dims, qty, from, to, lp}], user, duration_s | inventory (post transfer), sales-fulfillment, production |
-| dev.passage.wms.wave.released.v1 | workflow finished | wave_id, orders, work_count, replenishment_count, failures[] | analytics, sales-fulfillment |
-| dev.passage.wms.load.shipped.v1 | load confirmed | load_id, shipment_ids, lp_ids, carrier_id, ship_datetime | tms, edi, sales-fulfillment |
-| dev.passage.wms.receipt.registered.v1 | receipt committed | receipt_id, po_line_refs, lp_ids, qty by item | purchasing, quality |
+| dev.depot.wms.work.created.v1 | Work header committed | work_id, work_type, warehouse_id, priority, wave_id, lines[] | wms-mobile, analytics |
+| dev.depot.wms.work.completed.v1 | last line confirmed | work_id, lines[{item, dims, qty, from, to, lp}], user, duration_s | inventory (post transfer), sales-fulfillment, production |
+| dev.depot.wms.wave.released.v1 | workflow finished | wave_id, orders, work_count, replenishment_count, failures[] | analytics, sales-fulfillment |
+| dev.depot.wms.load.shipped.v1 | load confirmed | load_id, shipment_ids, lp_ids, carrier_id, ship_datetime | tms, edi, sales-fulfillment |
+| dev.depot.wms.receipt.registered.v1 | receipt committed | receipt_id, po_line_refs, lp_ids, qty by item | purchasing, quality |
 
 ### 6.31.6 User experience
 
@@ -13667,11 +13668,11 @@ Reconciliation: Σ quant per item/warehouse = inventory ledger on-hand; Σ in-tr
 
 ### 6.31.10 Deployment and operations
 
-Helm chart `passage-wms` (deployments `wms-api`, `wms-directive-engine`, `wms-worker` for Temporal activities; HPA 2–10 on CPU 70%); CloudNativePG cluster `wms-db` (3 instances, 100 GB); Atlas migrations generated from entity metadata; config: `WMS_LOCK_TIMEOUT_MIN=30`, `WMS_REPLENISH_INTERVAL_MIN=15`, `WMS_MAX_WAVE_LINES=5000`. Feature flags: `wms.advanced` per warehouse (off = wave-28 simple mode), `wms.slotting`. Scheduled jobs (Temporal schedules): min/max replenishment, automatic wave release, count plan generation (daily 02:00 warehouse-local), KPI materialization hourly. SLOs: assignment p95 < 1 s; directive simulate p95 < 200 ms; wave release of 5,000 lines < 10 min; availability 99.9%. Alerts: `WmsWorkBlockedNoLocation > 50 in 15 min`, `WmsAssignmentP95 > 2 s`, `WmsQuantLedgerDrift ≠ 0 after daily reconciliation`, `WmsWaveWorkflowFailed`. Runbook: re-evaluate blocked work; release stuck locks; reconcile drift (compare `quant` vs ledger projection, apply correction journal with approval). Rollback: Argo CD to previous digest; migrations are additive within a wave; flag `wms.advanced=false` returns a warehouse to simple mode only if no OPEN work exists.
+Helm chart `depot-wms` (deployments `wms-api`, `wms-directive-engine`, `wms-worker` for Temporal activities; HPA 2–10 on CPU 70%); CloudNativePG cluster `wms-db` (3 instances, 100 GB); Atlas migrations generated from entity metadata; config: `WMS_LOCK_TIMEOUT_MIN=30`, `WMS_REPLENISH_INTERVAL_MIN=15`, `WMS_MAX_WAVE_LINES=5000`. Feature flags: `wms.advanced` per warehouse (off = wave-28 simple mode), `wms.slotting`. Scheduled jobs (Temporal schedules): min/max replenishment, automatic wave release, count plan generation (daily 02:00 warehouse-local), KPI materialization hourly. SLOs: assignment p95 < 1 s; directive simulate p95 < 200 ms; wave release of 5,000 lines < 10 min; availability 99.9%. Alerts: `WmsWorkBlockedNoLocation > 50 in 15 min`, `WmsAssignmentP95 > 2 s`, `WmsQuantLedgerDrift ≠ 0 after daily reconciliation`, `WmsWaveWorkflowFailed`. Runbook: re-evaluate blocked work; release stuck locks; reconcile drift (compare `quant` vs ledger projection, apply correction journal with approval). Rollback: Argo CD to previous digest; migrations are additive within a wave; flag `wms.advanced=false` returns a warehouse to simple mode only if no OPEN work exists.
 
 ### 6.31.11 Migration from AX / SAP
 
-| Source | Passage entity | Transformation |
+| Source | Depot entity | Transformation |
 |---|---|---|
 | WMSLocation, WHSLocationProfile, WHSZone, WHSLocationFormat | Location, LocationProfile, Zone, LocationFormat | parse name by format; capacity from profile; status from `WHSLocationStatus` |
 | /SCWM/LAGP, /SCWM/T301, /SCWM/T302, /SCWM/T303 | Location, Zone (storage type/section), LocationProfile (bin type) | LGTYP → zone, LGBER → sub-zone attribute; capacity from LAGP `MAX_WEIGHT`/`MAX_CAPA` |
@@ -13865,7 +13866,7 @@ Wave 31 creates work; wave 32 lets warehouse workers execute it on handheld scan
 
 **Pain points solved (10x lens)**
 
-| Pain point in AX/SAP today | Root cause | Passage answer in this wave | Measurable 10x target |
+| Pain point in AX/SAP today | Root cause | Depot answer in this wave | Measurable 10x target |
 |---|---|---|---|
 | D365 mobile menu items (WHSRFMenuItemTable) expose ~60 option fields per item; a flow change (e.g., add a lot confirmation step) needs a consultant, a config move across environments and a device re-login; D365 "mobile device steps configuration" cannot add a new step, only hide/rename | Flows are hard-coded X++ step classes parameterized by options | Flow designer with versioned step graphs, simulate, publish; devices pick up the version in ≤ 60 s | Flow change lead time: 1–3 days → < 30 min; 0 app releases per flow change |
 | Both D365 mobile app and EWM RF (/SCWM/RFUI, ITSmobile) stop dead without Wi-Fi; workers in freezers, yards and trailers lose scans | Request/response screens with no client state | Offline queue with ordered, idempotent replay and a supervisor conflict queue | Lost transactions on disconnect: every one → 0; worker wait on reconnect: re-key → 0 keystrokes |
@@ -13875,7 +13876,7 @@ Wave 31 creates work; wave 32 lets warehouse workers execute it on handheld scan
 
 ### 6.32.2 AX / SAP parity map
 
-| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Passage equivalent | Parity |
+| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Depot equivalent | Parity |
 |---|---|---|---|---|
 | Mobile menu | WHSMobileAppMenu, WHSRFMenuTable, WHSRFMenuLine | /SCWM/TMENU, /SCWM/T_RF_MENU (RF menu manager /SCWM/RFUI) | wms-mobile.MobileMenu | full |
 | Menu items / flows | WHSRFMenuItemTable (WHSRFMenuItem), work creation vs existing work modes | Logical transactions /SCWM/TLOGTR, steps /SCWM/T_RF_STEP | MobileFlow (step graph) | improved — visual designer, versioned |
@@ -13985,10 +13986,10 @@ Invariants: a device has at most one active session; `seq` is strictly increasin
 
 | Event | Trigger | Payload fields | Consumers |
 |---|---|---|---|
-| dev.passage.mobile.flow.published.v1 | publish | flow_id, code, version, warehouses | devices (push via SSE), analytics |
-| dev.passage.mobile.session.started.v1 / ended.v1 | session lifecycle | session_id, device_id, user_id, warehouse | analytics |
-| dev.passage.mobile.offline.conflict.v1 | replay conflict | idempotency_key, command, reason | supervisor queue |
-| dev.passage.print.job.completed.v1 | printer ack | job_id, printer, status | wms |
+| dev.depot.mobile.flow.published.v1 | publish | flow_id, code, version, warehouses | devices (push via SSE), analytics |
+| dev.depot.mobile.session.started.v1 / ended.v1 | session lifecycle | session_id, device_id, user_id, warehouse | analytics |
+| dev.depot.mobile.offline.conflict.v1 | replay conflict | idempotency_key, command, reason | supervisor queue |
+| dev.depot.print.job.completed.v1 | printer ack | job_id, printer, status | wms |
 
 ### 6.32.6 User experience
 
@@ -14033,7 +14034,7 @@ Interaction rules: device UI uses one input per screen; Enter/scan advances; har
 
 ### 6.32.9 Test plan and fixtures
 
-Fixtures: `gs1-ai-vectors.json` (GS1 test suite plus 60 Passage vectors for edge cases), `labels-asn-3-pallet.zpl` rendered to PNG for the emulator's camera-free scan injection, `offline-200.json`, `flows-core-v1` (seven flows), device profiles `zebra-tc52`, `honeywell-ct45`.
+Fixtures: `gs1-ai-vectors.json` (GS1 test suite plus 60 Depot vectors for edge cases), `labels-asn-3-pallet.zpl` rendered to PNG for the emulator's camera-free scan injection, `offline-200.json`, `flows-core-v1` (seven flows), device profiles `zebra-tc52`, `honeywell-ct45`.
 
 | Test | Type | Target | Pass criterion |
 |---|---|---|---|
@@ -14049,11 +14050,11 @@ Reconciliation: Σ mobile confirmations per day = Σ work line confirmations in 
 
 ### 6.32.10 Deployment and operations
 
-Helm `passage-wms-mobile` (BFF, SSE push, 2–8 replicas), `passage-print` (print service with printer registry; one per site network, outbound TCP 9100/IPP), PWA assets served by the shell CDN path; Android shell signed APK distributed via MDM (SOTI/Workspace ONE) or sideload. Config: `MOBILE_OFFLINE_MAX_TX=500`, `MOBILE_SESSION_IDLE_MIN=30`, `PRINT_RETRY=3`. Flags: `mobile.offline`, `mobile.voice_adapter`. SLOs: step submit p95 < 300 ms; menu load < 1 s; print job dispatched < 2 s; offline replay 200 tx < 30 s. Alerts: offline conflicts > 10/h per warehouse; print failures > 5/15 min per printer; stale sessions > 20. Runbook: printer unreachable (check print service pod on site, re-queue jobs); device clock skew > 5 min (block replay, instruct re-sync). Rollback: flow versions are retained — republish the previous version; BFF rollback via Argo CD.
+Helm `depot-wms-mobile` (BFF, SSE push, 2–8 replicas), `depot-print` (print service with printer registry; one per site network, outbound TCP 9100/IPP), PWA assets served by the shell CDN path; Android shell signed APK distributed via MDM (SOTI/Workspace ONE) or sideload. Config: `MOBILE_OFFLINE_MAX_TX=500`, `MOBILE_SESSION_IDLE_MIN=30`, `PRINT_RETRY=3`. Flags: `mobile.offline`, `mobile.voice_adapter`. SLOs: step submit p95 < 300 ms; menu load < 1 s; print job dispatched < 2 s; offline replay 200 tx < 30 s. Alerts: offline conflicts > 10/h per warehouse; print failures > 5/15 min per printer; stale sessions > 20. Runbook: printer unreachable (check print service pod on site, re-queue jobs); device clock skew > 5 min (block replay, instruct re-sync). Rollback: flow versions are retained — republish the previous version; BFF rollback via Argo CD.
 
 ### 6.32.11 Migration from AX / SAP
 
-| Source | Passage entity | Transformation |
+| Source | Depot entity | Transformation |
 |---|---|---|
 | WHSMobileAppMenu, WHSRFMenuTable, WHSRFMenuLine | MobileMenu | hierarchy preserved |
 | WHSRFMenuItemTable (mode, work class, directed/user-directed, detours) | MobileFlow draft | generated from the menu item's options into the equivalent core flow with configured branches; requires manual review |
@@ -14062,7 +14063,7 @@ Helm `passage-wms-mobile` (BFF, SSE push, 2–8 replicas), `passage-print` (prin
 | /SCWM/TMENU, /SCWM/T_RF_MENU, /SCWM/TLOGTR | MobileMenu, MobileFlow draft | logical transaction → core flow mapping table |
 | /SCWM/RSRC, /SCWM/TRSRC | WorkUser, device bindings | resource type → work class |
 
-Not migrated: RF screen layouts (/SCWM/TPRES) and D365 step field layouts — Passage flows are redesigned; mobile session state; print spool history.
+Not migrated: RF screen layouts (/SCWM/TPRES) and D365 step field layouts — Depot flows are redesigned; mobile session state; print spool history.
 
 ### 6.32.12 Dependencies, risks, open questions
 
@@ -14188,7 +14189,7 @@ Open questions: (1) Native iOS shell — proposed: no, PWA only; decide by wave 
 - **Regulated serialization.** EU Falsified Medicines Directive (Delegated Regulation 2016/161) requires 2D DataMatrix with AI 01, 21, 10, 17 and national reimbursement numbers (AI 710–715); US DSCSA requires interoperable serialized traceability (EPCIS). Country packs (wave 48) add AI validation and label templates through `LabelTemplatePack`; the EPC ingest (FR-32.9) carries SGTIN data.
 - **Character sets.** ZPL templates use `^CI28` (UTF-8) for non-Latin scripts; human-readable dates on labels follow locale while barcode data stays `YYMMDD`.
 - **Privacy.** Per-user step telemetry is personal data (GDPR); retention 90 days; named per-user timing reports follow the wave-31 `LaborPrivacyPolicy`; works-council rules as §6.31.20.
-- **Device and radio rules.** Scanner hardware certification is the device vendor's responsibility; Passage stores no location data from devices beyond the warehouse and session.
+- **Device and radio rules.** Scanner hardware certification is the device vendor's responsibility; Depot stores no location data from devices beyond the warehouse and session.
 
 ### 6.32.21 Coverage closure
 
@@ -14202,13 +14203,13 @@ Open questions: (1) Native iOS shell — proposed: no, PWA only; decide by wave 
 
 ### 6.33.1 Scope and business context
 
-Wave 33 replaces AX quality management (test groups, quality associations, quality orders, nonconformances, corrections) and SAP QM (inspection plans, inspection lots, results recording, usage decisions, quality notifications, vendor evaluation). After this wave, quality orders are generated by association rules at purchase receipt, production report-as-finished and before shipment; samples are sized by AQL plans; results are recorded (variable and attribute); a usage decision releases or rejects inventory that was blocked from the moment the order was created; nonconformances drive corrections/CAPA through a Temporal 8D workflow; certificates of analysis print on shipment; supplier scorecards and SPC charts are computed from results; instruments have calibration schedules. Out of scope: stability studies, audit management (ISO 19011), FMEA, and the SAP QM-PM calibration order integration (Passage tracks calibration due dates and blocks results from overdue instruments).
+Wave 33 replaces AX quality management (test groups, quality associations, quality orders, nonconformances, corrections) and SAP QM (inspection plans, inspection lots, results recording, usage decisions, quality notifications, vendor evaluation). After this wave, quality orders are generated by association rules at purchase receipt, production report-as-finished and before shipment; samples are sized by AQL plans; results are recorded (variable and attribute); a usage decision releases or rejects inventory that was blocked from the moment the order was created; nonconformances drive corrections/CAPA through a Temporal 8D workflow; certificates of analysis print on shipment; supplier scorecards and SPC charts are computed from results; instruments have calibration schedules. Out of scope: stability studies, audit management (ISO 19011), FMEA, and the SAP QM-PM calibration order integration (Depot tracks calibration due dates and blocks results from overdue instruments).
 
-**Scope amendment (coverage closure).** The gap registers move into this wave items that the paragraph above excludes or does not name: product compliance with regulated and restricted lists (FR-33.13), safety data sheets (FR-33.14), incoming vendor certificates (FR-33.15), stability studies (FR-33.16), audit management (FR-33.17), FMEA and control plans (FR-33.18), source inspection (FR-33.19), physical sample management (FR-33.20), multiple specifications (FR-33.21) and in-process inspection points (FR-33.22). The SAP QM-PM calibration-order integration stays out of scope; Instrument due-date tracking (BR-33.8) remains the Passage mechanism. §6.33.21 lists the dispositions.
+**Scope amendment (coverage closure).** The gap registers move into this wave items that the paragraph above excludes or does not name: product compliance with regulated and restricted lists (FR-33.13), safety data sheets (FR-33.14), incoming vendor certificates (FR-33.15), stability studies (FR-33.16), audit management (FR-33.17), FMEA and control plans (FR-33.18), source inspection (FR-33.19), physical sample management (FR-33.20), multiple specifications (FR-33.21) and in-process inspection points (FR-33.22). The SAP QM-PM calibration-order integration stays out of scope; Instrument due-date tracking (BR-33.8) remains the Depot mechanism. §6.33.21 lists the dispositions.
 
 **Pain points solved (10x lens)**
 
-| Pain point in AX/SAP today | Root cause | Passage answer in this wave | Measurable 10x target |
+| Pain point in AX/SAP today | Root cause | Depot answer in this wave | Measurable 10x target |
 |---|---|---|---|
 | AX quality order blocking (InventQualityOrderTable → InventBlockingTable) blocks only the quantity registered on the receipt; production and sales paths can still pick inventory registered under a different dimension set, and "Inventory blocking" is bypassed by movement journals | Blocking is a reservation-like record checked by some, not all, transaction types | Hold lives in the inventory ledger reservation path and is checked by every transaction type; property test enumerates all | Movements of held stock: occasional (audit findings) → 0 across 10,000 randomized attempts |
 | SAP usage decision (QA11) is a separate transaction from results recording (QE01), each 8–12 clicks with stock posting on a third tab; partial accept/reject needs manual quantity split and MIGO 321/322 follow-up | Inspection lot, results and stock posting are separate objects with separate screens | Results and decision on one order; quantity split posts both ledger legs automatically | Clicks per decision: ~25 across QE01/QA11/MIGO → ≤ 5; follow-up postings keyed manually: 2 → 0 |
@@ -14218,7 +14219,7 @@ Wave 33 replaces AX quality management (test groups, quality associations, quali
 
 ### 6.33.2 AX / SAP parity map
 
-| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Passage equivalent | Parity |
+| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Depot equivalent | Parity |
 |---|---|---|---|---|
 | Tests and groups | InventTestTable, InventTestGroup, InventTestGroupTest (lines), InventTestVariable/Outcome | Master inspection characteristics QPMK (QS21), inspection plans QP01 (PLKO/PLPO/PLMK), catalogs QPCT | quality.Test, TestGroup, Characteristic catalog | full |
 | Sampling | InventTestItemSampling (fixed qty/%) | Sampling procedures QDP1 (QDPS), sampling schemes QDS1, dynamic modification | SamplingPlan (fixed, %, AQL Z1.4) | improved — AQL built in |
@@ -14363,11 +14364,11 @@ Commands: `CreateQualityOrderFromTrigger` validates association match and that t
 
 | Event | Trigger | Payload fields | Consumers |
 |---|---|---|---|
-| dev.passage.quality.order.created.v1 | order created | quality_order_id, trigger, source_ref, item, dims, lot_qty, sample_qty | inventory (hold), wms, analytics |
-| dev.passage.quality.result.recorded.v1 | result batch | quality_order_id, results[] | SPC projection |
-| dev.passage.quality.usagedecision.posted.v1 | decision | quality_order_id, decision, accept_qty, reject_qty, deviation_qty, user | inventory (release/hold), wms, purchasing, production |
-| dev.passage.quality.nonconformance.created.v1 | NCR | ncr_id, source, severity, item, vendor_id | vendor scorecard, workflow |
-| dev.passage.quality.capa.closed.v1 | 8D closed | ncr_id, effectiveness_result | analytics |
+| dev.depot.quality.order.created.v1 | order created | quality_order_id, trigger, source_ref, item, dims, lot_qty, sample_qty | inventory (hold), wms, analytics |
+| dev.depot.quality.result.recorded.v1 | result batch | quality_order_id, results[] | SPC projection |
+| dev.depot.quality.usagedecision.posted.v1 | decision | quality_order_id, decision, accept_qty, reject_qty, deviation_qty, user | inventory (release/hold), wms, purchasing, production |
+| dev.depot.quality.nonconformance.created.v1 | NCR | ncr_id, source, severity, item, vendor_id | vendor scorecard, workflow |
+| dev.depot.quality.capa.closed.v1 | 8D closed | ncr_id, effectiveness_result | analytics |
 
 ### 6.33.6 User experience
 
@@ -14466,11 +14467,11 @@ Reconciliation: Σ quality-held qty in ledger = Σ lot_qty of open orders; rejec
 
 ### 6.33.10 Deployment and operations
 
-Helm `passage-quality` (api, worker, 2–6 replicas), CloudNativePG `quality-db` (3 instances, 50 GB). Config: `QM_DEFAULT_INSPECTION_LEVEL=II`, `QM_EFFECTIVENESS_DAYS=90`, `QM_INSTRUMENT_WARN_DAYS=14`. Flags: `quality.enabled` per site, `quality.spc`. Scheduled: scorecard materialization monthly (1st, 03:00), instrument due scan daily, SPC recompute hourly. SLOs: order creation added to receipt latency < 100 ms p95; results batch p95 < 2 s; decision posting p95 < 500 ms. Alerts: orders PENDING_DECISION > 5 days; held qty vs open orders drift; instrument overdue with results attempted. Runbook: release orphan holds (order cancelled but hold remains); reprocess association for a trigger event. Rollback: `quality.enabled=false` stops new orders; existing holds remain until decided (never auto-release on rollback).
+Helm `depot-quality` (api, worker, 2–6 replicas), CloudNativePG `quality-db` (3 instances, 50 GB). Config: `QM_DEFAULT_INSPECTION_LEVEL=II`, `QM_EFFECTIVENESS_DAYS=90`, `QM_INSTRUMENT_WARN_DAYS=14`. Flags: `quality.enabled` per site, `quality.spc`. Scheduled: scorecard materialization monthly (1st, 03:00), instrument due scan daily, SPC recompute hourly. SLOs: order creation added to receipt latency < 100 ms p95; results batch p95 < 2 s; decision posting p95 < 500 ms. Alerts: orders PENDING_DECISION > 5 days; held qty vs open orders drift; instrument overdue with results attempted. Runbook: release orphan holds (order cancelled but hold remains); reprocess association for a trigger event. Rollback: `quality.enabled=false` stops new orders; existing holds remain until decided (never auto-release on rollback).
 
 ### 6.33.11 Migration from AX / SAP
 
-| Source | Passage entity | Transformation |
+| Source | Depot entity | Transformation |
 |---|---|---|
 | InventTestTable, InventTestVariable, InventTestVariableOutcome | Test, outcome catalog | type Integer/Fraction → variable; Option → attribute |
 | InventTestGroup + lines, InventTestItemSampling | TestGroup, SamplingPlan | fixed/percent plans direct; AQL plans created new |
@@ -14679,7 +14680,7 @@ Wave 28 integrated parcel carriers for labels; wave 34 adds full transportation 
 
 **Pain points solved (10x lens)**
 
-| Pain point in AX/SAP today | Root cause | Passage answer in this wave | Measurable 10x target |
+| Pain point in AX/SAP today | Root cause | Depot answer in this wave | Measurable 10x target |
 |---|---|---|---|
 | D365 rate route workbench (TMSRateRouteWorkbench) shows a total per carrier with no breakdown; a wrong rate (missing rate base assignment, fuel index not loaded) is found when the carrier invoice arrives weeks later | Rate engines (TMSRateEngineBase subclasses) return totals; no explain | Rating returns an explain trace per charge step; `NO_VALID_RATE_CARD` is explicit | Rate errors detected: at invoice (2–6 weeks) → at rating (< 300 ms); rating disputes caused by setup: ~5% of invoices → < 0.5% |
 | SAP TM carrier selection and tendering (freight order subcontracting) require TM configuration plus PI/PO for EDI 204/990; tender timeouts are monitored manually in the transportation cockpit | Tendering is a status field, not a durable process | Temporal `TenderWorkflow` with cascade, timeouts and carrier portal/EDI responses | Planner interventions per 100 tenders: ~30 (watching expiry) → < 3; tender-to-acceptance: hours of chasing → automatic cascade within the timeout |
@@ -14689,7 +14690,7 @@ Wave 28 integrated parcel carriers for labels; wave 34 adds full transportation 
 
 ### 6.34.2 AX / SAP parity map
 
-| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Passage equivalent | Parity |
+| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Depot equivalent | Parity |
 |---|---|---|---|---|
 | Carriers / services | TMSCarrier, TMSCarrierService, TMSCarrierServiceGroup | Business partner carrier role, /SCMTMS/ means of transport | tms.Carrier, CarrierService | full |
 | Rate cards | TMSRateMaster, TMSRateBase, TMSRateBaseAssignment, TMSRateEngine classes (TMSRateEngineBase) | Freight agreements, rate tables, calculation sheets (/SCMTMS/TCM, /SCMTMS/TCCS) | RateCard, RateTable, CalcSheet | full |
@@ -14740,7 +14741,7 @@ Wave 28 integrated parcel carriers for labels; wave 34 adds full transportation 
 - **FR-34.13 Yard management** — Should. The system shall model yard locations (parking slots, door waiting lanes, checkpoints), transportation units (trailer, container, swap body) and vehicles, track TU position and status (EMPTY, LOADED, SEALED; reefer setpoint), and create yard-move work (wms work type YARD_MOVE) between slot and dock door, executed on the wave-32 mobile app.
   - Notes: TU ↔ load link from tender acceptance; door assignment respects DockAppointment (wave 31); slot capacity is one TU; dwell time per TU drives detention (BR-34.13, accessorial DETENTION after free time, default 2 h); a yard check is a count work over yard slots.
 - **FR-34.14 Driver check-in/out and gate log** — Should. The system shall check drivers in at the gate or a kiosk against the dock appointment (appointment id or carrier SCAC + trailer/container number), capture seal number, driver name and license id, assign a yard slot or door, and check out with seal verification, recording each event in an append-only gate log.
-  - Notes: matching and tolerance per BR-34.14 (default ±60 min); walk-ins allowed per site setting; check-out blocked if the load is not confirmed or the seal does not match; driver PII kept 90 days, then pseudonymized; check-in emits `dev.passage.tms.gate.checkedin.v1`, which releases the door work in wms.
+  - Notes: matching and tolerance per BR-34.14 (default ±60 min); walk-ins allowed per site setting; check-out blocked if the load is not confirmed or the seal does not match; driver PII kept 90 days, then pseudonymized; check-in emits `dev.depot.tms.gate.checkedin.v1`, which releases the door work in wms.
 - **FR-34.15 Dangerous goods checks in transport** — Should. The system shall use the wave-31 HazmatProfile to check DG compliance at rating, load building, tendering and ship confirmation: mode-specific regulation (49 CFR, ADR, RID, IMDG, IATA DGR), carrier-service DG eligibility, mixed-load segregation (49 CFR 177.848, ADR 7.5.2), ADR 1.1.3.6 quantity thresholds and limited-quantity rules, and produce DG shipping-paper lines and placard requirements.
   - Notes: result PASS/WARN/FAIL with rule ids (BR-34.15); FAIL blocks tender and ship confirmation when `dg_check_mode = BLOCK`; a 24-hour emergency response phone from legal-entity setup is mandatory before a DG shipment; DG lines print on the BOL with UN number, proper shipping name, class, packing group and quantity.
 - **FR-34.16 Fleet resources** — Could. The system shall define own-fleet vehicles (weight/volume/pallet capacity, equipment type, depot, cost per km and per hour, availability calendar), trailers and drivers (qualifications such as hazmat endorsement or ADR certificate with expiry, availability calendar, hours-of-service rule set) and pass them to the VRP as heterogeneous fleet and driver-hours constraints (BR-34.16).
@@ -14825,11 +14826,11 @@ Invariants: a load has at most one ACCEPTED tender; Σ allocated landed cost per
 
 | Event | Trigger | Payload fields | Consumers |
 |---|---|---|---|
-| dev.passage.tms.shipment.rated.v1 | rating | shipment_id, options[{carrier, service, total, transit_days}], chosen | sales (freight charge), analytics |
-| dev.passage.tms.tender.accepted.v1 / declined.v1 / expired.v1 | tender response | load_id, carrier_id, rank, rate | wms, edi (204/990), analytics |
-| dev.passage.tms.tracking.event.v1 | ingest | load_id, stop_no, code, occurred_at | sales-fulfillment, customer portal |
-| dev.passage.tms.freightbill.matched.v1 | match | freight_bill_id, carrier_invoice_id, variance, lines[] | AP, costing |
-| dev.passage.tms.landedcost.posted.v1 | allocation posted | voyage_id, receipt_lines[{line, amount}] | costing (wave 20) |
+| dev.depot.tms.shipment.rated.v1 | rating | shipment_id, options[{carrier, service, total, transit_days}], chosen | sales (freight charge), analytics |
+| dev.depot.tms.tender.accepted.v1 / declined.v1 / expired.v1 | tender response | load_id, carrier_id, rank, rate | wms, edi (204/990), analytics |
+| dev.depot.tms.tracking.event.v1 | ingest | load_id, stop_no, code, occurred_at | sales-fulfillment, customer portal |
+| dev.depot.tms.freightbill.matched.v1 | match | freight_bill_id, carrier_invoice_id, variance, lines[] | AP, costing |
+| dev.depot.tms.landedcost.posted.v1 | allocation posted | voyage_id, receipt_lines[{line, amount}] | costing (wave 20) |
 
 ### 6.34.6 User experience
 
@@ -14905,11 +14906,11 @@ Reconciliation: Σ accrued freight by open freight bill = journal account 2150 b
 
 ### 6.34.10 Deployment and operations
 
-Helm `passage-tms` (api, worker), `passage-tms-optimizer` (Python, OR-Tools, 1–4 replicas, 2 CPU/4 GB each), `passage-osrm` (optional self-hosted routing with regional extracts). CloudNativePG `tms-db` (3 instances, 50 GB). Config: `TMS_VRP_TIME_LIMIT_S=60`, `TMS_TENDER_TIMEOUT_MIN=120`, `TMS_MATCH_TOL_ABS=5`, `TMS_MATCH_TOL_PCT=2`, `TMS_DIM_FACTOR_PARCEL=139`. Flags: `tms.enabled`, `tms.landed_cost`, `tms.vrp`. Scheduled: fuel index import weekly (Monday 06:00), tender expiry sweep (Temporal timers), KPI daily. SLOs: rating p95 < 300 ms per shipment per carrier; VRP 500 stops < 60 s; match p95 < 1 s; availability 99.9%. Alerts: tender failures > 3/day; unexpected invoices > 10/day; accrual drift ≠ 0; optimizer queue depth > 20. Runbook: optimizer OOM (reduce batch or raise limits); OSRM down (fallback to stored lane distances with warning). Rollback: `tms.enabled=false` returns to wave-28 carrier labels; open tenders are cancelled with notification.
+Helm `depot-tms` (api, worker), `depot-tms-optimizer` (Python, OR-Tools, 1–4 replicas, 2 CPU/4 GB each), `depot-osrm` (optional self-hosted routing with regional extracts). CloudNativePG `tms-db` (3 instances, 50 GB). Config: `TMS_VRP_TIME_LIMIT_S=60`, `TMS_TENDER_TIMEOUT_MIN=120`, `TMS_MATCH_TOL_ABS=5`, `TMS_MATCH_TOL_PCT=2`, `TMS_DIM_FACTOR_PARCEL=139`. Flags: `tms.enabled`, `tms.landed_cost`, `tms.vrp`. Scheduled: fuel index import weekly (Monday 06:00), tender expiry sweep (Temporal timers), KPI daily. SLOs: rating p95 < 300 ms per shipment per carrier; VRP 500 stops < 60 s; match p95 < 1 s; availability 99.9%. Alerts: tender failures > 3/day; unexpected invoices > 10/day; accrual drift ≠ 0; optimizer queue depth > 20. Runbook: optimizer OOM (reduce batch or raise limits); OSRM down (fallback to stored lane distances with warning). Rollback: `tms.enabled=false` returns to wave-28 carrier labels; open tenders are cancelled with notification.
 
 ### 6.34.11 Migration from AX / SAP
 
-| Source | Passage entity | Transformation |
+| Source | Depot entity | Transformation |
 |---|---|---|
 | TMSCarrier, TMSCarrierService, TMSCarrierServiceGroup | Carrier, CarrierService | linked to Party by vendor account |
 | TMSRateMaster, TMSRateBase, TMSRateBaseAssignment, rate engine metadata | RateCard, RateTable | basis per rate engine type; effective dates from assignment |
@@ -15128,17 +15129,17 @@ Wave 35 closes Phase 6 by replacing AX AIF / D365 data entities, Dual-write and 
 
 **Pain points solved (10x lens)**
 
-| Pain point in AX/SAP today | Root cause | Passage answer in this wave | Measurable 10x target |
+| Pain point in AX/SAP today | Root cause | Depot answer in this wave | Measurable 10x target |
 |---|---|---|---|
 | SAP IDoc failures sit in status 51 (WE02/BD87); a 'MATERIAL not found' error on one E1EDP01 segment requires an ABAP-literate operator to read EDIDD SDATA, fix master data, then reprocess; D365 AIF (AifExceptionLog) and the data entity message processor are similar | Monitor shows raw segment data, no canonical view; reprocess is a separate transaction | Message monitor shows raw, canonical and the failing rule side by side; bulk reprocess with dry run | Mean time to resolve a failed inbound order: 30–90 min → < 5 min; operator needs ABAP/X++: yes → no |
 | Outbound documents are produced by batch (SAP output determination NAST + RSNAST00 jobs; D365 batch jobs for outbound ports), so an ASN reaches the customer 15–60 min after shipment and 810s go out in nightly runs | Polling batch framework | Outbound documents generated from `load.shipped` / `invoice.posted` events via the outbox | Event-to-document latency: 15–60 min (batch) → < 60 s; nightly invoice runs → continuous |
 | Every EDI partner requires a middleware project (PI/PO ICO + mapping, or an ISV EDI add-on for D365) with Java/graphical mappings nobody in the business can read | Mapping logic lives outside the ERP in a separate tool and skill set | Declarative maps in the product with partner overrides, test harness and simulator | New partner onboarding: 4–8 weeks → 1–3 days; middleware licenses for EDI: 1 → 0 |
 | External systems (MES, PLM, BI, agents) integrate through OData with no event feed (D365 business events cover few entities) or through BAPIs/RFCs needing SAP Gateway projects; nobody can see which APIs exist | No catalog, no subscription model, no quotas | Backstage catalog with OpenAPI/AsyncAPI for every entity, webhook/Kafka subscriptions with replay, keys and quotas, MCP (wave 47) over the same APIs | Time for an external team to first successful call: weeks (access request, gateway project) → < 1 h self-service; entities with event feeds: ~10% → 100% |
-| ER-based e-invoicing (ERFormatMappingTable) and SAP DRC need a configuration import per country/version and validate only on submission; schematron failures come back from the network hours later | Validation happens at the authority or AP, not at creation | Schematron (CEN + Peppol) runs at validate time inside Passage; arithmetic rules checked first | Rejections from the Peppol network: ~3–5% of invoices → < 0.1%; feedback latency: hours → < 2 s |
+| ER-based e-invoicing (ERFormatMappingTable) and SAP DRC need a configuration import per country/version and validate only on submission; schematron failures come back from the network hours later | Validation happens at the authority or AP, not at creation | Schematron (CEN + Peppol) runs at validate time inside Depot; arithmetic rules checked first | Rejections from the Peppol network: ~3–5% of invoices → < 0.1%; feedback latency: hours → < 2 s |
 
 ### 6.35.2 AX / SAP parity map
 
-| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Passage equivalent | Parity |
+| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Depot equivalent | Parity |
 |---|---|---|---|---|
 | Integration ports / endpoints | AIF: AifPort, AifInboundPort, AifOutboundPort, AifService, AifAction; D365 data entities (DMFEntity), OData | IDoc ports WE21, partner profiles WE20 (EDPP1, EDP12/EDP13/EDP21), distribution model BD64 (TBD05) | edi.TradingPartner, EDIProfile, Transport | full |
 | Message log / monitor | AifDocumentLog, AifMessageLog, AifExceptionLog, AifGatewayQueue; D365 message processor | IDoc status EDIDS (WE02/WE05), BD87 reprocess, PI/PO message monitor | Message monitor with replay | improved — replay with state reproduction |
@@ -15151,7 +15152,7 @@ Wave 35 closes Phase 6 by replacing AX AIF / D365 data entities, Dual-write and 
 | Acknowledgments | n/a | STATUS/ALEAUD IDoc, CONTRL | 997/999, CONTRL, MDN (AS2) | full |
 | Catalog punchout | External catalogs with cXML punchout (CatVendorExternalCatalog) | OCI web-based catalogs (SPRO MM › Purchasing › Web-Based Catalogs › Define Catalogs); Ariba catalogs | integration-hub PunchoutCatalog, PunchoutSession → wave-17 requisition lines | full |
 | cXML documents | n/a (ISV) | Ariba Network integration via Cloud Integration Gateway (cXML OrderRequest, ConfirmationRequest, ShipNoticeRequest, InvoiceDetailRequest) | cXML maps on the canonical document model | full |
-| PLM integration | Engineering change management PLM connectors (Teamcenter, Windchill via Dataverse) | PLM system integration, Engineering Control Center | Reference connector `passage-connector-plm` | partial — reference connector |
+| PLM integration | Engineering change management PLM connectors (Teamcenter, Windchill via Dataverse) | PLM system integration, Engineering Control Center | Reference connector `depot-connector-plm` | partial — reference connector |
 | Customer self-billing | n/a (ISV for automotive) | Self-billing procedure VKA/VSB1 (IDoc GSVERF), SPRO SD › EDI › Self-Billing Procedure | SelfBillingDocument with line matching to wave-29 invoices | full |
 
 ### 6.35.3 Functional requirements
@@ -15170,7 +15171,7 @@ Wave 35 closes Phase 6 by replacing AX AIF / D365 data entities, Dual-write and 
   - Notes: participant lookup via SML/SMP through the AP; invoices received create wave-19 vendor invoices; validation errors block sending and are shown on the invoice.
 - **FR-35.7 Factur-X / ZUGFeRD and mandate framework** — Should. The system shall embed EN 16931 CII XML in PDF/A-3 (Factur-X profile EN 16931) and provide a country mandate framework (`MandateProvider` interface: validate, submit, poll status, store clearance id) with reference hooks for IT SDI (FatturaPA) and MX CFDI 4.0 (PAC stamping).
   - Notes: full IT/MX packs ship in wave 48; the framework stores clearance ids and statuses on the invoice.
-- **FR-35.8 Public APIs and developer portal** — Must. The system shall publish versioned REST (OpenAPI 3.1) and GraphQL APIs for all entities exposed since wave 3, with API clients (Keycloak client credentials), scopes mapped to duties, per-client quotas (default 600 requests/min, burst 100) and a developer portal at `developers.<env>.passage.dev` generated from the Backstage catalog.
+- **FR-35.8 Public APIs and developer portal** — Must. The system shall publish versioned REST (OpenAPI 3.1) and GraphQL APIs for all entities exposed since wave 3, with API clients (Keycloak client credentials), scopes mapped to duties, per-client quotas (default 600 requests/min, burst 100) and a developer portal at `developers.<env>.depot.dev` generated from the Backstage catalog.
   - Notes: additive-change guarantee per PRD §8; deprecation ≥ 12 months with `Sunset` header; sandbox tenant per client.
 - **FR-35.9 Webhooks and Kafka subscriptions** — Must. The system shall let clients subscribe to CloudEvents types by filter and receive them by webhook (HTTPS POST, HMAC-SHA256 signature, at-least-once, 8 retries over 24 h, dead-letter with replay) or by a dedicated Kafka topic with ACLs.
   - Notes: ordering per aggregate id; replay from a timestamp reproduces state when consumed idempotently; payload schema from the schema registry.
@@ -15185,9 +15186,9 @@ Wave 35 closes Phase 6 by replacing AX AIF / D365 data entities, Dual-write and 
 - **FR-35.14 cXML document exchange** — Should. The system shall exchange cXML 1.2 documents with cXML networks: outbound OrderRequest from wave-17 POs, inbound ConfirmationRequest (→ PO confirmation), ShipNoticeRequest (→ ASN for FR-31.9) and InvoiceDetailRequest (→ wave-19 vendor invoice), over HTTPS POST with shared-secret or certificate authentication and synchronous cXML Response status codes.
   - Notes: cXML maps sit on the same canonical documents as X12/EDIFACT (FR-35.3), so posting, monitoring and replay are shared; `payloadID` is the idempotency key (BR-35.14); responses 200/201 accepted, 4xx rejected with status text shown in the message monitor.
 - **FR-35.15 PLM reference connector** — Could. The system shall ship a reference connector that imports released items, engineering BOMs and engineering change orders from a PLM system (Siemens Teamcenter REST services, PTC Windchill REST/OData services, or a neutral JSON/PLMXML file drop) into wave-9 engineering change requests, and writes ERP release status and effectivity back to the PLM system.
-  - Notes: built only on public APIs and webhooks, like FR-35.11 connectors; PLM part number + revision map to item + BOM version; scheduled sync (default 15 min) plus event-driven updates; an ECO that targets a BOM version already released in Passage creates a task instead of overwriting; precedence per BR-35.16.
-- **FR-35.16 Customer self-billing** — Could. The system shall receive customer self-billing documents (EDIFACT INVOIC with BGM 389 self-billed invoice, VDA 4908 credit notes, X12 810 flagged as self-billed by partner profile), match them line by line to Passage shipments and invoices (wave 29) by delivery note/ASN number, PO line, item and quantity, post matched documents as the legal invoice, and route differences to a dispute worklist (BR-35.15).
-  - Notes: enabled per customer with a self-billing agreement reference and validity dates (EU VAT Directive Art. 224); tolerances per customer (default quantity 0, price 0.01 per unit); the customer's document number is stored as the legal invoice number; wave-29 billing rule `SELF_BILLED` suppresses Passage's own invoice for those shipments; a shipment not self-billed after `self_billing_wait_days` (default 30) creates a task; remittance follows through 820/cash application (wave 30).
+  - Notes: built only on public APIs and webhooks, like FR-35.11 connectors; PLM part number + revision map to item + BOM version; scheduled sync (default 15 min) plus event-driven updates; an ECO that targets a BOM version already released in Depot creates a task instead of overwriting; precedence per BR-35.16.
+- **FR-35.16 Customer self-billing** — Could. The system shall receive customer self-billing documents (EDIFACT INVOIC with BGM 389 self-billed invoice, VDA 4908 credit notes, X12 810 flagged as self-billed by partner profile), match them line by line to Depot shipments and invoices (wave 29) by delivery note/ASN number, PO line, item and quantity, post matched documents as the legal invoice, and route differences to a dispute worklist (BR-35.15).
+  - Notes: enabled per customer with a self-billing agreement reference and validity dates (EU VAT Directive Art. 224); tolerances per customer (default quantity 0, price 0.01 per unit); the customer's document number is stored as the legal invoice number; wave-29 billing rule `SELF_BILLED` suppresses Depot's own invoice for those shipments; a shipment not self-billed after `self_billing_wait_days` (default 30) creates a task; remittance follows through 820/cash application (wave 30).
 
 ### 6.35.4 Data model
 
@@ -15234,7 +15235,7 @@ Wave 35 closes Phase 6 by replacing AX AIF / D365 data entities, Dual-write and 
 
 **ApiClient**: client_id, scopes[], quota_per_min, burst, sandbox_tenant_id, owner contact, status. **EInvoice**: einvoice_id, invoice_id (wave 29/19), format (PEPPOL_UBL/FACTURX/CII/MANDATE), xml_ref, validation_report, transmission_id, clearance_id, status (DRAFT/VALIDATED/SENT/ACCEPTED/REJECTED).
 
-Invariants: control numbers are strictly increasing without gaps per partner/direction; a Message in POSTED references exactly one Passage document; every outbound webhook event has ≥ 1 DeliveryAttempt or is DEAD_LETTERED; an EInvoice SENT has a passing validation report. Indexing: `interchange(partner_id, direction, control_number)` unique; `message(status, received_at)`; `delivery_attempt(subscription_id, next_retry_at) WHERE status = 'RETRY'`.
+Invariants: control numbers are strictly increasing without gaps per partner/direction; a Message in POSTED references exactly one Depot document; every outbound webhook event has ≥ 1 DeliveryAttempt or is DEAD_LETTERED; an EInvoice SENT has a passing validation report. Indexing: `interchange(partner_id, direction, control_number)` unique; `message(status, received_at)`; `delivery_attempt(subscription_id, next_retry_at) WHERE status = 'RETRY'`.
 
 ### 6.35.5 APIs and events
 
@@ -15260,11 +15261,11 @@ Invariants: control numbers are strictly increasing without gaps per partner/dir
 
 | Event | Trigger | Payload fields | Consumers |
 |---|---|---|---|
-| dev.passage.edi.message.received.v1 | inbound parsed | partner_id, standard, transaction_set, control numbers, canonical_ref | purchasing, sales, AP, tms |
-| dev.passage.edi.message.posted.v1 / failed.v1 | posting outcome | message_id, document_ref, error | monitor, tasks |
-| dev.passage.edi.message.sent.v1 / acked.v1 | transmit / ack | message_id, partner_id, ack_status | analytics |
-| dev.passage.einvoice.status.changed.v1 | validation/transmission | einvoice_id, invoice_id, status, clearance_id | AR/AP, customer portal |
-| dev.passage.hub.webhook.delivered.v1 / deadlettered.v1 | delivery | subscription_id, event_id, attempts | analytics, alerting |
+| dev.depot.edi.message.received.v1 | inbound parsed | partner_id, standard, transaction_set, control numbers, canonical_ref | purchasing, sales, AP, tms |
+| dev.depot.edi.message.posted.v1 / failed.v1 | posting outcome | message_id, document_ref, error | monitor, tasks |
+| dev.depot.edi.message.sent.v1 / acked.v1 | transmit / ack | message_id, partner_id, ack_status | analytics |
+| dev.depot.einvoice.status.changed.v1 | validation/transmission | einvoice_id, invoice_id, status, clearance_id | AR/AP, customer portal |
+| dev.depot.hub.webhook.delivered.v1 / deadlettered.v1 | delivery | subscription_id, event_id, attempts | analytics, alerting |
 
 ### 6.35.6 User experience
 
@@ -15340,15 +15341,15 @@ EDIFACT ORDERS/DESADV/INVOIC maps follow the same canonical model (BGM/DTM/NAD/L
 - **BR-35.4 Peppol BIS Billing 3.0 required elements (UBL 2.1 Invoice).** `CustomizationID = urn:cen.eu:en16931:2017#compliant#urn:fdc:peppol.eu:2017:poacc:billing:3.0`; `ProfileID = urn:fdc:peppol.eu:2017:poacc:billing:01:1.0`; `ID`; `IssueDate`; `DueDate` or `PaymentTerms`; `InvoiceTypeCode` (380 invoice, 381 credit note as `CreditNote` document); `DocumentCurrencyCode`; `BuyerReference` or `OrderReference/ID` (one required); `AccountingSupplierParty/Party`: `EndpointID @schemeID` (e.g., 0088), `PartyIdentification` (optional), `PartyName`, `PostalAddress/Country/IdentificationCode`, `PartyTaxScheme/CompanyID` with `TaxScheme/ID = VAT` when VAT applies, `PartyLegalEntity/RegistrationName`; `AccountingCustomerParty/Party` (same set, `EndpointID` required); `PaymentMeans/PaymentMeansCode` (30 credit transfer, 58 SEPA) with `PayeeFinancialAccount/ID` (IBAN); `TaxTotal/TaxAmount @currencyID`; `TaxTotal/TaxSubtotal` per category: `TaxableAmount`, `TaxAmount`, `TaxCategory/ID` (S, Z, E, AE, K, G, O), `Percent`, `TaxScheme/ID = VAT`; `LegalMonetaryTotal`: `LineExtensionAmount`, `TaxExclusiveAmount`, `TaxInclusiveAmount`, `PayableAmount` (and `AllowanceTotalAmount`/`ChargeTotalAmount` when present); ≥ 1 `InvoiceLine`: `ID`, `InvoicedQuantity @unitCode` (UN/ECE Rec 20, e.g., C62, KGM), `LineExtensionAmount`, `Item/Name`, `Item/ClassifiedTaxCategory/ID` + `Percent` + `TaxScheme`, `Price/PriceAmount`. Arithmetic rules enforced before schematron: Σ line `LineExtensionAmount` = `LineExtensionAmount`; `TaxExclusiveAmount` = that − allowances + charges; `TaxInclusiveAmount` = exclusive + `TaxAmount`; `PayableAmount` = inclusive − prepaid + rounding; amounts to 2 decimals; VAT breakdown per category/rate equals Σ lines. Validation runs CEN-EN16931-UBL then PEPPOL-EN16931-UBL schematron; any `fatal` blocks sending.
 - **BR-35.5 Control numbers and duplicates.** Outbound ISA13/GS06/ST02 per partner from a gap-free number sequence (wave 5); inbound duplicate ISA13 within 30 days → TA1 code 025 / reject; a 997 is generated within 60 s for every inbound functional group; missing partner 997 after `ack_sla_minutes` → alert and resend once.
 - **BR-35.6 Idempotent posting.** Inbound 850 posting uses idempotency key `partner:BEG03:BEG01`; a re-sent original (BEG01 00) with the same PO number returns the existing order and is acknowledged accepted; a change (BEG01 04) applies as a wave-26 order change with version.
-- **BR-35.7 Webhook delivery.** Retries at 10 s, 1 m, 5 m, 30 m, 2 h, 6 h, 12 h, 24 h; HTTP 2xx = success; 410 Gone pauses the subscription; signature header `Passage-Signature: t=<unix>,v1=<hmac>` over `t.body`; receiver must verify within 5 min of `t`. Events per aggregate are delivered in order; a failing event blocks later events for the same aggregate only (per-aggregate queue).
+- **BR-35.7 Webhook delivery.** Retries at 10 s, 1 m, 5 m, 30 m, 2 h, 6 h, 12 h, 24 h; HTTP 2xx = success; 410 Gone pauses the subscription; signature header `Depot-Signature: t=<unix>,v1=<hmac>` over `t.body`; receiver must verify within 5 min of `t`. Events per aggregate are delivered in order; a failing event blocks later events for the same aggregate only (per-aggregate queue).
 - **BR-35.8 Quotas.** Token bucket per client (rate/min, burst); exceeding returns 429 with `Retry-After`; quota consumption is counted per request and per 100 GraphQL complexity points.
-- **BR-35.9 Replay.** Replay from timestamp T re-delivers events with `ce-passagereplay: true`; consumers must treat them idempotently; replay is capped at 1,000,000 events per request and runs as a Temporal workflow with progress.
+- **BR-35.9 Replay.** Replay from timestamp T re-delivers events with `ce-depotreplay: true`; consumers must treat them idempotently; replay is capped at 1,000,000 events per request and runs as a Temporal workflow with progress.
 - **BR-35.10 e-Invoice status.** `DRAFT → VALIDATED → SENT → ACCEPTED|REJECTED`; REJECTED allows correction and a new transmission with the same invoice id and a new `transmission_id`; an ACCEPTED invoice cannot be re-sent, only credited.
 - **BR-35.11 AS2 MDN.** Async MDN awaited 1 h, then resend up to 5×, then FAILED with alert; MDN signature mismatch is FAILED immediately.
 - **BR-35.12 PII masking** in the monitor hides N1/N3/N4 address lines and party contact elements for users without `EDI_PII_VIEW`.
 - **BR-35.13 Punchout return validation.** Each returned line needs a supplier part id, quantity > 0, unit price ≥ 0 in a currency allowed for the supplier, and a UoM mapped through the UN/ECE Recommendation 20 table; failing lines are dropped with EDI-0133 and the rest are created; the cart total is recomputed as Σ quantity × price and compared with the message total; a difference > 0.01 rejects the whole cart with EDI-0134; a price above catalog price × (1 + `punchout_price_tolerance_pct`) flags the line for approval.
 - **BR-35.14 cXML idempotency.** Inbound `payloadID` is the idempotency key per partner; a repeat with identical content returns the original response; a repeat with different content is rejected with EDI-0135 and logged.
-- **BR-35.15 Self-billing matching.** Key = (customer, delivery note/ASN number, PO line, item). Quantity difference > tolerance or price difference > tolerance → DIFFERENCE with reason; a self-billed line without a matching shipment → UNMATCHED; matched documents post with the customer's number as the external (legal) invoice number and Passage's internal number as reference; VAT is recomputed by the wave-13 tax engine and a difference > 0.01 is a DIFFERENCE.
+- **BR-35.15 Self-billing matching.** Key = (customer, delivery note/ASN number, PO line, item). Quantity difference > tolerance or price difference > tolerance → DIFFERENCE with reason; a self-billed line without a matching shipment → UNMATCHED; matched documents post with the customer's number as the external (legal) invoice number and Depot's internal number as reference; VAT is recomputed by the wave-13 tax engine and a difference > 0.01 is a DIFFERENCE.
 - **BR-35.16 PLM import precedence.** An imported ECO with effectivity earlier than today is moved to today with EDI-0139; revisions are ordered by the PLM revision scheme; importing the same part + revision twice is idempotent.
 
 ### 6.35.8 Acceptance criteria
@@ -15356,7 +15357,7 @@ EDIFACT ORDERS/DESADV/INVOIC maps follow the same canonical model (BGM/DTM/NAD/L
 - **AC-35.1** (FR-35.2, FR-35.3, FR-35.4, FR-35.12) Given the partner simulator, when it sends 850, 855 is returned, 856 and 810 are produced after shipment and invoicing, and the simulator's 997s are matched, then every supported transaction set round-trips with no manual step and the message monitor shows ACKED for each.
 - **AC-35.2** (FR-35.6, BR-35.4) Given 50 demo invoices (standard, reverse-charge, zero-rated, with allowances), when UBL is built, then all pass CEN and Peppol schematron with zero fatal errors and the amounts rules hold.
 - **AC-35.3** (FR-35.9, BR-35.7) Given a webhook endpoint that fails 3 times then succeeds, when an event is published, then exactly one successful delivery is recorded after 3 retries and ordering per aggregate is preserved.
-- **AC-35.4** (FR-35.9, BR-35.9) Given a consumer that rebuilds a projection from scratch, when events are replayed from the tenant's start, then the projection equals the current Passage state for the sales order aggregate fixture.
+- **AC-35.4** (FR-35.9, BR-35.9) Given a consumer that rebuilds a projection from scratch, when events are replayed from the tenant's start, then the projection equals the current Depot state for the sales order aggregate fixture.
 - **AC-35.5** (BR-35.5) Given an inbound interchange with an ISA13 already seen 10 days ago, when received, then it is rejected with TA1 025 and no order is created.
 - **AC-35.6** (FR-35.8, BR-35.8) Given a client with quota 600/min, when 700 requests are sent in a minute, then ≥ 100 receive 429 with `Retry-After` and the portal usage chart shows the burst.
 - **AC-35.7** (BR-35.1) Given an 850 with PO104 differing from the wave-26 price by 3%, when posted, then the sales order is created on price hold with a task.
@@ -15387,15 +15388,15 @@ Reconciliation: inbound 850 count = sales orders created + rejected + held; outb
 
 ### 6.35.10 Deployment and operations
 
-Helm `passage-edi` (api, as2 receiver behind Envoy with client-cert passthrough, sftp poller, mapper workers), `passage-einvoice`, `passage-integration-hub` (gateway policies on Envoy Gateway for keys/quotas, webhook dispatcher, Kafka subscription provisioner using Strimzi `KafkaUser`/`KafkaTopic` CRs), `passage-devportal` (Backstage with the catalog plugin, OpenAPI/AsyncAPI docs rendered from the service registry), `passage-partner-simulator` (non-prod only), connector charts `passage-connector-{salesforce,shopify,stripe}`. CloudNativePG `integration-db` (3 instances, 200 GB; payloads in in-cluster object storage, 13-month retention). Config: `EDI_ACK_SLA_MIN=60`, `EDI_DUP_WINDOW_DAYS=30`, `HUB_DEFAULT_QUOTA=600`, `HUB_WEBHOOK_RETRIES=8`, `EINV_AP_PROVIDER=<adapter>`. Flags: `edi.enabled` per partner, `einvoice.peppol`, `einvoice.facturx`, `hub.graphql`, `hub.replay`. Scheduled: SFTP poll 60 s, ack SLA sweep 5 min, DLQ report daily, certificate expiry check daily (alert 30 days before). SLOs: inbound 850 to sales order p95 < 30 s; outbound document generated within 60 s of the source event; 997 within 60 s; webhook first attempt within 5 s of event p95; gateway overhead p95 < 5 ms; availability 99.9%. Alerts: ack SLA breaches; AS2 MDN failures; DLQ depth > 100; certificate expiring; schematron failure rate > 5%. Runbook: partner certificate rotation; reprocess failed interchanges after a map fix; drain and replay DLQ; rotate client secrets. Rollback: per-partner flag off (queue inbound, do not process); map version pin to the previous version; hub gateway policies are versioned in Git with Argo CD rollback.
+Helm `depot-edi` (api, as2 receiver behind Envoy with client-cert passthrough, sftp poller, mapper workers), `depot-einvoice`, `depot-integration-hub` (gateway policies on Envoy Gateway for keys/quotas, webhook dispatcher, Kafka subscription provisioner using Strimzi `KafkaUser`/`KafkaTopic` CRs), `depot-devportal` (Backstage with the catalog plugin, OpenAPI/AsyncAPI docs rendered from the service registry), `depot-partner-simulator` (non-prod only), connector charts `depot-connector-{salesforce,shopify,stripe}`. CloudNativePG `integration-db` (3 instances, 200 GB; payloads in in-cluster object storage, 13-month retention). Config: `EDI_ACK_SLA_MIN=60`, `EDI_DUP_WINDOW_DAYS=30`, `HUB_DEFAULT_QUOTA=600`, `HUB_WEBHOOK_RETRIES=8`, `EINV_AP_PROVIDER=<adapter>`. Flags: `edi.enabled` per partner, `einvoice.peppol`, `einvoice.facturx`, `hub.graphql`, `hub.replay`. Scheduled: SFTP poll 60 s, ack SLA sweep 5 min, DLQ report daily, certificate expiry check daily (alert 30 days before). SLOs: inbound 850 to sales order p95 < 30 s; outbound document generated within 60 s of the source event; 997 within 60 s; webhook first attempt within 5 s of event p95; gateway overhead p95 < 5 ms; availability 99.9%. Alerts: ack SLA breaches; AS2 MDN failures; DLQ depth > 100; certificate expiring; schematron failure rate > 5%. Runbook: partner certificate rotation; reprocess failed interchanges after a map fix; drain and replay DLQ; rotate client secrets. Rollback: per-partner flag off (queue inbound, do not process); map version pin to the previous version; hub gateway policies are versioned in Git with Argo CD rollback.
 
 ### 6.35.11 Migration from AX / SAP
 
-| Source | Passage entity | Transformation |
+| Source | Depot entity | Transformation |
 |---|---|---|
 | AifPort/AifInboundPort/AifOutboundPort, AifService/AifAction | TradingPartner transports, map assignments | port → transport; service/action → transaction set/direction |
 | AifDocumentLog, AifMessageLog (last 13 months) | Interchange/Message history (read-only) | payloads copied to object storage |
-| ERFormatMappingTable/ERModelMappingTable (e-invoice configurations) | EInvoice format config | ER formats are not executable in Passage; only the country/format selection and customer flags migrate |
+| ERFormatMappingTable/ERModelMappingTable (e-invoice configurations) | EInvoice format config | ER formats are not executable in Depot; only the country/format selection and customer flags migrate |
 | Dual-write entity maps | Connector mappings (Salesforce reference) | field map table only |
 | BusinessEventsEndpoint/Catalog | Subscription | endpoint type → WEBHOOK |
 | EDPP1, EDP12/EDP13/EDP21 (WE20) | TradingPartner, maps | partner type LI/KU → vendor/customer party; message type ORDERS/DESADV/INVOIC → maps |
@@ -15404,7 +15405,7 @@ Helm `passage-edi` (api, as2 receiver behind Envoy with client-cert passthrough,
 | EDOCUMENT/EDOCUMENTFILE (DRC) | EInvoice with clearance ids | status mapping; XML kept as reference |
 | PI/PO integration directory (ICO) | Partner/transport inventory | exported as a spreadsheet for manual re-creation; routing logic not migrated |
 
-Not migrated: AIF transforms (XSLT/.NET), ABAP user exits in IDoc processing, PI/PO mappings (Java/graphical) — mapping logic is re-authored in Passage maps; IDoc history older than 13 months (lakehouse archive).
+Not migrated: AIF transforms (XSLT/.NET), ABAP user exits in IDoc processing, PI/PO mappings (Java/graphical) — mapping logic is re-authored in Depot maps; IDoc history older than 13 months (lakehouse archive).
 
 ### 6.35.12 Dependencies, risks, open questions
 
@@ -15574,7 +15575,7 @@ Open questions: (1) Which certified Peppol AP provider for the reference adapter
 
 ## 7.0 Phase overview
 
-**Business outcome at phase exit.** At the end of wave 40 the finance function runs entirely on Passage: treasury sees every bank balance intraday and a 13-week cash forecast built from the subledgers; fixed assets and leases depreciate under multiple books and post to the universal journal; controllers plan budgets, enforce budget control on commitments, and run a cost accounting ledger with allocations; product costs roll up from BOMs and routings with a cost component split, and production variances are decomposed by cause; intercompany trade posts mirror documents across legal entities and the group consolidates with eliminations and IAS 21 translation. This is the "finance parity" milestone in PRD §10 (wave 40): a practicing controller signs off that nothing they did in AX/SAP finance is missing.
+**Business outcome at phase exit.** At the end of wave 40 the finance function runs entirely on Depot: treasury sees every bank balance intraday and a 13-week cash forecast built from the subledgers; fixed assets and leases depreciate under multiple books and post to the universal journal; controllers plan budgets, enforce budget control on commitments, and run a cost accounting ledger with allocations; product costs roll up from BOMs and routings with a cost component split, and production variances are decomposed by cause; intercompany trade posts mirror documents across legal entities and the group consolidates with eliminations and IAS 21 translation. This is the "finance parity" milestone in PRD §10 (wave 40): a practicing controller signs off that nothing they did in AX/SAP finance is missing.
 
 **Phase-exit sign-off criteria**
 - 1,000-line bank statement fixture auto-matches ≥ 95% of lines correctly with zero false positive matches (wave 36 proof).
@@ -15605,16 +15606,16 @@ Open questions: (1) Which certified Peppol AP provider for the reference adapter
 
 | Event (CloudEvents type) | Producer | Consumers | Payload summary |
 |---|---|---|---|
-| `dev.passage.treasury.statement.reconciled.v1` | treasury-svc | journal (wave 11), cashforecast-svc, analytics (46) | statementId, bankAccountId, matchedCount, unmatchedCount, closingBalance |
-| `dev.passage.treasury.cashposition.updated.v1` | cashforecast-svc | dashboards, interco-svc (netting) | legalEntityId, asOf, balancesByAccount[], forecastBuckets[] |
-| `dev.passage.assets.depreciation.posted.v1` | asset-svc | costacct-svc, analytics | runId, bookId, period, assetCount, totalAmount, journalEntryId |
-| `dev.passage.assets.asset.disposed.v1` | asset-svc | costacct-svc, tax (wave 13) | assetId, bookId, proceeds, nbv, gainLoss |
-| `dev.passage.budget.check.completed.v1` | budget-svc | procurement (17), AP (18), workflow | sourceDocumentId, result (pass/warn/fail), availableBefore, amount, availableAfter |
-| `dev.passage.controlling.allocation.completed.v1` | costacct-svc | budget-svc, analytics | runId, policyId, iterations, totalIn, totalOut, residual |
-| `dev.passage.costing.standardcost.activated.v1` | costing-svc | inventory costing (20), production (21), budget-svc | costingVersionId, itemCount, revaluationJournalId, totalRevaluation |
-| `dev.passage.costing.variance.posted.v1` | costing-svc | costacct-svc, analytics | productionOrderId, varianceByType{lotSize,quantity,price,substitution}, byComponent[] |
-| `dev.passage.interco.mirror.created.v1` | interco-svc | sales (27), procurement (17), consol-svc | sourceDocId, sourceEntity, mirrorDocId, mirrorEntity, type |
-| `dev.passage.consol.run.completed.v1` | consol-svc | reporting (15), analytics | runId, groupId, period, unitCount, eliminationCount, ctaAmount |
+| `dev.depot.treasury.statement.reconciled.v1` | treasury-svc | journal (wave 11), cashforecast-svc, analytics (46) | statementId, bankAccountId, matchedCount, unmatchedCount, closingBalance |
+| `dev.depot.treasury.cashposition.updated.v1` | cashforecast-svc | dashboards, interco-svc (netting) | legalEntityId, asOf, balancesByAccount[], forecastBuckets[] |
+| `dev.depot.assets.depreciation.posted.v1` | asset-svc | costacct-svc, analytics | runId, bookId, period, assetCount, totalAmount, journalEntryId |
+| `dev.depot.assets.asset.disposed.v1` | asset-svc | costacct-svc, tax (wave 13) | assetId, bookId, proceeds, nbv, gainLoss |
+| `dev.depot.budget.check.completed.v1` | budget-svc | procurement (17), AP (18), workflow | sourceDocumentId, result (pass/warn/fail), availableBefore, amount, availableAfter |
+| `dev.depot.controlling.allocation.completed.v1` | costacct-svc | budget-svc, analytics | runId, policyId, iterations, totalIn, totalOut, residual |
+| `dev.depot.costing.standardcost.activated.v1` | costing-svc | inventory costing (20), production (21), budget-svc | costingVersionId, itemCount, revaluationJournalId, totalRevaluation |
+| `dev.depot.costing.variance.posted.v1` | costing-svc | costacct-svc, analytics | productionOrderId, varianceByType{lotSize,quantity,price,substitution}, byComponent[] |
+| `dev.depot.interco.mirror.created.v1` | interco-svc | sales (27), procurement (17), consol-svc | sourceDocId, sourceEntity, mirrorDocId, mirrorEntity, type |
+| `dev.depot.consol.run.completed.v1` | consol-svc | reporting (15), analytics | runId, groupId, period, unitCount, eliminationCount, ctaAmount |
 
 **Phase-level risks**
 
@@ -15639,7 +15640,7 @@ Out of scope: hedge accounting and derivative valuation (not in v1), in-house ba
 
 **Pain points solved (10x lens)**
 
-| Pain point in AX/SAP today | Root cause | Passage answer in this wave | Measurable 10x target |
+| Pain point in AX/SAP today | Root cause | Depot answer in this wave | Measurable 10x target |
 |---|---|---|---|
 | D365 advanced bank reconciliation: statement import via DMF (BankStatementFormat + XSLT transform) fails silently on bank camt dialects; the user re-imports after editing XSLT | Transform-first design; no schema validation surfaced to the user | Native camt/BAI2/MT940 parsers with per-bank profile overrides and line-level validation errors | Failed imports needing IT help: 1 in 5 → < 1 in 200 |
 | SAP FEBAN post-processing: each unmatched line is opened, the clearing document found in FBL5N, keyed and posted (≈ 14 clicks per line) | Posting rules (OT83) only test search strings; no candidate ranking | Scored candidates shown inline; `m` to match; N:1 batch matching | Clicks per exception 14 → 2; auto-match ≥ 95% |
@@ -15649,7 +15650,7 @@ Out of scope: hedge accounting and derivative valuation (not in v1), in-house ba
 
 ### 7.36.2 AX / SAP parity map
 
-| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Passage equivalent | Parity |
+| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Depot equivalent | Parity |
 |---|---|---|---|---|
 | Bank account master, signatories, approval | BankAccountTable, BankAccountTrans, BankGroup, form BankAccountTable; D365 bank account change workflow | FI12 house banks T012/T012K, BAM (FCLM_BAM) with signatories and workflow | `treasury-svc` BankAccount entity, workspace Bank accounts | full |
 | Electronic statement import | BankStmtISOAccountStatement, BankStmtISOReportEntry, BankStatementFormat, DIXF ISO 20022 transform | FF_5 (FEBKO/FEBEP), FF67 manual statement, OT83 posting rules, external transaction codes | Statement import API, formats camt.053/BAI2/MT940/CSV | improved (native XSD validation, duplicate detection) |
@@ -15680,7 +15681,7 @@ Out of scope: hedge accounting and derivative valuation (not in v1), in-house ba
   - Notes: IBAN mod-97 and ABA routing checksum validated on save; account numbers stored encrypted at rest (pgcrypto, key in Vault) and shown masked except to the `TreasuryBankAccountMaintain` duty; status lifecycle Draft → Active → Inactive → Closed; changes to number/currency/GL account require 2-step approval (Temporal workflow); maximum 500 bank accounts per legal entity.
 - **FR-36.2 Statement import** — Must. The system shall import bank statements in camt.053.001.02/08, BAI2, MT940 and configurable CSV, validate structure, detect duplicates and persist header, balances (OPBD/CLBD/CLAV) and entries.
   - Notes: files up to 50 MB and 200,000 entries; duplicate detection on (bankAccount, statementId or sequence, closingBalance); gap detection on statement sequence numbers raises a warning; each entry retains the raw source fragment for audit; import of 10,000 lines completes in < 30 s.
-- **FR-36.3 Matching rule engine** — Must. The system shall match statement lines to Passage bank transactions using ordered rule sets, producing a 0–100 score per candidate and auto-matching above a configurable threshold.
+- **FR-36.3 Matching rule engine** — Must. The system shall match statement lines to Depot bank transactions using ordered rule sets, producing a 0–100 score per candidate and auto-matching above a configurable threshold.
   - Notes: criteria: amount (exact / tolerance absolute or %), value date window (±N days), reference regex capture (end-to-end id, check number, invoice number), counterparty name trigram similarity, bank transaction code map (BTC/domain-family-subfamily); weights sum to 100; default thresholds auto-match ≥ 90, suggest 60–89, unmatched < 60; 1:1, 1:N and N:1 matches with up to 50 lines per side; rules tested against historical statements with a precision/recall report before activation.
 - **FR-36.4 ML match suggestions** — Should. The system shall rank unmatched lines' candidates with a model trained on the tenant's confirmed matches and present the top 3 suggestions with reasons.
   - Notes: Python gradient-boosted model in `cashforecast-svc`; retrained nightly if ≥ 200 new confirmed matches; suggestions never auto-post; model inputs and version logged per suggestion.
@@ -15821,17 +15822,17 @@ Commands: `ImportStatement` (validates schema, rejects duplicates), `RunMatching
 
 | Event | Trigger | Payload fields | Consumers |
 |---|---|---|---|
-| `dev.passage.treasury.statement.imported.v1` | import committed | statementId, bankAccountId, lineCount, openingBalance, closingBalance | cashforecast-svc, treasury-svc matcher |
-| `dev.passage.treasury.statement.reconciled.v1` | reconciliation closed | statementId, matchedCount, createdCount, closingBalance | journal, analytics |
-| `dev.passage.treasury.check.voided.v1` | void | checkId, bankAccountId, number, reason | AP (19) positive pay |
-| `dev.passage.treasury.cashposition.updated.v1` | position refresh | legalEntityId, asOf, balances[] | dashboards, interco-svc |
-| `dev.passage.treasury.file.sent.v1` | outbound file acknowledged | connectionId, fileHash, channel, ackStatus | audit |
-| `dev.passage.treasury.instrument.statuschanged.v1` | bill / note / PDC status change | instrumentId, kind, fromStatus, toStatus, amount, maturityDate | AR (30), AP (19), cashforecast-svc |
-| `dev.passage.treasury.pdc.bounced.v1` | PDC bounced | instrumentId, customerId, amount, fee, reasonCode | AR (30) credit hold |
-| `dev.passage.treasury.cashdesk.closed.v1` | desk day closed | deskId, businessDate, closing, difference | journal audit, analytics |
-| `dev.passage.treasury.deal.valued.v1` | valuation posted | runId, keyDate, dealCount, unrealizedTotal, journalEntryId | analytics, consol-svc |
-| `dev.passage.treasury.paymentrequest.approved.v1` | request approved | requestId, category, amount, currency, executionDate | bank-connect-svc routing |
-| `dev.passage.treasury.ihc.statement.generated.v1` | IHC month-end statement | ihcAccountId, participantEntityId, period, closingBalance, fileRef | treasury-svc import (participant) |
+| `dev.depot.treasury.statement.imported.v1` | import committed | statementId, bankAccountId, lineCount, openingBalance, closingBalance | cashforecast-svc, treasury-svc matcher |
+| `dev.depot.treasury.statement.reconciled.v1` | reconciliation closed | statementId, matchedCount, createdCount, closingBalance | journal, analytics |
+| `dev.depot.treasury.check.voided.v1` | void | checkId, bankAccountId, number, reason | AP (19) positive pay |
+| `dev.depot.treasury.cashposition.updated.v1` | position refresh | legalEntityId, asOf, balances[] | dashboards, interco-svc |
+| `dev.depot.treasury.file.sent.v1` | outbound file acknowledged | connectionId, fileHash, channel, ackStatus | audit |
+| `dev.depot.treasury.instrument.statuschanged.v1` | bill / note / PDC status change | instrumentId, kind, fromStatus, toStatus, amount, maturityDate | AR (30), AP (19), cashforecast-svc |
+| `dev.depot.treasury.pdc.bounced.v1` | PDC bounced | instrumentId, customerId, amount, fee, reasonCode | AR (30) credit hold |
+| `dev.depot.treasury.cashdesk.closed.v1` | desk day closed | deskId, businessDate, closing, difference | journal audit, analytics |
+| `dev.depot.treasury.deal.valued.v1` | valuation posted | runId, keyDate, dealCount, unrealizedTotal, journalEntryId | analytics, consol-svc |
+| `dev.depot.treasury.paymentrequest.approved.v1` | request approved | requestId, category, amount, currency, executionDate | bank-connect-svc routing |
+| `dev.depot.treasury.ihc.statement.generated.v1` | IHC month-end statement | ihcAccountId, participantEntityId, period, closingBalance, fileRef | treasury-svc import (participant) |
 
 ### 7.36.6 User experience
 
@@ -15860,7 +15861,7 @@ Interaction rules: the reconciliation grid supports keyboard `m` (match selected
 - **BR-36.9** Facility utilization uses the instrument's original currency converted at the daily rate; limit breaches recomputed nightly and on rate change > 2%.
 - **BR-36.10** Bill of exchange state machine: Drawn → Remitted → Honored | Protested; Protested → Redrawn (new bill, old bill closed) or → ReturnedToCustomer (open item restored with protest fee); a bill cannot be remitted twice; remittance for discount books the discount expense on remittance date, not at maturity.
 - **BR-36.11** Promissory note state machine: Drawn → Remitted → Settled; Drawn → Redrawn; settlement requires a matched bank statement line or a manual settlement with duty `TreasuryInstrumentSettle`; the vendor open item is settled at draw and never reopened except through a redraw reversal.
-- **BR-36.12** Postdated check: a deposit before the check date is rejected unless the parameter `allow-early-deposit` is on; a bounce after Cleared is a new customer transaction (fee + reversal) with reason code; bounced customer checks raise `dev.passage.treasury.pdc.bounced.v1` consumed by wave-30 credit hold.
+- **BR-36.12** Postdated check: a deposit before the check date is rejected unless the parameter `allow-early-deposit` is on; a bounce after Cleared is a new customer transaction (fee + reversal) with reason code; bounced customer checks raise `dev.depot.treasury.pdc.bounced.v1` consumed by wave-30 credit hold.
 - **BR-36.13** Cash desk day close: closing balance = opening + Σ receipts − Σ payments in desk currency; |counted − closing| ≤ cash difference limit posts a difference line, above the limit the close is blocked; no document can post to a closed day; reopening a closed day requires `TreasuryCashDeskApprove` and the day's reopen is audited.
 - **BR-36.14** Deal valuation entries are per deal and key date, reversed on the first calendar day of the next period before the new valuation; a deal settled between two key dates realizes gain / loss = settlement rate difference × notional and the last unrealized entry is reversed in the same journal.
 - **BR-36.15** Interest accrual uses the contract day-count; ACT/360 for a leap-year February period counts 29 days; accrual rounding half-up to the minor unit per period, and the final period of a schedule absorbs the rounding residual so Σ interest = Σ scheduled interest.
@@ -15910,7 +15911,7 @@ Helm charts `treasury-svc`, `bank-connect-svc`, `cashforecast-svc`; config: `TRE
 
 ### 7.36.11 Migration from AX / SAP
 
-| Source | Passage entity | Notes |
+| Source | Depot entity | Notes |
 |---|---|---|
 | BankAccountTable, BankAccountTrans (open items) | BankAccount, BankTransaction | opening balance as of cutover; unreconciled items migrated as InTransit |
 | BankChequeTable | Check | status map; next number continues |
@@ -16122,7 +16123,7 @@ SoD conflicts are enforced as OPA rules (wave 2) at role assignment (warning, re
 - **Postdated checks** are common in IN, AE, SA, PH, MY, TH; the IN pack sets withholding at settlement, the AE pack records bounce reason codes required for legal action. Extension point `PdcPolicy` (deposit window, bounce fee, credit hold).
 - **Cash journal**: DE GoBD / §146 AO require daily recording, immutability after post, and a cash book export (DSFinV-K is out of scope because desks are not retail POS); PL requires KP / KW cash receipt documents; FR and IT require a sequential cash book. Extension point `CashJournalPolicy` (numbering, mandatory fields, max cash payment amounts such as IT EUR 5,000 / FR EUR 1,000 cash payment limits, warning TRS-0433 extended by pack rules).
 - **Bank statement and payment formats**: BAI2 (US), CODA (BE), Norma 43 (ES), CFONB 120 (FR), MT940 / camt.053 (DE, NL), CAMT for SEPA; positive pay (US), CPA-005 (CA); bank chain usage for non-SEPA cross-border payments. Extension point `BankFormatProfile` in the wave-19 format engine.
-- **FX deal regulatory reporting**: EU EMIR (FX forwards and swaps are reportable; spot is not), UK EMIR, US Dodd-Frank for swap counterparties; Passage records the LEI on every counterparty and the UTI on deals and exports the trade report through the wave-48 `RegulatoryTradeReport` hook; delegated reporting by the bank is the default.
+- **FX deal regulatory reporting**: EU EMIR (FX forwards and swaps are reportable; spot is not), UK EMIR, US Dodd-Frank for swap counterparties; Depot records the LEI on every counterparty and the UTI on deals and exports the trade report through the wave-48 `RegulatoryTradeReport` hook; delegated reporting by the bank is the default.
 - **Intercompany loans and GL interest**: thin-capitalization and interest-limitation data (DE §4h EStG, US §163(j), EU ATAD art. 4) and transfer-pricing safe-harbor rates feed the wave-40 transfer-pricing evidence export; withholding tax on cross-border interest uses wave-13 tax codes.
 - **Retention**: statements, checks, cash books and deal records 10 years (DE HGB §257, FR), 7 years (US), 5 years after termination for EMIR records; enforced through the wave-5 retention policies.
 - **Calendars and rounding**: banking-day calendars per country and currency (TARGET2 for EUR); day-count conventions per currency market (GBP ACT/365, EUR / USD money market ACT/360).
@@ -16203,7 +16204,7 @@ Out of scope: enterprise asset maintenance (wave 44), tax depreciation reports b
 
 **Pain points solved (10x lens)**
 
-| Pain point in AX/SAP today | Root cause | Passage answer in this wave | Measurable 10x target |
+| Pain point in AX/SAP today | Root cause | Depot answer in this wave | Measurable 10x target |
 |---|---|---|---|
 | AX depreciation proposal → LedgerJournalTrans → post: three forms, and one bad asset aborts the whole journal with an infolog | Journal-centric batch without per-asset isolation | Temporal run with per-asset checkpoints; failing assets reported, others post | Failed runs per month 2 → 0; run restart time 1 h → < 1 min |
 | SAP AFAB runs in background only, errors in SM37 spool; test run then real run, 2–4 h for 100k assets | Batch job architecture | Online proposal preview with formula inputs; 1M asset-periods/h | Run time for 100k assets 2 h → < 6 min |
@@ -16213,7 +16214,7 @@ Out of scope: enterprise asset maintenance (wave 44), tax depreciation reports b
 
 ### 7.37.2 AX / SAP parity map
 
-| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Passage equivalent | Parity |
+| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Depot equivalent | Parity |
 |---|---|---|---|---|
 | Asset master and groups | AssetTable, AssetGroup, AssetGroupBookSetup, form AssetTable | ANLA, ANLZ (time-dependent), asset classes ANKA/ANKT (OAOA), AS01/AS02/AS03 | Asset, AssetClass entities | full |
 | Books / depreciation areas | AssetBook (D365 books; AX 2012 value models + AssetDepBook), posting layer per book | ANLB per depreciation area (OADB), T093 chart of depreciation, ledger assignment | AssetBook per asset × book definition, posts to ledger layers (wave 12) | full |
@@ -16330,12 +16331,12 @@ Validation: book must be Open and period open per ledger × module (wave 14); di
 
 | Event | Trigger | Payload fields | Consumers |
 |---|---|---|---|
-| `dev.passage.assets.asset.acquired.v1` | acquisition posted | assetId, bookIds[], cost, sourceType, sourceId | budget-svc, analytics |
-| `dev.passage.assets.depreciation.posted.v1` | run posted | runId, bookDefinitionId, period, assetCount, totalAmount, journalEntryId | costacct-svc, analytics |
-| `dev.passage.assets.asset.disposed.v1` | disposal posted | assetId, bookId, percentage, proceeds, nbv, gainLoss | tax, analytics |
-| `dev.passage.assets.lease.recognized.v1` | lease activated | leaseId, liability, rouAsset, termMonths, rate | analytics |
-| `dev.passage.assets.capexrequest.approved.v1` | request approved | requestId, variantId, amountsByYear, programPositionId | budget-svc (38), asset forecasting |
-| `dev.passage.assets.insurance.expiring.v1` | policy within 30 days of expiry | policyId, assetId, coverageTo, insuredValue | workspace, notifications |
+| `dev.depot.assets.asset.acquired.v1` | acquisition posted | assetId, bookIds[], cost, sourceType, sourceId | budget-svc, analytics |
+| `dev.depot.assets.depreciation.posted.v1` | run posted | runId, bookDefinitionId, period, assetCount, totalAmount, journalEntryId | costacct-svc, analytics |
+| `dev.depot.assets.asset.disposed.v1` | disposal posted | assetId, bookId, percentage, proceeds, nbv, gainLoss | tax, analytics |
+| `dev.depot.assets.lease.recognized.v1` | lease activated | leaseId, liability, rouAsset, termMonths, rate | analytics |
+| `dev.depot.assets.capexrequest.approved.v1` | request approved | requestId, variantId, amountsByYear, programPositionId | budget-svc (38), asset forecasting |
+| `dev.depot.assets.insurance.expiring.v1` | policy within 30 days of expiry | policyId, assetId, coverageTo, insuredValue | workspace, notifications |
 
 ### 7.37.6 User experience
 
@@ -16401,7 +16402,7 @@ Helm chart `asset-svc`; env `ASSET_RUN_BATCH_SIZE=500`, `ASSET_MAX_BOOKS=10`; At
 
 ### 7.37.11 Migration from AX / SAP
 
-| Source | Passage entity | Notes |
+| Source | Depot entity | Notes |
 |---|---|---|
 | AssetTable, AssetGroup | Asset, AssetClass | |
 | AssetBook / AssetDepBook, AssetDepreciationProfile | AssetBook, DepreciationProfile | method/convention mapped; opening NBV as acquisition + accumulated depreciation transactions dated cutover |
@@ -16588,7 +16589,7 @@ Out of scope: public-sector fund accounting (appropriations, apportionments, yea
 
 **Pain points solved (10x lens)**
 
-| Pain point in AX/SAP today | Root cause | Passage answer in this wave | Measurable 10x target |
+| Pain point in AX/SAP today | Root cause | Depot answer in this wave | Measurable 10x target |
 |---|---|---|---|
 | D365 budget check on PO happens in a batch-like synchronous call that takes 3–8 s per line on large BudgetSourceTracking tables; buyers disable it | Available-funds query aggregates BudgetSourceTrackingDetail at check time | Per dimension-combination balance cache rebuilt from events; check is one indexed read | Check latency 5 s → p95 < 150 ms |
 | SAP FM availability control (FMAVCR01) rebuilds the AVC ledger (FMAVCT) when budget structure changes; FMAVCREINIT takes hours | Derived ledger with offline rebuild | Balance cache with incremental event replay | Rebuild for 1M documents 3 h → < 10 min |
@@ -16598,7 +16599,7 @@ Out of scope: public-sector fund accounting (appropriations, apportionments, yea
 
 ### 7.38.2 AX / SAP parity map
 
-| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Passage equivalent | Parity |
+| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Depot equivalent | Parity |
 |---|---|---|---|---|
 | Budget register entries | BudgetTransactionHeader, BudgetTransactionLine, BudgetTransactionCode, BudgetModel, BudgetCycle | FMBB budget entry documents, FMBH; KP06/KP26 plan versions | BudgetRegisterEntry, BudgetModel | full |
 | Budget planning | BudgetPlanHeader/Line, BudgetPlanningProcess, BudgetPlanStage, BudgetPlanScenario, BudgetPlanWorkflow, BudgetPlanTemplate (Excel) | KP06 plan versions, BPC/SAC planning | BudgetPlan with scenarios, stages, Temporal workflow | full |
@@ -16641,7 +16642,7 @@ Out of scope: public-sector fund accounting (appropriations, apportionments, yea
 - **FR-38.11 Reconciliation** — Must. The system shall reconcile Σ primary cost entries per element and period to the journal balances and list differences.
 - **FR-38.12 Management cubes** — Should. The system shall publish cost ledger facts and hierarchies to the lakehouse via CDC with a documented star schema for wave 46.
 - **FR-38.13 Budget plan worksheet templates** — Should. The system shall define worksheet templates per planning process (row dimensions, column sets per scenario / period / prior-year actual, editable and protected ranges, formulas) and round-trip them as xlsx files whose upload validates and writes back only editable cells.
-  - Notes: each exported workbook carries the plan id, stage, template version and a SHA-256 per protected range in a hidden sheet; upload is rejected when the stage changed, the template version differs or a protected range checksum fails; cell-level changes are applied as a diff with an audit row per cell; maximum 200,000 editable cells per upload; formulas evaluate in Passage (not trusted from the file) so totals always recompute server-side.
+  - Notes: each exported workbook carries the plan id, stage, template version and a SHA-256 per protected range in a hidden sheet; upload is rejected when the stage changed, the template version differs or a protected range checksum fails; cell-level changes are applied as a diff with an audit row per cell; maximum 200,000 editable cells per upload; formulas evaluate in Depot (not trusted from the file) so totals always recompute server-side.
 - **FR-38.14 Generate budget plan from sources** — Must. The system shall create or refresh plan lines from: GL actuals of a period range (with % uplift), another plan or scenario, depreciation forecast (FR-37.12) and approved capex requests (FR-37.17), demand forecast (wave 22) × standard cost (wave 39) or price, project forecasts (wave 41, when available), and position forecasts (FR-38.15).
   - Notes: generation modes Replace, Add, Update-if-unchanged (keeps manually edited cells); every generated line keeps its source reference; the run reports lines created / updated / skipped; 500,000 lines generate in < 3 min.
 - **FR-38.15 Position forecasting** — Could. The system shall maintain forecast positions with start / end dates, FTE, compensation group and budget cost elements (salary, benefits %, payroll tax %), compute monthly cost per position and publish it as a plan source.
@@ -16737,14 +16738,14 @@ Validation: check requests must carry accounting date, ledger dimension and amou
 
 | Event | Trigger | Payload fields | Consumers |
 |---|---|---|---|
-| `dev.passage.budget.register.posted.v1` | entry posted | entryId, modelId, type, lines summary | balance projector, analytics |
-| `dev.passage.budget.check.completed.v1` | check | sourceDocumentId, lineResults[{result, available, amount}] | procurement, AP, workflow |
-| `dev.passage.budget.encumbrance.relieved.v1` | relief | encumbranceId, amount, invoiceId, remaining | analytics |
-| `dev.passage.controlling.allocation.completed.v1` | run complete | runId, policyId, iterations, totalIn, totalOut, residual | budget-svc, analytics |
-| `dev.passage.controlling.costentry.created.v1` | mirror or allocation | entryId, costObjectId, elementId, amount, origin | lakehouse |
-| `dev.passage.budget.reservation.consumed.v1` | follow-on document consumes reservation | reservationId, documentId, amount, remaining | analytics |
-| `dev.passage.budget.program.carriedforward.v1` | year-end carry-forward | programId, fromYear, toYear, positions[], amount | budget-svc, asset-svc |
-| `dev.passage.controlling.hierarchy.distributed.v1` | node distribution | runId, nodeId, period, distributed, residual | costing-svc (39), analytics |
+| `dev.depot.budget.register.posted.v1` | entry posted | entryId, modelId, type, lines summary | balance projector, analytics |
+| `dev.depot.budget.check.completed.v1` | check | sourceDocumentId, lineResults[{result, available, amount}] | procurement, AP, workflow |
+| `dev.depot.budget.encumbrance.relieved.v1` | relief | encumbranceId, amount, invoiceId, remaining | analytics |
+| `dev.depot.controlling.allocation.completed.v1` | run complete | runId, policyId, iterations, totalIn, totalOut, residual | budget-svc, analytics |
+| `dev.depot.controlling.costentry.created.v1` | mirror or allocation | entryId, costObjectId, elementId, amount, origin | lakehouse |
+| `dev.depot.budget.reservation.consumed.v1` | follow-on document consumes reservation | reservationId, documentId, amount, remaining | analytics |
+| `dev.depot.budget.program.carriedforward.v1` | year-end carry-forward | programId, fromYear, toYear, positions[], amount | budget-svc, asset-svc |
+| `dev.depot.controlling.hierarchy.distributed.v1` | node distribution | runId, nodeId, period, distributed, residual | costing-svc (39), analytics |
 
 ### 7.38.6 User experience
 
@@ -16817,7 +16818,7 @@ Helm charts `budget-svc`, `costacct-svc` (shared Postgres `controlling`); env `B
 
 ### 7.38.11 Migration from AX / SAP
 
-| Source | Passage entity | Notes |
+| Source | Depot entity | Notes |
 |---|---|---|
 | BudgetTransactionHeader/Line (current and next cycle) | BudgetRegisterEntry | posted entries summarized per combination/period |
 | BudgetControlConfiguration, BudgetControlRule, BudgetGroup | BudgetControlRule | re-validated; user groups mapped to Keycloak groups |
@@ -17015,7 +17016,7 @@ Out of scope: actual costing / material ledger periodic unit price (wave 20 cove
 
 **Pain points solved (10x lens)**
 
-| Pain point in AX/SAP today | Root cause | Passage answer in this wave | Measurable 10x target |
+| Pain point in AX/SAP today | Root cause | Depot answer in this wave | Measurable 10x target |
 |---|---|---|---|
 | AX BOMCalcTable "Calculate items" for a costing version runs single-threaded; 50k items take 6–10 h and lock InventItemPriceSim | Sequential explosion per item re-exploding shared subassemblies | Topological roll-up computes each node once; parallel by level | 50k items 8 h → < 15 min |
 | CK40N costing run in SAP: selection, structure explosion, costing, analysis, marking, release as separate steps with logs in CKAPP; errors found at release | Multi-step batch with late validation | One run with upfront validation (missing prices, cycles, inactive routes) and per-item diagnostics | Rework runs per cycle 3 → 1 |
@@ -17025,7 +17026,7 @@ Out of scope: actual costing / material ledger periodic unit price (wave 20 cove
 
 ### 7.39.2 AX / SAP parity map
 
-| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Passage equivalent | Parity |
+| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Depot equivalent | Parity |
 |---|---|---|---|---|
 | Costing versions | CostingVersion (type Standard cost / Planned cost), blocking, fallback principle, InventItemPrice, InventItemPriceSim | Costing variant OKKN, valuation variant, costing version (OKKN), KEKO header | CostingVersion with status, fallback, site scope | full |
 | Cost groups and categories | CostGroup (direct material / direct manufacturing / indirect / undefined; fixed/variable), CostCategory with cost category prices, BOMCalcGroup | Cost component structure OKTZ (TCKH1–3), cost elements per component, activity types/prices KP26 | CostGroup, CostComponent, CostCategory rate tables | full |
@@ -17145,12 +17146,12 @@ Invariants: Σ CostComponentSplit.amount per calculation = unit_cost × calc_qua
 
 | Event | Trigger | Payload fields | Consumers |
 |---|---|---|---|
-| `dev.passage.costing.calculation.completed.v1` | item rolled | calculationId, itemId, siteId, unitCost, split[] | analytics |
-| `dev.passage.costing.rollrun.completed.v1` | mass roll finished | runId, itemCount, errorCount, durationMs | workspace |
-| `dev.passage.costing.standardcost.activated.v1` | activation | costingVersionId, itemCount, revaluationJournalId, totalRevaluation | inventory costing, production, budget |
-| `dev.passage.costing.variance.posted.v1` | variance computed | sourceId, type totals, byComponent[], journalEntryId | costacct-svc, analytics |
-| `dev.passage.costing.conversion.activated.v1` | conversion activated | conversionId, itemCount, revaluationJournalId, conversionDate | inventory costing (20), production (21) |
-| `dev.passage.costing.salesorderestimate.completed.v1` | order line costed | lineId, calculationId, cost, margin, marginPct | sales (27), analytics |
+| `dev.depot.costing.calculation.completed.v1` | item rolled | calculationId, itemId, siteId, unitCost, split[] | analytics |
+| `dev.depot.costing.rollrun.completed.v1` | mass roll finished | runId, itemCount, errorCount, durationMs | workspace |
+| `dev.depot.costing.standardcost.activated.v1` | activation | costingVersionId, itemCount, revaluationJournalId, totalRevaluation | inventory costing, production, budget |
+| `dev.depot.costing.variance.posted.v1` | variance computed | sourceId, type totals, byComponent[], journalEntryId | costacct-svc, analytics |
+| `dev.depot.costing.conversion.activated.v1` | conversion activated | conversionId, itemCount, revaluationJournalId, conversionDate | inventory costing (20), production (21) |
+| `dev.depot.costing.salesorderestimate.completed.v1` | order line costed | lineId, calculationId, cost, margin, marginPct | sales (27), analytics |
 
 ### 7.39.6 User experience
 
@@ -17220,7 +17221,7 @@ Helm chart `costing-svc` (extends wave 20 chart, Postgres `costing`); env `COSTI
 
 ### 7.39.11 Migration from AX / SAP
 
-| Source | Passage entity | Notes |
+| Source | Depot entity | Notes |
 |---|---|---|
 | CostingVersion, InventItemPrice (active standard) | CostingVersion, CostCalculation (Active, no explanation) | active standards loaded as calculations with status Active and diagnostics `Migrated` |
 | CostGroup, CostCategory, CostSheetNodeTable/CalculationBasis/Factor | CostGroup, CostCategory, CostingSheet | |
@@ -17391,7 +17392,7 @@ Out of scope: equity-method accounting for associates (v1.x), complex multi-tier
 
 **Pain points solved (10x lens)**
 
-| Pain point in AX/SAP today | Root cause | Passage answer in this wave | Measurable 10x target |
+| Pain point in AX/SAP today | Root cause | Depot answer in this wave | Measurable 10x target |
 |---|---|---|---|
 | D365 intercompany: the mirror PO/SO is created by a synchronous X++ call; if the partner entity's number sequence or dimension validation fails, the user sees an infolog and the pair is left half-created (SalesTable without InterCompanyPurchId) | No saga; no compensation | Temporal saga with compensating cancel; both documents or neither | Orphan IC documents per month 5–20 → 0 |
 | SAP cross-company FB01 posts via OBYA clearing accounts; FBICR3 (ICR) reconciles weeks later by downloading both ledgers | Reconciliation is a separate batch extract | Every IC posting carries a pair id; reconciliation is continuous per posting | Mismatch detection latency 30 days → < 1 min |
@@ -17401,7 +17402,7 @@ Out of scope: equity-method accounting for associates (v1.x), complex multi-tier
 
 ### 7.40.2 AX / SAP parity map
 
-| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Passage equivalent | Parity |
+| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Depot equivalent | Parity |
 |---|---|---|---|---|
 | Trading partner setup | InterCompanyTradingPartner, InterCompanyEndpoint, InterCompanyEndpointActionPolicy, InterCompanyTradingValueMap, CustTable/VendTable intercompany flags | Customer/vendor with company code assignment, VBAK-VKORG IC sales org, OBYA clearing | IntercompanyPartner (customer in A ↔ vendor in B) with action policies and value maps | full |
 | Mirror sales/purchase orders | SalesTable.InterCompanyOriginalPurchId, PurchTable.InterCompanyOriginalSalesId, InterCompanySalesOrder/PurchaseOrder classes, chains | Cross-company stock transport order (ME21N NB) with delivery and IC billing (VF01 IV) | Mirror document saga | full |
@@ -17530,15 +17531,15 @@ Validation: mirror saga rejects when the partner policy is inactive or the mirro
 
 | Event | Trigger | Payload fields | Consumers |
 |---|---|---|---|
-| `dev.passage.interco.mirror.created.v1` | saga linked | icPairId, sourceDocId, sourceEntity, mirrorDocId, mirrorEntity, type | sales, procurement, analytics |
-| `dev.passage.interco.mirror.compensated.v1` | saga failed | icPairId, failedStep, reason | workflow, alerts |
-| `dev.passage.interco.journal.posted.v1` | IC journal both sides posted | icPairId, entityA, entityB, amount, currency, journalIds[] | reconciliation, consol-svc |
-| `dev.passage.interco.reconciliation.flagged.v1` | mismatch | itemId, entities, difference | workspace, workflow |
-| `dev.passage.consol.run.completed.v1` | run completed | runId, groupId, period, version, unitCount, eliminationCount, ctaAmount | reporting, analytics |
-| `dev.passage.interco.charge.posted.v1` | IC charge posted in both entities | chargeId, icPairId, lendingEntity, borrowingEntity, amount, settlementMode | wave 41 projects, wave 43 expenses, reconciliation |
-| `dev.passage.interco.planning.completed.v1` | planning group run done | runId, groupId, entitiesPlanned[], icDemandCount | master planning (22), workspace |
-| `dev.passage.consol.unit.released.v1` | unit data released | groupId, unitId, period, balancesHash | consol-svc monitor |
-| `dev.passage.consol.validation.failed.v1` | validation rule error | runId, ruleId, unitId, difference | workspace, close checklist (14) |
+| `dev.depot.interco.mirror.created.v1` | saga linked | icPairId, sourceDocId, sourceEntity, mirrorDocId, mirrorEntity, type | sales, procurement, analytics |
+| `dev.depot.interco.mirror.compensated.v1` | saga failed | icPairId, failedStep, reason | workflow, alerts |
+| `dev.depot.interco.journal.posted.v1` | IC journal both sides posted | icPairId, entityA, entityB, amount, currency, journalIds[] | reconciliation, consol-svc |
+| `dev.depot.interco.reconciliation.flagged.v1` | mismatch | itemId, entities, difference | workspace, workflow |
+| `dev.depot.consol.run.completed.v1` | run completed | runId, groupId, period, version, unitCount, eliminationCount, ctaAmount | reporting, analytics |
+| `dev.depot.interco.charge.posted.v1` | IC charge posted in both entities | chargeId, icPairId, lendingEntity, borrowingEntity, amount, settlementMode | wave 41 projects, wave 43 expenses, reconciliation |
+| `dev.depot.interco.planning.completed.v1` | planning group run done | runId, groupId, entitiesPlanned[], icDemandCount | master planning (22), workspace |
+| `dev.depot.consol.unit.released.v1` | unit data released | groupId, unitId, period, balancesHash | consol-svc monitor |
+| `dev.depot.consol.validation.failed.v1` | validation rule error | runId, ruleId, unitId, difference | workspace, close checklist (14) |
 
 ### 7.40.6 User experience
 
@@ -17616,7 +17617,7 @@ Helm charts `interco-svc` (TS, Temporal workers), `consol-svc` (Go), Postgres `g
 
 ### 7.40.11 Migration from AX / SAP
 
-| Source | Passage entity | Notes |
+| Source | Depot entity | Notes |
 |---|---|---|
 | InterCompanyTradingPartner, InterCompanyEndpoint*, value maps | IntercompanyPartner, policies | |
 | SalesTable/PurchTable IC links (open orders) | IcDocumentLink | open chains only, status Linked |
@@ -17627,7 +17628,7 @@ Helm charts `interco-svc` (TS, Temporal workers), `consol-svc` (Go), Postgres `g
 | Group Reporting units/groups/FS item mapping, ECCS CX hierarchy | ConsolidationGroup, Unit, chart mapping | |
 | ACDOCU / ECMCT history | lakehouse archive | prior consolidated results kept for comparison, not re-run |
 
-Validation: IC balances per pair equal legacy after migration; first Passage consolidation for the last closed legacy period matches legacy consolidated statements within 0.01% per line (differences explained). Not migrated: closed IC chains, legacy elimination journals (replaced by derived runs).
+Validation: IC balances per pair equal legacy after migration; first Depot consolidation for the last closed legacy period matches legacy consolidated statements within 0.01% per line (differences explained). Not migrated: closed IC chains, legacy elimination journals (replaced by derived runs).
 
 ### 7.40.12 Dependencies, risks, open questions
 
@@ -17770,7 +17771,7 @@ Open questions: (1) Mirror customer payments by default or rely on netting? Prop
 
 - **Consolidation frameworks**: IFRS 10 / IFRS 3 / IAS 21 / IAS 28 (equity method) default; US GAAP ASC 810 / 830 / 323 differences (for example, NCI measured at fair value vs proportionate share, a choice under IFRS 3) are set per group; local GAAP group accounts (DE HGB §§290–315, FR règlement ANC 2020-01) through wave-48 pack chart mappings and statement layouts; ESEF iXBRL tagging for EU listed groups through the wave-15 designer.
 - **Proportional consolidation** is dropped because IFRS 11 removed it for joint ventures (equity method applies); HGB §310 still allows it, so a DE pack may request it post-v1.
-- **Transfer pricing**: OECD Guidelines master / local file and country-by-country reporting (CbCR, OECD XML schema) for groups with revenue ≥ EUR 750 million; Passage supplies the data export (FR-40.4, FR-40.13, FR-39.17); filing formats are wave-48 pack outputs (`TransferPricingReport` extension point).
+- **Transfer pricing**: OECD Guidelines master / local file and country-by-country reporting (CbCR, OECD XML schema) for groups with revenue ≥ EUR 750 million; Depot supplies the data export (FR-40.4, FR-40.13, FR-39.17); filing formats are wave-48 pack outputs (`TransferPricingReport` extension point).
 - **IC invoicing tax**: cross-border IC supplies follow wave-13 VAT rules (EU intra-community supply, reverse charge); IC invoices fall under e-invoicing mandates where applicable (MX CFDI, IN IRP, FR / DE B2B schedules) through wave-48 packs.
 - **Regrouping**: balance-sheet classification of current / non-current (IAS 1.66–1.76) and HGB §268 (residual terms > 1 year disclosed); the RemainingTerm rule threshold is a pack parameter (12 months default).
 - **Retention**: consolidation runs, top-side journals and IC confirmations 10 years.
@@ -17813,7 +17814,7 @@ Open questions: (1) Mirror customer payments by default or rely on netting? Prop
 
 ## 8.0 Phase overview
 
-**Business outcome at phase exit.** At the end of wave 45 the demo group (manufacturer plus the engineering-services entity added in wave 41) runs project operations, HR core, payroll, expense management, plant maintenance and field service on Passage, with every financial effect posted through the universal journal (wave 11) and reconciled daily. A project manager plans a WBS, books resources, captures time and expense, bills by T&M, fixed-price milestone or retainer, and recognizes revenue by percentage-of-completion. An HR administrator manages workers, positions and jobs with effective dating; employees self-serve absence and benefits. A payroll administrator runs a US gross-to-net cycle that matches IRS Publication 15-T to the cent and posts to the GL. A maintenance planner keeps plant machines on preventive and counter-based plans whose work orders cost to the asset and GL. A service coordinator dispatches field technicians under SLA with OR-Tools, and technicians execute offline on a PWA. This phase is where Passage reaches parity with AX Project management and accounting, HR, Payroll, Expense management, D365 Asset Management and Service management, and with SAP PS, HCM PA/OM/PT, PY, Concur, PM and CS/FSM.
+**Business outcome at phase exit.** At the end of wave 45 the demo group (manufacturer plus the engineering-services entity added in wave 41) runs project operations, HR core, payroll, expense management, plant maintenance and field service on Depot, with every financial effect posted through the universal journal (wave 11) and reconciled daily. A project manager plans a WBS, books resources, captures time and expense, bills by T&M, fixed-price milestone or retainer, and recognizes revenue by percentage-of-completion. An HR administrator manages workers, positions and jobs with effective dating; employees self-serve absence and benefits. A payroll administrator runs a US gross-to-net cycle that matches IRS Publication 15-T to the cent and posts to the GL. A maintenance planner keeps plant machines on preventive and counter-based plans whose work orders cost to the asset and GL. A service coordinator dispatches field technicians under SLA with OR-Tools, and technicians execute offline on a PWA. This phase is where Depot reaches parity with AX Project management and accounting, HR, Payroll, Expense management, D365 Asset Management and Service management, and with SAP PS, HCM PA/OM/PT, PY, Concur, PM and CS/FSM.
 
 **Phase-exit sign-off criteria**
 - Percentage-of-completion estimate fixtures (12 projects, 4 periods each) match the accountant-reviewed workbook to 0.01 USD/EUR per period.
@@ -17841,15 +17842,15 @@ Open questions: (1) Mirror customer payments by default or rely on netting? Prop
 
 | Event (CloudEvents type) | Producer | Consumers | Payload summary |
 |---|---|---|---|
-| `dev.passage.projects.transaction.posted.v1` | projects | journal, analytics, expense (link-back) | projectId, wbsId, txType, qty, cost, salesPrice, currency, journalId |
-| `dev.passage.hr.employment.changed.v1` | hr | payroll, projects (resource validity), service (technician), Keycloak sync | workerId, employmentId, action, effectiveFrom, effectiveTo |
-| `dev.passage.hr.absence.approved.v1` | hr | time (wave 25), projects (availability), payroll (paid-leave earnings) | workerId, planId, from, to, hours |
-| `dev.passage.payroll.run.posted.v1` | payroll | journal, bank (wave 36), analytics | payRunId, payCycleId, grossTotal, netTotal, employerTaxTotal, journalId |
-| `dev.passage.expense.report.approved.v1` | expense | ap (wave 18), projects | reportId, workerId, totalAmount, currency, lines[] |
-| `dev.passage.eam.request.created.v1` | eam (or IoT bridge) | service desk UI, notifications | requestId, assetId, source, severity, readingValue |
-| `dev.passage.eam.workorder.completed.v1` | eam | journal (cost settlement), fixed assets, scheduling (wave 23) capacity release | workOrderId, assetId, partsCost, laborCost, downtimeMinutes |
-| `dev.passage.service.sla.breached.v1` | service | notifications, analytics | caseId or workOrderId, slaType, dueAt, breachedAt |
-| `dev.passage.service.dispatch.published.v1` | dispatch | technician PWA, service | scheduleDate, assignments[] (workOrderId, technicianId, start, end) |
+| `dev.depot.projects.transaction.posted.v1` | projects | journal, analytics, expense (link-back) | projectId, wbsId, txType, qty, cost, salesPrice, currency, journalId |
+| `dev.depot.hr.employment.changed.v1` | hr | payroll, projects (resource validity), service (technician), Keycloak sync | workerId, employmentId, action, effectiveFrom, effectiveTo |
+| `dev.depot.hr.absence.approved.v1` | hr | time (wave 25), projects (availability), payroll (paid-leave earnings) | workerId, planId, from, to, hours |
+| `dev.depot.payroll.run.posted.v1` | payroll | journal, bank (wave 36), analytics | payRunId, payCycleId, grossTotal, netTotal, employerTaxTotal, journalId |
+| `dev.depot.expense.report.approved.v1` | expense | ap (wave 18), projects | reportId, workerId, totalAmount, currency, lines[] |
+| `dev.depot.eam.request.created.v1` | eam (or IoT bridge) | service desk UI, notifications | requestId, assetId, source, severity, readingValue |
+| `dev.depot.eam.workorder.completed.v1` | eam | journal (cost settlement), fixed assets, scheduling (wave 23) capacity release | workOrderId, assetId, partsCost, laborCost, downtimeMinutes |
+| `dev.depot.service.sla.breached.v1` | service | notifications, analytics | caseId or workOrderId, slaType, dueAt, breachedAt |
+| `dev.depot.service.dispatch.published.v1` | dispatch | technician PWA, service | scheduleDate, assignments[] (workOrderId, technicianId, start, end) |
 
 **Phase-level risks**
 
@@ -17872,7 +17873,7 @@ Out of scope: grant management beyond customer funding sources with limits; proj
 
 **Pain points solved (10x lens)**
 
-| Pain point in AX/SAP today | Root cause | Passage answer in this wave | Measurable 10x target |
+| Pain point in AX/SAP today | Root cause | Depot answer in this wave | Measurable 10x target |
 |---|---|---|---|
 | AX invoice proposal (ProjProposalJour via "Create invoice proposal" dialog) takes 9–12 clicks per project and silently skips transactions whose line property changed after posting; SAP DP90 requires a DIP profile (ODP1) that most sites never get right, so billing runs produce missing lines nobody notices until the customer disputes | Selection is a batch class with no explainable predicate; eligibility state lives on the transaction and is mutated by other processes | Declarative billing rules with a stated predicate (BR-41.3), a "why not billed" explain endpoint per transaction, and proposals built in one action from the project workspace | Clicks 12 → 2 per proposal; omitted-billable-transaction rate 0 (property test); dispute rate attributable to billing errors −90% |
 | Fixed-price estimates (ProjEstimate, "Create estimate" periodic job; SAP KKA2 + CJ88) run as month-end batch taking 1–4 h on 2,000 projects; reversal (ProjEstimate "Reverse") and re-run is manual and frequently leaves orphan WIP | Batch framework; estimate and settlement are two separate steps with separate postings | Estimate run as a Temporal workflow per project with idempotent reverse-and-rerun in one call; WIP projection reconciled nightly to GL | Estimate run 4 h → < 10 min for 2,000 projects; orphan WIP incidents 0; re-run effort 30 min → 1 click |
@@ -17883,7 +17884,7 @@ Out of scope: grant management beyond customer funding sources with limits; proj
 
 ### 8.41.2 AX / SAP parity map
 
-| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Passage equivalent | Parity |
+| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Depot equivalent | Parity |
 |---|---|---|---|---|
 | Project master and hierarchy | ProjTable, ProjGroup, ProjType (TimeMaterial, FixedPrice, Internal, Cost, Investment, Time), form ProjTable | PROJ (project definition), PRPS (WBS elements), CJ20N Project Builder | `projects` service, `Project` entity, screen Projects › Project | full |
 | WBS and scheduling | ProjWBS, ProjPlanVersion, ProjWBSActivityEstimate | PRPS, AUFK networks, AFVC activities, CJ20N | `WbsNode`, `WbsDependency`, CPM scheduler | full |
@@ -18058,13 +18059,13 @@ Commands validate: journal lines must reference a project in IN_PROCESS; categor
 
 | Event | Trigger | Payload fields | Consumers |
 |---|---|---|---|
-| `dev.passage.projects.transaction.posted.v1` | journal/document posted | see 8.0 | journal, analytics, expense |
-| `dev.passage.projects.invoice-proposal.posted.v1` | proposal → POSTED | proposalId, invoiceId, lines[] | invoicing (wave 29), analytics |
-| `dev.passage.projects.estimate.posted.v1` | estimate posted or reversed | estimateId, projectId, periodId, pocPercent, revenueThisPeriod, journalId, reversed | journal, analytics |
-| `dev.passage.projects.wbs.scheduled.v1` | scheduler run | projectId, planVersionId, criticalPath[], finishDate | resource planning, notifications |
-| `dev.passage.projects.timesheet.submitted.v1` | timesheet SUBMITTED | timesheetId, workerId, periodId, totalHours, projectIds[] | workflow (wave 4), notifications |
-| `dev.passage.projects.change-order.applied.v1` | change order APPLIED | changeOrderId, projectId, contractValueDelta, budgetDelta, newBaselineVersionId | budget control (wave 38), analytics |
-| `dev.passage.projects.retention.released.v1` | release proposal POSTED | projectId, partyId, releasedAmount, invoiceId | invoicing, AP |
+| `dev.depot.projects.transaction.posted.v1` | journal/document posted | see 8.0 | journal, analytics, expense |
+| `dev.depot.projects.invoice-proposal.posted.v1` | proposal → POSTED | proposalId, invoiceId, lines[] | invoicing (wave 29), analytics |
+| `dev.depot.projects.estimate.posted.v1` | estimate posted or reversed | estimateId, projectId, periodId, pocPercent, revenueThisPeriod, journalId, reversed | journal, analytics |
+| `dev.depot.projects.wbs.scheduled.v1` | scheduler run | projectId, planVersionId, criticalPath[], finishDate | resource planning, notifications |
+| `dev.depot.projects.timesheet.submitted.v1` | timesheet SUBMITTED | timesheetId, workerId, periodId, totalHours, projectIds[] | workflow (wave 4), notifications |
+| `dev.depot.projects.change-order.applied.v1` | change order APPLIED | changeOrderId, projectId, contractValueDelta, budgetDelta, newBaselineVersionId | budget control (wave 38), analytics |
+| `dev.depot.projects.retention.released.v1` | release proposal POSTED | projectId, partyId, releasedAmount, invoiceId | invoicing, AP |
 
 ### 8.41.6 User experience
 
@@ -18142,11 +18143,11 @@ Reconciliation: Σ transactions cost by project = project cost subledger = GL co
 
 ### 8.41.10 Deployment and operations
 
-Helm chart `passage-projects` (API, scheduler worker, estimate worker), Postgres cluster `projects` (CloudNativePG, 3 replicas), Atlas migration `projects/0001_initial`. Config: `PROJ_SCHEDULER_MAX_NODES=5000`, `PROJ_PROPOSAL_BATCH=500`. Feature flags: `projects.intercompany-hours`, `projects.funding-limits`. Temporal schedules: nightly `projects-reconcile` 02:00 tenant-local, `committed-cost-refresh` every 60 s. SLOs: journal post p95 < 400 ms for 100 lines; proposal build p95 < 5 s for 5,000 candidates; availability 99.9%. Alerts: reconciliation variance ≠ 0; estimate run failure; outbox lag > 60 s. Runbook: re-run estimate (reverse then run), rebuild committed cost projection from events. Rollback: Argo digest rollback; migrations are additive within the wave.
+Helm chart `depot-projects` (API, scheduler worker, estimate worker), Postgres cluster `projects` (CloudNativePG, 3 replicas), Atlas migration `projects/0001_initial`. Config: `PROJ_SCHEDULER_MAX_NODES=5000`, `PROJ_PROPOSAL_BATCH=500`. Feature flags: `projects.intercompany-hours`, `projects.funding-limits`. Temporal schedules: nightly `projects-reconcile` 02:00 tenant-local, `committed-cost-refresh` every 60 s. SLOs: journal post p95 < 400 ms for 100 lines; proposal build p95 < 5 s for 5,000 candidates; availability 99.9%. Alerts: reconciliation variance ≠ 0; estimate run failure; outbox lag > 60 s. Runbook: re-run estimate (reverse then run), rebuild committed cost projection from events. Rollback: Argo digest rollback; migrations are additive within the wave.
 
 ### 8.41.11 Migration from AX / SAP
 
-| Source | Passage entity | Notes |
+| Source | Depot entity | Notes |
 |---|---|---|
 | ProjTable, ProjGroup, ProjType | Project, ProjectGroup | Status map: Created→CREATED, InProcess→IN_PROCESS, Finished→FINISHED |
 | ProjWBS, ProjPlanVersion | WbsNode, PlanVersion | AX activity numbers → wbs_code |
@@ -18361,7 +18362,7 @@ Coverage closure (8.42.21) narrows those exclusions as follows: an internal cour
 
 **Pain points solved (10x lens)**
 
-| Pain point in AX/SAP today | Root cause | Passage answer in this wave | Measurable 10x target |
+| Pain point in AX/SAP today | Root cause | Depot answer in this wave | Measurable 10x target |
 |---|---|---|---|
 | AX HcmPositionWorkerAssignment edits in the Position form require "Maintain versions" dialogs; as-of reporting needs SQL over ValidFrom/ValidTo and routinely returns two managers for a day because ranges are inclusive-inclusive; SAP PA30 infotype splits (BEGDA/ENDDA) produce the same overlap at delimit time | Date-effective framework with inclusive end dates and no exclusion constraints | `[from, to)` ranges with Postgres exclusion constraints; one `as-of` endpoint; org chart with a date picker | Duplicate/overlapping manager answers 0 (property test over 50,000 dates); as-of query p95 < 50 ms vs 2–5 s SSRS reports |
 | Hire in AX takes 25+ clicks across Worker, Employment, Position assignment, Compensation and User relation forms; SAP PA40 hire action walks 8–12 infotype screens and aborts midway on validation, leaving a partial employee | Action not modeled as a unit; each screen commits separately | One `PersonnelAction` with a diff, workflow approval, and atomic apply (future-dated via Temporal); SCIM provisions the user automatically | Clicks 25 → 4; partial-hire records 0; user provisioning 1–2 days manual → < 60 s |
@@ -18371,7 +18372,7 @@ Coverage closure (8.42.21) narrows those exclusions as follows: an internal cour
 
 ### 8.42.2 AX / SAP parity map
 
-| Capability | AX 2012 / D365 | SAP ECC / S/4 | Passage equivalent | Parity |
+| Capability | AX 2012 / D365 | SAP ECC / S/4 | Depot equivalent | Parity |
 |---|---|---|---|---|
 | Worker/person | HcmWorker, DirPerson, HcmPersonPrivateDetails | PA0002 Personal Data, PA0006 Address | `Worker` (links wave-7 party person), `WorkerPII` vault | full |
 | Employment | HcmEmployment (ValidFrom/To), HcmEmploymentDetail | PA0000 Actions, PA0001 Org Assignment | `Employment` (effective-dated) | full |
@@ -18536,13 +18537,13 @@ Validation: action effective date may be future-dated up to 365 days; terminatio
 
 | Event | Trigger | Payload | Consumers |
 |---|---|---|---|
-| `dev.passage.hr.employment.changed.v1` | action applied | see 8.0 | payroll, projects, service, SCIM |
-| `dev.passage.hr.position.assignment.changed.v1` | assignment start/end | workerId, positionId, validity, managerPositionId | authorization (manager roles), workflow routing |
-| `dev.passage.hr.absence.approved.v1` | request approved | workerId, planId, from, to, hours | time, projects, payroll |
-| `dev.passage.hr.benefit.enrollment.changed.v1` | enrollment start/end | workerId, planId, option, validity, employeeRate | payroll deductions |
-| `dev.passage.hr.course.completed.v1` | registration ATTENDED with PASS | workerId, courseId, sessionId, skills[], certificationId | wave-45 dispatch skills, notifications |
-| `dev.passage.hr.incident.reported.v1` | incident created | incidentId, siteId, severity, oshaRecordable, assetId | EHS notifications, wave-44 asset history |
-| `dev.passage.hr.compensation.cycle.applied.v1` | cycle APPLIED | cycleId, effectiveDate, actionIds[] | payroll (wave 43), budget (wave 38) |
+| `dev.depot.hr.employment.changed.v1` | action applied | see 8.0 | payroll, projects, service, SCIM |
+| `dev.depot.hr.position.assignment.changed.v1` | assignment start/end | workerId, positionId, validity, managerPositionId | authorization (manager roles), workflow routing |
+| `dev.depot.hr.absence.approved.v1` | request approved | workerId, planId, from, to, hours | time, projects, payroll |
+| `dev.depot.hr.benefit.enrollment.changed.v1` | enrollment start/end | workerId, planId, option, validity, employeeRate | payroll deductions |
+| `dev.depot.hr.course.completed.v1` | registration ATTENDED with PASS | workerId, courseId, sessionId, skills[], certificationId | wave-45 dispatch skills, notifications |
+| `dev.depot.hr.incident.reported.v1` | incident created | incidentId, siteId, severity, oshaRecordable, assetId | EHS notifications, wave-44 asset history |
+| `dev.depot.hr.compensation.cycle.applied.v1` | cycle APPLIED | cycleId, effectiveDate, actionIds[] | payroll (wave 43), budget (wave 38) |
 
 ### 8.42.6 User experience
 
@@ -18624,11 +18625,11 @@ Reconciliation: Σ absence usage = approved request hours = wave-25 absence time
 
 ### 8.42.10 Deployment and operations
 
-Chart `passage-hr` (API, workflow worker, SCIM worker, ESS BFF), Postgres `hr` with schema `hr_pii` under a separate role and Vault-managed key. Flags: `hr.performance`. Schedules: `hr-apply-actions` 00:00 tenant-local, `hr-accrue` per plan frequency, `hr-cert-expiry` daily. SLOs: as-of query p95 < 50 ms; ESS page p95 < 300 ms; availability 99.9%. Alerts: action application failures; PII decrypt errors; SCIM lag > 5 min. Runbook: replay actions from event log; rotate tenant PII key (re-encrypt job). Rollback by digest; `hr_pii` migrations never drop columns.
+Chart `depot-hr` (API, workflow worker, SCIM worker, ESS BFF), Postgres `hr` with schema `hr_pii` under a separate role and Vault-managed key. Flags: `hr.performance`. Schedules: `hr-apply-actions` 00:00 tenant-local, `hr-accrue` per plan frequency, `hr-cert-expiry` daily. SLOs: as-of query p95 < 50 ms; ESS page p95 < 300 ms; availability 99.9%. Alerts: action application failures; PII decrypt errors; SCIM lag > 5 min. Runbook: replay actions from event log; rotate tenant PII key (re-encrypt job). Rollback by digest; `hr_pii` migrations never drop columns.
 
 ### 8.42.11 Migration from AX / SAP
 
-| Source | Passage entity | Notes |
+| Source | Depot entity | Notes |
 |---|---|---|
 | HcmWorker, DirPerson, HcmPersonPrivateDetails | Worker, WorkerPII | PII to vault at load time |
 | HcmEmployment, HcmEmploymentDetail | Employment | ValidFrom/ValidTo → validity range |
@@ -18860,7 +18861,7 @@ Out of scope: country packs beyond US and the EU reference (DE assumed, see open
 
 **Pain points solved (10x lens)**
 
-| Pain point in AX/SAP today | Root cause | Passage answer in this wave | Measurable 10x target |
+| Pain point in AX/SAP today | Root cause | Depot answer in this wave | Measurable 10x target |
 |---|---|---|---|
 | AX 2012 payroll tax updates arrive as hotfix-delivered PayrollTaxCode data (Ceridian engine) with no diff view; SAP PY tax changes ship as HR support packs (BSI TUBs) that require a Basis transport cycle and regression of schemas/PCRs; a wrong table version is discovered only when net pay looks wrong | Rules embedded in code/transports, not versioned data | Rule sets as signed, versioned JSON packs with diff, publish approval and a frozen binding on each run (PayStatement.rule_version per line) | Tax-table deployment 1–2 weeks transport cycle → < 1 h; mis-versioned runs 0 (binding recorded on every line) |
 | Gross-to-net results are opaque: AX pay statement lines do not show basis or bracket; SAP RT (PC_PAYRESULT) shows wage types only decipherable by a payroll consultant | No explain path from result to rule | Each `PayResultLine` stores basis_amount, rule_version and bracket; statement viewer drills to the rule | "Why is my tax X?" tickets resolved by admin in < 2 min vs consultant escalation; 200/200 fixtures explainable |
@@ -18871,7 +18872,7 @@ Out of scope: country packs beyond US and the EU reference (DE assumed, see open
 
 ### 8.43.2 AX / SAP parity map
 
-| Capability | AX 2012 / D365 | SAP ECC / S/4 | Passage equivalent | Parity |
+| Capability | AX 2012 / D365 | SAP ECC / S/4 | Depot equivalent | Parity |
 |---|---|---|---|---|
 | Pay cycles and periods | PayrollPayCycle, PayrollPayPeriod | Payroll area, period parameters (T549A/T549Q) | `PayCycle`, `PayPeriod` | full |
 | Earnings | PayrollEarningCode, PayrollEarningCodeRate, earning statements | Wage types (T512W), PCR rules | `EarningCode` (rule set versioned) | full |
@@ -18983,13 +18984,13 @@ Validation: calculate requires HR cutoff passed and all time registrations for t
 
 | Event | Trigger | Payload | Consumers |
 |---|---|---|---|
-| `dev.passage.payroll.run.posted.v1` | GL post | see 8.0 | journal, bank, analytics |
-| `dev.passage.payroll.statement.finalized.v1` | finalize | statementId, workerId, net, payDate | ESS, provider adapter |
-| `dev.passage.expense.report.approved.v1` | approval | see 8.0 | ap, projects |
-| `dev.passage.expense.policy.violated.v1` | BLOCK outcome at submit | reportId, lineId, ruleId, outcome | analytics, audit |
-| `dev.passage.expense.cash-advance.paid.v1` | AP prepayment paid | advanceId, workerId, amount, currency, prepaymentId | expense settlement, analytics |
-| `dev.passage.payroll.claim.created.v1` | negative net on recalculation | claimId, workerId, taxYear, gross, net | payroll admin notifications, AR (direct repayment) |
-| `dev.passage.payroll.statutory-aggregate.closed.v1` | quarter/year aggregate reconciled | legalEntityId, formCode, period, totals | wave-48 country pack filing |
+| `dev.depot.payroll.run.posted.v1` | GL post | see 8.0 | journal, bank, analytics |
+| `dev.depot.payroll.statement.finalized.v1` | finalize | statementId, workerId, net, payDate | ESS, provider adapter |
+| `dev.depot.expense.report.approved.v1` | approval | see 8.0 | ap, projects |
+| `dev.depot.expense.policy.violated.v1` | BLOCK outcome at submit | reportId, lineId, ruleId, outcome | analytics, audit |
+| `dev.depot.expense.cash-advance.paid.v1` | AP prepayment paid | advanceId, workerId, amount, currency, prepaymentId | expense settlement, analytics |
+| `dev.depot.payroll.claim.created.v1` | negative net on recalculation | claimId, workerId, taxYear, gross, net | payroll admin notifications, AR (direct repayment) |
+| `dev.depot.payroll.statutory-aggregate.closed.v1` | quarter/year aggregate reconciled | legalEntityId, formCode, period, totals | wave-48 country pack filing |
 
 ### 8.43.6 User experience
 
@@ -19064,11 +19065,11 @@ Reconciliation: Σ statement net = payment batch; Σ tax lines by jurisdiction =
 
 ### 8.43.10 Deployment and operations
 
-Charts `passage-payroll` (Go API, Temporal calc workers, statement renderer) and `passage-expense` (TS API, OCR Python worker, feed importer); Postgres `payroll` (encrypted bank columns via `hr_pii` key pattern) and `expense`. Rule-set packs delivered as signed JSON bundles (`rulesets/us/2025.1.json`) loaded by migration job. Flags: `payroll.de-pack`, `payroll.provider-adapter`, `expense.ocr`. Schedules: `payroll-cutoff-reminder`, `expense-card-import` hourly (SFTP pull), `expense-aging` daily. SLOs: calculate 10k workers < 10 min; statement fetch p95 < 200 ms; policy evaluation p95 < 100 ms per line. Alerts: calculation failures; tax table pack missing for period end; card import failures. Runbook: re-run calculation from DRAFT; reissue payment batch; rotate SFTP keys. Rollback by digest; FINALIZED data is never altered by migrations.
+Charts `depot-payroll` (Go API, Temporal calc workers, statement renderer) and `depot-expense` (TS API, OCR Python worker, feed importer); Postgres `payroll` (encrypted bank columns via `hr_pii` key pattern) and `expense`. Rule-set packs delivered as signed JSON bundles (`rulesets/us/2025.1.json`) loaded by migration job. Flags: `payroll.de-pack`, `payroll.provider-adapter`, `expense.ocr`. Schedules: `payroll-cutoff-reminder`, `expense-card-import` hourly (SFTP pull), `expense-aging` daily. SLOs: calculate 10k workers < 10 min; statement fetch p95 < 200 ms; policy evaluation p95 < 100 ms per line. Alerts: calculation failures; tax table pack missing for period end; card import failures. Runbook: re-run calculation from DRAFT; reissue payment batch; rotate SFTP keys. Rollback by digest; FINALIZED data is never altered by migrations.
 
 ### 8.43.11 Migration from AX / SAP
 
-| Source | Passage entity | Notes |
+| Source | Depot entity | Notes |
 |---|---|---|
 | PayrollPayCycle, PayrollPayPeriod | PayCycle, PayPeriod | |
 | PayrollEarningCode, PayrollTaxCode, PayrollBenefit | EarningCode, TaxRuleSet mapping, DeductionCode | AX tax engine codes mapped to jurisdictions |
@@ -19266,7 +19267,7 @@ Out of scope: predictive ML models (hooks only), calibration management, fleet m
 
 **Pain points solved (10x lens)**
 
-| Pain point in AX/SAP today | Root cause | Passage answer in this wave | Measurable 10x target |
+| Pain point in AX/SAP today | Root cause | Depot answer in this wave | Measurable 10x target |
 |---|---|---|---|
 | SAP IP10/IP30 deadline monitoring is a batch job (RISTRA20) run daily or weekly; calls are generated late or in bursts and counter-based plans need IK11 readings entered by hand; D365 "Schedule maintenance plans" is likewise a batch with a fixed horizon | Scheduling is periodic recalculation, not event-driven | Scheduler runs on every completion/reading event plus nightly; forecast from rolling usage; algorithm stated in BR-44.1 | Call latency 1–7 days batch → < 60 s after triggering event; 40/40 plan fixtures exact |
 | Creating a corrective work order in D365 Asset Management from a request takes 8–10 clicks across Maintenance request → Work order → Job → Lines; SAP IW21 → IW31 → components → IW32 release is 4 transactions | Request and order are separate forms with re-keyed fields | Request triage converts to a WO in one action carrying asset, location, symptom, parts and checklist | Clicks 10 → 2; re-keyed fields 0 |
@@ -19276,7 +19277,7 @@ Out of scope: predictive ML models (hooks only), calibration management, fleet m
 
 ### 8.44.2 AX / SAP parity map
 
-| Capability | AX / D365 | SAP ECC / S/4 | Passage equivalent | Parity |
+| Capability | AX / D365 | SAP ECC / S/4 | Depot equivalent | Parity |
 |---|---|---|---|---|
 | Functional locations | EntAssetFunctionalLocation, types, structure | IFLOT, IFLOTX, IL01/IL02 | `FunctionalLocation` (ltree path) | full |
 | Assets/equipment | EntAssetObject, EntAssetObjectType, asset lifecycle states | EQUI, EQKT, IE01/IE02, equipment categories | `Asset` with `AssetType` and lifecycle | full |
@@ -19421,14 +19422,14 @@ Validation: readings for cumulative counters must be ≥ last_reading else `EAM-
 
 | Event | Trigger | Payload | Consumers |
 |---|---|---|---|
-| `dev.passage.eam.request.created.v1` | request created | see 8.0 | planner UI, notifications |
-| `dev.passage.eam.workorder.status.changed.v1` | transition | workOrderId, from, to, at, actor | mobile, analytics |
-| `dev.passage.eam.workorder.completed.v1` | COMPLETED | see 8.0 | journal, fixed assets, scheduling |
-| `dev.passage.eam.counter.reading.registered.v1` | reading | counterId, assetId, value, at, source | plan scheduler, condition rules |
-| `dev.passage.eam.downtime.recorded.v1` | downtime on resource | resourceId, from, to, workOrderId | scheduling (wave 23), OEE (wave 25) |
-| `dev.passage.eam.permit.status.changed.v1` | permit transition | permitId, workOrderId, from, to, at, actor | mobile, safety notifications |
-| `dev.passage.eam.warranty.claimable.v1` | covered WO completed | workOrderId, assetId, warrantyId, vendorPartyId, coveredParts, coveredLabor | service (FR-45.15 supplier claims) |
-| `dev.passage.eam.budget.calculated.v1` | budget calculation done | budgetVersion, scope, periods[], total | budgeting (wave 38) |
+| `dev.depot.eam.request.created.v1` | request created | see 8.0 | planner UI, notifications |
+| `dev.depot.eam.workorder.status.changed.v1` | transition | workOrderId, from, to, at, actor | mobile, analytics |
+| `dev.depot.eam.workorder.completed.v1` | COMPLETED | see 8.0 | journal, fixed assets, scheduling |
+| `dev.depot.eam.counter.reading.registered.v1` | reading | counterId, assetId, value, at, source | plan scheduler, condition rules |
+| `dev.depot.eam.downtime.recorded.v1` | downtime on resource | resourceId, from, to, workOrderId | scheduling (wave 23), OEE (wave 25) |
+| `dev.depot.eam.permit.status.changed.v1` | permit transition | permitId, workOrderId, from, to, at, actor | mobile, safety notifications |
+| `dev.depot.eam.warranty.claimable.v1` | covered WO completed | workOrderId, assetId, warrantyId, vendorPartyId, coveredParts, coveredLabor | service (FR-45.15 supplier claims) |
+| `dev.depot.eam.budget.calculated.v1` | budget calculation done | budgetVersion, scope, periods[], total | budgeting (wave 38) |
 
 ### 8.44.6 User experience
 
@@ -19505,11 +19506,11 @@ Reconciliation: Σ WO costs by account = GL maintenance accounts; Σ parts issue
 
 ### 8.44.10 Deployment and operations
 
-Chart `passage-eam` (Go API, scheduler worker, condition engine consumer, mobile BFF); Postgres `eam` with ltree and monthly partitions on readings. Flags: `eam.capital-wo`, `eam.predictive-hooks`. Schedules: `eam-plan-schedule` nightly 01:00 site-local plus event-driven; `eam-kpi-rollup` hourly. SLOs: condition engine p95 < 5 s; WO status API p95 < 200 ms; availability 99.9%. Alerts: scheduler run failure; condition consumer lag > 30 s; emergency WO not regularized in 24 h. Runbook: replay readings from Kafka by offset; re-run scheduler for a plan. Rollback by digest.
+Chart `depot-eam` (Go API, scheduler worker, condition engine consumer, mobile BFF); Postgres `eam` with ltree and monthly partitions on readings. Flags: `eam.capital-wo`, `eam.predictive-hooks`. Schedules: `eam-plan-schedule` nightly 01:00 site-local plus event-driven; `eam-kpi-rollup` hourly. SLOs: condition engine p95 < 5 s; WO status API p95 < 200 ms; availability 99.9%. Alerts: scheduler run failure; condition consumer lag > 30 s; emergency WO not regularized in 24 h. Runbook: replay readings from Kafka by offset; re-run scheduler for a plan. Rollback by digest.
 
 ### 8.44.11 Migration from AX / SAP
 
-| Source | Passage entity | Notes |
+| Source | Depot entity | Notes |
 |---|---|---|
 | EntAssetFunctionalLocation | FunctionalLocation | |
 | EntAssetObject, EntAssetObjectType | Asset, AssetType | lifecycle state map |
@@ -19706,7 +19707,7 @@ Coverage closure (8.45.21) adds the cross-module case framework that earlier wav
 
 **Pain points solved (10x lens)**
 
-| Pain point in AX/SAP today | Root cause | Passage answer in this wave | Measurable 10x target |
+| Pain point in AX/SAP today | Root cause | Depot answer in this wave | Measurable 10x target |
 |---|---|---|---|
 | AX SMADispatchBoard is a manual Gantt: a dispatcher drags each SMAServiceOrderTable row by hand, with no skill or travel check; SAP FSM/RSO optimization is a separate licensed product with its own master data sync | No optimizer in the ERP; duplicated technician master | OR-Tools CP-SAT dispatch inside the service domain using wave-42 skills and wave-16 truck stock (BR-45.3) | Dispatch time per territory-day 2–3 h → < 30 s solve + 10 min review; skill/window violations 0 |
 | Entitlement: AX service orders pick the agreement the user chooses (SMAServiceOrderTable.ServiceAgreementId) with no SLA clock; SAP CS warranty check (IW31 "warranty" pop-up) is informational and SLA profiles live in CRM only | No deterministic entitlement or SLA engine in ERP | Resolver (BR-45.1) and business-hour SLA clocks with pause states and breach events (BR-45.2) | Wrong-agreement billing 0 on fixtures; SLA breaches discovered after the fact → warning at 75% |
@@ -19716,7 +19717,7 @@ Coverage closure (8.45.21) adds the cross-module case framework that earlier wav
 
 ### 8.45.2 AX / SAP parity map
 
-| Capability | AX / D365 | SAP ECC / S/4 | Passage equivalent | Parity |
+| Capability | AX / D365 | SAP ECC / S/4 | Depot equivalent | Parity |
 |---|---|---|---|---|
 | Installed base / service objects | SMAServiceObjectTable, SMAServiceObjectRelationTable; D365 FS customer assets | IBase (IBIN/IBIB), equipment with customer, serial numbers (SERI) | `ServiceObject` from wave-28 shipment serials | full |
 | Warranties | Limited (SMAServiceObject + agreement) ; D365 FS warranties | Warranty master (BGMK), warranty check on order | `Warranty` (parts/labor/travel, start trigger) | improved |
@@ -19839,14 +19840,14 @@ Validation: case creation requires a customer; dispatch run requires all WOs to 
 
 | Event | Trigger | Payload | Consumers |
 |---|---|---|---|
-| `dev.passage.service.case.opened.v1` | case created | caseId, customerId, priority, agreementId, responseDue, resolutionDue | notifications, analytics |
-| `dev.passage.service.sla.breached.v1` | breach monitor | see 8.0 | notifications, analytics |
-| `dev.passage.service.dispatch.published.v1` | publish | see 8.0 | PWA, customer notifications |
-| `dev.passage.service.workorder.completed.v1` | complete action | workOrderId, technicianId, lines[], firstTimeFix, durationMinutes | billing, inventory (truck consumption), KPIs |
-| `dev.passage.service.workorder.posted.v1` | billing post | workOrderId, invoiceId, billableTotal, warrantyCost, entitlementConsumed | invoicing, analytics |
-| `dev.passage.case.stage.changed.v1` | stage transition (any category) | caseId, categoryId, from, to, at, actor | workflow, notifications, domain owners (HR, collections, audit) |
-| `dev.passage.knowledge.article.published.v1` | article PUBLISHED | articleId, version, language, applicability | search index, copilot retrieval (wave 47) |
-| `dev.passage.service.supplier-claim.settled.v1` | credit note matched | claimId, vendorId, claimedAmount, recoveredAmount | analytics, GL warranty recovery |
+| `dev.depot.service.case.opened.v1` | case created | caseId, customerId, priority, agreementId, responseDue, resolutionDue | notifications, analytics |
+| `dev.depot.service.sla.breached.v1` | breach monitor | see 8.0 | notifications, analytics |
+| `dev.depot.service.dispatch.published.v1` | publish | see 8.0 | PWA, customer notifications |
+| `dev.depot.service.workorder.completed.v1` | complete action | workOrderId, technicianId, lines[], firstTimeFix, durationMinutes | billing, inventory (truck consumption), KPIs |
+| `dev.depot.service.workorder.posted.v1` | billing post | workOrderId, invoiceId, billableTotal, warrantyCost, entitlementConsumed | invoicing, analytics |
+| `dev.depot.case.stage.changed.v1` | stage transition (any category) | caseId, categoryId, from, to, at, actor | workflow, notifications, domain owners (HR, collections, audit) |
+| `dev.depot.knowledge.article.published.v1` | article PUBLISHED | articleId, version, language, applicability | search index, copilot retrieval (wave 47) |
+| `dev.depot.service.supplier-claim.settled.v1` | credit note matched | claimId, vendorId, claimedAmount, recoveredAmount | analytics, GL warranty recovery |
 
 ### 8.45.6 User experience
 
@@ -19921,11 +19922,11 @@ Reconciliation: Σ POSTED billable = wave-29 invoices with source SWO; Σ warran
 
 ### 8.45.10 Deployment and operations
 
-Charts `passage-service` (TS API, breach monitor, mobile BFF) and `passage-dispatch` (Python OR-Tools worker, OSRM sidecar with regional extracts); Postgres `service` with PostGIS. Flags: `service.allow-negative-truck`. Schedules: `service-sla-monitor` every 60 s; `service-dispatch-auto` 18:00 territory-local for next day; `service-truck-replenish` nightly. SLOs: case create p95 < 300 ms; dispatch run ≤ 30 s; PWA sync p95 < 2 s per 100 actions; availability 99.9%. Alerts: SLA monitor lag > 2 min; solver fallback rate > 10%; OSRM unavailable. Runbook: re-run dispatch with greedy; replay mobile actions; refresh OSRM extract. Rollback by digest; dispatch runs are versioned and republishable.
+Charts `depot-service` (TS API, breach monitor, mobile BFF) and `depot-dispatch` (Python OR-Tools worker, OSRM sidecar with regional extracts); Postgres `service` with PostGIS. Flags: `service.allow-negative-truck`. Schedules: `service-sla-monitor` every 60 s; `service-dispatch-auto` 18:00 territory-local for next day; `service-truck-replenish` nightly. SLOs: case create p95 < 300 ms; dispatch run ≤ 30 s; PWA sync p95 < 2 s per 100 actions; availability 99.9%. Alerts: SLA monitor lag > 2 min; solver fallback rate > 10%; OSRM unavailable. Runbook: re-run dispatch with greedy; replay mobile actions; refresh OSRM extract. Rollback by digest; dispatch runs are versioned and republishable.
 
 ### 8.45.11 Migration from AX / SAP
 
-| Source | Passage entity | Notes |
+| Source | Depot entity | Notes |
 |---|---|---|
 | SMAServiceObjectTable, SMAServiceObjectRelationTable | ServiceObject | link to inventory serials where found |
 | SMAServiceAgreementTable/Line, SMAAgreementLine | ServiceAgreement, lines | interval lines → preventive visit WOs |
@@ -20115,7 +20116,7 @@ Open questions: (1) Customer self-scheduling portal in v1? Default v1.x; decide 
 
 ## 9.0 Phase overview
 
-**Business outcome at phase exit.** A manufacturer runs its entire business on Passage in production, off AX/SAP, with the vendor dependencies of the legacy systems removed: analytics no longer needs Entity store, BYOD or BW extractors because every domain streams into one governed lakehouse; users ask questions and delegate work to agents that act only within their own permissions; the tenant runs legally in seven countries with statutory outputs validated against regulator schemas; segregation of duties, SOC 2 evidence and privacy requests are system functions rather than spreadsheets; the customer's open items, balances and history were moved by a migration factory that reconciled every control total; and the platform has demonstrated 10k concurrent users, a region failover and a reconciled production month-end. v1.0 is tagged, signed and published.
+**Business outcome at phase exit.** A manufacturer runs its entire business on Depot in production, off AX/SAP, with the vendor dependencies of the legacy systems removed: analytics no longer needs Entity store, BYOD or BW extractors because every domain streams into one governed lakehouse; users ask questions and delegate work to agents that act only within their own permissions; the tenant runs legally in seven countries with statutory outputs validated against regulator schemas; segregation of duties, SOC 2 evidence and privacy requests are system functions rather than spreadsheets; the customer's open items, balances and history were moved by a migration factory that reconciled every control total; and the platform has demonstrated 10k concurrent users, a region failover and a reconciled production month-end. v1.0 is tagged, signed and published.
 
 **Phase-exit sign-off criteria** (all measured in the production-candidate environment unless stated)
 
@@ -20155,20 +20156,20 @@ Open questions: (1) Customer self-scheduling portal in v1? Default v1.x; decide 
 
 | Event (CloudEvents type) | Producer | Consumers | Payload summary |
 |---|---|---|---|
-| `dev.passage.analytics.snapshot.committed.v1` | analytics-ingest | semantic, catalog | table, snapshot_id, row_delta, max_source_lsn, watermark |
-| `dev.passage.analytics.metric.reconciled.v1` | semantic | compliance, alerting | metric_id, date, semantic_value, source_value, delta, status |
-| `dev.passage.agent.run.completed.v1` | agent-runtime | audit, copilot-ui, evals | run_id, agent, version, tool_calls[], tokens, outcome |
-| `dev.passage.agent.approval.requested.v1` | agent-runtime | workflow inbox | run_id, action_id, proposed_change, risk_score |
-| `dev.passage.ereporting.document.submitted.v1` | ereporting | AR/AP, compliance | mandate, format_version, document_ref, regulator_ack |
-| `dev.passage.sod.conflict.detected.v1` | sod | compliance, workflow | user_id, rule_id, roles[], severity |
-| `dev.passage.privacy.request.completed.v1` | privacy | audit | request_id, type, subject_ref, affected_domains[] |
-| `dev.passage.migration.pack.reconciled.v1` | migration-factory | cutover | run_id, pack, control_totals[], status |
-| `dev.passage.migration.parallelrun.diffed.v1` | migration-factory | cutover | run_id, period, variances_unexplained, variances_explained |
-| `dev.passage.ops.failover.completed.v1` | platform-ops | all services (fencing) | from_region, to_region, promoted_lsn, rpo_seconds, rto_seconds |
-| `dev.passage.documents.print.routed.v1` | docgen | print agent, audit | render_id, rule_id, destinations[] |
-| `dev.passage.compliance.esign.signed.v1` | compliance | quality, production, audit | esign_id, record, meaning, signer |
-| `dev.passage.trade.screening.hit.v1` | trade-compliance | sales, procurement, payments | subject, list_code, score |
-| `dev.passage.security.incident.breach_confirmed.v1` | security | privacy, notifications | incident_id, regimes[], deadlines[] |
+| `dev.depot.analytics.snapshot.committed.v1` | analytics-ingest | semantic, catalog | table, snapshot_id, row_delta, max_source_lsn, watermark |
+| `dev.depot.analytics.metric.reconciled.v1` | semantic | compliance, alerting | metric_id, date, semantic_value, source_value, delta, status |
+| `dev.depot.agent.run.completed.v1` | agent-runtime | audit, copilot-ui, evals | run_id, agent, version, tool_calls[], tokens, outcome |
+| `dev.depot.agent.approval.requested.v1` | agent-runtime | workflow inbox | run_id, action_id, proposed_change, risk_score |
+| `dev.depot.ereporting.document.submitted.v1` | ereporting | AR/AP, compliance | mandate, format_version, document_ref, regulator_ack |
+| `dev.depot.sod.conflict.detected.v1` | sod | compliance, workflow | user_id, rule_id, roles[], severity |
+| `dev.depot.privacy.request.completed.v1` | privacy | audit | request_id, type, subject_ref, affected_domains[] |
+| `dev.depot.migration.pack.reconciled.v1` | migration-factory | cutover | run_id, pack, control_totals[], status |
+| `dev.depot.migration.parallelrun.diffed.v1` | migration-factory | cutover | run_id, period, variances_unexplained, variances_explained |
+| `dev.depot.ops.failover.completed.v1` | platform-ops | all services (fencing) | from_region, to_region, promoted_lsn, rpo_seconds, rto_seconds |
+| `dev.depot.documents.print.routed.v1` | docgen | print agent, audit | render_id, rule_id, destinations[] |
+| `dev.depot.compliance.esign.signed.v1` | compliance | quality, production, audit | esign_id, record, meaning, signer |
+| `dev.depot.trade.screening.hit.v1` | trade-compliance | sales, procurement, payments | subject, list_code, score |
+| `dev.depot.security.incident.breach_confirmed.v1` | security | privacy, notifications | incident_id, regimes[], deadlines[] |
 
 **Phase-level risks**
 
@@ -20186,11 +20187,11 @@ Open questions: (1) Customer self-scheduling portal in v1? Default v1.x; decide 
 
 ### 9.46.1 Scope and business context
 
-AX customers build analytics on Entity store aggregate measurements refreshed by batch, BYOD exports to Azure SQL and Power BI embedded workspaces; SSRS runs document layouts through `SrsReportDataProvider` classes. SAP customers extract into BW/4HANA InfoProviders via ODP, expose `@Analytics.dataCategory: #CUBE` CDS views and embed SAC stories. Both put analytical load on OLTP or on a copy that is hours stale. This wave gives every Passage domain a CDC path into an Apache Iceberg lakehouse, a Cube semantic layer with governed metrics whose row-level security mirrors OPA, embedded dashboards in each workspace, a self-service explorer, scheduled reports, an operational document designer that replaces SSRS layouts, and OpenMetadata for catalog and lineage. At wave exit a controller sees revenue on a dashboard within 60 s of posting and knows it equals the GL. Out of scope: natural-language querying (wave 47), historical legacy data (wave 49), customer-built ML models.
+AX customers build analytics on Entity store aggregate measurements refreshed by batch, BYOD exports to Azure SQL and Power BI embedded workspaces; SSRS runs document layouts through `SrsReportDataProvider` classes. SAP customers extract into BW/4HANA InfoProviders via ODP, expose `@Analytics.dataCategory: #CUBE` CDS views and embed SAC stories. Both put analytical load on OLTP or on a copy that is hours stale. This wave gives every Depot domain a CDC path into an Apache Iceberg lakehouse, a Cube semantic layer with governed metrics whose row-level security mirrors OPA, embedded dashboards in each workspace, a self-service explorer, scheduled reports, an operational document designer that replaces SSRS layouts, and OpenMetadata for catalog and lineage. At wave exit a controller sees revenue on a dashboard within 60 s of posting and knows it equals the GL. Out of scope: natural-language querying (wave 47), historical legacy data (wave 49), customer-built ML models.
 
 **Pain points solved (10x lens)**
 
-| Pain point in AX/SAP today | Root cause | Passage answer in this wave | Measurable 10x target |
+| Pain point in AX/SAP today | Root cause | Depot answer in this wave | Measurable 10x target |
 |---|---|---|---|
 | Entity store refresh (`AggregateMeasurement`, batch job "Refresh entity store") runs hourly at best; Power BI tiles show numbers up to 4 h old and controllers re-query the GL to confirm | Batch copy from OLTP into a separate star schema; no change feed | Debezium CDC → Iceberg → Cube; freshness badge on every tile | Latency 4 h batch → p95 < 60 s |
 | Revenue on a dashboard and revenue on the trial balance disagree; nobody knows which is right (BYOD export gaps, BW extractor delta failures in `RSA7`) | Export jobs drop deltas silently; no reconciliation step | Daily automated metric ↔ GL reconciliation with hard fail and banner | Reconciliation effort 2 person-days/month → 0; delta tolerance 0.005 |
@@ -20200,7 +20201,7 @@ AX customers build analytics on Entity store aggregate measurements refreshed by
 
 ### 9.46.2 AX / SAP parity map
 
-| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Passage equivalent | Parity |
+| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Depot equivalent | Parity |
 |---|---|---|---|---|
 | Analytical store | Entity store, `AggregateMeasurement` (e.g. `LedgerActivityMeasure`), batch refresh | BW/4HANA ADSO, CompositeProvider, ODP extractors (`RSA1`) | Debezium CDC → Iceberg `raw.*`, dbt `core.*`/`mart.*` | Improved (streaming, no batch refresh) |
 | Data export for BI | BYOD (`DMFDataEntity` export to Azure SQL), Export to Data Lake | SLT, Datasphere replication flows | Iceberg tables queryable via Trino; CDC is the export | Improved |
@@ -20338,13 +20339,13 @@ Query validation: ≤ 10 measures, ≤ 8 dimensions, time range ≤ 5 years at d
 
 | Event | Trigger | Payload fields | Consumers |
 |---|---|---|---|
-| `dev.passage.analytics.snapshot.committed.v1` | Iceberg commit | domain, table, snapshot_id, rows_added, rows_deleted, max_lsn, watermark_ts | semantic (cache invalidation), catalog |
-| `dev.passage.analytics.metric.reconciled.v1` | daily job | metric_id, tenant_id, date, semantic_value, source_value, delta, status | compliance evidence, alerting |
-| `dev.passage.analytics.report.delivered.v1` | schedule run | schedule_id, run_id, format, destination, row_count, bytes | audit |
-| `dev.passage.documents.template.published.v1` | version publish | template_id, version, document_type, visual_hash | print management, catalog |
-| `dev.passage.documents.print.routed.v1` | destination resolved at render | render_id, document_type, record_id, rule_id, destinations[] | print agent, audit |
-| `dev.passage.catalog.dq.scored.v1` | hourly evaluation | asset_fqn, rule_id, pass_pct, failed_rows, severity | data owner inbox, dashboard |
-| `dev.passage.archive.partition.moved.v1` | archive job verified a partition | domain, table, period, rows, content_hash | compliance evidence (CC6.5), catalog |
+| `dev.depot.analytics.snapshot.committed.v1` | Iceberg commit | domain, table, snapshot_id, rows_added, rows_deleted, max_lsn, watermark_ts | semantic (cache invalidation), catalog |
+| `dev.depot.analytics.metric.reconciled.v1` | daily job | metric_id, tenant_id, date, semantic_value, source_value, delta, status | compliance evidence, alerting |
+| `dev.depot.analytics.report.delivered.v1` | schedule run | schedule_id, run_id, format, destination, row_count, bytes | audit |
+| `dev.depot.documents.template.published.v1` | version publish | template_id, version, document_type, visual_hash | print management, catalog |
+| `dev.depot.documents.print.routed.v1` | destination resolved at render | render_id, document_type, record_id, rule_id, destinations[] | print agent, audit |
+| `dev.depot.catalog.dq.scored.v1` | hourly evaluation | asset_fqn, rule_id, pass_pct, failed_rows, severity | data owner inbox, dashboard |
+| `dev.depot.archive.partition.moved.v1` | archive job verified a partition | domain, table, period, rows, content_hash | compliance evidence (CC6.5), catalog |
 
 ### 9.46.6 User experience
 
@@ -20423,7 +20424,7 @@ Reconciliation: `revenue`, `cogs` ↔ ledger balance movements by account catego
 
 ### 9.46.10 Deployment and operations
 
-Helm charts: `passage-cdc` (Kafka Connect cluster with Debezium and Iceberg sink, 3 workers), `passage-lakehouse` (Iceberg REST catalog, Nessie-compatible, object storage via S3 API), `passage-trino` (coordinator + 4 workers, autoscaling to 16), `passage-clickhouse` (optional accelerator for `mart.*` pre-aggregations), `passage-cube` (API + refresh workers), `passage-dbt-runner` (Temporal worker), `passage-docgen`, `passage-openmetadata`.
+Helm charts: `depot-cdc` (Kafka Connect cluster with Debezium and Iceberg sink, 3 workers), `depot-lakehouse` (Iceberg REST catalog, Nessie-compatible, object storage via S3 API), `depot-trino` (coordinator + 4 workers, autoscaling to 16), `depot-clickhouse` (optional accelerator for `mart.*` pre-aggregations), `depot-cube` (API + refresh workers), `depot-dbt-runner` (Temporal worker), `depot-docgen`, `depot-openmetadata`.
 Config: `CDC_DOMAINS` list, `ICEBERG_COMMIT_INTERVAL=30s`, `LATE_DATA_WATERMARK=5m`, `RECON_TOLERANCE=0.005`, object-store credentials from Vault.
 Migrations: `analytics` database (Atlas); Iceberg schemas managed by the sink.
 Feature flags: `analytics.dashboards`, `analytics.explorer`, `docgen.designer` per tenant.
@@ -20435,7 +20436,7 @@ Rollback: Helm rollback of services; Iceberg `rollback_to_snapshot` per table; c
 
 ### 9.46.11 Migration from AX / SAP
 
-| Source | Passage | Notes |
+| Source | Depot | Notes |
 |---|---|---|
 | Entity store `AggregateMeasurement` definitions | `semantic_metric` | mapped by hand; measures become Cube measures, dimensions become joins |
 | Power BI `.pbix` over BYOD | Dashboards | not converted; rebuilt on Cube; Power BI Desktop can connect to Trino |
@@ -20629,11 +20630,11 @@ Setup sequence per legal entity: install document templates → map party contac
 
 ### 9.47.1 Scope and business context
 
-D365 ships Copilot for finance and operations (summaries, draft e-mails, Copilot in workflow history) and Power Automate flows triggered from business events; SAP ships Joule and SAP Build Process Automation. Neither lets a governed agent execute a multi-step ERP process under the invoking user's exact permissions with an eval gate. This wave exposes every Passage API, entity and report as MCP tools through a gateway that forwards the user's token to OPA-protected APIs; adds a copilot in the shell (ask-the-data over the wave-46 semantic layer, explain-this-record, draft documents, summarize workflows); runs agents on Temporal with approval gates; gates deployment on an eval harness; and enforces responsible-AI controls with a provider-agnostic model layer (Claude default; Bedrock, Azure OpenAI, open-weights via vLLM selectable). Out of scope: training custom models, autonomous posting without approval in v1, voice.
+D365 ships Copilot for finance and operations (summaries, draft e-mails, Copilot in workflow history) and Power Automate flows triggered from business events; SAP ships Joule and SAP Build Process Automation. Neither lets a governed agent execute a multi-step ERP process under the invoking user's exact permissions with an eval gate. This wave exposes every Depot API, entity and report as MCP tools through a gateway that forwards the user's token to OPA-protected APIs; adds a copilot in the shell (ask-the-data over the wave-46 semantic layer, explain-this-record, draft documents, summarize workflows); runs agents on Temporal with approval gates; gates deployment on an eval harness; and enforces responsible-AI controls with a provider-agnostic model layer (Claude default; Bedrock, Azure OpenAI, open-weights via vLLM selectable). Out of scope: training custom models, autonomous posting without approval in v1, voice.
 
 **Pain points solved (10x lens)**
 
-| Pain point in AX/SAP today | Root cause | Passage answer in this wave | Measurable 10x target |
+| Pain point in AX/SAP today | Root cause | Depot answer in this wave | Measurable 10x target |
 |---|---|---|---|
 | Coding a vendor invoice in `VendInvoiceJour`/`MIRO` means opening the PO, the vendor history and the chart of accounts in three forms, then keying account, dimensions and tax code per line | No suggestion engine; copilots cannot read the posting context | AP coding agent proposes account, dimensions, tax code, PO match per line; approver confirms | Clicks per invoice 18 → 2; coding time 4 min → 20 s; top-1 accuracy ≥ 92% |
 | Cash application: `CustPaymMatch` rules and `F-28` match exact amounts only; partials and multi-invoice remittances go to a manual queue | Rule-based matching without reading remittance text | Cash application agent ranks settlements from remittance text and tolerances | Auto-matched share 60% → 90%+; unapplied cash aged > 7 d reduced 10× |
@@ -20643,7 +20644,7 @@ D365 ships Copilot for finance and operations (summaries, draft e-mails, Copilot
 
 ### 9.47.2 AX / SAP parity map
 
-| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Passage equivalent | Parity |
+| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Depot equivalent | Parity |
 |---|---|---|---|---|
 | Conversational assistant | D365 Copilot sidecar (`CopilotFeatureManagement`), Copilot summaries on workflow history | Joule in S/4HANA Cloud, Fiori launchpad | Copilot panel in shell | Improved (acts, not only answers) |
 | Ask the data | Copilot "ask about data" over Dataverse virtual entities | Joule analytics via SAC | `ask_data` tool → Cube query with OPA scope | Full |
@@ -20660,10 +20661,10 @@ D365 ships Copilot for finance and operations (summaries, draft e-mails, Copilot
 
 ### 9.47.3 Functional requirements
 
-- **FR-47.1 MCP gateway** — Must. The system shall expose Passage capabilities as MCP tools from a single gateway (`mcp.passage.<tenant>`), generated from OpenAPI/AsyncAPI and entity metadata.
-  - Notes: tool names `passage.<domain>.<entity>.<verb>` (e.g. `passage.ap.invoice.list`, `passage.ap.invoice.propose_coding`, `passage.ledger.journal.get`); `inputSchema` is the endpoint's JSON Schema with tenant_id removed (injected from token); each tool declares `annotations.readOnlyHint`, `destructiveHint`, `idempotentHint`, and a Passage extension `x-passage-duty` (required duty) and `x-passage-approval` (`none`, `suggest`, `approve_before_commit`); read tools return ≤ 200 rows per call with cursor; a tool call carries `traceparent` and `x-agent-run-id`.
+- **FR-47.1 MCP gateway** — Must. The system shall expose Depot capabilities as MCP tools from a single gateway (`mcp.depot.<tenant>`), generated from OpenAPI/AsyncAPI and entity metadata.
+  - Notes: tool names `depot.<domain>.<entity>.<verb>` (e.g. `depot.ap.invoice.list`, `depot.ap.invoice.propose_coding`, `depot.ledger.journal.get`); `inputSchema` is the endpoint's JSON Schema with tenant_id removed (injected from token); each tool declares `annotations.readOnlyHint`, `destructiveHint`, `idempotentHint`, and a Depot extension `x-depot-duty` (required duty) and `x-depot-approval` (`none`, `suggest`, `approve_before_commit`); read tools return ≤ 200 rows per call with cursor; a tool call carries `traceparent` and `x-agent-run-id`.
 - **FR-47.2 Permission inheritance** — Must. The system shall execute every tool call with the invoking user's Keycloak token (on-behalf-of exchange, `act` claim = agent id), so OPA evaluates the user's duties and data scope at the API; agents hold no credentials of their own.
-  - Notes: token lifetime for agent runs 15 min, refreshed by Temporal activity; a tool whose `x-passage-duty` the user lacks is not listed to the model; contract test: for each of 400 tools, a user without the duty receives 403 from the gateway and the API.
+  - Notes: token lifetime for agent runs 15 min, refreshed by Temporal activity; a tool whose `x-depot-duty` the user lacks is not listed to the model; contract test: for each of 400 tools, a user without the duty receives 403 from the gateway and the API.
 - **FR-47.3 Copilot UI** — Must. The system shall provide a shell panel with modes ask-the-data, explain-this-record, draft (e-mail, PO text, dunning letter), summarize (workflow history, case) with citations to records and metrics used.
   - Notes: streaming responses; every answer lists tool calls made; "explain" uses the record's audit trail and related documents; drafts are inserted only on user click.
 - **FR-47.4 Agent runtime** — Must. The system shall run agents as Temporal workflows (`AgentRunWorkflow`) with steps plan → tool calls → proposal → approval gate → commit, each tool call an activity with retry policy and 60 s timeout, run timeout 24 h including approval wait.
@@ -20678,7 +20679,7 @@ D365 ships Copilot for finance and operations (summaries, draft e-mails, Copilot
 - **FR-47.12 Responsible-AI controls** — Must. The system shall: redact PII (names, IBAN, tax ids, emails) from prompts to external providers using the wave-42 PII classification, replacing with stable pseudonyms resolved after response; log every action (prompt hash, tool calls, outputs, approver); provide a tenant and global kill switch that halts all runs within 10 s; prohibit model-initiated posting without `approve_before_commit` or auto-mode policy; label all generated text in UI; keep a model card per agent version; allow provider selection per tenant with data-residency constraint checked against wave-48 tenant residency.
 - **FR-47.13 Provider layer** — Must. The system shall abstract chat completion, tool use and embeddings behind one interface with adapters for Anthropic API, Amazon Bedrock, Azure, and OpenAI-compatible open-weights endpoints; feature parity test per adapter.
 
-- **FR-47.14 Knowledge retrieval tool** — Should. The system shall expose `passage.knowledge.search` (hybrid BM25 + embedding search over wave-45 knowledge articles, wave-50 documentation, and tenant policy documents uploaded by an administrator) so copilot answers to "how do I" questions cite the article or document section; the tool respects article visibility (internal, portal) through the user's token.
+- **FR-47.14 Knowledge retrieval tool** — Should. The system shall expose `depot.knowledge.search` (hybrid BM25 + embedding search over wave-45 knowledge articles, wave-50 documentation, and tenant policy documents uploaded by an administrator) so copilot answers to "how do I" questions cite the article or document section; the tool respects article visibility (internal, portal) through the user's token.
   - Notes: embeddings are computed by the provider layer (FR-47.13) and stored in Postgres `pgvector` in the `knowledge` database; index refresh within 5 min of article publish; answers without a citation above similarity 0.75 say so instead of guessing.
 - **FR-47.15 Payment-date prediction** — Should. The system shall train a per-tenant model (Python, gradient-boosted trees) weekly on paid invoices (customer, terms, amount, invoice day-of-month, dunning history, disputes, seasonality) and score every open customer invoice with `predicted_payment_date` and `p_late_30d`, feeding the collections agent (FR-47.7), the wave-30 collections workspace and the `dso_days` forecast tile.
   - Notes: minimum 500 paid invoices per tenant before scoring is enabled, else a terms-plus-average-delay heuristic is used and labeled; model card per version; MAE on held-out set ≤ 6 days or the previous model stays active.
@@ -20689,7 +20690,7 @@ D365 ships Copilot for finance and operations (summaries, draft e-mails, Copilot
 
 | Field | Type | Required | Notes |
 |---|---|---|---|
-| tool_name | text | Y | PK, `passage.<domain>.<entity>.<verb>` |
+| tool_name | text | Y | PK, `depot.<domain>.<entity>.<verb>` |
 | version | int | Y | from OpenAPI version |
 | input_schema | jsonb | Y | JSON Schema draft 2020-12 |
 | output_schema | jsonb | Y | |
@@ -20744,12 +20745,12 @@ Validation: run start rejects when tenant budget state HARD, kill switch active,
 
 | Event | Trigger | Payload fields | Consumers |
 |---|---|---|---|
-| `dev.passage.agent.run.completed.v1` | run end | run_id, agent_id, version, status, tool_calls[], tokens, cost_usd | audit, evals, copilot |
-| `dev.passage.agent.approval.requested.v1` | gate reached | run_id, action_id, tool_name, proposal, confidence, risk_score | workflow inbox |
-| `dev.passage.agent.budget.threshold.v1` | 80%/100% | tenant_id, month, pct, state | alerting, admin UI |
-| `dev.passage.agent.killswitch.changed.v1` | toggle | scope, active, by_user | all agent workers |
-| `dev.passage.prediction.payment.scored.v1` | weekly scoring or invoice change | invoice_id, model_version, predicted_payment_date, p_late_30d | collections workspace, analytics |
-| `dev.passage.agent.version.promoted.v1` | production pointer change | agent_id, from_version, to_version, eval_run_id, by_user | audit, workers |
+| `dev.depot.agent.run.completed.v1` | run end | run_id, agent_id, version, status, tool_calls[], tokens, cost_usd | audit, evals, copilot |
+| `dev.depot.agent.approval.requested.v1` | gate reached | run_id, action_id, tool_name, proposal, confidence, risk_score | workflow inbox |
+| `dev.depot.agent.budget.threshold.v1` | 80%/100% | tenant_id, month, pct, state | alerting, admin UI |
+| `dev.depot.agent.killswitch.changed.v1` | toggle | scope, active, by_user | all agent workers |
+| `dev.depot.prediction.payment.scored.v1` | weekly scoring or invoice change | invoice_id, model_version, predicted_payment_date, p_late_30d | collections workspace, analytics |
+| `dev.depot.agent.version.promoted.v1` | production pointer change | agent_id, from_version, to_version, eval_run_id, by_user | audit, workers |
 
 ### 9.47.6 User experience
 
@@ -20783,7 +20784,7 @@ Rules: `Ctrl+/` opens copilot with current record context; approvals support key
 ### 9.47.8 Acceptance criteria
 
 - **AC-47.1** (FR-47.1) Given an authenticated user, when `tools/list` is called, then only tools whose `required_duty` the user holds are returned.
-- **AC-47.2** (FR-47.2) Given user without duty `APInvoicePost`, when the agent calls `passage.ap.invoice.post`, then gateway returns 403 and the action is logged `DENIED`.
+- **AC-47.2** (FR-47.2) Given user without duty `APInvoicePost`, when the agent calls `depot.ap.invoice.post`, then gateway returns 403 and the action is logged `DENIED`.
 - **AC-47.3** (FR-47.5, 47.9) Given the `eval-ap-coding-v3` dataset (2,000 invoices), when evals run, then top-1 accuracy ≥ 0.92 and the CI job passes.
 - **AC-47.4** (FR-47.6, 47.9) Given `eval-cash-app-v2` (1,500 payments), when evals run, then precision ≥ 0.90.
 - **AC-47.5** (FR-47.8) Given a coding proposal with confidence 0.80, when the run reaches the gate, then an approval task appears in the inbox and nothing is posted.
@@ -20803,7 +20804,7 @@ Fixtures: `eval-ap-coding-v3` (2,000 labeled invoices, 40 vendors, 3 entities, f
 | Test | Type | Target | Pass criterion |
 |---|---|---|---|
 | Permission inheritance | contract | gateway + 400 tools | 0 cases where agent exceeds user |
-| Tool schema conformance | contract | gateway | every tool validates against MCP spec and `x-passage-*` |
+| Tool schema conformance | contract | gateway | every tool validates against MCP spec and `x-depot-*` |
 | Agent evals | eval | 5 agents | thresholds in FR-47.9 |
 | Adversarial refusal | eval | copilot | ≥ 0.99 correct refusals |
 | Redaction scanner | unit/property | redaction | 0 PII patterns in stored prompts across 100k generated samples |
@@ -20815,11 +20816,11 @@ Reconciliation: tokens billed by provider ↔ `agent_run.tokens_*` within 1%; `a
 
 ### 9.47.10 Deployment and operations
 
-Helm: `passage-mcp-gateway` (TS, 3 replicas), `passage-agent-runtime` (TS workers on Temporal namespace `agents`), `passage-copilot-bff`, `passage-agent-evals` (Python job runner). Config: `MODEL_PROVIDER_DEFAULT=anthropic`, `MODEL_ID` pinned per agent version, provider keys in Vault, `TOKEN_BUDGET_DEFAULT_IN=50000000`. Flags: `copilot.enabled`, `agent.<id>.mode` (off/suggest/auto) per tenant and legal entity. Jobs: budget rollover monthly, eval nightly on production datasets, model-card export weekly. SLOs: copilot first-token p95 < 2 s; run success rate ≥ 99%; gateway availability 99.9%. Alerts: eval regression, budget 80/100%, provider error rate > 5%, kill switch toggled. Runbook: rotate provider keys, replay a run in sandbox, demote version. Rollback: `promote` previous `agent_version`; Helm rollback.
+Helm: `depot-mcp-gateway` (TS, 3 replicas), `depot-agent-runtime` (TS workers on Temporal namespace `agents`), `depot-copilot-bff`, `depot-agent-evals` (Python job runner). Config: `MODEL_PROVIDER_DEFAULT=anthropic`, `MODEL_ID` pinned per agent version, provider keys in Vault, `TOKEN_BUDGET_DEFAULT_IN=50000000`. Flags: `copilot.enabled`, `agent.<id>.mode` (off/suggest/auto) per tenant and legal entity. Jobs: budget rollover monthly, eval nightly on production datasets, model-card export weekly. SLOs: copilot first-token p95 < 2 s; run success rate ≥ 99%; gateway availability 99.9%. Alerts: eval regression, budget 80/100%, provider error rate > 5%, kill switch toggled. Runbook: rotate provider keys, replay a run in sandbox, demote version. Rollback: `promote` previous `agent_version`; Helm rollback.
 
 ### 9.47.11 Migration from AX / SAP
 
-| Source | Passage | Notes |
+| Source | Depot | Notes |
 |---|---|---|
 | Power Automate flows on business events | Agent or Temporal workflow definitions | catalogued; rebuilt by hand; the business-event catalog maps to CloudEvents types |
 | `VendInvoiceAutomation` parameters | AP coding agent thresholds | tolerance and auto-post limits imported |
@@ -20980,7 +20981,7 @@ No document is posted or sent by this wave on its own; every outbound artifact i
 | AX 12.31 inventory rows "Copilot / Ask-the-data", "Copilot → Agent runs", "Copilot settings" | COVERED-47 | confirmed by FR-47.3, 47.4, 9.47.13 | |
 | AX 12.21 inventory row "Planning → MRP exception triage agent" | COVERED-47 | confirmed by FR-47.7 | |
 | SAP 13.37 inventory rows "Responsible AI", "Agent action audit", "Token/cost budget", "AI governance policies", "Business AI scenario activation" | COVERED-47 | confirmed by FR-47.5, 47.11, 47.12 and 9.47.13 (`agent.<id>.mode`) | |
-| SAP 13.99.2 rows 348/352/354 — BRF+ / decision tables (PARTIAL-3, not this wave) | PARTIAL-3 | SUPERSEDED by FR-3.13 (wave 3); `POST /v1/rules/{code}/evaluate` is exposed as MCP tool `passage.rules.ruleset.evaluate`, agents never embed rules in prompts | listed for traceability only |
+| SAP 13.99.2 rows 348/352/354 — BRF+ / decision tables (PARTIAL-3, not this wave) | PARTIAL-3 | SUPERSEDED by FR-3.13 (wave 3); `POST /v1/rules/{code}/evaluate` is exposed as MCP tool `depot.rules.ruleset.evaluate`, agents never embed rules in prompts | listed for traceability only |
 
 ## 9.48 Wave 48: Globalization, Localization & Compliance Controls
 
@@ -20990,7 +20991,7 @@ AX delivers country/region localizations, Electronic Reporting (`ERModel`, `ERFo
 
 **Pain points solved (10x lens)**
 
-| Pain point in AX/SAP today | Root cause | Passage answer in this wave | Measurable 10x target |
+| Pain point in AX/SAP today | Root cause | Depot answer in this wave | Measurable 10x target |
 |---|---|---|---|
 | A regulator changes an XML schema; the ER configuration must be re-imported from RCS/LCS, tested in a sandbox and deployed, or an SAP note applied via `SNOTE` with a transport | Formats bundled with the application release cycle | Mandates registry with effective-dated `er_format` versions, schema validation in CI | Schema update 3 weeks → 1 day; 0 regulator rejections for schema errors |
 | SoD conflicts in `SysSecSegregationOfDutiesConflict` are found after assignment; GRC AC risk analysis runs as a batch and mitigations live in a separate system | Detection decoupled from role assignment | `sod/simulate` before save; nightly evaluation; mitigation workflow in the same workspace | Detection latency 1 day batch → < 2 s at assignment; unmitigated HIGH conflicts 0 |
@@ -21000,7 +21001,7 @@ AX delivers country/region localizations, Electronic Reporting (`ERModel`, `ERFo
 
 ### 9.48.2 AX / SAP parity map
 
-| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Passage equivalent | Parity |
+| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Depot equivalent | Parity |
 |---|---|---|---|---|
 | Country localization | Country/region-specific features gated by `CountryRegionCodes`, Localization feature keys | Country versions, `T005` country settings, localization BC sets | `country_pack` with tax, reports, layouts, bank formats, calendars | Full (7 countries) |
 | Electronic reporting | ER `ERModel`, `ERFormat`, `ERModelMapping`, RCS, `ERFormatMappingRun` | DRC e-documents (`EDOC_COCKPIT`), statutory reports (`SRF`), Advanced Compliance Reporting | ER designer: `er_model`, `er_mapping`, `er_format` with mandates registry | Full |
@@ -21030,7 +21031,7 @@ AX delivers country/region localizations, Electronic Reporting (`ERModel`, `ERFo
 - **FR-48.1 Country pack framework** — Must. The system shall package per-country tax rules, statutory report formats, document layouts, bank formats (NACHA, BACS, SEPA CT/DD, NEFT/RTGS, SPEI, EFT), holiday calendars and address/tax-id validators as a versioned `country_pack`, installable per legal entity.
   - Notes: packs are metadata plus ER formats, never code forks; a legal entity has exactly one primary pack; pack upgrade is a versioned migration with preview.
 - **FR-48.2 First seven packs** — Must. US (sales/use tax, 1099-NEC/MISC, ACH), UK (MTD VAT, BACS, Companies House XBRL tags), DE (UStVA, ZM, SEPA, GoBD export, DATEV), FR (CA3, DEB, FEC file, SEPA), IN (GST returns GSTR-1/3B, e-invoice IRP, TDS), MX (CFDI 4.0 with PAC, DIOT, SPEI), CA (GST/HST/PST, EFT, T4A).
-- **FR-48.3 Electronic reporting designer** — Must. The system shall provide `er_model` (logical data model), `er_mapping` (Passage entities → model), `er_format` (XML/JSON/CSV/fixed-width output with XSD/JSON-schema validation), versioned with effective dates and a mandates registry (`mandate`: regulator, jurisdiction, schema version, effective_from, sunset).
+- **FR-48.3 Electronic reporting designer** — Must. The system shall provide `er_model` (logical data model), `er_mapping` (Depot entities → model), `er_format` (XML/JSON/CSV/fixed-width output with XSD/JSON-schema validation), versioned with effective dates and a mandates registry (`mandate`: regulator, jurisdiction, schema version, effective_from, sunset).
   - Notes: format execution is a Temporal job; every output is stored with hash and regulator acknowledgment; schema validation failure blocks submission.
 - **FR-48.4 SoD rules engine** — Must. The system shall evaluate rules of the form `duty_a CONFLICTS duty_b` (and privilege-level) against every user's effective roles on each assignment change and nightly, raising conflicts with severity.
   - Rule schema: `rule_id`, `name`, `duty_a`, `duty_b`, `severity` (HIGH/MEDIUM/LOW), `risk_id` (GRC-style, e.g. `P2P-001`), `description`, `mitigation_allowed` bool, `max_mitigation_days` (default 365), `status`.
@@ -21183,17 +21184,17 @@ Validation: pack install rejects if the entity's fiscal calendar is open-period 
 
 | Event | Trigger | Payload fields | Consumers |
 |---|---|---|---|
-| `dev.passage.ereporting.document.submitted.v1` | regulator ack | mandate_id, format_version, document_ref, ack_id, status | AR/AP (mark invoice sent), compliance |
-| `dev.passage.sod.conflict.detected.v1` | evaluation | user_id, rule_id, severity, roles[] | workflow, compliance |
-| `dev.passage.sod.mitigation.approved.v1` | approval | conflict_id, approver, expires_at | audit |
-| `dev.passage.privacy.request.completed.v1` | close | request_id, type, affected_domains[], delivered_at | audit |
-| `dev.passage.compliance.evidence.collected.v1` | collector | control_id, evidence_id, hash | compliance UI |
-| `dev.passage.compliance.esign.signed.v1` | signature stored | esign_id, entity_type, record_id, meaning, signer, signed_at | quality, production, audit |
-| `dev.passage.compliance.audit.violation.created.v1` | audit policy run | policy_id, document_type, document_id, score | audit case UI, workflow |
-| `dev.passage.trade.screening.hit.v1` | screening match | subject_type, subject_id, list_code, score | sales, procurement, payments (block) |
-| `dev.passage.security.elevated.started.v1` / `.ended.v1` | break-glass | session_id, user_id, roles[], reason | SOC, audit, reviewer inbox |
-| `dev.passage.security.incident.breach_confirmed.v1` | breach flag set | incident_id, regimes[], deadlines[] | privacy, notifications |
-| `dev.passage.ereporting.message.status_changed.v1` | e-message transition | message_id, type, from, to, receipt_id | compliance UI, tax |
+| `dev.depot.ereporting.document.submitted.v1` | regulator ack | mandate_id, format_version, document_ref, ack_id, status | AR/AP (mark invoice sent), compliance |
+| `dev.depot.sod.conflict.detected.v1` | evaluation | user_id, rule_id, severity, roles[] | workflow, compliance |
+| `dev.depot.sod.mitigation.approved.v1` | approval | conflict_id, approver, expires_at | audit |
+| `dev.depot.privacy.request.completed.v1` | close | request_id, type, affected_domains[], delivered_at | audit |
+| `dev.depot.compliance.evidence.collected.v1` | collector | control_id, evidence_id, hash | compliance UI |
+| `dev.depot.compliance.esign.signed.v1` | signature stored | esign_id, entity_type, record_id, meaning, signer, signed_at | quality, production, audit |
+| `dev.depot.compliance.audit.violation.created.v1` | audit policy run | policy_id, document_type, document_id, score | audit case UI, workflow |
+| `dev.depot.trade.screening.hit.v1` | screening match | subject_type, subject_id, list_code, score | sales, procurement, payments (block) |
+| `dev.depot.security.elevated.started.v1` / `.ended.v1` | break-glass | session_id, user_id, roles[], reason | SOC, audit, reviewer inbox |
+| `dev.depot.security.incident.breach_confirmed.v1` | breach flag set | incident_id, regimes[], deadlines[] | privacy, notifications |
+| `dev.depot.ereporting.message.status_changed.v1` | e-message transition | message_id, type, from, to, receipt_id | compliance UI, tax |
 
 ### 9.48.6 User experience
 
@@ -21289,11 +21290,11 @@ Reconciliation: statutory VAT return boxes ↔ tax settlement totals (wave 13) t
 
 ### 9.48.10 Deployment and operations
 
-Helm: `passage-localization`, `passage-ereporting` (TS + Temporal), `passage-sod` (Go), `passage-compliance`, `passage-privacy`. Config: `COUNTRY_PACKS_ENABLED`, regulator adapter credentials (HMRC, PAC, IRP) in Vault, `SOD_BLOCK_HIGH`, `PRIVACY_DEADLINE_DAYS`. Migrations: `compliance` and `localization` databases. Flags per tenant: `pack.<code>`, `sod.enforce`, `privacy.portal`. Jobs: SoD nightly 00:30, evidence collectors per control schedule, retention purge monthly, backup drill monthly, secrets rotation. SLOs: format run p95 < 5 min for 100k lines; SoD evaluation < 2 s per assignment. Alerts: schema validation failure, regulator rejection, HIGH conflict unmitigated > 7 days, drill failure. Rollback: pack version downgrade with preview; ER format supersede; Helm rollback.
+Helm: `depot-localization`, `depot-ereporting` (TS + Temporal), `depot-sod` (Go), `depot-compliance`, `depot-privacy`. Config: `COUNTRY_PACKS_ENABLED`, regulator adapter credentials (HMRC, PAC, IRP) in Vault, `SOD_BLOCK_HIGH`, `PRIVACY_DEADLINE_DAYS`. Migrations: `compliance` and `localization` databases. Flags per tenant: `pack.<code>`, `sod.enforce`, `privacy.portal`. Jobs: SoD nightly 00:30, evidence collectors per control schedule, retention purge monthly, backup drill monthly, secrets rotation. SLOs: format run p95 < 5 min for 100k lines; SoD evaluation < 2 s per assignment. Alerts: schema validation failure, regulator rejection, HIGH conflict unmitigated > 7 days, drill failure. Rollback: pack version downgrade with preview; ER format supersede; Helm rollback.
 
 ### 9.48.11 Migration from AX / SAP
 
-| Source | Passage | Notes |
+| Source | Depot | Notes |
 |---|---|---|
 | `SysSecSegregationOfDutiesRule` | `sod_rule` | duties mapped via wave-2 role mapping; severity imported |
 | `SysSecSegregationOfDutiesConflict` with resolution | `sod_conflict` + `mitigation` | open conflicts re-evaluated; mitigations imported with original approver and expiry |
@@ -21580,7 +21581,7 @@ AX 2012 → D365 uses the data upgrade scripts (`ReleaseUpdateDB` classes, LCS d
 
 **Pain points solved (10x lens)**
 
-| Pain point in AX/SAP today | Root cause | Passage answer in this wave | Measurable 10x target |
+| Pain point in AX/SAP today | Root cause | Depot answer in this wave | Measurable 10x target |
 |---|---|---|---|
 | Open items loaded through DIXF (`DMFDefinitionGroup`) or Migration Cockpit staging tables (`/1LT/DS*`) are reconciled in Excel against `VendTransOpen`/`BSIK` totals; mismatches found days later | No built-in control totals at sub-total grain | `control_total` per pack at (entity, account, currency) grain with hashes, computed in-run | Reconciliation 5 person-days per entity → 10 min automated; mismatches found in-run |
 | Re-running a failed load creates duplicates (`InventSum` doubled, duplicate `BKPF` opening documents) | Loaders without natural-key idempotency | Idempotent packs keyed on `legacy_xref` | Duplicate rate after re-run 0 |
@@ -21590,7 +21591,7 @@ AX 2012 → D365 uses the data upgrade scripts (`ReleaseUpdateDB` classes, LCS d
 
 ### 9.49.2 AX / SAP parity map
 
-| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Passage equivalent | Parity |
+| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Depot equivalent | Parity |
 |---|---|---|---|---|
 | Open AP/AR items | `VendTrans`/`VendTransOpen`, `CustTrans`/`CustTransOpen`, `VendSettlement` | `BSIK`/`BSID` (ECC), `ACDOCA` open items (S/4), `BSEG` | pack `open_items` → AP/AR open items with `legacy_xref` | Full |
 | GL balances | `GeneralJournalAccountEntry`, `DimensionAttributeValueCombination`, `LedgerBalance*` | `GLT0`/`FAGLFLEXT` (ECC), `ACDOCA` (S/4) | pack `gl_balances` → opening journal per dimension | Full |
@@ -21609,20 +21610,20 @@ AX 2012 → D365 uses the data upgrade scripts (`ReleaseUpdateDB` classes, LCS d
 - **FR-49.1 Transactional packs** — Must. The system shall provide packs `open_items`, `gl_balances`, `onhand`, `open_orders`, `wip_prod`, `fixed_assets`, `project_wip`, `payroll_ytd`, `bank_balances`, each with AX and SAP extractors, mapping, validation (Great Expectations suites), load and reconciliation steps.
 - **FR-49.2 Control totals** — Must. The system shall compute and compare per pack: `open_items`: count, sum amount in transaction currency per currency, sum in accounting currency, per (entity, account, currency) sub-totals, hash of sorted (legacy_id, amount); `gl_balances`: per (entity, account, dimension combination, currency) balance, trial balance debit = credit, count of non-zero combinations; `onhand`: per (item, site, warehouse, location, batch, serial) quantity and per (item, site) value, total value per entity; `open_orders`: order count, line count, remaining quantity, remaining amount; `wip_prod`: order count, WIP value per order; `fixed_assets`: count, acquisition cost, accumulated depreciation, NBV per book; `project_wip`: WIP value per project; `payroll_ytd`: gross, tax, net per worker; `bank_balances`: per account.
   - Notes: every total must match exactly (0.00) unless a tolerance rule is explicitly configured with reason; totals are stored on `control_total` with source and target values and timestamp.
-- **FR-49.3 Legacy cross-reference** — Must. The system shall store `legacy_xref` (system, company, table, legacy_id → passage entity, id) for every migrated record and expose it on every record detail and in the lakehouse.
-- **FR-49.4 Historical load** — Must. The system shall load closed legacy transactions (journals, invoices, inventory transactions, orders) for N years (default 7) into Iceberg `history.<system>.*` with the legacy schema preserved, mapped views `history.unified.*` on the Passage model, queryable in explorer with `source=legacy` filter.
-- **FR-49.5 Parallel-run harness** — Must. The system shall replay a legacy period's source documents (vendor invoices, customer invoices, inventory movements, journals, production postings) into a Passage rehearsal tenant through the public posting APIs in original sequence and compare results.
+- **FR-49.3 Legacy cross-reference** — Must. The system shall store `legacy_xref` (system, company, table, legacy_id → depot entity, id) for every migrated record and expose it on every record detail and in the lakehouse.
+- **FR-49.4 Historical load** — Must. The system shall load closed legacy transactions (journals, invoices, inventory transactions, orders) for N years (default 7) into Iceberg `history.<system>.*` with the legacy schema preserved, mapped views `history.unified.*` on the Depot model, queryable in explorer with `source=legacy` filter.
+- **FR-49.5 Parallel-run harness** — Must. The system shall replay a legacy period's source documents (vendor invoices, customer invoices, inventory movements, journals, production postings) into a Depot rehearsal tenant through the public posting APIs in original sequence and compare results.
   - Diff algorithm: (1) normalize both sides to canonical tuples `(entity, account, dimension set, currency, period, amount)` for trial balance, `(item, dims, qty, value)` for inventory, `(subledger, open item id, amount)` for subledgers; (2) outer-join on key; (3) classify each difference: EXPECTED (rule-based: known rounding ≤ 0.01, policy differences registered in `variance_rule`, e.g. different FX rounding step), EXPLAINED (operator attaches a reason), UNEXPLAINED; (4) aggregate by rule; (5) report unexplained count and amount; (6) exit criterion unexplained = 0 and explained amount ≤ 0.1% of period revenue.
 - **FR-49.6 Cutover runbook generator** — Must. The system shall generate `cutover_plan` with timed steps from T−14d to T+30d from the selected packs, entities and legacy systems, with owners, durations from the last rehearsal, go/no-go items and rollback steps.
-  - Timeline baseline: T−14d freeze master-data changes in legacy, final pack dry run; T−7d second rehearsal, sign-off on variance report; T−3d freeze configuration in Passage; T−1d 18:00 legacy transaction freeze, final extracts of master data and static reference data; T−0 00:00 extract transactional packs; T+4h load and reconcile master and balances; T+12h load open items, orders, on-hand, WIP; T+24h reconciliation complete, go/no-go meeting; T+30h user access opened; T+36h abort deadline if go/no-go fails; T+1d first postings, hypercare starts; T+7d first weekly reconciliation; T+30d first month-end close, hypercare review.
-- **FR-49.7 Coexistence adapters** — Should. The system shall support entity-by-entity cutover with intercompany documents and consolidation data exchanged with the legacy system through wave-35 integration hub adapters (AX OData/`DMF` entities; SAP IDoc/BAPI) for `INVOIC`, `ORDERS`, GL postings, and master-data sync one way (legacy → Passage) until the last entity cuts over.
+  - Timeline baseline: T−14d freeze master-data changes in legacy, final pack dry run; T−7d second rehearsal, sign-off on variance report; T−3d freeze configuration in Depot; T−1d 18:00 legacy transaction freeze, final extracts of master data and static reference data; T−0 00:00 extract transactional packs; T+4h load and reconcile master and balances; T+12h load open items, orders, on-hand, WIP; T+24h reconciliation complete, go/no-go meeting; T+30h user access opened; T+36h abort deadline if go/no-go fails; T+1d first postings, hypercare starts; T+7d first weekly reconciliation; T+30d first month-end close, hypercare review.
+- **FR-49.7 Coexistence adapters** — Should. The system shall support entity-by-entity cutover with intercompany documents and consolidation data exchanged with the legacy system through wave-35 integration hub adapters (AX OData/`DMF` entities; SAP IDoc/BAPI) for `INVOIC`, `ORDERS`, GL postings, and master-data sync one way (legacy → Depot) until the last entity cuts over.
 - **FR-49.8 Rehearsal environment** — Must. The system shall provision a rehearsal tenant from pipeline (Terraform + Helm + seed) in ≤ 2 h, with masked extracts, and tear it down.
-- **FR-49.9 Rollback plan** — Must. The system shall generate a rollback plan per cutover: stop Passage access, restore legacy write access, export any Passage postings made after go-live as journal/document files for re-keying, with a decision point at T+36h.
+- **FR-49.9 Rollback plan** — Must. The system shall generate a rollback plan per cutover: stop Depot access, restore legacy write access, export any Depot postings made after go-live as journal/document files for re-keying, with a decision point at T+36h.
 - **FR-49.10 Idempotent re-runs** — Must. The system shall re-run any pack without duplicates (wave-10 natural keys plus `legacy_xref` uniqueness) and record every run with inputs' hashes.
 - **FR-49.11 Validation suites** — Must. The system shall run Great Expectations suites per pack before load: referential (every vendor on open items exists), domain (currency codes ISO 4217), balance (debit = credit), uniqueness; failures above 0 block load unless the record is quarantined to `pack_quarantine` with reason.
 
 - **FR-49.12 Project beginning balance journals** — Must. The system shall load, per open project, opening transactions by category (hours, expense, item, fee, on-account billing) with quantity, cost, sales value, transaction date, worker/resource, activity and dimensions as `project_opening_line`, flagged `beginning_balance=true`, together with WIP already recognized (WIP cost, WIP sales value, accrued revenue, invoiced on-account) and the remaining estimate, so that wave-41 estimates, billing rules and revenue recognition continue from the cutover state.
-  - Notes: opening lines never post to the GL (the GL WIP and revenue balances arrive in pack `gl_balances`); control totals per project and category (cost, sales value, WIP, on-account) must equal the legacy `ProjTrans*`/`COSP`-`COSS` and RA results to 0.00; lines marked "chargeable, not invoiced" are invoiceable in Passage with the legacy transaction date; fixed-price projects carry percent complete and recognized revenue to date; time-and-material projects carry unbilled transactions at legacy sales price.
+  - Notes: opening lines never post to the GL (the GL WIP and revenue balances arrive in pack `gl_balances`); control totals per project and category (cost, sales value, WIP, on-account) must equal the legacy `ProjTrans*`/`COSP`-`COSS` and RA results to 0.00; lines marked "chargeable, not invoiced" are invoiceable in Depot with the legacy transaction date; fixed-price projects carry percent complete and recognized revenue to date; time-and-material projects carry unbilled transactions at legacy sales price.
 
 ### 9.49.4 Data model
 
@@ -21642,14 +21643,14 @@ AX 2012 → D365 uses the data upgrade scripts (`ReleaseUpdateDB` classes, LCS d
 
 **`control_total`**: total_id, run_id, name, key_json (e.g. {entity, account, currency}), source_value numeric(28,6), target_value numeric(28,6), delta, tolerance, status (MATCH, WITHIN_TOLERANCE, MISMATCH), computed_at.
 
-**`legacy_xref`**: xref_id, tenant_id, source_system, source_company, source_table, source_id, passage_entity, passage_id, run_id; unique (source_system, source_company, source_table, source_id).
+**`legacy_xref`**: xref_id, tenant_id, source_system, source_company, source_table, source_id, depot_entity, depot_id, run_id; unique (source_system, source_company, source_table, source_id).
 
-**`parallel_run`**: parallel_run_id, tenant_id, period, source_system, documents_replayed, state (REPLAYING, DIFFING, REVIEW, SIGNED_OFF), unexplained_count, unexplained_amount, explained_amount, signed_off_by. **`variance`**: variance_id, parallel_run_id, area (TB/INV/AP/AR/FA), key_json, legacy_value, passage_value, delta, class (EXPECTED/EXPLAINED/UNEXPLAINED), rule_id, reason.
+**`parallel_run`**: parallel_run_id, tenant_id, period, source_system, documents_replayed, state (REPLAYING, DIFFING, REVIEW, SIGNED_OFF), unexplained_count, unexplained_amount, explained_amount, signed_off_by. **`variance`**: variance_id, parallel_run_id, area (TB/INV/AP/AR/FA), key_json, legacy_value, depot_value, delta, class (EXPECTED/EXPLAINED/UNEXPLAINED), rule_id, reason.
 
 **`cutover_step`**: step_id, plan_id, seq, offset_minutes (from T−0), name, owner, planned_duration_min, actual_start, actual_end, status, rollback_step_id, go_nogo bool.
 
 Invariants: a pack run reaches RECONCILED only if every `control_total.status != MISMATCH`; `legacy_xref` is append-only; a `parallel_run` can be SIGNED_OFF only when unexplained_count = 0; cutover steps with `go_nogo=true` must all be complete before the "open user access" step can start.
-Indexing: `legacy_xref` unique index as above plus (passage_entity, passage_id); `control_total` (run_id, status); `variance` (parallel_run_id, class).
+Indexing: `legacy_xref` unique index as above plus (depot_entity, depot_id); `control_total` (run_id, status); `variance` (parallel_run_id, class).
 
 **Additional entity (FR-49.12).** `project_opening_line`: line_id, tenant_id, project_id, category (HOUR, EXPENSE, ITEM, FEE, ON_ACCOUNT), transaction_date, qty numeric(28,6), cost_amount, sales_amount, currency, worker_id, activity_id, dimensions_json, billing_status (CHARGEABLE_UNBILLED, BILLED, NON_CHARGEABLE), wip_cost, wip_sales, legacy_xref_id, run_id; unique (tenant_id, legacy_xref_id).
 
@@ -21673,10 +21674,10 @@ Validation: pack run rejects extracts with `cutoff_ts` later than the legacy fre
 
 | Event | Trigger | Payload fields | Consumers |
 |---|---|---|---|
-| `dev.passage.migration.pack.reconciled.v1` | reconciliation done | run_id, pack, totals_match, totals_mismatch, quarantined | cutover, notifications |
-| `dev.passage.migration.parallelrun.diffed.v1` | diff done | parallel_run_id, period, unexplained_count, unexplained_amount | cutover |
-| `dev.passage.cutover.step.completed.v1` | step done | plan_id, step_id, actual_duration_min, status | cutover dashboard |
-| `dev.passage.cutover.decision.recorded.v1` | go/no-go | plan_id, decision, approvers[], timestamp | audit, platform-ops |
+| `dev.depot.migration.pack.reconciled.v1` | reconciliation done | run_id, pack, totals_match, totals_mismatch, quarantined | cutover, notifications |
+| `dev.depot.migration.parallelrun.diffed.v1` | diff done | parallel_run_id, period, unexplained_count, unexplained_amount | cutover |
+| `dev.depot.cutover.step.completed.v1` | step done | plan_id, step_id, actual_duration_min, status | cutover dashboard |
+| `dev.depot.cutover.decision.recorded.v1` | go/no-go | plan_id, decision, approvers[], timestamp | audit, platform-ops |
 
 ### 9.49.6 User experience
 
@@ -21685,7 +21686,7 @@ Validation: pack run rejects extracts with `cutoff_ts` later than the legacy fre
 | Migration factory workspace | run pack, view totals, open quarantine, re-run | pack, source, status, records, mismatches | MigrationRun |
 | Control-total board | drill mismatch to records, export | name, key, source, target, delta | MigrationView |
 | Quarantine | edit field, release, reject | record, rule failed, reason | MigrationRun |
-| Parallel-run review | classify variances, attach reason, sign off | area, key, legacy, passage, delta, class | MigrationReview |
+| Parallel-run review | classify variances, attach reason, sign off | area, key, legacy, depot, delta, class | MigrationReview |
 | Cutover runbook | start/complete step, timer, go/no-go checklist, rollback | seq, T-offset, owner, planned vs actual, status | CutoverManager |
 | Legacy reference (on any record) | open xref | system, company, table, id | all |
 
@@ -21697,15 +21698,15 @@ Rules: control-total board auto-refreshes every 10 s during a run; variance grid
 - **BR-49.2** Open items are loaded against an opening-balance clearing account; the sum of open items per control account must equal the GL balance migrated for that account to 0.00 before RECONCILED.
 - **BR-49.3** On-hand is loaded at legacy cost per dimension; the inventory GL account opening balance is migrated as a single line and must equal the loaded value per entity.
 - **BR-49.4** Open orders are loaded with `qty_delivered` and `qty_invoiced` history so remaining quantities match; prior deliveries are not re-posted.
-- **BR-49.5** WIP production orders carry consumed material and reported hours as a WIP opening entry; remaining operations are rebuilt from the Passage route.
+- **BR-49.5** WIP production orders carry consumed material and reported hours as a WIP opening entry; remaining operations are rebuilt from the Depot route.
 - **BR-49.6** Fixed assets load acquisition date and accumulated depreciation per book; the next depreciation run must equal legacy's projected amount within 0.01 or the asset is flagged.
-- **BR-49.7** Amount rounding during replay follows Passage rules; a difference ≤ 0.01 per document is classified EXPECTED by rule `RND-001`.
-- **BR-49.8** Historical loads are read-only; a legacy document with no mapped Passage type lands in `history.<system>.unmapped`.
+- **BR-49.7** Amount rounding during replay follows Depot rules; a difference ≤ 0.01 per document is classified EXPECTED by rule `RND-001`.
+- **BR-49.8** Historical loads are read-only; a legacy document with no mapped Depot type lands in `history.<system>.unmapped`.
 - **BR-49.9** Cutover abort at T+36h: if any go/no-go item is open, the rollback plan executes automatically after CutoverManager confirmation.
 - **BR-49.10** Coexistence: a document received from legacy that already exists by `legacy_xref` is acknowledged and ignored.
 
 - **BR-49.11** Project opening lines are excluded from GL posting and from the wave-41 cost-to-GL reconciliation for the cutover period; they are included in project estimates, billing and revenue-recognition calculations.
-- **BR-49.12** A project whose opening totals do not reconcile to the legacy project subledger cannot be invoiced or estimated in Passage until the mismatch is resolved (status `OPENING_MISMATCH`).
+- **BR-49.12** A project whose opening totals do not reconcile to the legacy project subledger cannot be invoiced or estimated in Depot until the mismatch is resolved (status `OPENING_MISMATCH`).
 
 ### 9.49.8 Acceptance criteria
 
@@ -21715,12 +21716,12 @@ Rules: control-total board auto-refreshes every 10 s during a run; variance grid
 - **AC-49.4** (FR-49.10) Given a completed `open_items` run, when the same extract is run again, then records_loaded = 0 and totals are unchanged.
 - **AC-49.5** (FR-49.5) Given one month of legacy documents replayed, when the diff runs, then unexplained_count = 0 and explained amount ≤ 0.1% of revenue.
 - **AC-49.6** (FR-49.6) Given the generated runbook, when the rehearsal is executed, then all steps from T−0 to "open user access" complete in < 48 h.
-- **AC-49.7** (FR-49.9) Given a rehearsal cutover, when rollback executes, then the legacy coexistence adapters resume and Passage postings since T−0 are exported as re-keying files.
-- **AC-49.8** (FR-49.3) Given migrated customer invoice legacy id `CIV-00123` (AX `CustInvoiceJour.InvoiceId`), when a user opens the Passage invoice, then the legacy reference panel shows system, company and id.
+- **AC-49.7** (FR-49.9) Given a rehearsal cutover, when rollback executes, then the legacy coexistence adapters resume and Depot postings since T−0 are exported as re-keying files.
+- **AC-49.8** (FR-49.3) Given migrated customer invoice legacy id `CIV-00123` (AX `CustInvoiceJour.InvoiceId`), when a user opens the Depot invoice, then the legacy reference panel shows system, company and id.
 - **AC-49.9** (FR-49.4) Given 7 years of legacy journals loaded, when the explorer queries `revenue` with `source=legacy` for a closed year, then it equals the legacy trial balance for that year.
 - **AC-49.10** (FR-49.8) Given a pipeline trigger, when a rehearsal tenant is requested, then it is ready in ≤ 2 h with masked data.
 
-- **AC-49.11** (FR-49.12) Given an AX T&M project with 120 chargeable unbilled hour transactions, when `project_wip` loads, then 120 opening lines exist, totals per category match legacy, no GL posting was created, and the first Passage invoice proposal lists the 120 lines at legacy sales price.
+- **AC-49.11** (FR-49.12) Given an AX T&M project with 120 chargeable unbilled hour transactions, when `project_wip` loads, then 120 opening lines exist, totals per category match legacy, no GL posting was created, and the first Depot invoice proposal lists the 120 lines at legacy sales price.
 
 ### 9.49.9 Test plan and fixtures
 
@@ -21737,17 +21738,17 @@ Fixtures: `fx-ax-synth-year` (AX 2012 R3 schema: `CustTrans`, `VendTrans`, `Inve
 | Rollback | E2E | rollback | coexistence resumes; exported files complete |
 | History load throughput | performance | Iceberg | ≥ 200k rows/min |
 
-Reconciliation: trial balance (Passage opening) ↔ legacy trial balance per entity/currency; open items ↔ control accounts; on-hand value ↔ inventory account; NBV ↔ asset accounts; parallel-run TB ↔ legacy period TB.
+Reconciliation: trial balance (Depot opening) ↔ legacy trial balance per entity/currency; open items ↔ control accounts; on-hand value ↔ inventory account; NBV ↔ asset accounts; parallel-run TB ↔ legacy period TB.
 
 ### 9.49.10 Deployment and operations
 
-Helm: `passage-migration-factory` (Go extractors, TS orchestration on Temporal namespace `migration`), `passage-legacy-adapters` (AX OData/SQL, SAP RFC/ODP via wave-35 hub), `passage-rehearsal-provisioner` (pipeline job). Config: legacy connection strings in Vault, `HISTORY_YEARS=7`, `MASK_PII=true` for rehearsal. Flags: `migration.coexistence` per entity. Jobs: nightly delta extract during coexistence; weekly reconciliation post go-live for 30 days. SLOs: pack load ≥ 50k records/min; control totals computed within 10 min of load. Alerts: MISMATCH, quarantine > 1%, step overrun > 125%. Runbook entries: resume a failed pack from VALIDATED; rebuild xref; execute rollback. Rollback: per BR-49.1 and FR-49.9.
+Helm: `depot-migration-factory` (Go extractors, TS orchestration on Temporal namespace `migration`), `depot-legacy-adapters` (AX OData/SQL, SAP RFC/ODP via wave-35 hub), `depot-rehearsal-provisioner` (pipeline job). Config: legacy connection strings in Vault, `HISTORY_YEARS=7`, `MASK_PII=true` for rehearsal. Flags: `migration.coexistence` per entity. Jobs: nightly delta extract during coexistence; weekly reconciliation post go-live for 30 days. SLOs: pack load ≥ 50k records/min; control totals computed within 10 min of load. Alerts: MISMATCH, quarantine > 1%, step overrun > 125%. Runbook entries: resume a failed pack from VALIDATED; rebuild xref; execute rollback. Rollback: per BR-49.1 and FR-49.9.
 
 ### 9.49.11 Migration from AX / SAP
 
 This wave is the migration. Summary mapping:
 
-| Source | Passage entity | Transformation |
+| Source | Depot entity | Transformation |
 |---|---|---|
 | `CustTransOpen`/`VendTransOpen`, `BSID`/`BSIK` | AR/AP open items | amount in transaction and accounting currency; due date; settlement history collapsed to remaining amount |
 | `GeneralJournalAccountEntry` + `DimensionAttributeValueCombination`, `ACDOCA`/`FAGLFLEXT` | opening journal | balances per account × dimension × currency at cutoff; P&L closed to retained earnings if cutoff is year-end |
@@ -21769,7 +21770,7 @@ Depends on: wave 10 (framework, connectors), wave 35 (integration hub for coexis
 | Extract window exceeds freeze | Medium | High | delta extracts; parallelized extractors; rehearsal timing |
 | Coexistence creates duplicate intercompany documents | Medium | Medium | xref dedupe (BR-49.10) |
 
-Open questions: (1) History years default 7 vs 10 for DE GoBD — proposed 10 when DE pack installed; decide by wave 50. (2) Payroll YTD for countries without a Passage payroll engine — proposed: load as balances only; decide by wave 50.
+Open questions: (1) History years default 7 vs 10 for DE GoBD — proposed 10 when DE pack installed; decide by wave 50. (2) Payroll YTD for countries without a Depot payroll engine — proposed: load as balances only; decide by wave 50.
 
 ### 9.49.13 Parameters and setup
 
@@ -21801,13 +21802,13 @@ Open questions: (1) History years default 7 vs 10 for DE GoBD — proposed 10 wh
 | Pack runs | list inquiry | pack, system, entity, status | records in/loaded/quarantined, duration, input hash | `pack_run` | DIXF execution history (`DMFExecution`) | Migration Cockpit monitoring (`LTMC` → Monitoring) |
 | Control-total board | operational report | run, status | name, key, source, target, delta, tolerance | `control_total` | none (Excel) | Migration Cockpit "Migration results" |
 | Quarantine | list inquiry | run, rule | record, rule failed, reason, age | `pack_quarantine` | DIXF staging errors | Staging table messages |
-| Opening trial balance vs legacy | statutory/operational report | entity, currency | account × dimension, legacy, Passage, delta | `control_total` + ledger | Trial balance | `S_ALR_87012277`, `FAGLB03` |
+| Opening trial balance vs legacy | statutory/operational report | entity, currency | account × dimension, legacy, Depot, delta | `control_total` + ledger | Trial balance | `S_ALR_87012277`, `FAGLB03` |
 | Open items reconciliation | operational report | entity, control account | open items sum, GL balance, delta | AP/AR + ledger | Vendor/customer balance list with aging | `S_ALR_87012082`/`87012172` |
 | Inventory opening valuation | operational report | entity, site | qty, value by item/dims vs legacy | inventory + `control_total` | Inventory value report | `MB5L`, `MC.9` |
 | Project opening balances | operational report | project, category | cost, sales, WIP, on-account vs legacy | `project_opening_line` | Project beginning balance journal list | `CJI3`/RA results (`KKA3`) |
-| Parallel-run variance report | drill-down | parallel run, area, class | key, legacy, Passage, delta, rule, reason | `variance` | none | none |
+| Parallel-run variance report | drill-down | parallel run, area, class | key, legacy, Depot, delta, rule, reason | `variance` | none | none |
 | Cutover runbook status | KPI | plan | steps done/total, elapsed vs plan, overruns, go/no-go items | `cutover_step` | none | none |
-| Legacy cross-reference lookup | list inquiry | system, table, legacy id | Passage entity and id | `legacy_xref` | none | none |
+| Legacy cross-reference lookup | list inquiry | system, table, legacy id | Depot entity and id | `legacy_xref` | none | none |
 | History queries | drill-down | `source=legacy`, period | any metric | `history.unified.*` | AX legacy database kept online | SARI/archive, SDT history |
 
 ### 9.49.15 Printed and electronic documents
@@ -21815,11 +21816,11 @@ Open questions: (1) History years default 7 vs 10 for DE GoBD — proposed 10 wh
 | Document | Trigger | Layout elements | Formats | Numbering sequence | Legal / retention requirement |
 |---|---|---|---|---|---|
 | Reconciliation certificate per pack | pack RECONCILED | run, entity, cutoff, each control total with source/target/delta, signer | PDF with e-signature (FR-48.13) | run id | audit evidence; 10 years with opening balances |
-| Opening trial balance sign-off | `gl_balances` RECONCILED | entity, currency, account × dimension balances, legacy reference, controller signature | PDF, XLSX | entity + cutoff | statutory link between legacy and Passage books (GoBD/FEC continuity) |
+| Opening trial balance sign-off | `gl_balances` RECONCILED | entity, currency, account × dimension balances, legacy reference, controller signature | PDF, XLSX | entity + cutoff | statutory link between legacy and Depot books (GoBD/FEC continuity) |
 | Parallel-run sign-off report | parallel run SIGNED_OFF | period, unexplained = 0, explained by rule, approvers | PDF | parallel run id | audit evidence |
 | Cutover runbook and go/no-go record | plan generated / decision | steps, owners, timings, decision, approvers | PDF, CSV | plan id | 7 years |
 | Rollback re-keying files | rollback executed | postings since T−0 as journals and documents | CSV, legacy import formats (AX DIXF package, SAP `LTMC` template) | rollback id | until re-keyed and reconciled |
-| Legacy cross-reference export | on demand | system, table, legacy id, Passage id | CSV, Parquet | n/a | retained with history (FR-49.4) |
+| Legacy cross-reference export | on demand | system, table, legacy id, Depot id | CSV, Parquet | n/a | retained with history (FR-49.4) |
 
 ### 9.49.16 Periodic and batch jobs
 
@@ -21868,7 +21869,7 @@ Open questions: (1) History years default 7 vs 10 for DE GoBD — proposed 10 wh
 
 | Operation | Volume assumption | Latency target (p50 / p95 / p99) | Throughput target | Storage growth per year | Index / partition strategy | Degradation under 3× load |
 |---|---|---|---|---|---|---|
-| Pack load | 1.3M rows per synthetic year, up to 50M for large customers | n/a (batch) | ≥ 50k records/min | `legacy_xref` ~1 KB per migrated record (50 GB per 50M) | `legacy_xref` unique (system, company, table, id) + (passage_entity, passage_id) | parallelism capped; window extends, rehearsal timing updated |
+| Pack load | 1.3M rows per synthetic year, up to 50M for large customers | n/a (batch) | ≥ 50k records/min | `legacy_xref` ~1 KB per migrated record (50 GB per 50M) | `legacy_xref` unique (system, company, table, id) + (depot_entity, depot_id) | parallelism capped; window extends, rehearsal timing updated |
 | Control-total computation | per run | < 10 min after load | n/a | `control_total` < 1 GB | (run_id, status) | 30 min |
 | Historical load | 7 years, 300M rows | n/a | ≥ 200k rows/min | 1–3 TB Parquet | `history.<system>.*` partitioned by (year, company) | longer load before cutover, not during |
 | Parallel-run replay | 42k–500k documents/month | per document p95 < 1 s via public APIs | 50 docs/s | rehearsal tenant only | n/a | replay over two nights |
@@ -21877,9 +21878,9 @@ Open questions: (1) History years default 7 vs 10 for DE GoBD — proposed 10 wh
 
 ### 9.49.20 Localization and compliance hooks
 
-- Opening balances must preserve statutory continuity: DE GoBD and FR FEC require that the closing balances of the legacy books equal the opening balances in Passage and that the link is documented (opening trial balance sign-off, 9.49.15); the FR FEC for the cutover year is produced from legacy history plus Passage postings with `history.unified.*`.
+- Opening balances must preserve statutory continuity: DE GoBD and FR FEC require that the closing balances of the legacy books equal the opening balances in Depot and that the link is documented (opening trial balance sign-off, 9.49.15); the FR FEC for the cutover year is produced from legacy history plus Depot postings with `history.unified.*`.
 - History years default to 10 when the DE or FR pack is installed (retention minimum), 8 for IN, 7 for US, 6 for UK/CA, 5 for MX (`migration.history_years` cannot go below the wave-48 retention minimum).
-- Gap-free document numbering: legacy invoice numbers are kept in `legacy_xref` and shown on reprints; new fiscal sequences start in Passage per pack rules (MX CFDI series/folio, IN invoice series per GSTIN and fiscal year, FR chronological numbering).
+- Gap-free document numbering: legacy invoice numbers are kept in `legacy_xref` and shown on reprints; new fiscal sequences start in Depot per pack rules (MX CFDI series/folio, IN invoice series per GSTIN and fiscal year, FR chronological numbering).
 - Tax: open AR/AP items keep their original tax amounts and tax codes mapped through the pack tax mapping; IN GST ITC balances and TDS certificates pending issue are migrated as balances with references; MX CFDI UUIDs of open invoices are retained for payment complements (REP).
 - Payroll YTD (pack `payroll_ytd`) is limited to US and DE engines in v1; other countries load balances only (open question 2).
 - Privacy: rehearsal extracts are masked per FR-48.26; production extracts are encrypted in transit and at rest, retained 90 days after go-live then deleted with a destruction record.
@@ -21890,7 +21891,7 @@ Open questions: (1) History years default 7 vs 10 for DE GoBD — proposed 10 wh
 | Register row (inventory section + AX form or SAP T-code) | Status before | Disposition | Note |
 |---|---|---|---|
 | AX 12.99.4 row 91 — 12.11.1 Project management → Beginning balance journals | PARTIAL-49 | ADDED as FR-49.12 | opening lines by category with WIP and estimate state |
-| AX 12.32 inventory row "Parallel-run replay (Passage migration factory)" | COVERED-49 | confirmed by FR-49.5 | |
+| AX 12.32 inventory row "Parallel-run replay (Depot migration factory)" | COVERED-49 | confirmed by FR-49.5 | |
 | SAP 13.4 inventory rows `AS91`–`AS94` legacy asset transfer, `OASV` balance transfer, `OAYE`/`OAYF` legacy transfer date | COVERED-49 | confirmed by FR-49.1 (`fixed_assets`, `gl_balances`) and `migration.cutoff_ts` | |
 | SAP 13.99.2 row 345 — TDMS masked refresh (PARTIAL-48) | PARTIAL-48 | ADDED as FR-48.26; consumed here by FR-49.8 rehearsal tenants | closed in 9.48.21 |
 | AX 12.99.1 theme "Project depth — beginning balance journals (49)" | PARTIAL | ADDED as FR-49.12 | same row as above, theme view |
@@ -21900,11 +21901,11 @@ Open questions: (1) History years default 7 vs 10 for DE GoBD — proposed 10 wh
 
 ### 9.50.1 Scope and business context
 
-AX customers rely on LCS-managed production environments and Microsoft SLAs; SAP customers on Basis operations, HA/DR setups (HANA system replication, cluster failover) or RISE. Passage must prove the same in a self-operated, cloud-agnostic stack: a performance campaign to 10k concurrent users, 1M journal lines/h and 100k order lines/h; active/passive multi-region with cross-region Postgres replication, Kafka MirrorMaker 2 and DNS failover; SRE runbooks, capacity and cost models, zero-downtime upgrades, tenant provisioning automation; complete documentation; the first customer's production go-live and the public v1.0 release. Out of scope: active/active multi-region, per-tenant dedicated clusters, marketplace listings.
+AX customers rely on LCS-managed production environments and Microsoft SLAs; SAP customers on Basis operations, HA/DR setups (HANA system replication, cluster failover) or RISE. Depot must prove the same in a self-operated, cloud-agnostic stack: a performance campaign to 10k concurrent users, 1M journal lines/h and 100k order lines/h; active/passive multi-region with cross-region Postgres replication, Kafka MirrorMaker 2 and DNS failover; SRE runbooks, capacity and cost models, zero-downtime upgrades, tenant provisioning automation; complete documentation; the first customer's production go-live and the public v1.0 release. Out of scope: active/active multi-region, per-tenant dedicated clusters, marketplace listings.
 
 **Pain points solved (10x lens)**
 
-| Pain point in AX/SAP today | Root cause | Passage answer in this wave | Measurable 10x target |
+| Pain point in AX/SAP today | Root cause | Depot answer in this wave | Measurable 10x target |
 |---|---|---|---|
 | D365 One Version updates and SAP SUM upgrades require a downtime window (hours) and a sandbox cycle; customers defer and accumulate risk | Monolithic application server; schema changes applied in place | Rolling deploys with expand/contract migrations and N/N−1 API contract tests | Upgrade downtime 4–8 h → 0; release cadence quarterly → weekly |
 | DR is a service request to LCS or a Basis project with HANA system replication; failover is rarely rehearsed and RPO/RTO are unknown | DR owned by vendor or built per customer | One-command failover, quarterly game day with measured RTO/RPO | RTO ≤ 1 h, RPO ≤ 5 min, measured every quarter |
@@ -21920,7 +21921,7 @@ AX customers rely on LCS-managed production environments and Microsoft SLAs; SAP
 
 ### 9.50.2 AX / SAP parity map
 
-| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Passage equivalent | Parity |
+| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Depot equivalent | Parity |
 |---|---|---|---|---|
 | Production environment management | LCS production, sandbox tiers (Tier-2–5), service requests | Basis: `SM51` servers, `RZ10` profiles, RISE managed | Tenant provisioning automation, environment tiers via Helm values | Full |
 | HA/DR | Microsoft-managed geo-secondary, LCS disaster recovery | HANA system replication, Pacemaker clusters, DR site | CNPG replica clusters cross-region, MirrorMaker 2, DNS failover | Full |
@@ -21929,7 +21930,7 @@ AX customers rely on LCS-managed production environments and Microsoft SLAs; SAP
 | Monitoring | LCS Environment monitoring, Application Insights | `RZ20` CCMS, Solution Manager, Focused Run | Prometheus/Grafana SLO dashboards, Loki, Tempo | Full |
 | Upgrades | One Version monthly updates, LCS deployable packages, downtime | SUM, maintenance planner, zero-downtime option (ZDO) | Expand/contract Atlas migrations, rolling deploys, no downtime | Improved |
 | Batch and job scheduling | Batch framework (`SysOperation`), batch groups | `SM36`/`SM37`, Redwood | Temporal schedules (from wave 4) with multi-region continuity | Full |
-| Licensing | Dynamics 365 per-user licenses | SAP named user licenses, FUE | Passage license file per tenant, user-type metering | Full |
+| Licensing | Dynamics 365 per-user licenses | SAP named user licenses, FUE | Depot license file per tenant, user-type metering | Full |
 | Documentation | Microsoft Learn | SAP Help Portal | Docs site: admin, implementer, API, functional guides, training | Full |
 
 ### 9.50.3 Functional requirements
@@ -21953,7 +21954,7 @@ AX customers rely on LCS-managed production environments and Microsoft SLAs; SAP
 - **FR-50.2 Postgres tuning** — Must. The system shall partition the journal line table by month (range) and hash by tenant (16), inventory transactions by month, audit by week; CNPG clusters with 1 primary + 2 synchronous-quorum replicas (`synchronous_standby_names ANY 1`); PgBouncer transaction pooling; `pg_stat_statements` top-50 reviewed with indexes added before exit.
 - **FR-50.3 Kafka and cache tuning** — Must. The system shall run Strimzi with 6 brokers, `min.insync.replicas=2`, `acks=all`, topic partitions sized at ≥ 2× consumer parallelism, and Redis-compatible caches for pricing and policy bundles with ≤ 5 s invalidation.
 - **FR-50.4 Multi-region active/passive** — Must. The system shall run a passive region with CNPG replica clusters streaming from the primary (async, lag SLO < 30 s; ledger cluster quorum-synchronous across regions when the customer accepts the latency), MirrorMaker 2 for all topics with offset translation, object-store replication for lakehouse and documents, Temporal multi-cluster replication, and DNS failover (health-checked, TTL 60 s).
-- **FR-50.5 Failover procedure** — Must. The system shall promote the passive region by one command (`passage-ops failover --to eu-west`), which fences the old primary (revoke writes, scale to zero), promotes CNPG replicas, switches MirrorMaker direction, activates Temporal, flips DNS, and verifies the ledger hash chain; RTO ≤ 1 h, RPO ≤ 5 min.
+- **FR-50.5 Failover procedure** — Must. The system shall promote the passive region by one command (`depot-ops failover --to eu-west`), which fences the old primary (revoke writes, scale to zero), promotes CNPG replicas, switches MirrorMaker direction, activates Temporal, flips DNS, and verifies the ledger hash chain; RTO ≤ 1 h, RPO ≤ 5 min.
 - **FR-50.6 DR game day** — Must. The system shall run a quarterly game day: (1) announce window, freeze deploys; (2) take baseline hashes (ledger chain head per tenant, row counts per domain, Kafka end offsets); (3) inject failure (primary region network partition via NetworkPolicy, then node pool scale-down); (4) on-call executes failover runbook with timer; (5) verify: hash chain head matches or exceeds baseline, no gap in gap-free sequences, in-flight Temporal workflows resumed, reconciliation jobs green; (6) run smoke suite of 12 processes; (7) measure RTO/RPO; (8) fail back during a planned window; (9) post-game review with actions. Pass: RTO ≤ 1 h, RPO ≤ 5 min, zero committed-transaction loss.
 - **FR-50.7 Zero-downtime upgrades** — Must. The system shall deploy services with rolling updates and expand/contract schema migrations (add → backfill → switch → drop in separate releases), with API compatibility tests between N and N−1 and a 30-minute automatic rollback window on SLO breach.
 - **FR-50.8 Tenant provisioning** — Must. The system shall create a tenant (Keycloak realm, databases/schemas with RLS, Kafka ACLs, lakehouse namespace, object-store prefixes, residency region, license) from one API call in ≤ 15 min, and decommission with retention export.
@@ -22006,10 +22007,10 @@ Validation: failover rejects if target region replication lag > 300 s unless `--
 
 | Event | Trigger | Payload fields | Consumers |
 |---|---|---|---|
-| `dev.passage.ops.failover.completed.v1` | promotion done | from_region, to_region, promoted_lsn, rpo_seconds, rto_seconds | all services (reconnect), audit |
-| `dev.passage.ops.tenant.provisioned.v1` | provisioning done | tenant_id, region, realm, databases[] | billing, catalog |
-| `dev.passage.ops.slo.breached.v1` | SLO burn rate | slo_id, window, burn_rate, tenant_id | alerting, release gate |
-| `dev.passage.ops.license.state_changed.v1` | license check | tenant_id, state, expires_at | shell banner, admin |
+| `dev.depot.ops.failover.completed.v1` | promotion done | from_region, to_region, promoted_lsn, rpo_seconds, rto_seconds | all services (reconnect), audit |
+| `dev.depot.ops.tenant.provisioned.v1` | provisioning done | tenant_id, region, realm, databases[] | billing, catalog |
+| `dev.depot.ops.slo.breached.v1` | SLO burn rate | slo_id, window, burn_rate, tenant_id | alerting, release gate |
+| `dev.depot.ops.license.state_changed.v1` | license check | tenant_id, state, expires_at | shell banner, admin |
 
 ### 9.50.6 User experience
 
@@ -22072,11 +22073,11 @@ Reconciliation: post-failover row counts and ledger hash heads ↔ baseline; pro
 
 ### 9.50.10 Deployment and operations
 
-Helm: `passage-platform` umbrella with per-region values; `passage-mm2` (MirrorMaker 2), `passage-ops` (Go control plane), `passage-status-page`, `passage-docs`. CNPG `Cluster` with `replica.enabled` in the passive region; Temporal multi-cluster. Config: `REGION_ROLE`, `DNS_PROVIDER` (thin Terraform module per provider), `FAILOVER_MAX_LAG_S=300`, `LICENSE_PUBLIC_KEY`. Migrations: `ops` database. Flags: `ops.failover.enabled`, `license.enforce`. Jobs: cost meter monthly, capacity model nightly, game day quarterly (scheduled Temporal workflow with human task), backup drill monthly, SLO report weekly. SLOs: as FR-50.1; control-plane API p99 < 500 ms. Alerts: replication lag > 60 s, MM2 lag > 100k messages, SLO fast/slow burn, license expiry 30/7/1 days, failover in progress. Runbooks: failover, fail-back, broker replacement, Postgres primary loss, slot bloat, cache stampede, Temporal namespace replication lag, certificate expiry, object-store replication lag, release rollback. Rollback: Argo CD rollback by digest; database contract step deferred to the next release; DNS weight restore.
+Helm: `depot-platform` umbrella with per-region values; `depot-mm2` (MirrorMaker 2), `depot-ops` (Go control plane), `depot-status-page`, `depot-docs`. CNPG `Cluster` with `replica.enabled` in the passive region; Temporal multi-cluster. Config: `REGION_ROLE`, `DNS_PROVIDER` (thin Terraform module per provider), `FAILOVER_MAX_LAG_S=300`, `LICENSE_PUBLIC_KEY`. Migrations: `ops` database. Flags: `ops.failover.enabled`, `license.enforce`. Jobs: cost meter monthly, capacity model nightly, game day quarterly (scheduled Temporal workflow with human task), backup drill monthly, SLO report weekly. SLOs: as FR-50.1; control-plane API p99 < 500 ms. Alerts: replication lag > 60 s, MM2 lag > 100k messages, SLO fast/slow burn, license expiry 30/7/1 days, failover in progress. Runbooks: failover, fail-back, broker replacement, Postgres primary loss, slot bloat, cache stampede, Temporal namespace replication lag, certificate expiry, object-store replication lag, release rollback. Rollback: Argo CD rollback by digest; database contract step deferred to the next release; DNS weight restore.
 
 ### 9.50.11 Migration from AX / SAP
 
-| Source | Passage | Notes |
+| Source | Depot | Notes |
 |---|---|---|
 | LCS environment inventory (production, sandboxes) | Tenant and environment tiers | documented; sandboxes re-created from masked production via provisioning |
 | LCS deployable packages / Basis transports (`STMS`) | GitOps releases | not migrated; release notes map customer changes to metadata extensions |
@@ -22084,7 +22085,7 @@ Helm: `passage-platform` umbrella with per-region values; `passage-mm2` (MirrorM
 | Monitoring thresholds (CCMS `RZ20`, LCS alerts) | Prometheus alert rules | mapped per alert category |
 | D365 / SAP user licenses | `tenant_license` user types | full ↔ Dynamics full user / SAP professional; operational ↔ activity / functional; self-service ↔ team member / productivity |
 
-Not migrated: Microsoft/SAP SLAs and support contracts (replaced by Passage support terms), proprietary performance traces.
+Not migrated: Microsoft/SAP SLAs and support contracts (replaced by Depot support terms), proprietary performance traces.
 
 ### 9.50.12 Dependencies, risks, open questions
 
@@ -22183,7 +22184,7 @@ Open questions: (1) Active/active for read-only analytics in the passive region 
 | ReleaseManager | promote release by digest, pause ring, trigger rollback | with code approval of the same change (MEDIUM, `CHG-001`: four-eyes) | Release manager |
 | OnCallResponder | runbook actions (restart, scale, replay), incident updates | none | SRE on-call |
 | TenantAdmin | `GET /ops/tenants/{id}/cost`, user-type assignment within license | with PlatformAdmin (MEDIUM) | Customer administrator |
-| LicenseIssuer (offline) | sign license files with the Ed25519 private key (HSM/Vault transit) | with PlatformAdmin (HIGH) | Passage commercial operations |
+| LicenseIssuer (offline) | sign license files with the Ed25519 private key (HSM/Vault transit) | with PlatformAdmin (HIGH) | Depot commercial operations |
 | StatusPagePublisher | publish incident notices | none | Support lead |
 | CutoverDecisionOwner | record go/no-go at production cutover | with CutoverStepOwner of checklist items (MEDIUM) | Customer CFO / project sponsor |
 
@@ -22226,7 +22227,7 @@ The SLO table in FR-50.1 is the binding budget. Capacity assumptions per referen
 - Retention on decommission follows the tenant's country packs (BR-50.9): encrypted export kept for the longest applicable record-class minimum (DE/FR 10 years) unless the customer takes custody and signs a release.
 - Status page and release notes are published in English with German and French translations for customer-facing incident notices (contractual notice language per tenant).
 - Time zones: maintenance windows, game days and hypercare stand-ups are scheduled in the tenant's time zone; SLO reports use UTC.
-- Licensing and cost: cost statements show USD and EUR with ECB month-average FX (BR-50.10); taxes on Passage's own invoices are outside the product.
+- Licensing and cost: cost statements show USD and EUR with ECB month-average FX (BR-50.10); taxes on Depot's own invoices are outside the product.
 - Compliance evidence produced here (game-day reports, SBOMs, signatures, backup verification, change records) flows into the wave-48 evidence store for CC7.5, CC8.1 and A1.2/A1.3 (availability criteria).
 - Extension points: per-provider Terraform modules, Helm values per region, `slo.<id>.target` per contract tier.
 
@@ -22250,9 +22251,9 @@ These appendices are normative for every phase file (`docs/prd/phase-N-*.md`). W
 
 ## A. Glossary
 
-Terms are drawn from AX 2012 / D365 F&SCM, SAP ECC / S/4HANA, the standards Passage implements, and Passage itself. The last column is the name used in Passage metadata, APIs and UI.
+Terms are drawn from AX 2012 / D365 F&SCM, SAP ECC / S/4HANA, the standards Depot implements, and Depot itself. The last column is the name used in Depot metadata, APIs and UI.
 
-| Term | Origin | Definition | Passage term |
+| Term | Origin | Definition | Depot term |
 |---|---|---|---|
 | AOT | AX | Application Object Tree: the AX metadata repository for tables, classes, forms, menus. | Metadata registry |
 | DDIC | SAP | ABAP Data Dictionary: domains, data elements, tables, append structures. | Metadata registry |
@@ -22261,8 +22262,8 @@ Terms are drawn from AX 2012 / D365 F&SCM, SAP ECC / S/4HANA, the standards Pass
 | Extension (vs overlayering) | AX | D365 model that adds to standard objects instead of editing them. | Entity extension / hook |
 | DataAreaId | AX | The company (legal entity) column present on every company-specific table. | `legal_entity_id` |
 | MANDT | SAP | Client key present on every client-dependent table. | `tenant_id` |
-| Tenant | Passage | Top-level isolation boundary: one customer organization, one RLS scope, one Keycloak realm. | Tenant |
-| Legal entity | AX / Passage | A company that produces its own financial statements. SAP: company code (BUKRS). | LegalEntity |
+| Tenant | Depot | Top-level isolation boundary: one customer organization, one RLS scope, one Keycloak realm. | Tenant |
+| Legal entity | AX / Depot | A company that produces its own financial statements. SAP: company code (BUKRS). | LegalEntity |
 | Operating unit | AX | Department, cost center, business unit, value stream: non-legal organization units. | OperatingUnit |
 | Company code (BUKRS) | SAP | Smallest organizational unit with a complete self-contained set of accounts. | LegalEntity |
 | Plant (WERKS) | SAP | Physical production/logistics location. AX: site. | Site |
@@ -22348,32 +22349,32 @@ Terms are drawn from AX 2012 / D365 F&SCM, SAP ECC / S/4HANA, the standards Pass
 | Installed base | SAP CS | Serialized equipment at customer sites covered by service. | InstalledBase |
 | Entity store | AX | D365 aggregate measurement store for Power BI. SAP: BW/CDS views. | Lakehouse (Iceberg) |
 | MCP | Standard | Model Context Protocol: tool interface for AI agents. | MCP server |
-| Copilot / agent | Passage | Copilot answers and drafts; an agent executes multi-step work under approval gates. | Copilot / Agent |
+| Copilot / agent | Depot | Copilot answers and drafts; an agent executes multi-step work under approval gates. | Copilot / Agent |
 | Outbox | Pattern | Table written in the same transaction as the state change and relayed to Kafka by Debezium. | Outbox |
 | CloudEvent | CNCF | Standard event envelope (specversion, id, source, type, subject, time, data). | Event |
 | RLS | Postgres | Row-level security policy evaluated on every statement. | Tenant isolation |
-| Wave (delivery) | Passage | A 4–8 week increment with deliverable, proof, deploy and references. Not to be confused with a WMS pick wave. | Wave |
+| Wave (delivery) | Depot | A 4–8 week increment with deliverable, proof, deploy and references. Not to be confused with a WMS pick wave. | Wave |
 
 ## B. Cross-module data model
 
 ### B.1 Bounded contexts
 
-Passage has 12 core bounded contexts. Each is a deployable set of services with exactly one Postgres database (CloudNativePG cluster) whose schema is generated from entity metadata. Three supporting contexts (`integration`, `analytics`, `agents`) own only operational tables (partner profiles, message logs, prompt registry, eval runs) and never master or transactional business data.
+Depot has 12 core bounded contexts. Each is a deployable set of services with exactly one Postgres database (CloudNativePG cluster) whose schema is generated from entity metadata. Three supporting contexts (`integration`, `analytics`, `agents`) own only operational tables (partner profiles, message logs, prompt registry, eval runs) and never master or transactional business data.
 
 | Context | Database | Owns | Language | Waves |
 |---|---|---|---|---|
-| `platform` | `passage_platform` | Tenants, users, roles/duties/privileges, metadata registry, number sequences, audit log, workflow/batch definitions, legal entities, operating units, sites, warehouses, hierarchies, fiscal calendars, ISO reference data, UoM | Go (sequences, audit), TS (admin, workflow) | 1–6 |
-| `party` | `passage_party` | Party, roles (customer, vendor, contact, employee link), addresses, tax registrations, groups, payment and delivery terms, credit limits | TS | 7 |
-| `product` | `passage_product` | Product, product master, released product, dimension groups, attributes, BOM, formula, routing, resources, calendars, change orders | Go (explosion), TS | 8–9 |
-| `ledger` | `passage_ledger` | Accounts, account structures, dimensions, journal entries/lines, balances, ledgers, exchange rates, tax codes and transactions, period control, allocations, accruals, statements, budgets, cost accounting ledger, consolidation groups | Go | 11–15, 38, 40 |
-| `inventory` | `passage_inventory` | Inventory transactions, on-hand projection, reservations, inventory journals, counting, cost layers, costing versions, costing sheets, quality orders, nonconformances | Go | 16, 20, 33, 39 |
-| `procurement` | `passage_procurement` | Requisitions, RFQs, purchase agreements, purchase orders, product receipts, vendor invoices, match results, AP open items, payment proposals, payments | Go (matching, settlement), TS | 17–20 |
-| `manufacturing` | `passage_manufacturing` | Production/batch orders, picking lists, route cards, planning runs, planned orders, planning messages, schedules, kanbans, time registrations, machine events | Go; Python (forecasting) | 21–25 |
-| `sales` | `passage_sales` | Price conditions, quotations, sales orders, holds, shipments/packing slips, customer invoices, revenue schedules, AR open items, cash applications, collection cases, return orders, rebate agreements | Go (pricing, ATP, settlement), TS | 26–30 |
-| `warehouse` | `passage_warehouse` | Locations, license plates, location directives, work templates, work, waves, replenishment, loads, routes, carrier rates, freight invoices, mobile flow definitions | Go (directives), TS | 28, 31–34 |
-| `treasury` | `passage_treasury` | Bank accounts, statements, reconciliations, cash forecasts, checks, letters of credit, fixed assets, asset books, asset transactions, leases | Go | 36–37 |
-| `workforce` | `passage_workforce` | Workers, positions, jobs, employment, absence, benefits, payroll runs, pay rules, expense reports | TS; Go (payroll calc) | 25 (time), 42–43 |
-| `projects` | `passage_projects` | Projects, WBS, project transactions, estimates, invoice proposals, functional locations, maintenance assets, maintenance plans, maintenance work orders, installed base, service agreements, cases, service work orders | TS | 41, 44–45 |
+| `platform` | `depot_platform` | Tenants, users, roles/duties/privileges, metadata registry, number sequences, audit log, workflow/batch definitions, legal entities, operating units, sites, warehouses, hierarchies, fiscal calendars, ISO reference data, UoM | Go (sequences, audit), TS (admin, workflow) | 1–6 |
+| `party` | `depot_party` | Party, roles (customer, vendor, contact, employee link), addresses, tax registrations, groups, payment and delivery terms, credit limits | TS | 7 |
+| `product` | `depot_product` | Product, product master, released product, dimension groups, attributes, BOM, formula, routing, resources, calendars, change orders | Go (explosion), TS | 8–9 |
+| `ledger` | `depot_ledger` | Accounts, account structures, dimensions, journal entries/lines, balances, ledgers, exchange rates, tax codes and transactions, period control, allocations, accruals, statements, budgets, cost accounting ledger, consolidation groups | Go | 11–15, 38, 40 |
+| `inventory` | `depot_inventory` | Inventory transactions, on-hand projection, reservations, inventory journals, counting, cost layers, costing versions, costing sheets, quality orders, nonconformances | Go | 16, 20, 33, 39 |
+| `procurement` | `depot_procurement` | Requisitions, RFQs, purchase agreements, purchase orders, product receipts, vendor invoices, match results, AP open items, payment proposals, payments | Go (matching, settlement), TS | 17–20 |
+| `manufacturing` | `depot_manufacturing` | Production/batch orders, picking lists, route cards, planning runs, planned orders, planning messages, schedules, kanbans, time registrations, machine events | Go; Python (forecasting) | 21–25 |
+| `sales` | `depot_sales` | Price conditions, quotations, sales orders, holds, shipments/packing slips, customer invoices, revenue schedules, AR open items, cash applications, collection cases, return orders, rebate agreements | Go (pricing, ATP, settlement), TS | 26–30 |
+| `warehouse` | `depot_warehouse` | Locations, license plates, location directives, work templates, work, waves, replenishment, loads, routes, carrier rates, freight invoices, mobile flow definitions | Go (directives), TS | 28, 31–34 |
+| `treasury` | `depot_treasury` | Bank accounts, statements, reconciliations, cash forecasts, checks, letters of credit, fixed assets, asset books, asset transactions, leases | Go | 36–37 |
+| `workforce` | `depot_workforce` | Workers, positions, jobs, employment, absence, benefits, payroll runs, pay rules, expense reports | TS; Go (payroll calc) | 25 (time), 42–43 |
+| `projects` | `depot_projects` | Projects, WBS, project transactions, estimates, invoice proposals, functional locations, maintenance assets, maintenance plans, maintenance work orders, installed base, service agreements, cases, service work orders | TS | 41, 44–45 |
 
 ### B.2 Cross-context reference rule
 
@@ -22385,55 +22386,55 @@ Identity rules: every table has `id uuid` (UUIDv7, time-ordered), `tenant_id uui
 
 | Entity | Context | Database | Key identifiers | Main relationships |
 |---|---|---|---|---|
-| Tenant | platform | passage_platform | `id`, `slug` | has many LegalEntity, User, Role |
-| User | platform | passage_platform | `id`, `keycloak_sub`, `email` | many-to-many Role scoped by LegalEntity with `valid_from/to` |
-| Role / Duty / Privilege | platform | passage_platform | `code` (e.g. `AP.Clerk`, `MaintainVendors`, `vendor.write`) | Role ⊃ Duty ⊃ Privilege; compiled to OPA data |
-| EntityDefinition | platform | passage_platform | `name`, `version` | has Fields, Enums, Relations, Extensions |
-| NumberSequence | platform | passage_platform | `code`, `legal_entity_id`, `scope` | referenced by every document type (Appendix G) |
-| AuditEntry | platform | passage_platform | `id`, `entity`, `record_id`, `trace_id`, `hash` | hash-chained to previous entry; immutable |
-| LegalEntity | platform | passage_platform | `id`, `code` (e.g. `USMF`), `country` | has Sites, FiscalCalendar, ledger set |
-| OperatingUnit | platform | passage_platform | `id`, `type`, `code` | effective-dated Hierarchy nodes by purpose |
-| Site / Warehouse | platform | passage_platform | `id`, `code`, `legal_entity_id` | Warehouse belongs to Site; referenced by inventory and warehouse contexts |
-| FiscalCalendar / Period | platform | passage_platform | `id`, `fiscal_year`, `period_no` | PeriodControl rows per Ledger × module |
-| Party | party | passage_party | `id`, `party_number` | has Roles, Addresses, TaxRegistrations, Contacts |
-| Customer | party | passage_party | `id`, `party_id`, `customer_account` | belongs to CustomerGroup, PostingProfile; credit limit |
-| Vendor | party | passage_party | `id`, `party_id`, `vendor_account` | belongs to VendorGroup, PostingProfile, payment terms |
-| Product / ProductMaster | product | passage_product | `id`, `product_number`, `gtin` | Master has Variants by dimension values; DimensionGroups |
-| ReleasedProduct | product | passage_product | `product_id`, `legal_entity_id` | ItemModelGroup, defaults per Site/Warehouse |
-| BOM / BOMLine | product | passage_product | `id`, `bom_number`, `version` | lines reference Product ids; effective dates; phantom, scrap |
-| Routing / Operation | product | passage_product | `id`, `routing_number`, `version` | Operations require Resource capabilities |
-| Account / AccountStructure | ledger | passage_ledger | `main_account`, `structure_id` | Dimensions allowed per structure |
-| JournalEntry / JournalLine | ledger | passage_ledger | `id`, `document_number`, `idempotency_key` | lines carry 3 currency amounts, dimension set, `source_document_id`; `reverses_id` |
-| Balance | ledger | passage_ledger | (`ledger_id`, `account`, `dimension_hash`, `period`) | projection rebuilt from JournalLine |
-| Ledger / RateType / ExchangeRate | ledger | passage_ledger | `ledger_code`, `rate_type`, `from/to`, `valid_from` | LegalEntity has leading + parallel Ledgers |
-| TaxCode / TaxTransaction | ledger | passage_ledger | `tax_code`, `jurisdiction_id` | TaxTransaction references source line id and JournalLine |
-| InventoryTransaction | inventory | passage_inventory | `id`, `lot_id`, `reference_type/id` | dimensions (site, warehouse, location, batch, serial, LP); status pair |
-| OnHand | inventory | passage_inventory | (`product_id`, dimension hash) | projection = Σ InventoryTransaction |
-| CostLayer / CostingVersion | inventory | passage_inventory | `id`, `receipt_transaction_id`, `version_code` | settlements link issue to receipt layers |
-| QualityOrder | inventory | passage_inventory | `id`, `qo_number` | triggered by receipt/production/shipment reference; blocks OnHand |
-| PurchaseRequisition / RFQ / PurchaseAgreement | procurement | passage_procurement | `document_number` | Requisition lines → PO lines; Agreement releases |
-| PurchaseOrder / Line | procurement | passage_procurement | `document_number`, `version` | `vendor_id`, `product_id`, `site/warehouse_id`; delivery schedules |
-| ProductReceipt | procurement | passage_procurement | `document_number` | references PO lines, creates InventoryTransaction ids and JournalEntry id |
-| VendorInvoice / MatchResult | procurement | passage_procurement | `document_number`, `vendor_invoice_number` | matches PO + Receipt lines; posts JournalEntry; creates APOpenItem |
-| APOpenItem / Payment | procurement | passage_procurement | `id`, `payment_number` | Settlement links Payment to OpenItems; payment file id |
-| ProductionOrder | manufacturing | passage_manufacturing | `document_number`, `status` | BOM/Routing snapshot; PickingList, RouteCard, JournalEntry ids for WIP |
-| PlannedOrder / PlanningRun | manufacturing | passage_manufacturing | `id`, `run_id` | pegged to demand ids (SalesOrderLine, ProductionOrder, Forecast) |
-| TimeRegistration / MachineEvent | manufacturing | passage_manufacturing | `id`, `worker_id`, `resource_id` | pay types exported to PayrollRun; OEE aggregates |
-| PriceCondition | sales | passage_sales | `id`, `condition_type`, access key | resolved by access sequence; effective dates |
-| SalesOrder / Line | sales | passage_sales | `document_number`, `status` | `customer_id`, `product_id`; Holds; ATP results; linked ProductionOrder/PlannedOrder ids |
-| Shipment / PackingSlip | sales | passage_sales | `document_number`, `sscc` | references SalesOrder lines, Load id, InventoryTransaction ids, COGS JournalEntry id |
-| CustomerInvoice / RevenueSchedule | sales | passage_sales | `document_number` | invoice lines → PerformanceObligations → schedule lines → JournalEntry ids |
-| AROpenItem / CashApplication | sales | passage_sales | `id`, `receipt_number` | settlement to invoices; BankStatement line id |
-| CollectionCase / ReturnOrder | sales | passage_sales | `case_number`, `rma_number` | customer, disputed invoice ids; RMA disposition → InventoryTransaction |
-| Location / LicensePlate | warehouse | passage_warehouse | `location_code`, `lp_number` | Zone ⊃ Aisle ⊃ Rack ⊃ Bin; LP nests LPs |
-| Work / PickWave | warehouse | passage_warehouse | `work_id`, `wave_id` | work lines reference order lines; directives; assigned user |
-| BankAccount / BankStatement | treasury | passage_treasury | `id`, `iban/account_number` (P3) | statement lines reconcile to JournalLines, Payments, CashApplications |
-| FixedAsset / AssetBook / AssetTransaction | treasury | passage_treasury | `asset_number`, `book_code` | acquisition from VendorInvoice/Project ids; depreciation JournalEntry ids |
-| Worker / Position / Job | workforce | passage_workforce | `personnel_number`, `position_id` | effective-dated Employment; Position reports to Position; `party_id` |
-| PayrollRun / ExpenseReport | workforce | passage_workforce | `run_id`, `report_number` | pay statements; JournalEntry ids; reimbursement → VendorInvoice id |
-| Project / WBS / ProjectTransaction | projects | passage_projects | `project_number`, `wbs_code` | transactions reference TimeRegistration, ExpenseReport, PO, inventory ids; JournalEntry ids |
-| MaintenanceAsset / MaintenanceWorkOrder | projects | passage_projects | `asset_number`, `work_order_number` | FunctionalLocation tree; parts → InventoryTransaction; labor → TimeRegistration |
-| ServiceAgreement / Case / ServiceWorkOrder | projects | passage_projects | `agreement_number`, `case_number` | InstalledBase serials from Shipment; billing → CustomerInvoice id |
+| Tenant | platform | depot_platform | `id`, `slug` | has many LegalEntity, User, Role |
+| User | platform | depot_platform | `id`, `keycloak_sub`, `email` | many-to-many Role scoped by LegalEntity with `valid_from/to` |
+| Role / Duty / Privilege | platform | depot_platform | `code` (e.g. `AP.Clerk`, `MaintainVendors`, `vendor.write`) | Role ⊃ Duty ⊃ Privilege; compiled to OPA data |
+| EntityDefinition | platform | depot_platform | `name`, `version` | has Fields, Enums, Relations, Extensions |
+| NumberSequence | platform | depot_platform | `code`, `legal_entity_id`, `scope` | referenced by every document type (Appendix G) |
+| AuditEntry | platform | depot_platform | `id`, `entity`, `record_id`, `trace_id`, `hash` | hash-chained to previous entry; immutable |
+| LegalEntity | platform | depot_platform | `id`, `code` (e.g. `USMF`), `country` | has Sites, FiscalCalendar, ledger set |
+| OperatingUnit | platform | depot_platform | `id`, `type`, `code` | effective-dated Hierarchy nodes by purpose |
+| Site / Warehouse | platform | depot_platform | `id`, `code`, `legal_entity_id` | Warehouse belongs to Site; referenced by inventory and warehouse contexts |
+| FiscalCalendar / Period | platform | depot_platform | `id`, `fiscal_year`, `period_no` | PeriodControl rows per Ledger × module |
+| Party | party | depot_party | `id`, `party_number` | has Roles, Addresses, TaxRegistrations, Contacts |
+| Customer | party | depot_party | `id`, `party_id`, `customer_account` | belongs to CustomerGroup, PostingProfile; credit limit |
+| Vendor | party | depot_party | `id`, `party_id`, `vendor_account` | belongs to VendorGroup, PostingProfile, payment terms |
+| Product / ProductMaster | product | depot_product | `id`, `product_number`, `gtin` | Master has Variants by dimension values; DimensionGroups |
+| ReleasedProduct | product | depot_product | `product_id`, `legal_entity_id` | ItemModelGroup, defaults per Site/Warehouse |
+| BOM / BOMLine | product | depot_product | `id`, `bom_number`, `version` | lines reference Product ids; effective dates; phantom, scrap |
+| Routing / Operation | product | depot_product | `id`, `routing_number`, `version` | Operations require Resource capabilities |
+| Account / AccountStructure | ledger | depot_ledger | `main_account`, `structure_id` | Dimensions allowed per structure |
+| JournalEntry / JournalLine | ledger | depot_ledger | `id`, `document_number`, `idempotency_key` | lines carry 3 currency amounts, dimension set, `source_document_id`; `reverses_id` |
+| Balance | ledger | depot_ledger | (`ledger_id`, `account`, `dimension_hash`, `period`) | projection rebuilt from JournalLine |
+| Ledger / RateType / ExchangeRate | ledger | depot_ledger | `ledger_code`, `rate_type`, `from/to`, `valid_from` | LegalEntity has leading + parallel Ledgers |
+| TaxCode / TaxTransaction | ledger | depot_ledger | `tax_code`, `jurisdiction_id` | TaxTransaction references source line id and JournalLine |
+| InventoryTransaction | inventory | depot_inventory | `id`, `lot_id`, `reference_type/id` | dimensions (site, warehouse, location, batch, serial, LP); status pair |
+| OnHand | inventory | depot_inventory | (`product_id`, dimension hash) | projection = Σ InventoryTransaction |
+| CostLayer / CostingVersion | inventory | depot_inventory | `id`, `receipt_transaction_id`, `version_code` | settlements link issue to receipt layers |
+| QualityOrder | inventory | depot_inventory | `id`, `qo_number` | triggered by receipt/production/shipment reference; blocks OnHand |
+| PurchaseRequisition / RFQ / PurchaseAgreement | procurement | depot_procurement | `document_number` | Requisition lines → PO lines; Agreement releases |
+| PurchaseOrder / Line | procurement | depot_procurement | `document_number`, `version` | `vendor_id`, `product_id`, `site/warehouse_id`; delivery schedules |
+| ProductReceipt | procurement | depot_procurement | `document_number` | references PO lines, creates InventoryTransaction ids and JournalEntry id |
+| VendorInvoice / MatchResult | procurement | depot_procurement | `document_number`, `vendor_invoice_number` | matches PO + Receipt lines; posts JournalEntry; creates APOpenItem |
+| APOpenItem / Payment | procurement | depot_procurement | `id`, `payment_number` | Settlement links Payment to OpenItems; payment file id |
+| ProductionOrder | manufacturing | depot_manufacturing | `document_number`, `status` | BOM/Routing snapshot; PickingList, RouteCard, JournalEntry ids for WIP |
+| PlannedOrder / PlanningRun | manufacturing | depot_manufacturing | `id`, `run_id` | pegged to demand ids (SalesOrderLine, ProductionOrder, Forecast) |
+| TimeRegistration / MachineEvent | manufacturing | depot_manufacturing | `id`, `worker_id`, `resource_id` | pay types exported to PayrollRun; OEE aggregates |
+| PriceCondition | sales | depot_sales | `id`, `condition_type`, access key | resolved by access sequence; effective dates |
+| SalesOrder / Line | sales | depot_sales | `document_number`, `status` | `customer_id`, `product_id`; Holds; ATP results; linked ProductionOrder/PlannedOrder ids |
+| Shipment / PackingSlip | sales | depot_sales | `document_number`, `sscc` | references SalesOrder lines, Load id, InventoryTransaction ids, COGS JournalEntry id |
+| CustomerInvoice / RevenueSchedule | sales | depot_sales | `document_number` | invoice lines → PerformanceObligations → schedule lines → JournalEntry ids |
+| AROpenItem / CashApplication | sales | depot_sales | `id`, `receipt_number` | settlement to invoices; BankStatement line id |
+| CollectionCase / ReturnOrder | sales | depot_sales | `case_number`, `rma_number` | customer, disputed invoice ids; RMA disposition → InventoryTransaction |
+| Location / LicensePlate | warehouse | depot_warehouse | `location_code`, `lp_number` | Zone ⊃ Aisle ⊃ Rack ⊃ Bin; LP nests LPs |
+| Work / PickWave | warehouse | depot_warehouse | `work_id`, `wave_id` | work lines reference order lines; directives; assigned user |
+| BankAccount / BankStatement | treasury | depot_treasury | `id`, `iban/account_number` (P3) | statement lines reconcile to JournalLines, Payments, CashApplications |
+| FixedAsset / AssetBook / AssetTransaction | treasury | depot_treasury | `asset_number`, `book_code` | acquisition from VendorInvoice/Project ids; depreciation JournalEntry ids |
+| Worker / Position / Job | workforce | depot_workforce | `personnel_number`, `position_id` | effective-dated Employment; Position reports to Position; `party_id` |
+| PayrollRun / ExpenseReport | workforce | depot_workforce | `run_id`, `report_number` | pay statements; JournalEntry ids; reimbursement → VendorInvoice id |
+| Project / WBS / ProjectTransaction | projects | depot_projects | `project_number`, `wbs_code` | transactions reference TimeRegistration, ExpenseReport, PO, inventory ids; JournalEntry ids |
+| MaintenanceAsset / MaintenanceWorkOrder | projects | depot_projects | `asset_number`, `work_order_number` | FunctionalLocation tree; parts → InventoryTransaction; labor → TimeRegistration |
+| ServiceAgreement / Case / ServiceWorkOrder | projects | depot_projects | `agreement_number`, `case_number` | InstalledBase serials from Shipment; billing → CustomerInvoice id |
 
 ## C. Event catalog conventions
 
@@ -22445,12 +22446,12 @@ Every event is a CloudEvents 1.0 message in structured JSON mode on Kafka with t
 |---|---|
 | `specversion` | `1.0` |
 | `id` | UUIDv7; equals the outbox row id, so redelivery carries the same id |
-| `source` | `/passage/<context>/<service>` e.g. `/passage/ledger/posting` |
-| `type` | `dev.passage.<context>.<entity>.<verb>.v<n>` — lowercase, no hyphens; verb is past tense (`posted`, `confirmed`, `changed`) |
+| `source` | `/depot/<context>/<service>` e.g. `/depot/ledger/posting` |
+| `type` | `dev.depot.<context>.<entity>.<verb>.v<n>` — lowercase, no hyphens; verb is past tense (`posted`, `confirmed`, `changed`) |
 | `subject` | the aggregate id (UUIDv7) |
 | `time` | commit time of the producing transaction, RFC 3339 UTC |
 | `datacontenttype` | `application/json` |
-| `dataschema` | registry URL `https://schemas.passage.dev/<type>.json` |
+| `dataschema` | registry URL `https://schemas.depot.dev/<type>.json` |
 | `tenantid` (ext) | tenant UUID; always present |
 | `legalentityid` (ext) | legal entity UUID when company-scoped |
 | `correlationid` (ext) | id of the originating request or workflow; propagated unchanged |
@@ -22461,15 +22462,15 @@ Every event is a CloudEvents 1.0 message in structured JSON mode on Kafka with t
 
 ### C.2 Topics and partitions
 
-- Topic: `passage.<context>.<entity>` (one topic per entity, all verbs and versions share it); 12 partitions default, 48 for `ledger.journalentry`, `inventory.transaction`, `manufacturing.machineevent`.
+- Topic: `depot.<context>.<entity>` (one topic per entity, all verbs and versions share it); 12 partitions default, 48 for `ledger.journalentry`, `inventory.transaction`, `manufacturing.machineevent`.
 - Partition key: `tenantid + ":" + subject` so events for one aggregate are ordered; `machineevent` uses `tenantid:resource_id`.
-- Retention: 30 days for transactional topics, 7 days for `machineevent`, compacted `passage.<context>.<entity>.snapshot` topics for reference-data read models.
-- Dead letter: `passage.<context>.<entity>.dlq.<consumer>` with the original event, error and attempt count in headers.
+- Retention: 30 days for transactional topics, 7 days for `machineevent`, compacted `depot.<context>.<entity>.snapshot` topics for reference-data read models.
+- Dead letter: `depot.<context>.<entity>.dlq.<consumer>` with the original event, error and attempt count in headers.
 - Access: ACLs per consumer service principal (SCRAM-SHA-512); cross-tenant consumers (analytics) run under a dedicated principal and are the only ones allowed to read all tenants.
 
 ### C.3 Schema evolution
 
-1. Changes within a version are additive only: new optional fields, new enum values flagged `x-passage-added-in`. Removing, renaming or retyping a field, or making an optional field required, requires a new `v<n+1>` type.
+1. Changes within a version are additive only: new optional fields, new enum values flagged `x-depot-added-in`. Removing, renaming or retyping a field, or making an optional field required, requires a new `v<n+1>` type.
 2. Schema registry compatibility mode is `BACKWARD_TRANSITIVE`; CI rejects a non-additive change (wave 4 proof).
 3. When `v<n+1>` ships, the producer emits both `v<n>` and `v<n+1>` for a deprecation window of two minor releases of the producing service, then drops `v<n>`. Consumers must migrate inside the window; a consumer still subscribed to a dropped type fails its startup health check.
 4. Enum consumers must treat unknown values as `other` and log at warn, never fail.
@@ -22519,7 +22520,7 @@ CREATE TABLE consumer_inbox (
 ### C.6 Replay procedure
 
 1. Open a change ticket naming consumer, topic, time window and reason; replay of a fiscal consumer (ledger, AP, AR) requires controller approval via the platform workflow.
-2. Pause the consumer group (`passage-ctl consumer pause <group>`), snapshot its inbox table.
+2. Pause the consumer group (`depot-ctl consumer pause <group>`), snapshot its inbox table.
 3. Reset the offset to the timestamp (`kafka-consumer-groups --reset-offsets --to-datetime`) or to a DLQ range; for a rebuild, truncate the read model and reset to earliest on the compacted snapshot topic.
 4. Resume; the inbox guarantees already-processed events are skipped, so replay is safe by construction. A replay that must reprocess (bug fix) deletes inbox rows for the window first, inside the ticket.
 5. Verify with the reconciliation checks in Appendix I.6 and close the ticket with the before/after totals.
@@ -22528,67 +22529,67 @@ CREATE TABLE consumer_inbox (
 
 | Event type | Producer | Wave | Key consumers |
 |---|---|---|---|
-| `dev.passage.platform.entitydefinition.changed.v1` | platform/metadata | 3 | generators, shell, analytics |
-| `dev.passage.platform.user.provisioned.v1` | platform/identity | 2 | workforce, audit |
-| `dev.passage.platform.workflowtask.completed.v1` | platform/workflow | 4 | originating context, notifications |
-| `dev.passage.platform.legalentity.created.v1` | platform/org | 6 | ledger, party, product, number sequences |
-| `dev.passage.platform.periodcontrol.changed.v1` | platform/org | 14 | all posting services (cache invalidation) |
-| `dev.passage.party.party.created.v1` | party | 7 | sales, procurement, workforce read models |
-| `dev.passage.party.party.merged.v1` | party | 7 | every context holding `party_id` (rewrite references) |
-| `dev.passage.party.customer.creditchanged.v1` | party | 7 | sales (credit checks) |
-| `dev.passage.product.product.released.v1` | product | 8 | inventory, sales, procurement, manufacturing |
-| `dev.passage.product.bom.versionactivated.v1` | product | 9 | manufacturing, inventory (cost roll) |
-| `dev.passage.product.changeorder.released.v1` | product | 9 | manufacturing, warehouse, projects |
-| `dev.passage.ledger.journalentry.posted.v1` | ledger | 11 | balances, analytics, audit, budgets |
-| `dev.passage.ledger.journalentry.reversed.v1` | ledger | 11 | subledgers, analytics |
-| `dev.passage.ledger.exchangerate.published.v1` | ledger | 12 | sales, procurement, treasury |
-| `dev.passage.ledger.period.closed.v1` | ledger | 14 | all posting services, analytics |
-| `dev.passage.ledger.taxsettlement.posted.v1` | ledger | 13 | statutory reporting, analytics |
-| `dev.passage.inventory.transaction.posted.v1` | inventory | 16 | on-hand, sales (ATP), planning, analytics |
-| `dev.passage.inventory.reservation.changed.v1` | inventory | 16 | sales, warehouse, manufacturing |
-| `dev.passage.inventory.costclose.completed.v1` | inventory | 20 | ledger reconciliation, analytics |
-| `dev.passage.inventory.qualityorder.decided.v1` | inventory | 33 | warehouse, procurement (scorecards), sales |
-| `dev.passage.procurement.purchaseorder.confirmed.v1` | procurement | 17 | planning, budgets (encumbrance), integration (EDI 850) |
-| `dev.passage.procurement.productreceipt.posted.v1` | procurement | 18 | inventory, ledger (GR/IR), quality, warehouse |
-| `dev.passage.procurement.vendorinvoice.posted.v1` | procurement | 18 | ledger, treasury (forecast), budgets, analytics |
-| `dev.passage.procurement.payment.posted.v1` | procurement | 19 | ledger, treasury, integration (payment file) |
-| `dev.passage.manufacturing.productionorder.released.v1` | manufacturing | 21 | inventory (reservations), warehouse, shop floor |
-| `dev.passage.manufacturing.productionorder.reportedasfinished.v1` | manufacturing | 21 | inventory, quality, sales (ATP) |
-| `dev.passage.manufacturing.productionorder.ended.v1` | manufacturing | 21 | ledger (variances), inventory (cost), analytics |
-| `dev.passage.manufacturing.plannedorder.firmed.v1` | manufacturing | 22 | procurement (PO creation), manufacturing orders |
-| `dev.passage.manufacturing.schedule.changed.v1` | manufacturing | 23 | production orders, planning, shop floor |
-| `dev.passage.manufacturing.machineevent.received.v1` | manufacturing/iot | 25 | OEE, projects (condition monitoring) |
-| `dev.passage.sales.salesorder.confirmed.v1` | sales | 27 | inventory (reservation), planning, warehouse, integration (EDI 855) |
-| `dev.passage.sales.shipment.posted.v1` | sales | 28 | inventory, ledger (COGS), billing, integration (ASN 856) |
-| `dev.passage.sales.invoice.posted.v1` | sales | 29 | ledger, AR, revenue schedules, integration (810/Peppol), analytics |
-| `dev.passage.sales.payment.applied.v1` | sales | 30 | ledger, collections, treasury |
-| `dev.passage.sales.returnorder.received.v1` | sales | 30 | inventory, quality, billing (credit note) |
-| `dev.passage.warehouse.work.completed.v1` | warehouse | 31 | inventory (status change), sales, procurement |
-| `dev.passage.warehouse.load.shipped.v1` | warehouse | 34 | sales (shipment posting), integration (EDI 214), treasury (freight accrual) |
-| `dev.passage.treasury.bankstatement.reconciled.v1` | treasury | 36 | ledger, AR, AP |
-| `dev.passage.treasury.asset.depreciated.v1` | treasury | 37 | ledger, analytics |
-| `dev.passage.workforce.payrollrun.posted.v1` | workforce | 43 | ledger, treasury (payments), projects |
-| `dev.passage.projects.transaction.posted.v1` | projects | 41 | ledger (WIP), billing, analytics |
-| `dev.passage.agents.action.executed.v1` | agents | 47 | audit, cost guard, analytics |
+| `dev.depot.platform.entitydefinition.changed.v1` | platform/metadata | 3 | generators, shell, analytics |
+| `dev.depot.platform.user.provisioned.v1` | platform/identity | 2 | workforce, audit |
+| `dev.depot.platform.workflowtask.completed.v1` | platform/workflow | 4 | originating context, notifications |
+| `dev.depot.platform.legalentity.created.v1` | platform/org | 6 | ledger, party, product, number sequences |
+| `dev.depot.platform.periodcontrol.changed.v1` | platform/org | 14 | all posting services (cache invalidation) |
+| `dev.depot.party.party.created.v1` | party | 7 | sales, procurement, workforce read models |
+| `dev.depot.party.party.merged.v1` | party | 7 | every context holding `party_id` (rewrite references) |
+| `dev.depot.party.customer.creditchanged.v1` | party | 7 | sales (credit checks) |
+| `dev.depot.product.product.released.v1` | product | 8 | inventory, sales, procurement, manufacturing |
+| `dev.depot.product.bom.versionactivated.v1` | product | 9 | manufacturing, inventory (cost roll) |
+| `dev.depot.product.changeorder.released.v1` | product | 9 | manufacturing, warehouse, projects |
+| `dev.depot.ledger.journalentry.posted.v1` | ledger | 11 | balances, analytics, audit, budgets |
+| `dev.depot.ledger.journalentry.reversed.v1` | ledger | 11 | subledgers, analytics |
+| `dev.depot.ledger.exchangerate.published.v1` | ledger | 12 | sales, procurement, treasury |
+| `dev.depot.ledger.period.closed.v1` | ledger | 14 | all posting services, analytics |
+| `dev.depot.ledger.taxsettlement.posted.v1` | ledger | 13 | statutory reporting, analytics |
+| `dev.depot.inventory.transaction.posted.v1` | inventory | 16 | on-hand, sales (ATP), planning, analytics |
+| `dev.depot.inventory.reservation.changed.v1` | inventory | 16 | sales, warehouse, manufacturing |
+| `dev.depot.inventory.costclose.completed.v1` | inventory | 20 | ledger reconciliation, analytics |
+| `dev.depot.inventory.qualityorder.decided.v1` | inventory | 33 | warehouse, procurement (scorecards), sales |
+| `dev.depot.procurement.purchaseorder.confirmed.v1` | procurement | 17 | planning, budgets (encumbrance), integration (EDI 850) |
+| `dev.depot.procurement.productreceipt.posted.v1` | procurement | 18 | inventory, ledger (GR/IR), quality, warehouse |
+| `dev.depot.procurement.vendorinvoice.posted.v1` | procurement | 18 | ledger, treasury (forecast), budgets, analytics |
+| `dev.depot.procurement.payment.posted.v1` | procurement | 19 | ledger, treasury, integration (payment file) |
+| `dev.depot.manufacturing.productionorder.released.v1` | manufacturing | 21 | inventory (reservations), warehouse, shop floor |
+| `dev.depot.manufacturing.productionorder.reportedasfinished.v1` | manufacturing | 21 | inventory, quality, sales (ATP) |
+| `dev.depot.manufacturing.productionorder.ended.v1` | manufacturing | 21 | ledger (variances), inventory (cost), analytics |
+| `dev.depot.manufacturing.plannedorder.firmed.v1` | manufacturing | 22 | procurement (PO creation), manufacturing orders |
+| `dev.depot.manufacturing.schedule.changed.v1` | manufacturing | 23 | production orders, planning, shop floor |
+| `dev.depot.manufacturing.machineevent.received.v1` | manufacturing/iot | 25 | OEE, projects (condition monitoring) |
+| `dev.depot.sales.salesorder.confirmed.v1` | sales | 27 | inventory (reservation), planning, warehouse, integration (EDI 855) |
+| `dev.depot.sales.shipment.posted.v1` | sales | 28 | inventory, ledger (COGS), billing, integration (ASN 856) |
+| `dev.depot.sales.invoice.posted.v1` | sales | 29 | ledger, AR, revenue schedules, integration (810/Peppol), analytics |
+| `dev.depot.sales.payment.applied.v1` | sales | 30 | ledger, collections, treasury |
+| `dev.depot.sales.returnorder.received.v1` | sales | 30 | inventory, quality, billing (credit note) |
+| `dev.depot.warehouse.work.completed.v1` | warehouse | 31 | inventory (status change), sales, procurement |
+| `dev.depot.warehouse.load.shipped.v1` | warehouse | 34 | sales (shipment posting), integration (EDI 214), treasury (freight accrual) |
+| `dev.depot.treasury.bankstatement.reconciled.v1` | treasury | 36 | ledger, AR, AP |
+| `dev.depot.treasury.asset.depreciated.v1` | treasury | 37 | ledger, analytics |
+| `dev.depot.workforce.payrollrun.posted.v1` | workforce | 43 | ledger, treasury (payments), projects |
+| `dev.depot.projects.transaction.posted.v1` | projects | 41 | ledger (WIP), billing, analytics |
+| `dev.depot.agents.action.executed.v1` | agents | 47 | audit, cost guard, analytics |
 
 ## D. API conventions
 
 ### D.1 Resources and naming
 
-- Base path `https://api.<env>.passage.dev/v1/<context>/<collection>`; collections are plural kebab-case (`/v1/ledger/journal-entries`, `/v1/sales/sales-orders`, `/v1/product/released-products`). Ids in paths are UUIDv7; document numbers are reachable through `?filter=documentNumber eq 'INV-USMF-2026-000123'`.
+- Base path `https://api.<env>.depot.dev/v1/<context>/<collection>`; collections are plural kebab-case (`/v1/ledger/journal-entries`, `/v1/sales/sales-orders`, `/v1/product/released-products`). Ids in paths are UUIDv7; document numbers are reachable through `?filter=documentNumber eq 'INV-USMF-2026-000123'`.
 - Sub-resources only for composition (`/sales-orders/{id}/lines`). Lifecycle actions are custom methods with a colon: `POST /v1/ledger/journal-entries/{id}:post`, `:reverse`, `:confirm`, `:release`, `:cancel`. Actions are the only way to change status; `PATCH` on a `status` field returns 422 `state_transition_invalid`.
 - JSON field names are camelCase in the wire format and snake_case in Postgres; the generator maintains the mapping. Money is `{ "amount": "1234.56", "currency": "USD" }` with a decimal string; dates are ISO 8601 (`2026-10-21`, `2026-10-21T14:03:00Z`); quantities are decimal strings with `unit`.
 - Every entity declared in metadata gets `GET` list, `GET` by id, `POST`, `PUT`, `PATCH` (JSON Merge Patch), `DELETE` (soft, unless metadata says hard), plus `:batch` and `:export`, generated. Hand-written endpoints are limited to engines (post, price, plan, schedule, match, settle).
 
 ### D.2 Versioning
 
-`/v1` is the only version in v1.0. Within a major version changes are additive only (new optional fields, new endpoints, new enum values). Breaking changes ship as `/v2` for the affected context with both versions served for at least 12 months; the `Sunset` and `Deprecation` headers (RFC 8594) announce retirement. The `X-Passage-Api-Build` response header carries the service build for support.
+`/v1` is the only version in v1.0. Within a major version changes are additive only (new optional fields, new endpoints, new enum values). Breaking changes ship as `/v2` for the affected context with both versions served for at least 12 months; the `Sunset` and `Deprecation` headers (RFC 8594) announce retirement. The `X-Depot-Api-Build` response header carries the service build for support.
 
 ### D.3 Pagination, filtering, sorting, shape
 
 - Cursor pagination: `?limit=50&cursor=<opaque>`; `limit` max 500. Response: `{ "items": [...], "nextCursor": "...", "estimatedTotal": 1234 }`. Cursors encode the sort key and are valid for 24 h; a cursor from a different filter returns 400 `invalid_cursor`.
 - Filter grammar (subset of OData): `field op value` with `eq ne gt ge lt le in like isnull`, combined with `and or not` and parentheses; nested fields by dot (`customer.group eq 'WHOLESALE'`); dimension filters via `dimensions.costCenter eq 'CC-100'`. Max 20 predicates; filters on non-indexed fields over 100k rows are rejected with 422 `filter_not_indexed`.
-- `?sort=-postedAt,documentNumber`; `?fields=id,documentNumber,total` for projection; `?expand=lines,customer` for one level of embedded reads (never across contexts; cross-context fields come from the local read model and are marked `x-passage-snapshot` in OpenAPI).
+- `?sort=-postedAt,documentNumber`; `?fields=id,documentNumber,total` for projection; `?expand=lines,customer` for one level of embedded reads (never across contexts; cross-context fields come from the local read model and are marked `x-depot-snapshot` in OpenAPI).
 - `?asOf=2026-01-01` on effective-dated entities (hierarchies, BOMs, positions, prices).
 
 ### D.4 Error envelope
@@ -22597,7 +22598,7 @@ Errors are RFC 9457 problem details (`Content-Type: application/problem+json`):
 
 ```json
 {
-  "type": "https://passage.dev/problems/period_closed",
+  "type": "https://depot.dev/problems/period_closed",
   "title": "Period is closed",
   "status": 422,
   "detail": "Ledger USMF-IFRS period 2026-09 is closed for module AP since 2026-10-05T18:00:00Z.",
@@ -22662,7 +22663,7 @@ Enforced at Envoy Gateway per tenant and per API key; headers `RateLimit-Limit`,
 
 ### D.9 OpenAPI and SDKs
 
-The metadata generator emits one OpenAPI 3.1 document per context (`openapi/<context>.v1.yaml`) with schemas, examples, error codes and `x-passage-duty` on every operation; hand-written engine endpoints are merged from annotated Go/TS handlers. CI runs Spectral (style) and oasdiff (breaking-change detection) against the last released spec; the developer portal (wave 35) publishes specs and the AsyncAPI documents. SDKs generated per release: TypeScript (first-party, used by the shell), Go, Python in v1.0; C# and Java in v1.x for AX and SAP shops respectively. SDKs expose idempotency keys, ETags and pagination as first-class helpers and never hide problem details.
+The metadata generator emits one OpenAPI 3.1 document per context (`openapi/<context>.v1.yaml`) with schemas, examples, error codes and `x-depot-duty` on every operation; hand-written engine endpoints are merged from annotated Go/TS handlers. CI runs Spectral (style) and oasdiff (breaking-change detection) against the last released spec; the developer portal (wave 35) publishes specs and the AsyncAPI documents. SDKs generated per release: TypeScript (first-party, used by the shell), Go, Python in v1.0; C# and Java in v1.x for AX and SAP shops respectively. SDKs expose idempotency keys, ETags and pagination as first-class helpers and never hide problem details.
 
 ## E. Security and authorization model
 
@@ -22670,7 +22671,7 @@ The metadata generator emits one OpenAPI 3.1 document per context (`openapi/<con
 
 A tenant is one customer organization: one Keycloak realm, one `tenant_id`, one row-level security scope across all 12 databases, one Kafka ACL principal set, one Vault namespace, one cost budget. Legal entities are scopes inside the tenant; users are assigned roles per legal entity (or `*`). Data residency is per tenant (wave 48): a tenant is pinned to a region's cluster set and its Iceberg warehouse. Cross-tenant access does not exist in the application; only the analytics and platform-operations principals can read across tenants and only through audited service accounts.
 
-The request path sets the scope: Envoy validates the JWT, the service opens a Postgres connection from a pool bound to the non-superuser application role and executes `SET LOCAL passage.tenant_id = '<uuid>'; SET LOCAL passage.legal_entity_scopes = '<uuid>,<uuid>'` inside the transaction. The application role has no `BYPASSRLS`.
+The request path sets the scope: Envoy validates the JWT, the service opens a Postgres connection from a pool bound to the non-superuser application role and executes `SET LOCAL depot.tenant_id = '<uuid>'; SET LOCAL depot.legal_entity_scopes = '<uuid>,<uuid>'` inside the transaction. The application role has no `BYPASSRLS`.
 
 ### E.2 RLS policy template
 
@@ -22681,25 +22682,25 @@ ALTER TABLE ledger.journal_entry ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ledger.journal_entry FORCE ROW LEVEL SECURITY;
 
 CREATE POLICY tenant_isolation ON ledger.journal_entry
-  AS RESTRICTIVE FOR ALL TO passage_app
-  USING      (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  AS RESTRICTIVE FOR ALL TO depot_app
+  USING      (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 CREATE POLICY legal_entity_scope ON ledger.journal_entry
-  AS RESTRICTIVE FOR ALL TO passage_app
+  AS RESTRICTIVE FOR ALL TO depot_app
   USING (
-    current_setting('passage.legal_entity_scopes', true) = '*'
-    OR legal_entity_id = ANY (string_to_array(current_setting('passage.legal_entity_scopes', true), ',')::uuid[])
+    current_setting('depot.legal_entity_scopes', true) = '*'
+    OR legal_entity_id = ANY (string_to_array(current_setting('depot.legal_entity_scopes', true), ',')::uuid[])
   )
   WITH CHECK (
-    legal_entity_id = ANY (string_to_array(current_setting('passage.legal_entity_scopes', true), ',')::uuid[])
+    legal_entity_id = ANY (string_to_array(current_setting('depot.legal_entity_scopes', true), ',')::uuid[])
   );
 
 -- Batch and CDC roles: separate role with the same policies; Debezium reads the WAL and is outside RLS by design,
 -- so the outbox payload carries tenant_id and the relay sets the CloudEvents tenantid from it.
 ```
 
-A missing `passage.tenant_id` makes `current_setting(..., true)` return NULL and the policy returns no rows: the fail-safe is empty, never cross-tenant.
+A missing `depot.tenant_id` makes `current_setting(..., true)` return NULL and the policy returns no rows: the fail-safe is empty, never cross-tenant.
 
 ### E.3 Role / duty / privilege schema
 
@@ -22712,7 +22713,7 @@ CREATE TABLE platform.privilege (
 );
 CREATE TABLE platform.duty (
   code text PRIMARY KEY,                  -- 'MaintainVendors', 'PostVendorInvoices', 'ApprovePayments'
-  tenant_id uuid,                         -- NULL = shipped by Passage, else customer-defined
+  tenant_id uuid,                         -- NULL = shipped by Depot, else customer-defined
   description text NOT NULL
 );
 CREATE TABLE platform.duty_privilege (duty_code text REFERENCES platform.duty, privilege_code text REFERENCES platform.privilege, PRIMARY KEY (duty_code, privilege_code));
@@ -22730,24 +22731,24 @@ CREATE TABLE platform.sod_rule (
 );
 ```
 
-Passage ships ~60 roles, ~400 duties and ~2,500 privileges, named after AX (e.g. role `AccountsPayableClerk`, duty `MaintainVendorInvoices`). Customers add duties and roles; they cannot add privileges, which are generated from metadata (`<entity>.<action>`) and engine endpoints.
+Depot ships ~60 roles, ~400 duties and ~2,500 privileges, named after AX (e.g. role `AccountsPayableClerk`, duty `MaintainVendorInvoices`). Customers add duties and roles; they cannot add privileges, which are generated from metadata (`<entity>.<action>`) and engine endpoints.
 
 ### E.4 OPA policy structure
 
-The compiled policy bundle contains `data.passage.grants[tenant][user] = {duty: [legal_entity_ids]}` and `data.passage.duty_privileges[duty] = [privileges]`, rebuilt by the platform service on every role change (push to the OPA sidecars via bundle server, ≤ 10 s propagation). The input is `{ "principal": {sub, tenant, agent?, on_behalf_of?}, "action": "<privilege>", "resource": {context, entity, id?, legal_entity_id?, amount?, owner?} }`. Every service calls `POST /v1/data/passage/authz/allow` on its sidecar; the gateway performs a coarse check (token, tenant, route duty) and the service performs the fine-grained one (record scope).
+The compiled policy bundle contains `data.depot.grants[tenant][user] = {duty: [legal_entity_ids]}` and `data.depot.duty_privileges[duty] = [privileges]`, rebuilt by the platform service on every role change (push to the OPA sidecars via bundle server, ≤ 10 s propagation). The input is `{ "principal": {sub, tenant, agent?, on_behalf_of?}, "action": "<privilege>", "resource": {context, entity, id?, legal_entity_id?, amount?, owner?} }`. Every service calls `POST /v1/data/depot/authz/allow` on its sidecar; the gateway performs a coarse check (token, tenant, route duty) and the service performs the fine-grained one (record scope).
 
 Example 1 — duty-based allow with legal-entity scope:
 
 ```rego
-package passage.authz
+package depot.authz
 
 default allow := false
 
 allow if {
   some duty
-  priv_set := data.passage.duty_privileges[duty]
+  priv_set := data.depot.duty_privileges[duty]
   priv_set[_] == input.action
-  scopes := data.passage.grants[input.principal.tenant][input.principal.sub][duty]
+  scopes := data.depot.grants[input.principal.tenant][input.principal.sub][duty]
   scope_ok(scopes, input.resource.legal_entity_id)
 }
 
@@ -22761,9 +22762,9 @@ Example 2 — agents never exceed the user they act for, and are additionally li
 allow if {
   input.principal.agent != null
   user_input := object.union(input, {"principal": {"sub": input.principal.on_behalf_of, "tenant": input.principal.tenant}})
-  data.passage.authz.allow with input as user_input
-  data.passage.agents[input.principal.agent].allowed_actions[_] == input.action
-  not data.passage.agents[input.principal.agent].kill_switch
+  data.depot.authz.allow with input as user_input
+  data.depot.agents[input.principal.agent].allowed_actions[_] == input.action
+  not data.depot.agents[input.principal.agent].kill_switch
 }
 ```
 
@@ -22783,7 +22784,7 @@ deny contains msg if {
   msg := "sod: preparer cannot approve own payment"
 }
 
-has_duty(d) if data.passage.grants[input.principal.tenant][input.principal.sub][d]
+has_duty(d) if data.depot.grants[input.principal.tenant][input.principal.sub][d]
 ```
 
 ### E.5 Segregation-of-duties enforcement points
@@ -22847,7 +22848,7 @@ In transit: TLS 1.3 at the gateway (cert-manager, ACME or customer CA), mTLS bet
 | NFR-S4 | Scale | IoT ingest | 10k events/min per plant, no loss on broker restart | Simulator + chaos | Wave 25 |
 | NFR-S5 | Scale | Migration load | 50k customers, 20k vendors, 100k items, 10k BOMs < 30 min | Migration run ledger | Wave 10 |
 | NFR-S6 | Scale | Tenants per cluster set | 100 with noisy-neighbor limits | Capacity model, rate limits | Wave 50 |
-| NFR-SEC1 | Security | Authorization on every request | 100% of routes carry `x-passage-duty`; 0 unprotected | OpenAPI lint + gateway audit | Wave 2 |
+| NFR-SEC1 | Security | Authorization on every request | 100% of routes carry `x-depot-duty`; 0 unprotected | OpenAPI lint + gateway audit | Wave 2 |
 | NFR-SEC2 | Security | Tenant isolation | 0 cross-tenant rows in RLS test suite | Automated RLS test per table | Wave 2 |
 | NFR-SEC3 | Security | Supply chain | 100% images signed, SBOM attached, 0 critical CVEs at deploy | cosign verify, Grype gate | Wave 1 |
 | NFR-SEC4 | Security | Penetration test | 0 high/critical open at wave 48 exit | External test report | Wave 48 |
@@ -23277,9 +23278,9 @@ Consolidated from the `references` arrays in `roadmap/waves.json` (183 distinct 
 
 ### L.1 Capability matrix
 
-The matrix compares the six systems a mid-to-large manufacturer shortlists against the Passage v1.0 target. Cells name the actual feature or module and give typical numbers where they are public or widely reported by customers and analysts; "n/a" means the capability is absent or only available through a partner product. Figures marked "typical" are customer-reported ranges, not vendor commitments, and should be re-validated per deal.
+The matrix compares the six systems a mid-to-large manufacturer shortlists against the Depot v1.0 target. Cells name the actual feature or module and give typical numbers where they are public or widely reported by customers and analysts; "n/a" means the capability is absent or only available through a partner product. Figures marked "typical" are customer-reported ranges, not vendor commitments, and should be re-validated per deal.
 
-| Capability | SAP S/4HANA | D365 F&SCM | Infor LN / CloudSuite Industrial | Epicor Kinetic | IFS Cloud | Plex | Passage target |
+| Capability | SAP S/4HANA | D365 F&SCM | Infor LN / CloudSuite Industrial | Epicor Kinetic | IFS Cloud | Plex | Depot target |
 |---|---|---|---|---|---|---|---|
 | MRP full regeneration, 50k items | MRP Live on HANA: minutes (typically < 10 min; MD01N) | Planning Optimization (Azure service): typically 5–30 min; legacy master planning: hours | LN: batch overnight typical; CSI (SyteLine) APS: minutes to hours | MRP regeneration batch, typically overnight; net-change intraday | MRP/MS batch, typically hours; incremental supported | Net-change MRP continuous, minutes | < 10 min for 50k items × 12 periods × 5 BOM levels; deterministic; net-change continuous |
 | Live pegging / explain plan | MD04 stock/requirements list; PP/DS pegging | Planning Optimization pegging view | LN order pegging (project pegging); CSI APS pegging | Time Phase inquiry pegging | Supply/demand pegging in Supply Chain Planning | Limited (order-level links) | Pegging tree API explaining 100% of any planned order's quantity |
@@ -23315,11 +23316,11 @@ The matrix compares the six systems a mid-to-large manufacturer shortlists again
 | Implementation, mid-size manufacturer (typical) | 12–24 months | 9–18 months | 6–12 months (CSI) | 6–12 months | 9–18 months | 6–12 months | 3–6 months using the migration factory (wave 49) and parallel-run diff |
 | Accessibility | Fiori: WCAG 2.1 AA for most apps | WCAG 2.1 AA | Partial | Partial | Partial | Partial | WCAG 2.1 AA on every generated form and workspace, axe in CI |
 
-Reading the matrix: the incumbents win today on breadth of localization, installed-base references and depth in a few modules (SAP finance, IFS EAM, Plex MES). Passage does not try to out-feature them row by row in v1.0; it competes on the rows where every incumbent is structurally weak — one journal with automated reconciliation, metadata extensibility without a proprietary language, event streaming and open APIs as the default integration surface, cloud-agnostic deployment, continuous zero-downtime upgrades, and governed AI agents that act under the same authorization as users.
+Reading the matrix: the incumbents win today on breadth of localization, installed-base references and depth in a few modules (SAP finance, IFS EAM, Plex MES). Depot does not try to out-feature them row by row in v1.0; it competes on the rows where every incumbent is structurally weak — one journal with automated reconciliation, metadata extensibility without a proprietary language, event streaming and open APIs as the default integration surface, cloud-agnostic deployment, continuous zero-downtime upgrades, and governed AI agents that act under the same authorization as users.
 
 ### L.2 Interoperability contract
 
-Principle: any system on the customer's network — MES, PLM, SCADA/OPC-UA, a third-party WMS, EDI trading partners, BI tools, AI agents — consumes Passage through the same APIs, events and MCP tools that Passage's own modules use. There is no separate "integration layer" product, no licensed middleware, and no integration project to stand up before the first interface works. What SAP sells as Integration Suite, Microsoft as dual-write plus Logic Apps, and Infor as ION is, in Passage, the integration hub shipped in wave 35: a catalog, keys and quotas, a message monitor and replay over surfaces that already exist from wave 3 (REST), wave 4 (Kafka) and wave 47 (MCP).
+Principle: any system on the customer's network — MES, PLM, SCADA/OPC-UA, a third-party WMS, EDI trading partners, BI tools, AI agents — consumes Depot through the same APIs, events and MCP tools that Depot's own modules use. There is no separate "integration layer" product, no licensed middleware, and no integration project to stand up before the first interface works. What SAP sells as Integration Suite, Microsoft as dual-write plus Logic Apps, and Infor as ION is, in Depot, the integration hub shipped in wave 35: a catalog, keys and quotas, a message monitor and replay over surfaces that already exist from wave 3 (REST), wave 4 (Kafka) and wave 47 (MCP).
 
 The contract every surface honors:
 
@@ -23329,7 +23330,7 @@ The contract every surface honors:
 4. **Correlation and idempotency everywhere.** Every inbound request carries or receives a `correlationid`; every outbound event and webhook carries it; every mutating call is idempotent by key (Appendix D.5); every consumer is expected to be idempotent by event id (Appendix C.5).
 5. **Replayability.** Events are retained 30 days and replayable per consumer; webhooks can be re-driven from the message monitor; file and EDI inbound payloads are kept as source attachments.
 6. **Sandbox and conformance.** Every tenant gets a sandbox tenant with the demo companies; a conformance kit (Postman/k6/Pact suites) lets a partner prove their integration before production keys are issued.
-7. **Observability shared with the customer.** Per-key traces, delivery logs, DLQ contents and SLA dashboards are visible in the integration hub, not only to Passage operators.
+7. **Observability shared with the customer.** Per-key traces, delivery logs, DLQ contents and SLA dashboards are visible in the integration hub, not only to Depot operators.
 8. **No data hostage.** Full export (NDJSON per entity, Iceberg tables, event archive) is a standard API, not a service engagement.
 
 | Surface | Typical consumers | Protocol / format | Authentication and authorization | SLA (per tenant, measured) | Notes |
@@ -23337,17 +23338,17 @@ The contract every surface honors:
 | REST | MES, PLM, custom apps, iPaaS, mobile | HTTPS/JSON, OpenAPI 3.1, RFC 9457 errors | OAuth 2.0 (Keycloak): authorization code for users, client credentials for services; JWT validated at Envoy, OPA per request; tenant API keys for partner quotas | 99.9% availability; p95 < 50 ms simple reads, p99 < 500 ms document posts; rate limits per tier (D.7) | Idempotency keys, ETags, cursor pagination, bulk `:batch`/`:export` |
 | GraphQL | BI tools, portals, composite screens, low-code builders | HTTPS, GraphQL over the generated SDL (read-only in v1.0; mutations via REST) | Same JWT and OPA; field-level masking for P2/P3 per duty | 99.9%; p95 < 200 ms for queries ≤ 1,000 cost points; depth ≤ 8, cost-limited | Persisted queries for portals; mirrors REST filter grammar |
 | Kafka topics | MES, third-party WMS, data platform, CRM sync, customer event consumers | Kafka protocol, CloudEvents JSON, AsyncAPI 3.0, schema registry | mTLS + SCRAM-SHA-512 per principal; topic ACLs per tenant; cross-tenant principals only for the customer's own analytics | 99.9% broker availability; p95 commit-to-consumer < 5 s; 30-day retention; replay on request | External consumers connect through the tenant's dedicated consumer group; DLQ visible in hub |
-| Webhooks | SaaS partners, iPaaS (Workato, Make), Salesforce/Shopify connectors | HTTPS POST of the CloudEvent, JSON | HMAC-SHA256 signature in `X-Passage-Signature` with per-endpoint secret (rotation supported), optional mTLS, IP allow-list | At-least-once; p95 first delivery < 10 s; retries with exponential backoff for 24 h, then DLQ; per-tier delivery quotas | Subscriptions filtered by event type and legal entity; re-drive from monitor |
-| MCP | AI agents (Passage copilot, Claude, customer-built agents, partner agents) | MCP over HTTPS (streamable), tool/resource definitions generated from OpenAPI and the semantic layer | OAuth 2.1 with user-delegated token; agent identity registered in the tenant; OPA evaluates `agent@user` so the agent never exceeds the user (E.4 example 2); kill switch | 99.9%; p95 tool call < 1 s excluding downstream posting time; per-tenant token and cost budgets | Every tool call audited with inputs/outputs; approval gates for posting tools |
+| Webhooks | SaaS partners, iPaaS (Workato, Make), Salesforce/Shopify connectors | HTTPS POST of the CloudEvent, JSON | HMAC-SHA256 signature in `X-Depot-Signature` with per-endpoint secret (rotation supported), optional mTLS, IP allow-list | At-least-once; p95 first delivery < 10 s; retries with exponential backoff for 24 h, then DLQ; per-tier delivery quotas | Subscriptions filtered by event type and legal entity; re-drive from monitor |
+| MCP | AI agents (Depot copilot, Claude, customer-built agents, partner agents) | MCP over HTTPS (streamable), tool/resource definitions generated from OpenAPI and the semantic layer | OAuth 2.1 with user-delegated token; agent identity registered in the tenant; OPA evaluates `agent@user` so the agent never exceeds the user (E.4 example 2); kill switch | 99.9%; p95 tool call < 1 s excluding downstream posting time; per-tenant token and cost budgets | Every tool call audited with inputs/outputs; approval gates for posting tools |
 | EDI | Trading partners, 3PLs, carriers, retailers | X12 (850/855/856/810/820/214) and EDIFACT (ORDERS/DESADV/INVOIC) over AS2 or SFTP; Peppol UBL 2.1 via access point | AS2 certificates per partner, SFTP key pairs, Peppol access-point credentials; partner profile binds to a service account with scoped duties | 997/CONTRL functional acknowledgment within 15 min; inbound processing p95 < 5 min; partner SLA monitor with alerting | Mappings versioned per partner; replay from message monitor; partner simulator in sandbox |
 | OPC-UA / MQTT | SCADA, PLCs, machines, sensors, historians, Andon displays | OPC-UA client (Sign & Encrypt) and MQTT 3.1.1/5 over TLS via the edge connector; events normalized to CloudEvents on Kafka | X.509 device certificates issued per plant; per-device MQTT credentials; connector runs under a plant service account | 10k events/min per plant; store-and-forward on edge for 24 h; end-to-end p95 < 5 s to OEE/condition monitoring; no loss on broker restart | Tag/topic mapping is metadata; thresholds raise maintenance requests (wave 44) |
 | File / SFTP | Banks, payroll providers, tax providers, legacy systems, lockbox | SFTP (ISO 20022 pain/camt, NACHA, BAI2, MT940, CSV/NDJSON), optional PGP | SFTP key authentication per partner, PGP keys and bank signing keys in Vault (never exported), checksum manifests | Polling every 5 min; inbound processing p95 < 15 min; outbound files signed and audited (E.7); bank acknowledgments (pain.002) ingested | Idempotent by file hash; duplicates rejected and logged; retention per fiscal rules |
 
-A customer therefore adds an MES by subscribing it to `passage.manufacturing.productionorder` and `passage.inventory.transaction`, pointing it at `/v1/manufacturing/production-orders/{id}:report` for confirmations, and issuing it a service account with the `ReportProduction` duty — the same three artifacts Passage's own shop-floor kiosk uses. Replacing that MES later means revoking one principal and one subscription, not unwinding a middleware project.
+A customer therefore adds an MES by subscribing it to `depot.manufacturing.productionorder` and `depot.inventory.transaction`, pointing it at `/v1/manufacturing/production-orders/{id}:report` for confirmations, and issuing it a service account with the `ReportProduction` duty — the same three artifacts Depot's own shop-floor kiosk uses. Replacing that MES later means revoking one principal and one subscription, not unwinding a middleware project.
 
 \newpage
 
-# Part 12 — Coverage Inventory: Dynamics AX 2012 R3 / D365 F&SCM → Passage
+# Part 12 — Coverage Inventory: Dynamics AX 2012 R3 / D365 F&SCM → Depot
 
 | | |
 |---|---|
@@ -23355,40 +23356,40 @@ A customer therefore adds an MES by subscribing it to `passage.manufacturing.pro
 | **Date** | 2026-10-21 |
 | **Source of truth for waves** | [roadmap/waves.json](../../roadmap/waves.json) (wave numbers 1–50); [roadmap/phases.json](../../roadmap/phases.json) |
 | **Scope rules** | [docs/PRD.md](../PRD.md) §2 goals and non-goals, §5 scope map |
-| **Purpose** | The team's fear is "missing something". This part walks the AX 2012 R3 navigation pane module by module (plus the D365 F&SCM additions that matter to a manufacturer) and assigns every form, inquiry, report, periodic job and setup form to a Passage wave — or says, honestly, that nothing covers it yet. |
+| **Purpose** | The team's fear is "missing something". This part walks the AX 2012 R3 navigation pane module by module (plus the D365 F&SCM additions that matter to a manufacturer) and assigns every form, inquiry, report, periodic job and setup form to a Depot wave — or says, honestly, that nothing covers it yet. |
 
 ## 12.0 How to read this inventory
 
 Each module section mirrors the AX 2012 R3 menu structure and has four tables:
 
-1. **Common / Journals** — every list page, details form and journal the user opens from *Common* or *Journals*. Columns: Form name | AOT form or menu item (best effort from memory of the AX 2012 R3 AOT; treat as a search key, not gospel) | Purpose | Passage status | Wave | Notes.
-2. **Inquiries & Reports** — every *Inquiries* entry and every SSRS report under *Reports*. Columns: Name | Purpose | Passage status | Wave | Notes.
+1. **Common / Journals** — every list page, details form and journal the user opens from *Common* or *Journals*. Columns: Form name | AOT form or menu item (best effort from memory of the AX 2012 R3 AOT; treat as a search key, not gospel) | Purpose | Depot status | Wave | Notes.
+2. **Inquiries & Reports** — every *Inquiries* entry and every SSRS report under *Reports*. Columns: Name | Purpose | Depot status | Wave | Notes.
 3. **Periodic** — every periodic job or process. Same columns as 2.
-4. **Setup** — every setup form, with the module's *parameters* form listed first and its tabs spelled out as separate rows where the tab changes behavior that a wave must implement. Columns: Name | Key parameters / options | Passage status | Wave | Notes.
+4. **Setup** — every setup form, with the module's *parameters* form listed first and its tabs spelled out as separate rows where the tab changes behavior that a wave must implement. Columns: Name | Key parameters / options | Depot status | Wave | Notes.
 
-**Status legend** (the *Passage status* column always starts with one of these tokens so the document can be counted mechanically):
+**Status legend** (the *Depot status* column always starts with one of these tokens so the document can be counted mechanically):
 
 - `COVERED-<wave>` — a deliverable in waves.json for that wave clearly implements the AX capability, at parity or better.
 - `PARTIAL-<wave> (what's missing)` — the wave covers the core but a named piece of the AX feature is not in any wave deliverable. The missing piece is listed in the gap register (§12.99) with a proposed wave.
 - `GAP` — no wave in waves.json clearly covers the item. The Notes column always begins with `Propose wave NN:` so the gap register can be generated from the rows. Wave column shows `—`.
 - `OUT-OF-SCOPE (reason)` — excluded by a PRD non-goal (CRM/marketing automation, retail POS/e-commerce, country packs beyond US/UK/DE/FR/IN/MX/CA, X++/ABAP code migration) or because AX itself deprecated it before R3. Wave column shows `—`.
-- `SUPERSEDED (how)` — Passage deliberately does it a different way; the replacing mechanism is named. Wave column shows the wave that ships the replacement.
+- `SUPERSEDED (how)` — Depot deliberately does it a different way; the replacing mechanism is named. Wave column shows the wave that ships the replacement.
 
 **Conventions**
 
 - Wave numbers refer to `n` in waves.json. Phase boundaries: 0 = 1–5, 1 = 6–10, 2 = 11–15, 3 = 16–20, 4 = 21–25, 5 = 26–30, 6 = 31–35, 7 = 36–40, 8 = 41–45, 9 = 46–50.
-- "SSRS report" rows are assessed against two things: the *data* (does a Passage wave produce it?) and the *rendering* (wave 46 replaces every SSRS layout with the operational report designer and embedded dashboards). A report is `COVERED-<n>` when the data wave exists and wave 46 renders it; it is `PARTIAL` only when the data itself is missing.
+- "SSRS report" rows are assessed against two things: the *data* (does a Depot wave produce it?) and the *rendering* (wave 46 replaces every SSRS layout with the operational report designer and embedded dashboards). A report is `COVERED-<n>` when the data wave exists and wave 46 renders it; it is `PARTIAL` only when the data itself is missing.
 - Forms that are shared across modules (Terms of payment, Methods of payment, Charges codes, Print management, Form setup, Number sequences) are listed in every module where AX shows them, so each module section is self-contained for its reviewer. They map to the same wave each time.
 - Where AX 2012 R3 and D365 F&SCM differ (e.g. Collections, Credit management, Cost accounting ledger, Landed cost), the D365 name is given in Notes and the row is assessed against the D365 behavior because that is what a manufacturer migrating today expects.
 - Country-specific forms are listed only where they belong to one of the seven v1 country packs; everything else is `OUT-OF-SCOPE (country pack beyond v1 set)`.
 
 ## 12.1 General ledger
 
-The general ledger is the heart of AX. In Passage it is the universal journal (wave 11) plus currencies/parallel ledgers (12), tax (13), period close (14) and financial reporting (15). Consolidation moves to wave 40; budgeting to wave 38.
+The general ledger is the heart of AX. In Depot it is the universal journal (wave 11) plus currencies/parallel ledgers (12), tax (13), period close (14) and financial reporting (15). Consolidation moves to wave 40; budgeting to wave 38.
 
 ### 12.1.1 Common / Journals
 
-| Form | AOT form / menu item | Purpose | Passage status | Wave | Notes |
+| Form | AOT form / menu item | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Main accounts (list page) | MainAccountListPage | Browse chart of accounts with balances FactBox | COVERED-11 | 11 | Metadata-driven list page with balance projection FactBox |
 | Main account details | MainAccount | Account type, category, DB/CR default, suspended, validation (currency/user/posting type), allocation terms, default dimensions, translations | COVERED-11 | 11 | Account structure validation rules at posting API |
@@ -23412,11 +23413,11 @@ The general ledger is the heart of AX. In Passage it is the universal journal (w
 | Journal names list | LedgerJournalName | Also reachable from Common in some role centers | COVERED-11 | 11 | See Setup |
 | Reverse transaction (from voucher) | LedgerTransReverse | Reverse one voucher / trace reversal | COVERED-11 | 11 | |
 | Reverse entire journal | LedgerJournalTableReverse | Reverse all vouchers of a batch | COVERED-11 | 11 | |
-| Fiscal calendars (Common link in R3) | FiscalCalendars | Shared calendars, years, periods | COVERED-6 | 6 | Owned by Org admin in Passage |
+| Fiscal calendars (Common link in R3) | FiscalCalendars | Shared calendars, years, periods | COVERED-6 | 6 | Owned by Org admin in Depot |
 
 ### 12.1.2 Inquiries & Reports
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Trial balance (inquiry, dimension set) | Opening/debit/credit/closing by account and dimension set, date range | COVERED-15 | 15 | Drill-down to lines |
 | Ledger transactions (Voucher transactions) | Lines by voucher with origin trace | COVERED-11 | 11 | Journal lines inquiry with source-document link |
@@ -23427,14 +23428,14 @@ The general ledger is the heart of AX. In Passage it is the universal journal (w
 | Ledger budget transactions inquiry | Budget register entries by account | COVERED-38 | 38 | |
 | Currency exchange rate inquiry | Rates by type/pair/date | COVERED-12 | 12 | Rate audit |
 | Dimension statement (Dimension balance inquiry) | Balances for a single dimension value | COVERED-11 | 11 | Balance projection query |
-| Closing sheet (periodic, country-dependent) | Closing adjustments worksheet (used in ES/IT/EE) | OUT-OF-SCOPE (country pack beyond v1 set; closing adjustments in Passage are allocation/accrual journals) | — | |
+| Closing sheet (periodic, country-dependent) | Closing adjustments worksheet (used in ES/IT/EE) | OUT-OF-SCOPE (country pack beyond v1 set; closing adjustments in Depot are allocation/accrual journals) | — | |
 | Ledger reconciliation inquiry (Inventory/ledger, AR/AP) | Compare subledger to GL | COVERED-20 | 20 | Daily automated subledger-to-GL reconciliation from wave 16; inventory value report wave 20 |
 | SSRS: Trial balance | Printed trial balance | COVERED-15 | 15 | Rendered via wave 46 designer |
 | SSRS: Trial balance summary | Summary by account | COVERED-15 | 15 | |
 | SSRS: Ledger transaction list | Lines by date range | COVERED-11 | 11 | |
 | SSRS: Ledger account balance | Balance per account/period | COVERED-15 | 15 | |
 | SSRS: Dimension statement | Dimension-based P&L/balance | COVERED-15 | 15 | |
-| SSRS: Financial statement (old LedgerBalanceSheet row/column definitions) | Legacy AX statement engine | SUPERSEDED (report definitions in wave 15 designer, Management Reporter model) | 15 | AX 2012 had both; Passage keeps only the MR-style model |
+| SSRS: Financial statement (old LedgerBalanceSheet row/column definitions) | Legacy AX statement engine | SUPERSEDED (report definitions in wave 15 designer, Management Reporter model) | 15 | AX 2012 had both; Depot keeps only the MR-style model |
 | SSRS: Chart of accounts | List of accounts with attributes | COVERED-11 | 11 | |
 | SSRS: Journal (LedgerJournal report) | Unposted journal printout | COVERED-11 | 11 | |
 | SSRS: Posted journals | Posted batch printout | COVERED-11 | 11 | |
@@ -23460,7 +23461,7 @@ The general ledger is the heart of AX. In Passage it is the universal journal (w
 
 ### 12.1.3 Periodic
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Journals → Periodic journals (retrieve) | Generate journal lines from periodic journal template | COVERED-14 | 14 | |
 | Journals → Allocation journal (Process allocation request) | Run allocation rules, create allocation journal | COVERED-14 | 14 | Fixed, basis, iterative |
@@ -23470,7 +23471,7 @@ The general ledger is the heart of AX. In Passage it is the universal journal (w
 | Fiscal year close → Opening transactions | Create opening transactions per account/dimension | COVERED-14 | 14 | |
 | Fiscal year close → Transfer opening balances (D365 year-end close templates) | Templates for retained earnings by dimension | COVERED-14 | 14 | |
 | Consolidate → Consolidate [Online] | Pull subsidiary balances into consolidation company | COVERED-40 | 40 | |
-| Consolidate → Consolidate [Export] / [Import] | File-based consolidation | COVERED-40 | 40 | Import path for non-Passage subsidiaries |
+| Consolidate → Consolidate [Export] / [Import] | File-based consolidation | COVERED-40 | 40 | Import path for non-Depot subsidiaries |
 | Consolidate → Elimination proposal | Generate elimination journal | COVERED-40 | 40 | |
 | Currency revaluation (Foreign currency revaluation, GL) | Unrealized gain/loss on monetary accounts | COVERED-12 | 12 | Reversal next period |
 | Currency revaluation → Reporting currency adjustment (D365) | Restate reporting currency balances | COVERED-12 | 12 | Currency translation |
@@ -23492,7 +23493,7 @@ The general ledger is the heart of AX. In Passage it is the universal journal (w
 
 ### 12.1.4 Setup
 
-| Name | Key parameters / options | Passage status | Wave | Notes |
+| Name | Key parameters / options | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | General ledger parameters — Ledger tab | Check for voucher used, correction (storno), journal-based accrual, transaction reversal, batch transfer rules, use document date for voucher, balance control | COVERED-11 | 11 | Storno (negative debit) handled as posting option |
 | General ledger parameters — Sales tax tab | Apply sales tax taxation rules, cash discount on invoice incl. tax, tax on prepayment, rounding, conditional sales tax, sales tax settlement account, reverse charge | COVERED-13 | 13 | |
@@ -23569,11 +23570,11 @@ The general ledger is the heart of AX. In Passage it is the universal journal (w
 
 ## 12.2 Accounts payable
 
-Accounts payable in AX spans vendor master (Passage wave 7), purchase orders (17), receiving and invoice matching (18), payments and settlement (19) and 1099/positive pay (19, 36). Vendor collaboration goes to wave 20.
+Accounts payable in AX spans vendor master (Depot wave 7), purchase orders (17), receiving and invoice matching (18), payments and settlement (19) and 1099/positive pay (19, 36). Vendor collaboration goes to wave 20.
 
 ### 12.2.1 Common / Journals
 
-| Form | AOT form / menu item | Purpose | Passage status | Wave | Notes |
+| Form | AOT form / menu item | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Vendors (list page) | VendTableListPage | All vendors with FactBoxes (balance, contacts, recent POs) | COVERED-7 | 7 | Party model with Vendor role |
 | Vendor details | VendTable | General, addresses, contacts, misc details, vendor profile, purchasing demographics, invoice and delivery, purchase order defaults, payment, tax 1099, financial dimensions | COVERED-7 | 7 | Role-specific vendor data entity |
@@ -23620,7 +23621,7 @@ Accounts payable in AX spans vendor master (Passage wave 7), purchase orders (17
 
 ### 12.2.2 Inquiries & Reports
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Vendor transactions inquiry | Posted transactions by vendor | COVERED-19 | 19 | |
 | Vendor balance (Vendor balance list) | Balances by vendor | COVERED-19 | 19 | |
@@ -23668,7 +23669,7 @@ Accounts payable in AX spans vendor master (Passage wave 7), purchase orders (17
 
 ### 12.2.3 Periodic
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Payment proposal (batch) | Generate payment lines | COVERED-19 | 19 | |
 | Generate payments (payment media) | Produce ACH/SEPA/check/wire files | COVERED-19 | 19 | pain.001, NACHA, check print |
@@ -23698,7 +23699,7 @@ Accounts payable in AX spans vendor master (Passage wave 7), purchase orders (17
 
 ### 12.2.4 Setup
 
-| Name | Key parameters / options | Passage status | Wave | Notes |
+| Name | Key parameters / options | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Accounts payable parameters — General tab | Posting profile default, settlement priority, cash discount administration, credit note as correction, delivery address, intercompany | COVERED-19 | 19 | |
 | Accounts payable parameters — Updates tab | PO defaults (confirmation/receipt/invoice posting rules), safety levels on PO, enable change management, cancel/reverse rules, product receipt posting | COVERED-17 | 17 | |
@@ -23769,7 +23770,7 @@ Accounts receivable covers customer master (wave 7), free-text and sales invoice
 
 ### 12.3.1 Common / Journals
 
-| Form | AOT form / menu item | Purpose | Passage status | Wave | Notes |
+| Form | AOT form / menu item | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Customers (list page) | CustTableListPage | All customers with balance/aging FactBoxes | COVERED-7 | 7 | Party model with Customer role |
 | Customer details | CustTable | General, addresses, contacts, misc details, sales demographics, credit and collections, invoice and delivery, sales order defaults, payment defaults, financial dimensions, retail | COVERED-7 | 7 | |
@@ -23816,7 +23817,7 @@ Accounts receivable covers customer master (wave 7), free-text and sales invoice
 
 ### 12.3.2 Inquiries & Reports
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Customer transactions inquiry | | COVERED-30 | 30 | |
 | Customer balance list / Customer balance | | COVERED-30 | 30 | |
@@ -23866,7 +23867,7 @@ Accounts receivable covers customer master (wave 7), free-text and sales invoice
 
 ### 12.3.3 Periodic
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Collections → Create collection letters | Generate letters by sequence/level | COVERED-30 | 30 | Dunning run |
 | Collections → Print/post collection letters | | COVERED-30 | 30 | |
@@ -23899,7 +23900,7 @@ Accounts receivable covers customer master (wave 7), free-text and sales invoice
 
 ### 12.3.4 Setup
 
-| Name | Key parameters / options | Passage status | Wave | Notes |
+| Name | Key parameters / options | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Accounts receivable parameters — General tab | Posting profile, settlement priority, delivery address, credit rating, mandatory credit limit, credit limit type (none/balance/balance+packing slip/all), message when exceeding, intercompany | COVERED-27 | 27 | |
 | Accounts receivable parameters — Updates tab | Posting defaults for confirmation/picking/packing slip/invoice, safety levels, cancel options, picking list posting, packing slip in ledger, delivery date control defaults | COVERED-28 | 28 | |
@@ -23969,7 +23970,7 @@ AX 2012 R2/R3 budgeting = budget register entries, budget control, budget planni
 
 ### 12.4.1 Common / Journals
 
-| Form | AOT form / menu item | Purpose | Passage status | Wave | Notes |
+| Form | AOT form / menu item | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Budget register entries (list page) | BudgetTransactionListPage | All register entries by code/model | COVERED-38 | 38 | |
 | Budget register entry details | BudgetTransaction | Header/lines, budget type (original, transfer, revision, encumbrance, pre-encumbrance, carry-forward), allocation, workflow | COVERED-38 | 38 | |
@@ -23982,7 +23983,7 @@ AX 2012 R2/R3 budgeting = budget register entries, budget control, budget planni
 
 ### 12.4.2 Inquiries & Reports
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Budget control statistics inquiry | Budget funds available | COVERED-38 | 38 | |
 | Actual vs budget inquiry | | COVERED-38 | 38 | |
@@ -24000,7 +24001,7 @@ AX 2012 R2/R3 budgeting = budget register entries, budget control, budget planni
 
 ### 12.4.3 Periodic
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Budget transfers (process transfer register entries) | | COVERED-38 | 38 | |
 | Budget → Recalculate budget control balances | Rebuild available balances | COVERED-38 | 38 | |
@@ -24016,7 +24017,7 @@ AX 2012 R2/R3 budgeting = budget register entries, budget control, budget planni
 
 ### 12.4.4 Setup
 
-| Name | Key parameters / options | Passage status | Wave | Notes |
+| Name | Key parameters / options | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Budgeting parameters | Default budget model, budget transfer journal, number sequences, budget balances update | COVERED-38 | 38 | |
 | Basic budgeting → Budget models | Models with submodels, stop/blocked | COVERED-38 | 38 | Budget versions |
@@ -24047,7 +24048,7 @@ Everything lands in wave 36 except payment generation (19) and customer receipts
 
 ### 12.5.1 Common / Journals
 
-| Form | AOT form / menu item | Purpose | Passage status | Wave | Notes |
+| Form | AOT form / menu item | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Bank accounts (list page) | BankAccountTableListPage | All bank accounts | COVERED-36 | 36 | |
 | Bank account details | BankAccountTable | Account, currency, main account, check setup (layout, numbering), positive pay, SEPA/IBAN, bank groups, reconciliation settings, signatories | COVERED-36 | 36 | |
@@ -24073,7 +24074,7 @@ Everything lands in wave 36 except payment generation (19) and customer receipts
 
 ### 12.5.2 Inquiries & Reports
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Bank transactions inquiry | | COVERED-36 | 36 | |
 | Bank balance inquiry / Bank account balance by date | | COVERED-36 | 36 | |
@@ -24098,7 +24099,7 @@ Everything lands in wave 36 except payment generation (19) and customer receipts
 
 ### 12.5.3 Periodic
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Import bank statements (batch) | camt.053/BAI2/MT940 import | COVERED-36 | 36 | |
 | Reconcile bank statements (auto-match batch) | | COVERED-36 | 36 | |
@@ -24115,7 +24116,7 @@ Everything lands in wave 36 except payment generation (19) and customer receipts
 
 ### 12.5.4 Setup
 
-| Name | Key parameters / options | Passage status | Wave | Notes |
+| Name | Key parameters / options | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Cash and bank management parameters — General | Allow checks for bank accounts, check number method, prenotes, bank statement reconciliation defaults, advanced reconciliation enabled, letter of credit/guarantee settings | COVERED-36 | 36 | |
 | Cash and bank management parameters — Number sequences | Check, deposit, statement sequences | COVERED-5 | 5 | |
@@ -24147,7 +24148,7 @@ The AX fixed asset module (asset groups, books/value models, depreciation profil
 
 ### 12.6.1 Common / Journals
 
-| Form | AOT form / menu item | Purpose | Passage status | Wave | Notes |
+| Form | AOT form / menu item | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Fixed assets (list page) | AssetTableListPage | All assets | COVERED-37 | 37 | |
 | Fixed asset details | AssetTable | General, technical info (serial, make/model), location, responsible worker, insurance, lease, sale/scrap, value models/books, financial dimensions | COVERED-37 | 37 | |
@@ -24172,7 +24173,7 @@ The AX fixed asset module (asset groups, books/value models, depreciation profil
 
 ### 12.6.2 Inquiries & Reports
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Fixed asset transactions inquiry | | COVERED-37 | 37 | |
 | Fixed asset balances inquiry (Fixed asset balances by book) | NBV per book/period | COVERED-37 | 37 | |
@@ -24197,7 +24198,7 @@ The AX fixed asset module (asset groups, books/value models, depreciation profil
 
 ### 12.6.3 Periodic
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Depreciation proposal (create depreciation journal) | Depreciation run per book/period | COVERED-37 | 37 | |
 | Depreciation book → Depreciation proposal (tax book) | | COVERED-37 | 37 | |
@@ -24216,7 +24217,7 @@ The AX fixed asset module (asset groups, books/value models, depreciation profil
 
 ### 12.6.4 Setup
 
-| Name | Key parameters / options | Passage status | Wave | Notes |
+| Name | Key parameters / options | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Fixed assets parameters — General | Automatically create depreciation adjustments, minimum depreciation, consider prior-year depreciation, bonus depreciation, consumption depreciation, capitalization threshold, delete asset on journal post, allow multiple acquisitions, low-value pool (AU), default value models | COVERED-37 | 37 | AU low-value pool is OOS country |
 | Fixed assets parameters — Purchase orders | Allow asset acquisition from PO, create asset during receipt/invoice, check capitalization threshold | COVERED-37 | 37 | |
@@ -24247,11 +24248,11 @@ The AX fixed asset module (asset groups, books/value models, depreciation profil
 
 ## 12.7 Cost accounting
 
-AX 2012 R3 ships the legacy *Cost accounting* module (COS: dimensions, cost categories, cost lines, service categories, allocations, budget cost). D365 replaced it with the *Cost accounting ledger* (cost objects, cost elements, allocation policies, statistical measures, cost control workspace). Passage builds the D365 model in wave 38; every legacy COS form is therefore `SUPERSEDED` by its wave-38 equivalent.
+AX 2012 R3 ships the legacy *Cost accounting* module (COS: dimensions, cost categories, cost lines, service categories, allocations, budget cost). D365 replaced it with the *Cost accounting ledger* (cost objects, cost elements, allocation policies, statistical measures, cost control workspace). Depot builds the D365 model in wave 38; every legacy COS form is therefore `SUPERSEDED` by its wave-38 equivalent.
 
 ### 12.7.1 Common / Journals
 
-| Form | AOT form / menu item | Purpose | Passage status | Wave | Notes |
+| Form | AOT form / menu item | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Cost accounting dimensions (legacy) | COSDimension | Cost center/cost unit dimensions | SUPERSEDED (cost object dimensions and hierarchies, wave 38) | 38 | |
 | Cost categories (legacy COS) | COSCostCategory | Cost types mapped from ledger accounts | SUPERSEDED (cost elements, wave 38) | 38 | |
@@ -24274,7 +24275,7 @@ AX 2012 R3 ships the legacy *Cost accounting* module (COS: dimensions, cost cate
 
 ### 12.7.2 Inquiries & Reports
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Cost transactions inquiry (legacy) | | SUPERSEDED (cost entries, wave 38) | 38 | |
 | Cost balances by dimension (legacy) | | SUPERSEDED (cost control workspace) | 38 | |
@@ -24287,7 +24288,7 @@ AX 2012 R3 ships the legacy *Cost accounting* module (COS: dimensions, cost cate
 
 ### 12.7.3 Periodic
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Transfer ledger transactions to cost accounting (legacy) | | SUPERSEDED (source data processing from GL, wave 38) | 38 | |
 | Cost distribution / Cost allocation processing (legacy) | | SUPERSEDED (overhead calculation, wave 38) | 38 | |
@@ -24300,7 +24301,7 @@ AX 2012 R3 ships the legacy *Cost accounting* module (COS: dimensions, cost cate
 
 ### 12.7.4 Setup
 
-| Name | Key parameters / options | Passage status | Wave | Notes |
+| Name | Key parameters / options | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Cost accounting parameters (legacy) | Dimension mapping, journal names | SUPERSEDED (cost accounting ledger setup) | 38 | |
 | Cost accounting dimensions / Cost category groups / Allocation keys / Calculation versions (legacy) | | SUPERSEDED | 38 | |
@@ -24318,11 +24319,11 @@ AX 2012 R3 ships the legacy *Cost accounting* module (COS: dimensions, cost cate
 
 ## 12.8 Cost management (D365)
 
-D365's *Cost management* module consolidates inventory accounting (AX Inventory management → Setup → Costing), costing versions, costing sheets and the inventory value reports. Passage splits it: inventory costing and inventory close in wave 20, product costing/cost roll-up/costing sheets/variances in wave 39, landed cost in wave 34.
+D365's *Cost management* module consolidates inventory accounting (AX Inventory management → Setup → Costing), costing versions, costing sheets and the inventory value reports. Depot splits it: inventory costing and inventory close in wave 20, product costing/cost roll-up/costing sheets/variances in wave 39, landed cost in wave 34.
 
 ### 12.8.1 Common / Journals
 
-| Form | AOT form / menu item | Purpose | Passage status | Wave | Notes |
+| Form | AOT form / menu item | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Costing versions (Costing version setup) | CostingVersion | Standard/planned cost versions, blocking, fallback, site | COVERED-20 | 20 | Costing versions in 20; BOM calc in 39 |
 | Item prices (Costing version maintenance: pending/active prices) | InventItemPrice (CostingVersionMaintenance) | Pending cost, activation, cost breakdown by cost group | COVERED-39 | 39 | |
@@ -24337,7 +24338,7 @@ D365's *Cost management* module consolidates inventory accounting (AX Inventory 
 
 ### 12.8.2 Inquiries & Reports
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Inventory value report (configurable: Inventory value report by resource/resource group, by dimension) | On-hand value vs GL by date | COVERED-20 | 20 | |
 | Inventory value report storage / configuration (D365) | Persisted report runs | COVERED-20 | 20 | |
@@ -24357,7 +24358,7 @@ D365's *Cost management* module consolidates inventory accounting (AX Inventory 
 
 ### 12.8.3 Periodic
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Closing and adjustment → Close inventory | Settle issues vs receipts per model | COVERED-20 | 20 | |
 | Closing and adjustment → Recalculation | Interim recalculation | COVERED-20 | 20 | |
@@ -24376,7 +24377,7 @@ D365's *Cost management* module consolidates inventory accounting (AX Inventory 
 
 ### 12.8.4 Setup
 
-| Name | Key parameters / options | Passage status | Wave | Notes |
+| Name | Key parameters / options | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Inventory and warehouse management parameters — Costing/ Inventory accounting tab (D365 Cost management parameters) | Post physical inventory, post financial inventory, break-even cost, use latest cost price, variance by cost group | COVERED-20 | 20 | |
 | Costing versions | Type (standard/planned), block activation/changes, fallback (active/none/version), site/date filters, explosion mode | COVERED-39 | 39 | |
@@ -24397,11 +24398,11 @@ D365's *Cost management* module consolidates inventory accounting (AX Inventory 
 
 ## 12.9 Compliance and internal controls
 
-AX 2012's *Compliance and internal controls* module holds internal control documentation (process library/files), the risk library, audit policies (R3 audit workbench) and the database log link. Environmental sustainability was removed before R3. Passage: SoD and SOC 2 evidence in wave 48; audit policies are a gap proposed for wave 48; database log is wave 5.
+AX 2012's *Compliance and internal controls* module holds internal control documentation (process library/files), the risk library, audit policies (R3 audit workbench) and the database log link. Environmental sustainability was removed before R3. Depot: SoD and SOC 2 evidence in wave 48; audit policies are a gap proposed for wave 48; database log is wave 5.
 
 ### 12.9.1 Common / Journals
 
-| Form | AOT form / menu item | Purpose | Passage status | Wave | Notes |
+| Form | AOT form / menu item | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Internal controls → Files (process documents) | SysComplianceFiles (EP) | Document library for control documentation | PARTIAL-48 (SOC 2 evidence automation is named; a controls/process document library is not) | 48 | Gap register |
 | Internal controls → Process library / Process documents | SysComplianceProcess | Hierarchical process documentation with risk/control links | PARTIAL-48 (process library) | 48 | |
@@ -24415,7 +24416,7 @@ AX 2012's *Compliance and internal controls* module holds internal control docum
 
 ### 12.9.2 Inquiries & Reports
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Audit policy violations inquiry | | PARTIAL-48 (audit policies) | 48 | |
 | Audit case inquiry | | PARTIAL-48 (audit policies) | 48 | |
@@ -24427,22 +24428,22 @@ AX 2012's *Compliance and internal controls* module holds internal control docum
 | SSRS: Segregation of duties rules / conflicts | | COVERED-48 | 48 | |
 | SSRS: Electronic signature report | | GAP | — | Propose wave 48: electronic signatures |
 | SSRS: Internal control documents | | PARTIAL-48 (process library) | 48 | |
-| SOC 2 control evidence reports (Passage) | | COVERED-48 | 48 | |
+| SOC 2 control evidence reports (Depot) | | COVERED-48 | 48 | |
 
 ### 12.9.3 Periodic
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Audit → Run audit policies (batch: expense reports, vendor invoices, purchase orders, GL journals) | Rule-based post-hoc audit (duplicates, keywords, sampling, list search) | PARTIAL-48 (audit policies) | 48 | |
 | Audit → Close/archive audit cases | | PARTIAL-48 (audit policies) | 48 | |
 | Database log → Clean up database log | | SUPERSEDED (immutable audit store with retention policy wave 48) | 48 | |
 | SoD → Verify compliance of user-role assignments (batch) | | COVERED-48 | 48 | |
-| Access certification campaigns (Passage) | | COVERED-48 | 48 | |
+| Access certification campaigns (Depot) | | COVERED-48 | 48 | |
 | Electronic signature → Reset/revoke signatures | | GAP | — | Propose wave 48: electronic signatures |
 
 ### 12.9.4 Setup
 
-| Name | Key parameters / options | Passage status | Wave | Notes |
+| Name | Key parameters / options | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Compliance parameters | Portal site, file locations | SUPERSEDED (no Enterprise Portal; compliance workspace wave 48) | 48 | |
 | Audit → Audit policies (policy framework: policy rule types — expense/vendor invoice/PO/GL journal; rule types: duplicate, keyword, list search, sampling, premium/mileage) | | PARTIAL-48 (audit policies) | 48 | |
@@ -24461,7 +24462,7 @@ Expense management (expense reports, cash advances, travel requisitions, policie
 
 ### 12.10.1 Common / Journals
 
-| Form | AOT form / menu item | Purpose | Passage status | Wave | Notes |
+| Form | AOT form / menu item | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Expense reports (list page) | TrvExpTableListPage | My/all expense reports by status | COVERED-43 | 43 | |
 | Expense report details | TrvExpTable / TrvExpTrans | Lines by category, itemization, receipts, guests, project/dimension, policy violations | COVERED-43 | 43 | |
@@ -24478,7 +24479,7 @@ Expense management (expense reports, cash advances, travel requisitions, policie
 
 ### 12.10.2 Inquiries & Reports
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Expense report inquiry / Expense transactions | | COVERED-43 | 43 | |
 | Credit card transactions inquiry (imported / unreconciled) | | COVERED-43 | 43 | |
@@ -24497,7 +24498,7 @@ Expense management (expense reports, cash advances, travel requisitions, policie
 
 ### 12.10.3 Periodic
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Import credit card transactions (card feed: AMEX GL1025/Visa VCF/MasterCard CDF) | | COVERED-43 | 43 | |
 | Post expense reports (batch) | Posts to AP (reimbursement) and GL/project | COVERED-43 | 43 | Reimbursement via AP |
@@ -24510,7 +24511,7 @@ Expense management (expense reports, cash advances, travel requisitions, policie
 
 ### 12.10.4 Setup
 
-| Name | Key parameters / options | Passage status | Wave | Notes |
+| Name | Key parameters / options | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Expense management parameters — General | Default currency, posting to AP (vendor per worker), mileage/per diem defaults, require receipts threshold, allow itemization, project posting | COVERED-43 | 43 | |
 | Expense management parameters — Policies / Workflow / Credit card | Policy violation behaviors, approval, card import settings | COVERED-43 | 43 | |
@@ -24542,7 +24543,7 @@ The project module is wave 41 (WBS, resources, journals, billing, estimates, gra
 
 ### 12.11.1 Common / Journals
 
-| Form | AOT form / menu item | Purpose | Passage status | Wave | Notes |
+| Form | AOT form / menu item | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Projects (list page) | ProjTableListPage | All projects, hierarchy | COVERED-41 | 41 | |
 | Project details | ProjTable | Type (T&M, fixed-price, investment, cost, internal, time), stage, group, contract, funding, dimensions, WBS, invoice/billing, budget, resource | COVERED-41 | 41 | |
@@ -24583,7 +24584,7 @@ The project module is wave 41 (WBS, resources, journals, billing, estimates, gra
 
 ### 12.11.2 Inquiries & Reports
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Project transactions inquiry (posted transactions, by type) | | COVERED-41 | 41 | |
 | Project statements (Project statement inquiry: cost, revenue, WIP, profit) | | COVERED-41 | 41 | |
@@ -24617,7 +24618,7 @@ The project module is wave 41 (WBS, resources, journals, billing, estimates, gra
 
 ### 12.11.3 Periodic
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Journals → Post hour/expense/item/fee journals (batch) | | COVERED-41 | 41 | |
 | Timesheets → Timesheet workflow / Post timesheets / Create periodic timesheets | | PARTIAL-41 (timesheets) | 41 | |
@@ -24642,7 +24643,7 @@ The project module is wave 41 (WBS, resources, journals, billing, estimates, gra
 
 ### 12.11.4 Setup
 
-| Name | Key parameters / options | Passage status | Wave | Notes |
+| Name | Key parameters / options | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Project management and accounting parameters — General | Default project types, stages, line property, WBS defaults, ledger posting (balance/P&L), hour/expense/item/fee posting, cost price defaults, sales price defaults, invoice proposal rules | COVERED-41 | 41 | |
 | Project parameters — Financial (ledger posting rules by project type: cost, revenue, WIP, accrued) | | COVERED-41 | 41 | |
@@ -24679,7 +24680,7 @@ AX 2012 R3 Human resources (workers, positions, jobs, departments, benefits, lea
 
 ### 12.12.1 Common / Journals
 
-| Form | AOT form / menu item | Purpose | Passage status | Wave | Notes |
+| Form | AOT form / menu item | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Workers (list page) | HcmWorkerListPage | All workers (employees + contractors) | COVERED-42 | 42 | Party with Employee role |
 | Worker details | HcmWorker | Profile, employment, position assignments, compensation, leave, benefits, identification (SSN/passport), bank accounts, contacts, personal contacts, financial dimensions, competencies | COVERED-42 | 42 | PII vaulting |
@@ -24714,7 +24715,7 @@ AX 2012 R3 Human resources (workers, positions, jobs, departments, benefits, lea
 
 ### 12.12.2 Inquiries & Reports
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Worker inquiries (Workers by department/position, Seniority, Birthdays, Anniversaries) | | COVERED-42 | 42 | |
 | Position inquiries (Vacant positions, Position hierarchy, Headcount) | | COVERED-42 | 42 | |
@@ -24743,7 +24744,7 @@ AX 2012 R3 Human resources (workers, positions, jobs, departments, benefits, lea
 
 ### 12.12.3 Periodic
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Absence → Transfer absence registrations (to payroll/projects) | | COVERED-42 | 42 | |
 | Leave → Accrue leave balances (D365 accrual processing) | | COVERED-42 | 42 | Accrual fixtures |
@@ -24761,7 +24762,7 @@ AX 2012 R3 Human resources (workers, positions, jobs, departments, benefits, lea
 
 ### 12.12.4 Setup
 
-| Name | Key parameters / options | Passage status | Wave | Notes |
+| Name | Key parameters / options | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Human resources parameters — General / Recruitment / Workers / Absence / Benefits / Compensation / Number sequences / Shared (HR shared parameters: identification, worker numbering) | | COVERED-42 | 42 | |
 | Organization → Departments, Jobs, Positions setup (Position types, Position hierarchy types, Job functions, Job types, Job tasks, Areas of responsibility, Titles) | | COVERED-42 | 42 | |
@@ -24783,7 +24784,7 @@ AX 2012 R3 Human resources (workers, positions, jobs, departments, benefits, lea
 | Employee self-service parameters (EP) / Manager self-service parameters | | SUPERSEDED (ESS/MSS portal wave 42) | 42 | |
 | HR → Workflow (worker actions, leave, compensation, benefits) | | COVERED-4 | 4 | |
 | HR → Number sequences | | COVERED-5 | 5 | |
-| HR → Privacy / PII masking policies (Passage) | | COVERED-42 | 42 | |
+| HR → Privacy / PII masking policies (Depot) | | COVERED-42 | 42 | |
 | HR → Calendars (working time) | | COVERED-9 | 9 | |
 | HR → Country-specific fields (localization framework) | | COVERED-42 | 42 | |
 | HR → Payroll information on worker (link) | | COVERED-43 | 43 | |
@@ -24794,7 +24795,7 @@ AX 2012 R2/R3 US Payroll (earnings, benefits/deductions, taxes via Symmetry tax 
 
 ### 12.13.1 Common / Journals
 
-| Form | AOT form / menu item | Purpose | Passage status | Wave | Notes |
+| Form | AOT form / menu item | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Earnings statements (list page) | PayrollEarningStatementListPage | Generated earnings per worker per period | COVERED-43 | 43 | |
 | Earnings statement details | PayrollEarningStatement | Earning lines (salary, hourly, overtime, retro), source (timesheet, schedule, manual) | COVERED-43 | 43 | |
@@ -24816,7 +24817,7 @@ AX 2012 R2/R3 US Payroll (earnings, benefits/deductions, taxes via Symmetry tax 
 
 ### 12.13.2 Inquiries & Reports
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Earnings statement inquiry / Pay statement inquiry | | COVERED-43 | 43 | |
 | Worker payroll history (earnings, taxes, deductions YTD) | | COVERED-43 | 43 | |
@@ -24838,7 +24839,7 @@ AX 2012 R2/R3 US Payroll (earnings, benefits/deductions, taxes via Symmetry tax 
 
 ### 12.13.3 Periodic
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Generate earnings statements | Create earnings per pay period from schedules/time | COVERED-43 | 43 | |
 | Release earnings statements | | COVERED-43 | 43 | |
@@ -24859,7 +24860,7 @@ AX 2012 R2/R3 US Payroll (earnings, benefits/deductions, taxes via Symmetry tax 
 
 ### 12.13.4 Setup
 
-| Name | Key parameters / options | Passage status | Wave | Notes |
+| Name | Key parameters / options | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Payroll parameters — General / Earnings / Posting / Payment / Tax / Number sequences | Default earning codes, accrual, posting defaults, payment journal names, tax engine | COVERED-43 | 43 | |
 | Pay cycles and pay periods | Weekly/biweekly/semimonthly/monthly, period generation | COVERED-43 | 43 | |
@@ -24883,11 +24884,11 @@ AX 2012 R2/R3 US Payroll (earnings, benefits/deductions, taxes via Symmetry tax 
 
 ## 12.14 Inventory management
 
-AX 2012 R3 Inventory management (minus Quality, treated in §12.25, and minus WMS I/II which Passage supersedes with wave 31) maps to wave 16 (ledger, journals, counting, reservations, blocking, quarantine), wave 20 (costing, close), wave 28 (picking/shipping of orders) and wave 8 (item master). Transfer orders are only partially covered and are listed in the gap register.
+AX 2012 R3 Inventory management (minus Quality, treated in §12.25, and minus WMS I/II which Depot supersedes with wave 31) maps to wave 16 (ledger, journals, counting, reservations, blocking, quarantine), wave 20 (costing, close), wave 28 (picking/shipping of orders) and wave 8 (item master). Transfer orders are only partially covered and are listed in the gap register.
 
 ### 12.14.1 Common / Journals
 
-| Form | AOT form / menu item | Purpose | Passage status | Wave | Notes |
+| Form | AOT form / menu item | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Released products (list page, link) | EcoResProductDetailsExtended (InventTable) | Item master per legal entity | COVERED-8 | 8 | See §12.15 |
 | On-hand inventory (inquiry entry) | InventOnhandItem / InventDimOnHand | On-hand by dimension with physical/financial split | COVERED-16 | 16 | |
@@ -24930,7 +24931,7 @@ AX 2012 R3 Inventory management (minus Quality, treated in §12.25, and minus WM
 
 ### 12.14.2 Inquiries & Reports
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | On-hand inquiry (by dimension, with cost) | | COVERED-16 | 16 | |
 | On-hand → Physical inventory by dimension / Available physical | | COVERED-16 | 16 | |
@@ -24974,7 +24975,7 @@ AX 2012 R3 Inventory management (minus Quality, treated in §12.25, and minus WM
 
 ### 12.14.3 Periodic
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Closing and adjustment (link) | | COVERED-20 | 20 | |
 | Counting → Create counting journal (by item/warehouse/location, counting groups, periodic) | | COVERED-16 | 16 | Cycle counting plans |
@@ -25002,7 +25003,7 @@ AX 2012 R3 Inventory management (minus Quality, treated in §12.25, and minus WM
 
 ### 12.14.4 Setup
 
-| Name | Key parameters / options | Passage status | Wave | Notes |
+| Name | Key parameters / options | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Inventory and warehouse management parameters — General | Default dimensions, pallet/location usage (WMS II), date-controlled reservations, allow negative physical on quarantine, bill of materials: explode, counting reason codes, reservation by batch/date | COVERED-16 | 16 | WMS II flags superseded |
 | Inventory and warehouse management parameters — Journals | Journal names defaults, delete lines after posting, journal size | COVERED-16 | 16 | |
@@ -25059,7 +25060,7 @@ Products, product masters, variants, released products, dimension groups, attrib
 
 ### 12.15.1 Common / Journals
 
-| Form | AOT form / menu item | Purpose | Passage status | Wave | Notes |
+| Form | AOT form / menu item | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Products (all products and product masters, shared) | EcoResProductListPage / EcoResProductDetails | Tenant-level product definitions | COVERED-8 | 8 | |
 | Product masters | EcoResProductMasterListPage | Masters with dimension groups and configuration technology (predefined variant / dimension-based / constraint-based) | COVERED-8 | 8 | |
@@ -25103,7 +25104,7 @@ Products, product masters, variants, released products, dimension groups, attrib
 
 ### 12.15.2 Inquiries & Reports
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Released products inquiry / Products by category | | COVERED-8 | 8 | |
 | Product variants inquiry | | COVERED-8 | 8 | |
@@ -25126,7 +25127,7 @@ Products, product masters, variants, released products, dimension groups, attrib
 
 ### 12.15.3 Periodic
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Release products (to legal entities, mass release) | | COVERED-8 | 8 | |
 | Product → Change product dimension groups / Change item model group (periodic conversions) | | PARTIAL-8 (changing dimension/model groups on items with transactions (conversion jobs) not named) | 8 | Gap register |
@@ -25145,7 +25146,7 @@ Products, product masters, variants, released products, dimension groups, attrib
 
 ### 12.15.4 Setup
 
-| Name | Key parameters / options | Passage status | Wave | Notes |
+| Name | Key parameters / options | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Product information management parameters | Product dimension defaults, variant number nomenclature (D365), released product defaults, number sequences | COVERED-8 | 8 | |
 | Product → Product dimension groups / Storage dimension groups / Tracking dimension groups | | COVERED-8 | 8 | |
@@ -25186,7 +25187,7 @@ Requisitions, RFQs, agreements, POs, purchasing policies, categories and vendor 
 
 ### 12.16.1 Common / Journals
 
-| Form | AOT form / menu item | Purpose | Passage status | Wave | Notes |
+| Form | AOT form / menu item | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Purchase requisitions (list page: all, prepared by me, assigned to me) | PurchReqTableListPage | Requisition lifecycle (draft, in review, approved, closed) | COVERED-17 | 17 | |
 | Purchase requisition details | PurchReqTable / PurchReqLine | Lines from catalog/non-catalog, requester, accounting distribution, approval | COVERED-17 | 17 | |
@@ -25230,7 +25231,7 @@ Requisitions, RFQs, agreements, POs, purchasing policies, categories and vendor 
 
 ### 12.16.2 Inquiries & Reports
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Purchase order inquiries (POs, lines, history, versions, backorders, open lines) | | COVERED-17 | 17 | |
 | Purchase requisition inquiries (by requester, status, consolidation) | | COVERED-17 | 17 | |
@@ -25256,7 +25257,7 @@ Requisitions, RFQs, agreements, POs, purchasing policies, categories and vendor 
 
 ### 12.16.3 Periodic
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Purchase requisitions → Release approved requisitions (batch auto-create POs) | | COVERED-17 | 17 | |
 | Purchase requisitions → Expire / Clean up requisitions | | COVERED-17 | 17 | |
@@ -25276,7 +25277,7 @@ Requisitions, RFQs, agreements, POs, purchasing policies, categories and vendor 
 
 ### 12.16.4 Setup
 
-| Name | Key parameters / options | Passage status | Wave | Notes |
+| Name | Key parameters / options | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Procurement and sourcing parameters — General | Default order type, create direct delivery, safety levels, intercompany PO defaults, delivery date control | COVERED-17 | 17 | |
 | Procurement and sourcing parameters — Purchase requisitions / Purchase agreements / RFQ / Catalog / Vendor collaboration / Number sequences | | COVERED-17 | 17 | Catalog tab PARTIAL |
@@ -25307,11 +25308,11 @@ Requisitions, RFQs, agreements, POs, purchasing policies, categories and vendor 
 
 ## 12.17 Sales and marketing
 
-Sales quotations, orders, agreements, delivery and returns map to waves 27–30 (orders/ATP/credit 27, fulfillment 28, invoicing 29, returns 30) with pricing in 26. The CRM half (leads, opportunities, campaigns, telemarketing, mailings, activities, responsibilities) is out of scope per the PRD non-goal; Passage integrates with Salesforce/HubSpot via wave 35 connectors.
+Sales quotations, orders, agreements, delivery and returns map to waves 27–30 (orders/ATP/credit 27, fulfillment 28, invoicing 29, returns 30) with pricing in 26. The CRM half (leads, opportunities, campaigns, telemarketing, mailings, activities, responsibilities) is out of scope per the PRD non-goal; Depot integrates with Salesforce/HubSpot via wave 35 connectors.
 
 ### 12.17.1 Common / Journals
 
-| Form | AOT form / menu item | Purpose | Passage status | Wave | Notes |
+| Form | AOT form / menu item | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Sales orders (list page: all, open, backorders, delivered not invoiced, recent) | SalesTableListPage | | COVERED-27 | 27 | |
 | Sales order details | SalesTable / SalesLine | Header/lines, delivery, price/discount, charges, dimensions, holds, intercompany, project | COVERED-27 | 27 | |
@@ -25366,7 +25367,7 @@ Sales quotations, orders, agreements, delivery and returns map to waves 27–30 
 
 ### 12.17.2 Inquiries & Reports
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Sales order inquiries (orders, lines, history, open lines, backorders) | | COVERED-27 | 27 | |
 | Sales quotation inquiries (quotation lines, follow-up, win/loss) | | COVERED-27 | 27 | |
@@ -25394,7 +25395,7 @@ Sales quotations, orders, agreements, delivery and returns map to waves 27–30 
 
 ### 12.17.3 Periodic
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Sales update → Confirmation / Picking list / Packing slip / Invoice (batch) | | COVERED-28 | 28 | |
 | Sales update → Release sales order picking (Release to warehouse) | | COVERED-28 | 28 | |
@@ -25415,7 +25416,7 @@ Sales quotations, orders, agreements, delivery and returns map to waves 27–30 
 
 ### 12.17.4 Setup
 
-| Name | Key parameters / options | Passage status | Wave | Notes |
+| Name | Key parameters / options | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Sales and marketing parameters — General | Default quotation settings, prospect conversion, sales unit | COVERED-27 | 27 | |
 | Sales and marketing parameters — Quotations (expiry, follow-up, templates, probability) | | COVERED-27 | 27 | |
@@ -25460,11 +25461,11 @@ Sales quotations, orders, agreements, delivery and returns map to waves 27–30 
 
 ## 12.18 Trade allowance management
 
-AX 2012 R3 TAM: trade allowance agreements (bill-back, lump sum, off-invoice), funds, customer categories, merchandising events, deductions workbench, claims via AR. Passage: promotions and rebate accruals in wave 26, settlement and deductions in wave 30. The deduction workbench and funds are only partially covered.
+AX 2012 R3 TAM: trade allowance agreements (bill-back, lump sum, off-invoice), funds, customer categories, merchandising events, deductions workbench, claims via AR. Depot: promotions and rebate accruals in wave 26, settlement and deductions in wave 30. The deduction workbench and funds are only partially covered.
 
 ### 12.18.1 Common / Journals
 
-| Form | AOT form / menu item | Purpose | Passage status | Wave | Notes |
+| Form | AOT form / menu item | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Trade allowance agreements (list page) | TAMTradeAllowanceAgreementListPage | Agreements with merchandising events: bill-back, lump sum, off-invoice | COVERED-26 | 26 | Promotions + rebate agreements |
 | Trade allowance agreement details | TAMTradeAllowanceAgreement | Customers, items, period, funds, approval, lines (bill-back rebate lines, lump sum, off-invoice discounts) | COVERED-26 | 26 | |
@@ -25479,7 +25480,7 @@ AX 2012 R3 TAM: trade allowance agreements (bill-back, lump sum, off-invoice), f
 
 ### 12.18.2 Inquiries & Reports
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Trade allowance agreement inquiry / Agreement status | | COVERED-26 | 26 | |
 | Fund usage inquiry | | PARTIAL-26 (funds) | 26 | |
@@ -25494,7 +25495,7 @@ AX 2012 R3 TAM: trade allowance agreements (bill-back, lump sum, off-invoice), f
 
 ### 12.18.3 Periodic
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Cumulate rebates / Approve rebates / Process rebates (create credit notes or AP claims) | | COVERED-30 | 30 | |
 | Deductions → Match deductions to claims / Write off small balances | | PARTIAL-30 (deductions workbench) | 30 | |
@@ -25505,7 +25506,7 @@ AX 2012 R3 TAM: trade allowance agreements (bill-back, lump sum, off-invoice), f
 
 ### 12.18.4 Setup
 
-| Name | Key parameters / options | Passage status | Wave | Notes |
+| Name | Key parameters / options | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Trade allowance management parameters | Default fund, rebate journal names, deduction journal, approval workflow, claim via AR/AP | COVERED-26 | 26 | |
 | Trade allowance → Customer categories / Customer category hierarchy | | COVERED-7 | 7 | |
@@ -25524,7 +25525,7 @@ AX 2012 R3 Call center (part of Retail) is a catalog-and-script driven order-tak
 
 ### 12.19.1 Common / Journals
 
-| Form | AOT form / menu item | Purpose | Passage status | Wave | Notes |
+| Form | AOT form / menu item | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Call center sales orders (order entry with scripts, prices from catalog, payment capture) | SalesTable (call center) | Operator order entry | OUT-OF-SCOPE (retail/call-center channel non-goal; generic order desk in wave 27) | — | Wave 27 order entry covers manufacturer order desk |
 | Customer service form (CustomerService) | MCRCustomerService | 360° customer view for operators | SUPERSEDED (customer 360 workspace in wave 7/30 shell with FactBoxes) | 30 | |
@@ -25542,7 +25543,7 @@ AX 2012 R3 Call center (part of Retail) is a catalog-and-script driven order-tak
 
 ### 12.19.2 Inquiries & Reports
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Call center sales statistics (orders per operator, catalog performance) | | OUT-OF-SCOPE (retail non-goal) | — | |
 | Continuity / Installment inquiries | | OUT-OF-SCOPE (retail non-goal) | — | |
@@ -25552,7 +25553,7 @@ AX 2012 R3 Call center (part of Retail) is a catalog-and-script driven order-tak
 
 ### 12.19.3 Periodic
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Continuity → Process continuity orders | | OUT-OF-SCOPE (retail non-goal) | — | |
 | Installments → Generate installment invoices | | OUT-OF-SCOPE (retail non-goal) | — | |
@@ -25562,7 +25563,7 @@ AX 2012 R3 Call center (part of Retail) is a catalog-and-script driven order-tak
 
 ### 12.19.4 Setup
 
-| Name | Key parameters / options | Passage status | Wave | Notes |
+| Name | Key parameters / options | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Call center parameters | Channel defaults, scripts, fraud, order holds, catalogs, payment | OUT-OF-SCOPE (retail non-goal) | — | |
 | Call centers (channel setup, operators, payment methods) | | OUT-OF-SCOPE (retail non-goal) | — | |
@@ -25578,11 +25579,11 @@ AX 2012 R3 Call center (part of Retail) is a catalog-and-script driven order-tak
 
 ## 12.20 Retail
 
-AX 2012 R3 Retail (Retail headquarters, POS, Commerce Data Exchange, channels, assortments, loyalty, retail scheduler) is out of scope per the PRD non-goal; Passage integrates with Shopify/Medusa via wave 35. Rows are listed so reviewers can see the exclusion is deliberate.
+AX 2012 R3 Retail (Retail headquarters, POS, Commerce Data Exchange, channels, assortments, loyalty, retail scheduler) is out of scope per the PRD non-goal; Depot integrates with Shopify/Medusa via wave 35. Rows are listed so reviewers can see the exclusion is deliberate.
 
 ### 12.20.1 Common / Journals
 
-| Form | AOT form / menu item | Purpose | Passage status | Wave | Notes |
+| Form | AOT form / menu item | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Retail stores / Retail channels (store, online store, call center) | RetailChannelTable | Channel master | OUT-OF-SCOPE (retail non-goal) | — | |
 | Registers / Devices / POS terminals | RetailTerminalTable | | OUT-OF-SCOPE (retail non-goal) | — | |
@@ -25598,7 +25599,7 @@ AX 2012 R3 Retail (Retail headquarters, POS, Commerce Data Exchange, channels, a
 
 ### 12.20.2 Inquiries & Reports
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Retail sales reports (sales by store/register/hour, Top items) | | OUT-OF-SCOPE (retail non-goal) | — | |
 | Statement inquiries / Transaction inquiries | | OUT-OF-SCOPE (retail non-goal) | — | |
@@ -25608,7 +25609,7 @@ AX 2012 R3 Retail (Retail headquarters, POS, Commerce Data Exchange, channels, a
 
 ### 12.20.3 Periodic
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Retail scheduler (A/N jobs: distribution schedule, upload/download sessions) | Commerce Data Exchange sync jobs | OUT-OF-SCOPE (retail non-goal) | — | |
 | Calculate / Post statements | | OUT-OF-SCOPE (retail non-goal) | — | |
@@ -25618,7 +25619,7 @@ AX 2012 R3 Retail (Retail headquarters, POS, Commerce Data Exchange, channels, a
 
 ### 12.20.4 Setup
 
-| Name | Key parameters / options | Passage status | Wave | Notes |
+| Name | Key parameters / options | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Retail parameters / Retail shared parameters | | OUT-OF-SCOPE (retail non-goal) | — | |
 | Retail scheduler parameters / Channel database / Commerce Data Exchange | | OUT-OF-SCOPE (retail non-goal) | — | |
@@ -25631,11 +25632,11 @@ AX 2012 R3 Retail (Retail headquarters, POS, Commerce Data Exchange, channels, a
 | Online store → Storefront / Sharepoint site setup | | OUT-OF-SCOPE (e-commerce storefront non-goal) | — | |
 ## 12.21 Master planning
 
-Static/dynamic plans, coverage, planned orders, action/futures messages, forecasting, safety stock and intercompany planning map to wave 22 (MRP/MPS/forecasting) with capacity in 23 and intercompany planning in 40. D365 Planning Optimization and priority-based planning are superseded by the Passage planning engine.
+Static/dynamic plans, coverage, planned orders, action/futures messages, forecasting, safety stock and intercompany planning map to wave 22 (MRP/MPS/forecasting) with capacity in 23 and intercompany planning in 40. D365 Planning Optimization and priority-based planning are superseded by the Depot planning engine.
 
 ### 12.21.1 Common / Journals
 
-| Form | AOT form / menu item | Purpose | Passage status | Wave | Notes |
+| Form | AOT form / menu item | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Planned orders (list page: all, planned purchase, planned production, planned transfer, planned kanban) | ReqPOListPage | Review/firm/change planned orders | COVERED-22 | 22 | |
 | Planned order details | ReqPO | Qty, dates, pegging (requirement profile), action/futures messages, approve, firm, group | COVERED-22 | 22 | |
@@ -25662,7 +25663,7 @@ Static/dynamic plans, coverage, planned orders, action/futures messages, forecas
 
 ### 12.21.2 Inquiries & Reports
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Net requirements inquiry / Requirement profile | | COVERED-22 | 22 | |
 | Explosion inquiry / Trace (why was this planned) | | COVERED-22 | 22 | |
@@ -25686,7 +25687,7 @@ Static/dynamic plans, coverage, planned orders, action/futures messages, forecas
 
 ### 12.21.3 Periodic
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Master scheduling (run plan: regeneration / net change / net change minimized) | | COVERED-22 | 22 | Incremental < 2 min target |
 | Forecast scheduling (run forecast plan) | | COVERED-22 | 22 | |
@@ -25706,11 +25707,11 @@ Static/dynamic plans, coverage, planned orders, action/futures messages, forecas
 | Planning → Kanban quantity calculation (link to Lean) | | COVERED-24 | 24 | |
 | Planning → Item allocation key refresh | | COVERED-22 | 22 | |
 | Planning → Generate planned kanbans | | COVERED-24 | 24 | |
-| Planning → MRP exception triage agent (Passage) | | COVERED-47 | 47 | |
+| Planning → MRP exception triage agent (Depot) | | COVERED-47 | 47 | |
 
 ### 12.21.4 Setup
 
-| Name | Key parameters / options | Passage status | Wave | Notes |
+| Name | Key parameters / options | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Master planning parameters — General | Current static/dynamic plan, automatic copy static→dynamic, use dynamic negative days, planned order defaults | COVERED-22 | 22 | |
 | Master planning parameters — Planned orders | Group by vendor/buyer/period on firming, planned purchase order type, firm journal | COVERED-22 | 22 | |
@@ -25751,7 +25752,7 @@ Production orders, journals, routes/operations, resources, scheduling, Gantt, ma
 
 ### 12.22.1 Common / Journals
 
-| Form | AOT form / menu item | Purpose | Passage status | Wave | Notes |
+| Form | AOT form / menu item | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Production orders (list page: all, created, estimated, scheduled, released, started, reported as finished, ended; "my" pools) | ProdTableListPage | Order lifecycle | COVERED-21 | 21 | |
 | Production order details | ProdTable | Header: item, qty, dates, BOM/route, status, pool, group, reservation, site/warehouse, priority, properties, financial dimensions, costing | COVERED-21 | 21 | |
@@ -25801,7 +25802,7 @@ Production orders, journals, routes/operations, resources, scheduling, Gantt, ma
 
 ### 12.22.2 Inquiries & Reports
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Production order inquiries (orders, BOM, route, jobs, transactions, status log) | | COVERED-21 | 21 | |
 | Production transactions (Route transactions, BOM transactions) | | COVERED-21 | 21 | |
@@ -25835,7 +25836,7 @@ Production orders, journals, routes/operations, resources, scheduling, Gantt, ma
 
 ### 12.22.3 Periodic
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Production orders → Estimate / Schedule / Release / Start / Report as finished / End (batch) | | COVERED-21 | 21 | |
 | Production orders → Update costing (Price calculation batch) | | COVERED-21 | 21 | |
@@ -25859,7 +25860,7 @@ Production orders, journals, routes/operations, resources, scheduling, Gantt, ma
 
 ### 12.22.4 Setup
 
-| Name | Key parameters / options | Passage status | Wave | Notes |
+| Name | Key parameters / options | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Production control parameters — General | Production order defaults: BOM/route version selection, reservation (manual/estimation/scheduling/release/start), automatic BOM consumption (flushing principle: start/finish/manual), route consumption, posting of journals, scheduling method default, lock route operations, remove reservations, status defaults | COVERED-21 | 21 | |
 | Production control parameters — Standard update tab | Default update parameters per status update (estimation, scheduling, release, start, RAF, end) | COVERED-21 | 21 | |
@@ -25924,7 +25925,7 @@ Production orders, journals, routes/operations, resources, scheduling, Gantt, ma
 | Production → Workflow (production order release approval D365) | | COVERED-4 | 4 | |
 | Production → Number sequences | | COVERED-5 | 5 | |
 | Production → Gantt chart configuration (colors, views, user settings) | | COVERED-23 | 23 | |
-| Production → Andon / alerts (Passage) | | COVERED-25 | 25 | |
+| Production → Andon / alerts (Depot) | | COVERED-25 | 25 | |
 
 ## 12.23 Process manufacturing (PI)
 
@@ -25932,7 +25933,7 @@ AX 2012 R3 folds process industries into PIM, Inventory, Production control, Mas
 
 ### 12.23.1 Common / Journals
 
-| Form | AOT form / menu item | Purpose | Passage status | Wave | Notes |
+| Form | AOT form / menu item | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Formulas (list page) / Formula designer | PdsFormulaListPage (BOMTable formula), BOMDesigner | Formula with co/by-products, scalable lines, percentage lines, step consumption | COVERED-9 | 9 | Formula BOMs |
 | Formula versions (per item, with formula size, co-product/by-product lines, approval) | BOMVersion (formula) | | COVERED-9 | 9 | |
@@ -25963,7 +25964,7 @@ AX 2012 R3 folds process industries into PIM, Inventory, Production control, Mas
 
 ### 12.23.2 Inquiries & Reports
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Batch order inquiries (co-product cost, batch balancing results) | | COVERED-24 | 24 | |
 | Batch attribute inquiries / Attribute search for batches | | COVERED-24 | 24 | |
@@ -25985,7 +25986,7 @@ AX 2012 R3 folds process industries into PIM, Inventory, Production control, Mas
 
 ### 12.23.3 Periodic
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Batch orders → Estimate / Schedule / Release / Start / RAF / End (batch) | | COVERED-24 | 24 | |
 | Batch orders → Consolidate batch orders (batch) | | PARTIAL-24 (consolidated batch orders) | 24 | |
@@ -25999,7 +26000,7 @@ AX 2012 R3 folds process industries into PIM, Inventory, Production control, Mas
 
 ### 12.23.4 Setup
 
-| Name | Key parameters / options | Passage status | Wave | Notes |
+| Name | Key parameters / options | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Production control parameters — Process tab (formula defaults, co-product posting, batch balancing, rework) | | COVERED-24 | 24 | |
 | Formula → Formula parameters (scalable, formula size, yield %, step consumption tables) | | COVERED-9 | 9 | |
@@ -26029,7 +26030,7 @@ Value streams, production flows, activities, kanban rules, kanban boards and bac
 
 ### 12.24.1 Common / Journals
 
-| Form | AOT form / menu item | Purpose | Passage status | Wave | Notes |
+| Form | AOT form / menu item | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Production flows (list page) | LeanProductionFlowListPage | Flow with versions and activities | COVERED-24 | 24 | |
 | Production flow details / Versions (activate, expire, takt, cycle time) | LeanProductionFlow / LeanProductionFlowVersion | | COVERED-24 | 24 | |
@@ -26053,7 +26054,7 @@ Value streams, production flows, activities, kanban rules, kanban boards and bac
 
 ### 12.24.2 Inquiries & Reports
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Kanban job inquiries (jobs by status, late jobs, cycle time) | | COVERED-24 | 24 | |
 | Kanban rule inquiries / Kanban quantities history | | COVERED-24 | 24 | |
@@ -26069,7 +26070,7 @@ Value streams, production flows, activities, kanban rules, kanban boards and bac
 
 ### 12.24.3 Periodic
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Kanban → Process event kanbans (generate from events: sales, BOM line, min stock) | | COVERED-24 | 24 | |
 | Kanban → Kanban quantity calculation run / Update kanban rules from calculation | | COVERED-24 | 24 | |
@@ -26084,7 +26085,7 @@ Value streams, production flows, activities, kanban rules, kanban boards and bac
 
 ### 12.24.4 Setup
 
-| Name | Key parameters / options | Passage status | Wave | Notes |
+| Name | Key parameters / options | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Production control parameters — Lean tab (kanban defaults, costing, picking list posting, transfer defaults) | | COVERED-24 | 24 | |
 | Lean → Production flow models (costing method per flow: backflush costing) | | COVERED-24 | 24 | |
@@ -26109,7 +26110,7 @@ In AX 2012 R3 quality lives under Inventory management (quality orders, nonconfo
 
 ### 12.25.1 Common / Journals
 
-| Form | AOT form / menu item | Purpose | Passage status | Wave | Notes |
+| Form | AOT form / menu item | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Quality orders (list page) | InventQualityOrderTableListPage | Orders generated by associations or manually; reference (purchase, sales, production, quarantine, inventory, RMA) | COVERED-33 | 33 | |
 | Quality order details | InventQualityOrderTable / InventQualityOrderLine | Tests, sampling, results (variable/attribute), pass/fail, validate | COVERED-33 | 33 | Results recording |
@@ -26120,9 +26121,9 @@ In AX 2012 R3 quality lives under Inventory management (quality orders, nonconfo
 | Nonconformance → Operations (nonconformance operations with cost items, timesheets, charges) | InventNonConformanceOperation | Work to resolve NC with cost | COVERED-33 | 33 | Cost of quality |
 | Corrections | InventNonConformanceCorrection | Corrective actions with diagnostic types, planned/actual dates | COVERED-33 | 33 | CAPA with 8D |
 | Certificates of analysis (print from sales packing slip / quality order) | InventTestCertificateOfAnalysis | CoA document | COVERED-33 | 33 | |
-| Quality → Test instruments / Device calibration (Passage addition) | | | COVERED-33 | 33 | Calibration tracking |
-| Quality → Supplier quality scorecards (Passage) | | | COVERED-33 | 33 | |
-| Quality → SPC charts (Passage) | | | COVERED-33 | 33 | |
+| Quality → Test instruments / Device calibration (Depot addition) | | | COVERED-33 | 33 | Calibration tracking |
+| Quality → Supplier quality scorecards (Depot) | | | COVERED-33 | 33 | |
+| Quality → SPC charts (Depot) | | | COVERED-33 | 33 | |
 | Quality → Inventory blocking (quality) | InventBlocking (quality) | Auto-block on quality order creation | COVERED-33 | 33 | Automatic blocking/release |
 | Quality → Quarantine orders (link) | InventQuarantineOrder | | COVERED-16 | 16 | |
 | Quality → Batch disposition on failed quality (link) | | | COVERED-24 | 24 | |
@@ -26131,7 +26132,7 @@ In AX 2012 R3 quality lives under Inventory management (quality orders, nonconfo
 
 ### 12.25.2 Inquiries & Reports
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Quality order inquiries (by status, item, vendor, test results) | | COVERED-33 | 33 | |
 | Nonconformance inquiries (by problem type, source, status) | | COVERED-33 | 33 | |
@@ -26149,18 +26150,18 @@ In AX 2012 R3 quality lives under Inventory management (quality orders, nonconfo
 
 ### 12.25.3 Periodic
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Quality → Create quality orders automatically (on events per association) | | COVERED-33 | 33 | Trigger fixtures |
 | Quality → Validate quality orders (batch) | | COVERED-33 | 33 | |
 | Quality → Delete / Close nonconformances | | COVERED-33 | 33 | |
-| Quality → Calibration due processing (Passage) | | COVERED-33 | 33 | |
+| Quality → Calibration due processing (Depot) | | COVERED-33 | 33 | |
 | Quality → Supplier scorecard recalculation | | COVERED-33 | 33 | |
 | Quality → Nonconformance cost posting (operations charges) | | COVERED-33 | 33 | |
 
 ### 12.25.4 Setup
 
-| Name | Key parameters / options | Passage status | Wave | Notes |
+| Name | Key parameters / options | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Inventory and warehouse management parameters — Quality management tab | Use quality management, hours per day, report setup (CoA, NC tag), nonconformance defaults | COVERED-33 | 33 | |
 | Quality management → Quality associations (reference type: purchase/sales/production/quarantine/inventory; item code; account code; event type: before/after; execution: before/after; test group; document type; dimensions) | | COVERED-33 | 33 | |
@@ -26175,8 +26176,8 @@ In AX 2012 R3 quality lives under Inventory management (quality orders, nonconfo
 | Quality management → Certificate of analysis setup (print per customer / item) | | COVERED-33 | 33 | |
 | Quality management → Quality orders number sequences | | COVERED-5 | 5 | |
 | Quality management → Quality order blocking parameters (block on create, release on validate) | | COVERED-33 | 33 | |
-| Quality management → Calibration schedules (Passage) | | COVERED-33 | 33 | |
-| Quality management → CAPA templates (8D) (Passage) | | COVERED-33 | 33 | |
+| Quality management → Calibration schedules (Depot) | | COVERED-33 | 33 | |
+| Quality management → CAPA templates (8D) (Depot) | | COVERED-33 | 33 | |
 | Quality management → Workflow (nonconformance approval) | | COVERED-4 | 4 | |
 | Quality management → Mobile device quality menu items (D365) | | COVERED-32 | 32 | |
 | Quality management → Product compliance (PI, link) | | GAP | — | Propose wave 33: product compliance |
@@ -26187,7 +26188,7 @@ The AX 2012 R3 advanced warehouse module (Warehouse management) — location dir
 
 ### 12.26.1 Common / Journals
 
-| Form | AOT form / menu item | Purpose | Passage status | Wave | Notes |
+| Form | AOT form / menu item | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | All loads (list page) / Load details | WHSLoadTableListPage / WHSLoadTable | Loads with lines, shipments, status, carrier | COVERED-31 | 31 | Load planning |
 | Load planning workbench | WHSLoadPlanningWorkbench | Build loads from order lines, templates, release | COVERED-31 | 31 | |
@@ -26231,7 +26232,7 @@ The AX 2012 R3 advanced warehouse module (Warehouse management) — location dir
 
 ### 12.26.2 Inquiries & Reports
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | On-hand by location / On-hand by license plate | | COVERED-31 | 31 | |
 | Work inquiries (Work line history, Work audit, Work exceptions log) | | COVERED-31 | 31 | |
@@ -26260,7 +26261,7 @@ The AX 2012 R3 advanced warehouse module (Warehouse management) — location dir
 
 ### 12.26.3 Periodic
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Wave processing (batch wave release / scheduled waves) | | COVERED-31 | 31 | |
 | Replenishment → Min-max replenishment / Demand replenishment / Wave demand replenishment (batch) | | COVERED-31 | 31 | |
@@ -26283,7 +26284,7 @@ The AX 2012 R3 advanced warehouse module (Warehouse management) — location dir
 
 ### 12.26.4 Setup
 
-| Name | Key parameters / options | Passage status | Wave | Notes |
+| Name | Key parameters / options | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Warehouse management parameters — General | Default location profiles, LP numbering, user/system-directed defaults, work audit, pack defaults, cycle count defaults, replenishment defaults, dock management, number sequences | COVERED-31 | 31 | |
 | Warehouse management parameters — Mobile device / Print / Barcode | Mobile device settings, display, printers | COVERED-32 | 32 | |
@@ -26357,7 +26358,7 @@ The AX 2012 R3 advanced warehouse module (Warehouse management) — location dir
 | Warehouse → Catch weight on WHS (D365 CW tags) | | COVERED-24 | 24 | |
 | Warehouse → Warehouse management workload visualization setup | | COVERED-31 | 31 | |
 | Warehouse → Warehouse app task validator / Process guide steps (D365) | | COVERED-32 | 32 | |
-| Warehouse → RFID / Voice adapter configuration (Passage) | | COVERED-32 | 32 | |
+| Warehouse → RFID / Voice adapter configuration (Depot) | | COVERED-32 | 32 | |
 | Warehouse → Transportation (link to TMS) | | COVERED-34 | 34 | |
 | Warehouse → Number sequences (work, wave, load, LP, container) | | COVERED-5 | 5 | |
 | Warehouse → Work audit templates | | COVERED-31 | 31 | |
@@ -26366,11 +26367,11 @@ The AX 2012 R3 advanced warehouse module (Warehouse management) — location dir
 
 ## 12.27 Transportation management (TMS)
 
-AX 2012 R3 TMS: rating engines, rate masters, carriers, route plans/guides, load building, tendering, freight bills and reconciliation, driver check-in, transportation tenders, dock appointment scheduling. Passage wave 34 covers rating, routing, load building, tendering, tracking, freight reconciliation and landed cost; yard/driver check-in is a gap.
+AX 2012 R3 TMS: rating engines, rate masters, carriers, route plans/guides, load building, tendering, freight bills and reconciliation, driver check-in, transportation tenders, dock appointment scheduling. Depot wave 34 covers rating, routing, load building, tendering, tracking, freight reconciliation and landed cost; yard/driver check-in is a gap.
 
 ### 12.27.1 Common / Journals
 
-| Form | AOT form / menu item | Purpose | Passage status | Wave | Notes |
+| Form | AOT form / menu item | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Loads (planning workbench, TMS view) | WHSLoadPlanningWorkbench (TMS) | Rate loads, assign carriers | COVERED-34 | 34 | |
 | Rate route workbench | TMSRateRouteWorkbench | Rate shop across carriers/routes for a load | COVERED-34 | 34 | Rate shopping |
@@ -26393,7 +26394,7 @@ AX 2012 R3 TMS: rating engines, rate masters, carriers, route plans/guides, load
 
 ### 12.27.2 Inquiries & Reports
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Freight bill inquiries / Freight invoice reconciliation status | | COVERED-34 | 34 | |
 | Tender history / Tender status inquiry | | COVERED-34 | 34 | |
@@ -26413,7 +26414,7 @@ AX 2012 R3 TMS: rating engines, rate masters, carriers, route plans/guides, load
 
 ### 12.27.3 Periodic
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Rate loads (batch rating) / Auto-rate on release | | COVERED-34 | 34 | |
 | Tendering → Send tenders (batch) / Tender timeout processing / Cascade to next carrier | | COVERED-34 | 34 | |
@@ -26429,7 +26430,7 @@ AX 2012 R3 TMS: rating engines, rate masters, carriers, route plans/guides, load
 
 ### 12.27.4 Setup
 
-| Name | Key parameters / options | Passage status | Wave | Notes |
+| Name | Key parameters / options | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Transportation management parameters — General | Default rating profile, tender settings, freight bill types, dock management, number sequences, appointment settings | COVERED-34 | 34 | |
 | Carriers → Shipping carriers (carrier vendor, services, rating profile, tender method, tracking) | | COVERED-34 | 34 | |
@@ -26468,7 +26469,7 @@ Service agreements, service orders, dispatch board, service objects/tasks, repai
 
 ### 12.28.1 Common / Journals
 
-| Form | AOT form / menu item | Purpose | Passage status | Wave | Notes |
+| Form | AOT form / menu item | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Service agreements (list page) | SMAAgreementTableListPage | Agreements with lines (service objects/tasks, intervals, prices) | COVERED-45 | 45 | Service agreements with entitlements/SLAs |
 | Service agreement details | SMAAgreementTable / SMAAgreementLine | Lines, service level agreement, project link, templates | COVERED-45 | 45 | |
@@ -26493,7 +26494,7 @@ Service agreements, service orders, dispatch board, service objects/tasks, repai
 
 ### 12.28.2 Inquiries & Reports
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Service order inquiries (by stage, technician, customer, SLA status) | | COVERED-45 | 45 | |
 | Service agreement inquiries (expiring agreements, lines due) | | COVERED-45 | 45 | |
@@ -26513,7 +26514,7 @@ Service agreements, service orders, dispatch board, service objects/tasks, repai
 
 ### 12.28.3 Periodic
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Create service orders from agreements (periodic generation by interval) | | COVERED-45 | 45 | |
 | Service agreements → Copy / Renew / Expire agreements | | COVERED-45 | 45 | |
@@ -26527,7 +26528,7 @@ Service agreements, service orders, dispatch board, service objects/tasks, repai
 
 ### 12.28.4 Setup
 
-| Name | Key parameters / options | Passage status | Wave | Notes |
+| Name | Key parameters / options | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Service management parameters — General / Service orders / Agreements / Subscriptions / Dispatching / Number sequences | Default stages, project posting, time recording, SLA settings, subscription defaults | COVERED-45 | 45 | Subscriptions PARTIAL |
 | Service → Service stages / Stage reasons / Stage transitions | | COVERED-45 | 45 | |
@@ -26540,7 +26541,7 @@ Service agreements, service orders, dispatch board, service objects/tasks, repai
 | Service → Dispatching: Dispatch teams, Technicians (workers), Skills, Territories, Dispatch board settings | | COVERED-45 | 45 | |
 | Service → Subscription: Subscription groups, Subscription fee categories, Index rules, Subscription periods | | PARTIAL-45 (service subscriptions) | 29 | |
 | Service → Project integration (project group for service, categories, line properties) | | COVERED-41 | 41 | |
-| Service → Warranty types / Entitlement types (Passage) | | COVERED-45 | 45 | |
+| Service → Warranty types / Entitlement types (Depot) | | COVERED-45 | 45 | |
 | Service → Mobile app configuration (offline, photos, signatures) | | COVERED-45 | 45 | |
 | Service → Van stock / Technician warehouses | | COVERED-45 | 45 | |
 | Service → Workflow (service order approval) | | COVERED-4 | 4 | |
@@ -26550,11 +26551,11 @@ Service agreements, service orders, dispatch board, service objects/tasks, repai
 
 ## 12.29 Organization administration
 
-Legal entities, operating units, hierarchies, address book, number sequences, document management, case management, workflow configuration, calendars, units, electronic signatures, foreign trade, policies and signing limits. Passage: waves 6 (structure, calendars, UoM, address book), 7 (global address book), 5 (number sequences, audit), 4 (workflow). Case management, document management depth, reason codes, teams and electronic signatures are partial or gaps.
+Legal entities, operating units, hierarchies, address book, number sequences, document management, case management, workflow configuration, calendars, units, electronic signatures, foreign trade, policies and signing limits. Depot: waves 6 (structure, calendars, UoM, address book), 7 (global address book), 5 (number sequences, audit), 4 (workflow). Case management, document management depth, reason codes, teams and electronic signatures are partial or gaps.
 
 ### 12.29.1 Common / Journals
 
-| Form | AOT form / menu item | Purpose | Passage status | Wave | Notes |
+| Form | AOT form / menu item | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Legal entities (list) / Legal entity details | OMLegalEntity (CompanyInfo) | Company, addresses, tax registration, bank, statutory reporting, foreign trade, ER tabs | COVERED-6 | 6 | |
 | Operating units (departments, cost centers, business units, value streams, retail channels) | OMOperatingUnit | | COVERED-6 | 6 | |
@@ -26593,7 +26594,7 @@ Legal entities, operating units, hierarchies, address book, number sequences, do
 
 ### 12.29.2 Inquiries & Reports
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Organization hierarchy inquiry (as-of date view) | | COVERED-6 | 6 | |
 | Number sequence inquiries (status list, pre-allocation, gaps) | | COVERED-5 | 5 | |
@@ -26615,7 +26616,7 @@ Legal entities, operating units, hierarchies, address book, number sequences, do
 
 ### 12.29.3 Periodic
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Organization hierarchy → Publish hierarchy version (effective date) | | COVERED-6 | 6 | |
 | Number sequences → Clean up pre-allocated / Status list cleanup / Generate pre-allocation | | COVERED-5 | 5 | |
@@ -26635,7 +26636,7 @@ Legal entities, operating units, hierarchies, address book, number sequences, do
 
 ### 12.29.4 Setup
 
-| Name | Key parameters / options | Passage status | Wave | Notes |
+| Name | Key parameters / options | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Organization → Legal entities | Name, addresses, registration numbers, tax, bank, statutory, foreign trade, ER | COVERED-6 | 6 | |
 | Organization → Operating units / Departments / Cost centers / Business units / Value streams | | COVERED-6 | 6 | |
@@ -26646,7 +26647,7 @@ Legal entities, operating units, hierarchies, address book, number sequences, do
 | Global address book → Address validation (external verification service connector) | | COVERED-6 | 6 | Geocoding hook |
 | Number sequences → Number sequences / References / Number sequence parameters (continuous, cleanup, pre-allocation) / Segment configuration (scopes) | | COVERED-5 | 5 | |
 | Document management → Document management parameters (archive directory, SharePoint, file types, max size), Document types (file, note, URL, image, template; group; location: archive/database/SharePoint), Active document tables, File types | | PARTIAL-5 (document management) | 5 | |
-| Document management → Document management: OneDrive/SharePoint integration (D365), Attachment migration | | PARTIAL-5 (document management) | 5 | Object storage (S3-compatible) is the Passage equivalent |
+| Document management → Document management: OneDrive/SharePoint integration (D365), Attachment migration | | PARTIAL-5 (document management) | 5 | Object storage (S3-compatible) is the Depot equivalent |
 | Case management → Case categories / Case category types (HR, customer service, collections, product change, audit, service, project, knowledge, etc.) / Case processes (stages) / Case category security | | PARTIAL-45 (generic case management) | 45 | |
 | Workflow → Workflow parameters (notifications, email, Enterprise Portal links, due date escalation) / Workflow version management | | COVERED-4 | 4 | |
 | Workflow → Workflow types (registered workflow types per module) / Workflow infrastructure configuration (message/due date/line-item batch) | | COVERED-4 | 4 | Temporal |
@@ -26674,11 +26675,11 @@ Legal entities, operating units, hierarchies, address book, number sequences, do
 
 ## 12.30 System administration
 
-Users, security roles/duties/privileges, SoD, licensing, batch jobs, AOS/cluster, AIF services, database log, data partitions, virtual companies, Enterprise Portal, reporting/analysis services, help, alerts/email, model store. Passage supersedes most of this with waves 1 (pipeline), 2 (identity/authz), 3 (metadata), 4 (batch/workflow/events), 5 (audit/observability) and 35 (integration hub).
+Users, security roles/duties/privileges, SoD, licensing, batch jobs, AOS/cluster, AIF services, database log, data partitions, virtual companies, Enterprise Portal, reporting/analysis services, help, alerts/email, model store. Depot supersedes most of this with waves 1 (pipeline), 2 (identity/authz), 3 (metadata), 4 (batch/workflow/events), 5 (audit/observability) and 35 (integration hub).
 
 ### 12.30.1 Common / Journals
 
-| Form | AOT form / menu item | Purpose | Passage status | Wave | Notes |
+| Form | AOT form / menu item | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Users (list) / User details (relations, roles, user options, profiles) | SysUserInfoPage / UserInfo | User accounts, domain/claims, roles per organization | COVERED-2 | 2 | Keycloak + SCIM; admin UI |
 | User groups | UserGroupInfo | Groups for period access/journal approval | COVERED-2 | 2 | |
@@ -26688,7 +26689,7 @@ Users, security roles/duties/privileges, SoD, licensing, batch jobs, AOS/cluster
 | Security → Segregation of duties rules / Verify compliance / Conflicts | SysSecSegregationOfDuties* | | COVERED-48 | 48 | |
 | Security → Extensible data security policies (XDS) | SysDataSecurityPolicy | Row-level security via policy queries | SUPERSEDED (Postgres RLS + OPA data policies wave 2) | 2 | |
 | Security → Table permissions framework / Record-level security (legacy) | SysRecordLevelSecurity | | SUPERSEDED (RLS/OPA) | 2 | |
-| Security → Effective permissions viewer (Passage) | | | COVERED-2 | 2 | |
+| Security → Effective permissions viewer (Depot) | | | COVERED-2 | 2 | |
 | Batch jobs (list) / Batch job details / Batch tasks | BatchJob, BatchTask | Jobs, recurrence, dependencies, alerts, history | COVERED-4 | 4 | Batch job framework + monitor UI |
 | Batch groups / Server configuration (batch servers, threads) | BatchGroup, SysServerConfig | | SUPERSEDED (Kubernetes workers, Temporal task queues) | 4 | |
 | AOS → Cluster configuration / Load balancing | SysClusterConfig | | SUPERSEDED (Kubernetes + Envoy, wave 1) | 1 | |
@@ -26728,11 +26729,11 @@ Users, security roles/duties/privileges, SoD, licensing, batch jobs, AOS/cluster
 | Sys admin → Personalization management (D365: import/export user personalizations, saved views publish) | | | COVERED-5 | 5 | Saved views |
 | Sys admin → Data archiving / Long-term retention (D365 archive) | | | COVERED-46 | 46 | Lakehouse archive |
 | Sys admin → Secrets (key vault parameters, D365) | | | COVERED-36 | 36 | Vault; secrets rotation 48 |
-| Sys admin → Tenant provisioning / Environment management (Passage) | | | COVERED-50 | 50 | |
+| Sys admin → Tenant provisioning / Environment management (Depot) | | | COVERED-50 | 50 | |
 
 ### 12.30.2 Inquiries & Reports
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Online users / User sessions | | COVERED-2 | 2 | |
 | Batch job history / Batch job errors | | COVERED-4 | 4 | |
@@ -26750,11 +26751,11 @@ Users, security roles/duties/privileges, SoD, licensing, batch jobs, AOS/cluster
 | SSRS: License report / Named user counts | | PARTIAL-3 (license usage reporting) | 3 | |
 | SSRS: Number sequence status (link) | | COVERED-5 | 5 | |
 | SSRS: Table information / AOT object listings | | SUPERSEDED (metadata registry diff/export wave 3) | 3 | |
-| Observability dashboards (SLOs, traces) (Passage) | | COVERED-5 | 5 | |
+| Observability dashboards (SLOs, traces) (Depot) | | COVERED-5 | 5 | |
 
 ### 12.30.3 Periodic
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Batch → Batch job scheduling / Recurrence / Batch alerts / Clean up batch history | | COVERED-4 | 4 | |
 | Database log → Clean up database log | | SUPERSEDED (retention policy) | 48 | |
@@ -26779,12 +26780,12 @@ Users, security roles/duties/privileges, SoD, licensing, batch jobs, AOS/cluster
 | Personalization → Reset usage data (batch) | | COVERED-5 | 5 | |
 | Business events → Process business events queue / Retry failed endpoints (D365) | | COVERED-4 | 4 | Outbox + Kafka |
 | Data archiving → Archive/purge jobs (D365) | | COVERED-46 | 46 | |
-| Secrets → Rotate secrets (Passage) | | COVERED-48 | 48 | |
-| DR → Game days / Failover drills (Passage) | | COVERED-50 | 50 | |
+| Secrets → Rotate secrets (Depot) | | COVERED-48 | 48 | |
+| DR → Game days / Failover drills (Depot) | | COVERED-50 | 50 | |
 
 ### 12.30.4 Setup
 
-| Name | Key parameters / options | Passage status | Wave | Notes |
+| Name | Key parameters / options | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | System parameters | Default language, timezone, alerts, help, Unicode, security defaults | COVERED-2 | 2 | |
 | Users → User options defaults (language, timezone, number formats, workflow notifications, delegation) | | COVERED-5 | 5 | My user options |
@@ -26795,8 +26796,8 @@ Users, security roles/duties/privileges, SoD, licensing, batch jobs, AOS/cluster
 | Security → Automatic role assignment rules (query-based) | | COVERED-2 | 2 | |
 | Security → Extensible data security (XDS) policies / Policy contexts | | SUPERSEDED (RLS/OPA data policies wave 2) | 2 | |
 | Security → Security development tool / Entry point permissions | | SUPERSEDED (policy compiler from metadata wave 2/3) | 2 | |
-| Security → Password/MFA policies (Passage via Keycloak) | | COVERED-2 | 2 | |
-| Security → API keys / Service accounts / Rate limits (Passage) | | COVERED-35 | 35 | Developer portal keys and quotas |
+| Security → Password/MFA policies (Depot via Keycloak) | | COVERED-2 | 2 | |
+| Security → API keys / Service accounts / Rate limits (Depot) | | COVERED-35 | 35 | Developer portal keys and quotas |
 | Licensing → License information / Configuration keys / Named user licensing types | | SUPERSEDED (feature flags/entitlements wave 3; licensing model open question) | 3 | License usage PARTIAL |
 | Batch → Batch groups / Batch servers / Batch thread configuration / Batch job alerts | | SUPERSEDED (Temporal task queues, K8s worker pools; monitor UI wave 4) | 4 | |
 | AOS → Server configuration / Cluster configuration / Load balancer / Services (AIF on AOS) | | SUPERSEDED (Kubernetes, Envoy, wave 1) | 1 | |
@@ -26826,18 +26827,18 @@ Users, security roles/duties/privileges, SoD, licensing, batch jobs, AOS/cluster
 | Sys admin → Personalization management / Saved views publish (D365) | | COVERED-5 | 5 | |
 | Sys admin → Network printers / Document routing agent (D365) | | COVERED-32 | 32 | |
 | Sys admin → Key vault parameters / Certificates (D365) | | COVERED-36 | 36 | Vault |
-| Sys admin → Data residency / Backup policies / Retention (Passage) | | COVERED-48 | 48 | |
-| Sys admin → Tenant provisioning templates / Environment catalog (Passage) | | COVERED-50 | 50 | |
-| Sys admin → Observability: SLOs, alert routes, PagerDuty integration (Passage) | | COVERED-5 | 5 | |
-| Sys admin → AI: model provider configuration, token budgets, kill switch (Passage) | | COVERED-47 | 47 | |
+| Sys admin → Data residency / Backup policies / Retention (Depot) | | COVERED-48 | 48 | |
+| Sys admin → Tenant provisioning templates / Environment catalog (Depot) | | COVERED-50 | 50 | |
+| Sys admin → Observability: SLOs, alert routes, PagerDuty integration (Depot) | | COVERED-5 | 5 | |
+| Sys admin → AI: model provider configuration, token budgets, kill switch (Depot) | | COVERED-47 | 47 | |
 
 ## 12.31 Home / role centers / workflow
 
-AX 2012 R3 Home module: role centers (Enterprise Portal pages with cues, KPIs, work lists), work items (workflow), activities, cases, questionnaires, alerts and user options. Passage: workspaces and personalization in wave 5, workflow in wave 4, dashboards/KPIs in wave 46, copilot in wave 47.
+AX 2012 R3 Home module: role centers (Enterprise Portal pages with cues, KPIs, work lists), work items (workflow), activities, cases, questionnaires, alerts and user options. Depot: workspaces and personalization in wave 5, workflow in wave 4, dashboards/KPIs in wave 46, copilot in wave 47.
 
 ### 12.31.1 Common / Journals
 
-| Form | AOT form / menu item | Purpose | Passage status | Wave | Notes |
+| Form | AOT form / menu item | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Role center (per profile: Accountant, Buyer, Production manager, Sales manager, CFO, … 30+ role centers) | EP role center pages (SysUserProfile) | Cues, KPIs (SSAS), work list, quick links, reports, Power BI parts | SUPERSEDED (role-based workspaces with tiles/lists wave 5 and embedded dashboards/KPIs wave 46) | 5 | |
 | Work items assigned to me / Work items queue / Work item queue assignments | WorkflowWorkItemListPage, WorkflowWorkItemQueue | Approvals and tasks | COVERED-4 | 4 | Human tasks on Temporal |
@@ -26846,7 +26847,7 @@ AX 2012 R3 Home module: role centers (Enterprise Portal pages with cues, KPIs, w
 | Cases (My cases) | CaseDetailListPage | | PARTIAL-45 (generic case management) | 45 | |
 | Questionnaires → My questionnaires / Answer questionnaire / Questionnaire results | KMQuestionnaire (Home) | | GAP | — | Propose wave 42: questionnaire engine |
 | Alerts (My alerts / Notification list) | EventInbox | Alert inbox | GAP | — | Propose wave 5: alerts and notification rules (notification center exists in shell; rule-based alerts do not) |
-| Notification center (Passage shell) | | In-app notifications from workflow/batch | COVERED-5 | 5 | |
+| Notification center (Depot shell) | | In-app notifications from workflow/batch | COVERED-5 | 5 | |
 | Cues (saved queries with counts) | SysCue | | COVERED-5 | 5 | Saved views with counts in workspaces |
 | My user options (General, Status bar, Preferences: language/timezone/number format/date format, Workflow: notifications/delegation, Usage data, Account) | SysUserSetup (UserOptions) | | COVERED-5 | 5 | |
 | Workflow delegation (My delegations: all/by workflow/by module, date ranges) | WorkflowDelegation | | COVERED-4 | 4 | |
@@ -26858,12 +26859,12 @@ AX 2012 R3 Home module: role centers (Enterprise Portal pages with cues, KPIs, w
 | Global search / Record search | SysSearch | | COVERED-5 | 5 | |
 | Favorites / Navigation personalization | SysFavorites | | COVERED-5 | 5 | Personalization |
 | Document handling on any record | DocuView | | PARTIAL-5 (document management) | 5 | |
-| Copilot / Ask-the-data (Passage) | | | COVERED-47 | 47 | |
-| Job monitor / My batch jobs (Passage) | | | COVERED-4 | 4 | |
+| Copilot / Ask-the-data (Depot) | | | COVERED-47 | 47 | |
+| Job monitor / My batch jobs (Depot) | | | COVERED-4 | 4 | |
 
 ### 12.31.2 Inquiries & Reports
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Workflow history (per document) / Workflow tracking details | | COVERED-4 | 4 | |
 | Work item inquiries (Work items by user/queue/status, overdue work items) | | COVERED-4 | 4 | |
@@ -26880,7 +26881,7 @@ AX 2012 R3 Home module: role centers (Enterprise Portal pages with cues, KPIs, w
 
 ### 12.31.3 Periodic
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Workflow → Due date escalation / Reminders (batch) | | COVERED-4 | 4 | SLA timers |
 | Workflow → Work item queue reassignment (batch) | | COVERED-4 | 4 | |
@@ -26889,11 +26890,11 @@ AX 2012 R3 Home module: role centers (Enterprise Portal pages with cues, KPIs, w
 | Questionnaires → Schedule questionnaires (batch) | | GAP | — | Propose wave 42: questionnaire engine |
 | Notifications → Clean up / Expire notifications | | COVERED-5 | 5 | |
 | Personalization → Publish saved views to roles (D365) | | COVERED-5 | 5 | |
-| Copilot → Agent runs (suggest mode) (Passage) | | COVERED-47 | 47 | |
+| Copilot → Agent runs (suggest mode) (Depot) | | COVERED-47 | 47 | |
 
 ### 12.31.4 Setup
 
-| Name | Key parameters / options | Passage status | Wave | Notes |
+| Name | Key parameters / options | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Role center setup → User profiles / Profile defaults / Role center page assignment (EP) | | SUPERSEDED (workspaces per role, wave 5) | 5 | |
 | Role center → Cues setup (create cue from filter, cue groups) / KPI setup (KPI parts, cube perspectives) | | COVERED-5 | 5 | KPIs 46 |
@@ -26907,8 +26908,8 @@ AX 2012 R3 Home module: role centers (Enterprise Portal pages with cues, KPIs, w
 | Cases → Case setup (link) | | PARTIAL-45 (generic case management) | 45 | |
 | Favorites / Navigation → Navigation pane customization, Personalization (form personalization, saved views, workspace tiles) | | COVERED-5 | 5 | |
 | Global search → Search configuration (searchable tables/fields) | | COVERED-5 | 5 | |
-| Home → Keyboard shortcuts / Accessibility settings (Passage) | | COVERED-5 | 5 | Keyboard-first |
-| Home → Copilot settings (opt-in, data scope) (Passage) | | COVERED-47 | 47 | |
+| Home → Keyboard shortcuts / Accessibility settings (Depot) | | COVERED-5 | 5 | Keyboard-first |
+| Home → Copilot settings (opt-in, data scope) (Depot) | | COVERED-47 | 47 | |
 | Home → Mobile workspace configuration (D365 mobile app) | | SUPERSEDED (PWA shell) | 5 | |
 | Home → Dashboard/tile configuration per workspace (D365 workspace tiles, Power BI embed) | | COVERED-46 | 46 | |
 
@@ -26918,7 +26919,7 @@ DIXF (AX 2012 R3) / Data management framework (D365): source data formats, proce
 
 ### 12.32.1 Common / Journals
 
-| Form | AOT form / menu item | Purpose | Passage status | Wave | Notes |
+| Form | AOT form / menu item | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Processing groups (list) / Processing group details | DMFDefinitionGroup | Group of entities with source format, mapping, sequence | COVERED-10 | 10 | Migration pipeline: extract/stage/map/validate/load |
 | Processing group → Entities (select entities, source format, sample file, generate mapping, modify mapping, validate) | DMFDefinitionGroupEntity | | COVERED-10 | 10 | Declarative mapping DSL |
@@ -26942,7 +26943,7 @@ DIXF (AX 2012 R3) / Data management framework (D365): source data formats, proce
 
 ### 12.32.2 Inquiries & Reports
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Execution history / Job status inquiry | | COVERED-10 | 10 | |
 | Staging data inquiry (errors by entity) | | COVERED-10 | 10 | |
@@ -26951,22 +26952,22 @@ DIXF (AX 2012 R3) / Data management framework (D365): source data formats, proce
 | Recurring job status / Message status (D365) | | COVERED-35 | 35 | Message monitor |
 | SSRS: Processing group report / Entity list | | COVERED-10 | 10 | |
 | SSRS: Execution log / Error log report | | COVERED-10 | 10 | |
-| Reconciliation report (row counts, hash totals, sampled field compare) (Passage) | | COVERED-10 | 10 | |
+| Reconciliation report (row counts, hash totals, sampled field compare) (Depot) | | COVERED-10 | 10 | |
 
 ### 12.32.3 Periodic
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Run processing group (batch: get staging, copy to target) | | COVERED-10 | 10 | |
 | Clean up staging tables / Execution history | | COVERED-10 | 10 | |
 | Recurring import/export jobs (D365 scheduling) | | COVERED-35 | 35 | |
 | Entity store refresh (D365 BYOD/entity store) | | SUPERSEDED (CDC → lakehouse wave 46) | 46 | |
-| Dry-run / Idempotent re-run (Passage) | | COVERED-10 | 10 | |
-| Parallel-run replay (Passage migration factory) | | COVERED-49 | 49 | |
+| Dry-run / Idempotent re-run (Depot) | | COVERED-10 | 10 | |
+| Parallel-run replay (Depot migration factory) | | COVERED-49 | 49 | |
 
 ### 12.32.4 Setup
 
-| Name | Key parameters / options | Passage status | Wave | Notes |
+| Name | Key parameters / options | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Data import/export framework parameters (shared working directory, SSIS service, entity settings, source formats defaults) | | COVERED-10 | 10 | |
 | Source data formats (file: CSV/XML/Excel/fixed width; ODBC; AX) with code page, delimiters, headers | | COVERED-10 | 10 | Extract: ODBC from AX SQL, SAP RFC/OData, flat files |
@@ -26978,17 +26979,17 @@ DIXF (AX 2012 R3) / Data management framework (D365): source data formats, proce
 | D365 → Data management: Entity export to database (BYOD) configuration | | SUPERSEDED (lakehouse 46) | 46 | |
 | D365 → Recurring integration endpoints / Integration keys | | COVERED-35 | 35 | |
 | D365 → Data templates / Default templates per module | | COVERED-10 | 10 | |
-| Passage → Legacy connectors (AX 2012/D365 F&O, SAP ECC/S4) configuration | | COVERED-10 | 10 | |
-| Passage → Great Expectations validation suites | | COVERED-10 | 10 | |
-| Passage → Migration run ledger / Lineage | | COVERED-10 | 10 | |
+| Depot → Legacy connectors (AX 2012/D365 F&O, SAP ECC/S4) configuration | | COVERED-10 | 10 | |
+| Depot → Great Expectations validation suites | | COVERED-10 | 10 | |
+| Depot → Migration run ledger / Lineage | | COVERED-10 | 10 | |
 
 ## 12.33 Electronic reporting / Regulatory Configuration Service (D365)
 
-ER (D365; backported to AX 2012 R3 CU13 partially): configurations (models, model mappings, formats), configuration providers, repositories (LCS, RCS, Dataverse, file system, global repo), destinations, ER parameters, business document management, electronic messages, Globalization Studio (tax calculation service, e-invoicing service). Passage: wave 48 (ER designer, localization framework), wave 35 (e-invoicing, Peppol), wave 13 (tax calculation), wave 46 (business documents).
+ER (D365; backported to AX 2012 R3 CU13 partially): configurations (models, model mappings, formats), configuration providers, repositories (LCS, RCS, Dataverse, file system, global repo), destinations, ER parameters, business document management, electronic messages, Globalization Studio (tax calculation service, e-invoicing service). Depot: wave 48 (ER designer, localization framework), wave 35 (e-invoicing, Peppol), wave 13 (tax calculation), wave 46 (business documents).
 
 ### 12.33.1 Common / Journals
 
-| Form | AOT form / menu item | Purpose | Passage status | Wave | Notes |
+| Form | AOT form / menu item | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Electronic reporting workspace / Configurations (tree: data model, model mapping, format, metadata) | ERWorkspace, ERSolutionTable | Design and manage configurations | COVERED-48 | 48 | ER designer: configurable XML/JSON/CSV with versioning |
 | Configuration → Model designer (data model) | ERModelDesigner | | COVERED-48 | 48 | |
@@ -26996,7 +26997,7 @@ ER (D365; backported to AX 2012 R3 CU13 partially): configurations (models, mode
 | Configuration → Format designer (XML/JSON/text/Excel/Word output, bindings, formulas) | ERFormatDesigner | | COVERED-48 | 48 | Excel/Word output via wave 46 designer |
 | Configuration → Versions (draft/completed/shared/discontinued), Import/Export (XML), Rebase | ERSolutionVersionTable | | COVERED-48 | 48 | Versioning |
 | Configuration providers / Active provider | ERVendorTable | | COVERED-48 | 48 | |
-| Repositories (LCS asset library, RCS, Dataverse, File system, Global repository, Operations resources) | ERRepository* | Fetch Microsoft-published configurations | SUPERSEDED (Passage country packs ship with Helm/packs; registry of regulator mandates wave 48) | 48 | |
+| Repositories (LCS asset library, RCS, Dataverse, File system, Global repository, Operations resources) | ERRepository* | Fetch Microsoft-published configurations | SUPERSEDED (Depot country packs ship with Helm/packs; registry of regulator mandates wave 48) | 48 | |
 | ER jobs (Electronic reporting jobs: run history, output files) | ERFormatMappingRunJobTable | | COVERED-48 | 48 | |
 | ER destinations (per format: file, email, print, archive (document management), screen, Power BI, SharePoint) | ERFormatDestinationTable | | COVERED-48 | 48 | Archive depends on document management PARTIAL-5 |
 | Business document management (Word/Excel templates for business documents, editable by users; template versions) | ERBusinessDocumentManagement | | COVERED-46 | 46 | Operational report designer |
@@ -27011,7 +27012,7 @@ ER (D365; backported to AX 2012 R3 CU13 partially): configurations (models, mode
 
 ### 12.33.2 Inquiries & Reports
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | ER jobs history / Output archive inquiry | | COVERED-48 | 48 | |
 | Configuration version history / Dependency inquiry | | COVERED-48 | 48 | |
@@ -27021,11 +27022,11 @@ ER (D365; backported to AX 2012 R3 CU13 partially): configurations (models, mode
 | Business document template usage inquiry | | COVERED-46 | 46 | |
 | ER → Configuration comparison (diff versions) | | COVERED-48 | 48 | |
 | ER → Format validation report (schema validation) | | COVERED-48 | 48 | Regulator schema fixtures |
-| Statutory reports catalog per country (Passage) | | COVERED-48 | 48 | |
+| Statutory reports catalog per country (Depot) | | COVERED-48 | 48 | |
 
 ### 12.33.3 Periodic
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Run ER format in batch (scheduled statutory reports) | | COVERED-48 | 48 | |
 | Import configurations from repository (update to latest versions) | | SUPERSEDED (pack updates via Helm/GitOps wave 48) | 48 | |
@@ -27034,11 +27035,11 @@ ER (D365; backported to AX 2012 R3 CU13 partially): configurations (models, mode
 | ER → Clean up job history / Archived outputs | | COVERED-48 | 48 | |
 | Business document management → Publish templates | | COVERED-46 | 46 | |
 | Tax calculation service → Sync configurations | | COVERED-13 | 13 | |
-| Regulatory mandates registry refresh (Passage) | | COVERED-48 | 48 | |
+| Regulatory mandates registry refresh (Depot) | | COVERED-48 | 48 | |
 
 ### 12.33.4 Setup
 
-| Name | Key parameters / options | Passage status | Wave | Notes |
+| Name | Key parameters / options | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Electronic reporting parameters (attachments document types for job archive/baseline/others, LCS/RCS connection, Dataverse) | | COVERED-48 | 48 | |
 | Configuration providers (own provider for custom configs) | | COVERED-48 | 48 | |
@@ -27054,16 +27055,16 @@ ER (D365; backported to AX 2012 R3 CU13 partially): configurations (models, mode
 | RCS → Globalization feature management (standalone) | | SUPERSEDED (in-product) | 48 | |
 | ER → Key vault certificates for signing (XAdES) | | COVERED-36 | 36 | Vault; signing in 35/48 |
 | ER → Configuration localization (labels per language) | | COVERED-48 | 48 | |
-| Passage → Country pack registry (US, UK, DE, FR, IN, MX, CA) with regulator schema fixtures | | COVERED-48 | 48 | |
-| Passage → Regulator mandate registry (effective dates, versions) | | COVERED-48 | 48 | |
+| Depot → Country pack registry (US, UK, DE, FR, IN, MX, CA) with regulator schema fixtures | | COVERED-48 | 48 | |
+| Depot → Regulator mandate registry (effective dates, versions) | | COVERED-48 | 48 | |
 
 ## 12.34 Engineering change management (D365)
 
-D365 ECM: engineering products, engineering categories/attributes, engineering versions, product readiness, engineering change requests/orders with impact analysis, release to legal entities, product lifecycle states. Passage wave 9 covers ECR/ECO workflow, impact analysis (where-used), versions and release to production; engineering organization/release policies and readiness checks are partial.
+D365 ECM: engineering products, engineering categories/attributes, engineering versions, product readiness, engineering change requests/orders with impact analysis, release to legal entities, product lifecycle states. Depot wave 9 covers ECR/ECO workflow, impact analysis (where-used), versions and release to production; engineering organization/release policies and readiness checks are partial.
 
 ### 12.34.1 Common / Journals
 
-| Form | AOT form / menu item | Purpose | Passage status | Wave | Notes |
+| Form | AOT form / menu item | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Engineering products (list) / Engineering product details | EngChgEngineeringProduct | Version-tracked products owned by engineering org | COVERED-9 | 9 | |
 | Engineering versions (version per product with BOM/route/attributes, effective dates, active) | EngChgEcoResProductVersion | | COVERED-9 | 9 | Effective-dated versions |
@@ -27084,7 +27085,7 @@ D365 ECM: engineering products, engineering categories/attributes, engineering v
 
 ### 12.34.2 Inquiries & Reports
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Engineering version inquiry / Version comparison (BOM diff between versions) | | COVERED-9 | 9 | |
 | Where-used inquiry (across versions) | | COVERED-9 | 9 | |
@@ -27098,7 +27099,7 @@ D365 ECM: engineering products, engineering categories/attributes, engineering v
 
 ### 12.34.3 Periodic
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Process engineering change orders (batch apply) | | COVERED-9 | 9 | |
 | Release product structures (batch release to LEs) | | PARTIAL-9 (release product structure) | 9 | |
@@ -27109,7 +27110,7 @@ D365 ECM: engineering products, engineering categories/attributes, engineering v
 
 ### 12.34.4 Setup
 
-| Name | Key parameters / options | Passage status | Wave | Notes |
+| Name | Key parameters / options | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Engineering change management parameters (engineering organization, default severity, change order defaults, version activation, number sequences) | | COVERED-9 | 9 | |
 | Engineering organizations (which LE owns engineering data) | | PARTIAL-9 (release product structure) | 9 | |
@@ -27131,7 +27132,7 @@ D365 Asset management (EAM): functional locations, assets, asset types/lifecycle
 
 ### 12.35.1 Common / Journals
 
-| Form | AOT form / menu item | Purpose | Passage status | Wave | Notes |
+| Form | AOT form / menu item | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Assets (list) / Asset details (type, lifecycle state, functional location, model/manufacturer, attributes, BOM/spare parts, counters, warranties, documents) | EntAssetObjectTable | | COVERED-44 | 44 | |
 | Functional locations (hierarchy, types, lifecycle) | EntAssetFunctionalLocation | | COVERED-44 | 44 | |
@@ -27163,7 +27164,7 @@ D365 Asset management (EAM): functional locations, assets, asset types/lifecycle
 
 ### 12.35.2 Inquiries & Reports
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Work order inquiries (by state, asset, worker, overdue) | | COVERED-44 | 44 | |
 | Maintenance request inquiries | | COVERED-44 | 44 | |
@@ -27185,7 +27186,7 @@ D365 Asset management (EAM): functional locations, assets, asset types/lifecycle
 
 ### 12.35.3 Periodic
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Schedule maintenance plans (generate work orders from time/counter/condition plans) | | COVERED-44 | 44 | Plan fixtures |
 | Schedule maintenance rounds / Maintenance sequences | | PARTIAL-44 (maintenance rounds) | 44 | |
@@ -27200,7 +27201,7 @@ D365 Asset management (EAM): functional locations, assets, asset types/lifecycle
 
 ### 12.35.4 Setup
 
-| Name | Key parameters / options | Passage status | Wave | Notes |
+| Name | Key parameters / options | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Asset management parameters (work order defaults, journal names, project integration, scheduling, number sequences, mobile) | | COVERED-44 | 44 | |
 | Assets → Asset types, Asset type defaults (job types, counters, attributes, checklists), Asset lifecycle models/states, Asset models, Manufacturers, Asset attribute types, Asset criticality, Asset service levels | | COVERED-44 | 44 | |
@@ -27224,11 +27225,11 @@ D365 Asset management (EAM): functional locations, assets, asset types/lifecycle
 
 ## 12.36 Rebate management (D365)
 
-D365 Rebate management (2020+): deals (customer or vendor), deal lines with tiers, transaction accruals, deal statuses, provisions, rebate posting via journals, claims. Passage: customer rebates in waves 26 (agreements/accrual) and 30 (settlement); vendor-side deals are a gap (proposed wave 26).
+D365 Rebate management (2020+): deals (customer or vendor), deal lines with tiers, transaction accruals, deal statuses, provisions, rebate posting via journals, claims. Depot: customer rebates in waves 26 (agreements/accrual) and 30 (settlement); vendor-side deals are a gap (proposed wave 26).
 
 ### 12.36.1 Common / Journals
 
-| Form | AOT form / menu item | Purpose | Passage status | Wave | Notes |
+| Form | AOT form / menu item | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Rebate management deals (list) / Deal details (customer/vendor, products, tiers, dates, calculation basis, posting) | RebateManagementDeal | | COVERED-26 | 26 | Customer deals; vendor deals GAP |
 | Deal → Vendor deals (purchase rebates) | RebateManagementDeal (vendor) | | GAP | — | Propose wave 26: vendor rebates |
@@ -27242,7 +27243,7 @@ D365 Rebate management (2020+): deals (customer or vendor), deal lines with tier
 
 ### 12.36.2 Inquiries & Reports
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Rebate transactions inquiry (by deal/customer/period) | | COVERED-26 | 26 | |
 | Provision balance inquiry (accrued vs settled) | | COVERED-30 | 30 | |
@@ -27254,7 +27255,7 @@ D365 Rebate management (2020+): deals (customer or vendor), deal lines with tier
 
 ### 12.36.3 Periodic
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Generate rebate transactions (from posted invoices) | | COVERED-26 | 26 | |
 | Post provisions (accruals) / Reverse provisions | | COVERED-26 | 26 | |
@@ -27264,7 +27265,7 @@ D365 Rebate management (2020+): deals (customer or vendor), deal lines with tier
 
 ### 12.36.4 Setup
 
-| Name | Key parameters / options | Passage status | Wave | Notes |
+| Name | Key parameters / options | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Rebate management parameters (journal names, posting profiles, default calculation, workflow, number sequences) | | COVERED-26 | 26 | |
 | Rebate management posting profiles (accrual/expense accounts) | | COVERED-26 | 26 | |
@@ -27280,7 +27281,7 @@ D365 Subscription billing (2021+): Recurring contract billing (billing schedules
 
 ### 12.37.1 Common / Journals
 
-| Form | AOT form / menu item | Purpose | Passage status | Wave | Notes |
+| Form | AOT form / menu item | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Billing schedules (list) / Billing schedule details (lines, frequency, start/end, escalation, milestones, pricing, deferral) | RCB BillingSchedule | Recurring contract billing | COVERED-29 | 29 | Subscription billing: recurring schedules, proration, usage |
 | Billing schedule → Generate invoices (free text / sales order) | RCB GenerateInvoice | | COVERED-29 | 29 | |
@@ -27298,7 +27299,7 @@ D365 Subscription billing (2021+): Recurring contract billing (billing schedules
 
 ### 12.37.2 Inquiries & Reports
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Billing schedule inquiries (upcoming invoices, renewals due, MRR/ARR) | | COVERED-29 | 29 | |
 | Unbilled revenue inquiry / Deferred revenue roll-forward | | COVERED-29 | 29 | Reconciles to GL |
@@ -27311,7 +27312,7 @@ D365 Subscription billing (2021+): Recurring contract billing (billing schedules
 
 ### 12.37.3 Periodic
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Generate invoices from billing schedules (batch by date) | | COVERED-29 | 29 | |
 | Recognition processing (deferral recognition batch) | | COVERED-29 | 29 | |
@@ -27324,7 +27325,7 @@ D365 Subscription billing (2021+): Recurring contract billing (billing schedules
 
 ### 12.37.4 Setup
 
-| Name | Key parameters / options | Passage status | Wave | Notes |
+| Name | Key parameters / options | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Recurring contract billing parameters (invoice type, proration method, number sequences, posting) | | COVERED-29 | 29 | |
 | Billing schedule groups / Billing frequencies / Item billing types / Escalation types / Milestone templates / Termination reasons / Renewal settings | | COVERED-29 | 29 | |
@@ -27340,7 +27341,7 @@ D365 Revenue recognition (2019–2023, now deprecated in favor of Subscription b
 
 ### 12.38.1 Common / Journals
 
-| Form | AOT form / menu item | Purpose | Passage status | Wave | Notes |
+| Form | AOT form / menu item | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Revenue schedules (per sales order line: schedule lines by period, status, hold) | RevRecSchedule | | COVERED-29 | 29 | Schedules (ratable, milestone, usage) |
 | Revenue recognition journal (recognize scheduled revenue, post) | RevRecJournal (LedgerJournalTable) | | COVERED-29 | 29 | |
@@ -27353,7 +27354,7 @@ D365 Revenue recognition (2019–2023, now deprecated in favor of Subscription b
 
 ### 12.38.2 Inquiries & Reports
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Revenue schedule inquiry (deferred/recognized by period) | | COVERED-29 | 29 | |
 | Allocation details inquiry | | COVERED-29 | 29 | |
@@ -27363,7 +27364,7 @@ D365 Revenue recognition (2019–2023, now deprecated in favor of Subscription b
 
 ### 12.38.3 Periodic
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Create revenue recognition journal (batch) | | COVERED-29 | 29 | |
 | Post revenue recognition journal | | COVERED-29 | 29 | |
@@ -27372,7 +27373,7 @@ D365 Revenue recognition (2019–2023, now deprecated in favor of Subscription b
 
 ### 12.38.4 Setup
 
-| Name | Key parameters / options | Passage status | Wave | Notes |
+| Name | Key parameters / options | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Revenue recognition parameters (journal names, deferred revenue accounts, recognition basis, bundle handling) | | COVERED-29 | 29 | |
 | Revenue schedules (schedule templates: occurrences, frequency, recognition basis: contract start/invoice date, milestone) | | COVERED-29 | 29 | |
@@ -27384,11 +27385,11 @@ D365 Revenue recognition (2019–2023, now deprecated in favor of Subscription b
 
 ## 12.39 Vendor collaboration / customer self-service (D365)
 
-D365 Vendor collaboration (PO confirmation, consignment, invoices, RFQ reply, onboarding/registration), vendor collaboration user provisioning, and customer self-service (Power Pages/portal). Passage: supplier portal (wave 20), customer portal (wave 30).
+D365 Vendor collaboration (PO confirmation, consignment, invoices, RFQ reply, onboarding/registration), vendor collaboration user provisioning, and customer self-service (Power Pages/portal). Depot: supplier portal (wave 20), customer portal (wave 30).
 
 ### 12.39.1 Common / Journals
 
-| Form | AOT form / menu item | Purpose | Passage status | Wave | Notes |
+| Form | AOT form / menu item | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Vendor collaboration workspace (vendor view: POs to confirm, confirmed, rejected) | VendVendorPortalPurchaseOrder | | COVERED-20 | 20 | Supplier portal: PO acknowledgement |
 | Vendor → Confirm/reject PO with changes (substitute, split, dates) | VendVendorPortalPurchaseOrderConfirm | | COVERED-20 | 20 | |
@@ -27410,7 +27411,7 @@ D365 Vendor collaboration (PO confirmation, consignment, invoices, RFQ reply, on
 
 ### 12.39.2 Inquiries & Reports
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Vendor collaboration inquiries (confirmations pending, response time) | | COVERED-20 | 20 | |
 | Portal user activity / provisioning status | | COVERED-20 | 20 | |
@@ -27419,7 +27420,7 @@ D365 Vendor collaboration (PO confirmation, consignment, invoices, RFQ reply, on
 
 ### 12.39.3 Periodic
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Send POs to portal / Notify vendors (batch) | | COVERED-20 | 20 | |
 | Expire pending confirmations / Escalate | | COVERED-20 | 20 | |
@@ -27428,7 +27429,7 @@ D365 Vendor collaboration (PO confirmation, consignment, invoices, RFQ reply, on
 
 ### 12.39.4 Setup
 
-| Name | Key parameters / options | Passage status | Wave | Notes |
+| Name | Key parameters / options | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Vendor collaboration parameters (PO confirmation required, auto-confirm rules, invoice submission, consignment, onboarding questionnaires) | | COVERED-20 | 20 | |
 | Vendor collaboration → Security roles for external users / Vendor collaboration user provisioning workflow | | COVERED-2 | 2 | |
@@ -27436,15 +27437,15 @@ D365 Vendor collaboration (PO confirmation, consignment, invoices, RFQ reply, on
 | Vendor collaboration → Onboarding: Registration wizard configuration, Questionnaires | | PARTIAL-20 (vendor onboarding) | 20 | |
 | Customer self-service → Portal configuration (branding, features, payment adapter) | | COVERED-30 | 30 | |
 | Customer self-service → External identity (customer users, B2B invitations) | | COVERED-2 | 2 | |
-| Customer self-service → Dual-write/Dataverse dependency (D365 portal uses Dataverse) | | SUPERSEDED (portal on Passage APIs) | 30 | |
+| Customer self-service → Dual-write/Dataverse dependency (D365 portal uses Dataverse) | | SUPERSEDED (portal on Depot APIs) | 30 | |
 
 ## 12.40 Dual-write / Dataverse integration (D365)
 
-D365 Dual-write synchronizes F&SCM tables with Dataverse for Power Platform and Dynamics 365 CE apps (Sales, Field Service, Customer Service). Passage supersedes the entire mechanism with the integration hub: generated APIs, Kafka topics, webhooks, MCP and reference connectors (Salesforce, Shopify, Stripe). Every row is `SUPERSEDED` and points at the replacing wave.
+D365 Dual-write synchronizes F&SCM tables with Dataverse for Power Platform and Dynamics 365 CE apps (Sales, Field Service, Customer Service). Depot supersedes the entire mechanism with the integration hub: generated APIs, Kafka topics, webhooks, MCP and reference connectors (Salesforce, Shopify, Stripe). Every row is `SUPERSEDED` and points at the replacing wave.
 
 ### 12.40.1 Common / Journals
 
-| Form | AOT form / menu item | Purpose | Passage status | Wave | Notes |
+| Form | AOT form / menu item | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Dual-write administration (Data integration → Dual-write: table maps, running/paused status) | DualWriteAdmin | Manage entity maps | SUPERSEDED (integration hub: Kafka topics per entity + webhooks, wave 35) | 35 | |
 | Table maps (standard maps: customers, vendors, products, orders, invoices, etc.) / Map versions | DualWriteTableMap | | SUPERSEDED (AsyncAPI-described topics from entity metadata, wave 4) | 4 | |
@@ -27461,7 +27462,7 @@ D365 Dual-write synchronizes F&SCM tables with Dataverse for Power Platform and 
 
 ### 12.40.2 Inquiries & Reports
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Dual-write sync status inquiry | | SUPERSEDED (message monitor wave 35) | 35 | |
 | Dual-write error inquiry | | SUPERSEDED (message monitor/DLQ wave 35) | 35 | |
@@ -27470,7 +27471,7 @@ D365 Dual-write synchronizes F&SCM tables with Dataverse for Power Platform and 
 
 ### 12.40.3 Periodic
 
-| Name | Purpose | Passage status | Wave | Notes |
+| Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Initial sync / Resync table maps | | SUPERSEDED (replay) | 35 | |
 | Pause/resume maps (maintenance windows) | | SUPERSEDED (consumer pause/resume on Kafka) | 35 | |
@@ -27479,7 +27480,7 @@ D365 Dual-write synchronizes F&SCM tables with Dataverse for Power Platform and 
 
 ### 12.40.4 Setup
 
-| Name | Key parameters / options | Passage status | Wave | Notes |
+| Name | Key parameters / options | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Dual-write setup (link environment, Dataverse connection, solution install) | | SUPERSEDED (integration hub setup: API keys, webhook endpoints, Kafka consumer groups, wave 35) | 35 | |
 | Table map configuration (field mapping, transforms, filters, direction) | | SUPERSEDED (event schemas from metadata; mapping in connectors) | 4 | |
@@ -28032,32 +28033,32 @@ The detailed registers below are generated from every `GAP` and `PARTIAL` row in
 
 \newpage
 
-# Part 13 — Coverage Inventory: SAP ECC 6.0 / S/4HANA → Passage
+# Part 13 — Coverage Inventory: SAP ECC 6.0 / S/4HANA → Depot
 
-This part is the completeness oracle for the SAP side of the parity goal (PRD §2 goal 1, §5 scope map). It inventories SAP ECC 6.0 and S/4HANA functionality module by module — by transaction code and by IMG (SPRO) node — and maps every row to one of the 50 Passage waves in [roadmap/waves.json](../../roadmap/waves.json). Its purpose is to make "we missed something" a question that can be answered by grep rather than by fear. The companion inventory for Dynamics AX / D365 F&SCM is Part 12.
+This part is the completeness oracle for the SAP side of the parity goal (PRD §2 goal 1, §5 scope map). It inventories SAP ECC 6.0 and S/4HANA functionality module by module — by transaction code and by IMG (SPRO) node — and maps every row to one of the 50 Depot waves in [roadmap/waves.json](../../roadmap/waves.json). Its purpose is to make "we missed something" a question that can be answered by grep rather than by fear. The companion inventory for Dynamics AX / D365 F&SCM is Part 12.
 
 ## 13.0 How to read this inventory
 
 Each SAP application component gets one section with four tables:
 
-1. **Master data & documents** — the create/change/display transactions and the documents they produce (`T-code | Name | Purpose | Passage status | Wave | Notes`).
-2. **Reports & inquiries** — standard list, line-item and analysis reports (`T-code | Name | Passage status | Wave | Notes`).
-3. **Periodic processing** — closing, batch and mass-processing transactions (`T-code | Name | Passage status | Wave | Notes`).
-4. **Customizing (SPRO)** — the IMG nodes, their customizing tables and the key options Passage must offer an equivalent for (`IMG node / T-code | Table(s) | Key options | Passage status | Wave | Notes`).
+1. **Master data & documents** — the create/change/display transactions and the documents they produce (`T-code | Name | Purpose | Depot status | Wave | Notes`).
+2. **Reports & inquiries** — standard list, line-item and analysis reports (`T-code | Name | Depot status | Wave | Notes`).
+3. **Periodic processing** — closing, batch and mass-processing transactions (`T-code | Name | Depot status | Wave | Notes`).
+4. **Customizing (SPRO)** — the IMG nodes, their customizing tables and the key options Depot must offer an equivalent for (`IMG node / T-code | Table(s) | Key options | Depot status | Wave | Notes`).
 
-**Status legend** (exactly one token per row, always in the "Passage status" column):
+**Status legend** (exactly one token per row, always in the "Depot status" column):
 
 - `COVERED-<wave>` — the wave's `deliverable`/`proof` in waves.json clearly includes an equivalent. The wave column repeats the number.
 - `PARTIAL-<wave>` — the wave covers the core but the Notes column names what is missing. Every PARTIAL row is repeated in the gap register (§13.99).
 - `GAP` — no wave clearly covers the item. The wave column holds a *proposed* assignment (`propose <n>`); the gap register collects them for a roadmap decision.
 - `OUT-OF-SCOPE` — excluded by a PRD non-goal (§2) or by the manufacturer focus; the reason is in Notes.
-- `SUPERSEDED-<wave>` — Passage deliberately does it a different way; the Notes column names the Passage mechanism. A SUPERSEDED row is **not** a gap: the SAP transaction has no one-to-one twin because the underlying mechanism (e.g. the condition technique's separate rebate module, SAP GUI, ABAP enhancement spots) is replaced by something structurally different.
+- `SUPERSEDED-<wave>` — Depot deliberately does it a different way; the Notes column names the Depot mechanism. A SUPERSEDED row is **not** a gap: the SAP transaction has no one-to-one twin because the underlying mechanism (e.g. the condition technique's separate rebate module, SAP GUI, ABAP enhancement spots) is replaced by something structurally different.
 
 Conventions:
 
 - T-codes are given in their ECC 6.0 form; where S/4HANA replaced a transaction with a Fiori app or a new transaction, both are named (e.g. `FD32 → UKM_BP`, `VBO1 → WCOCO`). Fiori apps are cited by name, not by app number.
 - "Wave" refers to the `n` in waves.json. Phase-exit waves (5, 10, 15, 20, 25, 30, 35, 40, 45, 50) are the sign-off points at which a module's rows must be demonstrably closed.
-- IMG rows name the customizing table where it is well known (T001, T001B, T030, T156, T161, T685, TVAK…). Passage stores all customizing as metadata-registry configuration (wave 3) scoped per tenant / legal entity (wave 6); the "Key options" column lists the switches Passage must expose, not every SAP field.
+- IMG rows name the customizing table where it is well known (T001, T001B, T030, T156, T161, T685, TVAK…). Depot stores all customizing as metadata-registry configuration (wave 3) scoped per tenant / legal entity (wave 6); the "Key options" column lists the switches Depot must expose, not every SAP field.
 - Rows are intentionally granular (a create/change/display triple is one row; a report family such as `S_ALR_87012*` is one row per distinct report, not one row per variant).
 - Where SAP offers both an ECC transaction and a New GL / S/4 successor, the successor is inventoried and the predecessor noted, so classic GL (`GLT0`-based) transactions appear once under the FI-GL section.
 
@@ -28076,11 +28077,11 @@ A per-section roll-up of the same counts is in §13.98 and the gap register (eve
 
 ## 13.1 FI-GL — General Ledger (classic GL, New GL, ledgers, ACDOCA)
 
-SAP context: FI-GL in ECC 6.0 runs either classic GL (`GLT0` totals, special-purpose ledgers) or New GL (`FAGLFLEXT`, document splitting, parallel ledgers). S/4HANA collapses FI and CO totals into the universal journal `ACDOCA` (one line item table; CO objects and ledgers as columns). Passage's wave 11 universal journal is built on the S/4 model: one append-only line-item store, balances as projections, dimensions as columns, parallel ledgers via ledger groups (wave 12).
+SAP context: FI-GL in ECC 6.0 runs either classic GL (`GLT0` totals, special-purpose ledgers) or New GL (`FAGLFLEXT`, document splitting, parallel ledgers). S/4HANA collapses FI and CO totals into the universal journal `ACDOCA` (one line item table; CO objects and ledgers as columns). Depot's wave 11 universal journal is built on the S/4 model: one append-only line-item store, balances as projections, dimensions as columns, parallel ledgers via ledger groups (wave 12).
 
 ### 13.1.1 Master data & documents
 
-| T-code | Name | Purpose | Passage status | Wave | Notes |
+| T-code | Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | FS00 | G/L account master (centrally) | Create/change/display chart-of-accounts and company-code segment of a G/L account | COVERED-11 | 11 | Account entity with per-legal-entity attributes (currency, open-item flag, posting block, tax category, field status) |
 | FSP0 | G/L account in chart of accounts | Chart segment only | COVERED-11 | 11 | Same entity; chart-level vs entity-level attributes split in metadata |
@@ -28122,7 +28123,7 @@ SAP context: FI-GL in ECC 6.0 runs either classic GL (`GLT0` totals, special-pur
 
 ### 13.1.2 Reports & inquiries
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | FBL3N | G/L account line items (classic) | COVERED-11 | 11 | Journal line inquiry with saved views, grid, export |
 | FAGLL03 | G/L account line items (New GL, ledger-aware) | COVERED-12 | 12 | Ledger filter on the same inquiry |
@@ -28169,7 +28170,7 @@ SAP context: FI-GL in ECC 6.0 runs either classic GL (`GLT0` totals, special-pur
 
 ### 13.1.3 Periodic processing
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | OB52 (operational use) | Open/close posting periods | COVERED-14 | 14 | Period control per ledger × module × user group |
 | FAGL_FC_VAL / F.05 (classic) | Foreign currency valuation (GL, AP, AR open items) | COVERED-12 | 12 | Revaluation job with next-period reversal |
@@ -28199,7 +28200,7 @@ SAP context: FI-GL in ECC 6.0 runs either classic GL (`GLT0` totals, special-pur
 
 ### 13.1.4 Customizing (SPRO)
 
-| IMG node / T-code | Table(s) | Key options | Passage status | Wave | Notes |
+| IMG node / T-code | Table(s) | Key options | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | OX02 — Company code | T001 | Country, currency, language, fiscal year variant, chart of accounts | COVERED-6 | 6 | LegalEntity entity |
 | OBY6 — Company code global parameters | T001 | FYV, posting period variant, field status variant, negative postings, business area FS, tax base net/gross, cash management active | COVERED-11 | 11 | LegalEntity accounting settings |
@@ -28266,11 +28267,11 @@ SAP context: FI-GL in ECC 6.0 runs either classic GL (`GLT0` totals, special-pur
 
 ## 13.2 FI-AP — Accounts Payable
 
-SAP context: vendor master (LFA1/LFB1/LFM1, replaced by Business Partner with FLVN00/FLVN01 roles in S/4), invoices and credit memos (FB60/FB65 or MIRO for PO-based), open items (BSIK/BSAK), payment program F110, dunning (rare for AP), down payments, withholding tax. Passage maps vendor master to wave 7 (party model), non-PO invoices to wave 18 (capture) and open items/payments to wave 19.
+SAP context: vendor master (LFA1/LFB1/LFM1, replaced by Business Partner with FLVN00/FLVN01 roles in S/4), invoices and credit memos (FB60/FB65 or MIRO for PO-based), open items (BSIK/BSAK), payment program F110, dunning (rare for AP), down payments, withholding tax. Depot maps vendor master to wave 7 (party model), non-PO invoices to wave 18 (capture) and open items/payments to wave 19.
 
 ### 13.2.1 Master data & documents
 
-| T-code | Name | Purpose | Passage status | Wave | Notes |
+| T-code | Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | XK01 / XK02 / XK03 (→ BP) | Vendor master create/change/display centrally | General, company-code and purchasing data | COVERED-7 | 7 | Party + Vendor role + per-legal-entity and per-purchasing-org data |
 | FK01 / FK02 / FK03 | Vendor master (accounting) | Company-code segment only | COVERED-7 | 7 | Vendor role, legal-entity scope |
@@ -28312,7 +28313,7 @@ SAP context: vendor master (LFA1/LFB1/LFM1, replaced by Business Partner with FL
 
 ### 13.2.2 Reports & inquiries
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | FBL1N / FBL1H | Vendor line items / line item browser | COVERED-19 | 19 | Vendor open/cleared item inquiry |
 | FK10N / FK10NA | Vendor balance display | COVERED-19 | 19 | Vendor balance with drill |
@@ -28343,7 +28344,7 @@ SAP context: vendor master (LFA1/LFB1/LFM1, replaced by Business Partner with FL
 
 ### 13.2.3 Periodic processing
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | F110 | Automatic payment program (proposal, edit, schedule, print) | COVERED-19 | 19 | Payment proposal → approval → run → media; idempotent |
 | F110S | Payment program scheduled (batch variant) | COVERED-19 | 19 | Scheduled via wave 4 jobs |
@@ -28369,7 +28370,7 @@ SAP context: vendor master (LFA1/LFB1/LFM1, replaced by Business Partner with FL
 
 ### 13.2.4 Customizing (SPRO)
 
-| IMG node / T-code | Table(s) | Key options | Passage status | Wave | Notes |
+| IMG node / T-code | Table(s) | Key options | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | OBD3 — Vendor account groups / field status | T077K | Number range, one-time, field status | COVERED-7 | 7 | — |
 | XKN1 / OBAS — Number ranges for vendor accounts / assign | NRIV, T077K | Internal/external | COVERED-5 | 5 | — |
@@ -28404,11 +28405,11 @@ SAP context: vendor master (LFA1/LFB1/LFM1, replaced by Business Partner with FL
 
 ## 13.3 FI-AR — Accounts Receivable
 
-SAP context: customer master (KNA1/KNB1/KNVV → BP roles FLCU00/FLCU01), customer invoices via SD billing (VF01 → RV document) or FB70, incoming payments (F-28), lockbox (FLB2), dunning (F150), correspondence, interest calculation, credit management (classic FD32 or FSCM-CR). Passage: customer master wave 7, billing wave 29, AR/cash application/collections wave 30, credit wave 27.
+SAP context: customer master (KNA1/KNB1/KNVV → BP roles FLCU00/FLCU01), customer invoices via SD billing (VF01 → RV document) or FB70, incoming payments (F-28), lockbox (FLB2), dunning (F150), correspondence, interest calculation, credit management (classic FD32 or FSCM-CR). Depot: customer master wave 7, billing wave 29, AR/cash application/collections wave 30, credit wave 27.
 
 ### 13.3.1 Master data & documents
 
-| T-code | Name | Purpose | Passage status | Wave | Notes |
+| T-code | Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | XD01 / XD02 / XD03 (→ BP) | Customer master centrally | General, company-code, sales-area data | COVERED-7 | 7 | Party + Customer role + sales-scope data |
 | FD01 / FD02 / FD03 | Customer master (accounting) | Company-code segment | COVERED-7 | 7 | — |
@@ -28447,7 +28448,7 @@ SAP context: customer master (KNA1/KNB1/KNVV → BP roles FLCU00/FLCU01), custom
 
 ### 13.3.2 Reports & inquiries
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | FBL5N / FBL5H | Customer line items / browser | COVERED-30 | 30 | — |
 | FD10N / FD10NA | Customer balance display | COVERED-30 | 30 | — |
@@ -28485,7 +28486,7 @@ SAP context: customer master (KNA1/KNB1/KNVV → BP roles FLCU00/FLCU01), custom
 
 ### 13.3.3 Periodic processing
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | F150 | Dunning run (parameters, schedule, print) | COVERED-30 | 30 | Dunning levels, grace days, blocks; letters only for expected customers |
 | F.24 / F.26 / F.2A / F.2B | Interest calculation (items / balances) | COVERED-30 | 30 | Interest notes |
@@ -28509,7 +28510,7 @@ SAP context: customer master (KNA1/KNB1/KNVV → BP roles FLCU00/FLCU01), custom
 
 ### 13.3.4 Customizing (SPRO)
 
-| IMG node / T-code | Table(s) | Key options | Passage status | Wave | Notes |
+| IMG node / T-code | Table(s) | Key options | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | OBD2 — Customer account groups / field status | T077D | — | COVERED-7 | 7 | — |
 | XDN1 / OBAR — Number ranges customers / assign | NRIV, T077D | — | COVERED-5 | 5 | — |
@@ -28543,11 +28544,11 @@ SAP context: customer master (KNA1/KNB1/KNVV → BP roles FLCU00/FLCU01), custom
 
 ## 13.4 FI-AA — Asset Accounting
 
-SAP context: asset classes, charts of depreciation with depreciation areas (book, tax, group, IFRS), asset master (ANLA/ANLB/ANLC), transactions (acquisition ABZON/F-90, retirement ABAVN/F-92, transfer ABUMN, post-capitalization ABNAN, write-up ABZU, manual depreciation ABMA, unplanned ABAA), depreciation run AFAB (S/4: FAA_DEPRECIATION_POST), year-end AJAB/AJRW (S/4: FAA_CMP), AuC settlement AIAB/AIBU, asset history sheet. Passage: wave 37 with books ≈ depreciation areas and posting to the universal journal per ledger group.
+SAP context: asset classes, charts of depreciation with depreciation areas (book, tax, group, IFRS), asset master (ANLA/ANLB/ANLC), transactions (acquisition ABZON/F-90, retirement ABAVN/F-92, transfer ABUMN, post-capitalization ABNAN, write-up ABZU, manual depreciation ABMA, unplanned ABAA), depreciation run AFAB (S/4: FAA_DEPRECIATION_POST), year-end AJAB/AJRW (S/4: FAA_CMP), AuC settlement AIAB/AIBU, asset history sheet. Depot: wave 37 with books ≈ depreciation areas and posting to the universal journal per ledger group.
 
 ### 13.4.1 Master data & documents
 
-| T-code | Name | Purpose | Passage status | Wave | Notes |
+| T-code | Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | AS01 / AS02 / AS03 | Asset master create/change/display | Asset with depreciation areas, time-dependent data, origin | COVERED-37 | 37 | Asset master with books |
 | AS11 / AS12 / AS13 | Asset sub-number create/change/display | Component sub-assets | COVERED-37 | 37 | Sub-assets / components |
@@ -28585,7 +28586,7 @@ SAP context: asset classes, charts of depreciation with depreciation areas (book
 
 ### 13.4.2 Reports & inquiries
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | S_ALR_87011990 | Asset history sheet | COVERED-37 | 37 | Asset roll-forward by class/book |
 | S_ALR_87011963 / 87011964 / 87011965 / 87011966 | Asset balances by asset number / class / business area / cost center | COVERED-37 | 37 | — |
@@ -28619,7 +28620,7 @@ SAP context: asset classes, charts of depreciation with depreciation areas (book
 
 ### 13.4.3 Periodic processing
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | AFAB / AFABN / FAA_DEPRECIATION_POST (S/4) | Depreciation posting run (planned, repeat, restart, unplanned) | COVERED-37 | 37 | Depreciation run per book with restart safety (Temporal) |
 | AFAR | Recalculate depreciation | COVERED-37 | 37 | Recalc after parameter change |
@@ -28638,7 +28639,7 @@ SAP context: asset classes, charts of depreciation with depreciation areas (book
 
 ### 13.4.4 Customizing (SPRO)
 
-| IMG node / T-code | Table(s) | Key options | Passage status | Wave | Notes |
+| IMG node / T-code | Table(s) | Key options | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | EC08 / OAOB — Copy reference chart of depreciation / assign company code | T093C, T093 | — | COVERED-37 | 37 | Books template per country |
 | OADB / OABC / OABD — Depreciation areas: define, area type, transfer of APC/depreciation terms | T093, T093A | Real/derived area, posting to G/L (0/1/2/3/4), ledger group, currency, value takeover rules | COVERED-37 | 37 | Books (tax/IFRS/local) posting to ledger groups; derived books (delta) — treat as covered |
@@ -28667,11 +28668,11 @@ SAP context: asset classes, charts of depreciation with depreciation areas (book
 
 ## 13.5 FI-BL / FSCM-CM / BAM — Bank Accounting, Cash Management & Bank Account Management
 
-SAP context: house banks (FI12 → Bank Account Management in S/4 with workflow), electronic bank statement (FF_5/FEBA/FEBAN; S/4: Manage Bank Statements), manual statement (FF67), check deposit (FF68), cash position/liquidity forecast (FF7A/FF7B; S/4 Cash Management "One Exposure" FQM), memo records (FF63), bank communication management (BCM), in-house cash (IHC), cash journal. Passage: wave 36, with bank-side AR/AP matching in waves 19/30.
+SAP context: house banks (FI12 → Bank Account Management in S/4 with workflow), electronic bank statement (FF_5/FEBA/FEBAN; S/4: Manage Bank Statements), manual statement (FF67), check deposit (FF68), cash position/liquidity forecast (FF7A/FF7B; S/4 Cash Management "One Exposure" FQM), memo records (FF63), bank communication management (BCM), in-house cash (IHC), cash journal. Depot: wave 36, with bank-side AR/AP matching in waves 19/30.
 
 ### 13.5.1 Master data & documents
 
-| T-code | Name | Purpose | Passage status | Wave | Notes |
+| T-code | Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | FI01 / FI02 / FI03 / FI06 | Bank master (bank key) create/change/display/flag | Bank directory | COVERED-7 | 7 | Bank as party role; bank directory import (SWIFT/ABA) |
 | BAUP | Bank directory upload (file) | Mass bank key import | COVERED-7 | 7 | Import adapter |
@@ -28700,7 +28701,7 @@ SAP context: house banks (FI12 → Bank Account Management in S/4 with workflow)
 
 ### 13.5.2 Reports & inquiries
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | FF7A | Cash position | COVERED-36 | 36 | — |
 | FF7B | Liquidity forecast | COVERED-36 | 36 | — |
@@ -28718,7 +28719,7 @@ SAP context: house banks (FI12 → Bank Account Management in S/4 with workflow)
 
 ### 13.5.3 Periodic processing
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | FF_5 (scheduled) | Nightly statement import | COVERED-36 | 36 | Scheduled job |
 | FEBC / FEBP | Batch posting of statements | COVERED-36 | 36 | — |
@@ -28735,7 +28736,7 @@ SAP context: house banks (FI12 → Bank Account Management in S/4 with workflow)
 
 ### 13.5.4 Customizing (SPRO)
 
-| IMG node / T-code | Table(s) | Key options | Passage status | Wave | Notes |
+| IMG node / T-code | Table(s) | Key options | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | OBXK / FI12 — House banks, accounts, G/L accounts, bank sub-accounts (clearing per payment method) | T012, T012K, T012D | Sub-accounts per payment method (outgoing checks, transfers) | COVERED-36 | 36 | Bank sub-account posting profile |
 | OT83 / OT51 — Electronic bank statement: transaction types, external transaction codes, posting rules, account symbols, assign bank to transaction type | T028B, T028D, T028G, T033* | Posting rule (bank side / subledger side), interpretation algorithms (document number, reference, note-to-payee), BAI/MT940/camt format | COVERED-36 | 36 | Matching rules engine + posting rules |
@@ -28755,11 +28756,11 @@ SAP context: house banks (FI12 → Bank Account Management in S/4 with workflow)
 
 ## 13.6 FSCM — Credit, Collections, Dispute Management & Treasury (TRM)
 
-SAP context: FIN-FSCM-CR (credit management with scoring/BRF+), FIN-FSCM-COL (collections worklists, strategies), FIN-FSCM-DM (dispute cases on SAP Case Management), FIN-FSCM-BD (Biller Direct), FIN-FSCM-TRM (Treasury & Risk: transaction manager for money market/FX/derivatives/securities, market risk analyzer, hedge management, exposure management). Passage: credit wave 27, collections/disputes wave 30, cash/bank wave 36; TRM largely not covered.
+SAP context: FIN-FSCM-CR (credit management with scoring/BRF+), FIN-FSCM-COL (collections worklists, strategies), FIN-FSCM-DM (dispute cases on SAP Case Management), FIN-FSCM-BD (Biller Direct), FIN-FSCM-TRM (Treasury & Risk: transaction manager for money market/FX/derivatives/securities, market risk analyzer, hedge management, exposure management). Depot: credit wave 27, collections/disputes wave 30, cash/bank wave 36; TRM largely not covered.
 
 ### 13.6.1 Master data & documents
 
-| T-code | Name | Purpose | Passage status | Wave | Notes |
+| T-code | Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | UKM_BP | Credit management business partner (credit profile, segments, limits) | Credit master | COVERED-27 | 27 | Credit profile per customer/credit group |
 | UKM_CASE | Credit limit request / case | Workflow for limit increase | COVERED-7 | 7 | Credit limit change approval (wave 7 governance + wave 27) |
@@ -28783,7 +28784,7 @@ SAP context: FIN-FSCM-CR (credit management with scoring/BRF+), FIN-FSCM-COL (co
 
 ### 13.6.2 Reports & inquiries
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | UKM_LOGS_DISPLAY | Credit check logs | COVERED-27 | 27 | — |
 | UKM_MALUS_DSP | Score/limit history | COVERED-30 | 30 | — |
@@ -28798,7 +28799,7 @@ SAP context: FIN-FSCM-CR (credit management with scoring/BRF+), FIN-FSCM-COL (co
 
 ### 13.6.3 Periodic processing
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | UKM mass scoring / limit recalculation | Mass credit scoring | COVERED-30 | 30 | — |
 | UKM_TRANSFER_ITEMS | Transfer FI/SD liabilities to FSCM credit | SUPERSEDED-27 | 27 | Exposure computed from the journal/orders directly |
@@ -28811,7 +28812,7 @@ SAP context: FIN-FSCM-CR (credit management with scoring/BRF+), FIN-FSCM-COL (co
 
 ### 13.6.4 Customizing (SPRO)
 
-| IMG node / T-code | Table(s) | Key options | Passage status | Wave | Notes |
+| IMG node / T-code | Table(s) | Key options | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | UKM: credit segments, risk classes, rules, formulas (BRF+), check rules, score ranges, blocking reasons | UKMCRED_SGM*, UKM_* | Static/dynamic checks, oldest open item, max dunning level, scoring formula, follow-on process | COVERED-27 | 27 | Credit rules + scoring |
 | UKM: integration (SD credit group, FI-AR liability update) | T691*, UKM_* | — | COVERED-27 | 27 | — |
@@ -28826,11 +28827,11 @@ SAP context: FIN-FSCM-CR (credit management with scoring/BRF+), FIN-FSCM-COL (co
 
 ## 13.7 CO-OM — Overhead Cost Controlling (cost centers, internal orders, activity types, allocations)
 
-SAP context: cost center accounting (CO-OM-CCA), internal orders (CO-OM-OPA), activity-based costing (CO-OM-ABC), cost element accounting (CO-OM-CEL; S/4 merges cost elements into G/L accounts FS00 type P/S). Planning (KP06/KP26), actual postings (KB11N/KB21N/KB31N), period-end allocations (KSV5/KSU5/KSC6), settlement (KO88), commitments. Passage: wave 38 cost accounting ledger with allocation policies; primary postings come straight from the universal journal (wave 11 dimension = cost center).
+SAP context: cost center accounting (CO-OM-CCA), internal orders (CO-OM-OPA), activity-based costing (CO-OM-ABC), cost element accounting (CO-OM-CEL; S/4 merges cost elements into G/L accounts FS00 type P/S). Planning (KP06/KP26), actual postings (KB11N/KB21N/KB31N), period-end allocations (KSV5/KSU5/KSC6), settlement (KO88), commitments. Depot: wave 38 cost accounting ledger with allocation policies; primary postings come straight from the universal journal (wave 11 dimension = cost center).
 
 ### 13.7.1 Master data & documents
 
-| T-code | Name | Purpose | Passage status | Wave | Notes |
+| T-code | Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | KS01 / KS02 / KS03 | Cost center create/change/display | Cost center master (validity, hierarchy, category, lock flags) | COVERED-6 | 6 | OperatingUnit (cost center) with effective dating; CO attributes in wave 38 |
 | KS04 / KS05 / KS13 | Delete / display changes / list | — | COVERED-6 | 6 | — |
@@ -28874,7 +28875,7 @@ SAP context: cost center accounting (CO-OM-CCA), internal orders (CO-OM-OPA), ac
 
 ### 13.7.2 Reports & inquiries
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | S_ALR_87013611 | Cost centers: actual/plan/variance | COVERED-38 | 38 | Cost control workspace |
 | S_ALR_87013612 | Cost centers: range: actual/plan/variance | COVERED-38 | 38 | — |
@@ -28906,7 +28907,7 @@ SAP context: cost center accounting (CO-OM-CCA), internal orders (CO-OM-OPA), ac
 
 ### 13.7.3 Periodic processing
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | KSV1 / KSV2 / KSV3 / KSV5 / KSV6 | Distribution cycle create/change/display/execute/overview (actual) | COVERED-38 | 38 | Allocation policies (distribution keeps primary cost element) |
 | KSU1 / KSU2 / KSU3 / KSU5 / KSU6 | Assessment cycle (actual) | COVERED-38 | 38 | Assessment (secondary cost element) |
@@ -28933,7 +28934,7 @@ SAP context: cost center accounting (CO-OM-CCA), internal orders (CO-OM-OPA), ac
 
 ### 13.7.4 Customizing (SPRO)
 
-| IMG node / T-code | Table(s) | Key options | Passage status | Wave | Notes |
+| IMG node / T-code | Table(s) | Key options | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | OKKP — Maintain controlling area (activation of components, currency, fiscal year variant, CoA) | TKA00, TKA01 | Cost centers, order management, commitments, ProfitAnalysis, PCA active; variance calculation | SUPERSEDED-6 | 6 | No controlling area; features switched per tenant/legal entity |
 | OX19 — Assign company codes to controlling area | TKA02 | 1:1 or cross-company | SUPERSEDED-6 | 6 | — |
@@ -28943,7 +28944,7 @@ SAP context: cost center accounting (CO-OM-CCA), internal orders (CO-OM-OPA), ac
 | OKEN / OKEON — Standard hierarchy | SETHEADER, SETNODE | — | COVERED-6 | 6 | — |
 | OKB2 / OKB3 / OKB9 — Cost element default (batch input), automatic account assignment | TKA3A | Default cost center per account/company code | COVERED-11 | 11 | Default dimensions per account |
 | Sender/receiver rules for cycles, allocation structures (OKO6), PA transfer structures (KEI1) | T811*, T811C, T811K | Segments, tracing factors (fixed %, portions, SKF, actual costs), iterative, cumulative | COVERED-38 | 38 | Allocation policies: fixed/basis/iterative |
-| OKO7 — Settlement profiles, allocation structures, source structures, PA transfer structure | TKB1, T811* | Receivers allowed (CTR, ORD, FXA, G/L, WBS, PSG), settlement cost elements, amount/percent/equivalence | COVERED-38 | 38 | Settlement rules |
+| OKO7 — Settlement profiles, allocation structures, source structures, PA transfer structure | TKB1, T811* | Receivers allowed (CTR, ORD, FXA, G/L, WBS, DPT), settlement cost elements, amount/percent/equivalence | COVERED-38 | 38 | Settlement rules |
 | KOT2_OPA / KOT2 — Order types (internal orders) | T003O | Order category, number range, settlement profile, planning profile, status profile, release immediately | COVERED-38 | 38 | Cost object types |
 | BS02 — Status profiles (user statuses, allowed transactions) | TJ30 | — | COVERED-4 | 4 | Workflow state machines per entity |
 | OKOB — Budget profiles, availability control tolerances | TBP* | Tolerance limits, actions (warning, mail, error), usage % | COVERED-38 | 38 | Budget check tolerances/overrides |
@@ -28962,11 +28963,11 @@ SAP context: cost center accounting (CO-OM-CCA), internal orders (CO-OM-OPA), ac
 
 ## 13.8 CO-PC — Product Cost Controlling (product cost planning, cost object controlling, material ledger)
 
-SAP context: CO-PC-PCP (cost estimates CK11N, costing runs CK40N, marking/releasing CK24, cost component split OKTZ, costing variants OKKN, costing sheets KZS2), CO-PC-OBJ (order-related: WIP KKAX, variances KKS1/KKS2, settlement CO88; product cost collectors KKF6N for REM; sales-order costing; results analysis KKA1-3), CO-PC-ACT (material ledger/actual costing CKMLCP, price change MR21, CKM3). Passage: wave 20 (valuation, material ledger, MR21), wave 21 (order costing, WIP, settlement), wave 39 (standard cost planning, roll-up, costing sheets, variances), wave 41 (results analysis for projects).
+SAP context: CO-PC-PCP (cost estimates CK11N, costing runs CK40N, marking/releasing CK24, cost component split OKTZ, costing variants OKKN, costing sheets KZS2), CO-PC-OBJ (order-related: WIP KKAX, variances KKS1/KKS2, settlement CO88; product cost collectors KKF6N for REM; sales-order costing; results analysis KKA1-3), CO-PC-ACT (material ledger/actual costing CKMLCP, price change MR21, CKM3). Depot: wave 20 (valuation, material ledger, MR21), wave 21 (order costing, WIP, settlement), wave 39 (standard cost planning, roll-up, costing sheets, variances), wave 41 (results analysis for projects).
 
 ### 13.8.1 Master data & documents
 
-| T-code | Name | Purpose | Passage status | Wave | Notes |
+| T-code | Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | CK11N / CK13N | Create / display material cost estimate with quantity structure | Standard cost estimate from BOM + routing | COVERED-39 | 39 | BOM calculation by costing version/site/qty |
 | CKUC | Multilevel unit costing (costing without quantity structure) | Manual cost estimate | COVERED-39 | 39 | Manual cost estimate lines (unit costing) |
@@ -28998,7 +28999,7 @@ SAP context: CO-PC-PCP (cost estimates CK11N, costing runs CK40N, marking/releas
 
 ### 13.8.2 Reports & inquiries
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | CK84_99 | Itemization of cost estimates | COVERED-39 | 39 | Itemization view |
 | CK80_99 / CK86_99 / CK88_99 | Cost components / costed multilevel BOM / partner cost component split | COVERED-39 | 39 | Cost component split by level |
@@ -29021,7 +29022,7 @@ SAP context: CO-PC-PCP (cost estimates CK11N, costing runs CK40N, marking/releas
 
 ### 13.8.3 Periodic processing
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | CK40N (periodic costing run) | Monthly/annual standard costing run | COVERED-39 | 39 | — |
 | CK24 (mass release) | Release standard prices | COVERED-39 | 39 | — |
@@ -29042,7 +29043,7 @@ SAP context: CO-PC-PCP (cost estimates CK11N, costing runs CK40N, marking/releas
 
 ### 13.8.4 Customizing (SPRO)
 
-| IMG node / T-code | Table(s) | Key options | Passage status | Wave | Notes |
+| IMG node / T-code | Table(s) | Key options | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | OKKN — Costing variants (costing type, valuation variant, date control, quantity structure control, transfer control) | TCK03, TCK05, TCK06, TCK07 | Valuation strategy for materials (plan price 1/2/3, std, MAP, PO price), activities (plan/actual rate), subcontracting, external processing; BOM/routing selection id; transfer existing estimates | COVERED-39 | 39 | Costing versions with fallback rules and explosion modes |
 | OKK4 — Valuation variants | TCK05 | Strategy sequences | COVERED-39 | 39 | — |
@@ -29059,7 +29060,7 @@ SAP context: CO-PC-PCP (cost estimates CK11N, costing runs CK40N, marking/releas
 | OKG1..OKG9 — Results analysis: RA keys, versions, methods (POC, revenue-based, cost-based), valuation methods, line IDs, assignment, update, posting rules | TKKA* | 15 RA methods, WIP/reserves categories | COVERED-41 | 41 | POC methods (project) + rev rec (wave 29) |
 | OKGC / OKGD — WIP calculation: RA keys for production orders | TKKA* | WIP at target vs actual | COVERED-21 | 21 | — |
 | OKV1 / OKVG / OKVW — Variance keys, variance variants, target cost versions | TKV01, TKV02, TKV03 | Variance categories (input price, input quantity, resource usage, remaining input, mixed price, output price, lot size, remaining); target cost version basis (current std, plan, alternative) | COVERED-39 | 39 | Variance decomposition categories (purchase price, production lot size/quantity/price/substitution) |
-| OKO7 — Settlement profiles / allocation structures for production orders | TKB1, T811* | Settlement to material (MAT), variance to PA (PSG) | COVERED-21 | 21 | — |
+| OKO7 — Settlement profiles / allocation structures for production orders | TKB1, T811* | Settlement to material (MAT), variance to PA (DPT) | COVERED-21 | 21 | — |
 | OPL8 (order-type parameters: costing variants plan/actual, RA key) — see PP | T399X | — | COVERED-21 | 21 | — |
 | KKF6N settings: REM profile cost collector | — | — | COVERED-24 | 24 | — |
 | Mixed costing: quantity structure types, procurement alternatives (OMXL) | CKMLMV* | — | PARTIAL-39 | 39 | Mixed costing gap |
@@ -29073,11 +29074,11 @@ SAP context: CO-PC-PCP (cost estimates CK11N, costing runs CK40N, marking/releas
 
 ## 13.9 CO-PA — Profitability Analysis (costing-based, account-based) and EC-PCA Profit Center Accounting
 
-SAP context: CO-PA with operating concern (KEA0), characteristics/value fields, derivation (KEDR), valuation (KE4I), actual postings from SD billing/FI, assessments (KEU5), top-down distribution (KE28), planning (KEPM), reports (KE30). S/4HANA favours account-based ("margin analysis") in ACDOCA with attributed profitability segments. EC-PCA: profit centers (KE51), PC hierarchy, transfer prices, PCA reports (S_ALR_87013326). Passage: profitability = dimensions on the universal journal (wave 11) + semantic layer (wave 46); PCA = profit center dimension + hierarchy (wave 6); allocations wave 38.
+SAP context: CO-PA with operating concern (KEA0), characteristics/value fields, derivation (KEDR), valuation (KE4I), actual postings from SD billing/FI, assessments (KEU5), top-down distribution (KE28), planning (KEPM), reports (KE30). S/4HANA favours account-based ("margin analysis") in ACDOCA with attributed profitability segments. EC-PCA: profit centers (KE51), PC hierarchy, transfer prices, PCA reports (S_ALR_87013326). Depot: profitability = dimensions on the universal journal (wave 11) + semantic layer (wave 46); PCA = profit center dimension + hierarchy (wave 6); allocations wave 38.
 
 ### 13.9.1 Master data & documents
 
-| T-code | Name | Purpose | Passage status | Wave | Notes |
+| T-code | Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | KEA0 / KEA5 / KEA6 | Maintain operating concern / characteristics / value fields | Define profitability dimensions | SUPERSEDED-11 | 11 | Profitability characteristics are financial dimensions (up to 20) on every journal line; value fields = accounts (account-based model) |
 | KEDR / KEDE | Derivation strategy / rules (derive characteristics) | Characteristic derivation | PARTIAL-11 | 11 | Default dimensions on master data exist; rule-based derivation tables (lookup A×B→C with validity) = substitution gap (see FI-GL) |
@@ -29101,7 +29102,7 @@ SAP context: CO-PA with operating concern (KEA0), characteristics/value fields, 
 
 ### 13.9.2 Reports & inquiries
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | KE30 / KE31 / KE32 / KE33 | Execute / create / change / display profitability report (drill-down) | SUPERSEDED-46 | 46 | Semantic-layer explorer and report designer replace KE3x drill-down reports |
 | KE24 / KE25 | Line item display actual / plan | COVERED-11 | 11 | — |
@@ -29117,7 +29118,7 @@ SAP context: CO-PA with operating concern (KEA0), characteristics/value fields, 
 
 ### 13.9.3 Periodic processing
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | KEU1 / KEU2 / KEU3 / KEU5 | CO-PA assessment cycles (cost centers → segments) | COVERED-38 | 38 | Allocation to profitability dimensions |
 | KE28 | Top-down distribution (actual) | PARTIAL-38 | 38 | Top-down distribution of aggregated values (e.g. freight by revenue share) to detailed segments not named — add as allocation type "top-down" |
@@ -29133,7 +29134,7 @@ SAP context: CO-PA with operating concern (KEA0), characteristics/value fields, 
 
 ### 13.9.4 Customizing (SPRO)
 
-| IMG node / T-code | Table(s) | Key options | Passage status | Wave | Notes |
+| IMG node / T-code | Table(s) | Key options | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | KEA0 — Operating concern: attributes (currency, fiscal year), data structure, environment | TKEB, CE1xxxx..CE4xxxx | Costing-based vs account-based; company-code currency | SUPERSEDED-11 | 11 | Account-based margin analysis = universal journal dimensions |
 | KEKK — Assign controlling area to operating concern | TKA01 | — | SUPERSEDED-6 | 6 | — |
@@ -29155,16 +29156,16 @@ SAP context: CO-PA with operating concern (KEA0), characteristics/value fields, 
 
 ## 13.10 EC-CS / SEM-BCS / S/4HANA Group Reporting — Consolidation
 
-SAP context: EC-CS (ECC), SEM-BCS (BW-based), S/4HANA Finance for Group Reporting (consolidation units, data monitor, consolidation monitor, reclassifications, IC elimination, consolidation of investments, currency translation, group reports via Fiori/SAC). Passage: wave 40 (group structures, ownership %, eliminations, translation, minority interest, consolidated statements via wave 15).
+SAP context: EC-CS (ECC), SEM-BCS (BW-based), S/4HANA Finance for Group Reporting (consolidation units, data monitor, consolidation monitor, reclassifications, IC elimination, consolidation of investments, currency translation, group reports via Fiori/SAC). Depot: wave 40 (group structures, ownership %, eliminations, translation, minority interest, consolidated statements via wave 15).
 
 ### 13.10.1 Master data & documents
 
-| T-code | Name | Purpose | Passage status | Wave | Notes |
+| T-code | Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | CX1N (EC-CS) / Fiori: Manage Consolidation Units | Consolidation units, groups, versions | Group structure | COVERED-40 | 40 | Group structures, ownership % |
 | CX1X / Fiori: Manage Group Structure | Consolidation group hierarchy, periods of inclusion/divestiture | — | COVERED-40 | 40 | Ownership with effective dates |
 | CX5S / Fiori: Define FS Items / FS item hierarchies | Financial statement items, breakdown categories, sub-items | Group chart of accounts | COVERED-40 | 40 | Group account structure (wave 15 account structures) |
-| CXCD / Fiori: Data Monitor | Data collection: flexible upload, read from universal journal, manual journal | Data collection | COVERED-40 | 40 | Entity data from the journal; upload for non-Passage entities (wave 10 import) |
+| CXCD / Fiori: Data Monitor | Data collection: flexible upload, read from universal journal, manual journal | Data collection | COVERED-40 | 40 | Entity data from the journal; upload for non-Depot entities (wave 10 import) |
 | CX20 / Fiori: Post Group Journal Entries | Manual consolidation entries (document types, posting levels 00/01/10/20/30) | Adjustments | COVERED-40 | 40 | Group adjustment journals at posting levels (entity, group) |
 | CXCE / Fiori: Consolidation Monitor | Run tasks: reclass, IC elim, CoI, translation, validation | Consolidation run | COVERED-40 | 40 | — |
 | Fiori: Manage Reclassifications / Define Reclassification Rules | Rule-based reclassifications | — | PARTIAL-40 | 40 | Elimination rules named; general reclassification rules (e.g. move FS item based on sign) partial |
@@ -29182,7 +29183,7 @@ SAP context: EC-CS (ECC), SEM-BCS (BW-based), S/4HANA Finance for Group Reportin
 
 ### 13.10.2 Reports & inquiries
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Fiori: Group Data Analysis (with reporting rules, hierarchies) | Consolidated analysis | COVERED-40 | 40 | — |
 | Fiori: Consolidated Balance Sheet / Income Statement / Cash Flow / Changes in Equity | Group statements | COVERED-40 | 40 | Changes in equity statement — add to wave 15 standard statements (minor) |
@@ -29194,7 +29195,7 @@ SAP context: EC-CS (ECC), SEM-BCS (BW-based), S/4HANA Finance for Group Reportin
 
 ### 13.10.3 Periodic processing
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Data monitor tasks: release universal journal, data validation, currency translation, balance carry-forward | Entity-level close for consolidation | COVERED-40 | 40 | — |
 | Consolidation monitor tasks: IC elimination (AR/AP, revenue/expense, dividends), elimination of IC profit in inventory, CoI, group validation | Group-level tasks | PARTIAL-40 | 40 | IC balances and inventory profit named; dividend elimination and CoI partial |
@@ -29205,7 +29206,7 @@ SAP context: EC-CS (ECC), SEM-BCS (BW-based), S/4HANA Finance for Group Reportin
 
 ### 13.10.4 Customizing (SPRO)
 
-| IMG node / T-code | Table(s) | Key options | Passage status | Wave | Notes |
+| IMG node / T-code | Table(s) | Key options | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Global settings: consolidation chart of accounts, versions, ledgers, fiscal year variant | TF*, FINCS_* | — | COVERED-40 | 40 | — |
 | FS item attributes, breakdown categories, selections | FINCS_FSI*, TF* | Sub-assignments (partner unit, movement type/transaction type, functional area) | COVERED-40 | 40 | Group dimensions incl. partner and movement type (movement types needed for cash flow/equity — confirm wave 40 includes "transaction/movement type") |
@@ -29222,11 +29223,11 @@ SAP context: EC-CS (ECC), SEM-BCS (BW-based), S/4HANA Finance for Group Reportin
 
 ## 13.11 FM / PSM — Funds Management & Public Sector Management (budgeting)
 
-SAP context: FM (budget control system BCS: FMBB budgeting workbench, FMAVCR availability control, funds centers FMSA/FMSB, commitment items FMCIA, funds FM5I, FMDERIVE account assignment derivation, earmarked funds FMX1/FMY1, FM reports FMRP), PSM (grants management GM, funded programs, PSCD). Manufacturers rarely activate FM; D365 F&O's budget control is the model Passage follows (wave 38). FM rows map to wave 38 where they are budget control; genuinely public-sector functions are OUT-OF-SCOPE.
+SAP context: FM (budget control system BCS: FMBB budgeting workbench, FMAVCR availability control, funds centers FMSA/FMSB, commitment items FMCIA, funds FM5I, FMDERIVE account assignment derivation, earmarked funds FMX1/FMY1, FM reports FMRP), PSM (grants management GM, funded programs, PSCD). Manufacturers rarely activate FM; D365 F&O's budget control is the model Depot follows (wave 38). FM rows map to wave 38 where they are budget control; genuinely public-sector functions are OUT-OF-SCOPE.
 
 ### 13.11.1 Master data & documents
 
-| T-code | Name | Purpose | Passage status | Wave | Notes |
+| T-code | Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | FMSA / FMSB / FMSC | Funds center create/change/display | Budget responsibility unit | COVERED-38 | 38 | Budget dimensions (cost center/department) |
 | FMCIA / FMCIC | Commitment item create/display | Budget line category | COVERED-38 | 38 | Budget account categories (main accounts/groups) |
@@ -29245,7 +29246,7 @@ SAP context: FM (budget control system BCS: FMBB budgeting workbench, FMAVCR ava
 
 ### 13.11.2 Reports & inquiries
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | FMRP_RW_BUDGET / FMRP_RW_BUDCON | Budget overview / budget consumption | COVERED-38 | 38 | — |
 | FMRP_RFFMAV01X / FMAVCR01 | Availability control overview | COVERED-38 | 38 | — |
@@ -29255,7 +29256,7 @@ SAP context: FM (budget control system BCS: FMBB budgeting workbench, FMAVCR ava
 
 ### 13.11.3 Periodic processing
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | FMJ2 / FMJ_SPLIT | Commitment carry-forward (open PO/PR to next year) | COVERED-38 | 38 | Encumbrance year-end handling |
 | FMMC / FMMA | Budget carry-forward (residual) | COVERED-38 | 38 | — |
@@ -29266,7 +29267,7 @@ SAP context: FM (budget control system BCS: FMBB budgeting workbench, FMAVCR ava
 
 ### 13.11.4 Customizing (SPRO)
 
-| IMG node / T-code | Table(s) | Key options | Passage status | Wave | Notes |
+| IMG node / T-code | Table(s) | Key options | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | FM area definition, assignment to company codes, fiscal year variant | FM01, T001 | — | SUPERSEDED-6 | 6 | Budget scope = legal entity + dimensions |
 | Activate FM / BCS | FMAVC* | — | SUPERSEDED-38 | 38 | Budget control activation per entity |
@@ -29282,11 +29283,11 @@ SAP context: FM (budget control system BCS: FMBB budgeting workbench, FMAVCR ava
 
 ## 13.12 MM-PUR — Purchasing
 
-SAP context: purchase requisitions (ME51N), RFQ/quotations (ME41–ME49), purchase orders (ME21N), outline agreements — contracts (ME31K) and scheduling agreements (ME31L/ME38), info records (ME11), source lists (ME01), quota arrangements (MEQ1), release strategies (classification-based), purchasing conditions (MEK1), vendor evaluation (ME61), output (ME9F), stock transport orders, subcontracting, consignment, third-party. S/4: Fiori Manage Purchase Orders/Requisitions, central procurement, Ariba. Passage: wave 17 (requisitions, RFQ, agreements, POs, pricing, approvals), wave 7 (vendor), wave 20 (supplier portal), wave 33 (vendor evaluation), wave 16 (transfers), wave 40 (intercompany).
+SAP context: purchase requisitions (ME51N), RFQ/quotations (ME41–ME49), purchase orders (ME21N), outline agreements — contracts (ME31K) and scheduling agreements (ME31L/ME38), info records (ME11), source lists (ME01), quota arrangements (MEQ1), release strategies (classification-based), purchasing conditions (MEK1), vendor evaluation (ME61), output (ME9F), stock transport orders, subcontracting, consignment, third-party. S/4: Fiori Manage Purchase Orders/Requisitions, central procurement, Ariba. Depot: wave 17 (requisitions, RFQ, agreements, POs, pricing, approvals), wave 7 (vendor), wave 20 (supplier portal), wave 33 (vendor evaluation), wave 16 (transfers), wave 40 (intercompany).
 
 ### 13.12.1 Master data & documents
 
-| T-code | Name | Purpose | Passage status | Wave | Notes |
+| T-code | Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | ME51N / ME52N / ME53N | Purchase requisition create/change/display | Internal demand | COVERED-17 | 17 | Requisition with policy approvals |
 | ME54N / ME55 | Release PR individual / collective | Approval | COVERED-17 | 17 | Approval workflow (Temporal) |
@@ -29346,7 +29347,7 @@ SAP context: purchase requisitions (ME51N), RFQ/quotations (ME41–ME49), purcha
 
 ### 13.12.2 Reports & inquiries
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | ME2L / ME2M / ME2N / ME2K / ME2C / ME2J / ME2B / ME2W | Purchasing documents by vendor / material / number / account assignment / material group / project / requirement tracking / supplying plant | COVERED-17 | 17 | List pages with saved views |
 | ME3L / ME3M / ME3N / ME3K / ME3C / ME3B / ME3J | Outline agreements by vendor / material / number / account assignment / material group / tracking / project | COVERED-17 | 17 | — |
@@ -29367,7 +29368,7 @@ SAP context: purchase requisitions (ME51N), RFQ/quotations (ME41–ME49), purcha
 
 ### 13.12.3 Periodic processing
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | ME59N (batch) | Automatic PO generation from PRs | COVERED-17 | 17 | Scheduled auto-PO |
 | ME84 (batch) | SA release creation run | PARTIAL-17 | 17 | SA release partial |
@@ -29385,7 +29386,7 @@ SAP context: purchase requisitions (ME51N), RFQ/quotations (ME41–ME49), purcha
 
 ### 13.12.4 Customizing (SPRO)
 
-| IMG node / T-code | Table(s) | Key options | Passage status | Wave | Notes |
+| IMG node / T-code | Table(s) | Key options | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | OX08 / OX01 / OX17 — Purchasing organizations; assign to company code / plant; reference purch. org | T024E, T024W, T024Z | Plant-specific, cross-plant, cross-company, reference purch org | COVERED-6 | 6 | Procurement hierarchy purpose in enterprise structure |
 | OME4 — Purchasing groups | T024 | — | COVERED-6 | 6 | Buyer groups |
@@ -29425,11 +29426,11 @@ SAP context: purchase requisitions (ME51N), RFQ/quotations (ME41–ME49), purcha
 
 ## 13.13 MM-IM — Inventory Management & Physical Inventory
 
-SAP context: material documents (MKPF/MSEG; S/4 MATDOC), goods movements via MIGO (receipts, issues, transfers, reversals, 100+ movement types), reservations (MB21), stock overview (MMBE), stock types (unrestricted, quality, blocked, in transit, consignment, subcontractor, sales order stock, project stock), physical inventory (MI01–MI20, cycle counting MICN), period close (MMPV). Passage: wave 16 inventory ledger, wave 18 receiving, wave 21 production movements, wave 28 shipping movements, wave 31 warehouse detail.
+SAP context: material documents (MKPF/MSEG; S/4 MATDOC), goods movements via MIGO (receipts, issues, transfers, reversals, 100+ movement types), reservations (MB21), stock overview (MMBE), stock types (unrestricted, quality, blocked, in transit, consignment, subcontractor, sales order stock, project stock), physical inventory (MI01–MI20, cycle counting MICN), period close (MMPV). Depot: wave 16 inventory ledger, wave 18 receiving, wave 21 production movements, wave 28 shipping movements, wave 31 warehouse detail.
 
 ### 13.13.1 Master data & documents
 
-| T-code | Name | Purpose | Passage status | Wave | Notes |
+| T-code | Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | MM01 / MM02 / MM03 (IM views: general plant, storage, accounting) | Material master — plant/storage/valuation views | Item per site/warehouse | COVERED-8 | 8 | Released product per legal entity with site/warehouse defaults; item model group (costing, negative stock) |
 | MIGO | Goods movement (GR for PO/order/other, GI, transfer posting, place in storage, remove from storage, return delivery, subsequent delivery/adjustment, cancel, display) | Universal movement UI | COVERED-16 | 16 | Inventory journals (movement/transfer/adjustment) + receiving (wave 18) + production issues/receipts (wave 21) |
@@ -29471,7 +29472,7 @@ SAP context: material documents (MKPF/MSEG; S/4 MATDOC), goods movements via MIG
 
 ### 13.13.2 Reports & inquiries
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | MB51 | Material document list (by material/plant/movement type/date) | COVERED-16 | 16 | Inventory transactions inquiry |
 | MB52 | Warehouse stocks on hand (with values) | COVERED-16 | 16 | — |
@@ -29500,7 +29501,7 @@ SAP context: material documents (MKPF/MSEG; S/4 MATDOC), goods movements via MIG
 
 ### 13.13.3 Periodic processing
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | MMPV | Close period for material master records | COVERED-14 | 14 | Period control (inventory) |
 | MMRV | Allow posting to previous period | COVERED-14 | 14 | Period status on-hold/open per module |
@@ -29518,7 +29519,7 @@ SAP context: material documents (MKPF/MSEG; S/4 MATDOC), goods movements via MIG
 
 ### 13.13.4 Customizing (SPRO)
 
-| IMG node / T-code | Table(s) | Key options | Passage status | Wave | Notes |
+| IMG node / T-code | Table(s) | Key options | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | OX10 / OX09 — Plants / storage locations | T001W, T001L | Address, factory calendar, purchasing org assignment | COVERED-6 | 6 | Sites, warehouses |
 | OX18 / OX14 — Assign plant to company code / valuation area setting (plant vs company code) | T001K | Valuation level | COVERED-6 | 6 | Valuation at site level (default) — confirm valuation level choice |
@@ -29555,11 +29556,11 @@ SAP context: material documents (MKPF/MSEG; S/4 MATDOC), goods movements via MIG
 
 ## 13.14 MM-IV — Logistics Invoice Verification
 
-SAP context: MIRO (PO-based, delivery-note based, GR-based IV, planned/unplanned delivery costs, subsequent debit/credit), parking (MIR7), blocked invoices (MRBR; price/quantity/date/stochastic blocks), tolerance keys (OMR6), GR/IR clearing maintenance (MR11), ERS (MRRL), consignment settlement (MRKO), invoicing plans (MRIS), revaluation (MRNB), duplicate invoice check, OBYC WRX/PRD/KDM. Passage: wave 18 (capture, 2/3-way match, tolerances, exceptions, GR/IR, ERS), wave 19 (AP open items), wave 34 (freight invoices/landed cost).
+SAP context: MIRO (PO-based, delivery-note based, GR-based IV, planned/unplanned delivery costs, subsequent debit/credit), parking (MIR7), blocked invoices (MRBR; price/quantity/date/stochastic blocks), tolerance keys (OMR6), GR/IR clearing maintenance (MR11), ERS (MRRL), consignment settlement (MRKO), invoicing plans (MRIS), revaluation (MRNB), duplicate invoice check, OBYC WRX/PRD/KDM. Depot: wave 18 (capture, 2/3-way match, tolerances, exceptions, GR/IR, ERS), wave 19 (AP open items), wave 34 (freight invoices/landed cost).
 
 ### 13.14.1 Master data & documents
 
-| T-code | Name | Purpose | Passage status | Wave | Notes |
+| T-code | Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | MIRO | Enter incoming invoice (invoice, credit memo, subsequent debit/credit; PO reference, delivery note, bill of lading, service entry sheet, vendor) | PO-based invoice | COVERED-18 | 18 | Vendor invoice capture with PO/receipt reference; subsequent debit/credit = price adjustment invoice |
 | MIR7 / MIR4 | Park invoice / display invoice document | Draft | COVERED-18 | 18 | Draft + approval |
@@ -29586,7 +29587,7 @@ SAP context: MIRO (PO-based, delivery-note based, GR-based IV, planned/unplanned
 
 ### 13.14.2 Reports & inquiries
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | MIR5 / MIR6 | Invoice document list / overview | COVERED-18 | 18 | — |
 | MB5S | GR/IR balances per PO | COVERED-18 | 18 | — |
@@ -29600,7 +29601,7 @@ SAP context: MIRO (PO-based, delivery-note based, GR-based IV, planned/unplanned
 
 ### 13.14.3 Periodic processing
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | MRBR (automatic release in batch) | Release blocked invoices automatically when block reasons no longer apply | COVERED-18 | 18 | Re-evaluate match status on new receipts |
 | MRRL (scheduled) | ERS run | COVERED-18 | 18 | — |
@@ -29615,7 +29616,7 @@ SAP context: MIRO (PO-based, delivery-note based, GR-based IV, planned/unplanned
 
 ### 13.14.4 Customizing (SPRO)
 
-| IMG node / T-code | Table(s) | Key options | Passage status | Wave | Notes |
+| IMG node / T-code | Table(s) | Key options | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | OMR6 — Tolerance limits (keys AN, AP, BD, BR, BW, DQ, DW, KW, LA, LD, PP, PS, ST, VP) per company code | T169G | Absolute/percent upper/lower, check/no check; price variance (PP), quantity (DQ), date (ST), blanket PO (LA/LD), order price unit (PS), moving average (VP) | COVERED-18 | 18 | Price/quantity/total/date tolerances per legal entity and vendor group |
 | OMR4 / OMRJ — Document types for invoice verification (RE, KG) / number ranges | T003, T169F, NRIV | — | COVERED-11 | 11 | — |
@@ -29639,11 +29640,11 @@ SAP context: MIRO (PO-based, delivery-note based, GR-based IV, planned/unplanned
 
 ## 13.15 MM-SRV — External Services Management (incl. S/4 Lean Services)
 
-SAP context: service master (AC03), model service specifications (ML10), standard service catalog (SSC), service POs (item category D with service lines and value limits), service entry sheets (ML81N) with acceptance → GR, service conditions (ML33/ML39), invoice via MIRO referencing SES. S/4 "lean services" simplifies: service items as product type Service, no SES (Fiori Manage Service Entry Sheets – Lean). Passage: non-stock service products (wave 8), PO (wave 17), service confirmation/receipt (wave 18) — **no explicit service entry sheet**, so mostly PARTIAL.
+SAP context: service master (AC03), model service specifications (ML10), standard service catalog (SSC), service POs (item category D with service lines and value limits), service entry sheets (ML81N) with acceptance → GR, service conditions (ML33/ML39), invoice via MIRO referencing SES. S/4 "lean services" simplifies: service items as product type Service, no SES (Fiori Manage Service Entry Sheets – Lean). Depot: non-stock service products (wave 8), PO (wave 17), service confirmation/receipt (wave 18) — **no explicit service entry sheet**, so mostly PARTIAL.
 
 ### 13.15.1 Master data & documents
 
-| T-code | Name | Purpose | Passage status | Wave | Notes |
+| T-code | Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | AC01 / AC02 / AC03 / AC04 / AC06 | Service master create/change/display/list/changes | Service master (activity numbers, UoM, valuation class) | PARTIAL-8 | 8 | Product of type "service" is covered; a dedicated service master with service categories, purchasing text, standard service catalog is partial — add "service product type" attributes to wave 8 |
 | ML10 / ML11 / ML12 | Model service specifications create/change/display | Reusable service spec templates | GAP | propose 17 | Service specification templates (hierarchical outlines of services with quantities) not named; propose "PO line templates" in wave 17 |
@@ -29661,7 +29662,7 @@ SAP context: service master (AC03), model service specifications (ML10), standar
 
 ### 13.15.2 Reports & inquiries
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | MSRV1 … MSRV6 | Service lists | PARTIAL-18 | 18 | — |
 | ME2S | Services per purchase order | PARTIAL-18 | 18 | — |
@@ -29671,7 +29672,7 @@ SAP context: service master (AC03), model service specifications (ML10), standar
 
 ### 13.15.3 Periodic processing
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | ML85 (collective release of SES) | Mass acceptance | PARTIAL-18 | 18 | — |
 | MRRL for services | ERS for SES | PARTIAL-18 | 18 | — |
@@ -29679,7 +29680,7 @@ SAP context: service master (AC03), model service specifications (ML10), standar
 
 ### 13.15.4 Customizing (SPRO)
 
-| IMG node / T-code | Table(s) | Key options | Passage status | Wave | Notes |
+| IMG node / T-code | Table(s) | Key options | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Service master: number ranges, service categories, organizational status, field selection | ASMD | — | PARTIAL-8 | 8 | — |
 | Service specifications: screen layout, number ranges for SES, release procedure for SES (classification) | ESSR | — | PARTIAL-18 | 18 | SES approval via workflow designer |
@@ -29691,11 +29692,11 @@ SAP context: service master (AC03), model service specifications (ML10), standar
 ---
 ## 13.16 LE-WM (classic Warehouse Management) and EWM (Extended Warehouse Management)
 
-SAP context: classic WM — warehouse number, storage types/sections/bins (LS01N), transfer requirements (LB01), transfer orders (LT01/LT03/LT06/LT10), confirmation (LT12), put-away/picking strategies, replenishment (LP21/LX16?), WM physical inventory (LI01N–LI21), RF (LM00–LM77), HU management (HU02), storage unit management. EWM (decentral or embedded in S/4) — warehouse product, storage types/bins, warehouse tasks/orders, waves, POSC/LOSC process steps, packing specifications, labor management, yard, slotting, MFS, RF framework (/SCWM/RFUI), warehouse monitor (/SCWM/MON). Passage: wave 31 (locations, LPs/HUs, directives, work templates, waves, replenishment, load planning, dock scheduling, slotting, KPIs), wave 32 (mobile/RF, voice, RFID, labels), wave 16 (counting), wave 28 (basic pick/pack/ship).
+SAP context: classic WM — warehouse number, storage types/sections/bins (LS01N), transfer requirements (LB01), transfer orders (LT01/LT03/LT06/LT10), confirmation (LT12), put-away/picking strategies, replenishment (LP21/LX16?), WM physical inventory (LI01N–LI21), RF (LM00–LM77), HU management (HU02), storage unit management. EWM (decentral or embedded in S/4) — warehouse product, storage types/bins, warehouse tasks/orders, waves, POSC/LOSC process steps, packing specifications, labor management, yard, slotting, MFS, RF framework (/SCWM/RFUI), warehouse monitor (/SCWM/MON). Depot: wave 31 (locations, LPs/HUs, directives, work templates, waves, replenishment, load planning, dock scheduling, slotting, KPIs), wave 32 (mobile/RF, voice, RFID, labels), wave 16 (counting), wave 28 (basic pick/pack/ship).
 
 ### 13.16.1 Master data & documents
 
-| T-code | Name | Purpose | Passage status | Wave | Notes |
+| T-code | Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | LS01N / LS02N / LS03N | Storage bin create/change/display | Bins with type, section, capacity, coordinates | COVERED-31 | 31 | Location model: zones/aisles/racks/bins with capacity/profile |
 | LS05 / LS10 | Generate storage bins automatically / define bin structure | Mass bin creation | COVERED-31 | 31 | Bin generator |
@@ -29754,7 +29755,7 @@ SAP context: classic WM — warehouse number, storage types/sections/bins (LS01N
 
 ### 13.16.2 Reports & inquiries
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | LX01 | List of empty storage bins | COVERED-31 | 31 | — |
 | LX02 | Stock list (bin stock by material) | COVERED-31 | 31 | — |
@@ -29781,7 +29782,7 @@ SAP context: classic WM — warehouse number, storage types/sections/bins (LS01N
 
 ### 13.16.3 Periodic processing
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | LP21 / LP22 (scheduled) | Replenishment runs | COVERED-31 | 31 | — |
 | LX16 (scheduled) | Zero-stock check | COVERED-16 | 16 | — |
@@ -29797,7 +29798,7 @@ SAP context: classic WM — warehouse number, storage types/sections/bins (LS01N
 
 ### 13.16.4 Customizing (SPRO)
 
-| IMG node / T-code | Table(s) | Key options | Passage status | Wave | Notes |
+| IMG node / T-code | Table(s) | Key options | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | OMLW / Define warehouse number, assign to plant/storage location (OMLY) | T300, T320 | Warehouse number ↔ plant/SLoc | COVERED-6 | 6 | Warehouse entity (wave 6) with WMS-enabled flag (wave 31) |
 | Define storage types (OMLX / T301), storage sections (T302), storage bin types (T303), storage unit types (T307), bin structure | T301, T302, T303, T307, T305 | Put-away strategy (A/B/C/F/I/K/L/P/Q/R), removal strategy (A/F/L/M/P/S/H), mixed storage, capacity check method, SU management, addition to stock, bin blocking on movement, return/negative stock | SUPERSEDED-31 | 31 | Storage strategies replaced by location directives (rules engine) + location profiles; capacity check methods covered |
@@ -29822,11 +29823,11 @@ SAP context: classic WM — warehouse number, storage types/sections/bins (LS01N
 
 ## 13.17 LE-SHP / LE-TRA — Shipping & (classic) Transportation
 
-SAP context: outbound deliveries (VL01N, VL10*), picking (LT03 / WM, or picking without WM), packing with HUs, post goods issue (VL02N), inbound deliveries (VL31N) and ASN, delivery monitor (VL06O/VL06I), shipping points, route determination, delivery scheduling, POD (VLPOD), output (VL71/VL74), shipment documents (VT01N) and shipment cost (VI01) in LE-TRA (deprecated in S/4 in favour of TM). Passage: wave 28 (release, pick/pack/ship, HU/SSCC, carrier adapters, ASN, drop-ship, partial shipments), wave 18 (inbound ASN receiving), wave 34 (shipment/freight).
+SAP context: outbound deliveries (VL01N, VL10*), picking (LT03 / WM, or picking without WM), packing with HUs, post goods issue (VL02N), inbound deliveries (VL31N) and ASN, delivery monitor (VL06O/VL06I), shipping points, route determination, delivery scheduling, POD (VLPOD), output (VL71/VL74), shipment documents (VT01N) and shipment cost (VI01) in LE-TRA (deprecated in S/4 in favour of TM). Depot: wave 28 (release, pick/pack/ship, HU/SSCC, carrier adapters, ASN, drop-ship, partial shipments), wave 18 (inbound ASN receiving), wave 34 (shipment/freight).
 
 ### 13.17.1 Master data & documents
 
-| T-code | Name | Purpose | Passage status | Wave | Notes |
+| T-code | Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | VL01N / VL02N / VL03N | Outbound delivery create (w/ reference to order) / change / display | Delivery document | COVERED-28 | 28 | Shipment/packing-slip document from order release |
 | VL01NO | Delivery without order reference | — | COVERED-28 | 28 | Ad-hoc shipment (e.g. samples) — confirm |
@@ -29867,7 +29868,7 @@ SAP context: outbound deliveries (VL01N, VL10*), picking (LT03 / WM, or picking 
 
 ### 13.17.2 Reports & inquiries
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | VL06O / VL06I family | Delivery monitors | COVERED-28 | 28 | — |
 | VL06F | General delivery list | COVERED-28 | 28 | — |
@@ -29883,7 +29884,7 @@ SAP context: outbound deliveries (VL01N, VL10*), picking (LT03 / WM, or picking 
 
 ### 13.17.3 Periodic processing
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | VL10 family (batch) | Scheduled delivery creation | COVERED-28 | 28 | Release rules scheduled |
 | VL23 / VL21 (batch PGI) | Batch goods issue | COVERED-28 | 28 | — |
@@ -29899,7 +29900,7 @@ SAP context: outbound deliveries (VL01N, VL10*), picking (LT03 / WM, or picking 
 
 ### 13.17.4 Customizing (SPRO)
 
-| IMG node / T-code | Table(s) | Key options | Passage status | Wave | Notes |
+| IMG node / T-code | Table(s) | Key options | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | OVXD / OVX6 — Shipping points define / assign to plant; shipping point determination (OVL2) | TVST, TVSWZ, TVSTZ | Loading group × shipping condition × plant → shipping point | COVERED-28 | 28 | Warehouse/shipping site determination rules |
 | 0VLK — Delivery types (LF, LR, NL, NLCC, EL) | TVLK | Order required, item requirement, route determination, output, text determination, number range | COVERED-28 | 28 | Shipment document types |
@@ -29927,11 +29928,11 @@ SAP context: outbound deliveries (VL01N, VL10*), picking (LT03 / WM, or picking 
 
 ## 13.18 TM — Transportation Management (SAP TM / embedded TM in S/4)
 
-SAP context: freight units (FU), freight orders (FO) and bookings (FB), transportation cockpit (/SCMTMS/PLAN? or NWBC/Fiori), carrier selection and tendering, charge management (agreements, rate tables, calculation sheets), freight settlement documents (FSD) → MM-IV, forwarding orders/settlement (LSP scenario), tracking events (EM), strategic freight procurement. Passage: wave 34 (load/route planning with VRP, rating, tendering, tracking, freight reconciliation, landed cost).
+SAP context: freight units (FU), freight orders (FO) and bookings (FB), transportation cockpit (/SCMTMS/PLAN? or NWBC/Fiori), carrier selection and tendering, charge management (agreements, rate tables, calculation sheets), freight settlement documents (FSD) → MM-IV, forwarding orders/settlement (LSP scenario), tracking events (EM), strategic freight procurement. Depot: wave 34 (load/route planning with VRP, rating, tendering, tracking, freight reconciliation, landed cost).
 
 ### 13.18.1 Master data & documents
 
-| T-code | Name | Purpose | Passage status | Wave | Notes |
+| T-code | Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | /SCMTMS/TRQ (forwarding order) / Fiori: Create Forwarding Order | Forwarding order (LSP scenario: customer orders transport) | LSP business | OUT-OF-SCOPE | — | Logistics service provider (3PL/forwarder) scenario is beyond manufacturer scope; shipper scenario only |
 | Freight units (FU) built from deliveries/orders (FUBR rules) | Freight unit building | — | COVERED-34 | 34 | Load building from shipments |
@@ -29954,7 +29955,7 @@ SAP context: freight units (FU), freight orders (FO) and bookings (FB), transpor
 
 ### 13.18.2 Reports & inquiries
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Fiori: Freight Order Overview / Transportation Cockpit lists | — | COVERED-34 | 34 | — |
 | Fiori: Analyze Freight Costs / Freight cost per lane / carrier performance | — | COVERED-46 | 46 | — |
@@ -29964,7 +29965,7 @@ SAP context: freight units (FU), freight orders (FO) and bookings (FB), transpor
 
 ### 13.18.3 Periodic processing
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Background planning (VSR optimizer runs) | Scheduled planning | COVERED-34 | 34 | — |
 | Freight unit building run | — | COVERED-34 | 34 | — |
@@ -29976,7 +29977,7 @@ SAP context: freight units (FU), freight orders (FO) and bookings (FB), transpor
 
 ### 13.18.4 Customizing (SPRO)
 
-| IMG node / T-code | Table(s) | Key options | Passage status | Wave | Notes |
+| IMG node / T-code | Table(s) | Key options | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Freight unit building rules, freight order types, freight booking types | /SCMTMS/C_* | Split rules, stages | COVERED-34 | 34 | — |
 | Planning profiles, optimizer settings, selection profiles, capacity selection, incompatibilities, constraints | /SCMTMS/C_* | Cost functions, time windows | COVERED-34 | 34 | VRP constraints |
@@ -29993,11 +29994,11 @@ SAP context: freight units (FU), freight orders (FO) and bookings (FB), transpor
 
 ## 13.19 SD — Sales & Distribution (pricing, orders, deliveries, billing, credit)
 
-SAP context: SD-MD (customer sales data, customer-material info, conditions), SD-SLS (inquiry, quotation, order, contract, scheduling agreement, returns, credit/debit memo requests, consignment, free-of-charge, rush/cash sales, third-party, make-to-order with configuration), SD-BF (pricing condition technique, availability check, partner/text/output determination, incompletion, credit management), SD-SHP (see LE-SHP), SD-BIL (billing documents, billing plans, invoice lists, credit/debit memos, pro-forma, intercompany billing, rebates, revenue account determination, SD-FI interface). Passage: wave 26 (pricing), wave 27 (quotes/orders/ATP/credit/holds), wave 28 (fulfillment), wave 29 (billing/rev rec), wave 30 (AR/returns/portal), wave 40 (intercompany).
+SAP context: SD-MD (customer sales data, customer-material info, conditions), SD-SLS (inquiry, quotation, order, contract, scheduling agreement, returns, credit/debit memo requests, consignment, free-of-charge, rush/cash sales, third-party, make-to-order with configuration), SD-BF (pricing condition technique, availability check, partner/text/output determination, incompletion, credit management), SD-SHP (see LE-SHP), SD-BIL (billing documents, billing plans, invoice lists, credit/debit memos, pro-forma, intercompany billing, rebates, revenue account determination, SD-FI interface). Depot: wave 26 (pricing), wave 27 (quotes/orders/ATP/credit/holds), wave 28 (fulfillment), wave 29 (billing/rev rec), wave 30 (AR/returns/portal), wave 40 (intercompany).
 
 ### 13.19.1 Master data & documents
 
-| T-code | Name | Purpose | Passage status | Wave | Notes |
+| T-code | Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | VD01 / VD02 / VD03 / XD01 (sales area data) | Customer master sales area view | Shipping, billing, partner functions, pricing groups per sales org/channel/division | COVERED-7 | 7 | Customer role with sales-scope data (sales org/channel/division ≈ hierarchy purpose) |
 | VD51 / VD52 / VD53 / VD59 | Customer-material info record create/change/display/list | Customer part numbers, delivery agreements | COVERED-27 | 27 | Customer item numbers/external item references — confirm in wave 27 (named in AX "external item descriptions"); treat covered |
@@ -30061,7 +30062,7 @@ SAP context: SD-MD (customer sales data, customer-material info, conditions), SD
 
 ### 13.19.2 Reports & inquiries
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | VA05 / VA05N | List of sales orders (by customer, material, status) | COVERED-27 | 27 | — |
 | VA15 / VA25 / VA35 / VA45 | Inquiries / quotations / scheduling agreements / contracts lists | COVERED-27 | 27 | — |
@@ -30086,7 +30087,7 @@ SAP context: SD-MD (customer sales data, customer-material info, conditions), SD
 
 ### 13.19.3 Periodic processing
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | VF04 / VF06 (batch) | Billing due list run (daily/periodic, collective invoices) | COVERED-29 | 29 | — |
 | VF21 (batch) / RV60SBAT | Invoice list creation | COVERED-29 | 29 | — |
@@ -30105,7 +30106,7 @@ SAP context: SD-MD (customer sales data, customer-material info, conditions), SD
 
 ### 13.19.4 Customizing (SPRO)
 
-| IMG node / T-code | Table(s) | Key options | Passage status | Wave | Notes |
+| IMG node / T-code | Table(s) | Key options | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | OVX5 / OVXA / OVXB / OVXG / OVX3 / OVXK / OVXM — Sales organizations, distribution channels, divisions, sales areas, sales offices/groups, assignments to company code/plant | TVKO, TVTW, TSPA, TVKOV, TVKOS, TVBUR, TVKGR, TVKWZ | — | COVERED-6 | 6 | Sales hierarchy purpose; sales scope dimensions |
 | VOV8 — Sales document types (OR, RE, CR, DR, KB, BV, SO, QT, KA, IN, WK1, LZ…) | TVAK | Number range, screen sequence, delivery/billing type defaults, credit check, incompletion procedure, pricing procedure determination (doc pricing proc), immediate delivery, lead time, transaction group | COVERED-27 | 27 | Order types with defaults |
@@ -30164,11 +30165,11 @@ SAP context: SD-MD (customer sales data, customer-material info, conditions), SD
 
 ## 13.20 SD Rebates / Settlement Management (condition contracts)
 
-SAP context: ECC SD rebate processing — rebate agreements (VBO1/VBO2/VBO3), accruals via condition types BO01–BO06 on billing, settlement (VB(7), partial settlement, retroactive rebates (VBOF), rebate index rebuild (VBOF/OVB3). S/4HANA replaces this with Settlement Management (condition contracts WCOCO, business volume determination, settlement runs WB2R_SC, settlement documents, accruals; also supplier rebates / chargebacks / commissions). Passage: wave 26 (rebate agreements + accrual), wave 30 (rebate settlement), wave 19 (vendor side via AP).
+SAP context: ECC SD rebate processing — rebate agreements (VBO1/VBO2/VBO3), accruals via condition types BO01–BO06 on billing, settlement (VB(7), partial settlement, retroactive rebates (VBOF), rebate index rebuild (VBOF/OVB3). S/4HANA replaces this with Settlement Management (condition contracts WCOCO, business volume determination, settlement runs WB2R_SC, settlement documents, accruals; also supplier rebates / chargebacks / commissions). Depot: wave 26 (rebate agreements + accrual), wave 30 (rebate settlement), wave 19 (vendor side via AP).
 
 ### 13.20.1 Master data & documents
 
-| T-code | Name | Purpose | Passage status | Wave | Notes |
+| T-code | Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | VBO1 / VBO2 / VBO3 | Rebate agreement create/change/display (types 0001 group, 0002 material, 0003 customer, 0004 hierarchy, 0005 independent of sales volume) | Customer rebate agreements | COVERED-26 | 26 | Rebate agreements and accrual calculation |
 | VB(D | Extend rebate agreement (validity) | — | COVERED-26 | 26 | — |
@@ -30188,7 +30189,7 @@ SAP context: ECC SD rebate processing — rebate agreements (VBO1/VBO2/VBO3), ac
 
 ### 13.20.2 Reports & inquiries
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | VB(8 / VBO3 → sales volume / verification level | Rebate agreement sales volume & accrual verification | COVERED-26 | 26 | Explain accrual |
 | VB(5 | Rebate agreement list | COVERED-26 | 26 | — |
@@ -30198,7 +30199,7 @@ SAP context: ECC SD rebate processing — rebate agreements (VBO1/VBO2/VBO3), ac
 
 ### 13.20.3 Periodic processing
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | VB(7 (periodic settlement run) | Partial settlement per period | COVERED-30 | 30 | — |
 | VBOF (batch) | Retroactive accrual update | PARTIAL-26 | 26 | — |
@@ -30209,7 +30210,7 @@ SAP context: ECC SD rebate processing — rebate agreements (VBO1/VBO2/VBO3), ac
 
 ### 13.20.4 Customizing (SPRO)
 
-| IMG node / T-code | Table(s) | Key options | Passage status | Wave | Notes |
+| IMG node / T-code | Table(s) | Key options | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | OVB3 / VB(2 — Rebate agreement types, condition type groups, rebate condition types (BO01-BO06), accrual account keys (ERB/ERU) | T6B1, T6B2, T685, T687 | Manual accruals, settlement periods, verification levels | COVERED-26 | 26 | Rebate agreement types |
 | OVB1 / OVB2 — Activate rebate processing (sales org, billing type, payer) | TVKO, TVFK, KNVV | — | COVERED-26 | 26 | — |
@@ -30223,11 +30224,11 @@ SAP context: ECC SD rebate processing — rebate agreements (VBO1/VBO2/VBO3), ac
 
 ## 13.21 PP — Production Planning (master data, MRP, SOP/demand management, production orders, capacity, KANBAN, REM)
 
-SAP context: PP-BD (material MRP views, BOMs CS01, work centers CR01, routings CA01, production versions C223, ECM CC01), PP-MRP (MD01/MD02/MD03, MD04 stock/requirements, MD05/MD06 MRP lists, planned orders MD11–MD16, planning file MD20/MD21, MRP areas, MRP Live MD01N), PP-MP (SOP MC87/MC88, flexible planning MC93/MC94, demand management MD61–MD63, PIR transfer MC74/MC75, long-term planning MS01–MS70), PP-SFC (production orders CO01–CO15, COOIS, COHV, CO40/CO41 conversion, confirmations CO11N, COGI, availability check, TECO/close), PP-CRP (capacity CM01–CM07, leveling CM21–CM29, CM25 planning table), PP-KAB (control cycles PK01, kanban board PK13N), PP-REM (REM profile, planning table MF50, backflush MFBF, cost collectors), PP-PDC. Passage: wave 9 (BOM/routing/work centers/ECM), wave 21 (production orders, confirmations, WIP), wave 22 (MRP/MPS/forecasting), wave 23 (capacity/scheduling), wave 24 (lean/kanban/REM), wave 25 (shop floor/PDC), wave 39 (costing).
+SAP context: PP-BD (material MRP views, BOMs CS01, work centers CR01, routings CA01, production versions C223, ECM CC01), PP-MRP (MD01/MD02/MD03, MD04 stock/requirements, MD05/MD06 MRP lists, planned orders MD11–MD16, planning file MD20/MD21, MRP areas, MRP Live MD01N), PP-MP (SOP MC87/MC88, flexible planning MC93/MC94, demand management MD61–MD63, PIR transfer MC74/MC75, long-term planning MS01–MS70), PP-SFC (production orders CO01–CO15, COOIS, COHV, CO40/CO41 conversion, confirmations CO11N, COGI, availability check, TECO/close), PP-CRP (capacity CM01–CM07, leveling CM21–CM29, CM25 planning table), PP-KAB (control cycles PK01, kanban board PK13N), PP-REM (REM profile, planning table MF50, backflush MFBF, cost collectors), PP-PDC. Depot: wave 9 (BOM/routing/work centers/ECM), wave 21 (production orders, confirmations, WIP), wave 22 (MRP/MPS/forecasting), wave 23 (capacity/scheduling), wave 24 (lean/kanban/REM), wave 25 (shop floor/PDC), wave 39 (costing).
 
 ### 13.21.1 Master data & documents
 
-| T-code | Name | Purpose | Passage status | Wave | Notes |
+| T-code | Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | MM01 / MM02 / MM03 (MRP 1-4, work scheduling views) | Material master planning data: MRP type, lot size, procurement type, special procurement, safety stock, planning strategy, scheduling margin key, availability check, production version, backflush, batch entry | Planning parameters per item/site | COVERED-22 | 22 | Coverage groups (requirement/period/min-max), lead times, safety stock, planning strategy on released product; wave 8 for master |
 | MM02 → MRP areas (MD61 per MRP area) | MRP area assignment (storage location / subcontractor level planning) | — | PARTIAL-22 | 22 | Planning at warehouse (sub-site) level and at subcontractor level not explicitly named — partial; wave 22 plans by site; add "planning scope = site or warehouse" |
@@ -30340,7 +30341,7 @@ SAP context: PP-BD (material MRP views, BOMs CS01, work centers CR01, routings C
 
 ### 13.21.2 Reports & inquiries
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | MD04 / MD05 / MD06 / MD07 | Stock/requirements and MRP lists | COVERED-22 | 22 | — |
 | MD09 / MD4C | Pegging / order report | COVERED-22 | 22 | — |
@@ -30366,7 +30367,7 @@ SAP context: PP-BD (material MRP views, BOMs CS01, work centers CR01, routings C
 
 ### 13.21.3 Periodic processing
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | MD01 / MDBT / MD01N (scheduled) | Nightly MRP / MRP Live run | COVERED-22 | 22 | — |
 | MD40 (scheduled) | MPS run | COVERED-22 | 22 | — |
@@ -30388,7 +30389,7 @@ SAP context: PP-BD (material MRP views, BOMs CS01, work centers CR01, routings C
 
 ### 13.21.4 Customizing (SPRO)
 
-| IMG node / T-code | Table(s) | Key options | Passage status | Wave | Notes |
+| IMG node / T-code | Table(s) | Key options | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | OS20 / OS21 / OS22 / OS23 / OS24 / OS25 / OS27 / OS28 / OS30 — BOM: usages, status, item categories, default values, modification parameters, BOM explosion/applications, alternative determination | T415S, T416, T418, TCS | Item category control (stock/non-stock/variable size/document/text), usage-specific item status | COVERED-9 | 9 | BOM line types and usages |
 | OPJM / OPJI / OPJF — Selection ID for alternative BOM/routing (application, priorities) | TCS, T407 | — | COVERED-9 | 9 | Version selection rules |
@@ -30445,11 +30446,11 @@ SAP context: PP-BD (material MRP views, BOMs CS01, work centers CR01, routings C
 
 ## 13.22 PP-PI — Production Planning for Process Industries
 
-SAP context: master recipes (C201–C203; recipe header, operations/phases, resources, materials, secondary resources, process instructions/XSteps), process orders (COR1–COR3, COR5 collective, COR6N confirmation, CORR? mass), process management (control recipes CO53, process messages CO54/CO57, PI sheets CO60), electronic batch record (COEBR), batch management and batch determination, resource networks (CMX? / RN?), campaign planning (PP-PI campaigns), process manufacturing cockpit (CO50?), material quantity calculation. Passage: wave 24 (formulas/batch orders, potency, co/by-products, catch weight, recipe version control), wave 21 (order lifecycle), wave 25 (shop floor/PI sheets), wave 33 (QM in process).
+SAP context: master recipes (C201–C203; recipe header, operations/phases, resources, materials, secondary resources, process instructions/XSteps), process orders (COR1–COR3, COR5 collective, COR6N confirmation, CORR? mass), process management (control recipes CO53, process messages CO54/CO57, PI sheets CO60), electronic batch record (COEBR), batch management and batch determination, resource networks (CMX? / RN?), campaign planning (PP-PI campaigns), process manufacturing cockpit (CO50?), material quantity calculation. Depot: wave 24 (formulas/batch orders, potency, co/by-products, catch weight, recipe version control), wave 21 (order lifecycle), wave 25 (shop floor/PI sheets), wave 33 (QM in process).
 
 ### 13.22.1 Master data & documents
 
-| T-code | Name | Purpose | Passage status | Wave | Notes |
+| T-code | Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | C201 / C202 / C203 | Master recipe create/change/display (recipe group, operations, phases, material list, resources, process instructions, QM characteristics, relationships) | Recipes | COVERED-24 | 24 | Formula + route (recipe) with version control integrated with ECM |
 | C223 (PI) | Production versions (recipe + formula) | — | COVERED-24 | 24 | — |
@@ -30479,7 +30480,7 @@ SAP context: master recipes (C201–C203; recipe header, operations/phases, reso
 
 ### 13.22.2 Reports & inquiries
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | COOISPI | Process order information system | COVERED-24 | 24 | — |
 | CO54 (monitor) | Process message log | PARTIAL-25 | 25 | — |
@@ -30491,7 +30492,7 @@ SAP context: master recipes (C201–C203; recipe header, operations/phases, reso
 
 ### 13.22.3 Periodic processing
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | COR5 / COHVPI (batch) | Mass release / scheduling | COVERED-24 | 24 | — |
 | CO53 (send control recipes, batch) | — | PARTIAL-25 | 25 | — |
@@ -30504,7 +30505,7 @@ SAP context: master recipes (C201–C203; recipe header, operations/phases, reso
 
 ### 13.22.4 Customizing (SPRO)
 
-| IMG node / T-code | Table(s) | Key options | Passage status | Wave | Notes |
+| IMG node / T-code | Table(s) | Key options | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Master recipe: profiles, task list types (2), status, control keys (PI01, PI02…), phase/operation categories, relationship types | TCA*, T430 | — | COVERED-24 | 24 | — |
 | Process order types (PI01…), order type dependent parameters (COR4), production scheduling profile (CORY), confirmation parameters (CORO / OPK4 PI), availability check (OPJJ/OPJK PI) | T003O, T399X, TCO43 | — | COVERED-24 | 24 | — |
@@ -30520,11 +30521,11 @@ SAP context: master recipes (C201–C203; recipe header, operations/phases, reso
 
 ## 13.23 PP/DS — Advanced Planning & Detailed Scheduling (APO PP/DS and S/4 embedded PP/DS)
 
-SAP context: APO PP/DS (CIF integration CFM1/CFM2, product view /SAPAPO/RRP3, detailed scheduling planning board /SAPAPO/CDPS0, heuristics, optimizer, pegging, alert monitor /SAPAPO/AMON1, product planning table /SAPAPO/PPT1, PP/DS runs /SAPAPO/CDPSB0, order views /SAPAPO/RRP4, block planning, setup matrices, characteristic-dependent planning (CDP), MRP heuristics, shelf-life planning). S/4HANA embedded PP/DS: advanced planning flag on material, PP/DS planning via MD04/Fiori, same planning board. Passage: wave 23 (scheduler service with finite/infinite, OR-Tools CP-SAT optimization, Gantt, bottlenecks) + wave 22 (pegging). PP/DS-specific supply-chain-wide planning (SNP, GATP) outside this component.
+SAP context: APO PP/DS (CIF integration CFM1/CFM2, product view /SAPAPO/RRP3, detailed scheduling planning board /SAPAPO/CDPS0, heuristics, optimizer, pegging, alert monitor /SAPAPO/AMON1, product planning table /SAPAPO/PPT1, PP/DS runs /SAPAPO/CDPSB0, order views /SAPAPO/RRP4, block planning, setup matrices, characteristic-dependent planning (CDP), MRP heuristics, shelf-life planning). S/4HANA embedded PP/DS: advanced planning flag on material, PP/DS planning via MD04/Fiori, same planning board. Depot: wave 23 (scheduler service with finite/infinite, OR-Tools CP-SAT optimization, Gantt, bottlenecks) + wave 22 (pegging). PP/DS-specific supply-chain-wide planning (SNP, GATP) outside this component.
 
 ### 13.23.1 Master data & documents
 
-| T-code | Name | Purpose | Passage status | Wave | Notes |
+| T-code | Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | CFM1 / CFM2 / CFM3 / CFM4 / CFM5 / CFM6 | CIF integration models: generate / activate / display / deactivate / delete / change transfer | ERP ↔ APO master & transactional data | SUPERSEDED-23 | 23 | Embedded single system, Kafka events; no CIF |
 | CFC9 / CFG1 / CFP1 / CFP3 | CIF settings / application log / queue display | — | SUPERSEDED-23 | 23 | — |
@@ -30550,7 +30551,7 @@ SAP context: APO PP/DS (CIF integration CFM1/CFM2, product view /SAPAPO/RRP3, de
 
 ### 13.23.2 Reports & inquiries
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | /SAPAPO/RRP3 / RRP4 / RRP7 | Product/receipt views | COVERED-22 | 22 | — |
 | /SAPAPO/CDPS0 (views: resource, order, operation) | DS board views | COVERED-23 | 23 | — |
@@ -30563,7 +30564,7 @@ SAP context: APO PP/DS (CIF integration CFM1/CFM2, product view /SAPAPO/RRP3, de
 
 ### 13.23.3 Periodic processing
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | /SAPAPO/CDPSB0 (scheduled planning runs with heuristic steps) | Nightly PP/DS run | COVERED-22 | 22 | — |
 | Optimizer background runs | — | COVERED-23 | 23 | — |
@@ -30574,7 +30575,7 @@ SAP context: APO PP/DS (CIF integration CFM1/CFM2, product view /SAPAPO/RRP3, de
 
 ### 13.23.4 Customizing (SPRO)
 
-| IMG node / T-code | Table(s) | Key options | Passage status | Wave | Notes |
+| IMG node / T-code | Table(s) | Key options | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Global settings for PP/DS (planning version, pegging, order types), planning procedures (per product), heuristics (algorithms, settings), heuristic profiles | /SAPAPO/* | Automatic planning immediately / in planning run; planning procedure 1-5 | COVERED-22 | 22 | Planning policies per coverage group |
 | Strategy profiles (scheduling modes, planning direction, finiteness level, validity periods, propagation ranges), planning board profiles, time profiles, work areas | /SAPAPO/* | — | COVERED-23 | 23 | — |
@@ -30589,11 +30590,11 @@ SAP context: APO PP/DS (CIF integration CFM1/CFM2, product view /SAPAPO/RRP3, de
 
 ## 13.24 QM — Quality Management
 
-SAP context: QM-PT (inspection plans QP01, master inspection characteristics QS21, inspection methods QS31, catalogs QS41, sampling procedures QDV1, sampling schemes QDP1, dynamic modification rules QDB1, quality info records QI01/QV51), QM-IM (inspection lots QA01/QA32, results recording QE01/QE51N, defects recording, usage decisions QA11, stock postings), QM-QC (control charts QGC1, quality level QDL1), QM-QN (quality notifications QM01, tasks, 8D), QM-CA (certificates QC01/QC21, CoA on delivery), QM-IT (test equipment calibration via PM), vendor evaluation integration, stability studies (QST01), audit management (PLMD_AUDIT), FMEA, control plan (S/4 QM). Passage: wave 33 (tests, sampling, associations, quality orders, UD, blocking, NCR/CAPA, CoA, scorecards, SPC, calibration), wave 16 (quarantine status), wave 18 (receive to QI).
+SAP context: QM-PT (inspection plans QP01, master inspection characteristics QS21, inspection methods QS31, catalogs QS41, sampling procedures QDV1, sampling schemes QDP1, dynamic modification rules QDB1, quality info records QI01/QV51), QM-IM (inspection lots QA01/QA32, results recording QE01/QE51N, defects recording, usage decisions QA11, stock postings), QM-QC (control charts QGC1, quality level QDL1), QM-QN (quality notifications QM01, tasks, 8D), QM-CA (certificates QC01/QC21, CoA on delivery), QM-IT (test equipment calibration via PM), vendor evaluation integration, stability studies (QST01), audit management (PLMD_AUDIT), FMEA, control plan (S/4 QM). Depot: wave 33 (tests, sampling, associations, quality orders, UD, blocking, NCR/CAPA, CoA, scorecards, SPC, calibration), wave 16 (quarantine status), wave 18 (receive to QI).
 
 ### 13.24.1 Master data & documents
 
-| T-code | Name | Purpose | Passage status | Wave | Notes |
+| T-code | Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | QS21 / QS22 / QS23 / QS24 / QS25 / QS26 / QS27 / QS28 | Master inspection characteristic create/change/display (quantitative/qualitative, tolerances, catalogs, sampling) / versions / where-used / list / replace | Test definitions | COVERED-33 | 33 | Tests (variable/attribute) with tolerances, catalogs |
 | QS31 / QS32 / QS33 / QS34 / QS37 / QS38 / QS39 | Inspection method create/change/display/versions/where-used/list | Test methods | COVERED-33 | 33 | Test instructions/methods |
@@ -30639,7 +30640,7 @@ SAP context: QM-PT (inspection plans QP01, master inspection characteristics QS2
 
 ### 13.24.2 Reports & inquiries
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | QA32 / QA33 | Inspection lot lists | COVERED-33 | 33 | — |
 | QM10 / QM11 | Notification lists | COVERED-33 | 33 | — |
@@ -30658,7 +30659,7 @@ SAP context: QM-PT (inspection plans QP01, master inspection characteristics QS2
 
 ### 13.24.3 Periodic processing
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | QA07 (scheduled) | Deadline monitoring: recurring inspection lots, shelf-life expiry, batch status change | COVERED-33 | 33 | — |
 | QA16 (batch UD) | Automatic usage decisions (auto UD for lots without defects) | COVERED-33 | 33 | Auto-UD rules — confirm; treat covered |
@@ -30673,7 +30674,7 @@ SAP context: QM-PT (inspection plans QP01, master inspection characteristics QS2
 
 ### 13.24.4 Customizing (SPRO)
 
-| IMG node / T-code | Table(s) | Key options | Passage status | Wave | Notes |
+| IMG node / T-code | Table(s) | Key options | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | QCC0 — QM customizing entry (inspection types 01-14; inspection lot origins; assignment of inspection types to lot origins; default values per inspection type: plan usage, auto UD, skip, inspection with task list/material spec, sample calculation, QM order) | TQ30, TQ32, TQ34 | Inspection type per origin (GR, production, delivery, recurring, calibration, stock transfer, audit, customer return) | COVERED-33 | 33 | Quality associations: when/what triggers a quality order (receipt, production, shipment, return) |
 | Material master QM view defaults (QM control key, inspection setup QM02) | QMAT, TQ08 | — | COVERED-33 | 33 | Item quality settings |
@@ -30700,11 +30701,11 @@ SAP context: QM-PT (inspection plans QP01, master inspection characteristics QS2
 
 ## 13.25 PM — Plant Maintenance (Enterprise Asset Management)
 
-SAP context: technical objects (functional locations IL01, equipment IE01, equipment BOMs IB01, serial numbers IQ01, measuring points IK01, measurement documents IK11, object links, classification), maintenance planning (task lists IA01/IA05, maintenance plans IP01/IP41/IP42 single-cycle/strategy/multiple counter, scheduling IP10/IP30, strategies IP11), maintenance processing (notifications IW21 M1/M2/M3, orders IW31 PM01-PM06, permits, refurbishment orders, confirmations IW41, completion IW32 TECO, settlement KO88), PMIS (MCI1-MCI8), work clearance management (WCM), Linear asset management, MRS integration, mobile asset management (SAP Service and Asset Manager). Passage: wave 44 (functional locations, assets/equipment, BOMs/spares, counters/measurement, plans, requests, work orders with parts/labor/costs, IoT condition monitoring, KPIs) + wave 23 scheduling + wave 25 IoT + wave 37 fixed asset link.
+SAP context: technical objects (functional locations IL01, equipment IE01, equipment BOMs IB01, serial numbers IQ01, measuring points IK01, measurement documents IK11, object links, classification), maintenance planning (task lists IA01/IA05, maintenance plans IP01/IP41/IP42 single-cycle/strategy/multiple counter, scheduling IP10/IP30, strategies IP11), maintenance processing (notifications IW21 M1/M2/M3, orders IW31 PM01-PM06, permits, refurbishment orders, confirmations IW41, completion IW32 TECO, settlement KO88), PMIS (MCI1-MCI8), work clearance management (WCM), Linear asset management, MRS integration, mobile asset management (SAP Service and Asset Manager). Depot: wave 44 (functional locations, assets/equipment, BOMs/spares, counters/measurement, plans, requests, work orders with parts/labor/costs, IoT condition monitoring, KPIs) + wave 23 scheduling + wave 25 IoT + wave 37 fixed asset link.
 
 ### 13.25.1 Master data & documents
 
-| T-code | Name | Purpose | Passage status | Wave | Notes |
+| T-code | Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | IL01 / IL02 / IL03 / IL04 / IL05 | Functional location create/change/display/list/changes | Location hierarchy (structure indicator) | COVERED-44 | 44 | Functional locations |
 | IL07 / IL08 / IL09 / IL10 | FL structure list / installation / dismantle / mass change | — | COVERED-44 | 44 | — |
@@ -30742,7 +30743,7 @@ SAP context: technical objects (functional locations IL01, equipment IE01, equip
 
 ### 13.25.2 Reports & inquiries
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | IW28 / IW29 / IW38 / IW39 / IW37N / IW49N | Notification / order / operation lists | COVERED-44 | 44 | — |
 | IH01 … IH09 | Structure displays | COVERED-44 | 44 | — |
@@ -30758,7 +30759,7 @@ SAP context: technical objects (functional locations IL01, equipment IE01, equip
 
 ### 13.25.3 Periodic processing
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | IP30 / IP30H (scheduled) | Deadline monitoring: generate maintenance calls (orders/notifications) | COVERED-44 | 44 | — |
 | IK34 / IoT measurement document upload (MDoc interface) | Counter reading upload | COVERED-25 | 25 | IoT → readings |
@@ -30772,7 +30773,7 @@ SAP context: technical objects (functional locations IL01, equipment IE01, equip
 
 ### 13.25.4 Customizing (SPRO)
 
-| IMG node / T-code | Table(s) | Key options | Passage status | Wave | Notes |
+| IMG node / T-code | Table(s) | Key options | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Technical objects: structure indicators for FL (edit masks, hierarchy levels), equipment categories (M machine, P production resource, S customer equipment, Q test equipment, F fleet), equipment types, object types, planner groups, plant sections, ABC indicators, authorization groups | T370F, T370T, T370U, T024I, T357, T370C | — | COVERED-44 | 44 | FL numbering masks; equipment categories |
 | Define maintenance planning plants / maintenance work centers / planner groups | T001W, T024I | — | COVERED-6 | 6 | Sites + maintenance resources |
@@ -30793,11 +30794,11 @@ SAP context: technical objects (functional locations IL01, equipment IE01, equip
 
 ## 13.26 CS / Customer Service / SAP Field Service Management
 
-SAP context: CS (SM): service notifications (IW51–IW59, S1 problem/S2 service request/S3 activity), service orders (IW31 SM01/SM02/SM03 with revenue; billing via DP90 resource-related billing, DIP profile ODP1), service contracts (VA41 WV with billing plans, service products, SLA via contract), warranties (BGM1/BGM2 master warranties, warranty check on notification/order), installed base (IB51/IB52/IB53; IBase components), repairs processing (RAS order with repair procedure, returns/loaner/repair/delivery), in-house repair (S/4 Fiori), solution database, call center (CIC), SAP Field Service Management (cloud dispatch/mobile), S/4 Service (service orders, contracts, confirmations in S/4 Service). Passage: wave 45 (installed base, warranties, agreements/SLAs, cases → work orders, repair orders, dispatch optimization, technician mobile app, parts from trucks, billing to customer/warranty, KPIs) + wave 41 (resource-related billing) + wave 30 (RMA).
+SAP context: CS (SM): service notifications (IW51–IW59, S1 problem/S2 service request/S3 activity), service orders (IW31 SM01/SM02/SM03 with revenue; billing via DP90 resource-related billing, DIP profile ODP1), service contracts (VA41 WV with billing plans, service products, SLA via contract), warranties (BGM1/BGM2 master warranties, warranty check on notification/order), installed base (IB51/IB52/IB53; IBase components), repairs processing (RAS order with repair procedure, returns/loaner/repair/delivery), in-house repair (S/4 Fiori), solution database, call center (CIC), SAP Field Service Management (cloud dispatch/mobile), S/4 Service (service orders, contracts, confirmations in S/4 Service). Depot: wave 45 (installed base, warranties, agreements/SLAs, cases → work orders, repair orders, dispatch optimization, technician mobile app, parts from trucks, billing to customer/warranty, KPIs) + wave 41 (resource-related billing) + wave 30 (RMA).
 
 ### 13.26.1 Master data & documents
 
-| T-code | Name | Purpose | Passage status | Wave | Notes |
+| T-code | Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | IB51 / IB52 / IB53 / IB55 / IB56 / IB61 / IB62 | Installed base create/change/display/list; IBase components (equipment, materials, documents, text); IBase by sales order | Installed base | COVERED-45 | 45 | Installed base/service objects with serial tracking from shipments |
 | IE01 (equipment category S customer equipment), IE4N | Customer equipment | — | COVERED-45 | 45 | — |
@@ -30825,7 +30826,7 @@ SAP context: CS (SM): service notifications (IW51–IW59, S1 problem/S2 service 
 
 ### 13.26.2 Reports & inquiries
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | IW58 / IW59 / IW38 / IW39 (service) | Notification / order lists | COVERED-45 | 45 | — |
 | IB56 / IH (IBase structure) | Installed base displays | COVERED-45 | 45 | — |
@@ -30838,7 +30839,7 @@ SAP context: CS (SM): service notifications (IW51–IW59, S1 problem/S2 service 
 
 ### 13.26.3 Periodic processing
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | DP90 (batch) / DP95 | Collective billing request creation | COVERED-41 | 41 | — |
 | VF04 (service contracts periodic billing) | Contract billing run | COVERED-29 | 29 | — |
@@ -30850,7 +30851,7 @@ SAP context: CS (SM): service notifications (IW51–IW59, S1 problem/S2 service 
 
 ### 13.26.4 Customizing (SPRO)
 
-| IMG node / T-code | Table(s) | Key options | Passage status | Wave | Notes |
+| IMG node / T-code | Table(s) | Key options | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Service notification types (S1/S2/S3), catalogs, priorities, response/service profiles (SLA: response time, service window) | TQ80, T* (response profiles OIS) | — | COVERED-45 | 45 | SLA profiles |
 | Service order types (SM01/SM02/SM03), revenues on orders, settlement to PA/sales order, DIP profiles (ODP1: usage, characteristics, sources, material determination) | T003O, DIP* | — | COVERED-41 | 41 | Billing rules |
@@ -30868,11 +30869,11 @@ SAP context: CS (SM): service notifications (IW51–IW59, S1 problem/S2 service 
 
 ## 13.27 PS — Project System
 
-SAP context: project definitions (CJ01/CJ06/CJ20N project builder), WBS elements (CJ11–CJ13), networks and activities (CN21–CN23, CN01 standard networks), milestones (CN11?), standard WBS (CJ91), planning (CJ40 cost planning, CJ42 revenue, CJR2 cost element planning, CJ9? capacity), budgeting (CJ30 original, CJ36 supplement, CJ37 return, CJ32 release, availability control), dates/scheduling (CJ21? CJ2B? CN24?), execution (CN25 confirmations, CAT2 timesheet), procurement (PRs from networks, PS material components), billing (billing plans on WBS/sales order, DP90 resource-related, milestone billing), period-end (CJ44 overhead, CJ8G settlement, KKA2 results analysis, CJB1 settlement rules, interest CJZ2?), reporting (CN41/CN42/CN43/CN45/CN46/CN47/CN48 structure/info system, S_ALR_87013532-87013575 cost reports, CJI3 line items, CJE0 hierarchy reports), project versions (CN72), simulation (CJV1), claims (CLM1), progress analysis (CNE1/CNE5 EVM), investment management (IM: IM01 program, IM22? IM52 budget distribution, appropriation requests IMA11). S/4: Project Control (Fiori Project Builder, Commercial Project Management CPM), Project Financials Control. Passage: wave 41 (WBS, scheduling, resources, forecasts/budgets, hour/expense/item/fee journals, project POs, billing T&M/FP/milestones/retainers, WIP/POC/RA, EVM, grants) + wave 38 budget control + wave 37 CIP.
+SAP context: project definitions (CJ01/CJ06/CJ20N project builder), WBS elements (CJ11–CJ13), networks and activities (CN21–CN23, CN01 standard networks), milestones (CN11?), standard WBS (CJ91), planning (CJ40 cost planning, CJ42 revenue, CJR2 cost element planning, CJ9? capacity), budgeting (CJ30 original, CJ36 supplement, CJ37 return, CJ32 release, availability control), dates/scheduling (CJ21? CJ2B? CN24?), execution (CN25 confirmations, CAT2 timesheet), procurement (PRs from networks, PS material components), billing (billing plans on WBS/sales order, DP90 resource-related, milestone billing), period-end (CJ44 overhead, CJ8G settlement, KKA2 results analysis, CJB1 settlement rules, interest CJZ2?), reporting (CN41/CN42/CN43/CN45/CN46/CN47/CN48 structure/info system, S_ALR_87013532-87013575 cost reports, CJI3 line items, CJE0 hierarchy reports), project versions (CN72), simulation (CJV1), claims (CLM1), progress analysis (CNE1/CNE5 EVM), investment management (IM: IM01 program, IM22? IM52 budget distribution, appropriation requests IMA11). S/4: Project Control (Fiori Project Builder, Commercial Project Management CPM), Project Financials Control. Depot: wave 41 (WBS, scheduling, resources, forecasts/budgets, hour/expense/item/fee journals, project POs, billing T&M/FP/milestones/retainers, WIP/POC/RA, EVM, grants) + wave 38 budget control + wave 37 CIP.
 
 ### 13.27.1 Master data & documents
 
-| T-code | Name | Purpose | Passage status | Wave | Notes |
+| T-code | Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | CJ20N | Project Builder (project definition, WBS, networks, activities, milestones, documents, PS texts, materials) | Central project maintenance | COVERED-41 | 41 | Project hierarchy + WBS with scheduling |
 | CJ01 / CJ02 / CJ03 / CJ06 / CJ07 / CJ08 | Project definition create/change/display (with/without template) | — | COVERED-41 | 41 | Project types & templates |
@@ -30912,7 +30913,7 @@ SAP context: project definitions (CJ01/CJ06/CJ20N project builder), WBS elements
 
 ### 13.27.2 Reports & inquiries
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | S_ALR_87013532 / 87013533 / 87013534 / 87013535 / 87013536 | Plan/actual/variance; plan/actual/commitment/remaining plan; budget/actual/commitment; budget updates; actual in CO area currency | COVERED-41 | 41 | Project profitability, committed costs |
 | S_ALR_87013537 … 87013575 (cost element, revenue, hierarchy, period breakdown, forecast, payments) | PS cost/revenue/payment reports | COVERED-41 | 41 | — |
@@ -30932,7 +30933,7 @@ SAP context: project definitions (CJ01/CJ06/CJ20N project builder), WBS elements
 
 ### 13.27.3 Periodic processing
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | CJ44 / CJ45 (overhead) | Overhead allocation | COVERED-39 | 39 | — |
 | KKA2 / KKAJ (results analysis) | RA run | COVERED-41 | 41 | — |
@@ -30951,7 +30952,7 @@ SAP context: project definitions (CJ01/CJ06/CJ20N project builder), WBS elements
 
 ### 13.27.4 Customizing (SPRO)
 
-| IMG node / T-code | Table(s) | Key options | Passage status | Wave | Notes |
+| IMG node / T-code | Table(s) | Key options | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | OPSA — Project profile (WBS defaults, status profile, planning profile, budget profile, version profile, settlement, planning board, object class) | TCJ41 | — | COVERED-41 | 41 | Project types/templates |
 | OPSJ — Budget profiles (availability control activation, tolerance limits, actions) | TBP*, TBPFE | — | COVERED-38 | 38 | — |
@@ -30977,11 +30978,11 @@ SAP context: project definitions (CJ01/CJ06/CJ20N project builder), WBS elements
 
 ## 13.28 HCM — PA / OM / PT / PY + SuccessFactors Employee Central
 
-SAP context: HCM-PA (personnel administration: infotypes 0000–0999, PA30/PA40 actions, PA20, PA70 fast entry, master data), PA-OS/OM (org management: org units, positions, jobs, PPOME/PP01, evaluation paths, relationships), PT (time management: work schedules, absences/attendances IT2001/2002, quotas IT2006, time evaluation PT60/RPTIME00, CATS, time events PDC, PT50 quota overview, shift planning PP61), PY (payroll: PC00_Mxx_CALC, schemas PE01, rules PE02, wage types, payroll results PC_PAYRESULT, posting PC00_M99_CIPE, off-cycle, retro, year-end PU19 tax reporter US, garnishments IT0194/0195, remuneration statement), PA-BN (benefits: plans, enrollment HRBEN0001, HRBEN0071 eligibility), PA-RC (recruitment PB10–PB80, e-Recruiting), PA-PD (personnel development: qualifications PPPM, appraisals PHAP_*, career/succession), PE (training & event management, LSO), PA-CM (compensation management), HR ESS/MSS, SuccessFactors Employee Central (EC), EC Payroll, SF Recruiting/Onboarding/Learning/Performance & Goals/Compensation/Succession. Passage: wave 42 (workers/positions/jobs/compensation, absence/leave, benefits, ESS/MSS, talent basics, recruitment basics, PII controls), wave 43 (payroll engine, country packs US + 1 EU, provider adapter, year-end forms, expense management), wave 25 (time & attendance core).
+SAP context: HCM-PA (personnel administration: infotypes 0000–0999, PA30/PA40 actions, PA20, PA70 fast entry, master data), PA-OS/OM (org management: org units, positions, jobs, PPOME/PP01, evaluation paths, relationships), PT (time management: work schedules, absences/attendances IT2001/2002, quotas IT2006, time evaluation PT60/RPTIME00, CATS, time events PDC, PT50 quota overview, shift planning PP61), PY (payroll: PC00_Mxx_CALC, schemas PE01, rules PE02, wage types, payroll results PC_PAYRESULT, posting PC00_M99_CIPE, off-cycle, retro, year-end PU19 tax reporter US, garnishments IT0194/0195, remuneration statement), PA-BN (benefits: plans, enrollment HRBEN0001, HRBEN0071 eligibility), PA-RC (recruitment PB10–PB80, e-Recruiting), PA-PD (personnel development: qualifications PPPM, appraisals PHAP_*, career/succession), PE (training & event management, LSO), PA-CM (compensation management), HR ESS/MSS, SuccessFactors Employee Central (EC), EC Payroll, SF Recruiting/Onboarding/Learning/Performance & Goals/Compensation/Succession. Depot: wave 42 (workers/positions/jobs/compensation, absence/leave, benefits, ESS/MSS, talent basics, recruitment basics, PII controls), wave 43 (payroll engine, country packs US + 1 EU, provider adapter, year-end forms, expense management), wave 25 (time & attendance core).
 
 ### 13.28.1 Master data & documents
 
-| T-code | Name | Purpose | Passage status | Wave | Notes |
+| T-code | Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | PA30 / PA20 | Maintain / display HR master data (infotypes: 0000 actions, 0001 org assignment, 0002 personal data, 0006 address, 0007 planned working time, 0008 basic pay, 0009 bank details, 0014 recurring payments, 0015 additional payments, 0016 contract, 0021 family, 0041 date specs, 0105 communication, 0167/0168/0169 benefits, 0207-0210 US tax, 0194/0195 garnishments, 2001 absences, 2002 attendances, 2006 quotas, 2010 remuneration info) | Employee master | COVERED-42 | 42 | Worker/employee/contractor records with effective-dated employment, org assignments, compensation plans; bank details (wave 43 payroll); country-specific fields framework |
 | PA40 | Personnel actions (hire, org reassignment, pay change, leave of absence, termination, rehire) | Lifecycle actions | COVERED-42 | 42 | Effective-dated employment actions with workflow |
@@ -31033,7 +31034,7 @@ SAP context: HCM-PA (personnel administration: infotypes 0000–0999, PA30/PA40 
 
 ### 13.28.2 Reports & inquiries
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | S_AHR_61016369 / 61016362 / 61016360 / 61016380 / 61016373 … (PA standard reports: employee list, flexible employee data, headcount, entries/leavings, birthday list, service anniversaries, nationality, family members, education) | HR master data reports | COVERED-42 | 42 | HR reporting via saved views + semantic layer |
 | S_AHR_61016532 / 61016529 / 61016528 … (OM reports: org structure, staff assignments, position descriptions, vacancies, existing jobs/positions/org units) | OM reports | COVERED-42 | 42 | Org chart |
@@ -31048,7 +31049,7 @@ SAP context: HCM-PA (personnel administration: infotypes 0000–0999, PA30/PA40 
 
 ### 13.28.3 Periodic processing
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | PA03 release → PC00_Mxx_CALC → corrections → exit | Payroll cycle | COVERED-43 | 43 | Pay cycles |
 | PC00_M99_CIPE (posting) → PCP0 release | Payroll GL posting run | COVERED-43 | 43 | — |
@@ -31067,7 +31068,7 @@ SAP context: HCM-PA (personnel administration: infotypes 0000–0999, PA30/PA40 
 
 ### 13.28.4 Customizing (SPRO)
 
-| IMG node / T-code | Table(s) | Key options | Passage status | Wave | Notes |
+| IMG node / T-code | Table(s) | Key options | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Enterprise structure (HR): personnel areas/subareas (T500P, T001P), employee groups/subgroups (T501, T503), payroll areas (T549A), assignment to company code | T500P, T001P, T501, T503, T549A | — | COVERED-42 | 42 | HR org dimensions per legal entity |
 | Infotype customizing: infotype attributes (T582A), screen control (T588M), infotype menus (T588B), dynamic actions (T588Z), features (PE03: NUMKR, ABKRS, LGMST, TARIF…) | T582A, T588M, T588B, T588Z, T549 | Time constraints, retro relevance, subtypes | SUPERSEDED-3 | 3 | Metadata-driven entities/fields with effective dating; dynamic actions → workflow/event hooks (wave 4) |
@@ -31092,11 +31093,11 @@ SAP context: HCM-PA (personnel administration: infotypes 0000–0999, PA30/PA40 
 
 ## 13.29 FI-TV — Travel Management / SAP Concur
 
-SAP context: FI-TV travel requests (TRIP: TP01? request, PR01? plan), travel planning (flight/hotel/car booking via Amadeus/Sabre, PR03? ), travel expenses (PR05 create/change expense report, TRIP, PR04? , receipts, per diems/flat rates, mileage, credit card clearing PRCC, approval workflow, settlement PREC, posting to FI PRFI/PRRW, payment via payroll or AP/DME PRDX/PRDH?), travel privileges IT0017, Concur Expense/Travel/Invoice/Request with SAP ICS integration. Passage: wave 43 (expense reports, receipts OCR, policies/per diems, approvals, credit-card feed, reimbursement via AP, project expense) — travel booking is not covered.
+SAP context: FI-TV travel requests (TRIP: TP01? request, PR01? plan), travel planning (flight/hotel/car booking via Amadeus/Sabre, PR03? ), travel expenses (PR05 create/change expense report, TRIP, PR04? , receipts, per diems/flat rates, mileage, credit card clearing PRCC, approval workflow, settlement PREC, posting to FI PRFI/PRRW, payment via payroll or AP/DME PRDX/PRDH?), travel privileges IT0017, Concur Expense/Travel/Invoice/Request with SAP ICS integration. Depot: wave 43 (expense reports, receipts OCR, policies/per diems, approvals, credit-card feed, reimbursement via AP, project expense) — travel booking is not covered.
 
 ### 13.29.1 Master data & documents
 
-| T-code | Name | Purpose | Passage status | Wave | Notes |
+| T-code | Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | PA30 IT0017 travel privileges / PRMD | Employee travel privileges (reimbursement group, trip rules) | — | COVERED-43 | 43 | Expense policy groups per employee |
 | TRIP / PR05 / PR04 | Travel manager / create-change travel expense report (receipts, per diems, mileage, advances, deductions) | Expense report | COVERED-43 | 43 | Expense reports with receipts (OCR), per diems, mileage |
@@ -31113,7 +31114,7 @@ SAP context: FI-TV travel requests (TRIP: TP01? request, PR01? plan), travel pla
 
 ### 13.29.2 Reports & inquiries
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | PRTS / S_AHR_61016401 … 61016411 (trip statistics, receipts, cost assignment, general trip data, trips by period/cost center, travel expense statement) | Travel reports | COVERED-43 | 43 | Expense reporting |
 | PR05 overview / PRTE (trip overview) | — | COVERED-43 | 43 | — |
@@ -31123,7 +31124,7 @@ SAP context: FI-TV travel requests (TRIP: TP01? request, PR01? plan), travel pla
 
 ### 13.29.3 Periodic processing
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | PREC | Settlement of trips (calculate reimbursement, tax) | COVERED-43 | 43 | Expense settlement |
 | PRFI / PRRW | Create posting run / manage posting runs (post to FI/CO) | COVERED-43 | 43 | Posting to GL/projects |
@@ -31135,7 +31136,7 @@ SAP context: FI-TV travel requests (TRIP: TP01? request, PR01? plan), travel pla
 
 ### 13.29.4 Customizing (SPRO)
 
-| IMG node / T-code | Table(s) | Key options | Passage status | Wave | Notes |
+| IMG node / T-code | Table(s) | Key options | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Travel expense control (trip provision variants, trip schemas, trip types statutory/enterprise, reimbursement groups) | T702N, T702O, T706* | — | COVERED-43 | 43 | Policy groups |
 | Per diems/flat rates: meals, accommodation, mileage (country/region/time), deductions (T706H T706F T706U) | T706* | Statutory vs enterprise rates, 3-month rule (DE), IRS rates (US) | COVERED-43 | 43 | Per-diem tables per country pack (wave 48) |
@@ -31150,11 +31151,11 @@ SAP context: FI-TV travel requests (TRIP: TP01? request, PR01? plan), travel pla
 
 ## 13.30 Basis & Security (users, roles, GRC Access Control, change documents, transports, system administration)
 
-SAP context: user administration (SU01, SU10, SU3, SU53, SU56, SUIM, SUGR, SU0?), CUA (SCUA/SCUM), role maintenance (PFCG, SU24, SU25, SU22, SU21 auth objects, SU20 fields), security audit (SM19/SM20/RSAU_CONFIG, SM18), password/security policies (RZ10, SECPOL), SSO/SNC/SAML (STRUST, SAML2, SNC), GRC Access Control (ARA risk analysis, ARM access requests, EAM emergency access/firefighter, BRM role management, UAR user access review), transports (SE09/SE10/STMS/SE01/SE03, CTS+, ChaRM), system admin (SM36/SM37 jobs, SM50/SM51/SM66 processes, SM12 locks, SM13 updates, SM21 syslog, ST22 dumps, ST02/ST03/ST04/ST05/ST06/ST11/ST12 performance, SMLG, RZ04, RZ20 CCMS, RZ70/SLD, SM59 RFC, SICF, SOAMANAGER, SPAD/SP01/SP02 spool, SCOT/SOST mail, SM30/SM31 table maintenance, SE16/SE16N/SE16H table display, SE11/SE80/SE38/SE37/SE24/SE18/SE19/CMOD development, SNOTE/SPAM/SAINT/SUM patching, SCC4/SCC1/SCCL client admin, SCDO/SCU3 change docs & table logging, SNRO number ranges, SE93 t-codes, SM35 batch input, SLG1 app log, SARA archiving, DB13/DB02 database, SAP Solution Manager, EarlyWatch, SAP Router, Web Dispatcher, HANA cockpit, SAP Cloud ALM). Passage: waves 1 (pipeline/transports), 2 (identity/authz), 3 (metadata/DDIC), 4 (jobs/workflow), 5 (shell, number sequences, audit, observability), 48 (SoD, SOC 2, privacy), 50 (operations/DR).
+SAP context: user administration (SU01, SU10, SU3, SU53, SU56, SUIM, SUGR, SU0?), CUA (SCUA/SCUM), role maintenance (PFCG, SU24, SU25, SU22, SU21 auth objects, SU20 fields), security audit (SM19/SM20/RSAU_CONFIG, SM18), password/security policies (RZ10, SECPOL), SSO/SNC/SAML (STRUST, SAML2, SNC), GRC Access Control (ARA risk analysis, ARM access requests, EAM emergency access/firefighter, BRM role management, UAR user access review), transports (SE09/SE10/STMS/SE01/SE03, CTS+, ChaRM), system admin (SM36/SM37 jobs, SM50/SM51/SM66 processes, SM12 locks, SM13 updates, SM21 syslog, ST22 dumps, ST02/ST03/ST04/ST05/ST06/ST11/ST12 performance, SMLG, RZ04, RZ20 CCMS, RZ70/SLD, SM59 RFC, SICF, SOAMANAGER, SPAD/SP01/SP02 spool, SCOT/SOST mail, SM30/SM31 table maintenance, SE16/SE16N/SE16H table display, SE11/SE80/SE38/SE37/SE24/SE18/SE19/CMOD development, SNOTE/SPAM/SAINT/SUM patching, SCC4/SCC1/SCCL client admin, SCDO/SCU3 change docs & table logging, SNRO number ranges, SE93 t-codes, SM35 batch input, SLG1 app log, SARA archiving, DB13/DB02 database, SAP Solution Manager, EarlyWatch, SAP Router, Web Dispatcher, HANA cockpit, SAP Cloud ALM). Depot: waves 1 (pipeline/transports), 2 (identity/authz), 3 (metadata/DDIC), 4 (jobs/workflow), 5 (shell, number sequences, audit, observability), 48 (SoD, SOC 2, privacy), 50 (operations/DR).
 
 ### 13.30.1 Master data & documents
 
-| T-code | Name | Purpose | Passage status | Wave | Notes |
+| T-code | Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | SU01 / SU01D / SU10 | User maintenance (address, logon data, roles, profiles, parameters, defaults, groups) / display / mass changes | Users | COVERED-2 | 2 | Keycloak users with SCIM provisioning; admin UI (users, roles, duties) |
 | SU3 / SU0 / SU50 / SU51 / SU52 | User own data (defaults, parameters, address) | — | COVERED-5 | 5 | Personalization/preferences |
@@ -31205,7 +31206,7 @@ SAP context: user administration (SU01, SU10, SU3, SU53, SU56, SUIM, SUGR, SU0?)
 
 ### 13.30.2 Reports & inquiries
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | SUIM (all reports) | Users by roles/authorizations/t-codes; roles by authorization; change documents (users/roles/profiles); comparison; critical authorizations | COVERED-2 | 2 | Access reports; SoD (wave 48) |
 | RSUSR002 / RSUSR003 / RSUSR008_009_NEW / RSUSR100 / RSUSR200 | Users by complex criteria / standard users password check / critical combinations / change docs / logon dates & password changes | COVERED-2 | 2 | — |
@@ -31223,7 +31224,7 @@ SAP context: user administration (SU01, SU10, SU3, SU53, SU56, SUIM, SUGR, SU0?)
 
 ### 13.30.3 Periodic processing
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | SM36 standard jobs (SAP_REORG_JOBS, SAP_REORG_SPOOL, SAP_COLLECTOR_FOR_PERFMONITOR, SAP_REORG_ABAPDUMPS, SAP_CHECK_ACTIVE_JOBS…) | Housekeeping jobs | SUPERSEDED-4 | 4 | Platform housekeeping (log retention, vacuum) via K8s CronJobs / job framework |
 | SM18 / RSAU_FILE_ADMIN | Security audit log reorganization | COVERED-5 | 5 | Log retention policies |
@@ -31241,7 +31242,7 @@ SAP context: user administration (SU01, SU10, SU3, SU53, SU56, SUIM, SUGR, SU0?)
 
 ### 13.30.4 Customizing (SPRO)
 
-| IMG node / T-code | Table(s) | Key options | Passage status | Wave | Notes |
+| IMG node / T-code | Table(s) | Key options | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Profile parameters (RZ10/RZ11: login/*, auth/*, rdisp/*, icm/*, rsau/*) | TPFET, PAHI | Password rules, lock on failed logons, SSO settings, session timeout, audit | COVERED-2 | 2 | Keycloak realm policies; gateway settings |
 | PFCG role concept: org levels (PFCG_ORGFIELD_CREATE), derived roles, composite roles, menu, SU24 check indicators | AGR_*, USOBT_C, USOBX_C | — | COVERED-2 | 2 | Role/duty/privilege metadata; org-scoped assignment |
@@ -31273,7 +31274,7 @@ SAP context: user administration (SU01, SU10, SU3, SU53, SU56, SUIM, SUGR, SU0?)
 
 ### 13.31.1 Master data & documents
 
-| T-code | Name | Purpose | Passage status | Wave | Notes |
+| T-code | Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | SWDD / SWDD_SCENARIO / SWDM | Workflow builder (classic) / flexible workflow scenario editor / business workflow explorer | Workflow design | COVERED-4 | 4 | Workflow designer (configuration-driven approval chains) + Temporal |
 | PFTC / PFTC_INS / PFTC_CHG / PFTC_DIS | Task maintenance (standard tasks, workflow templates) | — | SUPERSEDED-4 | 4 | Workflow templates in designer |
@@ -31322,7 +31323,7 @@ SAP context: user administration (SU01, SU10, SU3, SU53, SU56, SUIM, SUGR, SU0?)
 
 ### 13.31.2 Reports & inquiries
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | SWI1 / SWI2_* / SWI5 / SWI6 | Work item selection, frequency, deadlines, durations, workload | COVERED-4 | 4 | Workflow dashboards (SLA, throughput) |
 | SWEL | Event trace | COVERED-4 | 4 | Kafka topic browser / event log |
@@ -31340,7 +31341,7 @@ SAP context: user administration (SU01, SU10, SU3, SU53, SU56, SUIM, SUGR, SU0?)
 
 ### 13.31.3 Periodic processing
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | SWWDHEX / SWWERRE / SWWCOND / SWWCLEAR (deadline monitoring, error monitoring, condition evaluation, clear work items) | Workflow background jobs | SUPERSEDED-4 | 4 | Temporal timers/retries |
 | RSWWWIDE / SWWL (delete work items) / SWW_SARA archiving | Workflow housekeeping | COVERED-48 | 48 | Workflow history retention |
@@ -31356,7 +31357,7 @@ SAP context: user administration (SU01, SU10, SU3, SU53, SU56, SUIM, SUGR, SU0?)
 
 ### 13.31.4 Customizing (SPRO)
 
-| IMG node / T-code | Table(s) | Key options | Passage status | Wave | Notes |
+| IMG node / T-code | Table(s) | Key options | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | SWU3 basic workflow settings (RFC destination WORKFLOW_LOCAL, WF-BATCH user, prefix numbers SWU9 , monitoring jobs) | SWF_* | — | SUPERSEDED-4 | 4 | Temporal cluster config |
 | Flexible workflow scenarios (per document type: PR, PO, contract, journal entry, supplier invoice, credit memo…), step conditions, agent determination rules, deadlines, email notifications | SWF_FLEX* | — | COVERED-4 | 4 | Workflow designer with templates per entity |
@@ -31386,11 +31387,11 @@ SAP context: user administration (SU01, SU10, SU3, SU53, SU56, SUIM, SUGR, SU0?)
 
 ## 13.32 LO-VC — Variant Configuration & AVC (Advanced Variant Configuration)
 
-SAP context: classification-based configuration: characteristics (CT04), classes type 300 (CL02), configurable material KMAT (MM01), configuration profile (CU41), object dependencies (CU01: preconditions, selection conditions, procedures, actions, constraints/constraint nets), variant tables (CU60/CU61), variant functions (CU65), super BOM (CS40) and super routing with dependencies, configuration simulation (CU50), material variants (MM01 with configured values), order BOM (CU51), variant pricing (VA00/VA01 condition types with $SET_PRICING_FACTOR), VC modeling environment (PMEVC), AVC (S/4 Advanced Variant Configuration: new engine, Fiori Manage/Simulate Configuration Models, Manage Classes/Characteristics, product modeling environment), Product Structure Management (PSM/iPPE). Passage: wave 8 (constraint-based configurator on MiniZinc/OR-Tools; attributes & classification), wave 27 (configured order → production), wave 26 (variant pricing via engine), wave 9 (BOM/routing).
+SAP context: classification-based configuration: characteristics (CT04), classes type 300 (CL02), configurable material KMAT (MM01), configuration profile (CU41), object dependencies (CU01: preconditions, selection conditions, procedures, actions, constraints/constraint nets), variant tables (CU60/CU61), variant functions (CU65), super BOM (CS40) and super routing with dependencies, configuration simulation (CU50), material variants (MM01 with configured values), order BOM (CU51), variant pricing (VA00/VA01 condition types with $SET_PRICING_FACTOR), VC modeling environment (PMEVC), AVC (S/4 Advanced Variant Configuration: new engine, Fiori Manage/Simulate Configuration Models, Manage Classes/Characteristics, product modeling environment), Product Structure Management (PSM/iPPE). Depot: wave 8 (constraint-based configurator on MiniZinc/OR-Tools; attributes & classification), wave 27 (configured order → production), wave 26 (variant pricing via engine), wave 9 (BOM/routing).
 
 ### 13.32.1 Master data & documents
 
-| T-code | Name | Purpose | Passage status | Wave | Notes |
+| T-code | Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | CT04 / CT06 | Characteristics maintain / where-used (values, intervals, multi-value, required, restrictable, reference to table field) | Configuration attributes | COVERED-8 | 8 | Attributes with value domains; reference attributes — confirm "reference characteristics" (bind to document field e.g. order qty); treat covered |
 | CL02 / CL01 / CL03 / CL6B / CL6C | Class (type 300 variant) create/change/display, class hierarchy | Configuration classes | COVERED-8 | 8 | Classes |
@@ -31420,7 +31421,7 @@ SAP context: classification-based configuration: characteristics (CT04), classes
 
 ### 13.32.2 Reports & inquiries
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | CU05 (where-used dependencies) / CT06 (char where-used) / CL6C | Where-used lists | COVERED-8 | 8 | — |
 | CU50 (simulation trace / explanation) | Configuration explanation (why value set/excluded) | COVERED-8 | 8 | Explain configuration (constraint explanation) — confirm explanation output; treat covered |
@@ -31430,7 +31431,7 @@ SAP context: classification-based configuration: characteristics (CT04), classes
 
 ### 13.32.3 Periodic processing
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | CU mass release of dependencies / knowledge base (CU31 / CU32 / CU33 / CU34 / CU36 runtime versions for SCE/IPC) | Knowledge-base objects & runtime versions (for external configurators, IPC) | SUPERSEDED-8 | 8 | Single configurator service with versioned models |
 | Model versioning / release (AVC model release) | Model release | COVERED-8 | 8 | Versioned configurator models with ECO (wave 9) |
@@ -31439,7 +31440,7 @@ SAP context: classification-based configuration: characteristics (CT04), classes
 
 ### 13.32.4 Customizing (SPRO)
 
-| IMG node / T-code | Table(s) | Key options | Passage status | Wave | Notes |
+| IMG node / T-code | Table(s) | Key options | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Class types (300 variant, 200 material, 001…), class status, characteristics groups, organizational areas | TCLA, TCLAT, TCLO | — | COVERED-8 | 8 | — |
 | Configuration profile settings: BOM explosion (none/single/multi-level), configuration process (planned/production order, sales order, order BOM), result-oriented vs knowledge-based order BOM, interface design (UI groups) | CUCO | — | COVERED-8 | 8 | Explosion mode per model; UI groups → configurator form layout |
@@ -31455,11 +31456,11 @@ SAP context: classification-based configuration: characteristics (CT04), classes
 
 ## 13.33 Batch Management & Serial Numbers
 
-SAP context: batch master (MSC1N/MSC2N/MSC3N/MSC4N; batch level plant/material/client OMCT; batch status management OMCS?; batch classification class type 022/023 with characteristics e.g. expiry, potency, grade), batch determination (search strategies by application: MM MBC1, SD VCH1, PP COB1, WM LS?; condition technique with selection classes and sort rules CU70?), batch where-used (MB56, BMBC batch information cockpit), batch derivation (DVMO monitor, DVSP? setup, sender/receiver), shelf life (SLED, min remaining shelf life, OMJ5 checks), batch-specific units of measure (proportion/product units), electronic batch record, batch input/output in all movements, Batch Management in EWM/QM (quality inspection per batch, batch status), serial numbers (serial number profiles OIS2, serial number master IQ01-IQ09 = equipment, serial procedures MMSL/SDRE/SDLS/PPAU/PPRL/QMSL/PPSF/MMSL, serial in deliveries/orders/inventory, Fiori Manage Serial Numbers?), S/4 "Batch Management: Manage Batches, Batch Genealogy? Fiori Batch Information Cockpit". Passage: wave 8 (batch/serial tracking dimensions, profiles), wave 16 (batch/serial on movements, FEFO), wave 18 (serial capture at receipt, duplicate block), wave 24 (batch attributes, shelf life, disposition, potency, catch weight), wave 28 (batch/serial on shipments), wave 33 (QM per batch), wave 45 (serial → installed base).
+SAP context: batch master (MSC1N/MSC2N/MSC3N/MSC4N; batch level plant/material/client OMCT; batch status management OMCS?; batch classification class type 022/023 with characteristics e.g. expiry, potency, grade), batch determination (search strategies by application: MM MBC1, SD VCH1, PP COB1, WM LS?; condition technique with selection classes and sort rules CU70?), batch where-used (MB56, BMBC batch information cockpit), batch derivation (DVMO monitor, DVSP? setup, sender/receiver), shelf life (SLED, min remaining shelf life, OMJ5 checks), batch-specific units of measure (proportion/product units), electronic batch record, batch input/output in all movements, Batch Management in EWM/QM (quality inspection per batch, batch status), serial numbers (serial number profiles OIS2, serial number master IQ01-IQ09 = equipment, serial procedures MMSL/SDRE/SDLS/PPAU/PPRL/QMSL/PPSF/MMSL, serial in deliveries/orders/inventory, Fiori Manage Serial Numbers?), S/4 "Batch Management: Manage Batches, Batch Genealogy? Fiori Batch Information Cockpit". Depot: wave 8 (batch/serial tracking dimensions, profiles), wave 16 (batch/serial on movements, FEFO), wave 18 (serial capture at receipt, duplicate block), wave 24 (batch attributes, shelf life, disposition, potency, catch weight), wave 28 (batch/serial on shipments), wave 33 (QM per batch), wave 45 (serial → installed base).
 
 ### 13.33.1 Master data & documents
 
-| T-code | Name | Purpose | Passage status | Wave | Notes |
+| T-code | Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | MSC1N / MSC2N / MSC3N / MSC4N | Batch create/change/display/changes (basic data: production/expiry dates, status, vendor batch, classification values) | Batch master | COVERED-24 | 24 | Batch entity with attributes, shelf life, status; wave 8 tracking dimension |
 | MSC5N / MSC (mass change batches) | Mass batch change | — | COVERED-5 | 5 | — |
@@ -31489,7 +31490,7 @@ SAP context: batch master (MSC1N/MSC2N/MSC3N/MSC4N; batch level plant/material/c
 
 ### 13.33.2 Reports & inquiries
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | MB56 / BMBC | Batch where-used / cockpit | COVERED-24 | 24 | — |
 | MB5M | Expiration date list | COVERED-24 | 24 | — |
@@ -31503,7 +31504,7 @@ SAP context: batch master (MSC1N/MSC2N/MSC3N/MSC4N; batch level plant/material/c
 
 ### 13.33.3 Periodic processing
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | QA07 (recurring inspection / expiry monitoring, batch status change) | Expiry handling | COVERED-33 | 33 | — |
 | MB5M-based expiry alerts | — | COVERED-24 | 24 | — |
@@ -31514,7 +31515,7 @@ SAP context: batch master (MSC1N/MSC2N/MSC3N/MSC4N; batch level plant/material/c
 
 ### 13.33.4 Customizing (SPRO)
 
-| IMG node / T-code | Table(s) | Key options | Passage status | Wave | Notes |
+| IMG node / T-code | Table(s) | Key options | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | OMCT — Batch level (plant / material / client) | TCUCH | Uniqueness scope | COVERED-8 | 8 | Batch uniqueness scope per product |
 | OMCS — Batch status management activation (restricted/unrestricted), initial status per material type/plant (OMAB) | TCUCH, T134, T001W | — | COVERED-24 | 24 | Batch status |
@@ -31535,11 +31536,11 @@ SAP context: batch master (MSC1N/MSC2N/MSC3N/MSC4N; batch level plant/material/c
 
 ## 13.34 CA-CL — Classification System
 
-SAP context: characteristics (CT04: formats CHAR/NUM/DATE/TIME/CURR, values, intervals, multi-value, required, additional values, reference to table fields, documents, long texts), classes (CL01/CL02/CL03: class types 001 material, 002 equipment, 003 functional location, 017 document, 022 batch (plant), 023 batch (material), 032 release strategy, 300 variant, 010 vendor, 011 customer, 012 BP…), class hierarchies (CL24N? CL6? ), object assignment (CL20N single object/multiple classes, CL24N class/multiple objects, CL22N? ), find objects (CL30N/CL6BN), where-used (CL6AN? ), mass change (CLMM), class type customizing (O1CL), characteristic groups, organizational areas, status, keywords, classification data transfer (BAPI_OBJCL_*), standard characteristics (LOBM_, etc.). Passage: wave 8 ("Attributes & classification (SAP CL-style classes) and category hierarchies") used by products, batches, equipment, documents; metadata kernel typed fields (wave 3).
+SAP context: characteristics (CT04: formats CHAR/NUM/DATE/TIME/CURR, values, intervals, multi-value, required, additional values, reference to table fields, documents, long texts), classes (CL01/CL02/CL03: class types 001 material, 002 equipment, 003 functional location, 017 document, 022 batch (plant), 023 batch (material), 032 release strategy, 300 variant, 010 vendor, 011 customer, 012 BP…), class hierarchies (CL24N? CL6? ), object assignment (CL20N single object/multiple classes, CL24N class/multiple objects, CL22N? ), find objects (CL30N/CL6BN), where-used (CL6AN? ), mass change (CLMM), class type customizing (O1CL), characteristic groups, organizational areas, status, keywords, classification data transfer (BAPI_OBJCL_*), standard characteristics (LOBM_, etc.). Depot: wave 8 ("Attributes & classification (SAP CL-style classes) and category hierarchies") used by products, batches, equipment, documents; metadata kernel typed fields (wave 3).
 
 ### 13.34.1 Master data & documents
 
-| T-code | Name | Purpose | Passage status | Wave | Notes |
+| T-code | Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | CT04 / CT06 / CT10 / CT12 | Characteristics maintain / where-used / list / dependencies | Attribute definitions (typed, value sets, intervals, multi-value, units, templates) | COVERED-8 | 8 | Attribute definitions with typed value domains and UoM |
 | CL01 / CL02 / CL03 / CL04 | Class create/change/display/delete (class type, characteristics, keywords, standards, documents, status, organizational areas, hierarchy) | Classes | COVERED-8 | 8 | Attribute groups/classes per entity type |
@@ -31559,7 +31560,7 @@ SAP context: characteristics (CT04: formats CHAR/NUM/DATE/TIME/CURR, values, int
 
 ### 13.34.2 Reports & inquiries
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | CL30N / CL6BN | Find objects in class (by values) | COVERED-8 | 8 | — |
 | CL6AN / CT06 | Where-used | COVERED-8 | 8 | — |
@@ -31568,7 +31569,7 @@ SAP context: characteristics (CT04: formats CHAR/NUM/DATE/TIME/CURR, values, int
 
 ### 13.34.3 Periodic processing
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | CLMM (mass update) | — | COVERED-5 | 5 | — |
 | Classification reorganization / redundancy cleanup (RCCLUKA / CL) | — | SUPERSEDED-8 | 8 | Metadata registry |
@@ -31576,7 +31577,7 @@ SAP context: characteristics (CT04: formats CHAR/NUM/DATE/TIME/CURR, values, int
 
 ### 13.34.4 Customizing (SPRO)
 
-| IMG node / T-code | Table(s) | Key options | Passage status | Wave | Notes |
+| IMG node / T-code | Table(s) | Key options | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | O1CL — Class types per object (table, screen, key fields, multiple classification, standard class, hierarchy allowed, variant class) | TCLA, TCLAO, TCLAT | — | SUPERSEDED-3 | 3 | Attribute groups attachable per entity in metadata |
 | Characteristics groups (CT04), characteristic status, organizational areas, keywords | TCMG, TCLST | — | COVERED-8 | 8 | — |
@@ -31590,11 +31591,11 @@ SAP context: characteristics (CT04: formats CHAR/NUM/DATE/TIME/CURR, values, int
 
 ## 13.35 DMS — Document Management System (CA-DMS), Easy DMS, ECTR, CAD integration
 
-SAP context: document info records (CV01N/CV02N/CV03N/CV04N; document type, part, version, status network, originals stored in KPro/content server, object links to material/BOM/equipment/orders/customers/WBS, classification 017, document hierarchies/structures CV11/CV12/CV13?, document BOM), document distribution (CVI? ), status management with release workflow, change management via ECM, Easy DMS (Windows Explorer integration), SAP Engineering Control Center (ECTR) for CAD (AutoCAD/SolidWorks/NX) with BOM sync, conversion (PDF/viewer), ArchiveLink (OAAD) for scanned docs, Fiori: Manage Documents, SAP Document Management service (BTP), Product Lifecycle Management (PLM: engineering record, PLM web UI, Enterprise Product Development EPD). Passage: wave 5 (attachments on any entity), wave 8 (product images/documents), wave 9 (ECO workflow, "PLM integration" named), wave 48 (retention) — a true DMS (versioned, status-controlled, CAD-linked documents) is only PARTIAL.
+SAP context: document info records (CV01N/CV02N/CV03N/CV04N; document type, part, version, status network, originals stored in KPro/content server, object links to material/BOM/equipment/orders/customers/WBS, classification 017, document hierarchies/structures CV11/CV12/CV13?, document BOM), document distribution (CVI? ), status management with release workflow, change management via ECM, Easy DMS (Windows Explorer integration), SAP Engineering Control Center (ECTR) for CAD (AutoCAD/SolidWorks/NX) with BOM sync, conversion (PDF/viewer), ArchiveLink (OAAD) for scanned docs, Fiori: Manage Documents, SAP Document Management service (BTP), Product Lifecycle Management (PLM: engineering record, PLM web UI, Enterprise Product Development EPD). Depot: wave 5 (attachments on any entity), wave 8 (product images/documents), wave 9 (ECO workflow, "PLM integration" named), wave 48 (retention) — a true DMS (versioned, status-controlled, CAD-linked documents) is only PARTIAL.
 
 ### 13.35.1 Master data & documents
 
-| T-code | Name | Purpose | Passage status | Wave | Notes |
+| T-code | Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | CV01N / CV02N / CV03N | Document info record create/change/display (document type, number, part, version; status; originals; object links; classification; texts) | Document master | PARTIAL-8 | 8 | Attachments (wave 5) and product documents (wave 8) exist; a *document info record* with type, versioning, part/version numbering, status network and release is not named — partial; propose wave 9 "engineering documents" (drawings/specs under ECO control) |
 | CV04N | Find document (by attributes, classification, object links, full text) | Search | PARTIAL-8 | 8 | Global search covers attachments metadata; attribute/classification search on documents partial |
@@ -31615,7 +31616,7 @@ SAP context: document info records (CV01N/CV02N/CV03N/CV04N; document type, part
 
 ### 13.35.2 Reports & inquiries
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | CV04N | Document search | PARTIAL-8 | 8 | — |
 | CV13 / CV15 | Document structure display / where-used | GAP | propose 9 | — |
@@ -31625,7 +31626,7 @@ SAP context: document info records (CV01N/CV02N/CV03N/CV04N; document type, part
 
 ### 13.35.3 Periodic processing
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | CV conversion runs (originals → PDF/neutral formats) | Conversion server runs | PARTIAL-5 | 5 | Preview generation for attachments — partial |
 | Document archiving / retention (SARA CV_DVS / KPro cleanup) | — | COVERED-48 | 48 | — |
@@ -31634,7 +31635,7 @@ SAP context: document info records (CV01N/CV02N/CV03N/CV04N; document type, part
 
 ### 13.35.4 Customizing (SPRO)
 
-| IMG node / T-code | Table(s) | Key options | Passage status | Wave | Notes |
+| IMG node / T-code | Table(s) | Key options | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | DC10 — Document types (number assignment, version/part numbering, status network, object links, screen layout, classification class, originals count, versioning) | TDWA, TDWS, TDWO, TDWP | — | PARTIAL-8 | 8 | Attachment types exist; full document type model partial |
 | DC20 — Status (document status definitions, release flag, content version) | TDWS | — | PARTIAL-9 | 9 | — |
@@ -31650,11 +31651,11 @@ SAP context: document info records (CV01N/CV02N/CV03N/CV04N; document type, part
 
 ## 13.36 Analytics — BW/4HANA, CDS views & embedded analytics, SAP Analytics Cloud, LIS, Report Painter, SAP Query
 
-SAP context: BW (RSA1 workbench, DataSources RSA5/RSA6/RSA3, process chains RSPC, InfoProviders, transformations/DTPs, queries BEx RSRT/BEx Query Designer/Analyzer, Analysis for Office, BW/4HANA, Open ODS, HANA calculation views, BW Bridge), embedded analytics (CDS views with @Analytics annotations, analytical queries, Fiori analytical list pages/overview pages, KPI modeler & Smart Business, Query Browser, View Browser, Custom Analytical Queries, Multidimensional reports), SAP Analytics Cloud (stories, planning, predictive, Digital Boardroom, live connection to S/4), Datasphere, SAP Query (SQ01/SQ02/SQ03, SQVI QuickViewer, InfoSets), Report Painter/Writer (GRR1/GR51/GR55), LIS (SIS/PURCHIS/INVCO/PP-IS/QMIS/PMIS; MC* transactions), Drill-down reporting (FGI0, KE30, FM/PS), Fiori Overview pages. Passage: wave 46 (CDC → Iceberg lakehouse, Trino/ClickHouse, dbt, Cube semantic layer with governed metrics and RLS, embedded dashboards, self-service explorer, scheduled reports, export to Excel/Power BI/Tableau, operational document designer, OpenMetadata catalog/lineage), wave 15 (financial report designer), wave 5 (saved views, export).
+SAP context: BW (RSA1 workbench, DataSources RSA5/RSA6/RSA3, process chains RSPC, InfoProviders, transformations/DTPs, queries BEx RSRT/BEx Query Designer/Analyzer, Analysis for Office, BW/4HANA, Open ODS, HANA calculation views, BW Bridge), embedded analytics (CDS views with @Analytics annotations, analytical queries, Fiori analytical list pages/overview pages, KPI modeler & Smart Business, Query Browser, View Browser, Custom Analytical Queries, Multidimensional reports), SAP Analytics Cloud (stories, planning, predictive, Digital Boardroom, live connection to S/4), Datasphere, SAP Query (SQ01/SQ02/SQ03, SQVI QuickViewer, InfoSets), Report Painter/Writer (GRR1/GR51/GR55), LIS (SIS/PURCHIS/INVCO/PP-IS/QMIS/PMIS; MC* transactions), Drill-down reporting (FGI0, KE30, FM/PS), Fiori Overview pages. Depot: wave 46 (CDC → Iceberg lakehouse, Trino/ClickHouse, dbt, Cube semantic layer with governed metrics and RLS, embedded dashboards, self-service explorer, scheduled reports, export to Excel/Power BI/Tableau, operational document designer, OpenMetadata catalog/lineage), wave 15 (financial report designer), wave 5 (saved views, export).
 
 ### 13.36.1 Master data & documents
 
-| T-code | Name | Purpose | Passage status | Wave | Notes |
+| T-code | Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | RSA1 | BW Data Warehousing Workbench (InfoObjects, DataSources, InfoProviders, transformations, DTPs, process chains) | Warehouse modeling | SUPERSEDED-46 | 46 | CDC → Iceberg lakehouse; dbt models replace transformations/InfoProviders |
 | RSA5 / RSA6 / RSA3 / RSA7 / LBWE / LBWQ / LBWG / SBIW | Install/maintain DataSources, extractor checker, delta queue, LO cockpit (logistics extraction), setup tables | Extraction | SUPERSEDED-46 | 46 | Debezium CDC from every domain; no extractors/setup tables |
@@ -31685,7 +31686,7 @@ SAP context: BW (RSA1 workbench, DataSources RSA5/RSA6/RSA3, process chains RSPC
 
 ### 13.36.2 Reports & inquiries
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | BEx queries / AO workbooks / SAC stories (all standard BW business content: FI, CO, SD, MM, PP, QM, PM, HR InfoCubes/queries) | Standard BI content | SUPERSEDED-46 | 46 | Governed metric library (revenue, margin, DSO, DPO, OTIF, OEE, inventory turns, etc.) + standard dashboards per workspace |
 | Fiori Overview Pages (Procurement, Sales, Finance, Inventory, Production, Quality, Maintenance, HR) | Role-based KPI pages | COVERED-46 | 46 | Embedded dashboards in every workspace |
@@ -31698,7 +31699,7 @@ SAP context: BW (RSA1 workbench, DataSources RSA5/RSA6/RSA3, process chains RSPC
 
 ### 13.36.3 Periodic processing
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | RSPC process chains (daily loads, delta, rollup, compression, aggregates) | ETL schedule | SUPERSEDED-46 | 46 | Streaming CDC (p95 lag < 60 s) + dbt scheduled models |
 | LBWE / LBWQ / setup table fills (OLI*BW: OLI7BW, OLI3BW…) | LO extraction setup | SUPERSEDED-46 | 46 | — |
@@ -31710,7 +31711,7 @@ SAP context: BW (RSA1 workbench, DataSources RSA5/RSA6/RSA3, process chains RSPC
 
 ### 13.36.4 Customizing (SPRO)
 
-| IMG node / T-code | Table(s) | Key options | Passage status | Wave | Notes |
+| IMG node / T-code | Table(s) | Key options | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | BW source system connection (RSA1: source systems, ODP, SLT/RFC), BW settings (RSCUSTV*, RSADMIN) | RSADMIN, RSBASIDOC | — | SUPERSEDED-46 | 46 | Debezium connectors per domain DB |
 | LIS customizing (MC21 info structures, MC24 update rules, OMO1 update control per application, period units) | TMC* | — | SUPERSEDED-46 | 46 | — |
@@ -31728,11 +31729,11 @@ SAP context: BW (RSA1 workbench, DataSources RSA5/RSA6/RSA3, process chains RSPC
 
 ## 13.37 AI — SAP Joule, SAP Build Process Automation, Business AI (SUPERSEDED by wave 47)
 
-SAP context: Joule (generative AI copilot in S/4HANA Cloud, SuccessFactors, Ariba: navigational, transactional, informational, Joule agents, Joule Studio), SAP Build Process Automation (BPA: workflow + RPA bots, decisions/business rules, process visibility), SAP CoPilot (legacy), SAP Business AI scenarios (cash application ML, AP invoice matching proposals, MRP exception triage, predictive delivery, intelligent product proposals, GR/IR account reconciliation ML, situation handling (Situation Framework: situation types, situation pages), Intelligent Scenario Lifecycle Management (ISLM), Document Information Extraction, Business Document Processing, SAP AI Core/AI Launchpad, generative AI hub), SAP Signavio process AI. Passage: wave 47 (MCP server over every API/entity/report with OPA, copilot UI, Temporal-backed agent runtime with approval gates — AP coding, cash application, MRP exception triage, collections outreach, journal anomaly detection — eval harness in CI, prompt/version registry, cost budgets, responsible-AI controls, model-agnostic provider layer).
+SAP context: Joule (generative AI copilot in S/4HANA Cloud, SuccessFactors, Ariba: navigational, transactional, informational, Joule agents, Joule Studio), SAP Build Process Automation (BPA: workflow + RPA bots, decisions/business rules, process visibility), SAP CoPilot (legacy), SAP Business AI scenarios (cash application ML, AP invoice matching proposals, MRP exception triage, predictive delivery, intelligent product proposals, GR/IR account reconciliation ML, situation handling (Situation Framework: situation types, situation pages), Intelligent Scenario Lifecycle Management (ISLM), Document Information Extraction, Business Document Processing, SAP AI Core/AI Launchpad, generative AI hub), SAP Signavio process AI. Depot: wave 47 (MCP server over every API/entity/report with OPA, copilot UI, Temporal-backed agent runtime with approval gates — AP coding, cash application, MRP exception triage, collections outreach, journal anomaly detection — eval harness in CI, prompt/version registry, cost budgets, responsible-AI controls, model-agnostic provider layer).
 
 ### 13.37.1 Master data & documents
 
-| T-code | Name | Purpose | Passage status | Wave | Notes |
+| T-code | Name | Purpose | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Joule (navigational/transactional/informational capabilities; natural-language navigation, create documents, Q&A over data/documentation) | Copilot in S/4 Fiori | Copilot | SUPERSEDED-47 | 47 | Copilot UI in the shell: ask-the-data (semantic layer), explain-this-record, draft documents, summarize workflows; MCP server exposes every API/entity/report |
 | Joule Agents (e.g. dispute resolution agent, cash collection agent, maintenance planner agent, sourcing agent, financial accruals agent) / Joule Studio (build custom agents/skills) | Autonomous agents | Agents | SUPERSEDED-47 | 47 | Agent runtime (Temporal) with approval gates: AP invoice coding, cash application suggestions, MRP exception triage, collections outreach, journal anomaly detection; agent builder = MCP tools + workflow designer |
@@ -31749,7 +31750,7 @@ SAP context: Joule (generative AI copilot in S/4HANA Cloud, SuccessFactors, Arib
 
 ### 13.37.2 Reports & inquiries
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | Joule informational queries (Q&A over business data and documentation) | Ask-the-data | SUPERSEDED-47 | 47 | Ask-the-data over semantic layer |
 | ISLM model monitoring (accuracy, drift) / AI Launchpad metrics | Model monitoring | SUPERSEDED-47 | 47 | Eval dashboards; cost/token budget alerts |
@@ -31759,7 +31760,7 @@ SAP context: Joule (generative AI copilot in S/4HANA Cloud, SuccessFactors, Arib
 
 ### 13.37.3 Periodic processing
 
-| T-code | Name | Passage status | Wave | Notes |
+| T-code | Name | Depot status | Wave | Notes |
 |---|---|---|---|---|
 | ISLM training/retraining jobs, model activation | — | SUPERSEDED-47 | 47 | Eval runs in CI gate deploys; retraining pipelines (Python services) |
 | Cash application ML proposal runs (nightly) | — | SUPERSEDED-47 | 47 | Cash application agent (suggest-mode) |
@@ -31769,7 +31770,7 @@ SAP context: Joule (generative AI copilot in S/4HANA Cloud, SuccessFactors, Arib
 
 ### 13.37.4 Customizing (SPRO)
 
-| IMG node / T-code | Table(s) | Key options | Passage status | Wave | Notes |
+| IMG node / T-code | Table(s) | Key options | Depot status | Wave | Notes |
 |---|---|---|---|---|---|
 | Joule activation per scope item, capability assignment to roles, Joule Studio skill/agent configuration, grounding sources | — | — | SUPERSEDED-47 | 47 | Copilot/agent enablement per workspace & role (OPA); MCP tool catalog |
 | Situation types (standard/extended), triggers, conditions, responsibility management (teams & responsibilities), notification channels | — | — | SUPERSEDED-47 | 47 | Alert rules + responsibility assignment via org model (wave 6) |

@@ -8,7 +8,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/services/assets/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/assets/internal/domain"
 )
 
 // DateLayout is the wire format of every calendar date the service exchanges.

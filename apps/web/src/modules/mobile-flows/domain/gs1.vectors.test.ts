@@ -3,7 +3,7 @@ import { parseGS1 } from "./gs1";
 import suite from "./testdata/gs1-ai-vectors.json";
 
 // AC-32.1: the GS1 AI test suite vectors (GS1 Barcode Syntax Engine, within the
-// BR-32.1 AI table) and the 60 Passage edge vectors, each parsed with and without
+// BR-32.1 AI table) and the 60 Depot edge vectors, each parsed with and without
 // a symbology identifier. Expected maps and verdicts come from the fixture, which
 // gen_gs1_ai_vectors.py builds with its own reference parser and checks against
 // GS1's verdicts; nothing here is derived from gs1.ts.
@@ -23,11 +23,11 @@ const canonical = (m: Record<string, string>) => JSON.stringify(Object.entries(m
 const now = new Date(`${suite.referenceDate}T00:00:00Z`);
 
 describe("GS1 AI vectors (AC-32.1)", () => {
-  it("holds the GS1 suite vectors and 60 Passage vectors, with valid and invalid cases of each", () => {
-    expect(suite.counts.passage).toBe(60);
-    expect(suite.counts.gs1 + suite.counts.passage).toBe(vectors.length);
-    for (const origin of ["gs1", "passage"]) {
-      const group = vectors.filter((v) => (origin === "passage" ? v.origin === "passage" : v.origin !== "passage"));
+  it("holds the GS1 suite vectors and 60 Depot vectors, with valid and invalid cases of each", () => {
+    expect(suite.counts.depot).toBe(60);
+    expect(suite.counts.gs1 + suite.counts.depot).toBe(vectors.length);
+    for (const origin of ["gs1", "depot"]) {
+      const group = vectors.filter((v) => (origin === "depot" ? v.origin === "depot" : v.origin !== "depot"));
       expect(group.some((v) => v.ok)).toBe(true);
       expect(group.some((v) => v.firstError === "MOB-0102")).toBe(true);
       expect(group.some((v) => v.firstError === "MOB-0103")).toBe(true);

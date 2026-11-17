@@ -15,9 +15,9 @@ entity on `po.cancelled`, the survivor on `party.merged`, and a source version o
 callbacks. The flag duty `search.index.write` only names the `search-index` service principal the consumer runs as; it
 grants no route.
 
-Subscribed topics are the source services' channels: `passage.party.party`, `passage.product.product`,
-`passage.procurement.po`, `passage.receiving.receipt`, `passage.receiving.vendorinvoice`, `passage.sales.order`,
-`passage.fulfillment.packingslip`, `passage.billing.invoice`, `passage.production.order` and `passage.hr.worker`. Sales
+Subscribed topics are the source services' channels: `depot.party.party`, `depot.product.product`,
+`depot.procurement.po`, `depot.receiving.receipt`, `depot.receiving.vendorinvoice`, `depot.sales.order`,
+`depot.fulfillment.packingslip`, `depot.billing.invoice`, `depot.production.order` and `depot.hr.worker`. Sales
 `order.confirmed` and fulfillment `packingslip.posted` gained `order_number` and `legal_entity_id` (additive). Documents are
 indexed under their legal entity; a caller searches a type with any one of its read duties.
 

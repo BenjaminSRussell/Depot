@@ -31,7 +31,7 @@ spec:
             capabilities:
               drop: [ALL]
           env:
-            {{- include "passage.cloudEnv" $ | nindent 12 }}
+            {{- include "depot.cloudEnv" $ | nindent 12 }}
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:
@@ -50,12 +50,12 @@ spec:
             - name: EDI_EDIFACT_QUALIFIER
               value: {{ .Values.edifactSender.qualifier | quote }}
             {{- if .Values.serviceIdentity.signingKeySecret }}
-            - name: PASSAGE_SERVICE_NAME
+            - name: DEPOT_SERVICE_NAME
               value: edi
-            - name: PASSAGE_SERVICE_SIGNING_KEY_FILE
-              value: /var/run/passage/service-identity/signing-key
+            - name: DEPOT_SERVICE_SIGNING_KEY_FILE
+              value: /var/run/depot/service-identity/signing-key
             {{- if .Values.serviceIdentity.keyId }}
-            - name: PASSAGE_SERVICE_KEY_ID
+            - name: DEPOT_SERVICE_KEY_ID
               value: {{ .Values.serviceIdentity.keyId | quote }}
             {{- end }}
             - name: EDI_FULFILLMENT_URL
@@ -87,7 +87,7 @@ spec:
             {{- end }}
             {{- if .Values.transports.secretName }}
             - name: EDI_SECRETS_DIR
-              value: /var/run/passage/edi-secrets
+              value: /var/run/depot/edi-secrets
             {{- end }}
             {{- if .Values.transports.workers }}
             - name: EDI_TRANSPORT_WORKERS
@@ -113,11 +113,11 @@ spec:
             {{- end }}
             {{- if .Values.transports.trust.rootsConfigMap }}
             - name: EDI_AS2_TRUST_ROOTS
-              value: /etc/passage/edi-trust/roots/{{ .Values.transports.trust.rootsKey }}
+              value: /etc/depot/edi-trust/roots/{{ .Values.transports.trust.rootsKey }}
             {{- end }}
             {{- if .Values.transports.trust.crlConfigMap }}
             - name: EDI_AS2_CRL_DIR
-              value: /etc/passage/edi-trust/crl
+              value: /etc/depot/edi-trust/crl
             {{- end }}
           ports:
             - { name: http, containerPort: 8080 }
@@ -136,16 +136,16 @@ spec:
           {{- if or .Values.serviceIdentity.signingKeySecret .Values.transports.secretName .Values.transports.trust.rootsConfigMap }}
           volumeMounts:
             {{- if .Values.serviceIdentity.signingKeySecret }}
-            - { name: service-identity, mountPath: /var/run/passage/service-identity, readOnly: true }
+            - { name: service-identity, mountPath: /var/run/depot/service-identity, readOnly: true }
             {{- end }}
             {{- if .Values.transports.secretName }}
-            - { name: edi-secrets, mountPath: /var/run/passage/edi-secrets, readOnly: true }
+            - { name: edi-secrets, mountPath: /var/run/depot/edi-secrets, readOnly: true }
             {{- end }}
             {{- if .Values.transports.trust.rootsConfigMap }}
-            - { name: edi-trust-roots, mountPath: /etc/passage/edi-trust/roots, readOnly: true }
+            - { name: edi-trust-roots, mountPath: /etc/depot/edi-trust/roots, readOnly: true }
             {{- end }}
             {{- if .Values.transports.trust.crlConfigMap }}
-            - { name: edi-trust-crl, mountPath: /etc/passage/edi-trust/crl, readOnly: true }
+            - { name: edi-trust-crl, mountPath: /etc/depot/edi-trust/crl, readOnly: true }
             {{- end }}
           {{- end }}
           resources:

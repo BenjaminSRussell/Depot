@@ -19,9 +19,9 @@ const YearEndClosingSource = "year_end_closing"
 // system, so the consumer asks for both until the ledger publishes the poster.
 const CloseSourceSystem = "close"
 
-// passageScheme is how ledger-built source links name a Passage route
-// (passage://ledger/journal-batches/{id}); the read model stores the route.
-const passageScheme = "passage://"
+// depotScheme is how ledger-built source links name a Depot route
+// (depot://ledger/journal-batches/{id}); the read model stores the route.
+const depotScheme = "depot://"
 
 var periodKeyPattern = regexp.MustCompile(`^([0-9]{4})-(0[1-9]|1[0-2])$`)
 
@@ -100,11 +100,11 @@ func Combination(dims map[string]string) string {
 }
 
 // ReadModelSourceURI is the drill-down link the read model keeps for a ledger
-// source link: a passage:// link becomes its Passage route, a safe link stays,
+// source link: a depot:// link becomes its Depot route, a safe link stays,
 // and anything else is dropped. A link never refuses an entry: the journal is
 // the truth and an entry the read model skips would stop its ledger.
 func ReadModelSourceURI(s string) string {
-	if rest, ok := strings.CutPrefix(s, passageScheme); ok {
+	if rest, ok := strings.CutPrefix(s, depotScheme); ok {
 		s = "/" + rest
 	}
 	if !SafeSourceURI(s) {

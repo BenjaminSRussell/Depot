@@ -11,10 +11,10 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/consolidation/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/consolidation/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/consolidation/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/consolidation/internal/store"
 )
 
 // GroupStore persists the group structure (FR-40.7) and the collections

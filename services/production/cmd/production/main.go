@@ -11,15 +11,15 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/issueclaim"
-	"github.com/BenjaminSRussell/passage/platform/ledgerclient"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/production/internal/api"
-	"github.com/BenjaminSRussell/passage/services/production/internal/productclient"
-	"github.com/BenjaminSRussell/passage/services/production/internal/store"
-	"github.com/BenjaminSRussell/passage/services/production/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/issueclaim"
+	"github.com/BenjaminSRussell/depot/platform/ledgerclient"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/production/internal/api"
+	"github.com/BenjaminSRussell/depot/services/production/internal/productclient"
+	"github.com/BenjaminSRussell/depot/services/production/internal/store"
+	"github.com/BenjaminSRussell/depot/services/production/migrations"
 )
 
 const (

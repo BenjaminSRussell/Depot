@@ -16,7 +16,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/fieldcrypt/azurekv"
+	"github.com/BenjaminSRussell/depot/platform/fieldcrypt/azurekv"
 )
 
 const (
@@ -27,8 +27,10 @@ const (
 	keySize       = 32
 	envelopeV1    = 1
 	maxKeyIDBytes = 64
-	kdfInfo       = "passage.fieldcrypt.v1"
-	macKDFInfo    = "passage.fieldcrypt.mac.v1"
+	// The KDF and MAC labels keep the product's former name: ciphertexts and blind indexes at rest
+	// were derived with them, so they are wire identifiers, not branding (docs/adr/0005-rename-to-depot.md).
+	kdfInfo    = "passage.fieldcrypt.v1"
+	macKDFInfo = "passage.fieldcrypt.mac.v1"
 )
 
 var ErrOpen = errors.New("fieldcrypt: cannot open value")

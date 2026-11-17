@@ -31,7 +31,7 @@ spec:
             - secretRef:
                 name: {{ .Values.providerSecret }}
           env:
-            {{- include "passage.cloudEnv" $ | nindent 12 }}
+            {{- include "depot.cloudEnv" $ | nindent 12 }}
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:
@@ -96,14 +96,14 @@ spec:
             {{- if eq .Values.runEngine "temporal" }}
             - name: AGENTS_WORKFLOW_URL
               value: {{ .Values.workflowUrl | quote }}
-            - name: PASSAGE_SERVICE_PUBLIC_KEYS
+            - name: DEPOT_SERVICE_PUBLIC_KEYS
               value: {{ required "servicePublicKeys is required when runEngine is temporal" .Values.servicePublicKeys | quote }}
-            - name: PASSAGE_SERVICE_NAME
+            - name: DEPOT_SERVICE_NAME
               value: agents
-            - name: PASSAGE_SERVICE_SIGNING_KEY_FILE
-              value: /var/run/passage/service-identity/signing-key
+            - name: DEPOT_SERVICE_SIGNING_KEY_FILE
+              value: /var/run/depot/service-identity/signing-key
             {{- if .Values.serviceIdentity.keyId }}
-            - name: PASSAGE_SERVICE_KEY_ID
+            - name: DEPOT_SERVICE_KEY_ID
               value: {{ .Values.serviceIdentity.keyId | quote }}
             {{- end }}
             {{- end }}
@@ -123,7 +123,7 @@ spec:
             {{- end }}
             {{- if .Values.auth.jwksConfigMap.name }}
             - name: AGENTS_JWKS_FILE
-              value: /etc/passage/jwks/jwks.json
+              value: /etc/depot/jwks/jwks.json
             {{- end }}
           ports:
             - { name: http, containerPort: 8080 }
@@ -141,10 +141,10 @@ spec:
           {{- if or .Values.auth.jwksConfigMap.name (eq .Values.runEngine "temporal") }}
           volumeMounts:
             {{- if .Values.auth.jwksConfigMap.name }}
-            - { name: jwks, mountPath: /etc/passage/jwks, readOnly: true }
+            - { name: jwks, mountPath: /etc/depot/jwks, readOnly: true }
             {{- end }}
             {{- if eq .Values.runEngine "temporal" }}
-            - { name: service-identity, mountPath: /var/run/passage/service-identity, readOnly: true }
+            - { name: service-identity, mountPath: /var/run/depot/service-identity, readOnly: true }
             {{- end }}
           {{- end }}
       {{- if or .Values.auth.jwksConfigMap.name (eq .Values.runEngine "temporal") }}

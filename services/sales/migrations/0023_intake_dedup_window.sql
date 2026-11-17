@@ -8,7 +8,7 @@
 -- migration here the index is built in the migration's own transaction (no
 -- CONCURRENTLY).
 -- No new table, so no new grant: sales_parameter and sales_order are already
--- granted to passage_app.
+-- granted to depot_app.
 ALTER TABLE sales_parameter
   ADD COLUMN IF NOT EXISTS intake_dedup_window_days int NOT NULL DEFAULT 30
   CHECK (intake_dedup_window_days BETWEEN 1 AND 90);

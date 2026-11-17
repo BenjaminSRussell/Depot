@@ -9,12 +9,12 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
 )
 
 var specOperation = regexp.MustCompile(`^    (get|post|put|patch|delete):$`)
 
-// declaredDuties maps "path method" to the operation's x-passage-duty ("" when absent).
+// declaredDuties maps "path method" to the operation's x-depot-duty ("" when absent).
 func declaredDuties(spec string) map[string]string {
 	declared := map[string]string{}
 	inPaths, path, operation := false, "", ""
@@ -30,8 +30,8 @@ func declaredDuties(spec string) map[string]string {
 		case specOperation.MatchString(line):
 			operation = path + " " + specOperation.FindStringSubmatch(line)[1]
 			declared[operation] = ""
-		case operation != "" && strings.HasPrefix(line, "      x-passage-duty: "):
-			declared[operation] = strings.TrimPrefix(line, "      x-passage-duty: ")
+		case operation != "" && strings.HasPrefix(line, "      x-depot-duty: "):
+			declared[operation] = strings.TrimPrefix(line, "      x-depot-duty: ")
 		}
 	}
 	return declared
@@ -63,7 +63,7 @@ func TestOpenAPIMatchesRoutesAndDuties(t *testing.T) {
 			continue
 		}
 		if duty == "" {
-			t.Errorf("no x-passage-duty: %s", op)
+			t.Errorf("no x-depot-duty: %s", op)
 		}
 		if duty == "public" || !strings.HasSuffix(op, " post") {
 			continue

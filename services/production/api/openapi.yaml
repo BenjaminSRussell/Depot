@@ -1,9 +1,9 @@
 openapi: 3.1.0
 info:
-  title: Passage production orders
+  title: Depot production orders
   version: 0.21.16
   description: |
-    Wave 21 slices 1 to 4 of PSG-21. Creates production orders with BOM and route
+    Wave 21 slices 1 to 4 of DPT-21. Creates production orders with BOM and route
     explosion, lists and reads them, edits the header, runs the status state machine
     (BR-21.1) and estimates planned cost. Slice 2 adds posting profiles (FR-21.13), picking
     lists, route cards and report-as-finished journals with their WIP postings (FR-21.5 to
@@ -34,7 +34,7 @@ info:
     Problems are RFC 9457 with a stable `code` (see README). The gateway serves these paths
     under `/api`.
 servers:
-  - url: https://api.{env}.passage.dev/api
+  - url: https://api.{env}.depot.dev/api
     variables:
       env: { default: dev }
 security:
@@ -621,7 +621,7 @@ components:
       description: |
         insert-operations inserts the operations after the reporting one; create-rework-order
         creates a rework order (FR-21.20) for the reported error quantity; notify publishes
-        dev.passage.production.triggerpoint.fired.v1 and nothing else. release-next (needs
+        dev.depot.production.triggerpoint.fired.v1 and nothing else. release-next (needs
         scheduled jobs, wave 23) and start-workflow (needs the workflow engine, wave 4) are
         refused with PRODUCTION_TRIGGER_FUNCTION_UNSUPPORTED.
     TriggerOperation:
@@ -1434,7 +1434,7 @@ paths:
     get:
       operationId: listProductionOrders
       summary: List orders, newest first, with keyset pagination
-      x-passage-duty: production.order.read
+      x-depot-duty: production.order.read
       parameters:
         - { name: status, in: query, schema: { $ref: '#/components/schemas/Status' } }
         - { name: legalEntityId, in: query, schema: { type: string, format: uuid } }
@@ -1462,7 +1462,7 @@ paths:
     post:
       operationId: createProductionOrder
       summary: Create a production order and explode its BOM and route
-      x-passage-duty: production.order.write
+      x-depot-duty: production.order.write
       parameters:
         - { $ref: '#/components/parameters/IdempotencyKey' }
       requestBody:
@@ -1473,10 +1473,10 @@ paths:
       responses:
         '201':
           description: |
-            Created; emits dev.passage.production.order.created.v1. With PRODUCTION_ESTIMATE_ON_CREATE
+            Created; emits dev.depot.production.order.created.v1. With PRODUCTION_ESTIMATE_ON_CREATE
             (4.21.13 "Estimate on create") the order is estimated in the same transaction: it is
             returned Estimated at version 2 with its planned cost, an `estimate` status-log row and
-            dev.passage.production.order.statuschanged.v1 after order.created.
+            dev.depot.production.order.statuschanged.v1 after order.created.
           headers:
             ETag: { $ref: '#/components/headers/ETag' }
             Location: { schema: { type: string } }
@@ -1507,7 +1507,7 @@ paths:
         configuration returns the stored order (200, Idempotent-Replayed); another product or
         configuration for the line, or a line already built in another legal entity, is 409
         PRODUCTION_ORIGIN_CONFLICT. Called by the sales service with a service token.
-      x-passage-duty: production.order.create-from-sales
+      x-depot-duty: production.order.create-from-sales
       parameters:
         - { $ref: '#/components/parameters/IdempotencyKey' }
       requestBody:
@@ -1517,7 +1517,7 @@ paths:
             schema: { $ref: '#/components/schemas/CreateOrder' }
       responses:
         '201':
-          description: Created; emits dev.passage.production.order.created.v1 with configurationId.
+          description: Created; emits dev.depot.production.order.created.v1 with configurationId.
           headers:
             ETag: { $ref: '#/components/headers/ETag' }
             Location: { schema: { type: string } }
@@ -1550,7 +1550,7 @@ paths:
         rest. The route needs production.order.release and the command its own duty as well
         (end: production.order.end; estimate and schedule: production.order.write).
         report-finished and reset-status need per-order input and are not accepted.
-      x-passage-duty: production.order.release
+      x-depot-duty: production.order.release
       parameters:
         - { $ref: '#/components/parameters/IdempotencyKey' }
       requestBody:
@@ -1585,7 +1585,7 @@ paths:
         (`replayed`, Idempotent-Replayed) instead of scanning again, and a key used for another job,
         command or legal entity is refused. When some cancels fail, `code` is PRODUCTION_BULK_PARTIAL (PROD-0022). Needs
         production.order.release, the duty of `:cancel`.
-      x-passage-duty: production.order.release
+      x-depot-duty: production.order.release
       parameters:
         - { name: Idempotency-Key, in: header, required: false, description: 'Required unless dryRun; order X uses <key>:<X>.', schema: { type: string, maxLength: 255 } }
       requestBody:
@@ -1624,7 +1624,7 @@ paths:
         Idempotency-Key of order X is `<key>:<X>`; a retry with the same key replays the orders
         that run ended (`replayed`, Idempotent-Replayed) instead of scanning again, and a key used
         for another job, command or legal entity is refused. When some ends fail, `code` is PRODUCTION_BULK_PARTIAL (PROD-0022).
-      x-passage-duty: production.order.end
+      x-depot-duty: production.order.end
       parameters:
         - { name: Idempotency-Key, in: header, required: false, description: 'Required unless dryRun; order X uses <key>:<X>.', schema: { type: string, maxLength: 255 } }
       requestBody:
@@ -1653,13 +1653,13 @@ paths:
         warehouse, currency, item group, rework reference and the BOM and route snapshot.
         The first order survives with the summed quantity, its lines and operations
         re-exploded and, once estimated, re-estimated; it emits
-        dev.passage.production.order.updated.v1; a scheduled survivor is re-dated for the summed quantity
-        (dev.passage.production.order.scheduled.v1, reason redate). Every other order becomes Cancelled
+        dev.depot.production.order.updated.v1; a scheduled survivor is re-dated for the summed quantity
+        (dev.depot.production.order.scheduled.v1, reason redate). Every other order becomes Cancelled
         with its jobs and dates removed, mergedIntoOrderId set, a `merge` status-log row and
-        dev.passage.production.order.statuschanged.v1. Subcontracting (FR-21.10): the survivor's
+        dev.depot.production.order.statuschanged.v1. Subcontracting (FR-21.10): the survivor's
         requested vendor POs change with the summed quantity
-        (dev.passage.production.subcontract.pochanged.v1) and the requests of every order merged
-        away are withdrawn (dev.passage.production.subcontract.pocancelled.v1, reason
+        (dev.depot.production.subcontract.pochanged.v1) and the requests of every order merged
+        away are withdrawn (dev.depot.production.subcontract.pocancelled.v1, reason
         order-cancelled). Refused (422
         PRODUCTION_MERGE_REFUSED, PROD-0016) when any order has posted journals, an order
         to be cancelled has draft journals, or the orders differ (the declared co-products and
@@ -1669,7 +1669,7 @@ paths:
         PRODUCTION_ORDER_QUANTITY otherwise; orders created with different released products are
         refused with PRODUCTION_MERGE_REFUSED, and an order made without one joins the one that has it.
         A replay of a merge that succeeded is answered without reading the product service.
-      x-passage-duty: production.order.release
+      x-depot-duty: production.order.release
       parameters:
         - { $ref: '#/components/parameters/IdempotencyKey' }
       requestBody:
@@ -1696,7 +1696,7 @@ paths:
     get:
       operationId: getProductionOrder
       summary: Read an order with its lines, operations and planned cost
-      x-passage-duty: production.order.read
+      x-depot-duty: production.order.read
       parameters:
         - { $ref: '#/components/parameters/OrderId' }
       responses:
@@ -1715,9 +1715,9 @@ paths:
         The quantity changes in Created and Estimated (re-exploding lines and operations), the
         delivery date until Released. When a subcontract operation's vendor PO was already
         requested (a released order reset below Released keeps it), a new process quantity or
-        delivery date reaches purchasing as dev.passage.production.subcontract.pochanged.v1 in
+        delivery date reaches purchasing as dev.depot.production.subcontract.pochanged.v1 in
         the same transaction (FR-21.10).
-      x-passage-duty: production.order.write
+      x-depot-duty: production.order.write
       parameters:
         - { $ref: '#/components/parameters/OrderId' }
         - { $ref: '#/components/parameters/IfMatch' }
@@ -1728,7 +1728,7 @@ paths:
             schema: { $ref: '#/components/schemas/PatchOrder' }
       responses:
         '200':
-          description: The order after the edit; emits dev.passage.production.order.updated.v1.
+          description: The order after the edit; emits dev.depot.production.order.updated.v1.
           headers:
             ETag: { $ref: '#/components/headers/ETag' }
           content:
@@ -1745,7 +1745,7 @@ paths:
     get:
       operationId: getProductionOrderStatusLog
       summary: The applied commands of an order with actor, time and trace id (FR-21.2)
-      x-passage-duty: production.order.read
+      x-depot-duty: production.order.read
       parameters:
         - { $ref: '#/components/parameters/OrderId' }
       responses:
@@ -1774,7 +1774,7 @@ paths:
         accepted: consumed serials of components that serial as-built records name but no finished serial
         holds (PROD-0020). PROD-0014 (subcontract operations with no vendor invoice) is not reported yet.
         The answer is a snapshot for this caller and is sent with `Cache-Control: no-store`.
-      x-passage-duty: production.order.read
+      x-depot-duty: production.order.read
       parameters:
         - { $ref: '#/components/parameters/OrderId' }
       responses:
@@ -1788,7 +1788,7 @@ paths:
     get:
       operationId: getProductionOrderCosts
       summary: Planned against actual cost by cost group, the WIP balance and the variances (FR-21.11)
-      x-passage-duty: production.cost.read
+      x-depot-duty: production.cost.read
       parameters:
         - { $ref: '#/components/parameters/OrderId' }
       responses:
@@ -1810,7 +1810,7 @@ paths:
         production.order.zero-output. A command the state machine does not allow is 409
         PRODUCTION_ILLEGAL_TRANSITION (PROD-0001). Each applied command writes a status-log
         row; a status change (and every report-as-finished) emits
-        dev.passage.production.order.statuschanged.v1.
+        dev.depot.production.order.statuschanged.v1.
 
         Order change management (FR-21.16): on an order before Started, every command but cancel
         first applies the order's pending changes detected under an automatic OCM profile (oldest
@@ -1823,10 +1823,10 @@ paths:
         finished goods at the planned unit cost / Cr WIP, finish-flushed lines consumed in
         proportion); end refuses unposted journals (409 PRODUCTION_UNPOSTED_JOURNALS) and
         settles: the WIP balance is cleared into the variance accounts and
-        dev.passage.production.order.settled.v1 is emitted; reset-status reverses the
+        dev.depot.production.order.settled.v1 is emitted; reset-status reverses the
         report-as-finished journals when it leaves ReportedAsFinished, and every journal when
         it goes back before Started. Each posted journal emits
-        dev.passage.production.journal.posted.v1. Postings need a posting profile (422
+        dev.depot.production.journal.posted.v1. Postings need a posting profile (422
         PRODUCTION_POSTING_PROFILE_MISSING).
 
         Rework orders (originType Rework, FR-21.20): report as finished receives the
@@ -1841,7 +1841,7 @@ paths:
         capacities until wave 23. The body picks the method (operations or jobs), the direction
         (forward or backward) and the instant (at). The order gets startDate and endDate, each
         operation its plannedStart and plannedEnd, and the jobs are written
-        (dev.passage.production.order.scheduled.v1). A backward schedule without at needs a delivery
+        (dev.depot.production.order.scheduled.v1). A backward schedule without at needs a delivery
         date, and a route of more than 100000 hours is refused (422 PRODUCTION_SCHEDULE_INPUT); an
         order without operations is scheduled with no jobs at the instant. reset-status to Estimated
         or Created and cancel remove the jobs and the dates. Dates are UTC: startDate and endDate are
@@ -1850,11 +1850,11 @@ paths:
         of BR-21.1; finite scheduling (wave 23) is meant to replace them (see the AsyncAPI).
 
         Subcontracting (FR-21.10): release emits
-        dev.passage.production.subcontract.porequested.v1 for each subcontract operation not
+        dev.depot.production.subcontract.porequested.v1 for each subcontract operation not
         requested before and stamps the operation's poRequestedAt, so a reset and second
         release requests nothing new. Cancelling the order withdraws its requests
-        (dev.passage.production.subcontract.pocancelled.v1, reason order-cancelled).
-      x-passage-duty: production.order.write | production.order.release | production.journal.post | production.order.end
+        (dev.depot.production.subcontract.pocancelled.v1, reason order-cancelled).
+      x-depot-duty: production.order.write | production.order.release | production.journal.post | production.order.end
       parameters:
         - { $ref: '#/components/parameters/OrderId' }
         - { $ref: '#/components/parameters/Command' }
@@ -1891,17 +1891,17 @@ paths:
         and splitFromOrderId set to the original (a rework order's split stays a rework order
         of the same reference). Both orders are re-exploded for their quantity (BR-21.2,
         BR-21.8; each keeps its setup) and, once estimated, re-estimated. Emits
-        dev.passage.production.order.created.v1 for the new order and
-        dev.passage.production.order.updated.v1 for the original, and writes a `split`
+        dev.depot.production.order.created.v1 for the new order and
+        dev.depot.production.order.updated.v1 for the original, and writes a `split`
         status-log row on both. A scheduled original keeps its schedule start; both orders are
-        re-dated from it for their quantities (dev.passage.production.order.scheduled.v1, reason redate). Subcontracting (FR-21.10): the original's requested vendor POs
-        shrink (dev.passage.production.subcontract.pochanged.v1) and a Released or Started new
+        re-dated from it for their quantities (dev.depot.production.order.scheduled.v1, reason redate). Subcontracting (FR-21.10): the original's requested vendor POs
+        shrink (dev.depot.production.subcontract.pochanged.v1) and a Released or Started new
         order requests its own (…subcontract.porequested.v1). A Started order also moves its
         share of the posted consumption, route hours and WIP to the new order (BR-21.11): with r = splitQty ÷ order quantity,
         quantities move at round(x × r, 6), hours at round(x × r, 2) and amounts at round(x × r)
         in the currency's minor unit, the rounding residual stays on the original. The move is a
         pair of posted `split-transfer` journals (one per order, linked by counterpartOrderId)
-        with balanced WIP postings, each announced by dev.passage.production.journal.posted.v1.
+        with balanced WIP postings, each announced by dev.depot.production.journal.posted.v1.
         `allocation` `keep-on-original` moves nothing. A Started order with reported output, draft
         journals or as-built records is refused (409 PRODUCTION_SPLIT_REFUSED). After a transfer,
         a reset of either order back before Started is refused (409 PRODUCTION_ILLEGAL_TRANSITION);
@@ -1911,7 +1911,7 @@ paths:
         reported on job cards moves its jobs' share of the feedback too (the setup job its own
         share of hours, the process job the rest and the quantities), and the new order keeps the
         original's feedback mode per operation.
-      x-passage-duty: production.order.release
+      x-depot-duty: production.order.release
       parameters:
         - { $ref: '#/components/parameters/OrderId' }
         - { $ref: '#/components/parameters/IdempotencyKey' }
@@ -1968,7 +1968,7 @@ paths:
 
         The order's startDate and endDate become the first start and last end, scheduleBasis becomes
         `finite`, finiteRunId and finiteScheduledAt record the plan, the version moves and
-        dev.passage.production.order.scheduled.v1 (reason finite) carries the whole job set with the
+        dev.depot.production.order.scheduled.v1 (reason finite) carries the whole job set with the
         ids the jobs keep. An operation that already has feedback (a route or job card) cannot move
         (409 PRODUCTION_FINITE_LOCKED).
 
@@ -1981,7 +1981,7 @@ paths:
         :schedule, order edit, split or merge re-dates the order with infinite capacity and sets
         scheduleBasis back to `infinite`; scheduling then plans it again. The service consumer of
         scheduling's events is a handoff (NOT-IMPLEMENTED).
-      x-passage-duty: production.order.write
+      x-depot-duty: production.order.write
       parameters:
         - { $ref: '#/components/parameters/OrderId' }
         - name: If-Match
@@ -2014,7 +2014,7 @@ paths:
     get:
       operationId: listProductionJournals
       summary: The journals of an order, oldest first, with lines and postings (FR-21.11)
-      x-passage-duty: production.order.read
+      x-depot-duty: production.order.read
       parameters:
         - { $ref: '#/components/parameters/OrderId' }
       responses:
@@ -2037,7 +2037,7 @@ paths:
         Picking lists and reports as finished need a Started or ReportedAsFinished order; a
         route card may also be created on a Released order, which its posting starts (FR-21.6,
         PRODUCTION_AUTOSTART_ON_FEEDBACK).
-      x-passage-duty: production.journal.post
+      x-depot-duty: production.journal.post
       parameters:
         - { $ref: '#/components/parameters/OrderId' }
         - { $ref: '#/components/parameters/IdempotencyKey' }
@@ -2070,7 +2070,7 @@ paths:
     get:
       operationId: getProductionJournal
       summary: Read a journal with its lines and postings
-      x-passage-duty: production.order.read
+      x-depot-duty: production.order.read
       parameters:
         - { $ref: '#/components/parameters/JournalId' }
       responses:
@@ -2083,7 +2083,7 @@ paths:
     delete:
       operationId: deleteProductionJournal
       summary: Delete a draft journal (PROD-0012 "post or delete the journals")
-      x-passage-duty: production.journal.post
+      x-depot-duty: production.journal.post
       parameters:
         - { $ref: '#/components/parameters/JournalId' }
       responses:
@@ -2099,18 +2099,18 @@ paths:
         unit cost, hours at the operation's labor and overhead rates, the finished receipt at
         the planned unit cost), writes balanced WIP postings from the order's posting profile,
         books consumption, operation feedback and the reported quantities, and emits
-        dev.passage.production.journal.posted.v1. A route card on a Released order starts it; a
+        dev.depot.production.journal.posted.v1. A route card on a Released order starts it; a
         report as finished moves a Started order to ReportedAsFinished (both write the status
-        log and emit dev.passage.production.order.statuschanged.v1). Consumption beyond the
+        log and emit dev.depot.production.order.statuschanged.v1). Consumption beyond the
         requirement plus PRODUCTION_OVERCONSUMPTION_PCT needs production.journal.over-consume.
         A route card then evaluates the trigger points of each operation it reports on, in
         ascending sequence (FR-21.17, BR-21.13), and returns them in triggerFirings, each
-        emitting dev.passage.production.triggerpoint.fired.v1. A function that fails is
+        emitting dev.depot.production.triggerpoint.fired.v1. A function that fails is
         recorded with its reason and never blocks the post (PROD-0019). A line with `finished`
         that finishes its operation also evaluates the operation's trigger points on the event
         operation-finished; those firings belong to the operation and are read with its trigger
         points, not returned here.
-      x-passage-duty: production.journal.post
+      x-depot-duty: production.journal.post
       parameters:
         - { $ref: '#/components/parameters/JournalId' }
         - { $ref: '#/components/parameters/IdempotencyKey' }
@@ -2135,7 +2135,7 @@ paths:
         Resolution order: item group × site, item group × All, All × site, All × All. With
         siteId (and optionally itemGroup) the response carries `resolved`, or 422
         PRODUCTION_POSTING_PROFILE_MISSING when none applies.
-      x-passage-duty: production.setup.read
+      x-depot-duty: production.setup.read
       parameters:
         - { name: legalEntityId, in: query, description: Defaults to the caller's legal entity., schema: { type: string, format: uuid } }
         - { name: itemGroup, in: query, schema: { type: string } }
@@ -2160,7 +2160,7 @@ paths:
       operationId: saveProductionPostingProfile
       summary: Create or replace the profile of a legal entity × item group × site
       description: Creating takes no If-Match; replacing needs If-Match with the profile version.
-      x-passage-duty: production.setup.write
+      x-depot-duty: production.setup.write
       parameters:
         - { name: If-Match, in: header, required: false, description: 'The profile version, quoted; required to replace.', schema: { type: string } }
       requestBody:
@@ -2191,7 +2191,7 @@ paths:
     get:
       operationId: listProductionOrderAsBuilt
       summary: The attached as-built records of an order (FR-21.19)
-      x-passage-duty: production.order.read
+      x-depot-duty: production.order.read
       parameters:
         - { $ref: '#/components/parameters/OrderId' }
       responses:
@@ -2219,8 +2219,8 @@ paths:
         distinct finished serials or batches stay within the order quantity rounded up (422
         PRODUCTION_AS_BUILT_TOO_MANY_FINISHED), and a serialized component serial is attached
         to one finished serial only across the tenant (422 SERIAL_DUPLICATE, PROD-0009). Emits
-        dev.passage.production.asbuilt.assigned.v1.
-      x-passage-duty: production.journal.post
+        dev.depot.production.asbuilt.assigned.v1.
+      x-depot-duty: production.journal.post
       parameters:
         - { $ref: '#/components/parameters/OrderId' }
         - { $ref: '#/components/parameters/IdempotencyKey' }
@@ -2254,7 +2254,7 @@ paths:
       description: |
         Attached records only, oldest first, at most 500. At least one of
         finishedSerialOrBatch, componentSerialOrBatch and orderId is required.
-      x-passage-duty: production.order.read
+      x-depot-duty: production.order.read
       parameters:
         - { name: finishedSerialOrBatch, in: query, schema: { type: string, maxLength: 100 } }
         - { name: componentSerialOrBatch, in: query, schema: { type: string, maxLength: 100 } }
@@ -2282,8 +2282,8 @@ paths:
         PRODUCTION_AS_BUILT_ORDER_STATE). The record stays for the audit trail with detachedAt
         and detachedBy and frees its component serial; a detached record is returned as it is.
         A :reset-status that reverses the reports as finished detaches the order's records
-        (BR-21.14). Emits dev.passage.production.asbuilt.detached.v1.
-      x-passage-duty: production.journal.post
+        (BR-21.14). Emits dev.depot.production.asbuilt.detached.v1.
+      x-depot-duty: production.journal.post
       parameters:
         - { $ref: '#/components/parameters/AsBuiltId' }
       responses:
@@ -2308,19 +2308,19 @@ paths:
         edit is kept with before and after images (GET …/bom-edits). A line or operation that
         has consumption, route feedback or journals keeps its item or resource and cannot be
         removed. A Released order also needs the duty production.order.bom-after-release
-        (Maintain order BOM after release). Emits dev.passage.production.order.bomedited.v1.
+        (Maintain order BOM after release). Emits dev.depot.production.order.bomedited.v1.
         Subcontracting (FR-21.10): a requested operation whose process quantity or vendor price
-        changed emits dev.passage.production.subcontract.pochanged.v1; one removed, turned off or
+        changed emits dev.depot.production.subcontract.pochanged.v1; one removed, turned off or
         moved to another vendor resource emits …subcontract.pocancelled.v1 (and, on a Released
         order, the new vendor is requested with …subcontract.porequested.v1).
         Scheduling (slice 18): an edit of a scheduled order (one with startDate) re-dates it forward
         from its schedule start with the changed route and emits
-        dev.passage.production.order.scheduled.v1 with reason redate; operation queue and transit
+        dev.depot.production.order.scheduled.v1 with reason redate; operation queue and transit
         hours (queueBeforeH, queueAfterH, transitH) can be edited.
         Co-products (slice 28, FR-21.14): coProducts adds, changes and removes the order's declared
         co-products and by-products; their planned quantities follow the order quantity, and a line
         with receipts or journals keeps its item and type and cannot be removed.
-      x-passage-duty: production.order.write
+      x-depot-duty: production.order.write
       parameters:
         - { $ref: '#/components/parameters/OrderId' }
         - { $ref: '#/components/parameters/IfMatch' }
@@ -2348,7 +2348,7 @@ paths:
     get:
       operationId: listProductionOrderBOMEdits
       summary: The audit trail of the order's BOM and route edits (FR-21.18)
-      x-passage-duty: production.order.read
+      x-depot-duty: production.order.read
       parameters:
         - { $ref: '#/components/parameters/OrderId' }
       responses:
@@ -2372,7 +2372,7 @@ paths:
         End and the balance, ordered by order id, with totals per currency over the whole
         filter. Status is the order's current status. The GL WIP account delta waits for the
         general ledger (wave 11).
-      x-passage-duty: production.cost.read
+      x-depot-duty: production.cost.read
       parameters:
         - { name: legalEntityId, in: query, schema: { type: string, format: uuid } }
         - { name: siteId, in: query, schema: { type: string, format: uuid } }
@@ -2401,7 +2401,7 @@ paths:
         under `failed` with the ledger's problem code and is retried by the next run; the rest
         are still booked. At most 200 groups are booked per run (`remaining` counts the others).
         The call signs only `ledger.entry.post` with the service key.
-      x-passage-duty: production.journal.post
+      x-depot-duty: production.journal.post
       requestBody:
         required: true
         content:
@@ -2451,7 +2451,7 @@ paths:
         general ledger's balance of the account and the difference (GL minus subledger). `reconciled`
         is true when every difference is zero; an unbooked posting shows as a difference until
         `gl-postings:run` books it.
-      x-passage-duty: production.cost.read
+      x-depot-duty: production.cost.read
       parameters:
         - { name: legalEntityId, in: query, schema: { type: string, format: uuid } }
         - { name: ledgerId, in: query, required: true, schema: { type: string, format: uuid } }
@@ -2496,7 +2496,7 @@ paths:
         retry needs no Idempotency-Key; actual cost and WIP count the postings dated up to the day.
         The run is one transaction and emits one `costsnapshot.taken` event. It needs the cost read
         duty: it posts nothing and stores only figures the caller may already read.
-      x-passage-duty: production.cost.read
+      x-depot-duty: production.cost.read
       requestBody:
         required: false
         content:
@@ -2530,7 +2530,7 @@ paths:
         The stored daily snapshots of open orders for the order KPI trend: planned cost, actual cost,
         the variance to date (actual minus planned) and the WIP balance, to the currency's minor unit.
         Filter by order and by snapshot date (from and to, inclusive); `nextCursor` continues the list.
-      x-passage-duty: production.cost.read
+      x-depot-duty: production.cost.read
       parameters:
         - { name: legalEntityId, in: query, schema: { type: string, format: uuid } }
         - { name: orderId, in: query, schema: { type: string, format: uuid } }
@@ -2578,7 +2578,7 @@ paths:
         The variances posted at End, ordered by posting, with the planned cost of the order's
         cost group and the variance as a percentage of it, totals per currency and type, and
         the net per currency. from and to bound the posting date (UTC).
-      x-passage-duty: production.cost.read
+      x-depot-duty: production.cost.read
       parameters:
         - { name: legalEntityId, in: query, schema: { type: string, format: uuid } }
         - { name: siteId, in: query, schema: { type: string, format: uuid } }
@@ -2605,13 +2605,13 @@ paths:
         Every subcontract operation of the caller's orders, ordered by order and operation, with
         the vendor resource, the process quantity and what route cards reported good, the vendor
         unit price, the planned amount (unit price × quantity, as the estimate plans it) and when
-        release requested the vendor PO (dev.passage.production.subcontract.porequested.v1) or
+        release requested the vendor PO (dev.depot.production.subcontract.porequested.v1) or
         when that request was withdrawn (poCancelledAt, …subcontract.pocancelled.v1).
         status filters the operation's feedback status, orderStatus the order's; dueFrom and dueTo
         bound the due date, which is the order's delivery date until scheduling (wave 23). The
         PO line and its receipt status arrive with purchasing (wave 17). Totals are per currency
         over the whole filter.
-      x-passage-duty: production.order.read
+      x-depot-duty: production.order.read
       parameters:
         - { name: legalEntityId, in: query, schema: { type: string, format: uuid } }
         - { name: siteId, in: query, schema: { type: string, format: uuid } }
@@ -2642,7 +2642,7 @@ paths:
         feedback status. status filters the operation, orderStatus the order; dueFrom and dueTo
         bound the due date, which is the order's delivery date until scheduling (wave 23).
         Totals cover the whole filter, not only the page.
-      x-passage-duty: production.order.read
+      x-depot-duty: production.order.read
       parameters:
         - { name: legalEntityId, in: query, schema: { type: string, format: uuid } }
         - { name: siteId, in: query, schema: { type: string, format: uuid } }
@@ -2673,7 +2673,7 @@ paths:
         the share a split moved to another order) and the quantity outstanding, ordered by order and
         line. Only lines with something left to issue are listed unless all is true. Totals cover the
         whole filter, not only the page.
-      x-passage-duty: production.order.read
+      x-depot-duty: production.order.read
       parameters:
         - { name: legalEntityId, in: query, schema: { type: string, format: uuid } }
         - { name: siteId, in: query, schema: { type: string, format: uuid } }
@@ -2701,7 +2701,7 @@ paths:
         The same demand rolled up per component item, ordered by item id: the orders and lines that
         need it, the quantity required, issued and outstanding, and the earliest delivery date of the
         orders still waiting for it. Fully issued lines do not count unless all is true.
-      x-passage-duty: production.order.read
+      x-depot-duty: production.order.read
       parameters:
         - { name: legalEntityId, in: query, schema: { type: string, format: uuid } }
         - { name: siteId, in: query, schema: { type: string, format: uuid } }
@@ -2730,7 +2730,7 @@ paths:
         belongs to. resourceId and the from/to window give the load of one resource; a job is
         in the window when it ends after from and starts before to. Total and plannedHours cover the
         whole filter, not only the page. Jobs are planned with infinite capacity until wave 23.
-      x-passage-duty: production.order.read
+      x-depot-duty: production.order.read
       parameters:
         - { name: legalEntityId, in: query, schema: { type: string, format: uuid } }
         - { name: siteId, in: query, schema: { type: string, format: uuid } }
@@ -2755,7 +2755,7 @@ paths:
       operationId: getProductionOrderJobs
       summary: Jobs of one order
       description: The dated jobs of the order in route order; empty while the order is unscheduled.
-      x-passage-duty: production.order.read
+      x-depot-duty: production.order.read
       parameters:
         - { $ref: '#/components/parameters/OrderId' }
       responses:
@@ -2784,7 +2784,7 @@ paths:
         reversal. Values are set when a journal posts. Filter by type, posted state, order (id, or
         the exact order number, which is unique per legal entity) and posting date range. `total` counts every journal the filter
         selects. The lines and postings of one journal are read with GET /v1/production/journals/{id}.
-      x-passage-duty: production.order.read
+      x-depot-duty: production.order.read
       parameters:
         - { name: legalEntityId, in: query, schema: { type: string, format: uuid } }
         - { name: orderId, in: query, schema: { type: string, format: uuid } }
@@ -2819,7 +2819,7 @@ paths:
         is nothing to measure. Groups by site or product are ordered by orders ended; totals cover all
         groups, not only the first `limit`. This is the service-side version of the order_kpi
         projection that the analytics wave (46) will replace.
-      x-passage-duty: production.order.read
+      x-depot-duty: production.order.read
       parameters:
         - { name: legalEntityId, in: query, schema: { type: string, format: uuid } }
         - { name: siteId, in: query, schema: { type: string, format: uuid } }
@@ -2847,9 +2847,9 @@ paths:
         operation again, as started when it has feedback and open otherwise. Both apply while the
         order is Started or ReportedAsFinished, not to a subcontracted operation (409
         PRODUCTION_OPERATION_STATE). A change bumps the order version, writes an operation-log row
-        and emits dev.passage.production.operation.statuschanged.v1 in the same transaction; a
+        and emits dev.depot.production.operation.statuschanged.v1 in the same transaction; a
         command already in effect returns the order unchanged and emits nothing.
-      x-passage-duty: production.journal.post
+      x-depot-duty: production.journal.post
       parameters:
         - { $ref: '#/components/parameters/OrderId' }
         - { name: operNumber, in: path, required: true, schema: { type: integer, minimum: 1, maximum: 2147483647 } }
@@ -2876,7 +2876,7 @@ paths:
     get:
       operationId: listProductionTriggerPoints
       summary: Trigger points of an order with their firings (FR-21.17)
-      x-passage-duty: production.order.read
+      x-depot-duty: production.order.read
       parameters:
         - { $ref: '#/components/parameters/OrderId' }
       responses:
@@ -2913,7 +2913,7 @@ paths:
         order of the product for the error quantity with the trigger's operations as its route
         (10, 20, ...), referencing this order; notify only publishes the event. A trigger fires
         once per operation unless repeatable.
-      x-passage-duty: production.setup.write
+      x-depot-duty: production.setup.write
       parameters:
         - { $ref: '#/components/parameters/OrderId' }
         - { $ref: '#/components/parameters/IdempotencyKey' }
@@ -2945,7 +2945,7 @@ paths:
       operationId: deleteProductionTriggerPoint
       summary: Remove a trigger point that never fired
       description: A trigger point that fired is kept as the record of what it did (409 PRODUCTION_TRIGGER_POINT_FIRED).
-      x-passage-duty: production.setup.write
+      x-depot-duty: production.setup.write
       parameters:
         - { $ref: '#/components/parameters/TriggerPointId' }
       responses:
@@ -2962,7 +2962,7 @@ paths:
         site's row wins over the All row; with neither stored, the service defaults apply
         (`defaults`, from the service environment). With siteId the response carries
         `resolved` and whether a stored row decided it.
-      x-passage-duty: production.setup.read
+      x-depot-duty: production.setup.read
       parameters:
         - { name: legalEntityId, in: query, description: Defaults to the caller's legal entity., schema: { type: string, format: uuid } }
         - { name: siteId, in: query, schema: { type: string, format: uuid } }
@@ -3003,7 +3003,7 @@ paths:
         asBuiltRequired to `:end` (FR-21.19, PRODUCTION_AS_BUILT_REQUIRED) and endJobs to the report
         as finished that completes the order quantity (FR-21.7); reworkCapitalize makes `:end` of a
         rework order capitalize its cost into finished goods instead of posting a rework variance (FR-21.20).
-      x-passage-duty: production.setup.write
+      x-depot-duty: production.setup.write
       parameters:
         - { name: If-Match, in: header, required: false, description: 'The row version, quoted; required to replace.', schema: { type: string } }
       requestBody:
@@ -3038,7 +3038,7 @@ paths:
         Resolution order: item group × site, item group × All, All × site, All × All. With siteId
         (and optionally itemGroup) the response carries `resolved`; with no stored profile that is
         the default, mode manual and no surcharge.
-      x-passage-duty: production.setup.read
+      x-depot-duty: production.setup.read
       parameters:
         - { name: legalEntityId, in: query, description: Defaults to the caller's legal entity., schema: { type: string, format: uuid } }
         - { name: itemGroup, in: query, schema: { type: string } }
@@ -3062,7 +3062,7 @@ paths:
       operationId: saveProductionOCMProfile
       summary: Create or replace the OCM profile of a legal entity × item group × site
       description: Creating takes no If-Match; replacing needs If-Match with the profile version.
-      x-passage-duty: production.setup.write
+      x-depot-duty: production.setup.write
       parameters:
         - { name: If-Match, in: header, required: false, description: 'The profile version, quoted; required to replace.', schema: { type: string } }
       requestBody:
@@ -3096,7 +3096,7 @@ paths:
       description: |
         Planning's plannedorder.firmed.v1 for a production planned order (FR-22.10) lands here through the
         planning consumer. Newest first; status narrows to open, converted or dismissed.
-      x-passage-duty: production.order.read
+      x-depot-duty: production.order.read
       parameters:
         - { name: status, in: query, required: false, schema: { type: string, enum: [open, converted, dismissed] } }
         - { name: siteId, in: query, required: false, schema: { type: string, format: uuid } }
@@ -3115,7 +3115,7 @@ paths:
     get:
       operationId: getProductionPlannedIntake
       summary: One planned order intake row
-      x-passage-duty: production.order.read
+      x-depot-duty: production.order.read
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -3144,7 +3144,7 @@ paths:
         open row aside with a reason and needs If-Match. Both need production.order.write; a row that is
         already converted or dismissed, or whose planned order another order already names (one order per
         planned order), answers 409 PRODUCTION_INTAKE_NOT_OPEN.
-      x-passage-duty: production.order.write
+      x-depot-duty: production.order.write
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - { name: command, in: path, required: true, schema: { type: string, enum: [convert, dismiss] } }
@@ -3171,7 +3171,7 @@ paths:
                   - { $ref: '#/components/schemas/PlannedIntake' }
                   - { $ref: '#/components/schemas/Order' }
         '201':
-          description: Converted; emits dev.passage.production.order.created.v1 with originType PlannedOrder.
+          description: Converted; emits dev.depot.production.order.created.v1 with originType PlannedOrder.
           headers:
             ETag: { $ref: '#/components/headers/ETag' }
             Location: { schema: { type: string } }
@@ -3194,13 +3194,13 @@ paths:
         For each open order (Created to Released) of the product, optionally of one site, whose
         OCM profile is not none and that differs from the new snapshot, writes an
         OrderChangeRecord with the delta and the change cost (BR-21.12) and emits
-        dev.passage.production.orderchange.detected.v1, all in one transaction. An (order, ECO)
+        dev.depot.production.orderchange.detected.v1, all in one transaction. An (order, ECO)
         pair is recorded once, so repeating the notice records nothing more; the same ecoId with
         another snapshot is 422 idempotency_key_reuse. An order edited by hand is recorded with
         needsReview. Started orders are not changed (their BOM and route are locked). Older pending
         changes of an order that this ECO covers (it replaces every part they replace) are
         dismissed with the note "superseded by <ecoId>" and orderchange.dismissed.
-      x-passage-duty: production.order.write
+      x-depot-duty: production.order.write
       requestBody:
         required: true
         content:
@@ -3219,7 +3219,7 @@ paths:
     get:
       operationId: listProductionOrderChanges
       summary: The order change management worklist, newest first (4.21.14)
-      x-passage-duty: production.order.read
+      x-depot-duty: production.order.read
       parameters:
         - { name: status, in: query, schema: { type: string, enum: [pending, applied, dismissed] } }
         - { name: siteId, in: query, schema: { type: string, format: uuid } }
@@ -3246,7 +3246,7 @@ paths:
     get:
       operationId: getProductionOrderChange
       summary: One order change record
-      x-passage-duty: production.order.read
+      x-depot-duty: production.order.read
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -3277,7 +3277,7 @@ paths:
         needs production.order.bom-after-release. Applied orders are not flagged orderBomModified.
         `:dismiss` sets a pending change aside with an optional note. All three need
         production.order.apply-change.
-      x-passage-duty: production.order.apply-change
+      x-depot-duty: production.order.apply-change
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - { name: command, in: path, required: true, schema: { type: string, enum: [preview, apply, dismiss] } }
@@ -3311,7 +3311,7 @@ paths:
   /v1/production/opening-wip:
     post:
       operationId: importOpeningWIP
-      x-passage-duty: production.opening-wip.import
+      x-depot-duty: production.opening-wip.import
       description: >-
         Cutover import of the production orders still open in the legacy system with their work in progress, called by the migration factory with a service token. All or
         nothing, 1 to 1000 lines of one legal entity, numbered from 1 in errors. Every line has a unique reference (the legacy production order id), an order number
@@ -3370,7 +3370,7 @@ paths:
         '500': { $ref: '#/components/responses/Problem' }
     get:
       operationId: listOpeningWIP
-      x-passage-duty: production.opening-wip.read
+      x-depot-duty: production.opening-wip.read
       description: >-
         Imported opening batches of one legal entity (legal_entity), newest first, optionally one batch_key, with keyset paging (limit 1 to 200, default 50;
         pass the previous nextCursor as cursor). lineCount and totals are read back from the stored lines, so the loader can verify what landed against what it sent.
@@ -3398,7 +3398,7 @@ paths:
   /v1/production/opening-journal:
     post:
       operationId: postOpeningWIPJournal
-      x-passage-duty: production.opening-journal.post
+      x-depot-duty: production.opening-journal.post
       description: >-
         Books the WIP rows of the opening-wip journals in the general ledger, called by the migration factory with a service token after its opening batches (journal post). Only
         those rows are booked, never an ordinary picking, route card or settlement posting. One entry per order: WIP Dr, the migration clearing account Cr. Answer and idempotency as POST /v1/production/gl-postings:run.

@@ -56,36 +56,36 @@ CREATE TABLE IF NOT EXISTS asset_pending_booking (
 ALTER TABLE asset_posting_profile ENABLE ROW LEVEL SECURITY;
 ALTER TABLE asset_posting_profile FORCE ROW LEVEL SECURITY;
 CREATE POLICY asset_posting_profile_tenant_access ON asset_posting_profile AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY asset_posting_profile_legal_entity_scope ON asset_posting_profile AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 ALTER TABLE asset_pending_booking ENABLE ROW LEVEL SECURITY;
 ALTER TABLE asset_pending_booking FORCE ROW LEVEL SECURITY;
 CREATE POLICY asset_pending_booking_tenant_access ON asset_pending_booking AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY asset_pending_booking_legal_entity_scope ON asset_pending_booking AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 ALTER TABLE asset_gl_entry ENABLE ROW LEVEL SECURITY;
 ALTER TABLE asset_gl_entry FORCE ROW LEVEL SECURITY;
 CREATE POLICY asset_gl_entry_tenant_access ON asset_gl_entry AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY asset_gl_entry_legal_entity_scope ON asset_gl_entry AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON asset_posting_profile TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT ON asset_gl_entry TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT, DELETE ON asset_pending_booking TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON asset_posting_profile TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT ON asset_gl_entry TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT, DELETE ON asset_pending_booking TO depot_app';
   END IF;
 END
 $$;

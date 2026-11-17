@@ -4,9 +4,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/scheduling/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/scheduling/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/scheduling/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/scheduling/internal/store"
 )
 
 // A downtime lists the booked jobs it overlaps (AC-23.7); the next run lays
@@ -36,7 +36,7 @@ func TestCapacityOverrides_DowntimeAffectsJobsAndRuns(t *testing.T) {
 	if _, _, err := s.CreateCapacityOverride(ctx, down, store.Idem{Key: "ov-1", Fingerprint: "other"}); problemCode(err) != store.CodeIdempotencyReuse {
 		t.Fatalf("reused key: err=%v", err)
 	}
-	if got := outboxCount(t, admin, "dev.passage.scheduling.capacityoverride.created.v1"); got != 1 {
+	if got := outboxCount(t, admin, "dev.depot.scheduling.capacityoverride.created.v1"); got != 1 {
 		t.Fatalf("capacityoverride.created events = %d, want 1 (a replay writes none)", got)
 	}
 	if _, _, err := s.CreateCapacityOverride(ctx, store.CapacityOverride{ResourceID: ids.New(), Kind: domain.OverrideExtra, StartAt: at(0, 8, 0), EndAt: at(0, 9, 0)}, store.Idem{}); problemCode(err) != store.CodeResourceNotFound {
@@ -85,7 +85,7 @@ func TestCapacityOverrides_DowntimeAffectsJobsAndRuns(t *testing.T) {
 	if err := s.DeleteCapacityOverride(ctx, r.ID, res.ID); problemCode(err) != store.CodeOverrideNotFound {
 		t.Fatalf("second delete: err=%v", err)
 	}
-	if got := outboxCount(t, admin, "dev.passage.scheduling.capacityoverride.deleted.v1"); got != 1 {
+	if got := outboxCount(t, admin, "dev.depot.scheduling.capacityoverride.deleted.v1"); got != 1 {
 		t.Fatalf("capacityoverride.deleted events = %d, want 1", got)
 	}
 	capacity, err = s.ResourceCapacity(ctx, r.ID, at(0, 0, 0), at(1, 0, 0))

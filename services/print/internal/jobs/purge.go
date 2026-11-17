@@ -10,8 +10,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/print/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/print/internal/domain"
 )
 
 // PurgeHourUTC is when the daily purge fires (01:00 UTC, the daily slot of §6.32.16).

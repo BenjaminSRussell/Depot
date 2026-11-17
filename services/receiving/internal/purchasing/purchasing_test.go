@@ -13,8 +13,8 @@ import (
 
 	"github.com/go-chi/chi/v5/middleware"
 
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/domain"
 )
 
 const (
@@ -53,8 +53,8 @@ func TestGet_MapsOrderAndForwardsIdentity(t *testing.T) {
 	if got.Method != http.MethodGet || got.URL.Path != "/v1/procurement/purchase-orders/"+orderID {
 		t.Fatalf("request %s %s", got.Method, got.URL.Path)
 	}
-	if got.Header.Get("X-Passage-Tenant") != tenantID || got.Header.Get("X-Passage-Legal-Entity") != legalEntityID || got.Header.Get("X-Passage-User") != userID ||
-		got.Header.Get("X-Passage-Duties") != "procurement.purchase-order.inquire,receiving.receipt.post" || got.Header.Get("X-Request-Id") != "req-7" {
+	if got.Header.Get("X-Depot-Tenant") != tenantID || got.Header.Get("X-Depot-Legal-Entity") != legalEntityID || got.Header.Get("X-Depot-User") != userID ||
+		got.Header.Get("X-Depot-Duties") != "procurement.purchase-order.inquire,receiving.receipt.post" || got.Header.Get("X-Request-Id") != "req-7" {
 		t.Fatalf("headers %v", got.Header)
 	}
 	if po.ID != orderID || po.VendorID != "v-1" || po.Currency != "USD" || po.LegalEntityID != legalEntityID || po.ApprovalStatus != "APPROVED" || po.DocumentStatus != "CONFIRMED" || len(po.Lines) != 1 {
@@ -115,7 +115,7 @@ func TestGet_OmitsLegalEntityHeaderWhenPrincipalHasNone(t *testing.T) {
 	if _, err := client.Get(ctx, legalEntityID, orderID); !errors.Is(err, domain.ErrPurchaseOrderForbidden) {
 		t.Fatalf("err %v", err)
 	}
-	for _, header := range []string{"X-Passage-Legal-Entity", "X-Passage-User", "X-Passage-Duties"} {
+	for _, header := range []string{"X-Depot-Legal-Entity", "X-Depot-User", "X-Depot-Duties"} {
 		if _, present := got.Header[header]; present {
 			t.Fatalf("%s sent without a value: %v", header, got.Header)
 		}

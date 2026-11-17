@@ -1,8 +1,8 @@
-# The only route on Gateway passage-as2: POST /as2/v1/{endpoint} and /as2/v1/{endpoint}/mdn to the edi chart's AS2
+# The only route on Gateway depot-as2: POST /as2/v1/{endpoint} and /as2/v1/{endpoint}/mdn to the edi chart's AS2
 # Service (transports.as2.enabled, port transports.as2.port), and the two other public endpoints that listener serves
 # (#35): POST /cxml/v1/{endpoint} (a cXML network posts documents to its partner's URL) and POST
 # /punchout/v1/return/{session} (a supplier's catalog page returns a punchout cart). Each is its own credential check in
-# the service (shared secret, session secret), none takes a Passage token. Nothing else of edi, and no other service, is
+# the service (shared secret, session secret), none takes a Depot token. Nothing else of edi, and no other service, is
 # reachable here.
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
@@ -11,10 +11,10 @@ metadata:
   namespace: hello-ledger
 spec:
   parentRefs:
-    - name: passage-as2
+    - name: depot-as2
       sectionName: as2-https
   hostnames:
-    - as2.dev.passage.dev
+    - as2.dev.depot.dev
   rules:
     - matches:
         - path:

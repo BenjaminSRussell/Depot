@@ -1,4 +1,4 @@
--- PSG-1517 (wave 15, slice 17): report library retention and legal hold
+-- DPT-1517 (wave 15, slice 17): report library retention and legal hold
 -- (FR-15.8, PRD §2.15.9 `library-retention-sweep`, §2.15.15).
 --
 -- report_legal_hold is a hold on the report library of one legal entity: while
@@ -39,11 +39,11 @@ CREATE INDEX IF NOT EXISTS report_legal_hold_recent
 ALTER TABLE report_legal_hold ENABLE ROW LEVEL SECURITY;
 ALTER TABLE report_legal_hold FORCE ROW LEVEL SECURITY;
 CREATE POLICY report_legal_hold_tenant_access ON report_legal_hold AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY report_legal_hold_legal_entity_scope ON report_legal_hold AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 CREATE TABLE IF NOT EXISTS report_library_sweep (
   tenant_id uuid NOT NULL,
@@ -63,11 +63,11 @@ CREATE INDEX IF NOT EXISTS report_library_sweep_recent
 ALTER TABLE report_library_sweep ENABLE ROW LEVEL SECURITY;
 ALTER TABLE report_library_sweep FORCE ROW LEVEL SECURITY;
 CREATE POLICY report_library_sweep_tenant_access ON report_library_sweep AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY report_library_sweep_legal_entity_scope ON report_library_sweep AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 -- The audit trail records holds and sweeps (the kind list is a CHECK, so it is replaced).
 ALTER TABLE audit_trail_entry DROP CONSTRAINT IF EXISTS audit_trail_entry_kind_check;
@@ -135,11 +135,11 @@ CREATE TRIGGER report_library_entry_guard_delete BEFORE DELETE ON report_library
 -- trigger), so retain_until cannot be moved and the guard cannot be skipped.
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT ON report_legal_hold TO passage_app';
-    EXECUTE 'GRANT UPDATE (released_at, released_by, release_note, revision) ON report_legal_hold TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT ON report_library_sweep TO passage_app';
-    EXECUTE 'GRANT DELETE ON report_library_entry TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT ON report_legal_hold TO depot_app';
+    EXECUTE 'GRANT UPDATE (released_at, released_by, release_note, revision) ON report_legal_hold TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT ON report_library_sweep TO depot_app';
+    EXECUTE 'GRANT DELETE ON report_library_entry TO depot_app';
   END IF;
 END
 $$;

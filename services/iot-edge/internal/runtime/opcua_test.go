@@ -12,7 +12,7 @@ import (
 	"github.com/gopcua/opcua/server"
 	"github.com/gopcua/opcua/ua"
 
-	"github.com/BenjaminSRussell/passage/services/iot-edge/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/iot-edge/internal/domain"
 )
 
 // plc is an in-process OPC-UA server (the gopcua server package) with a few plant tags. The live proof

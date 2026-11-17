@@ -1,7 +1,7 @@
 """HTTP surface of the payment prediction service (FR-47.15, PRD 9.47.5).
 
-Identity comes from the edge headers, as for every Passage service: x-passage-tenant,
-x-passage-user and x-passage-duties, set by the gateway from the verified token (this service
+Identity comes from the edge headers, as for every Depot service: x-depot-tenant,
+x-depot-user and x-depot-duties, set by the gateway from the verified token (this service
 never decodes a JWT). A missing or malformed tenant or user is 401, a missing duty 403. The
 tenant is never taken from the body, so one tenant cannot read or train on another's data.
 """
@@ -34,7 +34,7 @@ MAX_OPEN = 5_000
 
 
 service = PredictionService(repository_from_env(), config_from_env())
-app = FastAPI(title="Passage payment prediction", version="0.1.0")
+app = FastAPI(title="Depot payment prediction", version="0.1.0")
 
 
 class Problem(Exception):
@@ -45,7 +45,7 @@ class Problem(Exception):
 
 def _problem(status: int, code: str, detail: str, instance: str) -> JSONResponse:
     return JSONResponse(
-        {"type": f"https://passage.dev/problems/{code}", "status": status, "code": code, "detail": detail, "instance": instance},
+        {"type": f"https://depot.dev/problems/{code}", "status": status, "code": code, "detail": detail, "instance": instance},
         status_code=status,
         media_type="application/problem+json",
         headers={"cache-control": "no-store"},
@@ -74,7 +74,7 @@ class Caller(BaseModel):
     tenant_id: str
     user_id: str
     duties: frozenset[str]
-    legal_entities: frozenset[str] = frozenset()  # X-Passage-Legal-Entity: the entities the caller is scoped to
+    legal_entities: frozenset[str] = frozenset()  # X-Depot-Legal-Entity: the entities the caller is scoped to
 
     def may_see_entity(self, legal_entity_id: str) -> bool:
         """A caller with a legal-entity scope sees those entities only; one with none must hold the all-scope duty."""
@@ -83,7 +83,7 @@ class Caller(BaseModel):
         return ALL_SCOPE_DUTY in self.duties
 
     def entities(self) -> list[str] | None:
-        """The legal entities the caller's database session acts for: the X-Passage-Legal-Entity ones, every one (None) for a caller who holds
+        """The legal entities the caller's database session acts for: the X-Depot-Legal-Entity ones, every one (None) for a caller who holds
         the all-scope duty, and none ([]) for a caller with neither, who therefore sees no row of a legal-entity table."""
         if self.legal_entities:
             return sorted(self.legal_entities)
@@ -103,16 +103,16 @@ def _uuid(value: str | None) -> str | None:
 
 
 def caller(
-    x_passage_tenant: Annotated[str | None, Header()] = None,
-    x_passage_user: Annotated[str | None, Header()] = None,
-    x_passage_duties: Annotated[str | None, Header()] = None,
-    x_passage_legal_entity: Annotated[str | None, Header()] = None,
+    x_depot_tenant: Annotated[str | None, Header()] = None,
+    x_depot_user: Annotated[str | None, Header()] = None,
+    x_depot_duties: Annotated[str | None, Header()] = None,
+    x_depot_legal_entity: Annotated[str | None, Header()] = None,
 ) -> Caller:
-    tenant, user = _uuid(x_passage_tenant), _uuid(x_passage_user)
+    tenant, user = _uuid(x_depot_tenant), _uuid(x_depot_user)
     if tenant is None or user is None:
         raise Problem(401, "AGT-0401", "the edge did not identify a tenant and user")
-    duties = frozenset(d.strip() for d in (x_passage_duties or "").split(",") if d.strip())
-    entities = frozenset(e for e in (_uuid(x) for x in (x_passage_legal_entity or "").split(",")) if e)
+    duties = frozenset(d.strip() for d in (x_depot_duties or "").split(",") if d.strip())
+    entities = frozenset(e for e in (_uuid(x) for x in (x_depot_legal_entity or "").split(",")) if e)
     return Caller(tenant_id=tenant, user_id=user, duties=duties, legal_entities=entities)
 
 

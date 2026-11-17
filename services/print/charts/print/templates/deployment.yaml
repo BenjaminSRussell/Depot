@@ -31,7 +31,7 @@ spec:
             capabilities:
               drop: [ALL]
           env:
-            {{- include "passage.cloudEnv" $ | nindent 12 }}
+            {{- include "depot.cloudEnv" $ | nindent 12 }}
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:
@@ -48,12 +48,12 @@ spec:
             - name: PRINT_STATEMENT_TENANT_IDS
               value: {{ join "," .Values.statementTenantIds | quote }}
             {{- if .Values.serviceIdentity.signingKeySecret }}
-            - name: PASSAGE_SERVICE_NAME
+            - name: DEPOT_SERVICE_NAME
               value: print
-            - name: PASSAGE_SERVICE_SIGNING_KEY_FILE
-              value: /var/run/passage/service-identity/signing-key
+            - name: DEPOT_SERVICE_SIGNING_KEY_FILE
+              value: /var/run/depot/service-identity/signing-key
             {{- if .Values.serviceIdentity.keyId }}
-            - name: PASSAGE_SERVICE_KEY_ID
+            - name: DEPOT_SERVICE_KEY_ID
               value: {{ .Values.serviceIdentity.keyId | quote }}
             {{- end }}
             - name: PRINT_RECEIVABLES_URL
@@ -93,7 +93,7 @@ spec:
             {{- toYaml .Values.resources | nindent 12 }}
           {{- if .Values.serviceIdentity.signingKeySecret }}
           volumeMounts:
-            - { name: service-identity, mountPath: /var/run/passage/service-identity, readOnly: true }
+            - { name: service-identity, mountPath: /var/run/depot/service-identity, readOnly: true }
           {{- end }}
       {{- if .Values.serviceIdentity.signingKeySecret }}
       volumes:

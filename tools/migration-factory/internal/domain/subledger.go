@@ -157,7 +157,7 @@ func SubledgerDocumentCounts(docs []SubledgerDocument, period string) map[string
 	return out
 }
 
-// SubledgerLines turns the movements into the parallel run's tuples for one side ("legacy" or "passage"). Movements
+// SubledgerLines turns the movements into the parallel run's tuples for one side ("legacy" or "depot"). Movements
 // of a repeated key add up. counts gives each tuple's document count (SubledgerDocumentCounts); nil leaves them out.
 func SubledgerLines(b []SubledgerBalance, period, side string, counts map[string]int) []Line {
 	type k struct {
@@ -185,7 +185,7 @@ func SubledgerLines(b []SubledgerBalance, period, side string, counts map[string
 		if side == "legacy" {
 			l.Legacy = sums[key]
 		} else {
-			l.Passage = sums[key]
+			l.Depot = sums[key]
 		}
 		out = append(out, l)
 	}

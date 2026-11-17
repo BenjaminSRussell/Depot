@@ -8,7 +8,7 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/tools/migration-factory/internal/domain"
+	"github.com/BenjaminSRussell/depot/tools/migration-factory/internal/domain"
 )
 
 // The assets, production and payroll clients (#49) send the staged packs fixed_assets, wip_prod and payroll_ytd to POST /v1/assets/opening-assets,

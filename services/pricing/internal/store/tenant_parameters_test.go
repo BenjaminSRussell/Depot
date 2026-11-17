@@ -6,9 +6,9 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/services/pricing/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/pricing/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/services/pricing/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/pricing/internal/store"
 )
 
 func TestPostgres_TenantParametersVersionedIsolatedAndAnnounced(t *testing.T) {
@@ -66,7 +66,7 @@ func TestPostgres_TenantParametersVersionedIsolatedAndAnnounced(t *testing.T) {
 	// Each change is audited through the outbox; the replay, the conflicts and the refusals add none.
 	var changes []map[string]any
 	for _, r := range outboxRows(t, ctx, pool) {
-		if r.Type == "dev.passage.pricing.tenantparameter.changed.v1" {
+		if r.Type == "dev.depot.pricing.tenantparameter.changed.v1" {
 			changes = append(changes, r.Data)
 		}
 	}
@@ -110,7 +110,7 @@ func TestPostgres_SearchModeAndSmallOrderThresholds(t *testing.T) {
 	ev := outboxRows(t, ctx, pool)
 	last := ev[len(ev)-1]
 	th, _ := last.Data["small_order_thresholds"].(map[string]any)
-	if last.Type != "dev.passage.pricing.parameters.changed.v1" || last.Data["price_search_mode"] != "SEARCH_NEXT" || th["USD"] != "100" {
+	if last.Type != "dev.depot.pricing.parameters.changed.v1" || last.Data["price_search_mode"] != "SEARCH_NEXT" || th["USD"] != "100" {
 		t.Fatalf("event = %+v", last)
 	}
 	// An empty table is stored as NULL: the entity follows the reference thresholds again.

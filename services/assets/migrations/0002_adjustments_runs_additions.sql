@@ -41,11 +41,11 @@ CREATE INDEX IF NOT EXISTS depreciation_run_recent ON depreciation_run (tenant_i
 ALTER TABLE depreciation_run ENABLE ROW LEVEL SECURITY;
 ALTER TABLE depreciation_run FORCE ROW LEVEL SECURITY;
 CREATE POLICY depreciation_run_tenant_access ON depreciation_run AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY depreciation_run_legal_entity_scope ON depreciation_run AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 CREATE TABLE IF NOT EXISTS depreciation_run_line (
   tenant_id uuid NOT NULL,
@@ -65,11 +65,11 @@ CREATE TABLE IF NOT EXISTS depreciation_run_line (
 ALTER TABLE depreciation_run_line ENABLE ROW LEVEL SECURITY;
 ALTER TABLE depreciation_run_line FORCE ROW LEVEL SECURITY;
 CREATE POLICY depreciation_run_line_tenant_access ON depreciation_run_line AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY depreciation_run_line_legal_entity_scope ON depreciation_run_line AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 -- AssetAddition (FR-37.14). A financial addition's AcquisitionAdj transactions
 -- carry source_type 'addition' and source_id = the addition id.
@@ -95,9 +95,9 @@ CREATE INDEX IF NOT EXISTS asset_addition_asset ON asset_addition (tenant_id, as
 ALTER TABLE asset_addition ENABLE ROW LEVEL SECURITY;
 ALTER TABLE asset_addition FORCE ROW LEVEL SECURITY;
 CREATE POLICY asset_addition_tenant_access ON asset_addition AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY asset_addition_legal_entity_scope ON asset_addition AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 CREATE INDEX IF NOT EXISTS asset_transaction_source ON asset_transaction (tenant_id, source_type, source_id) WHERE source_id IS NOT NULL;

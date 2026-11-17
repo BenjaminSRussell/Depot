@@ -1,18 +1,18 @@
 {{- if .Values.payments.provider }}
-# The payment provider's webhook listener (#30). It takes no Passage token (Stripe authenticates by the Stripe-Signature HMAC), so
-# it is a Service of its own: route only POST /webhooks/v1/stripe to it from the public edge, never through passage-api.
+# The payment provider's webhook listener (#30). It takes no Depot token (Stripe authenticates by the Stripe-Signature HMAC), so
+# it is a Service of its own: route only POST /webhooks/v1/stripe to it from the public edge, never through depot-api.
 apiVersion: v1
 kind: Service
 metadata:
   name: {{ .Release.Name }}-receivables-webhook
   labels:
-    app.kubernetes.io/name: passage-receivables
+    app.kubernetes.io/name: depot-receivables
     app.kubernetes.io/instance: {{ .Release.Name }}
     app.kubernetes.io/component: payments-webhook
 spec:
   type: ClusterIP
   selector:
-    app.kubernetes.io/name: passage-receivables
+    app.kubernetes.io/name: depot-receivables
     app.kubernetes.io/instance: {{ .Release.Name }}
   ports:
     - { name: webhook, port: {{ .Values.payments.webhookPort }}, targetPort: webhook }

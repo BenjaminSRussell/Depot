@@ -1,5 +1,5 @@
 SHELL := /bin/bash
-GO_MODULES := $(shell find platform/go services tools/rlscheck tools/tenant-restore tools/e2e tools/passage-server tools/signoff-packets -name go.mod -not -path '*/node_modules/*' -exec dirname {} \; 2>/dev/null)
+GO_MODULES := $(shell find platform/go services tools/rlscheck tools/tenant-restore tools/e2e tools/depot-server tools/signoff-packets -name go.mod -not -path '*/node_modules/*' -exec dirname {} \; 2>/dev/null)
 TS_PACKAGES := $(shell find apps services -maxdepth 2 -name package.json -not -path '*/node_modules/*' -exec dirname {} \; 2>/dev/null)
 PY_PACKAGES := $(shell find services -maxdepth 2 -name pyproject.toml -exec dirname {} \; 2>/dev/null)
 
@@ -8,18 +8,18 @@ PY_PACKAGES := $(shell find services -maxdepth 2 -name pyproject.toml -exec dirn
 # One command for a laptop: Postgres, Kafka, Keycloak and OPA in Docker, the services, the dev gateway and the web
 # app on the host. Needs docker compose, psql, go and node (see deploy/local/README.md).
 dev:
-	cd tools/e2e && go run ./cmd/passage-dev up
+	cd tools/e2e && go run ./cmd/depot-dev up
 
 dev-render:
-	cd tools/e2e && go run ./cmd/passage-dev render
+	cd tools/e2e && go run ./cmd/depot-dev render
 
 # The vendor -> PO -> receipt -> AP invoice -> ledger flow against the stack `make dev` is running: real Keycloak
 # tokens for the seeded users, the dev gateway, OPA and the real services. Run `make dev` in another terminal first.
 e2e-local:
-	cd tools/e2e && PASSAGE_E2E_LIVE=1 go test -count=1 -v -run TestLiveStackFlow ./
+	cd tools/e2e && DEPOT_E2E_LIVE=1 go test -count=1 -v -run TestLiveStackFlow ./
 
 dev-down:
-	PASSAGE_DEV_DIR=$(CURDIR)/.run/dev docker compose -f deploy/local/compose.yaml down
+	DEPOT_DEV_DIR=$(CURDIR)/.run/dev docker compose -f deploy/local/compose.yaml down
 
 # Signed offline install bundle for an air-gapped cluster (IL6 readiness, docs/ops/dod-il5.md): make offline-bundle KEY=cosign.key
 offline-bundle:

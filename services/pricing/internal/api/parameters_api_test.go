@@ -13,7 +13,7 @@ const parametersURL = "/v1/pricing/parameters"
 // allValues are the other values every PUT carries.
 const allValues = `"freeGoodsCalcRule":"WHOLE_UNITS","pricingDateBasis":"SHIP_DATE","totalDiscountBasis":"AFTER_LINE_DISC","smartRoundingBands":[{"upTo":"10","ending":"0.99"},{"ending":"0"}],"priceSearchMode":"FIRST_MATCH","smallOrderThresholds":{},`
 
-var inEntity = []string{"X-Passage-Legal-Entity", legalEntity}
+var inEntity = []string{"X-Depot-Legal-Entity", legalEntity}
 
 func TestParameters_DefaultsThenSetWithVersion(t *testing.T) {
 	h := router(newFake())

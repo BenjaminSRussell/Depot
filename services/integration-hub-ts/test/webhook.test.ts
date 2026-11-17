@@ -11,7 +11,7 @@ import {
 } from "../src/webhook.ts";
 
 const secret = "whsec_test_only";
-const body = '{"type":"dev.passage.edi.message.received.v1"}';
+const body = '{"type":"dev.depot.edi.message.received.v1"}';
 const now = 1_800_000_000;
 
 test("a signature made now verifies and a wrong secret or body does not", () => {

@@ -23,8 +23,8 @@ jobs:
           fetch-depth: 0
       - uses: sigstore/cosign-installer@756fe2d284c7292c4e9b62c8a28f1e5629c59532
       - env:
-          PASSAGE_PLATFORM_API_URL: ${{ vars.PASSAGE_PLATFORM_API_URL }}
-          PASSAGE_PLATFORM_API_TOKEN: ${{ secrets.PASSAGE_PLATFORM_API_TOKEN }}
+          DEPOT_PLATFORM_API_URL: ${{ vars.DEPOT_PLATFORM_API_URL }}
+          DEPOT_PLATFORM_API_TOKEN: ${{ secrets.DEPOT_PLATFORM_API_TOKEN }}
           BEFORE: ${{ github.event.before }}
         run: |
           status=0

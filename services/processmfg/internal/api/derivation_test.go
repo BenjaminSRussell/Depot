@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/services/processmfg/internal/store"
+	"github.com/BenjaminSRussell/depot/services/processmfg/internal/store"
 )
 
 const (
@@ -105,7 +105,7 @@ func TestCreateRule_DutyKeyAndScope(t *testing.T) {
 		t.Errorf("read duty wrote: %d", rec.Code)
 	}
 	h := key("k")
-	h["X-Passage-Legal-Entity"] = ""
+	h["X-Depot-Legal-Entity"] = ""
 	rec := call{method: "POST", path: rulesPath, body: body, duties: DutyInheritanceRuleWrite, headers: h}.do(newRouter(f))
 	if rec.Code != http.StatusForbidden || f.gotRule.ItemID != "" {
 		t.Errorf("no scope: %d %s", rec.Code, rec.Body)

@@ -1,7 +1,7 @@
 -- Fulfillment slice 18: the sales order type and the release priority on a
 -- shipment, and the partial-release flag on a shipment line. No new tables:
 -- shipment and shipment_line already carry tenant_id with forced row-level
--- security and their passage_app grants (SELECT, INSERT, UPDATE) from earlier
+-- security and their depot_app grants (SELECT, INSERT, UPDATE) from earlier
 -- migrations.
 --
 -- shipment and shipment_line are live tables, so this file only changes the

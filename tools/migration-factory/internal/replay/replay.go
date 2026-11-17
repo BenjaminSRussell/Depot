@@ -12,9 +12,9 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/ledgerclient"
+	"github.com/BenjaminSRussell/depot/platform/ledgerclient"
 
-	"github.com/BenjaminSRussell/passage/tools/migration-factory/internal/domain"
+	"github.com/BenjaminSRussell/depot/tools/migration-factory/internal/domain"
 )
 
 var (
@@ -45,7 +45,7 @@ type Request struct {
 }
 
 // Rejected is a document the ledger refused, with its code; its amounts are missing from the
-// Passage trial balance and show as variances.
+// Depot trial balance and show as variances.
 type Rejected struct {
 	DocumentID string `json:"documentId"`
 	Seq        int    `json:"seq"`
@@ -65,7 +65,7 @@ type Result struct {
 // Run replays the documents and reads back the trial balance. It refuses a ledger the legal entity
 // does not own. A document the ledger rejects (a 4xx, such as an unknown account or a closed period)
 // is recorded and the replay goes on; any other failure stops it with ErrLedgerUnavailable. The
-// Passage side reads, per account the replay or the legacy trial balance touched, the ledger's
+// Depot side reads, per account the replay or the legacy trial balance touched, the ledger's
 // balance for the period, so other accounts of the ledger are not compared.
 func Run(ctx context.Context, ledger ledgerclient.Ledger, in Request) (Result, error) {
 	if len(in.Documents) == 0 && len(in.Subledger) > 0 {
@@ -127,7 +127,7 @@ func Run(ctx context.Context, ledger ledgerclient.Ledger, in Request) (Result, e
 		names = append(names, a)
 	}
 	sort.Strings(names)
-	var passage []domain.TBAccount
+	var depot []domain.TBAccount
 	for _, a := range names {
 		b, err := ledger.Balance(ctx, ledgerclient.BalanceQuery{LegalEntityID: in.LegalEntityID, LedgerID: in.LedgerID, Account: a,
 			PeriodFrom: in.Period, PeriodTo: in.Period})
@@ -135,13 +135,13 @@ func Run(ctx context.Context, ledger ledgerclient.Ledger, in Request) (Result, e
 			return Result{}, fmt.Errorf("%w: balance of %s: %v", ErrLedgerUnavailable, a, err)
 		}
 		if net := b.Net(); !net.IsZero() {
-			passage = append(passage, domain.TBAccount{Account: a, Currency: b.Currency, Net: net})
+			depot = append(depot, domain.TBAccount{Account: a, Currency: b.Currency, Net: net})
 		}
 	}
 	res.Input = domain.ParallelInput{Period: in.Period, SourceSystem: in.System, DocumentsReplayed: len(res.Posted),
 		Revenue: in.Revenue, ExplainedMaxPct: in.ExplainedMaxPct,
-		Legacy:  domain.TBLines(legacy, in.Period, "legacy", domain.DocumentCounts(in.Documents, in.Period)),
-		Passage: domain.TBLines(passage, in.Period, "passage", nil)}
+		Legacy: domain.TBLines(legacy, in.Period, "legacy", domain.DocumentCounts(in.Documents, in.Period)),
+		Depot:  domain.TBLines(depot, in.Period, "depot", nil)}
 	if len(in.Subledger) > 0 {
 		sl, err := RunSubledger(ctx, in.Ports, in)
 		if err != nil {
@@ -170,7 +170,7 @@ func runSubledgerOnly(ctx context.Context, in Request) (Result, error) {
 }
 
 // addSubledger adds the INV, AP, AR and FA tuples to the parallel-run input: the legacy side is the legacy movement
-// when the request carries one, else the documents' own sums, and the Passage side is what the ports read back.
+// when the request carries one, else the documents' own sums, and the Depot side is what the ports read back.
 func addSubledger(input *domain.ParallelInput, in Request, sl SubledgerResult, posted int) {
 	legacy := in.LegacySubledger
 	if len(legacy) == 0 {
@@ -178,5 +178,5 @@ func addSubledger(input *domain.ParallelInput, in Request, sl SubledgerResult, p
 	}
 	input.DocumentsReplayed += posted
 	input.Legacy = append(input.Legacy, domain.SubledgerLines(legacy, in.Period, "legacy", domain.SubledgerDocumentCounts(in.Subledger, in.Period))...)
-	input.Passage = append(input.Passage, domain.SubledgerLines(sl.Passage, in.Period, "passage", nil)...)
+	input.Depot = append(input.Depot, domain.SubledgerLines(sl.Depot, in.Period, "depot", nil)...)
 }

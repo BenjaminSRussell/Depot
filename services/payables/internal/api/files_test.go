@@ -18,10 +18,10 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/services/payables"
-	"github.com/BenjaminSRussell/passage/services/payables/internal/api"
-	"github.com/BenjaminSRussell/passage/services/payables/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/services/payables"
+	"github.com/BenjaminSRussell/depot/services/payables/internal/api"
+	"github.com/BenjaminSRussell/depot/services/payables/internal/domain"
 )
 
 const (
@@ -131,8 +131,8 @@ func TestPreviewPaymentFile_ReportsXSDViolations(t *testing.T) {
 func TestPreviewPaymentFile_ClientCancellationIsNotCounted(t *testing.T) {
 	r, a := routerWith(fakeValidator{err: context.Canceled})
 	req := httptest.NewRequest(http.MethodPost, filePreviewPath, strings.NewReader(readTestdata(t, "pain001/us.json")))
-	req.Header.Set("X-Passage-Tenant", "00000000-0000-4000-8000-000000000001")
-	req.Header.Set("X-Passage-Duties", previewDuty)
+	req.Header.Set("X-Depot-Tenant", "00000000-0000-4000-8000-000000000001")
+	req.Header.Set("X-Depot-Duties", previewDuty)
 	ctx, cancel := context.WithCancel(req.Context())
 	cancel()
 	req = req.WithContext(ctx)
@@ -181,8 +181,8 @@ func TestPreviewPaymentFile_TimeoutIsLoggedWithCorrelationID(t *testing.T) {
 	t.Cleanup(func() { slog.SetDefault(previous) })
 	r, _ := routerWith(fakeValidator{err: fmt.Errorf("run xmllint: %w", context.DeadlineExceeded)})
 	req := httptest.NewRequest(http.MethodPost, filePreviewPath, strings.NewReader(readTestdata(t, "pain001/us.json")))
-	req.Header.Set("X-Passage-Tenant", "00000000-0000-4000-8000-000000000001")
-	req.Header.Set("X-Passage-Duties", previewDuty)
+	req.Header.Set("X-Depot-Tenant", "00000000-0000-4000-8000-000000000001")
+	req.Header.Set("X-Depot-Duties", previewDuty)
 	req.Header.Set("X-Request-Id", "req-229")
 	r.ServeHTTP(httptest.NewRecorder(), req)
 	for _, raw := range bytes.Split(bytes.TrimSpace(logs.Bytes()), []byte("\n")) {

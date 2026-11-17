@@ -15,8 +15,8 @@ CREATE TABLE IF NOT EXISTS consumer_inbox (
 ALTER TABLE consumer_inbox ENABLE ROW LEVEL SECURITY;
 ALTER TABLE consumer_inbox FORCE ROW LEVEL SECURITY;
 CREATE POLICY consumer_inbox_tenant_access ON consumer_inbox AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- sales_order_type is the order type of a confirmed sales order. order_version
 -- is the sales order version of the event; an older event never overwrites a
@@ -33,8 +33,8 @@ CREATE TABLE IF NOT EXISTS sales_order_type (
 ALTER TABLE sales_order_type ENABLE ROW LEVEL SECURITY;
 ALTER TABLE sales_order_type FORCE ROW LEVEL SECURITY;
 CREATE POLICY sales_order_type_tenant_access ON sales_order_type AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- sales_order_hold is the hold state of a sales order, one row per hold (sales
 -- orderhold.applied.v1 sets it active, orderhold.released.v1 inactive). Posting a
@@ -56,14 +56,14 @@ CREATE INDEX IF NOT EXISTS sales_order_hold_active_idx ON sales_order_hold (tena
 ALTER TABLE sales_order_hold ENABLE ROW LEVEL SECURITY;
 ALTER TABLE sales_order_hold FORCE ROW LEVEL SECURITY;
 CREATE POLICY sales_order_hold_tenant_access ON sales_order_hold AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT ON consumer_inbox TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON sales_order_type, sales_order_hold TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT ON consumer_inbox TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON sales_order_type, sales_order_hold TO depot_app';
   END IF;
 END
 $$;

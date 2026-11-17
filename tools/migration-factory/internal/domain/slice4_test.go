@@ -27,7 +27,7 @@ func mustStep(t *testing.T, p *Plan, name string) *Step {
 	return s
 }
 
-// FR-49.9: the rollback plan starts with the decision at the abort deadline, then stops Passage
+// FR-49.9: the rollback plan starts with the decision at the abort deadline, then stops Depot
 // access, restores legacy write access, resumes the coexistence adapters (AC-49.7), exports the
 // postings since T-0 and re-keys them, each step planned to start when the one before ends.
 func TestRollbackPlan_StartsAtTheAbortDeadlineInExecutionOrder(t *testing.T) {

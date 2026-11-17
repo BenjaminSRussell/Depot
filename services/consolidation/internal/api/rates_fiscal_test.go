@@ -8,9 +8,9 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/fxclient"
-	"github.com/BenjaminSRussell/passage/platform/orgclient"
-	"github.com/BenjaminSRussell/passage/services/consolidation/internal/api"
+	"github.com/BenjaminSRussell/depot/platform/fxclient"
+	"github.com/BenjaminSRussell/depot/platform/orgclient"
+	"github.com/BenjaminSRussell/depot/services/consolidation/internal/api"
 )
 
 func TestCollection_RatesComeFromTheRateTables(t *testing.T) {

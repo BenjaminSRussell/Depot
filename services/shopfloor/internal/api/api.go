@@ -27,13 +27,13 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/authz"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/shopfloor/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/shopfloor/internal/pki"
-	"github.com/BenjaminSRussell/passage/services/shopfloor/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/authz"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/shopfloor/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/shopfloor/internal/pki"
+	"github.com/BenjaminSRussell/depot/services/shopfloor/internal/store"
 )
 
 // Duties (PRD 4.25.17).
@@ -258,7 +258,7 @@ const DefaultSignatureMaxAge = 5 * time.Minute
 func New(s Store) *API { return &API{store: s, now: time.Now, signatureAge: DefaultSignatureMaxAge} }
 
 // WithSignatureMaxAge sets how recently a signer must have authenticated (the token's auth_time, which the gateway forwards as
-// X-Passage-Auth-Time) for the service to accept an electronic signature. 30 seconds to an hour; anything else keeps the default.
+// X-Depot-Auth-Time) for the service to accept an electronic signature. 30 seconds to an hour; anything else keeps the default.
 func (a *API) WithSignatureMaxAge(d time.Duration) *API {
 	if d >= 30*time.Second && d <= time.Hour {
 		a.signatureAge = d

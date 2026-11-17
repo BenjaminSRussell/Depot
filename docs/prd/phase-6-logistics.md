@@ -47,29 +47,29 @@
 
 | Event (CloudEvents type) | Producer | Consumers | Payload summary |
 |---|---|---|---|
-| dev.passage.wms.work.created.v1 | wms | wms-mobile, analytics | work_id, work_type, warehouse, priority, lines[] |
-| dev.passage.wms.work.completed.v1 | wms | inventory, sales-fulfillment, production | work_id, lines with from/to location, LP, qty |
-| dev.passage.wms.load.shipped.v1 | wms | tms, sales-fulfillment, edi (856) | load_id, shipments[], LPs/SSCCs, carrier, ship_date |
-| dev.passage.wms.receipt.registered.v1 | wms | purchasing (wave 18), quality | receipt_id, po lines, LPs, qty |
-| dev.passage.quality.order.created.v1 | quality | wms (block quant), analytics | quality_order_id, trigger, item, quant_ref, sample_size |
-| dev.passage.quality.usagedecision.posted.v1 | quality | wms, inventory, purchasing, production | quality_order_id, decision, accept_qty, reject_qty |
-| dev.passage.quality.nonconformance.created.v1 | quality | workflow, vendor-scorecard | ncr_id, source, severity, item, vendor |
-| dev.passage.tms.shipment.rated.v1 | tms | sales (freight charge), analytics | shipment_id, carrier, service, charges[], total |
-| dev.passage.tms.tender.accepted.v1 | tms | wms (dock), edi (204/990) | load_id, carrier, pickup_window |
-| dev.passage.tms.freightbill.matched.v1 | tms | accounts-payable (wave 19), costing (wave 20) | freight_bill_id, invoice_id, variance, landed_cost_lines[] |
-| dev.passage.edi.message.received.v1 | edi | purchasing, sales, ap | partner, standard, transaction_set, control numbers, document ref |
-| dev.passage.edi.message.sent.v1 | edi | analytics, integration-hub | partner, transaction_set, ack status |
-| dev.passage.hub.webhook.delivered.v1 | integration-hub | analytics | subscription_id, event_id, attempt, status |
-| dev.passage.wms.crossdock.allocated.v1 | wms | sales-fulfillment, analytics | receipt_id, demand_line_ref, qty, staging_location |
-| dev.passage.wms.automation.fault.v1 | wms | wms-mobile, alerting | channel_id, communication_point, lp_id, fault_code |
-| dev.passage.quality.compliance.blocked.v1 | quality | sales, purchasing | item_id, region, list_id, action (BLOCK/WARN), source_ref |
-| dev.passage.quality.sds.distributed.v1 | quality | sales-fulfillment, customer portal | item_id, sds_version, customer_id, shipment_id |
-| dev.passage.tms.goodsintransit.shipped.v1 | tms | inventory, costing | voyage_id, container_ids, lines[], estimated_costs[] |
-| dev.passage.tms.gate.checkedin.v1 / checkedout.v1 | tms | wms (door work), analytics | visit_id, appointment_id, tu_id, seal_no, door_or_slot |
-| dev.passage.tms.dgcheck.failed.v1 | tms | planners, wms | load_id, rule_ids[], classes[] |
-| dev.passage.tms.screening.held.v1 | tms | sales, compliance tasks | load_id, party_id, status, list_version |
-| dev.passage.edi.selfbilling.matched.v1 | edi | accounts receivable (wave 29), cash application (wave 30) | document_id, customer_id, matched_lines, differences[] |
-| dev.passage.hub.punchout.returned.v1 | integration-hub | purchasing (wave 17) | session_id, supplier_id, lines[], rejected[] |
+| dev.depot.wms.work.created.v1 | wms | wms-mobile, analytics | work_id, work_type, warehouse, priority, lines[] |
+| dev.depot.wms.work.completed.v1 | wms | inventory, sales-fulfillment, production | work_id, lines with from/to location, LP, qty |
+| dev.depot.wms.load.shipped.v1 | wms | tms, sales-fulfillment, edi (856) | load_id, shipments[], LPs/SSCCs, carrier, ship_date |
+| dev.depot.wms.receipt.registered.v1 | wms | purchasing (wave 18), quality | receipt_id, po lines, LPs, qty |
+| dev.depot.quality.order.created.v1 | quality | wms (block quant), analytics | quality_order_id, trigger, item, quant_ref, sample_size |
+| dev.depot.quality.usagedecision.posted.v1 | quality | wms, inventory, purchasing, production | quality_order_id, decision, accept_qty, reject_qty |
+| dev.depot.quality.nonconformance.created.v1 | quality | workflow, vendor-scorecard | ncr_id, source, severity, item, vendor |
+| dev.depot.tms.shipment.rated.v1 | tms | sales (freight charge), analytics | shipment_id, carrier, service, charges[], total |
+| dev.depot.tms.tender.accepted.v1 | tms | wms (dock), edi (204/990) | load_id, carrier, pickup_window |
+| dev.depot.tms.freightbill.matched.v1 | tms | accounts-payable (wave 19), costing (wave 20) | freight_bill_id, invoice_id, variance, landed_cost_lines[] |
+| dev.depot.edi.message.received.v1 | edi | purchasing, sales, ap | partner, standard, transaction_set, control numbers, document ref |
+| dev.depot.edi.message.sent.v1 | edi | analytics, integration-hub | partner, transaction_set, ack status |
+| dev.depot.hub.webhook.delivered.v1 | integration-hub | analytics | subscription_id, event_id, attempt, status |
+| dev.depot.wms.crossdock.allocated.v1 | wms | sales-fulfillment, analytics | receipt_id, demand_line_ref, qty, staging_location |
+| dev.depot.wms.automation.fault.v1 | wms | wms-mobile, alerting | channel_id, communication_point, lp_id, fault_code |
+| dev.depot.quality.compliance.blocked.v1 | quality | sales, purchasing | item_id, region, list_id, action (BLOCK/WARN), source_ref |
+| dev.depot.quality.sds.distributed.v1 | quality | sales-fulfillment, customer portal | item_id, sds_version, customer_id, shipment_id |
+| dev.depot.tms.goodsintransit.shipped.v1 | tms | inventory, costing | voyage_id, container_ids, lines[], estimated_costs[] |
+| dev.depot.tms.gate.checkedin.v1 / checkedout.v1 | tms | wms (door work), analytics | visit_id, appointment_id, tu_id, seal_no, door_or_slot |
+| dev.depot.tms.dgcheck.failed.v1 | tms | planners, wms | load_id, rule_ids[], classes[] |
+| dev.depot.tms.screening.held.v1 | tms | sales, compliance tasks | load_id, party_id, status, list_version |
+| dev.depot.edi.selfbilling.matched.v1 | edi | accounts receivable (wave 29), cash application (wave 30) | document_id, customer_id, matched_lines, differences[] |
+| dev.depot.hub.punchout.returned.v1 | integration-hub | purchasing (wave 17) | session_id, supplier_id, lines[], rejected[] |
 
 **Phase-level risks**
 
@@ -92,7 +92,7 @@ Wave 28 ships sales orders from simple warehouses (item × location on-hand, man
 
 **Pain points solved (10x lens)**
 
-| Pain point in AX/SAP today | Root cause | Passage answer in this wave | Measurable 10x target |
+| Pain point in AX/SAP today | Root cause | Depot answer in this wave | Measurable 10x target |
 |---|---|---|---|
 | D365 location directives (WHSLocationDirective form) fail silently: work is created with blank put location or "no location found" only visible in the work details after wave processing; debugging requires the "Location directive failures" log (10.0.x) or SQL on WHSWorkLine | Directive evaluation is a batch-side X++ class with no trace; query ranges are opaque | `/location-directives:simulate` returns a rule-by-rule trace; blocked work has status `BLOCKED_NO_LOCATION` with the failing step on the wave | Time to diagnose a directive miss: 30–60 min (consultant with SQL) → < 1 min from the trace; 0 silent blanks |
 | EWM put-away bin determination (/SCWM/T333 storage type search sequence + bin type + storage section) spans 6 IMG nodes; a change needs a transport and a test cycle | Configuration split across customizing tables with cross-dependencies | One LocationDirective entity with ordered lines/actions, versioned metadata, simulate-before-save | Setup clicks for a new put-away rule: ~40 across 6 transactions → ≤ 8 in one designer; change lead time days → minutes |
@@ -102,7 +102,7 @@ Wave 28 ships sales orders from simple warehouses (item × location on-hand, man
 
 ### 6.31.2 AX / SAP parity map
 
-| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Passage equivalent | Parity |
+| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Depot equivalent | Parity |
 |---|---|---|---|---|
 | Location master | WMSLocation, WHSLocationProfile, WHSZone, WHSLocationFormat; form WHSLocation | /SCWM/LAGP storage bins, /SCWM/T301 storage types, sections /SCWM/T302, bin types /SCWM/T303 | wms.Location, Zone, LocationProfile | full |
 | License plates / HUs | WHSLicensePlate, WHSContainerTable | /SCWM/HUHDR, /SCWM/HUITM, packaging material | wms.LicensePlate (nested), Quant | full |
@@ -129,7 +129,7 @@ Wave 28 ships sales orders from simple warehouses (item × location on-hand, man
 - **FR-31.1 Location hierarchy with profiles** — Must. The system shall model locations as `warehouse / zone / aisle / rack / shelf / bin` with a LocationProfile that defines capacity (weight, volume, LP count, item count), mixing rules and allowed LP behavior.
   - Notes: capacity limits are checked when work is created and again at confirmation; a location with `allow_mixed_items = false` rejects a second item; location name is generated from a LocationFormat (`A-01-02-03` → aisle 1, rack 2, shelf 3); maximum 1,000,000 locations per warehouse.
 - **FR-31.2 Nested license plates** — Must. The system shall track inventory on license plates that nest (pallet → case → inner) to depth 5, with a single move of a parent moving all children atomically.
-  - Notes: LP id is an SSCC-18 when generated by Passage (extension digit 0, GS1 company prefix from wave 8 config); external LPs are accepted up to 40 characters; an LP can be at exactly one location or in transit on one Work.
+  - Notes: LP id is an SSCC-18 when generated by Depot (extension digit 0, GS1 company prefix from wave 8 config); external LPs are accepted up to 40 characters; an LP can be at exactly one location or in transit on one Work.
 - **FR-31.3 Location directives** — Must. The system shall resolve a destination (put-away) or source (pick) location for each work line by evaluating ordered directives, lines and actions as specified in BR-31.1.
   - Notes: directive scope = work order type × warehouse × optional query on item/customer/vendor; strategies: `consolidate`, `fifo`, `lifo`, `fefo`, `empty_location`, `match_packing_quantity`, `round_up_to_lp`; evaluation p95 < 200 ms per line at 50,000 locations.
 - **FR-31.4 Work templates** — Must. The system shall create Work from templates whose lines define pick/put pairs, work class, stop-after-line and max lines/LPs per work header.
@@ -249,11 +249,11 @@ Commands (CQRS): `CreateWorkFromOrderLines` validates all lines belong to one wa
 
 | Event | Trigger | Payload fields | Consumers |
 |---|---|---|---|
-| dev.passage.wms.work.created.v1 | Work header committed | work_id, work_type, warehouse_id, priority, wave_id, lines[] | wms-mobile, analytics |
-| dev.passage.wms.work.completed.v1 | last line confirmed | work_id, lines[{item, dims, qty, from, to, lp}], user, duration_s | inventory (post transfer), sales-fulfillment, production |
-| dev.passage.wms.wave.released.v1 | workflow finished | wave_id, orders, work_count, replenishment_count, failures[] | analytics, sales-fulfillment |
-| dev.passage.wms.load.shipped.v1 | load confirmed | load_id, shipment_ids, lp_ids, carrier_id, ship_datetime | tms, edi, sales-fulfillment |
-| dev.passage.wms.receipt.registered.v1 | receipt committed | receipt_id, po_line_refs, lp_ids, qty by item | purchasing, quality |
+| dev.depot.wms.work.created.v1 | Work header committed | work_id, work_type, warehouse_id, priority, wave_id, lines[] | wms-mobile, analytics |
+| dev.depot.wms.work.completed.v1 | last line confirmed | work_id, lines[{item, dims, qty, from, to, lp}], user, duration_s | inventory (post transfer), sales-fulfillment, production |
+| dev.depot.wms.wave.released.v1 | workflow finished | wave_id, orders, work_count, replenishment_count, failures[] | analytics, sales-fulfillment |
+| dev.depot.wms.load.shipped.v1 | load confirmed | load_id, shipment_ids, lp_ids, carrier_id, ship_datetime | tms, edi, sales-fulfillment |
+| dev.depot.wms.receipt.registered.v1 | receipt committed | receipt_id, po_line_refs, lp_ids, qty by item | purchasing, quality |
 
 ### 6.31.6 User experience
 
@@ -325,11 +325,11 @@ Reconciliation: Σ quant per item/warehouse = inventory ledger on-hand; Σ in-tr
 
 ### 6.31.10 Deployment and operations
 
-Helm chart `passage-wms` (deployments `wms-api`, `wms-directive-engine`, `wms-worker` for Temporal activities; HPA 2–10 on CPU 70%); CloudNativePG cluster `wms-db` (3 instances, 100 GB); Atlas migrations generated from entity metadata; config: `WMS_LOCK_TIMEOUT_MIN=30`, `WMS_REPLENISH_INTERVAL_MIN=15`, `WMS_MAX_WAVE_LINES=5000`. Feature flags: `wms.advanced` per warehouse (off = wave-28 simple mode), `wms.slotting`. Scheduled jobs (Temporal schedules): min/max replenishment, automatic wave release, count plan generation (daily 02:00 warehouse-local), KPI materialization hourly. SLOs: assignment p95 < 1 s; directive simulate p95 < 200 ms; wave release of 5,000 lines < 10 min; availability 99.9%. Alerts: `WmsWorkBlockedNoLocation > 50 in 15 min`, `WmsAssignmentP95 > 2 s`, `WmsQuantLedgerDrift ≠ 0 after daily reconciliation`, `WmsWaveWorkflowFailed`. Runbook: re-evaluate blocked work; release stuck locks; reconcile drift (compare `quant` vs ledger projection, apply correction journal with approval). Rollback: Argo CD to previous digest; migrations are additive within a wave; flag `wms.advanced=false` returns a warehouse to simple mode only if no OPEN work exists.
+Helm chart `depot-wms` (deployments `wms-api`, `wms-directive-engine`, `wms-worker` for Temporal activities; HPA 2–10 on CPU 70%); CloudNativePG cluster `wms-db` (3 instances, 100 GB); Atlas migrations generated from entity metadata; config: `WMS_LOCK_TIMEOUT_MIN=30`, `WMS_REPLENISH_INTERVAL_MIN=15`, `WMS_MAX_WAVE_LINES=5000`. Feature flags: `wms.advanced` per warehouse (off = wave-28 simple mode), `wms.slotting`. Scheduled jobs (Temporal schedules): min/max replenishment, automatic wave release, count plan generation (daily 02:00 warehouse-local), KPI materialization hourly. SLOs: assignment p95 < 1 s; directive simulate p95 < 200 ms; wave release of 5,000 lines < 10 min; availability 99.9%. Alerts: `WmsWorkBlockedNoLocation > 50 in 15 min`, `WmsAssignmentP95 > 2 s`, `WmsQuantLedgerDrift ≠ 0 after daily reconciliation`, `WmsWaveWorkflowFailed`. Runbook: re-evaluate blocked work; release stuck locks; reconcile drift (compare `quant` vs ledger projection, apply correction journal with approval). Rollback: Argo CD to previous digest; migrations are additive within a wave; flag `wms.advanced=false` returns a warehouse to simple mode only if no OPEN work exists.
 
 ### 6.31.11 Migration from AX / SAP
 
-| Source | Passage entity | Transformation |
+| Source | Depot entity | Transformation |
 |---|---|---|
 | WMSLocation, WHSLocationProfile, WHSZone, WHSLocationFormat | Location, LocationProfile, Zone, LocationFormat | parse name by format; capacity from profile; status from `WHSLocationStatus` |
 | /SCWM/LAGP, /SCWM/T301, /SCWM/T302, /SCWM/T303 | Location, Zone (storage type/section), LocationProfile (bin type) | LGTYP → zone, LGBER → sub-zone attribute; capacity from LAGP `MAX_WEIGHT`/`MAX_CAPA` |
@@ -523,7 +523,7 @@ Wave 31 creates work; wave 32 lets warehouse workers execute it on handheld scan
 
 **Pain points solved (10x lens)**
 
-| Pain point in AX/SAP today | Root cause | Passage answer in this wave | Measurable 10x target |
+| Pain point in AX/SAP today | Root cause | Depot answer in this wave | Measurable 10x target |
 |---|---|---|---|
 | D365 mobile menu items (WHSRFMenuItemTable) expose ~60 option fields per item; a flow change (e.g., add a lot confirmation step) needs a consultant, a config move across environments and a device re-login; D365 "mobile device steps configuration" cannot add a new step, only hide/rename | Flows are hard-coded X++ step classes parameterized by options | Flow designer with versioned step graphs, simulate, publish; devices pick up the version in ≤ 60 s | Flow change lead time: 1–3 days → < 30 min; 0 app releases per flow change |
 | Both D365 mobile app and EWM RF (/SCWM/RFUI, ITSmobile) stop dead without Wi-Fi; workers in freezers, yards and trailers lose scans | Request/response screens with no client state | Offline queue with ordered, idempotent replay and a supervisor conflict queue | Lost transactions on disconnect: every one → 0; worker wait on reconnect: re-key → 0 keystrokes |
@@ -533,7 +533,7 @@ Wave 31 creates work; wave 32 lets warehouse workers execute it on handheld scan
 
 ### 6.32.2 AX / SAP parity map
 
-| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Passage equivalent | Parity |
+| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Depot equivalent | Parity |
 |---|---|---|---|---|
 | Mobile menu | WHSMobileAppMenu, WHSRFMenuTable, WHSRFMenuLine | /SCWM/TMENU, /SCWM/T_RF_MENU (RF menu manager /SCWM/RFUI) | wms-mobile.MobileMenu | full |
 | Menu items / flows | WHSRFMenuItemTable (WHSRFMenuItem), work creation vs existing work modes | Logical transactions /SCWM/TLOGTR, steps /SCWM/T_RF_STEP | MobileFlow (step graph) | improved — visual designer, versioned |
@@ -643,10 +643,10 @@ Invariants: a device has at most one active session; `seq` is strictly increasin
 
 | Event | Trigger | Payload fields | Consumers |
 |---|---|---|---|
-| dev.passage.mobile.flow.published.v1 | publish | flow_id, code, version, warehouses | devices (push via SSE), analytics |
-| dev.passage.mobile.session.started.v1 / ended.v1 | session lifecycle | session_id, device_id, user_id, warehouse | analytics |
-| dev.passage.mobile.offline.conflict.v1 | replay conflict | idempotency_key, command, reason | supervisor queue |
-| dev.passage.print.job.completed.v1 | printer ack | job_id, printer, status | wms |
+| dev.depot.mobile.flow.published.v1 | publish | flow_id, code, version, warehouses | devices (push via SSE), analytics |
+| dev.depot.mobile.session.started.v1 / ended.v1 | session lifecycle | session_id, device_id, user_id, warehouse | analytics |
+| dev.depot.mobile.offline.conflict.v1 | replay conflict | idempotency_key, command, reason | supervisor queue |
+| dev.depot.print.job.completed.v1 | printer ack | job_id, printer, status | wms |
 
 ### 6.32.6 User experience
 
@@ -691,7 +691,7 @@ Interaction rules: device UI uses one input per screen; Enter/scan advances; har
 
 ### 6.32.9 Test plan and fixtures
 
-Fixtures: `gs1-ai-vectors.json` (GS1 test suite plus 60 Passage vectors for edge cases), `labels-asn-3-pallet.zpl` rendered to PNG for the emulator's camera-free scan injection, `offline-200.json`, `flows-core-v1` (seven flows), device profiles `zebra-tc52`, `honeywell-ct45`.
+Fixtures: `gs1-ai-vectors.json` (GS1 test suite plus 60 Depot vectors for edge cases), `labels-asn-3-pallet.zpl` rendered to PNG for the emulator's camera-free scan injection, `offline-200.json`, `flows-core-v1` (seven flows), device profiles `zebra-tc52`, `honeywell-ct45`.
 
 | Test | Type | Target | Pass criterion |
 |---|---|---|---|
@@ -707,11 +707,11 @@ Reconciliation: Σ mobile confirmations per day = Σ work line confirmations in 
 
 ### 6.32.10 Deployment and operations
 
-Helm `passage-wms-mobile` (BFF, SSE push, 2–8 replicas), `passage-print` (print service with printer registry; one per site network, outbound TCP 9100/IPP), PWA assets served by the shell CDN path; Android shell signed APK distributed via MDM (SOTI/Workspace ONE) or sideload. Config: `MOBILE_OFFLINE_MAX_TX=500`, `MOBILE_SESSION_IDLE_MIN=30`, `PRINT_RETRY=3`. Flags: `mobile.offline`, `mobile.voice_adapter`. SLOs: step submit p95 < 300 ms; menu load < 1 s; print job dispatched < 2 s; offline replay 200 tx < 30 s. Alerts: offline conflicts > 10/h per warehouse; print failures > 5/15 min per printer; stale sessions > 20. Runbook: printer unreachable (check print service pod on site, re-queue jobs); device clock skew > 5 min (block replay, instruct re-sync). Rollback: flow versions are retained — republish the previous version; BFF rollback via Argo CD.
+Helm `depot-wms-mobile` (BFF, SSE push, 2–8 replicas), `depot-print` (print service with printer registry; one per site network, outbound TCP 9100/IPP), PWA assets served by the shell CDN path; Android shell signed APK distributed via MDM (SOTI/Workspace ONE) or sideload. Config: `MOBILE_OFFLINE_MAX_TX=500`, `MOBILE_SESSION_IDLE_MIN=30`, `PRINT_RETRY=3`. Flags: `mobile.offline`, `mobile.voice_adapter`. SLOs: step submit p95 < 300 ms; menu load < 1 s; print job dispatched < 2 s; offline replay 200 tx < 30 s. Alerts: offline conflicts > 10/h per warehouse; print failures > 5/15 min per printer; stale sessions > 20. Runbook: printer unreachable (check print service pod on site, re-queue jobs); device clock skew > 5 min (block replay, instruct re-sync). Rollback: flow versions are retained — republish the previous version; BFF rollback via Argo CD.
 
 ### 6.32.11 Migration from AX / SAP
 
-| Source | Passage entity | Transformation |
+| Source | Depot entity | Transformation |
 |---|---|---|
 | WHSMobileAppMenu, WHSRFMenuTable, WHSRFMenuLine | MobileMenu | hierarchy preserved |
 | WHSRFMenuItemTable (mode, work class, directed/user-directed, detours) | MobileFlow draft | generated from the menu item's options into the equivalent core flow with configured branches; requires manual review |
@@ -720,7 +720,7 @@ Helm `passage-wms-mobile` (BFF, SSE push, 2–8 replicas), `passage-print` (prin
 | /SCWM/TMENU, /SCWM/T_RF_MENU, /SCWM/TLOGTR | MobileMenu, MobileFlow draft | logical transaction → core flow mapping table |
 | /SCWM/RSRC, /SCWM/TRSRC | WorkUser, device bindings | resource type → work class |
 
-Not migrated: RF screen layouts (/SCWM/TPRES) and D365 step field layouts — Passage flows are redesigned; mobile session state; print spool history.
+Not migrated: RF screen layouts (/SCWM/TPRES) and D365 step field layouts — Depot flows are redesigned; mobile session state; print spool history.
 
 ### 6.32.12 Dependencies, risks, open questions
 
@@ -846,7 +846,7 @@ Open questions: (1) Native iOS shell — proposed: no, PWA only; decide by wave 
 - **Regulated serialization.** EU Falsified Medicines Directive (Delegated Regulation 2016/161) requires 2D DataMatrix with AI 01, 21, 10, 17 and national reimbursement numbers (AI 710–715); US DSCSA requires interoperable serialized traceability (EPCIS). Country packs (wave 48) add AI validation and label templates through `LabelTemplatePack`; the EPC ingest (FR-32.9) carries SGTIN data.
 - **Character sets.** ZPL templates use `^CI28` (UTF-8) for non-Latin scripts; human-readable dates on labels follow locale while barcode data stays `YYMMDD`.
 - **Privacy.** Per-user step telemetry is personal data (GDPR); retention 90 days; named per-user timing reports follow the wave-31 `LaborPrivacyPolicy`; works-council rules as §6.31.20.
-- **Device and radio rules.** Scanner hardware certification is the device vendor's responsibility; Passage stores no location data from devices beyond the warehouse and session.
+- **Device and radio rules.** Scanner hardware certification is the device vendor's responsibility; Depot stores no location data from devices beyond the warehouse and session.
 
 ### 6.32.21 Coverage closure
 
@@ -860,13 +860,13 @@ Open questions: (1) Native iOS shell — proposed: no, PWA only; decide by wave 
 
 ### 6.33.1 Scope and business context
 
-Wave 33 replaces AX quality management (test groups, quality associations, quality orders, nonconformances, corrections) and SAP QM (inspection plans, inspection lots, results recording, usage decisions, quality notifications, vendor evaluation). After this wave, quality orders are generated by association rules at purchase receipt, production report-as-finished and before shipment; samples are sized by AQL plans; results are recorded (variable and attribute); a usage decision releases or rejects inventory that was blocked from the moment the order was created; nonconformances drive corrections/CAPA through a Temporal 8D workflow; certificates of analysis print on shipment; supplier scorecards and SPC charts are computed from results; instruments have calibration schedules. Out of scope: stability studies, audit management (ISO 19011), FMEA, and the SAP QM-PM calibration order integration (Passage tracks calibration due dates and blocks results from overdue instruments).
+Wave 33 replaces AX quality management (test groups, quality associations, quality orders, nonconformances, corrections) and SAP QM (inspection plans, inspection lots, results recording, usage decisions, quality notifications, vendor evaluation). After this wave, quality orders are generated by association rules at purchase receipt, production report-as-finished and before shipment; samples are sized by AQL plans; results are recorded (variable and attribute); a usage decision releases or rejects inventory that was blocked from the moment the order was created; nonconformances drive corrections/CAPA through a Temporal 8D workflow; certificates of analysis print on shipment; supplier scorecards and SPC charts are computed from results; instruments have calibration schedules. Out of scope: stability studies, audit management (ISO 19011), FMEA, and the SAP QM-PM calibration order integration (Depot tracks calibration due dates and blocks results from overdue instruments).
 
-**Scope amendment (coverage closure).** The gap registers move into this wave items that the paragraph above excludes or does not name: product compliance with regulated and restricted lists (FR-33.13), safety data sheets (FR-33.14), incoming vendor certificates (FR-33.15), stability studies (FR-33.16), audit management (FR-33.17), FMEA and control plans (FR-33.18), source inspection (FR-33.19), physical sample management (FR-33.20), multiple specifications (FR-33.21) and in-process inspection points (FR-33.22). The SAP QM-PM calibration-order integration stays out of scope; Instrument due-date tracking (BR-33.8) remains the Passage mechanism. §6.33.21 lists the dispositions.
+**Scope amendment (coverage closure).** The gap registers move into this wave items that the paragraph above excludes or does not name: product compliance with regulated and restricted lists (FR-33.13), safety data sheets (FR-33.14), incoming vendor certificates (FR-33.15), stability studies (FR-33.16), audit management (FR-33.17), FMEA and control plans (FR-33.18), source inspection (FR-33.19), physical sample management (FR-33.20), multiple specifications (FR-33.21) and in-process inspection points (FR-33.22). The SAP QM-PM calibration-order integration stays out of scope; Instrument due-date tracking (BR-33.8) remains the Depot mechanism. §6.33.21 lists the dispositions.
 
 **Pain points solved (10x lens)**
 
-| Pain point in AX/SAP today | Root cause | Passage answer in this wave | Measurable 10x target |
+| Pain point in AX/SAP today | Root cause | Depot answer in this wave | Measurable 10x target |
 |---|---|---|---|
 | AX quality order blocking (InventQualityOrderTable → InventBlockingTable) blocks only the quantity registered on the receipt; production and sales paths can still pick inventory registered under a different dimension set, and "Inventory blocking" is bypassed by movement journals | Blocking is a reservation-like record checked by some, not all, transaction types | Hold lives in the inventory ledger reservation path and is checked by every transaction type; property test enumerates all | Movements of held stock: occasional (audit findings) → 0 across 10,000 randomized attempts |
 | SAP usage decision (QA11) is a separate transaction from results recording (QE01), each 8–12 clicks with stock posting on a third tab; partial accept/reject needs manual quantity split and MIGO 321/322 follow-up | Inspection lot, results and stock posting are separate objects with separate screens | Results and decision on one order; quantity split posts both ledger legs automatically | Clicks per decision: ~25 across QE01/QA11/MIGO → ≤ 5; follow-up postings keyed manually: 2 → 0 |
@@ -876,7 +876,7 @@ Wave 33 replaces AX quality management (test groups, quality associations, quali
 
 ### 6.33.2 AX / SAP parity map
 
-| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Passage equivalent | Parity |
+| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Depot equivalent | Parity |
 |---|---|---|---|---|
 | Tests and groups | InventTestTable, InventTestGroup, InventTestGroupTest (lines), InventTestVariable/Outcome | Master inspection characteristics QPMK (QS21), inspection plans QP01 (PLKO/PLPO/PLMK), catalogs QPCT | quality.Test, TestGroup, Characteristic catalog | full |
 | Sampling | InventTestItemSampling (fixed qty/%) | Sampling procedures QDP1 (QDPS), sampling schemes QDS1, dynamic modification | SamplingPlan (fixed, %, AQL Z1.4) | improved — AQL built in |
@@ -1021,11 +1021,11 @@ Commands: `CreateQualityOrderFromTrigger` validates association match and that t
 
 | Event | Trigger | Payload fields | Consumers |
 |---|---|---|---|
-| dev.passage.quality.order.created.v1 | order created | quality_order_id, trigger, source_ref, item, dims, lot_qty, sample_qty | inventory (hold), wms, analytics |
-| dev.passage.quality.result.recorded.v1 | result batch | quality_order_id, results[] | SPC projection |
-| dev.passage.quality.usagedecision.posted.v1 | decision | quality_order_id, decision, accept_qty, reject_qty, deviation_qty, user | inventory (release/hold), wms, purchasing, production |
-| dev.passage.quality.nonconformance.created.v1 | NCR | ncr_id, source, severity, item, vendor_id | vendor scorecard, workflow |
-| dev.passage.quality.capa.closed.v1 | 8D closed | ncr_id, effectiveness_result | analytics |
+| dev.depot.quality.order.created.v1 | order created | quality_order_id, trigger, source_ref, item, dims, lot_qty, sample_qty | inventory (hold), wms, analytics |
+| dev.depot.quality.result.recorded.v1 | result batch | quality_order_id, results[] | SPC projection |
+| dev.depot.quality.usagedecision.posted.v1 | decision | quality_order_id, decision, accept_qty, reject_qty, deviation_qty, user | inventory (release/hold), wms, purchasing, production |
+| dev.depot.quality.nonconformance.created.v1 | NCR | ncr_id, source, severity, item, vendor_id | vendor scorecard, workflow |
+| dev.depot.quality.capa.closed.v1 | 8D closed | ncr_id, effectiveness_result | analytics |
 
 ### 6.33.6 User experience
 
@@ -1124,11 +1124,11 @@ Reconciliation: Σ quality-held qty in ledger = Σ lot_qty of open orders; rejec
 
 ### 6.33.10 Deployment and operations
 
-Helm `passage-quality` (api, worker, 2–6 replicas), CloudNativePG `quality-db` (3 instances, 50 GB). Config: `QM_DEFAULT_INSPECTION_LEVEL=II`, `QM_EFFECTIVENESS_DAYS=90`, `QM_INSTRUMENT_WARN_DAYS=14`. Flags: `quality.enabled` per site, `quality.spc`. Scheduled: scorecard materialization monthly (1st, 03:00), instrument due scan daily, SPC recompute hourly. SLOs: order creation added to receipt latency < 100 ms p95; results batch p95 < 2 s; decision posting p95 < 500 ms. Alerts: orders PENDING_DECISION > 5 days; held qty vs open orders drift; instrument overdue with results attempted. Runbook: release orphan holds (order cancelled but hold remains); reprocess association for a trigger event. Rollback: `quality.enabled=false` stops new orders; existing holds remain until decided (never auto-release on rollback).
+Helm `depot-quality` (api, worker, 2–6 replicas), CloudNativePG `quality-db` (3 instances, 50 GB). Config: `QM_DEFAULT_INSPECTION_LEVEL=II`, `QM_EFFECTIVENESS_DAYS=90`, `QM_INSTRUMENT_WARN_DAYS=14`. Flags: `quality.enabled` per site, `quality.spc`. Scheduled: scorecard materialization monthly (1st, 03:00), instrument due scan daily, SPC recompute hourly. SLOs: order creation added to receipt latency < 100 ms p95; results batch p95 < 2 s; decision posting p95 < 500 ms. Alerts: orders PENDING_DECISION > 5 days; held qty vs open orders drift; instrument overdue with results attempted. Runbook: release orphan holds (order cancelled but hold remains); reprocess association for a trigger event. Rollback: `quality.enabled=false` stops new orders; existing holds remain until decided (never auto-release on rollback).
 
 ### 6.33.11 Migration from AX / SAP
 
-| Source | Passage entity | Transformation |
+| Source | Depot entity | Transformation |
 |---|---|---|
 | InventTestTable, InventTestVariable, InventTestVariableOutcome | Test, outcome catalog | type Integer/Fraction → variable; Option → attribute |
 | InventTestGroup + lines, InventTestItemSampling | TestGroup, SamplingPlan | fixed/percent plans direct; AQL plans created new |
@@ -1337,7 +1337,7 @@ Wave 28 integrated parcel carriers for labels; wave 34 adds full transportation 
 
 **Pain points solved (10x lens)**
 
-| Pain point in AX/SAP today | Root cause | Passage answer in this wave | Measurable 10x target |
+| Pain point in AX/SAP today | Root cause | Depot answer in this wave | Measurable 10x target |
 |---|---|---|---|
 | D365 rate route workbench (TMSRateRouteWorkbench) shows a total per carrier with no breakdown; a wrong rate (missing rate base assignment, fuel index not loaded) is found when the carrier invoice arrives weeks later | Rate engines (TMSRateEngineBase subclasses) return totals; no explain | Rating returns an explain trace per charge step; `NO_VALID_RATE_CARD` is explicit | Rate errors detected: at invoice (2–6 weeks) → at rating (< 300 ms); rating disputes caused by setup: ~5% of invoices → < 0.5% |
 | SAP TM carrier selection and tendering (freight order subcontracting) require TM configuration plus PI/PO for EDI 204/990; tender timeouts are monitored manually in the transportation cockpit | Tendering is a status field, not a durable process | Temporal `TenderWorkflow` with cascade, timeouts and carrier portal/EDI responses | Planner interventions per 100 tenders: ~30 (watching expiry) → < 3; tender-to-acceptance: hours of chasing → automatic cascade within the timeout |
@@ -1347,7 +1347,7 @@ Wave 28 integrated parcel carriers for labels; wave 34 adds full transportation 
 
 ### 6.34.2 AX / SAP parity map
 
-| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Passage equivalent | Parity |
+| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Depot equivalent | Parity |
 |---|---|---|---|---|
 | Carriers / services | TMSCarrier, TMSCarrierService, TMSCarrierServiceGroup | Business partner carrier role, /SCMTMS/ means of transport | tms.Carrier, CarrierService | full |
 | Rate cards | TMSRateMaster, TMSRateBase, TMSRateBaseAssignment, TMSRateEngine classes (TMSRateEngineBase) | Freight agreements, rate tables, calculation sheets (/SCMTMS/TCM, /SCMTMS/TCCS) | RateCard, RateTable, CalcSheet | full |
@@ -1398,7 +1398,7 @@ Wave 28 integrated parcel carriers for labels; wave 34 adds full transportation 
 - **FR-34.13 Yard management** — Should. The system shall model yard locations (parking slots, door waiting lanes, checkpoints), transportation units (trailer, container, swap body) and vehicles, track TU position and status (EMPTY, LOADED, SEALED; reefer setpoint), and create yard-move work (wms work type YARD_MOVE) between slot and dock door, executed on the wave-32 mobile app.
   - Notes: TU ↔ load link from tender acceptance; door assignment respects DockAppointment (wave 31); slot capacity is one TU; dwell time per TU drives detention (BR-34.13, accessorial DETENTION after free time, default 2 h); a yard check is a count work over yard slots.
 - **FR-34.14 Driver check-in/out and gate log** — Should. The system shall check drivers in at the gate or a kiosk against the dock appointment (appointment id or carrier SCAC + trailer/container number), capture seal number, driver name and license id, assign a yard slot or door, and check out with seal verification, recording each event in an append-only gate log.
-  - Notes: matching and tolerance per BR-34.14 (default ±60 min); walk-ins allowed per site setting; check-out blocked if the load is not confirmed or the seal does not match; driver PII kept 90 days, then pseudonymized; check-in emits `dev.passage.tms.gate.checkedin.v1`, which releases the door work in wms.
+  - Notes: matching and tolerance per BR-34.14 (default ±60 min); walk-ins allowed per site setting; check-out blocked if the load is not confirmed or the seal does not match; driver PII kept 90 days, then pseudonymized; check-in emits `dev.depot.tms.gate.checkedin.v1`, which releases the door work in wms.
 - **FR-34.15 Dangerous goods checks in transport** — Should. The system shall use the wave-31 HazmatProfile to check DG compliance at rating, load building, tendering and ship confirmation: mode-specific regulation (49 CFR, ADR, RID, IMDG, IATA DGR), carrier-service DG eligibility, mixed-load segregation (49 CFR 177.848, ADR 7.5.2), ADR 1.1.3.6 quantity thresholds and limited-quantity rules, and produce DG shipping-paper lines and placard requirements.
   - Notes: result PASS/WARN/FAIL with rule ids (BR-34.15); FAIL blocks tender and ship confirmation when `dg_check_mode = BLOCK`; a 24-hour emergency response phone from legal-entity setup is mandatory before a DG shipment; DG lines print on the BOL with UN number, proper shipping name, class, packing group and quantity.
 - **FR-34.16 Fleet resources** — Could. The system shall define own-fleet vehicles (weight/volume/pallet capacity, equipment type, depot, cost per km and per hour, availability calendar), trailers and drivers (qualifications such as hazmat endorsement or ADR certificate with expiry, availability calendar, hours-of-service rule set) and pass them to the VRP as heterogeneous fleet and driver-hours constraints (BR-34.16).
@@ -1483,11 +1483,11 @@ Invariants: a load has at most one ACCEPTED tender; Σ allocated landed cost per
 
 | Event | Trigger | Payload fields | Consumers |
 |---|---|---|---|
-| dev.passage.tms.shipment.rated.v1 | rating | shipment_id, options[{carrier, service, total, transit_days}], chosen | sales (freight charge), analytics |
-| dev.passage.tms.tender.accepted.v1 / declined.v1 / expired.v1 | tender response | load_id, carrier_id, rank, rate | wms, edi (204/990), analytics |
-| dev.passage.tms.tracking.event.v1 | ingest | load_id, stop_no, code, occurred_at | sales-fulfillment, customer portal |
-| dev.passage.tms.freightbill.matched.v1 | match | freight_bill_id, carrier_invoice_id, variance, lines[] | AP, costing |
-| dev.passage.tms.landedcost.posted.v1 | allocation posted | voyage_id, receipt_lines[{line, amount}] | costing (wave 20) |
+| dev.depot.tms.shipment.rated.v1 | rating | shipment_id, options[{carrier, service, total, transit_days}], chosen | sales (freight charge), analytics |
+| dev.depot.tms.tender.accepted.v1 / declined.v1 / expired.v1 | tender response | load_id, carrier_id, rank, rate | wms, edi (204/990), analytics |
+| dev.depot.tms.tracking.event.v1 | ingest | load_id, stop_no, code, occurred_at | sales-fulfillment, customer portal |
+| dev.depot.tms.freightbill.matched.v1 | match | freight_bill_id, carrier_invoice_id, variance, lines[] | AP, costing |
+| dev.depot.tms.landedcost.posted.v1 | allocation posted | voyage_id, receipt_lines[{line, amount}] | costing (wave 20) |
 
 ### 6.34.6 User experience
 
@@ -1563,11 +1563,11 @@ Reconciliation: Σ accrued freight by open freight bill = journal account 2150 b
 
 ### 6.34.10 Deployment and operations
 
-Helm `passage-tms` (api, worker), `passage-tms-optimizer` (Python, OR-Tools, 1–4 replicas, 2 CPU/4 GB each), `passage-osrm` (optional self-hosted routing with regional extracts). CloudNativePG `tms-db` (3 instances, 50 GB). Config: `TMS_VRP_TIME_LIMIT_S=60`, `TMS_TENDER_TIMEOUT_MIN=120`, `TMS_MATCH_TOL_ABS=5`, `TMS_MATCH_TOL_PCT=2`, `TMS_DIM_FACTOR_PARCEL=139`. Flags: `tms.enabled`, `tms.landed_cost`, `tms.vrp`. Scheduled: fuel index import weekly (Monday 06:00), tender expiry sweep (Temporal timers), KPI daily. SLOs: rating p95 < 300 ms per shipment per carrier; VRP 500 stops < 60 s; match p95 < 1 s; availability 99.9%. Alerts: tender failures > 3/day; unexpected invoices > 10/day; accrual drift ≠ 0; optimizer queue depth > 20. Runbook: optimizer OOM (reduce batch or raise limits); OSRM down (fallback to stored lane distances with warning). Rollback: `tms.enabled=false` returns to wave-28 carrier labels; open tenders are cancelled with notification.
+Helm `depot-tms` (api, worker), `depot-tms-optimizer` (Python, OR-Tools, 1–4 replicas, 2 CPU/4 GB each), `depot-osrm` (optional self-hosted routing with regional extracts). CloudNativePG `tms-db` (3 instances, 50 GB). Config: `TMS_VRP_TIME_LIMIT_S=60`, `TMS_TENDER_TIMEOUT_MIN=120`, `TMS_MATCH_TOL_ABS=5`, `TMS_MATCH_TOL_PCT=2`, `TMS_DIM_FACTOR_PARCEL=139`. Flags: `tms.enabled`, `tms.landed_cost`, `tms.vrp`. Scheduled: fuel index import weekly (Monday 06:00), tender expiry sweep (Temporal timers), KPI daily. SLOs: rating p95 < 300 ms per shipment per carrier; VRP 500 stops < 60 s; match p95 < 1 s; availability 99.9%. Alerts: tender failures > 3/day; unexpected invoices > 10/day; accrual drift ≠ 0; optimizer queue depth > 20. Runbook: optimizer OOM (reduce batch or raise limits); OSRM down (fallback to stored lane distances with warning). Rollback: `tms.enabled=false` returns to wave-28 carrier labels; open tenders are cancelled with notification.
 
 ### 6.34.11 Migration from AX / SAP
 
-| Source | Passage entity | Transformation |
+| Source | Depot entity | Transformation |
 |---|---|---|
 | TMSCarrier, TMSCarrierService, TMSCarrierServiceGroup | Carrier, CarrierService | linked to Party by vendor account |
 | TMSRateMaster, TMSRateBase, TMSRateBaseAssignment, rate engine metadata | RateCard, RateTable | basis per rate engine type; effective dates from assignment |
@@ -1786,17 +1786,17 @@ Wave 35 closes Phase 6 by replacing AX AIF / D365 data entities, Dual-write and 
 
 **Pain points solved (10x lens)**
 
-| Pain point in AX/SAP today | Root cause | Passage answer in this wave | Measurable 10x target |
+| Pain point in AX/SAP today | Root cause | Depot answer in this wave | Measurable 10x target |
 |---|---|---|---|
 | SAP IDoc failures sit in status 51 (WE02/BD87); a 'MATERIAL not found' error on one E1EDP01 segment requires an ABAP-literate operator to read EDIDD SDATA, fix master data, then reprocess; D365 AIF (AifExceptionLog) and the data entity message processor are similar | Monitor shows raw segment data, no canonical view; reprocess is a separate transaction | Message monitor shows raw, canonical and the failing rule side by side; bulk reprocess with dry run | Mean time to resolve a failed inbound order: 30–90 min → < 5 min; operator needs ABAP/X++: yes → no |
 | Outbound documents are produced by batch (SAP output determination NAST + RSNAST00 jobs; D365 batch jobs for outbound ports), so an ASN reaches the customer 15–60 min after shipment and 810s go out in nightly runs | Polling batch framework | Outbound documents generated from `load.shipped` / `invoice.posted` events via the outbox | Event-to-document latency: 15–60 min (batch) → < 60 s; nightly invoice runs → continuous |
 | Every EDI partner requires a middleware project (PI/PO ICO + mapping, or an ISV EDI add-on for D365) with Java/graphical mappings nobody in the business can read | Mapping logic lives outside the ERP in a separate tool and skill set | Declarative maps in the product with partner overrides, test harness and simulator | New partner onboarding: 4–8 weeks → 1–3 days; middleware licenses for EDI: 1 → 0 |
 | External systems (MES, PLM, BI, agents) integrate through OData with no event feed (D365 business events cover few entities) or through BAPIs/RFCs needing SAP Gateway projects; nobody can see which APIs exist | No catalog, no subscription model, no quotas | Backstage catalog with OpenAPI/AsyncAPI for every entity, webhook/Kafka subscriptions with replay, keys and quotas, MCP (wave 47) over the same APIs | Time for an external team to first successful call: weeks (access request, gateway project) → < 1 h self-service; entities with event feeds: ~10% → 100% |
-| ER-based e-invoicing (ERFormatMappingTable) and SAP DRC need a configuration import per country/version and validate only on submission; schematron failures come back from the network hours later | Validation happens at the authority or AP, not at creation | Schematron (CEN + Peppol) runs at validate time inside Passage; arithmetic rules checked first | Rejections from the Peppol network: ~3–5% of invoices → < 0.1%; feedback latency: hours → < 2 s |
+| ER-based e-invoicing (ERFormatMappingTable) and SAP DRC need a configuration import per country/version and validate only on submission; schematron failures come back from the network hours later | Validation happens at the authority or AP, not at creation | Schematron (CEN + Peppol) runs at validate time inside Depot; arithmetic rules checked first | Rejections from the Peppol network: ~3–5% of invoices → < 0.1%; feedback latency: hours → < 2 s |
 
 ### 6.35.2 AX / SAP parity map
 
-| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Passage equivalent | Parity |
+| Capability | AX 2012 / D365 F&SCM | SAP ECC / S/4 | Depot equivalent | Parity |
 |---|---|---|---|---|
 | Integration ports / endpoints | AIF: AifPort, AifInboundPort, AifOutboundPort, AifService, AifAction; D365 data entities (DMFEntity), OData | IDoc ports WE21, partner profiles WE20 (EDPP1, EDP12/EDP13/EDP21), distribution model BD64 (TBD05) | edi.TradingPartner, EDIProfile, Transport | full |
 | Message log / monitor | AifDocumentLog, AifMessageLog, AifExceptionLog, AifGatewayQueue; D365 message processor | IDoc status EDIDS (WE02/WE05), BD87 reprocess, PI/PO message monitor | Message monitor with replay | improved — replay with state reproduction |
@@ -1809,7 +1809,7 @@ Wave 35 closes Phase 6 by replacing AX AIF / D365 data entities, Dual-write and 
 | Acknowledgments | n/a | STATUS/ALEAUD IDoc, CONTRL | 997/999, CONTRL, MDN (AS2) | full |
 | Catalog punchout | External catalogs with cXML punchout (CatVendorExternalCatalog) | OCI web-based catalogs (SPRO MM › Purchasing › Web-Based Catalogs › Define Catalogs); Ariba catalogs | integration-hub PunchoutCatalog, PunchoutSession → wave-17 requisition lines | full |
 | cXML documents | n/a (ISV) | Ariba Network integration via Cloud Integration Gateway (cXML OrderRequest, ConfirmationRequest, ShipNoticeRequest, InvoiceDetailRequest) | cXML maps on the canonical document model | full |
-| PLM integration | Engineering change management PLM connectors (Teamcenter, Windchill via Dataverse) | PLM system integration, Engineering Control Center | Reference connector `passage-connector-plm` | partial — reference connector |
+| PLM integration | Engineering change management PLM connectors (Teamcenter, Windchill via Dataverse) | PLM system integration, Engineering Control Center | Reference connector `depot-connector-plm` | partial — reference connector |
 | Customer self-billing | n/a (ISV for automotive) | Self-billing procedure VKA/VSB1 (IDoc GSVERF), SPRO SD › EDI › Self-Billing Procedure | SelfBillingDocument with line matching to wave-29 invoices | full |
 
 ### 6.35.3 Functional requirements
@@ -1828,7 +1828,7 @@ Wave 35 closes Phase 6 by replacing AX AIF / D365 data entities, Dual-write and 
   - Notes: participant lookup via SML/SMP through the AP; invoices received create wave-19 vendor invoices; validation errors block sending and are shown on the invoice.
 - **FR-35.7 Factur-X / ZUGFeRD and mandate framework** — Should. The system shall embed EN 16931 CII XML in PDF/A-3 (Factur-X profile EN 16931) and provide a country mandate framework (`MandateProvider` interface: validate, submit, poll status, store clearance id) with reference hooks for IT SDI (FatturaPA) and MX CFDI 4.0 (PAC stamping).
   - Notes: full IT/MX packs ship in wave 48; the framework stores clearance ids and statuses on the invoice.
-- **FR-35.8 Public APIs and developer portal** — Must. The system shall publish versioned REST (OpenAPI 3.1) and GraphQL APIs for all entities exposed since wave 3, with API clients (Keycloak client credentials), scopes mapped to duties, per-client quotas (default 600 requests/min, burst 100) and a developer portal at `developers.<env>.passage.dev` generated from the Backstage catalog.
+- **FR-35.8 Public APIs and developer portal** — Must. The system shall publish versioned REST (OpenAPI 3.1) and GraphQL APIs for all entities exposed since wave 3, with API clients (Keycloak client credentials), scopes mapped to duties, per-client quotas (default 600 requests/min, burst 100) and a developer portal at `developers.<env>.depot.dev` generated from the Backstage catalog.
   - Notes: additive-change guarantee per PRD §8; deprecation ≥ 12 months with `Sunset` header; sandbox tenant per client.
 - **FR-35.9 Webhooks and Kafka subscriptions** — Must. The system shall let clients subscribe to CloudEvents types by filter and receive them by webhook (HTTPS POST, HMAC-SHA256 signature, at-least-once, 8 retries over 24 h, dead-letter with replay) or by a dedicated Kafka topic with ACLs.
   - Notes: ordering per aggregate id; replay from a timestamp reproduces state when consumed idempotently; payload schema from the schema registry.
@@ -1843,9 +1843,9 @@ Wave 35 closes Phase 6 by replacing AX AIF / D365 data entities, Dual-write and 
 - **FR-35.14 cXML document exchange** — Should. The system shall exchange cXML 1.2 documents with cXML networks: outbound OrderRequest from wave-17 POs, inbound ConfirmationRequest (→ PO confirmation), ShipNoticeRequest (→ ASN for FR-31.9) and InvoiceDetailRequest (→ wave-19 vendor invoice), over HTTPS POST with shared-secret or certificate authentication and synchronous cXML Response status codes.
   - Notes: cXML maps sit on the same canonical documents as X12/EDIFACT (FR-35.3), so posting, monitoring and replay are shared; `payloadID` is the idempotency key (BR-35.14); responses 200/201 accepted, 4xx rejected with status text shown in the message monitor.
 - **FR-35.15 PLM reference connector** — Could. The system shall ship a reference connector that imports released items, engineering BOMs and engineering change orders from a PLM system (Siemens Teamcenter REST services, PTC Windchill REST/OData services, or a neutral JSON/PLMXML file drop) into wave-9 engineering change requests, and writes ERP release status and effectivity back to the PLM system.
-  - Notes: built only on public APIs and webhooks, like FR-35.11 connectors; PLM part number + revision map to item + BOM version; scheduled sync (default 15 min) plus event-driven updates; an ECO that targets a BOM version already released in Passage creates a task instead of overwriting; precedence per BR-35.16.
-- **FR-35.16 Customer self-billing** — Could. The system shall receive customer self-billing documents (EDIFACT INVOIC with BGM 389 self-billed invoice, VDA 4908 credit notes, X12 810 flagged as self-billed by partner profile), match them line by line to Passage shipments and invoices (wave 29) by delivery note/ASN number, PO line, item and quantity, post matched documents as the legal invoice, and route differences to a dispute worklist (BR-35.15).
-  - Notes: enabled per customer with a self-billing agreement reference and validity dates (EU VAT Directive Art. 224); tolerances per customer (default quantity 0, price 0.01 per unit); the customer's document number is stored as the legal invoice number; wave-29 billing rule `SELF_BILLED` suppresses Passage's own invoice for those shipments; a shipment not self-billed after `self_billing_wait_days` (default 30) creates a task; remittance follows through 820/cash application (wave 30).
+  - Notes: built only on public APIs and webhooks, like FR-35.11 connectors; PLM part number + revision map to item + BOM version; scheduled sync (default 15 min) plus event-driven updates; an ECO that targets a BOM version already released in Depot creates a task instead of overwriting; precedence per BR-35.16.
+- **FR-35.16 Customer self-billing** — Could. The system shall receive customer self-billing documents (EDIFACT INVOIC with BGM 389 self-billed invoice, VDA 4908 credit notes, X12 810 flagged as self-billed by partner profile), match them line by line to Depot shipments and invoices (wave 29) by delivery note/ASN number, PO line, item and quantity, post matched documents as the legal invoice, and route differences to a dispute worklist (BR-35.15).
+  - Notes: enabled per customer with a self-billing agreement reference and validity dates (EU VAT Directive Art. 224); tolerances per customer (default quantity 0, price 0.01 per unit); the customer's document number is stored as the legal invoice number; wave-29 billing rule `SELF_BILLED` suppresses Depot's own invoice for those shipments; a shipment not self-billed after `self_billing_wait_days` (default 30) creates a task; remittance follows through 820/cash application (wave 30).
 
 ### 6.35.4 Data model
 
@@ -1892,7 +1892,7 @@ Wave 35 closes Phase 6 by replacing AX AIF / D365 data entities, Dual-write and 
 
 **ApiClient**: client_id, scopes[], quota_per_min, burst, sandbox_tenant_id, owner contact, status. **EInvoice**: einvoice_id, invoice_id (wave 29/19), format (PEPPOL_UBL/FACTURX/CII/MANDATE), xml_ref, validation_report, transmission_id, clearance_id, status (DRAFT/VALIDATED/SENT/ACCEPTED/REJECTED).
 
-Invariants: control numbers are strictly increasing without gaps per partner/direction; a Message in POSTED references exactly one Passage document; every outbound webhook event has ≥ 1 DeliveryAttempt or is DEAD_LETTERED; an EInvoice SENT has a passing validation report. Indexing: `interchange(partner_id, direction, control_number)` unique; `message(status, received_at)`; `delivery_attempt(subscription_id, next_retry_at) WHERE status = 'RETRY'`.
+Invariants: control numbers are strictly increasing without gaps per partner/direction; a Message in POSTED references exactly one Depot document; every outbound webhook event has ≥ 1 DeliveryAttempt or is DEAD_LETTERED; an EInvoice SENT has a passing validation report. Indexing: `interchange(partner_id, direction, control_number)` unique; `message(status, received_at)`; `delivery_attempt(subscription_id, next_retry_at) WHERE status = 'RETRY'`.
 
 ### 6.35.5 APIs and events
 
@@ -1918,11 +1918,11 @@ Invariants: control numbers are strictly increasing without gaps per partner/dir
 
 | Event | Trigger | Payload fields | Consumers |
 |---|---|---|---|
-| dev.passage.edi.message.received.v1 | inbound parsed | partner_id, standard, transaction_set, control numbers, canonical_ref | purchasing, sales, AP, tms |
-| dev.passage.edi.message.posted.v1 / failed.v1 | posting outcome | message_id, document_ref, error | monitor, tasks |
-| dev.passage.edi.message.sent.v1 / acked.v1 | transmit / ack | message_id, partner_id, ack_status | analytics |
-| dev.passage.einvoice.status.changed.v1 | validation/transmission | einvoice_id, invoice_id, status, clearance_id | AR/AP, customer portal |
-| dev.passage.hub.webhook.delivered.v1 / deadlettered.v1 | delivery | subscription_id, event_id, attempts | analytics, alerting |
+| dev.depot.edi.message.received.v1 | inbound parsed | partner_id, standard, transaction_set, control numbers, canonical_ref | purchasing, sales, AP, tms |
+| dev.depot.edi.message.posted.v1 / failed.v1 | posting outcome | message_id, document_ref, error | monitor, tasks |
+| dev.depot.edi.message.sent.v1 / acked.v1 | transmit / ack | message_id, partner_id, ack_status | analytics |
+| dev.depot.einvoice.status.changed.v1 | validation/transmission | einvoice_id, invoice_id, status, clearance_id | AR/AP, customer portal |
+| dev.depot.hub.webhook.delivered.v1 / deadlettered.v1 | delivery | subscription_id, event_id, attempts | analytics, alerting |
 
 ### 6.35.6 User experience
 
@@ -1998,15 +1998,15 @@ EDIFACT ORDERS/DESADV/INVOIC maps follow the same canonical model (BGM/DTM/NAD/L
 - **BR-35.4 Peppol BIS Billing 3.0 required elements (UBL 2.1 Invoice).** `CustomizationID = urn:cen.eu:en16931:2017#compliant#urn:fdc:peppol.eu:2017:poacc:billing:3.0`; `ProfileID = urn:fdc:peppol.eu:2017:poacc:billing:01:1.0`; `ID`; `IssueDate`; `DueDate` or `PaymentTerms`; `InvoiceTypeCode` (380 invoice, 381 credit note as `CreditNote` document); `DocumentCurrencyCode`; `BuyerReference` or `OrderReference/ID` (one required); `AccountingSupplierParty/Party`: `EndpointID @schemeID` (e.g., 0088), `PartyIdentification` (optional), `PartyName`, `PostalAddress/Country/IdentificationCode`, `PartyTaxScheme/CompanyID` with `TaxScheme/ID = VAT` when VAT applies, `PartyLegalEntity/RegistrationName`; `AccountingCustomerParty/Party` (same set, `EndpointID` required); `PaymentMeans/PaymentMeansCode` (30 credit transfer, 58 SEPA) with `PayeeFinancialAccount/ID` (IBAN); `TaxTotal/TaxAmount @currencyID`; `TaxTotal/TaxSubtotal` per category: `TaxableAmount`, `TaxAmount`, `TaxCategory/ID` (S, Z, E, AE, K, G, O), `Percent`, `TaxScheme/ID = VAT`; `LegalMonetaryTotal`: `LineExtensionAmount`, `TaxExclusiveAmount`, `TaxInclusiveAmount`, `PayableAmount` (and `AllowanceTotalAmount`/`ChargeTotalAmount` when present); ≥ 1 `InvoiceLine`: `ID`, `InvoicedQuantity @unitCode` (UN/ECE Rec 20, e.g., C62, KGM), `LineExtensionAmount`, `Item/Name`, `Item/ClassifiedTaxCategory/ID` + `Percent` + `TaxScheme`, `Price/PriceAmount`. Arithmetic rules enforced before schematron: Σ line `LineExtensionAmount` = `LineExtensionAmount`; `TaxExclusiveAmount` = that − allowances + charges; `TaxInclusiveAmount` = exclusive + `TaxAmount`; `PayableAmount` = inclusive − prepaid + rounding; amounts to 2 decimals; VAT breakdown per category/rate equals Σ lines. Validation runs CEN-EN16931-UBL then PEPPOL-EN16931-UBL schematron; any `fatal` blocks sending.
 - **BR-35.5 Control numbers and duplicates.** Outbound ISA13/GS06/ST02 per partner from a gap-free number sequence (wave 5); inbound duplicate ISA13 within 30 days → TA1 code 025 / reject; a 997 is generated within 60 s for every inbound functional group; missing partner 997 after `ack_sla_minutes` → alert and resend once.
 - **BR-35.6 Idempotent posting.** Inbound 850 posting uses idempotency key `partner:BEG03:BEG01`; a re-sent original (BEG01 00) with the same PO number returns the existing order and is acknowledged accepted; a change (BEG01 04) applies as a wave-26 order change with version.
-- **BR-35.7 Webhook delivery.** Retries at 10 s, 1 m, 5 m, 30 m, 2 h, 6 h, 12 h, 24 h; HTTP 2xx = success; 410 Gone pauses the subscription; signature header `Passage-Signature: t=<unix>,v1=<hmac>` over `t.body`; receiver must verify within 5 min of `t`. Events per aggregate are delivered in order; a failing event blocks later events for the same aggregate only (per-aggregate queue).
+- **BR-35.7 Webhook delivery.** Retries at 10 s, 1 m, 5 m, 30 m, 2 h, 6 h, 12 h, 24 h; HTTP 2xx = success; 410 Gone pauses the subscription; signature header `Depot-Signature: t=<unix>,v1=<hmac>` over `t.body`; receiver must verify within 5 min of `t`. Events per aggregate are delivered in order; a failing event blocks later events for the same aggregate only (per-aggregate queue).
 - **BR-35.8 Quotas.** Token bucket per client (rate/min, burst); exceeding returns 429 with `Retry-After`; quota consumption is counted per request and per 100 GraphQL complexity points.
-- **BR-35.9 Replay.** Replay from timestamp T re-delivers events with `ce-passagereplay: true`; consumers must treat them idempotently; replay is capped at 1,000,000 events per request and runs as a Temporal workflow with progress.
+- **BR-35.9 Replay.** Replay from timestamp T re-delivers events with `ce-depotreplay: true`; consumers must treat them idempotently; replay is capped at 1,000,000 events per request and runs as a Temporal workflow with progress.
 - **BR-35.10 e-Invoice status.** `DRAFT → VALIDATED → SENT → ACCEPTED|REJECTED`; REJECTED allows correction and a new transmission with the same invoice id and a new `transmission_id`; an ACCEPTED invoice cannot be re-sent, only credited.
 - **BR-35.11 AS2 MDN.** Async MDN awaited 1 h, then resend up to 5×, then FAILED with alert; MDN signature mismatch is FAILED immediately.
 - **BR-35.12 PII masking** in the monitor hides N1/N3/N4 address lines and party contact elements for users without `EDI_PII_VIEW`.
 - **BR-35.13 Punchout return validation.** Each returned line needs a supplier part id, quantity > 0, unit price ≥ 0 in a currency allowed for the supplier, and a UoM mapped through the UN/ECE Recommendation 20 table; failing lines are dropped with EDI-0133 and the rest are created; the cart total is recomputed as Σ quantity × price and compared with the message total; a difference > 0.01 rejects the whole cart with EDI-0134; a price above catalog price × (1 + `punchout_price_tolerance_pct`) flags the line for approval.
 - **BR-35.14 cXML idempotency.** Inbound `payloadID` is the idempotency key per partner; a repeat with identical content returns the original response; a repeat with different content is rejected with EDI-0135 and logged.
-- **BR-35.15 Self-billing matching.** Key = (customer, delivery note/ASN number, PO line, item). Quantity difference > tolerance or price difference > tolerance → DIFFERENCE with reason; a self-billed line without a matching shipment → UNMATCHED; matched documents post with the customer's number as the external (legal) invoice number and Passage's internal number as reference; VAT is recomputed by the wave-13 tax engine and a difference > 0.01 is a DIFFERENCE.
+- **BR-35.15 Self-billing matching.** Key = (customer, delivery note/ASN number, PO line, item). Quantity difference > tolerance or price difference > tolerance → DIFFERENCE with reason; a self-billed line without a matching shipment → UNMATCHED; matched documents post with the customer's number as the external (legal) invoice number and Depot's internal number as reference; VAT is recomputed by the wave-13 tax engine and a difference > 0.01 is a DIFFERENCE.
 - **BR-35.16 PLM import precedence.** An imported ECO with effectivity earlier than today is moved to today with EDI-0139; revisions are ordered by the PLM revision scheme; importing the same part + revision twice is idempotent.
 
 ### 6.35.8 Acceptance criteria
@@ -2014,7 +2014,7 @@ EDIFACT ORDERS/DESADV/INVOIC maps follow the same canonical model (BGM/DTM/NAD/L
 - **AC-35.1** (FR-35.2, FR-35.3, FR-35.4, FR-35.12) Given the partner simulator, when it sends 850, 855 is returned, 856 and 810 are produced after shipment and invoicing, and the simulator's 997s are matched, then every supported transaction set round-trips with no manual step and the message monitor shows ACKED for each.
 - **AC-35.2** (FR-35.6, BR-35.4) Given 50 demo invoices (standard, reverse-charge, zero-rated, with allowances), when UBL is built, then all pass CEN and Peppol schematron with zero fatal errors and the amounts rules hold.
 - **AC-35.3** (FR-35.9, BR-35.7) Given a webhook endpoint that fails 3 times then succeeds, when an event is published, then exactly one successful delivery is recorded after 3 retries and ordering per aggregate is preserved.
-- **AC-35.4** (FR-35.9, BR-35.9) Given a consumer that rebuilds a projection from scratch, when events are replayed from the tenant's start, then the projection equals the current Passage state for the sales order aggregate fixture.
+- **AC-35.4** (FR-35.9, BR-35.9) Given a consumer that rebuilds a projection from scratch, when events are replayed from the tenant's start, then the projection equals the current Depot state for the sales order aggregate fixture.
 - **AC-35.5** (BR-35.5) Given an inbound interchange with an ISA13 already seen 10 days ago, when received, then it is rejected with TA1 025 and no order is created.
 - **AC-35.6** (FR-35.8, BR-35.8) Given a client with quota 600/min, when 700 requests are sent in a minute, then ≥ 100 receive 429 with `Retry-After` and the portal usage chart shows the burst.
 - **AC-35.7** (BR-35.1) Given an 850 with PO104 differing from the wave-26 price by 3%, when posted, then the sales order is created on price hold with a task.
@@ -2045,15 +2045,15 @@ Reconciliation: inbound 850 count = sales orders created + rejected + held; outb
 
 ### 6.35.10 Deployment and operations
 
-Helm `passage-edi` (api, as2 receiver behind Envoy with client-cert passthrough, sftp poller, mapper workers), `passage-einvoice`, `passage-integration-hub` (gateway policies on Envoy Gateway for keys/quotas, webhook dispatcher, Kafka subscription provisioner using Strimzi `KafkaUser`/`KafkaTopic` CRs), `passage-devportal` (Backstage with the catalog plugin, OpenAPI/AsyncAPI docs rendered from the service registry), `passage-partner-simulator` (non-prod only), connector charts `passage-connector-{salesforce,shopify,stripe}`. CloudNativePG `integration-db` (3 instances, 200 GB; payloads in in-cluster object storage, 13-month retention). Config: `EDI_ACK_SLA_MIN=60`, `EDI_DUP_WINDOW_DAYS=30`, `HUB_DEFAULT_QUOTA=600`, `HUB_WEBHOOK_RETRIES=8`, `EINV_AP_PROVIDER=<adapter>`. Flags: `edi.enabled` per partner, `einvoice.peppol`, `einvoice.facturx`, `hub.graphql`, `hub.replay`. Scheduled: SFTP poll 60 s, ack SLA sweep 5 min, DLQ report daily, certificate expiry check daily (alert 30 days before). SLOs: inbound 850 to sales order p95 < 30 s; outbound document generated within 60 s of the source event; 997 within 60 s; webhook first attempt within 5 s of event p95; gateway overhead p95 < 5 ms; availability 99.9%. Alerts: ack SLA breaches; AS2 MDN failures; DLQ depth > 100; certificate expiring; schematron failure rate > 5%. Runbook: partner certificate rotation; reprocess failed interchanges after a map fix; drain and replay DLQ; rotate client secrets. Rollback: per-partner flag off (queue inbound, do not process); map version pin to the previous version; hub gateway policies are versioned in Git with Argo CD rollback.
+Helm `depot-edi` (api, as2 receiver behind Envoy with client-cert passthrough, sftp poller, mapper workers), `depot-einvoice`, `depot-integration-hub` (gateway policies on Envoy Gateway for keys/quotas, webhook dispatcher, Kafka subscription provisioner using Strimzi `KafkaUser`/`KafkaTopic` CRs), `depot-devportal` (Backstage with the catalog plugin, OpenAPI/AsyncAPI docs rendered from the service registry), `depot-partner-simulator` (non-prod only), connector charts `depot-connector-{salesforce,shopify,stripe}`. CloudNativePG `integration-db` (3 instances, 200 GB; payloads in in-cluster object storage, 13-month retention). Config: `EDI_ACK_SLA_MIN=60`, `EDI_DUP_WINDOW_DAYS=30`, `HUB_DEFAULT_QUOTA=600`, `HUB_WEBHOOK_RETRIES=8`, `EINV_AP_PROVIDER=<adapter>`. Flags: `edi.enabled` per partner, `einvoice.peppol`, `einvoice.facturx`, `hub.graphql`, `hub.replay`. Scheduled: SFTP poll 60 s, ack SLA sweep 5 min, DLQ report daily, certificate expiry check daily (alert 30 days before). SLOs: inbound 850 to sales order p95 < 30 s; outbound document generated within 60 s of the source event; 997 within 60 s; webhook first attempt within 5 s of event p95; gateway overhead p95 < 5 ms; availability 99.9%. Alerts: ack SLA breaches; AS2 MDN failures; DLQ depth > 100; certificate expiring; schematron failure rate > 5%. Runbook: partner certificate rotation; reprocess failed interchanges after a map fix; drain and replay DLQ; rotate client secrets. Rollback: per-partner flag off (queue inbound, do not process); map version pin to the previous version; hub gateway policies are versioned in Git with Argo CD rollback.
 
 ### 6.35.11 Migration from AX / SAP
 
-| Source | Passage entity | Transformation |
+| Source | Depot entity | Transformation |
 |---|---|---|
 | AifPort/AifInboundPort/AifOutboundPort, AifService/AifAction | TradingPartner transports, map assignments | port → transport; service/action → transaction set/direction |
 | AifDocumentLog, AifMessageLog (last 13 months) | Interchange/Message history (read-only) | payloads copied to object storage |
-| ERFormatMappingTable/ERModelMappingTable (e-invoice configurations) | EInvoice format config | ER formats are not executable in Passage; only the country/format selection and customer flags migrate |
+| ERFormatMappingTable/ERModelMappingTable (e-invoice configurations) | EInvoice format config | ER formats are not executable in Depot; only the country/format selection and customer flags migrate |
 | Dual-write entity maps | Connector mappings (Salesforce reference) | field map table only |
 | BusinessEventsEndpoint/Catalog | Subscription | endpoint type → WEBHOOK |
 | EDPP1, EDP12/EDP13/EDP21 (WE20) | TradingPartner, maps | partner type LI/KU → vendor/customer party; message type ORDERS/DESADV/INVOIC → maps |
@@ -2062,7 +2062,7 @@ Helm `passage-edi` (api, as2 receiver behind Envoy with client-cert passthrough,
 | EDOCUMENT/EDOCUMENTFILE (DRC) | EInvoice with clearance ids | status mapping; XML kept as reference |
 | PI/PO integration directory (ICO) | Partner/transport inventory | exported as a spreadsheet for manual re-creation; routing logic not migrated |
 
-Not migrated: AIF transforms (XSLT/.NET), ABAP user exits in IDoc processing, PI/PO mappings (Java/graphical) — mapping logic is re-authored in Passage maps; IDoc history older than 13 months (lakehouse archive).
+Not migrated: AIF transforms (XSLT/.NET), ABAP user exits in IDoc processing, PI/PO mappings (Java/graphical) — mapping logic is re-authored in Depot maps; IDoc history older than 13 months (lakehouse archive).
 
 ### 6.35.12 Dependencies, risks, open questions
 

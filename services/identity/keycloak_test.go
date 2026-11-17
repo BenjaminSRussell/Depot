@@ -19,21 +19,21 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/cloudprofile"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/cloudprofile"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
 )
 
 const (
-	realmPath        = "../../deploy/keycloak/realm-passage.json"
-	realmName        = "passage"
-	realmAudience    = "passage-api"
+	realmPath        = "../../deploy/keycloak/realm-depot.json"
+	realmName        = "depot"
+	realmAudience    = "depot-api"
 	loginTenantID    = "6f1c2f3e-5a52-4f0e-9f3a-0d2f1b6a7c11"
-	webCallbackURL   = "https://app.passage.example.invalid/auth/callback"
+	webCallbackURL   = "https://app.depot.example.invalid/auth/callback"
 	loginUserName    = "ci-login-user"
 	loginUserSecret  = "ci-Login-Passw0rd-1234"
-	keycloakURLEnv   = "PASSAGE_TEST_KEYCLOAK_URL"
-	keycloakAdminEnv = "PASSAGE_TEST_KEYCLOAK_ADMIN"
-	keycloakPassEnv  = "PASSAGE_TEST_KEYCLOAK_ADMIN_PASSWORD"
+	keycloakURLEnv   = "DEPOT_TEST_KEYCLOAK_URL"
+	keycloakAdminEnv = "DEPOT_TEST_KEYCLOAK_ADMIN"
+	keycloakPassEnv  = "DEPOT_TEST_KEYCLOAK_ADMIN_PASSWORD"
 	// loginDuties are seeded duties from policies/authz/data.json, comma-joined
 	// the way the duties mapper emits them and apps/web parseDuties reads them.
 	loginDuties = "party.vendor.view,workflow.workitem.approve"
@@ -151,7 +151,7 @@ func TestKeycloakRealmMatchesIdentityExpectations(t *testing.T) {
 		t.Fatalf("accessTokenLifespan %d must be within identity's 10 minute token limit", realm.AccessTokenLifespan)
 	}
 	wantClaims := map[string]string{"tid": "tenant_id", "le": "legal_entity_id", "duties": "duties", "tier": "tier"}
-	for _, name := range []string{"passage-web", "passage-services"} {
+	for _, name := range []string{"depot-web", "depot-services"} {
 		client := findClient(realm, name)
 		if client == nil {
 			t.Fatalf("client %s missing", name)
@@ -181,12 +181,12 @@ func TestKeycloakRealmMatchesIdentityExpectations(t *testing.T) {
 			}
 		}
 	}
-	web := findClient(realm, "passage-web")
+	web := findClient(realm, "depot-web")
 	if web == nil || !web.PublicClient || web.Attributes["pkce.code.challenge.method"] != "S256" {
-		t.Fatal("passage-web must be a public client with PKCE S256")
+		t.Fatal("depot-web must be a public client with PKCE S256")
 	}
 	if !slices.Equal(web.RedirectURIs, []string{webCallbackURL}) || web.Attributes["post.logout.redirect.uris"] == "" {
-		t.Errorf("passage-web redirectUris = %v, want exactly %s plus explicit post.logout.redirect.uris", web.RedirectURIs, webCallbackURL)
+		t.Errorf("depot-web redirectUris = %v, want exactly %s plus explicit post.logout.redirect.uris", web.RedirectURIs, webCallbackURL)
 	}
 }
 
@@ -493,8 +493,8 @@ func TestKeycloakLoginIsAcceptedByIdentityJWTVerifier(t *testing.T) {
 	admin, base, client := keycloakAdminOrSkip(t)
 
 	var clients []map[string]any
-	if err := json.Unmarshal(admin.do(http.MethodGet, "/admin/realms/"+realmName+"/clients?clientId=passage-web", nil, http.StatusOK), &clients); err != nil || len(clients) != 1 {
-		t.Fatalf("passage-web not imported: %v %v", err, clients)
+	if err := json.Unmarshal(admin.do(http.MethodGet, "/admin/realms/"+realmName+"/clients?clientId=depot-web", nil, http.StatusOK), &clients); err != nil || len(clients) != 1 {
+		t.Fatalf("depot-web not imported: %v %v", err, clients)
 	}
 	clients[0]["directAccessGrantsEnabled"] = true
 	admin.do(http.MethodPut, "/admin/realms/"+realmName+"/clients/"+clients[0]["id"].(string), clients[0], http.StatusNoContent)
@@ -513,7 +513,7 @@ func TestKeycloakLoginIsAcceptedByIdentityJWTVerifier(t *testing.T) {
 	admin.do(http.MethodPut, "/admin/realms/"+realmName+"/users/"+created[0]["id"].(string), map[string]any{"requiredActions": []string{}}, http.StatusNoContent)
 
 	accessToken := tokenRequest(t, client, base, realmName, url.Values{
-		"grant_type": {"password"}, "client_id": {"passage-web"}, "username": {loginUserName}, "password": {loginUserSecret},
+		"grant_type": {"password"}, "client_id": {"depot-web"}, "username": {loginUserName}, "password": {loginUserSecret},
 	})
 	verifyWithIdentity(t, base, client, accessToken)
 	claims := tokenClaims(t, accessToken)
@@ -604,7 +604,7 @@ func browserPasswordLogin(t *testing.T, base, username, password string) *http.R
 	}
 	noRedirect := &http.Client{Timeout: 15 * time.Second, Jar: httpLocalJar{inner}, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
 	query := url.Values{
-		"client_id": {"passage-web"}, "response_type": {"code"}, "scope": {"openid"}, "redirect_uri": {webCallbackURL},
+		"client_id": {"depot-web"}, "response_type": {"code"}, "scope": {"openid"}, "redirect_uri": {webCallbackURL},
 		"code_challenge": {"E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM"}, "code_challenge_method": {"S256"}, "state": {"s1"},
 	}
 	page, err := noRedirect.Get(base + "/realms/" + realmName + "/protocol/openid-connect/auth?" + query.Encode())
@@ -770,7 +770,7 @@ func TestEntraIdPTemplatesKeepMFAAndTokenClaimsLocal(t *testing.T) {
 			case tokenAttributes[attribute]:
 				t.Errorf("%s: mapper %s lets Entra set token attribute %s", file, mapper.Mapper, attribute)
 			case mapper.Config["claim"] == "tid":
-				t.Errorf("%s: a mapper copies the Entra tid claim; the Passage tid stays bound to the realm", file)
+				t.Errorf("%s: a mapper copies the Entra tid claim; the Depot tid stays bound to the realm", file)
 			}
 		}
 		if !tenantMapped {

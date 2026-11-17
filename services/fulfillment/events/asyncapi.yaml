@@ -1,168 +1,168 @@
 asyncapi: 3.0.0
 info:
-  title: Passage Fulfillment events
+  title: Depot Fulfillment events
   version: 1.0.0
   description: >
     Events published by the fulfillment service through the transactional outbox
     (Debezium outbox event router to Kafka). Types follow
-    dev.passage.<context>.<entity>.<verb>.v<n>; the packing-slip entity is
+    dev.depot.<context>.<entity>.<verb>.v<n>; the packing-slip entity is
     "packingslip" and the PRD's shipment.tracking-updated is tracking.updated,
     because the kernel allows one lowercase segment per name part.
-    Source /passage/fulfillment/fulfillment. Schema evolution is additive only.
+    Source /depot/fulfillment/fulfillment. Schema evolution is additive only.
 defaultContentType: application/cloudevents+json
 channels:
   shipmentReleased:
-    address: passage.fulfillment.shipment
+    address: depot.fulfillment.shipment
     messages:
       shipmentReleased:
         $ref: "#/components/messages/ShipmentReleased"
   pickConfirmed:
-    address: passage.fulfillment.pick
+    address: depot.fulfillment.pick
     messages:
       pickConfirmed:
         $ref: "#/components/messages/PickConfirmed"
   packingSlipPosted:
-    address: passage.fulfillment.packingslip
+    address: depot.fulfillment.packingslip
     messages:
       packingSlipPosted:
         $ref: "#/components/messages/PackingSlipPosted"
   packingSlipCancelled:
-    address: passage.fulfillment.packingslip
+    address: depot.fulfillment.packingslip
     messages:
       packingSlipCancelled:
         $ref: "#/components/messages/PackingSlipCancelled"
   shipmentCancelled:
-    address: passage.fulfillment.shipment
+    address: depot.fulfillment.shipment
     messages:
       shipmentCancelled:
         $ref: "#/components/messages/ShipmentCancelled"
   shipmentClosed:
-    address: passage.fulfillment.shipment
+    address: depot.fulfillment.shipment
     messages:
       shipmentClosed:
         $ref: "#/components/messages/ShipmentClosed"
   warehouseSettingChanged:
-    address: passage.fulfillment.warehousesetting
+    address: depot.fulfillment.warehousesetting
     messages:
       warehouseSettingChanged:
         $ref: "#/components/messages/WarehouseSettingChanged"
   exceptionRaised:
-    address: passage.fulfillment.exception
+    address: depot.fulfillment.exception
     messages:
       exceptionRaised:
         $ref: "#/components/messages/ExceptionRaised"
   exceptionResolved:
-    address: passage.fulfillment.exception
+    address: depot.fulfillment.exception
     messages:
       exceptionResolved:
         $ref: "#/components/messages/ExceptionResolved"
   returnablePackagingReturned:
-    address: passage.fulfillment.returnablepackaging
+    address: depot.fulfillment.returnablepackaging
     messages:
       returnablePackagingReturned:
         $ref: "#/components/messages/ReturnablePackagingReturned"
   returnablePackagingAdjusted:
-    address: passage.fulfillment.returnablepackaging
+    address: depot.fulfillment.returnablepackaging
     messages:
       returnablePackagingAdjusted:
         $ref: "#/components/messages/ReturnablePackagingAdjusted"
   warehouseReleaseRuleChanged:
-    address: passage.fulfillment.warehousereleaserule
+    address: depot.fulfillment.warehousereleaserule
     messages:
       warehouseReleaseRuleChanged:
         $ref: "#/components/messages/WarehouseReleaseRuleChanged"
   warehouseOperationRuleChanged:
-    address: passage.fulfillment.warehouseoperationrule
+    address: depot.fulfillment.warehouseoperationrule
     messages:
       warehouseOperationRuleChanged:
         $ref: "#/components/messages/WarehouseOperationRuleChanged"
   manifestClosed:
-    address: passage.fulfillment.manifest
+    address: depot.fulfillment.manifest
     messages:
       manifestClosed:
         $ref: "#/components/messages/ManifestClosed"
   manifestCancelled:
-    address: passage.fulfillment.manifest
+    address: depot.fulfillment.manifest
     messages:
       manifestCancelled:
         $ref: "#/components/messages/ManifestCancelled"
   deliveryToleranceChanged:
-    address: passage.fulfillment.deliverytolerance
+    address: depot.fulfillment.deliverytolerance
     messages:
       deliveryToleranceChanged:
         $ref: "#/components/messages/DeliveryToleranceChanged"
   legalEntitySettingChanged:
-    address: passage.fulfillment.legalentitysetting
+    address: depot.fulfillment.legalentitysetting
     messages:
       legalEntitySettingChanged:
         $ref: "#/components/messages/LegalEntitySettingChanged"
   dropShipCreated:
-    address: passage.fulfillment.dropship
+    address: depot.fulfillment.dropship
     messages:
       dropShipCreated:
         $ref: "#/components/messages/DropShipCreated"
   dropShipConfirmed:
-    address: passage.fulfillment.dropship
+    address: depot.fulfillment.dropship
     messages:
       dropShipConfirmed:
         $ref: "#/components/messages/DropShipConfirmed"
   dropShipCancelled:
-    address: passage.fulfillment.dropship
+    address: depot.fulfillment.dropship
     messages:
       dropShipCancelled:
         $ref: "#/components/messages/DropShipCancelled"
   dropShipClosed:
-    address: passage.fulfillment.dropship
+    address: depot.fulfillment.dropship
     messages:
       dropShipClosed:
         $ref: "#/components/messages/DropShipClosed"
   pickTracked:
-    address: passage.fulfillment.pick
+    address: depot.fulfillment.pick
     messages:
       pickTracked:
         $ref: "#/components/messages/PickTracked"
   containerUnpacked:
-    address: passage.fulfillment.container
+    address: depot.fulfillment.container
     messages:
       containerUnpacked:
         $ref: "#/components/messages/ContainerUnpacked"
   containerNested:
-    address: passage.fulfillment.container
+    address: depot.fulfillment.container
     messages:
       containerNested:
         $ref: "#/components/messages/ContainerNested"
   containerUnnested:
-    address: passage.fulfillment.container
+    address: depot.fulfillment.container
     messages:
       containerUnnested:
         $ref: "#/components/messages/ContainerUnnested"
   waveCreated:
-    address: passage.fulfillment.wave
+    address: depot.fulfillment.wave
     messages:
       waveCreated:
         $ref: "#/components/messages/WaveCreated"
   waveAssigned:
-    address: passage.fulfillment.wave
+    address: depot.fulfillment.wave
     messages:
       waveAssigned:
         $ref: "#/components/messages/WaveAssigned"
   waveClosed:
-    address: passage.fulfillment.wave
+    address: depot.fulfillment.wave
     messages:
       waveClosed:
         $ref: "#/components/messages/WaveClosed"
   asnIssued:
-    address: passage.fulfillment.asn
+    address: depot.fulfillment.asn
     messages:
       asnIssued:
         $ref: "#/components/messages/ASNIssued"
   trackingUpdated:
-    address: passage.fulfillment.tracking
+    address: depot.fulfillment.tracking
     messages:
       trackingUpdated:
         $ref: "#/components/messages/TrackingUpdated"
   salesOrder:
-    address: passage.sales.order
+    address: depot.sales.order
     description: |
       Sales' confirmed orders (w27), consumed by the `fulfillment-order` consumer (service principal
       `service:fulfillment-order`, duty `fulfillment.order.sync`). Fulfillment keeps the order type per
@@ -182,7 +182,7 @@ channels:
       orderRemainderCancelled:
         $ref: "#/components/messages/OrderRemainderCancelled"
   salesOrderHold:
-    address: passage.sales.orderhold
+    address: depot.sales.orderhold
     description: |
       Sales' order holds (w27), consumed by the same `fulfillment-order` consumer. An active hold
       (applied, not yet released) stops the packing slip post (FUL-0001) and release skips the order's
@@ -367,35 +367,35 @@ operations:
 components:
   messages:
     OrderHoldApplied:
-      x-passage-type: dev.passage.sales.orderhold.applied.v1
+      x-depot-type: dev.depot.sales.orderhold.applied.v1
       contentType: application/cloudevents+json
       summary: Sales applied a hold to an order (consumed)
       description: Published by sales (w27); fulfillment marks the hold active. Only `order_id`, `hold_id`, `hold_type` and `version` are read.
       payload:
         $ref: "#/components/schemas/OrderHoldData"
     OrderHoldReleased:
-      x-passage-type: dev.passage.sales.orderhold.released.v1
+      x-depot-type: dev.depot.sales.orderhold.released.v1
       contentType: application/cloudevents+json
       summary: Sales released an order hold (consumed)
       description: Published by sales (w27); fulfillment marks the hold inactive. Same payload as the applied event.
       payload:
         $ref: "#/components/schemas/OrderHoldData"
     OrderConfirmed:
-      x-passage-type: dev.passage.sales.order.confirmed.v1
+      x-depot-type: dev.depot.sales.order.confirmed.v1
       contentType: application/cloudevents+json
       summary: Sales confirmed an order (consumed)
       description: Published by sales (w27); fulfillment stores the order type per sales order. Only `order_id`, `order_type` and `version` are read; the per-line `atp_qty` sales adds in a later slice is optional and not stored yet.
       payload:
         $ref: "#/components/schemas/OrderConfirmedData"
     OrderRemainderCancelled:
-      x-passage-type: dev.passage.sales.order.remaindercancelled.v1
+      x-depot-type: dev.depot.sales.order.remaindercancelled.v1
       contentType: application/cloudevents+json
       summary: Sales cancelled the remainder of a partly shipped order (consumed)
       description: Published by sales (w27 slice 23). Fulfillment reads `order_id`, `legal_entity_id`, `version` and per line `line_id` and `kept_qty`, ordered by the sales order `version`.
       payload:
         $ref: "#/components/schemas/OrderRemainderCancelledData"
     ShipmentReleased:
-      name: dev.passage.fulfillment.shipment.released.v1
+      name: dev.depot.fulfillment.shipment.released.v1
       title: Shipment released
       summary: >
         An order was released to the warehouse as a shipment (FR-28.1). Inventory
@@ -420,7 +420,7 @@ components:
                 order_line_id: { type: string, format: uuid }
                 qty: { type: string }
     PickConfirmed:
-      name: dev.passage.fulfillment.pick.confirmed.v1
+      name: dev.depot.fulfillment.pick.confirmed.v1
       summary: Picks confirmed on a shipment; backordered is the short-picked remainder whose reservation inventory releases (FR-28.2).
       contentType: application/json
       payload:
@@ -440,7 +440,7 @@ components:
                 over_picked: { type: string, description: "Quantity picked above the planned one, allowed by the over-delivery tolerance (BR-28.7); present only for such a pick, when backordered is 0." }
                 short_reason: { type: string, enum: [OUT_OF_STOCK, DAMAGED, NOT_FOUND, QUALITY_HOLD, OTHER], description: "Reason of the short pick, present when one was given." }
     PackingSlipPosted:
-      name: dev.passage.fulfillment.packingslip.posted.v1
+      name: dev.depot.fulfillment.packingslip.posted.v1
       summary: >
         A packing slip posted. Inventory issues the line quantities; the ledger posts
         the journal with Idempotency-Key = packing_slip_id (BR-28.1, BR-28.4).
@@ -476,7 +476,7 @@ components:
             description: Returnable containers added to the customer's balance (BR-28.13).
             items: { $ref: "#/components/schemas/ReturnableMove" }
     PackingSlipCancelled:
-      name: dev.passage.fulfillment.packingslip.cancelled.v1
+      name: dev.depot.fulfillment.packingslip.cancelled.v1
       summary: >
         A posted, uninvoiced packing slip was cancelled. reversal_id names the reversing
         slip; its lines carry negative quantities and costs and its journal mirrors the
@@ -510,7 +510,7 @@ components:
             description: Returnable containers taken back off the customer's balance (negative qty).
             items: { $ref: "#/components/schemas/ReturnableMove" }
     ShipmentCancelled:
-      name: dev.passage.fulfillment.shipment.cancelled.v1
+      name: dev.depot.fulfillment.shipment.cancelled.v1
       summary: >
         A shipment was cancelled before anything shipped and while it held no
         container (BR-28.6). Inventory releases the lines' reservations; the
@@ -532,7 +532,7 @@ components:
                 order_line_id: { type: string, format: uuid }
                 qty: { type: string, description: The planned quantity that no longer ships. }
     ShipmentClosed:
-      name: dev.passage.fulfillment.shipment.closed.v1
+      name: dev.depot.fulfillment.shipment.closed.v1
       title: Shipment remainder closed
       summary: >
         The open remainder of a partially shipped shipment was closed (FR-28.8: by
@@ -563,7 +563,7 @@ components:
                 qty: { type: string, description: The planned quantity that will not ship. }
                 picked_unpacked: { type: string, description: The part of qty that was picked but never packed and goes back to stock. }
     WarehouseSettingChanged:
-      name: dev.passage.fulfillment.warehousesetting.changed.v1
+      name: dev.depot.fulfillment.warehousesetting.changed.v1
       title: Warehouse short pick action changed
       summary: >
         The short pick action of a warehouse was saved (FR-28.8): KEEP_OPEN,
@@ -579,7 +579,7 @@ components:
           previous_short_pick_action: { type: string, enum: [KEEP_OPEN, CANCEL_REMAINDER, REMAINDER_BACKORDER] }
           version: { type: integer, minimum: 1 }
     ExceptionRaised:
-      name: dev.passage.fulfillment.exception.raised.v1
+      name: dev.depot.fulfillment.exception.raised.v1
       title: Warehouse exception raised
       summary: >
         Fulfillment recorded a case the warehouse supervisor must handle: a packing slip
@@ -600,7 +600,7 @@ components:
           kept_qty: { type: string }
           detail: { type: string }
     ExceptionResolved:
-      name: dev.passage.fulfillment.exception.resolved.v1
+      name: dev.depot.fulfillment.exception.resolved.v1
       title: Warehouse exception resolved
       summary: A warehouse supervisor closed an exception with a note.
       contentType: application/json
@@ -615,7 +615,7 @@ components:
           note: { type: string }
           resolved_by: { type: string }
     ReturnablePackagingReturned:
-      name: dev.passage.fulfillment.returnablepackaging.returned.v1
+      name: dev.depot.fulfillment.returnablepackaging.returned.v1
       title: Returnable packaging returned
       summary: A customer's return receipt lowered a returnable packaging balance (BR-28.13).
       contentType: application/json
@@ -632,7 +632,7 @@ components:
           reference: { type: string, description: "The caller's own reference; omitted when none." }
           reason: { type: string, description: "Why the balance was corrected; omitted on a return receipt." }
     ReturnablePackagingAdjusted:
-      name: dev.passage.fulfillment.returnablepackaging.adjusted.v1
+      name: dev.depot.fulfillment.returnablepackaging.adjusted.v1
       title: Returnable packaging balance adjusted
       summary: A logistics admin corrected a returnable packaging balance by hand, with a reason (FR-28.16).
       contentType: application/json
@@ -649,7 +649,7 @@ components:
           reference: { type: string, description: "The caller's own reference; omitted when none." }
           reason: { type: string, description: "Why the balance was corrected; omitted on a return receipt." }
     WarehouseReleaseRuleChanged:
-      name: dev.passage.fulfillment.warehousereleaserule.changed.v1
+      name: dev.depot.fulfillment.warehousereleaserule.changed.v1
       title: Warehouse release rule changed
       summary: >
         The release and wave parameters of a warehouse were saved (section 5.28.13):
@@ -672,7 +672,7 @@ components:
           previous_wave_max_orders: { type: integer, minimum: 1, maximum: 500 }
           version: { type: integer, minimum: 1 }
     ManifestClosed:
-      name: dev.passage.fulfillment.manifest.closed.v1
+      name: dev.depot.fulfillment.manifest.closed.v1
       title: Carrier manifest closed
       summary: >
         The end-of-day manifest of a carrier at a warehouse was closed (FR-28.6): the labelled
@@ -681,14 +681,14 @@ components:
       payload:
         $ref: "#/components/schemas/ManifestPayload"
     ManifestCancelled:
-      name: dev.passage.fulfillment.manifest.cancelled.v1
+      name: dev.depot.fulfillment.manifest.cancelled.v1
       title: Carrier manifest cancelled
       summary: A CLOSED carrier manifest was withdrawn; its parcels are unmanifested again and the next manifest takes them. Same payload as manifest.closed with status CANCELLED.
       contentType: application/json
       payload:
         $ref: "#/components/schemas/ManifestPayload"
     WarehouseOperationRuleChanged:
-      name: dev.passage.fulfillment.warehouseoperationrule.changed.v1
+      name: dev.depot.fulfillment.warehouseoperationrule.changed.v1
       title: Warehouse operation rule changed
       summary: >
         The posting and packing parameters of a warehouse were saved (section 5.28.13):
@@ -711,7 +711,7 @@ components:
           previous_workbench_group_key_default: { type: string, enum: [CUSTOMER, CARRIER, ZONE, PRODUCT] }
           version: { type: integer, minimum: 1 }
     DeliveryToleranceChanged:
-      name: dev.passage.fulfillment.deliverytolerance.changed.v1
+      name: dev.depot.fulfillment.deliverytolerance.changed.v1
       title: Delivery tolerance changed
       summary: >
         The over-delivery tolerance of a product and customer scope was saved (BR-28.7): the
@@ -729,7 +729,7 @@ components:
           previous_overdelivery_pct: { type: string, description: "The value replaced; absent for a new scope." }
           version: { type: integer, minimum: 1 }
     LegalEntitySettingChanged:
-      name: dev.passage.fulfillment.legalentitysetting.changed.v1
+      name: dev.depot.fulfillment.legalentitysetting.changed.v1
       title: Legal entity posting settings changed
       summary: >
         The packing slip posting settings of a legal entity were saved: cogs_at_shipment,
@@ -759,7 +759,7 @@ components:
           previous_rtp_charge_days: { type: integer, minimum: 30, maximum: 365 }
           version: { type: integer, minimum: 1 }
     DropShipCreated:
-      name: dev.passage.fulfillment.dropship.created.v1
+      name: dev.depot.fulfillment.dropship.created.v1
       title: Drop-ship created
       summary: >
         A drop-ship was created for an order line against a purchase order line (FR-28.7). Purchasing
@@ -768,7 +768,7 @@ components:
       payload:
         $ref: "#/components/schemas/DropShipPayload"
     DropShipConfirmed:
-      name: dev.passage.fulfillment.dropship.confirmed.v1
+      name: dev.depot.fulfillment.dropship.confirmed.v1
       title: Drop-ship confirmed by the vendor
       summary: >
         The vendor shipped the drop-ship line, all of it or one part of it (AC-28.5). Published once
@@ -789,14 +789,14 @@ components:
       payload:
         $ref: "#/components/schemas/DropShipPayload"
     DropShipCancelled:
-      name: dev.passage.fulfillment.dropship.cancelled.v1
+      name: dev.depot.fulfillment.dropship.cancelled.v1
       title: Drop-ship cancelled
       summary: An OPEN drop-ship was cancelled before the vendor confirmed (by hand, or with reason order_remainder_cancelled when sales cancelled the remainder and the line keeps nothing); nothing was booked.
       contentType: application/json
       payload:
         $ref: "#/components/schemas/DropShipPayload"
     DropShipClosed:
-      name: dev.passage.fulfillment.dropship.closed.v1
+      name: dev.depot.fulfillment.dropship.closed.v1
       title: Drop-ship remainder closed
       summary: >
         The vendor shipped part of the drop-ship and will not ship the rest. qty_closed is the
@@ -806,7 +806,7 @@ components:
       payload:
         $ref: "#/components/schemas/DropShipPayload"
     PickTracked:
-      name: dev.passage.fulfillment.pick.tracked.v1
+      name: dev.depot.fulfillment.pick.tracked.v1
       title: Pick tracking captured
       summary: >
         The batch, serial and location entries of a shipment line were captured or
@@ -829,7 +829,7 @@ components:
                 type: array
                 items: { $ref: "#/components/schemas/TrackingEntry" }
     ContainerNested:
-      name: dev.passage.fulfillment.container.nested.v1
+      name: dev.depot.fulfillment.container.nested.v1
       title: Cartons put on a pallet
       summary: >
         CLOSED cartons of a shipment were put on a new pallet (nested container). The
@@ -850,7 +850,7 @@ components:
             description: The SSCCs of the cartons on the pallet.
             items: { type: string, pattern: "^[0-9]{18}$" }
     ContainerUnnested:
-      name: dev.passage.fulfillment.container.unnested.v1
+      name: dev.depot.fulfillment.container.unnested.v1
       title: Pallet dissolved
       summary: >
         A pallet was dissolved before it shipped. The cartons are top-level containers
@@ -870,7 +870,7 @@ components:
             description: The SSCCs of the cartons on the pallet.
             items: { type: string, pattern: "^[0-9]{18}$" }
     ContainerUnpacked:
-      name: dev.passage.fulfillment.container.unpacked.v1
+      name: dev.depot.fulfillment.container.unpacked.v1
       title: Container unpacked
       summary: >
         A CLOSED container was taken apart before it shipped. Its SSCC stays issued
@@ -894,7 +894,7 @@ components:
                 order_line_id: { type: string, format: uuid }
                 qty: { type: string, description: The quantity that was in the container. }
     WaveCreated:
-      name: dev.passage.fulfillment.wave.created.v1
+      name: dev.depot.fulfillment.wave.created.v1
       summary: >
         The picking workbench created a pick wave (FR-28.13); its shipments moved
         to PICKING in the same transaction. Lines of one shipment are in one wave
@@ -916,7 +916,7 @@ components:
           line_count: { type: integer }
           order_count: { type: integer }
     WaveAssigned:
-      name: dev.passage.fulfillment.wave.assigned.v1
+      name: dev.depot.fulfillment.wave.assigned.v1
       summary: >
         A supervisor gave a pick wave to a picker or handed it to another one
         (FR-28.13). previous_picker is absent on the first assignment.
@@ -932,7 +932,7 @@ components:
           picker: { type: string }
           previous_picker: { type: string }
     WaveClosed:
-      name: dev.passage.fulfillment.wave.closed.v1
+      name: dev.depot.fulfillment.wave.closed.v1
       summary: >
         A pick wave was closed: every line is picked, or sits on a cancelled
         shipment. short_lines counts the lines picked below plan.
@@ -952,7 +952,7 @@ components:
           line_count: { type: integer }
           short_lines: { type: integer }
     ASNIssued:
-      name: dev.passage.fulfillment.asn.issued.v1
+      name: dev.depot.fulfillment.asn.issued.v1
       summary: >
         Advance ship notice of a posted packing slip (FR-28.9), published when the
         post asks for it (asnEnabled). It lists the containers that left with that
@@ -986,7 +986,7 @@ components:
                       order_line_id: { type: string, format: uuid }
                       qty: { type: string }
     TrackingUpdated:
-      name: dev.passage.fulfillment.tracking.updated.v1
+      name: dev.depot.fulfillment.tracking.updated.v1
       summary: >
         A new carrier tracking event for a shipment (FR-28.10), from carrier-gateway
         or entered by hand. A redelivered provider event publishes nothing. The

@@ -28,7 +28,7 @@ spec:
 {{- end }}
       containers:
         - name: finreport
-          image: {{ if .Values.image.digest }}{{ printf "%s@%s" (include "passage.imageRepository" $) .Values.image.digest | quote }}{{ else }}{{ printf "%s:%s" (include "passage.imageRepository" $) (.Values.image.tag | default "latest") | quote }}{{ end }}
+          image: {{ if .Values.image.digest }}{{ printf "%s@%s" (include "depot.imageRepository" $) .Values.image.digest | quote }}{{ else }}{{ printf "%s:%s" (include "depot.imageRepository" $) (.Values.image.tag | default "latest") | quote }}{{ end }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           securityContext:
             allowPrivilegeEscalation: false
@@ -36,7 +36,7 @@ spec:
             capabilities:
               drop: [ALL]
           env:
-            {{- include "passage.cloudEnv" $ | nindent 12 }}
+            {{- include "depot.cloudEnv" $ | nindent 12 }}
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:
@@ -66,12 +66,12 @@ spec:
               value: {{ .Values.reporting.traceUrl | quote }}
 {{- if .Values.serviceIdentity.signingKeySecret }}
             # Balance verification (FR-15.1) reads the ledger trial balance as the service.
-            - name: PASSAGE_SERVICE_NAME
+            - name: DEPOT_SERVICE_NAME
               value: finreport
-            - name: PASSAGE_SERVICE_SIGNING_KEY_FILE
-              value: /var/run/passage/service-identity/signing-key
+            - name: DEPOT_SERVICE_SIGNING_KEY_FILE
+              value: /var/run/depot/service-identity/signing-key
 {{- if .Values.serviceIdentity.keyId }}
-            - name: PASSAGE_SERVICE_KEY_ID
+            - name: DEPOT_SERVICE_KEY_ID
               value: {{ .Values.serviceIdentity.keyId | quote }}
 {{- end }}
             - name: LEDGER_URL
@@ -79,7 +79,7 @@ spec:
 {{- end }}
 {{- if .Values.serviceIdentity.signingKeySecret }}
           volumeMounts:
-            - { name: service-identity, mountPath: /var/run/passage/service-identity, readOnly: true }
+            - { name: service-identity, mountPath: /var/run/depot/service-identity, readOnly: true }
 {{- end }}
           ports:
             - { name: http, containerPort: 8080 }

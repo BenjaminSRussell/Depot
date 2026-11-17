@@ -14,11 +14,11 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/org/internal/domain"
-	orgevents "github.com/BenjaminSRussell/passage/services/org/internal/events"
-	"github.com/BenjaminSRussell/passage/services/org/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/org/internal/domain"
+	orgevents "github.com/BenjaminSRussell/depot/services/org/internal/events"
+	"github.com/BenjaminSRussell/depot/services/org/internal/store"
 )
 
 func hierarchyType(code string) store.HierarchyType {
@@ -292,7 +292,7 @@ func TestPostgres_HierarchyNodeRejectsDuplicateOrgUnitPerVersion(t *testing.T) {
 	draft := mustCreateDraft(t, s, ctx, mustCreateHierarchyType(t, s, ctx, "REP").ID)
 	err := dbx.WithTenantTx(ctx, pool, func(tx pgx.Tx) error {
 		_, err := tx.Exec(ctx, `insert into hierarchy_node (tenant_id, version_id, id, org_unit_kind, org_unit_id)
-			select current_setting('passage.tenant_id')::uuid, $1, gen_random_uuid(), 'legal_entity', $2 from generate_series(1, 2)`, draft.ID, units.legalEntity)
+			select current_setting('depot.tenant_id')::uuid, $1, gen_random_uuid(), 'legal_entity', $2 from generate_series(1, 2)`, draft.ID, units.legalEntity)
 		return err
 	})
 	var pgErr *pgconn.PgError

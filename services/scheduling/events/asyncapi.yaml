@@ -1,30 +1,30 @@
 asyncapi: 3.0.0
 info:
-  title: Passage Scheduling events
+  title: Depot Scheduling events
   version: 0.1.0
   description: >
     CloudEvents 1.0 published through the transactional outbox (Debezium
-    outbox router). Event types follow dev.passage.<context>.<entity>.<verb>.v<n>.
+    outbox router). Event types follow dev.depot.<context>.<entity>.<verb>.v<n>.
     Payloads match internal/events/events.go.
 defaultContentType: application/cloudevents+json
 channels:
   runCompleted:
-    address: passage.scheduling.run
+    address: depot.scheduling.run
     messages:
       runCompleted:
         $ref: '#/components/messages/RunCompleted'
   jobScheduled:
-    address: passage.scheduling.job
+    address: depot.scheduling.job
     messages:
       jobScheduled:
         $ref: '#/components/messages/JobScheduled'
   orderDatesChanged:
-    address: passage.scheduling.orderdates
+    address: depot.scheduling.orderdates
     messages:
       orderDatesChanged:
         $ref: '#/components/messages/OrderDatesChanged'
   campaign:
-    address: passage.scheduling.campaign
+    address: depot.scheduling.campaign
     messages:
       campaignSequenced:
         $ref: '#/components/messages/CampaignSequenced'
@@ -39,56 +39,56 @@ channels:
       campaignUnplaced:
         $ref: '#/components/messages/CampaignUnplaced'
   cleanoutCounter:
-    address: passage.scheduling.cleanoutcounter
+    address: depot.scheduling.cleanoutcounter
     messages:
       cleanoutCounterReset:
         $ref: '#/components/messages/CleanoutCounterReset'
   resource:
-    address: passage.scheduling.resource
+    address: depot.scheduling.resource
     messages:
       resourceUpdated:
         $ref: '#/components/messages/ResourceUpdated'
   capacityOverride:
-    address: passage.scheduling.capacityoverride
+    address: depot.scheduling.capacityoverride
     messages:
       capacityOverrideCreated:
         $ref: '#/components/messages/CapacityOverrideCreated'
       capacityOverrideDeleted:
         $ref: '#/components/messages/CapacityOverrideDeleted'
   capacityBlock:
-    address: passage.scheduling.capacityblock
+    address: depot.scheduling.capacityblock
     messages:
       capacityBlockUpdated:
         $ref: '#/components/messages/CapacityBlockUpdated'
   network:
-    address: passage.scheduling.network
+    address: depot.scheduling.network
     messages:
       networkUpdated:
         $ref: '#/components/messages/NetworkUpdated'
   orderImport:
-    address: passage.scheduling.orderimport
+    address: depot.scheduling.orderimport
     messages:
       orderImportRecorded:
         $ref: '#/components/messages/OrderImportRecorded'
   operation:
-    address: passage.scheduling.operation
+    address: depot.scheduling.operation
     messages:
       operationUpdated:
         $ref: '#/components/messages/OperationUpdated'
       operationDeleted:
         $ref: '#/components/messages/OperationDeleted'
   order:
-    address: passage.scheduling.order
+    address: depot.scheduling.order
     messages:
       orderUnscheduled:
         $ref: '#/components/messages/OrderUnscheduled'
   parameters:
-    address: passage.scheduling.parameters
+    address: depot.scheduling.parameters
     messages:
       parametersUpdated:
         $ref: '#/components/messages/ParametersUpdated'
   bottleneck:
-    address: passage.scheduling.bottleneck
+    address: depot.scheduling.bottleneck
     messages:
       bottleneckDetected:
         $ref: '#/components/messages/BottleneckDetected'
@@ -222,7 +222,7 @@ components:
         Published once when the episode opens; it is not repeated by later runs while the resource stays overloaded,
         and a new event follows only after the episode has closed (no flagged week left, or its last flagged week
         has passed) and the resource is overloaded again.
-      name: dev.passage.scheduling.bottleneck.detected.v1
+      name: dev.depot.scheduling.bottleneck.detected.v1
       contentType: application/cloudevents+json
       payload:
         $ref: '#/components/schemas/BottleneckDetectedData'
@@ -231,7 +231,7 @@ components:
       summary: >-
         The tenant's scheduling parameters (default mode, direction and finite, drag snap, propagation limits)
         changed; runs and moves after the event use the new values.
-      name: dev.passage.scheduling.parameters.updated.v1
+      name: dev.depot.scheduling.parameters.updated.v1
       contentType: application/cloudevents+json
       payload:
         $ref: '#/components/schemas/ParametersUpdatedData'
@@ -241,14 +241,14 @@ components:
         An operation's duration, dates, priority, setup minutes, queue times or candidate resources changed. When jobsRemoved is true
         its non-firmed jobs left the schedule and the operation is open again; consumers holding its dates from
         job.scheduled drop them until the next run places it.
-      name: dev.passage.scheduling.operation.updated.v1
+      name: dev.depot.scheduling.operation.updated.v1
       contentType: application/cloudevents+json
       payload:
         $ref: '#/components/schemas/OperationUpdatedData'
     OperationDeleted:
       title: Operation deleted
       summary: An operation was removed from scheduling, with its non-firmed jobs when jobsRemoved is true.
-      name: dev.passage.scheduling.operation.deleted.v1
+      name: dev.depot.scheduling.operation.deleted.v1
       contentType: application/cloudevents+json
       payload:
         $ref: '#/components/schemas/OperationDeletedData'
@@ -257,7 +257,7 @@ components:
       summary: >-
         A planner took an order off the schedule: the listed operations lost their non-firmed jobs and are open again;
         operations a firmed job holds stay where they are.
-      name: dev.passage.scheduling.order.unscheduled.v1
+      name: dev.depot.scheduling.order.unscheduled.v1
       contentType: application/cloudevents+json
       payload:
         $ref: '#/components/schemas/OrderUnscheduledData'
@@ -273,28 +273,28 @@ components:
         withdraws the order's operations and publishes this event with status `withdrawn`, reason `withdraw` and
         `withdrawnTo`. Other statuschanged events (release, start, report as finished, end) publish nothing, and so does
         one older than the order's last applied production event.
-      name: dev.passage.scheduling.orderimport.recorded.v1
+      name: dev.depot.scheduling.orderimport.recorded.v1
       contentType: application/cloudevents+json
       payload:
         $ref: '#/components/schemas/OrderImportRecordedData'
     CapacityBlockUpdated:
       title: Capacity block updated
       summary: A capacity block's priority, condition or active flag changed; runs and moves after the event use the new values, and it lists the booked jobs the resource's blocks now keep out.
-      name: dev.passage.scheduling.capacityblock.updated.v1
+      name: dev.depot.scheduling.capacityblock.updated.v1
       contentType: application/cloudevents+json
       payload:
         $ref: '#/components/schemas/CapacityBlockUpdatedData'
     NetworkUpdated:
       title: Resource network updated
       summary: A resource network was renamed or ended on a date.
-      name: dev.passage.scheduling.network.updated.v1
+      name: dev.depot.scheduling.network.updated.v1
       contentType: application/cloudevents+json
       payload:
         $ref: '#/components/schemas/NetworkUpdatedData'
     ResourceUpdated:
       title: Resource updated
       summary: A resource name, time zone, weekly calendar or engineering resource mapping changed; lists the booked jobs the new calendar no longer covers.
-      name: dev.passage.scheduling.resource.updated.v1
+      name: dev.depot.scheduling.resource.updated.v1
       contentType: application/cloudevents+json
       payload:
         $ref: '#/components/schemas/ResourceUpdatedData'
@@ -303,84 +303,84 @@ components:
       summary: >-
         A planner told the scheduler a resource was cleaned out outside the plan; its batches and run minutes since the last
         cleanout are zero. Campaigns sequenced from the old counter are listed and must be sequenced again before they start.
-      name: dev.passage.scheduling.cleanoutcounter.reset.v1
+      name: dev.depot.scheduling.cleanoutcounter.reset.v1
       contentType: application/cloudevents+json
       payload:
         $ref: '#/components/schemas/CleanoutCounterResetData'
     CapacityOverrideCreated:
       title: Capacity override created
       summary: A downtime or extra shift was added to a resource calendar; lists the booked jobs a downtime overlaps.
-      name: dev.passage.scheduling.capacityoverride.created.v1
+      name: dev.depot.scheduling.capacityoverride.created.v1
       contentType: application/cloudevents+json
       payload:
         $ref: '#/components/schemas/CapacityOverrideData'
     CapacityOverrideDeleted:
       title: Capacity override deleted
       summary: A downtime or extra shift was removed from a resource calendar.
-      name: dev.passage.scheduling.capacityoverride.deleted.v1
+      name: dev.depot.scheduling.capacityoverride.deleted.v1
       contentType: application/cloudevents+json
       payload:
         $ref: '#/components/schemas/CapacityOverrideData'
     RunCompleted:
       title: Schedule run completed
       summary: A schedule run finished; carries the counts, makespan and total lateness.
-      name: dev.passage.scheduling.run.completed.v1
+      name: dev.depot.scheduling.run.completed.v1
       contentType: application/cloudevents+json
       payload:
         $ref: '#/components/schemas/RunCompletedData'
     JobScheduled:
       title: Job scheduled
       summary: A job was placed or moved on a resource, with its changeover.
-      name: dev.passage.scheduling.job.scheduled.v1
+      name: dev.depot.scheduling.job.scheduled.v1
       contentType: application/cloudevents+json
       payload:
         $ref: '#/components/schemas/JobScheduledData'
     OrderDatesChanged:
       title: Order dates changed
       summary: An order start or end changed, including pegged orders pushed by a propagated move.
-      name: dev.passage.scheduling.orderdates.changed.v1
+      name: dev.depot.scheduling.orderdates.changed.v1
       contentType: application/cloudevents+json
       payload:
         $ref: '#/components/schemas/OrderDatesChangedData'
     CampaignSequenced:
       title: Campaign sequenced
       summary: A campaign was sequenced; carries the order sequence and cleanouts.
-      name: dev.passage.scheduling.campaign.sequenced.v1
+      name: dev.depot.scheduling.campaign.sequenced.v1
       contentType: application/cloudevents+json
       payload:
         $ref: '#/components/schemas/CampaignSequencedData'
     CampaignStarted:
       title: Campaign started
       summary: A campaign started and is frozen.
-      name: dev.passage.scheduling.campaign.started.v1
+      name: dev.depot.scheduling.campaign.started.v1
       contentType: application/cloudevents+json
       payload:
         $ref: '#/components/schemas/CampaignStartedData'
     CampaignCompleted:
       title: Campaign completed
       summary: A started campaign was completed.
-      name: dev.passage.scheduling.campaign.completed.v1
+      name: dev.depot.scheduling.campaign.completed.v1
       contentType: application/cloudevents+json
       payload:
         $ref: '#/components/schemas/CampaignCompletedData'
     CampaignCancelled:
       title: Campaign cancelled
       summary: A campaign was cancelled; its orders are released and can join another campaign.
-      name: dev.passage.scheduling.campaign.cancelled.v1
+      name: dev.depot.scheduling.campaign.cancelled.v1
       contentType: application/cloudevents+json
       payload:
         $ref: '#/components/schemas/CampaignCancelledData'
     CampaignPlaced:
       title: Campaign placed
       summary: A sequenced campaign was laid on its resource; carries every job time and cleanout window.
-      name: dev.passage.scheduling.campaign.placed.v1
+      name: dev.depot.scheduling.campaign.placed.v1
       contentType: application/cloudevents+json
       payload:
         $ref: '#/components/schemas/CampaignPlacedData'
     CampaignUnplaced:
       title: Campaign unplaced
       summary: A placed campaign was taken off the schedule; its jobs are removed and its cleanout windows are open again.
-      name: dev.passage.scheduling.campaign.unplaced.v1
+      name: dev.depot.scheduling.campaign.unplaced.v1
       contentType: application/cloudevents+json
       payload:
         $ref: '#/components/schemas/CampaignUnplacedData'

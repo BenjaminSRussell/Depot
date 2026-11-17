@@ -8,7 +8,7 @@ export interface NavItem {
   duty?: string;
 }
 
-export interface PassageModule {
+export interface DepotModule {
   /** Stable id, equal to the folder name. */
   id: string;
   title: string;
@@ -18,8 +18,8 @@ export interface PassageModule {
 }
 
 /** Auto-discovers every module. Modules never register themselves anywhere else. */
-export function loadModules(): PassageModule[] {
-  const found = import.meta.glob<{ default: PassageModule }>("./*/module.ts", { eager: true });
+export function loadModules(): DepotModule[] {
+  const found = import.meta.glob<{ default: DepotModule }>("./*/module.ts", { eager: true });
   return Object.values(found)
     .map((m) => m.default)
     .sort((a, b) => a.title.localeCompare(b.title));

@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/fieldcrypt"
+	"github.com/BenjaminSRussell/depot/platform/fieldcrypt"
 )
 
 func key(b byte) []byte { return bytes.Repeat([]byte{b}, 32) }

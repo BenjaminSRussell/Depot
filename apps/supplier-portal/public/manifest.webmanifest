@@ -1,6 +1,6 @@
 {
-  "name": "Passage Supplier Portal",
-  "short_name": "Passage",
+  "name": "Depot Supplier Portal",
+  "short_name": "Depot",
   "description": "Purchase orders, shipments, invoices and payments for suppliers.",
   "id": "/",
   "start_url": "/",

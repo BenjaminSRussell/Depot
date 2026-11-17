@@ -17,26 +17,26 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/billing/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/billing/internal/store"
-	"github.com/BenjaminSRussell/passage/services/billing/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/billing/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/billing/internal/store"
+	"github.com/BenjaminSRussell/depot/services/billing/migrations"
 )
 
 func runEnv(t *testing.T, extra map[string]string) func(string) string {
 	t.Helper()
-	url := os.Getenv("PASSAGE_TEST_APP_DATABASE_URL")
+	url := os.Getenv("DEPOT_TEST_APP_DATABASE_URL")
 	if url == "" {
-		t.Skip("PASSAGE_TEST_APP_DATABASE_URL is not set")
+		t.Skip("DEPOT_TEST_APP_DATABASE_URL is not set")
 	}
 	seed := make([]byte, ed25519.SeedSize)
 	_, _ = rand.Read(seed)
 	m := map[string]string{
-		"DATABASE_URL": url, "HTTP_ADDR": "127.0.0.1:0", "ADMIN_ADDR": "127.0.0.1:0", "PASSAGE_SERVICE_NAME": "billing",
-		"PASSAGE_SERVICE_SIGNING_KEY": base64.StdEncoding.EncodeToString(seed),
+		"DATABASE_URL": url, "HTTP_ADDR": "127.0.0.1:0", "ADMIN_ADDR": "127.0.0.1:0", "DEPOT_SERVICE_NAME": "billing",
+		"DEPOT_SERVICE_SIGNING_KEY": base64.StdEncoding.EncodeToString(seed),
 	}
 	for k, v := range extra {
 		m[k] = v
@@ -155,8 +155,8 @@ func TestRun_SalesURLStartsTheInvoiceReporterAgainstTheConfiguredSales(t *testin
 	defer sales.Close()
 
 	getenv := runEnv(t, map[string]string{
-		"SALES_URL": sales.URL, "BILLING_SALES_REPORT_INTERVAL": "1s", "PASSAGE_SERVICE_SIGNING_KEY": base64.StdEncoding.EncodeToString(seed),
-		"DATABASE_URL": os.Getenv("PASSAGE_TEST_APP_DATABASE_URL") + "&search_path=" + schema + ",public",
+		"SALES_URL": sales.URL, "BILLING_SALES_REPORT_INTERVAL": "1s", "DEPOT_SERVICE_SIGNING_KEY": base64.StdEncoding.EncodeToString(seed),
+		"DATABASE_URL": os.Getenv("DEPOT_TEST_APP_DATABASE_URL") + "&search_path=" + schema + ",public",
 	})
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
@@ -193,7 +193,7 @@ func TestRun_SalesURLStartsTheInvoiceReporterAgainstTheConfiguredSales(t *testin
 }
 
 func TestRun_SalesReporterNeedsASigningKeyAndAValidInterval(t *testing.T) {
-	err := run(context.Background(), runEnv(t, map[string]string{"SALES_URL": "http://sales.invalid", "PASSAGE_SERVICE_SIGNING_KEY": ""}))
+	err := run(context.Background(), runEnv(t, map[string]string{"SALES_URL": "http://sales.invalid", "DEPOT_SERVICE_SIGNING_KEY": ""}))
 	if err == nil || !strings.Contains(err.Error(), "sales client") {
 		t.Fatalf("SALES_URL without a signing key: err = %v", err)
 	}
@@ -265,8 +265,8 @@ func TestRun_TaxURLStartsTheTaxReporterAgainstTheConfiguredTaxService(t *testing
 	defer taxService.Close()
 
 	getenv := runEnv(t, map[string]string{
-		"TAX_URL": taxService.URL, "BILLING_TAX_REPORT_INTERVAL": "1s", "PASSAGE_SERVICE_SIGNING_KEY": base64.StdEncoding.EncodeToString(seed),
-		"DATABASE_URL": os.Getenv("PASSAGE_TEST_APP_DATABASE_URL") + "&search_path=" + schema + ",public",
+		"TAX_URL": taxService.URL, "BILLING_TAX_REPORT_INTERVAL": "1s", "DEPOT_SERVICE_SIGNING_KEY": base64.StdEncoding.EncodeToString(seed),
+		"DATABASE_URL": os.Getenv("DEPOT_TEST_APP_DATABASE_URL") + "&search_path=" + schema + ",public",
 	})
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
@@ -303,7 +303,7 @@ func TestRun_TaxURLStartsTheTaxReporterAgainstTheConfiguredTaxService(t *testing
 }
 
 func TestRun_TaxReporterNeedsASigningKeyAndAValidInterval(t *testing.T) {
-	err := run(context.Background(), runEnv(t, map[string]string{"TAX_URL": "http://tax.invalid", "PASSAGE_SERVICE_SIGNING_KEY": ""}))
+	err := run(context.Background(), runEnv(t, map[string]string{"TAX_URL": "http://tax.invalid", "DEPOT_SERVICE_SIGNING_KEY": ""}))
 	if err == nil || !strings.Contains(err.Error(), "tax client") {
 		t.Fatalf("TAX_URL without a signing key: err = %v", err)
 	}

@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/customsdata"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/customsdata"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
 )
 
 func signer(t *testing.T) *tenant.ServiceSigner {

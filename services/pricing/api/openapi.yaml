@@ -1,16 +1,16 @@
 openapi: 3.1.0
 info:
-  title: Passage Pricing API
+  title: Depot Pricing API
   version: 0.1.0
   description: >
-    Slices 1-4 of wave 26 (PSG-26). Deterministic price resolution with explain, simulation,
+    Slices 1-4 of wave 26 (DPT-26). Deterministic price resolution with explain, simulation,
     condition-record lifecycle, atomic price journals with reversal, customer rebate
     agreements with accrual and retroactive recompute, sales commissions, trade promotion
     funds with budget and usage tracking, and promotion planning with baseline, lift and
     actuals. The browser reaches these paths as /api/v1/pricing/...;
     the BFF rewrites them to /v1/pricing/... on this service.
 servers:
-  - url: https://api.{env}.passage.dev
+  - url: https://api.{env}.depot.dev
     variables:
       env:
         default: dev
@@ -24,7 +24,7 @@ paths:
         legalEntityId is omitted. Accruals are the rebate accrued on invoices dated in the
         calendar month of asOf, per party role and currency (customer rebates and vendor rebates
         are never added together).
-      x-passage-duty: pricing.view
+      x-depot-duty: pricing.view
       parameters:
         - {name: legalEntityId, in: query, required: false, schema: {type: string, format: uuid}}
         - {name: asOf, in: query, required: false, description: "Defaults to today (UTC).", schema: {type: string, format: date}}
@@ -86,7 +86,7 @@ paths:
           in: query
           required: false
           schema: {type: string, enum: ["true", "false"]}
-      x-passage-duty: pricing.view
+      x-depot-duty: pricing.view
       requestBody:
         required: true
         content:
@@ -116,7 +116,7 @@ paths:
           in: query
           required: false
           schema: {type: string, enum: ["true", "false"]}
-      x-passage-duty: pricing.view
+      x-depot-duty: pricing.view
       requestBody:
         required: true
         content:
@@ -148,7 +148,7 @@ paths:
           in: query
           required: false
           schema: {type: string, enum: ["true", "false"]}
-      x-passage-duty: pricing.view
+      x-depot-duty: pricing.view
       requestBody:
         required: true
         content:
@@ -178,7 +178,7 @@ paths:
         `nextOffset` is the offset of the next page (pass it as `offset`). `total` counts every entry that
         matches, whatever the page. productId and productGroupId keep the records keyed to that product
         (or one of its variants) or product group, as in getCustomerNetPriceList.
-      x-passage-duty: pricing.view
+      x-depot-duty: pricing.view
       parameters:
         - {name: legalEntityId, in: query, required: true, schema: {type: string, format: uuid}}
         - {name: customerId, in: query, required: true, schema: {type: string}}
@@ -228,7 +228,7 @@ paths:
         price, and an INCLUSIVE free goods rule lowers the charged quantity only on an order.
         One response resolves at most 500 rows and 2,000 breaks in all; rows are taken whole in order and
         `truncated` is true when more apply (narrow with productId or productGroupId).
-      x-passage-duty: pricing.view
+      x-depot-duty: pricing.view
       parameters:
         - {name: legalEntityId, in: query, required: true, schema: {type: string, format: uuid}}
         - {name: customerId, in: query, required: true, schema: {type: string}}
@@ -260,7 +260,7 @@ paths:
     get:
       operationId: listConditionRecords
       summary: List condition records.
-      x-passage-duty: pricing.view
+      x-depot-duty: pricing.view
       parameters:
         - {name: legalEntityId, in: query, required: false, schema: {type: string, format: uuid}}
         - {name: status, in: query, required: false, schema: {type: string, enum: [DRAFT, ACTIVE, EXPIRED, WITHDRAWN]}}
@@ -291,7 +291,7 @@ paths:
       operationId: createConditionRecord
       summary: Create a condition record in DRAFT.
       description: Overlap is checked at activation, not at creation (BR-26.6).
-      x-passage-duty: pricing.maintain
+      x-depot-duty: pricing.maintain
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -316,14 +316,14 @@ paths:
       summary: Export the trade agreements that match the filters as CSV (§5.26.14).
       description: >
         Takes the filters of the list (not its limit): up to 50000 rows ordered like the list, and the
-        header X-Passage-Truncated: true when more matched. Rows are streamed as they are read; a failure
+        header X-Depot-Truncated: true when more matched. Rows are streamed as they are read; a failure
         after the first bytes aborts the connection, so a short file is never presented as complete.
         Columns: recordId, type, customerKind, customerKey, productKind, productKey, variant, currency,
         unit, fromQuantity, amount, discPct1, discPct2, validFrom, validTo, searchNext, exclusive,
         campaignId, status, version; the names that also exist in the price journal CSV import have the
         same format. A text cell that starts with =, +, -, @, a tab or a carriage return gets a leading
         apostrophe (spreadsheet formula injection); numbers, negative ones included, are written as they are.
-      x-passage-duty: pricing.view
+      x-depot-duty: pricing.view
       parameters:
         - {name: legalEntityId, in: query, required: false, schema: {type: string, format: uuid}}
         - {name: status, in: query, required: false, schema: {type: string, enum: [DRAFT, ACTIVE, EXPIRED, WITHDRAWN]}}
@@ -339,7 +339,7 @@ paths:
           description: The CSV file, with a header row.
           headers:
             Content-Disposition: {description: "attachment; filename=trade-agreements-YYYY-MM-DD.csv", schema: {type: string}}
-            X-Passage-Truncated: {description: "true when more than 50000 records matched and the file holds the first 50000.", schema: {type: string}}
+            X-Depot-Truncated: {description: "true when more than 50000 records matched and the file holds the first 50000.", schema: {type: string}}
           content:
             text/csv:
               schema: {type: string}
@@ -353,7 +353,7 @@ paths:
     get:
       operationId: getConditionRecord
       summary: Read one condition record.
-      x-passage-duty: pricing.view
+      x-depot-duty: pricing.view
       responses:
         "200":
           description: The record.
@@ -371,10 +371,10 @@ paths:
       summary: Activate a DRAFT record after the overlap check.
       description: >
         Locks the key hash, rejects an overlapping ACTIVE record with 409 PRC-0002 naming
-        its id, and writes dev.passage.pricing.conditionrecord.activated.v1 to the outbox in the
+        its id, and writes dev.depot.pricing.conditionrecord.activated.v1 to the outbox in the
         same transaction. The version in the body must match the stored version (412
         conflict_version otherwise). A retry with the same Idempotency-Key replays the first response.
-      x-passage-duty: pricing.maintain
+      x-depot-duty: pricing.maintain
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -402,10 +402,10 @@ paths:
       operationId: withdrawConditionRecord
       summary: Withdraw an ACTIVE record.
       description: >
-        Writes dev.passage.pricing.conditionrecord.withdrawn.v1 in the same transaction. The
+        Writes dev.depot.pricing.conditionrecord.withdrawn.v1 in the same transaction. The
         version in the body must match the stored version (412 conflict_version otherwise).
         A retry with the same Idempotency-Key replays the first response.
-      x-passage-duty: pricing.maintain
+      x-depot-duty: pricing.maintain
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -433,10 +433,10 @@ paths:
       description: >
         ACTIVE records of the legal entity whose valid_to is before asOf become EXPIRED with the
         next version; a record whose valid_to equals asOf stays ACTIVE (validity is inclusive).
-        Each expired record writes dev.passage.pricing.conditionrecord.withdrawn.v1 with reason
+        Each expired record writes dev.depot.pricing.conditionrecord.withdrawn.v1 with reason
         EXPIRED in the same transaction. Running it again for the same day expires nothing more.
         asOf may be at most one day after today (UTC), so validity that is still running is never ended.
-      x-passage-duty: pricing.maintain
+      x-depot-duty: pricing.maintain
       requestBody:
         required: true
         content:
@@ -468,7 +468,7 @@ paths:
     get:
       operationId: listPriceJournals
       summary: Price journal log (PRD 5.26.14), newest first, without lines.
-      x-passage-duty: pricing.view
+      x-depot-duty: pricing.view
       parameters:
         - {name: legalEntityId, in: query, required: false, schema: {type: string, format: uuid}}
         - {name: status, in: query, required: false, schema: {type: string, enum: [OPEN, VALIDATED, POSTED, REVERSED]}}
@@ -494,7 +494,7 @@ paths:
       description: >
         Each line is checked when the journal is created. Field errors are keyed lines[i].field.
         Nothing is written to condition records until :post (FR-26.9).
-      x-passage-duty: pricing.journal.post
+      x-depot-duty: pricing.journal.post
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -525,7 +525,7 @@ paths:
         a row are keyed rows[n].column (at most 100 rows are listed, csv says how many have
         faults); faults of the journal itself use the JSON route's keys (lines[n-1].field). The
         journal is then validated and posted like any other.
-      x-passage-duty: pricing.journal.post
+      x-depot-duty: pricing.journal.post
       parameters:
         - {name: legalEntityId, in: query, required: true, schema: {type: string, format: uuid}}
         - {name: name, in: query, required: true, schema: {type: string, minLength: 1, maxLength: 120}}
@@ -554,7 +554,7 @@ paths:
       operationId: getPriceJournal
       summary: Read a price journal with its lines (op, before and after snapshots) and per-line errors.
       description: At most 1,000 lines are returned (linesTruncated=true when there are more); errors are always complete.
-      x-passage-duty: pricing.view
+      x-depot-duty: pricing.view
       responses:
         "200":
           description: The journal.
@@ -583,7 +583,7 @@ paths:
         download started the connection is aborted, so a client never keeps a short file that
         looks complete. format=json returns the Journal with at most 5,000 lines and
         linesTruncated=true when there are more. Read only: nothing is written and no event is raised.
-      x-passage-duty: pricing.view
+      x-depot-duty: pricing.view
       parameters:
         - {name: format, in: query, required: false, schema: {type: string, enum: [csv, json], default: csv}}
       responses:
@@ -610,7 +610,7 @@ paths:
     post:
       operationId: validatePriceJournal
       summary: Validate every line of an OPEN journal against the stored record versions.
-      x-passage-duty: pricing.journal.post
+      x-depot-duty: pricing.journal.post
       responses:
         "200":
           description: Validated, or still OPEN with errors listed per line.
@@ -629,7 +629,7 @@ paths:
         Procedure determination (PRD 5.26.13, reference_procedure). Returns the default
         assignment (empty salesChannel) first, then the channel rows. A legal entity with none
         prices in the reference order. A legal entity outside the caller's scope is 403 AUTH-0003.
-      x-passage-duty: pricing.view
+      x-depot-duty: pricing.view
       parameters:
         - {name: legalEntityId, in: query, required: true, schema: {type: string, format: uuid}}
       responses:
@@ -654,10 +654,10 @@ paths:
         version is the version read (0 when the channel has no assignment); a different stored
         version is 412 conflict_version. The procedure must have an ACTIVE version (422
         PRC-0063); later activations of a new version take effect without changing the
-        assignment. Writes dev.passage.pricing.procedureassignment.changed.v1 to the outbox in the
+        assignment. Writes dev.depot.pricing.procedureassignment.changed.v1 to the outbox in the
         same transaction. A legal entity outside the caller's scope is 403 AUTH-0003. A retry with
         the same Idempotency-Key replays the first response.
-      x-passage-duty: pricing.admin
+      x-depot-duty: pricing.admin
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -689,9 +689,9 @@ paths:
         version is the version read; a different or missing assignment is 412 conflict_version.
         The channel then falls back to the legal entity's default assignment, or to the
         reference order when there is none. Writes
-        dev.passage.pricing.procedureassignment.changed.v1 (cleared) to the outbox in the same
+        dev.depot.pricing.procedureassignment.changed.v1 (cleared) to the outbox in the same
         transaction. A retry with the same Idempotency-Key replays the first success.
-      x-passage-duty: pricing.admin
+      x-depot-duty: pricing.admin
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
         - {name: legalEntityId, in: query, required: true, schema: {type: string, format: uuid}}
@@ -722,7 +722,7 @@ paths:
         and 0 switches the surcharge off for that currency) and freeGoodsCalcRule (PROPORTIONAL,
         UNIT_REFERENCE or WHOLE_UNITS, default WHOLE_UNITS: the calculation rule a new free goods
         rule takes when its create request names none). A legal entity outside the caller's scope is 403 AUTH-0003.
-      x-passage-duty: pricing.view
+      x-depot-duty: pricing.view
       parameters:
         - {name: legalEntityId, in: query, required: true, schema: {type: string, format: uuid}}
       responses:
@@ -739,13 +739,13 @@ paths:
       summary: Set the pricing parameters of a legal entity at the expected version.
       description: >
         version is the version read (0 when none was stored); a different stored version is
-        412 conflict_version. The change writes dev.passage.pricing.parameters.changed.v1 to the
+        412 conflict_version. The change writes dev.depot.pricing.parameters.changed.v1 to the
         outbox in the same transaction (the audit record: value, version and the user). Every
         value is required, since the PUT replaces them all (a body with only journalFourEyes, as
         before slice 18, without priceSearchMode and smallOrderThresholds before slice 19, or without freeGoodsCalcRule before slice 26, is 422 naming the missing fields). A change applies from the next resolve
         whatever its pricing date: the parameters are not effective-dated. A legal entity outside the caller's
         scope is 403 AUTH-0003. A retry with the same Idempotency-Key replays the first response.
-      x-passage-duty: pricing.admin
+      x-depot-duty: pricing.admin
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -786,7 +786,7 @@ paths:
         campaignKillSwitchEffect (NEXT_RESOLVE by default; IMMEDIATE_CACHE_FLUSH has every
         replica empty its snapshots when it reads campaign.killed or campaign.restored, FR-26.10).
         The replica that takes a kill or restore always empties its own snapshots.
-      x-passage-duty: pricing.view
+      x-depot-duty: pricing.view
       responses:
         "200":
           description: The tenant parameters.
@@ -800,12 +800,12 @@ paths:
       summary: Set the pricing parameters of the tenant at the expected version.
       description: >
         version is the version read (0 when none was stored); a different stored version is
-        412 conflict_version. The change writes dev.passage.pricing.tenantparameter.changed.v1 to
+        412 conflict_version. The change writes dev.depot.pricing.tenantparameter.changed.v1 to
         the outbox in the same transaction (the audit record) and empties this replica's
         snapshots at once; other replicas drop theirs when they read the event, or within the
         snapshot lifetime. Every value is required, since the PUT replaces them all. A retry
         with the same Idempotency-Key replays the first response.
-      x-passage-duty: pricing.admin
+      x-depot-duty: pricing.admin
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -839,8 +839,8 @@ paths:
         Requires status VALIDATED (409 otherwise). Validates again under the legal entity's
         journal lock and refuses with 422 PRC-0005 naming the failing lines if anything changed
         since validation; nothing is written then. Otherwise writes every line in one transaction
-        with dev.passage.pricing.conditionrecord.activated.v1 (or .withdrawn.v1) per record plus
-        dev.passage.pricing.journal.posted.v1 to the outbox (FR-26.9). A journal created by a
+        with dev.depot.pricing.conditionrecord.activated.v1 (or .withdrawn.v1) per record plus
+        dev.depot.pricing.journal.posted.v1 to the outbox (FR-26.9). A journal created by a
         commodity calculation run cannot be posted by the user who ran it (403 PRC-0056,
         CommodityPriceRun / PricingJournalPost segregation). When the legal entity's
         journalFourEyes parameter is on, the user who created a journal cannot post it, nor can
@@ -849,7 +849,7 @@ paths:
         with no recorded creator (created before parameters existed) may be posted by any
         identified user. A retry with the same
         Idempotency-Key replays the first response.
-      x-passage-duty: pricing.journal.post
+      x-depot-duty: pricing.journal.post
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       responses:
@@ -873,7 +873,7 @@ paths:
         Restores the content every line replaced, in one transaction (AC4, AC-26.7); records created
         by the journal are withdrawn. A record changed since the post fails the reversal with 422
         PRC-0005 and nothing is written. A retry with the same Idempotency-Key replays the first response.
-      x-passage-duty: pricing.journal.post
+      x-depot-duty: pricing.journal.post
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       responses:
@@ -891,7 +891,7 @@ paths:
     get:
       operationId: listRebateAgreements
       summary: List customer and vendor rebate agreements.
-      x-passage-duty: pricing.rebate.view
+      x-depot-duty: pricing.rebate.view
       parameters:
         - {name: legalEntityId, in: query, required: false, schema: {type: string, format: uuid}}
         - {name: partyRole, in: query, required: false, schema: {type: string, enum: [CUSTOMER, VENDOR]}}
@@ -915,7 +915,7 @@ paths:
     post:
       operationId: createRebateAgreement
       summary: Create a customer (FR-26.11) or vendor (FR-26.15) rebate agreement with tiers.
-      x-passage-duty: pricing.rebate.maintain
+      x-depot-duty: pricing.rebate.maintain
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -938,7 +938,7 @@ paths:
     get:
       operationId: getRebateAgreement
       summary: Read one rebate agreement with its tiers.
-      x-passage-duty: pricing.rebate.view
+      x-depot-duty: pricing.rebate.view
       responses:
         "200":
           description: The agreement.
@@ -973,7 +973,7 @@ paths:
         come from one database snapshot, and a read that fails after the 200 aborts the
         connection so a short file never looks complete. Read only: nothing is written and no
         event is raised.
-      x-passage-duty: pricing.rebate.view
+      x-depot-duty: pricing.rebate.view
       parameters:
         - {name: period, in: query, required: true, description: "The accrual period key in the form the agreement accrues by: 2027-03 (MONTH), 2027-Q1 (QUARTER) or 2027 (YEAR).", schema: {type: string}}
         - {name: format, in: query, required: false, schema: {type: string, enum: [json, csv], default: json}}
@@ -999,9 +999,9 @@ paths:
         accruals (422 PRC-0049: close it and create a new one). productScope replaces the product or product
         group the agreement is limited to ({} takes every invoice line again) and is refused once the agreement
         has accruals (422 PRC-0071; sending the scope it already has is accepted). 409 PRC-0031 when the agreement is CLOSED;
-        412 on a stale version. Writes dev.passage.pricing.rebateagreement.revised.v1 in the same
+        412 on a stale version. Writes dev.depot.pricing.rebateagreement.revised.v1 in the same
         transaction; a repeated Idempotency-Key replays the first response.
-      x-passage-duty: pricing.rebate.maintain
+      x-depot-duty: pricing.rebate.maintain
       parameters:
         - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
         - $ref: "#/components/parameters/IdempotencyKey"
@@ -1030,9 +1030,9 @@ paths:
         validTo becomes the close date and the status CLOSED, so invoices dated later no longer accrue;
         accruals already booked stay. The close date must lie within the validity and not before an invoice
         already accrued (422 PRC-0048). 409 PRC-0031 when already closed; 412 on a stale version. Writes
-        dev.passage.pricing.rebateagreement.closed.v1 in the same transaction; a repeated Idempotency-Key
+        dev.depot.pricing.rebateagreement.closed.v1 in the same transaction; a repeated Idempotency-Key
         replays the first response.
-      x-passage-duty: pricing.rebate.maintain
+      x-depot-duty: pricing.rebate.maintain
       parameters:
         - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
         - $ref: "#/components/parameters/IdempotencyKey"
@@ -1060,9 +1060,9 @@ paths:
       description: >
         validTo must be later than the close date the agreement carries; invoices dated after the old
         close date accrue again up to it, and the accruals already booked stay. 409 PRC-0031 when the
-        agreement is not CLOSED; 412 on a stale version. Writes dev.passage.pricing.rebateagreement.reopened.v1
+        agreement is not CLOSED; 412 on a stale version. Writes dev.depot.pricing.rebateagreement.reopened.v1
         in the same transaction; a repeated Idempotency-Key replays the first response.
-      x-passage-duty: pricing.rebate.maintain
+      x-depot-duty: pricing.rebate.maintain
       parameters:
         - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
         - $ref: "#/components/parameters/IdempotencyKey"
@@ -1087,7 +1087,7 @@ paths:
     get:
       operationId: listRebateAccruals
       summary: List accruals by agreement and period.
-      x-passage-duty: pricing.rebate.view
+      x-depot-duty: pricing.rebate.view
       parameters:
         - {name: agreementId, in: query, required: false, schema: {type: string, format: uuid}}
         - {name: period, in: query, required: false, description: "Period key such as 2027-03, 2027-Q1 or 2027.", schema: {type: string, pattern: "^[0-9]{4}(-(0[1-9]|1[0-2])|-Q[1-4])?$"}}
@@ -1116,7 +1116,7 @@ paths:
         invoice line was already accrued with the same date, value and quantity, 422
         idempotency_key_reuse when it was accrued with different ones. 422 PRC-0070 when the agreement is
         limited to a product or product group and the line does not carry that productId or productGroupId.
-      x-passage-duty: pricing.rebate.maintain
+      x-depot-duty: pricing.rebate.maintain
       requestBody:
         required: true
         content:
@@ -1129,7 +1129,7 @@ paths:
             application/json:
               schema: {$ref: "#/components/schemas/RebateAccrual"}
         "201":
-          description: Accrued; dev.passage.pricing.rebateaccrual.posted.v1 written to the outbox.
+          description: Accrued; dev.depot.pricing.rebateaccrual.posted.v1 written to the outbox.
           content:
             application/json:
               schema: {$ref: "#/components/schemas/RebateAccrual"}
@@ -1151,7 +1151,7 @@ paths:
         retroactive=true and a rebateaccrual.posted event (BR-26.7, BR-26.14, AC-26.14). Posted invoices are
         never re-priced. The Idempotency-Key names the run: a repeated key returns the stored deltas with
         replayed=true. 422 when the agreement is not retroactive or a line is outside validFrom..activation.
-      x-passage-duty: pricing.rebate.maintain
+      x-depot-duty: pricing.rebate.maintain
       parameters:
         - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
         - name: Idempotency-Key
@@ -1180,7 +1180,7 @@ paths:
       description: >
         amount = the period's accruals - the period's earlier claims (BR-26.11). Nothing is written.
         422 PRC-0045 for a CUSTOMER agreement.
-      x-passage-duty: pricing.rebate.view
+      x-depot-duty: pricing.rebate.view
       parameters:
         - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
         - {name: period, in: query, required: true, description: "Period key such as 2027-03, 2027-Q1 or 2027.", schema: {type: string, pattern: "^[0-9]{4}(-(0[1-9]|1[0-2])|-Q[1-4])?$"}}
@@ -1203,7 +1203,7 @@ paths:
         quantity the received quantity (BR-26.11). Same period lock, tier recompute and redelivery
         rules as /rebates/accruals; the accrual posts Dr 2160 / Cr 5100 (AC-26.11) through
         rebateaccrual.posted with party_role VENDOR. 422 PRC-0045 for a CUSTOMER agreement.
-      x-passage-duty: pricing.rebate.maintain
+      x-depot-duty: pricing.rebate.maintain
       requestBody:
         required: true
         content:
@@ -1216,7 +1216,7 @@ paths:
             application/json:
               schema: {$ref: "#/components/schemas/RebateAccrual"}
         "201":
-          description: Accrued; dev.passage.pricing.rebateaccrual.posted.v1 written to the outbox.
+          description: Accrued; dev.depot.pricing.rebateaccrual.posted.v1 written to the outbox.
           content:
             application/json:
               schema: {$ref: "#/components/schemas/RebateAccrual"}
@@ -1228,7 +1228,7 @@ paths:
     get:
       operationId: listVendorRebateClaims
       summary: Vendor rebate claims inquiry (§5.26.14), newest first.
-      x-passage-duty: pricing.rebate.view
+      x-depot-duty: pricing.rebate.view
       parameters:
         - {name: agreementId, in: query, required: false, schema: {type: string, format: uuid}}
         - {name: vendorId, in: query, required: false, schema: {type: string, format: uuid}}
@@ -1258,7 +1258,7 @@ paths:
         amount (over-accrual) settles by VENDOR_INVOICE whatever settlementMode says. 422 PRC-0043
         when nothing was accrued in the period, 409 PRC-0015 when its accruals are fully claimed,
         422 PRC-0045 for a CUSTOMER agreement.
-      x-passage-duty: pricing.rebate.maintain
+      x-depot-duty: pricing.rebate.maintain
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -1283,7 +1283,7 @@ paths:
     get:
       operationId: getVendorRebateClaim
       summary: Read one vendor rebate claim.
-      x-passage-duty: pricing.rebate.view
+      x-depot-duty: pricing.rebate.view
       responses:
         "200":
           description: The claim.
@@ -1300,7 +1300,7 @@ paths:
       description: >
         Checks the body version (412 conflict_version), requires OPEN (409 PRC-0031) and refuses the
         user who created the claim (403 PRC-0046). Writes vendorrebateclaim.approved.
-      x-passage-duty: pricing.rebate-claim.approve
+      x-depot-duty: pricing.rebate-claim.approve
       parameters:
         - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
         - $ref: "#/components/parameters/IdempotencyKey"
@@ -1325,7 +1325,7 @@ paths:
     get:
       operationId: listBrokerContracts
       summary: List broker contracts, latest start first (at most 100).
-      x-passage-duty: pricing.rebate.view
+      x-depot-duty: pricing.rebate.view
       parameters:
         - {name: legalEntityId, in: query, required: false, schema: {type: string, format: uuid}}
         - {name: brokerVendorId, in: query, required: false, schema: {type: string, format: uuid}}
@@ -1350,7 +1350,7 @@ paths:
       summary: Create a broker contract.
       description: >
         Creates an ACTIVE broker contract at version 1 and writes brokercontract.created in the same transaction (FR-26.16). The broker earns a percentage of line net or an amount per unit on the invoices of its customer and product scope; an empty scope key is all. Defaults: payable account 2175, expense account 6210. 403 AUTH-0003 when legalEntityId is outside the caller's scope.
-      x-passage-duty: pricing.rebate.maintain
+      x-depot-duty: pricing.rebate.maintain
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -1373,7 +1373,7 @@ paths:
     get:
       operationId: getBrokerContract
       summary: Read one broker contract.
-      x-passage-duty: pricing.rebate.view
+      x-depot-duty: pricing.rebate.view
       responses:
         "200":
           description: The broker contract.
@@ -1389,7 +1389,7 @@ paths:
       summary: Close a broker contract so it takes no further accruals.
       description: >
         Checks the body version (412 conflict_version) and requires ACTIVE (409 PRC-0031). Claims of earlier periods stay open. Writes brokercontract.closed.
-      x-passage-duty: pricing.rebate.maintain
+      x-depot-duty: pricing.rebate.maintain
       parameters:
         - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
         - $ref: "#/components/parameters/IdempotencyKey"
@@ -1416,7 +1416,7 @@ paths:
     get:
       operationId: listBrokerContractAccruals
       summary: List the accrual rows of a broker contract in posting order (at most 100).
-      x-passage-duty: pricing.rebate.view
+      x-depot-duty: pricing.rebate.view
       parameters:
         - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
         - {name: period, in: query, required: false, schema: {type: string, pattern: "^[0-9]{4}(-(0[1-9]|1[0-2])|-Q[1-4])?$"}}
@@ -1441,7 +1441,7 @@ paths:
       summary: Accrue one posted invoice line or credit note line against a broker contract.
       description: >
         Stand-in for the invoice.posted consumer (FR-26.16); the duty is service-only, because every accrual is a GL posting. A line accrues rate x basis, Dr 6210 / Cr 2175 by default, and writes contractaccrual.posted. A credit note line names reversesInvoiceLineId and reverses the original accrual in proportion to its credited share, 422 PRC-0059 when that line was never accrued or the credit exceeds what is left; it is taken in the period of its own date, also after the contract closed or its validity ended. 422 for an invoice line outside the contract scope, validity or currency; 409 PRC-0061 for an invoice line on a closed contract. A redelivered line answers 200 with the stored accrual.
-      x-passage-duty: pricing.contract.accrue
+      x-depot-duty: pricing.contract.accrue
       parameters:
         - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
       requestBody:
@@ -1471,7 +1471,7 @@ paths:
     get:
       operationId: previewBrokerContractClaim
       summary: Preview the claim a broker contract period would produce, without writing anything.
-      x-passage-duty: pricing.rebate.view
+      x-depot-duty: pricing.rebate.view
       parameters:
         - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
         - {name: period, in: query, required: true, schema: {type: string, pattern: "^[0-9]{4}(-(0[1-9]|1[0-2])|-Q[1-4])?$"}}
@@ -1489,7 +1489,7 @@ paths:
     get:
       operationId: listRoyaltyAgreements
       summary: List royalty agreements, latest start first (at most 100).
-      x-passage-duty: pricing.rebate.view
+      x-depot-duty: pricing.rebate.view
       parameters:
         - {name: legalEntityId, in: query, required: false, schema: {type: string, format: uuid}}
         - {name: licensorVendorId, in: query, required: false, schema: {type: string, format: uuid}}
@@ -1514,7 +1514,7 @@ paths:
       summary: Create a royalty agreement.
       description: >
         Creates an ACTIVE royalty agreement at version 1 and writes royaltyagreement.created (FR-26.17). Tiers follow the rebate rules: the tier in force at the period cumulative basis pays on all of it. minimumRoyalty is the least a period pays. Defaults: payable account 2176, expense account 6220. 403 AUTH-0003 when legalEntityId is outside the caller's scope.
-      x-passage-duty: pricing.rebate.maintain
+      x-depot-duty: pricing.rebate.maintain
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -1537,7 +1537,7 @@ paths:
     get:
       operationId: getRoyaltyAgreement
       summary: Read one royalty agreement.
-      x-passage-duty: pricing.rebate.view
+      x-depot-duty: pricing.rebate.view
       responses:
         "200":
           description: The royalty agreement.
@@ -1553,7 +1553,7 @@ paths:
       summary: Close a royalty agreement so it takes no further accruals.
       description: >
         Checks the body version (412 conflict_version) and requires ACTIVE (409 PRC-0031). Writes royaltyagreement.closed.
-      x-passage-duty: pricing.rebate.maintain
+      x-depot-duty: pricing.rebate.maintain
       parameters:
         - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
         - $ref: "#/components/parameters/IdempotencyKey"
@@ -1580,7 +1580,7 @@ paths:
     get:
       operationId: listRoyaltyAgreementAccruals
       summary: List the accrual rows of a royalty agreement in posting order (at most 100).
-      x-passage-duty: pricing.rebate.view
+      x-depot-duty: pricing.rebate.view
       parameters:
         - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
         - {name: period, in: query, required: false, schema: {type: string, pattern: "^[0-9]{4}(-(0[1-9]|1[0-2])|-Q[1-4])?$"}}
@@ -1605,7 +1605,7 @@ paths:
       summary: Accrue one posted invoice line or credit note line against a royalty agreement.
       description: >
         Stand-in for the invoice.posted consumer (FR-26.17); the duty is service-only, because every accrual is a GL posting. A line moves the period to its tier target at the new cumulative basis and books the difference, Dr 6220 / Cr 2176 by default (contractaccrual.posted); a credit note line (reversesInvoiceLineId) subtracts from the basis of the period of its own date, also after the agreement closed, and 422 PRC-0059 when the original line was never accrued or the credit exceeds the net sales (or quantity) still creditable on it. 409 PRC-0060 in a closed period, 409 PRC-0061 for an invoice line on a closed agreement. A redelivered line answers 200.
-      x-passage-duty: pricing.contract.accrue
+      x-depot-duty: pricing.contract.accrue
       parameters:
         - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
       requestBody:
@@ -1635,7 +1635,7 @@ paths:
     get:
       operationId: previewRoyaltyAgreementClaim
       summary: Preview the claim a royalty agreement period would produce, without writing anything.
-      x-passage-duty: pricing.rebate.view
+      x-depot-duty: pricing.rebate.view
       parameters:
         - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
         - {name: period, in: query, required: true, schema: {type: string, pattern: "^[0-9]{4}(-(0[1-9]|1[0-2])|-Q[1-4])?$"}}
@@ -1657,7 +1657,7 @@ paths:
       summary: Close one royalty period and post its minimum royalty shortfall (FR-26.17).
       description: >
         If the period royalty is below the agreement minimumRoyalty, the shortfall posts as one SHORTFALL accrual (line key MIN:period, Dr 6220 / Cr 2176) and the response carries the PRC-0017 notice. The period then takes no further accruals (PRC-0060) and can be claimed. 422 when the period is not of the agreement granularity or lies outside its validity.
-      x-passage-duty: pricing.rebate.maintain
+      x-depot-duty: pricing.rebate.maintain
       parameters:
         - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
       requestBody:
@@ -1679,7 +1679,7 @@ paths:
     get:
       operationId: listContractClaims
       summary: Broker and royalty claims inquiry (§5.26.14), newest first.
-      x-passage-duty: pricing.rebate.view
+      x-depot-duty: pricing.rebate.view
       parameters:
         - {name: contractKind, in: query, required: false, schema: {type: string, enum: [BROKER, ROYALTY]}}
         - {name: contractId, in: query, required: false, schema: {type: string, format: uuid}}
@@ -1706,7 +1706,7 @@ paths:
       summary: Claim one period of a broker contract or royalty agreement (FR-26.16, FR-26.17).
       description: >
         Creates claim BC-n (broker) or RY-n (royalty), sequence per legal entity and kind, for the period accruals (and minimum royalty shortfall) less its earlier claims, under the period lock, and writes contractclaim.created. 422 PRC-0043 when nothing was accrued, 409 PRC-0015 when fully claimed, 409 PRC-0062 for a royalty period that is not closed.
-      x-passage-duty: pricing.rebate.maintain
+      x-depot-duty: pricing.rebate.maintain
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -1731,7 +1731,7 @@ paths:
     get:
       operationId: getContractClaim
       summary: Read one broker or royalty claim.
-      x-passage-duty: pricing.rebate.view
+      x-depot-duty: pricing.rebate.view
       responses:
         "200":
           description: The claim.
@@ -1747,7 +1747,7 @@ paths:
       summary: Approve an OPEN broker or royalty claim for settlement through w19 AP (duty VendorRebateClaimApprove).
       description: >
         Checks the body version (412 conflict_version), requires OPEN (409 PRC-0031) and refuses the user who created the claim and a caller without a user identity (403 PRC-0046). Writes contractclaim.approved.
-      x-passage-duty: pricing.rebate-claim.approve
+      x-depot-duty: pricing.rebate-claim.approve
       parameters:
         - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
         - $ref: "#/components/parameters/IdempotencyKey"
@@ -1772,7 +1772,7 @@ paths:
     get:
       operationId: listSalesGroups
       summary: List sales groups with their reps and shares (FR-26.18).
-      x-passage-duty: pricing.commission.view
+      x-depot-duty: pricing.commission.view
       parameters:
         - {name: legalEntityId, in: query, required: false, schema: {type: string, format: uuid}}
       responses:
@@ -1793,7 +1793,7 @@ paths:
     post:
       operationId: createSalesGroup
       summary: Create a sales group whose rep shares sum to 100 (FR-26.18). The first rep takes the rounding residual.
-      x-passage-duty: pricing.commission.maintain
+      x-depot-duty: pricing.commission.maintain
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -1814,7 +1814,7 @@ paths:
     get:
       operationId: getSalesGroup
       summary: Read one sales group with its reps.
-      x-passage-duty: pricing.commission.view
+      x-depot-duty: pricing.commission.view
       parameters:
         - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
       responses:
@@ -1830,7 +1830,7 @@ paths:
     get:
       operationId: listCommissionRules
       summary: List commission rules, optionally of one sales group, from most specific to most general.
-      x-passage-duty: pricing.commission.view
+      x-depot-duty: pricing.commission.view
       parameters:
         - {name: salesGroupId, in: query, required: false, schema: {type: string, format: uuid}}
       responses:
@@ -1852,7 +1852,7 @@ paths:
       operationId: createCommissionRule
       summary: Create a commission rule for a sales group and customer/item commission group (BR-26.12).
       description: The rule takes the sales group's legal entity. One rule per (sales group, customer group, item group); a second is 409 PRC-0038.
-      x-passage-duty: pricing.commission.maintain
+      x-depot-duty: pricing.commission.maintain
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -1880,12 +1880,12 @@ paths:
         general (PRC-0013 when none matches), applies REVENUE (line net) or MARGIN (line net less
         costSnapshot, which is then required) basis, splits by rep share (half-even per rep, residual to
         the first rep) and writes one transaction per rep, Dr 6200 / Cr 2170, each with a
-        dev.passage.pricing.commission.calculated.v1 event in the same transaction. A credit note line
+        dev.depot.pricing.commission.calculated.v1 event in the same transaction. A credit note line
         (negative lineNet, reversesInvoiceLineId set) reverses with the original line's basis, rate and
         shares; credits of one line may not exceed its invoiced net (PRC-0037). The invoice line id is the
         idempotency key: 201 when posted, 200 when the same line was already posted with the same content,
         422 idempotency_key_reuse when it was posted with different content.
-      x-passage-duty: pricing.commission.maintain
+      x-depot-duty: pricing.commission.maintain
       requestBody:
         required: true
         content:
@@ -1933,7 +1933,7 @@ paths:
         prefixed with an apostrophe, and if the read fails after the download started the
         connection is aborted, so a client never keeps a short file that looks complete. Read
         only: nothing is written and no event is raised.
-      x-passage-duty: pricing.commission.view
+      x-depot-duty: pricing.commission.view
       parameters:
         - {name: legalEntityId, in: query, required: true, schema: {type: string, format: uuid}}
         - {name: period, in: query, required: true, description: "The invoice month, such as 2027-03.", schema: {type: string, pattern: "^[0-9]{4}-(0[1-9]|1[0-2])$"}}
@@ -1953,7 +1953,7 @@ paths:
     get:
       operationId: listCommissionTransactions
       summary: Commission inquiry by rep, sales group, period, customer and invoice line (§5.26.14).
-      x-passage-duty: pricing.commission.view
+      x-depot-duty: pricing.commission.view
       parameters:
         - {name: legalEntityId, in: query, required: false, schema: {type: string, format: uuid}}
         - {name: salesGroupId, in: query, required: false, schema: {type: string, format: uuid}}
@@ -1981,7 +1981,7 @@ paths:
         written with a leading apostrophe. This is a preview and can be repeated: it records
         nothing. POST /v1/pricing/commission/settlement-exports records the hand-over and stops
         the same period going to the same target twice.
-      x-passage-duty: pricing.commission.view
+      x-depot-duty: pricing.commission.view
       parameters:
         - {name: legalEntityId, in: query, required: true, schema: {type: string, format: uuid}}
         - {name: from, in: query, required: true, schema: {type: string, format: date}}
@@ -2005,7 +2005,7 @@ paths:
       description: >
         At most 100 rows, ordered by period end then id. A row carries the totals per currency
         and the digest of its file, not the rep lines (read one export for those).
-      x-passage-duty: pricing.commission.view
+      x-depot-duty: pricing.commission.view
       parameters:
         - {name: legalEntityId, in: query, required: false, schema: {type: string, format: uuid}}
         - {name: target, in: query, required: false, schema: {type: string, enum: [AP, PAYROLL]}}
@@ -2034,9 +2034,9 @@ paths:
         on the record, so the file can be fetched again unchanged. A period that overlaps an
         ISSUED export of the same legal entity and target is 409 PRC-0065 (void that export
         first); a period without commission is 422 PRC-0066. Writes
-        dev.passage.pricing.commissionexport.issued.v1 in the same transaction. The target
+        dev.depot.pricing.commissionexport.issued.v1 in the same transaction. The target
         defaults to AP.
-      x-passage-duty: pricing.commission.maintain
+      x-depot-duty: pricing.commission.maintain
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -2058,7 +2058,7 @@ paths:
     get:
       operationId: getCommissionSettlementExport
       summary: Read one recorded commission settlement export with its frozen rows (FR-26.18).
-      x-passage-duty: pricing.commission.view
+      x-depot-duty: pricing.commission.view
       parameters:
         - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
       responses:
@@ -2080,7 +2080,7 @@ paths:
         record's csvSha256. A voided export can still be downloaded. When the file rebuilt from
         the frozen rows no longer matches the recorded digest (the CSV layout changed since), the
         file is refused with 500 PRC-0068 rather than served under the record's name.
-      x-passage-duty: pricing.commission.view
+      x-depot-duty: pricing.commission.view
       parameters:
         - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
       responses:
@@ -2103,9 +2103,9 @@ paths:
       summary: Void a recorded commission settlement export so its period can be exported again (FR-26.18).
       description: >
         The reason is required (1 to 500 characters after trimming). 409 PRC-0031 when already voided; 412 on a
-        stale version. Writes dev.passage.pricing.commissionexport.voided.v1. Voiding does not
+        stale version. Writes dev.depot.pricing.commissionexport.voided.v1. Voiding does not
         recall the file: AP or payroll must discard it.
-      x-passage-duty: pricing.commission.maintain
+      x-depot-duty: pricing.commission.maintain
       parameters:
         - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
         - $ref: "#/components/parameters/IdempotencyKey"
@@ -2135,7 +2135,7 @@ paths:
     get:
       operationId: listFunds
       summary: List trade promotion funds (FR-26.19).
-      x-passage-duty: pricing.view or pricing.fund.maintain
+      x-depot-duty: pricing.view or pricing.fund.maintain
       parameters:
         - {name: legalEntityId, in: query, required: false, schema: {type: string, format: uuid}}
       responses:
@@ -2156,7 +2156,7 @@ paths:
     post:
       operationId: createFund
       summary: Create an open trade promotion fund with a budget per period (FR-26.19).
-      x-passage-duty: pricing.fund.maintain
+      x-depot-duty: pricing.fund.maintain
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -2177,7 +2177,7 @@ paths:
     get:
       operationId: getFund
       summary: Read one trade fund.
-      x-passage-duty: pricing.view or pricing.fund.maintain
+      x-depot-duty: pricing.view or pricing.fund.maintain
       parameters:
         - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
       responses:
@@ -2195,8 +2195,8 @@ paths:
       summary: >
         Attribute usage (campaign or rebate accrual, claim, deduction) to the fund in a period
         (BR-26.15). 409 PRC-0011 when the fund is closed; 422 PRC-0012 when usage would exceed the
-        period budget and overspend is off. Writes dev.passage.pricing.fundusage.recorded.v1.
-      x-passage-duty: pricing.fund.maintain
+        period budget and overspend is off. Writes dev.depot.pricing.fundusage.recorded.v1.
+      x-depot-duty: pricing.fund.maintain
       parameters:
         - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
         - $ref: "#/components/parameters/IdempotencyKey"
@@ -2223,7 +2223,7 @@ paths:
         Change the budget per period and the overspend flag at the expected version (the PRC-0012
         remedy). Without overspend the budget must cover every period's usage (422 PRC-0012); a closed
         fund is frozen (409 PRC-0011); a stale version is 412 conflict_version.
-      x-passage-duty: pricing.fund.maintain
+      x-depot-duty: pricing.fund.maintain
       parameters:
         - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
         - $ref: "#/components/parameters/IdempotencyKey"
@@ -2249,8 +2249,8 @@ paths:
       operationId: closeFund
       summary: >
         Close the fund: usage is frozen and new attribution fails with PRC-0011 (BR-26.15). 409
-        PRC-0031 when already closed; 412 on a stale version. Writes dev.passage.pricing.fund.closed.v1.
-      x-passage-duty: pricing.fund.maintain
+        PRC-0031 when already closed; 412 on a stale version. Writes dev.depot.pricing.fund.closed.v1.
+      x-depot-duty: pricing.fund.maintain
       parameters:
         - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
         - $ref: "#/components/parameters/IdempotencyKey"
@@ -2276,8 +2276,8 @@ paths:
       operationId: reopenFund
       summary: >
         Reopen a closed fund (the PRC-0011 remedy). 409 PRC-0031 when already open; 412 on a stale
-        version. Writes dev.passage.pricing.fund.reopened.v1.
-      x-passage-duty: pricing.fund.maintain
+        version. Writes dev.depot.pricing.fund.reopened.v1.
+      x-depot-duty: pricing.fund.maintain
       parameters:
         - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
         - $ref: "#/components/parameters/IdempotencyKey"
@@ -2302,7 +2302,7 @@ paths:
     get:
       operationId: fundUsage
       summary: Fund usage inquiry (§5.26.14) - usage per period and source, and budget, used and remaining per period.
-      x-passage-duty: pricing.view or pricing.fund.maintain
+      x-depot-duty: pricing.view or pricing.fund.maintain
       parameters:
         - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
       responses:
@@ -2334,7 +2334,7 @@ paths:
     get:
       operationId: listPromotions
       summary: List promotion plans with baseline, forecast and effectiveness (FR-26.20).
-      x-passage-duty: pricing.view or pricing.fund.maintain
+      x-depot-duty: pricing.view or pricing.fund.maintain
       parameters:
         - {name: legalEntityId, in: query, required: false, schema: {type: string, format: uuid}}
         - {name: campaignId, in: query, required: false, schema: {type: string, format: uuid}, description: "Only plans linked to this campaign."}
@@ -2360,7 +2360,7 @@ paths:
         when named, must be open (409 PRC-0011) and in the same legal entity and currency (422). A
         campaign, when named (FR-26.10), must exist (404 PRC-0041), be in the same legal entity and
         currency with the promotion window inside its validity (422), and not be killed (409 PRC-0069).
-      x-passage-duty: pricing.fund.maintain
+      x-depot-duty: pricing.fund.maintain
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -2383,7 +2383,7 @@ paths:
     get:
       operationId: getPromotion
       summary: Read one promotion plan.
-      x-passage-duty: pricing.view or pricing.fund.maintain
+      x-depot-duty: pricing.view or pricing.fund.maintain
       parameters:
         - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
       responses:
@@ -2401,7 +2401,7 @@ paths:
       summary: >
         Record the units and spend posted in the promotion window (overwrites; the nightly actuals
         job writes the same way) and return the effectiveness (FR-26.20).
-      x-passage-duty: pricing.fund.maintain
+      x-depot-duty: pricing.fund.maintain
       parameters:
         - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
       requestBody:
@@ -2429,7 +2429,7 @@ paths:
     get:
       operationId: listFreeGoodsRules
       summary: List free goods rules, latest start first, withdrawn included (FR-26.22).
-      x-passage-duty: pricing.view
+      x-depot-duty: pricing.view
       parameters:
         - {name: legalEntityId, in: query, required: false, description: "Only rules of this legal entity.", schema: {type: string, format: uuid}}
         - {name: productId, in: query, required: false, description: "Only rules keyed on this product id or product group id.", schema: {type: string}}
@@ -2454,8 +2454,8 @@ paths:
         Create a live free goods rule (FR-26.22, condition type FREE_GOODS): free units for
         every N ordered of one product and unit, inclusive or exclusive, from a minimum quantity.
         409 PRC-0002 when a live rule for the same customer, product and unit overlaps in time.
-        Writes dev.passage.pricing.freegoodsrule.created.v1.
-      x-passage-duty: pricing.maintain
+        Writes dev.depot.pricing.freegoodsrule.created.v1.
+      x-depot-duty: pricing.maintain
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -2477,7 +2477,7 @@ paths:
     get:
       operationId: getFreeGoodsRule
       summary: Read one free goods rule. 404 PRC-0047 when unknown.
-      x-passage-duty: pricing.view
+      x-depot-duty: pricing.view
       parameters:
         - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
       responses:
@@ -2494,8 +2494,8 @@ paths:
       operationId: withdrawFreeGoodsRule
       summary: >
         Withdraw a free goods rule: it takes no part in the next resolve. 409 PRC-0031 when
-        already withdrawn; 412 on a stale version. Writes dev.passage.pricing.freegoodsrule.withdrawn.v1.
-      x-passage-duty: pricing.maintain
+        already withdrawn; 412 on a stale version. Writes dev.depot.pricing.freegoodsrule.withdrawn.v1.
+      x-depot-duty: pricing.maintain
       parameters:
         - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
         - $ref: "#/components/parameters/IdempotencyKey"
@@ -2533,8 +2533,8 @@ paths:
         customer, product and unit; 412 on a stale version; 422 COM-0001 with field errors when
         a value is invalid (an inclusive rule must give fewer units than it counts) or would
         change a past day. A retry with the same
-        Idempotency-Key replays the first response. Writes dev.passage.pricing.freegoodsrule.revised.v1.
-      x-passage-duty: pricing.maintain
+        Idempotency-Key replays the first response. Writes dev.depot.pricing.freegoodsrule.revised.v1.
+      x-depot-duty: pricing.maintain
       parameters:
         - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
         - $ref: "#/components/parameters/IdempotencyKey"
@@ -2559,7 +2559,7 @@ paths:
     get:
       operationId: listCommodityBases
       summary: List commodity cost basis types ordered by code (FR-26.21).
-      x-passage-duty: pricing.view
+      x-depot-duty: pricing.view
       parameters:
         - {name: legalEntityId, in: query, required: false, description: "Only rows of this legal entity.", schema: {type: string, format: uuid}}
       responses:
@@ -2582,8 +2582,8 @@ paths:
       summary: >
         Create a cost basis type, the thing a commodity index is quoted for, in a currency and unit
         (FR-26.21). 409 PRC-0054 when the legal entity already has that code.
-        Writes dev.passage.pricing.commoditybasis.created.v1.
-      x-passage-duty: pricing.maintain
+        Writes dev.depot.pricing.commoditybasis.created.v1.
+      x-depot-duty: pricing.maintain
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -2605,7 +2605,7 @@ paths:
     get:
       operationId: getCommodityBasis
       summary: Read one cost basis type. 404 PRC-0050 when unknown.
-      x-passage-duty: pricing.view
+      x-depot-duty: pricing.view
       parameters:
         - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
       responses:
@@ -2623,7 +2623,7 @@ paths:
       summary: >
         List the index quotes of a cost basis type, newest day first and highest revision first
         within a day (the Commodity prices inquiry, FR-26.21). 404 PRC-0050 when the basis is unknown.
-      x-passage-duty: pricing.view
+      x-depot-duty: pricing.view
       parameters:
         - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
       responses:
@@ -2659,8 +2659,8 @@ paths:
       summary: >
         Record an index quote for a day (FR-26.21). Quotes are never overwritten: a second quote for
         the same day is the next revision, and a run reads the highest. Writes
-        dev.passage.pricing.commodityindex.recorded.v1.
-      x-passage-duty: pricing.maintain
+        dev.depot.pricing.commodityindex.recorded.v1.
+      x-depot-duty: pricing.maintain
       parameters:
         - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
         - $ref: "#/components/parameters/IdempotencyKey"
@@ -2683,7 +2683,7 @@ paths:
     get:
       operationId: listCommodityCalculations
       summary: List commodity price calculations ordered by name, withdrawn included (FR-26.21).
-      x-passage-duty: pricing.view
+      x-depot-duty: pricing.view
       parameters:
         - {name: legalEntityId, in: query, required: false, description: "Only rows of this legal entity.", schema: {type: string, format: uuid}}
         - {name: basisId, in: query, required: false, description: "Only calculations of this cost basis type.", schema: {type: string, format: uuid}}
@@ -2710,8 +2710,8 @@ paths:
         for the ACTIVE PRICE records on one customer scope, product, unit and currency (quantity break 0,
         no variant, no campaign). The factor converts the basis unit to the price unit; the currency must
         be the basis currency (422 PRC-0055, no cross-currency conversion). 404 PRC-0050 when the basis is
-        unknown in the legal entity. Writes dev.passage.pricing.commoditycalculation.created.v1.
-      x-passage-duty: pricing.maintain
+        unknown in the legal entity. Writes dev.depot.pricing.commoditycalculation.created.v1.
+      x-depot-duty: pricing.maintain
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -2733,7 +2733,7 @@ paths:
     get:
       operationId: getCommodityCalculation
       summary: Read one price calculation. 404 PRC-0051 when unknown.
-      x-passage-duty: pricing.view
+      x-depot-duty: pricing.view
       parameters:
         - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
       responses:
@@ -2750,8 +2750,8 @@ paths:
       operationId: withdrawCommodityCalculation
       summary: >
         Withdraw a calculation; it takes no further runs. 409 PRC-0031 when already withdrawn; 412 on a
-        stale version. Writes dev.passage.pricing.commoditycalculation.withdrawn.v1.
-      x-passage-duty: pricing.maintain
+        stale version. Writes dev.depot.pricing.commoditycalculation.withdrawn.v1.
+      x-depot-duty: pricing.maintain
       parameters:
         - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
         - $ref: "#/components/parameters/IdempotencyKey"
@@ -2780,7 +2780,7 @@ paths:
         would change. 422 PRC-0052 when no index value exists on or before asOf, 422 PRC-0053 when the
         price is not above 0 or too large for a unit price; PRC-0016 comes back as a warning when the
         index is older than the calculation allows.
-      x-passage-duty: pricing.view
+      x-depot-duty: pricing.view
       parameters:
         - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
       requestBody:
@@ -2809,8 +2809,8 @@ paths:
         journal post, which takes pricing.journal.post and refuses the user who ran it (403 PRC-0056).
         The run keeps the index day, revision and value it used. 422 PRC-0052 / PRC-0053 as for the
         preview. A repeated Idempotency-Key replays the first run.
-        Writes dev.passage.pricing.commodityrun.completed.v1.
-      x-passage-duty: pricing.maintain
+        Writes dev.depot.pricing.commodityrun.completed.v1.
+      x-depot-duty: pricing.maintain
       parameters:
         - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
         - $ref: "#/components/parameters/IdempotencyKey"
@@ -2834,7 +2834,7 @@ paths:
     get:
       operationId: listCommodityRuns
       summary: List the runs of one calculation, newest first. 404 PRC-0051 when unknown.
-      x-passage-duty: pricing.view
+      x-depot-duty: pricing.view
       parameters:
         - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
       responses:
@@ -2856,7 +2856,7 @@ paths:
     get:
       operationId: listCampaigns
       summary: List campaigns, latest start first (FR-26.10).
-      x-passage-duty: pricing.view
+      x-depot-duty: pricing.view
       parameters:
         - {name: legalEntityId, in: query, required: false, schema: {type: string, format: uuid}}
       responses:
@@ -2879,7 +2879,7 @@ paths:
       summary: >
         Create a live campaign with validity, target customer group, budget and currency
         (FR-26.10). Condition records join it through their campaignId.
-      x-passage-duty: pricing.maintain
+      x-depot-duty: pricing.maintain
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -2900,7 +2900,7 @@ paths:
     get:
       operationId: getCampaign
       summary: Read one campaign. 404 PRC-0041 when unknown.
-      x-passage-duty: pricing.view
+      x-depot-duty: pricing.view
       parameters:
         - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
       responses:
@@ -2923,9 +2923,9 @@ paths:
         once the campaign has started its validFrom and targetCustomerGroup are fixed and validTo may not
         fall before yesterday (or change at all once the campaign has ended); a campaign that has not
         started may not get a validFrom in the past. The new validity and target group gate the next resolve. 404 PRC-0041 when unknown;
-        412 on a stale version. Writes dev.passage.pricing.campaign.revised.v1 in the same transaction; a
+        412 on a stale version. Writes dev.depot.pricing.campaign.revised.v1 in the same transaction; a
         repeated Idempotency-Key replays the first response.
-      x-passage-duty: pricing.maintain
+      x-depot-duty: pricing.maintain
       parameters:
         - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
         - $ref: "#/components/parameters/IdempotencyKey"
@@ -2951,8 +2951,8 @@ paths:
       summary: >
         Set the kill switch: the campaign's records drop out of the next resolve
         (campaign_kill_switch_effect NEXT_RESOLVE). 409 PRC-0031 when already killed; 412 on a
-        stale version. Writes dev.passage.pricing.campaign.killed.v1.
-      x-passage-duty: pricing.maintain
+        stale version. Writes dev.depot.pricing.campaign.killed.v1.
+      x-depot-duty: pricing.maintain
       parameters:
         - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
         - $ref: "#/components/parameters/IdempotencyKey"
@@ -2978,8 +2978,8 @@ paths:
       operationId: restoreCampaign
       summary: >
         Clear the kill switch: the records rejoin the next resolve inside the campaign validity.
-        409 PRC-0031 when not killed; 412 on a stale version. Writes dev.passage.pricing.campaign.restored.v1.
-      x-passage-duty: pricing.maintain
+        409 PRC-0031 when not killed; 412 on a stale version. Writes dev.depot.pricing.campaign.restored.v1.
+      x-depot-duty: pricing.maintain
       parameters:
         - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
         - $ref: "#/components/parameters/IdempotencyKey"
@@ -3004,7 +3004,7 @@ paths:
     get:
       operationId: listProcedures
       summary: List procedure versions by name, newest version first (FR-26.1).
-      x-passage-duty: pricing.view
+      x-depot-duty: pricing.view
       parameters:
         - {name: legalEntityId, in: query, required: false, schema: {type: string, format: uuid}}
       responses:
@@ -3025,7 +3025,7 @@ paths:
     post:
       operationId: createProcedure
       summary: Save a DRAFT version; its version number is the next one for the legal entity and name (FR-26.1).
-      x-passage-duty: pricing.admin
+      x-depot-duty: pricing.admin
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -3046,7 +3046,7 @@ paths:
     get:
       operationId: getProcedure
       summary: Read one procedure version. 404 PRC-0042 when unknown.
-      x-passage-duty: pricing.view
+      x-depot-duty: pricing.view
       parameters:
         - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
       responses:
@@ -3064,7 +3064,7 @@ paths:
       summary: >
         Replace the steps of a DRAFT version at the expected revision (the Procedure designer's
         save). 409 PRC-0008 when the version is ACTIVE or SUPERSEDED; 412 on a stale revision.
-      x-passage-duty: pricing.admin
+      x-depot-duty: pricing.admin
       parameters:
         - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
         - $ref: "#/components/parameters/IdempotencyKey"
@@ -3090,8 +3090,8 @@ paths:
       operationId: activateProcedure
       summary: >
         Activate a DRAFT version and supersede the ACTIVE version of the same legal entity and
-        name. 409 PRC-0008 when the version is not DRAFT. Writes dev.passage.pricing.procedure.activated.v1.
-      x-passage-duty: pricing.admin
+        name. 409 PRC-0008 when the version is not DRAFT. Writes dev.depot.pricing.procedure.activated.v1.
+      x-depot-duty: pricing.admin
       parameters:
         - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
         - $ref: "#/components/parameters/IdempotencyKey"
@@ -3304,7 +3304,7 @@ components:
       type: object
       required: [type, title, status]
       properties:
-        type: {type: string, example: "https://passage.dev/problems/PRC-0002"}
+        type: {type: string, example: "https://depot.dev/problems/PRC-0002"}
         title: {type: string}
         status: {type: integer}
         detail: {type: string}

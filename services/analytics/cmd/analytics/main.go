@@ -9,13 +9,13 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/analytics/internal/api"
-	"github.com/BenjaminSRussell/passage/services/analytics/internal/cube"
-	"github.com/BenjaminSRussell/passage/services/analytics/internal/store"
-	"github.com/BenjaminSRussell/passage/services/analytics/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/analytics/internal/api"
+	"github.com/BenjaminSRussell/depot/services/analytics/internal/cube"
+	"github.com/BenjaminSRussell/depot/services/analytics/internal/store"
+	"github.com/BenjaminSRussell/depot/services/analytics/migrations"
 )
 
 const defaultHTTPAddr = ":8080"

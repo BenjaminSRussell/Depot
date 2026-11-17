@@ -15,7 +15,7 @@
         <InvoiceDetailLineIndicator/>
       </InvoiceDetailRequestHeader>
       <InvoiceDetailOrder>
-        <InvoiceDetailOrderInfo><OrderReference orderID="PO-1001"><DocumentReference payloadID="po-1001@passage"/></OrderReference></InvoiceDetailOrderInfo>
+        <InvoiceDetailOrderInfo><OrderReference orderID="PO-1001"><DocumentReference payloadID="po-1001@depot"/></OrderReference></InvoiceDetailOrderInfo>
         <InvoiceDetailItem invoiceLineNumber="1" quantity="10">
           <UnitOfMeasure>EA</UnitOfMeasure>
           <UnitPrice><Money currency="USD">8.00</Money></UnitPrice>

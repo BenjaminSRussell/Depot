@@ -9,11 +9,11 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/party/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/party/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/party/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/party/internal/store"
 )
 
 // mergeApprover is the principal a verified workflow-ts tenant-level token maps to:
@@ -43,7 +43,7 @@ func TestMergeRequest_RequestMergesNothingUntilAnotherUserApproves(t *testing.T)
 		MergeRequestID string `json:"merge_request_id"`
 		RequestedBy    string `json:"requested_by"`
 	}
-	if err := json.Unmarshal([]byte(scalar(t, f, `select (payload->'data')::text from outbox where type = 'dev.passage.party.merge.requested.v1'`)), &evt); err != nil || evt.MergeRequestID != m.ID || evt.RequestedBy != "merger" {
+	if err := json.Unmarshal([]byte(scalar(t, f, `select (payload->'data')::text from outbox where type = 'dev.depot.party.merge.requested.v1'`)), &evt); err != nil || evt.MergeRequestID != m.ID || evt.RequestedBy != "merger" {
 		t.Fatalf("merge.requested = %+v %v", evt, err)
 	}
 
@@ -53,7 +53,7 @@ func TestMergeRequest_RequestMergesNothingUntilAnotherUserApproves(t *testing.T)
 	}
 	got := scalar(t, f, `select l.status || ':' || (l.merged_into_id = w.id)::text || ':' || w.time_zone
 		|| ':' || (select count(*) from customer_role where party_id = l.id)::text
-		|| ':' || (select count(*) from outbox where type = 'dev.passage.party.party.merged.v1' and aggregate_id = w.id::text)::text
+		|| ':' || (select count(*) from outbox where type = 'dev.depot.party.party.merged.v1' and aggregate_id = w.id::text)::text
 		from party l, party w where l.id = $1 and w.id = $2`, f.loser, f.winner)
 	if want := "merged:true:CET:0:1"; got != want {
 		t.Errorf("after approval (status:redirect:survivor time zone:loser roles:merged events) = %q, want %q", got, want)
@@ -115,7 +115,7 @@ func TestMergeRequest_RejectionMergesNothingAndReplays(t *testing.T) {
 	if got := scalar(t, f, `select status || '/' || (select count(*) from party_merge)::text from party where id = $1`, f.loser); got != "active/0" {
 		t.Fatalf("after reject: %s, want active and no merge", got)
 	}
-	if got := scalar(t, f, `select payload->'data'->>'decided_by' from outbox where type = 'dev.passage.party.merge.rejected.v1'`); got != "ada" {
+	if got := scalar(t, f, `select payload->'data'->>'decided_by' from outbox where type = 'dev.depot.party.merge.rejected.v1'`); got != "ada" {
 		t.Fatalf("merge.rejected decided_by %q", got)
 	}
 	if replay, err := s.DecideMerge(mergeApprover("ada"), m.ID, false, "again"); err != nil || !replay.Replayed {
@@ -164,7 +164,7 @@ func TestMergeRequest_IdempotencyAndOneOpenRequest(t *testing.T) {
 	wantProblem(t, err, http.StatusConflict, store.CodeIdempotencyReuse)
 	_, _, err = s.RequestMerge(f.merger, store.MergeRequestInput{SurvivorID: f.winner, MergedID: f.loser})
 	wantProblem(t, err, http.StatusConflict, store.CodeMergePending)
-	if got := scalar(t, f, `select count(*)::text from outbox where type = 'dev.passage.party.merge.requested.v1'`); got != "1" {
+	if got := scalar(t, f, `select count(*)::text from outbox where type = 'dev.depot.party.merge.requested.v1'`); got != "1" {
 		t.Fatalf("merge.requested events = %s, want 1", got)
 	}
 }

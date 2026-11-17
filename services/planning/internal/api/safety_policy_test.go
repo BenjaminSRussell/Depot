@@ -7,7 +7,7 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/services/planning/internal/store"
+	"github.com/BenjaminSRussell/depot/services/planning/internal/store"
 )
 
 // shortSafetyBody is a run whose on-hand is below the safety stock, with the

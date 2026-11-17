@@ -4,349 +4,349 @@ metadata:
   name: debezium
   namespace: kafka
   labels:
-    strimzi.io/cluster: passage
+    strimzi.io/cluster: depot
 spec:
   authentication:
     type: scram-sha-512
   authorization:
     type: simple
     acls:
-      - resource: {type: topic, name: passage.platform., patternType: prefix}
+      - resource: {type: topic, name: depot.platform., patternType: prefix}
         operations: [Create, Describe, Write, DescribeConfigs]
       # Literal on purpose: a new metadata aggregate type routes to a new topic and needs its own ACL entry here.
-      - resource: {type: topic, name: passage.metadata.entity, patternType: literal}
+      - resource: {type: topic, name: depot.metadata.entity, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.receiving.receipt, patternType: literal}
+      - resource: {type: topic, name: depot.receiving.receipt, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.receiving.vendorinvoice, patternType: literal}
+      - resource: {type: topic, name: depot.receiving.vendorinvoice, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.receiving.invoiceadjustment, patternType: literal}
+      - resource: {type: topic, name: depot.receiving.invoiceadjustment, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.receiving.settlement, patternType: literal}
+      - resource: {type: topic, name: depot.receiving.settlement, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.receiving.ersvendor, patternType: literal}
+      - resource: {type: topic, name: depot.receiving.ersvendor, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.receiving.auditpolicy, patternType: literal}
+      - resource: {type: topic, name: depot.receiving.auditpolicy, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.receiving.erspriceconfirmation, patternType: literal}
+      - resource: {type: topic, name: depot.receiving.erspriceconfirmation, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.receiving.serviceentrysheet, patternType: literal}
+      - resource: {type: topic, name: depot.receiving.serviceentrysheet, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.receiving.ersselfbill, patternType: literal}
+      - resource: {type: topic, name: depot.receiving.ersselfbill, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.eam.downtime, patternType: literal}
+      - resource: {type: topic, name: depot.eam.downtime, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.eam.workorder, patternType: literal}
+      - resource: {type: topic, name: depot.eam.workorder, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.eam.counter, patternType: literal}
+      - resource: {type: topic, name: depot.eam.counter, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.eam.permit, patternType: literal}
+      - resource: {type: topic, name: depot.eam.permit, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.eam.request, patternType: literal}
+      - resource: {type: topic, name: depot.eam.request, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.tms.load, patternType: literal}
+      - resource: {type: topic, name: depot.tms.load, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.tms.tender, patternType: literal}
+      - resource: {type: topic, name: depot.tms.tender, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.tms.freightbill, patternType: literal}
+      - resource: {type: topic, name: depot.tms.freightbill, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.tms.tracking, patternType: literal}
+      - resource: {type: topic, name: depot.tms.tracking, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.tms.landedcost, patternType: literal}
+      - resource: {type: topic, name: depot.tms.landedcost, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.tms.gate, patternType: literal}
+      - resource: {type: topic, name: depot.tms.gate, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.tms.goodsintransit, patternType: literal}
+      - resource: {type: topic, name: depot.tms.goodsintransit, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.sales.order, patternType: literal}
+      - resource: {type: topic, name: depot.sales.order, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.sales.orderhold, patternType: literal}
+      - resource: {type: topic, name: depot.sales.orderhold, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.sales.creditcheck, patternType: literal}
+      - resource: {type: topic, name: depot.sales.creditcheck, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.sales.agreement, patternType: literal}
+      - resource: {type: topic, name: depot.sales.agreement, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.sales.quotation, patternType: literal}
+      - resource: {type: topic, name: depot.sales.quotation, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.sales.allocationquota, patternType: literal}
+      - resource: {type: topic, name: depot.sales.allocationquota, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.sales.allocation, patternType: literal}
+      - resource: {type: topic, name: depot.sales.allocation, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.sales.atp, patternType: literal}
+      - resource: {type: topic, name: depot.sales.atp, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.sales.schedulerelease, patternType: literal}
+      - resource: {type: topic, name: depot.sales.schedulerelease, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.sales.backorderrun, patternType: literal}
+      - resource: {type: topic, name: depot.sales.backorderrun, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.sales.parameters, patternType: literal}
+      - resource: {type: topic, name: depot.sales.parameters, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.sales.intakeerror, patternType: literal}
+      - resource: {type: topic, name: depot.sales.intakeerror, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.sales.orderchange, patternType: literal}
+      - resource: {type: topic, name: depot.sales.orderchange, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.sales.changepolicy, patternType: literal}
+      - resource: {type: topic, name: depot.sales.changepolicy, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.sales.deliveryterms, patternType: literal}
+      - resource: {type: topic, name: depot.sales.deliveryterms, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.sales.orderprogress, patternType: literal}
+      - resource: {type: topic, name: depot.sales.orderprogress, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.sales.returnorder, patternType: literal}
+      - resource: {type: topic, name: depot.sales.returnorder, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.sales.deliverytolerance, patternType: literal}
+      - resource: {type: topic, name: depot.sales.deliverytolerance, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.fulfillment.shipment, patternType: literal}
+      - resource: {type: topic, name: depot.fulfillment.shipment, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.fulfillment.pick, patternType: literal}
+      - resource: {type: topic, name: depot.fulfillment.pick, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.fulfillment.packingslip, patternType: literal}
+      - resource: {type: topic, name: depot.fulfillment.packingslip, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.fulfillment.container, patternType: literal}
+      - resource: {type: topic, name: depot.fulfillment.container, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.fulfillment.wave, patternType: literal}
+      - resource: {type: topic, name: depot.fulfillment.wave, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.fulfillment.asn, patternType: literal}
+      - resource: {type: topic, name: depot.fulfillment.asn, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.fulfillment.tracking, patternType: literal}
+      - resource: {type: topic, name: depot.fulfillment.tracking, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.fulfillment.warehousesetting, patternType: literal}
+      - resource: {type: topic, name: depot.fulfillment.warehousesetting, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.fulfillment.legalentitysetting, patternType: literal}
+      - resource: {type: topic, name: depot.fulfillment.legalentitysetting, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.fulfillment.warehousereleaserule, patternType: literal}
+      - resource: {type: topic, name: depot.fulfillment.warehousereleaserule, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.fulfillment.deliverytolerance, patternType: literal}
+      - resource: {type: topic, name: depot.fulfillment.deliverytolerance, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.fulfillment.dropship, patternType: literal}
+      - resource: {type: topic, name: depot.fulfillment.dropship, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.fulfillment.returnablepackaging, patternType: literal}
+      - resource: {type: topic, name: depot.fulfillment.returnablepackaging, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.fulfillment.exception, patternType: literal}
+      - resource: {type: topic, name: depot.fulfillment.exception, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.budget.plan, patternType: literal}
+      - resource: {type: topic, name: depot.budget.plan, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.billing.invoice, patternType: literal}
+      - resource: {type: topic, name: depot.billing.invoice, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
       # fieldservice: one literal per AsyncAPI channel of services/fieldservice/events/asyncapi.yaml (outbox-fieldservice routes by event type).
-      - resource: {type: topic, name: passage.service.case, patternType: literal}
+      - resource: {type: topic, name: depot.service.case, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.service.workorder, patternType: literal}
+      - resource: {type: topic, name: depot.service.workorder, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.service.workorder.completed, patternType: literal}
+      - resource: {type: topic, name: depot.service.workorder.completed, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.service.sla, patternType: literal}
+      - resource: {type: topic, name: depot.service.sla, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.service.supplierclaim, patternType: literal}
+      - resource: {type: topic, name: depot.service.supplierclaim, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.service.agreement, patternType: literal}
+      - resource: {type: topic, name: depot.service.agreement, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.service.agreementvisit, patternType: literal}
+      - resource: {type: topic, name: depot.service.agreementvisit, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.service.assignment, patternType: literal}
+      - resource: {type: topic, name: depot.service.assignment, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.service.dispatch, patternType: literal}
+      - resource: {type: topic, name: depot.service.dispatch, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.knowledge.article, patternType: literal}
+      - resource: {type: topic, name: depot.knowledge.article, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.case.stage, patternType: literal}
+      - resource: {type: topic, name: depot.case.stage, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.fulfillment.manifest, patternType: literal}
+      - resource: {type: topic, name: depot.fulfillment.manifest, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.fulfillment.warehouseoperationrule, patternType: literal}
+      - resource: {type: topic, name: depot.fulfillment.warehouseoperationrule, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
       # warehouse: one literal per AsyncAPI channel of services/warehouse/events/asyncapi.yaml (outbox-warehouse routes by event type).
-      - resource: {type: topic, name: passage.wms.work, patternType: literal}
+      - resource: {type: topic, name: depot.wms.work, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.wms.receipt, patternType: literal}
+      - resource: {type: topic, name: depot.wms.receipt, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.wms.shipment, patternType: literal}
+      - resource: {type: topic, name: depot.wms.shipment, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
       # intercompany: one literal per AsyncAPI channel of services/intercompany/events/asyncapi.yaml (outbox-intercompany routes by event type).
-      - resource: {type: topic, name: passage.interco.partner, patternType: literal}
+      - resource: {type: topic, name: depot.interco.partner, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.interco.journal, patternType: literal}
+      - resource: {type: topic, name: depot.interco.journal, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.interco.charge, patternType: literal}
+      - resource: {type: topic, name: depot.interco.charge, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.interco.chargeinvoice, patternType: literal}
+      - resource: {type: topic, name: depot.interco.chargeinvoice, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.interco.reconciliation, patternType: literal}
+      - resource: {type: topic, name: depot.interco.reconciliation, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
       # ops: one literal per AsyncAPI channel of services/ops/events/asyncapi.yaml (outbox-ops routes by aggregate type: failover, tenant, slo, license).
-      - resource: {type: topic, name: passage.ops.failover, patternType: literal}
+      - resource: {type: topic, name: depot.ops.failover, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.ops.tenant, patternType: literal}
+      - resource: {type: topic, name: depot.ops.tenant, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.ops.slo, patternType: literal}
+      - resource: {type: topic, name: depot.ops.slo, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.ops.license, patternType: literal}
+      - resource: {type: topic, name: depot.ops.license, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
       # receivables: one literal per AsyncAPI channel of services/receivables/events/asyncapi.yaml (outbox-receivables routes by event type).
-      - resource: {type: topic, name: passage.receivables.payment, patternType: literal}
+      - resource: {type: topic, name: depot.receivables.payment, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.receivables.dispute, patternType: literal}
+      - resource: {type: topic, name: depot.receivables.dispute, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.receivables.dunningletter, patternType: literal}
+      - resource: {type: topic, name: depot.receivables.dunningletter, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.receivables.case, patternType: literal}
+      - resource: {type: topic, name: depot.receivables.case, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.receivables.confirmation, patternType: literal}
+      - resource: {type: topic, name: depot.receivables.confirmation, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.receivables.downpayment, patternType: literal}
+      - resource: {type: topic, name: depot.receivables.downpayment, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.receivables.creditsettlement, patternType: literal}
+      - resource: {type: topic, name: depot.receivables.creditsettlement, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.receivables.deduction, patternType: literal}
+      - resource: {type: topic, name: depot.receivables.deduction, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.receivables.customerbalance, patternType: literal}
+      - resource: {type: topic, name: depot.receivables.customerbalance, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.receivables.openitem, patternType: literal}
+      - resource: {type: topic, name: depot.receivables.openitem, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.receivables.creditnote, patternType: literal}
+      - resource: {type: topic, name: depot.receivables.creditnote, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
       # expense: one literal per AsyncAPI channel of services/expense/events/asyncapi.yaml (outbox-expense routes by event type).
-      - resource: {type: topic, name: passage.expense.policy, patternType: literal}
+      - resource: {type: topic, name: depot.expense.policy, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.expense.cashadvance, patternType: literal}
+      - resource: {type: topic, name: depot.expense.cashadvance, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.expense.report, patternType: literal}
+      - resource: {type: topic, name: depot.expense.report, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
       # projects: one literal per AsyncAPI channel of services/projects/events/asyncapi.yaml (outbox-projects routes by event type).
-      - resource: {type: topic, name: passage.projects.project, patternType: literal}
+      - resource: {type: topic, name: depot.projects.project, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.projects.wbs, patternType: literal}
+      - resource: {type: topic, name: depot.projects.wbs, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.projects.changeorder, patternType: literal}
+      - resource: {type: topic, name: depot.projects.changeorder, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.projects.transaction, patternType: literal}
+      - resource: {type: topic, name: depot.projects.transaction, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
       # party: one literal per AsyncAPI channel of services/party/events/asyncapi.yaml (outbox-party routes by event type).
-      - resource: {type: topic, name: passage.party.party, patternType: literal}
+      - resource: {type: topic, name: depot.party.party, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.party.customer, patternType: literal}
+      - resource: {type: topic, name: depot.party.customer, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.party.change, patternType: literal}
+      - resource: {type: topic, name: depot.party.change, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.party.merge, patternType: literal}
+      - resource: {type: topic, name: depot.party.merge, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.party.protectedfields, patternType: literal}
+      - resource: {type: topic, name: depot.party.protectedfields, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.party.vendorbank, patternType: literal}
+      - resource: {type: topic, name: depot.party.vendorbank, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.party.vendorgroup, patternType: literal}
+      - resource: {type: topic, name: depot.party.vendorgroup, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.party.vendorinvite, patternType: literal}
+      - resource: {type: topic, name: depot.party.vendorinvite, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
       # product: one literal per AsyncAPI channel of services/product/events/asyncapi.yaml (outbox-product routes by event type).
-      - resource: {type: topic, name: passage.product.product, patternType: literal}
+      - resource: {type: topic, name: depot.product.product, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.product.variant, patternType: literal}
+      - resource: {type: topic, name: depot.product.variant, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.product.releasedproduct, patternType: literal}
+      - resource: {type: topic, name: depot.product.releasedproduct, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.product.identifier, patternType: literal}
+      - resource: {type: topic, name: depot.product.identifier, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.product.configuration, patternType: literal}
+      - resource: {type: topic, name: depot.product.configuration, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.product.relation, patternType: literal}
+      - resource: {type: topic, name: depot.product.relation, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
       # purchasing: one literal per AsyncAPI channel of services/purchasing/events/asyncapi.yaml (outbox-purchasing routes by event type).
-      - resource: {type: topic, name: passage.procurement.requisition, patternType: literal}
+      - resource: {type: topic, name: depot.procurement.requisition, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.procurement.requisitionline, patternType: literal}
+      - resource: {type: topic, name: depot.procurement.requisitionline, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.procurement.agreement, patternType: literal}
+      - resource: {type: topic, name: depot.procurement.agreement, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.procurement.po, patternType: literal}
+      - resource: {type: topic, name: depot.procurement.po, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.procurement.poversion, patternType: literal}
+      - resource: {type: topic, name: depot.procurement.poversion, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.procurement.rfq, patternType: literal}
+      - resource: {type: topic, name: depot.procurement.rfq, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.procurement.rfqtype, patternType: literal}
+      - resource: {type: topic, name: depot.procurement.rfqtype, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.procurement.policy, patternType: literal}
+      - resource: {type: topic, name: depot.procurement.policy, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.procurement.catalog, patternType: literal}
+      - resource: {type: topic, name: depot.procurement.catalog, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.procurement.chargecode, patternType: literal}
+      - resource: {type: topic, name: depot.procurement.chargecode, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.procurement.autocharge, patternType: literal}
+      - resource: {type: topic, name: depot.procurement.autocharge, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.procurement.categoryvendor, patternType: literal}
+      - resource: {type: topic, name: depot.procurement.categoryvendor, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.procurement.categorymanager, patternType: literal}
+      - resource: {type: topic, name: depot.procurement.categorymanager, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.procurement.signinglimit, patternType: literal}
+      - resource: {type: topic, name: depot.procurement.signinglimit, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.procurement.catalogimport, patternType: literal}
+      - resource: {type: topic, name: depot.procurement.catalogimport, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.procurement.deliveryschedule, patternType: literal}
+      - resource: {type: topic, name: depot.procurement.deliveryschedule, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.procurement.inboundchange, patternType: literal}
+      - resource: {type: topic, name: depot.procurement.inboundchange, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.procurement.poack, patternType: literal}
+      - resource: {type: topic, name: depot.procurement.poack, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.procurement.requisitionrelease, patternType: literal}
+      - resource: {type: topic, name: depot.procurement.requisitionrelease, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.procurement.servicespec, patternType: literal}
+      - resource: {type: topic, name: depot.procurement.servicespec, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.procurement.modelservicespec, patternType: literal}
+      - resource: {type: topic, name: depot.procurement.modelservicespec, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.procurement.sarelease, patternType: literal}
+      - resource: {type: topic, name: depot.procurement.sarelease, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
       # production: one literal per AsyncAPI channel of services/production/events/asyncapi.yaml (outbox-production routes by event type).
-      - resource: {type: topic, name: passage.production.order, patternType: literal}
+      - resource: {type: topic, name: depot.production.order, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.production.journal, patternType: literal}
+      - resource: {type: topic, name: depot.production.journal, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.production.asbuilt, patternType: literal}
+      - resource: {type: topic, name: depot.production.asbuilt, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.production.triggerpoint, patternType: literal}
+      - resource: {type: topic, name: depot.production.triggerpoint, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.production.subcontract, patternType: literal}
+      - resource: {type: topic, name: depot.production.subcontract, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.production.operation, patternType: literal}
+      - resource: {type: topic, name: depot.production.operation, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.production.orderchange, patternType: literal}
+      - resource: {type: topic, name: depot.production.orderchange, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.production.costsnapshot, patternType: literal}
+      - resource: {type: topic, name: depot.production.costsnapshot, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.production.parameters, patternType: literal}
+      - resource: {type: topic, name: depot.production.parameters, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
       # hr: one literal per AsyncAPI channel of services/hr/events/asyncapi.yaml (outbox-hr routes by event type).
-      - resource: {type: topic, name: passage.hr.workerskill, patternType: literal}
+      - resource: {type: topic, name: depot.hr.workerskill, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.hr.certification, patternType: literal}
+      - resource: {type: topic, name: depot.hr.certification, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.hr.worker, patternType: literal}
+      - resource: {type: topic, name: depot.hr.worker, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.hr.employment, patternType: literal}
+      - resource: {type: topic, name: depot.hr.employment, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.hr.positionassignment, patternType: literal}
+      - resource: {type: topic, name: depot.hr.positionassignment, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.hr.absence, patternType: literal}
+      - resource: {type: topic, name: depot.hr.absence, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.hr.benefitenrollment, patternType: literal}
+      - resource: {type: topic, name: depot.hr.benefitenrollment, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.hr.course, patternType: literal}
+      - resource: {type: topic, name: depot.hr.course, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.hr.compensation, patternType: literal}
+      - resource: {type: topic, name: depot.hr.compensation, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.hr.compensationcycle, patternType: literal}
+      - resource: {type: topic, name: depot.hr.compensationcycle, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.hr.requisition, patternType: literal}
+      - resource: {type: topic, name: depot.hr.requisition, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.hr.incident, patternType: literal}
+      - resource: {type: topic, name: depot.hr.incident, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.hr.loaneditem, patternType: literal}
+      - resource: {type: topic, name: depot.hr.loaneditem, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.hr.checklist, patternType: literal}
+      - resource: {type: topic, name: depot.hr.checklist, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage.hr.review, patternType: literal}
+      - resource: {type: topic, name: depot.hr.review, patternType: literal}
         operations: [Create, Describe, Write, DescribeConfigs]
-      - resource: {type: topic, name: passage-connect-, patternType: prefix}
+      - resource: {type: topic, name: depot-connect-, patternType: prefix}
         operations: [Create, Describe, Read, Write, DescribeConfigs]
-      - resource: {type: group, name: passage-connect, patternType: literal}
+      - resource: {type: group, name: depot-connect, patternType: literal}
         operations: [Read, Describe]
       - resource: {type: cluster}
         operations: [IdempotentWrite]
@@ -354,17 +354,17 @@ spec:
 apiVersion: kafka.strimzi.io/v1beta2
 kind: KafkaConnect
 metadata:
-  name: passage-connect
+  name: depot-connect
   namespace: kafka
   annotations:
     strimzi.io/use-connector-resources: "true"
 spec:
   version: 4.0.0
   replicas: 2
-  bootstrapServers: passage-kafka-bootstrap:9093
+  bootstrapServers: depot-kafka-bootstrap:9093
   tls:
     trustedCertificates:
-      - secretName: passage-cluster-ca-cert
+      - secretName: depot-cluster-ca-cert
         pattern: "*.crt"
   authentication:
     type: scram-sha-512
@@ -373,10 +373,10 @@ spec:
       secretName: debezium
       password: password
   config:
-    group.id: passage-connect
-    offset.storage.topic: passage-connect-offsets
-    config.storage.topic: passage-connect-configs
-    status.storage.topic: passage-connect-status
+    group.id: depot-connect
+    offset.storage.topic: depot-connect-offsets
+    config.storage.topic: depot-connect-configs
+    status.storage.topic: depot-connect-status
     offset.storage.replication.factor: 3
     config.storage.replication.factor: 3
     status.storage.replication.factor: 3
@@ -384,8 +384,8 @@ spec:
     config.providers.secrets.class: io.strimzi.kafka.KubernetesSecretConfigProvider
   # Built from deploy/kafka-connect/Dockerfile by the connect-image job in .github/workflows/ci.yml:
   # Strimzi 0.46.0 / Kafka 4.0.0 plus the Debezium Postgres 3.0.7.Final connector and the
-  # passage-cloudevents-enricher SMT. The tag names both versions; bump it with either.
-  image: ghcr.io/benjaminsrussell/passage-connect:debezium-3.0.7-enricher-0.1.0
+  # depot-cloudevents-enricher SMT. The tag names both versions; bump it with either.
+  image: ghcr.io/benjaminsrussell/depot-connect:debezium-3.0.7-enricher-0.1.0
 ---
 apiVersion: kafka.strimzi.io/v1beta2
 kind: KafkaConnector
@@ -393,7 +393,7 @@ metadata:
   name: outbox-batch
   namespace: kafka
   labels:
-    strimzi.io/cluster: passage-connect
+    strimzi.io/cluster: depot-connect
 spec:
   class: io.debezium.connector.postgresql.PostgresConnector
   tasksMax: 1
@@ -403,10 +403,10 @@ spec:
     database.port: 5432
     database.user: ${secrets:kafka/debezium-cdc-batch:username}
     database.password: ${secrets:kafka/debezium-cdc-batch:password}
-    database.dbname: passage_platform
-    topic.prefix: passage.platform
-    slot.name: passage_outbox_batch
-    publication.name: passage_outbox_batch
+    database.dbname: depot_platform
+    topic.prefix: depot.platform
+    slot.name: depot_outbox_batch
+    publication.name: depot_outbox_batch
     publication.autocreate.mode: disabled
     table.include.list: public.outbox
     snapshot.mode: initial
@@ -416,7 +416,7 @@ spec:
     topic.creation.default.cleanup.policy: delete
     topic.creation.default.retention.ms: 604800000
     topic.creation.groups: machineevent
-    topic.creation.machineevent.include: passage\.manufacturing\.machineevent
+    topic.creation.machineevent.include: depot\.manufacturing\.machineevent
     topic.creation.machineevent.partitions: 48
     topic.creation.machineevent.replication.factor: 3
     topic.creation.machineevent.cleanup.policy: delete
@@ -427,12 +427,12 @@ spec:
     transforms.outbox.table.field.event.key: aggregate_id
     transforms.outbox.table.field.event.payload: payload
     transforms.outbox.route.by.field: aggregate_type
-    transforms.outbox.route.topic.replacement: passage.platform.${routedByValue}
+    transforms.outbox.route.topic.replacement: depot.platform.${routedByValue}
     transforms.outbox.table.expand.json.payload: true
     transforms.outbox.table.fields.additional.placement: tenant_id:header:tenantid
-    transforms.enrich.type: dev.passage.connect.cloudevents.CloudEventsEnricher
-    transforms.enrich.source.default: passage
-    transforms.enrich.dataschema.template: https://schemas.passage.dev/{type}.json
+    transforms.enrich.type: dev.depot.connect.cloudevents.CloudEventsEnricher
+    transforms.enrich.source.default: depot
+    transforms.enrich.dataschema.template: https://schemas.depot.dev/{type}.json
     key.converter: org.apache.kafka.connect.storage.StringConverter
     value.converter: org.apache.kafka.connect.json.JsonConverter
     value.converter.schemas.enable: false
@@ -440,7 +440,7 @@ spec:
     producer.override.enable.idempotence: true
 ---
 # Topic naming: services/metadata writes aggregate_type "entity" and events.Topic
-# maps dev.passage.metadata.entity.published.v1 to passage.metadata.entity, which
+# maps dev.depot.metadata.entity.published.v1 to depot.metadata.entity, which
 # is also the AsyncAPI channel; PRD FR-4.1 and AC-4.5 use the same name.
 # Outbox payloads are complete CloudEvents (platform/go/outbox): table.expand.json.payload
 # emits the JSON object, the enrich SMT (deploy/kafka-connect/enricher) fills tenantid
@@ -457,7 +457,7 @@ metadata:
   name: outbox-metadata
   namespace: kafka
   labels:
-    strimzi.io/cluster: passage-connect
+    strimzi.io/cluster: depot-connect
 spec:
   class: io.debezium.connector.postgresql.PostgresConnector
   tasksMax: 1
@@ -467,10 +467,10 @@ spec:
     database.port: 5432
     database.user: ${secrets:kafka/debezium-cdc-metadata:username}
     database.password: ${secrets:kafka/debezium-cdc-metadata:password}
-    database.dbname: passage_metadata
-    topic.prefix: passage.metadata
-    slot.name: passage_outbox_metadata
-    publication.name: passage_outbox_metadata
+    database.dbname: depot_metadata
+    topic.prefix: depot.metadata
+    slot.name: depot_outbox_metadata
+    publication.name: depot_outbox_metadata
     publication.autocreate.mode: disabled
     table.include.list: public.outbox
     snapshot.mode: initial
@@ -485,12 +485,12 @@ spec:
     transforms.outbox.table.field.event.key: aggregate_id
     transforms.outbox.table.field.event.payload: payload
     transforms.outbox.route.by.field: aggregate_type
-    transforms.outbox.route.topic.replacement: passage.metadata.${routedByValue}
+    transforms.outbox.route.topic.replacement: depot.metadata.${routedByValue}
     transforms.outbox.table.expand.json.payload: true
     transforms.outbox.table.fields.additional.placement: tenant_id:header:tenantid
-    transforms.enrich.type: dev.passage.connect.cloudevents.CloudEventsEnricher
-    transforms.enrich.source.default: passage
-    transforms.enrich.dataschema.template: https://schemas.passage.dev/{type}.json
+    transforms.enrich.type: dev.depot.connect.cloudevents.CloudEventsEnricher
+    transforms.enrich.source.default: depot
+    transforms.enrich.dataschema.template: https://schemas.depot.dev/{type}.json
     key.converter: org.apache.kafka.connect.storage.StringConverter
     value.converter: org.apache.kafka.connect.json.JsonConverter
     value.converter.schemas.enable: false
@@ -498,17 +498,17 @@ spec:
     producer.override.enable.idempotence: true
 ---
 # Receiving writes aggregate_type "receipt" (and invoice, settlement, ...) to its outbox; events.Topic maps
-# dev.passage.receiving.receipt.posted.v1 to passage.receiving.receipt, the topic the receipt.posted consumer reads.
+# dev.depot.receiving.receipt.posted.v1 to depot.receiving.receipt, the topic the receipt.posted consumer reads.
 # snapshot.mode no_data: pgoutput streaming ignores RLS, so the CDC role needs neither BYPASSRLS nor a snapshot read of the forced-RLS outbox.
-# The debezium user's ACLs are literal per receiving aggregate_type (a new one needs an entry above) and never cover passage.receiving.receipt.dlq.
-# debezium_cdc has REPLICATION, which can decode any database it may connect to; the dev Postgres init revokes CONNECT from PUBLIC so it reaches only passage_receiving.
+# The debezium user's ACLs are literal per receiving aggregate_type (a new one needs an entry above) and never cover depot.receiving.receipt.dlq.
+# debezium_cdc has REPLICATION, which can decode any database it may connect to; the dev Postgres init revokes CONNECT from PUBLIC so it reaches only depot_receiving.
 apiVersion: kafka.strimzi.io/v1beta2
 kind: KafkaConnector
 metadata:
   name: outbox-receiving
   namespace: kafka
   labels:
-    strimzi.io/cluster: passage-connect
+    strimzi.io/cluster: depot-connect
 spec:
   class: io.debezium.connector.postgresql.PostgresConnector
   tasksMax: 1
@@ -518,10 +518,10 @@ spec:
     database.port: 5432
     database.user: ${secrets:kafka/debezium-cdc-receiving:username}
     database.password: ${secrets:kafka/debezium-cdc-receiving:password}
-    database.dbname: passage_receiving
-    topic.prefix: passage.receiving
-    slot.name: passage_outbox_receiving
-    publication.name: passage_outbox_receiving
+    database.dbname: depot_receiving
+    topic.prefix: depot.receiving
+    slot.name: depot_outbox_receiving
+    publication.name: depot_outbox_receiving
     publication.autocreate.mode: disabled
     table.include.list: public.outbox
     snapshot.mode: no_data
@@ -536,12 +536,12 @@ spec:
     transforms.outbox.table.field.event.key: aggregate_id
     transforms.outbox.table.field.event.payload: payload
     transforms.outbox.route.by.field: aggregate_type
-    transforms.outbox.route.topic.replacement: passage.receiving.${routedByValue}
+    transforms.outbox.route.topic.replacement: depot.receiving.${routedByValue}
     transforms.outbox.table.expand.json.payload: true
     transforms.outbox.table.fields.additional.placement: tenant_id:header:tenantid
-    transforms.enrich.type: dev.passage.connect.cloudevents.CloudEventsEnricher
-    transforms.enrich.source.default: passage
-    transforms.enrich.dataschema.template: https://schemas.passage.dev/{type}.json
+    transforms.enrich.type: dev.depot.connect.cloudevents.CloudEventsEnricher
+    transforms.enrich.source.default: depot
+    transforms.enrich.dataschema.template: https://schemas.depot.dev/{type}.json
     key.converter: org.apache.kafka.connect.storage.StringConverter
     value.converter: org.apache.kafka.connect.json.JsonConverter
     value.converter.schemas.enable: false
@@ -549,18 +549,18 @@ spec:
     producer.override.enable.idempotence: true
 ---
 # EAM writes aggregate_type downtime, workorder, counter, permit and request to its outbox; the route below makes each one
-# passage.eam.<aggregate_type>. dev.passage.eam.downtime.recorded.v1 is the only downtime aggregate event, so scheduling
-# reads passage.eam.downtime alone. The ACLs above are literal per aggregate_type (a new one needs an entry) and never
-# cover passage.eam.downtime.dlq.
+# depot.eam.<aggregate_type>. dev.depot.eam.downtime.recorded.v1 is the only downtime aggregate event, so scheduling
+# reads depot.eam.downtime alone. The ACLs above are literal per aggregate_type (a new one needs an entry) and never
+# cover depot.eam.downtime.dlq.
 # snapshot.mode no_data: pgoutput streaming ignores RLS, so the CDC role needs neither BYPASSRLS nor a snapshot read of the forced-RLS outbox.
-# debezium_cdc_eam has REPLICATION; the dev Postgres init grants it CONNECT on passage_eam only and revokes CONNECT from PUBLIC there.
+# debezium_cdc_eam has REPLICATION; the dev Postgres init grants it CONNECT on depot_eam only and revokes CONNECT from PUBLIC there.
 apiVersion: kafka.strimzi.io/v1beta2
 kind: KafkaConnector
 metadata:
   name: outbox-eam
   namespace: kafka
   labels:
-    strimzi.io/cluster: passage-connect
+    strimzi.io/cluster: depot-connect
 spec:
   class: io.debezium.connector.postgresql.PostgresConnector
   tasksMax: 1
@@ -570,10 +570,10 @@ spec:
     database.port: 5432
     database.user: ${secrets:kafka/debezium-cdc-eam:username}
     database.password: ${secrets:kafka/debezium-cdc-eam:password}
-    database.dbname: passage_eam
-    topic.prefix: passage.eam
-    slot.name: passage_outbox_eam
-    publication.name: passage_outbox_eam
+    database.dbname: depot_eam
+    topic.prefix: depot.eam
+    slot.name: depot_outbox_eam
+    publication.name: depot_outbox_eam
     publication.autocreate.mode: disabled
     table.include.list: public.outbox
     snapshot.mode: no_data
@@ -588,12 +588,12 @@ spec:
     transforms.outbox.table.field.event.key: aggregate_id
     transforms.outbox.table.field.event.payload: payload
     transforms.outbox.route.by.field: aggregate_type
-    transforms.outbox.route.topic.replacement: passage.eam.${routedByValue}
+    transforms.outbox.route.topic.replacement: depot.eam.${routedByValue}
     transforms.outbox.table.expand.json.payload: true
     transforms.outbox.table.fields.additional.placement: tenant_id:header:tenantid
-    transforms.enrich.type: dev.passage.connect.cloudevents.CloudEventsEnricher
-    transforms.enrich.source.default: passage
-    transforms.enrich.dataschema.template: https://schemas.passage.dev/{type}.json
+    transforms.enrich.type: dev.depot.connect.cloudevents.CloudEventsEnricher
+    transforms.enrich.source.default: depot
+    transforms.enrich.dataschema.template: https://schemas.depot.dev/{type}.json
     key.converter: org.apache.kafka.connect.storage.StringConverter
     value.converter: org.apache.kafka.connect.json.JsonConverter
     value.converter.schemas.enable: false
@@ -601,19 +601,19 @@ spec:
     producer.override.enable.idempotence: true
 ---
 # Transport writes aggregate_type load, tender, freightbill, tracking, landedcost, gate and goodsintransit to its outbox;
-# the route below makes each one passage.tms.<aggregate_type>, the AsyncAPI channels in services/transport/events/asyncapi.yaml.
-# dev.passage.tms.load.released.v1 goes to passage.tms.load and the tender outcomes to passage.tms.tender, the topics
+# the route below makes each one depot.tms.<aggregate_type>, the AsyncAPI channels in services/transport/events/asyncapi.yaml.
+# dev.depot.tms.load.released.v1 goes to depot.tms.load and the tender outcomes to depot.tms.tender, the topics
 # workflow-ts reads (deploy/kafka/workflow-ts-consumer.yaml). The ACLs above are literal per aggregate_type (a new one
-# needs an entry) and never cover passage.workflow.tender.dlq.
+# needs an entry) and never cover depot.workflow.tender.dlq.
 # snapshot.mode no_data: pgoutput streaming ignores RLS, so the CDC role needs neither BYPASSRLS nor a snapshot read of the forced-RLS outbox.
-# debezium_cdc_transport has REPLICATION; the dev Postgres init grants it CONNECT on passage_transport only and revokes CONNECT from PUBLIC there.
+# debezium_cdc_transport has REPLICATION; the dev Postgres init grants it CONNECT on depot_transport only and revokes CONNECT from PUBLIC there.
 apiVersion: kafka.strimzi.io/v1beta2
 kind: KafkaConnector
 metadata:
   name: outbox-transport
   namespace: kafka
   labels:
-    strimzi.io/cluster: passage-connect
+    strimzi.io/cluster: depot-connect
 spec:
   class: io.debezium.connector.postgresql.PostgresConnector
   tasksMax: 1
@@ -623,10 +623,10 @@ spec:
     database.port: 5432
     database.user: ${secrets:kafka/debezium-cdc-transport:username}
     database.password: ${secrets:kafka/debezium-cdc-transport:password}
-    database.dbname: passage_transport
-    topic.prefix: passage.tms
-    slot.name: passage_outbox_transport
-    publication.name: passage_outbox_transport
+    database.dbname: depot_transport
+    topic.prefix: depot.tms
+    slot.name: depot_outbox_transport
+    publication.name: depot_outbox_transport
     publication.autocreate.mode: disabled
     table.include.list: public.outbox
     snapshot.mode: no_data
@@ -641,12 +641,12 @@ spec:
     transforms.outbox.table.field.event.key: aggregate_id
     transforms.outbox.table.field.event.payload: payload
     transforms.outbox.route.by.field: aggregate_type
-    transforms.outbox.route.topic.replacement: passage.tms.${routedByValue}
+    transforms.outbox.route.topic.replacement: depot.tms.${routedByValue}
     transforms.outbox.table.expand.json.payload: true
     transforms.outbox.table.fields.additional.placement: tenant_id:header:tenantid
-    transforms.enrich.type: dev.passage.connect.cloudevents.CloudEventsEnricher
-    transforms.enrich.source.default: passage
-    transforms.enrich.dataschema.template: https://schemas.passage.dev/{type}.json
+    transforms.enrich.type: dev.depot.connect.cloudevents.CloudEventsEnricher
+    transforms.enrich.source.default: depot
+    transforms.enrich.dataschema.template: https://schemas.depot.dev/{type}.json
     key.converter: org.apache.kafka.connect.storage.StringConverter
     value.converter: org.apache.kafka.connect.json.JsonConverter
     value.converter.schemas.enable: false
@@ -656,20 +656,20 @@ spec:
 # Sales routes by event type, not aggregate_type: it writes many of its events under aggregate_type "order"
 # (orderhold.*, creditcheck.evaluated, atp.promised and orderprogress.recorded among them), while its AsyncAPI channels
 # (services/sales/events/asyncapi.yaml) and events.Topic name the topic after the type's entity. The route takes the
-# entity out of dev.passage.sales.<entity>.<verb>.v<n>, so orderprogress.recorded lands on passage.sales.orderprogress
+# entity out of dev.depot.sales.<entity>.<verb>.v<n>, so orderprogress.recorded lands on depot.sales.orderprogress
 # (read by the inventory postings consumer, deploy/kafka/inventory-consumer.yaml) and order.confirmed on
-# passage.sales.order. A type that does not match keeps its own name as the topic, which no ACL allows, so the task
+# depot.sales.order. A type that does not match keeps its own name as the topic, which no ACL allows, so the task
 # fails instead of writing elsewhere. The ACLs above are literal per AsyncAPI channel (a new entity needs an entry)
-# and never cover passage.sales.order.dlq.
+# and never cover depot.sales.order.dlq.
 # snapshot.mode no_data: pgoutput streaming ignores RLS, so the CDC role needs neither BYPASSRLS nor a snapshot read of the forced-RLS outbox.
-# debezium_cdc_sales has REPLICATION; the dev Postgres init grants it CONNECT on passage_sales only and revokes CONNECT from PUBLIC there.
+# debezium_cdc_sales has REPLICATION; the dev Postgres init grants it CONNECT on depot_sales only and revokes CONNECT from PUBLIC there.
 apiVersion: kafka.strimzi.io/v1beta2
 kind: KafkaConnector
 metadata:
   name: outbox-sales
   namespace: kafka
   labels:
-    strimzi.io/cluster: passage-connect
+    strimzi.io/cluster: depot-connect
 spec:
   class: io.debezium.connector.postgresql.PostgresConnector
   tasksMax: 1
@@ -679,10 +679,10 @@ spec:
     database.port: 5432
     database.user: ${secrets:kafka/debezium-cdc-sales:username}
     database.password: ${secrets:kafka/debezium-cdc-sales:password}
-    database.dbname: passage_sales
-    topic.prefix: passage.sales
-    slot.name: passage_outbox_sales
-    publication.name: passage_outbox_sales
+    database.dbname: depot_sales
+    topic.prefix: depot.sales
+    slot.name: depot_outbox_sales
+    publication.name: depot_outbox_sales
     publication.autocreate.mode: disabled
     table.include.list: public.outbox
     snapshot.mode: no_data
@@ -697,13 +697,13 @@ spec:
     transforms.outbox.table.field.event.key: aggregate_id
     transforms.outbox.table.field.event.payload: payload
     transforms.outbox.route.by.field: type
-    transforms.outbox.route.topic.regex: 'dev\.passage\.sales\.(?<routedByValue>[a-z][a-z0-9]*)\.[a-z][a-z0-9]*\.v[0-9]+'
-    transforms.outbox.route.topic.replacement: passage.sales.${routedByValue}
+    transforms.outbox.route.topic.regex: 'dev\.depot\.sales\.(?<routedByValue>[a-z][a-z0-9]*)\.[a-z][a-z0-9]*\.v[0-9]+'
+    transforms.outbox.route.topic.replacement: depot.sales.${routedByValue}
     transforms.outbox.table.expand.json.payload: true
     transforms.outbox.table.fields.additional.placement: tenant_id:header:tenantid
-    transforms.enrich.type: dev.passage.connect.cloudevents.CloudEventsEnricher
-    transforms.enrich.source.default: passage
-    transforms.enrich.dataschema.template: https://schemas.passage.dev/{type}.json
+    transforms.enrich.type: dev.depot.connect.cloudevents.CloudEventsEnricher
+    transforms.enrich.source.default: depot
+    transforms.enrich.dataschema.template: https://schemas.depot.dev/{type}.json
     key.converter: org.apache.kafka.connect.storage.StringConverter
     value.converter: org.apache.kafka.connect.json.JsonConverter
     value.converter.schemas.enable: false
@@ -713,18 +713,18 @@ spec:
 # Fulfillment routes by event type, as sales does: packing-slip, pick, container, ASN and tracking events are written
 # under aggregate_type "shipment" and the settings under snake_case aggregate types (drop_ship, warehouse_setting, ...),
 # while the AsyncAPI channels (services/fulfillment/events/asyncapi.yaml) and events.Topic use the type's entity.
-# packingslip.posted and packingslip.cancelled land on passage.fulfillment.packingslip, read by the inventory postings
+# packingslip.posted and packingslip.cancelled land on depot.fulfillment.packingslip, read by the inventory postings
 # consumer (deploy/kafka/inventory-consumer.yaml). The ACLs above are literal per AsyncAPI channel (a new entity
 # needs an entry).
 # snapshot.mode no_data: pgoutput streaming ignores RLS, so the CDC role needs neither BYPASSRLS nor a snapshot read of the forced-RLS outbox.
-# debezium_cdc_fulfillment has REPLICATION; the dev Postgres init grants it CONNECT on passage_fulfillment only and revokes CONNECT from PUBLIC there.
+# debezium_cdc_fulfillment has REPLICATION; the dev Postgres init grants it CONNECT on depot_fulfillment only and revokes CONNECT from PUBLIC there.
 apiVersion: kafka.strimzi.io/v1beta2
 kind: KafkaConnector
 metadata:
   name: outbox-fulfillment
   namespace: kafka
   labels:
-    strimzi.io/cluster: passage-connect
+    strimzi.io/cluster: depot-connect
 spec:
   class: io.debezium.connector.postgresql.PostgresConnector
   tasksMax: 1
@@ -734,10 +734,10 @@ spec:
     database.port: 5432
     database.user: ${secrets:kafka/debezium-cdc-fulfillment:username}
     database.password: ${secrets:kafka/debezium-cdc-fulfillment:password}
-    database.dbname: passage_fulfillment
-    topic.prefix: passage.fulfillment
-    slot.name: passage_outbox_fulfillment
-    publication.name: passage_outbox_fulfillment
+    database.dbname: depot_fulfillment
+    topic.prefix: depot.fulfillment
+    slot.name: depot_outbox_fulfillment
+    publication.name: depot_outbox_fulfillment
     publication.autocreate.mode: disabled
     table.include.list: public.outbox
     snapshot.mode: no_data
@@ -752,13 +752,13 @@ spec:
     transforms.outbox.table.field.event.key: aggregate_id
     transforms.outbox.table.field.event.payload: payload
     transforms.outbox.route.by.field: type
-    transforms.outbox.route.topic.regex: 'dev\.passage\.fulfillment\.(?<routedByValue>[a-z][a-z0-9]*)\.[a-z][a-z0-9]*\.v[0-9]+'
-    transforms.outbox.route.topic.replacement: passage.fulfillment.${routedByValue}
+    transforms.outbox.route.topic.regex: 'dev\.depot\.fulfillment\.(?<routedByValue>[a-z][a-z0-9]*)\.[a-z][a-z0-9]*\.v[0-9]+'
+    transforms.outbox.route.topic.replacement: depot.fulfillment.${routedByValue}
     transforms.outbox.table.expand.json.payload: true
     transforms.outbox.table.fields.additional.placement: tenant_id:header:tenantid
-    transforms.enrich.type: dev.passage.connect.cloudevents.CloudEventsEnricher
-    transforms.enrich.source.default: passage
-    transforms.enrich.dataschema.template: https://schemas.passage.dev/{type}.json
+    transforms.enrich.type: dev.depot.connect.cloudevents.CloudEventsEnricher
+    transforms.enrich.source.default: depot
+    transforms.enrich.dataschema.template: https://schemas.depot.dev/{type}.json
     key.converter: org.apache.kafka.connect.storage.StringConverter
     value.converter: org.apache.kafka.connect.json.JsonConverter
     value.converter.schemas.enable: false
@@ -766,13 +766,13 @@ spec:
     producer.override.enable.idempotence: true
 ---
 # Budgeting's outbox carries six aggregate types (register, budgetcheck, encumbrance, budgetreservation, investment_program, plan) but
-# only plan is published (plan.submitted, plan.approved, plan.rejected): it routes to passage.budget.plan, the AsyncAPI channel in
+# only plan is published (plan.submitted, plan.approved, plan.rejected): it routes to depot.budget.plan, the AsyncAPI channel in
 # services/budgeting/events/asyncapi.yaml, which workflow-ts reads to start budgetPlanWorkflow (deploy/kafka/workflow-ts-consumer.yaml).
 # The stock Kafka Filter SMT with the TopicNameMatches predicate (both in Kafka 4.0 connect-transforms, no scripting) drops every
-# routed record whose topic is not passage.budget.plan, so the others never reach a topic the debezium user has no ACL for.
+# routed record whose topic is not depot.budget.plan, so the others never reach a topic the debezium user has no ACL for.
 # Adding a published aggregate type means widening the predicate pattern and adding its literal ACL (deploy/scripts/test_argocd_apps.py).
 # snapshot.mode no_data: pgoutput streaming ignores RLS, so the CDC role needs neither BYPASSRLS nor a snapshot read of the forced-RLS outbox.
-# debezium_cdc_budgeting has REPLICATION; the dev Postgres init (95-budgeting-db.sh) creates passage_budgeting and that role, grants it
+# debezium_cdc_budgeting has REPLICATION; the dev Postgres init (95-budgeting-db.sh) creates depot_budgeting and that role, grants it
 # CONNECT there only and revokes CONNECT from PUBLIC.
 apiVersion: kafka.strimzi.io/v1beta2
 kind: KafkaConnector
@@ -780,7 +780,7 @@ metadata:
   name: outbox-budgeting
   namespace: kafka
   labels:
-    strimzi.io/cluster: passage-connect
+    strimzi.io/cluster: depot-connect
 spec:
   class: io.debezium.connector.postgresql.PostgresConnector
   tasksMax: 1
@@ -790,10 +790,10 @@ spec:
     database.port: 5432
     database.user: ${secrets:kafka/debezium-cdc-budgeting:username}
     database.password: ${secrets:kafka/debezium-cdc-budgeting:password}
-    database.dbname: passage_budgeting
-    topic.prefix: passage.budget
-    slot.name: passage_outbox_budgeting
-    publication.name: passage_outbox_budgeting
+    database.dbname: depot_budgeting
+    topic.prefix: depot.budget
+    slot.name: depot_outbox_budgeting
+    publication.name: depot_outbox_budgeting
     publication.autocreate.mode: disabled
     table.include.list: public.outbox
     snapshot.mode: no_data
@@ -808,7 +808,7 @@ spec:
     transforms.outbox.table.field.event.key: aggregate_id
     transforms.outbox.table.field.event.payload: payload
     transforms.outbox.route.by.field: aggregate_type
-    transforms.outbox.route.topic.replacement: passage.budget.${routedByValue}
+    transforms.outbox.route.topic.replacement: depot.budget.${routedByValue}
     transforms.outbox.table.expand.json.payload: true
     transforms.outbox.table.fields.additional.placement: tenant_id:header:tenantid
     transforms.onlyPlan.type: org.apache.kafka.connect.transforms.Filter
@@ -816,10 +816,10 @@ spec:
     transforms.onlyPlan.negate: true
     predicates: isPlanTopic
     predicates.isPlanTopic.type: org.apache.kafka.connect.transforms.predicates.TopicNameMatches
-    predicates.isPlanTopic.pattern: 'passage\.budget\.plan'
-    transforms.enrich.type: dev.passage.connect.cloudevents.CloudEventsEnricher
-    transforms.enrich.source.default: passage
-    transforms.enrich.dataschema.template: https://schemas.passage.dev/{type}.json
+    predicates.isPlanTopic.pattern: 'depot\.budget\.plan'
+    transforms.enrich.type: dev.depot.connect.cloudevents.CloudEventsEnricher
+    transforms.enrich.source.default: depot
+    transforms.enrich.dataschema.template: https://schemas.depot.dev/{type}.json
     key.converter: org.apache.kafka.connect.storage.StringConverter
     value.converter: org.apache.kafka.connect.json.JsonConverter
     value.converter.schemas.enable: false
@@ -827,11 +827,11 @@ spec:
     producer.override.enable.idempotence: true
 ---
 # Billing's outbox carries one aggregate type, invoice, for invoice.posted, creditnote.posted and creditnote.booked: all three
-# route to passage.billing.invoice, the one AsyncAPI channel in services/billing/events/asyncapi.yaml, which revrec's credit-note
+# route to depot.billing.invoice, the one AsyncAPI channel in services/billing/events/asyncapi.yaml, which revrec's credit-note
 # consumer reads (deploy/kafka/revrec-consumer.yaml). A second aggregate type needs its channel, its literal ACL on the debezium
 # user and a Filter SMT in front of enrich, as in outbox-budgeting (deploy/scripts/test_argocd_apps.py checks both).
 # snapshot.mode no_data: pgoutput streaming ignores RLS, so the CDC role needs neither BYPASSRLS nor a snapshot read of the forced-RLS outbox.
-# debezium_cdc_billing has REPLICATION; the dev Postgres init (95-billing-db.sh) creates passage_billing and that role, grants it
+# debezium_cdc_billing has REPLICATION; the dev Postgres init (95-billing-db.sh) creates depot_billing and that role, grants it
 # CONNECT there only and revokes CONNECT from PUBLIC.
 apiVersion: kafka.strimzi.io/v1beta2
 kind: KafkaConnector
@@ -839,7 +839,7 @@ metadata:
   name: outbox-billing
   namespace: kafka
   labels:
-    strimzi.io/cluster: passage-connect
+    strimzi.io/cluster: depot-connect
 spec:
   class: io.debezium.connector.postgresql.PostgresConnector
   tasksMax: 1
@@ -849,10 +849,10 @@ spec:
     database.port: 5432
     database.user: ${secrets:kafka/debezium-cdc-billing:username}
     database.password: ${secrets:kafka/debezium-cdc-billing:password}
-    database.dbname: passage_billing
-    topic.prefix: passage.billing
-    slot.name: passage_outbox_billing
-    publication.name: passage_outbox_billing
+    database.dbname: depot_billing
+    topic.prefix: depot.billing
+    slot.name: depot_outbox_billing
+    publication.name: depot_outbox_billing
     publication.autocreate.mode: disabled
     table.include.list: public.outbox
     snapshot.mode: no_data
@@ -867,25 +867,25 @@ spec:
     transforms.outbox.table.field.event.key: aggregate_id
     transforms.outbox.table.field.event.payload: payload
     transforms.outbox.route.by.field: aggregate_type
-    transforms.outbox.route.topic.replacement: passage.billing.${routedByValue}
+    transforms.outbox.route.topic.replacement: depot.billing.${routedByValue}
     transforms.outbox.table.expand.json.payload: true
     transforms.outbox.table.fields.additional.placement: tenant_id:header:tenantid
-    transforms.enrich.type: dev.passage.connect.cloudevents.CloudEventsEnricher
-    transforms.enrich.source.default: passage
-    transforms.enrich.dataschema.template: https://schemas.passage.dev/{type}.json
+    transforms.enrich.type: dev.depot.connect.cloudevents.CloudEventsEnricher
+    transforms.enrich.source.default: depot
+    transforms.enrich.dataschema.template: https://schemas.depot.dev/{type}.json
     key.converter: org.apache.kafka.connect.storage.StringConverter
     value.converter: org.apache.kafka.connect.json.JsonConverter
     value.converter.schemas.enable: false
     producer.override.acks: all
     producer.override.enable.idempotence: true
 ---
-# Warehouse routes by event type, as fulfillment does: dev.passage.wms.<entity>.<verb>.v<n> goes to passage.wms.<entity>, so work,
-# receipt and shipment events land on passage.wms.work, passage.wms.receipt and passage.wms.shipment, the AsyncAPI channels in
-# services/warehouse/events/asyncapi.yaml. The edi outbound consumer reads passage.wms.shipment for shipment.shipped (#35, 35-1,
+# Warehouse routes by event type, as fulfillment does: dev.depot.wms.<entity>.<verb>.v<n> goes to depot.wms.<entity>, so work,
+# receipt and shipment events land on depot.wms.work, depot.wms.receipt and depot.wms.shipment, the AsyncAPI channels in
+# services/warehouse/events/asyncapi.yaml. The edi outbound consumer reads depot.wms.shipment for shipment.shipped (#35, 35-1,
 # deploy/kafka/edi-consumer.yaml). The ACLs above are literal per channel (a new entity needs an entry); deploy/scripts/
 # test_argocd_apps.py routes every message of the AsyncAPI through the regex and compares the ACLs with the channels.
 # snapshot.mode no_data: pgoutput streaming ignores RLS, so the CDC role needs neither BYPASSRLS nor a snapshot read of the forced-RLS outbox.
-# debezium_cdc_warehouse has REPLICATION; the dev Postgres init (95-warehouse-db.sh) creates passage_warehouse and that role, grants it
+# debezium_cdc_warehouse has REPLICATION; the dev Postgres init (95-warehouse-db.sh) creates depot_warehouse and that role, grants it
 # CONNECT there only and revokes CONNECT from PUBLIC.
 apiVersion: kafka.strimzi.io/v1beta2
 kind: KafkaConnector
@@ -893,7 +893,7 @@ metadata:
   name: outbox-warehouse
   namespace: kafka
   labels:
-    strimzi.io/cluster: passage-connect
+    strimzi.io/cluster: depot-connect
 spec:
   class: io.debezium.connector.postgresql.PostgresConnector
   tasksMax: 1
@@ -903,10 +903,10 @@ spec:
     database.port: 5432
     database.user: ${secrets:kafka/debezium-cdc-warehouse:username}
     database.password: ${secrets:kafka/debezium-cdc-warehouse:password}
-    database.dbname: passage_warehouse
-    topic.prefix: passage.wms
-    slot.name: passage_outbox_warehouse
-    publication.name: passage_outbox_warehouse
+    database.dbname: depot_warehouse
+    topic.prefix: depot.wms
+    slot.name: depot_outbox_warehouse
+    publication.name: depot_outbox_warehouse
     publication.autocreate.mode: disabled
     table.include.list: public.outbox
     snapshot.mode: no_data
@@ -921,13 +921,13 @@ spec:
     transforms.outbox.table.field.event.key: aggregate_id
     transforms.outbox.table.field.event.payload: payload
     transforms.outbox.route.by.field: type
-    transforms.outbox.route.topic.regex: 'dev\.passage\.wms\.(?<routedByValue>[a-z][a-z0-9]*)\.[a-z][a-z0-9]*\.v[0-9]+'
-    transforms.outbox.route.topic.replacement: passage.wms.${routedByValue}
+    transforms.outbox.route.topic.regex: 'dev\.depot\.wms\.(?<routedByValue>[a-z][a-z0-9]*)\.[a-z][a-z0-9]*\.v[0-9]+'
+    transforms.outbox.route.topic.replacement: depot.wms.${routedByValue}
     transforms.outbox.table.expand.json.payload: true
     transforms.outbox.table.fields.additional.placement: tenant_id:header:tenantid
-    transforms.enrich.type: dev.passage.connect.cloudevents.CloudEventsEnricher
-    transforms.enrich.source.default: passage
-    transforms.enrich.dataschema.template: https://schemas.passage.dev/{type}.json
+    transforms.enrich.type: dev.depot.connect.cloudevents.CloudEventsEnricher
+    transforms.enrich.source.default: depot
+    transforms.enrich.dataschema.template: https://schemas.depot.dev/{type}.json
     key.converter: org.apache.kafka.connect.storage.StringConverter
     value.converter: org.apache.kafka.connect.json.JsonConverter
     value.converter.schemas.enable: false
@@ -935,12 +935,12 @@ spec:
     producer.override.enable.idempotence: true
 ---
 # Intercompany routes by event type: its aggregate types (partner, ic_journal, ic_charge, ic_reconciliation_run) are not its
-# channels, and chargeinvoice.requested is written under ic_charge but has its own channel. dev.passage.interco.<entity>.<verb>.v<n>
-# goes to passage.interco.<entity>, the AsyncAPI channels in services/intercompany/events/asyncapi.yaml. Billing's and payables'
-# IC charge consumers read passage.interco.chargeinvoice (#40, deploy/kafka/billing-consumer.yaml and payables-consumer.yaml). The ACLs above are literal per channel (a new entity needs an entry); deploy/scripts/
+# channels, and chargeinvoice.requested is written under ic_charge but has its own channel. dev.depot.interco.<entity>.<verb>.v<n>
+# goes to depot.interco.<entity>, the AsyncAPI channels in services/intercompany/events/asyncapi.yaml. Billing's and payables'
+# IC charge consumers read depot.interco.chargeinvoice (#40, deploy/kafka/billing-consumer.yaml and payables-consumer.yaml). The ACLs above are literal per channel (a new entity needs an entry); deploy/scripts/
 # test_argocd_apps.py routes every message of the AsyncAPI through the regex and compares the ACLs with the channels.
 # snapshot.mode no_data: pgoutput streaming ignores RLS, so the CDC role needs neither BYPASSRLS nor a snapshot read of the forced-RLS outbox.
-# debezium_cdc_intercompany has REPLICATION; the dev Postgres init (95-intercompany-db.sh) creates passage_intercompany and that role, grants it
+# debezium_cdc_intercompany has REPLICATION; the dev Postgres init (95-intercompany-db.sh) creates depot_intercompany and that role, grants it
 # CONNECT there only and revokes CONNECT from PUBLIC.
 apiVersion: kafka.strimzi.io/v1beta2
 kind: KafkaConnector
@@ -948,7 +948,7 @@ metadata:
   name: outbox-intercompany
   namespace: kafka
   labels:
-    strimzi.io/cluster: passage-connect
+    strimzi.io/cluster: depot-connect
 spec:
   class: io.debezium.connector.postgresql.PostgresConnector
   tasksMax: 1
@@ -958,10 +958,10 @@ spec:
     database.port: 5432
     database.user: ${secrets:kafka/debezium-cdc-intercompany:username}
     database.password: ${secrets:kafka/debezium-cdc-intercompany:password}
-    database.dbname: passage_intercompany
-    topic.prefix: passage.interco
-    slot.name: passage_outbox_intercompany
-    publication.name: passage_outbox_intercompany
+    database.dbname: depot_intercompany
+    topic.prefix: depot.interco
+    slot.name: depot_outbox_intercompany
+    publication.name: depot_outbox_intercompany
     publication.autocreate.mode: disabled
     table.include.list: public.outbox
     snapshot.mode: no_data
@@ -976,13 +976,13 @@ spec:
     transforms.outbox.table.field.event.key: aggregate_id
     transforms.outbox.table.field.event.payload: payload
     transforms.outbox.route.by.field: type
-    transforms.outbox.route.topic.regex: 'dev\.passage\.interco\.(?<routedByValue>[a-z][a-z0-9]*)\.[a-z][a-z0-9]*\.v[0-9]+'
-    transforms.outbox.route.topic.replacement: passage.interco.${routedByValue}
+    transforms.outbox.route.topic.regex: 'dev\.depot\.interco\.(?<routedByValue>[a-z][a-z0-9]*)\.[a-z][a-z0-9]*\.v[0-9]+'
+    transforms.outbox.route.topic.replacement: depot.interco.${routedByValue}
     transforms.outbox.table.expand.json.payload: true
     transforms.outbox.table.fields.additional.placement: tenant_id:header:tenantid
-    transforms.enrich.type: dev.passage.connect.cloudevents.CloudEventsEnricher
-    transforms.enrich.source.default: passage
-    transforms.enrich.dataschema.template: https://schemas.passage.dev/{type}.json
+    transforms.enrich.type: dev.depot.connect.cloudevents.CloudEventsEnricher
+    transforms.enrich.source.default: depot
+    transforms.enrich.dataschema.template: https://schemas.depot.dev/{type}.json
     key.converter: org.apache.kafka.connect.storage.StringConverter
     value.converter: org.apache.kafka.connect.json.JsonConverter
     value.converter.schemas.enable: false
@@ -991,15 +991,15 @@ spec:
 ---
 # Fieldservice routes by event type, not aggregate_type: it writes workorder.posted, workorder.completed and
 # assignment.changed under aggregate_type "workorder", while its AsyncAPI channels (services/fieldservice/events/asyncapi.yaml)
-# give workorder.completed its own topic, passage.service.workorder.completed, which inventory's truck-stock consumer reads, and
-# assignment.changed passage.service.assignment. The route takes <context>.<entity> out of
-# dev.passage.<context>.<entity>.<verb>.v<n> (context service, knowledge or case: the service also publishes
+# give workorder.completed its own topic, depot.service.workorder.completed, which inventory's truck-stock consumer reads, and
+# assignment.changed depot.service.assignment. The route takes <context>.<entity> out of
+# dev.depot.<context>.<entity>.<verb>.v<n> (context service, knowledge or case: the service also publishes
 # knowledge.article.published and case.stage.changed) and keeps workorder.completed whole. A type that does not match keeps its
 # own name as the topic, which no ACL allows, so the task fails instead of writing elsewhere. The ACLs above are literal per
 # channel (a new entity needs an entry) and never cover a .dlq topic. deploy/scripts/test_argocd_apps.py routes every message
 # of the AsyncAPI through this regex.
 # snapshot.mode no_data: pgoutput streaming ignores RLS, so the CDC role needs neither BYPASSRLS nor a snapshot read of the forced-RLS outbox.
-# debezium_cdc_fieldservice has REPLICATION; the dev Postgres init (95-fieldservice-db.sh) creates passage_fieldservice and that role, grants it
+# debezium_cdc_fieldservice has REPLICATION; the dev Postgres init (95-fieldservice-db.sh) creates depot_fieldservice and that role, grants it
 # CONNECT there only and revokes CONNECT from PUBLIC.
 apiVersion: kafka.strimzi.io/v1beta2
 kind: KafkaConnector
@@ -1007,7 +1007,7 @@ metadata:
   name: outbox-fieldservice
   namespace: kafka
   labels:
-    strimzi.io/cluster: passage-connect
+    strimzi.io/cluster: depot-connect
 spec:
   class: io.debezium.connector.postgresql.PostgresConnector
   tasksMax: 1
@@ -1017,10 +1017,10 @@ spec:
     database.port: 5432
     database.user: ${secrets:kafka/debezium-cdc-fieldservice:username}
     database.password: ${secrets:kafka/debezium-cdc-fieldservice:password}
-    database.dbname: passage_fieldservice
-    topic.prefix: passage.service
-    slot.name: passage_outbox_fieldservice
-    publication.name: passage_outbox_fieldservice
+    database.dbname: depot_fieldservice
+    topic.prefix: depot.service
+    slot.name: depot_outbox_fieldservice
+    publication.name: depot_outbox_fieldservice
     publication.autocreate.mode: disabled
     table.include.list: public.outbox
     snapshot.mode: no_data
@@ -1035,13 +1035,13 @@ spec:
     transforms.outbox.table.field.event.key: aggregate_id
     transforms.outbox.table.field.event.payload: payload
     transforms.outbox.route.by.field: type
-    transforms.outbox.route.topic.regex: 'dev\.passage\.(?<routedByValue>service\.workorder\.completed(?=\.v[0-9]+)|(?!service\.workorder\.completed\.v)(?:service|knowledge|case)\.[a-z][a-z0-9]*(?=\.[a-z][a-z0-9]*\.v[0-9]+))(?:\.[a-z][a-z0-9]*)?\.v[0-9]+'
-    transforms.outbox.route.topic.replacement: passage.${routedByValue}
+    transforms.outbox.route.topic.regex: 'dev\.depot\.(?<routedByValue>service\.workorder\.completed(?=\.v[0-9]+)|(?!service\.workorder\.completed\.v)(?:service|knowledge|case)\.[a-z][a-z0-9]*(?=\.[a-z][a-z0-9]*\.v[0-9]+))(?:\.[a-z][a-z0-9]*)?\.v[0-9]+'
+    transforms.outbox.route.topic.replacement: depot.${routedByValue}
     transforms.outbox.table.expand.json.payload: true
     transforms.outbox.table.fields.additional.placement: tenant_id:header:tenantid
-    transforms.enrich.type: dev.passage.connect.cloudevents.CloudEventsEnricher
-    transforms.enrich.source.default: passage
-    transforms.enrich.dataschema.template: https://schemas.passage.dev/{type}.json
+    transforms.enrich.type: dev.depot.connect.cloudevents.CloudEventsEnricher
+    transforms.enrich.source.default: depot
+    transforms.enrich.dataschema.template: https://schemas.depot.dev/{type}.json
     key.converter: org.apache.kafka.connect.storage.StringConverter
     value.converter: org.apache.kafka.connect.json.JsonConverter
     value.converter.schemas.enable: false
@@ -1050,10 +1050,10 @@ spec:
 ---
 # Ops' outbox carries four aggregate types that are its four channels in services/ops/events/asyncapi.yaml: failover
 # (failover.completed), tenant (tenant.provisioned), slo (slo.breached) and license (license.changed). They route by aggregate type to
-# passage.ops.<aggregate>, so no Filter SMT is needed; a fifth aggregate type needs its channel, its literal ACL on the debezium user
+# depot.ops.<aggregate>, so no Filter SMT is needed; a fifth aggregate type needs its channel, its literal ACL on the debezium user
 # and a Filter SMT in front of enrich, as in outbox-budgeting (deploy/scripts/test_argocd_apps.py checks this).
 # snapshot.mode no_data: pgoutput streaming ignores RLS, so the CDC role needs neither BYPASSRLS nor a snapshot read of the forced-RLS outbox.
-# debezium_cdc_ops has REPLICATION; the dev Postgres init (95-ops-db.sh) creates passage_ops and that role, grants it
+# debezium_cdc_ops has REPLICATION; the dev Postgres init (95-ops-db.sh) creates depot_ops and that role, grants it
 # CONNECT there only and revokes CONNECT from PUBLIC. The outbox rows carry the tenant they describe (the operator tenant
 # for platform-wide events) as the tenantid header.
 apiVersion: kafka.strimzi.io/v1beta2
@@ -1062,7 +1062,7 @@ metadata:
   name: outbox-ops
   namespace: kafka
   labels:
-    strimzi.io/cluster: passage-connect
+    strimzi.io/cluster: depot-connect
 spec:
   class: io.debezium.connector.postgresql.PostgresConnector
   tasksMax: 1
@@ -1072,10 +1072,10 @@ spec:
     database.port: 5432
     database.user: ${secrets:kafka/debezium-cdc-ops:username}
     database.password: ${secrets:kafka/debezium-cdc-ops:password}
-    database.dbname: passage_ops
-    topic.prefix: passage.ops
-    slot.name: passage_outbox_ops
-    publication.name: passage_outbox_ops
+    database.dbname: depot_ops
+    topic.prefix: depot.ops
+    slot.name: depot_outbox_ops
+    publication.name: depot_outbox_ops
     publication.autocreate.mode: disabled
     table.include.list: public.outbox
     snapshot.mode: no_data
@@ -1090,12 +1090,12 @@ spec:
     transforms.outbox.table.field.event.key: aggregate_id
     transforms.outbox.table.field.event.payload: payload
     transforms.outbox.route.by.field: aggregate_type
-    transforms.outbox.route.topic.replacement: passage.ops.${routedByValue}
+    transforms.outbox.route.topic.replacement: depot.ops.${routedByValue}
     transforms.outbox.table.expand.json.payload: true
     transforms.outbox.table.fields.additional.placement: tenant_id:header:tenantid
-    transforms.enrich.type: dev.passage.connect.cloudevents.CloudEventsEnricher
-    transforms.enrich.source.default: passage
-    transforms.enrich.dataschema.template: https://schemas.passage.dev/{type}.json
+    transforms.enrich.type: dev.depot.connect.cloudevents.CloudEventsEnricher
+    transforms.enrich.source.default: depot
+    transforms.enrich.dataschema.template: https://schemas.depot.dev/{type}.json
     key.converter: org.apache.kafka.connect.storage.StringConverter
     value.converter: org.apache.kafka.connect.json.JsonConverter
     value.converter.schemas.enable: false
@@ -1104,13 +1104,13 @@ spec:
 ---
 # Receivables routes by event type, not aggregate_type: it writes dunning letters under aggregate_type "dunning_letter" and the
 # customer balance under "customer", while its AsyncAPI channels (services/receivables/events/asyncapi.yaml) are
-# passage.receivables.dunningletter and passage.receivables.customerbalance. dev.passage.receivables.<entity>.<verb>.v<n> goes to
-# passage.receivables.<entity>. The payment-prediction consumer reads seven of these channels (#47, deploy/kafka/prediction-consumer.yaml).
+# depot.receivables.dunningletter and depot.receivables.customerbalance. dev.depot.receivables.<entity>.<verb>.v<n> goes to
+# depot.receivables.<entity>. The payment-prediction consumer reads seven of these channels (#47, deploy/kafka/prediction-consumer.yaml).
 # A type that does not match keeps its own name as the topic, which no ACL allows, so the task fails instead of writing
 # elsewhere. The ACLs above are literal per channel (a new entity needs an entry); deploy/scripts/test_argocd_apps.py routes every
 # message of the AsyncAPI through the regex, compares the ACLs with the channels and checks every type the service defines in Go.
 # snapshot.mode no_data: pgoutput streaming ignores RLS, so the CDC role needs neither BYPASSRLS nor a snapshot read of the forced-RLS outbox.
-# debezium_cdc_receivables has REPLICATION; the dev Postgres init (95-receivables-db.sh) creates passage_receivables and that role,
+# debezium_cdc_receivables has REPLICATION; the dev Postgres init (95-receivables-db.sh) creates depot_receivables and that role,
 # grants it CONNECT there only and revokes CONNECT from PUBLIC. The publication and the role's SELECT on outbox are
 # the service's migrations 0030 and 0031.
 apiVersion: kafka.strimzi.io/v1beta2
@@ -1119,7 +1119,7 @@ metadata:
   name: outbox-receivables
   namespace: kafka
   labels:
-    strimzi.io/cluster: passage-connect
+    strimzi.io/cluster: depot-connect
 spec:
   class: io.debezium.connector.postgresql.PostgresConnector
   tasksMax: 1
@@ -1129,10 +1129,10 @@ spec:
     database.port: 5432
     database.user: ${secrets:kafka/debezium-cdc-receivables:username}
     database.password: ${secrets:kafka/debezium-cdc-receivables:password}
-    database.dbname: passage_receivables
-    topic.prefix: passage.receivables
-    slot.name: passage_outbox_receivables
-    publication.name: passage_outbox_receivables
+    database.dbname: depot_receivables
+    topic.prefix: depot.receivables
+    slot.name: depot_outbox_receivables
+    publication.name: depot_outbox_receivables
     publication.autocreate.mode: disabled
     table.include.list: public.outbox
     snapshot.mode: no_data
@@ -1147,13 +1147,13 @@ spec:
     transforms.outbox.table.field.event.key: aggregate_id
     transforms.outbox.table.field.event.payload: payload
     transforms.outbox.route.by.field: type
-    transforms.outbox.route.topic.regex: 'dev\.passage\.receivables\.(?<routedByValue>[a-z][a-z0-9]*)\.[a-z][a-z0-9]*\.v[0-9]+'
-    transforms.outbox.route.topic.replacement: passage.receivables.${routedByValue}
+    transforms.outbox.route.topic.regex: 'dev\.depot\.receivables\.(?<routedByValue>[a-z][a-z0-9]*)\.[a-z][a-z0-9]*\.v[0-9]+'
+    transforms.outbox.route.topic.replacement: depot.receivables.${routedByValue}
     transforms.outbox.table.expand.json.payload: true
     transforms.outbox.table.fields.additional.placement: tenant_id:header:tenantid
-    transforms.enrich.type: dev.passage.connect.cloudevents.CloudEventsEnricher
-    transforms.enrich.source.default: passage
-    transforms.enrich.dataschema.template: https://schemas.passage.dev/{type}.json
+    transforms.enrich.type: dev.depot.connect.cloudevents.CloudEventsEnricher
+    transforms.enrich.source.default: depot
+    transforms.enrich.dataschema.template: https://schemas.depot.dev/{type}.json
     key.converter: org.apache.kafka.connect.storage.StringConverter
     value.converter: org.apache.kafka.connect.json.JsonConverter
     value.converter.schemas.enable: false
@@ -1161,13 +1161,13 @@ spec:
     producer.override.enable.idempotence: true
 ---
 # Expense routes by event type: report.approved is written under aggregate_type "expense_report" but its channel is
-# passage.expense.report. dev.passage.expense.<entity>.<verb>.v<n> goes to passage.expense.<entity>, the AsyncAPI channels in
-# services/expense/events/asyncapi.yaml. The intercompany charge feed reads passage.expense.report (#40, deploy/kafka/intercompany-consumer.yaml).
+# depot.expense.report. dev.depot.expense.<entity>.<verb>.v<n> goes to depot.expense.<entity>, the AsyncAPI channels in
+# services/expense/events/asyncapi.yaml. The intercompany charge feed reads depot.expense.report (#40, deploy/kafka/intercompany-consumer.yaml).
 # A type that does not match keeps its own name as the topic, which no ACL allows, so the task fails instead of writing
 # elsewhere. The ACLs above are literal per channel (a new entity needs an entry); deploy/scripts/test_argocd_apps.py routes every
 # message of the AsyncAPI through the regex, compares the ACLs with the channels and checks every type the service defines in Go.
 # snapshot.mode no_data: pgoutput streaming ignores RLS, so the CDC role needs neither BYPASSRLS nor a snapshot read of the forced-RLS outbox.
-# debezium_cdc_expense has REPLICATION; the dev Postgres init (95-expense-db.sh) creates passage_expense and that role,
+# debezium_cdc_expense has REPLICATION; the dev Postgres init (95-expense-db.sh) creates depot_expense and that role,
 # grants it CONNECT there only and revokes CONNECT from PUBLIC. The publication and the role's SELECT on outbox are
 # the service's migrations 0010 and 0011.
 apiVersion: kafka.strimzi.io/v1beta2
@@ -1176,7 +1176,7 @@ metadata:
   name: outbox-expense
   namespace: kafka
   labels:
-    strimzi.io/cluster: passage-connect
+    strimzi.io/cluster: depot-connect
 spec:
   class: io.debezium.connector.postgresql.PostgresConnector
   tasksMax: 1
@@ -1186,10 +1186,10 @@ spec:
     database.port: 5432
     database.user: ${secrets:kafka/debezium-cdc-expense:username}
     database.password: ${secrets:kafka/debezium-cdc-expense:password}
-    database.dbname: passage_expense
-    topic.prefix: passage.expense
-    slot.name: passage_outbox_expense
-    publication.name: passage_outbox_expense
+    database.dbname: depot_expense
+    topic.prefix: depot.expense
+    slot.name: depot_outbox_expense
+    publication.name: depot_outbox_expense
     publication.autocreate.mode: disabled
     table.include.list: public.outbox
     snapshot.mode: no_data
@@ -1204,27 +1204,27 @@ spec:
     transforms.outbox.table.field.event.key: aggregate_id
     transforms.outbox.table.field.event.payload: payload
     transforms.outbox.route.by.field: type
-    transforms.outbox.route.topic.regex: 'dev\.passage\.expense\.(?<routedByValue>[a-z][a-z0-9]*)\.[a-z][a-z0-9]*\.v[0-9]+'
-    transforms.outbox.route.topic.replacement: passage.expense.${routedByValue}
+    transforms.outbox.route.topic.regex: 'dev\.depot\.expense\.(?<routedByValue>[a-z][a-z0-9]*)\.[a-z][a-z0-9]*\.v[0-9]+'
+    transforms.outbox.route.topic.replacement: depot.expense.${routedByValue}
     transforms.outbox.table.expand.json.payload: true
     transforms.outbox.table.fields.additional.placement: tenant_id:header:tenantid
-    transforms.enrich.type: dev.passage.connect.cloudevents.CloudEventsEnricher
-    transforms.enrich.source.default: passage
-    transforms.enrich.dataschema.template: https://schemas.passage.dev/{type}.json
+    transforms.enrich.type: dev.depot.connect.cloudevents.CloudEventsEnricher
+    transforms.enrich.source.default: depot
+    transforms.enrich.dataschema.template: https://schemas.depot.dev/{type}.json
     key.converter: org.apache.kafka.connect.storage.StringConverter
     value.converter: org.apache.kafka.connect.json.JsonConverter
     value.converter.schemas.enable: false
     producer.override.acks: all
     producer.override.enable.idempotence: true
 ---
-# Projects routes by event type, as the other services that publish more than one entity do: dev.passage.projects.<entity>.<verb>.v<n>
-# goes to passage.projects.<entity>, the AsyncAPI channels in services/projects/events/asyncapi.yaml. The intercompany charge feed
-# reads passage.projects.transaction (#40, deploy/kafka/intercompany-consumer.yaml).
+# Projects routes by event type, as the other services that publish more than one entity do: dev.depot.projects.<entity>.<verb>.v<n>
+# goes to depot.projects.<entity>, the AsyncAPI channels in services/projects/events/asyncapi.yaml. The intercompany charge feed
+# reads depot.projects.transaction (#40, deploy/kafka/intercompany-consumer.yaml).
 # A type that does not match keeps its own name as the topic, which no ACL allows, so the task fails instead of writing
 # elsewhere. The ACLs above are literal per channel (a new entity needs an entry); deploy/scripts/test_argocd_apps.py routes every
 # message of the AsyncAPI through the regex, compares the ACLs with the channels and checks every type the service defines in Go.
 # snapshot.mode no_data: pgoutput streaming ignores RLS, so the CDC role needs neither BYPASSRLS nor a snapshot read of the forced-RLS outbox.
-# debezium_cdc_projects has REPLICATION; the dev Postgres init (95-projects-db.sh) creates passage_projects and that role,
+# debezium_cdc_projects has REPLICATION; the dev Postgres init (95-projects-db.sh) creates depot_projects and that role,
 # grants it CONNECT there only and revokes CONNECT from PUBLIC. The publication and the role's SELECT on outbox are
 # the service's migrations 0011 and 0012.
 apiVersion: kafka.strimzi.io/v1beta2
@@ -1233,7 +1233,7 @@ metadata:
   name: outbox-projects
   namespace: kafka
   labels:
-    strimzi.io/cluster: passage-connect
+    strimzi.io/cluster: depot-connect
 spec:
   class: io.debezium.connector.postgresql.PostgresConnector
   tasksMax: 1
@@ -1243,10 +1243,10 @@ spec:
     database.port: 5432
     database.user: ${secrets:kafka/debezium-cdc-projects:username}
     database.password: ${secrets:kafka/debezium-cdc-projects:password}
-    database.dbname: passage_projects
-    topic.prefix: passage.projects
-    slot.name: passage_outbox_projects
-    publication.name: passage_outbox_projects
+    database.dbname: depot_projects
+    topic.prefix: depot.projects
+    slot.name: depot_outbox_projects
+    publication.name: depot_outbox_projects
     publication.autocreate.mode: disabled
     table.include.list: public.outbox
     snapshot.mode: no_data
@@ -1261,27 +1261,27 @@ spec:
     transforms.outbox.table.field.event.key: aggregate_id
     transforms.outbox.table.field.event.payload: payload
     transforms.outbox.route.by.field: type
-    transforms.outbox.route.topic.regex: 'dev\.passage\.projects\.(?<routedByValue>[a-z][a-z0-9]*)\.[a-z][a-z0-9]*\.v[0-9]+'
-    transforms.outbox.route.topic.replacement: passage.projects.${routedByValue}
+    transforms.outbox.route.topic.regex: 'dev\.depot\.projects\.(?<routedByValue>[a-z][a-z0-9]*)\.[a-z][a-z0-9]*\.v[0-9]+'
+    transforms.outbox.route.topic.replacement: depot.projects.${routedByValue}
     transforms.outbox.table.expand.json.payload: true
     transforms.outbox.table.fields.additional.placement: tenant_id:header:tenantid
-    transforms.enrich.type: dev.passage.connect.cloudevents.CloudEventsEnricher
-    transforms.enrich.source.default: passage
-    transforms.enrich.dataschema.template: https://schemas.passage.dev/{type}.json
+    transforms.enrich.type: dev.depot.connect.cloudevents.CloudEventsEnricher
+    transforms.enrich.source.default: depot
+    transforms.enrich.dataschema.template: https://schemas.depot.dev/{type}.json
     key.converter: org.apache.kafka.connect.storage.StringConverter
     value.converter: org.apache.kafka.connect.json.JsonConverter
     value.converter.schemas.enable: false
     producer.override.acks: all
     producer.override.enable.idempotence: true
 ---
-# Party routes by event type: dev.passage.party.<entity>.<verb>.v<n> goes to passage.party.<entity>, the AsyncAPI channels in
-# services/party/events/asyncapi.yaml (the messages carry the type in x-passage-type). The search index consumer reads
-# passage.party.party (deploy/kafka/search-consumer.yaml).
+# Party routes by event type: dev.depot.party.<entity>.<verb>.v<n> goes to depot.party.<entity>, the AsyncAPI channels in
+# services/party/events/asyncapi.yaml (the messages carry the type in x-depot-type). The search index consumer reads
+# depot.party.party (deploy/kafka/search-consumer.yaml).
 # A type that does not match keeps its own name as the topic, which no ACL allows, so the task fails instead of writing
 # elsewhere. The ACLs above are literal per channel (a new entity needs an entry); deploy/scripts/test_argocd_apps.py routes every
 # message of the AsyncAPI through the regex, compares the ACLs with the channels and checks every type the service defines in Go.
 # snapshot.mode no_data: pgoutput streaming ignores RLS, so the CDC role needs neither BYPASSRLS nor a snapshot read of the forced-RLS outbox.
-# debezium_cdc_party has REPLICATION; the dev Postgres init (95-party-db.sh) creates passage_party and that role,
+# debezium_cdc_party has REPLICATION; the dev Postgres init (95-party-db.sh) creates depot_party and that role,
 # grants it CONNECT there only and revokes CONNECT from PUBLIC. The publication and the role's SELECT on outbox are
 # the service's migrations 0019 and 0020.
 apiVersion: kafka.strimzi.io/v1beta2
@@ -1290,7 +1290,7 @@ metadata:
   name: outbox-party
   namespace: kafka
   labels:
-    strimzi.io/cluster: passage-connect
+    strimzi.io/cluster: depot-connect
 spec:
   class: io.debezium.connector.postgresql.PostgresConnector
   tasksMax: 1
@@ -1300,10 +1300,10 @@ spec:
     database.port: 5432
     database.user: ${secrets:kafka/debezium-cdc-party:username}
     database.password: ${secrets:kafka/debezium-cdc-party:password}
-    database.dbname: passage_party
-    topic.prefix: passage.party
-    slot.name: passage_outbox_party
-    publication.name: passage_outbox_party
+    database.dbname: depot_party
+    topic.prefix: depot.party
+    slot.name: depot_outbox_party
+    publication.name: depot_outbox_party
     publication.autocreate.mode: disabled
     table.include.list: public.outbox
     snapshot.mode: no_data
@@ -1318,27 +1318,27 @@ spec:
     transforms.outbox.table.field.event.key: aggregate_id
     transforms.outbox.table.field.event.payload: payload
     transforms.outbox.route.by.field: type
-    transforms.outbox.route.topic.regex: 'dev\.passage\.party\.(?<routedByValue>[a-z][a-z0-9]*)\.[a-z][a-z0-9]*\.v[0-9]+'
-    transforms.outbox.route.topic.replacement: passage.party.${routedByValue}
+    transforms.outbox.route.topic.regex: 'dev\.depot\.party\.(?<routedByValue>[a-z][a-z0-9]*)\.[a-z][a-z0-9]*\.v[0-9]+'
+    transforms.outbox.route.topic.replacement: depot.party.${routedByValue}
     transforms.outbox.table.expand.json.payload: true
     transforms.outbox.table.fields.additional.placement: tenant_id:header:tenantid
-    transforms.enrich.type: dev.passage.connect.cloudevents.CloudEventsEnricher
-    transforms.enrich.source.default: passage
-    transforms.enrich.dataschema.template: https://schemas.passage.dev/{type}.json
+    transforms.enrich.type: dev.depot.connect.cloudevents.CloudEventsEnricher
+    transforms.enrich.source.default: depot
+    transforms.enrich.dataschema.template: https://schemas.depot.dev/{type}.json
     key.converter: org.apache.kafka.connect.storage.StringConverter
     value.converter: org.apache.kafka.connect.json.JsonConverter
     value.converter.schemas.enable: false
     producer.override.acks: all
     producer.override.enable.idempotence: true
 ---
-# Product routes by event type: dev.passage.product.<entity>.<verb>.v<n> goes to passage.product.<entity>, the AsyncAPI channels in
-# services/product/events/asyncapi.yaml (product.released lands on passage.product.product, as the spec says). The search index
-# consumer reads passage.product.product (deploy/kafka/search-consumer.yaml).
+# Product routes by event type: dev.depot.product.<entity>.<verb>.v<n> goes to depot.product.<entity>, the AsyncAPI channels in
+# services/product/events/asyncapi.yaml (product.released lands on depot.product.product, as the spec says). The search index
+# consumer reads depot.product.product (deploy/kafka/search-consumer.yaml).
 # A type that does not match keeps its own name as the topic, which no ACL allows, so the task fails instead of writing
 # elsewhere. The ACLs above are literal per channel (a new entity needs an entry); deploy/scripts/test_argocd_apps.py routes every
 # message of the AsyncAPI through the regex, compares the ACLs with the channels and checks every type the service defines in Go.
 # snapshot.mode no_data: pgoutput streaming ignores RLS, so the CDC role needs neither BYPASSRLS nor a snapshot read of the forced-RLS outbox.
-# debezium_cdc_product has REPLICATION; the dev Postgres init (95-product-db.sh) creates passage_product and that role,
+# debezium_cdc_product has REPLICATION; the dev Postgres init (95-product-db.sh) creates depot_product and that role,
 # grants it CONNECT there only and revokes CONNECT from PUBLIC. The publication and the role's SELECT on outbox are
 # the service's migrations 0004 and 0005.
 apiVersion: kafka.strimzi.io/v1beta2
@@ -1347,7 +1347,7 @@ metadata:
   name: outbox-product
   namespace: kafka
   labels:
-    strimzi.io/cluster: passage-connect
+    strimzi.io/cluster: depot-connect
 spec:
   class: io.debezium.connector.postgresql.PostgresConnector
   tasksMax: 1
@@ -1357,10 +1357,10 @@ spec:
     database.port: 5432
     database.user: ${secrets:kafka/debezium-cdc-product:username}
     database.password: ${secrets:kafka/debezium-cdc-product:password}
-    database.dbname: passage_product
-    topic.prefix: passage.product
-    slot.name: passage_outbox_product
-    publication.name: passage_outbox_product
+    database.dbname: depot_product
+    topic.prefix: depot.product
+    slot.name: depot_outbox_product
+    publication.name: depot_outbox_product
     publication.autocreate.mode: disabled
     table.include.list: public.outbox
     snapshot.mode: no_data
@@ -1375,29 +1375,29 @@ spec:
     transforms.outbox.table.field.event.key: aggregate_id
     transforms.outbox.table.field.event.payload: payload
     transforms.outbox.route.by.field: type
-    transforms.outbox.route.topic.regex: 'dev\.passage\.product\.(?<routedByValue>[a-z][a-z0-9]*)\.[a-z][a-z0-9]*\.v[0-9]+'
-    transforms.outbox.route.topic.replacement: passage.product.${routedByValue}
+    transforms.outbox.route.topic.regex: 'dev\.depot\.product\.(?<routedByValue>[a-z][a-z0-9]*)\.[a-z][a-z0-9]*\.v[0-9]+'
+    transforms.outbox.route.topic.replacement: depot.product.${routedByValue}
     transforms.outbox.table.expand.json.payload: true
     transforms.outbox.table.fields.additional.placement: tenant_id:header:tenantid
-    transforms.enrich.type: dev.passage.connect.cloudevents.CloudEventsEnricher
-    transforms.enrich.source.default: passage
-    transforms.enrich.dataschema.template: https://schemas.passage.dev/{type}.json
+    transforms.enrich.type: dev.depot.connect.cloudevents.CloudEventsEnricher
+    transforms.enrich.source.default: depot
+    transforms.enrich.dataschema.template: https://schemas.depot.dev/{type}.json
     key.converter: org.apache.kafka.connect.storage.StringConverter
     value.converter: org.apache.kafka.connect.json.JsonConverter
     value.converter.schemas.enable: false
     producer.override.acks: all
     producer.override.enable.idempotence: true
 ---
-# Purchasing publishes under the procurement context: dev.passage.procurement.<entity>.<verb>.v<n> goes to
-# passage.procurement.<entity>, the AsyncAPI channels in services/purchasing/events/asyncapi.yaml (it writes scheduling-agreement
-# releases under aggregate_type "scheduling_agreement" but their channel is passage.procurement.sarelease, so it routes by event
-# type). po.confirmed and po.cancelled land on passage.procurement.po, which the search index consumer reads
-# (deploy/kafka/search-consumer.yaml). The spec's passage.fulfillment.dropship and passage.planning.plan channels are consumed, not published.
+# Purchasing publishes under the procurement context: dev.depot.procurement.<entity>.<verb>.v<n> goes to
+# depot.procurement.<entity>, the AsyncAPI channels in services/purchasing/events/asyncapi.yaml (it writes scheduling-agreement
+# releases under aggregate_type "scheduling_agreement" but their channel is depot.procurement.sarelease, so it routes by event
+# type). po.confirmed and po.cancelled land on depot.procurement.po, which the search index consumer reads
+# (deploy/kafka/search-consumer.yaml). The spec's depot.fulfillment.dropship and depot.planning.plan channels are consumed, not published.
 # A type that does not match keeps its own name as the topic, which no ACL allows, so the task fails instead of writing
 # elsewhere. The ACLs above are literal per channel (a new entity needs an entry); deploy/scripts/test_argocd_apps.py routes every
 # message of the AsyncAPI through the regex, compares the ACLs with the channels and checks every type the service defines in Go.
 # snapshot.mode no_data: pgoutput streaming ignores RLS, so the CDC role needs neither BYPASSRLS nor a snapshot read of the forced-RLS outbox.
-# debezium_cdc_purchasing has REPLICATION; the dev Postgres init (95-purchasing-db.sh) creates passage_purchasing and that role,
+# debezium_cdc_purchasing has REPLICATION; the dev Postgres init (95-purchasing-db.sh) creates depot_purchasing and that role,
 # grants it CONNECT there only and revokes CONNECT from PUBLIC. The publication and the role's SELECT on outbox are
 # the service's migrations 0038 and 0039.
 apiVersion: kafka.strimzi.io/v1beta2
@@ -1406,7 +1406,7 @@ metadata:
   name: outbox-purchasing
   namespace: kafka
   labels:
-    strimzi.io/cluster: passage-connect
+    strimzi.io/cluster: depot-connect
 spec:
   class: io.debezium.connector.postgresql.PostgresConnector
   tasksMax: 1
@@ -1416,10 +1416,10 @@ spec:
     database.port: 5432
     database.user: ${secrets:kafka/debezium-cdc-purchasing:username}
     database.password: ${secrets:kafka/debezium-cdc-purchasing:password}
-    database.dbname: passage_purchasing
-    topic.prefix: passage.procurement
-    slot.name: passage_outbox_purchasing
-    publication.name: passage_outbox_purchasing
+    database.dbname: depot_purchasing
+    topic.prefix: depot.procurement
+    slot.name: depot_outbox_purchasing
+    publication.name: depot_outbox_purchasing
     publication.autocreate.mode: disabled
     table.include.list: public.outbox
     snapshot.mode: no_data
@@ -1434,13 +1434,13 @@ spec:
     transforms.outbox.table.field.event.key: aggregate_id
     transforms.outbox.table.field.event.payload: payload
     transforms.outbox.route.by.field: type
-    transforms.outbox.route.topic.regex: 'dev\.passage\.procurement\.(?<routedByValue>[a-z][a-z0-9]*)\.[a-z][a-z0-9]*\.v[0-9]+'
-    transforms.outbox.route.topic.replacement: passage.procurement.${routedByValue}
+    transforms.outbox.route.topic.regex: 'dev\.depot\.procurement\.(?<routedByValue>[a-z][a-z0-9]*)\.[a-z][a-z0-9]*\.v[0-9]+'
+    transforms.outbox.route.topic.replacement: depot.procurement.${routedByValue}
     transforms.outbox.table.expand.json.payload: true
     transforms.outbox.table.fields.additional.placement: tenant_id:header:tenantid
-    transforms.enrich.type: dev.passage.connect.cloudevents.CloudEventsEnricher
-    transforms.enrich.source.default: passage
-    transforms.enrich.dataschema.template: https://schemas.passage.dev/{type}.json
+    transforms.enrich.type: dev.depot.connect.cloudevents.CloudEventsEnricher
+    transforms.enrich.source.default: depot
+    transforms.enrich.dataschema.template: https://schemas.depot.dev/{type}.json
     key.converter: org.apache.kafka.connect.storage.StringConverter
     value.converter: org.apache.kafka.connect.json.JsonConverter
     value.converter.schemas.enable: false
@@ -1449,13 +1449,13 @@ spec:
 ---
 # Production routes by event type: it writes every event under aggregate_type "production_order", while its AsyncAPI channels
 # (services/production/events/asyncapi.yaml) name the topic after the type's entity, so order.created lands on
-# passage.production.order (read by the search index consumer, deploy/kafka/search-consumer.yaml) and journal.posted on
-# passage.production.journal. The spec's passage.planning.* and passage.shopfloor.* channels are consumed, not published.
+# depot.production.order (read by the search index consumer, deploy/kafka/search-consumer.yaml) and journal.posted on
+# depot.production.journal. The spec's depot.planning.* and depot.shopfloor.* channels are consumed, not published.
 # A type that does not match keeps its own name as the topic, which no ACL allows, so the task fails instead of writing
 # elsewhere. The ACLs above are literal per channel (a new entity needs an entry); deploy/scripts/test_argocd_apps.py routes every
 # message of the AsyncAPI through the regex, compares the ACLs with the channels and checks every type the service defines in Go.
 # snapshot.mode no_data: pgoutput streaming ignores RLS, so the CDC role needs neither BYPASSRLS nor a snapshot read of the forced-RLS outbox.
-# debezium_cdc_production has REPLICATION; the dev Postgres init (95-production-db.sh) creates passage_production and that role,
+# debezium_cdc_production has REPLICATION; the dev Postgres init (95-production-db.sh) creates depot_production and that role,
 # grants it CONNECT there only and revokes CONNECT from PUBLIC. The publication and the role's SELECT on outbox are
 # the service's migrations 0030 and 0031.
 apiVersion: kafka.strimzi.io/v1beta2
@@ -1464,7 +1464,7 @@ metadata:
   name: outbox-production
   namespace: kafka
   labels:
-    strimzi.io/cluster: passage-connect
+    strimzi.io/cluster: depot-connect
 spec:
   class: io.debezium.connector.postgresql.PostgresConnector
   tasksMax: 1
@@ -1474,10 +1474,10 @@ spec:
     database.port: 5432
     database.user: ${secrets:kafka/debezium-cdc-production:username}
     database.password: ${secrets:kafka/debezium-cdc-production:password}
-    database.dbname: passage_production
-    topic.prefix: passage.production
-    slot.name: passage_outbox_production
-    publication.name: passage_outbox_production
+    database.dbname: depot_production
+    topic.prefix: depot.production
+    slot.name: depot_outbox_production
+    publication.name: depot_outbox_production
     publication.autocreate.mode: disabled
     table.include.list: public.outbox
     snapshot.mode: no_data
@@ -1492,26 +1492,26 @@ spec:
     transforms.outbox.table.field.event.key: aggregate_id
     transforms.outbox.table.field.event.payload: payload
     transforms.outbox.route.by.field: type
-    transforms.outbox.route.topic.regex: 'dev\.passage\.production\.(?<routedByValue>[a-z][a-z0-9]*)\.[a-z][a-z0-9]*\.v[0-9]+'
-    transforms.outbox.route.topic.replacement: passage.production.${routedByValue}
+    transforms.outbox.route.topic.regex: 'dev\.depot\.production\.(?<routedByValue>[a-z][a-z0-9]*)\.[a-z][a-z0-9]*\.v[0-9]+'
+    transforms.outbox.route.topic.replacement: depot.production.${routedByValue}
     transforms.outbox.table.expand.json.payload: true
     transforms.outbox.table.fields.additional.placement: tenant_id:header:tenantid
-    transforms.enrich.type: dev.passage.connect.cloudevents.CloudEventsEnricher
-    transforms.enrich.source.default: passage
-    transforms.enrich.dataschema.template: https://schemas.passage.dev/{type}.json
+    transforms.enrich.type: dev.depot.connect.cloudevents.CloudEventsEnricher
+    transforms.enrich.source.default: depot
+    transforms.enrich.dataschema.template: https://schemas.depot.dev/{type}.json
     key.converter: org.apache.kafka.connect.storage.StringConverter
     value.converter: org.apache.kafka.connect.json.JsonConverter
     value.converter.schemas.enable: false
     producer.override.acks: all
     producer.override.enable.idempotence: true
 ---
-# HR routes by event type: dev.passage.hr.<entity>.<verb>.v<n> goes to passage.hr.<entity>, the AsyncAPI channels in
-# services/hr/events/asyncapi.yaml. The search index consumer reads passage.hr.worker (deploy/kafka/search-consumer.yaml).
+# HR routes by event type: dev.depot.hr.<entity>.<verb>.v<n> goes to depot.hr.<entity>, the AsyncAPI channels in
+# services/hr/events/asyncapi.yaml. The search index consumer reads depot.hr.worker (deploy/kafka/search-consumer.yaml).
 # A type that does not match keeps its own name as the topic, which no ACL allows, so the task fails instead of writing
 # elsewhere. The ACLs above are literal per channel (a new entity needs an entry); deploy/scripts/test_argocd_apps.py routes every
 # message of the AsyncAPI through the regex, compares the ACLs with the channels and checks every type the service defines in Go.
 # snapshot.mode no_data: pgoutput streaming ignores RLS, so the CDC role needs neither BYPASSRLS nor a snapshot read of the forced-RLS outbox.
-# debezium_cdc_hr has REPLICATION; the dev Postgres init (95-hr-db.sh) creates passage_hr and that role,
+# debezium_cdc_hr has REPLICATION; the dev Postgres init (95-hr-db.sh) creates depot_hr and that role,
 # grants it CONNECT there only and revokes CONNECT from PUBLIC. The publication and the role's SELECT on outbox are
 # the service's migrations 0015 and 0016.
 apiVersion: kafka.strimzi.io/v1beta2
@@ -1520,7 +1520,7 @@ metadata:
   name: outbox-hr
   namespace: kafka
   labels:
-    strimzi.io/cluster: passage-connect
+    strimzi.io/cluster: depot-connect
 spec:
   class: io.debezium.connector.postgresql.PostgresConnector
   tasksMax: 1
@@ -1530,10 +1530,10 @@ spec:
     database.port: 5432
     database.user: ${secrets:kafka/debezium-cdc-hr:username}
     database.password: ${secrets:kafka/debezium-cdc-hr:password}
-    database.dbname: passage_hr
-    topic.prefix: passage.hr
-    slot.name: passage_outbox_hr
-    publication.name: passage_outbox_hr
+    database.dbname: depot_hr
+    topic.prefix: depot.hr
+    slot.name: depot_outbox_hr
+    publication.name: depot_outbox_hr
     publication.autocreate.mode: disabled
     table.include.list: public.outbox
     snapshot.mode: no_data
@@ -1548,13 +1548,13 @@ spec:
     transforms.outbox.table.field.event.key: aggregate_id
     transforms.outbox.table.field.event.payload: payload
     transforms.outbox.route.by.field: type
-    transforms.outbox.route.topic.regex: 'dev\.passage\.hr\.(?<routedByValue>[a-z][a-z0-9]*)\.[a-z][a-z0-9]*\.v[0-9]+'
-    transforms.outbox.route.topic.replacement: passage.hr.${routedByValue}
+    transforms.outbox.route.topic.regex: 'dev\.depot\.hr\.(?<routedByValue>[a-z][a-z0-9]*)\.[a-z][a-z0-9]*\.v[0-9]+'
+    transforms.outbox.route.topic.replacement: depot.hr.${routedByValue}
     transforms.outbox.table.expand.json.payload: true
     transforms.outbox.table.fields.additional.placement: tenant_id:header:tenantid
-    transforms.enrich.type: dev.passage.connect.cloudevents.CloudEventsEnricher
-    transforms.enrich.source.default: passage
-    transforms.enrich.dataschema.template: https://schemas.passage.dev/{type}.json
+    transforms.enrich.type: dev.depot.connect.cloudevents.CloudEventsEnricher
+    transforms.enrich.source.default: depot
+    transforms.enrich.dataschema.template: https://schemas.depot.dev/{type}.json
     key.converter: org.apache.kafka.connect.storage.StringConverter
     value.converter: org.apache.kafka.connect.json.JsonConverter
     value.converter.schemas.enable: false

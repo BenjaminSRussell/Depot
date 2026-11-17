@@ -9,7 +9,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	evts "github.com/BenjaminSRussell/passage/services/warehouse/internal/events"
+	evts "github.com/BenjaminSRussell/depot/services/warehouse/internal/events"
 )
 
 // ShipLine is what a container holds of one line of the fulfillment shipment; Qty is a decimal string above zero.

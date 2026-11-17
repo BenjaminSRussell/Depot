@@ -1,6 +1,6 @@
 asyncapi: 3.0.0
 info:
-  title: Passage integration hub events
+  title: Depot integration hub events
   version: 0.3.0
   description: |
     The hub's own CloudEvents 1.0 (platform/go/events envelope), written to the outbox
@@ -8,16 +8,16 @@ info:
     outbox payload is the whole envelope; the schemas below are its `data` member, with
     snake_case field names as in the PRD. Subscription URLs, signing secrets and rest-push
     credentials never appear in an event. The outbox `aggregate_type` is the type's entity
-    segment, so the EventRouter publishes each event to `passage.hub.<entity>`, the topic
+    segment, so the EventRouter publishes each event to `depot.hub.<entity>`, the topic
     platform/go/events.Topic gives for its type (the channels below); the Kafka key is the
-    subscription, API client or catalog entry id. When the hub consumes `passage.hub.webhook` and a
-    subscription matches `dev.passage.hub.webhook.*`, that subscription receives the
+    subscription, API client or catalog entry id. When the hub consumes `depot.hub.webhook` and a
+    subscription matches `dev.depot.hub.webhook.*`, that subscription receives the
     outcome events, but delivering an outcome event writes no outcome event of its own
     (no feedback loop).
 defaultContentType: application/cloudevents+json
 channels:
-  passage.hub.subscription:
-    address: passage.hub.subscription
+  depot.hub.subscription:
+    address: depot.hub.subscription
     messages:
       subscriptionCreated:
         $ref: '#/components/messages/subscriptionCreated'
@@ -31,15 +31,15 @@ channels:
         $ref: '#/components/messages/subscriptionResumed'
       subscriptionSecretRotated:
         $ref: '#/components/messages/subscriptionSecretRotated'
-  passage.hub.webhook:
-    address: passage.hub.webhook
+  depot.hub.webhook:
+    address: depot.hub.webhook
     messages:
       webhookDelivered:
         $ref: '#/components/messages/webhookDelivered'
       webhookDeadlettered:
         $ref: '#/components/messages/webhookDeadlettered'
-  passage.hub.apiclient:
-    address: passage.hub.apiclient
+  depot.hub.apiclient:
+    address: depot.hub.apiclient
     messages:
       apiClientRegistered:
         $ref: '#/components/messages/apiClientRegistered'
@@ -47,8 +47,8 @@ channels:
         $ref: '#/components/messages/apiClientUpdated'
       apiClientRevoked:
         $ref: '#/components/messages/apiClientRevoked'
-  passage.hub.catalogentry:
-    address: passage.hub.catalogentry
+  depot.hub.catalogentry:
+    address: depot.hub.catalogentry
     messages:
       catalogEntryPublished:
         $ref: '#/components/messages/catalogEntryPublished'
@@ -62,196 +62,196 @@ operations:
   publishSubscriptionCreated:
     action: send
     channel:
-      $ref: '#/channels/passage.hub.subscription'
+      $ref: '#/channels/depot.hub.subscription'
     summary: "A subscription was created."
     messages:
-      - $ref: '#/channels/passage.hub.subscription/messages/subscriptionCreated'
+      - $ref: '#/channels/depot.hub.subscription/messages/subscriptionCreated'
   publishSubscriptionUpdated:
     action: send
     channel:
-      $ref: '#/channels/passage.hub.subscription'
+      $ref: '#/channels/depot.hub.subscription'
     summary: "A subscription's name, URL, patterns or rest-push settings changed."
     messages:
-      - $ref: '#/channels/passage.hub.subscription/messages/subscriptionUpdated'
+      - $ref: '#/channels/depot.hub.subscription/messages/subscriptionUpdated'
   publishSubscriptionDeleted:
     action: send
     channel:
-      $ref: '#/channels/passage.hub.subscription'
+      $ref: '#/channels/depot.hub.subscription'
     summary: "A subscription and its deliveries were deleted; the data is the last state."
     messages:
-      - $ref: '#/channels/passage.hub.subscription/messages/subscriptionDeleted'
+      - $ref: '#/channels/depot.hub.subscription/messages/subscriptionDeleted'
   publishSubscriptionPaused:
     action: send
     channel:
-      $ref: '#/channels/passage.hub.subscription'
+      $ref: '#/channels/depot.hub.subscription'
     summary: "A subscription was paused because its receiver answered 410 Gone (HUB-0114)."
     messages:
-      - $ref: '#/channels/passage.hub.subscription/messages/subscriptionPaused'
+      - $ref: '#/channels/depot.hub.subscription/messages/subscriptionPaused'
   publishSubscriptionResumed:
     action: send
     channel:
-      $ref: '#/channels/passage.hub.subscription'
+      $ref: '#/channels/depot.hub.subscription'
     summary: "A paused subscription was resumed."
     messages:
-      - $ref: '#/channels/passage.hub.subscription/messages/subscriptionResumed'
+      - $ref: '#/channels/depot.hub.subscription/messages/subscriptionResumed'
   publishSubscriptionSecretRotated:
     action: send
     channel:
-      $ref: '#/channels/passage.hub.subscription'
+      $ref: '#/channels/depot.hub.subscription'
     summary: "A webhook subscription's signing secret was rotated; the data never carries a secret."
     messages:
-      - $ref: '#/channels/passage.hub.subscription/messages/subscriptionSecretRotated'
+      - $ref: '#/channels/depot.hub.subscription/messages/subscriptionSecretRotated'
   publishWebhookDelivered:
     action: send
     channel:
-      $ref: '#/channels/passage.hub.webhook'
+      $ref: '#/channels/depot.hub.webhook'
     summary: "An event was delivered to a subscription's receiver (2xx)."
     messages:
-      - $ref: '#/channels/passage.hub.webhook/messages/webhookDelivered'
+      - $ref: '#/channels/depot.hub.webhook/messages/webhookDelivered'
   publishWebhookDeadlettered:
     action: send
     channel:
-      $ref: '#/channels/passage.hub.webhook'
+      $ref: '#/channels/depot.hub.webhook'
     summary: "An event was dead-lettered: retries exhausted (HUB-0115), refused for good (HUB-0117) or a conflicting legacy key (HUB-0118)."
     messages:
-      - $ref: '#/channels/passage.hub.webhook/messages/webhookDeadlettered'
+      - $ref: '#/channels/depot.hub.webhook/messages/webhookDeadlettered'
   publishApiClientRegistered:
     action: send
     channel:
-      $ref: '#/channels/passage.hub.apiclient'
+      $ref: '#/channels/depot.hub.apiclient'
     summary: "An API client was registered."
     messages:
-      - $ref: '#/channels/passage.hub.apiclient/messages/apiClientRegistered'
+      - $ref: '#/channels/depot.hub.apiclient/messages/apiClientRegistered'
   publishApiClientUpdated:
     action: send
     channel:
-      $ref: '#/channels/passage.hub.apiclient'
+      $ref: '#/channels/depot.hub.apiclient'
     summary: "An API client's name, scopes, quota, sandbox tenant or owner changed."
     messages:
-      - $ref: '#/channels/passage.hub.apiclient/messages/apiClientUpdated'
+      - $ref: '#/channels/depot.hub.apiclient/messages/apiClientUpdated'
   publishApiClientRevoked:
     action: send
     channel:
-      $ref: '#/channels/passage.hub.apiclient'
+      $ref: '#/channels/depot.hub.apiclient'
     summary: "An API client was revoked."
     messages:
-      - $ref: '#/channels/passage.hub.apiclient/messages/apiClientRevoked'
+      - $ref: '#/channels/depot.hub.apiclient/messages/apiClientRevoked'
   publishCatalogEntryPublished:
     action: send
     channel:
-      $ref: '#/channels/passage.hub.catalogentry'
+      $ref: '#/channels/depot.hub.catalogentry'
     summary: "A version of an API or event contract was published to the catalog."
     messages:
-      - $ref: '#/channels/passage.hub.catalogentry/messages/catalogEntryPublished'
+      - $ref: '#/channels/depot.hub.catalogentry/messages/catalogEntryPublished'
   publishCatalogEntryUpdated:
     action: send
     channel:
-      $ref: '#/channels/passage.hub.catalogentry'
+      $ref: '#/channels/depot.hub.catalogentry'
     summary: "A catalog entry's title, summary or owner service changed."
     messages:
-      - $ref: '#/channels/passage.hub.catalogentry/messages/catalogEntryUpdated'
+      - $ref: '#/channels/depot.hub.catalogentry/messages/catalogEntryUpdated'
   publishCatalogEntryDeprecated:
     action: send
     channel:
-      $ref: '#/channels/passage.hub.catalogentry'
+      $ref: '#/channels/depot.hub.catalogentry'
     summary: "A catalog entry was deprecated with a sunset date."
     messages:
-      - $ref: '#/channels/passage.hub.catalogentry/messages/catalogEntryDeprecated'
+      - $ref: '#/channels/depot.hub.catalogentry/messages/catalogEntryDeprecated'
   publishCatalogEntryRetired:
     action: send
     channel:
-      $ref: '#/channels/passage.hub.catalogentry'
+      $ref: '#/channels/depot.hub.catalogentry'
     summary: "A deprecated catalog entry was retired after its sunset date."
     messages:
-      - $ref: '#/channels/passage.hub.catalogentry/messages/catalogEntryRetired'
+      - $ref: '#/channels/depot.hub.catalogentry/messages/catalogEntryRetired'
 components:
   messages:
     subscriptionCreated:
-      name: dev.passage.hub.subscription.created.v1
+      name: dev.depot.hub.subscription.created.v1
       title: subscription.created
       summary: "A subscription was created."
       payload:
         $ref: '#/components/schemas/SubscriptionData'
     subscriptionUpdated:
-      name: dev.passage.hub.subscription.updated.v1
+      name: dev.depot.hub.subscription.updated.v1
       title: subscription.updated
       summary: "A subscription's name, URL, patterns or rest-push settings changed."
       payload:
         $ref: '#/components/schemas/SubscriptionData'
     subscriptionDeleted:
-      name: dev.passage.hub.subscription.deleted.v1
+      name: dev.depot.hub.subscription.deleted.v1
       title: subscription.deleted
       summary: "A subscription and its deliveries were deleted; the data is the last state."
       payload:
         $ref: '#/components/schemas/SubscriptionData'
     subscriptionPaused:
-      name: dev.passage.hub.subscription.paused.v1
+      name: dev.depot.hub.subscription.paused.v1
       title: subscription.paused
       summary: "A subscription was paused because its receiver answered 410 Gone (HUB-0114)."
       payload:
         $ref: '#/components/schemas/SubscriptionData'
     subscriptionResumed:
-      name: dev.passage.hub.subscription.resumed.v1
+      name: dev.depot.hub.subscription.resumed.v1
       title: subscription.resumed
       summary: "A paused subscription was resumed."
       payload:
         $ref: '#/components/schemas/SubscriptionData'
     subscriptionSecretRotated:
-      name: dev.passage.hub.subscription.secretrotated.v1
+      name: dev.depot.hub.subscription.secretrotated.v1
       title: subscription.secretrotated
       summary: "A webhook subscription's signing secret was rotated; the data never carries a secret."
       payload:
         $ref: '#/components/schemas/SubscriptionSecretRotatedData'
     webhookDelivered:
-      name: dev.passage.hub.webhook.delivered.v1
+      name: dev.depot.hub.webhook.delivered.v1
       title: webhook.delivered
       summary: "An event was delivered to a subscription's receiver (2xx)."
       payload:
         $ref: '#/components/schemas/DeliveredData'
     webhookDeadlettered:
-      name: dev.passage.hub.webhook.deadlettered.v1
+      name: dev.depot.hub.webhook.deadlettered.v1
       title: webhook.deadlettered
       summary: "An event was dead-lettered: retries exhausted (HUB-0115), refused for good (HUB-0117) or a conflicting legacy key (HUB-0118)."
       payload:
         $ref: '#/components/schemas/DeadletteredData'
     apiClientRegistered:
-      name: dev.passage.hub.apiclient.registered.v1
+      name: dev.depot.hub.apiclient.registered.v1
       title: apiclient.registered
       summary: "An API client was registered."
       payload:
         $ref: '#/components/schemas/ClientData'
     apiClientUpdated:
-      name: dev.passage.hub.apiclient.updated.v1
+      name: dev.depot.hub.apiclient.updated.v1
       title: apiclient.updated
       summary: "An API client's name, scopes, quota, sandbox tenant or owner changed."
       payload:
         $ref: '#/components/schemas/ClientData'
     apiClientRevoked:
-      name: dev.passage.hub.apiclient.revoked.v1
+      name: dev.depot.hub.apiclient.revoked.v1
       title: apiclient.revoked
       summary: "An API client was revoked."
       payload:
         $ref: '#/components/schemas/ClientData'
     catalogEntryPublished:
-      name: dev.passage.hub.catalogentry.published.v1
+      name: dev.depot.hub.catalogentry.published.v1
       title: catalogentry.published
       summary: "A version of an API or event contract was published to the catalog."
       payload:
         $ref: '#/components/schemas/CatalogEntryData'
     catalogEntryUpdated:
-      name: dev.passage.hub.catalogentry.updated.v1
+      name: dev.depot.hub.catalogentry.updated.v1
       title: catalogentry.updated
       summary: "A catalog entry's title, summary or owner service changed."
       payload:
         $ref: '#/components/schemas/CatalogEntryData'
     catalogEntryDeprecated:
-      name: dev.passage.hub.catalogentry.deprecated.v1
+      name: dev.depot.hub.catalogentry.deprecated.v1
       title: catalogentry.deprecated
       summary: "A catalog entry was deprecated with a sunset date."
       payload:
         $ref: '#/components/schemas/CatalogEntryData'
     catalogEntryRetired:
-      name: dev.passage.hub.catalogentry.retired.v1
+      name: dev.depot.hub.catalogentry.retired.v1
       title: catalogentry.retired
       summary: "A deprecated catalog entry was retired after its sunset date."
       payload:

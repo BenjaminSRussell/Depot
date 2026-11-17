@@ -3,7 +3,7 @@
 // are snake_case like the PRD.
 package events
 
-import "github.com/BenjaminSRussell/passage/platform/events"
+import "github.com/BenjaminSRussell/depot/platform/events"
 
 const Context = "mobile"
 

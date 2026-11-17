@@ -1,6 +1,6 @@
 package flows
 
-import "github.com/BenjaminSRussell/passage/services/mobile/internal/gs1"
+import "github.com/BenjaminSRussell/depot/services/mobile/internal/gs1"
 
 func to(id string) *string { return &id }
 

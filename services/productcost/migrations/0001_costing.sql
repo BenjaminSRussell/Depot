@@ -22,11 +22,11 @@ CREATE TABLE IF NOT EXISTS costing_version (
 ALTER TABLE costing_version ENABLE ROW LEVEL SECURITY;
 ALTER TABLE costing_version FORCE ROW LEVEL SECURITY;
 CREATE POLICY costing_version_tenant_access ON costing_version AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY costing_version_legal_entity_scope ON costing_version AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 CREATE TABLE IF NOT EXISTS cost_component (
   tenant_id uuid NOT NULL,
@@ -41,8 +41,8 @@ CREATE TABLE IF NOT EXISTS cost_component (
 ALTER TABLE cost_component ENABLE ROW LEVEL SECURITY;
 ALTER TABLE cost_component FORCE ROW LEVEL SECURITY;
 CREATE POLICY cost_component_tenant_access ON cost_component AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 CREATE TABLE IF NOT EXISTS cost_calculation (
   tenant_id uuid NOT NULL,
@@ -72,11 +72,11 @@ CREATE UNIQUE INDEX IF NOT EXISTS cost_calculation_one_active
 ALTER TABLE cost_calculation ENABLE ROW LEVEL SECURITY;
 ALTER TABLE cost_calculation FORCE ROW LEVEL SECURITY;
 CREATE POLICY cost_calculation_tenant_access ON cost_calculation AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY cost_calculation_legal_entity_scope ON cost_calculation AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 CREATE TABLE IF NOT EXISTS cost_component_split (
   tenant_id uuid NOT NULL,
@@ -92,8 +92,8 @@ CREATE TABLE IF NOT EXISTS cost_component_split (
 ALTER TABLE cost_component_split ENABLE ROW LEVEL SECURITY;
 ALTER TABLE cost_component_split FORCE ROW LEVEL SECURITY;
 CREATE POLICY cost_component_split_tenant_access ON cost_component_split AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 CREATE TABLE IF NOT EXISTS variance_entry (
   tenant_id uuid NOT NULL,
@@ -116,8 +116,8 @@ CREATE INDEX IF NOT EXISTS variance_entry_site_period_type
 ALTER TABLE variance_entry ENABLE ROW LEVEL SECURITY;
 ALTER TABLE variance_entry FORCE ROW LEVEL SECURITY;
 CREATE POLICY variance_entry_tenant_access ON variance_entry AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY variance_entry_legal_entity_scope ON variance_entry AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));

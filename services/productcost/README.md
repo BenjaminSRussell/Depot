@@ -1,6 +1,6 @@
 # productcost
 
-Wave 39 (PSG-39): product costing, cost roll-up and variance analysis.
+Wave 39 (DPT-39): product costing, cost roll-up and variance analysis.
 Bounded context `costing`, Postgres schema `costing` (per-context database).
 
 ## Slices 1 and 2
@@ -225,12 +225,12 @@ same transaction (see `events/asyncapi.yaml`).
   type (`DirectMaterial`, `DirectManufacturing`, `Indirect`, `Undefined`) and a behaviour
   (`Fixed` or `Variable`, default `Variable`). At most 20 per tenant (`CST-0790`, checked under
   a per-tenant advisory lock so concurrent creates cannot exceed it); a duplicate code is
-  `CST-0791` (409). Event `dev.passage.costing.costcomponent.created.v1`.
+  `CST-0791` (409). Event `dev.depot.costing.costcomponent.created.v1`.
 - **Cost groups** (FR-39.1): `GET` and `POST /v1/product-costing/cost-groups`. Same code, name, type and
   behaviour rules, and `componentId`, the cost component the group's costs are split into
   (`CST-0794`, 422, when it is not a component of the tenant). At most 50 per tenant
   (`CST-0792`); a duplicate code is `CST-0793` (409). Event
-  `dev.passage.costing.costgroup.created.v1`.
+  `dev.depot.costing.costgroup.created.v1`.
 - **Costing versions** (FR-39.3): `POST /v1/product-costing/versions` creates an Open version for a
   legal entity with a code (≤ 30, unique per legal entity, `CST-0713`, 409), a type (default
   `Standard`, `costing.versionType`), a fallback principle (default `Active`,
@@ -240,13 +240,13 @@ same transaction (see `events/asyncapi.yaml`).
   `GET /v1/product-costing/versions` pages in creation order (`limit` 1–500, default 100; `after` is
   the previous page's `next`) and filters by `legalEntityId`, `status` and `type`;
   `GET /v1/product-costing/versions/{id}` reads one (`CST-0717`, 404). Event
-  `dev.passage.costing.version.created.v1`.
+  `dev.depot.costing.version.created.v1`.
 - **Lifecycle** (BR-39.2): `POST /v1/product-costing/versions/{id}/transition` with `{action, version}`
   blocks, unblocks or closes (productcost.maintain); `POST /v1/product-costing/versions/{id}/activate` with
   `{version}` activates (productcost.activate, segregated). `version` is the counter the caller read;
   a stale one is `CST-0714` (409) and changes nothing. The rules are those of slice 3
   (`CST-0711`, `CST-0715`). Activation stamps `activatedAt`. Event
-  `dev.passage.costing.version.transitioned.v1` with the action and both statuses.
+  `dev.depot.costing.version.transitioned.v1` with the action and both statuses.
 - **Activation with revaluation** (FR-39.6, D6): the positions are the version's own stored
   `cost_calculation` rows (Legal view, status Pending or Active), never the request's: a request
   that lists `lines` is 400. A version with such rows is always revalued, so the bare
@@ -295,7 +295,7 @@ same transaction (see `events/asyncapi.yaml`).
   the roller of the calculations cannot do this, `CST-0738`) or `not-posted` (the attempt is
   discarded and the version can be activated afresh), with a reason, under an
   Idempotency-Key and the version counter. Either decision raises
-  `dev.passage.costing.activationattempt.resolved.v1`; a version without an attempt is
+  `dev.depot.costing.activationattempt.resolved.v1`; a version without an attempt is
   `CST-0742` (404), an attempt still inside the window `CST-0743` (409). The entry id is the
   operator's word: productcost has no ledger read grant to look it up.
   Activations of one legal entity are serialised by an advisory lock, and an activation or
@@ -318,13 +318,13 @@ same transaction (see `events/asyncapi.yaml`).
   would sit at the later standard; reverse the later one first). The ledger accounts are
   stored configuration per legal entity, `PUT /v1/product-costing/posting-accounts/{legalEntityId}`
   with `{inventoryAccount, costChangeAccount}` (productcost.maintain, legal-entity scope; the two
-  must differ; each change publishes `dev.passage.costing.postingaccounts.changed.v1`) and
+  must differ; each change publishes `dev.depot.costing.postingaccounts.changed.v1`) and
   `GET` (`CST-0724`, 404 when none). Productcost holds `ledger.entry.post` and
   `ledger.journal.reverse`, so a caller choosing an account would let productcost.activate post
   to any account. An activation with a non-zero revaluation and no configured accounts is
-  `CST-0724` (422). Event `dev.passage.costing.standardcost.activated.v1`.
+  `CST-0724` (422). Event `dev.depot.costing.standardcost.activated.v1`.
   Deployment: the ledger and inventory services must list productcost's public key in
-  `PASSAGE_SERVICE_PUBLIC_KEYS`, and productcost needs `INVENTORY_URL`, `LEDGER_URL` and its
+  `DEPOT_SERVICE_PUBLIC_KEYS`, and productcost needs `INVENTORY_URL`, `LEDGER_URL` and its
   service signing key.
 - The slice-3 stateless routes (`/versions:transition`, `/versions:activate`) still serve
   callers that carry a version themselves.
@@ -332,7 +332,7 @@ same transaction (see `events/asyncapi.yaml`).
 
 Migration `0002_cost_structure.sql` adds `cost_group`, `idempotency_keys` and `outbox`
 (tenant_id first, RLS forced). Store tests run against Postgres with
-`PASSAGE_TEST_DATABASE_URL`; with `PASSAGE_TEST_APP_DATABASE_URL` (a role without BYPASSRLS)
+`DEPOT_TEST_DATABASE_URL`; with `DEPOT_TEST_APP_DATABASE_URL` (a role without BYPASSRLS)
 they also run as the application role and check tenant and legal-entity isolation.
 
 ## Layout
@@ -364,8 +364,8 @@ charts/productcost/     Helm chart
 ```
 go run ./cmd/productcost            # requires DATABASE_URL for dbx.Connect
 go test ./...                       # runs without a database; DB tests skip
-PASSAGE_TEST_DATABASE_URL=... go test ./...   # enables testkit-backed tests
-PASSAGE_TEST_APP_DATABASE_URL=...             # plus: store tests as the application role (RLS)
+DEPOT_TEST_DATABASE_URL=... go test ./...   # enables testkit-backed tests
+DEPOT_TEST_APP_DATABASE_URL=...             # plus: store tests as the application role (RLS)
 go vet ./...
 helm lint charts/productcost
 ```
@@ -373,7 +373,7 @@ helm lint charts/productcost
 Configuration (12-factor): `COSTING_MAX_LEVELS` (default 20, 1-40),
 `COSTING_ROLL_WORKERS` (default 4, 1-32), `ENGINEERING_URL` (BOM and route versions for the stored roll; unset answers 503 CST-0737), `PRODUCTCOST_LEDGER_IDEMPOTENCY_TTL_DAYS`
 (default 400, 400 to 3650; must equal the ledger's `LEDGER_IDEMPOTENCY_TTL_DAYS`), plus the platform variables
-`PASSAGE_ENV`, `HTTP_ADDR`, `ADMIN_ADDR`, `DATABASE_URL`.
+`DEPOT_ENV`, `HTTP_ADDR`, `ADMIN_ADDR`, `DATABASE_URL`.
 
 ## Dependencies
 
@@ -382,7 +382,7 @@ google/uuid, pgregory.net/rapid for tests). No new dependencies.
 
 ## Error codes
 
-Problem `type` is `https://passage.dev/problems/<code>`.
+Problem `type` is `https://depot.dev/problems/<code>`.
 
 | Code | HTTP | Meaning |
 |---|---|---|
@@ -443,5 +443,5 @@ request validation (COM-0001).
 
 ## Wave reference
 
-PSG-39 (Wave 39), phase 7. Depends on PSG-38. Full list of deferred deliverables in
+DPT-39 (Wave 39), phase 7. Depends on DPT-38. Full list of deferred deliverables in
 [NOT-IMPLEMENTED.md](NOT-IMPLEMENTED.md).

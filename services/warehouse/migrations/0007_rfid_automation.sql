@@ -69,24 +69,24 @@ CREATE INDEX IF NOT EXISTS automation_event_seq ON automation_event (tenant_id, 
 ALTER TABLE rfid_read ENABLE ROW LEVEL SECURITY;
 ALTER TABLE rfid_read FORCE ROW LEVEL SECURITY;
 CREATE POLICY rfid_read_tenant_access ON rfid_read AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 ALTER TABLE automation_order ENABLE ROW LEVEL SECURITY;
 ALTER TABLE automation_order FORCE ROW LEVEL SECURITY;
 CREATE POLICY automation_order_tenant_access ON automation_order AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 ALTER TABLE automation_event ENABLE ROW LEVEL SECURITY;
 ALTER TABLE automation_event FORCE ROW LEVEL SECURITY;
 CREATE POLICY automation_event_tenant_access ON automation_event AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT ON rfid_read, automation_event TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON automation_order TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT ON rfid_read, automation_event TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON automation_order TO depot_app';
   END IF;
 END
 $$;

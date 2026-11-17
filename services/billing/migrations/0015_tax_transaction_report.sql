@@ -37,15 +37,15 @@ ALTER TABLE tax_transaction_report ENABLE ROW LEVEL SECURITY;
 ALTER TABLE tax_transaction_report FORCE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS tax_transaction_report_tenant_access ON tax_transaction_report;
 CREATE POLICY tax_transaction_report_tenant_access ON tax_transaction_report AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 DROP POLICY IF EXISTS tax_transaction_report_legal_entity_scope ON tax_transaction_report;
 CREATE POLICY tax_transaction_report_legal_entity_scope ON tax_transaction_report AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 -- Cross-tenant index of the due reports, maintained by a SECURITY DEFINER trigger and read only
--- by the SECURITY DEFINER function below; passage_app has no grant on it.
+-- by the SECURITY DEFINER function below; depot_app has no grant on it.
 CREATE TABLE IF NOT EXISTS tax_transaction_report_due (
   tenant_id uuid NOT NULL,
   report_id uuid NOT NULL,
@@ -83,10 +83,10 @@ CREATE TRIGGER tax_transaction_report_due AFTER INSERT OR UPDATE OF status, next
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE format('GRANT USAGE ON SCHEMA %I TO passage_app', current_schema());
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON tax_transaction_report TO passage_app';
-    EXECUTE 'GRANT EXECUTE ON FUNCTION billing_tax_report_due_tenants() TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE format('GRANT USAGE ON SCHEMA %I TO depot_app', current_schema());
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON tax_transaction_report TO depot_app';
+    EXECUTE 'GRANT EXECUTE ON FUNCTION billing_tax_report_due_tenants() TO depot_app';
   END IF;
 END
 $$;

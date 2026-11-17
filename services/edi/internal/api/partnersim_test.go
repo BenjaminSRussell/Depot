@@ -11,8 +11,8 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	ediev "github.com/BenjaminSRussell/passage/services/edi/internal/events"
-	"github.com/BenjaminSRussell/passage/services/edi/internal/store"
+	ediev "github.com/BenjaminSRussell/depot/services/edi/internal/events"
+	"github.com/BenjaminSRussell/depot/services/edi/internal/store"
 )
 
 // Partner simulator (AC-35.1, FR-35.12): the demo distributor's side of the
@@ -117,8 +117,8 @@ func sim997(isa13, fid, group string, answers []simAnswer, ak9 string) string {
 	}
 	body = append(body, fmt.Sprintf("AK9|%s|%d|%d|%d", ak9, n, n, accepted))
 	lines := []string{
-		fmt.Sprintf("ISA|00|%10s|00|%10s|ZZ|%-15s|ZZ|%-15s|261022|1015|^|00501|%09s|0|T|:", "", "", "DISTRIBUTOR", "PASSAGE", isa13),
-		"GS|FA|DISTRIBUTOR|PASSAGE|20261022|1015|" + isa13 + "|X|005010",
+		fmt.Sprintf("ISA|00|%10s|00|%10s|ZZ|%-15s|ZZ|%-15s|261022|1015|^|00501|%09s|0|T|:", "", "", "DISTRIBUTOR", "DEPOT", isa13),
+		"GS|FA|DISTRIBUTOR|DEPOT|20261022|1015|" + isa13 + "|X|005010",
 		"ST|997|0001",
 	}
 	lines = append(lines, body...)
@@ -174,14 +174,14 @@ type simSet struct {
 }
 
 // simX12 writes one of the distributor's 00501 interchanges from
-// DISTRIBUTOR to PASSAGE: optional TA1 segments, then the groups, with
+// DISTRIBUTOR to DEPOT: optional TA1 segments, then the groups, with
 // every SE, GE and IEA count computed by the distributor, segments ended by
 // ~ and CRLF.
 func simX12(isa13 string, ta1 []string, groups ...simGroup) string {
-	lines := []string{fmt.Sprintf("ISA|00|%10s|00|%10s|ZZ|%-15s|ZZ|%-15s|261106|0800|^|00501|%09s|0|T|:", "", "", "DISTRIBUTOR", "PASSAGE", isa13)}
+	lines := []string{fmt.Sprintf("ISA|00|%10s|00|%10s|ZZ|%-15s|ZZ|%-15s|261106|0800|^|00501|%09s|0|T|:", "", "", "DISTRIBUTOR", "DEPOT", isa13)}
 	lines = append(lines, ta1...)
 	for _, g := range groups {
-		lines = append(lines, "GS|"+g.fid+"|DISTRIBUTOR|PASSAGE|20261106|0800|"+g.control+"|X|005010")
+		lines = append(lines, "GS|"+g.fid+"|DISTRIBUTOR|DEPOT|20261106|0800|"+g.control+"|X|005010")
 		for _, s := range g.sets {
 			lines = append(lines, "ST|"+s.id+"|"+s.control)
 			lines = append(lines, s.body...)
@@ -211,7 +211,7 @@ func simAckSet(fid, group string, answers []simAnswer, ak9 string) simSet {
 // The distributor's EDIFACT translator: its own reader and writer of ISO 9735
 // syntax 3, sharing nothing with internal/domain. It writes UNA :+,? ' (a
 // decimal comma) with CRLF after every segment, as UNOC from its GLN
-// 4012345000009:14 to PASSAGE:ZZZ, and reads whatever service characters the
+// 4012345000009:14 to DEPOT:ZZZ, and reads whatever service characters the
 // other side declares.
 
 // simEdiSeg is one EDIFACT segment: [0][0] is the tag, then the data
@@ -367,7 +367,7 @@ type simMsg struct {
 
 const simGLN = "4012345000009"
 
-// simEdifact writes one of the distributor's interchanges to PASSAGE:ZZZ,
+// simEdifact writes one of the distributor's interchanges to DEPOT:ZZZ,
 // UNH..UNT and UNZ counted by the distributor; ackRequest sets UNB 0031 and
 // the test indicator 0035 is always set (the agreement is in test).
 func simEdifact(ref string, ackRequest bool, msgs ...simMsg) string {
@@ -375,7 +375,7 @@ func simEdifact(ref string, ackRequest bool, msgs ...simMsg) string {
 	if ackRequest {
 		ack = "1"
 	}
-	lines := []string{"UNA:+,? '", "UNB+UNOC:3+" + simGLN + ":14+PASSAGE:ZZZ+261106:0800+" + ref + "++++" + ack + "++1'"}
+	lines := []string{"UNA:+,? '", "UNB+UNOC:3+" + simGLN + ":14+DEPOT:ZZZ+261106:0800+" + ref + "++++" + ack + "++1'"}
 	for _, m := range msgs {
 		lines = append(lines, "UNH+"+m.ref+"+"+m.typ+"'")
 		for _, s := range m.body {
@@ -478,11 +478,11 @@ func TestPartnerSim_DistributorPOToASNToInvoiceRoundTrip(t *testing.T) {
 		}
 		return simParse(t, out.X12)
 	}
-	// Our envelope as the distributor reads it: from ZZ/PASSAGE, 00401, our next control number.
+	// Our envelope as the distributor reads it: from ZZ/DEPOT, 00401, our next control number.
 	checkEnvelope := func(d simDoc, set, fid, control string) simTx {
 		t.Helper()
 		got := []string{d.el, d.isa[5], strings.TrimSpace(d.isa[6]), d.isa[7], strings.TrimSpace(d.isa[8]), d.isa[12], d.isa[13], d.isa[15]}
-		want := []string{"*", "ZZ", "PASSAGE", "ZZ", "DISTRIBUTOR", "00401", fmt.Sprintf("%09s", control), "T"}
+		want := []string{"*", "ZZ", "DEPOT", "ZZ", "DISTRIBUTOR", "00401", fmt.Sprintf("%09s", control), "T"}
 		if strings.Join(got, " ") != strings.Join(want, " ") || len(d.txs) != 1 {
 			t.Fatalf("%s envelope %v, want %v", set, got, want)
 		}

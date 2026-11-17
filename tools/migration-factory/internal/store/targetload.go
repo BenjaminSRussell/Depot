@@ -10,10 +10,10 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/ids"
 
-	"github.com/BenjaminSRussell/passage/tools/migration-factory/internal/domain"
-	mfevents "github.com/BenjaminSRussell/passage/tools/migration-factory/internal/events"
+	"github.com/BenjaminSRussell/depot/tools/migration-factory/internal/domain"
+	mfevents "github.com/BenjaminSRussell/depot/tools/migration-factory/internal/events"
 )
 
 var (
@@ -32,7 +32,7 @@ var (
 // lockImportSource serializes the staging and the claim of loads of one import source in the tenant, so the checks
 // below see every other load of it.
 func lockImportSource(ctx context.Context, tx pgx.Tx, importSource string) error {
-	if _, err := tx.Exec(ctx, `select pg_advisory_xact_lock(hashtextextended('target|' || current_setting('passage.tenant_id', true) || '|' || $1, 0))`, importSource); err != nil {
+	if _, err := tx.Exec(ctx, `select pg_advisory_xact_lock(hashtextextended('target|' || current_setting('depot.tenant_id', true) || '|' || $1, 0))`, importSource); err != nil {
 		return fmt.Errorf("lock import source: %w", err)
 	}
 	return nil
@@ -68,7 +68,7 @@ func stageTarget(ctx context.Context, tx pgx.Tx, runID string, st *TargetStage) 
 	err := tx.QueryRow(ctx, `select o.source_system || ' ' || o.source_company from target_load l
 		join pack_run o on o.tenant_id = l.tenant_id and o.run_id = l.run_id
 		join pack_run r on r.tenant_id = l.tenant_id and r.run_id = $1
-		where l.tenant_id = current_setting('passage.tenant_id', true)::uuid and l.import_source = $2
+		where l.tenant_id = current_setting('depot.tenant_id', true)::uuid and l.import_source = $2
 		  and (o.source_system, o.source_company) <> (r.source_system, r.source_company)
 		limit 1`, runID, st.ImportSource).Scan(&other)
 	switch {
@@ -92,12 +92,12 @@ func stageTarget(ctx context.Context, tx pgx.Tx, runID string, st *TargetStage) 
 		}
 	}
 	if _, err := tx.Exec(ctx, `insert into target_load (tenant_id, run_id, target, legal_entity_id, import_source, status, staged, rejected, not_available, pending)
-		values (current_setting('passage.tenant_id', true)::uuid, $1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+		values (current_setting('depot.tenant_id', true)::uuid, $1, $2, $3, $4, $5, $6, $7, $8, $9)`,
 		runID, domain.TargetReceivables, st.LegalEntityID, st.ImportSource, domain.LoadStaged, len(st.Rows)-apStaged(st), rejected, na, pending); err != nil {
 		return fmt.Errorf("insert target_load: %w", err)
 	}
 	if na > 0 {
-		if _, err := tx.Exec(ctx, `update pack_run set payables_staged = $2 where tenant_id = current_setting('passage.tenant_id', true)::uuid and run_id = $1`, runID, countLedger(st.Rows, domain.LedgerAP)); err != nil {
+		if _, err := tx.Exec(ctx, `update pack_run set payables_staged = $2 where tenant_id = current_setting('depot.tenant_id', true)::uuid and run_id = $1`, runID, countLedger(st.Rows, domain.LedgerAP)); err != nil {
 			return fmt.Errorf("update pack_run payables_staged: %w", err)
 		}
 	}
@@ -134,7 +134,7 @@ func stageTarget(ctx context.Context, tx pgx.Tx, runID string, st *TargetStage) 
 		payloads[i] = string(payload)
 	}
 	if _, err := tx.Exec(ctx, `insert into target_row (tenant_id, run_id, legal_entity_id, seq, legacy_id, ledger, row_hash, payload, status, code, detail)
-		select current_setting('passage.tenant_id', true)::uuid, $1, $10, s, l, g, h, p::jsonb, st, c, d
+		select current_setting('depot.tenant_id', true)::uuid, $1, $10, s, l, g, h, p::jsonb, st, c, d
 		from unnest($2::int[], $3::text[], $4::text[], $5::text[], $6::text[], $7::text[], $8::text[], $9::text[]) as t(s, l, g, h, p, st, c, d)`,
 		runID, seqs, legacy, ledgers, hashes, payloads, statuses, codes, details, st.LegalEntityID); err != nil {
 		return fmt.Errorf("insert target_row: %w", err)
@@ -147,10 +147,10 @@ func (s *Postgres) GetTargetLoad(ctx context.Context, runID string) (domain.Targ
 	var l domain.TargetLoad
 	err := s.tx(ctx, func(tx pgx.Tx) error {
 		var err error
-		l, err = scanLoad(tx.QueryRow(ctx, `select `+loadColumns+` from target_load where tenant_id = current_setting('passage.tenant_id', true)::uuid and run_id = $1`, runID))
+		l, err = scanLoad(tx.QueryRow(ctx, `select `+loadColumns+` from target_load where tenant_id = current_setting('depot.tenant_id', true)::uuid and run_id = $1`, runID))
 		if errors.Is(err, pgx.ErrNoRows) {
 			var exists bool
-			if qerr := tx.QueryRow(ctx, `select exists (select 1 from pack_run where tenant_id = current_setting('passage.tenant_id', true)::uuid and run_id = $1)`, runID).Scan(&exists); qerr != nil {
+			if qerr := tx.QueryRow(ctx, `select exists (select 1 from pack_run where tenant_id = current_setting('depot.tenant_id', true)::uuid and run_id = $1)`, runID).Scan(&exists); qerr != nil {
 				return qerr
 			}
 			if !exists {
@@ -174,9 +174,9 @@ type TargetRowFilter struct {
 func (s *Postgres) ListTargetRows(ctx context.Context, runID string, f TargetRowFilter) ([]domain.TargetRowView, error) {
 	out := []domain.TargetRowView{}
 	err := s.tx(ctx, func(tx pgx.Tx) error {
-		rows, err := tx.Query(ctx, `select seq, legacy_id, ledger, status, outcome, coalesce(passage_id::text, ''), code, detail,
+		rows, err := tx.Query(ctx, `select seq, legacy_id, ledger, status, outcome, coalesce(depot_id::text, ''), code, detail,
 				coalesce(payload->>'openAmount', ''), coalesce(payload->>'currency', ''), coalesce(payload->>'side', ''), coalesce(payload->>'customerId', '')
-			from target_row where tenant_id = current_setting('passage.tenant_id', true)::uuid and run_id = $1
+			from target_row where tenant_id = current_setting('depot.tenant_id', true)::uuid and run_id = $1
 			  and ($2 = '' or status = $2) and seq > $3 order by seq limit $4`, runID, f.Status, f.After, clampLimit(f.Limit))
 		if err != nil {
 			return err
@@ -184,7 +184,7 @@ func (s *Postgres) ListTargetRows(ctx context.Context, runID string, f TargetRow
 		defer rows.Close()
 		for rows.Next() {
 			var v domain.TargetRowView
-			if err := rows.Scan(&v.Seq, &v.LegacyID, &v.Ledger, &v.Status, &v.Outcome, &v.PassageID, &v.Code, &v.Detail, &v.Amount, &v.Currency, &v.Side, &v.CustomerID); err != nil {
+			if err := rows.Scan(&v.Seq, &v.LegacyID, &v.Ledger, &v.Status, &v.Outcome, &v.DepotID, &v.Code, &v.Detail, &v.Amount, &v.Currency, &v.Side, &v.CustomerID); err != nil {
 				return err
 			}
 			out = append(out, v)
@@ -214,14 +214,14 @@ func (s *Postgres) ClaimTargetLoad(ctx context.Context, runID, startedBy string,
 	err := s.tx(ctx, func(tx pgx.Tx) error {
 		var err error
 		var leaseUntil *time.Time
-		load, err = scanLoad(tx.QueryRow(ctx, `select `+loadColumns+` from target_load where tenant_id = current_setting('passage.tenant_id', true)::uuid and run_id = $1 for update`, runID))
+		load, err = scanLoad(tx.QueryRow(ctx, `select `+loadColumns+` from target_load where tenant_id = current_setting('depot.tenant_id', true)::uuid and run_id = $1 for update`, runID))
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrNoTarget
 		}
 		if err != nil {
 			return err
 		}
-		if err := tx.QueryRow(ctx, `select lease_until from target_load where tenant_id = current_setting('passage.tenant_id', true)::uuid and run_id = $1`, runID).Scan(&leaseUntil); err != nil {
+		if err := tx.QueryRow(ctx, `select lease_until from target_load where tenant_id = current_setting('depot.tenant_id', true)::uuid and run_id = $1`, runID).Scan(&leaseUntil); err != nil {
 			return err
 		}
 		if load.Status == domain.LoadLoading && leaseUntil != nil && leaseUntil.After(time.Now()) {
@@ -229,7 +229,7 @@ func (s *Postgres) ClaimTargetLoad(ctx context.Context, runID, startedBy string,
 		}
 		// A run a cutover rollback moved to ROLLED_BACK (BR-49.1) is not loaded into the target any more.
 		var runStatus string
-		if err := tx.QueryRow(ctx, `select status from pack_run where tenant_id = current_setting('passage.tenant_id', true)::uuid and run_id = $1`, runID).Scan(&runStatus); err != nil {
+		if err := tx.QueryRow(ctx, `select status from pack_run where tenant_id = current_setting('depot.tenant_id', true)::uuid and run_id = $1`, runID).Scan(&runStatus); err != nil {
 			return err
 		}
 		if domain.RunStatus(runStatus) == domain.StatusRolledBack {
@@ -244,7 +244,7 @@ func (s *Postgres) ClaimTargetLoad(ctx context.Context, runID, startedBy string,
 				coalesce(bool_or(o.attempts > 0 and o.created_at > l.created_at), false)
 			from target_load l join target_load o on o.tenant_id = l.tenant_id and o.import_source = l.import_source
 			  and o.legal_entity_id = l.legal_entity_id and o.run_id <> l.run_id
-			where l.tenant_id = current_setting('passage.tenant_id', true)::uuid and l.run_id = $1`, runID).Scan(&busy, &superseded); err != nil {
+			where l.tenant_id = current_setting('depot.tenant_id', true)::uuid and l.run_id = $1`, runID).Scan(&busy, &superseded); err != nil {
 			return fmt.Errorf("check other loads: %w", err)
 		}
 		if busy {
@@ -253,14 +253,14 @@ func (s *Postgres) ClaimTargetLoad(ctx context.Context, runID, startedBy string,
 		if superseded {
 			return ErrLoadSuperseded
 		}
-		if _, err := tx.Exec(ctx, `update target_row r set status = 'SKIPPED', outcome = 'UNCHANGED', passage_id = l.passage_id, updated_at = now()
+		if _, err := tx.Exec(ctx, `update target_row r set status = 'SKIPPED', outcome = 'UNCHANGED', depot_id = l.depot_id, updated_at = now()
 			from target_loaded l
-			where r.tenant_id = current_setting('passage.tenant_id', true)::uuid and r.run_id = $1 and r.status = 'PENDING' and r.ledger = 'AR'
+			where r.tenant_id = current_setting('depot.tenant_id', true)::uuid and r.run_id = $1 and r.status = 'PENDING' and r.ledger = 'AR'
 			  and l.tenant_id = r.tenant_id and l.import_source = $2 and l.legacy_id = r.legacy_id and l.row_hash = r.row_hash`, runID, load.ImportSource); err != nil {
 			return fmt.Errorf("skip rows the target already holds: %w", err)
 		}
 		rows, err := tx.Query(ctx, `select seq, legacy_id, row_hash, payload from target_row
-			where tenant_id = current_setting('passage.tenant_id', true)::uuid and run_id = $1 and status = 'PENDING' and ledger = 'AR' order by seq`, runID)
+			where tenant_id = current_setting('depot.tenant_id', true)::uuid and run_id = $1 and status = 'PENDING' and ledger = 'AR' order by seq`, runID)
 		if err != nil {
 			return err
 		}
@@ -283,14 +283,14 @@ func (s *Postgres) ClaimTargetLoad(ctx context.Context, runID, startedBy string,
 		}
 		if _, err := tx.Exec(ctx, `update target_load set status = $2, lease_until = now() + $3::int * interval '1 second', started_by = $4, started_at = now(), finished_at = null,
 				attempts = attempts + 1, last_error = '', version = version + 1
-			where tenant_id = current_setting('passage.tenant_id', true)::uuid and run_id = $1`,
+			where tenant_id = current_setting('depot.tenant_id', true)::uuid and run_id = $1`,
 			runID, domain.LoadLoading, int32(lease.Seconds()), startedBy); err != nil {
 			return err
 		}
 		if err := setReceivablesLoad(ctx, tx, runID, domain.LoadLoading); err != nil {
 			return err
 		}
-		load, err = scanLoad(tx.QueryRow(ctx, `select `+loadColumns+` from target_load where tenant_id = current_setting('passage.tenant_id', true)::uuid and run_id = $1`, runID))
+		load, err = scanLoad(tx.QueryRow(ctx, `select `+loadColumns+` from target_load where tenant_id = current_setting('depot.tenant_id', true)::uuid and run_id = $1`, runID))
 		return err
 	})
 	return load, pending, err
@@ -314,13 +314,13 @@ func (s *Postgres) RecordTargetChunk(ctx context.Context, runID string, lease ti
 	return s.tx(ctx, func(tx pgx.Tx) error {
 		var importSource, le string
 		if err := tx.QueryRow(ctx, `select import_source, legal_entity_id::text from target_load
-			where tenant_id = current_setting('passage.tenant_id', true)::uuid and run_id = $1 for update`, runID).Scan(&importSource, &le); err != nil {
+			where tenant_id = current_setting('depot.tenant_id', true)::uuid and run_id = $1 for update`, runID).Scan(&importSource, &le); err != nil {
 			return fmt.Errorf("read target_load: %w", err)
 		}
 		n := len(outs)
-		seqs, statuses, outcomes, passage, codes, details := make([]int32, n), make([]string, n), make([]string, n), make([]*string, n), make([]string, n), make([]string, n)
+		seqs, statuses, outcomes, depot, codes, details := make([]int32, n), make([]string, n), make([]string, n), make([]*string, n), make([]string, n), make([]string, n)
 		var aLegacy, aCur, aSide, aHash []string
-		var aOpen, aPassage []string
+		var aOpen, aDepot []string
 		for i, o := range outs {
 			seqs[i], outcomes[i], codes[i], details[i] = int32(o.Pending.Seq), o.Outcome, o.Code, o.Detail
 			switch o.Outcome {
@@ -333,37 +333,37 @@ func (s *Postgres) RecordTargetChunk(ctx context.Context, runID string, lease ti
 			}
 			if statuses[i] != domain.RowRejected {
 				id := o.OpenItemID
-				passage[i] = &id
+				depot[i] = &id
 				row := o.Pending.Row
 				aLegacy, aCur, aSide, aHash = append(aLegacy, o.Pending.LegacyID), append(aCur, row.Currency), append(aSide, row.Side), append(aHash, o.Pending.Hash)
-				aOpen, aPassage = append(aOpen, row.OpenAmount.String()), append(aPassage, id)
+				aOpen, aDepot = append(aOpen, row.OpenAmount.String()), append(aDepot, id)
 			}
 		}
-		if _, err := tx.Exec(ctx, `update target_row r set status = t.st, outcome = t.o, passage_id = t.p::uuid, code = t.c, detail = t.d, updated_at = now()
+		if _, err := tx.Exec(ctx, `update target_row r set status = t.st, outcome = t.o, depot_id = t.p::uuid, code = t.c, detail = t.d, updated_at = now()
 			from unnest($2::int[], $3::text[], $4::text[], $5::text[], $6::text[], $7::text[]) as t(s, st, o, p, c, d)
-			where r.tenant_id = current_setting('passage.tenant_id', true)::uuid and r.run_id = $1 and r.seq = t.s`,
-			runID, seqs, statuses, outcomes, passage, codes, details); err != nil {
+			where r.tenant_id = current_setting('depot.tenant_id', true)::uuid and r.run_id = $1 and r.seq = t.s`,
+			runID, seqs, statuses, outcomes, depot, codes, details); err != nil {
 			return fmt.Errorf("update target_row: %w", err)
 		}
 		if len(aLegacy) > 0 {
-			if _, err := tx.Exec(ctx, `insert into target_loaded (tenant_id, import_source, legacy_id, legal_entity_id, currency, side, open_amount, row_hash, passage_id, run_id)
-				select current_setting('passage.tenant_id', true)::uuid, $1, l, $2, c, sd, a::numeric, h, p::uuid, $3
+			if _, err := tx.Exec(ctx, `insert into target_loaded (tenant_id, import_source, legacy_id, legal_entity_id, currency, side, open_amount, row_hash, depot_id, run_id)
+				select current_setting('depot.tenant_id', true)::uuid, $1, l, $2, c, sd, a::numeric, h, p::uuid, $3
 				from unnest($4::text[], $5::text[], $6::text[], $7::text[], $8::text[], $9::text[]) as t(l, c, sd, a, h, p)
 				on conflict (tenant_id, import_source, legacy_id) do update
 				set currency = excluded.currency, side = excluded.side, open_amount = excluded.open_amount, row_hash = excluded.row_hash,
-				    passage_id = excluded.passage_id, run_id = excluded.run_id, loaded_at = now()`,
-				importSource, le, runID, aLegacy, aCur, aSide, aOpen, aHash, aPassage); err != nil {
+				    depot_id = excluded.depot_id, run_id = excluded.run_id, loaded_at = now()`,
+				importSource, le, runID, aLegacy, aCur, aSide, aOpen, aHash, aDepot); err != nil {
 				return fmt.Errorf("upsert target_loaded: %w", err)
 			}
-			if _, err := tx.Exec(ctx, `update legacy_xref x set passage_id = t.p::uuid, target_confirmed = true
+			if _, err := tx.Exec(ctx, `update legacy_xref x set depot_id = t.p::uuid, target_confirmed = true
 				from pack_run p, unnest($2::text[], $3::text[]) as t(l, p)
-				where p.tenant_id = x.tenant_id and p.run_id = $1 and x.tenant_id = current_setting('passage.tenant_id', true)::uuid
+				where p.tenant_id = x.tenant_id and p.run_id = $1 and x.tenant_id = current_setting('depot.tenant_id', true)::uuid
 				  and x.source_system = p.source_system and x.source_company = p.source_company and x.source_table = $4
-				  and x.source_id = t.l and not x.target_confirmed`, runID, aLegacy, aPassage, domain.TableOpenItemsReceivable); err != nil {
+				  and x.source_id = t.l and not x.target_confirmed`, runID, aLegacy, aDepot, domain.TableOpenItemsReceivable); err != nil {
 				return fmt.Errorf("confirm legacy_xref: %w", err)
 			}
 		}
-		_, err := tx.Exec(ctx, `update target_load set lease_until = now() + $2::int * interval '1 second' where tenant_id = current_setting('passage.tenant_id', true)::uuid and run_id = $1`,
+		_, err := tx.Exec(ctx, `update target_load set lease_until = now() + $2::int * interval '1 second' where tenant_id = current_setting('depot.tenant_id', true)::uuid and run_id = $1`,
 			runID, int32(lease.Seconds()))
 		return err
 	})
@@ -382,18 +382,18 @@ type TargetFinish struct {
 }
 
 // FinishTargetLoad ends a pass: it recounts the rows, compares the target's totals with what the factory
-// sent, stores the comparison as control totals and the status, and writes dev.passage.migration.pack.loaded.v1.
+// sent, stores the comparison as control totals and the status, and writes dev.depot.migration.pack.loaded.v1.
 func (s *Postgres) FinishTargetLoad(ctx context.Context, runID string, fin TargetFinish) (domain.TargetLoad, []domain.ControlTotal, error) {
 	var load domain.TargetLoad
 	var totals []domain.ControlTotal
 	err := s.tx(ctx, func(tx pgx.Tx) error {
 		var err error
-		load, err = scanLoad(tx.QueryRow(ctx, `select `+loadColumns+` from target_load where tenant_id = current_setting('passage.tenant_id', true)::uuid and run_id = $1 for update`, runID))
+		load, err = scanLoad(tx.QueryRow(ctx, `select `+loadColumns+` from target_load where tenant_id = current_setting('depot.tenant_id', true)::uuid and run_id = $1 for update`, runID))
 		if err != nil {
 			return err
 		}
 		counts := map[string]int{}
-		rows, err := tx.Query(ctx, `select status, outcome, count(*) from target_row where tenant_id = current_setting('passage.tenant_id', true)::uuid and run_id = $1
+		rows, err := tx.Query(ctx, `select status, outcome, count(*) from target_row where tenant_id = current_setting('depot.tenant_id', true)::uuid and run_id = $1
 			and (ledger = 'AR' or status = 'NOT_AVAILABLE') group by status, outcome`, runID)
 		if err != nil {
 			return err
@@ -443,7 +443,7 @@ func (s *Postgres) FinishTargetLoad(ctx context.Context, runID string, fin Targe
 		}
 		if _, err := tx.Exec(ctx, `update target_load set status = $2, created = $3, updated = $4, unchanged = $5, skipped = $6, rejected = $7, not_available = $8,
 				pending = $9, last_error = $10, lease_until = null, finished_at = now(), version = version + 1
-			where tenant_id = current_setting('passage.tenant_id', true)::uuid and run_id = $1`,
+			where tenant_id = current_setting('depot.tenant_id', true)::uuid and run_id = $1`,
 			runID, load.Status, load.Created, load.Updated, load.Unchanged, load.Skipped, load.Rejected, load.NotAvailable, load.Pending, load.LastError); err != nil {
 			return err
 		}
@@ -458,7 +458,7 @@ func (s *Postgres) FinishTargetLoad(ctx context.Context, runID string, fin Targe
 		}); err != nil {
 			return fmt.Errorf("enqueue pack.loaded: %w", err)
 		}
-		load, err = scanLoad(tx.QueryRow(ctx, `select `+loadColumns+` from target_load where tenant_id = current_setting('passage.tenant_id', true)::uuid and run_id = $1`, runID))
+		load, err = scanLoad(tx.QueryRow(ctx, `select `+loadColumns+` from target_load where tenant_id = current_setting('depot.tenant_id', true)::uuid and run_id = $1`, runID))
 		return err
 	})
 	return load, totals, err
@@ -469,7 +469,7 @@ func (s *Postgres) FinishTargetLoad(ctx context.Context, runID string, fin Targe
 func expectedTotals(ctx context.Context, tx pgx.Tx, importSource, le string) ([]domain.ImportTotals, error) {
 	rows, err := tx.Query(ctx, `select currency, count(*), coalesce(sum(open_amount) filter (where side = 'DEBIT'), 0)::text,
 			coalesce(-sum(open_amount) filter (where side = 'CREDIT'), 0)::text
-		from target_loaded where tenant_id = current_setting('passage.tenant_id', true)::uuid and import_source = $1 and legal_entity_id = $2
+		from target_loaded where tenant_id = current_setting('depot.tenant_id', true)::uuid and import_source = $1 and legal_entity_id = $2
 		group by currency order by currency`, importSource, le)
 	if err != nil {
 		return nil, err
@@ -493,7 +493,7 @@ func expectedTotals(ctx context.Context, tx pgx.Tx, importSource, le string) ([]
 // key from an earlier pass is replaced, so the run shows the latest comparison.
 func upsertTargetTotals(ctx context.Context, tx pgx.Tx, runID string, totals []domain.ControlTotal) error {
 	var maxSeq int
-	if err := tx.QueryRow(ctx, `select coalesce(max(seq), 0) from control_total where tenant_id = current_setting('passage.tenant_id', true)::uuid and run_id = $1`, runID).Scan(&maxSeq); err != nil {
+	if err := tx.QueryRow(ctx, `select coalesce(max(seq), 0) from control_total where tenant_id = current_setting('depot.tenant_id', true)::uuid and run_id = $1`, runID).Scan(&maxSeq); err != nil {
 		return err
 	}
 	for _, t := range totals {
@@ -502,7 +502,7 @@ func upsertTargetTotals(ctx context.Context, tx pgx.Tx, runID string, totals []d
 			return err
 		}
 		tag, err := tx.Exec(ctx, `update control_total set source_value = $4, target_value = $5, delta = $6, status = $7, tolerance = $8, tolerance_reason = $9, computed_at = now()
-			where tenant_id = current_setting('passage.tenant_id', true)::uuid and run_id = $1 and name = $2 and key_json = $3::jsonb`,
+			where tenant_id = current_setting('depot.tenant_id', true)::uuid and run_id = $1 and name = $2 and key_json = $3::jsonb`,
 			runID, t.Name, key, t.Source.String(), t.Target.String(), t.Delta.String(), string(t.Status), t.Tolerance.Amount.String(), t.Tolerance.Reason)
 		if err != nil {
 			return fmt.Errorf("update control_total: %w", err)
@@ -512,7 +512,7 @@ func upsertTargetTotals(ctx context.Context, tx pgx.Tx, runID string, totals []d
 		}
 		maxSeq++
 		if _, err := tx.Exec(ctx, `insert into control_total (tenant_id, total_id, run_id, seq, name, key_json, source_value, target_value, delta, tolerance, tolerance_reason, status)
-			values (current_setting('passage.tenant_id', true)::uuid, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+			values (current_setting('depot.tenant_id', true)::uuid, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
 			ids.New(), runID, maxSeq, t.Name, key, t.Source.String(), t.Target.String(), t.Delta.String(), t.Tolerance.Amount.String(), t.Tolerance.Reason, string(t.Status)); err != nil {
 			return fmt.Errorf("insert control_total: %w", err)
 		}
@@ -535,7 +535,7 @@ func countLedger(rows []domain.StagedRow, ledger string) int {
 // by tenant only while target_load is held to the caller's legal-entity scopes, and the go/no-go reads the
 // status as a cutover manager of any scope: a narrow scope must not read "no load ran" and pass.
 func setReceivablesLoad(ctx context.Context, tx pgx.Tx, runID, status string) error {
-	if _, err := tx.Exec(ctx, `update pack_run set receivables_load = $2 where tenant_id = current_setting('passage.tenant_id', true)::uuid and run_id = $1`, runID, status); err != nil {
+	if _, err := tx.Exec(ctx, `update pack_run set receivables_load = $2 where tenant_id = current_setting('depot.tenant_id', true)::uuid and run_id = $1`, runID, status); err != nil {
 		return fmt.Errorf("update pack_run receivables_load: %w", err)
 	}
 	return nil

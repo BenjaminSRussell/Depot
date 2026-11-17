@@ -48,16 +48,16 @@ describe("coexistenceChanges", () => {
   });
 
   test("a flag change is one change; entries that are not a flag are skipped and counted", () => {
-    expect(coexistenceChanges(hubEvent(COEXISTENCE_CHANGED_TYPE, flag("customer", "PASSAGE", 1))).changes).toHaveLength(1);
+    expect(coexistenceChanges(hubEvent(COEXISTENCE_CHANGED_TYPE, flag("customer", "DEPOT", 1))).changes).toHaveLength(1);
     const bad = coexistenceChanges(
       hubEvent(ROLLED_BACK_TYPE, {
         plan_id: "not-a-uuid",
-        coexistence_resumed: [flag("customer", "PASSAGE", 2), flag("vendor", "LEGACY", 0), flag("x", "LEGACY", 1, "", "AX2012"), { mode: "LEGACY" }, flag("y", "LEGACY", 1, "C", "NAV")],
+        coexistence_resumed: [flag("customer", "DEPOT", 2), flag("vendor", "LEGACY", 0), flag("x", "LEGACY", 1, "", "AX2012"), { mode: "LEGACY" }, flag("y", "LEGACY", 1, "C", "NAV")],
       }),
     );
     expect(bad).toEqual({ changes: [], invalid: 5 });
     expect(coexistenceChanges(hubEvent(ROLLED_BACK_TYPE, { plan_id: planId })).changes).toEqual([]);
-    expect(coexistenceChanges(hubEvent("dev.passage.cutover.step.completed.v1", flag("customer", "LEGACY", 1))).changes).toEqual([]);
+    expect(coexistenceChanges(hubEvent("dev.depot.cutover.step.completed.v1", flag("customer", "LEGACY", 1))).changes).toEqual([]);
   });
 
   test("backoff doubles from a minute and stops at an hour", () => {
@@ -107,8 +107,8 @@ describe.skipIf(ownerUrl === undefined)("coexistence adapters on Postgres", () =
   let offset = 0;
   function message(type: string, data: unknown, tenantId = tenant): KafkaMessageInput {
     offset += 1;
-    const event = { specversion: "1.0", id: randomUUID(), source: "passage/migration-factory", type, subject: "s", time: now.toISOString(), tenantid: tenantId, data };
-    return { topic: "passage.cutover.plan", partition: 0, offset: String(offset), key: null, value: Buffer.from(JSON.stringify(event)) };
+    const event = { specversion: "1.0", id: randomUUID(), source: "depot/migration-factory", type, subject: "s", time: now.toISOString(), tenantid: tenantId, data };
+    return { topic: "depot.cutover.plan", partition: 0, offset: String(offset), key: null, value: Buffer.from(JSON.stringify(event)) };
   }
 
   test("AC-49.7: cutover suspends the adapters, the rollback event resumes them, and an older event changes nothing", async () => {
@@ -125,9 +125,9 @@ describe.skipIf(ownerUrl === undefined)("coexistence adapters on Postgres", () =
     const sweep = new CoexistenceSweeper({ store: cs, adapters: [ax], clock });
 
     // Go-live: the factory cuts customers and vendors of USMF over.
-    const cutCustomer = message(COEXISTENCE_CHANGED_TYPE, flag("customer", "PASSAGE", 1));
+    const cutCustomer = message(COEXISTENCE_CHANGED_TYPE, flag("customer", "DEPOT", 1));
     await handle(cutCustomer);
-    await handle(message(COEXISTENCE_CHANGED_TYPE, flag("vendor", "PASSAGE", 1)));
+    await handle(message(COEXISTENCE_CHANGED_TYPE, flag("vendor", "DEPOT", 1)));
     expect(await sweep.runOnce()).toEqual({ applied: 2, retried: 0, parked: 0 });
     expect([...ax.suspended].sort()).toEqual(["USMF/customer", "USMF/vendor"]);
 
@@ -177,7 +177,7 @@ describe.skipIf(ownerUrl === undefined)("coexistence adapters on Postgres", () =
     expect([row?.status, row?.appliedMode, row?.attempts]).toEqual(["applied", "LEGACY", 0]);
   });
 
-  test("hub_coexistence_due: definer rights, pinned search_path, keys only, executable by passage_app alone", async () => {
+  test("hub_coexistence_due: definer rights, pinned search_path, keys only, executable by depot_app alone", async () => {
     const fn = await f.owner.query(
       `select p.prosecdef, p.proconfig, pg_get_function_result(p.oid) as result,
               array(select coalesce(r.rolname, 'PUBLIC') from aclexplode(p.proacl) a left join pg_roles r on r.oid = a.grantee
@@ -192,7 +192,7 @@ describe.skipIf(ownerUrl === undefined)("coexistence adapters on Postgres", () =
     expect(row.proconfig).toEqual([`search_path=${f.schema}, pg_temp`]);
     expect(row.result).toBe("TABLE(tenant_id uuid, source_system text, source_company text, entity text)");
     expect(row.executors).not.toContain("PUBLIC");
-    expect([...row.executors].sort()).toEqual([...new Set([row.owner, "passage_app"])].sort());
+    expect([...row.executors].sort()).toEqual([...new Set([row.owner, "depot_app"])].sort());
     // The application role reads another tenant's rows only through the function, which returns keys.
     const other = randomUUID();
     await cs.record(other, [{ sourceSystem: "AX2012", sourceCompany: "GBSI", entity: "product", mode: "LEGACY", version: 1, planId: null }], "e0", now);
@@ -222,7 +222,7 @@ describe.skipIf(ownerUrl === undefined)("coexistence adapters on Postgres", () =
     expect([refused?.status, refused?.lastCode, missing?.status, missing?.lastCode]).toEqual(["parked", CODE_REFUSED, "parked", CODE_NO_ADAPTER]);
     expect(ax.calls).toEqual(["resume DEMF/worker"]);
     // A newer change for a parked row queues it again.
-    await cs.record(tenant, [{ sourceSystem: "SAPECC", sourceCompany: "2000", entity: "customer", mode: "PASSAGE", version: 3, planId: null }], "e3", now);
+    await cs.record(tenant, [{ sourceSystem: "SAPECC", sourceCompany: "2000", entity: "customer", mode: "DEPOT", version: 3, planId: null }], "e3", now);
     sap.fail = null;
     expect(await sweep.runOnce()).toEqual({ applied: 1, retried: 0, parked: 0 });
     expect(sap.suspended.has("2000/customer")).toBe(true);

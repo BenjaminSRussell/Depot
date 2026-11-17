@@ -31,7 +31,7 @@ describe("referenceFetch", () => {
     await createUnit({ code: "box", name: "Box", class: "each", decimalPrecision: 0 });
     for (let call = 0; call < 3; call += 1) {
       const names = [...headersOf(fetchMock, call).keys()];
-      expect(names.filter((name) => name.startsWith("x-passage-legalentity"))).toEqual([]);
+      expect(names.filter((name) => name.startsWith("x-depot-legalentity"))).toEqual([]);
     }
   });
 

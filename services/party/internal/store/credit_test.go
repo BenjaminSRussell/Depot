@@ -11,13 +11,13 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/party/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/party/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/party/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/party/internal/store"
 )
 
 const (
@@ -101,7 +101,7 @@ func TestCreditLimit_IncreaseStaysPendingUntilApproved(t *testing.T) {
 	if got := storedLimit(t, app, customerID); got != "50000.00" {
 		t.Fatalf("limit changed before approval: %s", got)
 	}
-	if got := outboxTypes(t, app); got != "dev.passage.party.change.requested.v1" {
+	if got := outboxTypes(t, app); got != "dev.depot.party.change.requested.v1" {
 		t.Fatalf("outbox after request = %s", got)
 	}
 
@@ -119,7 +119,7 @@ func TestCreditLimit_IncreaseStaysPendingUntilApproved(t *testing.T) {
 	if got := storedLimit(t, app, customerID); got != "120000.00" {
 		t.Fatalf("limit after approval = %s", got)
 	}
-	if got := outboxTypes(t, app); got != "dev.passage.party.change.requested.v1,dev.passage.party.change.approved.v1" {
+	if got := outboxTypes(t, app); got != "dev.depot.party.change.requested.v1,dev.depot.party.change.approved.v1" {
 		t.Fatalf("outbox after approval = %s", got)
 	}
 	if _, err := s.DecidePendingChange(asUser(1, "", approver), res.Pending.ID, false, ""); problemCode(t, err) != store.CodeChangeDecided {
@@ -142,7 +142,7 @@ func TestCreditLimit_RejectDiscardsChange(t *testing.T) {
 	if got := storedLimit(t, app, customerID); got != "50000.00" {
 		t.Fatalf("limit after reject = %s", got)
 	}
-	if got := outboxTypes(t, app); got != "dev.passage.party.change.requested.v1,dev.passage.party.change.rejected.v1" {
+	if got := outboxTypes(t, app); got != "dev.depot.party.change.requested.v1,dev.depot.party.change.rejected.v1" {
 		t.Fatalf("outbox = %s", got)
 	}
 	if _, err := s.RequestCreditLimit(asUser(1, "", requester), customerID, "130000"); err != nil {
@@ -161,10 +161,10 @@ func TestCreditLimit_DecreaseAppliesImmediately(t *testing.T) {
 	if got := storedLimit(t, app, customerID); got != "10000.50" {
 		t.Fatalf("limit = %s", got)
 	}
-	if got := outboxTypes(t, app); got != "dev.passage.party.customer.updated.v1" {
+	if got := outboxTypes(t, app); got != "dev.depot.party.customer.updated.v1" {
 		t.Fatalf("outbox = %s", got)
 	}
-	if _, err := s.RequestCreditLimit(asUser(1, "", requester), customerID, "10000.50"); err != nil || outboxTypes(t, app) != "dev.passage.party.customer.updated.v1" {
+	if _, err := s.RequestCreditLimit(asUser(1, "", requester), customerID, "10000.50"); err != nil || outboxTypes(t, app) != "dev.depot.party.customer.updated.v1" {
 		t.Fatalf("an unchanged limit must be a no-op: %v", err)
 	}
 }
@@ -404,7 +404,7 @@ func TestCreditLimit_SameDeciderReplayIsIdempotent(t *testing.T) {
 	if again.Reason == nil || *again.Reason != "ok" {
 		t.Fatalf("replay did not preserve the original reason: %+v", again)
 	}
-	if got := outboxTypes(t, app); got != "dev.passage.party.change.requested.v1,dev.passage.party.change.approved.v1" {
+	if got := outboxTypes(t, app); got != "dev.depot.party.change.requested.v1,dev.depot.party.change.approved.v1" {
 		t.Fatalf("replay emitted an event: %s", got)
 	}
 	if _, err := s.DecidePendingChange(asUser(1, "", "someone-else"), res.Pending.ID, true, ""); problemCode(t, err) != store.CodeChangeDecided {

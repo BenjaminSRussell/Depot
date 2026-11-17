@@ -12,11 +12,11 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/sales/internal/domain"
-	salesevents "github.com/BenjaminSRussell/passage/services/sales/internal/events"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/sales/internal/domain"
+	salesevents "github.com/BenjaminSRussell/depot/services/sales/internal/events"
 )
 
 // Problem codes of the allocation quotas (FR-27.16, BR-27.15).
@@ -29,7 +29,7 @@ const (
 	// allocationSource marks a line confirmed in a later period than requested.
 	allocationSource = "ALLOCATION"
 	// allocationAggregate routes allocation.consumed and allocation.returned to
-	// passage.sales.allocation, keyed by the quota so a consumer sees one
+	// depot.sales.allocation, keyed by the quota so a consumer sees one
 	// quota's draws and returns in order.
 	allocationAggregate = "allocation"
 )

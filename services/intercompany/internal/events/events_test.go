@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/events"
 )
 
 // TestEventsMatchAsyncAPI keeps events/asyncapi.yaml in step with the code:
@@ -24,7 +24,7 @@ func TestEventsMatchAsyncAPI(t *testing.T) {
 	}
 	for typ, payload := range payloads {
 		if !events.ValidType(typ) {
-			t.Errorf("%s does not follow dev.passage.<ctx>.<entity>.<verb>.v<n>", typ)
+			t.Errorf("%s does not follow dev.depot.<ctx>.<entity>.<verb>.v<n>", typ)
 		}
 		if !strings.Contains(spec, "name: "+typ) {
 			t.Errorf("%s is not in asyncapi.yaml", typ)

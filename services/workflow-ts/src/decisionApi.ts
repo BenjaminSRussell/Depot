@@ -104,12 +104,12 @@ async function handle(client: Pick<Client, "workflow">, request: IncomingMessage
 }
 
 function principalOf(request: IncomingMessage): Principal {
-  if (request.headers["x-passage-service-token"] !== undefined) throw new Refusal(401, "AUTH-0001", "decisions are made by people, not services");
-  const tenantId = String(request.headers["x-passage-tenant"] ?? "");
-  const userId = String(request.headers["x-passage-user"] ?? "").trim();
+  if (request.headers["x-depot-service-token"] !== undefined) throw new Refusal(401, "AUTH-0001", "decisions are made by people, not services");
+  const tenantId = String(request.headers["x-depot-tenant"] ?? "");
+  const userId = String(request.headers["x-depot-user"] ?? "").trim();
   if (!UUID.test(tenantId) || !userId) throw new Refusal(401, "AUTH-0001", "missing tenant or user");
-  const duties = new Set(String(request.headers["x-passage-duties"] ?? "").split(",").map((duty) => duty.trim()).filter(Boolean));
-  const scope = String(request.headers["x-passage-legal-entity"] ?? "")
+  const duties = new Set(String(request.headers["x-depot-duties"] ?? "").split(",").map((duty) => duty.trim()).filter(Boolean));
+  const scope = String(request.headers["x-depot-legal-entity"] ?? "")
     .split(",")
     .map((entry) => entry.trim().toLowerCase())
     .filter((entry) => UUID.test(entry) && entry !== NIL_UUID);
@@ -161,13 +161,13 @@ async function stateOf<T extends { tenantId: string; legalEntityId: string }>(re
 /**
  * `:start` begins the run's workflow for a run the agents service has already stored (idempotent: a second start is the same run);
  * `:approval-decided` wakes it after the agents service recorded a decision. Neither carries a decision, so neither can approve
- * anything. Both take only a signed service token from the agents service (grant agents.run.signal), never the X-Passage-*
+ * anything. Both take only a signed service token from the agents service (grant agents.run.signal), never the X-Depot-*
  * headers: this port trusts those headers from the edge, so a pod that reaches it must not be able to claim an identity here.
  * They are not exposed at the edge. The token's tenant and actor are the run's; the workflow id carries the tenant.
  */
 async function agentRunRoute(client: Pick<Client, "workflow">, request: IncomingMessage, runId: string, action: "start" | "approval-decided", options: DecisionOptions): Promise<void> {
   if (!options.agentsVerifier) throw new Refusal(404, "COM-0404", "no such route");
-  const raw = request.headers["x-passage-service-token"];
+  const raw = request.headers["x-depot-service-token"];
   let claims;
   try {
     claims = options.agentsVerifier.verify(String(Array.isArray(raw) ? raw[0] : raw ?? ""));
@@ -309,6 +309,6 @@ async function decidePartyMerge(
 
 function reply(response: ServerResponse, refusal: Refusal): void {
   response.writeHead(refusal.status, { "Content-Type": "application/problem+json" }).end(
-    JSON.stringify({ type: `https://passage.dev/problems/${refusal.code}`, title: refusal.message, status: refusal.status, code: refusal.code, detail: refusal.message }),
+    JSON.stringify({ type: `https://depot.dev/problems/${refusal.code}`, title: refusal.message, status: refusal.status, code: refusal.code, detail: refusal.message }),
   );
 }

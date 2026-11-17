@@ -1,65 +1,65 @@
 asyncapi: 3.0.0
 info:
-  title: Passage Assets events
+  title: Depot Assets events
   version: 1.0.0
   description: |
     Events published by the assets service through the outbox (same transaction
     as the state change). CloudEvents 1.0 envelope; type
-    dev.passage.assets.<entity>.<verb>.v1; source /passage/assets/assets.
+    dev.depot.assets.<entity>.<verb>.v1; source /depot/assets/assets.
 defaultContentType: application/cloudevents+json
 channels:
   assetAcquired:
-    address: passage.assets.asset
+    address: depot.assets.asset
     messages:
       assetAcquired:
         $ref: "#/components/messages/AssetAcquired"
   assetDisposed:
-    address: passage.assets.asset
+    address: depot.assets.asset
     messages:
       assetDisposed:
         $ref: "#/components/messages/AssetDisposed"
   leaseRecognized:
-    address: passage.assets.lease
+    address: depot.assets.lease
     messages:
       leaseRecognized:
         $ref: "#/components/messages/LeaseRecognized"
   assetAdjusted:
-    address: passage.assets.asset
+    address: depot.assets.asset
     messages:
       assetAdjusted:
         $ref: "#/components/messages/AssetAdjusted"
   depreciationPosted:
-    address: passage.assets.depreciation
+    address: depot.assets.depreciation
     messages:
       depreciationPosted:
         $ref: "#/components/messages/DepreciationPosted"
   leaseRemeasured:
-    address: passage.assets.lease
+    address: depot.assets.lease
     messages:
       leaseRemeasured:
         $ref: "#/components/messages/LeaseRemeasured"
   leaseTerminated:
-    address: passage.assets.lease
+    address: depot.assets.lease
     messages:
       leaseTerminated:
         $ref: "#/components/messages/LeaseTerminated"
   leasePosted:
-    address: passage.assets.lease
+    address: depot.assets.lease
     messages:
       leasePosted:
         $ref: "#/components/messages/LeasePosted"
   capexApproved:
-    address: passage.assets.capexrequest
+    address: depot.assets.capexrequest
     messages:
       capexApproved:
         $ref: "#/components/messages/CapexApproved"
   assetTransferred:
-    address: passage.assets.asset
+    address: depot.assets.asset
     messages:
       assetTransferred:
         $ref: "#/components/messages/AssetTransferred"
   assetSplit:
-    address: passage.assets.asset
+    address: depot.assets.asset
     messages:
       assetSplit:
         $ref: "#/components/messages/AssetSplit"
@@ -111,67 +111,67 @@ operations:
 components:
   messages:
     AssetAdjusted:
-      name: dev.passage.assets.asset.adjusted.v1
+      name: dev.depot.assets.asset.adjusted.v1
       summary: A book's balances changed by an acquisition adjustment, depreciation adjustment, revaluation or impairment.
       contentType: application/cloudevents+json
       payload:
         $ref: "#/components/schemas/AssetAdjustedData"
     DepreciationPosted:
-      name: dev.passage.assets.depreciation.posted.v1
+      name: dev.depot.assets.depreciation.posted.v1
       summary: A depreciation run was posted for one book code and period.
       contentType: application/cloudevents+json
       payload:
         $ref: "#/components/schemas/DepreciationPostedData"
     AssetAcquired:
-      name: dev.passage.assets.asset.acquired.v1
+      name: dev.depot.assets.asset.acquired.v1
       summary: "An asset book was acquired: cost recognized on one or more books of the asset."
       contentType: application/cloudevents+json
       payload:
         $ref: "#/components/schemas/AssetAcquiredData"
     AssetDisposed:
-      name: dev.passage.assets.asset.disposed.v1
+      name: dev.depot.assets.asset.disposed.v1
       summary: A book was sold or scrapped, in full or in part, with its gain or loss.
       contentType: application/cloudevents+json
       payload:
         $ref: "#/components/schemas/AssetDisposedData"
     LeaseRecognized:
-      name: dev.passage.assets.lease.recognized.v1
+      name: dev.depot.assets.lease.recognized.v1
       summary: An IFRS 16 lease was recognized with its liability, ROU asset and schedule.
       contentType: application/cloudevents+json
       payload:
         $ref: "#/components/schemas/LeaseRecognizedData"
     LeaseRemeasured:
-      name: dev.passage.assets.lease.remeasured.v1
+      name: dev.depot.assets.lease.remeasured.v1
       summary: A lease was remeasured on modification; the liability and ROU asset moved.
       contentType: application/cloudevents+json
       payload:
         $ref: "#/components/schemas/LeaseRemeasuredData"
     LeaseTerminated:
-      name: dev.passage.assets.lease.terminated.v1
+      name: dev.depot.assets.lease.terminated.v1
       summary: A lease was terminated early; its liability and ROU asset are derecognized with the gain or loss.
       contentType: application/cloudevents+json
       payload:
         $ref: "#/components/schemas/LeaseTerminatedData"
     LeasePosted:
-      name: dev.passage.assets.lease.posted.v1
+      name: dev.depot.assets.lease.posted.v1
       summary: A lease journal (recognition, schedule period or termination) was accepted by the general ledger.
       contentType: application/cloudevents+json
       payload:
         $ref: "#/components/schemas/LeasePostedData"
     CapexApproved:
-      name: dev.passage.assets.capexrequest.approved.v1
+      name: dev.depot.assets.capexrequest.approved.v1
       summary: A capex appropriation request was approved with its selected variant's amounts per year.
       contentType: application/cloudevents+json
       payload:
         $ref: "#/components/schemas/CapexApprovedData"
     AssetTransferred:
-      name: dev.passage.assets.asset.transferred.v1
+      name: dev.depot.assets.asset.transferred.v1
       summary: An asset was transferred to a new asset, possibly in another legal entity of the tenant.
       contentType: application/cloudevents+json
       payload:
         $ref: "#/components/schemas/AssetTransferredData"
     AssetSplit:
-      name: dev.passage.assets.asset.split.v1
+      name: dev.depot.assets.asset.split.v1
       summary: An asset was split into several new assets; cost and accumulated depreciation moved to the targets.
       contentType: application/cloudevents+json
       payload:

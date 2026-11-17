@@ -25,7 +25,7 @@ export interface BedrockConfig {
   timeoutMs?: number;
   /** Injected clock for signing tests. Defaults to the current time. */
   now?: () => Date;
-  /** Cloud profile egress check (#599); defaults to PASSAGE_CLOUD_PROFILE. The region defaults to `region`. */
+  /** Cloud profile egress check (#599); defaults to DEPOT_CLOUD_PROFILE. The region defaults to `region`. */
   egress?: EgressOptions;
 }
 

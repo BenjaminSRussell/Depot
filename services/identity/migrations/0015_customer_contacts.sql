@@ -27,13 +27,13 @@ create index identity_customer_contacts_customer on identity_customer_contacts (
 alter table identity_customer_contacts enable row level security;
 alter table identity_customer_contacts force row level security;
 create policy identity_customer_contacts_tenant_access on identity_customer_contacts as permissive
-  using (tenant_id = nullif(current_setting('passage.tenant_id', true), '')::uuid)
-  with check (tenant_id = nullif(current_setting('passage.tenant_id', true), '')::uuid);
+  using (tenant_id = nullif(current_setting('depot.tenant_id', true), '')::uuid)
+  with check (tenant_id = nullif(current_setting('depot.tenant_id', true), '')::uuid);
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON identity_customer_contacts TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON identity_customer_contacts TO depot_app';
   END IF;
 END
 $$;

@@ -50,15 +50,15 @@ spec:
             capabilities:
               drop: [ALL]
           env:
-            {{- include "passage.cloudEnv" $ | nindent 12 }}
+            {{- include "depot.cloudEnv" $ | nindent 12 }}
             {{- include "identity.env" . | nindent 12 }}
           {{- if $secretVolumes }}
           volumeMounts:
             {{- if .Values.bundle.enabled }}
-            - { name: bundle, mountPath: /var/run/passage/bundle, readOnly: true }
+            - { name: bundle, mountPath: /var/run/depot/bundle, readOnly: true }
             {{- end }}
             {{- if .Values.keycloakDeprovision.enabled }}
-            - { name: keycloak, mountPath: /var/run/passage/keycloak, readOnly: true }
+            - { name: keycloak, mountPath: /var/run/depot/keycloak, readOnly: true }
             {{- end }}
           {{- end }}
           ports:

@@ -1,5 +1,5 @@
 import { createElement } from "react";
-import type { PassageModule } from "../registry";
+import type { DepotModule } from "../registry";
 import { BankAccountDetailPage, BankAccountsPage, NewBankAccountPage } from "./BankAccounts";
 import { CashDeskDetailPage, CashDesksPage } from "./CashDesks";
 import { CashForecastPage } from "./CashForecast";
@@ -10,7 +10,7 @@ import { LoanDetailPage, LoansPage, NewLoanPage } from "./Loans";
 import { NewReconciliationPage, ReconciliationDetailPage, ReconciliationsPage } from "./Reconciliations";
 import { ImportStatementPage, StatementDetailPage } from "./Statements";
 
-const treasury: PassageModule = {
+const treasury: DepotModule = {
   id: "treasury",
   title: "Treasury",
   description:

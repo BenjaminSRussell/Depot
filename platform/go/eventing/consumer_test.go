@@ -11,14 +11,14 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/eventing"
-	"github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/eventing"
+	"github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
 )
 
 const (
 	tenantA   = "11111111-1111-4111-8111-111111111111"
-	eventType = "dev.passage.receiving.receipt.posted.v1"
+	eventType = "dev.depot.receiving.receipt.posted.v1"
 )
 
 type fakeSource struct {
@@ -116,7 +116,7 @@ func newHarnessWith(t *testing.T, idempotent bool, handle func(h *harness, attem
 	h := &harness{src: &fakeSource{cancel: cancel}, dlq: &fakeDLQ{}, inbox: &fakeInbox{seen: map[string]bool{}}}
 	attempt := 0
 	c, err := eventing.NewConsumer(h.src, h.dlq, h.inbox, eventing.Config{
-		Name: "receiving-ers", Idempotent: idempotent, DeadLetterTopic: "passage.receiving.receipt.dlq", MaxAttempts: 3, Backoff: func(int) time.Duration { return 0 },
+		Name: "receiving-ers", Idempotent: idempotent, DeadLetterTopic: "depot.receiving.receipt.dlq", MaxAttempts: 3, Backoff: func(int) time.Duration { return 0 },
 		Handlers: map[string]eventing.Handler{eventType: eventing.HandlerFunc(func(ctx context.Context, _ pgx.Tx, evt events.Event) error {
 			attempt++
 			p, _ := tenant.FromContext(ctx)
@@ -136,13 +136,13 @@ func newHarnessWith(t *testing.T, idempotent bool, handle func(h *harness, attem
 
 func record(t *testing.T, offset int64, id, typ, tenantID string) eventing.Record {
 	t.Helper()
-	evt := events.Event{SpecVersion: "1.0", ID: id, Source: "/passage/receiving", Type: typ, Time: time.Now().UTC(), DataContentType: "application/json",
+	evt := events.Event{SpecVersion: "1.0", ID: id, Source: "/depot/receiving", Type: typ, Time: time.Now().UTC(), DataContentType: "application/json",
 		Data: json.RawMessage(`{"receipt_id":"r1","vendor_iban":"DE00SECRET"}`), TenantID: tenantID}
 	value, err := json.Marshal(evt)
 	if err != nil {
 		t.Fatal(err)
 	}
-	return eventing.Record{Topic: "passage.receiving.receipt", Partition: 1, Offset: offset, Value: value, Headers: map[string]string{"tenantid": tenantID}}
+	return eventing.Record{Topic: "depot.receiving.receipt", Partition: 1, Offset: offset, Value: value, Headers: map[string]string{"tenantid": tenantID}}
 }
 
 func run(t *testing.T, c *eventing.Consumer, ctx context.Context) error {
@@ -196,7 +196,7 @@ func TestConsumerDeadLettersAfterBoundedRetries(t *testing.T) {
 	if len(h.ran) != 6 {
 		t.Fatalf("attempts = %d, want 3 per event", len(h.ran))
 	}
-	want := []parked{{"passage.receiving.receipt.dlq", "retries_exhausted", 7}, {"passage.receiving.receipt.dlq", "retries_exhausted", 8}}
+	want := []parked{{"depot.receiving.receipt.dlq", "retries_exhausted", 7}, {"depot.receiving.receipt.dlq", "retries_exhausted", 8}}
 	if len(h.dlq.sent) != 2 || h.dlq.sent[0] != want[0] || h.dlq.sent[1] != want[1] {
 		t.Fatalf("parked = %v, want %v", h.dlq.sent, want)
 	}
@@ -283,7 +283,7 @@ func TestConsumerStopsWithoutCommitWhenDeadLetterFails(t *testing.T) {
 
 func TestConsumerSkipsUnhandledTypesAndReportsCommitFailure(t *testing.T) {
 	h, c, ctx := newHarness(t, nil)
-	h.src.queue = []eventing.Record{record(t, 1, "e1", "dev.passage.receiving.receipt.corrected.v1", tenantA)}
+	h.src.queue = []eventing.Record{record(t, 1, "e1", "dev.depot.receiving.receipt.corrected.v1", tenantA)}
 	if err := run(t, c, ctx); err != nil {
 		t.Fatal(err)
 	}

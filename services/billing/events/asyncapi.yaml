@@ -1,12 +1,12 @@
 asyncapi: 3.0.0
 info:
-  title: Passage Billing events
+  title: Depot Billing events
   version: 0.1.0
-  description: CloudEvents published by the billing context (PSG-29, slices 1 and 3, and creditnote.booked for revrec, #29).
+  description: CloudEvents published by the billing context (DPT-29, slices 1 and 3, and creditnote.booked for revrec, #29).
 defaultContentType: application/cloudevents+json
 channels:
   invoicePosted:
-    address: passage.billing.invoice
+    address: depot.billing.invoice
     description: Outbox relay topic for billing invoice lifecycle events.
     messages:
       invoicePosted:
@@ -40,7 +40,7 @@ operations:
 components:
   messages:
     InvoicePosted:
-      name: dev.passage.billing.invoice.posted.v1
+      name: dev.depot.billing.invoice.posted.v1
       contentType: application/cloudevents+json
       payload:
         type: object
@@ -106,10 +106,10 @@ components:
           intercompany: { type: boolean }
           trading_partner_id: { type: string, format: uuid, description: "The legal entity on the other side of an intercompany invoice (the borrower of a charge billed in Invoice settlement mode, #40); absent on an ordinary invoice." }
     CreditNotePosted:
-      name: dev.passage.billing.creditnote.posted.v1
+      name: dev.depot.billing.creditnote.posted.v1
       contentType: application/cloudevents+json
       description: >
-        The PRD names this event passage.billing.credit-note.posted.v1; the
+        The PRD names this event depot.billing.credit-note.posted.v1; the
         platform type grammar allows lowercase letters and digits per segment, so
         the entity is "creditnote". Amounts are positive magnitudes that reduce
         AR, revenue and tax. Receivables (consumer receivables-billing) opens a credit item linked to the original invoice and settles the original's open items with
@@ -159,7 +159,7 @@ components:
             type: [string, "null"]
             description: Always null on the event; the journal is booked after the post by the auto-book worker or POST /v1/billing/gl-postings and its ledger entry id is kept in invoice.journal_posting_id.
     CreditNoteBooked:
-      name: dev.passage.billing.creditnote.booked.v1
+      name: dev.depot.billing.creditnote.booked.v1
       contentType: application/cloudevents+json
       description: >
         Written in the transaction that stores the credit note's ledger entry

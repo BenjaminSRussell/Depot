@@ -62,7 +62,7 @@ export function ConnectionsPage() {
     <div className={styles.stack}>
       <PageHeader
         title="Connections"
-        description="How Passage reaches your existing ERP: a SQL database, a REST API or a drop directory of files. Settings are stored here; the password, token or key is sealed and can be set but never read back."
+        description="How Depot reaches your existing ERP: a SQL database, a REST API or a drop directory of files. Settings are stored here; the password, token or key is sealed and can be set but never read back."
         actions={
           canWrite ? (
             <Link className={buttonClassName("primary")} to="/migration/connections/new">

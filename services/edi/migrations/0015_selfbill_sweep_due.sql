@@ -22,8 +22,8 @@ REVOKE ALL ON FUNCTION edi_selfbill_due_tenants() FROM PUBLIC;
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT EXECUTE ON FUNCTION edi_selfbill_due_tenants() TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT EXECUTE ON FUNCTION edi_selfbill_due_tenants() TO depot_app';
   END IF;
 END
 $$;

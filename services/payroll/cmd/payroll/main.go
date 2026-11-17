@@ -10,12 +10,12 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ledgerclient"
-	"github.com/BenjaminSRussell/passage/services/payroll/internal/api"
-	"github.com/BenjaminSRussell/passage/services/payroll/internal/store"
-	"github.com/BenjaminSRussell/passage/services/payroll/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ledgerclient"
+	"github.com/BenjaminSRussell/depot/services/payroll/internal/api"
+	"github.com/BenjaminSRussell/depot/services/payroll/internal/store"
+	"github.com/BenjaminSRussell/depot/services/payroll/migrations"
 )
 
 const (

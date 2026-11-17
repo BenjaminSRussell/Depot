@@ -83,7 +83,7 @@ func TestICalendar_EscapesAndMapsStatus(t *testing.T) {
 
 	for _, want := range []string{
 		"BEGIN:VCALENDAR\r\n", "END:VCALENDAR\r\n",
-		"UID:a1@passage\r\n", "DTSTART:20261027T143000Z\r\n", "DTEND:20261027T153000Z\r\n", "DTSTAMP:20261026T090000Z\r\n",
+		"UID:a1@depot\r\n", "DTSTART:20261027T143000Z\r\n", "DTEND:20261027T153000Z\r\n", "DTSTAMP:20261026T090000Z\r\n",
 		`SUMMARY:Call Acme\; pump\, noise\nnow` + "\r\n",
 		"STATUS:CONFIRMED\r\n", "TRIGGER:-PT15M\r\n",
 		"STATUS:CANCELLED\r\n",

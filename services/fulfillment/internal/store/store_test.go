@@ -10,19 +10,19 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/fulfillment/internal/domain"
-	fulevents "github.com/BenjaminSRussell/passage/services/fulfillment/internal/events"
-	"github.com/BenjaminSRussell/passage/services/fulfillment/internal/store"
-	"github.com/BenjaminSRussell/passage/services/fulfillment/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/fulfillment/internal/domain"
+	fulevents "github.com/BenjaminSRussell/depot/services/fulfillment/internal/events"
+	"github.com/BenjaminSRussell/depot/services/fulfillment/internal/store"
+	"github.com/BenjaminSRussell/depot/services/fulfillment/migrations"
 )
 
-// setup needs PASSAGE_TEST_DATABASE_URL (testkit skips without it) and
-// PASSAGE_TEST_APP_DATABASE_URL: the store runs as the application role
+// setup needs DEPOT_TEST_DATABASE_URL (testkit skips without it) and
+// DEPOT_TEST_APP_DATABASE_URL: the store runs as the application role
 // (NOSUPERUSER NOBYPASSRLS), so row-level security applies as in production.
 // admin applies the migrations and reads the outbox for assertions.
 func setup(t *testing.T) (*store.Postgres, *pgxpool.Pool) {

@@ -33,11 +33,11 @@ CREATE INDEX IF NOT EXISTS allocation_quota_lookup ON allocation_quota (tenant_i
 ALTER TABLE allocation_quota ENABLE ROW LEVEL SECURITY;
 ALTER TABLE allocation_quota FORCE ROW LEVEL SECURITY;
 CREATE POLICY allocation_quota_tenant_access ON allocation_quota AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY allocation_quota_legal_entity_scope ON allocation_quota AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 -- One row per quantity a line consumed from a quota. returned_at is set when
 -- the order or the line is cancelled, or the line is changed and consumes again.
@@ -62,18 +62,18 @@ CREATE INDEX IF NOT EXISTS allocation_consumption_order ON allocation_consumptio
 ALTER TABLE allocation_consumption ENABLE ROW LEVEL SECURITY;
 ALTER TABLE allocation_consumption FORCE ROW LEVEL SECURITY;
 CREATE POLICY allocation_consumption_tenant_access ON allocation_consumption AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY allocation_consumption_legal_entity_scope ON allocation_consumption AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 -- Grants for this slice's tables. The store updates both (consumed quantity,
 -- quota changes, returned_at) and never deletes.
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON allocation_quota, allocation_consumption TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON allocation_quota, allocation_consumption TO depot_app';
   END IF;
 END
 $$;

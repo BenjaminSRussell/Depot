@@ -4,14 +4,14 @@ info:
   version: 0.1.0
   description: Data migration framework. Runs execute synchronously inside the request until the Temporal worker (wave 4) takes over; the 202 body already carries the job envelope.
 servers:
-  - url: https://app.local.passage.dev
+  - url: https://app.local.depot.dev
 paths:
   /v1/integration/migration-runs:
     get:
       operationId: listMigrationRuns
       summary: List migration runs
       description: Newest first, optionally filtered by entity, status and project. Callers must be tenant-wide.
-      x-passage-duty: migration.run
+      x-depot-duty: migration.run
       parameters:
         - { name: entity, in: query, schema: { type: string } }
         - { name: status, in: query, schema: { type: string, enum: [succeeded, partial, failed] } }
@@ -30,8 +30,8 @@ paths:
       description: |
         Extracts, maps, validates, loads and reconciles one entity from a legacy system. Give the mapping inline or reference a published mapping spec by id. The run executes inside the request.
 
-        When the deployment has target addresses and a signing key (MIG_TARGET_PARTY_URL, MIG_TARGET_PRODUCT_URL, MIG_TARGET_RECEIVABLES_URL, PASSAGE_SERVICE_SIGNING_KEY), rows are read from the active entity binding of the connection profile (the project's, else the one active profile of the source system) and loaded into the owning services' APIs as the service principal migration-loader. Entities with a target: party, customer and vendor (party service), product and item (product service, created as a draft then moved to the lifecycle state the mapping names, so the required-attribute check applies), ar_open_item (receivables, POST /v1/receivables/open-items:batch), bom and route (engineering, created as draft versions; MIG_TARGET_ENGINEERING_URL). A full run (not a delta, dry run or held run) reads every loaded record back through the owning service's detail route and reports the tie-out in reconciliation; a failed tie-out fails the run. Any other entity is rejected row by row with MIG-TARGET-NOT-AVAILABLE. A target's refusal (4xx) rejects that row under the target's own code and is not retried; a 5xx, 429 or timeout is retried with backoff and then rejects the row as MIG-TARGET-UNAVAILABLE. The legal entity of a row is the project's target legal entity (a row whose legalEntityId names another is rejected MIG-LOAD-LEGAL-ENTITY), else the row's legalEntityId field (MIG-LOAD-LEGAL-ENTITY without one). The mapping's targets must be fields of the entity's target API, or start with _ to stay local (rules and change detection).
-      x-passage-duty: migration.run
+        When the deployment has target addresses and a signing key (MIG_TARGET_PARTY_URL, MIG_TARGET_PRODUCT_URL, MIG_TARGET_RECEIVABLES_URL, DEPOT_SERVICE_SIGNING_KEY), rows are read from the active entity binding of the connection profile (the project's, else the one active profile of the source system) and loaded into the owning services' APIs as the service principal migration-loader. Entities with a target: party, customer and vendor (party service), product and item (product service, created as a draft then moved to the lifecycle state the mapping names, so the required-attribute check applies), ar_open_item (receivables, POST /v1/receivables/open-items:batch), bom and route (engineering, created as draft versions; MIG_TARGET_ENGINEERING_URL). A full run (not a delta, dry run or held run) reads every loaded record back through the owning service's detail route and reports the tie-out in reconciliation; a failed tie-out fails the run. Any other entity is rejected row by row with MIG-TARGET-NOT-AVAILABLE. A target's refusal (4xx) rejects that row under the target's own code and is not retried; a 5xx, 429 or timeout is retried with backoff and then rejects the row as MIG-TARGET-UNAVAILABLE. The legal entity of a row is the project's target legal entity (a row whose legalEntityId names another is rejected MIG-LOAD-LEGAL-ENTITY), else the row's legalEntityId field (MIG-LOAD-LEGAL-ENTITY without one). The mapping's targets must be fields of the entity's target API, or start with _ to stay local (rules and change detection).
+      x-depot-duty: migration.run
       parameters:
         - { name: Idempotency-Key, in: header, schema: { type: string } }
       requestBody:
@@ -61,7 +61,7 @@ paths:
       operationId: getMigrationRun
       summary: Get a migration run
       description: Returns the counts, rejects, warnings, absent keys and reconciliation of one run.
-      x-passage-duty: migration.run
+      x-depot-duty: migration.run
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -74,7 +74,7 @@ paths:
       operationId: rerunMigrationRun
       summary: Re-run the exception queue of a run
       description: Creates a child run linked by parentRunId that reprocesses only the rows the original run rejected.
-      x-passage-duty: migration.run
+      x-depot-duty: migration.run
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - { name: Idempotency-Key, in: header, schema: { type: string } }
@@ -93,7 +93,7 @@ paths:
       operationId: listMappingSpecs
       summary: List mapping specs
       description: Published mapping versions, newest version first per entity. The mapping body is returned by the single-spec read. A spec belongs to one migration project or is tenant-wide; projectId narrows the list to one project's specs or, with none, to the tenant-wide ones.
-      x-passage-duty: migration.run
+      x-depot-duty: migration.run
       parameters:
         - { name: entity, in: query, schema: { type: string } }
         - { name: projectId, in: query, description: "A migration project id, or none for the tenant-wide specs. Omitted lists every spec. Anything else is a 400 COM-0001.", schema: { type: string } }
@@ -108,7 +108,7 @@ paths:
       operationId: publishMappingSpec
       summary: Publish a mapping spec version
       description: Parses the mapping and runs its tests (at least one test case is required), then stores it as an immutable version of its entity, in the scope of projectId (tenant-wide when omitted). Re-publishing identical content returns the stored spec; different content under a version used in the same scope is a conflict.
-      x-passage-duty: migration.spec.write
+      x-depot-duty: migration.spec.write
       parameters:
         - { name: Idempotency-Key, in: header, schema: { type: string } }
       requestBody:
@@ -138,7 +138,7 @@ paths:
       operationId: getMappingSpec
       summary: Get a mapping spec
       description: Returns one published version including its mapping document.
-      x-passage-duty: migration.run
+      x-depot-duty: migration.run
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -151,7 +151,7 @@ paths:
       operationId: listMigrationRunLedger
       summary: List the lineage of a run
       description: One row per source key the run created, updated or found unchanged, in source key order, with the targets that took their value from the run's data template (default_from_template).
-      x-passage-duty: migration.run
+      x-depot-duty: migration.run
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - { name: templated, in: query, description: When true only rows that took at least one template default are returned., schema: { type: boolean } }
@@ -170,7 +170,7 @@ paths:
       operationId: listDataTemplates
       summary: List data templates
       description: Published data templates, newest version first per entity and name. The defaults are returned by the single-template read.
-      x-passage-duty: migration.run
+      x-depot-duty: migration.run
       parameters:
         - { name: entity, in: query, schema: { type: string } }
         - { name: cursor, in: query, description: "The nextCursor of the previous page. It holds only the position, so send the same filters again; a cursor from another list is a 400 COM-0001.", schema: { type: string } }
@@ -184,7 +184,7 @@ paths:
       operationId: publishDataTemplate
       summary: Publish a data template version
       description: Stores per-entity default values (FR-10.18) as an immutable version of its entity and name. A default fills a mapping target only when the source row has no value for it. Re-publishing identical content returns the stored template; different content under a used version is a conflict. The template is checked against the mapping when a run uses it.
-      x-passage-duty: migration.spec.write
+      x-depot-duty: migration.spec.write
       parameters:
         - { name: Idempotency-Key, in: header, schema: { type: string } }
       requestBody:
@@ -211,7 +211,7 @@ paths:
       operationId: getDataTemplate
       summary: Get a data template
       description: Returns one published version including its default values.
-      x-passage-duty: migration.run
+      x-depot-duty: migration.run
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -223,8 +223,8 @@ paths:
     get:
       operationId: listXref
       summary: Look up legacy keys in the cross-reference
-      description: Answers where a legacy record went. Filter by exact legacy key, key prefix (literal, no wildcards) or Passage id (a target id or the survivor a record was merged into), and page in source system, entity and key order with the opaque nextCursor. Callers scoped to one legal entity are refused.
-      x-passage-duty: migration.run
+      description: Answers where a legacy record went. Filter by exact legacy key, key prefix (literal, no wildcards) or Depot id (a target id or the survivor a record was merged into), and page in source system, entity and key order with the opaque nextCursor. Callers scoped to one legal entity are refused.
+      x-depot-duty: migration.run
       parameters:
         - { name: sourceSystem, in: query, schema: { $ref: '#/components/schemas/SourceSystem' } }
         - { name: entity, in: query, schema: { type: string } }
@@ -243,7 +243,7 @@ paths:
       operationId: summarizeXref
       summary: Count mapped legacy keys
       description: The number of mapped legacy keys per source system and entity, for checking a cutover against the legacy record counts.
-      x-passage-duty: migration.run
+      x-depot-duty: migration.run
       responses:
         '200':
           description: One row per source system and entity.
@@ -254,7 +254,7 @@ paths:
       operationId: listMigrationProjects
       summary: List migration projects
       description: Migration projects (EN-064) in name order, optionally filtered by type and status, paged with the opaque nextCursor. Callers scoped to one legal entity are refused.
-      x-passage-duty: migration.run
+      x-depot-duty: migration.run
       parameters:
         - { name: projectType, in: query, schema: { type: string, enum: [migrate, copy, config_package] } }
         - { name: status, in: query, schema: { type: string, enum: [active, archived] } }
@@ -269,7 +269,7 @@ paths:
       operationId: createMigrationProject
       summary: Create a migration project
       description: Creates a migrate, copy (between two different legal entities of the tenant, FR-10.14) or config_package project. Type, source system and legal entities are fixed once created; name, status, cutover, schedule and connection profile can be changed with the version. Legal entity ids are not checked against the org service.
-      x-passage-duty: migration.project.write
+      x-depot-duty: migration.project.write
       parameters:
         - { name: Idempotency-Key, in: header, schema: { type: string } }
       requestBody:
@@ -298,7 +298,7 @@ paths:
       operationId: getMigrationProject
       summary: Get a migration project
       description: Returns one migration project with its current version.
-      x-passage-duty: migration.run
+      x-depot-duty: migration.run
       responses:
         '200':
           description: The project.
@@ -311,7 +311,7 @@ paths:
       operationId: updateMigrationProject
       summary: Change a migration project
       description: Changes name, status, cutover time, schedule or connection profile under the project's version. An omitted or null field is unchanged; an empty cutoverAt or scheduleCron clears it. A stale version is a conflict. An archived project takes no change except reactivation (status active), which may carry other edits.
-      x-passage-duty: migration.project.write
+      x-depot-duty: migration.project.write
       requestBody:
         required: true
         content: { application/json: { schema: { $ref: '#/components/schemas/UpdateMigrationProject' } } }
@@ -333,7 +333,7 @@ paths:
       operationId: getKeyRewriteRules
       summary: Get a copy project's key rewrite rules
       description: The ordered rules that rewrite legal-entity-scoped keys when a copy runs, with the project version to send back when replacing them. Only copy projects have rules.
-      x-passage-duty: migration.run
+      x-depot-duty: migration.run
       responses:
         '200':
           description: The rules in the order they are tried.
@@ -349,7 +349,7 @@ paths:
       operationId: replaceKeyRewriteRules
       summary: Replace a copy project's key rewrite rules
       description: Replaces the whole rule set under the project's version and bumps the version; an empty list clears the rules. For one field the first matching rule wins, so a rule whose prefix starts with an earlier rule's prefix for the same field (USMF after US, or a repeat) could never apply and is refused. An archived project's rules cannot be replaced.
-      x-passage-duty: migration.project.write
+      x-depot-duty: migration.project.write
       requestBody:
         required: true
         content: { application/json: { schema: { $ref: '#/components/schemas/ReplaceKeyRewriteRules' } } }
@@ -374,7 +374,7 @@ paths:
       operationId: previewKeyRewriteRules
       summary: Preview key rewriting on sample keys
       description: Shows what the rules would do to sample record keys, using the rules in the request or, when omitted, the stored ones. Nothing is saved.
-      x-passage-duty: migration.run
+      x-depot-duty: migration.run
       requestBody:
         required: true
         content: { application/json: { schema: { $ref: '#/components/schemas/PreviewKeyRewrite' } } }
@@ -394,7 +394,7 @@ paths:
       operationId: listConnectionProfiles
       summary: List connection profiles
       description: Connection profiles in name order, optionally filtered by kind and status, paged with the opaque nextCursor. A profile shows whether its secret is set and when it changed, never the secret. Callers must be tenant-wide.
-      x-passage-duty: migration.run
+      x-depot-duty: migration.run
       parameters:
         - { name: kind, in: query, schema: { type: string, enum: [sql, rest, file] } }
         - { name: status, in: query, schema: { type: string, enum: [active, disabled] } }
@@ -409,7 +409,7 @@ paths:
       operationId: createConnectionProfile
       summary: Create a connection profile
       description: Stores the non-secret settings for reaching a legacy or custom ERP (a SQL database, a REST API or a file drop directory). The settings are checked against the kind; a key that looks like a secret (password, token, key) is refused, because the one secret is set with PUT .../secret. Kind and source system are fixed once created; the source system may be custom_<name> for a customer's own ERP.
-      x-passage-duty: migration.connection.write
+      x-depot-duty: migration.connection.write
       parameters:
         - { name: Idempotency-Key, in: header, schema: { type: string } }
       requestBody:
@@ -438,7 +438,7 @@ paths:
       operationId: getConnectionProfile
       summary: Get a connection profile
       description: Returns one connection profile with its current version. The secret is never returned; secretSet and secretUpdatedAt say whether and when it was set.
-      x-passage-duty: migration.run
+      x-depot-duty: migration.run
       responses:
         '200':
           description: The profile.
@@ -451,7 +451,7 @@ paths:
       operationId: updateConnectionProfile
       summary: Change a connection profile
       description: Changes name, settings (the whole config object is replaced and checked again) or status under the profile's version. An omitted field is unchanged. Kind and source system cannot change. A change to a setting the secret is bound to (sql driver, host, port, database, user or sslmode; rest baseUrl, authType, username or headerName) clears the stored secret, so the answer has secretSet false and the secret must be set again before a test can use it. A stale version is a conflict.
-      x-passage-duty: migration.connection.write
+      x-depot-duty: migration.connection.write
       requestBody:
         required: true
         content: { application/json: { schema: { $ref: '#/components/schemas/UpdateConnectionProfile' } } }
@@ -473,7 +473,7 @@ paths:
       operationId: setConnectionProfileSecret
       summary: Set a connection profile's secret
       description: Seals the secret (a database password, API token or key value) with field encryption bound to the tenant and the profile, and stores it. Write-only; nothing returns it, and it is never logged. Replaces any earlier secret and bumps the profile version. Answers 501 MIG-SECRETS-NOT-CONFIGURED when the service has no field-encryption keys.
-      x-passage-duty: migration.connection.write
+      x-depot-duty: migration.connection.write
       requestBody:
         required: true
         content: { application/json: { schema: { $ref: '#/components/schemas/SetConnectionSecret' } } }
@@ -495,7 +495,7 @@ paths:
       operationId: testConnectionProfile
       summary: Test a connection profile
       description: Connects the way an extractor will and reports what it found. SQL connects through the driver named in config.driver (postgres, sqlserver, mysql or oracle), inside a read-only transaction with a 5-second statement timeout, and lists at most 50 schemas, 200 tables and the columns of the first 20 tables (no row data); REST sends one GET to baseUrl plus probePath with the configured authentication and reads at most 64 KiB of the answer, which it does not return; file checks the drop directory under the operator-mounted drop root and counts matching files. Every network connection passes the egress guard, which refuses loopback, link-local and metadata addresses always, refuses private addresses unless the operator lists them in MIG_EGRESS_ALLOW, pins the connection to the checked address and never follows redirects. The call answers 200 whether or not the connection worked; read ok and failure in the body. It needs the write duty because it opens the stored secret.
-      x-passage-duty: migration.connection.write
+      x-depot-duty: migration.connection.write
       responses:
         '200':
           description: The probe result. It never contains the secret, response bodies or row data.
@@ -515,7 +515,7 @@ paths:
       operationId: listEntityBindings
       summary: List entity bindings
       description: Entity bindings in entity order, optionally filtered by connection profile, entity and status, paged with the opaque nextCursor. Callers must be tenant-wide.
-      x-passage-duty: migration.run
+      x-depot-duty: migration.run
       parameters:
         - { name: connectionProfileId, in: query, schema: { type: string, format: uuid } }
         - { name: entity, in: query, schema: { type: string } }
@@ -530,8 +530,8 @@ paths:
     post:
       operationId: createEntityBinding
       summary: Create an entity binding
-      description: Says which table or read-only query (sql), endpoint (rest) or file (file) of a connection profile feeds which Passage entity, which fields make up a source row's key, and optionally the change cursor delta sync will read. The source object is checked against the profile's kind; a sql query must be one read-only SELECT. mappingSpecId must be a UUID naming a published spec for the same entity (400 when it is not a UUID or maps another entity, 422 MIG-SPEC-UNKNOWN when there is no such spec). The profile and entity are fixed once created, and a profile has one binding per entity.
-      x-passage-duty: migration.connection.write
+      description: Says which table or read-only query (sql), endpoint (rest) or file (file) of a connection profile feeds which Depot entity, which fields make up a source row's key, and optionally the change cursor delta sync will read. The source object is checked against the profile's kind; a sql query must be one read-only SELECT. mappingSpecId must be a UUID naming a published spec for the same entity (400 when it is not a UUID or maps another entity, 422 MIG-SPEC-UNKNOWN when there is no such spec). The profile and entity are fixed once created, and a profile has one binding per entity.
+      x-depot-duty: migration.connection.write
       parameters:
         - { name: Idempotency-Key, in: header, schema: { type: string } }
       requestBody:
@@ -560,7 +560,7 @@ paths:
       operationId: getEntityBinding
       summary: Get an entity binding
       description: Returns one entity binding with its current version.
-      x-passage-duty: migration.run
+      x-depot-duty: migration.run
       responses:
         '200':
           description: The binding.
@@ -573,7 +573,7 @@ paths:
       operationId: updateEntityBinding
       summary: Change an entity binding
       description: Changes the source, key fields, cursor, mapping spec or status under the binding's version; an omitted field is unchanged and the result is checked again against the profile's kind, and a new mappingSpecId must be a UUID naming a spec for the binding's entity. A binding is disabled, never deleted. A stale version is a conflict.
-      x-passage-duty: migration.connection.write
+      x-depot-duty: migration.connection.write
       requestBody:
         required: true
         content: { application/json: { schema: { $ref: '#/components/schemas/UpdateEntityBinding' } } }
@@ -598,7 +598,7 @@ paths:
       operationId: previewEntityBinding
       summary: Preview a stored entity binding
       description: Extracts a few rows (default 10, at most 100) from the binding's source through the connection profile, derives each row's source key and, with a mapping, runs the mapping and its rules to show the target record, rejects and warnings per row. The mapping is the inline mapping, else the published spec named by mappingSpecId, else the binding's own spec; the mapping's own test cases must pass. A file profile may be previewed from an upload (base64, at most 4 MiB) instead of the drop directory. Nothing is loaded, stored or logged beyond the usual request log. The whole preview has a 60-second deadline. The call answers 200 whether or not the source could be read in time; read ok and failure in the body. It needs the write duty because it opens the stored secret.
-      x-passage-duty: migration.connection.write
+      x-depot-duty: migration.connection.write
       requestBody:
         required: true
         content: { application/json: { schema: { $ref: '#/components/schemas/PreviewEntityBinding' } } }
@@ -624,7 +624,7 @@ paths:
       operationId: previewDraftEntityBinding
       summary: Preview an entity binding before saving it
       description: Same as previewing a stored binding, for a binding that is not saved yet. The request carries the binding's own fields (connectionProfileId, entity, source, keyFields, cursor) next to the preview options. Use it to try a table, query, endpoint or file and its mapping before creating the binding.
-      x-passage-duty: migration.connection.write
+      x-depot-duty: migration.connection.write
       requestBody:
         required: true
         content: { application/json: { schema: { $ref: '#/components/schemas/PreviewDraftEntityBinding' } } }
@@ -647,7 +647,7 @@ paths:
       operationId: listSyncStatus
       summary: List delta sync status per entity binding
       description: One row per entity binding that has a schedule (the scheduleCron of a migrate project on its connection profile) or has been configured, in entity order. Shows the last run, the last success, the watermark, when the binding is next due (which already includes the failure backoff), consecutive failures, rows loaded and rejected so far, and open conflicts. Callers must be tenant-wide.
-      x-passage-duty: migration.run
+      x-depot-duty: migration.run
       parameters:
         - { name: paused, in: query, description: Only paused (true) or only running (false) schedules., schema: { type: boolean } }
         - { name: failing, in: query, description: Only bindings whose last runs failed (consecutiveFailures above 0)., schema: { type: boolean } }
@@ -665,7 +665,7 @@ paths:
       operationId: getSyncStatus
       summary: Get the delta sync status of an entity binding
       description: A binding that was never scheduled answers version 0 with no times. Callers must be tenant-wide.
-      x-passage-duty: migration.run
+      x-depot-duty: migration.run
       responses:
         '200':
           description: The sync status.
@@ -677,8 +677,8 @@ paths:
     patch:
       operationId: updateSyncStatus
       summary: Pause, resume or configure the delta sync of an entity binding
-      description: Pauses or resumes the schedule, gives the binding its own cron (scheduleCron; the project's scheduleCron stays the default for bindings without one), sets which system wins when both changed a record (sourceOfTruth legacy or passage), sets how often a binding with a cursor is read in full to find rows the legacy system deleted (keyCheckHours), asks for the next run to be a full read that looks for deleted rows (keyCheckNow), accepts once a full read that would list more than half of the loaded keys still present as newly absent (keyCheckAcceptLarge; refused with keyCheckError otherwise), or makes the binding due now (runNow; the scheduler starts it on its next pass). Master data flows legacy to Passage (decision B4); with passage as the source of truth a legacy row that differs from the loaded record is held as a conflict and not applied. Needs the version from the status (0 for a binding never scheduled). A paused binding is skipped, keeps its watermark and resumes where it stopped.
-      x-passage-duty: migration.project.write
+      description: Pauses or resumes the schedule, gives the binding its own cron (scheduleCron; the project's scheduleCron stays the default for bindings without one), sets which system wins when both changed a record (sourceOfTruth legacy or depot), sets how often a binding with a cursor is read in full to find rows the legacy system deleted (keyCheckHours), asks for the next run to be a full read that looks for deleted rows (keyCheckNow), accepts once a full read that would list more than half of the loaded keys still present as newly absent (keyCheckAcceptLarge; refused with keyCheckError otherwise), or makes the binding due now (runNow; the scheduler starts it on its next pass). Master data flows legacy to Depot (decision B4); with depot as the source of truth a legacy row that differs from the loaded record is held as a conflict and not applied. Needs the version from the status (0 for a binding never scheduled). A paused binding is skipped, keeps its watermark and resumes where it stopped.
+      x-depot-duty: migration.project.write
       requestBody:
         required: true
         content: { application/json: { schema: { $ref: '#/components/schemas/UpdateSyncStatus' } } }
@@ -687,7 +687,7 @@ paths:
           description: The updated status with its new version.
           content: { application/json: { schema: { $ref: '#/components/schemas/SyncStatus' } } }
         '400':
-          description: COM-0001, the version is missing, sourceOfTruth is not legacy or passage, scheduleCron is not a five-field cron with at least 15 minutes between runs or is sent with runNow, keyCheckHours is outside 0 to 8760, or nothing to change was sent.
+          description: COM-0001, the version is missing, sourceOfTruth is not legacy or depot, scheduleCron is not a five-field cron with at least 15 minutes between runs or is sent with runNow, keyCheckHours is outside 0 to 8760, or nothing to change was sent.
           content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } }
         '404':
           description: AUTH-0404, no entity binding with this id.
@@ -705,8 +705,8 @@ paths:
     get:
       operationId: listSyncAbsent
       summary: List source keys the legacy system no longer has
-      description: A delta over a cursor cannot see a row the legacy system deleted, so a binding with a cursor is read in full once its key check is due (keyCheckHours, 24 by default, 0 turns it off), and a binding without a cursor is read in full on every run. The keys a full read did not find but an earlier run loaded are listed here in source key order, with the Passage record they were loaded into; only keys of the project's source system and, for an entity scoped to a legal entity, of the project's target legal entity are listed, and keyCheckError on the status says when a full read could not produce the list. Nothing is deactivated in Passage; the list is for the operator. A key that comes back leaves the list at the next full read. Callers must be tenant-wide.
-      x-passage-duty: migration.run
+      description: A delta over a cursor cannot see a row the legacy system deleted, so a binding with a cursor is read in full once its key check is due (keyCheckHours, 24 by default, 0 turns it off), and a binding without a cursor is read in full on every run. The keys a full read did not find but an earlier run loaded are listed here in source key order, with the Depot record they were loaded into; only keys of the project's source system and, for an entity scoped to a legal entity, of the project's target legal entity are listed, and keyCheckError on the status says when a full read could not produce the list. Nothing is deactivated in Depot; the list is for the operator. A key that comes back leaves the list at the next full read. Callers must be tenant-wide.
+      x-depot-duty: migration.run
       parameters:
         - { name: cursor, in: query, description: "The nextCursor of the previous page; a cursor from another list is a 400 COM-0001.", schema: { type: string } }
         - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
@@ -725,8 +725,8 @@ paths:
     get:
       operationId: listSyncConflicts
       summary: List sync conflicts
-      description: Legacy rows held back because Passage is the source of truth of their binding, newest first, with the legacy values that were not applied. Callers must be tenant-wide.
-      x-passage-duty: migration.run
+      description: Legacy rows held back because Depot is the source of truth of their binding, newest first, with the legacy values that were not applied. Callers must be tenant-wide.
+      x-depot-duty: migration.run
       parameters:
         - { name: bindingId, in: query, schema: { type: string, format: uuid } }
         - { name: status, in: query, schema: { type: string, enum: [open, kept, accepted] } }
@@ -743,17 +743,17 @@ paths:
     post:
       operationId: resolveSyncConflict
       summary: Resolve a sync conflict
-      description: Send the conflict's version as read; a run that replaced the held legacy values since makes it stale (409 MIG-VERSION-CONFLICT), so nothing is decided on values the operator did not see. keep_passage closes the conflict and remembers the legacy row's content hash, so the same row is not reported again until legacy changes it again. accept_legacy writes the held legacy values into the Passage record through the loader, under the version recorded at the last load, and closes the conflict only when the owning service accepted them; if the record changed in Passage after that load the owning service refuses (409 MIG-SYNC-ACCEPT-FAILED) and the conflict stays open, because the loader cannot yet read the current version to overwrite it.
-      x-passage-duty: migration.run
+      description: Send the conflict's version as read; a run that replaced the held legacy values since makes it stale (409 MIG-VERSION-CONFLICT), so nothing is decided on values the operator did not see. keep_depot closes the conflict and remembers the legacy row's content hash, so the same row is not reported again until legacy changes it again. accept_legacy writes the held legacy values into the Depot record through the loader, under the version recorded at the last load, and closes the conflict only when the owning service accepted them; if the record changed in Depot after that load the owning service refuses (409 MIG-SYNC-ACCEPT-FAILED) and the conflict stays open, because the loader cannot yet read the current version to overwrite it.
+      x-depot-duty: migration.run
       requestBody:
         required: true
-        content: { application/json: { schema: { type: object, required: [resolution, version], properties: { resolution: { type: string, enum: [accept_legacy, keep_passage] }, version: { type: integer, minimum: 1, description: The conflict version the decision was made on. } } } } }
+        content: { application/json: { schema: { type: object, required: [resolution, version], properties: { resolution: { type: string, enum: [accept_legacy, keep_depot] }, version: { type: integer, minimum: 1, description: The conflict version the decision was made on. } } } } }
       responses:
         '200':
           description: The resolved conflict.
           content: { application/json: { schema: { $ref: '#/components/schemas/SyncConflict' } } }
         '400':
-          description: COM-0001, resolution is not accept_legacy or keep_passage, or the version is missing.
+          description: COM-0001, resolution is not accept_legacy or keep_depot, or the version is missing.
           content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } }
         '404':
           description: AUTH-0404, no conflict with this id.
@@ -773,7 +773,7 @@ paths:
       operationId: listConfigPackages
       summary: List applied configuration packages
       description: Packages applied to this tenant, newest first, with their applied history. The manifest files are returned by the single-package read.
-      x-passage-duty: migration.run
+      x-depot-duty: migration.run
       parameters:
         - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
       responses:
@@ -786,7 +786,7 @@ paths:
       operationId: getConfigPackage
       summary: Get a configuration package
       description: Returns one applied package with its manifest files and applied history.
-      x-passage-duty: migration.run
+      x-depot-duty: migration.run
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -799,7 +799,7 @@ paths:
       operationId: diffConfigPackage
       summary: Diff a configuration package against the target
       description: Verifies the signature, file hashes and schema version, then reports per file, in dependency order, which records apply would create or update. Nothing is written and nothing is recorded.
-      x-passage-duty: migration.run
+      x-depot-duty: migration.run
       requestBody:
         required: true
         content: { application/json: { schema: { $ref: '#/components/schemas/ConfigPackageRequest' } } }
@@ -819,7 +819,7 @@ paths:
       operationId: applyConfigPackage
       summary: Apply a configuration package
       description: Verifies the package, writes created and updated records in manifest dependency order, never deletes target records, and appends an applied entry with the diff counts. A second apply of the same package reports no changes. The Idempotency-Key header is required; a replay returns the original response.
-      x-passage-duty: migration.package.apply
+      x-depot-duty: migration.package.apply
       parameters:
         - { name: Idempotency-Key, in: header, required: true, schema: { type: string } }
       requestBody:
@@ -840,8 +840,8 @@ paths:
     get:
       operationId: listOutboundMappings
       summary: List outbound mappings
-      description: Outbound mappings (Passage events pushed to a legacy ERP) in name order, optionally filtered by status, paged with the opaque nextCursor. Each row is the header of the current version; the definition is read with the single-mapping route. Callers must be tenant-wide.
-      x-passage-duty: migration.run
+      description: Outbound mappings (Depot events pushed to a legacy ERP) in name order, optionally filtered by status, paged with the opaque nextCursor. Each row is the header of the current version; the definition is read with the single-mapping route. Callers must be tenant-wide.
+      x-depot-duty: migration.run
       parameters:
         - { name: status, in: query, schema: { type: string, enum: [active, archived] } }
         - { name: cursor, in: query, description: The nextCursor of the previous page., schema: { type: string } }
@@ -854,8 +854,8 @@ paths:
     post:
       operationId: createOutboundMapping
       summary: Create an outbound mapping
-      description: Defines how one Passage CloudEvent type (an exact type or a pattern such as dev.passage.sales.order.*.v1) becomes the request body the integration hub pushes to the customer's legacy ERP. The definition reuses the mapping DSL in the Passage-to-legacy direction. Version 1 is stored; every later change writes a new immutable version. The legacy source system is fixed at creation.
-      x-passage-duty: migration.project.write
+      description: Defines how one Depot CloudEvent type (an exact type or a pattern such as dev.depot.sales.order.*.v1) becomes the request body the integration hub pushes to the customer's legacy ERP. The definition reuses the mapping DSL in the Depot-to-legacy direction. Version 1 is stored; every later change writes a new immutable version. The legacy source system is fixed at creation.
+      x-depot-duty: migration.project.write
       parameters:
         - { name: Idempotency-Key, in: header, schema: { type: string } }
       requestBody:
@@ -884,7 +884,7 @@ paths:
       operationId: getOutboundMapping
       summary: Get an outbound mapping
       description: Returns the mapping with the definition of its current version, or of the version named in the query.
-      x-passage-duty: migration.run
+      x-depot-duty: migration.run
       parameters:
         - { name: version, in: query, description: A version to read instead of the current one., schema: { type: integer, minimum: 1 } }
       responses:
@@ -899,7 +899,7 @@ paths:
       operationId: updateOutboundMapping
       summary: Change an outbound mapping
       description: Writes the next version under the caller's version (409 MIG-VERSION-CONFLICT when it is stale). A new definition replaces the whole mapping; a rename or an archive carries the current definition into the new version. An archived mapping is not rendered; it can only be reactivated.
-      x-passage-duty: migration.project.write
+      x-depot-duty: migration.project.write
       requestBody:
         required: true
         content: { application/json: { schema: { $ref: '#/components/schemas/UpdateOutboundMapping' } } }
@@ -924,7 +924,7 @@ paths:
       operationId: listOutboundMappingVersions
       summary: List the versions of an outbound mapping
       description: The history of a mapping, newest first, with each version's checksum, author and time.
-      x-passage-duty: migration.run
+      x-depot-duty: migration.run
       responses:
         '200':
           description: The versions.
@@ -940,7 +940,7 @@ paths:
       operationId: previewOutboundMapping
       summary: Preview a stored outbound mapping
       description: Renders a sample event through the mapping (current version, or the one named) and shows the result, or why there is none. It reads the cross-reference and writes nothing. A problem with the sample (an unresolved reference, a rejected field) is a 200 with status unresolved or rejected.
-      x-passage-duty: migration.run
+      x-depot-duty: migration.run
       requestBody:
         required: true
         content: { application/json: { schema: { $ref: '#/components/schemas/PreviewOutboundMapping' } } }
@@ -957,7 +957,7 @@ paths:
       operationId: previewOutboundDraft
       summary: Preview an outbound mapping draft
       description: Renders a sample event through a definition that is not saved, so a mapping can be tried before it is created. An invalid definition is a 200 with status invalid.
-      x-passage-duty: migration.run
+      x-depot-duty: migration.run
       requestBody:
         required: true
         content: { application/json: { schema: { $ref: '#/components/schemas/PreviewOutboundDraft' } } }
@@ -973,13 +973,13 @@ paths:
       operationId: renderOutboundMapping
       summary: Render an event for the legacy ERP
       description: "Called by the integration hub (service token, issuer integration-hub). Builds the request body for one CloudEvent through the mapping. It is pure: the same mapping version and event give the same answer, nothing is written and nothing is sent. The event's legalentityid extension must be the legal entity of the service token. The idempotencyKey is derived from the mapping id and the event id only, so it is the same for every render of one event whatever the mapping version. A reference the event carries that has no legacy key yet is 422 MIG-XREF-UNRESOLVED, listing each one. Legacy keys are resolved for the token's legal entity only: a record whose cross-reference row belongs to another legal entity is unresolved too, with the same answer as an id that was never loaded, so the response never shows that it exists elsewhere. Rows of tenant-wide master data (party, product, item) resolve in every legal entity."
-      x-passage-duty: migration.outbound.render
+      x-depot-duty: migration.outbound.render
       requestBody:
         required: true
         content: { application/json: { schema: { $ref: '#/components/schemas/RenderOutboundMapping' } } }
       responses:
         '200':
-          description: The request body, the idempotency key and the Passage records the legacy key of the push belongs to (passed back to xref:record).
+          description: The request body, the idempotency key and the Depot records the legacy key of the push belongs to (passed back to xref:record).
           content: { application/json: { schema: { $ref: '#/components/schemas/RenderedOutbound' } } }
         '404':
           description: MIG-OUTBOUND-NOT-FOUND or MIG-OUTBOUND-VERSION-NOT-FOUND (always with a problem code; a 404 without one means the route is not deployed).
@@ -999,7 +999,7 @@ paths:
       operationId: recordOutboundXref
       summary: Record the legacy key of a pushed record
       description: "Called by the integration hub (service token, issuer integration-hub) after the legacy ERP accepted a push and answered with the key it assigned. Stores the key in the cross-reference so later events about the record resolve it, and the record resolves in both directions. Only the subject entities of the mapping (the header's and its collections') are recorded, every ref in one transaction (one conflict undoes the call), and an existing cross-reference row is never repointed. A subject the owning service keeps per legal entity (everything except party, product and item) is recorded with the token's legal entity, which later lookups from other legal entities do not resolve. An existing row is never changed, its legal entity included: one already tagged with another legal entity is 409 MIG-XREF-CONFLICT, an untagged one is accepted and stays untagged. Idempotent on eventId: a repeat of the same call is 204 again; the same event with another key is 409."
-      x-passage-duty: migration.xref.record
+      x-depot-duty: migration.xref.record
       requestBody:
         required: true
         content: { application/json: { schema: { $ref: '#/components/schemas/RecordOutboundXref' } } }
@@ -1015,7 +1015,7 @@ paths:
           description: MIG-OUTBOUND-NOT-FOUND, no outbound mapping with this id.
           content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } }
         '409':
-          description: MIG-XREF-EVENT-CONFLICT (the event already recorded another key or record) or MIG-XREF-CONFLICT (the legacy key belongs to another Passage record).
+          description: MIG-XREF-EVENT-CONFLICT (the event already recorded another key or record) or MIG-XREF-CONFLICT (the legacy key belongs to another Depot record).
           content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } }
         '422':
           description: MIG-XREF-REF-MISMATCH, a ref's entity is neither the subject entity nor a collection subject entity of the mapping.
@@ -1024,9 +1024,9 @@ paths:
   /v1/integration/xref:resolve:
     get:
       operationId: resolveXref
-      summary: Resolve legacy keys to the Passage ids this service loaded
-      description: "For a loading service (service token; duty migration.xref.read, granted to migration-factory): the Passage id of each legacy key of one entity from one source system, following a party merge to the surviving record (#49, H-S8-6: the migration factory resolves an open item's legacy customer). Keys the cross-reference does not hold are left out. The token's legal-entity scope applies, so a customer row of another legal entity is not found; a customer key is the legacy company and account joined by |, such as USMF|C-1001."
-      x-passage-duty: migration.xref.read
+      summary: Resolve legacy keys to the Depot ids this service loaded
+      description: "For a loading service (service token; duty migration.xref.read, granted to migration-factory): the Depot id of each legacy key of one entity from one source system, following a party merge to the surviving record (#49, H-S8-6: the migration factory resolves an open item's legacy customer). Keys the cross-reference does not hold are left out. The token's legal-entity scope applies, so a customer row of another legal entity is not found; a customer key is the legacy company and account joined by |, such as USMF|C-1001."
+      x-depot-duty: migration.xref.read
       parameters:
         - { name: sourceSystem, in: query, required: true, schema: { type: string, maxLength: 64 }, description: "ax2012, d365fo, sap_ecc, sap_s4 or a custom system" }
         - { name: entity, in: query, required: true, schema: { type: string, maxLength: 64 }, description: such as customer }
@@ -1057,7 +1057,7 @@ paths:
       operationId: getMigrationSettings
       summary: Read the tenant's migration settings
       description: The tenant-wide migration settings. A tenant that never saved them reads the defaults (recurringMinIntervalMin 15) with version 0 and no updatedAt.
-      x-passage-duty: migration.run
+      x-depot-duty: migration.run
       responses:
         '200':
           description: The settings.
@@ -1067,7 +1067,7 @@ paths:
       operationId: putMigrationSettings
       summary: Save the tenant's migration settings
       description: Sets mig.recurring.min_interval_min, the shortest gap a project or binding cron may leave between two scheduled runs (15 to 1,440 minutes). It governs schedules saved afterwards; schedules already stored keep running. Send the version you read (0 when the tenant never saved settings).
-      x-passage-duty: migration.project.write
+      x-depot-duty: migration.project.write
       requestBody:
         required: true
         content: { application/json: { schema: { $ref: '#/components/schemas/PutMigrationSettings' } } }
@@ -1087,7 +1087,7 @@ paths:
       operationId: listLookupTables
       summary: List lookup tables
       description: Lookup tables (keyed values an outbound mapping reads while it renders) in name order, optionally filtered by status and kind, paged with the opaque nextCursor. Each row is the header of the current version; the entries are read with the single-table route. Callers must be tenant-wide.
-      x-passage-duty: migration.run
+      x-depot-duty: migration.run
       parameters:
         - { name: status, in: query, schema: { type: string, enum: [active, archived] } }
         - { name: kind, in: query, schema: { type: string, enum: [enum, uom_conversion, price_list] } }
@@ -1105,7 +1105,7 @@ paths:
       operationId: createLookupTable
       summary: Create a lookup table
       description: Defines a tenant lookup table of a kind (enum codes, unit-of-measure conversion factors keyed FROM|TO, or a price list). Version 1 is stored; every later change writes a new immutable version. Outbound mappings refer to a table by name in their lookups and render with its current version; the outbound preview routes show the result.
-      x-passage-duty: migration.project.write
+      x-depot-duty: migration.project.write
       parameters:
         - { name: Idempotency-Key, in: header, schema: { type: string } }
       requestBody:
@@ -1137,7 +1137,7 @@ paths:
       operationId: getLookupTable
       summary: Get a lookup table
       description: Returns the table with the entries of its current version, or of the version named in the query.
-      x-passage-duty: migration.run
+      x-depot-duty: migration.run
       parameters:
         - { name: version, in: query, description: A version to read instead of the current one., schema: { type: integer, minimum: 1 } }
       responses:
@@ -1155,7 +1155,7 @@ paths:
       operationId: updateLookupTable
       summary: Change a lookup table
       description: Writes the next version under the caller's version (409 MIG-VERSION-CONFLICT when it is stale). A new definition replaces all entries and keeps the table's kind; a rename or an archive carries the current entries into the new version. An archived table does not resolve (renders that need it are unresolved); it can only be reactivated.
-      x-passage-duty: migration.project.write
+      x-depot-duty: migration.project.write
       requestBody:
         required: true
         content: { application/json: { schema: { $ref: '#/components/schemas/UpdateLookupTable' } } }
@@ -1183,7 +1183,7 @@ paths:
       operationId: listLookupTableVersions
       summary: List the versions of a lookup table
       description: The history of a table, newest first, with each version's entry count, checksum, author and time.
-      x-passage-duty: migration.run
+      x-depot-duty: migration.run
       responses:
         '200':
           description: The versions.
@@ -1199,7 +1199,7 @@ paths:
       operationId: importLookupTableEntries
       summary: Import entries into a lookup table from CSV
       description: "Reads a CSV file and writes the next version of the table under the caller's version (409 MIG-VERSION-CONFLICT when it is stale). One entry per line: the key parts in the leading cells (up to three) and the value in the last cell, for example from,to,factor for a unit table or item,currency,price for a price list; a key already joined with | reads the same. Mode merge keeps the entries the file does not mention, replace keeps only the file's. A line that is not valid for the table's kind, or a key that appears twice, is reported with its line (at most ten lines, MIG-LOOKUP-INVALID) and nothing is saved. A file that changes nothing writes no version (written is false). The table still holds at most 5000 entries after the import. An archived table is refused."
-      x-passage-duty: migration.project.write
+      x-depot-duty: migration.project.write
       requestBody:
         required: true
         content: { application/json: { schema: { $ref: '#/components/schemas/ImportLookupEntries' } } }
@@ -1227,7 +1227,7 @@ paths:
       operationId: exportLookupTableEntries
       summary: Export a lookup table as CSV
       description: The entries of the current version, or of the version named in the query, as CSV in key order, one entry per line with the key parts in separate cells and the value last, no header line. A cell that a spreadsheet would run as a formula (starting with = + - @, a tab or a carriage return, after any apostrophes) is written with one more leading apostrophe, which the import removes again, so the file can be edited and imported back unchanged.
-      x-passage-duty: migration.run
+      x-depot-duty: migration.run
       parameters:
         - { name: version, in: query, description: A version to export instead of the current one., schema: { type: integer, minimum: 1 } }
       responses:
@@ -1246,7 +1246,7 @@ paths:
       operationId: createParallelRunDiff
       summary: Create a parallel-run diff (deferred)
       description: Reserved for wave 49. Every call answers 501 today.
-      x-passage-duty: migration.run
+      x-depot-duty: migration.run
       responses:
         '202':
           description: Reserved. Accepted once the parallel-run harness ships in wave 49; today the service answers 501.
@@ -1259,7 +1259,7 @@ paths:
       operationId: liveness
       summary: Liveness probe
       description: Answers 200 while the process is running.
-      x-passage-duty: public
+      x-depot-duty: public
       responses:
         '200': { description: Process is alive. }
   /readyz:
@@ -1267,7 +1267,7 @@ paths:
       operationId: readiness
       summary: Readiness probe
       description: Answers 200 when the database is reachable.
-      x-passage-duty: public
+      x-depot-duty: public
       responses:
         '200': { description: Database reachable. }
         '503': { description: Database unreachable. }
@@ -1318,7 +1318,7 @@ components:
         counts:
           type: object
           required: [extracted, mapped, created, updated, unchanged, templated, conflicted, rejected, warned]
-          properties: { extracted: { type: integer }, mapped: { type: integer }, created: { type: integer }, updated: { type: integer }, unchanged: { type: integer }, templated: { type: integer, description: Mapped rows that took at least one data template default. }, conflicted: { type: integer, description: Legacy rows held back because Passage is the source of truth (each also appears in rejects as MIG-TARGET-DRIFT). }, rejected: { type: integer }, warned: { type: integer, description: Loaded rows that carry at least one warning. } }
+          properties: { extracted: { type: integer }, mapped: { type: integer }, created: { type: integer }, updated: { type: integer }, unchanged: { type: integer }, templated: { type: integer, description: Mapped rows that took at least one data template default. }, conflicted: { type: integer, description: Legacy rows held back because Depot is the source of truth (each also appears in rejects as MIG-TARGET-DRIFT). }, rejected: { type: integer }, warned: { type: integer, description: Loaded rows that carry at least one warning. } }
         rejects:
           type: array
           items:
@@ -1371,7 +1371,7 @@ components:
         sourceKey: { type: string }
         targetId: { type: string, format: uuid }
         contentHash: { type: string }
-        mergedIntoTargetId: { type: string, format: uuid, description: Set when the record was merged into another Passage record. }
+        mergedIntoTargetId: { type: string, format: uuid, description: Set when the record was merged into another Depot record. }
         legalEntityId: { type: string, format: uuid, description: "The legal entity of the target record. Absent for tenant-wide master data (party, product, item) and for rows loaded before the legal entity was recorded that no stored data could place. An outbound lookup for a legal entity resolves its own rows and the rows without one, never another legal entity's." }
         updatedAt: { type: string, format: date-time }
     XrefCount:
@@ -1391,7 +1391,7 @@ components:
       properties:
         id: { type: string, format: uuid }
         connectionProfileId: { type: string, format: uuid }
-        entity: { type: string, description: The Passage entity this source feeds, for example customer. }
+        entity: { type: string, description: The Depot entity this source feeds, for example customer. }
         source: { $ref: '#/components/schemas/BindingSource' }
         keyFields: { type: array, minItems: 1, maxItems: 5, items: { type: string }, description: The columns or JSON paths whose values joined with "|" make the source key used by the cross-reference. }
         cursorField: { type: string, description: The change stamp column or JSON path delta sync will compare. }
@@ -1860,7 +1860,7 @@ components:
         scheduleTimezone: { type: string, description: "The time zone the cron is read in: the zone of the project the binding runs under (UTC by default)." }
         scheduleOverride: { type: string, description: "The binding's own cron, set with updateSyncStatus. Empty when the binding follows the project's scheduleCron." }
         projectScheduleCron: { type: string, description: "The default the binding falls back to without scheduleOverride: the scheduleCron of the lowest-id active migrate project with a schedule on its profile. Empty when there is none; clearing scheduleOverride then leaves the binding unscheduled (scheduleCron and nextDueAt empty) until a project gets a schedule or the binding its own." }
-        sourceOfTruth: { type: string, enum: [legacy, passage] }
+        sourceOfTruth: { type: string, enum: [legacy, depot] }
         paused: { type: boolean }
         watermark: { type: string, description: "The high-water mark of the last run that did not fail. The next run reads from a little before it (5 minutes for a timestamp cursor, the value itself for an integer or row version) so rows committed late with the same or a slightly earlier cursor are not skipped; rows read again are unchanged and not loaded. Empty before the first run, or without a cursor on the binding (every run is then a full read); editing the entity binding discards it." }
         nextDueAt: { type: string, format: date-time, description: "Includes the failure backoff." }
@@ -1886,7 +1886,7 @@ components:
       properties:
         bindingId: { type: string, format: uuid }
         sourceKey: { type: string, description: The legacy key that was loaded earlier and is missing from the source. }
-        targetId: { type: string, description: The Passage record the legacy row was loaded into. }
+        targetId: { type: string, description: The Depot record the legacy row was loaded into. }
         runId: { type: string, format: uuid, description: The run whose full read last confirmed the key absent. }
         firstAbsentAt: { type: string, format: date-time }
         lastCheckedAt: { type: string, format: date-time }
@@ -1897,7 +1897,7 @@ components:
         version: { type: integer, minimum: 0 }
         paused: { type: boolean }
         scheduleCron: { type: string, maxLength: 100, description: "The binding's own cron: five fields read in the time zone of the project the binding runs under (UTC by default), at least 15 minutes between runs. It replaces the project's scheduleCron for this binding only and does not reset the watermark. An empty string clears it so the project's cron applies again. Not allowed together with runNow. Needs an active migrate project on the profile." }
-        sourceOfTruth: { type: string, enum: [legacy, passage] }
+        sourceOfTruth: { type: string, enum: [legacy, depot] }
         keyCheckHours: { type: integer, minimum: 0, maximum: 8760, description: Period in hours of the full read that finds deleted legacy rows; 0 turns it off. }
         keyCheckNow: { type: boolean, description: "Makes the next run a full read that looks for deleted legacy rows, whatever the period (also after a failed one); combine with runNow to start it at once." }
         keyCheckAcceptLarge: { type: boolean, description: "Accepts, once, a full read that lists more than half of the loaded keys still present as newly absent (an operator confirms the source is healthy); it also makes the next run a full read. A run already reading the source when it is sent does not spend it. Without it such a read keeps the list and sets keyCheckError." }
@@ -1911,7 +1911,7 @@ components:
         entity: { type: string }
         runId: { type: string, format: uuid }
         sourceKey: { type: string }
-        targetId: { type: string, description: The Passage record the legacy row was loaded into. }
+        targetId: { type: string, description: The Depot record the legacy row was loaded into. }
         legacyFields: { type: object, additionalProperties: true, description: The mapped values the legacy row would have written. }
         status: { type: string, enum: [open, kept, accepted] }
         detectedAt: { type: string, format: date-time }
@@ -1940,19 +1940,19 @@ components:
       additionalProperties: false
       required: [eventType, mapping]
       properties:
-        eventType: { type: string, description: "An exact CloudEvents type or a pattern: * stands for one dotted segment, a trailing ** for the rest (dev.passage.sales.order.*.v1)." }
+        eventType: { type: string, description: "An exact CloudEvents type or a pattern: * stands for one dotted segment, a trailing ** for the rest (dev.depot.sales.order.*.v1)." }
         subject:
           type: object
           additionalProperties: false
           required: [entity, idPath]
-          description: The Passage record an event is about. Its legacy key is recorded against it by xref:record, so a later event about the same record reads it as xref.self (an update).
+          description: The Depot record an event is about. Its legacy key is recorded against it by xref:record, so a later event about the same record reads it as xref.self (an update).
           properties:
             entity: { type: string }
             idPath: { type: string, description: Dotted path of the record's id in the event, for example data.order_id. }
         xrefs:
           type: array
           maxItems: 8
-          description: Passage ids the event carries (a customer, a product), each resolved to the legacy key an earlier load recorded and offered to the mapping as xref.<name>. A lookup that finds nothing fails the render with MIG-XREF-UNRESOLVED unless it is optional.
+          description: Depot ids the event carries (a customer, a product), each resolved to the legacy key an earlier load recorded and offered to the mapping as xref.<name>. A lookup that finds nothing fails the render with MIG-XREF-UNRESOLVED unless it is optional.
           items:
             type: object
             additionalProperties: false
@@ -1993,7 +1993,7 @@ components:
                 type: object
                 additionalProperties: false
                 required: [entity, idPath]
-                description: The Passage record each element creates in the legacy ERP (an order line). The render lists one ref per element (with collection and index) so xref:record can record the key the ERP assigns each line; an element without a Passage id there makes the render MIG-XREF-UNRESOLVED.
+                description: The Depot record each element creates in the legacy ERP (an order line). The render lists one ref per element (with collection and index) so xref:record can record the key the ERP assigns each line; an element without a Depot id there makes the render MIG-XREF-UNRESOLVED.
                 properties:
                   entity: { type: string }
                   idPath: { type: string, description: Dotted path of the element's id, relative to the element. }
@@ -2002,7 +2002,7 @@ components:
               xrefs:
                 type: array
                 maxItems: 8
-                description: Passage ids of each element resolved to legacy keys, as xref.<name> for that element.
+                description: Depot ids of each element resolved to legacy keys, as xref.<name> for that element.
                 items:
                   type: object
                   additionalProperties: false
@@ -2163,7 +2163,7 @@ components:
         idempotencyKey: { type: string, description: "mig-ob-v1- and the SHA-256 of the mapping id and the event id: the same for every render of one event, whatever the mapping version." }
         refs:
           type: array
-          description: The Passage records the legacy key belongs to; the hub passes them back to xref:record.
+          description: The Depot records the legacy key belongs to; the hub passes them back to xref:record.
           items: { $ref: '#/components/schemas/OutboundRef' }
         lookups:
           type: array
@@ -2191,7 +2191,7 @@ components:
       properties:
         name: { type: string, description: The xref or lookup name in the mapping definition. }
         entity: { type: string }
-        id: { type: string, description: "The Passage id that has no legacy key, or for a lookup (entity lookup:<table>) the key that found no entry; absent when the event carried none." }
+        id: { type: string, description: "The Depot id that has no legacy key, or for a lookup (entity lookup:<table>) the key that found no entry; absent when the event carried none." }
         reason: { type: string }
     UnresolvedProblem:
       description: A problem; for MIG-XREF-UNRESOLVED the unresolved array lists every reference without a legacy key.

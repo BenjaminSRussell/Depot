@@ -22,7 +22,7 @@ alter table pack_quarantine add constraint pack_quarantine_released
 -- natural-key primary key cannot serve past source_system; this index serves it (9.49.19).
 create index legacy_xref_lookup on legacy_xref (tenant_id, source_system, source_table, source_id);
 
--- One replayed legacy period compared with Passage (FR-49.5). Starting is idempotent by
+-- One replayed legacy period compared with Depot (FR-49.5). Starting is idempotent by
 -- (period, source_system). A run is SIGNED_OFF only with no unexplained variance (9.49.4).
 create table parallel_run (
   tenant_id uuid not null,
@@ -56,7 +56,7 @@ create table variance (
   area text not null check (area in ('TB', 'INV', 'AP', 'AR', 'FA')),
   key_text text not null check (key_text <> ''),
   legacy_value numeric(28,6) not null,
-  passage_value numeric(28,6) not null,
+  depot_value numeric(28,6) not null,
   delta numeric(28,6) not null,
   class text not null check (class in ('EXPECTED', 'EXPLAINED', 'UNEXPLAINED')),
   rule_id text not null default '',
@@ -106,20 +106,20 @@ create index project_opening_line_project on project_opening_line (tenant_id, so
 alter table parallel_run enable row level security;
 alter table parallel_run force row level security;
 create policy parallel_run_tenant_access on parallel_run as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 alter table variance enable row level security;
 alter table variance force row level security;
 create policy variance_tenant_access on variance as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 alter table project_opening_line enable row level security;
 alter table project_opening_line force row level security;
 create policy project_opening_line_tenant_access on project_opening_line as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- Application role privileges. A release updates the run (counts, status, version), its
 -- control totals and the quarantine row under a row lock; parallel runs and variances change
@@ -127,11 +127,11 @@ create policy project_opening_line_tenant_access on project_opening_line as perm
 -- stays append-only and nothing is deleted. Skipped when the role does not exist.
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE format('GRANT USAGE ON SCHEMA %I TO passage_app', current_schema());
-    EXECUTE 'GRANT UPDATE ON pack_run, control_total, pack_quarantine TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON parallel_run, variance TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT ON project_opening_line TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE format('GRANT USAGE ON SCHEMA %I TO depot_app', current_schema());
+    EXECUTE 'GRANT UPDATE ON pack_run, control_total, pack_quarantine TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON parallel_run, variance TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT ON project_opening_line TO depot_app';
   END IF;
 END
 $$;

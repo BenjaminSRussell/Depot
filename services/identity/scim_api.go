@@ -16,7 +16,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/BenjaminSRussell/passage/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
 )
 
 const (
@@ -123,7 +123,7 @@ func scimFail(w http.ResponseWriter, r *http.Request, err error) {
 func (a *SCIMAPI) inTx(r *http.Request, fn func(tx pgx.Tx) error) error {
 	tenantID := scimPrincipal(r).TenantID
 	return pgx.BeginFunc(r.Context(), a.pool, func(tx pgx.Tx) error {
-		if _, err := tx.Exec(r.Context(), `select set_config('passage.tenant_id', $1, true), set_config('passage.legal_entity_scopes', '*', true)`, tenantID); err != nil {
+		if _, err := tx.Exec(r.Context(), `select set_config('depot.tenant_id', $1, true), set_config('depot.legal_entity_scopes', '*', true)`, tenantID); err != nil {
 			return err
 		}
 		return fn(tx)

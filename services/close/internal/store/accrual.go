@@ -9,12 +9,12 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/outbox"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/close/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/outbox"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/close/internal/domain"
 )
 
 const accrualRunColumns = `id::text, legal_entity_id::text, ledger_id::text, scheme_code, amount, currency, debit_account, credit_account, auto_reverse, start_date::text, status, occurrences, entry_ids, created_by, last_error, cancelled_by, reversals_pending, tenant_id::text`
@@ -34,7 +34,7 @@ func (s *Postgres) PutAccrualScheme(ctx context.Context, in domain.AccrualDefini
 	}
 	err = dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
 		_, err := tx.Exec(ctx, `insert into accrual_scheme(tenant_id, legal_entity_id, ledger_id, code, debit_account, credit_account, amount, frequency, occurrences, spread, custom, auto_reverse, updated_by)
-			values(current_setting('passage.tenant_id')::uuid, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, $11, $12)
+			values(current_setting('depot.tenant_id')::uuid, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, $11, $12)
 			on conflict (tenant_id, ledger_id, code) do update set debit_account = excluded.debit_account, credit_account = excluded.credit_account, amount = excluded.amount, frequency = excluded.frequency,
 				occurrences = excluded.occurrences, spread = excluded.spread, custom = excluded.custom, auto_reverse = excluded.auto_reverse, updated_by = excluded.updated_by, updated_at = now()`,
 			in.LegalEntityID, in.LedgerID, in.Code, in.DebitAccount, in.CreditAccount, amount, in.Frequency, in.Occurrences, in.Spread, custom, in.AutoReverse, p.UserID)
@@ -101,7 +101,7 @@ func (s *Postgres) SaveAccrualRun(ctx context.Context, in domain.AccrualRun, key
 			return scanErr
 		}
 		tag, err := tx.Exec(ctx, `insert into accrual_run(tenant_id, id, legal_entity_id, ledger_id, scheme_code, amount, currency, debit_account, credit_account, auto_reverse, start_date, status, occurrences, entry_ids, next_attempt_at, idempotency_key, request_hash, created_by)
-			values(current_setting('passage.tenant_id')::uuid, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::jsonb, $13::jsonb, coalesce($14, now()), $15, $16, $17)
+			values(current_setting('depot.tenant_id')::uuid, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::jsonb, $13::jsonb, coalesce($14, now()), $15, $16, $17)
 			on conflict (tenant_id, idempotency_key) do nothing`,
 			in.ID, in.LegalEntityID, in.LedgerID, in.SchemeCode, amount, in.Currency, in.DebitAccount, in.CreditAccount, in.AutoReverse, in.StartDate, in.Status, occ, idsRaw, in.NextDue, key, requestHash, in.CreatedBy)
 		if err != nil {

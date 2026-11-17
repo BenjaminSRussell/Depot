@@ -7,15 +7,15 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/org/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/org/internal/store"
 )
 
 const (
-	legalEntityUpdatedType = "dev.passage.org.legalentity.updated.v1"
-	siteUpdatedTypeName    = "dev.passage.org.site.updated.v1"
-	locationUpdatedType    = "dev.passage.org.location.updated.v1"
+	legalEntityUpdatedType = "dev.depot.org.legalentity.updated.v1"
+	siteUpdatedTypeName    = "dev.depot.org.site.updated.v1"
+	locationUpdatedType    = "dev.depot.org.location.updated.v1"
 )
 
 type pointerOwner struct {

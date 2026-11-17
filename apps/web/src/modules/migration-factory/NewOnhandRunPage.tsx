@@ -145,7 +145,7 @@ export function NewOnhandRunPage() {
           )}
           {text("inventoryAccount", "Inventory GL account", "Required with a GL balances run.", { spellCheck: false }, true)}
           <div className={styles.wide}>
-            <FormField id="oh-items" label="Item master" hint="Item numbers in Passage, separated by commas, spaces or lines." error={errors.items}>
+            <FormField id="oh-items" label="Item master" hint="Item numbers in Depot, separated by commas, spaces or lines." error={errors.items}>
               {(control) => (
                 <Textarea {...control} mono rows={3} value={values.items} invalid={Boolean(errors.items)} onChange={(event) => update({ items: event.target.value })} />
               )}

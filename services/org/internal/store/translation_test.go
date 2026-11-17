@@ -10,10 +10,10 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/org/internal/store"
-	"github.com/BenjaminSRussell/passage/services/org/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/org/internal/store"
+	"github.com/BenjaminSRussell/depot/services/org/migrations"
 )
 
 type translationWorld struct {
@@ -64,20 +64,20 @@ func TestNameTranslation_PutCreatesReplacesAndIgnoresIdenticalRepeats(t *testing
 	w := newTranslationWorld(t)
 	for _, o := range w.owners {
 		t.Run(o.ownerType, func(t *testing.T) {
-			first, created := w.put(t, o.ownerType, o.id, "fr-CA", "Passage Fabrication")
+			first, created := w.put(t, o.ownerType, o.id, "fr-CA", "Depot Fabrication")
 			if !created || !first.Changed || first.OwnerType != o.ownerType || first.OwnerID != o.id || first.Language != "fr-CA" {
 				t.Fatalf("first put = %+v created %v", first, created)
 			}
-			same, created := w.put(t, o.ownerType, o.id, "fr-CA", "Passage Fabrication")
+			same, created := w.put(t, o.ownerType, o.id, "fr-CA", "Depot Fabrication")
 			if created || same.Changed || !same.UpdatedAt.Equal(first.UpdatedAt) {
 				t.Fatalf("identical repeat = %+v created %v; want an unchanged row", same, created)
 			}
-			renamed, created := w.put(t, o.ownerType, o.id, "fr-CA", "Passage Fabrication QC")
-			if created || !renamed.Changed || renamed.Name != "Passage Fabrication QC" || !renamed.CreatedAt.Equal(first.CreatedAt) {
+			renamed, created := w.put(t, o.ownerType, o.id, "fr-CA", "Depot Fabrication QC")
+			if created || !renamed.Changed || renamed.Name != "Depot Fabrication QC" || !renamed.CreatedAt.Equal(first.CreatedAt) {
 				t.Fatalf("replace = %+v created %v", renamed, created)
 			}
-			w.put(t, o.ownerType, o.id, "de", "Passage Fertigung")
-			w.put(t, o.ownerType, o.id, "fr", "Passage")
+			w.put(t, o.ownerType, o.id, "de", "Depot Fertigung")
+			w.put(t, o.ownerType, o.id, "fr", "Depot")
 			items, err := w.s.ListNameTranslations(w.ctx, o.ownerType, o.id)
 			if err != nil || len(items) != 3 || items[0].Language != "de" || items[1].Language != "fr" || items[2].Language != "fr-CA" {
 				t.Fatalf("list = %+v, %v; want de, fr, fr-CA", items, err)

@@ -8,10 +8,10 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/intercompany/internal/domain"
-	icevents "github.com/BenjaminSRussell/passage/services/intercompany/internal/events"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/intercompany/internal/domain"
+	icevents "github.com/BenjaminSRussell/depot/services/intercompany/internal/events"
 )
 
 const chargeColumns = `id::text, source_id, version, lender, borrower, category, resource_role, transaction_date, quantity::text, unit_cost::text, currency,

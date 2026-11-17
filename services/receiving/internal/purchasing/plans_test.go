@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/domain"
 )
 
 const plansJSON = `{"items":[
@@ -27,7 +27,7 @@ func TestList_MapsPlansAndForwardsIdentity(t *testing.T) {
 	if got.Method != http.MethodGet || got.URL.Path != "/v1/procurement/purchase-orders/"+orderID+"/invoicing-plans" {
 		t.Fatalf("request %s %s", got.Method, got.URL.Path)
 	}
-	if got.Header.Get("X-Passage-Tenant") != tenantID || got.Header.Get("X-Passage-Legal-Entity") != legalEntityID || got.Header.Get("X-Request-Id") != "req-9" {
+	if got.Header.Get("X-Depot-Tenant") != tenantID || got.Header.Get("X-Depot-Legal-Entity") != legalEntityID || got.Header.Get("X-Request-Id") != "req-9" {
 		t.Fatalf("headers %v", got.Header)
 	}
 	if len(plans) != 2 || plans[0].LineNo != 1 || !plans[0].SettleWithoutReceipt || plans[0].Currency != "USD" || plans[1].SettleWithoutReceipt {

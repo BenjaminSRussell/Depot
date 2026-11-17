@@ -15,7 +15,7 @@ export interface AnthropicConfig {
   timeoutMs?: number;
   /** Bound on a whole streamed answer; defaults to 120 s. */
   streamTimeoutMs?: number;
-  /** Cloud profile egress check (#599); defaults to PASSAGE_CLOUD_PROFILE. `region` is where the endpoint is hosted. */
+  /** Cloud profile egress check (#599); defaults to DEPOT_CLOUD_PROFILE. `region` is where the endpoint is hosted. */
   egress?: EgressOptions;
 }
 

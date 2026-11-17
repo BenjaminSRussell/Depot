@@ -47,16 +47,16 @@ create unique index open_order_opening_line_legacy on open_order_opening_line (t
 alter table open_order_opening_line enable row level security;
 alter table open_order_opening_line force row level security;
 create policy open_order_opening_line_tenant_access on open_order_opening_line as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
--- Application role privileges. Opening lines are insert-only for passage_app: nothing updates or
+-- Application role privileges. Opening lines are insert-only for depot_app: nothing updates or
 -- deletes them. Skipped when the role does not exist.
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE format('GRANT USAGE ON SCHEMA %I TO passage_app', current_schema());
-    EXECUTE 'GRANT SELECT, INSERT ON open_order_opening_line TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE format('GRANT USAGE ON SCHEMA %I TO depot_app', current_schema());
+    EXECUTE 'GRANT SELECT, INSERT ON open_order_opening_line TO depot_app';
   END IF;
 END
 $$;

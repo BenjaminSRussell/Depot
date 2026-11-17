@@ -14,7 +14,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/services/iot-edge/internal/mfs"
+	"github.com/BenjaminSRussell/depot/services/iot-edge/internal/mfs"
 )
 
 // Warehouse automation on the edge (wave 32, FR-32.12). The connector dials the plant's PLC (an AS/RS, a

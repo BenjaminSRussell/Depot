@@ -1,4 +1,4 @@
-module github.com/BenjaminSRussell/passage/tools/tenant-restore
+module github.com/BenjaminSRussell/depot/tools/tenant-restore
 
 go 1.26.0
 

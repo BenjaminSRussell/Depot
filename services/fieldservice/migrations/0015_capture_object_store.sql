@@ -14,8 +14,8 @@ CREATE INDEX IF NOT EXISTS service_wo_capture_live ON service_wo_capture (tenant
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT UPDATE (data, object_key, purged_at) ON service_wo_capture TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT UPDATE (data, object_key, purged_at) ON service_wo_capture TO depot_app';
   END IF;
 END
 $$;

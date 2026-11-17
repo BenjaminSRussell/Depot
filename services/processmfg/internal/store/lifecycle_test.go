@@ -7,10 +7,10 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/processmfg/internal/domain"
-	pmfevents "github.com/BenjaminSRussell/passage/services/processmfg/internal/events"
-	"github.com/BenjaminSRussell/passage/services/processmfg/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/processmfg/internal/domain"
+	pmfevents "github.com/BenjaminSRussell/depot/services/processmfg/internal/events"
+	"github.com/BenjaminSRussell/depot/services/processmfg/internal/store"
 )
 
 // coFormula is a 1,000 kg formula with a co-product (line 4) and a by-product (line 5).

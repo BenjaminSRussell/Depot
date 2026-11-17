@@ -8,9 +8,9 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/quality/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/quality/internal/domain"
 )
 
 func newNCR(t *testing.T) domain.Nonconformance {
@@ -101,7 +101,7 @@ func TestPostgres_NonconformanceAnd8D(t *testing.T) {
 	if err != nil || closed.Status != domain.NCRClosed || closed.Correction.Status != domain.CAPAClosed || closed.Correction.EffectivenessBy != "qa-2" {
 		t.Fatalf("effective check: %+v %v", closed, err)
 	}
-	want := []string{"dev.passage.quality.nonconformance.created.v1", "dev.passage.quality.capa.closed.v1"}
+	want := []string{"dev.depot.quality.nonconformance.created.v1", "dev.depot.quality.capa.closed.v1"}
 	if types := outboxTypes(t, pool, created.ID); len(types) != 2 || types[0] != want[0] || types[1] != want[1] {
 		t.Fatalf("outbox for the NCR: %v, want %v", types, want)
 	}
@@ -150,7 +150,7 @@ func TestPostgres_RejectDecisionRaisesNCR(t *testing.T) {
 	if replay, found, err := s.FindDecisionByKey(ctx, "dec-1"); err != nil || !found || replay.NonconformanceID != ncr.ID {
 		t.Fatalf("replayed decision keeps its NCR: %+v %v", replay, err)
 	}
-	if types := outboxTypes(t, pool, ncr.ID); len(types) != 1 || types[0] != "dev.passage.quality.nonconformance.created.v1" {
+	if types := outboxTypes(t, pool, ncr.ID); len(types) != 1 || types[0] != "dev.depot.quality.nonconformance.created.v1" {
 		t.Fatalf("NCR event: %v", types)
 	}
 	// An NCR that names an unknown order is refused by the foreign key.

@@ -10,10 +10,10 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/shopfloor/internal/domain"
-	sfevents "github.com/BenjaminSRussell/passage/services/shopfloor/internal/events"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/shopfloor/internal/domain"
+	sfevents "github.com/BenjaminSRussell/depot/services/shopfloor/internal/events"
 )
 
 // newEdge registers a node bound to the connector identity "conn-<key>".
@@ -321,7 +321,7 @@ func TestEdgeConfig_PublishedVersionIsImmutable(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if _, err := tx.Exec(ctxBG, `select set_config('passage.tenant_id', $1, true)`, tenantID); err != nil {
+		if _, err := tx.Exec(ctxBG, `select set_config('depot.tenant_id', $1, true)`, tenantID); err != nil {
 			t.Fatal(err)
 		}
 		if _, err := tx.Exec(ctxBG, stmt, v.ID); err == nil {
@@ -342,7 +342,7 @@ func TestEdgeConfig_PublishedVersionIsImmutable(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() { _ = tx.Rollback(ctxBG) }()
-	if _, err := tx.Exec(ctxBG, `select set_config('passage.tenant_id', $1, true)`, tenantID); err != nil {
+	if _, err := tx.Exec(ctxBG, `select set_config('depot.tenant_id', $1, true)`, tenantID); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := tx.Exec(ctxBG, `update edge_config_version set applied_at = now() + interval '1 day' where id = $1`, v.ID); err == nil {

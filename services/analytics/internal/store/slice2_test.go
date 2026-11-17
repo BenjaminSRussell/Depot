@@ -12,11 +12,11 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/analytics/internal/domain"
-	analyticsevents "github.com/BenjaminSRussell/passage/services/analytics/internal/events"
-	"github.com/BenjaminSRussell/passage/services/analytics/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/analytics/internal/domain"
+	analyticsevents "github.com/BenjaminSRussell/depot/services/analytics/internal/events"
+	"github.com/BenjaminSRussell/depot/services/analytics/migrations"
 )
 
 const ruleOwner = "0193d6a0-0000-7000-8000-000000000001"
@@ -372,7 +372,7 @@ func TestSlice2Tables_RowLevelSecurity(t *testing.T) {
 	if _, err := st.RecordDQScore(ctxFor(1, ""), "vendor_tax_id", now, 100, 1); err != nil {
 		t.Fatal(err)
 	}
-	// Every write path runs as passage_app, so the grants in 0003 are exercised.
+	// Every write path runs as depot_app, so the grants in 0003 are exercised.
 	if _, _, err := st.PutDQRule(ctxFor(1, ""), vendorTaxRule(), 1, true, now); err != nil {
 		t.Fatalf("replace rule as app role: %v", err)
 	}

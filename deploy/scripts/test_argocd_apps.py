@@ -48,7 +48,7 @@ import yaml
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 DEPLOY = Path(__file__).resolve().parents[1]
 REPO = DEPLOY.parent
-REPO_URL = "https://github.com/BenjaminSRussell/Passage.git"
+REPO_URL = "https://github.com/BenjaminSRussell/Depot.git"
 SEMVER = re.compile(r"^v?\d+\.\d+\.\d+$")
 TEMPLATE_VAR = re.compile(r"\{\{\s*\.(\w+)\s*\}\}")
 
@@ -58,7 +58,7 @@ EXEMPT = {
     # deploy/multi-region/values/<region>.yaml. There are no region clusters yet (docs/ops/NOT-IMPLEMENTED.md).
     "deploy/multi-region/chart",
     # ClusterSecretStore for Azure Key Vault (#600): installed per Azure environment with the cloud profile's global values,
-    # after the External Secrets Operator. The dev cluster uses the Vault store named `passage` instead.
+    # after the External Secrets Operator. The dev cluster uses the Vault store named `depot` instead.
     "deploy/secret-store",
 }
 # Dev sync-wave order (#106): each group syncs strictly after the one before. The operator, then the Kafka cluster
@@ -90,8 +90,8 @@ UNMANAGED_SECRETS = {
 # Service databases in the shared dev Postgres (deploy/envs/dev/apps/postgres.yaml) whose DATABASE_URL Secret an
 # ExternalSecret in that file writes: dev Application -> (database, login role, Secret, key the chart reads).
 DEV_POSTGRES_DATABASES = {
-    "eam": ("passage_eam", "passage_eam_app", "eam-database", "url"),
-    "transport": ("passage_transport", "passage_transport_app", "transport-db", "url"),
+    "eam": ("depot_eam", "depot_eam_app", "eam-database", "url"),
+    "transport": ("depot_transport", "depot_transport_app", "transport-db", "url"),
 }
 # Stage Applications that predate the generated ones and keep their own release name (stage_release.py promotes this one).
 STAGE_OWN_RELEASE = {"hello-ledger"}
@@ -236,9 +236,9 @@ def pod_images(doc):
     return [c["image"] for c in pod_containers(doc)]
 
 
-EVENT_LITERAL = re.compile(r"""["'`](dev\.passage\.[a-z0-9-]+(?:\.[a-z0-9-]+)+)["'`]""")
+EVENT_LITERAL = re.compile(r"""["'`](dev\.depot\.[a-z0-9-]+(?:\.[a-z0-9-]+)+)["'`]""")
 EVENT_TYPE_CALL = re.compile(r'events\.Type\(\s*("[a-z0-9]+"|Context)\s*,\s*"([^"]+)"\s*,\s*"([^"]+)"\s*,\s*(\d+)\s*\)')
-PLATFORM_IMPORT = re.compile(r'"github\.com/BenjaminSRussell/passage/platform/([a-z0-9_/]+)"')
+PLATFORM_IMPORT = re.compile(r'"github\.com/BenjaminSRussell/depot/platform/([a-z0-9_/]+)"')
 
 
 def service_event_types(service):
@@ -264,7 +264,7 @@ def service_event_types(service):
         for ctx, entity, verb, version in EVENT_TYPE_CALL.findall(src):
             context = ctx.strip('"') if ctx != "Context" else (own[0] if own else None)
             if context:
-                types.add(f"dev.passage.{context}.{entity}.{verb}.v{version}")
+                types.add(f"dev.depot.{context}.{entity}.{verb}.v{version}")
     return types
 
 
@@ -517,8 +517,8 @@ class ArgoApplicationsTest(unittest.TestCase):
         self.assertEqual(kafka["group"], group)
         self.assertIn(kafka["username"], users, "deploy/kafka/inventory-consumer.yaml")
         granted = users[kafka["username"]]
-        self.assertEqual(source_topics, {"passage.receiving.receipt", "passage.sales.orderprogress", "passage.fulfillment.packingslip",
-                                         "passage.service.workorder.completed"})
+        self.assertEqual(source_topics, {"depot.receiving.receipt", "depot.sales.orderprogress", "depot.fulfillment.packingslip",
+                                         "depot.service.workorder.completed"})
         subscribed = re.search(r"\[\]string\{(api\.\w+Topic(?:, api\.\w+Topic)*)\}", cmd)
         self.assertIsNotNone(subscribed, "the postings consumer's topic list")
         self.assertEqual(len(source_topics), len(subscribed.group(1).split(",")), "the consumer subscribes to every source topic")
@@ -559,7 +559,7 @@ class ArgoApplicationsTest(unittest.TestCase):
         api = (REPO / "services/receivables/internal/api/billing_consumer.go").read_text()
         cmd = (REPO / "services/receivables/cmd/receivables/consumer.go").read_text()
         (topic,) = re.findall(r'BillingInvoiceTopic\s+=\s+"([^"]+)"', api)
-        event_types = {re.findall(r'"(dev\.passage\.[^"]+)"', line)[0] for line in api.splitlines()
+        event_types = {re.findall(r'"(dev\.depot\.[^"]+)"', line)[0] for line in api.splitlines()
                        if re.search(r'(InvoicePostedType|CreditNotePostedType)\s+=', line)}
         (group,) = re.findall(r'BillingConsumerName\s+=\s+"([^"]+)"', api)
         (dlq,) = re.findall(r'billingDeadLetterTopic\s+=\s+"([^"]+)"', cmd)
@@ -680,8 +680,8 @@ class ArgoApplicationsTest(unittest.TestCase):
                     channels.add(channel["address"])
                     for ref in channel["messages"].values():
                         message = messages[ref["$ref"].rsplit("/", 1)[1]]
-                        # Some specs name a message by its verb and carry the CloudEvents type in x-passage-type.
-                        typ = message.get("x-passage-type") or message["name"]
+                        # Some specs name a message by its verb and carry the CloudEvents type in x-depot-type.
+                        typ = message.get("x-depot-type") or message["name"]
                         declared.add(typ)
                         m = regex.fullmatch(typ)
                         self.assertIsNotNone(m, f"{name}: {typ} does not match the route")
@@ -692,16 +692,16 @@ class ArgoApplicationsTest(unittest.TestCase):
                 # allows, and fails the connector task for every later event; so every type of the topic's context the
                 # service or a platform/go package it imports defines (expense's report.approved lives in
                 # platform/go/reimbursement) must be a declared message.
-                context = cfg["topic.prefix"].removeprefix("passage.")
-                defined = {typ for typ in service_event_types(service) if typ.startswith(f"dev.passage.{context}.")}
+                context = cfg["topic.prefix"].removeprefix("depot.")
+                defined = {typ for typ in service_event_types(service) if typ.startswith(f"dev.depot.{context}.")}
                 self.assertEqual(set(), defined - declared, f"{name}: event types defined in code but not in the AsyncAPI")
                 routed |= channels
-        self.assertLessEqual({"passage.sales.orderprogress", "passage.fulfillment.packingslip"}, routed)
+        self.assertLessEqual({"depot.sales.orderprogress", "depot.fulfillment.packingslip"}, routed)
 
     def test_outbox_fieldservice_routes_every_event_to_its_asyncapi_channel(self):
         # fieldservice writes workorder.posted, workorder.completed and assignment.changed under aggregate_type "workorder", and
         # also publishes knowledge and case events, so outbox-fieldservice routes by event type (#45): workorder.completed must
-        # reach passage.service.workorder.completed, the topic inventory's truck-stock consumer reads, or truck consumption
+        # reach depot.service.workorder.completed, the topic inventory's truck-stock consumer reads, or truck consumption
         # never fires. Every message of the AsyncAPI routes to its own channel and every channel has a literal ACL.
         docs = load_docs(DEPLOY / "kafka/connect.yaml")
         (debezium,) = [d for d in docs if d["kind"] == "KafkaUser" and d["metadata"]["name"] == "debezium"]
@@ -711,7 +711,7 @@ class ArgoApplicationsTest(unittest.TestCase):
         (cfg,) = [d["spec"]["config"] for d in docs if d["kind"] == "KafkaConnector" and d["metadata"]["name"] == "outbox-fieldservice"]
         self.assertEqual("type", cfg["transforms.outbox.route.by.field"])
         self.assertEqual(["outbox", "enrich"], cfg["transforms"].split(","))
-        self.assertEqual("passage_outbox_fieldservice", cfg["publication.name"])
+        self.assertEqual("depot_outbox_fieldservice", cfg["publication.name"])
         self.assertEqual("public.outbox", cfg["table.include.list"])
         # Debezium applies the regex to the whole routing value and fills ${routedByValue} like Java's replaceAll.
         regex = re.compile(cfg["transforms.outbox.route.topic.regex"].replace("(?<", "(?P<"))
@@ -727,9 +727,9 @@ class ArgoApplicationsTest(unittest.TestCase):
                 self.assertIsNotNone(m, f"{typ} does not match the route")
                 routed[typ] = replacement.replace("${routedByValue}", m["routedByValue"])
                 self.assertEqual(channel["address"], routed[typ], typ)
-        self.assertEqual("passage.service.workorder.completed", routed["dev.passage.service.workorder.completed.v1"])
-        self.assertEqual("passage.service.workorder", routed["dev.passage.service.workorder.posted.v1"])
-        self.assertEqual("passage.service.assignment", routed["dev.passage.service.assignment.changed.v1"])
+        self.assertEqual("depot.service.workorder.completed", routed["dev.depot.service.workorder.completed.v1"])
+        self.assertEqual("depot.service.workorder", routed["dev.depot.service.workorder.posted.v1"])
+        self.assertEqual("depot.service.assignment", routed["dev.depot.service.assignment.changed.v1"])
         self.assertLessEqual(channels, writable, "a fieldservice channel without a literal ACL for the debezium user")
         # Every event type the service defines in Go is declared in the AsyncAPI, so none can route to an unlisted topic.
         defined = set()
@@ -737,13 +737,13 @@ class ArgoApplicationsTest(unittest.TestCase):
         for f in (REPO / "services/fieldservice/internal/events").glob("*.go"):
             if not f.name.endswith("_test.go"):
                 for c, entity, verb, v in re.findall(r'events\.Type\((\w+), "(\w+)", "(\w+)", (\d+)\)', f.read_text()):
-                    defined.add(f"dev.passage.{ctx[c]}.{entity}.{verb}.v{v}")
+                    defined.add(f"dev.depot.{ctx[c]}.{entity}.{verb}.v{v}")
         self.assertEqual(set(routed), defined, "an event type the service defines is missing from (or extra in) its AsyncAPI")
         secrets = {d["metadata"]["name"] for f in manifests(DEPLOY / "envs/dev/kafka-secrets") for d in load_docs(f)
                    if d["kind"] == "ExternalSecret"}
         self.assertIn("debezium-cdc-fieldservice", secrets)
         (role,) = [d for f in manifests(DEPLOY / "envs/dev/kafka-secrets") for d in load_docs(f)
-                   if d["kind"] == "Role" and d["metadata"]["name"] == "passage-connect-read-debezium-cdc"]
+                   if d["kind"] == "Role" and d["metadata"]["name"] == "depot-connect-read-debezium-cdc"]
         self.assertIn("debezium-cdc-fieldservice", role["rules"][0]["resourceNames"])
 
     def test_outbox_budgeting_publishes_only_topics_the_debezium_user_may_write(self):
@@ -764,7 +764,7 @@ class ArgoApplicationsTest(unittest.TestCase):
         pattern = re.compile(cfg[f"predicates.{predicate}.pattern"])
         spec = yaml.safe_load((REPO / "services/budgeting/events/asyncapi.yaml").read_text())
         channels = {c["address"] for c in spec["channels"].values()}
-        self.assertEqual({"passage.budget.plan"}, {t for t in channels | writable if pattern.fullmatch(t)})
+        self.assertEqual({"depot.budget.plan"}, {t for t in channels | writable if pattern.fullmatch(t)})
         self.assertLessEqual({t for t in channels if pattern.fullmatch(t)}, writable)
 
     def test_outbox_billing_publishes_only_the_invoice_channel_the_debezium_user_may_write(self):
@@ -777,8 +777,8 @@ class ArgoApplicationsTest(unittest.TestCase):
                     and "Write" in a["operations"]}
         (cfg,) = [d["spec"]["config"] for d in docs if d["kind"] == "KafkaConnector" and d["metadata"]["name"] == "outbox-billing"]
         self.assertEqual("aggregate_type", cfg["transforms.outbox.route.by.field"])
-        self.assertEqual("passage.billing", cfg["topic.prefix"])
-        self.assertEqual("passage.billing.${routedByValue}", cfg["transforms.outbox.route.topic.replacement"])
+        self.assertEqual("depot.billing", cfg["topic.prefix"])
+        self.assertEqual("depot.billing.${routedByValue}", cfg["transforms.outbox.route.topic.replacement"])
         chain = cfg["transforms"].split(",")
         self.assertEqual("outbox", chain[0])
         self.assertEqual("enrich", chain[-1])
@@ -792,12 +792,12 @@ class ArgoApplicationsTest(unittest.TestCase):
         routed = {cfg["transforms.outbox.route.topic.replacement"].replace("${routedByValue}", a) for a in aggregates}
         self.assertEqual(channels, routed)
         self.assertLessEqual(routed, writable)
-        self.assertEqual({"passage.billing.invoice"}, {t for t in writable if t.startswith("passage.billing.")})
+        self.assertEqual({"depot.billing.invoice"}, {t for t in writable if t.startswith("depot.billing.")})
         secrets = {d["metadata"]["name"] for f in manifests(DEPLOY / "envs/dev/kafka-secrets") for d in load_docs(f)
                    if d["kind"] == "ExternalSecret"}
         self.assertIn("debezium-cdc-billing", secrets)
         (role,) = [d for f in manifests(DEPLOY / "envs/dev/kafka-secrets") for d in load_docs(f)
-                   if d["kind"] == "Role" and d["metadata"]["name"] == "passage-connect-read-debezium-cdc"]
+                   if d["kind"] == "Role" and d["metadata"]["name"] == "depot-connect-read-debezium-cdc"]
         self.assertIn("debezium-cdc-billing", role["rules"][0]["resourceNames"])
 
     def test_outbox_ops_relays_exactly_the_ops_channels_the_debezium_user_may_write(self):
@@ -809,10 +809,10 @@ class ArgoApplicationsTest(unittest.TestCase):
                     and "Write" in a["operations"]}
         (cfg,) = [d["spec"]["config"] for d in docs if d["kind"] == "KafkaConnector" and d["metadata"]["name"] == "outbox-ops"]
         self.assertEqual("aggregate_type", cfg["transforms.outbox.route.by.field"])
-        self.assertEqual("passage.ops", cfg["topic.prefix"])
-        self.assertEqual("passage.ops.${routedByValue}", cfg["transforms.outbox.route.topic.replacement"])
+        self.assertEqual("depot.ops", cfg["topic.prefix"])
+        self.assertEqual("depot.ops.${routedByValue}", cfg["transforms.outbox.route.topic.replacement"])
         self.assertEqual("public.outbox", cfg["table.include.list"])
-        self.assertEqual("passage_outbox_ops", cfg["publication.name"])
+        self.assertEqual("depot_outbox_ops", cfg["publication.name"])
         self.assertEqual("no_data", cfg["snapshot.mode"])
         chain = cfg["transforms"].split(",")
         self.assertEqual(("outbox", "enrich"), (chain[0], chain[-1]))
@@ -826,12 +826,12 @@ class ArgoApplicationsTest(unittest.TestCase):
         channels = {c["address"] for c in spec["channels"].values()}
         routed = {cfg["transforms.outbox.route.topic.replacement"].replace("${routedByValue}", a) for a in aggregates}
         self.assertEqual(channels, routed)
-        self.assertEqual(routed, {t for t in writable if t.startswith("passage.ops.")})
+        self.assertEqual(routed, {t for t in writable if t.startswith("depot.ops.")})
         secrets = {d["metadata"]["name"] for f in manifests(DEPLOY / "envs/dev/kafka-secrets") for d in load_docs(f)
                    if d["kind"] == "ExternalSecret"}
         self.assertIn("debezium-cdc-ops", secrets)
         (role,) = [d for f in manifests(DEPLOY / "envs/dev/kafka-secrets") for d in load_docs(f)
-                   if d["kind"] == "Role" and d["metadata"]["name"] == "passage-connect-read-debezium-cdc"]
+                   if d["kind"] == "Role" and d["metadata"]["name"] == "depot-connect-read-debezium-cdc"]
         self.assertIn("debezium-cdc-ops", role["rules"][0]["resourceNames"])
         for migration in ("0007_cdc_publication.sql", "0008_cdc_role_grants.sql"):
             self.assertTrue((REPO / "services/ops/migrations" / migration).exists(), migration)
@@ -852,7 +852,7 @@ class ArgoApplicationsTest(unittest.TestCase):
                        for r in acls)
         kafka_secrets = [d for f in manifests(DEPLOY / "envs/dev/kafka-secrets") for d in load_docs(f)]
         external = {d["metadata"]["name"]: d for d in kafka_secrets if d["kind"] == "ExternalSecret"}
-        (role,) = [d for d in kafka_secrets if d["kind"] == "Role" and d["metadata"]["name"] == "passage-connect-read-debezium-cdc"]
+        (role,) = [d for d in kafka_secrets if d["kind"] == "Role" and d["metadata"]["name"] == "depot-connect-read-debezium-cdc"]
         readable = set(role["rules"][0]["resourceNames"])
         pg = self.dev_postgres()
         pg_ns = pg[("Deployment", "postgres")]["metadata"]["namespace"]
@@ -879,7 +879,7 @@ class ArgoApplicationsTest(unittest.TestCase):
                 self.assertEqual(user_ref[:2], pass_ref[:2])
                 secret = user_ref[1]
                 self.assertIn(secret, external, f"no ExternalSecret in deploy/envs/dev/kafka-secrets writes {secret}")
-                self.assertIn(secret, readable, f"Role passage-connect-read-debezium-cdc does not name {secret}")
+                self.assertIn(secret, readable, f"Role depot-connect-read-debezium-cdc does not name {secret}")
                 es = external[secret]
                 cdc_role = es["spec"]["target"]["template"]["data"]["username"]
                 (vault,) = [item["remoteRef"]["key"] for item in es["spec"]["data"]]
@@ -905,7 +905,7 @@ class ArgoApplicationsTest(unittest.TestCase):
                     self.assertEqual(db, values.get("database"))
                     self.assertTrue((values.get("cdc") or {}).get("enabled", True), f"{host_ns}: cdc disabled")
                     self.assertEqual("debezium_cdc", cdc_role, "the deploy/postgres chart creates debezium_cdc")
-                    self.assertEqual(f"passage/dev/{helm['releaseName']}-postgres/cdc-password", vault)
+                    self.assertEqual(f"depot/dev/{helm['releaseName']}-postgres/cdc-password", vault)
                 migrations = "\n".join(p.read_text() for p in sorted((REPO / f"services/{service}/migrations").glob("*.sql")))
                 self.assertRegex(migrations, rf"CREATE PUBLICATION {pub}\b", f"services/{service}/migrations never creates {pub}")
                 self.assertRegex(migrations, rf"ALTER PUBLICATION {pub} ADD TABLE")
@@ -955,11 +955,11 @@ class ArgoApplicationsTest(unittest.TestCase):
 
     # Event types a consumer service names but does not subscribe to, so they need no read ACL: (service, type) -> why.
     UNSUBSCRIBED_HANDLERS = {
-        ("payables", "dev.passage.expense.report.approved.v1"):
-            "consumer.HandleExpenseReportApproved is not wired: `payables consume` reads only passage.interco.chargeinvoice",
-        ("workflow-ts", "dev.passage.party.change.requested.v1"):
+        ("payables", "dev.depot.expense.report.approved.v1"):
+            "consumer.HandleExpenseReportApproved is not wired: `payables consume` reads only depot.interco.chargeinvoice",
+        ("workflow-ts", "dev.depot.party.change.requested.v1"):
             "changeRequested.ts maps it, but eventConsumer.ts subscribes only to the tender and budget plan topics",
-        ("workflow-ts", "dev.passage.party.merge.requested.v1"):
+        ("workflow-ts", "dev.depot.party.merge.requested.v1"):
             "changeRequested.ts maps it, but eventConsumer.ts subscribes only to the tender and budget plan topics",
     }
 
@@ -967,7 +967,7 @@ class ArgoApplicationsTest(unittest.TestCase):
         # An ACL on a topic some connector writes is not enough (#213): every event type a consumer service names that a
         # type-routed outbox connector of another service publishes is routed through that connector's regex, and the
         # topic it lands on must be one the consumer's KafkaUser reads. This caught search reading packing slips from
-        # passage.fulfillment.shipment while outbox-fulfillment writes them to passage.fulfillment.packingslip.
+        # depot.fulfillment.shipment while outbox-fulfillment writes them to depot.fulfillment.packingslip.
         docs = load_docs(DEPLOY / "kafka/connect.yaml")
         routers = [(d["metadata"]["name"].removeprefix("outbox-"),
                     re.compile(d["spec"]["config"]["transforms.outbox.route.topic.regex"].replace("(?<", "(?P<")),
@@ -1000,8 +1000,8 @@ class ArgoApplicationsTest(unittest.TestCase):
                             checked.add((user, topic))
                             with self.subTest(consumer=user, type=typ):
                                 self.assertIn(topic, read, f"{typ} lands on {topic} (outbox-{producer}), which {user} does not read")
-        self.assertIn(("search-consumer", "passage.fulfillment.packingslip"), checked)
-        self.assertIn(("intercompany-consumer", "passage.expense.report"), checked)
+        self.assertIn(("search-consumer", "depot.fulfillment.packingslip"), checked)
+        self.assertIn(("intercompany-consumer", "depot.expense.report"), checked)
 
     @unittest.skipUnless(shutil.which("helm"), "helm not on PATH")
     def test_temporal_values_match_its_database(self):
@@ -1032,7 +1032,7 @@ class ArgoApplicationsTest(unittest.TestCase):
                               if d["kind"] == "ExternalSecret" and d["metadata"]["name"] == "apicurio-database"]
         template = registry_secret["spec"]["target"]["template"]["data"]
         self.assertEqual(template["JDBC_URL"], f"jdbc:postgresql://{service}.{ns}.svc:5432/{values['database']}")
-        self.assertEqual(template["USERNAME"], "passage_app")
+        self.assertEqual(template["USERNAME"], "depot_app")
         self.assertEqual([x["remoteRef"] for x in registry_secret["spec"]["data"]], [app_password])
         policy = next(d for d in docs if d["kind"] == "NetworkPolicy")
         sources_allowed = [f for rule in policy["spec"]["ingress"] for f in rule["from"]]
@@ -1147,13 +1147,13 @@ class ArgoApplicationsTest(unittest.TestCase):
             with self.subTest(values=path.name):
                 self.assertIn(path.stem, names, f"{path.name} names no service of the stage ApplicationSet")
                 text = path.read_text()
-                for dev in (".dev.passage.dev", "realms/dev", "passage-local-ca", "passage-dev-", "environment: dev"):
+                for dev in (".dev.depot.dev", "realms/dev", "depot-local-ca", "depot-dev-", "environment: dev"):
                     self.assertNotIn(dev, text)
                 yaml.safe_load(text)
         for path in sorted((DEPLOY / "envs/stage/apps").glob("*.yaml")):
             text = path.read_text()
-            self.assertNotIn(".dev.passage.dev", text, path.name)
-            self.assertNotIn("passage-local-ca", text, path.name)
+            self.assertNotIn(".dev.depot.dev", text, path.name)
+            self.assertNotIn("depot-local-ca", text, path.name)
 
     @unittest.skipUnless(shutil.which("helm"), "helm not on PATH")
     def test_stage_charts_render_pinned_with_two_replicas(self):

@@ -1,10 +1,10 @@
 // Package ledgertest runs the real ledger service for production's integration tests (W21 AC4, issue #478).
 //
 // The ledger lives in another Go module and its packages are internal, so it cannot be mounted in this process: Start
-// builds services/ledger/cmd/ledger from this tree (or takes PASSAGE_TEST_LEDGER_BIN), runs it against a throwaway
-// schema on the PASSAGE_TEST_DATABASE_URL server and trusts only production's service key. Production reaches it
+// builds services/ledger/cmd/ledger from this tree (or takes DEPOT_TEST_LEDGER_BIN), runs it against a throwaway
+// schema on the DEPOT_TEST_DATABASE_URL server and trusts only production's service key. Production reaches it
 // with the real ledgerclient over HTTP with signed service tokens, as it does when deployed. Tests that call Start are
-// skipped when PASSAGE_TEST_DATABASE_URL is unset or under -short. Only tests import this package.
+// skipped when DEPOT_TEST_DATABASE_URL is unset or under -short. Only tests import this package.
 package ledgertest
 
 import (
@@ -30,14 +30,14 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/ledgerclient"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/ledgerclient"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
 )
 
 // EnvBin names a prebuilt ledger binary; empty builds one from this tree once per test process.
-const EnvBin = "PASSAGE_TEST_LEDGER_BIN"
+const EnvBin = "DEPOT_TEST_LEDGER_BIN"
 
 // Caller is the service name the ledger trusts and the client signs as.
 const Caller = "production"
@@ -66,7 +66,7 @@ func binary(t testing.TB) string {
 		// One fixed path per checkout and test package, rebuilt (from the Go build cache) by each test process, so runs
 		// leave no temp dirs behind and packages testing in parallel do not replace each other's binary.
 		cwd, _ := os.Getwd()
-		dir := filepath.Join(os.TempDir(), fmt.Sprintf("passage-ledgertest-%x", sha256.Sum256([]byte(ledgerDir+"\x00"+cwd)))[:40])
+		dir := filepath.Join(os.TempDir(), fmt.Sprintf("depot-ledgertest-%x", sha256.Sum256([]byte(ledgerDir+"\x00"+cwd)))[:40])
 		if err := os.MkdirAll(dir, 0o755); err != nil {
 			buildErr = err
 			return
@@ -139,7 +139,7 @@ func Start(t testing.TB) *Server {
 	}
 	cmd := exec.Command(bin)
 	cmd.Env = []string{
-		"PATH=" + os.Getenv("PATH"), "HOME=" + os.Getenv("HOME"), "PASSAGE_ENV=dev",
+		"PATH=" + os.Getenv("PATH"), "HOME=" + os.Getenv("HOME"), "DEPOT_ENV=dev",
 		"DATABASE_URL=" + u.String(), "MIGRATE_ON_START=true", "LEDGER_PERIOD_CHECK=disabled",
 		"HTTP_ADDR=" + addr, "ADMIN_ADDR=" + freeAddr(t),
 		tenant.EnvServiceName + "=ledger",

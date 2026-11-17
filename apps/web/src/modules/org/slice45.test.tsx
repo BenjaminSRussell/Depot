@@ -159,7 +159,7 @@ describe("site fiscal calendar and warehouse site", () => {
     await waitFor(() => expect(callsTo(fetchMock, "PATCH", "/warehouses/w-1")).toHaveLength(1));
     const call = callsTo(fetchMock, "PATCH", "/warehouses/w-1")[0];
     expect(bodyOf(call as never)).toEqual({ version: 5, siteId: "s-2" });
-    expect(new Headers(call[1]?.headers).get("X-Passage-LegalEntity")).toBe("le-1");
+    expect(new Headers(call[1]?.headers).get("X-Depot-LegalEntity")).toBe("le-1");
     expect(await within(table).findByText("CHI")).toBeInTheDocument();
   });
 

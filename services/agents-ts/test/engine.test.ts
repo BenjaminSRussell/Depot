@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import { runAgent } from "../src/runtime/engine.js";
 import { APPROVER, codingDescriptor, FakeApprovals, FakeTools, INVOKER, makeDeps, makeRequest, memoryBudgets, postDescriptor, proposal, REAL_IBAN, ScriptedProvider, usd } from "./fakes.js";
 
-const CODING = "passage.ap.invoice.propose_coding";
-const tools = () => new FakeTools({ "passage.ap.invoice.post": postDescriptor, [CODING]: codingDescriptor });
+const CODING = "depot.ap.invoice.propose_coding";
+const tools = () => new FakeTools({ "depot.ap.invoice.post": postDescriptor, [CODING]: codingDescriptor });
 const autoPolicy = { mode: "AUTO" as const, autoThreshold: 0.95, autoAmountLimit: usd("5000") };
 
 describe("runAgent gates and commits", () => {
@@ -115,7 +115,7 @@ describe("runAgent gates and commits", () => {
   });
 
   it("a commit that fails after approval ends FAILED with the tool's code", async () => {
-    const t = new FakeTools({ "passage.ap.invoice.post": postDescriptor }, { ok: false, code: "AGT-0214", message: "tool failed with 409" });
+    const t = new FakeTools({ "depot.ap.invoice.post": postDescriptor }, { ok: false, code: "AGT-0214", message: "tool failed with 409" });
     const result = await runAgent(
       makeDeps({ provider: new ScriptedProvider([proposal(0.8)]), tools: t, approvals: new FakeApprovals({ decision: "APPROVED", approverUserId: APPROVER }) }),
       makeRequest(),
@@ -136,13 +136,13 @@ describe("runAgent authorization (AC-47.2)", () => {
     expect(result).toMatchObject({ status: "FAILED", code: "AGT-0203" });
     expect(t.calls).toHaveLength(0);
     expect(approvals.requests).toHaveLength(0);
-    expect(result.actions[0]).toMatchObject({ decision: "DENIED", toolName: "passage.ap.invoice.post" });
+    expect(result.actions[0]).toMatchObject({ decision: "DENIED", toolName: "depot.ap.invoice.post" });
   });
 
   it("never calls a tool outside the agent's allow-list, even if the model asks for it", async () => {
-    const t = new FakeTools({ "passage.ledger.journal.reverse": { requiredDuty: "LedgerPost", approvalMode: "approve_before_commit" } });
+    const t = new FakeTools({ "depot.ledger.journal.reverse": { requiredDuty: "LedgerPost", approvalMode: "approve_before_commit" } });
     const result = await runAgent(
-      makeDeps({ provider: new ScriptedProvider([proposal(0.99, "1200", "passage.ledger.journal.reverse")]), tools: t, approvals: new FakeApprovals({ decision: "APPROVED", approverUserId: APPROVER }) }),
+      makeDeps({ provider: new ScriptedProvider([proposal(0.99, "1200", "depot.ledger.journal.reverse")]), tools: t, approvals: new FakeApprovals({ decision: "APPROVED", approverUserId: APPROVER }) }),
       makeRequest({ userDuties: new Set(["LedgerPost"]) }),
     );
     expect(result.status).toBe("FAILED");

@@ -6,11 +6,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/processmfg/internal/domain"
-	pmfevents "github.com/BenjaminSRussell/passage/services/processmfg/internal/events"
-	"github.com/BenjaminSRussell/passage/services/processmfg/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/processmfg/internal/domain"
+	pmfevents "github.com/BenjaminSRussell/depot/services/processmfg/internal/events"
+	"github.com/BenjaminSRussell/depot/services/processmfg/internal/store"
 )
 
 // ebrBatch registers a batch of a fresh item on a batch order of the same item,

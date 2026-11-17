@@ -24,7 +24,7 @@ func TestKafkaConfig(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(cfg.Brokers) != 2 || cfg.Password != "s3cret" || cfg.Group != "receiving-ers" || len(cfg.Topics) != 1 || cfg.Topics[0] != "passage.receiving.receipt" {
+	if len(cfg.Brokers) != 2 || cfg.Password != "s3cret" || cfg.Group != "receiving-ers" || len(cfg.Topics) != 1 || cfg.Topics[0] != "depot.receiving.receipt" {
 		t.Fatalf("config = %+v", cfg)
 	}
 
@@ -48,7 +48,7 @@ func TestErasureKafkaConfigKeepsItsOwnGroupAndTopic(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.Group != "receiving-erasure" || len(cfg.Topics) != 1 || cfg.Topics[0] != "passage.privacy.erasure" {
+	if cfg.Group != "receiving-erasure" || len(cfg.Topics) != 1 || cfg.Topics[0] != "depot.privacy.erasure" {
 		t.Fatalf("config = %+v", cfg)
 	}
 	if _, err := erasureKafkaConfig(func(string) string { return "" }); err == nil {
@@ -63,7 +63,7 @@ func TestErsTaxKafkaConfigKeepsItsOwnGroupAndTopic(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.Group != "receiving-ers-tax" || len(cfg.Topics) != 1 || cfg.Topics[0] != "passage.receiving.ersselfbill" {
+	if cfg.Group != "receiving-ers-tax" || len(cfg.Topics) != 1 || cfg.Topics[0] != "depot.receiving.ersselfbill" {
 		t.Fatalf("config = %+v", cfg)
 	}
 }

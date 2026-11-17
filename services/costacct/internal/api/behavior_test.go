@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/services/costacct/internal/store"
+	"github.com/BenjaminSRussell/depot/services/costacct/internal/store"
 )
 
 func (f *fakeStore) CreateBehaviorRule(_ context.Context, _, _ string, in store.BehaviorRule) (int, []byte, error) {

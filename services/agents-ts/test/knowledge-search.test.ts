@@ -10,7 +10,7 @@ import { fixture, ownerUrl, type Fixture } from "./pgHelper.js";
 import { FakeMcp, headers, MemoryStore, serve, T1 } from "./surface-fakes.js";
 
 const T2 = "00000000-0000-7000-8000-0000000000bb";
-const SEARCH = "passage.knowledge.search";
+const SEARCH = "depot.knowledge.search";
 
 /** A bag-of-words embedder: deterministic, no network (the fake embedding port of the tests). */
 class FakeEmbeddings implements EmbeddingPort {
@@ -143,7 +143,7 @@ describe("the copilot answers from the knowledge index with a citation, or refus
     expect(r.body.refusal).toBeNull();
     expect(r.body.toolCalls).toEqual([{ tool: SEARCH, status: "OK" }]);
     expect(r.body.citations).toEqual([{ sourceType: "POLICY", sourceRef: "policy/travel", label: "Meals" }]);
-    expect(r.provider.seen[1]?.user).toContain("Result of passage.knowledge.search");
+    expect(r.provider.seen[1]?.user).toContain("Result of depot.knowledge.search");
   });
 
   it("refuses with AGT-0212 when nothing is similar enough", async () => {

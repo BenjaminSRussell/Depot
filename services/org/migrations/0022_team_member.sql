@@ -22,5 +22,5 @@ CREATE INDEX IF NOT EXISTS team_member_member ON team_member (tenant_id, member_
 ALTER TABLE team_member ENABLE ROW LEVEL SECURITY;
 ALTER TABLE team_member FORCE ROW LEVEL SECURITY;
 CREATE POLICY team_member_tenant_access ON team_member AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);

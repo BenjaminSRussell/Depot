@@ -1,7 +1,7 @@
--- Slice 5 (PSG-43): persisted travel requisitions (FR-43.16, BR-43.13, 8.43.4).
+-- Slice 5 (DPT-43): persisted travel requisitions (FR-43.16, BR-43.13, 8.43.4).
 -- The estimated total is the sum of the estimate lines, computed by the store in the
 -- transaction that writes them. requested_by and decided_by are the gateway user ids
--- (X-Passage-User) that the MssApprove own-items rule compares (8.43.17).
+-- (X-Depot-User) that the MssApprove own-items rule compares (8.43.17).
 
 create table travel_requisition (
   tenant_id uuid not null,
@@ -34,8 +34,8 @@ create index travel_requisition_worker on travel_requisition (tenant_id, worker_
 alter table travel_requisition enable row level security;
 alter table travel_requisition force row level security;
 create policy travel_requisition_tenant_access on travel_requisition as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 create policy travel_requisition_legal_entity_scope on travel_requisition as restrictive
-  using (current_setting('passage.legal_entity_scopes', true) = '*'
-         or legal_entity_id::text = any(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  using (current_setting('depot.legal_entity_scopes', true) = '*'
+         or legal_entity_id::text = any(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));

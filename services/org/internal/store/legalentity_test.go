@@ -12,12 +12,12 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/org/internal/store"
-	"github.com/BenjaminSRussell/passage/services/org/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/org/internal/store"
+	"github.com/BenjaminSRussell/depot/services/org/migrations"
 )
 
 func lifecycleStore(t *testing.T) (*store.Postgres, context.Context, *pgxpool.Pool) {
@@ -32,7 +32,7 @@ func lifecycleStore(t *testing.T) (*store.Postgres, context.Context, *pgxpool.Po
 }
 
 func newEntity(code string) store.LegalEntity {
-	return store.LegalEntity{Code: code, Name: "Passage " + code, Country: "US", Currency: "USD", TimeZone: "UTC", DefaultLanguage: "en-US"}
+	return store.LegalEntity{Code: code, Name: "Depot " + code, Country: "US", Currency: "USD", TimeZone: "UTC", DefaultLanguage: "en-US"}
 }
 
 func problemCode(t *testing.T, err error) string {
@@ -57,7 +57,7 @@ func updatedChangedFields(t *testing.T, ctx context.Context, pool *pgxpool.Pool)
 	t.Helper()
 	var fields [][]string
 	for _, row := range outboxRows(t, ctx, pool) {
-		if row.Type != "dev.passage.org.legalentity.updated.v1" {
+		if row.Type != "dev.depot.org.legalentity.updated.v1" {
 			continue
 		}
 		var evt struct {
@@ -78,12 +78,12 @@ func rename(name string) store.LegalEntityPatch { return store.LegalEntityPatch{
 func TestPostgres_UpdateNameBumpsVersionAndEmitsOneEvent(t *testing.T) {
 	s, ctx, pool := lifecycleStore(t)
 	created := mustCreate(t, s, ctx, newEntity("US01"))
-	updated, err := s.UpdateLegalEntity(ctx, created.ID, 1, rename("Passage USA"))
-	if err != nil || updated.Version != 2 || updated.Name != "Passage USA" || !updated.UpdatedAt.After(created.UpdatedAt) {
+	updated, err := s.UpdateLegalEntity(ctx, created.ID, 1, rename("Depot USA"))
+	if err != nil || updated.Version != 2 || updated.Name != "Depot USA" || !updated.UpdatedAt.After(created.UpdatedAt) {
 		t.Fatalf("update = %+v, %v; want version 2 with the new name", updated, err)
 	}
 	names, err := s.ListLegalEntityNames(ctx, created.ID)
-	if err != nil || len(names) != 2 || names[0].Name != "Passage USA" || names[0].ValidTo != nil || names[1].Name != "Passage US01" || names[1].ValidTo == nil {
+	if err != nil || len(names) != 2 || names[0].Name != "Depot USA" || names[0].ValidTo != nil || names[1].Name != "Depot US01" || names[1].ValidTo == nil {
 		t.Fatalf("names = %+v, %v; want newest first with the old name closed", names, err)
 	}
 	if got := updatedChangedFields(t, ctx, pool); !reflect.DeepEqual(got, [][]string{{"name"}}) {
@@ -92,8 +92,8 @@ func TestPostgres_UpdateNameBumpsVersionAndEmitsOneEvent(t *testing.T) {
 	if _, err := s.UpdateLegalEntity(ctx, created.ID, 1, rename("Stale Name")); problemCode(t, err) != store.CodeVersionConflict {
 		t.Fatalf("stale version error = %v; want %s", err, store.CodeVersionConflict)
 	}
-	noop, err := s.UpdateLegalEntity(ctx, created.ID, 2, rename("Passage USA"))
-	if err != nil || noop.Version != 2 || noop.Name != "Passage USA" || len(updatedChangedFields(t, ctx, pool)) != 1 {
+	noop, err := s.UpdateLegalEntity(ctx, created.ID, 2, rename("Depot USA"))
+	if err != nil || noop.Version != 2 || noop.Name != "Depot USA" || len(updatedChangedFields(t, ctx, pool)) != 1 {
 		t.Fatalf("stale and no-op updates must change nothing: %+v, %v", noop, err)
 	}
 	if names, _ := s.ListLegalEntityNames(ctx, created.ID); len(names) != 2 {
@@ -200,7 +200,7 @@ func TestPostgres_ScopedCallerCannotSeeOrChangeAnotherEntity(t *testing.T) {
 	if _, err := s.UpdateLegalEntity(scoped, b.ID, 1, rename("Hijacked")); problemCode(t, err) != store.CodeLegalEntityNotFound {
 		t.Fatalf("update of another entity error = %v; want %s", err, store.CodeLegalEntityNotFound)
 	}
-	if untouched, _ := s.GetLegalEntity(ctx, b.ID); untouched.Name != "Passage US02" || untouched.Version != 1 {
+	if untouched, _ := s.GetLegalEntity(ctx, b.ID); untouched.Name != "Depot US02" || untouched.Version != 1 {
 		t.Fatalf("entity B changed: %+v", untouched)
 	}
 }

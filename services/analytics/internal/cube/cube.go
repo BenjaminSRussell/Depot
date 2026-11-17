@@ -19,7 +19,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/services/analytics/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/analytics/internal/domain"
 )
 
 const (

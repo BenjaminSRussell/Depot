@@ -1,8 +1,8 @@
 import { createElement } from "react";
-import type { PassageModule } from "../registry";
+import type { DepotModule } from "../registry";
 import { PayrollHome } from "./pages";
 
-const payroll: PassageModule = {
+const payroll: DepotModule = {
   id: "payroll",
   title: "Payroll",
   description: "Pay cycles, pay statements and gross-to-net previews.",

@@ -3,8 +3,8 @@ package main
 import (
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/tax/internal/feed"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/tax/internal/feed"
 )
 
 // The Intrastat consumer starts only when the service principal table gives it the feed duty, and the platform table does; it reads

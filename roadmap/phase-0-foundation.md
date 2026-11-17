@@ -214,7 +214,7 @@ Kafka, Debezium, Temporal, schema registry, and job monitor UI running in dev; t
 
 **Deploy**
 
-Shell at app.<env>.passage.dev with the admin workspace; observability stack and alert routes live. Phase 0 exit: platform demo to stakeholders.
+Shell at app.<env>.depot.dev with the admin workspace; observability stack and alert routes live. Phase 0 exit: platform demo to stakeholders.
 
 **References**
 

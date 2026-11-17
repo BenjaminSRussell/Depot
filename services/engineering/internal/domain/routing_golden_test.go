@@ -8,7 +8,7 @@ import (
 	"github.com/shopspring/decimal"
 	"pgregory.net/rapid"
 
-	"github.com/BenjaminSRussell/passage/services/engineering/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/engineering/internal/domain"
 )
 
 // AC-9.4: fixtures whose expected hours come from the independent oracle

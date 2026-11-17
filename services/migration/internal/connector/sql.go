@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/services/migration/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/migration/internal/probe"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/probe"
 )
 
 // pageTimeout bounds one page query, on top of the engine's own statement timeout where it has one.
@@ -251,8 +251,8 @@ func (s *SQL) build(q Query) (string, []any, error) {
 		with, main := sel.Render(func() string { return b.param(since) })
 		if with != "" {
 			// SQL Server allows no WITH inside a derived table, so a WITH query becomes the last CTE of the statement.
-			prefix = with + ", passage_src AS (" + main + ") "
-			from = "passage_src"
+			prefix = with + ", depot_src AS (" + main + ") "
+			from = "depot_src"
 		} else {
 			from = "(" + main + ") src"
 		}

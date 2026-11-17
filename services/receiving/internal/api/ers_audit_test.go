@@ -15,11 +15,11 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/api"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/store/memstore"
+	"github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/api"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/store/memstore"
 )
 
 const (
@@ -219,17 +219,17 @@ func TestErs_SettlesAPostedReceiptAtThePurchaseOrderPriceExactlyOnce(t *testing.
 	if rg.ledger.Balance("2100").String() != "0" || rg.ledger.Balance("2000").String() != "-10.4" {
 		t.Fatalf("GR/IR %s vendor control %s", rg.ledger.Balance("2100"), rg.ledger.Balance("2000"))
 	}
-	postedEvt := lastOfType(t, rg, "dev.passage.payables.invoice.posted.v1")
+	postedEvt := lastOfType(t, rg, "dev.depot.payables.invoice.posted.v1")
 	if !strings.Contains(string(postedEvt.Data), `"source":"ERS"`) || !strings.Contains(string(postedEvt.Data), `"invoice_number":"`+s.InvoiceNumber+`"`) {
 		t.Fatalf("posted event %s", postedEvt.Data)
 	}
-	bill := lastOfType(t, rg, "dev.passage.receiving.ersselfbill.issued.v1")
+	bill := lastOfType(t, rg, "dev.depot.receiving.ersselfbill.issued.v1")
 	assertDocumented(t, bill)
-	doc := rg.call(http.MethodGet, "/v1/receiving/ers-self-bills/"+s.InvoiceID, "", duty("receiving.ap.inquire", "", "X-Passage-User", "alice"))
+	doc := rg.call(http.MethodGet, "/v1/receiving/ers-self-bills/"+s.InvoiceID, "", duty("receiving.ap.inquire", "", "X-Depot-User", "alice"))
 	if doc.Code != http.StatusOK || !bytes.Contains(doc.Body.Bytes(), []byte("%PDF-1.4")) || !bytes.Contains(doc.Body.Bytes(), []byte(s.InvoiceNumber)) {
 		t.Fatalf("self-bill %d %s", doc.Code, doc.Body.String())
 	}
-	if rec := rg.call(http.MethodGet, "/v1/receiving/ers-self-bills/"+s.InvoiceID, "", duty("receiving.vendor-invoice.post", "", "X-Passage-User", "alice")); rec.Code != http.StatusForbidden {
+	if rec := rg.call(http.MethodGet, "/v1/receiving/ers-self-bills/"+s.InvoiceID, "", duty("receiving.vendor-invoice.post", "", "X-Depot-User", "alice")); rec.Code != http.StatusForbidden {
 		t.Fatalf("wrong duty read the self-bill: %d", rec.Code)
 	}
 	if grirStatus(t, rg) != "CLEARED" {
@@ -543,7 +543,7 @@ func TestAuditBlock_HoldsTheInvoiceUntilAnAuditorReleasesIt(t *testing.T) {
 		t.Fatalf("ledger entries %d (was %d), GR/IR %s: want nothing posted and the quantity reserved", len(rg.ledger.Entries), receiptEntries, grirStatus(t, rg))
 	}
 	evts := rg.st.Events()
-	if sampled := evts[len(evts)-1]; sampled.Type != "dev.passage.payables.invoice.sampled.v1" || !strings.Contains(string(sampled.Data), `"sample_rate_pct":"100"`) || !strings.Contains(string(sampled.Data), `"total":"10"`) {
+	if sampled := evts[len(evts)-1]; sampled.Type != "dev.depot.payables.invoice.sampled.v1" || !strings.Contains(string(sampled.Data), `"sample_rate_pct":"100"`) || !strings.Contains(string(sampled.Data), `"total":"10"`) {
 		t.Fatalf("event %s %s", sampled.Type, sampled.Data)
 	}
 	problemCode(t, rg.call(http.MethodPost, invoicesPath, invoiceBody("INV-2", r.ID, 1, ""), userDuty("receiving.vendor-invoice.post", rg.key(), "alice")), http.StatusUnprocessableEntity, "AP-QTY-001")
@@ -567,7 +567,7 @@ func TestAuditBlock_HoldsTheInvoiceUntilAnAuditorReleasesIt(t *testing.T) {
 		t.Fatalf("entry %+v ledger entries %d GR/IR %s", entry, len(rg.ledger.Entries), rg.ledger.Balance("2100"))
 	}
 	evts = rg.st.Events()
-	if posted := evts[len(evts)-1]; posted.Type != "dev.passage.payables.invoice.posted.v1" || !strings.Contains(string(posted.Data), `"invoice_number":"INV-1"`) {
+	if posted := evts[len(evts)-1]; posted.Type != "dev.depot.payables.invoice.posted.v1" || !strings.Contains(string(posted.Data), `"invoice_number":"INV-1"`) {
 		t.Fatalf("event %s %s", posted.Type, posted.Data)
 	}
 
@@ -763,7 +763,7 @@ func TestAsyncAPIDocumentsTheAuditAndSelfBillingEvents(t *testing.T) {
 			}
 		}
 	}
-	for _, want := range []string{"dev.passage.payables.invoice.sampled.v1", "dev.passage.payables.invoice.posted.v1", "dev.passage.payables.invoice.rejected.v1", "dev.passage.receiving.auditpolicy.changed.v1", "dev.passage.receiving.ersvendor.changed.v1"} {
+	for _, want := range []string{"dev.depot.payables.invoice.sampled.v1", "dev.depot.payables.invoice.posted.v1", "dev.depot.payables.invoice.rejected.v1", "dev.depot.receiving.auditpolicy.changed.v1", "dev.depot.receiving.ersvendor.changed.v1"} {
 		if !seen[want] {
 			t.Errorf("scenario did not emit %s", want)
 		}
@@ -859,7 +859,7 @@ func TestAuditReject_FreesTheQuantityPostsNothingAndIsAudited(t *testing.T) {
 		t.Fatalf("GR/IR %s, want the reservation freed", grirStatus(t, rg))
 	}
 	evts := rg.st.Events()
-	if evt := evts[len(evts)-1]; evt.Type != "dev.passage.payables.invoice.rejected.v1" || !strings.Contains(string(evt.Data), `"rejected_by":"auditor"`) || !strings.Contains(string(evt.Data), `"reason":"duplicate of INV-0"`) {
+	if evt := evts[len(evts)-1]; evt.Type != "dev.depot.payables.invoice.rejected.v1" || !strings.Contains(string(evt.Data), `"rejected_by":"auditor"`) || !strings.Contains(string(evt.Data), `"reason":"duplicate of INV-0"`) {
 		t.Fatalf("event %s %s", evt.Type, evt.Data)
 	}
 	if code, body := rg.release(held.ID, "second"); code != http.StatusConflict || !strings.Contains(body, "AP-AUD-002") {
@@ -919,10 +919,10 @@ func TestPolicyChangesEmitEventsWithOldAndNewValues(t *testing.T) {
 		got = append(got, evt.Type+" "+string(evt.Data))
 	}
 	for _, want := range []string{
-		`dev.passage.receiving.auditpolicy.changed.v1 {"legal_entity_id":"` + legalEntityID + `","old_rate_pct":"0","new_rate_pct":"5","rule_version":1,"changed_by":"policy-admin"}`,
-		`dev.passage.receiving.auditpolicy.changed.v1 {"legal_entity_id":"` + legalEntityID + `","old_rate_pct":"5","new_rate_pct":"7.5","rule_version":2,"changed_by":"policy-admin"}`,
-		`dev.passage.receiving.ersvendor.changed.v1 {"legal_entity_id":"` + legalEntityID + `","vendor_id":"` + vendorID + `","old_enabled":false,"new_enabled":true,"changed_by":"policy-admin"}`,
-		`dev.passage.receiving.ersvendor.changed.v1 {"legal_entity_id":"` + legalEntityID + `","vendor_id":"` + vendorID + `","old_enabled":true,"new_enabled":false,"changed_by":"policy-admin"}`,
+		`dev.depot.receiving.auditpolicy.changed.v1 {"legal_entity_id":"` + legalEntityID + `","old_rate_pct":"0","new_rate_pct":"5","rule_version":1,"changed_by":"policy-admin"}`,
+		`dev.depot.receiving.auditpolicy.changed.v1 {"legal_entity_id":"` + legalEntityID + `","old_rate_pct":"5","new_rate_pct":"7.5","rule_version":2,"changed_by":"policy-admin"}`,
+		`dev.depot.receiving.ersvendor.changed.v1 {"legal_entity_id":"` + legalEntityID + `","vendor_id":"` + vendorID + `","old_enabled":false,"new_enabled":true,"changed_by":"policy-admin"}`,
+		`dev.depot.receiving.ersvendor.changed.v1 {"legal_entity_id":"` + legalEntityID + `","vendor_id":"` + vendorID + `","old_enabled":true,"new_enabled":false,"changed_by":"policy-admin"}`,
 	} {
 		if !slices.Contains(got, want) {
 			t.Errorf("missing event %s in %v", want, got)
@@ -976,7 +976,7 @@ func TestErs_RejectedSelfBilledInvoiceFreesTheReceiptForANewNumberedRun(t *testi
 		t.Fatalf("second run %+v ledger entries %d: want %s-R1 held for audit at a 0%% rate and nothing posted", second, len(rg.ledger.Entries), base)
 	}
 	evts := rg.st.Events()
-	if sampled := evts[len(evts)-1]; sampled.Type != "dev.passage.payables.invoice.sampled.v1" || !strings.Contains(string(sampled.Data), `"reason":"re-issue after audit rejection"`) || !strings.Contains(string(sampled.Data), `"sample_rate_pct":"0"`) {
+	if sampled := evts[len(evts)-1]; sampled.Type != "dev.depot.payables.invoice.sampled.v1" || !strings.Contains(string(sampled.Data), `"reason":"re-issue after audit rejection"`) || !strings.Contains(string(sampled.Data), `"sample_rate_pct":"0"`) {
 		t.Fatalf("event %s %s", sampled.Type, sampled.Data)
 	}
 	if third := rg.ersRun(t, http.StatusOK); len(third.Settled) != 0 {
@@ -1045,7 +1045,7 @@ func TestConfirmErsPrice_RefusesBadInputAndOutsiders(t *testing.T) {
 	ok := fmt.Sprintf(`{"legalEntityId":%q,"unitPrice":2.6}`, legalEntityID)
 	buyer := func() headers { return userDuty("receiving.ers-price.confirm", rg.key(), "buyer") }
 
-	problemCode(t, put("/lines/1/ers-price-confirmation", ok, duty("receiving.vendor-invoice.post", rg.key(), "X-Passage-User", "buyer")), http.StatusForbidden, "AUTH-0003")
+	problemCode(t, put("/lines/1/ers-price-confirmation", ok, duty("receiving.vendor-invoice.post", rg.key(), "X-Depot-User", "buyer")), http.StatusForbidden, "AUTH-0003")
 	problemCode(t, put("/lines/1/ers-price-confirmation", ok, withoutUser(duty("receiving.ers-price.confirm", rg.key()))), http.StatusUnauthorized, "AUTH-0001")
 	problemCode(t, put("/lines/1/ers-price-confirmation", `{"legalEntityId":"`+legalEntityID+`","unitPrice":-1}`, buyer()), http.StatusBadRequest, "COM-0001")
 	problemCode(t, put("/lines/0/ers-price-confirmation", ok, buyer()), http.StatusBadRequest, "COM-0001")
@@ -1068,7 +1068,7 @@ func TestErs_RefusesAPriceConfirmedByTheUserRunningTheSettlement(t *testing.T) {
 	rg.confirmErsPrice = ""
 	rg.enableErs(t, true)
 	direct := rg.direct(t, "PS-1", 10, 4)
-	posterHeaders := duty("receiving.receipt.post", rg.key(), "If-Match", `"`+strconv.Itoa(direct.Version)+`"`, "X-Passage-User", "receiver")
+	posterHeaders := duty("receiving.receipt.post", rg.key(), "If-Match", `"`+strconv.Itoa(direct.Version)+`"`, "X-Depot-User", "receiver")
 	r := decode[receiptJSON](t, rg.call(http.MethodPost, receiptsPath+"/"+direct.ID+":post", "", posterHeaders), http.StatusOK)
 	rg.confirmPriceAs(t, r.ID, 1, "2.60", "test-user", http.StatusOK)
 
@@ -1112,7 +1112,7 @@ func lastOfType(t *testing.T, rg *rig, typ string) events.Event {
 
 func lastPostedData(t *testing.T, rg *rig) string {
 	t.Helper()
-	return string(lastOfType(t, rg, "dev.passage.payables.invoice.posted.v1").Data)
+	return string(lastOfType(t, rg, "dev.depot.payables.invoice.posted.v1").Data)
 }
 
 func TestAuditRelease_PostedEventCarriesVendorGroup(t *testing.T) {

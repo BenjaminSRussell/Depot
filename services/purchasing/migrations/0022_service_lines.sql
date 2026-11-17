@@ -89,33 +89,33 @@ BEGIN
   LOOP
     EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', t);
     EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY', t);
-    EXECUTE format('CREATE POLICY %I ON %I AS PERMISSIVE USING (tenant_id = current_setting(''passage.tenant_id'', true)::uuid) WITH CHECK (tenant_id = current_setting(''passage.tenant_id'', true)::uuid)',
+    EXECUTE format('CREATE POLICY %I ON %I AS PERMISSIVE USING (tenant_id = current_setting(''depot.tenant_id'', true)::uuid) WITH CHECK (tenant_id = current_setting(''depot.tenant_id'', true)::uuid)',
                    t || '_tenant_access', t);
   END LOOP;
 END $$;
 
 CREATE POLICY purchase_model_service_spec_legal_entity_scope ON purchase_model_service_spec AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-    OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')))
-  WITH CHECK (current_setting('passage.legal_entity_scopes', true) = '*'
-    OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+    OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')))
+  WITH CHECK (current_setting('depot.legal_entity_scopes', true) = '*'
+    OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 CREATE POLICY purchase_model_service_item_legal_entity_scope ON purchase_model_service_item AS RESTRICTIVE
   USING (
-    current_setting('passage.legal_entity_scopes', true) = '*'
+    current_setting('depot.legal_entity_scopes', true) = '*'
     OR EXISTS (
       SELECT 1 FROM purchase_model_service_spec AS scope_parent
       WHERE scope_parent.tenant_id = purchase_model_service_item.tenant_id
         AND scope_parent.id = purchase_model_service_item.model_id
-        AND scope_parent.legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ','))
+        AND scope_parent.legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ','))
     )
   ) WITH CHECK (
-    current_setting('passage.legal_entity_scopes', true) = '*'
+    current_setting('depot.legal_entity_scopes', true) = '*'
     OR EXISTS (
       SELECT 1 FROM purchase_model_service_spec AS scope_parent
       WHERE scope_parent.tenant_id = purchase_model_service_item.tenant_id
         AND scope_parent.id = purchase_model_service_item.model_id
-        AND scope_parent.legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ','))
+        AND scope_parent.legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ','))
     )
   );
 
@@ -125,26 +125,26 @@ BEGIN
   FOREACH t IN ARRAY ARRAY['purchase_service_spec', 'purchase_service_item']
   LOOP
     EXECUTE format('CREATE POLICY %I ON %I AS RESTRICTIVE USING (
-      current_setting(''passage.legal_entity_scopes'', true) = ''*''
+      current_setting(''depot.legal_entity_scopes'', true) = ''*''
       OR EXISTS (SELECT 1 FROM purchase_order AS scope_parent
         WHERE scope_parent.tenant_id = %I.tenant_id AND scope_parent.id = %I.purchase_order_id
-          AND scope_parent.legal_entity_id::text = ANY(string_to_array(current_setting(''passage.legal_entity_scopes'', true), '',''))))
+          AND scope_parent.legal_entity_id::text = ANY(string_to_array(current_setting(''depot.legal_entity_scopes'', true), '',''))))
       WITH CHECK (
-      current_setting(''passage.legal_entity_scopes'', true) = ''*''
+      current_setting(''depot.legal_entity_scopes'', true) = ''*''
       OR EXISTS (SELECT 1 FROM purchase_order AS scope_parent
         WHERE scope_parent.tenant_id = %I.tenant_id AND scope_parent.id = %I.purchase_order_id
-          AND scope_parent.legal_entity_id::text = ANY(string_to_array(current_setting(''passage.legal_entity_scopes'', true), '',''))))',
+          AND scope_parent.legal_entity_id::text = ANY(string_to_array(current_setting(''depot.legal_entity_scopes'', true), '',''))))',
       t || '_legal_entity_scope', t, t, t, t, t);
   END LOOP;
 END $$;
 
--- passage_app: a PO line's specification and its outline are replaced (INSERT, DELETE); a model
+-- depot_app: a PO line's specification and its outline are replaced (INSERT, DELETE); a model
 -- is changed in place (UPDATE) and its outline replaced (INSERT, DELETE).
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, DELETE ON purchase_service_spec, purchase_service_item, purchase_model_service_item TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON purchase_model_service_spec TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, DELETE ON purchase_service_spec, purchase_service_item, purchase_model_service_item TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON purchase_model_service_spec TO depot_app';
   END IF;
 END
 $$;

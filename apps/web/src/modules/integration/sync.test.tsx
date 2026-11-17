@@ -57,10 +57,10 @@ const header = (call: { init: RequestInit }, name: string) => new Headers(call.i
 const subscription: Subscription = {
   id: SUB_ID,
   kind: "rest-push",
-  rest: { outboundMappingId: MAPPING, method: "POST", responseKeyPath: "$.data.id", onClientError: "dead_letter", auth: { type: "basic", username: "passage", hasCredentials: true } },
+  rest: { outboundMappingId: MAPPING, method: "POST", responseKeyPath: "$.data.id", onClientError: "dead_letter", auth: { type: "basic", username: "depot", hasCredentials: true } },
   name: "Legacy ERP orders",
   url: "https://erp.corp.example/api/salesorders",
-  patterns: ["dev.passage.sales.order.confirmed.v1"],
+  patterns: ["dev.depot.sales.order.confirmed.v1"],
   status: "active",
   pausedReason: null,
   version: 1,
@@ -71,7 +71,7 @@ const delivery = (over: Partial<Delivery> = {}): Delivery => ({
   id: "0195f0a0-0000-7000-8000-0000000000d1",
   subscriptionId: SUB_ID,
   eventId: "evt-1",
-  eventType: "dev.passage.sales.order.confirmed.v1",
+  eventType: "dev.depot.sales.order.confirmed.v1",
   aggregateId: "order-1",
   sequence: 1,
   status: "delivered",
@@ -137,7 +137,7 @@ describe("new REST push", () => {
 
   it("validates like the hub does", () => {
     expect(validateSync(good).input).toEqual({
-      kind: "rest-push", name: "ERP", url: good.url, patterns: ["dev.passage.sales.order.confirmed.v1"], outboundMappingId: MAPPING,
+      kind: "rest-push", name: "ERP", url: good.url, patterns: ["dev.depot.sales.order.confirmed.v1"], outboundMappingId: MAPPING,
       method: "POST", onClientError: "dead_letter", auth: { type: "basic", username: "svc", password: "pw-123456" },
     });
     expect(validateSync({ ...good, responseKeyPath: "$.data.id", patterns: "a.b\nc.d, a.b" }).input).toMatchObject({ responseKeyPath: "$.data.id", patterns: ["a.b", "c.d"] });
@@ -166,14 +166,14 @@ describe("new REST push", () => {
     fill("Name", "Legacy ERP orders");
     fill("Outbound mapping", MAPPING);
     fill("Endpoint", "https://erp.corp.example/api/salesorders");
-    fill("User name", "passage");
+    fill("User name", "depot");
     fill("Password", "pw-123456");
     expect(screen.getByLabelText("Password")).toHaveAttribute("type", "password");
     fireEvent.click(screen.getByRole("button", { name: "Create subscription" }));
     expect(await screen.findByRole("heading", { name: "Legacy ERP orders" })).toBeInTheDocument();
     const post = calls.find((c) => c.method === "POST") as (typeof calls)[number];
     expect(header(post, "idempotency-key")).toMatch(/^[0-9a-f-]{36}$/);
-    expect(JSON.parse(post.init.body as string)).toMatchObject({ kind: "rest-push", outboundMappingId: MAPPING, auth: { type: "basic", username: "passage", password: "pw-123456" } });
+    expect(JSON.parse(post.init.body as string)).toMatchObject({ kind: "rest-push", outboundMappingId: MAPPING, auth: { type: "basic", username: "depot", password: "pw-123456" } });
     // The detail page shows that credentials exist, never what they are.
     expect(screen.getByText("Credentials stored")).toBeInTheDocument();
     expect(document.body.textContent).not.toContain("pw-123456");
@@ -234,7 +234,7 @@ describe("subscription detail and test send", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Render" }));
     expect(await findStatus()).toHaveTextContent("Rendered. Nothing was sent.");
-    expect(JSON.parse(calls.at(-1)?.init.body as string)).toMatchObject({ send: false, event: { type: "dev.passage.sales.order.confirmed.v1" } });
+    expect(JSON.parse(calls.at(-1)?.init.body as string)).toMatchObject({ send: false, event: { type: "dev.depot.sales.order.confirmed.v1" } });
 
     fireEvent.click(screen.getByLabelText("Also send it to the ERP"));
     fireEvent.click(screen.getByRole("button", { name: "Render and send" }));

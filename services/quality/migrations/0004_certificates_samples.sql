@@ -36,8 +36,8 @@ CREATE INDEX IF NOT EXISTS quality_certificate_order ON quality_certificate (ten
 ALTER TABLE quality_certificate ENABLE ROW LEVEL SECURITY;
 ALTER TABLE quality_certificate FORCE ROW LEVEL SECURITY;
 CREATE POLICY quality_certificate_tenant_access ON quality_certificate AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- Physical samples drawn for a quality order: PRIMARY, POOLED (mixed from primary
 -- samples of the same order) and RESERVE (retention). The status ACTIVE /
@@ -71,5 +71,5 @@ CREATE INDEX IF NOT EXISTS quality_sample_retention ON quality_sample (tenant_id
 ALTER TABLE quality_sample ENABLE ROW LEVEL SECURITY;
 ALTER TABLE quality_sample FORCE ROW LEVEL SECURITY;
 CREATE POLICY quality_sample_tenant_access ON quality_sample AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);

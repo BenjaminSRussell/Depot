@@ -4,9 +4,9 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/services/lean/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/lean/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/services/lean/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/lean/internal/store"
 )
 
 // defaultAnalysisDays is the period of a rule analysis without dates: the 30

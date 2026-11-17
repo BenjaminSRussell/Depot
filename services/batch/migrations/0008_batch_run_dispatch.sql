@@ -11,12 +11,12 @@ where legal_entity_id is null and status = 'executing'
 
 DROP POLICY IF EXISTS batch_run_legal_entity_scope ON batch_run;
 CREATE POLICY batch_run_legal_entity_scope ON batch_run AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
          OR (legal_entity_id IS NOT NULL
-             AND legal_entity_id::text = ANY (string_to_array(current_setting('passage.legal_entity_scopes', true), ','))))
+             AND legal_entity_id::text = ANY (string_to_array(current_setting('depot.legal_entity_scopes', true), ','))))
   WITH CHECK (legal_entity_id IS NOT NULL
-              AND (current_setting('passage.legal_entity_scopes', true) = '*'
-                   OR legal_entity_id::text = ANY (string_to_array(current_setting('passage.legal_entity_scopes', true), ','))));
+              AND (current_setting('depot.legal_entity_scopes', true) = '*'
+                   OR legal_entity_id::text = ANY (string_to_array(current_setting('depot.legal_entity_scopes', true), ','))));
 
 DO $do$
 BEGIN
@@ -67,11 +67,11 @@ REVOKE ALL ON FUNCTION batch_dispatch_can_scan() FROM PUBLIC;
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT UPDATE (attempts) ON batch_run TO passage_app';
-    EXECUTE 'GRANT EXECUTE ON FUNCTION batch_dispatchable_runs(text[], int, int, int) TO passage_app';
-    EXECUTE 'GRANT EXECUTE ON FUNCTION batch_fail_exhausted_runs(text[], int) TO passage_app';
-    EXECUTE 'GRANT EXECUTE ON FUNCTION batch_dispatch_can_scan() TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT UPDATE (attempts) ON batch_run TO depot_app';
+    EXECUTE 'GRANT EXECUTE ON FUNCTION batch_dispatchable_runs(text[], int, int, int) TO depot_app';
+    EXECUTE 'GRANT EXECUTE ON FUNCTION batch_fail_exhausted_runs(text[], int) TO depot_app';
+    EXECUTE 'GRANT EXECUTE ON FUNCTION batch_dispatch_can_scan() TO depot_app';
   END IF;
 END
 $$;

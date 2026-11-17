@@ -55,7 +55,7 @@ const table: LookupTable = {
   version: 2,
   entryCount: 3,
   checksum: "abc",
-  definition: { kind: "enum", description: "Passage units to AX", entries: { kg: "KGM", ea: "EA", box: "BX" } },
+  definition: { kind: "enum", description: "Depot units to AX", entries: { kg: "KGM", ea: "EA", box: "BX" } },
   createdBy: "u1",
   createdAt: "2027-01-06T08:00:00Z",
   updatedAt: "2027-01-07T08:00:00Z",

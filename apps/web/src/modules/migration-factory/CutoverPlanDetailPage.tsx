@@ -422,7 +422,7 @@ export function CutoverPlanDetailPage() {
           ) : (
             <form className={styles.form} onSubmit={askRollback} noValidate>
               <p className={`${styles.note} ${styles.wide}`}>
-                Stops Passage access, restores legacy write access and exports the postings made since T-0 as journal and document files for
+                Stops Depot access, restores legacy write access and exports the postings made since T-0 as journal and document files for
                 re-keying in the legacy system. Two different migration.cutover.manage holders must approve (CUT-1603): your approval is recorded under your own
                 sign-in, and the rollback runs when a second person approves.
               </p>
@@ -477,7 +477,7 @@ export function CutoverPlanDetailPage() {
           title={plan?.pendingRollback ? "Roll back this cutover?" : "Approve the rollback?"}
           description={
             plan?.pendingRollback
-              ? `Passage access stops and the legacy system takes postings again. ${postingSummary(postings.length)} This can't be undone from this screen.`
+              ? `Depot access stops and the legacy system takes postings again. ${postingSummary(postings.length)} This can't be undone from this screen.`
               : `Your approval is recorded; the rollback runs when a different migration.cutover.manage holder approves it. ${postingSummary(postings.length)}`
           }
           confirmLabel={plan?.pendingRollback ? "Roll back" : "Approve"}

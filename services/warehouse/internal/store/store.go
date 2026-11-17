@@ -17,12 +17,12 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	kernelevents "github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/platform/issueclaim"
-	"github.com/BenjaminSRussell/passage/platform/outbox"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	evts "github.com/BenjaminSRussell/passage/services/warehouse/internal/events"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	kernelevents "github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/issueclaim"
+	"github.com/BenjaminSRussell/depot/platform/outbox"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	evts "github.com/BenjaminSRussell/depot/services/warehouse/internal/events"
 )
 
 // MaxPageSize caps every list page.

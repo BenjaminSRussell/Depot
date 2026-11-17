@@ -74,7 +74,7 @@ const rejectColumns: DataTableColumn<OpeningLoadDetail["rejects"][number]>[] = [
 
 /**
  * The opening load of an onhand run into the inventory ledger or of a bank_balances run into treasury (H-S9-1, H-S10-1): the
- * legal entity and cutover date, the legacy codes that are not already Passage ids mapped to a product or bank account by name,
+ * legal entity and cutover date, the legacy codes that are not already Depot ids mapped to a product or bank account by name,
  * and the result with the target's totals read back.
  */
 export function OpeningLoadPanel({ runId, pack }: { runId: string; pack: "onhand" | "bank_balances" }) {
@@ -145,7 +145,7 @@ export function OpeningLoadPanel({ runId, pack }: { runId: string; pack: "onhand
             </FormField>
             <fieldset className={styles.wide}>
               <legend className={styles.note}>
-                {onhand ? "Legacy items and the Passage product each one is" : "Legacy bank accounts and the treasury account each one is"}. Leave empty when the extract already holds Passage ids.
+                {onhand ? "Legacy items and the Depot product each one is" : "Legacy bank accounts and the treasury account each one is"}. Leave empty when the extract already holds Depot ids.
               </legend>
               {form.rows.map((r, i) => (
                 <div key={i} className={styles.form} role="group" aria-label={`Mapping ${i + 1}`}>

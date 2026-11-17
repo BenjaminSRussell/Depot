@@ -14,19 +14,19 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/eventing"
-	"github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/eventing"
+	"github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/store"
 )
 
 const (
 	ErasureConsumerName   = "receiving-erasure"
-	ErasureRequestedType  = "dev.passage.privacy.erasure.requested.v1"
-	ErasureRequestedTopic = "passage.privacy.erasure"
+	ErasureRequestedType  = "dev.depot.privacy.erasure.requested.v1"
+	ErasureRequestedTopic = "depot.privacy.erasure"
 	dutyPayeeErase        = "receiving.payee.erase"
 	erasureTimeout        = 5 * time.Minute
 	maxSubjectRef         = 200

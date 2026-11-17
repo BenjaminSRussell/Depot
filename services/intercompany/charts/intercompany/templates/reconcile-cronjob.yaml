@@ -54,8 +54,8 @@ spec:
                 capabilities:
                   drop: [ALL]
               env:
-                {{- include "passage.cloudEnv" $ | nindent 16 }}
-                - name: PASSAGE_SERVICE_NAME
+                {{- include "depot.cloudEnv" $ | nindent 16 }}
+                - name: DEPOT_SERVICE_NAME
                   value: intercompany
                 - name: DATABASE_URL
                   valueFrom:
@@ -67,14 +67,14 @@ spec:
                 - { name: FX_URL, value: {{ .Values.fxUrl | quote }} }
                 - { name: FX_RATE_TYPE, value: {{ .Values.fxRateType | quote }} }
                 {{- end }}
-                - name: PASSAGE_SERVICE_SIGNING_KEY_FILE
-                  value: /var/run/passage/service-identity/signing-key
+                - name: DEPOT_SERVICE_SIGNING_KEY_FILE
+                  value: /var/run/depot/service-identity/signing-key
                 {{- if .Values.serviceIdentity.keyId }}
-                - name: PASSAGE_SERVICE_KEY_ID
+                - name: DEPOT_SERVICE_KEY_ID
                   value: {{ .Values.serviceIdentity.keyId | quote }}
                 {{- end }}
               volumeMounts:
-                - { name: service-identity, mountPath: /var/run/passage/service-identity, readOnly: true }
+                - { name: service-identity, mountPath: /var/run/depot/service-identity, readOnly: true }
               resources:
                 {{- toYaml .Values.resources | nindent 16 }}
 {{- end }}

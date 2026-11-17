@@ -4,8 +4,8 @@ info:
   version: 0.13.0
   description: CloudEvents 1.0 envelope from platform/go/events; payloads below are the data member.
 channels:
-  passage.org.legalentity:
-    address: passage.org.legalentity
+  depot.org.legalentity:
+    address: depot.org.legalentity
     messages:
       created:
         $ref: '#/components/messages/legalEntityCreated'
@@ -13,129 +13,129 @@ channels:
         $ref: '#/components/messages/legalEntityUpdated'
       copied:
         $ref: '#/components/messages/legalEntityCopied'
-  passage.org.operatingunit:
-    address: passage.org.operatingunit
+  depot.org.operatingunit:
+    address: depot.org.operatingunit
     messages:
       created:
         $ref: '#/components/messages/operatingUnitCreated'
       updated:
         $ref: '#/components/messages/operatingUnitUpdated'
-  passage.org.site:
-    address: passage.org.site
+  depot.org.site:
+    address: depot.org.site
     messages:
       created:
         $ref: '#/components/messages/siteCreated'
       updated:
         $ref: '#/components/messages/siteUpdated'
-  passage.org.warehouse:
-    address: passage.org.warehouse
+  depot.org.warehouse:
+    address: depot.org.warehouse
     messages:
       created:
         $ref: '#/components/messages/warehouseCreated'
       updated:
         $ref: '#/components/messages/warehouseUpdated'
-  passage.org.fiscalcalendar:
-    address: passage.org.fiscalcalendar
+  depot.org.fiscalcalendar:
+    address: depot.org.fiscalcalendar
     messages:
       generated:
         $ref: '#/components/messages/fiscalCalendarGenerated'
-  passage.org.hierarchyversion:
-    address: passage.org.hierarchyversion
+  depot.org.hierarchyversion:
+    address: depot.org.hierarchyversion
     messages:
       activated:
         $ref: '#/components/messages/hierarchyVersionActivated'
-  passage.org.teammembership:
-    address: passage.org.teammembership
+  depot.org.teammembership:
+    address: depot.org.teammembership
     messages:
       changed:
         $ref: '#/components/messages/teamMembershipChanged'
-  passage.org.location:
-    address: passage.org.location
+  depot.org.location:
+    address: depot.org.location
     messages:
       created:
         $ref: '#/components/messages/locationCreated'
       updated:
         $ref: '#/components/messages/locationUpdated'
-  passage.org.address:
-    address: passage.org.address
+  depot.org.address:
+    address: depot.org.address
     messages:
       changed:
         $ref: '#/components/messages/addressChanged'
-  passage.org.currencyrounding:
-    address: passage.org.currencyrounding
+  depot.org.currencyrounding:
+    address: depot.org.currencyrounding
     messages:
       changed:
         $ref: '#/components/messages/currencyRoundingChanged'
-  passage.org.democompany:
-    address: passage.org.democompany
+  depot.org.democompany:
+    address: depot.org.democompany
     messages:
       removed:
         $ref: '#/components/messages/demoCompanyRemoved'
 operations:
   onDemoCompanyRemoved:
     action: send
-    channel: { $ref: '#/channels/passage.org.democompany' }
-    messages: [{ $ref: '#/channels/passage.org.democompany/messages/removed' }]
+    channel: { $ref: '#/channels/depot.org.democompany' }
+    messages: [{ $ref: '#/channels/depot.org.democompany/messages/removed' }]
   onLegalEntityCreated:
     action: send
-    channel: { $ref: '#/channels/passage.org.legalentity' }
-    messages: [{ $ref: '#/channels/passage.org.legalentity/messages/created' }]
+    channel: { $ref: '#/channels/depot.org.legalentity' }
+    messages: [{ $ref: '#/channels/depot.org.legalentity/messages/created' }]
   onLegalEntityUpdated:
     action: send
-    channel: { $ref: '#/channels/passage.org.legalentity' }
-    messages: [{ $ref: '#/channels/passage.org.legalentity/messages/updated' }]
+    channel: { $ref: '#/channels/depot.org.legalentity' }
+    messages: [{ $ref: '#/channels/depot.org.legalentity/messages/updated' }]
   onOperatingUnitCreated:
     action: send
-    channel: { $ref: '#/channels/passage.org.operatingunit' }
-    messages: [{ $ref: '#/channels/passage.org.operatingunit/messages/created' }]
+    channel: { $ref: '#/channels/depot.org.operatingunit' }
+    messages: [{ $ref: '#/channels/depot.org.operatingunit/messages/created' }]
   onOperatingUnitUpdated:
     action: send
-    channel: { $ref: '#/channels/passage.org.operatingunit' }
-    messages: [{ $ref: '#/channels/passage.org.operatingunit/messages/updated' }]
+    channel: { $ref: '#/channels/depot.org.operatingunit' }
+    messages: [{ $ref: '#/channels/depot.org.operatingunit/messages/updated' }]
   onSiteCreated:
     action: send
-    channel: { $ref: '#/channels/passage.org.site' }
-    messages: [{ $ref: '#/channels/passage.org.site/messages/created' }]
+    channel: { $ref: '#/channels/depot.org.site' }
+    messages: [{ $ref: '#/channels/depot.org.site/messages/created' }]
   onSiteUpdated:
     action: send
-    channel: { $ref: '#/channels/passage.org.site' }
-    messages: [{ $ref: '#/channels/passage.org.site/messages/updated' }]
+    channel: { $ref: '#/channels/depot.org.site' }
+    messages: [{ $ref: '#/channels/depot.org.site/messages/updated' }]
   onWarehouseCreated:
     action: send
-    channel: { $ref: '#/channels/passage.org.warehouse' }
-    messages: [{ $ref: '#/channels/passage.org.warehouse/messages/created' }]
+    channel: { $ref: '#/channels/depot.org.warehouse' }
+    messages: [{ $ref: '#/channels/depot.org.warehouse/messages/created' }]
   onWarehouseUpdated:
     action: send
-    channel: { $ref: '#/channels/passage.org.warehouse' }
-    messages: [{ $ref: '#/channels/passage.org.warehouse/messages/updated' }]
+    channel: { $ref: '#/channels/depot.org.warehouse' }
+    messages: [{ $ref: '#/channels/depot.org.warehouse/messages/updated' }]
   onFiscalCalendarGenerated:
     action: send
-    channel: { $ref: '#/channels/passage.org.fiscalcalendar' }
-    messages: [{ $ref: '#/channels/passage.org.fiscalcalendar/messages/generated' }]
+    channel: { $ref: '#/channels/depot.org.fiscalcalendar' }
+    messages: [{ $ref: '#/channels/depot.org.fiscalcalendar/messages/generated' }]
   onHierarchyVersionActivated:
     action: send
-    channel: { $ref: '#/channels/passage.org.hierarchyversion' }
-    messages: [{ $ref: '#/channels/passage.org.hierarchyversion/messages/activated' }]
+    channel: { $ref: '#/channels/depot.org.hierarchyversion' }
+    messages: [{ $ref: '#/channels/depot.org.hierarchyversion/messages/activated' }]
   onTeamMembershipChanged:
     action: send
-    channel: { $ref: '#/channels/passage.org.teammembership' }
-    messages: [{ $ref: '#/channels/passage.org.teammembership/messages/changed' }]
+    channel: { $ref: '#/channels/depot.org.teammembership' }
+    messages: [{ $ref: '#/channels/depot.org.teammembership/messages/changed' }]
   onLocationCreated:
     action: send
-    channel: { $ref: '#/channels/passage.org.location' }
-    messages: [{ $ref: '#/channels/passage.org.location/messages/created' }]
+    channel: { $ref: '#/channels/depot.org.location' }
+    messages: [{ $ref: '#/channels/depot.org.location/messages/created' }]
   onLocationUpdated:
     action: send
-    channel: { $ref: '#/channels/passage.org.location' }
-    messages: [{ $ref: '#/channels/passage.org.location/messages/updated' }]
+    channel: { $ref: '#/channels/depot.org.location' }
+    messages: [{ $ref: '#/channels/depot.org.location/messages/updated' }]
   onAddressChanged:
     action: send
-    channel: { $ref: '#/channels/passage.org.address' }
-    messages: [{ $ref: '#/channels/passage.org.address/messages/changed' }]
+    channel: { $ref: '#/channels/depot.org.address' }
+    messages: [{ $ref: '#/channels/depot.org.address/messages/changed' }]
   onCurrencyRoundingChanged:
     action: send
-    channel: { $ref: '#/channels/passage.org.currencyrounding' }
-    messages: [{ $ref: '#/channels/passage.org.currencyrounding/messages/changed' }]
+    channel: { $ref: '#/channels/depot.org.currencyrounding' }
+    messages: [{ $ref: '#/channels/depot.org.currencyrounding/messages/changed' }]
 components:
   messages:
     legalEntityCreated:
@@ -151,7 +151,7 @@ components:
           country_code: { type: string }
           accounting_currency: { type: string }
           time_zone: { type: string }
-      x-passage-type: dev.passage.org.legalentity.created.v1
+      x-depot-type: dev.depot.org.legalentity.created.v1
     legalEntityUpdated:
       name: updated
       title: Legal entity updated
@@ -163,7 +163,7 @@ components:
           id: { type: string, format: uuid }
           changed_fields: { type: array, items: { type: string } }
           version: { type: integer }
-      x-passage-type: dev.passage.org.legalentity.updated.v1
+      x-depot-type: dev.depot.org.legalentity.updated.v1
     legalEntityCopied:
       name: copied
       title: Legal entity copied
@@ -179,7 +179,7 @@ components:
           locations: { type: integer }
           rounding_rules: { type: integer }
           calendar_copied: { type: boolean }
-      x-passage-type: dev.passage.org.legalentity.copied.v1
+      x-depot-type: dev.depot.org.legalentity.copied.v1
     operatingUnitCreated:
       name: created
       title: Operating unit created
@@ -191,7 +191,7 @@ components:
           type: { type: string }
           code: { type: string }
           name: { type: string }
-      x-passage-type: dev.passage.org.operatingunit.created.v1
+      x-depot-type: dev.depot.org.operatingunit.created.v1
     operatingUnitUpdated:
       name: updated
       title: Operating unit updated
@@ -202,7 +202,7 @@ components:
           id: { type: string, format: uuid }
           changed_fields: { type: array, items: { type: string } }
           version: { type: integer }
-      x-passage-type: dev.passage.org.operatingunit.updated.v1
+      x-depot-type: dev.depot.org.operatingunit.updated.v1
     siteCreated:
       name: created
       title: Site created
@@ -216,7 +216,7 @@ components:
           type: { type: [string, 'null'] }
           address_id: { type: [string, 'null'], format: uuid, description: Null until the address slice. }
           default_warehouse_id: { type: string, format: uuid, description: Present only when the site was created with a default warehouse; that warehouse's own warehouse.created event follows this one. }
-      x-passage-type: dev.passage.org.site.created.v1
+      x-depot-type: dev.depot.org.site.created.v1
     siteUpdated:
       name: updated
       title: Site updated
@@ -228,7 +228,7 @@ components:
           id: { type: string, format: uuid }
           changed_fields: { type: array, items: { type: string } }
           version: { type: integer }
-      x-passage-type: dev.passage.org.site.updated.v1
+      x-depot-type: dev.depot.org.site.updated.v1
     warehouseCreated:
       name: created
       title: Warehouse created
@@ -241,7 +241,7 @@ components:
           parent_id: { type: [string, 'null'], format: uuid, description: The site id. }
           type: { type: [string, 'null'], description: 'standard, transit, quarantine or subcontractor' }
           address_id: { type: [string, 'null'], format: uuid, description: Null until the address slice. }
-      x-passage-type: dev.passage.org.warehouse.created.v1
+      x-depot-type: dev.depot.org.warehouse.created.v1
     warehouseUpdated:
       name: updated
       title: Warehouse updated
@@ -252,7 +252,7 @@ components:
           id: { type: string, format: uuid }
           changed_fields: { type: array, items: { type: string } }
           version: { type: integer }
-      x-passage-type: dev.passage.org.warehouse.updated.v1
+      x-depot-type: dev.depot.org.warehouse.updated.v1
     locationCreated:
       name: created
       title: Location created
@@ -265,7 +265,7 @@ components:
           parent_id: { type: [string, 'null'], format: uuid, description: The warehouse id. }
           type: { type: [string, 'null'], description: 'storage, receiving, shipping or quarantine' }
           address_id: { type: [string, 'null'], format: uuid, description: Null until the address slice. }
-      x-passage-type: dev.passage.org.location.created.v1
+      x-depot-type: dev.depot.org.location.created.v1
     locationUpdated:
       name: updated
       title: Location updated
@@ -276,7 +276,7 @@ components:
           id: { type: string, format: uuid }
           changed_fields: { type: array, items: { type: string } }
           version: { type: integer }
-      x-passage-type: dev.passage.org.location.updated.v1
+      x-depot-type: dev.depot.org.location.updated.v1
     addressChanged:
       name: changed
       title: Address changed
@@ -291,7 +291,7 @@ components:
           owner_id: { type: string, format: uuid }
           purposes: { type: array, items: { type: string, enum: [business, delivery, invoice, remit_to, service, home, other] } }
           valid_from: { type: string, format: date }
-      x-passage-type: dev.passage.org.address.changed.v1
+      x-depot-type: dev.depot.org.address.changed.v1
     fiscalCalendarGenerated:
       name: generated
       title: Fiscal year generated
@@ -314,7 +314,7 @@ components:
                 end_date: { type: string, format: date }
                 type: { type: string, enum: [opening, operating, closing, adjustment] }
                 week53: { type: boolean }
-      x-passage-type: dev.passage.org.fiscalcalendar.generated.v1
+      x-depot-type: dev.depot.org.fiscalcalendar.generated.v1
     hierarchyVersionActivated:
       name: activated
       title: Hierarchy version activated
@@ -331,7 +331,7 @@ components:
           node_count: { type: integer }
           superseded_version_id: { type: [string, 'null'], format: uuid }
           backdate_reason: { type: [string, 'null'], description: The audit reason of a backdated publish. }
-      x-passage-type: dev.passage.org.hierarchyversion.activated.v1
+      x-depot-type: dev.depot.org.hierarchyversion.activated.v1
     teamMembershipChanged:
       name: changed
       title: Team membership changed
@@ -344,7 +344,7 @@ components:
           added: { type: array, items: { type: object, required: [member_kind, member_id, member_role], properties: { member_kind: { type: string, enum: [user, party] }, member_id: { type: string, format: uuid }, member_role: { type: string, enum: [member, lead] } } } }
           removed: { type: array, items: { type: object, required: [member_kind, member_id, member_role], properties: { member_kind: { type: string, enum: [user, party] }, member_id: { type: string, format: uuid }, member_role: { type: string, enum: [member, lead] } } } }
           as_of: { type: string, format: date }
-      x-passage-type: dev.passage.org.teammembership.changed.v1
+      x-depot-type: dev.depot.org.teammembership.changed.v1
     currencyRoundingChanged:
       name: changed
       title: Currency rounding rule changed
@@ -358,7 +358,7 @@ components:
           legal_entity_id: { type: [string, 'null'], format: uuid }
           unit: { type: string }
           method: { type: string }
-      x-passage-type: dev.passage.org.currencyrounding.changed.v1
+      x-depot-type: dev.depot.org.currencyrounding.changed.v1
     demoCompanyRemoved:
       name: removed
       title: Demo company removed
@@ -374,4 +374,4 @@ components:
           warehouse_ids: { type: array, items: { type: string, format: uuid } }
           location_ids: { type: array, items: { type: string, format: uuid } }
           removed: { type: integer, minimum: 1 }
-      x-passage-type: dev.passage.org.democompany.removed.v1
+      x-depot-type: dev.depot.org.democompany.removed.v1

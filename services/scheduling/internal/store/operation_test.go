@@ -5,8 +5,8 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/scheduling/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/scheduling/internal/store"
 )
 
 func idem(k string) store.Idem { return store.Idem{Key: k, Fingerprint: "fp-" + k} }
@@ -52,7 +52,7 @@ func TestUpdateOperation_ChangeRemovesJobsAndPriorityDoesNot(t *testing.T) {
 	if err != nil || upd.Version != 3 || !upd.JobsRemoved || upd.Status != "open" || upd.Minutes != 90 || upd.ResourceIDs[0] != m2.ID || upd.DueAt == nil || jobCount(t, ctx, s, op.ID) != 0 {
 		t.Fatalf("minutes change: %+v err=%v, want jobs removed and operation open", upd, err)
 	}
-	if got := outboxCount(t, admin, "dev.passage.scheduling.operation.updated.v1"); got != 2 {
+	if got := outboxCount(t, admin, "dev.depot.scheduling.operation.updated.v1"); got != 2 {
 		t.Fatalf("operation.updated events = %d, want 2", got)
 	}
 
@@ -61,7 +61,7 @@ func TestUpdateOperation_ChangeRemovesJobsAndPriorityDoesNot(t *testing.T) {
 	if err != nil || !replayed || again.Version != 3 {
 		t.Fatalf("replay: %+v replayed=%v err=%v", again, replayed, err)
 	}
-	if got := outboxCount(t, admin, "dev.passage.scheduling.operation.updated.v1"); got != 2 {
+	if got := outboxCount(t, admin, "dev.depot.scheduling.operation.updated.v1"); got != 2 {
 		t.Fatalf("replay published again: %d", got)
 	}
 	// Reusing the key for another body is refused.
@@ -156,7 +156,7 @@ func TestDeleteOperation_RemovesJobsAndReplays(t *testing.T) {
 	if _, _, err := s.DeleteOperation(ctx, op.ID, 1, idem("d2")); problemCode(err) != store.CodeOperationNotFound {
 		t.Fatalf("second delete with a new key: %v", err)
 	}
-	if got := outboxCount(t, admin, "dev.passage.scheduling.operation.deleted.v1"); got != 1 {
+	if got := outboxCount(t, admin, "dev.depot.scheduling.operation.deleted.v1"); got != 1 {
 		t.Fatalf("operation.deleted events = %d, want 1", got)
 	}
 }
@@ -207,7 +207,7 @@ func TestUnscheduleOrder_OpensOperationsAndKeepsFirmed(t *testing.T) {
 	if _, _, err := s.UnscheduleOrder(tenantCtx(2), order, idem("u3")); problemCode(err) != store.CodeOrderHasNoOperations {
 		t.Fatalf("other tenant: %v", err)
 	}
-	if got := outboxCount(t, admin, "dev.passage.scheduling.order.unscheduled.v1"); got != 1 {
+	if got := outboxCount(t, admin, "dev.depot.scheduling.order.unscheduled.v1"); got != 1 {
 		t.Fatalf("order.unscheduled events = %d, want 1", got)
 	}
 	// The order can be scheduled again.

@@ -21,16 +21,16 @@ MANIFESTS = {
 }
 SOAK_MINUTES = 60
 SERVICE = "hello-ledger"
-API_URL_VARIABLE = "PASSAGE_PLATFORM_API_URL"
-API_TOKEN_VARIABLE = "PASSAGE_PLATFORM_API_TOKEN"
+API_URL_VARIABLE = "DEPOT_PLATFORM_API_URL"
+API_TOKEN_VARIABLE = "DEPOT_PLATFORM_API_TOKEN"
 RECORD_TIMEOUT_SECONDS = 10
 NEXT_CURSOR_HEADER = "x-next-cursor"
 LOCAL_HOSTS = ("localhost", "127.0.0.1")
 PLACEHOLDER_DIGEST = "sha256:" + "0" * 64
 IMAGE_REPOSITORY = "ghcr.io/benjaminsrussell/hello-ledger"
-WORKFLOW_REPOSITORY = "BenjaminSRussell/Passage"
+WORKFLOW_REPOSITORY = "BenjaminSRussell/Depot"
 OIDC_ISSUER = "https://token.actions.githubusercontent.com"
-IDENTITY_REGEXP = r"^https://github\.com/BenjaminSRussell/Passage/\.github/workflows/ci\.yml@refs/(heads/main|tags/v.+)$"
+IDENTITY_REGEXP = r"^https://github\.com/BenjaminSRussell/Depot/\.github/workflows/ci\.yml@refs/(heads/main|tags/v.+)$"
 GIT_SHA = re.compile(r"[0-9a-f]{40}")
 DIGEST_LINE = re.compile(r"""(?m)^(\s*digest:\s*)(["']?)(sha256:[0-9a-f]{64})\2(\s*)$""")
 

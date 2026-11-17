@@ -9,9 +9,9 @@ key, or no tenant on the record, the value becomes a fixed marker and is never p
 The tenant is the record's ``tenant_id`` (or ``tenantId``, ``tenant``) extra, else the ``tenant`` context variable. Keys come
 from the Go services' environment: FIELDCRYPT_KEYS, FIELDCRYPT_KEYS_FILE, FIELDCRYPT_CURRENT_KEY_ID (a key wrapped by a key
 vault, ``wrapped:...``, cannot be unwrapped here and counts as no key). It is on under the eu-data-boundary overlay of
-PASSAGE_CLOUD_PROFILE (for example ``commercial+eu-data-boundary``) and with LOG_PSEUDONYMIZE=true.
+DEPOT_CLOUD_PROFILE (for example ``commercial+eu-data-boundary``) and with LOG_PSEUDONYMIZE=true.
 
-This is a copy of services/dispatch-py/src/passage_dispatch/logpseudo.py for a service run directly by uvicorn: ``install_logging``
+This is a copy of services/dispatch-py/src/depot_dispatch/logpseudo.py for a service run directly by uvicorn: ``install_logging``
 attaches the filter to uvicorn's loggers and to every handler already on the root logger, and the access log's client address
 (a person-like value with no tenant) is replaced. Keep the two in step (the known-answer test fails on drift).
 
@@ -163,7 +163,7 @@ def pseudonymize_record(record: Mapping[str, Any], keys: MacKeys | None, tenant_
 def enabled(env: Mapping[str, str]) -> bool:
     """On under the eu-data-boundary overlay and with LOG_PSEUDONYMIZE=true."""
     # Like platform/go/cloudprofile ParseSelector: the value and each part are trimmed ("commercial + eu-data-boundary", a trailing newline).
-    parts = [p.strip() for p in env.get("PASSAGE_CLOUD_PROFILE", "").strip().split("+")]
+    parts = [p.strip() for p in env.get("DEPOT_CLOUD_PROFILE", "").strip().split("+")]
     if "eu-data-boundary" in parts[1:]:
         return True
     return env.get(ENV_PSEUDONYMIZE, "").strip().lower() == "true"

@@ -16,12 +16,12 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/platform/outbox"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/outbox"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
 
-	mfevents "github.com/BenjaminSRussell/passage/tools/migration-factory/internal/events"
+	mfevents "github.com/BenjaminSRussell/depot/tools/migration-factory/internal/events"
 )
 
 var (
@@ -73,12 +73,12 @@ func idempotent[T any](ctx context.Context, tx pgx.Tx, idem Idem, status int, fn
 		v, err := fn()
 		return v, false, err
 	}
-	if _, err := tx.Exec(ctx, `select pg_advisory_xact_lock(hashtextextended('idem|' || current_setting('passage.tenant_id', true) || '|' || $1, 0))`, idem.Key); err != nil {
+	if _, err := tx.Exec(ctx, `select pg_advisory_xact_lock(hashtextextended('idem|' || current_setting('depot.tenant_id', true) || '|' || $1, 0))`, idem.Key); err != nil {
 		return zero, false, fmt.Errorf("lock idempotency key: %w", err)
 	}
 	var storedHash string
 	var body []byte
-	err := tx.QueryRow(ctx, `select request_hash, response_body from idempotency_keys where tenant_id = current_setting('passage.tenant_id', true)::uuid and key = $1`, idem.Key).Scan(&storedHash, &body)
+	err := tx.QueryRow(ctx, `select request_hash, response_body from idempotency_keys where tenant_id = current_setting('depot.tenant_id', true)::uuid and key = $1`, idem.Key).Scan(&storedHash, &body)
 	switch {
 	case err == nil:
 		if storedHash != idem.Hash {
@@ -101,7 +101,7 @@ func idempotent[T any](ctx context.Context, tx pgx.Tx, idem Idem, status int, fn
 		return zero, false, fmt.Errorf("encode response: %w", err)
 	}
 	if _, err := tx.Exec(ctx, `insert into idempotency_keys (tenant_id, key, request_hash, response_status, response_body)
-		values (current_setting('passage.tenant_id', true)::uuid, $1, $2, $3, $4::jsonb)`, idem.Key, idem.Hash, status, string(encoded)); err != nil {
+		values (current_setting('depot.tenant_id', true)::uuid, $1, $2, $3, $4::jsonb)`, idem.Key, idem.Hash, status, string(encoded)); err != nil {
 		return zero, false, fmt.Errorf("store idempotency key: %w", err)
 	}
 	return v, false, nil

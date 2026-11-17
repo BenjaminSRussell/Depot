@@ -226,7 +226,7 @@ describe("Record payment", () => {
   });
 
   it("is not dirty because the working legal entity was filled in, and is dirty after an edit", async () => {
-    window.localStorage.setItem("passage.workContext.tester", JSON.stringify({ legalEntityId: LE, siteId: "" }));
+    window.localStorage.setItem("depot.workContext.tester", JSON.stringify({ legalEntityId: LE, siteId: "" }));
     server.handler = () => json(200, { id: LE, name: "Acme", code: "ACME" });
     renderAt("/receivables/payments/new");
     await screen.findByLabelText("Amount");

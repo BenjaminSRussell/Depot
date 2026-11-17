@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/services/migration/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/migration/internal/syncer"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/syncer"
 )
 
 const (
@@ -165,7 +165,7 @@ func TestSync_ScheduledDeltaRunsFromTheBindingsWatermarkAndOnlyAdvancesAfterTheL
 	if runs = s.runs(); runs[0].Counts["extracted"] != 5 || st.Watermark != "2026-11-01T10:30:00.000000000Z" {
 		t.Fatalf("after a binding edit the run must read everything: %+v %+v", st, runs[0])
 	}
-	if got := s.store.SyncEvents(); len(got) != 4 || got[3].Type != "dev.passage.migration.syncrun.completed.v1" {
+	if got := s.store.SyncEvents(); len(got) != 4 || got[3].Type != "dev.depot.migration.syncrun.completed.v1" {
 		t.Fatalf("events = %+v", got)
 	}
 
@@ -176,7 +176,7 @@ func TestSync_ScheduledDeltaRunsFromTheBindingsWatermarkAndOnlyAdvancesAfterTheL
 	if st.LastStatus != "failed" || st.Watermark != "2026-11-01T10:30:00.000000000Z" || st.ConsecutiveFailures != 1 || st.LastError == "" {
 		t.Fatalf("failed run: %+v", st)
 	}
-	if ev := s.store.SyncEvents(); ev[len(ev)-1].Type != "dev.passage.migration.syncrun.failed.v1" || !strings.Contains(string(ev[len(ev)-1].Data), `"watermark":"2026-11-01T10:30:00.000000000Z"`) {
+	if ev := s.store.SyncEvents(); ev[len(ev)-1].Type != "dev.depot.migration.syncrun.failed.v1" || !strings.Contains(string(ev[len(ev)-1].Data), `"watermark":"2026-11-01T10:30:00.000000000Z"`) {
 		t.Fatalf("a failed run publishes sync-run failed with the watermark it kept: %s %s", ev[len(ev)-1].Type, ev[len(ev)-1].Data)
 	}
 	delete(s.fakes.Fail503, "POST /v1/party/parties")
@@ -197,16 +197,16 @@ func TestSync_ScheduledDeltaRunsFromTheBindingsWatermarkAndOnlyAdvancesAfterTheL
 	}
 }
 
-func TestSync_SourceOfTruthPassageReportsConflictsAndResolutionsAreApplied(t *testing.T) {
+func TestSync_SourceOfTruthDepotReportsConflictsAndResolutionsAreApplied(t *testing.T) {
 	s := newSyncRig(t)
 	ctx := context.Background()
 	s.sched.Tick(ctx)
 	cur := s.status()
-	if rec := s.patch(`{"version":` + itoa(cur.Version) + `,"sourceOfTruth":"passage"}`); rec.Code != http.StatusOK {
+	if rec := s.patch(`{"version":` + itoa(cur.Version) + `,"sourceOfTruth":"depot"}`); rec.Code != http.StatusOK {
 		t.Fatalf("source of truth = %d %s", rec.Code, rec.Body.String())
 	}
 
-	// Legacy edits P1 and P2 and adds P3. The edits are held, the new row loads, nothing in Passage is overwritten.
+	// Legacy edits P1 and P2 and adds P3. The edits are held, the new row loads, nothing in Depot is overwritten.
 	s.file("parties.csv", "id,Name,upd\nP1,Acme Legacy Name,2026-11-01T10:00:00Z\nP2,Beta Legacy Name,2026-11-01T10:05:00Z\nP3,Gamma,2026-11-01T10:30:00Z\n")
 	st := s.runNow()
 	if st.LastStatus != "partial" || st.OpenConflicts != 2 || len(s.fakes.Parties) != 3 || st.Watermark != "2026-11-01T10:30:00.000000000Z" {
@@ -214,7 +214,7 @@ func TestSync_SourceOfTruthPassageReportsConflictsAndResolutionsAreApplied(t *te
 	}
 	x1, _, _ := s.store.Xref().Get(ctx, domain.XrefKey{SourceSystem: "custom_acme", Entity: "party", SourceKey: "P1"})
 	if s.fakes.Parties[x1.TargetID].Body["legalName"] != "Acme GmbH" {
-		t.Fatalf("Passage's record was overwritten: %v", s.fakes.Parties[x1.TargetID].Body)
+		t.Fatalf("Depot's record was overwritten: %v", s.fakes.Parties[x1.TargetID].Body)
 	}
 	runs := do(s.r, http.MethodGet, runsPath+"?bindingId="+s.binding, "", liveDuties, true)
 	if !strings.Contains(runs.Body.String(), `"MIG-TARGET-DRIFT"`) || !strings.Contains(runs.Body.String(), `"conflicted":2`) {
@@ -247,32 +247,32 @@ func TestSync_SourceOfTruthPassageReportsConflictsAndResolutionsAreApplied(t *te
 
 	// A resolution names the version it was decided on; without one it is refused, and so is one for a version a run
 	// has replaced since. Resolving needs migration.run.
-	if rec := do(s.r, http.MethodPost, conflictsPath+"/"+byKey["P1"]+":resolve", `{"resolution":"keep_passage"}`, liveDuties, true); rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), `"version"`) {
+	if rec := do(s.r, http.MethodPost, conflictsPath+"/"+byKey["P1"]+":resolve", `{"resolution":"keep_depot"}`, liveDuties, true); rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), `"version"`) {
 		t.Fatalf("resolve without a version = %d %s", rec.Code, rec.Body)
 	}
-	if rec := do(s.r, http.MethodPost, conflictsPath+"/"+byKey["P1"]+":resolve", `{"resolution":"keep_passage","version":2}`, liveDuties, true); rec.Code != http.StatusConflict || !strings.Contains(rec.Body.String(), "MIG-VERSION-CONFLICT") {
+	if rec := do(s.r, http.MethodPost, conflictsPath+"/"+byKey["P1"]+":resolve", `{"resolution":"keep_depot","version":2}`, liveDuties, true); rec.Code != http.StatusConflict || !strings.Contains(rec.Body.String(), "MIG-VERSION-CONFLICT") {
 		t.Fatalf("resolve on a stale version = %d %s", rec.Code, rec.Body)
 	}
-	if rec := do(s.r, http.MethodPost, conflictsPath+"/"+byKey["P1"]+":resolve", `{"resolution":"keep_passage","version":1}`, "migration.project.read", true); rec.Code != http.StatusForbidden {
+	if rec := do(s.r, http.MethodPost, conflictsPath+"/"+byKey["P1"]+":resolve", `{"resolution":"keep_depot","version":1}`, "migration.project.read", true); rec.Code != http.StatusForbidden {
 		t.Fatalf("resolve without migration.run = %d", rec.Code)
 	}
-	// Keep Passage for P1: closed, and not reported again while legacy says the same.
-	if rec := do(s.r, http.MethodPost, conflictsPath+"/"+byKey["P1"]+":resolve", `{"resolution":"keep_passage","version":1}`, liveDuties, true); rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"version":2`) {
+	// Keep Depot for P1: closed, and not reported again while legacy says the same.
+	if rec := do(s.r, http.MethodPost, conflictsPath+"/"+byKey["P1"]+":resolve", `{"resolution":"keep_depot","version":1}`, liveDuties, true); rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"version":2`) {
 		t.Fatalf("keep = %d %s", rec.Code, rec.Body)
 	}
-	if rec := do(s.r, http.MethodPost, conflictsPath+"/"+byKey["P1"]+":resolve", `{"resolution":"keep_passage","version":2}`, liveDuties, true); rec.Code != http.StatusConflict {
+	if rec := do(s.r, http.MethodPost, conflictsPath+"/"+byKey["P1"]+":resolve", `{"resolution":"keep_depot","version":2}`, liveDuties, true); rec.Code != http.StatusConflict {
 		t.Fatalf("a second resolve = %d", rec.Code)
 	}
 	if rec := do(s.r, http.MethodPost, conflictsPath+"/"+byKey["P1"]+":resolve", `{"resolution":"nonsense","version":2}`, liveDuties, true); rec.Code != http.StatusBadRequest {
 		t.Fatalf("bad resolution = %d", rec.Code)
 	}
-	// Accept legacy for P2: the legacy name is written into the Passage party under the recorded version.
+	// Accept legacy for P2: the legacy name is written into the Depot party under the recorded version.
 	if rec := do(s.r, http.MethodPost, conflictsPath+"/"+byKey["P2"]+":resolve", `{"resolution":"accept_legacy","version":1}`, liveDuties, true); rec.Code != http.StatusOK {
 		t.Fatalf("accept = %d %s", rec.Code, rec.Body)
 	}
 	x2, _, _ := s.store.Xref().Get(ctx, domain.XrefKey{SourceSystem: "custom_acme", Entity: "party", SourceKey: "P2"})
 	if s.fakes.Parties[x2.TargetID].Body["legalName"] != "Beta Legacy Name" || x2.TargetVersion != 2 {
-		t.Fatalf("accept legacy did not reach Passage: %+v %v", x2, s.fakes.Parties[x2.TargetID].Body)
+		t.Fatalf("accept legacy did not reach Depot: %+v %v", x2, s.fakes.Parties[x2.TargetID].Body)
 	}
 	// Re-reading the same legacy rows (no cursor movement: force a full read) reports nothing new.
 	s.file("parties.csv", "id,Name,upd\nP1,Acme Legacy Name,2026-11-01T12:00:00Z\nP2,Beta Legacy Name,2026-11-01T12:00:00Z\nP3,Gamma,2026-11-01T12:00:00Z\n")
@@ -405,7 +405,7 @@ func TestSync_AKeyCheckReadsACursorBindingInFullAndListsKeysTheLegacySystemDelet
 		t.Fatalf("the second run must be a delta of one row: %+v", got)
 	}
 
-	// Asking for a key check makes the next run a full read: P2 is listed, nothing is deactivated in Passage.
+	// Asking for a key check makes the next run a full read: P2 is listed, nothing is deactivated in Depot.
 	cur := s.status()
 	if rec := s.patch(`{"version":` + itoa(cur.Version) + `,"keyCheckNow":true,"runNow":true}`); rec.Code != http.StatusOK {
 		t.Fatalf("keyCheckNow = %d %s", rec.Code, rec.Body)
@@ -420,7 +420,7 @@ func TestSync_AKeyCheckReadsACursorBindingInFullAndListsKeysTheLegacySystemDelet
 	}
 	ev := s.store.SyncEvents()
 	last := ev[len(ev)-1]
-	if last.Type != "dev.passage.migration.syncabsent.detected.v1" && ev[len(ev)-2].Type != "dev.passage.migration.syncabsent.detected.v1" {
+	if last.Type != "dev.depot.migration.syncabsent.detected.v1" && ev[len(ev)-2].Type != "dev.depot.migration.syncabsent.detected.v1" {
 		t.Fatalf("no syncabsent event among the last events: %s %s", ev[len(ev)-2].Type, last.Type)
 	}
 

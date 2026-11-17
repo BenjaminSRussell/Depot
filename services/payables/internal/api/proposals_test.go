@@ -14,13 +14,13 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/payables/internal/api"
-	"github.com/BenjaminSRussell/passage/services/payables/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/payables/internal/fx"
-	"github.com/BenjaminSRussell/passage/services/payables/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/payables/internal/api"
+	"github.com/BenjaminSRussell/depot/services/payables/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/payables/internal/fx"
+	"github.com/BenjaminSRussell/depot/services/payables/internal/store"
 )
 
 const (
@@ -230,18 +230,18 @@ type caller struct {
 
 func (c caller) send(r http.Handler, method, path, body string) *httptest.ResponseRecorder {
 	req := httptest.NewRequest(method, path, strings.NewReader(body))
-	req.Header.Set("X-Passage-Tenant", testkit.TenantID(1))
+	req.Header.Set("X-Depot-Tenant", testkit.TenantID(1))
 	duties := c.duties
 	if c.entity == "" && !c.noScope {
 		duties += "," + tenant.DutyAllScope
 	}
-	req.Header.Set("X-Passage-Duties", duties)
+	req.Header.Set("X-Depot-Duties", duties)
 	req.Header.Set(tenant.HeaderLegalEntityScopeAll, tenant.LegalEntityScopeAll)
 	if c.user != "" {
-		req.Header.Set("X-Passage-User", c.user)
+		req.Header.Set("X-Depot-User", c.user)
 	}
 	if c.entity != "" {
-		req.Header.Set("X-Passage-Legal-Entity", c.entity)
+		req.Header.Set("X-Depot-Legal-Entity", c.entity)
 	}
 	rec := httptest.NewRecorder()
 	r.ServeHTTP(rec, req)

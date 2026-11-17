@@ -58,7 +58,7 @@ describe("carrier-gateway service grants", () => {
     for (const line of readFileSync(new URL("../api/openapi.yaml", import.meta.url), "utf8").split("\n")) {
       const p = /^ {2}(\/\S+):$/.exec(line);
       const o = /^ {4}(get|post|put|patch|delete):$/.exec(line);
-      const d = /^ {6}x-passage-duty: (\S+)$/.exec(line);
+      const d = /^ {6}x-depot-duty: (\S+)$/.exec(line);
       if (p) path = p[1]!;
       else if (o) op = `${o[1]!.toUpperCase()} ${path.replace(/\{[^}]+\}/g, "*")}`;
       else if (d) documented[op] = d[1]!;

@@ -8,7 +8,7 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/tools/migration-factory/internal/domain"
+	"github.com/BenjaminSRussell/depot/tools/migration-factory/internal/domain"
 )
 
 // The subledger half of the parallel-run replay (49-4). Each area is posted through its own subledger's posting API,
@@ -61,10 +61,10 @@ type Port interface {
 // Ports maps an area to the port that posts it.
 type Ports map[domain.Area]Port
 
-// SubledgerResult is the outcome of the subledger replay: the Passage-side balances to diff, the ids by document, and
+// SubledgerResult is the outcome of the subledger replay: the Depot-side balances to diff, the ids by document, and
 // the documents a subledger refused.
 type SubledgerResult struct {
-	Passage  []domain.SubledgerBalance
+	Depot    []domain.SubledgerBalance
 	Posted   map[string]string
 	Rejected []Rejected
 }
@@ -72,7 +72,7 @@ type SubledgerResult struct {
 // RunSubledger posts the documents area by area in their legacy sequence (posting date, then Seq), each under a fixed
 // idempotency key, then reads back, for every (area, key, currency) the documents or the legacy balances name, the
 // movement the subledger holds for the period. A refused document is recorded and the replay goes on, its amount
-// missing from the Passage side and showing as a variance; any other failure stops it with ErrSubledgerUnavailable,
+// missing from the Depot side and showing as a variance; any other failure stops it with ErrSubledgerUnavailable,
 // and a missing port is ErrNoSubledgerPort before anything is posted.
 func RunSubledger(ctx context.Context, ports Ports, in Request) (SubledgerResult, error) {
 	res := SubledgerResult{Posted: map[string]string{}}
@@ -144,7 +144,7 @@ func RunSubledger(ctx context.Context, ports Ports, in Request) (SubledgerResult
 			return SubledgerResult{}, fmt.Errorf("%w: %s movement of %s: %v", ErrSubledgerUnavailable, k.area, k.key, err)
 		}
 		if !net.IsZero() {
-			res.Passage = append(res.Passage, domain.SubledgerBalance{Area: k.area, Key: k.key, Currency: k.cur, Net: net})
+			res.Depot = append(res.Depot, domain.SubledgerBalance{Area: k.area, Key: k.key, Currency: k.cur, Net: net})
 		}
 	}
 	return res, nil

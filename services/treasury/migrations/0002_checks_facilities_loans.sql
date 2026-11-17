@@ -1,4 +1,4 @@
--- Wave 36 (PSG-36) slice 3: checks (FR-36.6), facilities and instruments (FR-36.7),
+-- Wave 36 (DPT-36) slice 3: checks (FR-36.6), facilities and instruments (FR-36.7),
 -- loan contracts and schedules (FR-36.19). Same RLS template as 0001_init.sql.
 -- Idempotency-Key replays use the shared idempotency_keys table of 0001.
 
@@ -28,11 +28,11 @@ create table bank_check (
 alter table bank_check enable row level security;
 alter table bank_check force row level security;
 create policy bank_check_tenant_access on bank_check as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 create policy bank_check_legal_entity_scope on bank_check as restrictive
-  using (current_setting('passage.legal_entity_scopes', true) = '*'
-         or legal_entity_id::text = any(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  using (current_setting('depot.legal_entity_scopes', true) = '*'
+         or legal_entity_id::text = any(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 create table treasury_facility (
   tenant_id uuid not null,
@@ -53,11 +53,11 @@ create table treasury_facility (
 alter table treasury_facility enable row level security;
 alter table treasury_facility force row level security;
 create policy treasury_facility_tenant_access on treasury_facility as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 create policy treasury_facility_legal_entity_scope on treasury_facility as restrictive
-  using (current_setting('passage.legal_entity_scopes', true) = '*'
-         or legal_entity_id::text = any(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  using (current_setting('depot.legal_entity_scopes', true) = '*'
+         or legal_entity_id::text = any(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 -- Letters of credit (import / export) and bank guarantees drawn on a facility (FR-36.7).
 create table treasury_facility_instrument (
@@ -85,11 +85,11 @@ create index ix_treasury_facility_instrument_open on treasury_facility_instrumen
 alter table treasury_facility_instrument enable row level security;
 alter table treasury_facility_instrument force row level security;
 create policy treasury_facility_instrument_tenant_access on treasury_facility_instrument as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 create policy treasury_facility_instrument_legal_entity_scope on treasury_facility_instrument as restrictive
-  using (current_setting('passage.legal_entity_scopes', true) = '*'
-         or legal_entity_id::text = any(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  using (current_setting('depot.legal_entity_scopes', true) = '*'
+         or legal_entity_id::text = any(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 -- Loan contracts (FR-36.19). Fixed rate only in this slice; floating fixings are a later slice.
 create table treasury_loan (
@@ -116,11 +116,11 @@ create table treasury_loan (
 alter table treasury_loan enable row level security;
 alter table treasury_loan force row level security;
 create policy treasury_loan_tenant_access on treasury_loan as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 create policy treasury_loan_legal_entity_scope on treasury_loan as restrictive
-  using (current_setting('passage.legal_entity_scopes', true) = '*'
-         or legal_entity_id::text = any(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  using (current_setting('depot.legal_entity_scopes', true) = '*'
+         or legal_entity_id::text = any(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 create table treasury_loan_schedule_line (
   tenant_id uuid not null,
@@ -140,8 +140,8 @@ create table treasury_loan_schedule_line (
 alter table treasury_loan_schedule_line enable row level security;
 alter table treasury_loan_schedule_line force row level security;
 create policy treasury_loan_schedule_line_tenant_access on treasury_loan_schedule_line as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 create policy treasury_loan_schedule_line_legal_entity_scope on treasury_loan_schedule_line as restrictive
-  using (current_setting('passage.legal_entity_scopes', true) = '*'
-         or legal_entity_id::text = any(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  using (current_setting('depot.legal_entity_scopes', true) = '*'
+         or legal_entity_id::text = any(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));

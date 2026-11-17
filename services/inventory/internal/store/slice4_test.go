@@ -8,10 +8,10 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/inventory/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/inventory/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/inventory/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/inventory/internal/store"
 )
 
 var reversalDate = time.Date(2026, 9, 30, 0, 0, 0, 0, time.UTC)
@@ -85,7 +85,7 @@ func TestReversalMirrorsTheOriginalAtItsValues(t *testing.T) {
 		t.Fatalf("%d reversal transactions mirror and link their original, want 2", linked)
 	}
 	var payload []byte
-	if err := admin.QueryRow(context.Background(), `select payload from outbox where type = 'dev.passage.inventory.journal.posted.v1'
+	if err := admin.QueryRow(context.Background(), `select payload from outbox where type = 'dev.depot.inventory.journal.posted.v1'
 		and payload->'data'->>'journalId' = $1`, rev.ID).Scan(&payload); err != nil {
 		t.Fatal(err)
 	}

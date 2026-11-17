@@ -26,18 +26,18 @@ CREATE TABLE IF NOT EXISTS journal_posting (
 ALTER TABLE journal_posting ENABLE ROW LEVEL SECURITY;
 ALTER TABLE journal_posting FORCE ROW LEVEL SECURITY;
 CREATE POLICY journal_posting_tenant_access ON journal_posting AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY journal_posting_legal_entity_scope ON journal_posting AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 CREATE INDEX IF NOT EXISTS journal_posting_pending_idx ON journal_posting (tenant_id, legal_entity_id) WHERE entry_id IS NULL AND rejected_code IS NULL;
 CREATE INDEX IF NOT EXISTS revenue_schedule_unposted_idx ON revenue_schedule (tenant_id, recognized_on) WHERE status = 'RECOGNIZED' AND journal_posting_id IS NULL;
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON journal_posting TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON journal_posting TO depot_app';
   END IF;
 END
 $$;

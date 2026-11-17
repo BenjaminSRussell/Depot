@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/planning/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/planning/internal/store"
 )
 
 // TestRunPlan_FirmsApprovedOrders covers FR-22.11: two approved purchase orders
@@ -66,7 +66,7 @@ func TestRunPlan_FirmsApprovedOrders(t *testing.T) {
 
 	countEvents := func() (n int) {
 		t.Helper()
-		if err := admin.QueryRow(context.Background(), `select count(*) from outbox where type = 'dev.passage.planning.plannedorder.firmed.v1'`).Scan(&n); err != nil {
+		if err := admin.QueryRow(context.Background(), `select count(*) from outbox where type = 'dev.depot.planning.plannedorder.firmed.v1'`).Scan(&n); err != nil {
 			t.Fatal(err)
 		}
 		return n
@@ -83,7 +83,7 @@ func TestRunPlan_FirmsApprovedOrders(t *testing.T) {
 	}
 	// Every event, including those of the approved orders this run firmed, names the plan's legal entity.
 	var withoutEntity int
-	if err := admin.QueryRow(context.Background(), `select count(*) from outbox where type = 'dev.passage.planning.plannedorder.firmed.v1'
+	if err := admin.QueryRow(context.Background(), `select count(*) from outbox where type = 'dev.depot.planning.plannedorder.firmed.v1'
 		and (payload->'data'->>'legal_entity_id' is distinct from '00000000-0000-0000-0000-0000000000e1' or payload->>'legalentityid' is distinct from '00000000-0000-0000-0000-0000000000e1')`).Scan(&withoutEntity); err != nil || withoutEntity != 0 {
 		t.Fatalf("firmed events without the legal entity: %d, %v", withoutEntity, err)
 	}

@@ -948,7 +948,7 @@ func assemblePDF(pages []*bytes.Buffer, t *docText, title string) []byte {
 		kids[i] = fmt.Sprintf("%d 0 R", firstPage+2*i)
 	}
 	obj(fmt.Sprintf("<< /Type /Pages /Kids [%s] /Count %d >>", strings.Join(kids, " "), len(pages)))
-	obj(fmt.Sprintf("<< /Title %s /Producer (Passage print service) >>", utf16Hex(title)))
+	obj(fmt.Sprintf("<< /Title %s /Producer (Depot print service) >>", utf16Hex(title)))
 	// The fonts come after the pages are laid out, when the glyphs used are known.
 	for _, o := range pdfFontObjects(faceRegular, t.used[faceRegular], 4) {
 		obj(o)

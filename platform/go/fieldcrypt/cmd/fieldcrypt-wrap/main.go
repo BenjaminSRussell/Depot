@@ -1,7 +1,7 @@
 // Command fieldcrypt-wrap makes a new fieldcrypt master key and prints its FIELDCRYPT_KEYS entry, wrapped by the
 // Azure Key Vault or Managed HSM key named by FIELDCRYPT_AZURE_KEY_ID. The plain key is never printed or stored.
 //
-//	FIELDCRYPT_AZURE_KEY_ID=https://<vault>/keys/fieldcrypt-kek PASSAGE_CLOUD_PROFILE=gcc \
+//	FIELDCRYPT_AZURE_KEY_ID=https://<vault>/keys/fieldcrypt-kek DEPOT_CLOUD_PROFILE=gcc \
 //	  go run ./fieldcrypt/cmd/fieldcrypt-wrap -id 2027-01
 //
 // Rotation: wrap a new key under a new id, append the entry to FIELDCRYPT_KEYS (keep the old entries, they still open
@@ -16,8 +16,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/fieldcrypt"
-	"github.com/BenjaminSRussell/passage/platform/fieldcrypt/azurekv"
+	"github.com/BenjaminSRussell/depot/platform/fieldcrypt"
+	"github.com/BenjaminSRussell/depot/platform/fieldcrypt/azurekv"
 )
 
 func main() {

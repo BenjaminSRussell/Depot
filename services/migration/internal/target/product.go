@@ -11,7 +11,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/BenjaminSRussell/passage/services/migration/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/domain"
 )
 
 // lifecycle is the order a product moves through (BR-8.1).
@@ -57,7 +57,7 @@ func lifecyclePath(from, to string) []string {
 
 // loadProduct creates a product as a draft under the id the pipeline reserved, sets its attributes, then moves it to
 // the lifecycle state the mapping names (default active). A row whose activation is refused is rejected with the
-// target's code; the draft stays in Passage and the next run continues from it. A product an earlier run loaded is
+// target's code; the draft stays in Depot and the next run continues from it. A product an earlier run loaded is
 // patched under the version recorded then.
 func (l *Loader) loadProduct(ctx context.Context, c *call, it domain.LoadItem) (domain.LoadResult, error) {
 	le, bad := l.legalEntity(it.Fields)
@@ -150,7 +150,7 @@ func (l *Loader) loadProduct(ctx context.Context, c *call, it domain.LoadItem) (
 		if !r.ok() {
 			res := r.refusal()
 			if step != "" {
-				res.Detail = "the product is in Passage as " + state + "; moving it to " + step + " was refused: " + res.Detail
+				res.Detail = "the product is in Depot as " + state + "; moving it to " + step + " was refused: " + res.Detail
 			}
 			return res, nil
 		}

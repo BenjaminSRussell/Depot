@@ -2,14 +2,14 @@
 // service publishes. The contract is events/asyncapi.yaml.
 package events
 
-// Event types (dev.passage.<context>.<entity>.<verb>.v<n>).
+// Event types (dev.depot.<context>.<entity>.<verb>.v<n>).
 const (
-	ProjectCreated = "dev.passage.projects.project.created.v1"
-	ProjectUpdated = "dev.passage.projects.project.updated.v1"
-	WBSScheduled   = "dev.passage.projects.wbs.scheduled.v1"
+	ProjectCreated = "dev.depot.projects.project.created.v1"
+	ProjectUpdated = "dev.depot.projects.project.updated.v1"
+	WBSScheduled   = "dev.depot.projects.wbs.scheduled.v1"
 	// TransactionPosted is published for every HOUR transaction recorded on a project (#40): who worked, for which entity and for
 	// which project entity. Intercompany charges the hours across when the two entities differ.
-	TransactionPosted = "dev.passage.projects.transaction.posted.v1"
+	TransactionPosted = "dev.depot.projects.transaction.posted.v1"
 )
 
 // TransactionPostedData is the data of TransactionPosted. Transactions are immutable, so Version is always 1; TransactionID and

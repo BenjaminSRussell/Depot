@@ -28,7 +28,7 @@ export const apAgent: AgentVersion = {
   version: 3,
   modelId: "claude-test-model",
   systemPrompt: "Propose account and tax code for the vendor invoice.",
-  allowedTools: ["passage.ap.invoice.post", "passage.ap.invoice.propose_coding"],
+  allowedTools: ["depot.ap.invoice.post", "depot.ap.invoice.propose_coding"],
   requiredDuties: ["APInvoicePost"],
 };
 
@@ -150,7 +150,7 @@ export function makeRequest(over: Partial<RunRequest> = {}): RunRequest {
 export function proposal(
   confidence: number,
   amount = "1200",
-  tool = "passage.ap.invoice.post",
+  tool = "depot.ap.invoice.post",
   args: Record<string, unknown> = { invoiceId: "INV-7", remitTo: "[IBAN-1]" },
 ): ModelResponse {
   return {

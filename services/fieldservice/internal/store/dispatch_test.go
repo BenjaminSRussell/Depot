@@ -9,10 +9,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/fieldservice/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/fieldservice/internal/domain"
 )
 
 // dispatchFixture is a migrated store with one territory and a Monday 2026-10-26
@@ -65,7 +65,7 @@ func violationCodes(err error) map[string]string {
 	return nil
 }
 
-// FR-45.7, BR-45.3 against Postgres as passage_app: assignment enforces the hard
+// FR-45.7, BR-45.3 against Postgres as depot_app: assignment enforces the hard
 // constraints and reports each broken one, a clean assignment makes the order SCHEDULED
 // with its end from the estimate, a move keeps it SCHEDULED and an unassign releases it.
 func TestStore_AssignmentEnforcesHardConstraints(t *testing.T) {
@@ -113,7 +113,7 @@ func TestStore_AssignmentEnforcesHardConstraints(t *testing.T) {
 	if err != nil || free.Status != "UNSCHEDULED" || free.TechnicianID != nil || free.AssignedStart != nil {
 		t.Fatalf("unassigned %+v %v", free, err)
 	}
-	want := []string{"dev.passage.service.assignment.changed.v1", "dev.passage.service.assignment.changed.v1", "dev.passage.service.assignment.changed.v1"}
+	want := []string{"dev.depot.service.assignment.changed.v1", "dev.depot.service.assignment.changed.v1", "dev.depot.service.assignment.changed.v1"}
 	if got := d.eventTypes(t, first.ID); !slices.Equal(got, want) {
 		t.Fatalf("outbox of the first order %v, want assign, move and unassign", got)
 	}
@@ -193,7 +193,7 @@ func TestStore_PublishDispatchesTheTerritoryDay(t *testing.T) {
 	if got, err := d.s.GetCase(d.ctx, c.ID); err != nil || got.RespondedAt == nil {
 		t.Fatalf("case after dispatch: %+v %v", got, err)
 	}
-	if got := d.eventTypes(t, run.ID); !slices.Equal(got, []string{"dev.passage.service.dispatch.published.v1"}) {
+	if got := d.eventTypes(t, run.ID); !slices.Equal(got, []string{"dev.depot.service.dispatch.published.v1"}) {
 		t.Fatalf("outbox %v", got)
 	}
 

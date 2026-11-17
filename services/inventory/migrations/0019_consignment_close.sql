@@ -2,7 +2,7 @@
 -- two terminal statuses on consignment_order (CLOSED gives up the open quantity of a partly
 -- received order, CANCELLED ends an order nothing was received against) and who closed it,
 -- when and why. No new table, so no new grant (consignment_order is already granted SELECT,
--- INSERT and UPDATE to passage_app).
+-- INSERT and UPDATE to depot_app).
 ALTER TABLE consignment_order ADD COLUMN IF NOT EXISTS closed_at timestamptz;
 ALTER TABLE consignment_order ADD COLUMN IF NOT EXISTS closed_by text;
 ALTER TABLE consignment_order ADD COLUMN IF NOT EXISTS close_reason text

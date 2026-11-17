@@ -9,9 +9,9 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/services/processmfg/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/processmfg/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/services/processmfg/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/processmfg/internal/store"
 )
 
 const (
@@ -102,7 +102,7 @@ func TestCreateRequirement_DutyKeyAndScope(t *testing.T) {
 		t.Errorf("read duty wrote: %d", rec.Code)
 	}
 	h := key("k")
-	h["X-Passage-Legal-Entity"] = ""
+	h["X-Depot-Legal-Entity"] = ""
 	rec := call{method: "POST", path: reqPath, body: body, duties: DutyBatchRequirementWrite, headers: h}.do(newRouter(f))
 	if rec.Code != http.StatusForbidden || f.gotReq.ItemID != "" {
 		t.Errorf("no scope: %d %s", rec.Code, rec.Body)

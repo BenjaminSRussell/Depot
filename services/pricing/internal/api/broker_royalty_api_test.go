@@ -86,16 +86,16 @@ func TestBroker_AccrualCreditAndClaim(t *testing.T) {
 		t.Fatalf("preview = %v; want 150", preview)
 	}
 	claimBody := fmt.Sprintf(`{"contractKind":"BROKER","contractId":"%s","period":"2027-03"}`, id)
-	code, claim := call(t, h, http.MethodPost, "/v1/pricing/contract-claims", allDuties, claimBody, "X-Passage-User", "u1")
+	code, claim := call(t, h, http.MethodPost, "/v1/pricing/contract-claims", allDuties, claimBody, "X-Depot-User", "u1")
 	if code != http.StatusCreated || claim["number"] != "BC-000001" || claim["amount"] != "150" || claim["status"] != "OPEN" || claim["vendorId"] != brokerVendorID {
 		t.Fatalf("claim = %d %v; want BC-000001 for 150", code, claim)
 	}
 	cid := claim["id"].(string)
-	if code, out := call(t, h, http.MethodPost, "/v1/pricing/contract-claims", allDuties, claimBody, "X-Passage-User", "u1"); code != http.StatusConflict || out["code"] != "PRC-0015" {
+	if code, out := call(t, h, http.MethodPost, "/v1/pricing/contract-claims", allDuties, claimBody, "X-Depot-User", "u1"); code != http.StatusConflict || out["code"] != "PRC-0015" {
 		t.Fatalf("second claim = %d %v; want 409 PRC-0015", code, out)
 	}
 	approve := func(user, duties string) (int, map[string]any) {
-		return call(t, h, http.MethodPost, "/v1/pricing/contract-claims/"+cid+":approve", duties, `{"version":1}`, "X-Passage-User", user)
+		return call(t, h, http.MethodPost, "/v1/pricing/contract-claims/"+cid+":approve", duties, `{"version":1}`, "X-Depot-User", user)
 	}
 	if code, out := approve("u1", allDuties); code != http.StatusForbidden || out["code"] != "PRC-0046" {
 		t.Fatalf("approval by the creator = %d %v; want 403 PRC-0046", code, out)
@@ -141,7 +141,7 @@ func TestBroker_ValidationAndDuties(t *testing.T) {
 			t.Errorf("%s = %d %v; want 422 naming %s", name, code, out, c.field)
 		}
 	}
-	otherEntity := []string{"X-Passage-Legal-Entity", "00000000-0000-0000-0000-0000000000e2"}
+	otherEntity := []string{"X-Depot-Legal-Entity", "00000000-0000-0000-0000-0000000000e2"}
 	if code, out := call(t, h, http.MethodPost, "/v1/pricing/broker-contracts", allDuties, brokerBody(""), otherEntity...); code != http.StatusForbidden || out["code"] != "AUTH-0003" {
 		t.Fatalf("create for a legal entity outside the scope = %d %v; want 403 AUTH-0003", code, out)
 	}
@@ -207,7 +207,7 @@ func TestRoyalty_TiersMinimumAndClaim(t *testing.T) {
 	if code, out := accrue(contractLineBody("INV-3/1", "2027-03-28", "100", "1", "")); code != http.StatusConflict || out["code"] != "PRC-0060" {
 		t.Fatalf("accrual into a closed period = %d %v; want 409 PRC-0060", code, out)
 	}
-	code, claim := call(t, h, http.MethodPost, "/v1/pricing/contract-claims", allDuties, claimBody, "X-Passage-User", "u1")
+	code, claim := call(t, h, http.MethodPost, "/v1/pricing/contract-claims", allDuties, claimBody, "X-Depot-User", "u1")
 	if code != http.StatusCreated || claim["number"] != "RY-000001" || claim["amount"] != "5000" || claim["vendorId"] != licensorVendorID {
 		t.Fatalf("claim = %d %v; want RY-000001 for the 5000 minimum", code, claim)
 	}

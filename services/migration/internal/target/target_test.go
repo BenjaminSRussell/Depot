@@ -7,12 +7,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/migration/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/migration/internal/target"
-	"github.com/BenjaminSRussell/passage/services/migration/internal/target/targettest"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/target"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/target/targettest"
 )
 
 const system = "custom_acme"
@@ -101,7 +101,7 @@ func TestParty_CreatesUnderTheReservedIDThenPatchesUnderItsVersion(t *testing.T)
 
 	stale := upd
 	stale.TargetVersion = 1
-	// BR-10.8: a party changed in Passage since the load is drift, reported and not overwritten.
+	// BR-10.8: a party changed in Depot since the load is drift, reported and not overwritten.
 	if res = load(t, l, "party", stale); res[0].Code != target.CodeDrift || !strings.Contains(res[0].Detail, "PTY-VERSION-CONFLICT") {
 		t.Fatalf("stale version = %+v", res[0])
 	}
@@ -262,7 +262,7 @@ func TestProduct_CreatesADraftThenActivatesItSoRequiredAttributesApply(t *testin
 
 	first := item("I1", false, 0, base)
 	res := load(t, l, "product", first)
-	if res[0].Code != "PRD-ATTR-REQUIRED" || !strings.Contains(res[0].Detail, "in Passage as draft") {
+	if res[0].Code != "PRD-ATTR-REQUIRED" || !strings.Contains(res[0].Detail, "in Depot as draft") {
 		t.Fatalf("missing attribute = %+v", res[0])
 	}
 	var created *targettest.Product

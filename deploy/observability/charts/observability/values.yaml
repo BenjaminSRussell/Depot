@@ -1,5 +1,5 @@
 grafana:
-  dashboardFolder: passage-slo
+  dashboardFolder: depot-slo
 tempo:
   endpoint: http://tempo.observability.svc:3200
 loki:

@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/services/purchasing/internal/api"
+	"github.com/BenjaminSRussell/depot/services/purchasing/internal/api"
 )
 
 // The consumer starts only when the service principal table gives it the apply duty.
@@ -45,7 +45,7 @@ func TestKafkaConfig_FollowsFulfillmentAndPlanning(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.Group != api.InboundConsumerName || len(cfg.Topics) != 2 || cfg.Topics[0] != "passage.fulfillment.dropship" || cfg.Topics[1] != "passage.planning.plan" {
+	if cfg.Group != api.InboundConsumerName || len(cfg.Topics) != 2 || cfg.Topics[0] != "depot.fulfillment.dropship" || cfg.Topics[1] != "depot.planning.plan" {
 		t.Fatalf("config = %+v", cfg)
 	}
 }

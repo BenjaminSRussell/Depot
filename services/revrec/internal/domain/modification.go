@@ -5,7 +5,7 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/money"
+	"github.com/BenjaminSRussell/depot/platform/money"
 )
 
 // Contract modification types (ASC 606-10-25-10 to 25-13, IFRS 15.20 to 15.21). A modification that adds distinct goods at their stand-alone

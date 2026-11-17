@@ -8,9 +8,9 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
 
-	"github.com/BenjaminSRussell/passage/services/finreport/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/finreport/internal/domain"
 )
 
 type auditDTO struct {
@@ -104,8 +104,8 @@ func (a *API) auditTrail(w http.ResponseWriter, r *http.Request) {
 }
 
 // exportAuditTrail returns every entry matching the filter as CSV (FR-15.10).
-// The SHA-256 of the file is in X-Passage-Export-Sha256 and the export is
-// recorded in the trail under X-Passage-Export-Id, so the file can be verified
+// The SHA-256 of the file is in X-Depot-Export-Sha256 and the export is
+// recorded in the trail under X-Depot-Export-Id, so the file can be verified
 // later. A filter matching too many entries is refused (REPORT-0030), never
 // cut short.
 func (a *API) exportAuditTrail(w http.ResponseWriter, r *http.Request) {
@@ -125,9 +125,9 @@ func (a *API) exportAuditTrail(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "text/csv; charset=utf-8")
 	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="audit-trail-%s.csv"`, exp.ID))
-	w.Header().Set("X-Passage-Export-Id", exp.ID)
-	w.Header().Set("X-Passage-Export-Sha256", exp.SHA256)
-	w.Header().Set("X-Passage-Export-Entries", strconv.Itoa(exp.Entries))
+	w.Header().Set("X-Depot-Export-Id", exp.ID)
+	w.Header().Set("X-Depot-Export-Sha256", exp.SHA256)
+	w.Header().Set("X-Depot-Export-Entries", strconv.Itoa(exp.Entries))
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write(exp.Body)
 }

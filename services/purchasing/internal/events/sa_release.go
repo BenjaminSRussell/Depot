@@ -6,7 +6,7 @@ package events
 // segment (as po.version.created is published as poversion.created). EDI
 // DELFOR (FRC) and DELJIT (JIT) in wave 35, the supplier portal (wave 20) and
 // planning (wave 22) consume it.
-const SAReleaseCreated = "dev.passage.procurement.sarelease.created.v1"
+const SAReleaseCreated = "dev.depot.procurement.sarelease.created.v1"
 
 // SAReleaseLine is one schedule row of the release in delivery-date order.
 // Quantities are decimal strings; zone is FIRM, TRADEOFF or FORECAST on the run

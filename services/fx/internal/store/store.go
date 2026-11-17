@@ -16,20 +16,20 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/outbox"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/fx/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/outbox"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/fx/internal/domain"
 )
 
 const (
 	CodeConflict        = "FX_RATE_CONFLICT"
 	CodeRateTypeExists  = "FX_RATE_TYPE_EXISTS"
 	CodeRateTypeUnknown = "FX_RATE_TYPE_UNKNOWN"
-	RatePublished       = "dev.passage.fx.rate.published.v1"
+	RatePublished       = "dev.depot.fx.rate.published.v1"
 	uniqueViolation     = "23505"
 	maxDecimals         = 10
 )
@@ -368,7 +368,7 @@ func postOne(ctx context.Context, tx pgx.Tx, p tenant.Principal, typeID string, 
 	if deviation != "" {
 		data["deviation_pct"] = deviation
 	}
-	evt, err := events.New(RatePublished, "passage/fx", out.ID, p.TenantID, data)
+	evt, err := events.New(RatePublished, "depot/fx", out.ID, p.TenantID, data)
 	if err != nil {
 		return Posted{}, err
 	}

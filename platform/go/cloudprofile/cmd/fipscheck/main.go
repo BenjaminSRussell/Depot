@@ -1,6 +1,6 @@
 // Command fipscheck runs the cloud profile's fail-closed FIPS startup check and exits 0 when the process may
 // start. CI builds it with GOFIPS140=v1.0.0 and boots it under each profile; it also shows an operator what a
-// Passage service will do under a given PASSAGE_CLOUD_PROFILE.
+// Depot service will do under a given DEPOT_CLOUD_PROFILE.
 package main
 
 import (
@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/BenjaminSRussell/passage/platform/cloudprofile"
+	"github.com/BenjaminSRussell/depot/platform/cloudprofile"
 )
 
 func main() {

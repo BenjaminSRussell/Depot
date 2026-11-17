@@ -28,7 +28,7 @@ describe("agent catalog (FR-47.5 to FR-47.7, FR-47.10)", () => {
   it("never lists a commit tool, even by name, in any allow-list", () => {
     const all = catalog.flatMap((a) => a.allowedTools);
     expect(all.filter((t) => COMMIT_SUFFIX.test(t))).toEqual([]);
-    expect(all).not.toContain("passage.ap.invoice.post");
+    expect(all).not.toContain("depot.ap.invoice.post");
   });
 
   it("gives every agent exactly one proposable tool, so each run ends in one governed proposal", () => {
@@ -74,21 +74,21 @@ describe("agent catalog (FR-47.5 to FR-47.7, FR-47.10)", () => {
 
 describe("MODEL_VISIBLE_TOOL and COMMIT_SUFFIX", () => {
   it.each([
-    ["passage.ap.invoice.get", true],
-    ["passage.ap.vendor.history.list", true],
-    ["passage.ar.settlement.propose", true],
-    ["passage.collections.letter.draft", true],
-    ["passage.ap.invoice.post", false],
-    ["passage.ap.invoice.apply_coding", false],
-    ["passage.ap", false],
+    ["depot.ap.invoice.get", true],
+    ["depot.ap.vendor.history.list", true],
+    ["depot.ar.settlement.propose", true],
+    ["depot.collections.letter.draft", true],
+    ["depot.ap.invoice.post", false],
+    ["depot.ap.invoice.apply_coding", false],
+    ["depot.ap", false],
   ])("%s visible=%s", (tool, visible) => {
     expect(MODEL_VISIBLE_TOOL.test(tool)).toBe(visible);
   });
 
   it.each([
-    ["passage.ap.invoice.post", true],
-    ["passage.ap.invoice.apply_coding", true],
-    ["passage.ap.invoice.propose_coding", false],
+    ["depot.ap.invoice.post", true],
+    ["depot.ap.invoice.apply_coding", true],
+    ["depot.ap.invoice.propose_coding", false],
   ])("%s commit=%s", (tool, commit) => {
     expect(COMMIT_SUFFIX.test(tool)).toBe(commit);
   });

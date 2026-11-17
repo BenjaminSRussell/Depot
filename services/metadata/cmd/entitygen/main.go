@@ -11,7 +11,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/BenjaminSRussell/passage/services/metadata/internal/gen"
+	"github.com/BenjaminSRussell/depot/services/metadata/internal/gen"
 )
 
 func main() {

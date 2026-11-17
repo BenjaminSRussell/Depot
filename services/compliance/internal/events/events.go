@@ -4,7 +4,7 @@ package events
 import (
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/events"
 )
 
 // Context is the event context of segregation of duties, as the PRD names its events.

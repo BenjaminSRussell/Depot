@@ -8,7 +8,7 @@ import (
 
 	"pgregory.net/rapid"
 
-	"github.com/BenjaminSRussell/passage/services/migration/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/domain"
 )
 
 func rule(typ string, mods ...func(*domain.FieldRule)) domain.Mapping {

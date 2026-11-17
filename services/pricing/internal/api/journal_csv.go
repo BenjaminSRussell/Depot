@@ -10,8 +10,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/services/pricing/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/services/pricing/internal/domain"
 )
 
 // journalsImportPath accepts a price journal as CSV (FR-26.9, §5.26.6 "import CSV (≤ 100k rows)").

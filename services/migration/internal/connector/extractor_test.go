@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/services/migration/internal/connector"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/connector"
 )
 
 // pagesOf is a reader whose next position is chosen by the test.

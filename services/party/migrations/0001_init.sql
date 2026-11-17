@@ -145,14 +145,14 @@ BEGIN
     EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY', t);
     EXECUTE format('DROP POLICY IF EXISTS %I ON %I', t || '_tenant_access', t);
     EXECUTE format($p$CREATE POLICY %I ON %I AS PERMISSIVE
-      USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-      WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid)$p$, t || '_tenant_access', t);
+      USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+      WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid)$p$, t || '_tenant_access', t);
   END LOOP;
   FOREACH t IN ARRAY ARRAY['posting_profile', 'customer_role'] LOOP
     EXECUTE format('DROP POLICY IF EXISTS %I ON %I', t || '_legal_entity_scope', t);
     EXECUTE format($p$CREATE POLICY %I ON %I AS RESTRICTIVE
-      USING (current_setting('passage.legal_entity_scopes', true) = '*'
-             OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')))$p$, t || '_legal_entity_scope', t);
+      USING (current_setting('depot.legal_entity_scopes', true) = '*'
+             OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')))$p$, t || '_legal_entity_scope', t);
   END LOOP;
 END
 $$;

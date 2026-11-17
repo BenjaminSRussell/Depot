@@ -11,13 +11,13 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/intercompany/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/intercompany/internal/store"
-	"github.com/BenjaminSRussell/passage/services/intercompany/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/intercompany/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/intercompany/internal/store"
+	"github.com/BenjaminSRussell/depot/services/intercompany/migrations"
 )
 
 func pairing(seller, buyer string) domain.Partner {
@@ -96,7 +96,7 @@ func TestCreatePartner_RoundTripAndEvent(t *testing.T) {
 		t.Errorf("action policy drifted: %+v", got.Actions)
 	}
 	evts := outbox(t, pool, ctx)
-	if len(evts) != 1 || evts[0]["_type"] != "dev.passage.interco.partner.created.v1" || evts[0]["id"] != rec.ID || evts[0]["version"] != float64(1) {
+	if len(evts) != 1 || evts[0]["_type"] != "dev.depot.interco.partner.created.v1" || evts[0]["id"] != rec.ID || evts[0]["version"] != float64(1) {
 		t.Fatalf("outbox = %v", evts)
 	}
 }
@@ -223,7 +223,7 @@ func TestUpdatePartner_VersionedPolicyChange(t *testing.T) {
 		t.Fatalf("missing: got %v", err)
 	}
 	evts := outbox(t, pool, ctx)
-	if len(evts) != 2 || evts[1]["_type"] != "dev.passage.interco.partner.updated.v1" || evts[1]["version"] != float64(2) {
+	if len(evts) != 2 || evts[1]["_type"] != "dev.depot.interco.partner.updated.v1" || evts[1]["version"] != float64(2) {
 		t.Fatalf("outbox = %v", evts)
 	}
 	changed, _ := evts[1]["changedFields"].([]any)

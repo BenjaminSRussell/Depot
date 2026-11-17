@@ -1,4 +1,4 @@
--- Field service, slice 3 (PSG-4503): installed-base service objects with their
+-- Field service, slice 3 (DPT-4503): installed-base service objects with their
 -- warranty terms (FR-45.1, FR-45.2), activities on any record (FR-45.14) and
 -- knowledge articles with versions and helpfulness votes (FR-45.13, BR-45.11).
 -- Every table is tenant-scoped under RLS; service_object carries legal_entity_id
@@ -41,11 +41,11 @@ CREATE INDEX IF NOT EXISTS service_object_parent ON service_object (tenant_id, p
 ALTER TABLE service_object ENABLE ROW LEVEL SECURITY;
 ALTER TABLE service_object FORCE ROW LEVEL SECURITY;
 CREATE POLICY service_object_tenant_access ON service_object AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY service_object_legal_entity_scope ON service_object AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 CREATE TABLE IF NOT EXISTS service_activity (
   tenant_id uuid NOT NULL,
@@ -78,8 +78,8 @@ CREATE INDEX IF NOT EXISTS service_activity_associations ON service_activity USI
 ALTER TABLE service_activity ENABLE ROW LEVEL SECURITY;
 ALTER TABLE service_activity FORCE ROW LEVEL SECURITY;
 CREATE POLICY service_activity_tenant_access ON service_activity AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- One row per article version; number (KB-{seq}) groups the versions of one article.
 CREATE TABLE IF NOT EXISTS service_kb_article (
@@ -123,8 +123,8 @@ CREATE INDEX IF NOT EXISTS service_kb_article_status ON service_kb_article (tena
 ALTER TABLE service_kb_article ENABLE ROW LEVEL SECURITY;
 ALTER TABLE service_kb_article FORCE ROW LEVEL SECURITY;
 CREATE POLICY service_kb_article_tenant_access ON service_kb_article AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- One helpfulness vote per user and article version (BR-45.11); voting again changes the vote.
 CREATE TABLE IF NOT EXISTS service_kb_vote (
@@ -140,8 +140,8 @@ CREATE TABLE IF NOT EXISTS service_kb_vote (
 ALTER TABLE service_kb_vote ENABLE ROW LEVEL SECURITY;
 ALTER TABLE service_kb_vote FORCE ROW LEVEL SECURITY;
 CREATE POLICY service_kb_vote_tenant_access ON service_kb_vote AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- Application role privileges, in the style of 0002. The store updates
 -- service_object (:install), service_activity (complete, cancel, reschedule) and
@@ -150,9 +150,9 @@ CREATE POLICY service_kb_vote_tenant_access ON service_kb_vote AS PERMISSIVE
 -- exist (developer databases without the role split).
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE format('GRANT USAGE ON SCHEMA %I TO passage_app', current_schema());
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON service_object, service_activity, service_kb_article, service_kb_vote TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE format('GRANT USAGE ON SCHEMA %I TO depot_app', current_schema());
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON service_object, service_activity, service_kb_article, service_kb_vote TO depot_app';
   END IF;
 END
 $$;

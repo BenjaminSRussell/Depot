@@ -2,8 +2,8 @@ package events
 
 // Journal name events (PRD 3.16.13): a journal name was created or changed.
 const (
-	JournalNameCreated = "dev.passage.inventory.journalname.created.v1"
-	JournalNameUpdated = "dev.passage.inventory.journalname.updated.v1"
+	JournalNameCreated = "dev.depot.inventory.journalname.created.v1"
+	JournalNameUpdated = "dev.depot.inventory.journalname.updated.v1"
 )
 
 // JournalNameData is the payload of both journal name events.

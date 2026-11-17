@@ -1,4 +1,4 @@
-# Quality web module (wave 33, PSG-33 slices 1 to 5)
+# Quality web module (wave 33, DPT-33 slices 1 to 5)
 
 Auto-discovered by the shell through `module.ts`. Pages use the shell primitives from
 `src/shell/ui` and `pages.module.css`; every list has loading, empty and error states.

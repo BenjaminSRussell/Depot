@@ -30,12 +30,12 @@ ALTER TABLE inventory_transaction_status_change ENABLE ROW LEVEL SECURITY;
 ALTER TABLE inventory_transaction_status_change FORCE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS inventory_transaction_status_change_tenant_access ON inventory_transaction_status_change;
 CREATE POLICY inventory_transaction_status_change_tenant_access ON inventory_transaction_status_change AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 DROP POLICY IF EXISTS inventory_transaction_status_change_legal_entity_scope ON inventory_transaction_status_change;
 CREATE POLICY inventory_transaction_status_change_legal_entity_scope ON inventory_transaction_status_change AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 -- The status-change audit is append-only, like the ledger it describes.
 CREATE OR REPLACE FUNCTION inventory_transaction_status_change_append_only() RETURNS trigger LANGUAGE plpgsql AS $$
@@ -48,11 +48,11 @@ CREATE TRIGGER inventory_transaction_status_change_append_only BEFORE UPDATE OR 
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT ON inventory_transaction_status_change TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT ON inventory_transaction_status_change TO depot_app';
     -- 0004 and 0005 created their tables without granting the application role,
     -- so transfer orders and ABC runs failed with permission denied under it.
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON transfer_order, transfer_order_line, abc_run, abc_classification TO passage_app';
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON transfer_order, transfer_order_line, abc_run, abc_classification TO depot_app';
   END IF;
 END
 $$;

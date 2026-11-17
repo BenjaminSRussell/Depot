@@ -8,13 +8,13 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/money"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/money"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
 
-	"github.com/BenjaminSRussell/passage/services/costing/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/costing/internal/store"
+	"github.com/BenjaminSRussell/depot/services/costing/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/costing/internal/store"
 )
 
 const (
@@ -155,7 +155,7 @@ type snapshotListResponse struct {
 
 // createAgingSnapshot ages every product x site line as of a date, the way the
 // aging preview ages one product, and stores the result as month-end evidence
-// with dev.passage.costing.agingsnapshot.created.v1. Buckets come from a saved
+// with dev.depot.costing.agingsnapshot.created.v1. Buckets come from a saved
 // bucket set, from explicit bounds, or default to 0-30, 31-90, 91-180,
 // 181-365 and > 365 days. With a valuation ledger the method and currency are
 // the ledger's. The lines carry the transactions: the CostTransaction

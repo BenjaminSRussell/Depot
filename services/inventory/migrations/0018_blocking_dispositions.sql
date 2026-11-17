@@ -3,7 +3,7 @@
 -- (information only); scrap_journal_id points at the posted ADJUSTMENT journal that wrote a
 -- scrapped blocking off; escalated_at records the QUARANTINE to BLOCKED transition. No new
 -- table, so no new grant (inventory_blocking is already granted SELECT, INSERT and UPDATE
--- to passage_app).
+-- to depot_app).
 ALTER TABLE inventory_blocking ADD COLUMN IF NOT EXISTS expected_release_date date;
 ALTER TABLE inventory_blocking ADD COLUMN IF NOT EXISTS scrap_journal_id uuid;
 ALTER TABLE inventory_blocking ADD COLUMN IF NOT EXISTS escalated_at timestamptz;

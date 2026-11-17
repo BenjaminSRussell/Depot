@@ -10,12 +10,12 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/shopfloor/internal/domain"
-	sfevents "github.com/BenjaminSRussell/passage/services/shopfloor/internal/events"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/shopfloor/internal/domain"
+	sfevents "github.com/BenjaminSRussell/depot/services/shopfloor/internal/events"
 )
 
 // Catalog codes for the andon conditions (see README).
@@ -41,7 +41,7 @@ type andonOpen struct {
 }
 
 // openAndon opens one alert per (resource, kind) (BR-25.10) and emits
-// dev.passage.shopfloor.andon.raised.v1 in the same transaction. While an alert of that kind is
+// dev.depot.shopfloor.andon.raised.v1 in the same transaction. While an alert of that kind is
 // open for the resource a second open is a no-op and returns 0.
 func openAndon(ctx context.Context, tx pgx.Tx, tenantID string, in andonOpen) (int, error) {
 	alertID := ids.New()

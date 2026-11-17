@@ -8,9 +8,9 @@ import (
 )
 
 const (
-	// TrustIdPMFAFlow is the realm flow that skips Passage's second factor when the identity provider already
+	// TrustIdPMFAFlow is the realm flow that skips Depot's second factor when the identity provider already
 	// proved a phishing-resistant one (#602 #603), instead of asking again.
-	TrustIdPMFAFlow = "passage-post-broker-trust-idp-mfa"
+	TrustIdPMFAFlow = "depot-post-broker-trust-idp-mfa"
 	// AttrIdPAMR and AttrIdPACR are the user attributes the IdP's amr and acr claims are copied into at every login.
 	AttrIdPAMR = "idp_amr"
 	AttrIdPACR = "idp_acr"
@@ -19,7 +19,7 @@ const (
 	// card (multi-factor certificate); "hwk" is a hardware-bound key. Passwordless-only "pwd" and "otp" alone do not match.
 	// Override it with the values the customer's Conditional Access policy produces.
 	DefaultAMRRegex = `(^|[ ,\[\]"])(mfa|hwk)($|[ ,\[\]"])`
-	trustFlowGate   = "passage-post-broker-trust-idp-mfa gate"
+	trustFlowGate   = "depot-post-broker-trust-idp-mfa gate"
 )
 
 // RealmOptions chooses realm settings that depend on the customer rather than the profile.
@@ -30,7 +30,7 @@ type RealmOptions struct {
 	AMRRegex string
 }
 
-// RealmPatch is what a profile changes in realm-passage.json: values to set at the top level, plus authentication flows and
+// RealmPatch is what a profile changes in realm-depot.json: values to set at the top level, plus authentication flows and
 // authenticator configs to add. ApplyRealmPatch merges it into a realm export.
 type RealmPatch struct {
 	Set                  map[string]any   `json:"set"`
@@ -74,7 +74,7 @@ func RenderRealmPatch(p *Profile, opts RealmOptions) (*RealmPatch, error) {
 	}
 	patch.IdentityProviderFlow = TrustIdPMFAFlow
 	patch.AuthenticatorConfig = []map[string]any{{
-		"alias": "passage-idp-mfa-not-proven",
+		"alias": "depot-idp-mfa-not-proven",
 		"config": map[string]string{
 			// True (so the second factor runs) when the user's idp_amr does NOT match: negate is on.
 			"attribute_name": AttrIdPAMR, "attribute_expected_value": expr, "regex": "true", "not": "true",
@@ -95,7 +95,7 @@ func RenderRealmPatch(p *Profile, opts RealmOptions) (*RealmPatch, error) {
 		{
 			"alias": trustFlowGate, "description": "Runs the second factor only when the IdP's amr claim does not show MFA", "providerId": "basic-flow", "topLevel": false, "builtIn": false,
 			"authenticationExecutions": []map[string]any{
-				exec("REQUIRED", 10, map[string]any{"autheticatorFlow": false, "authenticator": "conditional-user-attribute", "authenticatorConfig": "passage-idp-mfa-not-proven"}),
+				exec("REQUIRED", 10, map[string]any{"autheticatorFlow": false, "authenticator": "conditional-user-attribute", "authenticatorConfig": "depot-idp-mfa-not-proven"}),
 				exec("REQUIRED", 20, map[string]any{"autheticatorFlow": true, "flowAlias": PostBrokerFlow + " second factor"}),
 			},
 		},

@@ -17,14 +17,14 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
 
-	"github.com/BenjaminSRussell/passage/tools/migration-factory/internal/store"
-	"github.com/BenjaminSRussell/passage/tools/migration-factory/internal/target"
-	"github.com/BenjaminSRussell/passage/tools/migration-factory/internal/target/targettest"
-	"github.com/BenjaminSRussell/passage/tools/migration-factory/migrations"
+	"github.com/BenjaminSRussell/depot/tools/migration-factory/internal/store"
+	"github.com/BenjaminSRussell/depot/tools/migration-factory/internal/target"
+	"github.com/BenjaminSRussell/depot/tools/migration-factory/internal/target/targettest"
+	"github.com/BenjaminSRussell/depot/tools/migration-factory/migrations"
 )
 
 const (
@@ -168,7 +168,7 @@ func TestOpenItemsLoad_SendsInBatchesOfAThousandAndReconciles(t *testing.T) {
 	}
 	// The open-item id the target assigned is in legacy_xref, once.
 	id, _ := e.fake.Item("ax2012.usmf", "OI-00042")
-	if n := e.scalar(t, `select count(*) from legacy_xref where source_id = 'OI-00042' and passage_id = $1::uuid and target_confirmed`, id); n != 1 {
+	if n := e.scalar(t, `select count(*) from legacy_xref where source_id = 'OI-00042' and depot_id = $1::uuid and target_confirmed`, id); n != 1 {
 		t.Fatalf("legacy_xref does not hold the target id %s", id)
 	}
 	if n := e.scalar(t, `select count(*) from legacy_xref where target_confirmed`); n != 2500 {
@@ -178,11 +178,11 @@ func TestOpenItemsLoad_SendsInBatchesOfAThousandAndReconciles(t *testing.T) {
 	if x.Code != 200 || !strings.Contains(x.Body.String(), id) || !strings.Contains(x.Body.String(), `"targetConfirmed":true`) {
 		t.Fatalf("xref lookup %d %s", x.Code, x.Body)
 	}
-	if n := e.scalar(t, `select count(*) from outbox where type = 'dev.passage.migration.pack.loaded.v1' and aggregate_id = $1`, run.RunID); n != 1 {
+	if n := e.scalar(t, `select count(*) from outbox where type = 'dev.depot.migration.pack.loaded.v1' and aggregate_id = $1`, run.RunID); n != 1 {
 		t.Fatalf("pack.loaded events = %d", n)
 	}
 	var raw []byte
-	if err := e.admin.QueryRow(context.Background(), `select payload from outbox where type = 'dev.passage.migration.pack.loaded.v1'`).Scan(&raw); err != nil {
+	if err := e.admin.QueryRow(context.Background(), `select payload from outbox where type = 'dev.depot.migration.pack.loaded.v1'`).Scan(&raw); err != nil {
 		t.Fatal(err)
 	}
 	var ev struct {
@@ -339,7 +339,7 @@ func TestOpenItemsLoad_RecordsTargetRejectsAndOpenAPAsNotAvailable(t *testing.T)
 		t.Fatalf("second page %s", next.Body)
 	}
 
-	// A key settled in Passage: the next snapshot's change is refused with the target's code, and the pack is not clean.
+	// A key settled in Depot: the next snapshot's change is refused with the target's code, and the pack is not clean.
 	e.fake.Settled["ax2012.usmf|OK-1"] = true
 	run2 := e.start(t, loadBody([]string{loadRecord("OK-1", "90.00", "")}, ""))
 	got = e.load(t, run2.RunID)
@@ -373,7 +373,7 @@ func TestOpenItemsLoad_ReconciliationMismatchFlagsThePack(t *testing.T) {
 		t.Fatalf("mismatches %+v", mismatch)
 	}
 	var raw []byte
-	if err := e.admin.QueryRow(context.Background(), `select payload from outbox where type = 'dev.passage.migration.pack.loaded.v1'`).Scan(&raw); err != nil {
+	if err := e.admin.QueryRow(context.Background(), `select payload from outbox where type = 'dev.depot.migration.pack.loaded.v1'`).Scan(&raw); err != nil {
 		t.Fatal(err)
 	}
 	var ev struct {
@@ -537,7 +537,7 @@ func TestLegacyXref_OnlyTheTargetIdConfirmationMayUpdateARow(t *testing.T) {
 		}
 	}
 	e.load(t, run.RunID)
-	if _, err := e.admin.Exec(ctx, `update legacy_xref set passage_id = gen_random_uuid() where source_id = 'OI-00000'`); err == nil {
+	if _, err := e.admin.Exec(ctx, `update legacy_xref set depot_id = gen_random_uuid() where source_id = 'OI-00000'`); err == nil {
 		t.Error("the target id may be confirmed once, not changed again")
 	}
 }
@@ -592,7 +592,7 @@ func TestOpenItemsLoad_CrashAfterTheTargetStoredTheBatchIsRecoveredByTheNextLoad
 		t.Fatal("the resend duplicated items")
 	}
 	id, _ := e.fake.Item("ax2012.usmf", "OI-00003")
-	if n := e.scalar(t, `select count(*) from legacy_xref where source_id = 'OI-00003' and passage_id = $1::uuid and target_confirmed`, id); n != 1 {
+	if n := e.scalar(t, `select count(*) from legacy_xref where source_id = 'OI-00003' and depot_id = $1::uuid and target_confirmed`, id); n != 1 {
 		t.Fatal("legacy_xref does not hold the id the target assigned before the crash")
 	}
 }
@@ -691,7 +691,7 @@ func TestOpenItemsLoad_TotalsBeyondOnePageAreUnreconciled(t *testing.T) {
 
 func TestOpenItemsLoad_StagedRowsAreHeldToTheLegalEntity(t *testing.T) {
 	if os.Getenv(testkit.EnvAppURL) == "" {
-		t.Skip("row-level security needs the passage_app role (" + testkit.EnvAppURL + ")")
+		t.Skip("row-level security needs the depot_app role (" + testkit.EnvAppURL + ")")
 	}
 	e := newLoadEnv(t, 3, nil)
 	run := e.start(t, loadBody(nRecords(3), ""))

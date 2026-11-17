@@ -13,7 +13,7 @@ const totalColumns: DataTableColumn<ControlTotal>[] = [
   { key: "category", header: "Category", render: (row) => row.key.category },
   { key: "name", header: "Measure", mono: true, render: (row) => row.name.replace("project_wip.", "") },
   { key: "source", header: "Legacy", align: "end", mono: true, render: (row) => money(row.source) },
-  { key: "target", header: "Passage", align: "end", mono: true, render: (row) => money(row.target) },
+  { key: "target", header: "Depot", align: "end", mono: true, render: (row) => money(row.target) },
   { key: "delta", header: "Delta", align: "end", mono: true, render: (row) => money(row.delta) },
   { key: "status", header: "Status", render: (row) => <StatusPill status={row.status} /> },
 ];

@@ -10,11 +10,11 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/fieldservice/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/fieldservice/internal/domain"
 )
 
 // worker registers a technician linked to a worker id, the user id its device signs in as.
@@ -90,7 +90,7 @@ func outcomes(r SyncResult) []string {
 	return out
 }
 
-// BR-45.6, AC-45.7 against Postgres as passage_app: a technician offline for hours syncs
+// BR-45.6, AC-45.7 against Postgres as depot_app: a technician offline for hours syncs
 // start, part and complete actions out of order; the server orders them by device time,
 // the state equals the device's, each part action counts once, a replayed batch changes
 // nothing, and exactly one completed event carries the lines and the working minutes.
@@ -125,13 +125,13 @@ func TestStore_OfflineActionsMergeToDeviceState(t *testing.T) {
 	if err != nil || again.Duplicates != 7 || again.Applied != 0 || again.WorkOrder.Version != res.WorkOrder.Version {
 		t.Fatalf("replay %+v %v", again, err)
 	}
-	if n := outboxCount(t, fixture{ctx: d.ctx, s: d.s}, "dev.passage.service.workorder.completed.v1"); n != 1 {
+	if n := outboxCount(t, fixture{ctx: d.ctx, s: d.s}, "dev.depot.service.workorder.completed.v1"); n != 1 {
 		t.Fatalf("completed events: %d, want 1", n)
 	}
 	var minutes int
 	var consumed string
 	if err := dbx.WithTenantTx(d.ctx, d.s.pool, func(tx pgx.Tx) error {
-		return tx.QueryRow(d.ctx, `select (payload->'data'->>'durationMinutes')::int, payload->'data'->'lines'->0->>'consumedQty' from outbox where type = 'dev.passage.service.workorder.completed.v1'`).Scan(&minutes, &consumed)
+		return tx.QueryRow(d.ctx, `select (payload->'data'->>'durationMinutes')::int, payload->'data'->'lines'->0->>'consumedQty' from outbox where type = 'dev.depot.service.workorder.completed.v1'`).Scan(&minutes, &consumed)
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -260,7 +260,7 @@ func TestStore_TransitionBypassClosed(t *testing.T) {
 	if err != nil || done.Status != "COMPLETED" || done.CompletedAt == nil {
 		t.Fatalf("exempt completion %+v %v", done, err)
 	}
-	if n := outboxCount(t, fixture{ctx: d.ctx, s: d.s}, "dev.passage.service.workorder.completed.v1"); n != 1 {
+	if n := outboxCount(t, fixture{ctx: d.ctx, s: d.s}, "dev.depot.service.workorder.completed.v1"); n != 1 {
 		t.Fatalf("completed events: %d, want 1", n)
 	}
 }
@@ -337,7 +337,7 @@ func TestStore_DeviceClockAndRetries(t *testing.T) {
 	if err != nil || late.Results[0].Outcome != domain.OutcomeSuperseded || late.Results[1].Code != domain.CodeActionStatus {
 		t.Fatalf("late actions %+v %v", late, err)
 	}
-	if n := outboxCount(t, fixture{ctx: d.ctx, s: d.s}, "dev.passage.service.workorder.completed.v1"); n != 1 {
+	if n := outboxCount(t, fixture{ctx: d.ctx, s: d.s}, "dev.depot.service.workorder.completed.v1"); n != 1 {
 		t.Fatalf("completed events: %d, want 1", n)
 	}
 }
@@ -371,7 +371,7 @@ func TestStore_ConcurrentCompletionsWriteOneEvent(t *testing.T) {
 	if total != 1 {
 		t.Fatalf("%d batches completed the order, want 1", total)
 	}
-	if got := outboxCount(t, fixture{ctx: d.ctx, s: d.s}, "dev.passage.service.workorder.completed.v1"); got != 1 {
+	if got := outboxCount(t, fixture{ctx: d.ctx, s: d.s}, "dev.depot.service.workorder.completed.v1"); got != 1 {
 		t.Fatalf("completed events: %d, want 1", got)
 	}
 }

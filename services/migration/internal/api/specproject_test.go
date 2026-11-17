@@ -7,9 +7,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/migration/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/migration/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/store"
 )
 
 const keyedSpecMapping = `{"entity":"customer","version":1,"naturalKey":["name"],"fields":[{"source":"Name","target":"name","type":"string"},{"source":"Group","target":"segment","type":"string","enum":{"10":"retail"}}],"tests":[{"name":"retail","input":{"Name":"Acme","Group":"10"},"expect":{"name":"Acme","segment":"retail"}}]}`

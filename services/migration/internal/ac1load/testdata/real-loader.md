@@ -5,7 +5,7 @@ The AC1 volumes loaded by `target.Loader` over HTTP into running party, product 
 **Result: PASS**
 
 - Commit 5d9e2c74bb617702a1d18612271b3c1d4b90266d-dirty, host vm, started 2026-11-04T21:50:04Z
-- Postgres 16.15 (Ubuntu 16.15-0ubuntu0.24.04.1), services built from this tree on 4 CPUs, one process each, serving as passage_app (RLS on); party numbers from the numbering service; engineering with PASSAGE_ENV=dev (no audit sink, unused by BOM imports); PASSAGE_SERVICE_REPLAY_CACHE_SIZE=2000000
+- Postgres 16.15 (Ubuntu 16.15-0ubuntu0.24.04.1), services built from this tree on 4 CPUs, one process each, serving as depot_app (RLS on); party numbers from the numbering service; engineering with DEPOT_ENV=dev (no audit sink, unused by BOM imports); DEPOT_SERVICE_REPLAY_CACHE_SIZE=2000000
 - Cross-reference: postgres migration.xref; loader concurrency 8
 - Volumes: 50000 customers, 20000 vendors, 100000 items, 10000 BOMs (70000 parties under the roles)
 - First loads with read-back reconciliation: 7m46.903s; whole run with the re-runs: 9m24.903s (budget 30m0s)

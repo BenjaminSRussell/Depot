@@ -19,10 +19,10 @@ absent — the source document does not address this
 absent — the source document does not address this (`manufacturing-shopfloor-bff` consumer lives in manufacturing and pushes to kiosks).
 
 ## Dependencies
-internal: platform (devices), manufacturing, warehouse, projects, edge-identity. external: Keycloak (per-device client `passage-kiosk-<deviceId>`, `passage-device`), OPA.
+internal: platform (devices), manufacturing, warehouse, projects, edge-identity. external: Keycloak (per-device client `depot-kiosk-<deviceId>`, `depot-device`), OPA.
 
 ## Gotchas & Constraints
-- Kiosk identity: supervisor with duty `EnrollDevices` enrolls; per-device Keycloak client; device cookie `__Host-passage_device` (SameSite=Strict, 90-day rotation); worker identity via RFC 8693 token exchange (device client -> worker subject), scoped to `ReportProduction` + time-registration duties; actor = `user:<sub>`. 5 failed PINs lock badge 5 min with audit entry.
+- Kiosk identity: supervisor with duty `EnrollDevices` enrolls; per-device Keycloak client; device cookie `__Host-depot_device` (SameSite=Strict, 90-day rotation); worker identity via RFC 8693 token exchange (device client -> worker subject), scoped to `ReportProduction` + time-registration duties; actor = `user:<sub>`. 5 failed PINs lock badge 5 min with audit entry.
 - Offline sign-in with cached Argon2id verifiers only for offline-safe duties (time/operation feedback), 5 attempts, TTL 24 h; security sign-off pending (Q13 blocks wave 25).
 - Queue entries replay only under session whose `sub` == `actorSub`; others locked. Conflict outcomes (412 `conflict_version`, `state_transition_invalid`, `inventory_insufficient`, `period_closed`) -> conflict inbox, never auto-discarded; 429 honors Retry-After; 5xx backoff 1-60 s; 401 pauses.
 - Never store P3 on device; clock skew > 5 min warning.

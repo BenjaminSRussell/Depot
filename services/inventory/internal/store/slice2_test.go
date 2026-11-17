@@ -12,11 +12,11 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/inventory/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/inventory/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/inventory/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/inventory/internal/store"
 )
 
 func legalEntity(ctx context.Context) string {
@@ -92,7 +92,7 @@ func TestManualReservationHoldsStockUntilReleased(t *testing.T) {
 	if _, err := s.PostJournal(ctx, issue.ID, issue.Version, postParams()); err != nil {
 		t.Fatalf("issue after release: %v", err)
 	}
-	if c, r := outboxCount(t, admin, "dev.passage.inventory.reservation.created.v1"), outboxCount(t, admin, "dev.passage.inventory.reservation.released.v1"); c != 1 || r != 1 {
+	if c, r := outboxCount(t, admin, "dev.depot.inventory.reservation.created.v1"), outboxCount(t, admin, "dev.depot.inventory.reservation.released.v1"); c != 1 || r != 1 {
 		t.Fatalf("reservation events created=%d released=%d, want 1 and 1", c, r)
 	}
 	if _, err := s.ReleaseReservation(ctx, ids.New()); problemCode(err) != domain.CodeReservationNotFound {
@@ -295,7 +295,7 @@ func TestBlockingMovesStockOutOfAvailability(t *testing.T) {
 	if none, err := s.ListTransactions(ctx, store.TransactionFilter{ProductID: product, Q: "no-such-reference", Limit: 10}); err != nil || len(none) != 0 {
 		t.Fatalf("reference search for nothing: %v %d", err, len(none))
 	}
-	if c, r := outboxCount(t, admin, "dev.passage.inventory.blocking.created.v1"), outboxCount(t, admin, "dev.passage.inventory.blocking.released.v1"); c != 1 || r != 1 {
+	if c, r := outboxCount(t, admin, "dev.depot.inventory.blocking.created.v1"), outboxCount(t, admin, "dev.depot.inventory.blocking.released.v1"); c != 1 || r != 1 {
 		t.Fatalf("blocking events created=%d released=%d", c, r)
 	}
 	list, err := s.ListBlockings(ctx, store.BlockingFilter{State: domain.BlockingReleased})
@@ -395,7 +395,7 @@ func TestCountSheetPostsVarianceWithApproval(t *testing.T) {
 	if _, err := s.EnterCount(ctx, sheet.ID, mine.ID, posted.Version, dec("1")); problemCode(err) != domain.CodeCountSheetState {
 		t.Fatalf("count on a posted sheet: %v", err)
 	}
-	if n := outboxCount(t, admin, "dev.passage.inventory.journal.posted.v1"); n != 3 {
+	if n := outboxCount(t, admin, "dev.depot.inventory.journal.posted.v1"); n != 3 {
 		t.Fatalf("journal.posted events %d, want 3 (two opening balances and the COUNT journal)", n)
 	}
 }

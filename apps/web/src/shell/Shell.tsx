@@ -1,6 +1,6 @@
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
-import type { PassageModule } from "../modules/registry";
+import type { DepotModule } from "../modules/registry";
 import { CommandPalette, type PaletteEntry } from "./CommandPalette";
 import { copy } from "./copy";
 import { holdsDuty, requiredDuty, visibleModules } from "./dutyGate";
@@ -47,7 +47,7 @@ function RecentTracker({ entries }: { entries: ReadonlyMap<string, { label: stri
 }
 
 export interface ShellProps {
-  modules: PassageModule[];
+  modules: DepotModule[];
   duties?: readonly string[];
   identity?: string;
   workspaceConfig?: WorkspaceConfig;
@@ -157,7 +157,7 @@ export function Shell({ modules: allModules, duties, identity, workspaceConfig, 
   const announceQuietly = useCallback((message: string) => announce(message), [announce]);
 
   useEffect(() => {
-    ux.configure({ duties: principalDuties, identity: userId, release: import.meta.env.VITE_PASSAGE_RELEASE });
+    ux.configure({ duties: principalDuties, identity: userId, release: import.meta.env.VITE_DEPOT_RELEASE });
   }, [principalDuties, userId]);
   useEffect(() => {
     const stop = observeFetch();
@@ -217,7 +217,7 @@ export function Shell({ modules: allModules, duties, identity, workspaceConfig, 
   }, [openPalette, closePalette, announce]);
 
   useEffect(() => {
-    document.title = `${page.title} · Passage`;
+    document.title = `${page.title} · Depot`;
   }, [page.title]);
 
   useEffect(() => {

@@ -1,6 +1,6 @@
 package events
 
-import "github.com/BenjaminSRussell/passage/platform/events"
+import "github.com/BenjaminSRussell/depot/platform/events"
 
 // Context is the bounded context name used in event types (PRD §2.15.5).
 const Context = "reporting"

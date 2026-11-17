@@ -10,11 +10,11 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/fieldservice/internal/domain"
-	svcevents "github.com/BenjaminSRussell/passage/services/fieldservice/internal/events"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/fieldservice/internal/domain"
+	svcevents "github.com/BenjaminSRussell/depot/services/fieldservice/internal/events"
 )
 
 func problemStatus(err error) int {
@@ -52,7 +52,7 @@ func warrantyOrder(t *testing.T, f fixture, serial string) (WorkOrder, ServiceOb
 	return posted, obj
 }
 
-// AC-45.13 against Postgres as passage_app: a claim from the posted WARRANTY lines
+// AC-45.13 against Postgres as depot_app: a claim from the posted WARRANTY lines
 // claims 180.00 + 1.5 × 60.00 = 270.00; the vendor accepts 250.00; the matched credit
 // note settles the claim with recovered 250.00 and writes the settled event for the
 // GL warranty recovery. Each step checks its BR-45.12 refusals and replays.
@@ -216,7 +216,7 @@ func TestStore_SupplierClaimSourcesWindowAndRejection(t *testing.T) {
 	}
 }
 
-// AC-45.14 and BR-45.13 against Postgres as passage_app: an email to the mailbox
+// AC-45.14 and BR-45.13 against Postgres as depot_app: an email to the mailbox
 // without a token opens a case in the default category with one acknowledgment;
 // "Re: [CS-n] pump noise" is logged on the open case without a new case or an
 // acknowledgment; a reply by In-Reply-To attaches as well; a redelivery creates

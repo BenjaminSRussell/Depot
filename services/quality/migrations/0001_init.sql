@@ -10,8 +10,8 @@ CREATE TABLE IF NOT EXISTS outbox (
 ALTER TABLE outbox ENABLE ROW LEVEL SECURITY;
 ALTER TABLE outbox FORCE ROW LEVEL SECURITY;
 CREATE POLICY outbox_tenant_access ON outbox AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 CREATE TABLE IF NOT EXISTS quality_instrument (
   tenant_id uuid NOT NULL,
@@ -30,8 +30,8 @@ CREATE TABLE IF NOT EXISTS quality_instrument (
 ALTER TABLE quality_instrument ENABLE ROW LEVEL SECURITY;
 ALTER TABLE quality_instrument FORCE ROW LEVEL SECURITY;
 CREATE POLICY quality_instrument_tenant_access ON quality_instrument AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- Test group versions are immutable rows; a new version is inserted (FR-33.1).
 CREATE TABLE IF NOT EXISTS quality_test_group (
@@ -49,8 +49,8 @@ CREATE TABLE IF NOT EXISTS quality_test_group (
 ALTER TABLE quality_test_group ENABLE ROW LEVEL SECURITY;
 ALTER TABLE quality_test_group FORCE ROW LEVEL SECURITY;
 CREATE POLICY quality_test_group_tenant_access ON quality_test_group AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 CREATE TABLE IF NOT EXISTS quality_association (
   tenant_id uuid NOT NULL,
@@ -79,8 +79,8 @@ CREATE TABLE IF NOT EXISTS quality_association (
 ALTER TABLE quality_association ENABLE ROW LEVEL SECURITY;
 ALTER TABLE quality_association FORCE ROW LEVEL SECURITY;
 CREATE POLICY quality_association_tenant_access ON quality_association AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 CREATE TABLE IF NOT EXISTS quality_order (
   tenant_id uuid NOT NULL,
@@ -119,8 +119,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS quality_order_source_line ON quality_order
 ALTER TABLE quality_order ENABLE ROW LEVEL SECURITY;
 ALTER TABLE quality_order FORCE ROW LEVEL SECURITY;
 CREATE POLICY quality_order_tenant_access ON quality_order AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 CREATE TABLE IF NOT EXISTS quality_result (
   tenant_id uuid NOT NULL,
@@ -144,8 +144,8 @@ CREATE INDEX IF NOT EXISTS quality_result_batch ON quality_result (tenant_id, qu
 ALTER TABLE quality_result ENABLE ROW LEVEL SECURITY;
 ALTER TABLE quality_result FORCE ROW LEVEL SECURITY;
 CREATE POLICY quality_result_tenant_access ON quality_result AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- One usage decision per order: CLOSED is final (BR-33.4).
 CREATE TABLE IF NOT EXISTS quality_usage_decision (
@@ -167,5 +167,5 @@ CREATE TABLE IF NOT EXISTS quality_usage_decision (
 ALTER TABLE quality_usage_decision ENABLE ROW LEVEL SECURITY;
 ALTER TABLE quality_usage_decision FORCE ROW LEVEL SECURITY;
 CREATE POLICY quality_usage_decision_tenant_access ON quality_usage_decision AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);

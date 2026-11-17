@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/services/transport/internal/api"
-	"github.com/BenjaminSRussell/passage/services/transport/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/transport/internal/store"
+	"github.com/BenjaminSRussell/depot/services/transport/internal/api"
+	"github.com/BenjaminSRussell/depot/services/transport/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/transport/internal/store"
 )
 
 const trackBody = `{"loadId":"` + loadID + `","stopNo":2,"code":"d1","occurredAt":"2026-06-01T11:00:00.1234567-04:00","location":" Dallas TX ","source":"EDI214","ref":"ISA-000123"}`

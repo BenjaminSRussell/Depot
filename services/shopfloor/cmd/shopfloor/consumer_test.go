@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/services/shopfloor/internal/api"
+	"github.com/BenjaminSRussell/depot/services/shopfloor/internal/api"
 )
 
 // The consumer runs only as its own principal with the sync duty, never as another consumer's.

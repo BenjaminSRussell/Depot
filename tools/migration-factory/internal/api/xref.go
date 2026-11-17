@@ -5,28 +5,28 @@ import (
 	"strings"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
 
-	"github.com/BenjaminSRussell/passage/tools/migration-factory/internal/domain"
-	"github.com/BenjaminSRussell/passage/tools/migration-factory/internal/store"
+	"github.com/BenjaminSRussell/depot/tools/migration-factory/internal/domain"
+	"github.com/BenjaminSRussell/depot/tools/migration-factory/internal/store"
 )
 
 type xrefDTO struct {
-	XrefID        string    `json:"xrefId"`
-	System        string    `json:"system"`
-	Company       string    `json:"company"`
-	Table         string    `json:"table"`
-	LegacyID      string    `json:"legacyId"`
-	PassageEntity string    `json:"passageEntity"`
-	PassageID     string    `json:"passageId"`
-	RunID         string    `json:"runId"`
-	CreatedAt     time.Time `json:"createdAt"`
-	// TargetConfirmed is true once passageId is the id the target service assigned (the factory's own before that).
+	XrefID      string    `json:"xrefId"`
+	System      string    `json:"system"`
+	Company     string    `json:"company"`
+	Table       string    `json:"table"`
+	LegacyID    string    `json:"legacyId"`
+	DepotEntity string    `json:"depotEntity"`
+	DepotID     string    `json:"depotId"`
+	RunID       string    `json:"runId"`
+	CreatedAt   time.Time `json:"createdAt"`
+	// TargetConfirmed is true once depotId is the id the target service assigned (the factory's own before that).
 	TargetConfirmed bool `json:"targetConfirmed"`
 }
 
-// lookupXref resolves a legacy id to the Passage record it became, or a Passage record to its
+// lookupXref resolves a legacy id to the Depot record it became, or a Depot record to its
 // legacy references (FR-49.3, 9.49.5). The tenant comes from the principal, never the query.
 // An empty result is a 200 with no items, so a record page can show "no legacy reference".
 func (s *Server) lookupXref(w http.ResponseWriter, r *http.Request) {
@@ -37,17 +37,17 @@ func (s *Server) lookupXref(w http.ResponseWriter, r *http.Request) {
 	q := store.XrefQuery{
 		System: strings.TrimSpace(v.Get("system")), Company: strings.TrimSpace(v.Get("company")),
 		Table: strings.TrimSpace(v.Get("table")), SourceID: strings.TrimSpace(v.Get("id")),
-		PassageEntity: strings.TrimSpace(v.Get("passageEntity")), PassageID: strings.TrimSpace(v.Get("passageId")),
+		DepotEntity: strings.TrimSpace(v.Get("depotEntity")), DepotID: strings.TrimSpace(v.Get("depotId")),
 	}
-	byPassage := q.PassageEntity != "" || q.PassageID != ""
+	byDepot := q.DepotEntity != "" || q.DepotID != ""
 	byLegacy := q.System != "" || q.Table != "" || q.SourceID != "" || q.Company != ""
 	switch {
-	case byPassage && byLegacy:
-		fail(w, r, invalid("look up either by system, table and id, or by passageEntity and passageId"))
+	case byDepot && byLegacy:
+		fail(w, r, invalid("look up either by system, table and id, or by depotEntity and depotId"))
 		return
-	case byPassage:
-		if q.PassageEntity == "" || !ids.Valid(q.PassageID) {
-			fail(w, r, invalid("passageEntity is required and passageId must be a UUID"))
+	case byDepot:
+		if q.DepotEntity == "" || !ids.Valid(q.DepotID) {
+			fail(w, r, invalid("depotEntity is required and depotId must be a UUID"))
 			return
 		}
 	default:
@@ -68,7 +68,7 @@ func (s *Server) lookupXref(w http.ResponseWriter, r *http.Request) {
 	items := make([]xrefDTO, 0, len(rows))
 	for _, x := range rows {
 		items = append(items, xrefDTO{XrefID: x.XrefID, System: string(x.SourceSystem), Company: x.SourceCompany, Table: x.SourceTable,
-			LegacyID: x.SourceID, PassageEntity: x.PassageEntity, PassageID: x.PassageID, RunID: x.RunID, CreatedAt: x.CreatedAt, TargetConfirmed: x.TargetConfirmed})
+			LegacyID: x.SourceID, DepotEntity: x.DepotEntity, DepotID: x.DepotID, RunID: x.RunID, CreatedAt: x.CreatedAt, TargetConfirmed: x.TargetConfirmed})
 	}
 	httpx.JSON(w, http.StatusOK, map[string]any{"items": items})
 }

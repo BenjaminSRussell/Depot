@@ -2,7 +2,7 @@ import { WorkflowExecutionAlreadyStartedError, WorkflowIdReusePolicy } from "@te
 import type { Client } from "@temporalio/client";
 import { budgetPlanWorkflow, budgetPlanWorkflowId, validateBudgetPlanInput, type BudgetPlanInput } from "./budgetPlanWorkflow.js";
 
-export const planSubmittedType = "dev.passage.budget.plan.submitted.v1";
+export const planSubmittedType = "dev.depot.budget.plan.submitted.v1";
 /** The only producer of plan.submitted: budgeting's outbox. An event from any other source starts nothing. */
 export const planSubmittedSource = "budgeting";
 

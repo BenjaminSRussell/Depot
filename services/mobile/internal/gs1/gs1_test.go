@@ -19,10 +19,10 @@ type vector struct {
 }
 
 type suite struct {
-	ReferenceDate string                            `json:"referenceDate"`
-	Prefixes      []string                          `json:"symbologyPrefixes"`
-	Counts        struct{ GS1, Passage, Total int } `json:"counts"`
-	Vectors       []vector                          `json:"vectors"`
+	ReferenceDate string                          `json:"referenceDate"`
+	Prefixes      []string                        `json:"symbologyPrefixes"`
+	Counts        struct{ GS1, Depot, Total int } `json:"counts"`
+	Vectors       []vector                        `json:"vectors"`
 }
 
 func loadSuite(t *testing.T) suite {
@@ -40,7 +40,7 @@ func loadSuite(t *testing.T) suite {
 
 func TestAC321VectorsMatchWithEverySymbologyPrefix(t *testing.T) {
 	s := loadSuite(t)
-	if len(s.Vectors) != s.Counts.Total || s.Counts.Passage != 60 {
+	if len(s.Vectors) != s.Counts.Total || s.Counts.Depot != 60 {
 		t.Fatalf("fixture holds %d vectors, counts say %+v", len(s.Vectors), s.Counts)
 	}
 	now, err := time.Parse("2006-01-02", s.ReferenceDate)

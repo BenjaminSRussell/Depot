@@ -8,7 +8,7 @@ package api
 // with every monthly depreciation run, and monthly payroll. The pack extracts are the legacy state
 // at the 2026 cutoff, in AX 2012 or SAP ECC shape (keys, codes and units), and every expected
 // control total is summed here from that state in integer minor units, by code that never calls the
-// engine. PASSAGE_SYNTH_SCALE=full runs the PRD fixture size (fx-ax-synth-year, fx-sap-synth-year);
+// engine. DEPOT_SYNTH_SCALE=full runs the PRD fixture size (fx-ax-synth-year, fx-sap-synth-year);
 // the default is a 1/50 year with the same shape.
 
 import (
@@ -45,11 +45,11 @@ type synthYear struct {
 
 func synthPackPath(pack string) string { return "/api/v1/migration/packs/" + pack + "/runs" }
 
-// synthScaleFromEnv reads PASSAGE_SYNTH_SCALE: "full" is the PRD fixture size, a number in (0, 1] a
+// synthScaleFromEnv reads DEPOT_SYNTH_SCALE: "full" is the PRD fixture size, a number in (0, 1] a
 // fraction of it; the default is 0.02.
 func synthScaleFromEnv(t *testing.T) float64 {
 	t.Helper()
-	switch v := strings.TrimSpace(os.Getenv("PASSAGE_SYNTH_SCALE")); v {
+	switch v := strings.TrimSpace(os.Getenv("DEPOT_SYNTH_SCALE")); v {
 	case "":
 		return 0.02
 	case "full":
@@ -57,7 +57,7 @@ func synthScaleFromEnv(t *testing.T) float64 {
 	default:
 		f, err := strconv.ParseFloat(v, 64)
 		if err != nil || f <= 0 || f > 1 {
-			t.Fatalf("PASSAGE_SYNTH_SCALE=%q: want full or a fraction in (0, 1]", v)
+			t.Fatalf("DEPOT_SYNTH_SCALE=%q: want full or a fraction in (0, 1]", v)
 		}
 		return f
 	}

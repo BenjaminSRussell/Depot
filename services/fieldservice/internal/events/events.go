@@ -3,8 +3,8 @@
 package events
 
 import (
-	"github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/services/fieldservice/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/services/fieldservice/internal/domain"
 )
 
 // Context is the bounded-context segment of every event type.
@@ -14,31 +14,31 @@ const Context = "service"
 var (
 	CaseOpened      = events.Type(Context, "case", "opened", 1)
 	WorkOrderPosted = events.Type(Context, "workorder", "posted", 1)
-	// WorkOrderCompleted is dev.passage.service.workorder.completed.v1 (PRD 8.45.5): the
+	// WorkOrderCompleted is dev.depot.service.workorder.completed.v1 (PRD 8.45.5): the
 	// work order reached COMPLETED, by the technician's complete action or by hand.
 	WorkOrderCompleted = events.Type(Context, "workorder", "completed", 1)
 	SLAWarning         = events.Type(Context, "sla", "warning", 1)
 	SLABreached        = events.Type(Context, "sla", "breached", 1)
 
-	// AgreementChanged is dev.passage.service.agreement.changed.v1: an agreement
+	// AgreementChanged is dev.depot.service.agreement.changed.v1: an agreement
 	// moved between DRAFT, ACTIVE, SUSPENDED, CANCELED and EXPIRED (FR-45.3).
 	AgreementChanged = events.Type(Context, "agreement", "changed", 1)
-	// AgreementVisitRecorded is dev.passage.service.agreementvisit.recorded.v1: an
+	// AgreementVisitRecorded is dev.depot.service.agreementvisit.recorded.v1: an
 	// included visit of an agreement line was consumed (FR-45.3).
 	AgreementVisitRecorded = events.Type(Context, "agreementvisit", "recorded", 1)
 
-	// AssignmentChanged is dev.passage.service.assignment.changed.v1: a work order was
+	// AssignmentChanged is dev.depot.service.assignment.changed.v1: a work order was
 	// given to a technician at a time, or taken off the schedule (FR-45.7).
 	AssignmentChanged = events.Type(Context, "assignment", "changed", 1)
-	// DispatchPublished is dev.passage.service.dispatch.published.v1 (PRD 8.45.5): the
+	// DispatchPublished is dev.depot.service.dispatch.published.v1 (PRD 8.45.5): the
 	// SCHEDULED work orders of a territory-day were dispatched to their technicians.
 	DispatchPublished = events.Type(Context, "dispatch", "published", 1)
 
-	// ArticlePublished is dev.passage.knowledge.article.published.v1 (PRD 8.45.5):
+	// ArticlePublished is dev.depot.knowledge.article.published.v1 (PRD 8.45.5):
 	// the knowledge base is its own context in the event catalog.
 	ArticlePublished = events.Type(KnowledgeContext, "article", "published", 1)
 
-	// CaseStageChanged is dev.passage.case.stage.changed.v1 (PRD 8.45.5): stage
+	// CaseStageChanged is dev.depot.case.stage.changed.v1 (PRD 8.45.5): stage
 	// moves of cases in any category belong to the case context of the catalog.
 	CaseStageChanged = events.Type(CaseContext, "stage", "changed", 1)
 )
@@ -46,7 +46,7 @@ var (
 // CaseContext is the bounded-context segment of the generic case events (FR-45.12).
 const CaseContext = "case"
 
-// CaseStageChangedData is the payload of dev.passage.case.stage.changed.v1 (PRD
+// CaseStageChangedData is the payload of dev.depot.case.stage.changed.v1 (PRD
 // 8.45.5: caseId, categoryId, from, to, at, actor). Reason is empty on a forward move.
 type CaseStageChangedData struct {
 	CaseID     string `json:"caseId"`
@@ -62,7 +62,7 @@ type CaseStageChangedData struct {
 // KnowledgeContext is the bounded-context segment of the knowledge-base events.
 const KnowledgeContext = "knowledge"
 
-// ArticlePublishedData is the payload of dev.passage.knowledge.article.published.v1
+// ArticlePublishedData is the payload of dev.depot.knowledge.article.published.v1
 // (PRD 8.45.5: articleId, version, language, applicability). RetiredArticleID is
 // the version this publish retired, if any, so the search index can drop it.
 type ArticlePublishedData struct {
@@ -76,7 +76,7 @@ type ArticlePublishedData struct {
 	RetiredArticleID *string              `json:"retiredArticleId"`
 }
 
-// SLAWarningData is the payload of dev.passage.service.sla.warning.v1: a case
+// SLAWarningData is the payload of dev.depot.service.sla.warning.v1: a case
 // clock reached the warning threshold (BR-45.2, message SVC-SLA-001). SLAType is
 // RESPONSE or RESOLUTION; times are RFC 3339 UTC.
 type SLAWarningData struct {
@@ -89,7 +89,7 @@ type SLAWarningData struct {
 	ThresholdPercent int    `json:"thresholdPercent"`
 }
 
-// SLABreachedData is the payload of dev.passage.service.sla.breached.v1 (PRD
+// SLABreachedData is the payload of dev.depot.service.sla.breached.v1 (PRD
 // 8.0: caseId, slaType, dueAt, breachedAt; message SVC-SLA-002). BreachedAt is
 // when the service detected the breach: the monitor pass, the late response or
 // the transition that found the clock past due.
@@ -102,7 +102,7 @@ type SLABreachedData struct {
 	BreachedAt string `json:"breachedAt"`
 }
 
-// CaseOpenedData is the payload of dev.passage.service.case.opened.v1.
+// CaseOpenedData is the payload of dev.depot.service.case.opened.v1.
 type CaseOpenedData struct {
 	CaseID          string  `json:"caseId"`
 	Number          string  `json:"number"`
@@ -113,7 +113,7 @@ type CaseOpenedData struct {
 	ResolutionDue   string  `json:"resolutionDue"`
 }
 
-// WorkOrderPostedData is the payload of dev.passage.service.workorder.posted.v1.
+// WorkOrderPostedData is the payload of dev.depot.service.workorder.posted.v1.
 // It carries what wave-29 invoicing needs to bill the BILLABLE lines (customer,
 // legal entity, lines) and what the GL needs for warranty cost. Amounts are
 // decimal strings in Currency; they are never floats.
@@ -142,7 +142,7 @@ type PostedLine struct {
 	AgreementHours string `json:"agreementHours"`
 }
 
-// SupplierClaimSettled is dev.passage.service.supplierclaim.settled.v1: a vendor
+// SupplierClaimSettled is dev.depot.service.supplierclaim.settled.v1: a vendor
 // credit note was matched to an accepted supplier warranty claim (FR-45.15,
 // BR-45.12). The PRD writes the entity as "supplier-claim"; the kernel's event type
 // rule allows no hyphen in a segment, so it is "supplierclaim".
@@ -240,7 +240,7 @@ type DispatchPublishedData struct {
 	Assignments   []DispatchedOrder `json:"assignments"`
 }
 
-// WorkOrderCompletedData is the payload of dev.passage.service.workorder.completed.v1
+// WorkOrderCompletedData is the payload of dev.depot.service.workorder.completed.v1
 // (PRD 8.45.5: workOrderId, technicianId, lines[], firstTimeFix, durationMinutes).
 // Quantities are decimal strings. Inventory issues the PART lines' ConsumedQty from the
 // technician's truck; DurationMinutes is the time IN_PROGRESS by device time (0 when

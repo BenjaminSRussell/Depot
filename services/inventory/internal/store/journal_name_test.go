@@ -5,10 +5,10 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/inventory/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/inventory/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/inventory/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/inventory/internal/store"
 )
 
 func newName(ctx context.Context, s *store.Postgres, key, code string, typ domain.JournalType, approval bool, offset string) (domain.JournalName, bool, error) {
@@ -35,7 +35,7 @@ func TestJournalNameCreateReplayAndUniqueness(t *testing.T) {
 		t.Fatalf("bad offset: %v", err)
 	}
 	var events int
-	_ = admin.QueryRow(context.Background(), `select count(*) from outbox where tenant_id = $1 and type = $2`, testkit.TenantID(1), "dev.passage.inventory.journalname.created.v1").Scan(&events)
+	_ = admin.QueryRow(context.Background(), `select count(*) from outbox where tenant_id = $1 and type = $2`, testkit.TenantID(1), "dev.depot.inventory.journalname.created.v1").Scan(&events)
 	if events != 1 {
 		t.Fatalf("created events %d, want 1 (a replay writes none)", events)
 	}
@@ -86,7 +86,7 @@ func TestJournalNameUpdateGuardsVersionAndEmitsEvent(t *testing.T) {
 		t.Fatalf("offset on an ADJUSTMENT name: %v", err)
 	}
 	var events int
-	_ = admin.QueryRow(context.Background(), `select count(*) from outbox where tenant_id = $1 and type = $2`, testkit.TenantID(1), "dev.passage.inventory.journalname.updated.v1").Scan(&events)
+	_ = admin.QueryRow(context.Background(), `select count(*) from outbox where tenant_id = $1 and type = $2`, testkit.TenantID(1), "dev.depot.inventory.journalname.updated.v1").Scan(&events)
 	if events != 1 {
 		t.Fatalf("updated events %d, want 1", events)
 	}

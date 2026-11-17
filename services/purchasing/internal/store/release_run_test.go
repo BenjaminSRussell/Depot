@@ -3,9 +3,9 @@ package store_test
 import (
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	purchasingevents "github.com/BenjaminSRussell/passage/services/purchasing/internal/events"
-	"github.com/BenjaminSRussell/passage/services/purchasing/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	purchasingevents "github.com/BenjaminSRussell/depot/services/purchasing/internal/events"
+	"github.com/BenjaminSRussell/depot/services/purchasing/internal/store"
 )
 
 // approvedFor is an approved requisition whose lines each name the preferred vendor given for them.

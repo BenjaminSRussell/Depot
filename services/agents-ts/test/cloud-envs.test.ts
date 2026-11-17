@@ -61,7 +61,7 @@ describe("the model endpoint recorded on every run (#605)", () => {
   it("a run that called the model carries the endpoint, a run refused before the call does not", async () => {
     const endpoint = { provider: "azure-openai", host: "res.openai.azure.com", region: "westeurope" };
     const provider = Object.assign(new ScriptedProvider([proposal(0.8)]), { endpoint });
-    const tools = new FakeTools({ "passage.ap.invoice.post": postDescriptor, "passage.ap.invoice.propose_coding": codingDescriptor });
+    const tools = new FakeTools({ "depot.ap.invoice.post": postDescriptor, "depot.ap.invoice.propose_coding": codingDescriptor });
     const result = await runAgent(
       makeDeps({ provider, tools, approvals: new FakeApprovals({ decision: "APPROVED", approverUserId: APPROVER }) }),
       makeRequest(),
@@ -73,18 +73,18 @@ describe("the model endpoint recorded on every run (#605)", () => {
     const env = {
       MCP_URL: "http://mcp", AGENTS_JWT_ISSUER: "https://kc/realms/p", AGENTS_JWKS_FILE: "/dev/null",
       AGENTS_PROVIDER: "openai", OPENAI_API_KEY: "k", AGENTS_OPENAI_BASE_URL: "https://res.openai.azure.com/openai/deployments/d", AGENTS_OPENAI_AUTH: "api-key",
-      PASSAGE_CLOUD_PROFILE: "commercial+eu-data-boundary",
+      DEPOT_CLOUD_PROFILE: "commercial+eu-data-boundary",
     };
-    const before = process.env["PASSAGE_CLOUD_PROFILE"];
-    process.env["PASSAGE_CLOUD_PROFILE"] = env.PASSAGE_CLOUD_PROFILE;
+    const before = process.env["DEPOT_CLOUD_PROFILE"];
+    process.env["DEPOT_CLOUD_PROFILE"] = env.DEPOT_CLOUD_PROFILE;
     try {
       const without = createProviderFactory(loadConfig(env));
       expect(() => without("m")).toThrow(/hosting region/);
       const withRegion = createProviderFactory(loadConfig({ ...env, AGENTS_PROVIDER_REGION: "northeurope" }));
       expect(withRegion("m").endpoint?.region).toBe("northeurope");
     } finally {
-      if (before === undefined) delete process.env["PASSAGE_CLOUD_PROFILE"];
-      else process.env["PASSAGE_CLOUD_PROFILE"] = before;
+      if (before === undefined) delete process.env["DEPOT_CLOUD_PROFILE"];
+      else process.env["DEPOT_CLOUD_PROFILE"] = before;
     }
   });
 });
@@ -125,7 +125,7 @@ describe("PHI-tagged fields never reach a model (#606)", () => {
     const inner = new ScriptedProvider([proposal(0.8)]);
     const provider = withPhiGuard(inner, guard);
     const settled: Array<{ tokensIn: number; tokensOut: number }> = [];
-    const base = makeDeps({ provider, tools: new FakeTools({ "passage.ap.invoice.post": postDescriptor, "passage.ap.invoice.propose_coding": codingDescriptor }), approvals: new FakeApprovals({ decision: "APPROVED", approverUserId: APPROVER }) });
+    const base = makeDeps({ provider, tools: new FakeTools({ "depot.ap.invoice.post": postDescriptor, "depot.ap.invoice.propose_coding": codingDescriptor }), approvals: new FakeApprovals({ decision: "APPROVED", approverUserId: APPROVER }) });
     const budgets = { ...base.budgets, settle: async (h: Parameters<typeof base.budgets.settle>[0], u: { tokensIn: number; tokensOut: number }) => { settled.push(u); return base.budgets.settle(h, u); } };
     const result = await runAgent(
       { ...base, budgets },

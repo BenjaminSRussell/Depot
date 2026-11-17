@@ -4,9 +4,9 @@ These appendices are normative for every phase file (`docs/prd/phase-N-*.md`). W
 
 ## A. Glossary
 
-Terms are drawn from AX 2012 / D365 F&SCM, SAP ECC / S/4HANA, the standards Passage implements, and Passage itself. The last column is the name used in Passage metadata, APIs and UI.
+Terms are drawn from AX 2012 / D365 F&SCM, SAP ECC / S/4HANA, the standards Depot implements, and Depot itself. The last column is the name used in Depot metadata, APIs and UI.
 
-| Term | Origin | Definition | Passage term |
+| Term | Origin | Definition | Depot term |
 |---|---|---|---|
 | AOT | AX | Application Object Tree: the AX metadata repository for tables, classes, forms, menus. | Metadata registry |
 | DDIC | SAP | ABAP Data Dictionary: domains, data elements, tables, append structures. | Metadata registry |
@@ -15,8 +15,8 @@ Terms are drawn from AX 2012 / D365 F&SCM, SAP ECC / S/4HANA, the standards Pass
 | Extension (vs overlayering) | AX | D365 model that adds to standard objects instead of editing them. | Entity extension / hook |
 | DataAreaId | AX | The company (legal entity) column present on every company-specific table. | `legal_entity_id` |
 | MANDT | SAP | Client key present on every client-dependent table. | `tenant_id` |
-| Tenant | Passage | Top-level isolation boundary: one customer organization, one RLS scope, one Keycloak realm. | Tenant |
-| Legal entity | AX / Passage | A company that produces its own financial statements. SAP: company code (BUKRS). | LegalEntity |
+| Tenant | Depot | Top-level isolation boundary: one customer organization, one RLS scope, one Keycloak realm. | Tenant |
+| Legal entity | AX / Depot | A company that produces its own financial statements. SAP: company code (BUKRS). | LegalEntity |
 | Operating unit | AX | Department, cost center, business unit, value stream: non-legal organization units. | OperatingUnit |
 | Company code (BUKRS) | SAP | Smallest organizational unit with a complete self-contained set of accounts. | LegalEntity |
 | Plant (WERKS) | SAP | Physical production/logistics location. AX: site. | Site |
@@ -102,32 +102,32 @@ Terms are drawn from AX 2012 / D365 F&SCM, SAP ECC / S/4HANA, the standards Pass
 | Installed base | SAP CS | Serialized equipment at customer sites covered by service. | InstalledBase |
 | Entity store | AX | D365 aggregate measurement store for Power BI. SAP: BW/CDS views. | Lakehouse (Iceberg) |
 | MCP | Standard | Model Context Protocol: tool interface for AI agents. | MCP server |
-| Copilot / agent | Passage | Copilot answers and drafts; an agent executes multi-step work under approval gates. | Copilot / Agent |
+| Copilot / agent | Depot | Copilot answers and drafts; an agent executes multi-step work under approval gates. | Copilot / Agent |
 | Outbox | Pattern | Table written in the same transaction as the state change and relayed to Kafka by Debezium. | Outbox |
 | CloudEvent | CNCF | Standard event envelope (specversion, id, source, type, subject, time, data). | Event |
 | RLS | Postgres | Row-level security policy evaluated on every statement. | Tenant isolation |
-| Wave (delivery) | Passage | A 4–8 week increment with deliverable, proof, deploy and references. Not to be confused with a WMS pick wave. | Wave |
+| Wave (delivery) | Depot | A 4–8 week increment with deliverable, proof, deploy and references. Not to be confused with a WMS pick wave. | Wave |
 
 ## B. Cross-module data model
 
 ### B.1 Bounded contexts
 
-Passage has 12 core bounded contexts. Each is a deployable set of services with exactly one Postgres database (CloudNativePG cluster) whose schema is generated from entity metadata. Three supporting contexts (`integration`, `analytics`, `agents`) own only operational tables (partner profiles, message logs, prompt registry, eval runs) and never master or transactional business data.
+Depot has 12 core bounded contexts. Each is a deployable set of services with exactly one Postgres database (CloudNativePG cluster) whose schema is generated from entity metadata. Three supporting contexts (`integration`, `analytics`, `agents`) own only operational tables (partner profiles, message logs, prompt registry, eval runs) and never master or transactional business data.
 
 | Context | Database | Owns | Language | Waves |
 |---|---|---|---|---|
-| `platform` | `passage_platform` | Tenants, users, roles/duties/privileges, metadata registry, number sequences, audit log, workflow/batch definitions, legal entities, operating units, sites, warehouses, hierarchies, fiscal calendars, ISO reference data, UoM | Go (sequences, audit), TS (admin, workflow) | 1–6 |
-| `party` | `passage_party` | Party, roles (customer, vendor, contact, employee link), addresses, tax registrations, groups, payment and delivery terms, credit limits | TS | 7 |
-| `product` | `passage_product` | Product, product master, released product, dimension groups, attributes, BOM, formula, routing, resources, calendars, change orders | Go (explosion), TS | 8–9 |
-| `ledger` | `passage_ledger` | Accounts, account structures, dimensions, journal entries/lines, balances, ledgers, exchange rates, tax codes and transactions, period control, allocations, accruals, statements, budgets, cost accounting ledger, consolidation groups | Go | 11–15, 38, 40 |
-| `inventory` | `passage_inventory` | Inventory transactions, on-hand projection, reservations, inventory journals, counting, cost layers, costing versions, costing sheets, quality orders, nonconformances | Go | 16, 20, 33, 39 |
-| `procurement` | `passage_procurement` | Requisitions, RFQs, purchase agreements, purchase orders, product receipts, vendor invoices, match results, AP open items, payment proposals, payments | Go (matching, settlement), TS | 17–20 |
-| `manufacturing` | `passage_manufacturing` | Production/batch orders, picking lists, route cards, planning runs, planned orders, planning messages, schedules, kanbans, time registrations, machine events | Go; Python (forecasting) | 21–25 |
-| `sales` | `passage_sales` | Price conditions, quotations, sales orders, holds, shipments/packing slips, customer invoices, revenue schedules, AR open items, cash applications, collection cases, return orders, rebate agreements | Go (pricing, ATP, settlement), TS | 26–30 |
-| `warehouse` | `passage_warehouse` | Locations, license plates, location directives, work templates, work, waves, replenishment, loads, routes, carrier rates, freight invoices, mobile flow definitions | Go (directives), TS | 28, 31–34 |
-| `treasury` | `passage_treasury` | Bank accounts, statements, reconciliations, cash forecasts, checks, letters of credit, fixed assets, asset books, asset transactions, leases | Go | 36–37 |
-| `workforce` | `passage_workforce` | Workers, positions, jobs, employment, absence, benefits, payroll runs, pay rules, expense reports | TS; Go (payroll calc) | 25 (time), 42–43 |
-| `projects` | `passage_projects` | Projects, WBS, project transactions, estimates, invoice proposals, functional locations, maintenance assets, maintenance plans, maintenance work orders, installed base, service agreements, cases, service work orders | TS | 41, 44–45 |
+| `platform` | `depot_platform` | Tenants, users, roles/duties/privileges, metadata registry, number sequences, audit log, workflow/batch definitions, legal entities, operating units, sites, warehouses, hierarchies, fiscal calendars, ISO reference data, UoM | Go (sequences, audit), TS (admin, workflow) | 1–6 |
+| `party` | `depot_party` | Party, roles (customer, vendor, contact, employee link), addresses, tax registrations, groups, payment and delivery terms, credit limits | TS | 7 |
+| `product` | `depot_product` | Product, product master, released product, dimension groups, attributes, BOM, formula, routing, resources, calendars, change orders | Go (explosion), TS | 8–9 |
+| `ledger` | `depot_ledger` | Accounts, account structures, dimensions, journal entries/lines, balances, ledgers, exchange rates, tax codes and transactions, period control, allocations, accruals, statements, budgets, cost accounting ledger, consolidation groups | Go | 11–15, 38, 40 |
+| `inventory` | `depot_inventory` | Inventory transactions, on-hand projection, reservations, inventory journals, counting, cost layers, costing versions, costing sheets, quality orders, nonconformances | Go | 16, 20, 33, 39 |
+| `procurement` | `depot_procurement` | Requisitions, RFQs, purchase agreements, purchase orders, product receipts, vendor invoices, match results, AP open items, payment proposals, payments | Go (matching, settlement), TS | 17–20 |
+| `manufacturing` | `depot_manufacturing` | Production/batch orders, picking lists, route cards, planning runs, planned orders, planning messages, schedules, kanbans, time registrations, machine events | Go; Python (forecasting) | 21–25 |
+| `sales` | `depot_sales` | Price conditions, quotations, sales orders, holds, shipments/packing slips, customer invoices, revenue schedules, AR open items, cash applications, collection cases, return orders, rebate agreements | Go (pricing, ATP, settlement), TS | 26–30 |
+| `warehouse` | `depot_warehouse` | Locations, license plates, location directives, work templates, work, waves, replenishment, loads, routes, carrier rates, freight invoices, mobile flow definitions | Go (directives), TS | 28, 31–34 |
+| `treasury` | `depot_treasury` | Bank accounts, statements, reconciliations, cash forecasts, checks, letters of credit, fixed assets, asset books, asset transactions, leases | Go | 36–37 |
+| `workforce` | `depot_workforce` | Workers, positions, jobs, employment, absence, benefits, payroll runs, pay rules, expense reports | TS; Go (payroll calc) | 25 (time), 42–43 |
+| `projects` | `depot_projects` | Projects, WBS, project transactions, estimates, invoice proposals, functional locations, maintenance assets, maintenance plans, maintenance work orders, installed base, service agreements, cases, service work orders | TS | 41, 44–45 |
 
 ### B.2 Cross-context reference rule
 
@@ -139,55 +139,55 @@ Identity rules: every table has `id uuid` (UUIDv7, time-ordered), `tenant_id uui
 
 | Entity | Context | Database | Key identifiers | Main relationships |
 |---|---|---|---|---|
-| Tenant | platform | passage_platform | `id`, `slug` | has many LegalEntity, User, Role |
-| User | platform | passage_platform | `id`, `keycloak_sub`, `email` | many-to-many Role scoped by LegalEntity with `valid_from/to` |
-| Role / Duty / Privilege | platform | passage_platform | `code` (e.g. `AP.Clerk`, `MaintainVendors`, `vendor.write`) | Role ⊃ Duty ⊃ Privilege; compiled to OPA data |
-| EntityDefinition | platform | passage_platform | `name`, `version` | has Fields, Enums, Relations, Extensions |
-| NumberSequence | platform | passage_platform | `code`, `legal_entity_id`, `scope` | referenced by every document type (Appendix G) |
-| AuditEntry | platform | passage_platform | `id`, `entity`, `record_id`, `trace_id`, `hash` | hash-chained to previous entry; immutable |
-| LegalEntity | platform | passage_platform | `id`, `code` (e.g. `USMF`), `country` | has Sites, FiscalCalendar, ledger set |
-| OperatingUnit | platform | passage_platform | `id`, `type`, `code` | effective-dated Hierarchy nodes by purpose |
-| Site / Warehouse | platform | passage_platform | `id`, `code`, `legal_entity_id` | Warehouse belongs to Site; referenced by inventory and warehouse contexts |
-| FiscalCalendar / Period | platform | passage_platform | `id`, `fiscal_year`, `period_no` | PeriodControl rows per Ledger × module |
-| Party | party | passage_party | `id`, `party_number` | has Roles, Addresses, TaxRegistrations, Contacts |
-| Customer | party | passage_party | `id`, `party_id`, `customer_account` | belongs to CustomerGroup, PostingProfile; credit limit |
-| Vendor | party | passage_party | `id`, `party_id`, `vendor_account` | belongs to VendorGroup, PostingProfile, payment terms |
-| Product / ProductMaster | product | passage_product | `id`, `product_number`, `gtin` | Master has Variants by dimension values; DimensionGroups |
-| ReleasedProduct | product | passage_product | `product_id`, `legal_entity_id` | ItemModelGroup, defaults per Site/Warehouse |
-| BOM / BOMLine | product | passage_product | `id`, `bom_number`, `version` | lines reference Product ids; effective dates; phantom, scrap |
-| Routing / Operation | product | passage_product | `id`, `routing_number`, `version` | Operations require Resource capabilities |
-| Account / AccountStructure | ledger | passage_ledger | `main_account`, `structure_id` | Dimensions allowed per structure |
-| JournalEntry / JournalLine | ledger | passage_ledger | `id`, `document_number`, `idempotency_key` | lines carry 3 currency amounts, dimension set, `source_document_id`; `reverses_id` |
-| Balance | ledger | passage_ledger | (`ledger_id`, `account`, `dimension_hash`, `period`) | projection rebuilt from JournalLine |
-| Ledger / RateType / ExchangeRate | ledger | passage_ledger | `ledger_code`, `rate_type`, `from/to`, `valid_from` | LegalEntity has leading + parallel Ledgers |
-| TaxCode / TaxTransaction | ledger | passage_ledger | `tax_code`, `jurisdiction_id` | TaxTransaction references source line id and JournalLine |
-| InventoryTransaction | inventory | passage_inventory | `id`, `lot_id`, `reference_type/id` | dimensions (site, warehouse, location, batch, serial, LP); status pair |
-| OnHand | inventory | passage_inventory | (`product_id`, dimension hash) | projection = Σ InventoryTransaction |
-| CostLayer / CostingVersion | inventory | passage_inventory | `id`, `receipt_transaction_id`, `version_code` | settlements link issue to receipt layers |
-| QualityOrder | inventory | passage_inventory | `id`, `qo_number` | triggered by receipt/production/shipment reference; blocks OnHand |
-| PurchaseRequisition / RFQ / PurchaseAgreement | procurement | passage_procurement | `document_number` | Requisition lines → PO lines; Agreement releases |
-| PurchaseOrder / Line | procurement | passage_procurement | `document_number`, `version` | `vendor_id`, `product_id`, `site/warehouse_id`; delivery schedules |
-| ProductReceipt | procurement | passage_procurement | `document_number` | references PO lines, creates InventoryTransaction ids and JournalEntry id |
-| VendorInvoice / MatchResult | procurement | passage_procurement | `document_number`, `vendor_invoice_number` | matches PO + Receipt lines; posts JournalEntry; creates APOpenItem |
-| APOpenItem / Payment | procurement | passage_procurement | `id`, `payment_number` | Settlement links Payment to OpenItems; payment file id |
-| ProductionOrder | manufacturing | passage_manufacturing | `document_number`, `status` | BOM/Routing snapshot; PickingList, RouteCard, JournalEntry ids for WIP |
-| PlannedOrder / PlanningRun | manufacturing | passage_manufacturing | `id`, `run_id` | pegged to demand ids (SalesOrderLine, ProductionOrder, Forecast) |
-| TimeRegistration / MachineEvent | manufacturing | passage_manufacturing | `id`, `worker_id`, `resource_id` | pay types exported to PayrollRun; OEE aggregates |
-| PriceCondition | sales | passage_sales | `id`, `condition_type`, access key | resolved by access sequence; effective dates |
-| SalesOrder / Line | sales | passage_sales | `document_number`, `status` | `customer_id`, `product_id`; Holds; ATP results; linked ProductionOrder/PlannedOrder ids |
-| Shipment / PackingSlip | sales | passage_sales | `document_number`, `sscc` | references SalesOrder lines, Load id, InventoryTransaction ids, COGS JournalEntry id |
-| CustomerInvoice / RevenueSchedule | sales | passage_sales | `document_number` | invoice lines → PerformanceObligations → schedule lines → JournalEntry ids |
-| AROpenItem / CashApplication | sales | passage_sales | `id`, `receipt_number` | settlement to invoices; BankStatement line id |
-| CollectionCase / ReturnOrder | sales | passage_sales | `case_number`, `rma_number` | customer, disputed invoice ids; RMA disposition → InventoryTransaction |
-| Location / LicensePlate | warehouse | passage_warehouse | `location_code`, `lp_number` | Zone ⊃ Aisle ⊃ Rack ⊃ Bin; LP nests LPs |
-| Work / PickWave | warehouse | passage_warehouse | `work_id`, `wave_id` | work lines reference order lines; directives; assigned user |
-| BankAccount / BankStatement | treasury | passage_treasury | `id`, `iban/account_number` (P3) | statement lines reconcile to JournalLines, Payments, CashApplications |
-| FixedAsset / AssetBook / AssetTransaction | treasury | passage_treasury | `asset_number`, `book_code` | acquisition from VendorInvoice/Project ids; depreciation JournalEntry ids |
-| Worker / Position / Job | workforce | passage_workforce | `personnel_number`, `position_id` | effective-dated Employment; Position reports to Position; `party_id` |
-| PayrollRun / ExpenseReport | workforce | passage_workforce | `run_id`, `report_number` | pay statements; JournalEntry ids; reimbursement → VendorInvoice id |
-| Project / WBS / ProjectTransaction | projects | passage_projects | `project_number`, `wbs_code` | transactions reference TimeRegistration, ExpenseReport, PO, inventory ids; JournalEntry ids |
-| MaintenanceAsset / MaintenanceWorkOrder | projects | passage_projects | `asset_number`, `work_order_number` | FunctionalLocation tree; parts → InventoryTransaction; labor → TimeRegistration |
-| ServiceAgreement / Case / ServiceWorkOrder | projects | passage_projects | `agreement_number`, `case_number` | InstalledBase serials from Shipment; billing → CustomerInvoice id |
+| Tenant | platform | depot_platform | `id`, `slug` | has many LegalEntity, User, Role |
+| User | platform | depot_platform | `id`, `keycloak_sub`, `email` | many-to-many Role scoped by LegalEntity with `valid_from/to` |
+| Role / Duty / Privilege | platform | depot_platform | `code` (e.g. `AP.Clerk`, `MaintainVendors`, `vendor.write`) | Role ⊃ Duty ⊃ Privilege; compiled to OPA data |
+| EntityDefinition | platform | depot_platform | `name`, `version` | has Fields, Enums, Relations, Extensions |
+| NumberSequence | platform | depot_platform | `code`, `legal_entity_id`, `scope` | referenced by every document type (Appendix G) |
+| AuditEntry | platform | depot_platform | `id`, `entity`, `record_id`, `trace_id`, `hash` | hash-chained to previous entry; immutable |
+| LegalEntity | platform | depot_platform | `id`, `code` (e.g. `USMF`), `country` | has Sites, FiscalCalendar, ledger set |
+| OperatingUnit | platform | depot_platform | `id`, `type`, `code` | effective-dated Hierarchy nodes by purpose |
+| Site / Warehouse | platform | depot_platform | `id`, `code`, `legal_entity_id` | Warehouse belongs to Site; referenced by inventory and warehouse contexts |
+| FiscalCalendar / Period | platform | depot_platform | `id`, `fiscal_year`, `period_no` | PeriodControl rows per Ledger × module |
+| Party | party | depot_party | `id`, `party_number` | has Roles, Addresses, TaxRegistrations, Contacts |
+| Customer | party | depot_party | `id`, `party_id`, `customer_account` | belongs to CustomerGroup, PostingProfile; credit limit |
+| Vendor | party | depot_party | `id`, `party_id`, `vendor_account` | belongs to VendorGroup, PostingProfile, payment terms |
+| Product / ProductMaster | product | depot_product | `id`, `product_number`, `gtin` | Master has Variants by dimension values; DimensionGroups |
+| ReleasedProduct | product | depot_product | `product_id`, `legal_entity_id` | ItemModelGroup, defaults per Site/Warehouse |
+| BOM / BOMLine | product | depot_product | `id`, `bom_number`, `version` | lines reference Product ids; effective dates; phantom, scrap |
+| Routing / Operation | product | depot_product | `id`, `routing_number`, `version` | Operations require Resource capabilities |
+| Account / AccountStructure | ledger | depot_ledger | `main_account`, `structure_id` | Dimensions allowed per structure |
+| JournalEntry / JournalLine | ledger | depot_ledger | `id`, `document_number`, `idempotency_key` | lines carry 3 currency amounts, dimension set, `source_document_id`; `reverses_id` |
+| Balance | ledger | depot_ledger | (`ledger_id`, `account`, `dimension_hash`, `period`) | projection rebuilt from JournalLine |
+| Ledger / RateType / ExchangeRate | ledger | depot_ledger | `ledger_code`, `rate_type`, `from/to`, `valid_from` | LegalEntity has leading + parallel Ledgers |
+| TaxCode / TaxTransaction | ledger | depot_ledger | `tax_code`, `jurisdiction_id` | TaxTransaction references source line id and JournalLine |
+| InventoryTransaction | inventory | depot_inventory | `id`, `lot_id`, `reference_type/id` | dimensions (site, warehouse, location, batch, serial, LP); status pair |
+| OnHand | inventory | depot_inventory | (`product_id`, dimension hash) | projection = Σ InventoryTransaction |
+| CostLayer / CostingVersion | inventory | depot_inventory | `id`, `receipt_transaction_id`, `version_code` | settlements link issue to receipt layers |
+| QualityOrder | inventory | depot_inventory | `id`, `qo_number` | triggered by receipt/production/shipment reference; blocks OnHand |
+| PurchaseRequisition / RFQ / PurchaseAgreement | procurement | depot_procurement | `document_number` | Requisition lines → PO lines; Agreement releases |
+| PurchaseOrder / Line | procurement | depot_procurement | `document_number`, `version` | `vendor_id`, `product_id`, `site/warehouse_id`; delivery schedules |
+| ProductReceipt | procurement | depot_procurement | `document_number` | references PO lines, creates InventoryTransaction ids and JournalEntry id |
+| VendorInvoice / MatchResult | procurement | depot_procurement | `document_number`, `vendor_invoice_number` | matches PO + Receipt lines; posts JournalEntry; creates APOpenItem |
+| APOpenItem / Payment | procurement | depot_procurement | `id`, `payment_number` | Settlement links Payment to OpenItems; payment file id |
+| ProductionOrder | manufacturing | depot_manufacturing | `document_number`, `status` | BOM/Routing snapshot; PickingList, RouteCard, JournalEntry ids for WIP |
+| PlannedOrder / PlanningRun | manufacturing | depot_manufacturing | `id`, `run_id` | pegged to demand ids (SalesOrderLine, ProductionOrder, Forecast) |
+| TimeRegistration / MachineEvent | manufacturing | depot_manufacturing | `id`, `worker_id`, `resource_id` | pay types exported to PayrollRun; OEE aggregates |
+| PriceCondition | sales | depot_sales | `id`, `condition_type`, access key | resolved by access sequence; effective dates |
+| SalesOrder / Line | sales | depot_sales | `document_number`, `status` | `customer_id`, `product_id`; Holds; ATP results; linked ProductionOrder/PlannedOrder ids |
+| Shipment / PackingSlip | sales | depot_sales | `document_number`, `sscc` | references SalesOrder lines, Load id, InventoryTransaction ids, COGS JournalEntry id |
+| CustomerInvoice / RevenueSchedule | sales | depot_sales | `document_number` | invoice lines → PerformanceObligations → schedule lines → JournalEntry ids |
+| AROpenItem / CashApplication | sales | depot_sales | `id`, `receipt_number` | settlement to invoices; BankStatement line id |
+| CollectionCase / ReturnOrder | sales | depot_sales | `case_number`, `rma_number` | customer, disputed invoice ids; RMA disposition → InventoryTransaction |
+| Location / LicensePlate | warehouse | depot_warehouse | `location_code`, `lp_number` | Zone ⊃ Aisle ⊃ Rack ⊃ Bin; LP nests LPs |
+| Work / PickWave | warehouse | depot_warehouse | `work_id`, `wave_id` | work lines reference order lines; directives; assigned user |
+| BankAccount / BankStatement | treasury | depot_treasury | `id`, `iban/account_number` (P3) | statement lines reconcile to JournalLines, Payments, CashApplications |
+| FixedAsset / AssetBook / AssetTransaction | treasury | depot_treasury | `asset_number`, `book_code` | acquisition from VendorInvoice/Project ids; depreciation JournalEntry ids |
+| Worker / Position / Job | workforce | depot_workforce | `personnel_number`, `position_id` | effective-dated Employment; Position reports to Position; `party_id` |
+| PayrollRun / ExpenseReport | workforce | depot_workforce | `run_id`, `report_number` | pay statements; JournalEntry ids; reimbursement → VendorInvoice id |
+| Project / WBS / ProjectTransaction | projects | depot_projects | `project_number`, `wbs_code` | transactions reference TimeRegistration, ExpenseReport, PO, inventory ids; JournalEntry ids |
+| MaintenanceAsset / MaintenanceWorkOrder | projects | depot_projects | `asset_number`, `work_order_number` | FunctionalLocation tree; parts → InventoryTransaction; labor → TimeRegistration |
+| ServiceAgreement / Case / ServiceWorkOrder | projects | depot_projects | `agreement_number`, `case_number` | InstalledBase serials from Shipment; billing → CustomerInvoice id |
 
 ## C. Event catalog conventions
 
@@ -199,12 +199,12 @@ Every event is a CloudEvents 1.0 message in structured JSON mode on Kafka with t
 |---|---|
 | `specversion` | `1.0` |
 | `id` | UUIDv7; equals the outbox row id, so redelivery carries the same id |
-| `source` | `/passage/<context>/<service>` e.g. `/passage/ledger/posting` |
-| `type` | `dev.passage.<context>.<entity>.<verb>.v<n>` — lowercase, no hyphens; verb is past tense (`posted`, `confirmed`, `changed`) |
+| `source` | `/depot/<context>/<service>` e.g. `/depot/ledger/posting` |
+| `type` | `dev.depot.<context>.<entity>.<verb>.v<n>` — lowercase, no hyphens; verb is past tense (`posted`, `confirmed`, `changed`) |
 | `subject` | the aggregate id (UUIDv7) |
 | `time` | commit time of the producing transaction, RFC 3339 UTC |
 | `datacontenttype` | `application/json` |
-| `dataschema` | registry URL `https://schemas.passage.dev/<type>.json` |
+| `dataschema` | registry URL `https://schemas.depot.dev/<type>.json` |
 | `tenantid` (ext) | tenant UUID; always present |
 | `legalentityid` (ext) | legal entity UUID when company-scoped |
 | `correlationid` (ext) | id of the originating request or workflow; propagated unchanged |
@@ -215,15 +215,15 @@ Every event is a CloudEvents 1.0 message in structured JSON mode on Kafka with t
 
 ### C.2 Topics and partitions
 
-- Topic: `passage.<context>.<entity>` (one topic per entity, all verbs and versions share it); 12 partitions default, 48 for `ledger.journalentry`, `inventory.transaction`, `manufacturing.machineevent`.
+- Topic: `depot.<context>.<entity>` (one topic per entity, all verbs and versions share it); 12 partitions default, 48 for `ledger.journalentry`, `inventory.transaction`, `manufacturing.machineevent`.
 - Partition key: `tenantid + ":" + subject` so events for one aggregate are ordered; `machineevent` uses `tenantid:resource_id`.
-- Retention: 30 days for transactional topics, 7 days for `machineevent`, compacted `passage.<context>.<entity>.snapshot` topics for reference-data read models.
-- Dead letter: `passage.<context>.<entity>.dlq.<consumer>` with the original event, error and attempt count in headers.
+- Retention: 30 days for transactional topics, 7 days for `machineevent`, compacted `depot.<context>.<entity>.snapshot` topics for reference-data read models.
+- Dead letter: `depot.<context>.<entity>.dlq.<consumer>` with the original event, error and attempt count in headers.
 - Access: ACLs per consumer service principal (SCRAM-SHA-512); cross-tenant consumers (analytics) run under a dedicated principal and are the only ones allowed to read all tenants.
 
 ### C.3 Schema evolution
 
-1. Changes within a version are additive only: new optional fields, new enum values flagged `x-passage-added-in`. Removing, renaming or retyping a field, or making an optional field required, requires a new `v<n+1>` type.
+1. Changes within a version are additive only: new optional fields, new enum values flagged `x-depot-added-in`. Removing, renaming or retyping a field, or making an optional field required, requires a new `v<n+1>` type.
 2. Schema registry compatibility mode is `BACKWARD_TRANSITIVE`; CI rejects a non-additive change (wave 4 proof).
 3. When `v<n+1>` ships, the producer emits both `v<n>` and `v<n+1>` for a deprecation window of two minor releases of the producing service, then drops `v<n>`. Consumers must migrate inside the window; a consumer still subscribed to a dropped type fails its startup health check.
 4. Enum consumers must treat unknown values as `other` and log at warn, never fail.
@@ -273,7 +273,7 @@ CREATE TABLE consumer_inbox (
 ### C.6 Replay procedure
 
 1. Open a change ticket naming consumer, topic, time window and reason; replay of a fiscal consumer (ledger, AP, AR) requires controller approval via the platform workflow.
-2. Pause the consumer group (`passage-ctl consumer pause <group>`), snapshot its inbox table.
+2. Pause the consumer group (`depot-ctl consumer pause <group>`), snapshot its inbox table.
 3. Reset the offset to the timestamp (`kafka-consumer-groups --reset-offsets --to-datetime`) or to a DLQ range; for a rebuild, truncate the read model and reset to earliest on the compacted snapshot topic.
 4. Resume; the inbox guarantees already-processed events are skipped, so replay is safe by construction. A replay that must reprocess (bug fix) deletes inbox rows for the window first, inside the ticket.
 5. Verify with the reconciliation checks in Appendix I.6 and close the ticket with the before/after totals.
@@ -282,67 +282,67 @@ CREATE TABLE consumer_inbox (
 
 | Event type | Producer | Wave | Key consumers |
 |---|---|---|---|
-| `dev.passage.platform.entitydefinition.changed.v1` | platform/metadata | 3 | generators, shell, analytics |
-| `dev.passage.platform.user.provisioned.v1` | platform/identity | 2 | workforce, audit |
-| `dev.passage.platform.workflowtask.completed.v1` | platform/workflow | 4 | originating context, notifications |
-| `dev.passage.platform.legalentity.created.v1` | platform/org | 6 | ledger, party, product, number sequences |
-| `dev.passage.platform.periodcontrol.changed.v1` | platform/org | 14 | all posting services (cache invalidation) |
-| `dev.passage.party.party.created.v1` | party | 7 | sales, procurement, workforce read models |
-| `dev.passage.party.party.merged.v1` | party | 7 | every context holding `party_id` (rewrite references) |
-| `dev.passage.party.customer.creditchanged.v1` | party | 7 | sales (credit checks) |
-| `dev.passage.product.product.released.v1` | product | 8 | inventory, sales, procurement, manufacturing |
-| `dev.passage.product.bom.versionactivated.v1` | product | 9 | manufacturing, inventory (cost roll) |
-| `dev.passage.product.changeorder.released.v1` | product | 9 | manufacturing, warehouse, projects |
-| `dev.passage.ledger.journalentry.posted.v1` | ledger | 11 | balances, analytics, audit, budgets |
-| `dev.passage.ledger.journalentry.reversed.v1` | ledger | 11 | subledgers, analytics |
-| `dev.passage.ledger.exchangerate.published.v1` | ledger | 12 | sales, procurement, treasury |
-| `dev.passage.ledger.period.closed.v1` | ledger | 14 | all posting services, analytics |
-| `dev.passage.ledger.taxsettlement.posted.v1` | ledger | 13 | statutory reporting, analytics |
-| `dev.passage.inventory.transaction.posted.v1` | inventory | 16 | on-hand, sales (ATP), planning, analytics |
-| `dev.passage.inventory.reservation.changed.v1` | inventory | 16 | sales, warehouse, manufacturing |
-| `dev.passage.inventory.costclose.completed.v1` | inventory | 20 | ledger reconciliation, analytics |
-| `dev.passage.inventory.qualityorder.decided.v1` | inventory | 33 | warehouse, procurement (scorecards), sales |
-| `dev.passage.procurement.purchaseorder.confirmed.v1` | procurement | 17 | planning, budgets (encumbrance), integration (EDI 850) |
-| `dev.passage.procurement.productreceipt.posted.v1` | procurement | 18 | inventory, ledger (GR/IR), quality, warehouse |
-| `dev.passage.procurement.vendorinvoice.posted.v1` | procurement | 18 | ledger, treasury (forecast), budgets, analytics |
-| `dev.passage.procurement.payment.posted.v1` | procurement | 19 | ledger, treasury, integration (payment file) |
-| `dev.passage.manufacturing.productionorder.released.v1` | manufacturing | 21 | inventory (reservations), warehouse, shop floor |
-| `dev.passage.manufacturing.productionorder.reportedasfinished.v1` | manufacturing | 21 | inventory, quality, sales (ATP) |
-| `dev.passage.manufacturing.productionorder.ended.v1` | manufacturing | 21 | ledger (variances), inventory (cost), analytics |
-| `dev.passage.manufacturing.plannedorder.firmed.v1` | manufacturing | 22 | procurement (PO creation), manufacturing orders |
-| `dev.passage.manufacturing.schedule.changed.v1` | manufacturing | 23 | production orders, planning, shop floor |
-| `dev.passage.manufacturing.machineevent.received.v1` | manufacturing/iot | 25 | OEE, projects (condition monitoring) |
-| `dev.passage.sales.salesorder.confirmed.v1` | sales | 27 | inventory (reservation), planning, warehouse, integration (EDI 855) |
-| `dev.passage.sales.shipment.posted.v1` | sales | 28 | inventory, ledger (COGS), billing, integration (ASN 856) |
-| `dev.passage.sales.invoice.posted.v1` | sales | 29 | ledger, AR, revenue schedules, integration (810/Peppol), analytics |
-| `dev.passage.sales.payment.applied.v1` | sales | 30 | ledger, collections, treasury |
-| `dev.passage.sales.returnorder.received.v1` | sales | 30 | inventory, quality, billing (credit note) |
-| `dev.passage.warehouse.work.completed.v1` | warehouse | 31 | inventory (status change), sales, procurement |
-| `dev.passage.warehouse.load.shipped.v1` | warehouse | 34 | sales (shipment posting), integration (EDI 214), treasury (freight accrual) |
-| `dev.passage.treasury.bankstatement.reconciled.v1` | treasury | 36 | ledger, AR, AP |
-| `dev.passage.treasury.asset.depreciated.v1` | treasury | 37 | ledger, analytics |
-| `dev.passage.workforce.payrollrun.posted.v1` | workforce | 43 | ledger, treasury (payments), projects |
-| `dev.passage.projects.transaction.posted.v1` | projects | 41 | ledger (WIP), billing, analytics |
-| `dev.passage.agents.action.executed.v1` | agents | 47 | audit, cost guard, analytics |
+| `dev.depot.platform.entitydefinition.changed.v1` | platform/metadata | 3 | generators, shell, analytics |
+| `dev.depot.platform.user.provisioned.v1` | platform/identity | 2 | workforce, audit |
+| `dev.depot.platform.workflowtask.completed.v1` | platform/workflow | 4 | originating context, notifications |
+| `dev.depot.platform.legalentity.created.v1` | platform/org | 6 | ledger, party, product, number sequences |
+| `dev.depot.platform.periodcontrol.changed.v1` | platform/org | 14 | all posting services (cache invalidation) |
+| `dev.depot.party.party.created.v1` | party | 7 | sales, procurement, workforce read models |
+| `dev.depot.party.party.merged.v1` | party | 7 | every context holding `party_id` (rewrite references) |
+| `dev.depot.party.customer.creditchanged.v1` | party | 7 | sales (credit checks) |
+| `dev.depot.product.product.released.v1` | product | 8 | inventory, sales, procurement, manufacturing |
+| `dev.depot.product.bom.versionactivated.v1` | product | 9 | manufacturing, inventory (cost roll) |
+| `dev.depot.product.changeorder.released.v1` | product | 9 | manufacturing, warehouse, projects |
+| `dev.depot.ledger.journalentry.posted.v1` | ledger | 11 | balances, analytics, audit, budgets |
+| `dev.depot.ledger.journalentry.reversed.v1` | ledger | 11 | subledgers, analytics |
+| `dev.depot.ledger.exchangerate.published.v1` | ledger | 12 | sales, procurement, treasury |
+| `dev.depot.ledger.period.closed.v1` | ledger | 14 | all posting services, analytics |
+| `dev.depot.ledger.taxsettlement.posted.v1` | ledger | 13 | statutory reporting, analytics |
+| `dev.depot.inventory.transaction.posted.v1` | inventory | 16 | on-hand, sales (ATP), planning, analytics |
+| `dev.depot.inventory.reservation.changed.v1` | inventory | 16 | sales, warehouse, manufacturing |
+| `dev.depot.inventory.costclose.completed.v1` | inventory | 20 | ledger reconciliation, analytics |
+| `dev.depot.inventory.qualityorder.decided.v1` | inventory | 33 | warehouse, procurement (scorecards), sales |
+| `dev.depot.procurement.purchaseorder.confirmed.v1` | procurement | 17 | planning, budgets (encumbrance), integration (EDI 850) |
+| `dev.depot.procurement.productreceipt.posted.v1` | procurement | 18 | inventory, ledger (GR/IR), quality, warehouse |
+| `dev.depot.procurement.vendorinvoice.posted.v1` | procurement | 18 | ledger, treasury (forecast), budgets, analytics |
+| `dev.depot.procurement.payment.posted.v1` | procurement | 19 | ledger, treasury, integration (payment file) |
+| `dev.depot.manufacturing.productionorder.released.v1` | manufacturing | 21 | inventory (reservations), warehouse, shop floor |
+| `dev.depot.manufacturing.productionorder.reportedasfinished.v1` | manufacturing | 21 | inventory, quality, sales (ATP) |
+| `dev.depot.manufacturing.productionorder.ended.v1` | manufacturing | 21 | ledger (variances), inventory (cost), analytics |
+| `dev.depot.manufacturing.plannedorder.firmed.v1` | manufacturing | 22 | procurement (PO creation), manufacturing orders |
+| `dev.depot.manufacturing.schedule.changed.v1` | manufacturing | 23 | production orders, planning, shop floor |
+| `dev.depot.manufacturing.machineevent.received.v1` | manufacturing/iot | 25 | OEE, projects (condition monitoring) |
+| `dev.depot.sales.salesorder.confirmed.v1` | sales | 27 | inventory (reservation), planning, warehouse, integration (EDI 855) |
+| `dev.depot.sales.shipment.posted.v1` | sales | 28 | inventory, ledger (COGS), billing, integration (ASN 856) |
+| `dev.depot.sales.invoice.posted.v1` | sales | 29 | ledger, AR, revenue schedules, integration (810/Peppol), analytics |
+| `dev.depot.sales.payment.applied.v1` | sales | 30 | ledger, collections, treasury |
+| `dev.depot.sales.returnorder.received.v1` | sales | 30 | inventory, quality, billing (credit note) |
+| `dev.depot.warehouse.work.completed.v1` | warehouse | 31 | inventory (status change), sales, procurement |
+| `dev.depot.warehouse.load.shipped.v1` | warehouse | 34 | sales (shipment posting), integration (EDI 214), treasury (freight accrual) |
+| `dev.depot.treasury.bankstatement.reconciled.v1` | treasury | 36 | ledger, AR, AP |
+| `dev.depot.treasury.asset.depreciated.v1` | treasury | 37 | ledger, analytics |
+| `dev.depot.workforce.payrollrun.posted.v1` | workforce | 43 | ledger, treasury (payments), projects |
+| `dev.depot.projects.transaction.posted.v1` | projects | 41 | ledger (WIP), billing, analytics |
+| `dev.depot.agents.action.executed.v1` | agents | 47 | audit, cost guard, analytics |
 
 ## D. API conventions
 
 ### D.1 Resources and naming
 
-- Base path `https://api.<env>.passage.dev/v1/<context>/<collection>`; collections are plural kebab-case (`/v1/ledger/journal-entries`, `/v1/sales/sales-orders`, `/v1/product/released-products`). Ids in paths are UUIDv7; document numbers are reachable through `?filter=documentNumber eq 'INV-USMF-2026-000123'`.
+- Base path `https://api.<env>.depot.dev/v1/<context>/<collection>`; collections are plural kebab-case (`/v1/ledger/journal-entries`, `/v1/sales/sales-orders`, `/v1/product/released-products`). Ids in paths are UUIDv7; document numbers are reachable through `?filter=documentNumber eq 'INV-USMF-2026-000123'`.
 - Sub-resources only for composition (`/sales-orders/{id}/lines`). Lifecycle actions are custom methods with a colon: `POST /v1/ledger/journal-entries/{id}:post`, `:reverse`, `:confirm`, `:release`, `:cancel`. Actions are the only way to change status; `PATCH` on a `status` field returns 422 `state_transition_invalid`.
 - JSON field names are camelCase in the wire format and snake_case in Postgres; the generator maintains the mapping. Money is `{ "amount": "1234.56", "currency": "USD" }` with a decimal string; dates are ISO 8601 (`2026-10-21`, `2026-10-21T14:03:00Z`); quantities are decimal strings with `unit`.
 - Every entity declared in metadata gets `GET` list, `GET` by id, `POST`, `PUT`, `PATCH` (JSON Merge Patch), `DELETE` (soft, unless metadata says hard), plus `:batch` and `:export`, generated. Hand-written endpoints are limited to engines (post, price, plan, schedule, match, settle).
 
 ### D.2 Versioning
 
-`/v1` is the only version in v1.0. Within a major version changes are additive only (new optional fields, new endpoints, new enum values). Breaking changes ship as `/v2` for the affected context with both versions served for at least 12 months; the `Sunset` and `Deprecation` headers (RFC 8594) announce retirement. The `X-Passage-Api-Build` response header carries the service build for support.
+`/v1` is the only version in v1.0. Within a major version changes are additive only (new optional fields, new endpoints, new enum values). Breaking changes ship as `/v2` for the affected context with both versions served for at least 12 months; the `Sunset` and `Deprecation` headers (RFC 8594) announce retirement. The `X-Depot-Api-Build` response header carries the service build for support.
 
 ### D.3 Pagination, filtering, sorting, shape
 
 - Cursor pagination: `?limit=50&cursor=<opaque>`; `limit` max 500. Response: `{ "items": [...], "nextCursor": "...", "estimatedTotal": 1234 }`. Cursors encode the sort key and are valid for 24 h; a cursor from a different filter returns 400 `invalid_cursor`.
 - Filter grammar (subset of OData): `field op value` with `eq ne gt ge lt le in like isnull`, combined with `and or not` and parentheses; nested fields by dot (`customer.group eq 'WHOLESALE'`); dimension filters via `dimensions.costCenter eq 'CC-100'`. Max 20 predicates; filters on non-indexed fields over 100k rows are rejected with 422 `filter_not_indexed`.
-- `?sort=-postedAt,documentNumber`; `?fields=id,documentNumber,total` for projection; `?expand=lines,customer` for one level of embedded reads (never across contexts; cross-context fields come from the local read model and are marked `x-passage-snapshot` in OpenAPI).
+- `?sort=-postedAt,documentNumber`; `?fields=id,documentNumber,total` for projection; `?expand=lines,customer` for one level of embedded reads (never across contexts; cross-context fields come from the local read model and are marked `x-depot-snapshot` in OpenAPI).
 - `?asOf=2026-01-01` on effective-dated entities (hierarchies, BOMs, positions, prices).
 
 ### D.4 Error envelope
@@ -351,7 +351,7 @@ Errors are RFC 9457 problem details (`Content-Type: application/problem+json`):
 
 ```json
 {
-  "type": "https://passage.dev/problems/period_closed",
+  "type": "https://depot.dev/problems/period_closed",
   "title": "Period is closed",
   "status": 422,
   "detail": "Ledger USMF-IFRS period 2026-09 is closed for module AP since 2026-10-05T18:00:00Z.",
@@ -416,7 +416,7 @@ Enforced at Envoy Gateway per tenant and per API key; headers `RateLimit-Limit`,
 
 ### D.9 OpenAPI and SDKs
 
-The metadata generator emits one OpenAPI 3.1 document per context (`openapi/<context>.v1.yaml`) with schemas, examples, error codes and `x-passage-duty` on every operation; hand-written engine endpoints are merged from annotated Go/TS handlers. CI runs Spectral (style) and oasdiff (breaking-change detection) against the last released spec; the developer portal (wave 35) publishes specs and the AsyncAPI documents. SDKs generated per release: TypeScript (first-party, used by the shell), Go, Python in v1.0; C# and Java in v1.x for AX and SAP shops respectively. SDKs expose idempotency keys, ETags and pagination as first-class helpers and never hide problem details.
+The metadata generator emits one OpenAPI 3.1 document per context (`openapi/<context>.v1.yaml`) with schemas, examples, error codes and `x-depot-duty` on every operation; hand-written engine endpoints are merged from annotated Go/TS handlers. CI runs Spectral (style) and oasdiff (breaking-change detection) against the last released spec; the developer portal (wave 35) publishes specs and the AsyncAPI documents. SDKs generated per release: TypeScript (first-party, used by the shell), Go, Python in v1.0; C# and Java in v1.x for AX and SAP shops respectively. SDKs expose idempotency keys, ETags and pagination as first-class helpers and never hide problem details.
 
 ## E. Security and authorization model
 
@@ -424,7 +424,7 @@ The metadata generator emits one OpenAPI 3.1 document per context (`openapi/<con
 
 A tenant is one customer organization: one Keycloak realm, one `tenant_id`, one row-level security scope across all 12 databases, one Kafka ACL principal set, one Vault namespace, one cost budget. Legal entities are scopes inside the tenant; users are assigned roles per legal entity (or `*`). Data residency is per tenant (wave 48): a tenant is pinned to a region's cluster set and its Iceberg warehouse. Cross-tenant access does not exist in the application; only the analytics and platform-operations principals can read across tenants and only through audited service accounts.
 
-The request path sets the scope: Envoy validates the JWT, the service opens a Postgres connection from a pool bound to the non-superuser application role and executes `SET LOCAL passage.tenant_id = '<uuid>'; SET LOCAL passage.legal_entity_scopes = '<uuid>,<uuid>'` inside the transaction. The application role has no `BYPASSRLS`.
+The request path sets the scope: Envoy validates the JWT, the service opens a Postgres connection from a pool bound to the non-superuser application role and executes `SET LOCAL depot.tenant_id = '<uuid>'; SET LOCAL depot.legal_entity_scopes = '<uuid>,<uuid>'` inside the transaction. The application role has no `BYPASSRLS`.
 
 ### E.2 RLS policy template
 
@@ -435,25 +435,25 @@ ALTER TABLE ledger.journal_entry ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ledger.journal_entry FORCE ROW LEVEL SECURITY;
 
 CREATE POLICY tenant_isolation ON ledger.journal_entry
-  AS RESTRICTIVE FOR ALL TO passage_app
-  USING      (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  AS RESTRICTIVE FOR ALL TO depot_app
+  USING      (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 CREATE POLICY legal_entity_scope ON ledger.journal_entry
-  AS RESTRICTIVE FOR ALL TO passage_app
+  AS RESTRICTIVE FOR ALL TO depot_app
   USING (
-    current_setting('passage.legal_entity_scopes', true) = '*'
-    OR legal_entity_id = ANY (string_to_array(current_setting('passage.legal_entity_scopes', true), ',')::uuid[])
+    current_setting('depot.legal_entity_scopes', true) = '*'
+    OR legal_entity_id = ANY (string_to_array(current_setting('depot.legal_entity_scopes', true), ',')::uuid[])
   )
   WITH CHECK (
-    legal_entity_id = ANY (string_to_array(current_setting('passage.legal_entity_scopes', true), ',')::uuid[])
+    legal_entity_id = ANY (string_to_array(current_setting('depot.legal_entity_scopes', true), ',')::uuid[])
   );
 
 -- Batch and CDC roles: separate role with the same policies; Debezium reads the WAL and is outside RLS by design,
 -- so the outbox payload carries tenant_id and the relay sets the CloudEvents tenantid from it.
 ```
 
-A missing `passage.tenant_id` makes `current_setting(..., true)` return NULL and the policy returns no rows: the fail-safe is empty, never cross-tenant.
+A missing `depot.tenant_id` makes `current_setting(..., true)` return NULL and the policy returns no rows: the fail-safe is empty, never cross-tenant.
 
 ### E.3 Role / duty / privilege schema
 
@@ -466,7 +466,7 @@ CREATE TABLE platform.privilege (
 );
 CREATE TABLE platform.duty (
   code text PRIMARY KEY,                  -- 'MaintainVendors', 'PostVendorInvoices', 'ApprovePayments'
-  tenant_id uuid,                         -- NULL = shipped by Passage, else customer-defined
+  tenant_id uuid,                         -- NULL = shipped by Depot, else customer-defined
   description text NOT NULL
 );
 CREATE TABLE platform.duty_privilege (duty_code text REFERENCES platform.duty, privilege_code text REFERENCES platform.privilege, PRIMARY KEY (duty_code, privilege_code));
@@ -484,24 +484,24 @@ CREATE TABLE platform.sod_rule (
 );
 ```
 
-Passage ships ~60 roles, ~400 duties and ~2,500 privileges, named after AX (e.g. role `AccountsPayableClerk`, duty `MaintainVendorInvoices`). Customers add duties and roles; they cannot add privileges, which are generated from metadata (`<entity>.<action>`) and engine endpoints.
+Depot ships ~60 roles, ~400 duties and ~2,500 privileges, named after AX (e.g. role `AccountsPayableClerk`, duty `MaintainVendorInvoices`). Customers add duties and roles; they cannot add privileges, which are generated from metadata (`<entity>.<action>`) and engine endpoints.
 
 ### E.4 OPA policy structure
 
-The compiled policy bundle contains `data.passage.grants[tenant][user] = {duty: [legal_entity_ids]}` and `data.passage.duty_privileges[duty] = [privileges]`, rebuilt by the platform service on every role change (push to the OPA sidecars via bundle server, ≤ 10 s propagation). The input is `{ "principal": {sub, tenant, agent?, on_behalf_of?}, "action": "<privilege>", "resource": {context, entity, id?, legal_entity_id?, amount?, owner?} }`. Every service calls `POST /v1/data/passage/authz/allow` on its sidecar; the gateway performs a coarse check (token, tenant, route duty) and the service performs the fine-grained one (record scope).
+The compiled policy bundle contains `data.depot.grants[tenant][user] = {duty: [legal_entity_ids]}` and `data.depot.duty_privileges[duty] = [privileges]`, rebuilt by the platform service on every role change (push to the OPA sidecars via bundle server, ≤ 10 s propagation). The input is `{ "principal": {sub, tenant, agent?, on_behalf_of?}, "action": "<privilege>", "resource": {context, entity, id?, legal_entity_id?, amount?, owner?} }`. Every service calls `POST /v1/data/depot/authz/allow` on its sidecar; the gateway performs a coarse check (token, tenant, route duty) and the service performs the fine-grained one (record scope).
 
 Example 1 — duty-based allow with legal-entity scope:
 
 ```rego
-package passage.authz
+package depot.authz
 
 default allow := false
 
 allow if {
   some duty
-  priv_set := data.passage.duty_privileges[duty]
+  priv_set := data.depot.duty_privileges[duty]
   priv_set[_] == input.action
-  scopes := data.passage.grants[input.principal.tenant][input.principal.sub][duty]
+  scopes := data.depot.grants[input.principal.tenant][input.principal.sub][duty]
   scope_ok(scopes, input.resource.legal_entity_id)
 }
 
@@ -515,9 +515,9 @@ Example 2 — agents never exceed the user they act for, and are additionally li
 allow if {
   input.principal.agent != null
   user_input := object.union(input, {"principal": {"sub": input.principal.on_behalf_of, "tenant": input.principal.tenant}})
-  data.passage.authz.allow with input as user_input
-  data.passage.agents[input.principal.agent].allowed_actions[_] == input.action
-  not data.passage.agents[input.principal.agent].kill_switch
+  data.depot.authz.allow with input as user_input
+  data.depot.agents[input.principal.agent].allowed_actions[_] == input.action
+  not data.depot.agents[input.principal.agent].kill_switch
 }
 ```
 
@@ -537,7 +537,7 @@ deny contains msg if {
   msg := "sod: preparer cannot approve own payment"
 }
 
-has_duty(d) if data.passage.grants[input.principal.tenant][input.principal.sub][d]
+has_duty(d) if data.depot.grants[input.principal.tenant][input.principal.sub][d]
 ```
 
 ### E.5 Segregation-of-duties enforcement points
@@ -601,7 +601,7 @@ In transit: TLS 1.3 at the gateway (cert-manager, ACME or customer CA), mTLS bet
 | NFR-S4 | Scale | IoT ingest | 10k events/min per plant, no loss on broker restart | Simulator + chaos | Wave 25 |
 | NFR-S5 | Scale | Migration load | 50k customers, 20k vendors, 100k items, 10k BOMs < 30 min | Migration run ledger | Wave 10 |
 | NFR-S6 | Scale | Tenants per cluster set | 100 with noisy-neighbor limits | Capacity model, rate limits | Wave 50 |
-| NFR-SEC1 | Security | Authorization on every request | 100% of routes carry `x-passage-duty`; 0 unprotected | OpenAPI lint + gateway audit | Wave 2 |
+| NFR-SEC1 | Security | Authorization on every request | 100% of routes carry `x-depot-duty`; 0 unprotected | OpenAPI lint + gateway audit | Wave 2 |
 | NFR-SEC2 | Security | Tenant isolation | 0 cross-tenant rows in RLS test suite | Automated RLS test per table | Wave 2 |
 | NFR-SEC3 | Security | Supply chain | 100% images signed, SBOM attached, 0 critical CVEs at deploy | cosign verify, Grype gate | Wave 1 |
 | NFR-SEC4 | Security | Penetration test | 0 high/critical open at wave 48 exit | External test report | Wave 48 |
@@ -1031,9 +1031,9 @@ Consolidated from the `references` arrays in `roadmap/waves.json` (183 distinct 
 
 ### L.1 Capability matrix
 
-The matrix compares the six systems a mid-to-large manufacturer shortlists against the Passage v1.0 target. Cells name the actual feature or module and give typical numbers where they are public or widely reported by customers and analysts; "n/a" means the capability is absent or only available through a partner product. Figures marked "typical" are customer-reported ranges, not vendor commitments, and should be re-validated per deal.
+The matrix compares the six systems a mid-to-large manufacturer shortlists against the Depot v1.0 target. Cells name the actual feature or module and give typical numbers where they are public or widely reported by customers and analysts; "n/a" means the capability is absent or only available through a partner product. Figures marked "typical" are customer-reported ranges, not vendor commitments, and should be re-validated per deal.
 
-| Capability | SAP S/4HANA | D365 F&SCM | Infor LN / CloudSuite Industrial | Epicor Kinetic | IFS Cloud | Plex | Passage target |
+| Capability | SAP S/4HANA | D365 F&SCM | Infor LN / CloudSuite Industrial | Epicor Kinetic | IFS Cloud | Plex | Depot target |
 |---|---|---|---|---|---|---|---|
 | MRP full regeneration, 50k items | MRP Live on HANA: minutes (typically < 10 min; MD01N) | Planning Optimization (Azure service): typically 5–30 min; legacy master planning: hours | LN: batch overnight typical; CSI (SyteLine) APS: minutes to hours | MRP regeneration batch, typically overnight; net-change intraday | MRP/MS batch, typically hours; incremental supported | Net-change MRP continuous, minutes | < 10 min for 50k items × 12 periods × 5 BOM levels; deterministic; net-change continuous |
 | Live pegging / explain plan | MD04 stock/requirements list; PP/DS pegging | Planning Optimization pegging view | LN order pegging (project pegging); CSI APS pegging | Time Phase inquiry pegging | Supply/demand pegging in Supply Chain Planning | Limited (order-level links) | Pegging tree API explaining 100% of any planned order's quantity |
@@ -1069,11 +1069,11 @@ The matrix compares the six systems a mid-to-large manufacturer shortlists again
 | Implementation, mid-size manufacturer (typical) | 12–24 months | 9–18 months | 6–12 months (CSI) | 6–12 months | 9–18 months | 6–12 months | 3–6 months using the migration factory (wave 49) and parallel-run diff |
 | Accessibility | Fiori: WCAG 2.1 AA for most apps | WCAG 2.1 AA | Partial | Partial | Partial | Partial | WCAG 2.1 AA on every generated form and workspace, axe in CI |
 
-Reading the matrix: the incumbents win today on breadth of localization, installed-base references and depth in a few modules (SAP finance, IFS EAM, Plex MES). Passage does not try to out-feature them row by row in v1.0; it competes on the rows where every incumbent is structurally weak — one journal with automated reconciliation, metadata extensibility without a proprietary language, event streaming and open APIs as the default integration surface, cloud-agnostic deployment, continuous zero-downtime upgrades, and governed AI agents that act under the same authorization as users.
+Reading the matrix: the incumbents win today on breadth of localization, installed-base references and depth in a few modules (SAP finance, IFS EAM, Plex MES). Depot does not try to out-feature them row by row in v1.0; it competes on the rows where every incumbent is structurally weak — one journal with automated reconciliation, metadata extensibility without a proprietary language, event streaming and open APIs as the default integration surface, cloud-agnostic deployment, continuous zero-downtime upgrades, and governed AI agents that act under the same authorization as users.
 
 ### L.2 Interoperability contract
 
-Principle: any system on the customer's network — MES, PLM, SCADA/OPC-UA, a third-party WMS, EDI trading partners, BI tools, AI agents — consumes Passage through the same APIs, events and MCP tools that Passage's own modules use. There is no separate "integration layer" product, no licensed middleware, and no integration project to stand up before the first interface works. What SAP sells as Integration Suite, Microsoft as dual-write plus Logic Apps, and Infor as ION is, in Passage, the integration hub shipped in wave 35: a catalog, keys and quotas, a message monitor and replay over surfaces that already exist from wave 3 (REST), wave 4 (Kafka) and wave 47 (MCP).
+Principle: any system on the customer's network — MES, PLM, SCADA/OPC-UA, a third-party WMS, EDI trading partners, BI tools, AI agents — consumes Depot through the same APIs, events and MCP tools that Depot's own modules use. There is no separate "integration layer" product, no licensed middleware, and no integration project to stand up before the first interface works. What SAP sells as Integration Suite, Microsoft as dual-write plus Logic Apps, and Infor as ION is, in Depot, the integration hub shipped in wave 35: a catalog, keys and quotas, a message monitor and replay over surfaces that already exist from wave 3 (REST), wave 4 (Kafka) and wave 47 (MCP).
 
 The contract every surface honors:
 
@@ -1083,7 +1083,7 @@ The contract every surface honors:
 4. **Correlation and idempotency everywhere.** Every inbound request carries or receives a `correlationid`; every outbound event and webhook carries it; every mutating call is idempotent by key (Appendix D.5); every consumer is expected to be idempotent by event id (Appendix C.5).
 5. **Replayability.** Events are retained 30 days and replayable per consumer; webhooks can be re-driven from the message monitor; file and EDI inbound payloads are kept as source attachments.
 6. **Sandbox and conformance.** Every tenant gets a sandbox tenant with the demo companies; a conformance kit (Postman/k6/Pact suites) lets a partner prove their integration before production keys are issued.
-7. **Observability shared with the customer.** Per-key traces, delivery logs, DLQ contents and SLA dashboards are visible in the integration hub, not only to Passage operators.
+7. **Observability shared with the customer.** Per-key traces, delivery logs, DLQ contents and SLA dashboards are visible in the integration hub, not only to Depot operators.
 8. **No data hostage.** Full export (NDJSON per entity, Iceberg tables, event archive) is a standard API, not a service engagement.
 
 | Surface | Typical consumers | Protocol / format | Authentication and authorization | SLA (per tenant, measured) | Notes |
@@ -1091,10 +1091,10 @@ The contract every surface honors:
 | REST | MES, PLM, custom apps, iPaaS, mobile | HTTPS/JSON, OpenAPI 3.1, RFC 9457 errors | OAuth 2.0 (Keycloak): authorization code for users, client credentials for services; JWT validated at Envoy, OPA per request; tenant API keys for partner quotas | 99.9% availability; p95 < 50 ms simple reads, p99 < 500 ms document posts; rate limits per tier (D.7) | Idempotency keys, ETags, cursor pagination, bulk `:batch`/`:export` |
 | GraphQL | BI tools, portals, composite screens, low-code builders | HTTPS, GraphQL over the generated SDL (read-only in v1.0; mutations via REST) | Same JWT and OPA; field-level masking for P2/P3 per duty | 99.9%; p95 < 200 ms for queries ≤ 1,000 cost points; depth ≤ 8, cost-limited | Persisted queries for portals; mirrors REST filter grammar |
 | Kafka topics | MES, third-party WMS, data platform, CRM sync, customer event consumers | Kafka protocol, CloudEvents JSON, AsyncAPI 3.0, schema registry | mTLS + SCRAM-SHA-512 per principal; topic ACLs per tenant; cross-tenant principals only for the customer's own analytics | 99.9% broker availability; p95 commit-to-consumer < 5 s; 30-day retention; replay on request | External consumers connect through the tenant's dedicated consumer group; DLQ visible in hub |
-| Webhooks | SaaS partners, iPaaS (Workato, Make), Salesforce/Shopify connectors | HTTPS POST of the CloudEvent, JSON | HMAC-SHA256 signature in `X-Passage-Signature` with per-endpoint secret (rotation supported), optional mTLS, IP allow-list | At-least-once; p95 first delivery < 10 s; retries with exponential backoff for 24 h, then DLQ; per-tier delivery quotas | Subscriptions filtered by event type and legal entity; re-drive from monitor |
-| MCP | AI agents (Passage copilot, Claude, customer-built agents, partner agents) | MCP over HTTPS (streamable), tool/resource definitions generated from OpenAPI and the semantic layer | OAuth 2.1 with user-delegated token; agent identity registered in the tenant; OPA evaluates `agent@user` so the agent never exceeds the user (E.4 example 2); kill switch | 99.9%; p95 tool call < 1 s excluding downstream posting time; per-tenant token and cost budgets | Every tool call audited with inputs/outputs; approval gates for posting tools |
+| Webhooks | SaaS partners, iPaaS (Workato, Make), Salesforce/Shopify connectors | HTTPS POST of the CloudEvent, JSON | HMAC-SHA256 signature in `X-Depot-Signature` with per-endpoint secret (rotation supported), optional mTLS, IP allow-list | At-least-once; p95 first delivery < 10 s; retries with exponential backoff for 24 h, then DLQ; per-tier delivery quotas | Subscriptions filtered by event type and legal entity; re-drive from monitor |
+| MCP | AI agents (Depot copilot, Claude, customer-built agents, partner agents) | MCP over HTTPS (streamable), tool/resource definitions generated from OpenAPI and the semantic layer | OAuth 2.1 with user-delegated token; agent identity registered in the tenant; OPA evaluates `agent@user` so the agent never exceeds the user (E.4 example 2); kill switch | 99.9%; p95 tool call < 1 s excluding downstream posting time; per-tenant token and cost budgets | Every tool call audited with inputs/outputs; approval gates for posting tools |
 | EDI | Trading partners, 3PLs, carriers, retailers | X12 (850/855/856/810/820/214) and EDIFACT (ORDERS/DESADV/INVOIC) over AS2 or SFTP; Peppol UBL 2.1 via access point | AS2 certificates per partner, SFTP key pairs, Peppol access-point credentials; partner profile binds to a service account with scoped duties | 997/CONTRL functional acknowledgment within 15 min; inbound processing p95 < 5 min; partner SLA monitor with alerting | Mappings versioned per partner; replay from message monitor; partner simulator in sandbox |
 | OPC-UA / MQTT | SCADA, PLCs, machines, sensors, historians, Andon displays | OPC-UA client (Sign & Encrypt) and MQTT 3.1.1/5 over TLS via the edge connector; events normalized to CloudEvents on Kafka | X.509 device certificates issued per plant; per-device MQTT credentials; connector runs under a plant service account | 10k events/min per plant; store-and-forward on edge for 24 h; end-to-end p95 < 5 s to OEE/condition monitoring; no loss on broker restart | Tag/topic mapping is metadata; thresholds raise maintenance requests (wave 44) |
 | File / SFTP | Banks, payroll providers, tax providers, legacy systems, lockbox | SFTP (ISO 20022 pain/camt, NACHA, BAI2, MT940, CSV/NDJSON), optional PGP | SFTP key authentication per partner, PGP keys and bank signing keys in Vault (never exported), checksum manifests | Polling every 5 min; inbound processing p95 < 15 min; outbound files signed and audited (E.7); bank acknowledgments (pain.002) ingested | Idempotent by file hash; duplicates rejected and logged; retention per fiscal rules |
 
-A customer therefore adds an MES by subscribing it to `passage.manufacturing.productionorder` and `passage.inventory.transaction`, pointing it at `/v1/manufacturing/production-orders/{id}:report` for confirmations, and issuing it a service account with the `ReportProduction` duty — the same three artifacts Passage's own shop-floor kiosk uses. Replacing that MES later means revoking one principal and one subscription, not unwinding a middleware project.
+A customer therefore adds an MES by subscribing it to `depot.manufacturing.productionorder` and `depot.inventory.transaction`, pointing it at `/v1/manufacturing/production-orders/{id}:report` for confirmations, and issuing it a service account with the `ReportProduction` duty — the same three artifacts Depot's own shop-floor kiosk uses. Replacing that MES later means revoking one principal and one subscription, not unwinding a middleware project.

@@ -9,9 +9,9 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/services/pricing/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/pricing/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/services/pricing/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/pricing/internal/store"
 )
 
 // activePrice creates and activates a PRICE record for customer cust and returns it (version 2).
@@ -107,11 +107,11 @@ func TestPostgres_JournalPostAndReverse(t *testing.T) {
 
 	events := outboxRows(t, ctx, pool)
 	tail := events[len(events)-4:]
-	if tail[0].Type != "dev.passage.pricing.conditionrecord.activated.v1" || tail[0].Data["journal_id"] != j.ID ||
+	if tail[0].Type != "dev.depot.pricing.conditionrecord.activated.v1" || tail[0].Data["journal_id"] != j.ID ||
 		tail[0].Data["legal_entity_id"] != legalEntity || tail[0].Data["retroactive"] != true {
 		t.Fatalf("first journal event = %+v; want activated with journal_id, legal entity and retroactive", tail[0])
 	}
-	if tail[1].Type != "dev.passage.pricing.conditionrecord.withdrawn.v1" || tail[3].Type != "dev.passage.pricing.journal.posted.v1" ||
+	if tail[1].Type != "dev.depot.pricing.conditionrecord.withdrawn.v1" || tail[3].Type != "dev.depot.pricing.journal.posted.v1" ||
 		tail[3].Data["line_count"] != float64(3) {
 		t.Fatalf("journal events = %+v; want activated, withdrawn, activated, journal.posted with 3 lines", tail)
 	}

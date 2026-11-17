@@ -7,8 +7,8 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/migration/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/domain"
 )
 
 // text reads a mapped field as trimmed text ("" when absent or null). Numbers and booleans print as they are.
@@ -123,7 +123,7 @@ func (l *Loader) UnknownTargets(entity string, targets []string) []string {
 
 var uuidShape = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
 
-// ref resolves a reference to another loaded entity: the field idField holds a Passage id directly, keyField the
+// ref resolves a reference to another loaded entity: the field idField holds a Depot id directly, keyField the
 // legacy key of a row that an earlier run of entity loaded. An unresolved key is a reject that says which run to do first.
 func (l *Loader) ref(ctx context.Context, f map[string]any, idField, keyField, entity string) (string, *domain.LoadResult) {
 	if id := text(f, idField); id != "" {

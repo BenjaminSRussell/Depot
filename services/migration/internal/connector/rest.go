@@ -13,8 +13,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/services/migration/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/migration/internal/oauth"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/oauth"
 )
 
 const (
@@ -180,7 +180,7 @@ func (r *REST) do(ctx context.Context, target string) (*http.Response, error) {
 			return nil, errors.New("invalid request URL")
 		}
 		req.Header.Set("Accept", "application/json")
-		req.Header.Set("User-Agent", "passage-migration")
+		req.Header.Set("User-Agent", "depot-migration")
 		switch r.auth.kind {
 		case "basic":
 			req.SetBasicAuth(r.auth.username, r.auth.secret)

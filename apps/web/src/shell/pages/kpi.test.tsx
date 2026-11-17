@@ -1,7 +1,7 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import { matchPath, MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it } from "vitest";
-import { loadModules, type PassageModule } from "../../modules/registry";
+import { loadModules, type DepotModule } from "../../modules/registry";
 import { PrincipalProvider } from "../principal";
 import { Shell } from "../Shell";
 import { json, pageViolations, server, useFakeServer } from "../testing/fakeServer";
@@ -137,7 +137,7 @@ describe("workspace tiles", () => {
 });
 
 describe("role home with tiles", () => {
-  const ledger: PassageModule = { id: "ledger", title: "General ledger", routes: [], nav: [{ label: "Journal batches", to: "/ledger/journal-batches", duty: "ledger.journal.read" }] };
+  const ledger: DepotModule = { id: "ledger", title: "General ledger", routes: [], nav: [{ label: "Journal batches", to: "/ledger/journal-batches", duty: "ledger.journal.read" }] };
 
   const onlyController = loadWorkspaceConfig({ hide: loadWorkspaceConfig().workspaces.map((w) => w.id).filter((id) => id !== "controller") });
 

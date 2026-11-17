@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/services/iot-edge/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/iot-edge/internal/domain"
 )
 
 var t0 = time.Date(2026, 11, 10, 8, 0, 0, 0, time.UTC)

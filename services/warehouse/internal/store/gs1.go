@@ -7,7 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/BenjaminSRussell/passage/services/warehouse/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/warehouse/internal/domain"
 )
 
 // GS1Company is the tenant's GS1 company prefix and the serial counter SSCCs are drawn from (#32, 32-3).

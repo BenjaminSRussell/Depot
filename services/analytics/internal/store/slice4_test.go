@@ -12,11 +12,11 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/analytics/internal/domain"
-	analyticsevents "github.com/BenjaminSRussell/passage/services/analytics/internal/events"
-	"github.com/BenjaminSRussell/passage/services/analytics/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/analytics/internal/domain"
+	analyticsevents "github.com/BenjaminSRussell/depot/services/analytics/internal/events"
+	"github.com/BenjaminSRussell/depot/services/analytics/migrations"
 )
 
 func controllerDashboard() domain.Dashboard {
@@ -405,7 +405,7 @@ func containsAsset(list []LineageAsset, fqn string) bool {
 }
 
 // The slice-4 tables isolate tenants through row-level security alone, and
-// every slice-4 write path works with the grants in 0004 as passage_app.
+// every slice-4 write path works with the grants in 0004 as depot_app.
 func TestSlice4Tables_RowLevelSecurityAndGrants(t *testing.T) {
 	if os.Getenv(testkit.EnvAppURL) == "" {
 		t.Skipf("%s not set; skipping RLS test", testkit.EnvAppURL)

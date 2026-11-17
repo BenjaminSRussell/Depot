@@ -11,12 +11,12 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/store"
 )
 
 var auditProfile = domain.PostingProfile{LedgerID: ledgerUUID, Inventory: "1400", GRIR: "2100", PPV: "5200", VendorControl: "2000"}
@@ -68,7 +68,7 @@ func TestMigration0009_AuditColumnsPolicyTablesIsolationAndGrants(t *testing.T) 
 		"a deleted invoice":         `delete from receiving_vendor_invoice`,
 	} {
 		if err := db.run(one, sql); err == nil {
-			t.Errorf("passage_app must not run %s", name)
+			t.Errorf("depot_app must not run %s", name)
 		}
 	}
 	if err := db.run(one, `update receiving_vendor_invoice set status = 'AUDIT_BLOCKED'`); err == nil {
@@ -167,7 +167,7 @@ func TestMigration0009_AuditColumnsPolicyTablesIsolationAndGrants(t *testing.T) 
 			t.Errorf("%s: other legal entity sees %d rows", table, got)
 		}
 		if err := db.run(one, `delete from `+table); err == nil {
-			t.Errorf("%s: passage_app must not delete", table)
+			t.Errorf("%s: depot_app must not delete", table)
 		}
 	}
 	if err := db.run(principal(2), `insert into receiving_audit_policy (tenant_id, legal_entity_id, sample_rate_pct, updated_by) values ($1, $2, 1, 'a')`, one.TenantID, one.LegalEntityID); err == nil {

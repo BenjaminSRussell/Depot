@@ -11,8 +11,8 @@ const USER = "00000000-0000-7000-8000-000000000001";
 const TRACE = "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01";
 
 const catalog = buildCatalog([
-  readTool("passage.ap.invoice.list", "APInvoiceView"),
-  writeTool("passage.ap.invoice.post", "APInvoicePost"),
+  readTool("depot.ap.invoice.list", "APInvoiceView"),
+  writeTool("depot.ap.invoice.post", "APInvoicePost"),
 ]);
 
 let server: Server | undefined;
@@ -42,9 +42,9 @@ async function boot(ready = true, maxBodyBytes?: number, limiter?: RateLimiter) 
 function headers(duties: string[], extra: Record<string, string> = {}): Record<string, string> {
   return {
     authorization: "Bearer user-token-for-test",
-    "x-passage-tenant": TENANT,
-    "x-passage-user": USER,
-    "x-passage-duties": duties.join(","),
+    "x-depot-tenant": TENANT,
+    "x-depot-user": USER,
+    "x-depot-duties": duties.join(","),
     "content-type": "application/json",
     ...extra,
   };
@@ -61,7 +61,7 @@ describe("TestServer_HealthAndReadiness", () => {
     const { base } = await boot(false);
     const live = await fetch(`${base}/healthz`);
     expect(live.status).toBe(200);
-    expect(live.headers.get("x-passage-api-build")).toBe("test-build");
+    expect(live.headers.get("x-depot-api-build")).toBe("test-build");
     const ready = await fetch(`${base}/readyz`);
     expect(ready.status).toBe(503);
   });
@@ -73,10 +73,10 @@ describe("TestServer_Authentication", () => {
     const noBearer = await rpc(base, { jsonrpc: "2.0", id: 1, method: "tools/list" }, headers(["APInvoiceView"], { authorization: "" }));
     expect(noBearer.status).toBe(401);
     expect(noBearer.headers.get("content-type")).toBe("application/problem+json");
-    const badTenant = await rpc(base, { jsonrpc: "2.0", id: 1, method: "tools/list" }, headers(["APInvoiceView"], { "x-passage-tenant": "nope" }));
+    const badTenant = await rpc(base, { jsonrpc: "2.0", id: 1, method: "tools/list" }, headers(["APInvoiceView"], { "x-depot-tenant": "nope" }));
     expect(badTenant.status).toBe(401);
     expect(badTenant.json).toEqual({
-      type: "https://passage.dev/problems/MCP-0401",
+      type: "https://depot.dev/problems/MCP-0401",
       title: "Unauthorized",
       status: 401,
       code: "MCP-0401",
@@ -87,23 +87,23 @@ describe("TestServer_Authentication", () => {
   it("refuses the nil platform tenant, as the kernel tenant middleware does", () => {
     const nil = principalFromHeaders({
       authorization: "Bearer abc",
-      "x-passage-tenant": "00000000-0000-0000-0000-000000000000",
-      "x-passage-user": USER,
+      "x-depot-tenant": "00000000-0000-0000-0000-000000000000",
+      "x-depot-user": USER,
     });
     expect(nil).toEqual({ ok: false, message: "missing or invalid tenant" });
   });
 
   it("canonicalizes tenant and user ids to lowercase", () => {
-    const p = principalFromHeaders({ authorization: "Bearer abc", "x-passage-tenant": TENANT.toUpperCase(), "x-passage-user": USER.toUpperCase() });
+    const p = principalFromHeaders({ authorization: "Bearer abc", "x-depot-tenant": TENANT.toUpperCase(), "x-depot-user": USER.toUpperCase() });
     expect(p.ok && [p.principal.tenantId, p.principal.userId]).toEqual([TENANT, USER]);
   });
 
   it("builds the principal from headers and ignores malformed traceparent", () => {
     const ok = principalFromHeaders({
       authorization: "Bearer abc.def",
-      "x-passage-tenant": TENANT,
-      "x-passage-user": USER,
-      "x-passage-duties": " APInvoiceView , ,APInvoicePost",
+      "x-depot-tenant": TENANT,
+      "x-depot-user": USER,
+      "x-depot-duties": " APInvoiceView , ,APInvoicePost",
       traceparent: TRACE,
       "x-agent-run-id": "run-9",
     });
@@ -112,7 +112,7 @@ describe("TestServer_Authentication", () => {
     expect([...ok.principal.duties].sort()).toEqual(["APInvoicePost", "APInvoiceView"]);
     expect(ok.principal.traceparent).toBe(TRACE);
     expect(ok.principal.runId).toBe("run-9");
-    const bad = principalFromHeaders({ authorization: "Bearer x", "x-passage-tenant": TENANT, "x-passage-user": USER, traceparent: "junk" });
+    const bad = principalFromHeaders({ authorization: "Bearer x", "x-depot-tenant": TENANT, "x-depot-user": USER, traceparent: "junk" });
     expect(bad.ok && bad.principal.traceparent).toBeFalsy();
   });
 });
@@ -122,16 +122,16 @@ describe("TestServer_McpEndpoint", () => {
     const { base } = await boot();
     const res = await rpc(base, { jsonrpc: "2.0", id: 1, method: "tools/list" }, headers(["APInvoiceView"]));
     expect(res.status).toBe(200);
-    expect(res.headers.get("x-passage-api-build")).toBe("test-build");
+    expect(res.headers.get("x-depot-api-build")).toBe("test-build");
     const names = (res.json as { result: { tools: Array<{ name: string }> } }).result.tools.map((t) => t.name);
-    expect(names).toEqual(["passage.ap.invoice.list"]);
+    expect(names).toEqual(["depot.ap.invoice.list"]);
   });
 
   it("returns a JSON-RPC 403-class error and never calls upstream without the duty (AC-47.2)", async () => {
     const { base, upstream } = await boot();
     const res = await rpc(
       base,
-      { jsonrpc: "2.0", id: 2, method: "tools/call", params: { name: "passage.ap.invoice.post", arguments: { invoiceId: "INV-1" } } },
+      { jsonrpc: "2.0", id: 2, method: "tools/call", params: { name: "depot.ap.invoice.post", arguments: { invoiceId: "INV-1" } } },
       headers(["APInvoiceView"]),
     );
     expect(res.status).toBe(200);
@@ -184,7 +184,7 @@ describe("TestServer_McpEndpoint", () => {
 describe("TestServer_RateLimit", () => {
   it("sends RateLimit-* on allowed calls and 429 MCP-0429 with Retry-After once the caller is over the limit", async () => {
     const { base, upstream } = await boot(true, undefined, createRateLimiter({ limit: 2, nowMs: () => 0 }));
-    const call = { jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "passage.ap.invoice.list", arguments: {} } };
+    const call = { jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "depot.ap.invoice.list", arguments: {} } };
     upstream.responses.push({ status: 200, body: { items: [] } }, { status: 200, body: { items: [] } });
     const first = await rpc(base, call, headers(["APInvoiceView"]));
     expect(first.status).toBe(200);
@@ -197,7 +197,7 @@ describe("TestServer_RateLimit", () => {
     expect(refused.json).toMatchObject({ code: "MCP-0429", status: 429 });
     expect(upstream.calls).toHaveLength(2);
     // Another user of the same tenant has their own window.
-    const other = await rpc(base, call, headers(["APInvoiceView"], { "x-passage-user": "00000000-0000-7000-8000-000000000002" }));
+    const other = await rpc(base, call, headers(["APInvoiceView"], { "x-depot-user": "00000000-0000-7000-8000-000000000002" }));
     expect(other.status).toBe(200);
   });
 
@@ -207,7 +207,7 @@ describe("TestServer_RateLimit", () => {
       jsonrpc: "2.0",
       id: i,
       method: "tools/call",
-      params: { name: "passage.ap.invoice.list", arguments: {} },
+      params: { name: "depot.ap.invoice.list", arguments: {} },
     }));
     const res = await rpc(base, batch, headers(["APInvoiceView"]));
     expect(res.status).toBe(200);

@@ -147,72 +147,72 @@ CREATE INDEX IF NOT EXISTS hr_comp_worksheet_row_manager ON hr_comp_worksheet_ro
 ALTER TABLE hr_requisition ENABLE ROW LEVEL SECURITY;
 ALTER TABLE hr_requisition FORCE ROW LEVEL SECURITY;
 CREATE POLICY hr_requisition_tenant_access ON hr_requisition AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY hr_requisition_legal_entity_scope ON hr_requisition AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 ALTER TABLE hr_candidate ENABLE ROW LEVEL SECURITY;
 ALTER TABLE hr_candidate FORCE ROW LEVEL SECURITY;
 CREATE POLICY hr_candidate_tenant_access ON hr_candidate AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY hr_candidate_legal_entity_scope ON hr_candidate AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 ALTER TABLE hr_consent_record ENABLE ROW LEVEL SECURITY;
 ALTER TABLE hr_consent_record FORCE ROW LEVEL SECURITY;
 CREATE POLICY hr_consent_record_tenant_access ON hr_consent_record AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY hr_consent_record_legal_entity_scope ON hr_consent_record AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 ALTER TABLE hr_retention_policy ENABLE ROW LEVEL SECURITY;
 ALTER TABLE hr_retention_policy FORCE ROW LEVEL SECURITY;
 CREATE POLICY hr_retention_policy_tenant_access ON hr_retention_policy AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 ALTER TABLE hr_offer ENABLE ROW LEVEL SECURITY;
 ALTER TABLE hr_offer FORCE ROW LEVEL SECURITY;
 CREATE POLICY hr_offer_tenant_access ON hr_offer AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY hr_offer_legal_entity_scope ON hr_offer AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 ALTER TABLE hr_comp_cycle ENABLE ROW LEVEL SECURITY;
 ALTER TABLE hr_comp_cycle FORCE ROW LEVEL SECURITY;
 CREATE POLICY hr_comp_cycle_tenant_access ON hr_comp_cycle AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 ALTER TABLE hr_comp_cycle_budget ENABLE ROW LEVEL SECURITY;
 ALTER TABLE hr_comp_cycle_budget FORCE ROW LEVEL SECURITY;
 CREATE POLICY hr_comp_cycle_budget_tenant_access ON hr_comp_cycle_budget AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 ALTER TABLE hr_comp_worksheet_row ENABLE ROW LEVEL SECURITY;
 ALTER TABLE hr_comp_worksheet_row FORCE ROW LEVEL SECURITY;
 CREATE POLICY hr_comp_worksheet_row_tenant_access ON hr_comp_worksheet_row AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY hr_comp_worksheet_row_legal_entity_scope ON hr_comp_worksheet_row AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON hr_requisition, hr_candidate, hr_offer, hr_comp_cycle, hr_comp_worksheet_row, hr_retention_policy TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON hr_consent_record TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT ON hr_comp_cycle_budget TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON hr_requisition, hr_candidate, hr_offer, hr_comp_cycle, hr_comp_worksheet_row, hr_retention_policy TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON hr_consent_record TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT ON hr_comp_cycle_budget TO depot_app';
   END IF;
 END
 $$;

@@ -23,13 +23,13 @@ export interface TokenResponse {
   expires_in: number;
 }
 
-declare const __PASSAGE_OIDC__: OidcConfig | null | undefined;
+declare const __DEPOT_OIDC__: OidcConfig | null | undefined;
 
 export const CALLBACK_PATH = "/auth/callback";
 export const LOGOUT_PATH = "/auth/logout";
 
 export function configuredOidc(): OidcConfig | null {
-  return typeof __PASSAGE_OIDC__ === "object" && __PASSAGE_OIDC__ !== null ? __PASSAGE_OIDC__ : null;
+  return typeof __DEPOT_OIDC__ === "object" && __DEPOT_OIDC__ !== null ? __DEPOT_OIDC__ : null;
 }
 
 export function endpoints(issuer: string) {

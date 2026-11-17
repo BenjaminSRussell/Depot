@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/services/intercompany/internal/api"
+	"github.com/BenjaminSRussell/depot/services/intercompany/internal/api"
 )
 
 const (

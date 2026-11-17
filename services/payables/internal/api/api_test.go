@@ -16,9 +16,9 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/payables/internal/api"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/payables/internal/api"
 )
 
 const (
@@ -44,8 +44,8 @@ func newRouter(db fakeDB) (*chi.Mux, *api.API) {
 func do(r http.Handler, method, path, body string, tenantHeader bool, duties string) *httptest.ResponseRecorder {
 	req := httptest.NewRequest(method, path, strings.NewReader(body))
 	if tenantHeader {
-		req.Header.Set("X-Passage-Tenant", testkit.TenantID(1))
-		req.Header.Set("X-Passage-Duties", duties)
+		req.Header.Set("X-Depot-Tenant", testkit.TenantID(1))
+		req.Header.Set("X-Depot-Duties", duties)
 	}
 	rec := httptest.NewRecorder()
 	r.ServeHTTP(rec, req)
@@ -118,8 +118,8 @@ func TestAuthRejectionBodiesMatchKernel(t *testing.T) {
 	unauth := do(r, http.MethodPost, previewPath, workedBody, false, "")
 	forbidden := do(r, http.MethodPost, previewPath, workedBody, true, "")
 	malformedReq := httptest.NewRequest(http.MethodPost, previewPath, strings.NewReader(workedBody))
-	malformedReq.Header.Set("X-Passage-Tenant", "not-a-uuid")
-	malformedReq.Header.Set("X-Passage-Duties", "settlement.read")
+	malformedReq.Header.Set("X-Depot-Tenant", "not-a-uuid")
+	malformedReq.Header.Set("X-Depot-Duties", "settlement.read")
 	malformed := httptest.NewRecorder()
 	r.ServeHTTP(malformed, malformedReq)
 
@@ -212,8 +212,8 @@ func TestMetricsSeparateClientErrorsFromServerFaults(t *testing.T) {
 	do(h, http.MethodPost, previewPath, workedBody, false, "")
 	do(h, http.MethodPost, previewPath, workedBody, true, "")
 	malformed := httptest.NewRequest(http.MethodPost, previewPath, strings.NewReader(workedBody))
-	malformed.Header.Set("X-Passage-Tenant", "not-a-uuid")
-	malformed.Header.Set("X-Passage-Duties", "settlement.read")
+	malformed.Header.Set("X-Depot-Tenant", "not-a-uuid")
+	malformed.Header.Set("X-Depot-Duties", "settlement.read")
 	h.ServeHTTP(httptest.NewRecorder(), malformed)
 	got := scrape(a)
 	for _, want := range []string{
@@ -274,7 +274,7 @@ func TestOpenAPIDocumentsEveryRoute(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"x-passage-duty: settlement.read", "/metrics", "/healthz", "/readyz"} {
+	for _, want := range []string{"x-depot-duty: settlement.read", "/metrics", "/healthz", "/readyz"} {
 		if !strings.Contains(string(spec), want) {
 			t.Errorf("openapi.yaml missing %q", want)
 		}

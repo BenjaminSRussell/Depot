@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/tools/migration-factory/internal/domain"
+	"github.com/BenjaminSRussell/depot/tools/migration-factory/internal/domain"
 )
 
 // The workspace catalog lists the nine FR-49.1 packs for the four legacy systems, and its

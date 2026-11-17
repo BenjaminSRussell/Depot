@@ -51,7 +51,7 @@ func testSigningKey() string {
 
 func TestLoadDispatchConfig(t *testing.T) {
 	env := func(extra map[string]string) func(string) string {
-		base := map[string]string{"PRODUCT_URL": "http://product:8080", "PASSAGE_SERVICE_NAME": "batch", "PASSAGE_SERVICE_SIGNING_KEY": testSigningKey()}
+		base := map[string]string{"PRODUCT_URL": "http://product:8080", "DEPOT_SERVICE_NAME": "batch", "DEPOT_SERVICE_SIGNING_KEY": testSigningKey()}
 		for k, v := range extra {
 			base[k] = v
 		}
@@ -69,9 +69,9 @@ func TestLoadDispatchConfig(t *testing.T) {
 		t.Fatalf("overrides = %+v, %v", cfg, err)
 	}
 	for name, extra := range map[string]map[string]string{
-		"no signing key":      {"PASSAGE_SERVICE_SIGNING_KEY": ""},
-		"malformed key":       {"PASSAGE_SERVICE_SIGNING_KEY": "not-a-seed"},
-		"wrong service name":  {"PASSAGE_SERVICE_NAME": "receiving"},
+		"no signing key":      {"DEPOT_SERVICE_SIGNING_KEY": ""},
+		"malformed key":       {"DEPOT_SERVICE_SIGNING_KEY": "not-a-seed"},
+		"wrong service name":  {"DEPOT_SERVICE_NAME": "receiving"},
 		"bad interval":        {"DISPATCH_INTERVAL": "soon"},
 		"zero concurrency":    {"DISPATCH_CONCURRENCY": "0"},
 		"bad attempts":        {"DISPATCH_MAX_RUN_ATTEMPTS": "-1"},
@@ -85,16 +85,16 @@ func TestLoadDispatchConfig(t *testing.T) {
 
 func TestRun_ProductURLWithoutSigningKeyStopsStartup(t *testing.T) {
 	err := run(context.Background(), func(k string) string {
-		return map[string]string{"DATABASE_URL": "://bad", "PRODUCT_URL": "http://product", "PASSAGE_SERVICE_NAME": "batch"}[k]
+		return map[string]string{"DATABASE_URL": "://bad", "PRODUCT_URL": "http://product", "DEPOT_SERVICE_NAME": "batch"}[k]
 	})
-	if err == nil || !strings.Contains(err.Error(), "PASSAGE_SERVICE_SIGNING_KEY") {
+	if err == nil || !strings.Contains(err.Error(), "DEPOT_SERVICE_SIGNING_KEY") {
 		t.Fatalf("err = %v", err)
 	}
 }
 
 func TestLoadInbox(t *testing.T) {
 	env := func(extra map[string]string) func(string) string {
-		base := map[string]string{"LEDGER_URL": "http://ledger:8080", "PASSAGE_SERVICE_NAME": "batch", "PASSAGE_SERVICE_SIGNING_KEY": testSigningKey()}
+		base := map[string]string{"LEDGER_URL": "http://ledger:8080", "DEPOT_SERVICE_NAME": "batch", "DEPOT_SERVICE_SIGNING_KEY": testSigningKey()}
 		for k, v := range extra {
 			base[k] = v
 		}
@@ -107,8 +107,8 @@ func TestLoadInbox(t *testing.T) {
 		t.Fatalf("defaults = %+v, %v", agg, err)
 	}
 	for name, extra := range map[string]map[string]string{
-		"no signing key":     {"PASSAGE_SERVICE_SIGNING_KEY": ""},
-		"wrong service name": {"PASSAGE_SERVICE_NAME": "receiving"},
+		"no signing key":     {"DEPOT_SERVICE_SIGNING_KEY": ""},
+		"wrong service name": {"DEPOT_SERVICE_NAME": "receiving"},
 		"bad timeout":        {"INBOX_SOURCE_TIMEOUT": "soon"},
 		"zero concurrency":   {"INBOX_CONCURRENCY": "0"},
 	} {

@@ -208,8 +208,8 @@ func TestRunDrillWritesTheRecordAndFailsTheCommand(t *testing.T) {
 	p := newPair(t, ledgerDDL)
 	seedScenario(t, p)
 	env := map[string]string{
-		scratchURLEnv: os.Getenv("PASSAGE_TEST_RESTORE_DATABASE_URL"),
-		liveURLEnv:    os.Getenv("PASSAGE_TEST_APP_DATABASE_URL"),
+		scratchURLEnv: os.Getenv("DEPOT_TEST_RESTORE_DATABASE_URL"),
+		liveURLEnv:    os.Getenv("DEPOT_TEST_APP_DATABASE_URL"),
 	}
 	getenv := func(k string) string { return env[k] }
 	file := filepath.Join(t.TempDir(), "drill.json")
@@ -246,9 +246,9 @@ func TestMaskedCloneRefusesAnUnclassifiedColumnBeforeReadingARow(t *testing.T) {
 }
 
 func TestMaskedCloneRefusesTheSameDatabaseWhateverTheURLLooksLike(t *testing.T) {
-	url := os.Getenv("PASSAGE_TEST_APP_DATABASE_URL")
+	url := os.Getenv("DEPOT_TEST_APP_DATABASE_URL")
 	if url == "" {
-		t.Skip("PASSAGE_TEST_APP_DATABASE_URL not set")
+		t.Skip("DEPOT_TEST_APP_DATABASE_URL not set")
 	}
 	masks, err := ParseMasks([]byte(`{"salt":"per-clone-secret","columns":{"a.b":"keep"}}`))
 	if err != nil {
@@ -274,7 +274,7 @@ func TestMaskedCloneRefusesTheSameDatabaseWhateverTheURLLooksLike(t *testing.T) 
 		t.Fatalf("two spellings of one database must be refused: %v", err)
 	}
 	// another database of the same cluster is a different database
-	other, err := pgx.Connect(ctx, os.Getenv("PASSAGE_TEST_RESTORE_DATABASE_URL"))
+	other, err := pgx.Connect(ctx, os.Getenv("DEPOT_TEST_RESTORE_DATABASE_URL"))
 	if err != nil {
 		t.Fatal(err)
 	}

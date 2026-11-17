@@ -74,43 +74,43 @@ create index opening_load_batch_row_balance on opening_load_batch_row (tenant_id
 alter table opening_load enable row level security;
 alter table opening_load force row level security;
 create policy opening_load_tenant_access on opening_load as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 create policy opening_load_legal_entity_scope on opening_load as restrictive
-  using (current_setting('passage.legal_entity_scopes', true) = '*'
-         or legal_entity_id::text = any(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  using (current_setting('depot.legal_entity_scopes', true) = '*'
+         or legal_entity_id::text = any(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 alter table opening_load_row enable row level security;
 alter table opening_load_row force row level security;
 create policy opening_load_row_tenant_access on opening_load_row as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 create policy opening_load_row_legal_entity_scope on opening_load_row as restrictive
-  using (current_setting('passage.legal_entity_scopes', true) = '*'
-         or legal_entity_id::text = any(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  using (current_setting('depot.legal_entity_scopes', true) = '*'
+         or legal_entity_id::text = any(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 alter table opening_load_batch_row enable row level security;
 alter table opening_load_batch_row force row level security;
 create policy opening_load_batch_row_tenant_access on opening_load_batch_row as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 alter table opening_load_batch enable row level security;
 alter table opening_load_batch force row level security;
 create policy opening_load_batch_tenant_access on opening_load_batch as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 create policy opening_load_batch_legal_entity_scope on opening_load_batch as restrictive
-  using (current_setting('passage.legal_entity_scopes', true) = '*'
-         or legal_entity_id::text = any(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  using (current_setting('depot.legal_entity_scopes', true) = '*'
+         or legal_entity_id::text = any(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE format('GRANT USAGE ON SCHEMA %I TO passage_app', current_schema());
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON opening_load, opening_load_row TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON opening_load_batch TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT, DELETE ON opening_load_batch_row TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE format('GRANT USAGE ON SCHEMA %I TO depot_app', current_schema());
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON opening_load, opening_load_row TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON opening_load_batch TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT, DELETE ON opening_load_batch_row TO depot_app';
   END IF;
 END
 $$;

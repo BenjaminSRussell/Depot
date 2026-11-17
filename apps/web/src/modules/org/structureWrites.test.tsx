@@ -107,7 +107,7 @@ describe("operating units page", () => {
     expect(JSON.parse(String(init?.body))).toEqual({ type: "department", code: "DEPT1", name: "Paint shop", defaultLegalEntityId: "le-1" });
     const headers = new Headers(init?.headers);
     expect(headers.get("Idempotency-Key")).toBeTruthy();
-    expect(headers.has("X-Passage-LegalEntity")).toBe(false);
+    expect(headers.has("X-Depot-LegalEntity")).toBe(false);
     await waitFor(() => expect(callsTo(fetchMock, "GET", "/operating-units").length).toBeGreaterThan(1));
   });
 
@@ -196,7 +196,7 @@ describe("sites page", () => {
     expect(JSON.parse(String(init?.body))).toEqual({ legalEntityId: "le-1", code: "DET", name: "Detroit" });
     // The site table is behind the legal-entity RLS policy: without the header the service sees no scope and refuses.
     const headers = new Headers(init?.headers);
-    expect(headers.get("X-Passage-LegalEntity")).toBe("le-1");
+    expect(headers.get("X-Depot-LegalEntity")).toBe("le-1");
     expect(headers.get("Idempotency-Key")).toBeTruthy();
   });
 
@@ -215,9 +215,9 @@ describe("sites page", () => {
     expect(await screen.findByText(/ORG-VERSION-CONFLICT/)).toBeInTheDocument();
     await waitFor(() => expect(callsTo(fetchMock, "GET", "/sites/s-9")).toHaveLength(1));
     const [, patch] = callsTo(fetchMock, "PATCH", "/sites/s-9")[0];
-    expect(new Headers(patch?.headers).get("X-Passage-LegalEntity")).toBe("le-2");
+    expect(new Headers(patch?.headers).get("X-Depot-LegalEntity")).toBe("le-2");
     expect(new Headers(patch?.headers).has("Idempotency-Key")).toBe(false);
-    expect(new Headers(callsTo(fetchMock, "GET", "/sites/s-9")[0][1]?.headers).get("X-Passage-LegalEntity")).toBe("le-2");
+    expect(new Headers(callsTo(fetchMock, "GET", "/sites/s-9")[0][1]?.headers).get("X-Depot-LegalEntity")).toBe("le-2");
   });
 
   it("shows a duplicate code and deactivates a site, explaining ORG-SITE-IN-USE", async () => {
@@ -280,11 +280,11 @@ describe("warehouses page", () => {
       name: "Quarantine",
       type: "quarantine",
     });
-    expect(new Headers(init?.headers).get("X-Passage-LegalEntity")).toBe("le-1");
+    expect(new Headers(init?.headers).get("X-Depot-LegalEntity")).toBe("le-1");
     expect(new Headers(init?.headers).get("Idempotency-Key")).toBeTruthy();
     // The site choices come from the selected legal entity, not an ALL read the caller may not be allowed.
     const siteReads = callsTo(fetchMock, "GET", "/sites");
-    expect(siteReads.every(([, read]) => new Headers(read?.headers).get("X-Passage-LegalEntity") === "le-1")).toBe(true);
+    expect(siteReads.every(([, read]) => new Headers(read?.headers).get("X-Depot-LegalEntity") === "le-1")).toBe(true);
   });
 
   it("shows a duplicate code and refuses to deactivate a default warehouse with its code", async () => {
@@ -305,7 +305,7 @@ describe("warehouses page", () => {
     await user.click(screen.getByRole("button", { name: "Deactivate warehouse WH1" }));
     await user.click(screen.getByRole("button", { name: "Confirm deactivate warehouse WH1" }));
     expect(await screen.findByText(/ORG-WH-IS-DEFAULT/)).toBeInTheDocument();
-    expect(new Headers(callsTo(fetchMock, "PATCH", "/warehouses/w-1")[0][1]?.headers).get("X-Passage-LegalEntity")).toBe("le-1");
+    expect(new Headers(callsTo(fetchMock, "PATCH", "/warehouses/w-1")[0][1]?.headers).get("X-Depot-LegalEntity")).toBe("le-1");
   });
 
   it("reports a failed site lookup beside the form", async () => {

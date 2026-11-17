@@ -5,7 +5,7 @@ import (
 	"regexp"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/events"
 )
 
 // Every published type follows the naming rule and is documented in AsyncAPI,
@@ -16,12 +16,12 @@ func TestEveryTypeIsNamedAndDocumented(t *testing.T) {
 		t.Fatal(err)
 	}
 	documented := map[string]bool{}
-	for _, m := range regexp.MustCompile(`(?m)^      name: (dev\.passage\.[a-z0-9.]+)$`).FindAllStringSubmatch(string(spec), -1) {
+	for _, m := range regexp.MustCompile(`(?m)^      name: (dev\.depot\.[a-z0-9.]+)$`).FindAllStringSubmatch(string(spec), -1) {
 		documented[m[1]] = true
 	}
 	for _, typ := range All() {
 		if !events.ValidType(typ) {
-			t.Fatalf("%s breaks dev.passage.<context>.<entity>.<verb>.v<n>", typ)
+			t.Fatalf("%s breaks dev.depot.<context>.<entity>.<verb>.v<n>", typ)
 		}
 		if !documented[typ] {
 			t.Fatalf("%s is not documented in events/asyncapi.yaml", typ)

@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/services/migration/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/migration/internal/store"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/store"
 )
 
 const xrefPath = "/v1/integration/xref"
@@ -93,7 +93,7 @@ func TestXref_RejectsBadInputAndRequiresDuty(t *testing.T) {
 	if rec := do(r, http.MethodGet, xrefPath, "", "", false); rec.Code != http.StatusUnauthorized {
 		t.Fatalf("no principal: %d", rec.Code)
 	}
-	if rec := do(r, http.MethodGet, xrefPath+"/summary", "", duties, true, "X-Passage-Legal-Entity", "00000000-0000-7000-8000-000000000007"); rec.Code != http.StatusForbidden {
+	if rec := do(r, http.MethodGet, xrefPath+"/summary", "", duties, true, "X-Depot-Legal-Entity", "00000000-0000-7000-8000-000000000007"); rec.Code != http.StatusForbidden {
 		t.Fatalf("legal-entity scoped caller: %d", rec.Code)
 	}
 }
@@ -108,7 +108,7 @@ func TestXrefSummary_CountsPerSystemAndEntity(t *testing.T) {
 	}
 }
 
-// A loading service resolves legacy keys to the Passage ids this service loaded (#49, H-S8-6); keys it does not hold are left out.
+// A loading service resolves legacy keys to the Depot ids this service loaded (#49, H-S8-6); keys it does not hold are left out.
 func TestXrefResolve_AnswersTheHeldKeysOnly(t *testing.T) {
 	s := store.NewMem()
 	seedXref(t, s, 3)

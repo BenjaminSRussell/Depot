@@ -14,10 +14,10 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/fulfillment/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/fulfillment/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/fulfillment/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/fulfillment/internal/store"
 )
 
 const tenant = "00000000-0000-0000-0000-000000000001"
@@ -147,9 +147,9 @@ func do(t *testing.T, h http.Handler, method, path, body string, headers map[str
 	t.Helper()
 	req := httptest.NewRequest(method, path, strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Passage-Tenant", tenant)
-	req.Header.Set("X-Passage-Duties", "fulfillment.warehouse.release,fulfillment.warehouse.view,fulfillment.warehouse.pick,fulfillment.warehouse.pack,fulfillment.packing-slip.post")
-	req.Header.Set("X-Passage-User", "00000000-0000-0000-0000-000000000009")
+	req.Header.Set("X-Depot-Tenant", tenant)
+	req.Header.Set("X-Depot-Duties", "fulfillment.warehouse.release,fulfillment.warehouse.view,fulfillment.warehouse.pick,fulfillment.warehouse.pack,fulfillment.packing-slip.post")
+	req.Header.Set("X-Depot-User", "00000000-0000-0000-0000-000000000009")
 	for k, v := range headers {
 		req.Header.Set(k, v)
 	}
@@ -269,8 +269,8 @@ func TestDuty_MissingDutyIsForbidden(t *testing.T) {
 	h := newServer(t, &fakeStore{})
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/v1/fulfillment/shipments/"+ids.New(), nil)
-	req.Header.Set("X-Passage-Tenant", tenant)
-	req.Header.Set("X-Passage-Duties", "SomethingElse")
+	req.Header.Set("X-Depot-Tenant", tenant)
+	req.Header.Set("X-Depot-Duties", "SomethingElse")
 	h.ServeHTTP(rec, req)
 	if rec.Code != http.StatusForbidden {
 		t.Fatalf("status = %d, want 403", rec.Code)
@@ -447,10 +447,10 @@ func TestPackingSlipLine_GetByShipmentLineOr404(t *testing.T) {
 func TestPackingSlipGet_ServiceReadDutyOnly(t *testing.T) {
 	h := newServer(t, &fakeStore{})
 	path := "/v1/fulfillment/packing-slips/" + ids.New()
-	if rec := do(t, h, http.MethodGet, path, "", map[string]string{"X-Passage-Duties": "fulfillment.packing-slip.read"}); rec.Code != http.StatusOK {
+	if rec := do(t, h, http.MethodGet, path, "", map[string]string{"X-Depot-Duties": "fulfillment.packing-slip.read"}); rec.Code != http.StatusOK {
 		t.Fatalf("service duty: %d %s", rec.Code, rec.Body.String())
 	}
-	if rec := do(t, h, http.MethodGet, path, "", map[string]string{"X-Passage-Duties": "fulfillment.shipment.read"}); rec.Code != http.StatusForbidden {
+	if rec := do(t, h, http.MethodGet, path, "", map[string]string{"X-Depot-Duties": "fulfillment.shipment.read"}); rec.Code != http.StatusForbidden {
 		t.Fatalf("the shipment read duty is not enough for a packing slip: %d", rec.Code)
 	}
 }
@@ -471,7 +471,7 @@ func TestOpenAPIMatchesRoutes(t *testing.T) {
 	}
 	pathRe := regexp.MustCompile(`^  (/\S+):$`)
 	opRe := regexp.MustCompile(`^    (get|post|put|patch|delete):$`)
-	dutyRe := regexp.MustCompile(`^      x-passage-duty: (\S+)$`)
+	dutyRe := regexp.MustCompile(`^      x-depot-duty: (\S+)$`)
 	documented := map[string]string{}
 	var path, op string
 	for _, line := range strings.Split(string(raw), "\n") {
@@ -498,7 +498,7 @@ func TestOpenAPIMatchesRoutes(t *testing.T) {
 		if !ok {
 			t.Errorf("route %s is not in openapi.yaml", op)
 		} else if duty == "" {
-			t.Errorf("operation %s has no x-passage-duty", op)
+			t.Errorf("operation %s has no x-depot-duty", op)
 		}
 	}
 	for op := range documented {

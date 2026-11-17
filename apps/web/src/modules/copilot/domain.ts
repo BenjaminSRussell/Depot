@@ -34,7 +34,7 @@ const APPROVAL_LABELS: Readonly<Record<ApprovalModeName, string>> = {
   approve_before_commit: "Approve before commit",
 };
 
-/** x-passage-approval as shown to users (FR-47.1). */
+/** x-depot-approval as shown to users (FR-47.1). */
 export function approvalLabel(mode: ApprovalModeName): string {
   return APPROVAL_LABELS[mode];
 }
@@ -51,7 +51,7 @@ export interface ModeStore {
 
 /** Storage key for the mode a user last chose in a workspace (9.47.6: "remembers mode per workspace per user"). */
 export function modeMemoryKey(userId: string, workspace: string): string {
-  return `passage.copilot.mode:${encodeURIComponent(userId)}:${encodeURIComponent(workspace)}`;
+  return `depot.copilot.mode:${encodeURIComponent(userId)}:${encodeURIComponent(workspace)}`;
 }
 
 /**

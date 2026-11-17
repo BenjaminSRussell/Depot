@@ -211,7 +211,7 @@ describe("Trade agreements export", () => {
 
   it("says when the file holds fewer records than matched, and reports a refused export", async () => {
     server.handler = (url) => {
-      if (url.pathname.endsWith("/condition-records:export")) return text(200, CSV, { "Content-Type": "text/csv", "X-Passage-Truncated": "true" });
+      if (url.pathname.endsWith("/condition-records:export")) return text(200, CSV, { "Content-Type": "text/csv", "X-Depot-Truncated": "true" });
       if (url.pathname.endsWith("/condition-records")) return json(200, { items: [] });
       return undefined;
     };

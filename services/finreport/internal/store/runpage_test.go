@@ -3,8 +3,8 @@ package store
 import (
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/finreport/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/finreport/internal/domain"
 )
 
 // The run list pages by keyset on (started at, id): every run appears exactly

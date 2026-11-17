@@ -9,14 +9,14 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/services/tax/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/tax/internal/domain"
 )
 
 const (
 	Namespace      = "urn:OECD:StandardAuditFile-Tax:2.00"
 	FileVersion    = "2.00"
-	softwareName   = "Passage"
-	softwareID     = "passage-tax"
+	softwareName   = "Depot"
+	softwareID     = "depot-tax"
 	softwareBuild  = "1"
 	dateLayout     = "2006-01-02"
 	dateTimeLayout = "2006-01-02T15:04:05"

@@ -7,15 +7,15 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/events"
 )
 
 var published = []string{CostComponentCreated, CostGroupCreated, VersionCreated, VersionTransitioned, StandardCostActivated, PostingAccountsChanged, ActivationAttemptResolved}
 
 func TestEventTypesFollowTheNamingRule(t *testing.T) {
 	for _, typ := range published {
-		if !events.ValidType(typ) || !strings.HasPrefix(typ, "dev.passage.costing.") {
-			t.Errorf("event type %q breaks dev.passage.costing.<entity>.<verb>.v<n>", typ)
+		if !events.ValidType(typ) || !strings.HasPrefix(typ, "dev.depot.costing.") {
+			t.Errorf("event type %q breaks dev.depot.costing.<entity>.<verb>.v<n>", typ)
 		}
 	}
 }

@@ -3,7 +3,7 @@ package domain
 import (
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/money"
+	"github.com/BenjaminSRussell/depot/platform/money"
 )
 
 // Default realized FX accounts (BR-30.4); a legal entity overrides them in its FX setting.

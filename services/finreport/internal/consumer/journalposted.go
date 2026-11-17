@@ -15,13 +15,13 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/eventing"
-	"github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/eventing"
+	"github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
 
-	"github.com/BenjaminSRussell/passage/services/finreport/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/finreport/internal/domain"
 )
 
 const (
@@ -33,7 +33,7 @@ const (
 	// holds exactly this duty.
 	dutyEntryLookup = "ledger.entry.lookup"
 	// LedgerSource is the CloudEvents source the ledger writes on its events.
-	LedgerSource = "/passage/ledger/ledger"
+	LedgerSource = "/depot/ledger/ledger"
 )
 
 var (
@@ -87,7 +87,7 @@ func invalid(format string, args ...any) error {
 	return eventing.Permanent(fmt.Errorf("%w: %s", ErrInvalidEvent, fmt.Sprintf(format, args...)))
 }
 
-// HandleJournalPosted applies one dev.passage.ledger.journal.posted.v1 event.
+// HandleJournalPosted applies one dev.depot.ledger.journal.posted.v1 event.
 // A reversal is announced as journal.posted too (its lines carry
 // reversalOfEntryId), so reversals need no handler of their own. A replay, and
 // an entry that arrives before an earlier one of its ledger, return nil (the

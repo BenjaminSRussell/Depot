@@ -2,7 +2,7 @@ package events
 
 // RequisitionSplit is written when a buyer cuts new lines out of an OPEN line of an APPROVED requisition
 // (FR-17.3). The subject is the requisition id, like the other requisition events.
-const RequisitionSplit = "dev.passage.procurement.requisition.split.v1"
+const RequisitionSplit = "dev.depot.procurement.requisition.split.v1"
 
 // RequisitionSplitLine is a line a split produced or changed: the original with what it keeps, or a new line.
 type RequisitionSplitLine struct {

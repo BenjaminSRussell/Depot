@@ -85,11 +85,11 @@ describe("PDF downloads", () => {
     expect(Buffer.from(await res.arrayBuffer()).equals(PDF)).toBe(true);
     const read = rig.calls.find((c) => c.url.startsWith("http://billing.test"))!;
     expect(read.url).toBe(`http://billing.test/v1/billing/customer-portal/invoices/${ID_1}`);
-    expect(tokenClaims(read.headers.get("x-passage-service-token")!)).toMatchObject({ aud: "billing", cus: CUSTOMER_A, le: LE_1, duties: ["billing.customer-portal.read"] });
+    expect(tokenClaims(read.headers.get("x-depot-service-token")!)).toMatchObject({ aud: "billing", cus: CUSTOMER_A, le: LE_1, duties: ["billing.customer-portal.read"] });
     const render = rig.calls.find((c) => c.url.startsWith("http://print.test"))!;
     expect(render.url).toBe("http://print.test/print/v1/documents:render");
     expect(render.method).toBe("POST");
-    expect(tokenClaims(render.headers.get("x-passage-service-token")!)).toMatchObject({ aud: "print", cus: CUSTOMER_A, duties: ["print.customer-portal.render"] });
+    expect(tokenClaims(render.headers.get("x-depot-service-token")!)).toMatchObject({ aud: "print", cus: CUSTOMER_A, duties: ["print.customer-portal.render"] });
     expect(JSON.parse(render.body)).toMatchObject({ documentType: "CUSTOMER_INVOICE", number: "INV-2026-0042", legalEntity: { name: "Cedar Ridge Pumps" } });
   });
 
@@ -104,7 +104,7 @@ describe("PDF downloads", () => {
     expect(res.headers.get("content-disposition")).toBe('attachment; filename="statement-2026-11-10.pdf"');
     const read = rig.calls.find((c) => c.url.startsWith("http://receivables.test"))!;
     expect(read.url).toBe("http://receivables.test/v1/receivables/customer-portal/statement?asOf=2026-11-10");
-    expect(tokenClaims(read.headers.get("x-passage-service-token")!)).toMatchObject({ cus: CUSTOMER_B });
+    expect(tokenClaims(read.headers.get("x-depot-service-token")!)).toMatchObject({ cus: CUSTOMER_B });
     const render = rig.calls.find((c) => c.url.startsWith("http://print.test"))!;
     expect(JSON.parse(render.body)).toMatchObject({ documentType: "PERIODIC_STATEMENT", legalEntity: { name: "Your supplier" } });
   });
@@ -157,7 +157,7 @@ describe("Documents delivered to the portal", () => {
     expect(((await res.json()) as { items: unknown[] }).items).toHaveLength(1);
     const call = rig.calls.find((c) => c.url.startsWith("http://print.test"))!;
     expect(call.url).toBe("http://print.test/print/v1/customer-portal/documents?limit=10");
-    expect(tokenClaims(call.headers.get("x-passage-service-token")!)).toMatchObject({ aud: "print", cus: CUSTOMER_A, duties: ["print.customer-portal.documents"] });
+    expect(tokenClaims(call.headers.get("x-depot-service-token")!)).toMatchObject({ aud: "print", cus: CUSTOMER_A, duties: ["print.customer-portal.documents"] });
   });
 
   it("streams the PDF of one delivered document and passes a refusal on", async () => {
@@ -170,7 +170,7 @@ describe("Documents delivered to the portal", () => {
     expect(Buffer.from(await ok.arrayBuffer()).equals(PDF)).toBe(true);
     const call = rig.calls.find((c) => c.url.startsWith("http://print.test"))!;
     expect(call.url).toBe(`http://print.test/print/v1/customer-portal/documents/${DOC}/pdf`);
-    expect(tokenClaims(call.headers.get("x-passage-service-token")!)).toMatchObject({ aud: "print", cus: CUSTOMER_A, duties: ["print.customer-portal.documents"] });
+    expect(tokenClaims(call.headers.get("x-depot-service-token")!)).toMatchObject({ aud: "print", cus: CUSTOMER_A, duties: ["print.customer-portal.documents"] });
     const other = await api(rig, s, "GET", "/api/v1/delivered-documents/44444444-4444-4444-8444-444444444444/other");
     expect(other.status).toBe(404);
     const refused = await api(rig, s, "GET", `/api/v1/delivered-documents/${DOC.replace("3333", "5555")}/pdf`);

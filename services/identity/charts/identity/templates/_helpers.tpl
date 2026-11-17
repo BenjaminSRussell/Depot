@@ -1,8 +1,8 @@
 {{- define "identity.image" -}}
 {{- if .Values.image.digest -}}
-{{ (include "passage.imageRepository" $) }}@{{ .Values.image.digest }}
+{{ (include "depot.imageRepository" $) }}@{{ .Values.image.digest }}
 {{- else -}}
-{{ (include "passage.imageRepository" $) }}:{{ .Values.image.tag | default .Chart.AppVersion }}
+{{ (include "depot.imageRepository" $) }}:{{ .Values.image.tag | default .Chart.AppVersion }}
 {{- end -}}
 {{- end -}}
 
@@ -20,7 +20,7 @@
       key: DATABASE_URL
 {{- end }}
 - name: IDENTITY_DUTY_CATALOGUE_PATH
-  value: /etc/passage/authz/data.json
+  value: /etc/depot/authz/data.json
 - name: MIGRATE_ON_START
   value: {{ .Values.migrateOnStart | quote }}
 {{- if .Values.operatorTenantId }}
@@ -41,7 +41,7 @@
 - name: IDENTITY_KEYCLOAK_CLIENT_ID
   value: {{ .Values.keycloakDeprovision.clientId | quote }}
 - name: IDENTITY_KEYCLOAK_SECRETS_DIR
-  value: /var/run/passage/keycloak
+  value: /var/run/depot/keycloak
 - name: IDENTITY_KEYCLOAK_DEPROVISION_INTERVAL
   value: {{ .Values.keycloakDeprovision.interval | quote }}
 - name: IDENTITY_CUSTOMER_PORTAL_CLIENT_ID
@@ -62,10 +62,10 @@
 - name: IDENTITY_BUNDLE_ADDR
   value: ":{{ .Values.bundle.port }}"
 - name: IDENTITY_BUNDLE_SIGNING_KEY_PATH
-  value: /var/run/passage/bundle/signing-key.pem
+  value: /var/run/depot/bundle/signing-key.pem
 - name: IDENTITY_BUNDLE_TLS_CERT_PATH
-  value: /var/run/passage/bundle/tls.crt
+  value: /var/run/depot/bundle/tls.crt
 - name: IDENTITY_BUNDLE_TLS_KEY_PATH
-  value: /var/run/passage/bundle/tls.key
+  value: /var/run/depot/bundle/tls.key
 {{- end }}
 {{- end }}

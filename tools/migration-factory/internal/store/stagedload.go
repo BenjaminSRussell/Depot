@@ -8,8 +8,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/BenjaminSRussell/passage/tools/migration-factory/internal/domain"
-	mfevents "github.com/BenjaminSRussell/passage/tools/migration-factory/internal/events"
+	"github.com/BenjaminSRussell/depot/tools/migration-factory/internal/domain"
+	mfevents "github.com/BenjaminSRussell/depot/tools/migration-factory/internal/events"
 )
 
 // Target load of the staged packs (#49): the same lease, claim, record and finish cycle as the open orders load, over staged_load.
@@ -32,7 +32,7 @@ func (s *Postgres) GetStagedLoad(ctx context.Context, runID string) (domain.Stag
 	var l domain.StagedLoad
 	err := s.tx(ctx, func(tx pgx.Tx) error {
 		var err error
-		l, err = scanStagedLoad(tx.QueryRow(ctx, `select `+stagedLoadColumns+` from staged_load where tenant_id = current_setting('passage.tenant_id', true)::uuid and run_id = $1`, runID))
+		l, err = scanStagedLoad(tx.QueryRow(ctx, `select `+stagedLoadColumns+` from staged_load where tenant_id = current_setting('depot.tenant_id', true)::uuid and run_id = $1`, runID))
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrNoStagedLoad
 		}
@@ -63,7 +63,7 @@ func (s *Postgres) ClaimStagedLoad(ctx context.Context, runID, legalEntityID, st
 	var pending []PendingStagedLine
 	err := s.tx(ctx, func(tx pgx.Tx) error {
 		var pack, status string
-		err := tx.QueryRow(ctx, `select pack, source_system, source_company, status, cutoff_ts from pack_run where tenant_id = current_setting('passage.tenant_id', true)::uuid and run_id = $1 for update`, runID).
+		err := tx.QueryRow(ctx, `select pack, source_system, source_company, status, cutoff_ts from pack_run where tenant_id = current_setting('depot.tenant_id', true)::uuid and run_id = $1 for update`, runID).
 			Scan(&pack, &run.System, &run.Company, &status, &run.CutoffTS)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrNotFound
@@ -78,19 +78,19 @@ func (s *Postgres) ClaimStagedLoad(ctx context.Context, runID, legalEntityID, st
 		if domain.RunStatus(status) != domain.StatusReconciled && domain.RunStatus(status) != domain.StatusLoaded {
 			return fmt.Errorf("%w: run %s is %s; only a LOADED or RECONCILED run is loaded", ErrNotLoadable, runID, status)
 		}
-		if _, err := tx.Exec(ctx, `select pg_advisory_xact_lock(hashtextextended('stagedload|' || current_setting('passage.tenant_id', true) || '|' || $1 || '|' || $2 || '|' || $3, 0))`, pack, run.System, run.Company); err != nil {
+		if _, err := tx.Exec(ctx, `select pg_advisory_xact_lock(hashtextextended('stagedload|' || current_setting('depot.tenant_id', true) || '|' || $1 || '|' || $2 || '|' || $3, 0))`, pack, run.System, run.Company); err != nil {
 			return fmt.Errorf("lock staged load: %w", err)
 		}
 		var staged int
-		if err := tx.QueryRow(ctx, `select count(*) from staged_opening_line where tenant_id = current_setting('passage.tenant_id', true)::uuid and run_id = $1`, runID).Scan(&staged); err != nil {
+		if err := tx.QueryRow(ctx, `select count(*) from staged_opening_line where tenant_id = current_setting('depot.tenant_id', true)::uuid and run_id = $1`, runID).Scan(&staged); err != nil {
 			return err
 		}
 		var leaseUntil *time.Time
 		var held, heldStatus string
-		err = tx.QueryRow(ctx, `select status, lease_until, legal_entity_id::text from staged_load where tenant_id = current_setting('passage.tenant_id', true)::uuid and run_id = $1 for update`, runID).Scan(&heldStatus, &leaseUntil, &held)
+		err = tx.QueryRow(ctx, `select status, lease_until, legal_entity_id::text from staged_load where tenant_id = current_setting('depot.tenant_id', true)::uuid and run_id = $1 for update`, runID).Scan(&heldStatus, &leaseUntil, &held)
 		switch {
 		case errors.Is(err, pgx.ErrNoRows):
-			if _, err := tx.Exec(ctx, `insert into staged_load (tenant_id, run_id, pack, legal_entity_id, status, staged) values (current_setting('passage.tenant_id', true)::uuid, $1, $2, $3, 'STAGED', $4)`,
+			if _, err := tx.Exec(ctx, `insert into staged_load (tenant_id, run_id, pack, legal_entity_id, status, staged) values (current_setting('depot.tenant_id', true)::uuid, $1, $2, $3, 'STAGED', $4)`,
 				runID, pack, legalEntityID, staged); err != nil {
 				return scopeErr(err)
 			}
@@ -106,7 +106,7 @@ func (s *Postgres) ClaimStagedLoad(ctx context.Context, runID, legalEntityID, st
 		}
 		var busy bool
 		if err := tx.QueryRow(ctx, `select coalesce(bool_or(o.status = 'LOADING' and o.lease_until > now()), false) from staged_load o join pack_run p on p.tenant_id = o.tenant_id and p.run_id = o.run_id
-			where o.tenant_id = current_setting('passage.tenant_id', true)::uuid and o.run_id <> $1 and o.pack = $4 and p.source_system = $2 and p.source_company = $3`, runID, run.System, run.Company, pack).Scan(&busy); err != nil {
+			where o.tenant_id = current_setting('depot.tenant_id', true)::uuid and o.run_id <> $1 and o.pack = $4 and p.source_system = $2 and p.source_company = $3`, runID, run.System, run.Company, pack).Scan(&busy); err != nil {
 			return err
 		}
 		if busy {
@@ -114,7 +114,7 @@ func (s *Postgres) ClaimStagedLoad(ctx context.Context, runID, legalEntityID, st
 		}
 		rows, err := tx.Query(ctx, `select o.line_id::text, o.legacy_id, o.natural_key, o.currency, o.grouping, o.measures
 			from staged_opening_line o
-			where o.tenant_id = current_setting('passage.tenant_id', true)::uuid and o.run_id = $1
+			where o.tenant_id = current_setting('depot.tenant_id', true)::uuid and o.run_id = $1
 			  and not exists (select 1 from staged_load_row l where l.tenant_id = o.tenant_id and l.line_id = o.line_id and l.status = 'LOADED')
 			order by o.legacy_id`, runID)
 		if err != nil {
@@ -139,10 +139,10 @@ func (s *Postgres) ClaimStagedLoad(ctx context.Context, runID, legalEntityID, st
 		}
 		if _, err := tx.Exec(ctx, `update staged_load set status = 'LOADING', staged = $2, lease_until = now() + $3::int * interval '1 second', started_by = $4, started_at = now(), finished_at = null,
 				attempts = attempts + 1, last_error = '', version = version + 1
-			where tenant_id = current_setting('passage.tenant_id', true)::uuid and run_id = $1`, runID, staged, int32(lease.Seconds()), startedBy); err != nil {
+			where tenant_id = current_setting('depot.tenant_id', true)::uuid and run_id = $1`, runID, staged, int32(lease.Seconds()), startedBy); err != nil {
 			return err
 		}
-		load, err = scanStagedLoad(tx.QueryRow(ctx, `select `+stagedLoadColumns+` from staged_load where tenant_id = current_setting('passage.tenant_id', true)::uuid and run_id = $1`, runID))
+		load, err = scanStagedLoad(tx.QueryRow(ctx, `select `+stagedLoadColumns+` from staged_load where tenant_id = current_setting('depot.tenant_id', true)::uuid and run_id = $1`, runID))
 		return err
 	})
 	return load, run, pending, err
@@ -150,7 +150,7 @@ func (s *Postgres) ClaimStagedLoad(ctx context.Context, runID, legalEntityID, st
 
 func extendStagedLease(ctx context.Context, tx pgx.Tx, runID string, lease time.Duration) error {
 	tag, err := tx.Exec(ctx, `update staged_load set lease_until = now() + $2::int * interval '1 second'
-		where tenant_id = current_setting('passage.tenant_id', true)::uuid and run_id = $1 and status = 'LOADING'`, runID, int32(lease.Seconds()))
+		where tenant_id = current_setting('depot.tenant_id', true)::uuid and run_id = $1 and status = 'LOADING'`, runID, int32(lease.Seconds()))
 	if err != nil {
 		return err
 	}
@@ -168,7 +168,7 @@ func (s *Postgres) RecordStagedBatch(ctx context.Context, runID, legalEntityID s
 		}
 		for _, l := range lines {
 			if _, err := tx.Exec(ctx, `insert into staged_load_row (tenant_id, run_id, line_id, legal_entity_id, status, batch_key)
-				values (current_setting('passage.tenant_id', true)::uuid, $1, $2, $3, 'LOADED', $4)
+				values (current_setting('depot.tenant_id', true)::uuid, $1, $2, $3, 'LOADED', $4)
 				on conflict (tenant_id, line_id) do update set status = 'LOADED', batch_key = excluded.batch_key, code = '', detail = '', updated_at = now()`,
 				runID, l.LineID, legalEntityID, batchKey); err != nil {
 				return err
@@ -193,7 +193,7 @@ func (s *Postgres) RejectStagedLines(ctx context.Context, runID, legalEntityID s
 		}
 		for _, r := range rejects {
 			if _, err := tx.Exec(ctx, `insert into staged_load_row (tenant_id, run_id, line_id, legal_entity_id, status, code, detail)
-				values (current_setting('passage.tenant_id', true)::uuid, $1, $2, $3, 'REJECTED', $4, $5)
+				values (current_setting('depot.tenant_id', true)::uuid, $1, $2, $3, 'REJECTED', $4, $5)
 				on conflict (tenant_id, line_id) do update set status = 'REJECTED', code = excluded.code, detail = excluded.detail, updated_at = now()
 				where staged_load_row.status <> 'LOADED'`, runID, r.Line.LineID, legalEntityID, r.Code, r.Detail); err != nil {
 				return err
@@ -216,7 +216,7 @@ func (s *Postgres) ListStagedRejects(ctx context.Context, runID string, limit in
 	err := s.tx(ctx, func(tx pgx.Tx) error {
 		rows, err := tx.Query(ctx, `select o.legacy_id, l.code, l.detail from staged_load_row l
 			join staged_opening_line o on o.tenant_id = l.tenant_id and o.line_id = l.line_id
-			where l.tenant_id = current_setting('passage.tenant_id', true)::uuid and l.run_id = $1 and l.status = 'REJECTED'
+			where l.tenant_id = current_setting('depot.tenant_id', true)::uuid and l.run_id = $1 and l.status = 'REJECTED'
 			order by o.legacy_id limit $2`, runID, limit)
 		if err != nil {
 			return err
@@ -244,13 +244,13 @@ type StagedFinish struct {
 }
 
 // FinishStagedLoad ends a pass: it recounts the rows, compares the batches the target holds with what the factory loaded for the staged pack of the
-// company, stores the comparison as control totals and the status, and writes dev.passage.migration.pack.loaded.v1.
+// company, stores the comparison as control totals and the status, and writes dev.depot.migration.pack.loaded.v1.
 func (s *Postgres) FinishStagedLoad(ctx context.Context, runID string, fin StagedFinish) (domain.StagedLoad, []domain.ControlTotal, error) {
 	var load domain.StagedLoad
 	var totals []domain.ControlTotal
 	err := s.tx(ctx, func(tx pgx.Tx) error {
 		var err error
-		load, err = scanStagedLoad(tx.QueryRow(ctx, `select `+stagedLoadColumns+` from staged_load where tenant_id = current_setting('passage.tenant_id', true)::uuid and run_id = $1 for update`, runID))
+		load, err = scanStagedLoad(tx.QueryRow(ctx, `select `+stagedLoadColumns+` from staged_load where tenant_id = current_setting('depot.tenant_id', true)::uuid and run_id = $1 for update`, runID))
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrNoStagedLoad
 		}
@@ -258,11 +258,11 @@ func (s *Postgres) FinishStagedLoad(ctx context.Context, runID string, fin Stage
 			return err
 		}
 		var system, company string
-		if err := tx.QueryRow(ctx, `select source_system, source_company from pack_run where tenant_id = current_setting('passage.tenant_id', true)::uuid and run_id = $1`, runID).Scan(&system, &company); err != nil {
+		if err := tx.QueryRow(ctx, `select source_system, source_company from pack_run where tenant_id = current_setting('depot.tenant_id', true)::uuid and run_id = $1`, runID).Scan(&system, &company); err != nil {
 			return err
 		}
 		if err := tx.QueryRow(ctx, `select count(*) filter (where status = 'LOADED'), count(*) filter (where status = 'REJECTED') from staged_load_row
-			where tenant_id = current_setting('passage.tenant_id', true)::uuid and run_id = $1`, runID).Scan(&load.Loaded, &load.Rejected); err != nil {
+			where tenant_id = current_setting('depot.tenant_id', true)::uuid and run_id = $1`, runID).Scan(&load.Loaded, &load.Rejected); err != nil {
 			return err
 		}
 		load.Pending = max(load.Staged-load.Loaded-load.Rejected, 0)
@@ -295,7 +295,7 @@ func (s *Postgres) FinishStagedLoad(ctx context.Context, runID string, fin Stage
 			}
 		}
 		if _, err := tx.Exec(ctx, `update staged_load set status = $2, loaded = $3, rejected = $4, pending = $5, last_error = $6, lease_until = null, finished_at = now(), version = version + 1
-			where tenant_id = current_setting('passage.tenant_id', true)::uuid and run_id = $1`, runID, load.Status, load.Loaded, load.Rejected, load.Pending, load.LastError); err != nil {
+			where tenant_id = current_setting('depot.tenant_id', true)::uuid and run_id = $1`, runID, load.Status, load.Loaded, load.Rejected, load.Pending, load.LastError); err != nil {
 			return err
 		}
 		match, mismatch := domain.CountTotals(totals)
@@ -305,7 +305,7 @@ func (s *Postgres) FinishStagedLoad(ctx context.Context, runID string, fin Stage
 		}); err != nil {
 			return fmt.Errorf("enqueue pack.loaded: %w", err)
 		}
-		load, err = scanStagedLoad(tx.QueryRow(ctx, `select `+stagedLoadColumns+` from staged_load where tenant_id = current_setting('passage.tenant_id', true)::uuid and run_id = $1`, runID))
+		load, err = scanStagedLoad(tx.QueryRow(ctx, `select `+stagedLoadColumns+` from staged_load where tenant_id = current_setting('depot.tenant_id', true)::uuid and run_id = $1`, runID))
 		return err
 	})
 	return load, totals, err
@@ -316,7 +316,7 @@ func (s *Postgres) FinishStagedLoad(ctx context.Context, runID string, fin Stage
 // of both sides.
 func expectedStagedTotals(ctx context.Context, tx pgx.Tx, pack domain.Pack, system, company string) (domain.StagedTotals, error) {
 	rows, err := tx.Query(ctx, `select legacy_id, natural_key, currency, grouping, measures from staged_opening_line
-		where tenant_id = current_setting('passage.tenant_id', true)::uuid and pack = $1 and source_system = $2 and source_company = $3`, string(pack), system, company)
+		where tenant_id = current_setting('depot.tenant_id', true)::uuid and pack = $1 and source_system = $2 and source_company = $3`, string(pack), system, company)
 	if err != nil {
 		return domain.StagedTotals{}, err
 	}
@@ -345,7 +345,7 @@ func (s *Postgres) ListStagedBooks(ctx context.Context, runID string) ([]StagedB
 	var out []StagedBook
 	err := s.tx(ctx, func(tx pgx.Tx) error {
 		rows, err := tx.Query(ctx, `select distinct grouping->>'book', currency from staged_opening_line
-			where tenant_id = current_setting('passage.tenant_id', true)::uuid and run_id = $1 order by 1, 2`, runID)
+			where tenant_id = current_setting('depot.tenant_id', true)::uuid and run_id = $1 order by 1, 2`, runID)
 		if err != nil {
 			return err
 		}

@@ -1,5 +1,5 @@
 """Service tokens for the calls prediction makes to other services (platform/go/tenant/service.go, the same wire format as the
-verifier in dispatch-py): a JSON payload and an Ed25519 signature over `passage.service-token.v1.` and the encoded payload."""
+verifier in dispatch-py): a JSON payload and an Ed25519 signature over `depot.service-token.v1.` and the encoded payload."""
 
 from __future__ import annotations
 
@@ -12,10 +12,10 @@ from pathlib import Path
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
-HEADER = "X-Passage-Service-Token"
+HEADER = "X-Depot-Service-Token"
 SERVICE_NAME = "prediction"
 ACTOR = "service:prediction-sync"
-TOKEN_CONTEXT = b"passage.service-token.v1."
+TOKEN_CONTEXT = b"depot.service-token.v1."
 TTL_SECONDS = 60
 
 # What this service may ask of whom; the grant table of platform/go/tenant/service.go and policies/authz/data.json, service_grants.
@@ -36,25 +36,25 @@ class ServiceSigner:
 
     @classmethod
     def from_env(cls, getenv: Callable[[str], str | None]) -> ServiceSigner | None:
-        """None when no signing key is configured (the feed is then off). PASSAGE_SERVICE_SIGNING_KEY is the base64 32-byte seed, or
-        PASSAGE_SERVICE_SIGNING_KEY_FILE names a file holding it; the service name must be `prediction` for the grant to apply."""
-        raw = (getenv("PASSAGE_SERVICE_SIGNING_KEY") or "").strip()
-        path = getenv("PASSAGE_SERVICE_SIGNING_KEY_FILE")
+        """None when no signing key is configured (the feed is then off). DEPOT_SERVICE_SIGNING_KEY is the base64 32-byte seed, or
+        DEPOT_SERVICE_SIGNING_KEY_FILE names a file holding it; the service name must be `prediction` for the grant to apply."""
+        raw = (getenv("DEPOT_SERVICE_SIGNING_KEY") or "").strip()
+        path = getenv("DEPOT_SERVICE_SIGNING_KEY_FILE")
         if path:
             raw = Path(path).read_text(encoding="utf-8").strip()
             if not raw:
-                raise SignerError("PASSAGE_SERVICE_SIGNING_KEY_FILE names an empty file")
+                raise SignerError("DEPOT_SERVICE_SIGNING_KEY_FILE names an empty file")
         if not raw:
             return None
-        name = getenv("PASSAGE_SERVICE_NAME") or SERVICE_NAME
+        name = getenv("DEPOT_SERVICE_NAME") or SERVICE_NAME
         if name != SERVICE_NAME:
-            raise SignerError(f"PASSAGE_SERVICE_NAME must be {SERVICE_NAME!r} for the service grants, got {name!r}")
+            raise SignerError(f"DEPOT_SERVICE_NAME must be {SERVICE_NAME!r} for the service grants, got {name!r}")
         try:
             seed = base64.b64decode(raw, validate=True)
             key = Ed25519PrivateKey.from_private_bytes(seed)
         except ValueError as exc:
             raise SignerError("the signing key must be a base64 32-byte Ed25519 seed") from exc
-        return cls(key, name, getenv("PASSAGE_SERVICE_KEY_ID") or "")
+        return cls(key, name, getenv("DEPOT_SERVICE_KEY_ID") or "")
 
     def mint(self, aud: str, tenant_id: str, legal_entity_id: str, duties: list[str]) -> str:
         """A token for one call: audience, tenant, one legal entity and only duties of this service's grant on that audience."""

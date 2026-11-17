@@ -6,11 +6,11 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/receiving/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/receiving/internal/store"
 )
 
 func postedInvoice(t *testing.T, b backend, p tenant.Principal) store.Invoice {
@@ -27,7 +27,7 @@ func postedInvoice(t *testing.T, b backend, p tenant.Principal) store.Invoice {
 			{ReceiptID: r.ID, ReceiptLineNo: 1, Qty: decimal.NewFromInt(1), UnitPrice: decimal.RequireFromString("2.5"), Amount: decimal.RequireFromString("2.5"), StandardCost: true},
 		},
 	}
-	evt, err := events.New(events.Type("payables", "invoice", "posted", 1), "/passage/receiving/receiving", in.ID, p.TenantID, map[string]string{"invoice": "x"})
+	evt, err := events.New(events.Type("payables", "invoice", "posted", 1), "/depot/receiving/receiving", in.ID, p.TenantID, map[string]string{"invoice": "x"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -45,7 +45,7 @@ func postedInvoice(t *testing.T, b backend, p tenant.Principal) store.Invoice {
 
 func adjustmentEvent(t *testing.T, p tenant.Principal, id string) events.Event {
 	t.Helper()
-	evt, err := events.New(events.Type("payables", "invoice", "adjusted", 1), "/passage/receiving/receiving", id, p.TenantID, map[string]string{"adjustment": "x"})
+	evt, err := events.New(events.Type("payables", "invoice", "adjusted", 1), "/depot/receiving/receiving", id, p.TenantID, map[string]string{"adjustment": "x"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -159,7 +159,7 @@ var settlementCases = []struct {
 		p := principal(1)
 		eventsBefore := b.events(p)
 		evt := func(id string) events.Event {
-			e, err := events.New(events.Type("payables", "settlement", "posted", 1), "/passage/receiving/receiving", id, p.TenantID, map[string]string{"s": "x"})
+			e, err := events.New(events.Type("payables", "settlement", "posted", 1), "/depot/receiving/receiving", id, p.TenantID, map[string]string{"s": "x"})
 			if err != nil {
 				t.Fatal(err)
 			}

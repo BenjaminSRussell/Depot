@@ -8,12 +8,12 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/platform-health/internal/store"
-	"github.com/BenjaminSRussell/passage/services/platform-health/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/platform-health/internal/store"
+	"github.com/BenjaminSRussell/depot/services/platform-health/migrations"
 )
 
 const (
@@ -108,7 +108,7 @@ func TestReleases_RecordListAndEvents(t *testing.T) {
 		}
 		types = append(types, typ)
 	}
-	want := "dev.passage.platform.release.promoted.v1,dev.passage.platform.release.promoted.v1,dev.passage.platform.release.rolledback.v1,dev.passage.platform.release.promoted.v1"
+	want := "dev.depot.platform.release.promoted.v1,dev.depot.platform.release.promoted.v1,dev.depot.platform.release.rolledback.v1,dev.depot.platform.release.promoted.v1"
 	if strings.Join(types, ",") != want {
 		t.Fatalf("outbox types = %v, want one event per recorded release and none for the replay", types)
 	}
@@ -150,7 +150,7 @@ func TestReleases_AppRoleIsAppendOnlyAndScoped(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if _, err := tx.Exec(context.Background(), `select set_config('passage.tenant_id', $1, true)`, ids.Nil); err != nil {
+		if _, err := tx.Exec(context.Background(), `select set_config('depot.tenant_id', $1, true)`, ids.Nil); err != nil {
 			t.Fatal(err)
 		}
 		if _, err := tx.Exec(context.Background(), sql); err == nil || !strings.Contains(err.Error(), "permission denied") {
@@ -163,7 +163,7 @@ func TestReleases_AppRoleIsAppendOnlyAndScoped(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() { _ = tx.Rollback(context.Background()) }()
-	if _, err := tx.Exec(context.Background(), `select set_config('passage.tenant_id', $1, true)`, testkit.TenantID(1)); err != nil {
+	if _, err := tx.Exec(context.Background(), `select set_config('depot.tenant_id', $1, true)`, testkit.TenantID(1)); err != nil {
 		t.Fatal(err)
 	}
 	var visible int

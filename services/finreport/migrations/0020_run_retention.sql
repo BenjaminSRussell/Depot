@@ -1,4 +1,4 @@
--- PSG-1518 (wave 15, slice 18): retention of ad-hoc statement runs
+-- DPT-1518 (wave 15, slice 18): retention of ad-hoc statement runs
 -- (FR-15.8, PRD §2.15.13 `REPORTING_RETENTION_ADHOC_DAYS`, §2.15.14
 -- `reporting.retention_adhoc_days`: 90 days by default, 7 to 730).
 --
@@ -41,11 +41,11 @@ CREATE INDEX IF NOT EXISTS report_run_sweep_recent
 ALTER TABLE report_run_sweep ENABLE ROW LEVEL SECURITY;
 ALTER TABLE report_run_sweep FORCE ROW LEVEL SECURITY;
 CREATE POLICY report_run_sweep_tenant_access ON report_run_sweep AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY report_run_sweep_legal_entity_scope ON report_run_sweep AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 -- The audit trail records the run sweeps (the kind list is a CHECK, so it is replaced).
 ALTER TABLE audit_trail_entry DROP CONSTRAINT IF EXISTS audit_trail_entry_kind_check;
@@ -117,15 +117,15 @@ CREATE TRIGGER statement_run_guard_delete BEFORE DELETE ON statement_run
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT ON report_run_sweep TO passage_app';
-    EXECUTE 'GRANT DELETE ON statement_run TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT ON report_run_sweep TO depot_app';
+    EXECUTE 'GRANT DELETE ON statement_run TO depot_app';
     -- The guard reads started_at and the legal entities of the run, so the
     -- application role must not be able to move them: table-wide UPDATE
     -- (migration 0007) becomes UPDATE of duration_ms, the only column the store
     -- updates after the insert.
-    EXECUTE 'REVOKE UPDATE ON statement_run FROM passage_app';
-    EXECUTE 'GRANT UPDATE (duration_ms) ON statement_run TO passage_app';
+    EXECUTE 'REVOKE UPDATE ON statement_run FROM depot_app';
+    EXECUTE 'GRANT UPDATE (duration_ms) ON statement_run TO depot_app';
   END IF;
 END
 $$;

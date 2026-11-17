@@ -10,8 +10,8 @@ CREATE TABLE IF NOT EXISTS country (
 ALTER TABLE country ENABLE ROW LEVEL SECURITY;
 ALTER TABLE country FORCE ROW LEVEL SECURITY;
 CREATE POLICY country_tenant_access ON country AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY country_sys_read ON country AS PERMISSIVE FOR SELECT
   USING (tenant_id = '00000000-0000-0000-0000-000000000000'::uuid);
 
@@ -28,8 +28,8 @@ CREATE TABLE IF NOT EXISTS currency (
 ALTER TABLE currency ENABLE ROW LEVEL SECURITY;
 ALTER TABLE currency FORCE ROW LEVEL SECURITY;
 CREATE POLICY currency_tenant_access ON currency AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY currency_sys_read ON currency AS PERMISSIVE FOR SELECT
   USING (tenant_id = '00000000-0000-0000-0000-000000000000'::uuid);
 
@@ -44,5 +44,5 @@ CREATE TABLE IF NOT EXISTS reference_status (
 ALTER TABLE reference_status ENABLE ROW LEVEL SECURITY;
 ALTER TABLE reference_status FORCE ROW LEVEL SECURITY;
 CREATE POLICY reference_status_tenant_access ON reference_status AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);

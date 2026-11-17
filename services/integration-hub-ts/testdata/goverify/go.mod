@@ -1,8 +1,8 @@
-module github.com/BenjaminSRussell/passage/services/integration-hub-ts/testdata/goverify
+module github.com/BenjaminSRussell/depot/services/integration-hub-ts/testdata/goverify
 
 go 1.26.0
 
-require github.com/BenjaminSRussell/passage/platform v0.0.0
+require github.com/BenjaminSRussell/depot/platform v0.0.0
 
 require (
 	github.com/go-chi/chi/v5 v5.5.0 // indirect
@@ -15,4 +15,4 @@ require (
 	golang.org/x/text v0.43.0 // indirect
 )
 
-replace github.com/BenjaminSRussell/passage/platform => ../../../../platform/go
+replace github.com/BenjaminSRussell/depot/platform => ../../../../platform/go

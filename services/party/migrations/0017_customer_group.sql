@@ -21,15 +21,15 @@ ALTER TABLE customer_group ENABLE ROW LEVEL SECURITY;
 ALTER TABLE customer_group FORCE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS customer_group_tenant_access ON customer_group;
 CREATE POLICY customer_group_tenant_access ON customer_group AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- Backfill: every customer_group_id already on a customer role becomes a group
 -- with the code 'CG' + the first 8 hex digits of its id, falling back to
 -- 'C' + 9 hex, 10 hex, then 'G' + hex digits 9 to 17 on a collision, in tenant
 -- and id order (the same rule as the vendor group backfill). It reads every
 -- tenant, so it runs only under a role that bypasses row-level security; under
--- passage_app it is skipped with a notice and the groups are registered through
+-- depot_app it is skipped with a notice and the groups are registered through
 -- POST /v1/party/customer-groups with their existing id.
 DO $$
 DECLARE
@@ -63,8 +63,8 @@ $$;
 -- Groups are created and read; the code is never updated or deleted.
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT ON customer_group TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT ON customer_group TO depot_app';
   END IF;
 END
 $$;

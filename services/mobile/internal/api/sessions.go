@@ -11,12 +11,12 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/services/mobile/internal/flows"
-	"github.com/BenjaminSRussell/passage/services/mobile/internal/gs1"
-	"github.com/BenjaminSRussell/passage/services/mobile/internal/session"
-	"github.com/BenjaminSRussell/passage/services/mobile/internal/store"
-	"github.com/BenjaminSRussell/passage/services/mobile/internal/warehouse"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/services/mobile/internal/flows"
+	"github.com/BenjaminSRussell/depot/services/mobile/internal/gs1"
+	"github.com/BenjaminSRussell/depot/services/mobile/internal/session"
+	"github.com/BenjaminSRussell/depot/services/mobile/internal/store"
+	"github.com/BenjaminSRussell/depot/services/mobile/internal/warehouse"
 )
 
 const (

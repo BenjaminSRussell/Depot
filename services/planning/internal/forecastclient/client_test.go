@@ -25,7 +25,7 @@ func TestNewRefusesAnythingButAnAbsoluteHTTPURL(t *testing.T) {
 			t.Errorf("New(%q) accepted", u)
 		}
 	}
-	if _, err := New(" https://forecast.passage.svc:8080/ "); err != nil {
+	if _, err := New(" https://forecast.depot.svc:8080/ "); err != nil {
 		t.Errorf("https URL refused: %v", err)
 	}
 }

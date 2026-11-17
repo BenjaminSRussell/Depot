@@ -26,11 +26,11 @@ CREATE UNIQUE INDEX IF NOT EXISTS product_proposal_rule_unique ON product_propos
 ALTER TABLE product_proposal_rule ENABLE ROW LEVEL SECURITY;
 ALTER TABLE product_proposal_rule FORCE ROW LEVEL SECURITY;
 CREATE POLICY product_proposal_rule_tenant_access ON product_proposal_rule AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY product_proposal_rule_legal_entity_scope ON product_proposal_rule AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 -- One row per user response to a proposal. The rule's products and reason are
 -- copied so the history survives the rule's removal; rule_id is therefore not
@@ -58,8 +58,8 @@ CREATE INDEX IF NOT EXISTS product_proposal_response_rule ON product_proposal_re
 ALTER TABLE product_proposal_response ENABLE ROW LEVEL SECURITY;
 ALTER TABLE product_proposal_response FORCE ROW LEVEL SECURITY;
 CREATE POLICY product_proposal_response_tenant_access ON product_proposal_response AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY product_proposal_response_legal_entity_scope ON product_proposal_response AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));

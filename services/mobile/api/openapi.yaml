@@ -1,6 +1,6 @@
 openapi: 3.1.0
 info:
-  title: Passage mobile warehouse execution (wave 32)
+  title: Depot mobile warehouse execution (wave 32)
   version: 0.1.0
   description: >
     Device sessions with timeout and resume, role- and site-based menus,
@@ -18,7 +18,7 @@ info:
     when it is missing. Errors are RFC 7807 problems with a
     catalog code (MOB-0101 to MOB-0117) or a service code.
 servers:
-  - url: https://api.{env}.passage.dev
+  - url: https://api.{env}.depot.dev
     variables:
       env: { default: dev }
 paths:
@@ -32,7 +32,7 @@ paths:
         a flow run is in progress). Another user's session blocks the login
         (409 MOB-SESSION-ACTIVE) unless it has been silent past the idle
         timeout, in which case it ends as TAKEOVER and its work lock is released.
-      x-passage-duty: warehouse.work.execute
+      x-depot-duty: warehouse.work.execute
       requestBody:
         required: true
         content: { application/json: { schema: { $ref: "#/components/schemas/StartSession" } } }
@@ -43,7 +43,7 @@ paths:
     get:
       operationId: listSessions
       summary: List sessions (workId lists the open sessions holding a work)
-      x-passage-duty: warehouse.work.supervise
+      x-depot-duty: warehouse.work.supervise
       parameters:
         - { name: status, in: query, schema: { type: string, enum: [ACTIVE, STALE, ENDED] } }
         - { name: warehouseId, in: query, schema: { type: string, format: uuid } }
@@ -55,7 +55,7 @@ paths:
     post:
       operationId: sweepStaleSessions
       summary: Mark sessions silent past the idle timeout STALE, releasing their work locks
-      x-passage-duty: warehouse.work.supervise
+      x-depot-duty: warehouse.work.supervise
       responses:
         "200": { description: Count marked., content: { application/json: { schema: { type: object, properties: { marked: { type: integer } } } } } }
   /v1/mobile/sessions/{id}:heartbeat:
@@ -73,7 +73,7 @@ paths:
         relocked and reason in its response. The re-lock reads the work as the
         service and needs no inquiry duty of the user. deviceTime
         records the clock skew used by replay (MOB-0114 above 300 s).
-      x-passage-duty: warehouse.work.execute
+      x-depot-duty: warehouse.work.execute
       parameters: [{ $ref: "#/components/parameters/Id" }]
       requestBody:
         content: { application/json: { schema: { type: object, properties: { deviceTime: { type: string, format: date-time } } } } }
@@ -85,7 +85,7 @@ paths:
     post:
       operationId: endSession
       summary: Sign out
-      x-passage-duty: warehouse.work.execute
+      x-depot-duty: warehouse.work.execute
       parameters: [{ $ref: "#/components/parameters/Id" }]
       responses:
         "200": { description: Ended session. }
@@ -93,7 +93,7 @@ paths:
     post:
       operationId: forceSignOut
       summary: End another user's session (reason required)
-      x-passage-duty: warehouse.work.supervise
+      x-depot-duty: warehouse.work.supervise
       parameters: [{ $ref: "#/components/parameters/Id" }]
       requestBody:
         required: true
@@ -105,7 +105,7 @@ paths:
       operationId: assignWork
       summary: Ask the warehouse for the user's next work and hold it on the session
       description: A repeat of the Idempotency-Key returns the first answer.
-      x-passage-duty: warehouse.work.execute
+      x-depot-duty: warehouse.work.execute
       parameters: [{ $ref: "#/components/parameters/Id" }, { $ref: "#/components/parameters/IdempotencyKey" }]
       responses:
         "200": { description: The work (null when nothing is assignable) and the session. }
@@ -115,7 +115,7 @@ paths:
     post:
       operationId: startRun
       summary: Start a flow run pinned to the flow's published version
-      x-passage-duty: warehouse.work.execute
+      x-depot-duty: warehouse.work.execute
       parameters: [{ $ref: "#/components/parameters/Id" }]
       requestBody:
         required: true
@@ -135,7 +135,7 @@ paths:
         (403 AUTH-0003 otherwise). A repeat of the key returns the first answer.
         A session idle past the timeout is 409 MOB-SESSION-STALE until it sends
         a heartbeat, which re-checks its work lock.
-      x-passage-duty: warehouse.work.execute
+      x-depot-duty: warehouse.work.execute
       parameters:
         - { $ref: "#/components/parameters/Id" }
         - { $ref: "#/components/parameters/IdempotencyKey" }
@@ -157,7 +157,7 @@ paths:
         offers every published flow. Flows are the versions published now. A flow
         restricted to warehouses is offered only for a warehouseId it lists;
         without warehouseId none is. warehouseId must be a UUID (400 otherwise).
-      x-passage-duty: warehouse.work.execute
+      x-depot-duty: warehouse.work.execute
       parameters:
         - { name: id, in: path, required: true, schema: { type: string } }
         - { name: warehouseId, in: query, schema: { type: string, format: uuid } }
@@ -166,28 +166,28 @@ paths:
         "400": { $ref: "#/components/responses/Problem" }
         "404": { $ref: "#/components/responses/Problem" }
   /v1/mobile/menus:
-    get: { operationId: listMenus, summary: List menus, x-passage-duty: warehouse.mobile-flow.admin, responses: { "200": { description: Menus. } } }
+    get: { operationId: listMenus, summary: List menus, x-depot-duty: warehouse.mobile-flow.admin, responses: { "200": { description: Menus. } } }
     post:
       operationId: upsertMenu
       summary: Create or update a menu for a key, role and site
-      x-passage-duty: warehouse.mobile-flow.admin
+      x-depot-duty: warehouse.mobile-flow.admin
       parameters: [{ $ref: "#/components/parameters/IdempotencyKey" }]
       responses:
         "200": { description: Menu, version bumped on update. }
   /v1/mobile/devices:
-    get: { operationId: listDevices, summary: List devices, x-passage-duty: warehouse.mobile-flow.admin, responses: { "200": { description: Devices. } } }
+    get: { operationId: listDevices, summary: List devices, x-depot-duty: warehouse.mobile-flow.admin, responses: { "200": { description: Devices. } } }
     post:
       operationId: registerDevice
       summary: Register a device and its scanner profile
-      x-passage-duty: warehouse.mobile-flow.admin
+      x-depot-duty: warehouse.mobile-flow.admin
       responses:
         "200": { description: Device. }
   /v1/mobile/flows:
-    get: { operationId: listFlows, summary: List flow versions, x-passage-duty: warehouse.mobile-flow.admin, responses: { "200": { description: Flows. } } }
+    get: { operationId: listFlows, summary: List flow versions, x-depot-duty: warehouse.mobile-flow.admin, responses: { "200": { description: Flows. } } }
     post:
       operationId: saveFlowDraft
       summary: Create the next draft version of a flow code, or replace its open draft
-      x-passage-duty: warehouse.mobile-flow.admin
+      x-depot-duty: warehouse.mobile-flow.admin
       parameters: [{ $ref: "#/components/parameters/IdempotencyKey" }]
       responses:
         "200": { description: Draft., content: { application/json: { schema: { $ref: "#/components/schemas/Flow" } } } }
@@ -196,12 +196,12 @@ paths:
     post:
       operationId: installCoreFlows
       summary: Publish the core flows (receive, put-away, pick, cluster pick, pack, move, count, inquiry) that have no published version
-      x-passage-duty: warehouse.mobile-flow.admin
+      x-depot-duty: warehouse.mobile-flow.admin
       parameters: [{ $ref: "#/components/parameters/IdempotencyKey" }]
       responses:
         "200": { description: The published core flows. }
   /v1/mobile/flows/{id}:
-    get: { operationId: getFlow, summary: Get a flow version, x-passage-duty: warehouse.mobile-flow.admin, parameters: [{ $ref: "#/components/parameters/Id" }], responses: { "200": { description: Flow. } } }
+    get: { operationId: getFlow, summary: Get a flow version, x-depot-duty: warehouse.mobile-flow.admin, parameters: [{ $ref: "#/components/parameters/Id" }], responses: { "200": { description: Flow. } } }
   /v1/mobile/flows/{id}:publish:
     post:
       operationId: publishFlow
@@ -211,7 +211,7 @@ paths:
         MOB-0113. A published version never changes; the previous one is retired
         but stays readable for runs pinned to it (BR-32.9). If-Match is the
         draft version; a mismatch is 412.
-      x-passage-duty: warehouse.mobile-flow.admin
+      x-depot-duty: warehouse.mobile-flow.admin
       parameters: [{ $ref: "#/components/parameters/Id" }, { $ref: "#/components/parameters/IdempotencyKey" }, { name: If-Match, in: header, schema: { type: string } }]
       responses:
         "200": { description: Published flow. }
@@ -221,7 +221,7 @@ paths:
     post:
       operationId: parseScan
       summary: Parse a scan (GS1-128, GS1 DataMatrix or plain) and optionally check it against an expected class
-      x-passage-duty: warehouse.work.execute
+      x-depot-duty: warehouse.work.execute
       requestBody:
         required: true
         content: { application/json: { schema: { type: object, required: [raw], properties: { raw: { type: string, maxLength: 512 }, expect: { type: string, enum: [LP, GTIN, LOT, LOCATION, ANY] }, requireSymbologyId: { type: boolean }, fnc1Substitute: { type: string } } } } }
@@ -252,7 +252,7 @@ paths:
         an unresolved conflict blocks the device's later transactions.
         Each transaction reaches the warehouse as the user who queued it with its
         key as Idempotency-Key.
-      x-passage-duty: warehouse.work.execute
+      x-depot-duty: warehouse.work.execute
       requestBody:
         required: true
         content: { application/json: { schema: { $ref: "#/components/schemas/Replay" } } }
@@ -267,7 +267,7 @@ paths:
     get:
       operationId: listConflicts
       summary: The supervisor conflict queue, oldest capture first
-      x-passage-duty: warehouse.offline-conflict.resolve
+      x-depot-duty: warehouse.offline-conflict.resolve
       parameters: [{ name: cursor, in: query, schema: { type: string } }, { name: limit, in: query, schema: { type: integer, maximum: 200 } }]
       responses:
         "200": { description: "items and nextCursor.", content: { application/json: { schema: { $ref: "#/components/schemas/ItemList" } } } }
@@ -283,7 +283,7 @@ paths:
         already resolved, is 412. Rejecting a PENDING transaction a replay is applying at the warehouse
         right now (a lease of two minutes) is 409 MOB-APPLY-IN-PROGRESS with Retry-After: wait for the
         apply to settle, then reject it if it is still open (#522).
-      x-passage-duty: warehouse.offline-conflict.resolve
+      x-depot-duty: warehouse.offline-conflict.resolve
       parameters:
         - { name: key, in: path, required: true, schema: { type: string }, description: "device_id:seq" }
         - { $ref: "#/components/parameters/IdempotencyKey" }
@@ -301,7 +301,7 @@ paths:
       operationId: events
       summary: Server-sent events; flow.published carries {flow_id, code, version}
       description: The stream is recycled by the request timeout; EventSource reconnects. Devices also poll the menu.
-      x-passage-duty: warehouse.work.execute
+      x-depot-duty: warehouse.work.execute
       responses:
         "200": { description: text/event-stream., content: { text/event-stream: { schema: { type: string } } } }
 components:

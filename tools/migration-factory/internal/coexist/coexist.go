@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/tools/migration-factory/internal/domain"
+	"github.com/BenjaminSRussell/depot/tools/migration-factory/internal/domain"
 )
 
 // Flags reads the cutover flags; *store.Postgres implements it.
@@ -50,13 +50,13 @@ func Pull(ctx context.Context, a domain.CoexistenceAdapter, flags Flags, xrefs X
 	return domain.RouteInbound(flag, in, known), nil
 }
 
-// Apply makes the adapter follow a flag that just changed: a kind cut over to Passage stops flowing
+// Apply makes the adapter follow a flag that just changed: a kind cut over to Depot stops flowing
 // from the legacy system, and a kind flipped back to LEGACY (a rollback) flows again.
 func Apply(ctx context.Context, a domain.CoexistenceAdapter, flag domain.CoexistFlag) error {
 	if flag.SourceSystem != a.System() {
 		return fmt.Errorf("%w: flag is for %s, the adapter serves %s", domain.ErrInvalid, flag.SourceSystem, a.System())
 	}
-	if flag.Mode == domain.CoexistPassage {
+	if flag.Mode == domain.CoexistDepot {
 		return a.Suspend(ctx, flag.Company, flag.Entity)
 	}
 	return a.Resume(ctx, flag.Company, flag.Entity)

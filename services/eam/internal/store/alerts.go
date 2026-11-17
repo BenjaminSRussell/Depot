@@ -7,7 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/BenjaminSRussell/passage/services/eam/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/eam/internal/domain"
 )
 
 // RegularizationAlert is an emergency work order still unplanned after the

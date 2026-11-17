@@ -4,7 +4,7 @@
 -- so a run releases only its own claim) and active_run_started_at is when the claim was taken, on the database
 -- clock. The claim is cleared when the run ends and treated as abandoned after the run deadline plus a margin, so a
 -- crashed process cannot block a project for good. No new table: migration.run already grants INSERT and
--- migration.project UPDATE to passage_app.
+-- migration.project UPDATE to depot_app.
 ALTER TABLE migration.run ADD COLUMN project_id uuid;
 ALTER TABLE migration.run ADD CONSTRAINT run_project_fk
   FOREIGN KEY (tenant_id, project_id) REFERENCES migration.project (tenant_id, id);

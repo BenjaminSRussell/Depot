@@ -11,12 +11,12 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/hr/internal/domain"
-	hrevents "github.com/BenjaminSRussell/passage/services/hr/internal/events"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/hr/internal/domain"
+	hrevents "github.com/BenjaminSRussell/depot/services/hr/internal/events"
 )
 
 const (
@@ -677,7 +677,7 @@ func closeCompensation(ctx context.Context, tx pgx.Tx, tenantID, workerID, emplo
 
 func scopeIsAll(ctx context.Context, tx pgx.Tx) (bool, error) {
 	var scopes string
-	if err := tx.QueryRow(ctx, `select coalesce(current_setting('passage.legal_entity_scopes', true), '')`).Scan(&scopes); err != nil {
+	if err := tx.QueryRow(ctx, `select coalesce(current_setting('depot.legal_entity_scopes', true), '')`).Scan(&scopes); err != nil {
 		return false, err
 	}
 	return scopes == "*", nil
@@ -685,14 +685,14 @@ func scopeIsAll(ctx context.Context, tx pgx.Tx) (bool, error) {
 
 func withAllEntities[T any](ctx context.Context, tx pgx.Tx, fn func() (T, error)) (out T, err error) {
 	var saved string
-	if err = tx.QueryRow(ctx, `select coalesce(current_setting('passage.legal_entity_scopes', true), '')`).Scan(&saved); err != nil {
+	if err = tx.QueryRow(ctx, `select coalesce(current_setting('depot.legal_entity_scopes', true), '')`).Scan(&saved); err != nil {
 		return out, err
 	}
-	if _, err = tx.Exec(ctx, `select set_config('passage.legal_entity_scopes', '*', true)`); err != nil {
+	if _, err = tx.Exec(ctx, `select set_config('depot.legal_entity_scopes', '*', true)`); err != nil {
 		return out, err
 	}
 	defer func() {
-		if _, restoreErr := tx.Exec(ctx, `select set_config('passage.legal_entity_scopes', $1, true)`, saved); restoreErr != nil && err == nil {
+		if _, restoreErr := tx.Exec(ctx, `select set_config('depot.legal_entity_scopes', $1, true)`, saved); restoreErr != nil && err == nil {
 			var zero T
 			out, err = zero, restoreErr
 		}

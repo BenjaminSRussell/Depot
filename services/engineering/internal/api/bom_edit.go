@@ -3,8 +3,8 @@ package api
 import (
 	"net/http"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/services/engineering/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/services/engineering/internal/domain"
 )
 
 // updateBomVersion saves an edited draft BOM version (BR-9.3): the request carries the full header and

@@ -57,8 +57,8 @@ CREATE INDEX IF NOT EXISTS vendor_rebate_claim_period_ix ON vendor_rebate_claim 
 ALTER TABLE vendor_rebate_claim ENABLE ROW LEVEL SECURITY;
 ALTER TABLE vendor_rebate_claim FORCE ROW LEVEL SECURITY;
 CREATE POLICY vendor_rebate_claim_tenant_access ON vendor_rebate_claim AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY vendor_rebate_claim_legal_entity_scope ON vendor_rebate_claim AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));

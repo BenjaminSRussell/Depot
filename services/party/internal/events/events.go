@@ -3,8 +3,8 @@ package events
 import (
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/services/party/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/services/party/internal/domain"
 )
 
 const Context = "party"

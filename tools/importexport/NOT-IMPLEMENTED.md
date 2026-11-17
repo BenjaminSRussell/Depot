@@ -1,4 +1,4 @@
-# Not implemented in PSG-5 slice 1
+# Not implemented in DPT-5 slice 1
 
 | Deliverable | Status | Reason |
 |---|---|---|

@@ -20,12 +20,12 @@ describe.runIf(ownerUrl)("approval.requested reaches the shared inbox through th
       tenantId: TENANT,
       runId,
       seq: 1,
-      tool: "passage.ap.invoice.propose_coding",
+      tool: "depot.ap.invoice.propose_coding",
       invokerUserId: INVOKER,
       approvalDuty: "ap.invoice.propose",
       amount: usd("1200.00"),
       selfApprovalLimit: usd("5000.00"),
-      proposalJson: JSON.stringify({ tool: "passage.ap.invoice.propose_coding", confidence: 0.82, amount: usd("1200.00") }),
+      proposalJson: JSON.stringify({ tool: "depot.ap.invoice.propose_coding", confidence: 0.82, amount: usd("1200.00") }),
       ...extra,
     });
   };
@@ -36,8 +36,8 @@ describe.runIf(ownerUrl)("approval.requested reaches the shared inbox through th
     const actionId = await open("run-outbox-1", { confidence: 0.82, riskScore: 0.18 });
     const [row, ...more] = await rows(actionId);
     expect(more).toHaveLength(0);
-    expect(row?.type).toBe("dev.passage.agent.approval.requested.v1");
-    expect(row?.payload).toMatchObject({ run_id: "run-outbox-1", action_id: actionId, tool_name: "passage.ap.invoice.propose_coding", confidence: 0.82, risk_score: 0.18 });
+    expect(row?.type).toBe("dev.depot.agent.approval.requested.v1");
+    expect(row?.payload).toMatchObject({ run_id: "run-outbox-1", action_id: actionId, tool_name: "depot.ap.invoice.propose_coding", confidence: 0.82, risk_score: 0.18 });
   });
 
   it("leaves risk_score out when the run gave none", async () => {

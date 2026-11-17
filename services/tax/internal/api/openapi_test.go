@@ -9,7 +9,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/testkit"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
 )
 
 var specOperation = regexp.MustCompile(`^    (get|post|put|patch|delete):$`)
@@ -29,8 +29,8 @@ func declaredDuties(spec string) map[string]string {
 		case specOperation.MatchString(line):
 			operation = path + " " + specOperation.FindStringSubmatch(line)[1]
 			declared[operation] = ""
-		case operation != "" && strings.HasPrefix(line, "      x-passage-duty: "):
-			declared[operation] = strings.TrimPrefix(line, "      x-passage-duty: ")
+		case operation != "" && strings.HasPrefix(line, "      x-depot-duty: "):
+			declared[operation] = strings.TrimPrefix(line, "      x-depot-duty: ")
 		}
 	}
 	return declared
@@ -60,7 +60,7 @@ func TestOpenAPIMatchesRoutesAndDuties(t *testing.T) {
 			continue
 		}
 		if duty == "" {
-			t.Errorf("no x-passage-duty: %s", op)
+			t.Errorf("no x-depot-duty: %s", op)
 		}
 		if duty == "public" {
 			continue

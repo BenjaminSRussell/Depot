@@ -1,67 +1,67 @@
 asyncapi: 3.0.0
 info:
-  title: Passage Field Service events
+  title: Depot Field Service events
   version: 0.1.0
   description: |
     Events published by the fieldservice service (wave 45, slices 1 to 7). Every event is
     written to the service outbox in the same transaction as the state change and
-    relayed by Debezium to Kafka. Envelope: CloudEvents 1.0 (source /passage/service/fieldservice).
+    relayed by Debezium to Kafka. Envelope: CloudEvents 1.0 (source /depot/service/fieldservice).
 defaultContentType: application/json
 channels:
   caseOpened:
-    address: passage.service.case
+    address: depot.service.case
     messages:
       caseOpened:
         $ref: "#/components/messages/CaseOpened"
   workOrderPosted:
-    address: passage.service.workorder
+    address: depot.service.workorder
     messages:
       workOrderPosted:
         $ref: "#/components/messages/WorkOrderPosted"
   workOrderCompleted:
-    address: passage.service.workorder.completed
+    address: depot.service.workorder.completed
     messages:
       workOrderCompleted:
         $ref: "#/components/messages/WorkOrderCompleted"
   slaAlerts:
-    address: passage.service.sla
+    address: depot.service.sla
     messages:
       slaWarning:
         $ref: "#/components/messages/SLAWarning"
       slaBreached:
         $ref: "#/components/messages/SLABreached"
   articlePublished:
-    address: passage.knowledge.article
+    address: depot.knowledge.article
     messages:
       articlePublished:
         $ref: "#/components/messages/ArticlePublished"
   caseStageChanged:
-    address: passage.case.stage
+    address: depot.case.stage
     messages:
       caseStageChanged:
         $ref: "#/components/messages/CaseStageChanged"
   supplierClaimSettled:
-    address: passage.service.supplierclaim
+    address: depot.service.supplierclaim
     messages:
       supplierClaimSettled:
         $ref: "#/components/messages/SupplierClaimSettled"
   agreementChanged:
-    address: passage.service.agreement
+    address: depot.service.agreement
     messages:
       agreementChanged:
         $ref: "#/components/messages/AgreementChanged"
   agreementVisitRecorded:
-    address: passage.service.agreementvisit
+    address: depot.service.agreementvisit
     messages:
       agreementVisitRecorded:
         $ref: "#/components/messages/AgreementVisitRecorded"
   assignmentChanged:
-    address: passage.service.assignment
+    address: depot.service.assignment
     messages:
       assignmentChanged:
         $ref: "#/components/messages/AssignmentChanged"
   dispatchPublished:
-    address: passage.service.dispatch
+    address: depot.service.dispatch
     messages:
       dispatchPublished:
         $ref: "#/components/messages/DispatchPublished"
@@ -141,7 +141,7 @@ operations:
 components:
   messages:
     CaseOpened:
-      name: dev.passage.service.case.opened.v1
+      name: dev.depot.service.case.opened.v1
       contentType: application/cloudevents+json
       summary: A service case was opened with its entitlement resolved and its SLA clocks started.
       payload:
@@ -157,7 +157,7 @@ components:
           responseDue: { type: string, format: date-time }
           resolutionDue: { type: string, format: date-time }
     WorkOrderCompleted:
-      name: dev.passage.service.workorder.completed.v1
+      name: dev.depot.service.workorder.completed.v1
       contentType: application/cloudevents+json
       summary: A work order reached COMPLETED.
       description: |
@@ -205,7 +205,7 @@ components:
                 productId: { type: string, description: The stock item of a PART line (a UUID); empty for a line that moves no stock. }
                 unit: { type: string, description: The unit consumedQty is in; empty without a productId. }
     WorkOrderPosted:
-      name: dev.passage.service.workorder.posted.v1
+      name: dev.depot.service.workorder.posted.v1
       contentType: application/cloudevents+json
       description: |
         Carries what wave-29 invoicing needs to invoice the BILLABLE lines (customer,
@@ -247,7 +247,7 @@ components:
                 warrantyCost: { type: string }
                 agreementHours: { type: string }
     SLAWarning:
-      name: dev.passage.service.sla.warning.v1
+      name: dev.depot.service.sla.warning.v1
       contentType: application/cloudevents+json
       summary: A case SLA clock reached the warning threshold; emitted once per case and clock.
       payload:
@@ -263,7 +263,7 @@ components:
           warnedAt: { type: string, format: date-time }
           thresholdPercent: { type: integer, example: 75 }
     SLABreached:
-      name: dev.passage.service.sla.breached.v1
+      name: dev.depot.service.sla.breached.v1
       contentType: application/cloudevents+json
       description: PRD 8.0 payload (caseId, slaType, dueAt, breachedAt) plus the case number and priority. breachedAt is when the service detected the breach.
       payload:
@@ -278,7 +278,7 @@ components:
           dueAt: { type: string, format: date-time }
           breachedAt: { type: string, format: date-time }
     ArticlePublished:
-      name: dev.passage.knowledge.article.published.v1
+      name: dev.depot.knowledge.article.published.v1
       contentType: application/cloudevents+json
       description: PRD 8.45.5 payload (articleId, version, language, applicability) plus the article number, title, publish time and the version it retired. Consumers are the search index and copilot retrieval (wave 47).
       payload:
@@ -304,7 +304,7 @@ components:
           publishedAt: { type: string, format: date-time }
           retiredArticleId: { type: [string, "null"], format: uuid, description: The version row this publish retired. }
     CaseStageChanged:
-      name: dev.passage.case.stage.changed.v1
+      name: dev.depot.case.stage.changed.v1
       contentType: application/cloudevents+json
       description: PRD 8.45.5 payload (caseId, categoryId, from, to, at, actor) plus the case number and the reason of a move back. Consumers are workflow, notifications and the domain owners (HR, collections, audit).
       payload:
@@ -321,10 +321,10 @@ components:
           actor: { type: string, description: User id of the caller who moved the case. }
           reason: { type: string, description: The reason of a move back one stage; empty on a forward move. }
     SupplierClaimSettled:
-      name: dev.passage.service.supplierclaim.settled.v1
+      name: dev.depot.service.supplierclaim.settled.v1
       contentType: application/cloudevents+json
       description: |
-        PRD 8.45.5 `dev.passage.service.supplier-claim.settled.v1` (claimId, vendorId, claimedAmount,
+        PRD 8.45.5 `dev.depot.service.supplier-claim.settled.v1` (claimId, vendorId, claimedAmount,
         recoveredAmount) plus the number, legal entity, currency, credit note and vendor reference. The
         kernel event type rule allows no hyphen in a segment, so the entity is `supplierclaim`. The GL
         warranty recovery credits the warranty expense account of the legal entity with recoveredAmount.
@@ -344,7 +344,7 @@ components:
           vendorReference: { type: string, description: The vendor's reference of the claim, quoted on the credit note. }
           settledAt: { type: string, format: date-time }
     AgreementChanged:
-      name: dev.passage.service.agreement.changed.v1
+      name: dev.depot.service.agreement.changed.v1
       contentType: application/cloudevents+json
       summary: A service agreement changed status.
       description: |
@@ -368,7 +368,7 @@ components:
           at: { type: string, format: date-time }
           actor: { type: string, description: User id of the caller who made the change or ran the expiry pass; empty when the caller has no user. }
     AgreementVisitRecorded:
-      name: dev.passage.service.agreementvisit.recorded.v1
+      name: dev.depot.service.agreementvisit.recorded.v1
       contentType: application/cloudevents+json
       summary: An included visit of an agreement line was consumed.
       description: Written in the transaction that records the visit. visitsLeft is what remains of the line's includedVisits.
@@ -389,7 +389,7 @@ components:
           workOrderId: { type: [string, "null"], format: uuid }
           visitsLeft: { type: integer, minimum: 0 }
     AssignmentChanged:
-      name: dev.passage.service.assignment.changed.v1
+      name: dev.depot.service.assignment.changed.v1
       contentType: application/cloudevents+json
       summary: A work order was assigned to a technician, moved or unassigned.
       description: |
@@ -414,7 +414,7 @@ components:
           at: { type: string, format: date-time }
           actor: { type: string, description: User id of the dispatcher; empty when the caller has no user. }
     DispatchPublished:
-      name: dev.passage.service.dispatch.published.v1
+      name: dev.depot.service.dispatch.published.v1
       contentType: application/cloudevents+json
       summary: The SCHEDULED work orders of a territory-day were dispatched.
       description: |

@@ -1,6 +1,6 @@
 -- Wave 23 slice 18: production orders received from wave 21 (FR-23.10).
 --
--- dev.passage.production.order.scheduled.v1 carries an order's dated jobs on
+-- dev.depot.production.order.scheduled.v1 carries an order's dated jobs on
 -- infinite capacity. The scheduling consumer turns each of its operations into
 -- a scheduling_operation; scheduling_order_import keeps one row per order with
 -- what was done with the latest event (imported, partly imported, rejected)
@@ -32,13 +32,13 @@ CREATE INDEX IF NOT EXISTS scheduling_order_import_status ON scheduling_order_im
 ALTER TABLE scheduling_order_import ENABLE ROW LEVEL SECURITY;
 ALTER TABLE scheduling_order_import FORCE ROW LEVEL SECURITY;
 CREATE POLICY scheduling_order_import_tenant_access ON scheduling_order_import AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON scheduling_order_import TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON scheduling_order_import TO depot_app';
   END IF;
 END
 $$;

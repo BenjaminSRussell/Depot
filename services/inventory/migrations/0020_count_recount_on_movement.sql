@@ -1,7 +1,7 @@
 -- Cycle-count follow-up (FR-16.9, BR-16.8): a plan without a freeze flags the
 -- lines a later movement touched for recount, and a plan can select only rows
 -- not counted for a number of days. No new tables: the count tables already
--- carry the passage_app grants (SELECT, INSERT, UPDATE) from 0003.
+-- carry the depot_app grants (SELECT, INSERT, UPDATE) from 0003.
 --
 -- count_plan and count_sheet_line are live tables, so this file only changes
 -- the catalog: nullable columns without a default and NOT VALID checks take

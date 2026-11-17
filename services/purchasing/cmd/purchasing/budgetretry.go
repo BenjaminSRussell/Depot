@@ -6,11 +6,11 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/purchasing/internal/budget"
-	"github.com/BenjaminSRussell/passage/services/purchasing/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/purchasing/internal/budget"
+	"github.com/BenjaminSRussell/depot/services/purchasing/internal/store"
 )
 
 const (
@@ -54,7 +54,7 @@ func budgetCallsRetry(ctx context.Context, getenv func(string) string, args []st
 		return err
 	}
 	if signer == nil {
-		return errors.New("BUDGETING_URL needs a service signing key (PASSAGE_SERVICE_SIGNING_KEY_FILE)")
+		return errors.New("BUDGETING_URL needs a service signing key (DEPOT_SERVICE_SIGNING_KEY_FILE)")
 	}
 	pool, err := dbx.Connect(ctx, databaseURL)
 	if err != nil {

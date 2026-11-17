@@ -12,16 +12,16 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/BenjaminSRussell/passage/platform/customsdata"
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/issueclaim"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/fulfillment/internal/api"
-	"github.com/BenjaminSRussell/passage/services/fulfillment/internal/carrier"
-	"github.com/BenjaminSRussell/passage/services/fulfillment/internal/salesreport"
-	"github.com/BenjaminSRussell/passage/services/fulfillment/internal/store"
-	"github.com/BenjaminSRussell/passage/services/fulfillment/migrations"
+	"github.com/BenjaminSRussell/depot/platform/customsdata"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/issueclaim"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/fulfillment/internal/api"
+	"github.com/BenjaminSRussell/depot/services/fulfillment/internal/carrier"
+	"github.com/BenjaminSRussell/depot/services/fulfillment/internal/salesreport"
+	"github.com/BenjaminSRussell/depot/services/fulfillment/internal/store"
+	"github.com/BenjaminSRussell/depot/services/fulfillment/migrations"
 )
 
 var gs1Prefix = regexp.MustCompile(`^[0-9]{6,12}$`)

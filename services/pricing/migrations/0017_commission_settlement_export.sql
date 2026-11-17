@@ -32,18 +32,18 @@ CREATE INDEX IF NOT EXISTS commission_settlement_export_period_ix
 ALTER TABLE commission_settlement_export ENABLE ROW LEVEL SECURITY;
 ALTER TABLE commission_settlement_export FORCE ROW LEVEL SECURITY;
 CREATE POLICY commission_settlement_export_tenant_access ON commission_settlement_export AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY commission_settlement_export_legal_entity_scope ON commission_settlement_export AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 -- The store reads, inserts, and updates (void, with a row lock). Never deletes. Skipped when
 -- the role does not exist (developer databases without the role split).
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON commission_settlement_export TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON commission_settlement_export TO depot_app';
   END IF;
 END
 $$;

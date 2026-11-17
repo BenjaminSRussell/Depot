@@ -30,14 +30,14 @@ ALTER TABLE hr_profile_change ENABLE ROW LEVEL SECURITY;
 ALTER TABLE hr_profile_change FORCE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS hr_profile_change_tenant_access ON hr_profile_change;
 CREATE POLICY hr_profile_change_tenant_access ON hr_profile_change AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON hr_profile_change TO passage_app';
-    EXECUTE 'GRANT UPDATE (home_address_sealed) ON worker_pii TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON hr_profile_change TO depot_app';
+    EXECUTE 'GRANT UPDATE (home_address_sealed) ON worker_pii TO depot_app';
   END IF;
 END
 $$;

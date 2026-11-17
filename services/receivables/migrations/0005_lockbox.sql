@@ -16,8 +16,8 @@ CREATE TABLE IF NOT EXISTS lockbox_batch (
 ALTER TABLE lockbox_batch ENABLE ROW LEVEL SECURITY;
 ALTER TABLE lockbox_batch FORCE ROW LEVEL SECURITY;
 CREATE POLICY lockbox_batch_tenant_access ON lockbox_batch AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY lockbox_batch_legal_entity_scope ON lockbox_batch AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));

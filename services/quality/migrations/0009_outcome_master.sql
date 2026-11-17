@@ -17,8 +17,8 @@ CREATE TABLE IF NOT EXISTS quality_outcome (
 ALTER TABLE quality_outcome ENABLE ROW LEVEL SECURITY;
 ALTER TABLE quality_outcome FORCE ROW LEVEL SECURITY;
 CREATE POLICY quality_outcome_tenant_access ON quality_outcome AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- Register every outcome id the results and test groups already mention. It reads every tenant, so it runs only under a
 -- role that bypasses row-level security; otherwise it is skipped with a notice and outcomes are registered by hand (rows
@@ -45,8 +45,8 @@ $$;
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON quality_outcome TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON quality_outcome TO depot_app';
   END IF;
 END
 $$;

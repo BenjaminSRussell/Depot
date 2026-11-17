@@ -4,8 +4,8 @@ import { isAppPath, RECORD_TYPES, type RecordHit } from "./records";
 export const MAX_RECENT = 8;
 export const MAX_FAVOURITES = 20;
 
-const recentKey = (identity: string) => `passage.records.recent.v1.${identity}`;
-const favouriteKey = (identity: string) => `passage.records.favourites.v1.${identity}`;
+const recentKey = (identity: string) => `depot.records.recent.v1.${identity}`;
+const favouriteKey = (identity: string) => `depot.records.favourites.v1.${identity}`;
 
 const sameRecord = (a: RecordHit, b: RecordHit) => a.type === b.type && a.id === b.id;
 

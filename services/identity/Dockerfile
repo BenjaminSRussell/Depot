@@ -9,7 +9,7 @@ RUN CGO_ENABLED=0 GOFIPS140=$GOFIPS140 go build -trimpath -ldflags="-s -w -build
 
 FROM gcr.io/distroless/static-debian12:nonroot
 COPY --from=build /out/identity /identity
-COPY policies/authz/data.json policies/authz/authz.rego /etc/passage/authz/
+COPY policies/authz/data.json policies/authz/authz.rego /etc/depot/authz/
 USER 65532:65532
 EXPOSE 8080
 ENTRYPOINT ["/identity"]

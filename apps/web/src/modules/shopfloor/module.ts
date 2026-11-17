@@ -1,5 +1,5 @@
 import { createElement } from "react";
-import type { PassageModule } from "../registry";
+import type { DepotModule } from "../registry";
 import { AbsenceCodesPage } from "./AbsenceCodesPage";
 import { AndonSettingsPage } from "./AndonSettingsPage";
 import { AndonPage } from "./AndonPage";
@@ -48,7 +48,7 @@ import { TimeProfilesPage } from "./TimeProfilesPage";
 import { WorkerDetailPage } from "./WorkerDetailPage";
 import { WorkersPage } from "./WorkersPage";
 
-const shopfloor: PassageModule = {
+const shopfloor: DepotModule = {
   id: "shopfloor",
   title: "Shop floor",
   description:

@@ -1,5 +1,5 @@
 import { createElement } from "react";
-import type { PassageModule } from "../registry";
+import type { DepotModule } from "../registry";
 import { DuplicatesPage } from "./DuplicatesPage";
 import { DUTY_READ, DUTY_WRITE } from "./format";
 import { PartyDetailPage } from "./PartyDetailPage";
@@ -11,7 +11,7 @@ import { ProspectsPage } from "./ProspectsPage";
 import { SearchPage } from "./SearchPage";
 import { TaxRegistrationsPage } from "./TaxRegistrationsPage";
 
-const party: PassageModule = {
+const party: DepotModule = {
   id: "party",
   title: "Parties",
   description:

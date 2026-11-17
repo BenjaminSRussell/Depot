@@ -37,13 +37,13 @@ CREATE INDEX IF NOT EXISTS flow_activity_work_cell_ix ON flow_activity (tenant_i
 ALTER TABLE kanban_job ENABLE ROW LEVEL SECURITY;
 ALTER TABLE kanban_job FORCE ROW LEVEL SECURITY;
 CREATE POLICY kanban_job_tenant_access ON kanban_job AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON kanban_job TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON kanban_job TO depot_app';
   END IF;
 END
 $$;

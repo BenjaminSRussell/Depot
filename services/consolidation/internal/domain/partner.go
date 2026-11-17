@@ -7,7 +7,7 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/money"
+	"github.com/BenjaminSRussell/depot/platform/money"
 )
 
 // PartnerRow is one account's balance (debit less credit, unit currency) a unit's ledger holds with one counterparty (#40).

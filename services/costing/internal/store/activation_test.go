@@ -11,10 +11,10 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/costing/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/costing/internal/domain"
 )
 
 func d(s string) decimal.Decimal { return decimal.RequireFromString(s) }
@@ -143,7 +143,7 @@ func TestPostgres_ActivationLifecycle(t *testing.T) {
 		t.Fatalf("outbox rows = %d, want one cost.changed per product x site", len(events))
 	}
 	for _, e := range events {
-		if e.Type != "dev.passage.costing.cost.changed.v1" || e.Payload["versionId"] != v1.ID || e.Payload["currency"] != "EUR" {
+		if e.Type != "dev.depot.costing.cost.changed.v1" || e.Payload["versionId"] != v1.ID || e.Payload["currency"] != "EUR" {
 			t.Errorf("event %+v", e)
 		}
 		if _, has := e.Payload["oldCost"]; has {

@@ -8,9 +8,9 @@ ALTER TABLE standard_cost_activation_attempt ADD COLUMN IF NOT EXISTS ledger_ide
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT INSERT ON cost_calculation TO passage_app';
-    EXECUTE 'GRANT UPDATE (status) ON cost_calculation TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT INSERT ON cost_calculation TO depot_app';
+    EXECUTE 'GRANT UPDATE (status) ON cost_calculation TO depot_app';
   END IF;
 END
 $$;

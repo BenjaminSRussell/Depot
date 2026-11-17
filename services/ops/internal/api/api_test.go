@@ -10,25 +10,25 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/ops/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/ops/internal/store"
-	"github.com/BenjaminSRussell/passage/services/ops/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/ops/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/ops/internal/store"
+	"github.com/BenjaminSRussell/depot/services/ops/migrations"
 )
 
 type env struct {
 	router http.Handler
 	tenant string
-	pool   *pgxpool.Pool // passage_app
+	pool   *pgxpool.Pool // depot_app
 	admin  *pgxpool.Pool // fixtures only
 }
 
 func newEnv(t *testing.T, region string) *env {
 	t.Helper()
-	admin, pool := testkit.DBWithApp(t) // the store runs as passage_app; admin only migrates and edits fixtures
+	admin, pool := testkit.DBWithApp(t) // the store runs as depot_app; admin only migrates and edits fixtures
 	if err := dbx.Migrate(context.Background(), admin, migrations.FS); err != nil {
 		t.Fatal(err)
 	}
@@ -44,12 +44,12 @@ func newEnv(t *testing.T, region string) *env {
 
 func (e *env) do(method, path, user, duties, key, body string) *httptest.ResponseRecorder {
 	req := httptest.NewRequest(method, path, strings.NewReader(body))
-	req.Header.Set("X-Passage-Tenant", e.tenant)
+	req.Header.Set("X-Depot-Tenant", e.tenant)
 	if user != "" {
-		req.Header.Set("X-Passage-User", user)
+		req.Header.Set("X-Depot-User", user)
 	}
 	if duties != "" {
-		req.Header.Set("X-Passage-Duties", duties)
+		req.Header.Set("X-Depot-Duties", duties)
 	}
 	if key != "" {
 		req.Header.Set("Idempotency-Key", key)
@@ -64,12 +64,12 @@ type httptestRecorder = httptest.ResponseRecorder
 // doWith is do with extra request headers.
 func (e *env) doWith(method, path, user, duties string, headers map[string]string, body string) *httptestRecorder {
 	req := httptest.NewRequest(method, path, strings.NewReader(body))
-	req.Header.Set("X-Passage-Tenant", e.tenant)
+	req.Header.Set("X-Depot-Tenant", e.tenant)
 	if user != "" {
-		req.Header.Set("X-Passage-User", user)
+		req.Header.Set("X-Depot-User", user)
 	}
 	if duties != "" {
-		req.Header.Set("X-Passage-Duties", duties)
+		req.Header.Set("X-Depot-Duties", duties)
 	}
 	for k, v := range headers {
 		req.Header.Set(k, v)
@@ -252,9 +252,9 @@ func TestOpsRoutesServeTheOperatorTenantOnly(t *testing.T) {
 	r := httpx.NewRouterWithoutTenant()
 	New(nil, Config{Region: "us-east"}).Register(r)
 	req := httptest.NewRequest("GET", "/v1/ops/regions", nil)
-	req.Header.Set("X-Passage-Tenant", operator)
-	req.Header.Set("X-Passage-User", "olivia")
-	req.Header.Set("X-Passage-Duties", all)
+	req.Header.Set("X-Depot-Tenant", operator)
+	req.Header.Set("X-Depot-User", "olivia")
+	req.Header.Set("X-Depot-Duties", all)
 	rec := httptest.NewRecorder()
 	r.ServeHTTP(rec, req)
 	if rec.Code != http.StatusForbidden {

@@ -1,5 +1,5 @@
 import { createElement } from "react";
-import type { PassageModule } from "../registry";
+import type { DepotModule } from "../registry";
 import { CutoverDecisionPage } from "./CutoverDecisionPage";
 import { CutoverPlanDetailPage } from "./CutoverPlanDetailPage";
 import { CutoverPlansPage } from "./CutoverPlansPage";
@@ -21,7 +21,7 @@ import { SetTolerancePage } from "./SetTolerancePage";
 import { TolerancesPage } from "./TolerancesPage";
 import { XrefLookupPage } from "./XrefLookupPage";
 
-const migrationFactory: PassageModule = {
+const migrationFactory: DepotModule = {
   id: "migration-factory",
   title: "Migration factory",
   description:

@@ -5,7 +5,7 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	platformmoney "github.com/BenjaminSRussell/passage/platform/money"
+	platformmoney "github.com/BenjaminSRussell/depot/platform/money"
 )
 
 // Stable error codes raised by journal, posting-profile and settlement rules.

@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	kevents "github.com/BenjaminSRussell/passage/platform/events"
+	kevents "github.com/BenjaminSRussell/depot/platform/events"
 )
 
 func TestEventsMatchAsyncAPI(t *testing.T) {
@@ -16,7 +16,7 @@ func TestEventsMatchAsyncAPI(t *testing.T) {
 	}
 	doc := string(spec)
 	if !kevents.ValidType(ProviderFallback) {
-		t.Fatalf("%s breaks dev.passage.<ctx>.<entity>.<verb>.v<n>", ProviderFallback)
+		t.Fatalf("%s breaks dev.depot.<ctx>.<entity>.<verb>.v<n>", ProviderFallback)
 	}
 	if !strings.Contains(doc, "name: "+ProviderFallback) {
 		t.Errorf("asyncapi.yaml does not declare %s", ProviderFallback)

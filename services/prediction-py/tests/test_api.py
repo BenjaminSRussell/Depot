@@ -23,9 +23,9 @@ def client():
 
 
 def h(tenant=TENANT_A, duties="agents.admin,collections.view,org.switcher.all-scope", entity=None):
-    out = {"x-passage-tenant": tenant, "x-passage-user": USER, "x-passage-duties": duties}
+    out = {"x-depot-tenant": tenant, "x-depot-user": USER, "x-depot-duties": duties}
     if entity is not None:
-        out["x-passage-legal-entity"] = entity
+        out["x-depot-legal-entity"] = entity
     return out
 
 

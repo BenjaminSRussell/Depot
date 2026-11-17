@@ -35,16 +35,16 @@ from prediction.sync import Report, delta
 log = logging.getLogger("prediction.consumer")
 
 CONSUMER = "prediction-receivables"
-TYPE_PREFIX = "dev.passage.receivables."
+TYPE_PREFIX = "dev.depot.receivables."
 # The receivables topics whose events change an invoice's open amount, dunning level or disputes (receivables events/asyncapi.yaml).
 DEFAULT_TOPICS = (
-    "passage.receivables.payment",
-    "passage.receivables.creditsettlement",
-    "passage.receivables.dispute",
-    "passage.receivables.dunningletter",
-    "passage.receivables.deduction",
-    "passage.receivables.downpayment",
-    "passage.receivables.openitem",
+    "depot.receivables.payment",
+    "depot.receivables.creditsettlement",
+    "depot.receivables.dispute",
+    "depot.receivables.dunningletter",
+    "depot.receivables.deduction",
+    "depot.receivables.downpayment",
+    "depot.receivables.openitem",
 )
 HANDLED_TYPES = frozenset(
     TYPE_PREFIX + t
@@ -298,7 +298,7 @@ def kafka_security(getenv: Callable[[str], str | None], read: Callable[[str], st
 def main(argv: list[str], getenv=os.environ.get) -> int:  # type: ignore[no-untyped-def]
     brokers, url, signer = getenv("KAFKA_BROKERS"), getenv("RECEIVABLES_URL"), ServiceSigner.from_env(getenv)
     if not brokers or not url or signer is None:
-        print("KAFKA_BROKERS, RECEIVABLES_URL and a service signing key (PASSAGE_SERVICE_NAME=prediction, PASSAGE_SERVICE_SIGNING_KEY) are needed", file=sys.stderr)
+        print("KAFKA_BROKERS, RECEIVABLES_URL and a service signing key (DEPOT_SERVICE_NAME=prediction, DEPOT_SERVICE_SIGNING_KEY) are needed", file=sys.stderr)
         return 2
     from prediction.runtime import config_from_env, repository_from_env
 

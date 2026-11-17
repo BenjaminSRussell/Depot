@@ -9,12 +9,12 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/outbox"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/close/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/outbox"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/close/internal/domain"
 )
 
 func (s *Postgres) PutAllocationRule(ctx context.Context, in domain.AllocationRule) (domain.AllocationRule, error) {
@@ -35,7 +35,7 @@ func (s *Postgres) PutAllocationRule(ctx context.Context, in domain.AllocationRu
 	}
 	err = dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
 		_, err := tx.Exec(ctx, `insert into allocation_rule(tenant_id, id, legal_entity_id, ledger_id, name, method, source_filter, destinations, offset_account, offset_dimensions, allocate_from_zero, updated_by)
-			values(current_setting('passage.tenant_id')::uuid, $1, $2, $3, $4, $5, $6::jsonb, $7::jsonb, $8, $9, $10, $11)
+			values(current_setting('depot.tenant_id')::uuid, $1, $2, $3, $4, $5, $6::jsonb, $7::jsonb, $8, $9, $10, $11)
 			on conflict (tenant_id, id) do update set name = excluded.name, method = excluded.method, source_filter = excluded.source_filter, destinations = excluded.destinations,
 				offset_account = excluded.offset_account, offset_dimensions = excluded.offset_dimensions, allocate_from_zero = excluded.allocate_from_zero, updated_by = excluded.updated_by, updated_at = now()`,
 			in.ID, in.LegalEntityID, in.LedgerID, in.Name, in.Method, src, dest, in.OffsetAccount, in.OffsetDimensions, in.AllocateFromZero, p.UserID)
@@ -80,7 +80,7 @@ func (s *Postgres) SaveAllocationRun(ctx context.Context, in domain.AllocationRu
 	var saved domain.AllocationRun
 	err = dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
 		tag, err := tx.Exec(ctx, `insert into allocation_run(tenant_id, id, legal_entity_id, ledger_id, fiscal_period_id, rule_id, posting_date, currency, source_amount, mode, status, proposal, idempotency_key, request_hash, created_by)
-			values(current_setting('passage.tenant_id')::uuid, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::jsonb, $12, $13, $14)
+			values(current_setting('depot.tenant_id')::uuid, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::jsonb, $12, $13, $14)
 			on conflict (tenant_id, idempotency_key) do nothing`,
 			in.ID, in.LegalEntityID, in.LedgerID, in.FiscalPeriodID, in.RuleID, in.PostingDate, in.Currency, amount, in.Mode, in.Status, proposal, key, requestHash, in.CreatedBy)
 		if err != nil {

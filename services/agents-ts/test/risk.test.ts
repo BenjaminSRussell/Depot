@@ -25,56 +25,56 @@ describe("fact based risk for AP coding proposals", () => {
   const invoice = { total: "2500.00", currency: "USD", vendorId: "v-1", createdBy: "someone-else" };
 
   it("reads the amount, the vendor and the creator from the system and never from the proposal", async () => {
-    const t = tools({ "passage.ap.invoice.get": ok(invoice), "passage.ap.vendor.history.list": ok({ items: [{ id: "i-0" }] }) });
-    const got = await risk(t).assess("passage.ap.invoice.propose_coding", { invoiceId: "inv-1", amount: "1.00" });
+    const t = tools({ "depot.ap.invoice.get": ok(invoice), "depot.ap.vendor.history.list": ok({ items: [{ id: "i-0" }] }) });
+    const got = await risk(t).assess("depot.ap.invoice.propose_coding", { invoiceId: "inv-1", amount: "1.00" });
     expect(got).toEqual({ vendorHighRisk: false, sodConflict: false, amount: usd("2500.00"), limitUtilisation: 0.25 });
-    expect(t.asked.map((a) => a.name)).toEqual(["passage.ap.invoice.get", "passage.ap.vendor.history.list"]);
+    expect(t.asked.map((a) => a.name)).toEqual(["depot.ap.invoice.get", "depot.ap.vendor.history.list"]);
     expect(t.asked[0]?.args).toEqual({ id: "inv-1" });
     expect(t.asked[1]?.args).toEqual({ vendor: "v-1", limit: 1 });
   });
 
   it("reads a received vendor invoice the way payables answers it: gross for the amount, decidedBy (the clerk) for the creator", async () => {
     const hist = ok({ items: [{ id: "i-0" }] });
-    const same = tools({ "passage.ap.invoice.get": ok({ gross: "2500.00", currency: "USD", vendorId: "v-1", decidedBy: INVOKER }), "passage.ap.vendor.history.list": hist });
-    expect(await risk(same).assess("passage.ap.invoice.propose_coding", { invoiceId: "inv-1" })).toEqual({ vendorHighRisk: false, sodConflict: true, amount: usd("2500.00"), limitUtilisation: 0.25 });
+    const same = tools({ "depot.ap.invoice.get": ok({ gross: "2500.00", currency: "USD", vendorId: "v-1", decidedBy: INVOKER }), "depot.ap.vendor.history.list": hist });
+    expect(await risk(same).assess("depot.ap.invoice.propose_coding", { invoiceId: "inv-1" })).toEqual({ vendorHighRisk: false, sodConflict: true, amount: usd("2500.00"), limitUtilisation: 0.25 });
   });
 
   it("treats receivedBy and service principals as an unknown creator and fails closed", async () => {
     const hist = ok({ items: [{ id: "i-0" }] });
     for (const doc of [{ receivedBy: "u-1" }, { receivedBy: "service:edi", decidedBy: "service:edi" }, { decidedBy: "system:batch" }, {}]) {
-      const got = await risk(tools({ "passage.ap.invoice.get": ok({ gross: "10.00", currency: "USD", vendorId: "v-1", ...doc }), "passage.ap.vendor.history.list": hist })).assess("passage.ap.invoice.propose_coding", { invoiceId: "inv-1" });
+      const got = await risk(tools({ "depot.ap.invoice.get": ok({ gross: "10.00", currency: "USD", vendorId: "v-1", ...doc }), "depot.ap.vendor.history.list": hist })).assess("depot.ap.invoice.propose_coding", { invoiceId: "inv-1" });
       expect(got.vendorHighRisk).toBe(true);
       expect(got.unverified).toEqual(["the invoice does not say who created it"]);
     }
   });
 
   it("flags a vendor with no history, a blocked vendor and a high vendor risk", async () => {
-    const none = await risk(tools({ "passage.ap.invoice.get": ok(invoice), "passage.ap.vendor.history.list": ok({ items: [] }) })).assess("passage.ap.invoice.propose_coding", { invoiceId: "inv-1" });
+    const none = await risk(tools({ "depot.ap.invoice.get": ok(invoice), "depot.ap.vendor.history.list": ok({ items: [] }) })).assess("depot.ap.invoice.propose_coding", { invoiceId: "inv-1" });
     expect(none.vendorHighRisk).toBe(true);
     for (const flagged of [{ vendorBlocked: true }, { vendorRisk: "HIGH" }]) {
-      const got = await risk(tools({ "passage.ap.invoice.get": ok({ ...invoice, ...flagged }), "passage.ap.vendor.history.list": ok({ items: [{}] }) })).assess("passage.ap.invoice.propose_coding", { invoiceId: "inv-1" });
+      const got = await risk(tools({ "depot.ap.invoice.get": ok({ ...invoice, ...flagged }), "depot.ap.vendor.history.list": ok({ items: [{}] }) })).assess("depot.ap.invoice.propose_coding", { invoiceId: "inv-1" });
       expect(got.vendorHighRisk).toBe(true);
     }
   });
 
   it("is a segregation-of-duties conflict when the invoking user created the invoice", async () => {
-    const t = tools({ "passage.ap.invoice.get": ok({ ...invoice, createdBy: INVOKER }), "passage.ap.vendor.history.list": ok({ items: [{}] }) });
-    expect((await risk(t).assess("passage.ap.invoice.propose_coding", { invoiceId: "inv-1" })).sodConflict).toBe(true);
+    const t = tools({ "depot.ap.invoice.get": ok({ ...invoice, createdBy: INVOKER }), "depot.ap.vendor.history.list": ok({ items: [{}] }) });
+    expect((await risk(t).assess("depot.ap.invoice.propose_coding", { invoiceId: "inv-1" })).sodConflict).toBe(true);
   });
 
   it("fails closed when a fact cannot be read", async () => {
-    const unreadable = await risk(tools({})).assess("passage.ap.invoice.propose_coding", { invoiceId: "inv-1" });
+    const unreadable = await risk(tools({})).assess("depot.ap.invoice.propose_coding", { invoiceId: "inv-1" });
     expect(unreadable.vendorHighRisk).toBe(true);
-    expect(unreadable.unverified?.[0]).toContain("passage.ap.invoice.get");
+    expect(unreadable.unverified?.[0]).toContain("depot.ap.invoice.get");
     expect(unreadable.amount).toBeUndefined();
-    const noHistory = await risk(tools({ "passage.ap.invoice.get": ok(invoice) })).assess("passage.ap.invoice.propose_coding", { invoiceId: "inv-1" });
+    const noHistory = await risk(tools({ "depot.ap.invoice.get": ok(invoice) })).assess("depot.ap.invoice.propose_coding", { invoiceId: "inv-1" });
     expect(noHistory.vendorHighRisk).toBe(true);
     expect(noHistory.unverified).toHaveLength(1);
-    const noAmount = await risk(tools({ "passage.ap.invoice.get": ok({ ...invoice, total: "lots" }), "passage.ap.vendor.history.list": ok({ items: [{}] }) })).assess("passage.ap.invoice.propose_coding", { invoiceId: "inv-1" });
+    const noAmount = await risk(tools({ "depot.ap.invoice.get": ok({ ...invoice, total: "lots" }), "depot.ap.vendor.history.list": ok({ items: [{}] }) })).assess("depot.ap.invoice.propose_coding", { invoiceId: "inv-1" });
     expect(noAmount.unverified).toEqual(["the invoice has no readable amount"]);
-    expect((await risk(tools({})).assess("passage.ap.invoice.propose_coding", {})).unverified).toEqual(["the proposal names no invoice"]);
+    expect((await risk(tools({})).assess("depot.ap.invoice.propose_coding", {})).unverified).toEqual(["the proposal names no invoice"]);
     const thrown: ToolPort = { describe: () => undefined, call: async () => Promise.reject(new Error("gateway down")) };
-    expect((await risk(thrown).assess("passage.ap.invoice.propose_coding", { invoiceId: "inv-1" })).unverified?.[0]).toContain("gateway down");
+    expect((await risk(thrown).assess("depot.ap.invoice.propose_coding", { invoiceId: "inv-1" })).unverified?.[0]).toContain("gateway down");
   });
 });
 
@@ -83,23 +83,23 @@ describe("fact based risk for cash application proposals", () => {
   const prediction = (p: Record<string, string>) => (args: Record<string, unknown>): ToolResult => (p[String(args.invoice_id)] === undefined ? { ok: false, code: "AGT-0404", message: "none" } : ok({ pLate30d: p[String(args.invoice_id)] }));
 
   it("takes the highest late-payment chance of the invoices it settles and ignores an invoice with no prediction", async () => {
-    const t = tools({ "passage.ar.payment.get": ok(payment), "passage.ar.invoice.prediction.get": prediction({ a: "0.1200", b: "0.6100" }) });
-    const got = await risk(t).assess("passage.ar.settlement.propose", { paymentId: "p-1", allocations: [{ invoiceId: "a" }, { invoiceId: "b" }, { invoiceId: "c" }] });
+    const t = tools({ "depot.ar.payment.get": ok(payment), "depot.ar.invoice.prediction.get": prediction({ a: "0.1200", b: "0.6100" }) });
+    const got = await risk(t).assess("depot.ar.settlement.propose", { paymentId: "p-1", allocations: [{ invoiceId: "a" }, { invoiceId: "b" }, { invoiceId: "c" }] });
     expect(got).toEqual({ vendorHighRisk: false, sodConflict: false, amount: usd("800.00"), limitUtilisation: 0.08, paymentLateProbability: 0.61 });
-    expect(t.asked.filter((a) => a.name === "passage.ar.invoice.prediction.get")).toHaveLength(3);
+    expect(t.asked.filter((a) => a.name === "depot.ar.invoice.prediction.get")).toHaveLength(3);
   });
 
   it("asks for at most twenty predictions and flags the clerk who entered the payment as the conflict", async () => {
-    const t = tools({ "passage.ar.payment.get": ok({ ...payment, enteredBy: INVOKER }), "passage.ar.invoice.prediction.get": ok({ pLate30d: "0.2000" }) });
+    const t = tools({ "depot.ar.payment.get": ok({ ...payment, enteredBy: INVOKER }), "depot.ar.invoice.prediction.get": ok({ pLate30d: "0.2000" }) });
     const allocations = Array.from({ length: 30 }, (_, i) => ({ invoiceId: `i-${i}` }));
-    const got = await risk(t).assess("passage.ar.settlement.propose", { paymentId: "p-1", allocations });
+    const got = await risk(t).assess("depot.ar.settlement.propose", { paymentId: "p-1", allocations });
     expect(got.sodConflict).toBe(true);
-    expect(t.asked.filter((a) => a.name === "passage.ar.invoice.prediction.get")).toHaveLength(20);
+    expect(t.asked.filter((a) => a.name === "depot.ar.invoice.prediction.get")).toHaveLength(20);
   });
 
   it("fails closed without the payment and stays neutral for a proposal it has no source for", async () => {
-    expect((await risk(tools({})).assess("passage.ar.settlement.propose", { paymentId: "p-1" })).vendorHighRisk).toBe(true);
-    expect(await risk(tools({})).assess("passage.mrp.action_message.propose_triage", {})).toEqual({ vendorHighRisk: false, sodConflict: false });
+    expect((await risk(tools({})).assess("depot.ar.settlement.propose", { paymentId: "p-1" })).vendorHighRisk).toBe(true);
+    expect(await risk(tools({})).assess("depot.mrp.action_message.propose_triage", {})).toEqual({ vendorHighRisk: false, sodConflict: false });
   });
 });
 

@@ -87,7 +87,7 @@ const TITLES: Readonly<Record<number, string>> = {
 /** RFC 9457 problem details in the kernel's shape: type, title, status, code, detail. */
 function problem(res: ServerResponse, err: ApiError, path: string, extra: Record<string, string> = {}): void {
   const payload = JSON.stringify({
-    type: `https://passage.dev/problems/${err.code}`,
+    type: `https://depot.dev/problems/${err.code}`,
     title: TITLES[err.status] ?? "Error",
     status: err.status,
     code: err.code,

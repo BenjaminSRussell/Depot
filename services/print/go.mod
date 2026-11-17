@@ -1,9 +1,9 @@
-module github.com/BenjaminSRussell/passage/services/print
+module github.com/BenjaminSRussell/depot/services/print
 
 go 1.26.0
 
 require (
-	github.com/BenjaminSRussell/passage/platform v0.0.0
+	github.com/BenjaminSRussell/depot/platform v0.0.0
 	github.com/go-chi/chi/v5 v5.5.0
 	github.com/jackc/pgx/v5 v5.12.0
 	golang.org/x/image v0.47.0
@@ -19,4 +19,4 @@ require (
 	golang.org/x/sync v0.24.0 // indirect
 )
 
-replace github.com/BenjaminSRussell/passage/platform => ../../platform/go
+replace github.com/BenjaminSRussell/depot/platform => ../../platform/go

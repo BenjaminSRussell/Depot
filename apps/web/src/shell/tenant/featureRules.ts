@@ -1,4 +1,4 @@
-import type { PassageModule } from "../../modules/registry";
+import type { DepotModule } from "../../modules/registry";
 
 /** What the tenant switched on, by feature key. Undefined means the answer is not known, and everything is on. */
 export type FeatureState = Readonly<Record<string, boolean>> | undefined;
@@ -22,7 +22,7 @@ const PREFIX_FEATURES: readonly (readonly [string, string])[] = [
   ["/integration/interchanges", "edi"],
   ["/integration/partner-sla", "edi"],
   ["/integration/edi", "edi"],
-  // Optional features of a Windows install (passage-server, #607): the screens of services that run under a private runtime the
+  // Optional features of a Windows install (depot-server, #607): the screens of services that run under a private runtime the
   // installation may not have. The copilot and the agent kill switch talk to agents-ts and mcp-ts (Node); route plans and load
   // plans need transport's optimizer, routing-py (Python).
   ["/copilot", installFeatureKey("node")],
@@ -62,7 +62,7 @@ export function isPathEnabled(state: FeatureState, path: string): boolean {
 }
 
 /** Drops nav entries for switched-off features, and modules left with no entries. */
-export function filterModulesByFeatures(modules: PassageModule[], state: FeatureState): PassageModule[] {
+export function filterModulesByFeatures(modules: DepotModule[], state: FeatureState): DepotModule[] {
   if (state === undefined) return modules;
   return modules
     .map((m) => ({ ...m, nav: m.nav.filter((n) => isPathEnabled(state, n.to)) }))

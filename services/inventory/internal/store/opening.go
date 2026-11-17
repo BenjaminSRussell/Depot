@@ -9,8 +9,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
 )
 
 // CodeOpeningKeyConflict is a batch key sent again with other content.
@@ -89,7 +89,7 @@ func (s *Postgres) FindOpeningBatch(ctx context.Context, key string) (OpeningBat
 	err := dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
 		var q, v string
 		err := tx.QueryRow(ctx, `select legal_entity_id::text, batch_key, content_hash, journal_id::text, currency, item_count, qty_total::text, value_total::text
-			from inventory_opening_batch where tenant_id = current_setting('passage.tenant_id', true)::uuid and batch_key = $1`, key).
+			from inventory_opening_batch where tenant_id = current_setting('depot.tenant_id', true)::uuid and batch_key = $1`, key).
 			Scan(&b.LegalEntityID, &b.BatchKey, &b.ContentHash, &b.JournalID, &b.Currency, &b.ItemCount, &q, &v)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil
@@ -133,7 +133,7 @@ func (s *Postgres) ListOpeningBatches(ctx context.Context, legalEntityID, afterK
 	out := []OpeningBatch{}
 	err := dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
 		rows, err := tx.Query(ctx, `select legal_entity_id::text, batch_key, content_hash, journal_id::text, currency, item_count, qty_total::text, value_total::text
-			from inventory_opening_batch where tenant_id = current_setting('passage.tenant_id', true)::uuid and legal_entity_id = $1 and batch_key > $2
+			from inventory_opening_batch where tenant_id = current_setting('depot.tenant_id', true)::uuid and legal_entity_id = $1 and batch_key > $2
 			order by batch_key limit $3`, legalEntityID, afterKey, limit)
 		if err != nil {
 			return err

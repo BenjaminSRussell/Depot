@@ -1,12 +1,12 @@
 -- #483: PATCH /edi/v1/partners/{id} updates a partner under If-Match against trading_partner.version.
 --
--- passage_app gets UPDATE on the columns the route writes and nothing else: tenant, id, environment and created_at stay
+-- depot_app gets UPDATE on the columns the route writes and nothing else: tenant, id, environment and created_at stay
 -- write-once, and partners are still never deleted.
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
     EXECUTE 'GRANT UPDATE (name, isa_qualifier, isa_id, ack_sla_minutes, edifact_id, edifact_qualifier, edifact_contrl, status, version)
-      ON trading_partner TO passage_app';
+      ON trading_partner TO depot_app';
   END IF;
 END
 $$;
@@ -14,7 +14,7 @@ $$;
 -- A partner with a trade profile is bound to the profile's legal entity, and only a caller scoped to that entity may
 -- change it, as for the profile and the transport. The profile's restrictive RLS hides it from other callers, so they
 -- cannot tell "no profile" from "a profile elsewhere"; this index answers that one question. Like transport_work it has
--- no RLS and no passage_app grant, is maintained by a SECURITY DEFINER trigger on partner_trade_profile, and is read
+-- no RLS and no depot_app grant, is maintained by a SECURITY DEFINER trigger on partner_trade_profile, and is read
 -- only by edi_partner_in_entity_scope(), which returns a boolean for the current tenant and scopes and nothing else.
 CREATE TABLE IF NOT EXISTS partner_entity_index (
   tenant_id uuid NOT NULL,
@@ -42,9 +42,9 @@ BEGIN
     CREATE OR REPLACE FUNCTION edi_partner_in_entity_scope(partner uuid) RETURNS boolean
       LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, %1$I, pg_temp
       AS $body$ SELECT NOT EXISTS (SELECT 1 FROM partner_entity_index i
-        WHERE i.tenant_id = nullif(pg_catalog.current_setting('passage.tenant_id', true), '')::uuid AND i.partner_id = partner
-          AND NOT (coalesce(pg_catalog.current_setting('passage.legal_entity_scopes', true), '') = '*'
-                   OR i.legal_entity_id::text = ANY(pg_catalog.string_to_array(pg_catalog.current_setting('passage.legal_entity_scopes', true), ',')))) $body$;
+        WHERE i.tenant_id = nullif(pg_catalog.current_setting('depot.tenant_id', true), '')::uuid AND i.partner_id = partner
+          AND NOT (coalesce(pg_catalog.current_setting('depot.legal_entity_scopes', true), '') = '*'
+                   OR i.legal_entity_id::text = ANY(pg_catalog.string_to_array(pg_catalog.current_setting('depot.legal_entity_scopes', true), ',')))) $body$;
   $f$, current_schema());
 END
 $do$;
@@ -65,8 +65,8 @@ ALTER TABLE partner_trade_profile FORCE ROW LEVEL SECURITY;
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT EXECUTE ON FUNCTION edi_partner_in_entity_scope(uuid) TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT EXECUTE ON FUNCTION edi_partner_in_entity_scope(uuid) TO depot_app';
   END IF;
 END
 $$;

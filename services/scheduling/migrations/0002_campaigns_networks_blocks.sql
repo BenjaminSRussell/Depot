@@ -21,8 +21,8 @@ CREATE TABLE IF NOT EXISTS scheduling_resource_network (
 ALTER TABLE scheduling_resource_network ENABLE ROW LEVEL SECURITY;
 ALTER TABLE scheduling_resource_network FORCE ROW LEVEL SECURITY;
 CREATE POLICY scheduling_resource_network_tenant_access ON scheduling_resource_network AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 CREATE TABLE IF NOT EXISTS scheduling_network_edge (
   tenant_id uuid NOT NULL,
@@ -42,8 +42,8 @@ CREATE TABLE IF NOT EXISTS scheduling_network_edge (
 ALTER TABLE scheduling_network_edge ENABLE ROW LEVEL SECURITY;
 ALTER TABLE scheduling_network_edge FORCE ROW LEVEL SECURITY;
 CREATE POLICY scheduling_network_edge_tenant_access ON scheduling_network_edge AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- One matrix per resource and version; the active one for a date is the
 -- highest version whose active_from is on or before it. Costs are in the
@@ -66,8 +66,8 @@ CREATE TABLE IF NOT EXISTS scheduling_setup_matrix (
 ALTER TABLE scheduling_setup_matrix ENABLE ROW LEVEL SECURITY;
 ALTER TABLE scheduling_setup_matrix FORCE ROW LEVEL SECURITY;
 CREATE POLICY scheduling_setup_matrix_tenant_access ON scheduling_setup_matrix AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 CREATE TABLE IF NOT EXISTS scheduling_setup_matrix_entry (
   tenant_id uuid NOT NULL,
@@ -84,8 +84,8 @@ CREATE TABLE IF NOT EXISTS scheduling_setup_matrix_entry (
 ALTER TABLE scheduling_setup_matrix_entry ENABLE ROW LEVEL SECURITY;
 ALTER TABLE scheduling_setup_matrix_entry FORCE ROW LEVEL SECURITY;
 CREATE POLICY scheduling_setup_matrix_entry_tenant_access ON scheduling_setup_matrix_entry AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- BR-23.13: a cleanout is due after N batches or M hours, whichever first,
 -- and at campaign end when at_campaign_end. A rule needs at least one trigger.
@@ -110,8 +110,8 @@ CREATE TABLE IF NOT EXISTS scheduling_cleanout_rule (
 ALTER TABLE scheduling_cleanout_rule ENABLE ROW LEVEL SECURITY;
 ALTER TABLE scheduling_cleanout_rule FORCE ROW LEVEL SECURITY;
 CREATE POLICY scheduling_cleanout_rule_tenant_access ON scheduling_cleanout_rule AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- A campaign runs contiguously on one resource. plan holds the last computed
 -- sequence: changeovers (the first is the leading setup), cleanouts and the
@@ -149,8 +149,8 @@ CREATE INDEX IF NOT EXISTS scheduling_campaign_created ON scheduling_campaign (t
 ALTER TABLE scheduling_campaign ENABLE ROW LEVEL SECURITY;
 ALTER TABLE scheduling_campaign FORCE ROW LEVEL SECURITY;
 CREATE POLICY scheduling_campaign_tenant_access ON scheduling_campaign AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- An order belongs to at most one campaign (UNIQUE tenant_id, order_id).
 CREATE TABLE IF NOT EXISTS scheduling_campaign_order (
@@ -171,8 +171,8 @@ CREATE TABLE IF NOT EXISTS scheduling_campaign_order (
 ALTER TABLE scheduling_campaign_order ENABLE ROW LEVEL SECURITY;
 ALTER TABLE scheduling_campaign_order FORCE ROW LEVEL SECURITY;
 CREATE POLICY scheduling_campaign_order_tenant_access ON scheduling_campaign_order AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- A block is either weekly (windows: shifts in the resource's time zone) or
 -- dated (start_at/end_at), never both. condition is a list of predicates.
@@ -201,13 +201,13 @@ CREATE TABLE IF NOT EXISTS scheduling_capacity_block (
 ALTER TABLE scheduling_capacity_block ENABLE ROW LEVEL SECURITY;
 ALTER TABLE scheduling_capacity_block FORCE ROW LEVEL SECURITY;
 CREATE POLICY scheduling_capacity_block_tenant_access ON scheduling_capacity_block AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON scheduling_resource_network, scheduling_network_edge, scheduling_setup_matrix, scheduling_setup_matrix_entry, scheduling_cleanout_rule, scheduling_campaign, scheduling_campaign_order, scheduling_capacity_block TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON scheduling_resource_network, scheduling_network_edge, scheduling_setup_matrix, scheduling_setup_matrix_entry, scheduling_cleanout_rule, scheduling_campaign, scheduling_campaign_order, scheduling_capacity_block TO depot_app';
   END IF;
 END
 $$;

@@ -7,9 +7,9 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/eam/internal/domain"
-	eamevents "github.com/BenjaminSRussell/passage/services/eam/internal/events"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/eam/internal/domain"
+	eamevents "github.com/BenjaminSRussell/depot/services/eam/internal/events"
 )
 
 // DowntimeWindow is a stop of a production resource booked on a work order (BR-44.5).
@@ -32,7 +32,7 @@ type DowntimeInput struct {
 
 // RecordDowntime books a window of production resource downtime on an open
 // work order (BR-44.5). The window's whole minutes add to the order's
-// downtime, and dev.passage.eam.downtime.recorded.v1 goes to the outbox in the
+// downtime, and dev.depot.eam.downtime.recorded.v1 goes to the outbox in the
 // same transaction so wave 23 can block the resource's capacity. Windows on
 // one order must not overlap (EAM-DT-001). A repeated key returns the work
 // order as it is now without a second booking.

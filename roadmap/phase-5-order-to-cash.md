@@ -1,6 +1,6 @@
 # Phase 5: Order-to-Cash (waves 26-30)
 
-Pricing, sales orders with ATP, fulfillment, billing and revenue recognition, accounts receivable and collections. At the end of wave 30 a manufacturer runs the full buy-make-sell-collect loop on Passage — the first go-live milestone.
+Pricing, sales orders with ATP, fulfillment, billing and revenue recognition, accounts receivable and collections. At the end of wave 30 a manufacturer runs the full buy-make-sell-collect loop on Depot — the first go-live milestone.
 
 ## Wave 26: Pricing, Discounts & Trade Agreements
 
@@ -207,7 +207,7 @@ Billing workspace; demo entity invoices its shipped orders; revenue schedules vi
 
 **Deploy**
 
-AR/collections workspace, customer portal at customer.<env>.passage.dev, payment adapter in sandbox.
+AR/collections workspace, customer portal at customer.<env>.depot.dev, payment adapter in sandbox.
 
 **References**
 

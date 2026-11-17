@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check a k6 campaign summary against the SLO table in load/slo/slo.json (PSG-50, AC1).
+"""Check a k6 campaign summary against the SLO table in load/slo/slo.json (DPT-50, AC1).
 
 Usage:
     python3 load/tools/check_campaign.py results/summary.json [--slo load/slo/slo.json]

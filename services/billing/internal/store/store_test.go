@@ -13,13 +13,13 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/billing/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/billing/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/billing/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/billing/migrations"
 )
 
 // ctxAllEntities is a tenant principal with access to every legal entity.
@@ -81,7 +81,7 @@ func TestPostProposal_GapFreeNumbersAndOutbox(t *testing.T) {
 		t.Fatalf("read back %+v, err %v", got, err)
 	}
 	var events int
-	if err := admin.QueryRow(ctx, `select count(*) from outbox where type = 'dev.passage.billing.invoice.posted.v1'`).Scan(&events); err != nil {
+	if err := admin.QueryRow(ctx, `select count(*) from outbox where type = 'dev.depot.billing.invoice.posted.v1'`).Scan(&events); err != nil {
 		t.Fatal(err)
 	}
 	if events != 2 {
@@ -384,7 +384,7 @@ func TestCreditNote_PostNumbersChecksRemainderAndPublishes(t *testing.T) {
 		t.Fatal(err)
 	}
 	d := payload.Data
-	if payload.Type != "dev.passage.billing.creditnote.posted.v1" || d.Number != p1.Number || d.OriginalInvoiceID != orig.ID || d.OriginalNumber != orig.Number ||
+	if payload.Type != "dev.depot.billing.creditnote.posted.v1" || d.Number != p1.Number || d.OriginalInvoiceID != orig.ID || d.OriginalNumber != orig.Number ||
 		d.Reason != "Damaged in transit" || d.Totals.Gross != "23.80" || len(d.Lines) != 1 || d.Lines[0].OriginalLineNo != 2 || d.Lines[0].Qty != "2" || d.Lines[0].Tax != "3.80" {
 		t.Errorf("creditnote.posted payload %s %+v", payload.Type, d)
 	}

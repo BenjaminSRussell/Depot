@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"strings"
 
-	"github.com/BenjaminSRussell/passage/services/metadata/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/metadata/internal/domain"
 )
 
 type obj = map[string]any
@@ -21,7 +21,7 @@ func openAPI(e *domain.Entity) (string, error) {
 	idParam := obj{"name": "id", "in": "path", "required": true, "schema": obj{"type": "string", "format": "uuid"}}
 	problem := ref("responses", "Problem")
 	operation := func(id, action string, extra obj) obj {
-		op := obj{"operationId": id + e.Name, "x-passage-duty": duty + "." + action, "responses": obj{"default": problem}}
+		op := obj{"operationId": id + e.Name, "x-depot-duty": duty + "." + action, "responses": obj{"default": problem}}
 		for k, v := range extra {
 			op[k] = v
 		}
@@ -63,13 +63,13 @@ func openAPI(e *domain.Entity) (string, error) {
 	for _, h := range e.Hooks {
 		hooks = append(hooks, h.Name)
 	}
-	info := obj{"title": e.Name + " API", "version": "1.0.0", "x-passage-hooks": hooks}
+	info := obj{"title": e.Name + " API", "version": "1.0.0", "x-depot-hooks": hooks}
 	if phi := e.PHIFields(); len(phi) > 0 {
 		wire := make([]string, len(phi))
 		for i, name := range phi {
 			wire[i] = camel(name)
 		}
-		info["x-passage-phi-fields"] = wire
+		info["x-depot-phi-fields"] = wire
 	}
 	doc := obj{
 		"openapi": "3.1.0",

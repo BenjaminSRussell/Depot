@@ -17,8 +17,8 @@ create table gl_opening_mapping (
 alter table gl_opening_mapping enable row level security;
 alter table gl_opening_mapping force row level security;
 create policy gl_opening_mapping_tenant_access on gl_opening_mapping as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 create table gl_opening_target_release (
   release_id uuid primary key,
@@ -34,14 +34,14 @@ create table gl_opening_target_release (
 alter table gl_opening_target_release enable row level security;
 alter table gl_opening_target_release force row level security;
 create policy gl_opening_target_release_tenant_access on gl_opening_target_release as permissive
-  using (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  with check (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  using (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  with check (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON gl_opening_mapping TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT ON gl_opening_target_release TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON gl_opening_mapping TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT ON gl_opening_target_release TO depot_app';
   END IF;
 END
 $$;

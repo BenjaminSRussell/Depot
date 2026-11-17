@@ -13,8 +13,8 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/services/print/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/print/internal/transport"
+	"github.com/BenjaminSRussell/depot/services/print/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/print/internal/transport"
 )
 
 // decodeIPP reads an RFC 8010 request independently of the encoder under test.
@@ -53,7 +53,7 @@ func decodeIPP(t *testing.T, body []byte) (map[string]string, []byte) {
 
 func TestEncodePrintJob_MatchesRFC8010Layout(t *testing.T) {
 	doc := []byte("%PDF-1.7 test")
-	body := transport.EncodePrintJob("ipp://10.0.0.5:631/ipp/print", "passage-print", "application/pdf", 7, doc)
+	body := transport.EncodePrintJob("ipp://10.0.0.5:631/ipp/print", "depot-print", "application/pdf", 7, doc)
 	if got := binary.BigEndian.Uint32(body[4:8]); got != 7 {
 		t.Fatalf("request-id = %d, want 7", got)
 	}
@@ -62,7 +62,7 @@ func TestEncodePrintJob_MatchesRFC8010Layout(t *testing.T) {
 		"attributes-charset":          "utf-8",
 		"attributes-natural-language": "en",
 		"printer-uri":                 "ipp://10.0.0.5:631/ipp/print",
-		"requesting-user-name":        "passage-print",
+		"requesting-user-name":        "depot-print",
 		"document-format":             "application/pdf",
 	}
 	for k, v := range want {

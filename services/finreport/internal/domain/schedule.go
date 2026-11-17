@@ -8,7 +8,7 @@ import (
 	_ "time/tzdata" // IANA zones for schedule.timezone, also in images without /usr/share/zoneinfo
 	"unicode/utf8"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/ids"
 )
 
 // Limits of a distribution schedule (FR-15.8, PRD §2.15.13).

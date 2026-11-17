@@ -60,8 +60,8 @@ class StageReleaseTests(unittest.TestCase):
             encoding="utf-8",
         )
         self.run_git("init", "-q", "-b", "main")
-        self.run_git("config", "user.name", "Passage test")
-        self.run_git("config", "user.email", "passage-test@example.invalid")
+        self.run_git("config", "user.name", "Depot test")
+        self.run_git("config", "user.email", "depot-test@example.invalid")
         self.commit("Initial stage digest")
         self.run_git("checkout", "-qb", "promotion-test")
         self.stub_dir = self.root / "stub-bin"
@@ -943,7 +943,7 @@ class StageReleaseTests(unittest.TestCase):
 
     def test_cosign_runs_without_the_platform_api_token(self):
         os.environ[stage_release.API_TOKEN_VARIABLE] = "secret-token"
-        os.environ["PASSAGE_UNRELATED_SETTING"] = "kept"
+        os.environ["DEPOT_UNRELATED_SETTING"] = "kept"
         with unittest.mock.patch("stage_release.subprocess.run") as run:
             stage_release.verify_image(PROMOTED_DIGEST)
 
@@ -951,7 +951,7 @@ class StageReleaseTests(unittest.TestCase):
         for call in run.call_args_list:
             env = call.kwargs["env"]
             self.assertNotIn(stage_release.API_TOKEN_VARIABLE, env)
-            self.assertEqual(env["PASSAGE_UNRELATED_SETTING"], "kept")
+            self.assertEqual(env["DEPOT_UNRELATED_SETTING"], "kept")
             self.assertEqual(env["PATH"], os.environ["PATH"])
 
     def test_record_fails_closed_when_the_registry_cannot_be_read(self):

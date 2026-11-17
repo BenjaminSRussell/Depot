@@ -1,4 +1,4 @@
--- Slice 2 (PSG-4102): project groups, posting profiles, plan versions and WBS.
+-- Slice 2 (DPT-4102): project groups, posting profiles, plan versions and WBS.
 
 -- ProjectGroup (FR-41.1, §8.41.4): the group a project belongs to. The id is a
 -- code like ENG; "*" is reserved as the posting-profile wildcard and cannot be a group.
@@ -15,8 +15,8 @@ CREATE TABLE IF NOT EXISTS project_group (
 ALTER TABLE project_group ENABLE ROW LEVEL SECURITY;
 ALTER TABLE project_group FORCE ROW LEVEL SECURITY;
 CREATE POLICY project_group_tenant_access ON project_group AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- project.project_group_id becomes a real FK (§8.41.4). NOT VALID: projects
 -- created by slice 1 before groups existed stay readable; every new or changed
@@ -46,8 +46,8 @@ CREATE TABLE IF NOT EXISTS posting_profile (
 ALTER TABLE posting_profile ENABLE ROW LEVEL SECURITY;
 ALTER TABLE posting_profile FORCE ROW LEVEL SECURITY;
 CREATE POLICY posting_profile_tenant_access ON posting_profile AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- PlanVersion (FR-41.2, §8.41.4): one WORKING and one BASELINE per project. A
 -- BASELINE or SIMULATION is a copy of another version; a BASELINE is locked.
@@ -75,8 +75,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS plan_version_one_working ON plan_version (tena
 ALTER TABLE plan_version ENABLE ROW LEVEL SECURITY;
 ALTER TABLE plan_version FORCE ROW LEVEL SECURITY;
 CREATE POLICY plan_version_tenant_access ON plan_version AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 -- Legal-entity scope through the owning project (itself scoped by RLS).
 CREATE POLICY plan_version_legal_entity_scope ON plan_version AS RESTRICTIVE
   USING (EXISTS (SELECT 1 FROM project p WHERE p.tenant_id = plan_version.tenant_id AND p.id = plan_version.project_id));
@@ -112,8 +112,8 @@ CREATE INDEX IF NOT EXISTS wbs_node_plan_parent_idx ON wbs_node (tenant_id, plan
 ALTER TABLE wbs_node ENABLE ROW LEVEL SECURITY;
 ALTER TABLE wbs_node FORCE ROW LEVEL SECURITY;
 CREATE POLICY wbs_node_tenant_access ON wbs_node AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY wbs_node_legal_entity_scope ON wbs_node AS RESTRICTIVE
   USING (EXISTS (SELECT 1 FROM plan_version v WHERE v.tenant_id = wbs_node.tenant_id AND v.id = wbs_node.plan_version_id));
 
@@ -133,7 +133,7 @@ CREATE TABLE IF NOT EXISTS wbs_dependency (
 ALTER TABLE wbs_dependency ENABLE ROW LEVEL SECURITY;
 ALTER TABLE wbs_dependency FORCE ROW LEVEL SECURITY;
 CREATE POLICY wbs_dependency_tenant_access ON wbs_dependency AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY wbs_dependency_legal_entity_scope ON wbs_dependency AS RESTRICTIVE
   USING (EXISTS (SELECT 1 FROM plan_version v WHERE v.tenant_id = wbs_dependency.tenant_id AND v.id = wbs_dependency.plan_version_id));

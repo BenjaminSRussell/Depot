@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
 )
 
 func TestDocumentRegister_ChecksNumberDocumentsAndKeepLineIDs(t *testing.T) {

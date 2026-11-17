@@ -1,6 +1,6 @@
 openapi: 3.1.0
 info:
-  title: Passage Planning API
+  title: Depot Planning API
   version: 0.4.0
   description: |
     Master planning (wave 22, slices 1 to 8). Covers static plan runs with time
@@ -17,7 +17,7 @@ info:
     statistical forecast generation through this service (forecast-py serves
     it), simulation plans.
 servers:
-  - url: https://api.{env}.passage.dev
+  - url: https://api.{env}.depot.dev
     variables:
       env:
         default: dev
@@ -27,7 +27,7 @@ paths:
       operationId: runPlan
       summary: Run a static plan and make its version current on success
       description: 'An item sent without a coverage code, without orderType or without leadTimeDays takes them from its stored site-scope item coverage at siteId and that coverage''s group (FR-22.2, FR-22.5): the whole coverage block (group settings with the item coverage''s min, max and receipt margin), the planned order type and the lead-time override. Inline values always win, including an explicit leadTimeDays of 0. An item left without a coverage code or order type is a 400 naming items[i].coverage.code or items[i].orderType. The Idempotency-Key fingerprint is the request as sent, so a retry replays even after the stored coverage changed. Warehouse and subcontractor scopes are not read (FR-22.18). A run with a scope (FR-22.13) still becomes the current version, so the plan then holds planned orders only for the items inside that scope. Quota arrangements (FR-22.17, BR-22.12): a planned order of an item with an arrangement at siteId valid on its delivery date goes to the source with the lowest rating among the sources of its order type (vendor for purchase, production version for production, warehouse for transfer), orders taken in delivery order so the ratings move during the run; a source with a per-period maximum takes no more than what is left of it after the firmed and approved orders of the period; a split arrangement replaces the order by one order per source numbered <number>-<n>, with its pegging divided over them. The order then carries quotaArrangementId, quotaSourceId and, for a vendor source, vendorId; an order no source can take stays without a source. Firming books the order quantity on the source. DDMRP (FR-22.16, BR-22.11): an item whose site-scope item coverage is a decouplingPoint and that has a stored site-scope buffer at siteId (of the plan''s legal entity) is replenished by the buffer''s planned quantity (the last recalculation), due after the decoupled lead time and no earlier than the item''s lead time, instead of being netted: its own demand, receipts, on-hand, safety stock and min/max are not used, and it is removed from the components of other items (the decoupling point absorbs the demand above it) while its own components still explode. Its planned orders carry the buffer''s planningPriority and bufferZone. A green buffer plans nothing; a buffer in the red zone raises a red-zone action message (PLAN-0010) on each of its orders (on each part of a quota split). Asynchronous run (#479): with `Prefer: respond-async` the request is validated and its snapshot built as above (a 400 or 422 is still answered in the request), then the service answers 202 with a PlanRun and `Location: /v1/planning/plan-runs/{id}` and plans and stores the version in the background, outside the 30 s request timeout of the router; poll the Location until the run is no longer `running`. Use it for any run above a few thousand items: a synchronous run that takes longer than the request timeout is cut off with no version stored. A retry with the same Idempotency-Key and body answers 200 with the same run (Idempotent-Replayed: true). One run of a plan runs at a time (409 PLAN-0001, also for a synchronous run while an asynchronous one is alive), and each instance executes at most PLANNING_MAX_CONCURRENT_RUNS runs (default 1; beyond it 503 PLAN-RUN-CAPACITY with Retry-After). A run is bounded by PLANNING_RUN_TIMEOUT_MINUTES (default 60). Without the preference the run is synchronous as before.'
-      x-passage-duty: planning.run
+      x-depot-duty: planning.run
       parameters:
         - name: planCode
           in: path
@@ -88,7 +88,7 @@ paths:
         heartbeat for 2 minutes reads as failed with PLAN-RUN-ABANDONED.
         Readable with planning.run or planning.read, within the plan's legal
         entity.
-      x-passage-duty: planning.run
+      x-depot-duty: planning.run
       parameters:
         - $ref: '#/components/parameters/EntityId'
       responses:
@@ -112,7 +112,7 @@ paths:
         cancel during it takes effect before the first row is written; a run
         whose version had already committed reads `succeeded`. A run that is
         not running is 409 PLAN-RUN-FINISHED.
-      x-passage-duty: planning.run
+      x-depot-duty: planning.run
       parameters:
         - $ref: '#/components/parameters/EntityId'
       responses:
@@ -129,7 +129,7 @@ paths:
     get:
       operationId: listVersions
       summary: Plan run history, newest version first
-      x-passage-duty: planning.read
+      x-depot-duty: planning.read
       parameters:
         - name: planCode
           in: path
@@ -155,7 +155,7 @@ paths:
     get:
       operationId: getVersion
       summary: Version status, counts and plan hash
-      x-passage-duty: planning.read
+      x-depot-duty: planning.read
       parameters:
         - name: planCode
           in: path
@@ -186,7 +186,7 @@ paths:
         both plan hashes are equal. The counts and quantity deltas cover every
         order; `added`, `removed` and `changed` list at most `limit` entries
         each, and `truncated` says when one was cut.
-      x-passage-duty: planning.read
+      x-depot-duty: planning.read
       parameters:
         - name: planCode
           in: path
@@ -236,7 +236,7 @@ paths:
         has `planned` false and zero rows. Edits to planned orders after the run
         are not reflected until the next run. A plan outside the caller's legal
         entities reads as not found.
-      x-passage-duty: planning.read
+      x-depot-duty: planning.read
       parameters:
         - name: planCode
           in: path
@@ -259,7 +259,7 @@ paths:
           schema: {type: integer, minimum: 1, maximum: 730, default: 84}
         - name: unitCost
           in: query
-          description: Current cost per inventory unit; give it with `currency` to value each bucket's balance (the cost comes from inventory costing, PSG-20, and is entered until that is read).
+          description: Current cost per inventory unit; give it with `currency` to value each bucket's balance (the cost comes from inventory costing, DPT-20, and is entered until that is read).
           schema: {type: string, example: '2.50'}
         - name: currency
           in: query
@@ -278,7 +278,7 @@ paths:
     get:
       operationId: listPlannedOrders
       summary: Planned orders of the current version of a plan
-      x-passage-duty: planning.read
+      x-depot-duty: planning.read
       parameters:
         - name: planCode
           in: query
@@ -320,7 +320,7 @@ paths:
     get:
       operationId: getPlannedOrder
       summary: One planned order of any version
-      x-passage-duty: planning.read
+      x-depot-duty: planning.read
       parameters:
         - name: id
           in: path
@@ -338,7 +338,7 @@ paths:
     patch:
       operationId: updatePlannedOrder
       summary: Change quantity, dates or vendor of an open planned order of the current version, or approve it (FR-22.11)
-      x-passage-duty: planning.order.maintain
+      x-depot-duty: planning.order.maintain
       parameters:
         - name: id
           in: path
@@ -384,7 +384,7 @@ paths:
     delete:
       operationId: deletePlannedOrder
       summary: Delete an open planned order of the current version (FR-22.11)
-      x-passage-duty: planning.order.maintain
+      x-depot-duty: planning.order.maintain
       parameters:
         - name: id
           in: path
@@ -406,9 +406,9 @@ paths:
       description: >-
         All orders are firmed or none. Planned purchase orders of one site and vendor merge into one purchase order per
         grouping; production and transfer orders are never merged. Each order becomes firmed with the id of its target
-        order and one dev.passage.planning.plannedorder.firmed.v1 per order is published through the outbox; the owning
+        order and one dev.depot.planning.plannedorder.firmed.v1 per order is published through the outbox; the owning
         context creates the target order with that id.
-      x-passage-duty: planning.order.firm
+      x-depot-duty: planning.order.firm
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
@@ -449,7 +449,7 @@ paths:
     get:
       operationId: getPegging
       summary: Explain tree from a planned order to the demand it serves
-      x-passage-duty: planning.read
+      x-depot-duty: planning.read
       parameters:
         - name: id
           in: path
@@ -470,7 +470,7 @@ paths:
     get:
       operationId: listMessages
       summary: Action and delay messages of the current version
-      x-passage-duty: planning.read
+      x-depot-duty: planning.read
       parameters:
         - name: planCode
           in: query
@@ -505,7 +505,7 @@ paths:
     get:
       operationId: getMessage
       summary: One action message of any version with its status
-      x-passage-duty: planning.read
+      x-depot-duty: planning.read
       parameters:
         - $ref: '#/components/parameters/EntityId'
       responses:
@@ -522,7 +522,7 @@ paths:
       operationId: applyMessage
       summary: Apply an open action message about existing supply (FR-22.7)
       description: Marks the message applied and publishes message.applied.v1 in the same transaction; the context that owns the source order (supplyRef) makes the change, planning changes no order. A later run that raises the same message again carries the decision onto it (carriedFrom) without a new event. Only postpone, advance, cancel, decrease and increase messages can be applied; the others are 422 PLAN-MESSAGE-NOT-ACTIONABLE and can be dismissed. An optional Idempotency-Key makes a retry of the same decision return the stored message (Idempotent-Replayed true).
-      x-passage-duty: planning.order.maintain
+      x-depot-duty: planning.order.maintain
       parameters:
         - $ref: '#/components/parameters/EntityId'
         - $ref: '#/components/parameters/IfMatch'
@@ -568,7 +568,7 @@ paths:
       operationId: dismissMessage
       summary: Dismiss an open action message (FR-22.7)
       description: Marks the message dismissed and publishes message.dismissed.v1 in the same transaction. Every action can be dismissed. A later run that raises the same message again carries the dismissal onto it (carriedFrom), so it does not come back as open. An optional Idempotency-Key makes a retry of the same decision return the stored message (Idempotent-Replayed true).
-      x-passage-duty: planning.order.maintain
+      x-depot-duty: planning.order.maintain
       parameters:
         - $ref: '#/components/parameters/EntityId'
         - $ref: '#/components/parameters/IfMatch'
@@ -609,7 +609,7 @@ paths:
       operationId: listNetRequirements
       summary: MD04-style time-phased net requirements of one item in the current version (FR-22.12)
       description: One row per day with movement, as the run netted it; quiet days carry the PAB over. Past-due demand and receipts count at the plan's as-of date. Edits to planned orders after the run are not reflected until the next run.
-      x-passage-duty: planning.read
+      x-depot-duty: planning.read
       parameters:
         - name: planCode
           in: query
@@ -642,7 +642,7 @@ paths:
       operationId: listForecastModels
       summary: List forecast models by code (for pickers that name a model)
       description: The tenant's forecast models ordered by code. A legal entity narrows the list to the models it owns and the models no entity owns; q matches part of the code.
-      x-passage-duty: planning.read
+      x-depot-duty: planning.read
       parameters:
         - name: legalEntityId
           in: query
@@ -673,7 +673,7 @@ paths:
     get:
       operationId: getForecastLines
       summary: Forecast cells of a model with their reduced quantities (FR-22.8)
-      x-passage-duty: planning.read
+      x-depot-duty: planning.read
       parameters:
         - $ref: '#/components/parameters/ModelCode'
         - name: itemId
@@ -707,7 +707,7 @@ paths:
         Creates the model on first write (send If-Match "0"). A reductionPrinciple
         replaces the model's reduction setup and recomputes every series of the
         model; otherwise only the series of the written cells are recomputed.
-      x-passage-duty: planning.forecast.maintain
+      x-depot-duty: planning.forecast.maintain
       parameters:
         - $ref: '#/components/parameters/ModelCode'
         - $ref: '#/components/parameters/IfMatch'
@@ -741,7 +741,7 @@ paths:
       description: |
         Records the signed-in user as submitter. The model must exist and have
         cells. If-Match is required, so a replayed submit is answered 412.
-      x-passage-duty: planning.forecast.maintain
+      x-depot-duty: planning.forecast.maintain
       parameters:
         - $ref: '#/components/parameters/ModelCode'
         - $ref: '#/components/parameters/IfMatch'
@@ -773,12 +773,12 @@ paths:
         and month only when that cell is statistical, so manual and consensus
         values survive (cellsKept counts the cells left alone). The reduced
         quantities of the touched series are recomputed, the model version
-        increases and dev.passage.planning.forecast.generated.v1 is written in
+        increases and dev.depot.planning.forecast.generated.v1 is written in
         the same transaction. Creates the model on first use (send If-Match "0").
         A stale If-Match or a submitted or published model is refused before the
         forecast service is called. Forecast values are stored at 6 decimals
         (BR-22.10), negative values as 0.
-      x-passage-duty: planning.forecast.maintain
+      x-depot-duty: planning.forecast.maintain
       parameters:
         - $ref: '#/components/parameters/ModelCode'
         - $ref: '#/components/parameters/IfMatch'
@@ -818,10 +818,10 @@ paths:
         per item and period at the site. A cell replaces the stored cell of the same
         item, site and period start and keeps its sales quantity. The reduced
         quantities of the touched series are recomputed, the model version increases
-        and dev.passage.planning.forecast.allocated.v1 is written in the same
+        and dev.depot.planning.forecast.allocated.v1 is written in the same
         transaction. Creates the model on first use (send If-Match "0"); an unknown key
         creates nothing. A submitted or published model is locked.
-      x-passage-duty: planning.forecast.maintain
+      x-depot-duty: planning.forecast.maintain
       parameters:
         - $ref: '#/components/parameters/ModelCode'
         - $ref: '#/components/parameters/IfMatch'
@@ -852,9 +852,9 @@ paths:
       description: |
         The approver must be neither the submitter nor a writer of any cell of
         the model (4.22.17). Marks the cells consensus, locks the model for good
-        and writes dev.passage.planning.forecast.published.v1 in the same
+        and writes dev.depot.planning.forecast.published.v1 in the same
         transaction.
-      x-passage-duty: planning.forecast.approve
+      x-depot-duty: planning.forecast.approve
       parameters:
         - $ref: '#/components/parameters/ModelCode'
         - $ref: '#/components/parameters/IfMatch'
@@ -877,7 +877,7 @@ paths:
       operationId: rejectForecastConsensus
       summary: Return a submitted forecast model to draft (FR-22.9)
       description: Same segregation of duties as publish. The cells can be written again.
-      x-passage-duty: planning.forecast.approve
+      x-depot-duty: planning.forecast.approve
       parameters:
         - $ref: '#/components/parameters/ModelCode'
         - $ref: '#/components/parameters/IfMatch'
@@ -905,7 +905,7 @@ paths:
         pastDays/futureDays window (default 90/0). The planned quantity is
         TOG - NFP, at least the profile's minOrderQty, rounded up to
         orderMultiple; priority is NFP / TOG to 4 places.
-      x-passage-duty: planning.read
+      x-depot-duty: planning.read
       requestBody:
         required: true
         content:
@@ -980,7 +980,7 @@ paths:
         equal ratings; shares below minSplitQty are dropped. Sources with quota
         0 are used only when every other source is blocked; with none usable
         the answer is 422 PLAN-0009.
-      x-passage-duty: planning.read
+      x-depot-duty: planning.read
       requestBody:
         required: true
         content:
@@ -1038,7 +1038,7 @@ paths:
         [d - backwardDays, d] latest first, then in (d, d + forwardDays]
         earliest first; the mode selects which windows apply. Forecast never
         goes negative; unconsumed sales add on top (grossQty).
-      x-passage-duty: planning.read
+      x-depot-duty: planning.read
       requestBody:
         required: true
         content:
@@ -1112,7 +1112,7 @@ paths:
         Value is closing on-hand x unitCost, rounded to the currency's minor
         unit; daysOfSupply is closing on-hand over the average daily demand of
         the 30 days after the bucket, null when there is none.
-      x-passage-duty: planning.read
+      x-depot-duty: planning.read
       requestBody:
         required: true
         content:
@@ -1189,7 +1189,7 @@ paths:
         demandDay >= requiredShelfLifeDays; usable batches are taken
         first-expiry-first. With horizonDay set, batches that still have
         quantity and expire by that day are listed (message PLAN-0011).
-      x-passage-duty: planning.read
+      x-depot-duty: planning.read
       requestBody:
         required: true
         content:
@@ -1245,7 +1245,7 @@ paths:
     get:
       operationId: listCoverageGroups
       summary: Coverage groups of the tenant, ordered by code (FR-22.2)
-      x-passage-duty: planning.read
+      x-depot-duty: planning.read
       parameters:
         - $ref: '#/components/parameters/Limit'
       responses:
@@ -1272,7 +1272,7 @@ paths:
         is 409 PLAN-COVERAGE-EXISTS. With an Idempotency-Key, a retry of the
         same body returns the created group with 200 and
         Idempotent-Replayed: true; another body under the key is 422.
-      x-passage-duty: planning.setup.maintain
+      x-depot-duty: planning.setup.maintain
       parameters:
         - name: Idempotency-Key
           in: header
@@ -1312,7 +1312,7 @@ paths:
     get:
       operationId: getCoverageGroup
       summary: One coverage group by code
-      x-passage-duty: planning.read
+      x-depot-duty: planning.read
       parameters:
         - $ref: '#/components/parameters/CoverageCode'
       responses:
@@ -1328,7 +1328,7 @@ paths:
     put:
       operationId: updateCoverageGroup
       summary: Replace the settings of a coverage group under If-Match; omitted fields take the FR-22.2 defaults
-      x-passage-duty: planning.setup.maintain
+      x-depot-duty: planning.setup.maintain
       parameters:
         - $ref: '#/components/parameters/CoverageCode'
         - $ref: '#/components/parameters/IfMatch'
@@ -1354,7 +1354,7 @@ paths:
     get:
       operationId: listForecastAllocationKeys
       summary: Allocation keys of the tenant, ordered by code, without their lines (FR-22.8)
-      x-passage-duty: planning.read
+      x-depot-duty: planning.read
       parameters:
         - $ref: '#/components/parameters/Limit'
       responses:
@@ -1379,7 +1379,7 @@ paths:
         has the factor 1. A code already in use is 409 PLAN-ALLOCATION-KEY-EXISTS. With
         an Idempotency-Key, a retry of the same body returns the created key with 200
         and Idempotent-Replayed: true; another body under the key is 422.
-      x-passage-duty: planning.setup.maintain
+      x-depot-duty: planning.setup.maintain
       parameters:
         - $ref: '#/components/parameters/OptionalIdempotencyKey'
       requestBody:
@@ -1416,7 +1416,7 @@ paths:
     get:
       operationId: getForecastAllocationKey
       summary: One allocation key by code, with its lines
-      x-passage-duty: planning.read
+      x-depot-duty: planning.read
       parameters:
         - $ref: '#/components/parameters/CoverageCode'
       responses:
@@ -1433,7 +1433,7 @@ paths:
       operationId: updateForecastAllocationKey
       summary: Replace the name, unit and lines of an allocation key under If-Match
       description: Earlier allocations keep the cells they wrote; the new shares apply to the next allocation.
-      x-passage-duty: planning.setup.maintain
+      x-depot-duty: planning.setup.maintain
       parameters:
         - $ref: '#/components/parameters/CoverageCode'
         - $ref: '#/components/parameters/IfMatch'
@@ -1464,7 +1464,7 @@ paths:
         assemble-to-order-final, plan-without-final-assembly, subassembly).
         A strategy without stored setup is shown with the PRD defaults and
         configured false, without id or version.
-      x-passage-duty: planning.read
+      x-depot-duty: planning.read
       responses:
         '200':
           description: The six strategies
@@ -1498,7 +1498,7 @@ paths:
         the reduced forecast. A scenario's added sales consume forecast the same
         way. A strategy sent on an item's coverage block in a run wins over the
         stored coverage.
-      x-passage-duty: planning.setup.maintain
+      x-depot-duty: planning.setup.maintain
       parameters:
         - name: Idempotency-Key
           in: header
@@ -1539,7 +1539,7 @@ paths:
     get:
       operationId: getStrategy
       summary: One planning strategy with its stored setup or its defaults
-      x-passage-duty: planning.read
+      x-depot-duty: planning.read
       parameters:
         - $ref: '#/components/parameters/StrategyCodePath'
       responses:
@@ -1557,7 +1557,7 @@ paths:
       operationId: updateStrategy
       summary: Replace the setup of a stored planning strategy under If-Match; omitted fields take its defaults
       description: A strategy with no stored setup is 404 PLAN-STRATEGY-NOT-FOUND (create it first). A code in the body must equal the path.
-      x-passage-duty: planning.setup.maintain
+      x-depot-duty: planning.setup.maintain
       parameters:
         - $ref: '#/components/parameters/StrategyCodePath'
         - $ref: '#/components/parameters/IfMatch'
@@ -1584,7 +1584,7 @@ paths:
     get:
       operationId: listScenarios
       summary: Planning scenarios of the tenant, optionally of one plan (FR-22.15)
-      x-passage-duty: planning.read
+      x-depot-duty: planning.read
       parameters:
         - name: planCode
           in: query
@@ -1622,7 +1622,7 @@ paths:
         Idempotency-Key, a retry of the same body returns the created
         scenario with 200 and Idempotent-Replayed: true; another body under
         the key is 422.
-      x-passage-duty: planning.simulate
+      x-depot-duty: planning.simulate
       parameters:
         - name: Idempotency-Key
           in: header
@@ -1664,7 +1664,7 @@ paths:
     get:
       operationId: getScenario
       summary: One planning scenario by code
-      x-passage-duty: planning.read
+      x-depot-duty: planning.read
       parameters:
         - $ref: '#/components/parameters/CoverageCode'
       responses:
@@ -1682,7 +1682,7 @@ paths:
       operationId: updateScenario
       summary: Replace the settings of a scenario under If-Match; omitted fields take the defaults
       description: The plan of a scenario cannot change; planCode may be left out or must equal the stored one (422 PLAN-SCENARIO-PLAN). Activating a scenario past the limit of 10 active per plan is 409 PLAN-SCENARIO-LIMIT.
-      x-passage-duty: planning.simulate
+      x-depot-duty: planning.simulate
       parameters:
         - $ref: '#/components/parameters/CoverageCode'
         - $ref: '#/components/parameters/IfMatch'
@@ -1726,7 +1726,7 @@ paths:
         (FR-22.16) apply after the scenario: a lead-time override of a
         buffered item moves its buffer order, and demand the scenario adds to
         a buffered item is absorbed by its buffer, as in an operational run.
-      x-passage-duty: planning.simulate
+      x-depot-duty: planning.simulate
       parameters:
         - $ref: '#/components/parameters/CoverageCode'
         - $ref: '#/components/parameters/IdempotencyKey'
@@ -1756,7 +1756,7 @@ paths:
     get:
       operationId: listItemCoverages
       summary: Item coverages of the tenant, optionally of one item, ordered by item, site and planning scope
-      x-passage-duty: planning.read
+      x-depot-duty: planning.read
       parameters:
         - name: itemId
           in: query
@@ -1790,7 +1790,7 @@ paths:
         PLAN-PROFILE-NOT-FOUND. With an Idempotency-Key, a retry of the
         same body returns the created coverage with 200 and
         Idempotent-Replayed: true; another body under the key is 422.
-      x-passage-duty: planning.setup.maintain
+      x-depot-duty: planning.setup.maintain
       parameters:
         - name: Idempotency-Key
           in: header
@@ -1824,7 +1824,7 @@ paths:
     get:
       operationId: getItemCoverage
       summary: One item coverage by id
-      x-passage-duty: planning.read
+      x-depot-duty: planning.read
       parameters:
         - $ref: '#/components/parameters/ItemCoverageId'
       responses:
@@ -1840,7 +1840,7 @@ paths:
     put:
       operationId: updateItemCoverage
       summary: Replace an item coverage under If-Match; omitted fields take the defaults, as on create
-      x-passage-duty: planning.setup.maintain
+      x-depot-duty: planning.setup.maintain
       parameters:
         - $ref: '#/components/parameters/ItemCoverageId'
         - $ref: '#/components/parameters/IfMatch'
@@ -1868,7 +1868,7 @@ paths:
     get:
       operationId: listBufferProfiles
       summary: DDMRP buffer profiles of the tenant, ordered by code (FR-22.16)
-      x-passage-duty: planning.read
+      x-depot-duty: planning.read
       parameters:
         - $ref: '#/components/parameters/Limit'
       responses:
@@ -1895,7 +1895,7 @@ paths:
         is 409 PLAN-PROFILE-EXISTS. With an Idempotency-Key, a retry of the
         same body returns the created profile with 200 and
         Idempotent-Replayed: true; another body under the key is 422.
-      x-passage-duty: planning.setup.maintain
+      x-depot-duty: planning.setup.maintain
       parameters:
         - name: Idempotency-Key
           in: header
@@ -1929,7 +1929,7 @@ paths:
     get:
       operationId: getBufferProfile
       summary: One buffer profile by id
-      x-passage-duty: planning.read
+      x-depot-duty: planning.read
       parameters:
         - $ref: '#/components/parameters/EntityId'
       responses:
@@ -1945,7 +1945,7 @@ paths:
     put:
       operationId: updateBufferProfile
       summary: Replace a buffer profile under If-Match; omitted fields take the defaults, as on create. Stored buffers keep their zones until recalculated.
-      x-passage-duty: planning.setup.maintain
+      x-depot-duty: planning.setup.maintain
       parameters:
         - $ref: '#/components/parameters/EntityId'
         - $ref: '#/components/parameters/IfMatch'
@@ -1972,7 +1972,7 @@ paths:
     get:
       operationId: listDdmrpBuffers
       summary: DDMRP buffer status inquiry (4.22.14), most urgent (lowest priority) first
-      x-passage-duty: planning.read
+      x-depot-duty: planning.read
       parameters:
         - name: siteId
           in: query
@@ -2010,7 +2010,7 @@ paths:
         Idempotency-Key is needed. An unknown profile is 422
         PLAN-PROFILE-NOT-FOUND; an empty ADU window or inconsistent parameters
         422 PLAN-INPUT-INVALID.
-      x-passage-duty: planning.run
+      x-depot-duty: planning.run
       requestBody:
         required: true
         content:
@@ -2052,7 +2052,7 @@ paths:
     get:
       operationId: listQuotaArrangements
       summary: Quota arrangements with their sources (FR-22.17), ordered by item, site and validity start
-      x-passage-duty: planning.read
+      x-depot-duty: planning.read
       parameters:
         - name: itemId
           in: query
@@ -2088,7 +2088,7 @@ paths:
         Idempotency-Key, a retry of the same body returns the created
         arrangement with 200 and Idempotent-Replayed: true; another body under
         the key is 422.
-      x-passage-duty: planning.setup.maintain
+      x-depot-duty: planning.setup.maintain
       parameters:
         - name: Idempotency-Key
           in: header
@@ -2122,7 +2122,7 @@ paths:
     get:
       operationId: getQuotaArrangement
       summary: One quota arrangement with its sources
-      x-passage-duty: planning.read
+      x-depot-duty: planning.read
       parameters:
         - $ref: '#/components/parameters/EntityId'
       responses:
@@ -2139,7 +2139,7 @@ paths:
       operationId: updateQuotaArrangement
       summary: Replace an arrangement and all its sources under If-Match; the overlap rule applies as on create
       description: A source naming the same type and reference as a current source keeps its id, so planned orders allocated to it still book on it when firmed; other sources get new ids. Firming an order allocated to one of its sources adds the quantity to the source's allocatedQty and bumps the arrangement's version, so an update sent with an older ETag is a 412.
-      x-passage-duty: planning.setup.maintain
+      x-depot-duty: planning.setup.maintain
       parameters:
         - $ref: '#/components/parameters/EntityId'
         - $ref: '#/components/parameters/IfMatch'
@@ -2517,7 +2517,7 @@ components:
         warehouseScopesFromCoverage:
           type: boolean
           default: false
-          description: 'When true every warehouse scope an item has as stored warehouse-scope item coverage at the site, and does not name in its warehouses list, is planned as well (FR-22.18); a scope named inline wins over the stored one and is never added twice. A discovered scope takes its coverage, order type, lead time, vendor and min/max from the stored coverage and is planned as an empty scope: no on-hand, safety stock, demand or receipts of its own beyond the plan''s carried-forward firmed orders (carryForward). So a requirement or period scope plans nothing, while a min/max scope is replenished to its maximum (by transfer from the site, or by its own order type) on every run; a firmed one counts as its receipt with carryForward until delivered, after which the scope is empty again unless sent inline. Planning does not split the site''s stock by warehouse (PSG-16): send a scope that holds stock or demand inline, and leave its stock out of the site''s onHand. An item that would hold more than 50 warehouse scopes, or a run more than 100,000, is a 400 (scopes are never dropped).'
+          description: 'When true every warehouse scope an item has as stored warehouse-scope item coverage at the site, and does not name in its warehouses list, is planned as well (FR-22.18); a scope named inline wins over the stored one and is never added twice. A discovered scope takes its coverage, order type, lead time, vendor and min/max from the stored coverage and is planned as an empty scope: no on-hand, safety stock, demand or receipts of its own beyond the plan''s carried-forward firmed orders (carryForward). So a requirement or period scope plans nothing, while a min/max scope is replenished to its maximum (by transfer from the site, or by its own order type) on every run; a firmed one counts as its receipt with carryForward until delivered, after which the scope is empty again unless sent inline. Planning does not split the site''s stock by warehouse (DPT-16): send a scope that holds stock or demand inline, and leave its stock out of the site''s onHand. An item that would hold more than 50 warehouse scopes, or a run more than 100,000, is a 400 (scopes are never dropped).'
         horizonDays:
           type: integer
           minimum: 0
@@ -3087,7 +3087,7 @@ components:
       type: object
       required: [type, title, status, code]
       properties:
-        type: {type: string, format: uri, example: 'https://passage.dev/problems/PLAN-0001'}
+        type: {type: string, format: uri, example: 'https://depot.dev/problems/PLAN-0001'}
         title: {type: string}
         status: {type: integer}
         detail: {type: string}

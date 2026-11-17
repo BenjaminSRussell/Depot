@@ -1,4 +1,4 @@
-# passage-dispatch (wave 45)
+# depot-dispatch (wave 45)
 
 Numeric dispatch for field service: checks a schedule against the BR-45.3 hard
 constraints, produces feasible schedules with a greedy-insertion solver and with
@@ -10,13 +10,13 @@ persistence and events stay in `services/fieldservice`, which calls this service
 
 | Module | Role |
 |---|---|
-| `passage_dispatch.model` | Types (`Technician`, `WorkOrder`, `Assignment`, `Problem`) and `plan_violations`, the single feasibility oracle |
-| `passage_dispatch.greedy` | `solve_greedy`: priority-ordered append insertion; every candidate goes through the same oracle, so output is feasible by construction; pinned assignments are kept verbatim (AC-45.5) |
-| `passage_dispatch.objective` | `plan_cost`: the BR-45.3 objective (SLA lateness minutes x100, unassigned priority weight x1,000, travel minutes x1, overtime minutes x5, technicians used x50) |
-| `passage_dispatch.cpsat` | `solve_cpsat` (one circuit per technician: skills, territory, windows, shift, travel plus buffer, daily load and overtime, pinned assignments, greedy plan as hint) and `optimize`, which falls back to greedy |
-| `passage_dispatch.api` | FastAPI app: `POST /v1/dispatch/runs`, `GET /v1/dispatch/runs/{id}`, `/healthz`, `/readyz`, `/metrics` |
-| `passage_dispatch.auth` | Verifier of the Ed25519 service tokens (`X-Passage-Service-Token`) fieldservice signs |
-| `passage_dispatch.runs` | In-memory run store with a bounded background pool |
+| `depot_dispatch.model` | Types (`Technician`, `WorkOrder`, `Assignment`, `Problem`) and `plan_violations`, the single feasibility oracle |
+| `depot_dispatch.greedy` | `solve_greedy`: priority-ordered append insertion; every candidate goes through the same oracle, so output is feasible by construction; pinned assignments are kept verbatim (AC-45.5) |
+| `depot_dispatch.objective` | `plan_cost`: the BR-45.3 objective (SLA lateness minutes x100, unassigned priority weight x1,000, travel minutes x1, overtime minutes x5, technicians used x50) |
+| `depot_dispatch.cpsat` | `solve_cpsat` (one circuit per technician: skills, territory, windows, shift, travel plus buffer, daily load and overtime, pinned assignments, greedy plan as hint) and `optimize`, which falls back to greedy |
+| `depot_dispatch.api` | FastAPI app: `POST /v1/dispatch/runs`, `GET /v1/dispatch/runs/{id}`, `/healthz`, `/readyz`, `/metrics` |
+| `depot_dispatch.auth` | Verifier of the Ed25519 service tokens (`X-Depot-Service-Token`) fieldservice signs |
+| `depot_dispatch.runs` | In-memory run store with a bounded background pool |
 
 Constraints enforced (BR-45.3): skills subset, territory membership, time window
 start and end, shift bounds, travel plus buffer between consecutive stops (and from
@@ -40,8 +40,8 @@ returns a plan the oracle refuses (`invalid_plan`), or ends worse than greedy
 
 Calls carry a service token from the caller (`fieldservice`) whose duties are within
 the grant `fieldservice -> dispatch`: `dispatch.run.create` (POST) and
-`dispatch.run.read` (GET). Configure `PASSAGE_SERVICE_NAME=dispatch` and
-`PASSAGE_SERVICE_PUBLIC_KEYS=fieldservice[:kid]=<base64 Ed25519 public key>`; with no
+`dispatch.run.read` (GET). Configure `DEPOT_SERVICE_NAME=dispatch` and
+`DEPOT_SERVICE_PUBLIC_KEYS=fieldservice[:kid]=<base64 Ed25519 public key>`; with no
 keys every call is refused and `/readyz` is 503.
 
 - `POST /v1/dispatch/runs` validates the territory-day (matrix, pinned plan), answers
@@ -61,7 +61,7 @@ keys every call is refused and `/readyz` is 503.
 cd services/dispatch-py
 python -m pip install -e ".[dev]"
 pytest
-python -m passage_dispatch        # HTTP_HOST / HTTP_PORT, default 0.0.0.0:8080
+python -m depot_dispatch        # HTTP_HOST / HTTP_PORT, default 0.0.0.0:8080
 ```
 
 Hypothesis tests (derandomized) check greedy plans (300 examples) and CP-SAT plans

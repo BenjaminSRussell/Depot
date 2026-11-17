@@ -28,8 +28,8 @@ BEGIN
   LOOP
     EXECUTE format(
       'CREATE POLICY %I ON %I AS RESTRICTIVE
-         USING (current_setting(''passage.legal_entity_scopes'', true) = ''*''
-                OR legal_entity_id::text = ANY(string_to_array(current_setting(''passage.legal_entity_scopes'', true), '','')))',
+         USING (current_setting(''depot.legal_entity_scopes'', true) = ''*''
+                OR legal_entity_id::text = ANY(string_to_array(current_setting(''depot.legal_entity_scopes'', true), '','')))',
       scoped_table || '_legal_entity_scope', scoped_table
     );
   END LOOP;

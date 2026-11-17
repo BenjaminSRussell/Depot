@@ -30,8 +30,8 @@ CREATE INDEX IF NOT EXISTS rate_card_lane ON rate_card (tenant_id, carrier_id, s
 ALTER TABLE rate_card ENABLE ROW LEVEL SECURITY;
 ALTER TABLE rate_card FORCE ROW LEVEL SECURITY;
 CREATE POLICY rate_card_tenant_access ON rate_card AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 CREATE TABLE IF NOT EXISTS freight_bill (
   tenant_id uuid NOT NULL,
@@ -59,8 +59,8 @@ CREATE INDEX IF NOT EXISTS freight_bill_created ON freight_bill (tenant_id, crea
 ALTER TABLE freight_bill ENABLE ROW LEVEL SECURITY;
 ALTER TABLE freight_bill FORCE ROW LEVEL SECURITY;
 CREATE POLICY freight_bill_tenant_access ON freight_bill AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 CREATE TABLE IF NOT EXISTS carrier_invoice (
   tenant_id uuid NOT NULL,
@@ -85,8 +85,8 @@ CREATE INDEX IF NOT EXISTS carrier_invoice_status ON carrier_invoice (tenant_id,
 ALTER TABLE carrier_invoice ENABLE ROW LEVEL SECURITY;
 ALTER TABLE carrier_invoice FORCE ROW LEVEL SECURITY;
 CREATE POLICY carrier_invoice_tenant_access ON carrier_invoice AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- Transactional outbox relayed by Debezium. Row-level security applies as in org.
 CREATE TABLE IF NOT EXISTS outbox (
@@ -101,15 +101,15 @@ CREATE TABLE IF NOT EXISTS outbox (
 ALTER TABLE outbox ENABLE ROW LEVEL SECURITY;
 ALTER TABLE outbox FORCE ROW LEVEL SECURITY;
 CREATE POLICY outbox_tenant_access ON outbox AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- The application role reads and writes through RLS; it never owns the tables.
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE format('GRANT USAGE ON SCHEMA %I TO passage_app', current_schema());
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON rate_card, freight_bill, carrier_invoice, outbox TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE format('GRANT USAGE ON SCHEMA %I TO depot_app', current_schema());
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON rate_card, freight_bill, carrier_invoice, outbox TO depot_app';
   END IF;
 END
 $$;

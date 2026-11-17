@@ -61,7 +61,7 @@ export function LookupListPage() {
     <div className={styles.stack}>
       <PageHeader
         title="Lookup tables"
-        description="Values an outbound mapping looks up by Passage code while it builds the request for the legacy ERP: unit and status codes, unit-of-measure conversion factors and price lists. A mapping reads a table by name; an entry that is missing stops the push instead of sending a guess."
+        description="Values an outbound mapping looks up by Depot code while it builds the request for the legacy ERP: unit and status codes, unit-of-measure conversion factors and price lists. A mapping reads a table by name; an entry that is missing stops the push instead of sending a guess."
         actions={
           canWrite ? (
             <Link className={buttonClassName("primary")} to="/migration/lookups/new">
@@ -104,7 +104,7 @@ export function LookupListPage() {
           rows={paged.rows}
           getRowKey={(row) => row.id}
           loading={state.loading}
-          empty={{ title: "No lookup tables yet", description: "Create one to translate Passage codes, units or prices in an outbound mapping." }}
+          empty={{ title: "No lookup tables yet", description: "Create one to translate Depot codes, units or prices in an outbound mapping." }}
           onRowOpen={(row) => navigate(`/migration/lookups/${row.id}`)}
         />
       )}

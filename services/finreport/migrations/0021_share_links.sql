@@ -1,4 +1,4 @@
--- PSG-1519 (wave 15, slice 19): share links with expiry for report library files
+-- DPT-1519 (wave 15, slice 19): share links with expiry for report library files
 -- (FR-15.8 "shared link with expiry", PRD §2.15.6 report library "share link",
 -- §2.15.14 `reporting.share_link_expiry_days`: 14 days by default, 1 to 90).
 --
@@ -46,11 +46,11 @@ CREATE INDEX IF NOT EXISTS report_share_link_by_file
 ALTER TABLE report_share_link ENABLE ROW LEVEL SECURITY;
 ALTER TABLE report_share_link FORCE ROW LEVEL SECURITY;
 CREATE POLICY report_share_link_tenant_access ON report_share_link AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY report_share_link_legal_entity_scope ON report_share_link AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 -- The audit trail records the creation and revocation of links (the kind list is a CHECK, so it is replaced).
 ALTER TABLE audit_trail_entry DROP CONSTRAINT IF EXISTS audit_trail_entry_kind_check;
@@ -65,9 +65,9 @@ ALTER TABLE audit_trail_entry ADD CONSTRAINT audit_trail_entry_kind_check CHECK 
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT ON report_share_link TO passage_app';
-    EXECUTE 'GRANT UPDATE (revoked_at, revoked_by, revision, download_count, last_downloaded_at) ON report_share_link TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT ON report_share_link TO depot_app';
+    EXECUTE 'GRANT UPDATE (revoked_at, revoked_by, revision, download_count, last_downloaded_at) ON report_share_link TO depot_app';
   END IF;
 END
 $$;

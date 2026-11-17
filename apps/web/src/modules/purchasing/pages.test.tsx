@@ -20,7 +20,7 @@ const json = (body: unknown, status = 200, headers: Record<string, string> = {})
   new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json", ...headers } });
 
 const problem = (status: number, code: string, detail: string) =>
-  json({ type: `https://passage.dev/problems/${code}`, title: "Problem", status, code, detail }, status);
+  json({ type: `https://depot.dev/problems/${code}`, title: "Problem", status, code, detail }, status);
 
 type Handler = (url: string, init: RequestInit) => Response | Promise<Response>;
 
@@ -161,7 +161,7 @@ describe("new requisition", () => {
   });
 
   it("is not dirty just because the working legal entity was filled in", async () => {
-    window.localStorage.setItem("passage.workContext.tester", JSON.stringify({ legalEntityId: LE, siteId: "" }));
+    window.localStorage.setItem("depot.workContext.tester", JSON.stringify({ legalEntityId: LE, siteId: "" }));
     stubFetch(() => json({ id: LE, name: "Acme", code: "ACME" }));
     renderAt("/purchasing/requisitions/new");
     const description = await screen.findByLabelText("Description");

@@ -9,21 +9,21 @@ apiVersion: chaos-mesh.org/v1alpha1
 kind: PodChaos
 metadata:
   name: pg-primary-kill
-  namespace: passage-data
+  namespace: depot-data
   labels:
-    app.kubernetes.io/part-of: passage
-    passage.dev/experiment: postgres-primary-kill
+    app.kubernetes.io/part-of: depot
+    depot.dev/experiment: postgres-primary-kill
   annotations:
-    passage.dev/acceptance: "no failed postings; recovery < 5 min"
-    passage.dev/recovery-budget: "5m"
-    passage.dev/runbook: "https://docs.passage.dev/ops/runbooks/postgres-primary-loss"
+    depot.dev/acceptance: "no failed postings; recovery < 5 min"
+    depot.dev/recovery-budget: "5m"
+    depot.dev/runbook: "https://docs.depot.dev/ops/runbooks/postgres-primary-loss"
 spec:
   action: pod-kill
   mode: one
   gracePeriod: 0
   selector:
     namespaces:
-      - passage-data
+      - depot-data
     labelSelectors:
-      cnpg.io/cluster: passage-pg
+      cnpg.io/cluster: depot-pg
       cnpg.io/instanceRole: primary

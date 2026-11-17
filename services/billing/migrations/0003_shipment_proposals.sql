@@ -17,11 +17,11 @@ CREATE TABLE IF NOT EXISTS proposal_batch (
 ALTER TABLE proposal_batch ENABLE ROW LEVEL SECURITY;
 ALTER TABLE proposal_batch FORCE ROW LEVEL SECURITY;
 CREATE POLICY proposal_batch_tenant_access ON proposal_batch AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY proposal_batch_legal_entity_scope ON proposal_batch AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 ALTER TABLE invoice ADD COLUMN IF NOT EXISTS proposal_batch_id uuid;
 ALTER TABLE invoice ADD COLUMN IF NOT EXISTS proposal_batch_seq integer CHECK (proposal_batch_seq > 0);

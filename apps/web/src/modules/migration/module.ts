@@ -1,5 +1,5 @@
 import { createElement } from "react";
-import type { PassageModule } from "../registry";
+import type { DepotModule } from "../registry";
 import { BindingDetailPage, BindingsPage, NewBindingPage } from "./BindingPages";
 import { ConnectionDetailPage, ConnectionsPage, NewConnectionPage } from "./ConnectionPages";
 import { NewPackagePage, PackageDetailPage, PackagesPage } from "./PackagePages";
@@ -18,10 +18,10 @@ import { NewSpecPage, SpecDetailPage, SpecsPage } from "./SpecPages";
 // seeded there yet (handoff for #313): the other nav items carry no duty and these actions are gated on the buttons.
 // migration.project.write and migration.connection.write are also left off their route handles: the registry test
 // rejects a route duty missing from the policy file, which is outside wave 10 ownership.
-const migration: PassageModule = {
+const migration: DepotModule = {
   id: "migration",
   title: "Data migration",
-  description: "Map, validate, load and reconcile legacy AX, SAP and custom ERP data, and push Passage orders and invoices back through outbound mappings: connections to the source system, entity bindings with a preview of the mapped records, versioned mapping specs, data templates, migration runs with their exception queue and re-run.",
+  description: "Map, validate, load and reconcile legacy AX, SAP and custom ERP data, and push Depot orders and invoices back through outbound mappings: connections to the source system, entity bindings with a preview of the mapped records, versioned mapping specs, data templates, migration runs with their exception queue and re-run.",
   routes: [
     { path: "/migration", element: createElement(RunsPage), handle: { title: "Migration runs" } },
     { path: "/migration/runs/new", element: createElement(NewRunPage), handle: { title: "Start migration run", duty: "migration.run" } },

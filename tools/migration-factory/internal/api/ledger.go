@@ -9,14 +9,14 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/ledgerclient"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/ledgerclient"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
 
-	"github.com/BenjaminSRussell/passage/tools/migration-factory/internal/domain"
-	"github.com/BenjaminSRussell/passage/tools/migration-factory/internal/replay"
-	"github.com/BenjaminSRussell/passage/tools/migration-factory/internal/store"
+	"github.com/BenjaminSRussell/depot/tools/migration-factory/internal/domain"
+	"github.com/BenjaminSRussell/depot/tools/migration-factory/internal/replay"
+	"github.com/BenjaminSRussell/depot/tools/migration-factory/internal/store"
 )
 
 // Problem codes of the ledger-facing endpoints (slice 17).
@@ -411,7 +411,7 @@ type coexistRequest struct {
 	ExpectedVersion int    `json:"expectedVersion"`
 }
 
-// setCoexistence cuts one entity kind over to Passage, or flips it back to the legacy system, as the
+// setCoexistence cuts one entity kind over to Depot, or flips it back to the legacy system, as the
 // signed-in cutover manager against the flag's version (BR-49.10).
 func (s *Server) setCoexistence(w http.ResponseWriter, r *http.Request) {
 	sys, err := domain.ParseSourceSystem(chi.URLParam(r, "system"))

@@ -6,10 +6,10 @@ metadata:
     grafana_dashboard: "1"
     app.kubernetes.io/name: observability
 data:
-  passage-slo.json: |-
+  depot-slo.json: |-
     {
-      "title": "Passage SLOs",
-      "uid": "passage-slo",
+      "title": "Depot SLOs",
+      "uid": "depot-slo",
       "schemaVersion": 39,
       "timezone": "utc",
       "panels": [

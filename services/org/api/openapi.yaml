@@ -4,13 +4,13 @@ info:
   version: 0.16.0
   description: Organization service. Covers legal entities, operating units, sites, warehouses, locations, postal addresses with purposes, fiscal calendars with idempotent year generation and the period read, hierarchy types and draft hierarchy versions with validated node sets (error codes ORG-HIER-CYCLE, ORG-HIER-MULTI-ROOT, ORG-HIER-DUPLICATE-NODE, ORG-HIER-PARENT-UNKNOWN, ORG-HIER-DEPTH, ORG-HIER-SIZE, ORG-HIER-NODE-UNKNOWN, ORG-HIER-TYPE-NOT-FOUND, ORG-HIER-TYPE-CODE-DUPLICATE, ORG-HIER-VERSION-NOT-FOUND, ORG-HIER-DRAFT-EXISTS, ORG-HIER-VERSION-IMMUTABLE, ORG-HIER-OVERLAP, ORG-HIER-BACKDATE-DUTY, ORG-HIER-NO-VERSION, ORG-HIER-NODE-ABSENT, ORG-HIER-MAKER-CHECKER) with the version list, publish, supersede, the closure table, the as-of query and the version comparison, unit-of-measure conversion, the platform-owned reference sets (countries, currencies, regions, languages) with tenant-level deactivation, currency rounding rules with the round route and the rule delete (error codes ORG-CUR-ROUNDING-UNIT, ORG-CUR-ROUNDING-NOT-FOUND), name translations per owner with the base-name fallback route (error codes ORG-TRANSLATION-LANGUAGE-INVALID, ORG-TRANSLATION-NOT-FOUND), the organization model package export and import (error codes ORG-PKG-VERSION-UNSUPPORTED, ORG-PKG-INVALID, ORG-PKG-TOO-LARGE), and the unit conversions report with tenant-owned conversions (error codes ORG-UOM-CLASS-MISMATCH, ORG-UOM-CONVERSION-DUPLICATE, ORG-UOM-UNIT-INACTIVE).
 servers:
-  - url: https://app.local.passage.dev
+  - url: https://app.local.depot.dev
 paths:
   /v1/org/legal-entities:
     post:
       operationId: createLegalEntity
       summary: Create a legal entity
-      x-passage-duty: org.legal-entity.write
+      x-depot-duty: org.legal-entity.write
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
@@ -24,7 +24,7 @@ paths:
     get:
       operationId: listLegalEntities
       summary: List legal entities
-      x-passage-duty: org.read
+      x-depot-duty: org.read
       parameters:
         - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 100 } }
         - { name: cursor, in: query, schema: { type: string } }
@@ -43,7 +43,7 @@ paths:
     get:
       operationId: getLegalEntity
       summary: Get a legal entity
-      x-passage-duty: org.read
+      x-depot-duty: org.read
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -54,7 +54,7 @@ paths:
     patch:
       operationId: updateLegalEntity
       summary: Update a legal entity
-      x-passage-duty: org.legal-entity.write
+      x-depot-duty: org.legal-entity.write
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       requestBody:
@@ -69,7 +69,7 @@ paths:
     get:
       operationId: resolveLegalEntityFiscalPeriod
       summary: Resolve the fiscal period of a legal entity for a date
-      x-passage-duty: org.read
+      x-depot-duty: org.read
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - { name: date, in: query, required: true, schema: { type: string, format: date } }
@@ -83,7 +83,7 @@ paths:
       operationId: copyLegalEntity
       summary: Create a legal entity by copying an existing one
       description: Creates a legal entity from the legal entity in the path (FR-6.15). The caller supplies the code, name, country and accounting currency; the time zone and default language default to the source's. In one transaction the copy takes the fiscal calendar assignment (when the calendar is still active with a generated year) and, by default, the active sites with their default warehouses, the active warehouses and locations, and the currency rounding rules the source overrides. Every copied row gets a new id and keeps its code, which is unique per legal entity. Addresses, number sequences, parameters, operating units, teams, translations and all transactional data are not copied. Any failure rolls back the whole copy. Needs the tenant.administer duty and no legal-entity scope.
-      x-passage-duty: org.legal-entity.write
+      x-depot-duty: org.legal-entity.write
       parameters:
         - { name: id, in: path, required: true, description: The legal entity to copy., schema: { type: string, format: uuid } }
         - $ref: '#/components/parameters/IdempotencyKey'
@@ -99,7 +99,7 @@ paths:
     get:
       operationId: listLegalEntityNames
       summary: List the name history of a legal entity
-      x-passage-duty: org.read
+      x-depot-duty: org.read
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -113,7 +113,7 @@ paths:
     post:
       operationId: createOperatingUnit
       summary: Create an operating unit
-      x-passage-duty: org.operating-unit.write
+      x-depot-duty: org.operating-unit.write
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
@@ -127,7 +127,7 @@ paths:
     get:
       operationId: listOperatingUnits
       summary: List operating units
-      x-passage-duty: org.read
+      x-depot-duty: org.read
       parameters:
         - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 100 } }
         - { name: cursor, in: query, schema: { type: string } }
@@ -149,7 +149,7 @@ paths:
       operationId: importOperatingUnits
       summary: Bulk-import operating units
       description: Creates the operating units of the rows that the tenant does not have yet, matched by type and code. Every row is validated and checked against the tenant's units and legal entities first (default legal entity by code, which must be active and visible to the caller); if any row fails, nothing is written and the report lists each failure by line. Otherwise all new units are created in one transaction, each raising its own operatingunit.created event through the outbox. A row that matches an existing unit (same name and default legal entity) is unchanged, so importing the same file again creates nothing; a row that differs from an existing unit fails, since an import never updates. At most 1000 rows per request.
-      x-passage-duty: org.operating-unit.write
+      x-depot-duty: org.operating-unit.write
       parameters:
         - { name: dryRun, in: query, schema: { type: boolean, default: false }, description: When true nothing is written and the report shows what a real import would create. }
       requestBody:
@@ -170,7 +170,7 @@ paths:
     get:
       operationId: getOperatingUnit
       summary: Get an operating unit
-      x-passage-duty: org.read
+      x-depot-duty: org.read
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -181,7 +181,7 @@ paths:
     patch:
       operationId: updateOperatingUnit
       summary: Update an operating unit
-      x-passage-duty: org.operating-unit.write
+      x-depot-duty: org.operating-unit.write
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       requestBody:
@@ -196,7 +196,7 @@ paths:
     get:
       operationId: listTeamTypes
       summary: List team types
-      x-passage-duty: org.read
+      x-depot-duty: org.read
       parameters:
         - { name: memberKind, in: query, schema: { type: string, enum: [user, party] } }
         - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 100 } }
@@ -209,7 +209,7 @@ paths:
     post:
       operationId: createTeamType
       summary: Create a team type
-      x-passage-duty: org.operating-unit.write
+      x-depot-duty: org.operating-unit.write
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
@@ -224,7 +224,7 @@ paths:
     get:
       operationId: getTeamType
       summary: Get a team type
-      x-passage-duty: org.read
+      x-depot-duty: org.read
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -236,7 +236,7 @@ paths:
     get:
       operationId: listTeams
       summary: List teams
-      x-passage-duty: org.read
+      x-depot-duty: org.read
       parameters:
         - { name: teamTypeId, in: query, schema: { type: string, format: uuid } }
         - { name: operatingUnitId, in: query, schema: { type: string, format: uuid } }
@@ -253,7 +253,7 @@ paths:
     post:
       operationId: createTeam
       summary: Create a team
-      x-passage-duty: org.operating-unit.write
+      x-depot-duty: org.operating-unit.write
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
@@ -268,7 +268,7 @@ paths:
     get:
       operationId: getTeam
       summary: Get a team
-      x-passage-duty: org.read
+      x-depot-duty: org.read
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -279,7 +279,7 @@ paths:
     patch:
       operationId: updateTeam
       summary: Update a team
-      x-passage-duty: org.operating-unit.write
+      x-depot-duty: org.operating-unit.write
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       requestBody:
@@ -294,7 +294,7 @@ paths:
     get:
       operationId: listTeamMembers
       summary: List the members of a team
-      x-passage-duty: org.read
+      x-depot-duty: org.read
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - { name: asOf, in: query, description: Keeps members valid on this date; both the first and last day count, schema: { type: string, format: date } }
@@ -310,7 +310,7 @@ paths:
     post:
       operationId: addTeamMember
       summary: Add a member to a team
-      x-passage-duty: org.operating-unit.write
+      x-depot-duty: org.operating-unit.write
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - $ref: '#/components/parameters/IdempotencyKey'
@@ -319,14 +319,14 @@ paths:
         content: { application/json: { schema: { $ref: '#/components/schemas/AddTeamMember' } } }
       responses:
         '201':
-          description: Member added (source manual), or the original member on an Idempotency-Key replay (no second row, no second event, counter not incremented). Emits dev.passage.org.teammembership.changed.v1. 400 COM-0001 naming memberKind, memberId, memberRole, validFrom or validTo. 404 ORG-TEAM-NOT-FOUND for a malformed, unknown or other tenant's team. 409 ORG-TEAM-MEMBER-DUPLICATE for the same member and validFrom. 422 ORG-TEAM-MEMBER-KIND-INVALID when the team type does not allow the kind, ORG-TEAM-EXPIRED when the team has ended, ORG-TEAM-MEMBER-RANGE when the validity is not inside the team's effective range (a bounded team needs a bounded validTo), ORG-TEAM-MEMBER-LIMIT at 2,000 members in force, idempotency_key_reuse when the key was used with a different body. 403 AUTH-0003 without the duty or for a legal-entity-scoped caller.
+          description: Member added (source manual), or the original member on an Idempotency-Key replay (no second row, no second event, counter not incremented). Emits dev.depot.org.teammembership.changed.v1. 400 COM-0001 naming memberKind, memberId, memberRole, validFrom or validTo. 404 ORG-TEAM-NOT-FOUND for a malformed, unknown or other tenant's team. 409 ORG-TEAM-MEMBER-DUPLICATE for the same member and validFrom. 422 ORG-TEAM-MEMBER-KIND-INVALID when the team type does not allow the kind, ORG-TEAM-EXPIRED when the team has ended, ORG-TEAM-MEMBER-RANGE when the validity is not inside the team's effective range (a bounded team needs a bounded validTo), ORG-TEAM-MEMBER-LIMIT at 2,000 members in force, idempotency_key_reuse when the key was used with a different body. 403 AUTH-0003 without the duty or for a legal-entity-scoped caller.
           content: { application/json: { schema: { $ref: '#/components/schemas/TeamMember' } } }
         default: { $ref: '#/components/responses/Problem' }
   /v1/org/teams/{id}/members/{memberId}:end:
     post:
       operationId: endTeamMember
       summary: End a team membership
-      x-passage-duty: org.operating-unit.write
+      x-depot-duty: org.operating-unit.write
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - { name: memberId, in: path, required: true, description: The member row id from the member list, schema: { type: string, format: uuid } }
@@ -335,26 +335,26 @@ paths:
         content: { application/json: { schema: { $ref: '#/components/schemas/EndTeamMember' } } }
       responses:
         '200':
-          description: The member with its new validTo. Re-sending the current validTo returns the member unchanged with no event and no count. Emits dev.passage.org.teammembership.changed.v1 with empty added, one removed entry and as_of the day after validTo. Allowed on an inactive team. 400 COM-0001 naming validTo. 404 ORG-TEAM-NOT-FOUND or ORG-TEAM-MEMBER-NOT-FOUND. 422 ORG-TEAM-MEMBER-RANGE on validTo before validFrom or after the current validTo. 403 AUTH-0003 without the duty or for a legal-entity-scoped caller.
+          description: The member with its new validTo. Re-sending the current validTo returns the member unchanged with no event and no count. Emits dev.depot.org.teammembership.changed.v1 with empty added, one removed entry and as_of the day after validTo. Allowed on an inactive team. 400 COM-0001 naming validTo. 404 ORG-TEAM-NOT-FOUND or ORG-TEAM-MEMBER-NOT-FOUND. 422 ORG-TEAM-MEMBER-RANGE on validTo before validFrom or after the current validTo. 403 AUTH-0003 without the duty or for a legal-entity-scoped caller.
           content: { application/json: { schema: { $ref: '#/components/schemas/TeamMember' } } }
         default: { $ref: '#/components/responses/Problem' }
   /v1/org/teams/{id}/members/{memberId}:
     delete:
       operationId: removeTeamMember
       summary: Remove a team membership
-      x-passage-duty: org.operating-unit.write
+      x-depot-duty: org.operating-unit.write
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - { name: memberId, in: path, required: true, description: The member row id from the member list, schema: { type: string, format: uuid } }
       responses:
         '204':
-          description: A member entered in error is deleted. Emits dev.passage.org.teammembership.changed.v1 with empty added, one removed entry and as_of the row's validFrom. Allowed on an inactive team. 404 ORG-TEAM-NOT-FOUND or ORG-TEAM-MEMBER-NOT-FOUND. 422 ORG-TEAM-MEMBER-RULE-SOURCED for a rule-sourced row. 403 AUTH-0003 without the duty or for a legal-entity-scoped caller.
+          description: A member entered in error is deleted. Emits dev.depot.org.teammembership.changed.v1 with empty added, one removed entry and as_of the row's validFrom. Allowed on an inactive team. 404 ORG-TEAM-NOT-FOUND or ORG-TEAM-MEMBER-NOT-FOUND. 422 ORG-TEAM-MEMBER-RULE-SOURCED for a rule-sourced row. 403 AUTH-0003 without the duty or for a legal-entity-scoped caller.
         default: { $ref: '#/components/responses/Problem' }
   /v1/org/sites:
     post:
       operationId: createSite
       summary: Create a site
-      x-passage-duty: org.site.write
+      x-depot-duty: org.site.write
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
@@ -368,7 +368,7 @@ paths:
     get:
       operationId: listSites
       summary: List sites
-      x-passage-duty: org.read
+      x-depot-duty: org.read
       parameters:
         - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 100 } }
         - { name: cursor, in: query, schema: { type: string } }
@@ -384,7 +384,7 @@ paths:
     get:
       operationId: getSite
       summary: Get a site
-      x-passage-duty: org.read
+      x-depot-duty: org.read
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -395,7 +395,7 @@ paths:
     patch:
       operationId: updateSite
       summary: Update a site
-      x-passage-duty: org.site.write
+      x-depot-duty: org.site.write
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       requestBody:
@@ -410,7 +410,7 @@ paths:
     get:
       operationId: resolveSiteFiscalPeriod
       summary: Resolve the fiscal period of a site for a date
-      x-passage-duty: org.read
+      x-depot-duty: org.read
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - { name: date, in: query, required: true, schema: { type: string, format: date } }
@@ -423,7 +423,7 @@ paths:
     post:
       operationId: createWarehouse
       summary: Create a warehouse
-      x-passage-duty: org.site.write
+      x-depot-duty: org.site.write
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
@@ -437,7 +437,7 @@ paths:
     get:
       operationId: listWarehouses
       summary: List warehouses
-      x-passage-duty: org.read
+      x-depot-duty: org.read
       parameters:
         - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 100 } }
         - { name: cursor, in: query, schema: { type: string } }
@@ -455,7 +455,7 @@ paths:
     get:
       operationId: getWarehouse
       summary: Get a warehouse
-      x-passage-duty: org.read
+      x-depot-duty: org.read
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -466,7 +466,7 @@ paths:
     patch:
       operationId: updateWarehouse
       summary: Update a warehouse
-      x-passage-duty: org.site.write
+      x-depot-duty: org.site.write
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       requestBody:
@@ -481,7 +481,7 @@ paths:
     post:
       operationId: createFiscalCalendar
       summary: Create a fiscal calendar
-      x-passage-duty: org.fiscal-calendar.write
+      x-depot-duty: org.fiscal-calendar.write
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
@@ -495,7 +495,7 @@ paths:
     get:
       operationId: listFiscalCalendars
       summary: List fiscal calendars
-      x-passage-duty: org.read
+      x-depot-duty: org.read
       parameters:
         - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 100 } }
         - { name: cursor, in: query, schema: { type: string } }
@@ -510,7 +510,7 @@ paths:
     patch:
       operationId: updateFiscalCalendar
       summary: Update a fiscal calendar
-      x-passage-duty: org.fiscal-calendar.write
+      x-depot-duty: org.fiscal-calendar.write
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       requestBody:
@@ -524,7 +524,7 @@ paths:
     get:
       operationId: getFiscalCalendar
       summary: Get a fiscal calendar
-      x-passage-duty: org.read
+      x-depot-duty: org.read
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -536,7 +536,7 @@ paths:
     post:
       operationId: generateFiscalYear
       summary: Generate the periods of a fiscal year
-      x-passage-duty: org.fiscal-calendar.write
+      x-depot-duty: org.fiscal-calendar.write
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       requestBody:
@@ -554,7 +554,7 @@ paths:
     get:
       operationId: listFiscalPeriods
       summary: List the periods of a fiscal calendar
-      x-passage-duty: org.read
+      x-depot-duty: org.read
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - { name: fiscalYear, in: query, schema: { type: integer, minimum: 1900, maximum: 2999 } }
@@ -567,7 +567,7 @@ paths:
     get:
       operationId: listHierarchyTypes
       summary: List hierarchy types
-      x-passage-duty: org.read
+      x-depot-duty: org.read
       parameters:
         - { name: purpose, in: query, schema: { type: string, enum: [reporting, procurement, expenditure, security, centralized_payments, custom] } }
         - { name: status, in: query, schema: { type: string, enum: [active, inactive] } }
@@ -581,7 +581,7 @@ paths:
     post:
       operationId: createHierarchyType
       summary: Create a hierarchy type
-      x-passage-duty: org.hierarchy.write
+      x-depot-duty: org.hierarchy.write
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
@@ -596,7 +596,7 @@ paths:
     get:
       operationId: getHierarchyType
       summary: Get a hierarchy type
-      x-passage-duty: org.read
+      x-depot-duty: org.read
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -608,7 +608,7 @@ paths:
     get:
       operationId: listHierarchyVersions
       summary: List hierarchy versions
-      x-passage-duty: org.read
+      x-depot-duty: org.read
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - { name: status, in: query, schema: { type: string, enum: [draft, published, superseded] } }
@@ -622,7 +622,7 @@ paths:
     post:
       operationId: createHierarchyDraft
       summary: Create a draft hierarchy version
-      x-passage-duty: org.hierarchy.write
+      x-depot-duty: org.hierarchy.write
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - $ref: '#/components/parameters/IdempotencyKey'
@@ -635,7 +635,7 @@ paths:
     get:
       operationId: getHierarchyVersion
       summary: Get a hierarchy version
-      x-passage-duty: org.read
+      x-depot-duty: org.read
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -646,7 +646,7 @@ paths:
     delete:
       operationId: deleteHierarchyDraft
       summary: Delete a draft hierarchy version
-      x-passage-duty: org.hierarchy.write
+      x-depot-duty: org.hierarchy.write
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - { name: version, in: query, required: true, schema: { type: integer }, description: The draft's current optimistic-lock version }
@@ -658,7 +658,7 @@ paths:
     put:
       operationId: replaceHierarchyNodes
       summary: Replace the nodes of a draft hierarchy version
-      x-passage-duty: org.hierarchy.write
+      x-depot-duty: org.hierarchy.write
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       requestBody:
@@ -673,7 +673,7 @@ paths:
     post:
       operationId: publishHierarchyVersion
       summary: Publish a hierarchy version
-      x-passage-duty: org.hierarchy.publish
+      x-depot-duty: org.hierarchy.publish
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - $ref: '#/components/parameters/IdempotencyKey'
@@ -682,14 +682,14 @@ paths:
         content: { application/json: { schema: { $ref: '#/components/schemas/PublishHierarchyVersion' } } }
       responses:
         '200':
-          description: The published version with its nodes, or the original on an Idempotency-Key replay. Superseding the latest earlier version closes its range at effectiveFrom. 400 COM-0001 naming version, effectiveFrom or reason (a reason of a non-backdated publish must be 10 to 500 characters). 403 AUTH-0003 without the duty or for a legal-entity-scoped caller. 403 ORG-HIER-MAKER-CHECKER when the type has the security purpose and the caller is the draft's last editor (editedBy); the version stays a draft, no closure rows are written and no event is emitted; a draft whose editedBy is null, created before this rule, is not blocked, and types without the security purpose are unaffected. 403 ORG-HIER-BACKDATE-DUTY when effectiveFrom is before today (UTC) and the caller lacks org.hierarchy.backdate, the type forbids backdating or the reason is not 10 to 500 characters; no version changes state. 404 ORG-HIER-VERSION-NOT-FOUND for a malformed, unknown or other tenant's id. 409 ORG-HIER-VERSION-IMMUTABLE for a version that is not a draft; 409 ORG-VERSION-CONFLICT for a stale version; 409 ORG-HIER-OVERLAP when effectiveFrom is not after the latest published version's. 422 ORG-HIER-MULTI-ROOT, ORG-HIER-CYCLE, ORG-HIER-DUPLICATE-NODE, ORG-HIER-DEPTH or ORG-HIER-SIZE when the stored node set is invalid, including an empty one. 422 idempotency_key_reuse when the key belongs to another version or date. Emits dev.passage.org.hierarchyversion.activated.v1 in the same transaction, also for a future effectiveFrom.
+          description: The published version with its nodes, or the original on an Idempotency-Key replay. Superseding the latest earlier version closes its range at effectiveFrom. 400 COM-0001 naming version, effectiveFrom or reason (a reason of a non-backdated publish must be 10 to 500 characters). 403 AUTH-0003 without the duty or for a legal-entity-scoped caller. 403 ORG-HIER-MAKER-CHECKER when the type has the security purpose and the caller is the draft's last editor (editedBy); the version stays a draft, no closure rows are written and no event is emitted; a draft whose editedBy is null, created before this rule, is not blocked, and types without the security purpose are unaffected. 403 ORG-HIER-BACKDATE-DUTY when effectiveFrom is before today (UTC) and the caller lacks org.hierarchy.backdate, the type forbids backdating or the reason is not 10 to 500 characters; no version changes state. 404 ORG-HIER-VERSION-NOT-FOUND for a malformed, unknown or other tenant's id. 409 ORG-HIER-VERSION-IMMUTABLE for a version that is not a draft; 409 ORG-VERSION-CONFLICT for a stale version; 409 ORG-HIER-OVERLAP when effectiveFrom is not after the latest published version's. 422 ORG-HIER-MULTI-ROOT, ORG-HIER-CYCLE, ORG-HIER-DUPLICATE-NODE, ORG-HIER-DEPTH or ORG-HIER-SIZE when the stored node set is invalid, including an empty one. 422 idempotency_key_reuse when the key belongs to another version or date. Emits dev.depot.org.hierarchyversion.activated.v1 in the same transaction, also for a future effectiveFrom.
           content: { application/json: { schema: { $ref: '#/components/schemas/HierarchyVersion' } } }
         default: { $ref: '#/components/responses/Problem' }
   /v1/org/hierarchy-types/{id}/as-of:
     get:
       operationId: getHierarchyAsOf
       summary: Get the hierarchy version in force on a date
-      x-passage-duty: org.read
+      x-depot-duty: org.read
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - { name: date, in: query, required: true, schema: { type: string, format: date } }
@@ -703,7 +703,7 @@ paths:
     get:
       operationId: compareHierarchyVersions
       summary: Compare two versions of a hierarchy type
-      x-passage-duty: org.read
+      x-depot-duty: org.read
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - { name: from, in: query, required: true, schema: { type: integer, minimum: 1 } }
@@ -717,7 +717,7 @@ paths:
     post:
       operationId: createLocation
       summary: Create a location
-      x-passage-duty: org.site.write
+      x-depot-duty: org.site.write
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
@@ -731,7 +731,7 @@ paths:
     get:
       operationId: listLocations
       summary: List locations
-      x-passage-duty: org.read
+      x-depot-duty: org.read
       parameters:
         - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 100 } }
         - { name: cursor, in: query, schema: { type: string } }
@@ -748,7 +748,7 @@ paths:
     get:
       operationId: getLocation
       summary: Get a location
-      x-passage-duty: org.read
+      x-depot-duty: org.read
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -759,7 +759,7 @@ paths:
     patch:
       operationId: updateLocation
       summary: Update a location
-      x-passage-duty: org.site.write
+      x-depot-duty: org.site.write
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       requestBody:
@@ -774,7 +774,7 @@ paths:
     post:
       operationId: createAddress
       summary: Create an address
-      x-passage-duty: org.address.write
+      x-depot-duty: org.address.write
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
@@ -788,7 +788,7 @@ paths:
     get:
       operationId: listAddresses
       summary: List addresses
-      x-passage-duty: org.read
+      x-depot-duty: org.read
       parameters:
         - { name: ownerType, in: query, description: Required unless q is given; if either owner field is given both are required, schema: { type: string, enum: [legal_entity, operating_unit, site, warehouse, location, party] } }
         - { name: ownerId, in: query, description: Required unless q is given; if either owner field is given both are required, schema: { type: string, format: uuid } }
@@ -806,7 +806,7 @@ paths:
     post:
       operationId: normalizeAddress
       summary: Normalize a postal address without storing it
-      x-passage-duty: org.read
+      x-depot-duty: org.read
       requestBody:
         required: true
         content: { application/json: { schema: { $ref: '#/components/schemas/PostalAddressInput' } } }
@@ -819,7 +819,7 @@ paths:
     get:
       operationId: getAddressVersion
       summary: Get one version of an address
-      x-passage-duty: org.read
+      x-depot-duty: org.read
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid, description: The versionId of an address } }
       responses:
@@ -831,7 +831,7 @@ paths:
     get:
       operationId: getAddress
       summary: Get an address
-      x-passage-duty: org.read
+      x-depot-duty: org.read
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - { name: asOf, in: query, description: Date YYYY-MM-DD; returns the version in force on that date, schema: { type: string, format: date } }
@@ -843,7 +843,7 @@ paths:
     patch:
       operationId: updateAddress
       summary: Update an address
-      x-passage-duty: org.address.write
+      x-depot-duty: org.address.write
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       requestBody:
@@ -858,7 +858,7 @@ paths:
     get:
       operationId: listAddressVersions
       summary: List the versions of an address
-      x-passage-duty: org.read
+      x-depot-duty: org.read
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -870,7 +870,7 @@ paths:
     get:
       operationId: listCountries
       summary: List countries
-      x-passage-duty: org.read
+      x-depot-duty: org.read
       parameters:
         - { name: status, in: query, schema: { type: string, enum: [active, inactive] } }
       responses:
@@ -884,7 +884,7 @@ paths:
     get:
       operationId: getCountry
       summary: Get a country
-      x-passage-duty: org.read
+      x-depot-duty: org.read
       parameters:
         - { name: code, in: path, required: true, schema: { type: string } }
       responses:
@@ -895,7 +895,7 @@ paths:
     patch:
       operationId: setCountryStatus
       summary: Activate or deactivate a country for the tenant
-      x-passage-duty: org.reference.write
+      x-depot-duty: org.reference.write
       parameters:
         - { name: code, in: path, required: true, schema: { type: string } }
       requestBody:
@@ -910,7 +910,7 @@ paths:
     get:
       operationId: listCurrencies
       summary: List currencies
-      x-passage-duty: org.read
+      x-depot-duty: org.read
       parameters:
         - { name: status, in: query, schema: { type: string, enum: [active, inactive] } }
       responses:
@@ -924,7 +924,7 @@ paths:
     get:
       operationId: getCurrency
       summary: Get a currency
-      x-passage-duty: org.read
+      x-depot-duty: org.read
       parameters:
         - { name: code, in: path, required: true, schema: { type: string } }
       responses:
@@ -935,7 +935,7 @@ paths:
     patch:
       operationId: setCurrencyStatus
       summary: Activate or deactivate a currency for the tenant
-      x-passage-duty: org.reference.write
+      x-depot-duty: org.reference.write
       parameters:
         - { name: code, in: path, required: true, schema: { type: string } }
       requestBody:
@@ -950,7 +950,7 @@ paths:
     get:
       operationId: listLegalEntityNameTranslations
       summary: List legal entity name translations
-      x-passage-duty: org.read
+      x-depot-duty: org.read
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -964,7 +964,7 @@ paths:
     put:
       operationId: putLegalEntityNameTranslation
       summary: Set a name translation of a legal entity
-      x-passage-duty: org.legal-entity.write
+      x-depot-duty: org.legal-entity.write
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - { $ref: '#/components/parameters/Language' }
@@ -986,7 +986,7 @@ paths:
     delete:
       operationId: deleteLegalEntityNameTranslation
       summary: Delete a name translation of a legal entity
-      x-passage-duty: org.legal-entity.write
+      x-depot-duty: org.legal-entity.write
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - { $ref: '#/components/parameters/Language' }
@@ -1000,7 +1000,7 @@ paths:
     get:
       operationId: resolveLegalEntityName
       summary: Resolve the name of a legal entity in a language
-      x-passage-duty: org.read
+      x-depot-duty: org.read
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - { name: language, in: query, schema: { type: string, pattern: '^[a-z]{2}(-[A-Z]{2})?$' }, description: Exact tag, then its primary subtag, then the base name. Absent returns the base name. }
@@ -1016,7 +1016,7 @@ paths:
     get:
       operationId: listOperatingUnitNameTranslations
       summary: List operating unit name translations
-      x-passage-duty: org.read
+      x-depot-duty: org.read
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -1030,7 +1030,7 @@ paths:
     put:
       operationId: putOperatingUnitNameTranslation
       summary: Set a name translation of an operating unit
-      x-passage-duty: org.operating-unit.write
+      x-depot-duty: org.operating-unit.write
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - { $ref: '#/components/parameters/Language' }
@@ -1052,7 +1052,7 @@ paths:
     delete:
       operationId: deleteOperatingUnitNameTranslation
       summary: Delete a name translation of an operating unit
-      x-passage-duty: org.operating-unit.write
+      x-depot-duty: org.operating-unit.write
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - { $ref: '#/components/parameters/Language' }
@@ -1066,7 +1066,7 @@ paths:
     get:
       operationId: resolveOperatingUnitName
       summary: Resolve the name of an operating unit in a language
-      x-passage-duty: org.read
+      x-depot-duty: org.read
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - { name: language, in: query, schema: { type: string, pattern: '^[a-z]{2}(-[A-Z]{2})?$' }, description: Exact tag, then its primary subtag, then the base name. Absent returns the base name. }
@@ -1082,7 +1082,7 @@ paths:
     get:
       operationId: listSiteNameTranslations
       summary: List site name translations
-      x-passage-duty: org.read
+      x-depot-duty: org.read
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -1096,7 +1096,7 @@ paths:
     put:
       operationId: putSiteNameTranslation
       summary: Set a name translation of a site
-      x-passage-duty: org.site.write
+      x-depot-duty: org.site.write
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - { $ref: '#/components/parameters/Language' }
@@ -1118,7 +1118,7 @@ paths:
     delete:
       operationId: deleteSiteNameTranslation
       summary: Delete a name translation of a site
-      x-passage-duty: org.site.write
+      x-depot-duty: org.site.write
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - { $ref: '#/components/parameters/Language' }
@@ -1132,7 +1132,7 @@ paths:
     get:
       operationId: resolveSiteName
       summary: Resolve the name of a site in a language
-      x-passage-duty: org.read
+      x-depot-duty: org.read
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - { name: language, in: query, schema: { type: string, pattern: '^[a-z]{2}(-[A-Z]{2})?$' }, description: Exact tag, then its primary subtag, then the base name. Absent returns the base name. }
@@ -1148,7 +1148,7 @@ paths:
     get:
       operationId: listWarehouseNameTranslations
       summary: List warehouse name translations
-      x-passage-duty: org.read
+      x-depot-duty: org.read
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -1162,7 +1162,7 @@ paths:
     put:
       operationId: putWarehouseNameTranslation
       summary: Set a name translation of a warehouse
-      x-passage-duty: org.site.write
+      x-depot-duty: org.site.write
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - { $ref: '#/components/parameters/Language' }
@@ -1184,7 +1184,7 @@ paths:
     delete:
       operationId: deleteWarehouseNameTranslation
       summary: Delete a name translation of a warehouse
-      x-passage-duty: org.site.write
+      x-depot-duty: org.site.write
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - { $ref: '#/components/parameters/Language' }
@@ -1198,7 +1198,7 @@ paths:
     get:
       operationId: resolveWarehouseName
       summary: Resolve the name of a warehouse in a language
-      x-passage-duty: org.read
+      x-depot-duty: org.read
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - { name: language, in: query, schema: { type: string, pattern: '^[a-z]{2}(-[A-Z]{2})?$' }, description: Exact tag, then its primary subtag, then the base name. Absent returns the base name. }
@@ -1214,7 +1214,7 @@ paths:
     get:
       operationId: listCurrencyRoundingRules
       summary: List currency rounding rules
-      x-passage-duty: org.read
+      x-depot-duty: org.read
       parameters:
         - { name: code, in: path, required: true, schema: { type: string, pattern: '^[A-Z]{3}$' } }
       responses:
@@ -1231,7 +1231,7 @@ paths:
     put:
       operationId: putCurrencyRoundingRule
       summary: Set a currency rounding rule
-      x-passage-duty: org.reference.write
+      x-depot-duty: org.reference.write
       parameters:
         - { name: code, in: path, required: true, schema: { type: string, pattern: '^[A-Z]{3}$' } }
         - { name: purpose, in: path, required: true, schema: { type: string, enum: [general, price, purchase, sales, tax, cash] } }
@@ -1250,7 +1250,7 @@ paths:
     delete:
       operationId: deleteCurrencyRoundingRule
       summary: Delete a currency rounding rule
-      x-passage-duty: org.reference.write
+      x-depot-duty: org.reference.write
       parameters:
         - { name: code, in: path, required: true, schema: { type: string, pattern: '^[A-Z]{3}$' } }
         - { name: purpose, in: path, required: true, schema: { type: string, enum: [general, price, purchase, sales, tax, cash] } }
@@ -1265,7 +1265,7 @@ paths:
     get:
       operationId: roundCurrencyAmount
       summary: Round a currency amount by purpose
-      x-passage-duty: org.read
+      x-depot-duty: org.read
       parameters:
         - { name: code, in: path, required: true, schema: { type: string, pattern: '^[A-Z]{3}$' } }
         - { name: amount, in: query, required: true, schema: { type: string }, description: A finite decimal of at most 1e18 in magnitude. }
@@ -1283,7 +1283,7 @@ paths:
     get:
       operationId: listRegions
       summary: List regions
-      x-passage-duty: org.read
+      x-depot-duty: org.read
       parameters:
         - { name: status, in: query, schema: { type: string, enum: [active, inactive] } }
         - { name: country, in: query, schema: { type: string, pattern: '^[A-Z]{2}$' } }
@@ -1298,7 +1298,7 @@ paths:
     get:
       operationId: getRegion
       summary: Get a region
-      x-passage-duty: org.read
+      x-depot-duty: org.read
       parameters:
         - { name: code, in: path, required: true, schema: { type: string } }
       responses:
@@ -1309,7 +1309,7 @@ paths:
     patch:
       operationId: setRegionStatus
       summary: Activate or deactivate a region for the tenant
-      x-passage-duty: org.reference.write
+      x-depot-duty: org.reference.write
       parameters:
         - { name: code, in: path, required: true, schema: { type: string } }
       requestBody:
@@ -1324,7 +1324,7 @@ paths:
     get:
       operationId: listLanguages
       summary: List languages
-      x-passage-duty: org.read
+      x-depot-duty: org.read
       parameters:
         - { name: status, in: query, schema: { type: string, enum: [active, inactive] } }
       responses:
@@ -1338,7 +1338,7 @@ paths:
     get:
       operationId: getLanguage
       summary: Get a language
-      x-passage-duty: org.read
+      x-depot-duty: org.read
       parameters:
         - { name: code, in: path, required: true, schema: { type: string } }
       responses:
@@ -1349,7 +1349,7 @@ paths:
     patch:
       operationId: setLanguageStatus
       summary: Activate or deactivate a language for the tenant
-      x-passage-duty: org.reference.write
+      x-depot-duty: org.reference.write
       parameters:
         - { name: code, in: path, required: true, schema: { type: string } }
       requestBody:
@@ -1365,7 +1365,7 @@ paths:
       operationId: exportOrgPackage
       summary: Export the organization model as a package
       description: Reads every legal entity, operating unit, site with its warehouses and locations, hierarchy type, team type, team, tenant unit of measure and conversion, currency rounding rule and name translation of the caller's tenant into one versioned JSON package whose records name each other by code. A POST because the export is an administrative action; it changes nothing. Each hierarchy type carries its published and superseded versions (a draft is not exported) and the package carries the fiscal calendars with their generated years. Addresses, calendar assignments and team members are not part of the package.
-      x-passage-duty: org.package.manage
+      x-depot-duty: org.package.manage
       responses:
         '200':
           description: The package, sent as an attachment named org-package.json. The default warehouse of every site is listed first. 403 AUTH-0003 unless the caller holds tenant.administer and has no legal-entity claim. 422 ORG-PKG-TOO-LARGE when a kind has more than 10000 rows.
@@ -1376,7 +1376,7 @@ paths:
       operationId: importOrgPackage
       summary: Import an organization model package
       description: Creates the records of the package that the tenant does not have yet, matched by natural code (legal entity code; operating unit type and code; legal entity and site, warehouse or location code; hierarchy type, team type and team code; hierarchy version by type code and effectiveFrom; fiscal calendar by code; fiscal year by calendar code and year; unit by code; conversion by its two unit codes in either direction; rounding rule by currency, purpose and legal entity; name translation by owner and language). Existing records are never updated or deleted; their differing names (and, for units, conversions, rounding rules and translations, the differing fields) are listed. Before the first write the package is validated, every code reference resolved and every rule the creates apply checked against the tenant's rows (active parent records, active country, currency and language, the legal entity and team limits, warehouse codes unique per legal entity, units of a conversion known, active and of one class, rounding units valid for the currency, translation owners and languages known), so a package that fails any of them imports nothing. A hierarchy version is created as a draft of its type, given its nodes and published with its effectiveFrom, oldest first, each published before the next is drafted, so each must be later than the latest version the type already has and the tree must fit the configured depth and node limits. A date before today is a backdate (the org.hierarchy.backdate duty and a type with backdateAllowed) only when the type already holds a version that no package import made; loading a history into an empty type, or finishing one an earlier import started, changes no as-of answer anyone else wrote, and the publish keeps the reason 'Imported from an organization package'. A type with an open draft takes no new version, except the draft an earlier run of the same import left open (its key is orgpkg:hier-draft:<type>/<effectiveFrom>), which the import fills and publishes. New versions of a security-purpose type are not imported (publishing needs a second person) and each is listed under skipped. A fiscal year is generated for its calendar from the calendar's settings (a custom calendar from the listed periods). Each record is then created in its own transaction and raises its own event through the outbox where its kind has one (units, conversions and name translations have no event). Rounding rules and name translations are written with the same upsert as their PUT routes, so one someone else sets after that check is overwritten with the package's value. A change someone else commits after that check can still fail a create; the records created before it stay, and importing the package again creates only what is missing. A second import of the same package reports no creates. The exportedAt field of an exported file is accepted and ignored.
-      x-passage-duty: org.package.manage
+      x-depot-duty: org.package.manage
       parameters:
         - { name: dryRun, in: query, schema: { type: boolean, default: false }, description: When true nothing is written and the report shows what a real import would create. }
       requestBody:
@@ -1398,7 +1398,7 @@ paths:
       operationId: loadDemoCompany
       summary: Load the demo company
       description: Loads the demo manufacturer (three legal entities with their sites, warehouses, operating units and teams) into the caller's tenant, the same package ORG_SEED_PACKAGE seeds at start. Rows that exist are left alone and missing ones are added; nothing is deleted, so it can be repeated and does not wipe data. 403 ORG-0403 unless the caller holds tenant.administer and has no legal-entity claim.
-      x-passage-duty: org.demo-company.manage
+      x-depot-duty: org.demo-company.manage
       responses:
         '200':
           description: How many rows were created and how many were already there.
@@ -1416,8 +1416,8 @@ paths:
     post:
       operationId: resetDemoCompany
       summary: Reset the demo company
-      description: Removes the records the demo company created in the caller's tenant and loads it again, so a trial or demo can start over. Demo records are the ones whose idempotency key is in the namespace only the demo loader writes (seed:demo-manufacturer:), plus each demo site's default warehouse; nothing else is deleted. Details that belong to a demo record alone (name history, translations, addresses, rounding rules, team memberships) go with it. If any other record hangs off a demo record (a site, warehouse, location, operating unit or team someone added under it, a hierarchy version or node, a legal entity copy) the reset is refused with 409 ORG-DEMO-IN-USE before anything is deleted. The removal is one transaction and emits dev.passage.org.democompany.removed.v1 naming the caller; the load after it is the same idempotent load as POST /v1/org/demo-company, so a repeat completes a load that stopped part way. Records other services keep about the demo company are not removed by this call. 403 ORG-0403 unless the caller holds tenant.administer and has no legal-entity claim.
-      x-passage-duty: org.demo-company.manage
+      description: Removes the records the demo company created in the caller's tenant and loads it again, so a trial or demo can start over. Demo records are the ones whose idempotency key is in the namespace only the demo loader writes (seed:demo-manufacturer:), plus each demo site's default warehouse; nothing else is deleted. Details that belong to a demo record alone (name history, translations, addresses, rounding rules, team memberships) go with it. If any other record hangs off a demo record (a site, warehouse, location, operating unit or team someone added under it, a hierarchy version or node, a legal entity copy) the reset is refused with 409 ORG-DEMO-IN-USE before anything is deleted. The removal is one transaction and emits dev.depot.org.democompany.removed.v1 naming the caller; the load after it is the same idempotent load as POST /v1/org/demo-company, so a repeat completes a load that stopped part way. Records other services keep about the demo company are not removed by this call. 403 ORG-0403 unless the caller holds tenant.administer and has no legal-entity claim.
+      x-depot-duty: org.demo-company.manage
       responses:
         '200':
           description: How many demo records were removed, then created again, and how many were already there.
@@ -1436,7 +1436,7 @@ paths:
     get:
       operationId: convertUnit
       summary: Convert a quantity between two units of measure
-      x-passage-duty: authenticated
+      x-depot-duty: authenticated
       parameters:
         - { name: from, in: query, required: true, schema: { type: string } }
         - { name: to, in: query, required: true, schema: { type: string } }
@@ -1450,7 +1450,7 @@ paths:
     get:
       operationId: listUnits
       summary: List units
-      x-passage-duty: org.read
+      x-depot-duty: org.read
       parameters:
         - { name: class, in: query, schema: { type: string, enum: [quantity, each, mass, length, volume, area, time, temperature, energy, pressure, power, speed] } }
         - { name: status, in: query, schema: { type: string, enum: [active, inactive] } }
@@ -1464,7 +1464,7 @@ paths:
     post:
       operationId: createUnit
       summary: Create a unit
-      x-passage-duty: org.reference.write
+      x-depot-duty: org.reference.write
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
@@ -1480,7 +1480,7 @@ paths:
     get:
       operationId: getUnit
       summary: Get a unit
-      x-passage-duty: org.read
+      x-depot-duty: org.read
       parameters:
         - { name: code, in: path, required: true, schema: { type: string }, description: Case-sensitive. }
       responses:
@@ -1492,7 +1492,7 @@ paths:
     patch:
       operationId: setUnitStatus
       summary: Activate or deactivate a unit of measure
-      x-passage-duty: org.reference.write
+      x-depot-duty: org.reference.write
       parameters:
         - { name: code, in: path, required: true, schema: { type: string } }
       requestBody:
@@ -1508,7 +1508,7 @@ paths:
     get:
       operationId: listUomConversions
       summary: List unit of measure conversions
-      x-passage-duty: org.read
+      x-depot-duty: org.read
       parameters:
         - { name: class, in: query, schema: { type: string, enum: [quantity, each, mass, length, volume, area, time, temperature, energy, pressure, power, speed] } }
         - { name: unit, in: query, schema: { type: string }, description: Matches either side; case-sensitive. }
@@ -1525,7 +1525,7 @@ paths:
     post:
       operationId: createUomConversion
       summary: Create a tenant unit of measure conversion
-      x-passage-duty: org.reference.write
+      x-depot-duty: org.reference.write
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
@@ -1545,14 +1545,14 @@ paths:
     get:
       operationId: liveness
       summary: Liveness probe
-      x-passage-duty: public
+      x-depot-duty: public
       responses:
         '200': { description: Process is alive. }
   /readyz:
     get:
       operationId: readiness
       summary: Readiness probe
-      x-passage-duty: public
+      x-depot-duty: public
       responses:
         '200': { description: Database reachable. }
         '503': { description: Database unreachable. }

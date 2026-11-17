@@ -9,20 +9,20 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/org/internal/api"
-	"github.com/BenjaminSRussell/passage/services/org/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/org/internal/store"
-	"github.com/BenjaminSRussell/passage/services/org/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/org/internal/api"
+	"github.com/BenjaminSRussell/depot/services/org/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/org/internal/store"
+	"github.com/BenjaminSRussell/depot/services/org/migrations"
 )
 
 const (
 	chfCash       = "/v1/org/currencies/CHF/rounding-rules/cash"
 	entityA       = "0190c9d2-7a4b-7c3e-8f10-000000000001"
 	entityB       = "0190c9d2-7a4b-7c3e-8f10-000000000002"
-	scopeHeader   = "X-Passage-Legal-Entity"
+	scopeHeader   = "X-Depot-Legal-Entity"
 	validRuleBody = `{"unit":"0.05","method":"half_up"}`
 )
 

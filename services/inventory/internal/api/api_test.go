@@ -14,12 +14,12 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/inventory/internal/api"
-	"github.com/BenjaminSRussell/passage/services/inventory/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/inventory/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/inventory/internal/api"
+	"github.com/BenjaminSRussell/depot/services/inventory/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/inventory/internal/store"
 )
 
 // fakeStore records the calls the HTTP layer makes; it never touches Postgres.
@@ -649,7 +649,7 @@ func declaredOperations(spec string) map[string]bool {
 		case specOperation.MatchString(line):
 			operation = path + " " + specOperation.FindStringSubmatch(line)[1]
 			declared[operation] = false
-		case operation != "" && strings.HasPrefix(line, "      x-passage-duty: "):
+		case operation != "" && strings.HasPrefix(line, "      x-depot-duty: "):
 			declared[operation] = true
 		}
 	}
@@ -675,7 +675,7 @@ func TestOpenAPIDocumentsEveryOperation(t *testing.T) {
 		if hasDuty, ok := declared[op]; !ok {
 			t.Errorf("not documented: %s", op)
 		} else if !hasDuty {
-			t.Errorf("no x-passage-duty: %s", op)
+			t.Errorf("no x-depot-duty: %s", op)
 		}
 	}
 	for op := range declared {

@@ -16,11 +16,11 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/migration/internal/domain"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/migration/internal/domain"
 )
 
 const (
@@ -37,7 +37,7 @@ const (
 	// it opens a transaction with the all-entities scope).
 	DutyOutboundRender = "migration.outbound.render"
 	DutyXrefRecord     = "migration.xref.record"
-	// DutyXrefRead lets a loading service (the migration factory) resolve legacy keys to the Passage ids this service loaded
+	// DutyXrefRead lets a loading service (the migration factory) resolve legacy keys to the Depot ids this service loaded
 	// (#49, H-S8-6); it is service-only and reads no other route.
 	DutyXrefRead             = "migration.xref.read"
 	DutyRun                  = "migration.run"
@@ -127,7 +127,7 @@ func outboundNameUsed() error {
 }
 
 func xrefConflict(key string) error {
-	return httpx.NewProblem(http.StatusConflict, CodeXrefConflict, "legacy key "+key+" is already recorded for another Passage record")
+	return httpx.NewProblem(http.StatusConflict, CodeXrefConflict, "legacy key "+key+" is already recorded for another Depot record")
 }
 
 func xrefEventConflict(eventID string) error {
@@ -169,7 +169,7 @@ func ValidateOutboundRecord(in OutboundXrefRecord) map[string]string {
 	for _, r := range in.Refs {
 		switch {
 		case r.Entity == "" || len(r.Entity) > 64 || !ids.Valid(r.ID):
-			bad["refs"] = "each reference needs an entity and a Passage id (UUID)"
+			bad["refs"] = "each reference needs an entity and a Depot id (UUID)"
 		case r.LegacyKey == "":
 			keyless++
 		case strings.TrimSpace(r.LegacyKey) == "" || len(r.LegacyKey) > maxLegacyKeyLength:
@@ -228,7 +228,7 @@ func (s *Postgres) outboundTx(ctx context.Context, access outboundAccess, fn fun
 		return httpx.NewProblem(http.StatusForbidden, outboundScopeRefused, "outbound mappings are tenant data: a tenant administrator without a legal-entity scope, or the integration hub, may use them")
 	}
 	return pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
-		if _, err := tx.Exec(ctx, `select set_config('passage.tenant_id', $1, true), set_config('passage.legal_entity_scopes', '*', true)`, p.TenantID); err != nil {
+		if _, err := tx.Exec(ctx, `select set_config('depot.tenant_id', $1, true), set_config('depot.legal_entity_scopes', '*', true)`, p.TenantID); err != nil {
 			return err
 		}
 		return fn(tx)
@@ -436,11 +436,11 @@ func (s *Postgres) UpdateOutboundMapping(ctx context.Context, id string, version
 	return out, err
 }
 
-func (s *Postgres) LegacyKeys(ctx context.Context, sourceSystem, entity string, passageIDs []string) (map[string]string, error) {
+func (s *Postgres) LegacyKeys(ctx context.Context, sourceSystem, entity string, depotIDs []string) (map[string]string, error) {
 	p, _ := tenant.FromContext(ctx)
 	canon := map[string][]string{}
 	var uuids []string
-	for _, id := range passageIDs {
+	for _, id := range depotIDs {
 		if c, ok := ids.Canonical(id); ok {
 			if _, seen := canon[c]; !seen {
 				uuids = append(uuids, c)
@@ -820,7 +820,7 @@ func (m *Mem) UpdateOutboundMapping(_ context.Context, id string, version int, e
 	return cur, nil
 }
 
-func (m *Mem) LegacyKeys(ctx context.Context, sourceSystem, entity string, passageIDs []string) (map[string]string, error) {
+func (m *Mem) LegacyKeys(ctx context.Context, sourceSystem, entity string, depotIDs []string) (map[string]string, error) {
 	p, _ := tenant.FromContext(ctx)
 	le, _ := ids.Canonical(p.LegalEntityID)
 	m.mu.Lock()
@@ -838,7 +838,7 @@ func (m *Mem) LegacyKeys(ctx context.Context, sourceSystem, entity string, passa
 			best[e.TargetID] = k.SourceKey
 		}
 	}
-	for _, id := range passageIDs {
+	for _, id := range depotIDs {
 		if c, ok := ids.Canonical(id); ok {
 			if key, found := best[c]; found {
 				out[id] = key

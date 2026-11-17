@@ -1,6 +1,6 @@
 asyncapi: 3.0.0
 info:
-  title: Passage Metadata events
+  title: Depot Metadata events
   version: 1.0.0
   description: >
     CloudEvents 1.0 published through the transactional outbox (Debezium
@@ -12,7 +12,7 @@ info:
 defaultContentType: application/cloudevents+json
 channels:
   entity:
-    address: passage.metadata.entity
+    address: depot.metadata.entity
     messages:
       entityPublished:
         $ref: '#/components/messages/EntityPublished'
@@ -25,7 +25,7 @@ operations:
 components:
   messages:
     EntityPublished:
-      name: dev.passage.metadata.entity.published.v1
+      name: dev.depot.metadata.entity.published.v1
       contentType: application/cloudevents+json
       payload: { $ref: '#/components/schemas/EntityPublishedData' }
   schemas:

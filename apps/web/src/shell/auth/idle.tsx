@@ -2,15 +2,15 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { copy } from "../copy";
 import { Alert, Button } from "../ui";
 
-declare const __PASSAGE_IDLE_TIMEOUT_MINUTES__: number | undefined;
+declare const __DEPOT_IDLE_TIMEOUT_MINUTES__: number | undefined;
 
 /** Idle sign-out in minutes from the build (the cloud profile's idleTimeoutMinutes); 0 means off. */
 export function configuredIdleMinutes(): number {
-  return typeof __PASSAGE_IDLE_TIMEOUT_MINUTES__ === "number" ? __PASSAGE_IDLE_TIMEOUT_MINUTES__ : 0;
+  return typeof __DEPOT_IDLE_TIMEOUT_MINUTES__ === "number" ? __DEPOT_IDLE_TIMEOUT_MINUTES__ : 0;
 }
 
 const ACTIVITY_EVENTS = ["pointerdown", "keydown", "wheel", "touchstart", "scroll"] as const;
-const SHARED_KEY = "passage.lastActivity";
+const SHARED_KEY = "depot.lastActivity";
 const WARN_SECONDS = 60;
 const SHARE_EVERY_MS = 5_000;
 

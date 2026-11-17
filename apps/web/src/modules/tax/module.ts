@@ -1,5 +1,5 @@
 import { createElement } from "react";
-import type { PassageModule } from "../registry";
+import type { DepotModule } from "../registry";
 import { IntrastatJournalPage } from "./IntrastatJournalPage";
 import { IntrastatJournalsPage } from "./IntrastatJournalsPage";
 import { IntrastatMasterPage } from "./IntrastatMasterPage";
@@ -11,7 +11,7 @@ import { TaxHomePage } from "./TaxHomePage";
 import { VatBoxesPage } from "./VatBoxesPage";
 
 /** The tax configuration workspace: jurisdictions, tax codes and groups, the VAT return, the EU sales list and Intrastat. */
-const tax: PassageModule = {
+const tax: DepotModule = {
   id: "tax",
   title: "Tax",
   description: "Set up taxes and file the VAT return, the EU sales list and the Intrastat declaration.",

@@ -9,15 +9,15 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/org/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/org/internal/store"
 )
 
 const (
-	createdType = "dev.passage.org.operatingunit.created.v1"
-	updatedType = "dev.passage.org.operatingunit.updated.v1"
+	createdType = "dev.depot.org.operatingunit.created.v1"
+	updatedType = "dev.depot.org.operatingunit.updated.v1"
 )
 
 func unit(unitType, code string) store.OperatingUnit {

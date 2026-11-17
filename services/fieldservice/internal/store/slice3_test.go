@@ -9,13 +9,13 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/fieldservice/internal/domain"
-	svcevents "github.com/BenjaminSRussell/passage/services/fieldservice/internal/events"
-	"github.com/BenjaminSRussell/passage/services/fieldservice/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/fieldservice/internal/domain"
+	svcevents "github.com/BenjaminSRussell/depot/services/fieldservice/internal/events"
+	"github.com/BenjaminSRussell/depot/services/fieldservice/migrations"
 )
 
 func newSliceStore(t *testing.T, tenantN int) (*Postgres, context.Context) {
@@ -418,7 +418,7 @@ func TestStore_ActivitiesListCompleteAndReschedule(t *testing.T) {
 
 func ptr(s string) *string { return &s }
 
-// Slice 3 under RLS as passage_app: another tenant sees none of the service
+// Slice 3 under RLS as depot_app: another tenant sees none of the service
 // objects, activities or articles, and a caller scoped to another legal entity
 // sees none of the entity's service objects.
 func TestStore_Slice3TenantAndLegalEntityIsolation(t *testing.T) {

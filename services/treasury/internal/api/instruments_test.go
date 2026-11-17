@@ -12,12 +12,12 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/money"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/treasury/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/treasury/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/money"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/treasury/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/treasury/internal/store"
 )
 
 // ---- in-memory store methods for checks, facilities, instruments and loans ----
@@ -507,7 +507,7 @@ func TestFacility_LimitBlockedWithoutOverride(t *testing.T) {
 
 func loanBody(periodMonths int, maturity string) map[string]any {
 	return map[string]any{
-		"legalEntityId": testLE, "role": "lender", "counterpartyName": "Passage Holdings BV",
+		"legalEntityId": testLE, "role": "lender", "counterpartyName": "Depot Holdings BV",
 		"principal": "1000000", "currency": "EUR", "startDate": "2026-06-01", "maturityDate": maturity,
 		"scheduleType": "Bullet", "fixedRate": "0.03", "dayCount": "ACT/360", "periodMonths": periodMonths,
 	}

@@ -37,7 +37,7 @@ export function createPaymentRunActivities(
     const response = await fetchImpl(`${baseUrl}/v1/payables/payment-runs${path}`, {
       method: "POST",
       headers: {
-        "X-Passage-Service-Token": signer.mintForPayables({
+        "X-Depot-Service-Token": signer.mintForPayables({
           tenantId: identity.tenantId,
           legalEntityId: identity.legalEntityId,
           actor: identity.executedBy,

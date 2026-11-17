@@ -1,4 +1,4 @@
--- PSG-1508 (wave 15, slice 8): the ledger consumer (FR-15.1).
+-- DPT-1508 (wave 15, slice 8): the ledger consumer (FR-15.1).
 -- One row per journal entry the read model has applied, keyed by the ledger's
 -- gap-free posting sequence, so a replayed event is recognised, a reversal can
 -- find the entry it reverses (closing marks whether that entry was a year-end
@@ -18,11 +18,11 @@ CREATE TABLE IF NOT EXISTS reporting_entry_applied (
 ALTER TABLE reporting_entry_applied ENABLE ROW LEVEL SECURITY;
 ALTER TABLE reporting_entry_applied FORCE ROW LEVEL SECURITY;
 CREATE POLICY reporting_entry_applied_tenant_access ON reporting_entry_applied AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY reporting_entry_applied_legal_entity_scope ON reporting_entry_applied AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 -- Entries that arrived ahead of the ledger's high-water mark. The ledger keys
 -- journal.posted by entry, so one ledger's entries reach the consumer through
@@ -42,21 +42,21 @@ CREATE TABLE IF NOT EXISTS reporting_entry_pending (
 ALTER TABLE reporting_entry_pending ENABLE ROW LEVEL SECURITY;
 ALTER TABLE reporting_entry_pending FORCE ROW LEVEL SECURITY;
 CREATE POLICY reporting_entry_pending_tenant_access ON reporting_entry_pending AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY reporting_entry_pending_legal_entity_scope ON reporting_entry_pending AS RESTRICTIVE
-  USING (current_setting('passage.legal_entity_scopes', true) = '*'
-         OR legal_entity_id::text = ANY(string_to_array(current_setting('passage.legal_entity_scopes', true), ',')));
+  USING (current_setting('depot.legal_entity_scopes', true) = '*'
+         OR legal_entity_id::text = ANY(string_to_array(current_setting('depot.legal_entity_scopes', true), ',')));
 
 -- The consumer now writes the read model: balances are upserted (UPDATE) and the
 -- high-water mark is row-locked and advanced (UPDATE). Applied entries are
 -- append-only; a pending entry is deleted once applied.
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON reporting_balance, reporting_hwm TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT ON reporting_entry_applied TO passage_app';
-    EXECUTE 'GRANT SELECT, INSERT, DELETE ON reporting_entry_pending TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON reporting_balance, reporting_hwm TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT ON reporting_entry_applied TO depot_app';
+    EXECUTE 'GRANT SELECT, INSERT, DELETE ON reporting_entry_pending TO depot_app';
   END IF;
 END
 $$;

@@ -10,7 +10,7 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/services/planning/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/planning/internal/domain"
 )
 
 func (f *fakeStore) RunQuotas(_ context.Context, _, _ string, itemIDs []string, _, _ time.Time) ([]domain.RunQuota, error) {

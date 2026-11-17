@@ -7,13 +7,13 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/eventing"
-	"github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/inventory/internal/api"
-	"github.com/BenjaminSRussell/passage/services/inventory/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/inventory/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/eventing"
+	"github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/inventory/internal/api"
+	"github.com/BenjaminSRussell/depot/services/inventory/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/inventory/internal/store"
 )
 
 // The catch-weight flow fixtures are the receiving and sales events of one
@@ -169,7 +169,7 @@ func TestCatchWeightFlow_ReceiptToSalesDelivery(t *testing.T) {
 		m["receipt_id"] = "0199f480-0000-7000-8000-0000000000a3"
 		delete(l, "site_id")
 	}))
-	foreign := flowEvent(t, api.ReceiptPostedType, "/passage/purchasing/purchasing", flowData(t, "receipt-posted.json", nil))
+	foreign := flowEvent(t, api.ReceiptPostedType, "/depot/purchasing/purchasing", flowData(t, "receipt-posted.json", nil))
 	tooMuch := flowEvent(t, api.OrderProgressRecordedType, api.SalesSource, flowData(t, "orderprogress-delivered.json", func(m, l map[string]any) {
 		m["progress_id"], m["source_ref"] = "0199f480-0000-7000-8000-0000000000a4", "PS-X"
 		l["quantity"], l["reported_weight"] = "6", "61"

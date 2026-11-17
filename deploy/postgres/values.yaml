@@ -14,7 +14,7 @@ cdc:
 secretName: ""
 externalSecret:
   enabled: true
-  storeName: passage
+  storeName: depot
   environment: ""
-  pathPrefix: passage/{env}
+  pathPrefix: depot/{env}
   refreshInterval: 1h

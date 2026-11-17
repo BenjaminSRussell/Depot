@@ -103,9 +103,9 @@ jobs:
           --health-retries 10
     env:
       PGPASSWORD: postgres
-      PASSAGE_TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres?sslmode=disable
-      PASSAGE_TEST_APP_DATABASE_URL: postgres://passage_app:passage_app@localhost:5432/postgres?sslmode=disable
-      PASSAGE_TEST_RESTORE_DATABASE_URL: postgres://postgres:postgres@localhost:5432/passage_restore?sslmode=disable
+      DEPOT_TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres?sslmode=disable
+      DEPOT_TEST_APP_DATABASE_URL: postgres://depot_app:depot_app@localhost:5432/postgres?sslmode=disable
+      DEPOT_TEST_RESTORE_DATABASE_URL: postgres://postgres:postgres@localhost:5432/depot_restore?sslmode=disable
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
@@ -144,8 +144,8 @@ jobs:
     if: inputs.go
     runs-on: ubuntu-24.04
     env:
-      PASSAGE_TEST_KEYCLOAK_URL: http://localhost:8080
-      PASSAGE_TEST_KEYCLOAK_ADMIN: admin
+      DEPOT_TEST_KEYCLOAK_URL: http://localhost:8080
+      DEPOT_TEST_KEYCLOAK_ADMIN: admin
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
@@ -155,7 +155,7 @@ jobs:
       - run: |
           password="Kc-$(openssl rand -hex 16)"
           echo "::add-mask::$password"
-          echo "PASSAGE_TEST_KEYCLOAK_ADMIN_PASSWORD=$password" >> "$GITHUB_ENV"
+          echo "DEPOT_TEST_KEYCLOAK_ADMIN_PASSWORD=$password" >> "$GITHUB_ENV"
       # The WebAuthn login drives Chromium with a virtual authenticator (services/identity/testdata/webauthn_browser.cjs);
       # playwright is pinned to the version apps/web uses.
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
@@ -176,14 +176,14 @@ jobs:
           echo "NODE_PATH=$RUNNER_TEMP/playwright/node_modules" >> "$GITHUB_ENV"
       - run: >-
           docker run -d --name keycloak -p 8080:8080
-          -e KC_BOOTSTRAP_ADMIN_USERNAME="$PASSAGE_TEST_KEYCLOAK_ADMIN"
-          -e KC_BOOTSTRAP_ADMIN_PASSWORD="$PASSAGE_TEST_KEYCLOAK_ADMIN_PASSWORD"
+          -e KC_BOOTSTRAP_ADMIN_USERNAME="$DEPOT_TEST_KEYCLOAK_ADMIN"
+          -e KC_BOOTSTRAP_ADMIN_PASSWORD="$DEPOT_TEST_KEYCLOAK_ADMIN_PASSWORD"
           -e KC_HOSTNAME_STRICT=false
-          -v "$PWD/deploy/keycloak/realm-passage.json:/opt/keycloak/data/import/realm-passage.json:ro"
+          -v "$PWD/deploy/keycloak/realm-depot.json:/opt/keycloak/data/import/realm-depot.json:ro"
           quay.io/keycloak/keycloak:26.0.8 start-dev --import-realm
       - run: |
           for _ in $(seq 1 60); do
-            curl -fsS http://localhost:8080/realms/passage/.well-known/openid-configuration >/dev/null && exit 0
+            curl -fsS http://localhost:8080/realms/depot/.well-known/openid-configuration >/dev/null && exit 0
             sleep 3
           done
           docker logs keycloak
@@ -202,7 +202,7 @@ jobs:
       matrix:
         # excluded until clean: services/close engineering fx migration org party payables tax,
         # tools/connectors.
-        module: [platform/go, services/audit, services/batch, services/identity, services/metadata, services/mobile, services/numbering, services/ops, services/platform-health, services/product, services/receiving, services/search, tools/importexport, tools/rlscheck, tools/tenant-restore, tools/e2e, tools/passage-server, tools/signoff-packets]
+        module: [platform/go, services/audit, services/batch, services/identity, services/metadata, services/mobile, services/numbering, services/ops, services/platform-health, services/product, services/receiving, services/search, tools/importexport, tools/rlscheck, tools/tenant-restore, tools/e2e, tools/depot-server, tools/signoff-packets]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
@@ -347,8 +347,8 @@ jobs:
           --health-retries 10
     env:
       PGPASSWORD: postgres
-      PASSAGE_TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres?sslmode=disable
-      PASSAGE_TEST_APP_DATABASE_URL: postgres://passage_app:passage_app@localhost:5432/postgres?sslmode=disable
+      DEPOT_TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres?sslmode=disable
+      DEPOT_TEST_APP_DATABASE_URL: postgres://depot_app:depot_app@localhost:5432/postgres?sslmode=disable
     defaults:
       run:
         working-directory: ${{ matrix.package }}
@@ -429,8 +429,8 @@ jobs:
           --health-retries 10
     env:
       PGPASSWORD: postgres
-      PASSAGE_TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres?sslmode=disable
-      PASSAGE_TEST_APP_DATABASE_URL: postgres://passage_app:passage_app@localhost:5432/postgres?sslmode=disable
+      DEPOT_TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres?sslmode=disable
+      DEPOT_TEST_APP_DATABASE_URL: postgres://depot_app:depot_app@localhost:5432/postgres?sslmode=disable
     defaults:
       run:
         working-directory: services/${{ matrix.package }}
@@ -488,22 +488,22 @@ jobs:
         working-directory: platform/go
         run: |
           GOFIPS140=v1.0.0 CGO_ENABLED=0 go build -o "$RUNNER_TEMP/fipscheck" ./cloudprofile/cmd/fipscheck
-          PASSAGE_CLOUD_PROFILE=gcc "$RUNNER_TEMP/fipscheck" | tee /dev/stderr | grep -q 'fips140.Enabled=true'
-          if PASSAGE_CLOUD_PROFILE=gcc GODEBUG=fips140=off "$RUNNER_TEMP/fipscheck"; then echo "must refuse to start with FIPS off"; exit 1; fi
+          DEPOT_CLOUD_PROFILE=gcc "$RUNNER_TEMP/fipscheck" | tee /dev/stderr | grep -q 'fips140.Enabled=true'
+          if DEPOT_CLOUD_PROFILE=gcc GODEBUG=fips140=off "$RUNNER_TEMP/fipscheck"; then echo "must refuse to start with FIPS off"; exit 1; fi
           CGO_ENABLED=0 go build -o "$RUNNER_TEMP/plaincheck" ./cloudprofile/cmd/fipscheck
-          if PASSAGE_CLOUD_PROFILE=gcc "$RUNNER_TEMP/plaincheck"; then echo "an ordinary build must refuse a FIPS profile"; exit 1; fi
+          if DEPOT_CLOUD_PROFILE=gcc "$RUNNER_TEMP/plaincheck"; then echo "an ordinary build must refuse a FIPS profile"; exit 1; fi
       - name: Build a service image the FIPS way
-        run: docker build --build-arg GOFIPS140=v1.0.0 -f services/identity/Dockerfile -t passage/identity-fips .
+        run: docker build --build-arg GOFIPS140=v1.0.0 -f services/identity/Dockerfile -t depot/identity-fips .
       - name: Build and boot Keycloak with BouncyCastle FIPS (strict)
         run: |
-          docker build -f deploy/keycloak/Dockerfile.fips -t passage/keycloak-fips deploy/keycloak
+          docker build -f deploy/keycloak/Dockerfile.fips -t depot/keycloak-fips deploy/keycloak
           password="Kc-$(openssl rand -hex 16)"
           docker run -d --name keycloak-fips -p 8080:8080 \
             -e KC_BOOTSTRAP_ADMIN_USERNAME=admin -e KC_BOOTSTRAP_ADMIN_PASSWORD="$password" -e KC_HOSTNAME_STRICT=false \
-            -v "$PWD/deploy/keycloak/realm-passage.json:/opt/keycloak/data/import/realm-passage.json:ro" \
-            passage/keycloak-fips start-dev --features=fips --fips-mode=strict --import-realm --http-enabled=true
+            -v "$PWD/deploy/keycloak/realm-depot.json:/opt/keycloak/data/import/realm-depot.json:ro" \
+            depot/keycloak-fips start-dev --features=fips --fips-mode=strict --import-realm --http-enabled=true
           for _ in $(seq 1 60); do
-            curl -fsS http://localhost:8080/realms/passage/.well-known/openid-configuration >/dev/null && exit 0
+            curl -fsS http://localhost:8080/realms/depot/.well-known/openid-configuration >/dev/null && exit 0
             sleep 3
           done
           docker logs keycloak-fips
@@ -513,17 +513,17 @@ jobs:
       - name: Import the hipaa realm patch with IdP MFA trust into strict FIPS Keycloak
         run: |
           docker rm -f keycloak-fips >/dev/null
-          (cd platform/go && go run ./cloudprofile/cmd/cloudprofile realm-patch -profile gcc-high+hipaa -trust-idp-mfa -realm ../../deploy/keycloak/realm-passage.json) > "$RUNNER_TEMP/realm-hipaa.json"
+          (cd platform/go && go run ./cloudprofile/cmd/cloudprofile realm-patch -profile gcc-high+hipaa -trust-idp-mfa -realm ../../deploy/keycloak/realm-depot.json) > "$RUNNER_TEMP/realm-hipaa.json"
           password="Kc-$(openssl rand -hex 16)"
           docker run -d --name keycloak-hipaa -p 8080:8080 \
             -e KC_BOOTSTRAP_ADMIN_USERNAME=admin -e KC_BOOTSTRAP_ADMIN_PASSWORD="$password" -e KC_HOSTNAME_STRICT=false \
-            -v "$RUNNER_TEMP/realm-hipaa.json:/opt/keycloak/data/import/realm-passage.json:ro" \
-            passage/keycloak-fips start-dev --features=fips --fips-mode=strict --import-realm --http-enabled=true
+            -v "$RUNNER_TEMP/realm-hipaa.json:/opt/keycloak/data/import/realm-depot.json:ro" \
+            depot/keycloak-fips start-dev --features=fips --fips-mode=strict --import-realm --http-enabled=true
           for _ in $(seq 1 60); do
-            if curl -fsS http://localhost:8080/realms/passage/.well-known/openid-configuration >/dev/null; then
+            if curl -fsS http://localhost:8080/realms/depot/.well-known/openid-configuration >/dev/null; then
               token="$(curl -fsS -d client_id=admin-cli -d username=admin --data-urlencode "password=$password" -d grant_type=password http://localhost:8080/realms/master/protocol/openid-connect/token | python3 -c 'import json,sys; print(json.load(sys.stdin)["access_token"])')"
-              flows="$(curl -fsS -H "Authorization: Bearer $token" http://localhost:8080/admin/realms/passage/authentication/flows)"
-              echo "$flows" | grep -q 'passage-post-broker-trust-idp-mfa' || { echo "the trust flow did not import"; exit 1; }
+              flows="$(curl -fsS -H "Authorization: Bearer $token" http://localhost:8080/admin/realms/depot/authentication/flows)"
+              echo "$flows" | grep -q 'depot-post-broker-trust-idp-mfa' || { echo "the trust flow did not import"; exit 1; }
               exit 0
             fi
             sleep 3
@@ -647,7 +647,7 @@ jobs:
         run: |
           echo "${IMAGE}: \`${IMAGE_REF}\`" >> "$GITHUB_STEP_SUMMARY"
 
-  # passage-cloudevents-enricher SMT (deploy/kafka-connect/enricher): unit tests plus the chain test that
+  # depot-cloudevents-enricher SMT (deploy/kafka-connect/enricher): unit tests plus the chain test that
   # runs Debezium's EventRouter with the deploy/kafka/connect.yaml settings. The runner's default JDK is 17.
   enricher:
     if: inputs.connect
@@ -673,9 +673,9 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - id: image
         run: |
-          name="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/passage-connect"
-          tag=$(sed -n 's|^  image: ghcr.io/benjaminsrussell/passage-connect:\(.*\)$|\1|p' deploy/kafka/connect.yaml)
-          [ -n "$tag" ] || { echo "no passage-connect image tag in deploy/kafka/connect.yaml"; exit 1; }
+          name="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/depot-connect"
+          tag=$(sed -n 's|^  image: ghcr.io/benjaminsrussell/depot-connect:\(.*\)$|\1|p' deploy/kafka/connect.yaml)
+          [ -n "$tag" ] || { echo "no depot-connect image tag in deploy/kafka/connect.yaml"; exit 1; }
           echo "name=$name" >> "$GITHUB_OUTPUT"
           echo "tags=$name:$tag,$name:${{ github.sha }}" >> "$GITHUB_OUTPUT"
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069

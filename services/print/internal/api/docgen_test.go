@@ -11,11 +11,11 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/print/internal/api"
-	"github.com/BenjaminSRussell/passage/services/print/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/print/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/print/internal/api"
+	"github.com/BenjaminSRussell/depot/services/print/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/print/internal/store"
 )
 
 // memDocs is an in-memory store.DocStore for handler tests.
@@ -179,9 +179,9 @@ func TestTemplates_PutVersionDefaultAndDuties(t *testing.T) {
 		t.Fatalf("put: %d %s", rec.Code, rec.Body)
 	}
 	req := httptest.NewRequest(http.MethodPut, "/print/v1/document-templates/INV-STD", strings.NewReader(body))
-	req.Header.Set("X-Passage-Tenant", testkit.TenantID(1))
-	req.Header.Set("X-Passage-User", "worker-7")
-	req.Header.Set("X-Passage-Duties", "print.admin")
+	req.Header.Set("X-Depot-Tenant", testkit.TenantID(1))
+	req.Header.Set("X-Depot-User", "worker-7")
+	req.Header.Set("X-Depot-Duties", "print.admin")
 	req.Header.Set("If-Match", `"1"`)
 	second := httptest.NewRecorder()
 	h.ServeHTTP(second, req)
@@ -209,9 +209,9 @@ func TestTemplates_IfMatchAndHistory(t *testing.T) {
 	body := `{"name":"Standard invoice","documentType":"CUSTOMER_INVOICE","config":{"title":"Tax invoice"}}`
 	put := func(ifMatch string) *httptest.ResponseRecorder {
 		req := httptest.NewRequest(http.MethodPut, "/print/v1/document-templates/INV-STD", strings.NewReader(body))
-		req.Header.Set("X-Passage-Tenant", testkit.TenantID(1))
-		req.Header.Set("X-Passage-User", "designer-1")
-		req.Header.Set("X-Passage-Duties", "print.admin")
+		req.Header.Set("X-Depot-Tenant", testkit.TenantID(1))
+		req.Header.Set("X-Depot-User", "designer-1")
+		req.Header.Set("X-Depot-Duties", "print.admin")
 		if ifMatch != "" {
 			req.Header.Set("If-Match", ifMatch)
 		}
@@ -279,7 +279,7 @@ func TestRenderDocument_LetterFromABodyBlock(t *testing.T) {
 	call(t, h, http.MethodPut, "/print/v1/text-blocks/BAL-CONF/en", `{"body":"Our records show {{amount}} due from {{counterpartyName}}."}`, "print.admin", "")
 	body := `{"documentType":"BALANCE_CONFIRMATION","number":"BC-1","legalEntity":{"name":"Cedar Ridge Pumps"},"counterparty":{"name":"Ironbridge"},"bodyBlock":"BAL-CONF","values":{"amount":"5,676.00 USD"}}`
 	rec := call(t, h, http.MethodPost, "/print/v1/documents:render", body, "print.document.render", "")
-	if rec.Code != http.StatusOK || rec.Header().Get("X-Passage-Document-Pages") != "1" {
+	if rec.Code != http.StatusOK || rec.Header().Get("X-Depot-Document-Pages") != "1" {
 		t.Fatalf("letter: %d %s", rec.Code, rec.Body)
 	}
 	noBody := `{"documentType":"PAYMENT_NOTICE","number":"PN-1","legalEntity":{"name":"Cedar Ridge Pumps"}}`
@@ -298,11 +298,11 @@ const (
 func callAs(t *testing.T, h http.Handler, method, path, body, duties, key, le string) *httptest.ResponseRecorder {
 	t.Helper()
 	req := httptest.NewRequest(method, path, strings.NewReader(body))
-	req.Header.Set("X-Passage-Tenant", testkit.TenantID(1))
-	req.Header.Set("X-Passage-User", "admin-1")
-	req.Header.Set("X-Passage-Duties", duties)
+	req.Header.Set("X-Depot-Tenant", testkit.TenantID(1))
+	req.Header.Set("X-Depot-User", "admin-1")
+	req.Header.Set("X-Depot-Duties", duties)
 	if le != "" {
-		req.Header.Set("X-Passage-Legal-Entity", le)
+		req.Header.Set("X-Depot-Legal-Entity", le)
 	}
 	req.Header.Set("Content-Type", "application/json")
 	if key != "" {
@@ -461,9 +461,9 @@ func TestTemplates_RestoreAnEarlierVersionAsANewOne(t *testing.T) {
 	h := docRouter()
 	restore := func(v, ifMatch string) *httptest.ResponseRecorder {
 		req := httptest.NewRequest(http.MethodPost, "/print/v1/document-templates/INV-STD/versions/"+v+":restore", nil)
-		req.Header.Set("X-Passage-Tenant", testkit.TenantID(1))
-		req.Header.Set("X-Passage-User", "designer-2")
-		req.Header.Set("X-Passage-Duties", "print.admin")
+		req.Header.Set("X-Depot-Tenant", testkit.TenantID(1))
+		req.Header.Set("X-Depot-User", "designer-2")
+		req.Header.Set("X-Depot-Duties", "print.admin")
 		if ifMatch != "" {
 			req.Header.Set("If-Match", ifMatch)
 		}
@@ -474,8 +474,8 @@ func TestTemplates_RestoreAnEarlierVersionAsANewOne(t *testing.T) {
 	call(t, h, http.MethodPut, "/print/v1/document-templates/INV-STD", `{"name":"Standard","documentType":"CUSTOMER_INVOICE","default":true,"config":{"title":"Tax invoice"}}`, "print.admin", "")
 	req := func(ifMatch, title string) {
 		r := httptest.NewRequest(http.MethodPut, "/print/v1/document-templates/INV-STD", strings.NewReader(`{"name":"Standard","documentType":"CUSTOMER_INVOICE","default":true,"config":{"title":"`+title+`"}}`))
-		r.Header.Set("X-Passage-Tenant", testkit.TenantID(1))
-		r.Header.Set("X-Passage-Duties", "print.admin")
+		r.Header.Set("X-Depot-Tenant", testkit.TenantID(1))
+		r.Header.Set("X-Depot-Duties", "print.admin")
 		r.Header.Set("If-Match", ifMatch)
 		h.ServeHTTP(httptest.NewRecorder(), r)
 	}

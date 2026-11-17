@@ -18,9 +18,9 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/identity"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/identity"
 )
 
 const (
@@ -218,7 +218,7 @@ func TestTenantsAreOperatorOnly(t *testing.T) {
 			t.Fatal(err)
 		}
 		audit, events := f.auditAndEvents(t, tenantID)
-		if len(audit) != 1 || audit[0] != "tenant.created|operator-1" || len(events) != 1 || events[0] != "dev.passage.identity.tenant.created.v1" {
+		if len(audit) != 1 || audit[0] != "tenant.created|operator-1" || len(events) != 1 || events[0] != "dev.depot.identity.tenant.created.v1" {
 			t.Fatalf("audit = %v events = %v", audit, events)
 		}
 		operatorAudit, operatorEvents := f.auditAndEvents(t, f.operator)
@@ -301,7 +301,7 @@ func TestOperatorTableIsOperatorReadOnly(t *testing.T) {
 			_, err := tx.Exec(context.Background(), stmt, f.tenantA)
 			return err
 		})
-		requireDenied(t, err, "passage_app "+stmt)
+		requireDenied(t, err, "depot_app "+stmt)
 	}
 }
 
@@ -316,7 +316,7 @@ func TestLegalEntities(t *testing.T) {
 
 	t.Run("create is audited and emits an event", func(t *testing.T) {
 		audit, events := f.auditAndEvents(t, f.tenantA)
-		if len(audit) != 1 || audit[0] != "legalentity.created|admin-1" || len(events) != 1 || events[0] != "dev.passage.identity.legalentity.created.v1" {
+		if len(audit) != 1 || audit[0] != "legalentity.created|admin-1" || len(events) != 1 || events[0] != "dev.depot.identity.legalentity.created.v1" {
 			t.Fatalf("audit = %v events = %v", audit, events)
 		}
 	})
@@ -489,7 +489,7 @@ func TestRoleAssignmentLifecycle(t *testing.T) {
 		for _, e := range events {
 			eventCount[e]++
 		}
-		if assigned != 5 || ended != 2 || eventCount["dev.passage.identity.roleassignment.assigned.v1"] != 5 || eventCount["dev.passage.identity.roleassignment.ended.v1"] != 2 {
+		if assigned != 5 || ended != 2 || eventCount["dev.depot.identity.roleassignment.assigned.v1"] != 5 || eventCount["dev.depot.identity.roleassignment.ended.v1"] != 2 {
 			t.Fatalf("audit = %v events = %v", audit, eventCount)
 		}
 	})

@@ -26,7 +26,7 @@ def render(chart: str, profile: str, *sets: str, registry: str = "r.azurecr.io")
     return subprocess.run(cmd, check=True, capture_output=True, text=True).stdout
 
 
-STORE = ("azureKeyVault.name=kv-passage", "azureKeyVault.tenantId=00000000-0000-0000-0000-000000000002")
+STORE = ("azureKeyVault.name=kv-depot", "azureKeyVault.tenantId=00000000-0000-0000-0000-000000000002")
 
 
 @unittest.skipUnless(HELM, "helm not installed")
@@ -34,14 +34,14 @@ class StoreTests(unittest.TestCase):
     def test_commercial_store_uses_workload_identity_and_the_profile_suffix(self) -> None:
         out = render("deploy/secret-store", "commercial", *STORE)
         self.assertIn("kind: ClusterSecretStore", out)
-        self.assertIn("name: passage\n", out)
+        self.assertIn("name: depot\n", out)
         self.assertIn("authType: WorkloadIdentity", out)
-        self.assertIn('vaultUrl: "https://kv-passage.vault.azure.net"', out)
+        self.assertIn('vaultUrl: "https://kv-depot.vault.azure.net"', out)
         self.assertIn("environmentType: PublicCloud", out)
 
     def test_gov_and_china_use_their_own_suffix_and_environment(self) -> None:
         gov = render("deploy/secret-store", "gcc-high", *STORE)
-        self.assertIn('vaultUrl: "https://kv-passage.vault.usgovcloudapi.net"', gov)
+        self.assertIn('vaultUrl: "https://kv-depot.vault.usgovcloudapi.net"', gov)
         self.assertIn("environmentType: USGovernmentCloud", gov)
         china = render("deploy/secret-store", "china", *STORE)
         self.assertIn("vault.azure.cn", china)
@@ -74,8 +74,8 @@ class EveryChartUsesThisStoreName(unittest.TestCase):
         for values in list(REPO.glob("services/*/charts/*/values.yaml")) + [REPO / "deploy/postgres/values.yaml", REPO / "deploy/temporal-postgres/values.yaml"]:
             for m in re.finditer(r"^\s+storeName:\s*(\S+)", values.read_text(encoding="utf-8"), re.M):
                 names.setdefault(m.group(1), []).append(values.relative_to(REPO).as_posix())
-        self.assertEqual(sorted(names), ["passage"], names)
-        self.assertGreaterEqual(len(names["passage"]), 4)
+        self.assertEqual(sorted(names), ["depot"], names)
+        self.assertGreaterEqual(len(names["depot"]), 4)
 
 
 @unittest.skipUnless(HELM, "helm not installed")
@@ -85,9 +85,9 @@ class ExternalSecretsWorkWithKeyVault(unittest.TestCase):
     CASES = [
         ("deploy/postgres", ["database=outbox", "externalSecret.environment=dev"]),
         ("deploy/temporal-postgres", ["externalSecret.environment=dev"]),
-        ("services/identity/charts/identity", ["operatorTenantId=00000000-0000-0000-0000-000000000001", "keycloakDeprovision.enabled=true", "keycloakDeprovision.externalSecret.environment=dev", "keycloakDeprovision.externalSecret.realms={acme}", "keycloakDeprovision.adminUrl=https://keycloak.dev.passage.dev"]),
-        ("services/batch/charts/batch", ["notify.enabled=true", "notify.smtp.enabled=true", "notify.smtp.from=noreply@dev.passage.dev", "notify.webhook.enabled=true", "notify.webhook.url=https://hooks.dev.passage.dev/x", "notify.externalSecret.environment=dev"]),
-        ("services/edi/charts/edi", ["transports.externalSecret.enabled=true", "transports.secretName=edi-transports", "transports.externalSecret.key=passage/dev/edi/transports"]),
+        ("services/identity/charts/identity", ["operatorTenantId=00000000-0000-0000-0000-000000000001", "keycloakDeprovision.enabled=true", "keycloakDeprovision.externalSecret.environment=dev", "keycloakDeprovision.externalSecret.realms={acme}", "keycloakDeprovision.adminUrl=https://keycloak.dev.depot.dev"]),
+        ("services/batch/charts/batch", ["notify.enabled=true", "notify.smtp.enabled=true", "notify.smtp.from=noreply@dev.depot.dev", "notify.webhook.enabled=true", "notify.webhook.url=https://hooks.dev.depot.dev/x", "notify.externalSecret.environment=dev"]),
+        ("services/edi/charts/edi", ["transports.externalSecret.enabled=true", "transports.secretName=edi-transports", "transports.externalSecret.key=depot/dev/edi/transports"]),
     ]
 
     def test_keys_are_key_vault_names_under_a_profile_and_unchanged_without_one(self) -> None:

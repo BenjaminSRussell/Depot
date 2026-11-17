@@ -7,7 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/BenjaminSRussell/passage/services/sales/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/sales/internal/domain"
 )
 
 // dateRule is what decides the confirmed ship date of a line (FR-27.3,

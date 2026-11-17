@@ -13,7 +13,7 @@ export interface ParallelRunValues {
   revenue: string;
   explainedMaxPct: string;
   legacy: string;
-  passage: string;
+  depot: string;
 }
 
 type Field = keyof ParallelRunValues;
@@ -35,10 +35,10 @@ export function validateParallelRun(values: ParallelRunValues): { errors: Errors
   const pct = values.explainedMaxPct.trim();
   if (pct !== "" && !PCT.test(pct)) errors.explainedMaxPct = "Enter a percentage from 0 to 1.";
   const legacy = parseTuples(values.legacy);
-  const passage = parseTuples(values.passage);
+  const depot = parseTuples(values.depot);
   if (legacy.errors.length > 0) errors.legacy = legacy.errors.slice(0, 3).join(" ");
-  if (passage.errors.length > 0) errors.passage = passage.errors.slice(0, 3).join(" ");
-  if (!errors.legacy && !errors.passage && legacy.tuples.length + passage.tuples.length === 0) errors.legacy = "Paste the legacy and the Passage tuples.";
+  if (depot.errors.length > 0) errors.depot = depot.errors.slice(0, 3).join(" ");
+  if (!errors.legacy && !errors.depot && legacy.tuples.length + depot.tuples.length === 0) errors.legacy = "Paste the legacy and the Depot tuples.";
   if (Object.keys(errors).length > 0) return { errors };
   return {
     errors,
@@ -49,12 +49,12 @@ export function validateParallelRun(values: ParallelRunValues): { errors: Errors
       revenue,
       ...(pct !== "" ? { explainedMaxPct: pct } : {}),
       legacy: legacy.tuples,
-      passage: passage.tuples,
+      depot: depot.tuples,
     },
   };
 }
 
-/** Diff a replayed legacy period against Passage (FR-49.5). */
+/** Diff a replayed legacy period against Depot (FR-49.5). */
 export function NewParallelRunPage() {
   const navigate = useNavigate();
   const [values, setValues] = useState<ParallelRunValues>({
@@ -64,7 +64,7 @@ export function NewParallelRunPage() {
     revenue: "",
     explainedMaxPct: "",
     legacy: "",
-    passage: "",
+    depot: "",
   });
   const [errors, setErrors] = useState<Errors>({});
   const [failure, setFailure] = useState<Problem | null>(null);
@@ -105,7 +105,7 @@ export function NewParallelRunPage() {
     </FormField>
   );
 
-  const tuples = (id: "legacy" | "passage", label: string) => (
+  const tuples = (id: "legacy" | "depot", label: string) => (
     <div className={styles.wide}>
       <FormField id={`parallel-${id}`} label={label} hint="One per line: area (TB, INV, AP, AR or FA), key, amount." error={errors[id]}>
         {(control) => <Textarea {...control} mono rows={8} value={values[id]} invalid={Boolean(errors[id])} onChange={(event) => update({ [id]: event.target.value })} />}
@@ -117,7 +117,7 @@ export function NewParallelRunPage() {
     <div className={styles.stack}>
       <PageHeader
         title="Start parallel run"
-        description="Paste the legacy period's canonical tuples and the tuples the replay produced in Passage. Differences of at most 0.01 are expected by rule RND-001; the rest need a reviewer's reason."
+        description="Paste the legacy period's canonical tuples and the tuples the replay produced in Depot. Differences of at most 0.01 are expected by rule RND-001; the rest need a reviewer's reason."
       />
       <Card>
         <form className={styles.form} onSubmit={submit} noValidate>
@@ -137,7 +137,7 @@ export function NewParallelRunPage() {
           {text("revenue", "Period revenue", "The base of the explained-amount limit.", { inputMode: "decimal" })}
           {text("explainedMaxPct", "Explained limit (% of revenue)", "Default 0.1.", { inputMode: "decimal" }, true)}
           {tuples("legacy", "Legacy tuples")}
-          {tuples("passage", "Passage tuples")}
+          {tuples("depot", "Depot tuples")}
           {failure ? (
             <div className={styles.formActions}>
               <Alert tone="danger" title="Could not start the parallel run" live="alert">

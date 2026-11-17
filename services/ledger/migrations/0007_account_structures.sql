@@ -22,8 +22,8 @@ CREATE TABLE IF NOT EXISTS dimension_value (
 ALTER TABLE dimension_value ENABLE ROW LEVEL SECURITY;
 ALTER TABLE dimension_value FORCE ROW LEVEL SECURITY;
 CREATE POLICY dimension_value_tenant_access ON dimension_value AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- Account structure versions. A draft may be edited; an active version may
 -- only be retired and a retired one is final (the store enforces this). A
@@ -52,8 +52,8 @@ CREATE INDEX IF NOT EXISTS account_structure_active ON account_structure (tenant
 ALTER TABLE account_structure ENABLE ROW LEVEL SECURITY;
 ALTER TABLE account_structure FORCE ROW LEVEL SECURITY;
 CREATE POLICY account_structure_tenant_access ON account_structure AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 
 -- The structure version a combination was validated under (FR-11.4). Null for
 -- combinations of ledgers without structures. Combinations stay immutable.
@@ -63,8 +63,8 @@ ALTER TABLE dimension_combination ADD COLUMN IF NOT EXISTS account_structure_id 
 -- Skipped when the role does not exist, as in 0005_grants.sql.
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'passage_app') THEN
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON account_structure, dimension_value TO passage_app';
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON account_structure, dimension_value TO depot_app';
   END IF;
 END
 $$;

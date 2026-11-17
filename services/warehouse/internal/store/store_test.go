@@ -3,9 +3,9 @@ package store
 import (
 	"context"
 	"errors"
-	"strings"
 	"fmt"
 	"os"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -13,11 +13,11 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/testkit"
-	"github.com/BenjaminSRussell/passage/services/warehouse/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/warehouse/migrations"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/testkit"
+	"github.com/BenjaminSRussell/depot/services/warehouse/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/warehouse/migrations"
 )
 
 func dq(s string) decimal.Decimal { return decimal.RequireFromString(s) }
@@ -25,7 +25,7 @@ func dq(s string) decimal.Decimal { return decimal.RequireFromString(s) }
 func key(k string) Idem { return Idem{Key: k, Hash: "hash-" + k} }
 
 // setup returns a migrated store, a tenant-scoped context and a fresh
-// warehouse id. The tests skip without PASSAGE_TEST_DATABASE_URL.
+// warehouse id. The tests skip without DEPOT_TEST_DATABASE_URL.
 func setup(t *testing.T) (*Store, context.Context, string) {
 	t.Helper()
 	pool := testkit.DB(t)
@@ -232,7 +232,7 @@ func TestStore_PutAwayAssignConfirm(t *testing.T) {
 	if !locs[0].Used.Weight.Equal(dq("2.5")) || locs[0].Used.LPs != 1 || locs[0].Version != 2 {
 		t.Fatalf("A-01 usage = %+v version %d", locs[0].Used, locs[0].Version)
 	}
-	if outboxCount(t, adminOf(st), "dev.passage.wms.work.created.v1") != 1 || outboxCount(t, adminOf(st), "dev.passage.wms.work.completed.v1") != 1 {
+	if outboxCount(t, adminOf(st), "dev.depot.wms.work.created.v1") != 1 || outboxCount(t, adminOf(st), "dev.depot.wms.work.completed.v1") != 1 {
 		t.Fatal("want one work.created and one work.completed event")
 	}
 	if _, err := st.GetWork(ctx, ids.New()); !errors.Is(err, ErrNotFound) {
@@ -291,7 +291,7 @@ func TestStore_ShortPick(t *testing.T) {
 		t.Fatalf("GetWork remainder = %+v err=%v", fetched, err)
 	}
 	// Created: put-away, pick, remainder. Completed: put-away and the short-picked parent.
-	if c, d := outboxCount(t, adminOf(st), "dev.passage.wms.work.created.v1"), outboxCount(t, adminOf(st), "dev.passage.wms.work.completed.v1"); c != 3 || d != 2 {
+	if c, d := outboxCount(t, adminOf(st), "dev.depot.wms.work.created.v1"), outboxCount(t, adminOf(st), "dev.depot.wms.work.completed.v1"); c != 3 || d != 2 {
 		t.Fatalf("outbox created=%d completed=%d, want 3 and 2", c, d)
 	}
 }

@@ -10,10 +10,10 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/platform/dbx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/services/processmfg/internal/domain"
-	pmfevents "github.com/BenjaminSRussell/passage/services/processmfg/internal/events"
+	"github.com/BenjaminSRussell/depot/platform/dbx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/services/processmfg/internal/domain"
+	pmfevents "github.com/BenjaminSRussell/depot/services/processmfg/internal/events"
 )
 
 // MergeSource is one stored batch to merge. The register keeps no quantity or

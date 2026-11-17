@@ -11,8 +11,8 @@ CREATE TABLE IF NOT EXISTS region (
 ALTER TABLE region ENABLE ROW LEVEL SECURITY;
 ALTER TABLE region FORCE ROW LEVEL SECURITY;
 CREATE POLICY region_tenant_access ON region AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY region_sys_read ON region AS PERMISSIVE FOR SELECT
   USING (tenant_id = '00000000-0000-0000-0000-000000000000'::uuid);
 
@@ -26,7 +26,7 @@ CREATE TABLE IF NOT EXISTS language (
 ALTER TABLE language ENABLE ROW LEVEL SECURITY;
 ALTER TABLE language FORCE ROW LEVEL SECURITY;
 CREATE POLICY language_tenant_access ON language AS PERMISSIVE
-  USING (tenant_id = current_setting('passage.tenant_id', true)::uuid)
-  WITH CHECK (tenant_id = current_setting('passage.tenant_id', true)::uuid);
+  USING (tenant_id = current_setting('depot.tenant_id', true)::uuid)
+  WITH CHECK (tenant_id = current_setting('depot.tenant_id', true)::uuid);
 CREATE POLICY language_sys_read ON language AS PERMISSIVE FOR SELECT
   USING (tenant_id = '00000000-0000-0000-0000-000000000000'::uuid);

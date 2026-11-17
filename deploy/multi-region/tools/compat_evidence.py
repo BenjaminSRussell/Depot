@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Release N / N-1 compatibility evidence for every service API (PSG-50, FR-50.7, AC-50.5).
+"""Release N / N-1 compatibility evidence for every service API (DPT-50, FR-50.7, AC-50.5).
 
 The release pipeline exports each service's OpenAPI document as JSON into two directories: one for the
 previous release (N-1) and one for the release being cut (N). This runner pairs the files by name
@@ -13,7 +13,7 @@ previous release (N-1) and one for the release being cut (N). This runner pairs 
 Warnings from openapi_compat (new response enum values N-1 clients must tolerate) are kept per service in
 ``warnings`` and printed, so the release manager can check the N-1 web client; they do not fail the gate.
 
-The evidence file (schema passage.ops.compat-evidence/v1) is kept with the release notes as the N/N-1
+The evidence file (schema depot.ops.compat-evidence/v1) is kept with the release notes as the N/N-1
 record. Exit status: 0 every service compatible, 1 at least one breaking service, 2 usage or input error.
 
     python3 deploy/multi-region/tools/compat_evidence.py --previous n1/ --current n/ \\
@@ -32,7 +32,7 @@ from typing import Any
 
 from openapi_compat import check, load_doc
 
-SCHEMA = "passage.ops.compat-evidence/v1"
+SCHEMA = "depot.ops.compat-evidence/v1"
 
 
 def evaluate(previous: Path, current: Path) -> list[dict[str, Any]]:

@@ -14,23 +14,23 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/BenjaminSRussell/passage/platform/eventing"
-	"github.com/BenjaminSRussell/passage/platform/events"
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/platform/ids"
-	"github.com/BenjaminSRussell/passage/platform/tenant"
-	"github.com/BenjaminSRussell/passage/services/scheduling/internal/domain"
-	"github.com/BenjaminSRussell/passage/services/scheduling/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/eventing"
+	"github.com/BenjaminSRussell/depot/platform/events"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
+	"github.com/BenjaminSRussell/depot/services/scheduling/internal/domain"
+	"github.com/BenjaminSRussell/depot/services/scheduling/internal/store"
 )
 
 const (
 	// OrderScheduledType is production's order.scheduled.v1 (wave 21, FR-21.2).
-	OrderScheduledType  = "dev.passage.production.order.scheduled.v1"
-	OrderScheduledTopic = "passage.production.order"
+	OrderScheduledType  = "dev.depot.production.order.scheduled.v1"
+	OrderScheduledTopic = "depot.production.order"
 	// OrderStatusChangedType is production's order.statuschanged.v1, on the same
 	// topic and partition (keyed by order id) as order.scheduled.v1. With no
 	// dates it says the order's schedule was withdrawn (reset, cancel, merge).
-	OrderStatusChangedType = "dev.passage.production.order.statuschanged.v1"
+	OrderStatusChangedType = "dev.depot.production.order.statuschanged.v1"
 	// OrderImportConsumerName is the consumer (and Kafka group) of the order
 	// intake and the service principal it runs as, service:scheduling-order-import.
 	// It is its own consumer, separate from the EAM downtime one, so it holds

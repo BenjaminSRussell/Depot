@@ -194,7 +194,7 @@ func (s *ExecStep) annotate(v *stepVisit, has bool, m ExecMessage) {
 
 // ChainSeed is the hash a record's first step chains from: it binds the chain to its execution and recipe.
 func ChainSeed(executionID, recipeID string) string {
-	sum := sha256.Sum256([]byte("passage.pi-execution.v1|" + strings.ToLower(executionID) + "|" + strings.ToLower(recipeID)))
+	sum := sha256.Sum256([]byte("depot.pi-execution.v1|" + strings.ToLower(executionID) + "|" + strings.ToLower(recipeID)))
 	return hex.EncodeToString(sum[:])
 }
 
@@ -237,7 +237,7 @@ type ExecHeader struct {
 // RecordHash is the SHA-256 of the canonical header, which includes the head of the chain.
 func RecordHash(h ExecHeader) string {
 	body, _ := json.Marshal(h)
-	sum := sha256.Sum256(append([]byte("passage.pi-record.v1|"), body...))
+	sum := sha256.Sum256(append([]byte("depot.pi-record.v1|"), body...))
 	return hex.EncodeToString(sum[:])
 }
 

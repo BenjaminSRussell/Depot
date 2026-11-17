@@ -10,8 +10,8 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/BenjaminSRussell/passage/tools/migration-factory/internal/target"
-	"github.com/BenjaminSRussell/passage/tools/migration-factory/internal/target/targettest"
+	"github.com/BenjaminSRussell/depot/tools/migration-factory/internal/target"
+	"github.com/BenjaminSRussell/depot/tools/migration-factory/internal/target/targettest"
 )
 
 const (

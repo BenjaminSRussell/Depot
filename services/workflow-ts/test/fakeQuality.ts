@@ -39,7 +39,7 @@ export class FakeQuality {
   skewMs = 0;
 
   readonly fetch: typeof fetch = async (input, init) => {
-    const claims = decodeClaims(new Headers(init?.headers).get("X-Passage-Service-Token"));
+    const claims = decodeClaims(new Headers(init?.headers).get("X-Depot-Service-Token"));
     if (!claims || claims.iss !== "workflow-ts" || claims.aud !== "quality" || claims.duties.join() !== "quality.capa.execute" || !claims.act) {
       return problem(401, "missing or wrong service token");
     }

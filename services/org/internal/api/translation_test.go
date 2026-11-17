@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BenjaminSRussell/passage/platform/httpx"
-	"github.com/BenjaminSRussell/passage/services/org/internal/store"
+	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/services/org/internal/store"
 )
 
 const ownerID = "0190c9d2-7a4b-7c3e-8f10-000000000001"
@@ -32,9 +32,9 @@ func TestTranslation_PutCreatesReplacesAndCountsOnlyChanges(t *testing.T) {
 				status  int
 				counter string
 			}{
-				{`{"name":"Passage Fabrication"}`, http.StatusCreated, "1"},
-				{`{"name":"  Passage Fabrication  "}`, http.StatusOK, "1"},
-				{`{"name":"Passage Fabrication QC"}`, http.StatusOK, "2"},
+				{`{"name":"Depot Fabrication"}`, http.StatusCreated, "1"},
+				{`{"name":"  Depot Fabrication  "}`, http.StatusOK, "1"},
+				{`{"name":"Depot Fabrication QC"}`, http.StatusOK, "2"},
 			}
 			for _, step := range steps {
 				rec := do(r, http.MethodPut, path, step.body, duties, true)

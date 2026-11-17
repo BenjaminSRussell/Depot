@@ -80,20 +80,20 @@ describe("legacy key cross-reference", () => {
     await waitFor(() => expect(calls.some((u) => u.searchParams.get("keyPrefix") === "C1" && !u.searchParams.has("cursor"))).toBe(true));
   });
 
-  it("sends a Passage id only once it is a full UUID", async () => {
+  it("sends a Depot id only once it is a full UUID", async () => {
     handler = (url) => json(200, url.pathname.endsWith("/summary") ? summary : { items: [entry("C1")] });
     renderPage();
     await findTable({ name: "Legacy key cross-reference" });
-    const field = screen.getByLabelText("Passage identifier");
+    const field = screen.getByLabelText("Depot identifier");
     fireEvent.change(field, { target: { value: "0195f0a0-0000" } });
-    expect(await screen.findByText("Enter a full Passage id (UUID).")).toBeInTheDocument();
+    expect(await screen.findByText("Enter a full Depot id (UUID).")).toBeInTheDocument();
     expect(field).toHaveAttribute("aria-invalid", "true");
     expect(calls.some((u) => u.searchParams.has("targetId"))).toBe(false);
     expect(screen.getByRole("table")).toHaveTextContent("C1");
 
     fireEvent.change(field, { target: { value: " 0195f0a0-0000-7000-8000-0000000000d1 " } });
     await waitFor(() => expect(calls.some((u) => u.searchParams.get("targetId") === "0195f0a0-0000-7000-8000-0000000000d1")).toBe(true));
-    expect(screen.queryByText("Enter a full Passage id (UUID).")).not.toBeInTheDocument();
+    expect(screen.queryByText("Enter a full Depot id (UUID).")).not.toBeInTheDocument();
   });
 
   it("drops a load-more page that returns after the filter changed", async () => {
