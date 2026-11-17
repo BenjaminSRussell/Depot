@@ -6,6 +6,8 @@ a sync job the entity it runs for, an API read the caller's X-Depot-Legal-Entity
 from __future__ import annotations
 
 import os
+import random
+import time
 import uuid
 from contextlib import contextmanager
 from decimal import Decimal
@@ -23,16 +25,24 @@ MIGRATIONS_DIR = Path(os.environ.get("PREDICTION_MIGRATIONS_DIR") or Path(__file
 
 
 def migrate(url: str, directory: Path = MIGRATIONS_DIR) -> None:
-    """Applies the migrations not yet in schema_migrations, each in its own transaction (dbx.Migrate contract).
-    Run as the owner role."""
+    """Applies the migrations not yet in schema_migrations, each in its own transaction with its row, under the dbx.Migrate
+    advisory lock (a session lock keyed on the schema, taken by polling), so overlapping runs take turns (dbx.Migrate
+    contract). Run as the owner role."""
     with psycopg.connect(url, autocommit=True) as conn:
-        conn.execute("create table if not exists schema_migrations (name text primary key, applied_at timestamptz not null default now())")
-        for path in sorted(directory.glob("*.sql")):
-            if conn.execute("select 1 from schema_migrations where name = %s", (path.name,)).fetchone():
-                continue
-            with conn.transaction():
-                conn.execute(path.read_text(encoding="utf-8"))  # type: ignore[arg-type]
-                conn.execute("insert into schema_migrations (name) values (%s)", (path.name,))
+        row = conn.execute("select hashtextextended('depot.dbx.migrate:' || current_schema(), 0)").fetchone()
+        key = row[0] if row else 0
+        while not (got := conn.execute("select pg_try_advisory_lock(%s)", (key,)).fetchone()) or not got[0]:
+            time.sleep(0.1 + random.random() * 0.15)
+        try:
+            conn.execute("create table if not exists schema_migrations (name text primary key, applied_at timestamptz not null default now())")
+            for path in sorted(directory.glob("*.sql")):
+                if conn.execute("select 1 from schema_migrations where name = %s", (path.name,)).fetchone():
+                    continue
+                with conn.transaction():
+                    conn.execute(path.read_text(encoding="utf-8"))  # type: ignore[arg-type]
+                    conn.execute("insert into schema_migrations (name) values (%s)", (path.name,))
+        finally:
+            conn.execute("select pg_advisory_unlock(%s)", (key,))
 
 
 class PgRepository:

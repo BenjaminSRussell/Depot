@@ -91,6 +91,7 @@ test-argocd:
 
 # Owner-role migration Jobs on a throwaway k3d cluster (D28): builds each service image in SERVICES, helm-installs its chart
 # against an empty database and checks the Job applied every migration as the owner role. Needs docker, k3d, kubectl, helm.
+# MIGRATE_DEADLINE (seconds, default 600) sets the Jobs' activeDeadlineSeconds; KEEP=1 leaves the cluster up.
 SERVICES ?= ledger fx platform-health
 test-migrate-k3d:
 	SERVICES="$(SERVICES)" bash scripts/k3d_migrate_test.sh

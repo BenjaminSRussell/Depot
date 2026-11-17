@@ -13,17 +13,31 @@ chart under <dir>/charts. For each such chart this script writes:
   DATABASE_URL and MIGRATE_DATABASE_URL. It is an Argo CD PreSync hook (and a Helm pre-install/pre-upgrade hook for a
   plain `helm install`), so a sync applies the schema before any Deployment of the release changes, and a failed
   migration fails the sync instead of rolling pods onto a schema they do not expect. Its pod is labelled
-  `app.kubernetes.io/name: <chart>-migrate` and `app.kubernetes.io/component: migrate`, never the service's own name: the
-  chart's Service would otherwise route requests to it, and the generated NetworkPolicies (gen_networkpolicies.py), which
-  select and admit pods by that name, would give it the service's ingress and peer access. It opens no port, so the
-  namespace default-deny refuses every connection to it; its egress is not restricted, and the Postgres NetworkPolicies
-  admit migrate pods (deploy/postgres, deploy/envs/dev/apps/postgres.yaml).
-  The template refuses to render when the serving pods would also migrate on start (the chart value named by
-  migrateJob.servingMigrateOnStart is "true"): MIGRATE_ON_START=true is for a chart whose Job is disabled.
+  `app.kubernetes.io/name: <pod>-migrate` (<pod> is migrateJob.podName, the API Deployment's own name label, which is
+  also the name Postgres NetworkPolicies list in clientApps) and `app.kubernetes.io/component: migrate`, never the
+  service's own name: the chart's Service would otherwise route requests to it, and the generated NetworkPolicies
+  (gen_networkpolicies.py), which select and admit pods by that name, would give it the service's ingress and peer
+  access. It opens no port, so the namespace default-deny refuses every connection to it; its egress is not restricted,
+  and the Postgres NetworkPolicies admit exactly the <pod>-migrate names (deploy/postgres for each clientApps entry, and
+  the generated block of deploy/envs/dev/apps/postgres.yaml for the charts in namespace hello-ledger).
+  The image is computed as the serving Deployment's is (digest, else tag, else migrateJob.imageTagDefault, else the
+  chart's appVersion). The template refuses to render when the serving pods would also migrate on start (the chart value
+  named by migrateJob.servingMigrateOnStart is "true"): MIGRATE_ON_START=true is for a chart whose Job is disabled.
 - the `migrateJob` block of the chart's values.yaml, between the >>> and <<< marker lines (before the ingressPolicy block):
-  enabled, the container command and args for the service's language, the owner Secret (default `<chart>-db-owner`, key
-  DATABASE_URL), backoffLimit, activeDeadlineSeconds, resources and the values path of the serving pods' MIGRATE_ON_START.
-  Override per environment in deploy/envs/<env>/values or the Application's values.
+  enabled, podName, the container command and args for the service's language, the owner Secret (default
+  `<chart>-db-owner`, key DATABASE_URL), allowAppRole (MIGRATE_ALLOW_APP_ROLE, false), backoffLimit,
+  activeDeadlineSeconds, resources, imageTagDefault and the values path of the serving pods' MIGRATE_ON_START. Override
+  per environment in deploy/envs/<env>/values or the Application's values.
+- the `<pod>-migrate` admission block of the shared dev Postgres NetworkPolicy (deploy/envs/dev/apps/postgres.yaml),
+  between its >>> and <<< marker lines.
+
+Where the Jobs are on: every chart's default is enabled, which stage and prod use (their owner Secrets are provisioned
+with the databases, B-09 parts b and c, #213). Dev turns them off (deploy/envs/dev/migrate-jobs.yaml, a value file of the
+dev services ApplicationSet) except where a Secret the Job can use exists: eam and transport (their dev values, the
+ExternalSecrets in deploy/envs/dev/apps/postgres.yaml) and fx, receiving and hello-ledger (their Applications, the
+serving Secret of the role that already owns those dev schemas). identity and org keep dev on-start migration with
+their Job off, as before B-09a. An owner Secret must never be an ordinary resource of the same Application: PreSync runs
+before it would sync, so a first install would wait for it for ever.
 
 deploy/scripts/test_migrate_jobs.py runs --check, fails when a service with migrations has no Job, and renders every chart
 with helm to check the Job and that no serving container migrates on start.
@@ -36,6 +50,7 @@ from pathlib import Path
 
 import yaml
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 DEPLOY = Path(__file__).resolve().parents[1]
 REPO = DEPLOY.parent
 TEMPLATE_NAME = "migrate-job.yaml"
@@ -53,6 +68,13 @@ NON_GO = {
     "prediction-py": {"command": ["python", "-m", "prediction.migrate"], "args": []},
 }
 SERVING_VALUE = re.compile(r"name:\s*MIGRATE_ON_START\s*\n\s*value:\s*\{\{-?\s*\.Values\.([A-Za-z0-9_.]+)\s*\|\s*quote\s*-?\}\}")
+NAME_LABEL = re.compile(r"app\.kubernetes\.io/name:\s*[\"']?((?:\{\{.*?\}\}|[^\s\"',}{])+)")
+TAG_DEFAULT = re.compile(r"\.Values\.image\.tag\s*\|\s*default\s+\"([^\"]+)\"")
+# A template that passes a values map through as env (transport, projects, scheduling): MIGRATE_ON_START is a key there.
+ENV_MAP_RANGE = re.compile(r"range\s+\$\w+,\s*\$\w+\s*:=\s*\.Values\.(env|config)\b")
+DEV_POSTGRES = DEPLOY / "envs" / "dev" / "apps" / "postgres.yaml"
+DEV_PG_BEGIN = "        # >>> migrate pods: generated by deploy/scripts/gen_migrate_jobs.py (D28); do not edit, run the script."
+DEV_PG_END = "        # <<< migrate pods"
 
 
 def service_dirs():
@@ -79,17 +101,54 @@ def charts():
 
 def serving_value(chart):
     """The values path the serving pods' MIGRATE_ON_START comes from, "" when no template sets it."""
-    paths = set()
+    paths, unread = set(), []
     for tpl in sorted((chart / "templates").iterdir()):
         if tpl.is_file() and tpl.name != TEMPLATE_NAME:
-            paths |= set(SERVING_VALUE.findall(tpl.read_text()))
+            text = tpl.read_text()
+            found = set(SERVING_VALUE.findall(text))
+            # Fail closed: a template that sets MIGRATE_ON_START in a form SERVING_VALUE does not read would leave the
+            # render guard off.
+            if "MIGRATE_ON_START" in text and not found:
+                unread.append(tpl.name)
+            paths |= found
+    if unread:
+        raise SystemExit(f"{chart.relative_to(REPO)}: {unread} set MIGRATE_ON_START in a form serving_value() does not read; "
+                         "use `value: {{ .Values.<path> | quote }}` or teach serving_value()")
     values = yaml.safe_load((chart / "values.yaml").read_text()) or {}
+    templates_text = "".join(p.read_text() for p in (chart / "templates").iterdir() if p.is_file() and p.name != TEMPLATE_NAME)
     for env_map in ("env", "config"):
         if isinstance(values.get(env_map), dict) and "MIGRATE_ON_START" in values[env_map]:
+            if not any(m == env_map for m in ENV_MAP_RANGE.findall(templates_text)):
+                raise SystemExit(f"{chart.relative_to(REPO)}: values {env_map}.MIGRATE_ON_START is not passed through by a "
+                                 f"`range $k, $v := .Values.{env_map}` env loop; teach serving_value()")
             paths.add(f"{env_map}.MIGRATE_ON_START")
     if len(paths) > 1:
         raise SystemExit(f"{chart.relative_to(REPO)}: MIGRATE_ON_START comes from several values {sorted(paths)}; teach serving_value()")
     return paths.pop() if paths else ""
+
+
+def pod_name(chart):
+    """The API Deployment's app.kubernetes.io/name, resolved without helm (the name a Postgres clientApps entry uses)."""
+    name = yaml.safe_load((chart / "Chart.yaml").read_text())["name"]
+    values = yaml.safe_load((chart / "values.yaml").read_text()) or {}
+    labels = NAME_LABEL.findall((chart / "templates" / "deployment.yaml").read_text())
+    if not labels:
+        raise SystemExit(f"{chart.relative_to(REPO)}: templates/deployment.yaml has no app.kubernetes.io/name label")
+    pod = labels[0].replace("{{ .Chart.Name }}", name).replace("{{ $.Chart.Name }}", name)
+    if "{{ .Values.serviceName }}" in pod:
+        pod = pod.replace("{{ .Values.serviceName }}", values["serviceName"])
+    if "{{" in pod:
+        raise SystemExit(f"{chart.relative_to(REPO)}: cannot resolve the Deployment's name label {labels[0]!r}; teach pod_name()")
+    return pod
+
+
+def image_tag_default(chart):
+    """The tag the serving pods fall back to without image.tag and image.digest, when it is not the chart's appVersion."""
+    found = {m for tpl in (chart / "templates").iterdir() if tpl.is_file() and tpl.name != TEMPLATE_NAME
+             for m in TAG_DEFAULT.findall(tpl.read_text())}
+    if len(found) > 1:
+        raise SystemExit(f"{chart.relative_to(REPO)}: image tag defaults {sorted(found)} differ between templates")
+    return found.pop() if found else ""
 
 
 def job_values(service, chart):
@@ -101,13 +160,16 @@ def job_values(service, chart):
         run = {"command": [], "args": ["migrate"]}
     return {
         "enabled": True,
+        "podName": pod_name(chart),
         "command": run["command"],
         "args": run["args"],
         "ownerSecret": f"{name}-db-owner",
         "ownerSecretKey": "DATABASE_URL",
+        "allowAppRole": False,
         "backoffLimit": 2,
         "activeDeadlineSeconds": 600,
         "resources": {"requests": {"cpu": "50m", "memory": "64Mi"}, "limits": {"cpu": "500m", "memory": "256Mi"}},
+        "imageTagDefault": image_tag_default(chart),
         "servingMigrateOnStart": serving_value(chart),
     }
 
@@ -126,15 +188,21 @@ def values_block(v):
         "# (provisioned with the database). Override per environment in deploy/envs/<env>/values or the Application's values.",
         "migrateJob:",
         f"  enabled: {str(v['enabled']).lower()}",
+        "  # The Job pod is <podName>-migrate: the API Deployment's name label, as Postgres clientApps lists it.",
+        f"  podName: {q(v['podName'])}",
         f"  command: {_flow(q(c) for c in v['command'])}",
         f"  args: {_flow(q(a) for a in v['args'])}",
         f"  ownerSecret: {q(v['ownerSecret'])}",
         f"  ownerSecretKey: {q(v['ownerSecretKey'])}",
+        "  # MIGRATE_ALLOW_APP_ROLE: true only where depot_app really owns the schema (dev); otherwise the command refuses it.",
+        f"  allowAppRole: {str(v['allowAppRole']).lower()}",
         f"  backoffLimit: {v['backoffLimit']}",
         f"  activeDeadlineSeconds: {v['activeDeadlineSeconds']}",
         "  resources:",
         f"    requests: {{cpu: {v['resources']['requests']['cpu']}, memory: {v['resources']['requests']['memory']}}}",
         f"    limits: {{cpu: {q(v['resources']['limits']['cpu'])}, memory: {v['resources']['limits']['memory']}}}",
+        "  # The serving pods' tag without image.tag and image.digest when it is not the chart's appVersion.",
+        f"  imageTagDefault: {q(v['imageTagDefault'])}",
         "  # Values path of the serving pods' MIGRATE_ON_START: the Job refuses to render while it is \"true\".",
         f"  servingMigrateOnStart: {q(v['servingMigrateOnStart'])}",
         END,
@@ -156,6 +224,7 @@ TEMPLATE = """{{- /* GENERATED by deploy/scripts/gen_migrate_jobs.py, identical 
 {{- $mj := .Values.migrateJob | default dict }}
 {{- if $mj.enabled }}
 {{- if not $mj.ownerSecret }}{{ fail "migrateJob.ownerSecret must name the Secret with the owner role's database URL (D28)" }}{{ end }}
+{{- if not $mj.podName }}{{ fail "migrateJob.podName must be the API Deployment's app.kubernetes.io/name: run deploy/scripts/gen_migrate_jobs.py" }}{{ end }}
 {{- if not (or $mj.command $mj.args) }}{{ fail "migrateJob.command or migrateJob.args must run the image's migrate command: run deploy/scripts/gen_migrate_jobs.py" }}{{ end }}
 {{- with $mj.servingMigrateOnStart }}
 {{- $v := $.Values }}
@@ -165,7 +234,7 @@ TEMPLATE = """{{- /* GENERATED by deploy/scripts/gen_migrate_jobs.py, identical 
 {{- end }}
 {{- end }}
 {{- $repo := include "depot.imageRepository" . }}
-{{- $image := printf "%s:%s" $repo (.Values.image.tag | default .Chart.AppVersion) }}
+{{- $image := printf "%s:%s" $repo (.Values.image.tag | default $mj.imageTagDefault | default .Chart.AppVersion) }}
 {{- if .Values.image.digest }}{{ $image = printf "%s@%s" $repo .Values.image.digest }}{{ end }}
 # Owner-role migration Job (ADR-0012 rule 3, D28). Argo CD runs it as a PreSync hook, before any other resource of the
 # release is synced, and keeps the last run (and its pod's log) until the next sync replaces it; a failed run fails the sync,
@@ -178,7 +247,7 @@ kind: Job
 metadata:
   name: {{ .Release.Name }}-migrate
   labels:
-    app.kubernetes.io/name: {{ .Chart.Name }}-migrate
+    app.kubernetes.io/name: {{ $mj.podName }}-migrate
     app.kubernetes.io/component: migrate
     app.kubernetes.io/part-of: {{ .Chart.Name }}
   annotations:
@@ -192,7 +261,7 @@ spec:
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: {{ .Chart.Name }}-migrate
+        app.kubernetes.io/name: {{ $mj.podName }}-migrate
         app.kubernetes.io/component: migrate
         app.kubernetes.io/part-of: {{ .Chart.Name }}
     spec:
@@ -231,10 +300,36 @@ spec:
                 secretKeyRef:
                   name: {{ $mj.ownerSecret | quote }}
                   key: {{ $mj.ownerSecretKey | default "DATABASE_URL" | quote }}
+            {{- if $mj.allowAppRole }}
+            - name: MIGRATE_ALLOW_APP_ROLE
+              value: "true"
+            {{- end }}
           resources:
             {{- toYaml $mj.resources | nindent 12 }}
 {{- end }}
 """
+
+
+def dev_postgres_block():
+    """The podSelectors of the shared dev Postgres NetworkPolicy for the migrate pods of the charts in namespace hello-ledger
+    (by their exact <pod>-migrate names, never the bare component label: any pod can carry a label, #723)."""
+    import gen_networkpolicies  # deploy/scripts
+    by_path = {s["path"]: s["namespace"] for s in gen_networkpolicies.env_services("dev").values()}
+    pods = sorted({pod_name(chart) for _, chart in charts() if by_path.get(chart.relative_to(REPO).as_posix()) == "hello-ledger"})
+    lines = [DEV_PG_BEGIN,
+             "        # The owner-role migration Jobs of the charts in this namespace (templates/migrate-job.yaml, D28), each by its",
+             "        # <pod>-migrate name and component label; each signs in with its own Secret. Label-based like every rule here (#723)."]
+    for pod in pods:
+        lines += ["        - podSelector:", "            matchLabels:",
+                  f"              app.kubernetes.io/name: {pod}-migrate", "              app.kubernetes.io/component: migrate"]
+    return "\n".join(lines + [DEV_PG_END]) + "\n"
+
+
+def with_dev_postgres_block(text):
+    pattern = re.compile(rf"{re.escape(DEV_PG_BEGIN)}\n.*?{re.escape(DEV_PG_END)}\n", re.S)
+    if not pattern.search(text):
+        raise SystemExit(f"{DEV_POSTGRES.relative_to(REPO)}: no '{DEV_PG_BEGIN.strip()}' block in the Postgres NetworkPolicy")
+    return pattern.sub(lambda _: dev_postgres_block(), text, count=1)
 
 
 def outputs():
@@ -243,6 +338,7 @@ def outputs():
         files[chart / "templates" / TEMPLATE_NAME] = TEMPLATE
         values = chart / "values.yaml"
         files[values] = with_block(values.read_text(), values_block(job_values(service, chart)))
+    files[DEV_POSTGRES] = with_dev_postgres_block(DEV_POSTGRES.read_text())
     return files
 
 

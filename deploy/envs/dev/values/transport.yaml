@@ -4,5 +4,6 @@
 # transport pods. The migration Job (D28) runs as that role, which has owned the tables since transport migrated on
 # start in dev, so migration 0012 can grant the outbox to debezium_cdc_transport for the outbox-transport connector.
 migrateJob:
+  enabled: true
   ownerSecret: transport-db
   ownerSecretKey: url

@@ -2,6 +2,7 @@
 {{- $mj := .Values.migrateJob | default dict }}
 {{- if $mj.enabled }}
 {{- if not $mj.ownerSecret }}{{ fail "migrateJob.ownerSecret must name the Secret with the owner role's database URL (D28)" }}{{ end }}
+{{- if not $mj.podName }}{{ fail "migrateJob.podName must be the API Deployment's app.kubernetes.io/name: run deploy/scripts/gen_migrate_jobs.py" }}{{ end }}
 {{- if not (or $mj.command $mj.args) }}{{ fail "migrateJob.command or migrateJob.args must run the image's migrate command: run deploy/scripts/gen_migrate_jobs.py" }}{{ end }}
 {{- with $mj.servingMigrateOnStart }}
 {{- $v := $.Values }}
@@ -11,7 +12,7 @@
 {{- end }}
 {{- end }}
 {{- $repo := include "depot.imageRepository" . }}
-{{- $image := printf "%s:%s" $repo (.Values.image.tag | default .Chart.AppVersion) }}
+{{- $image := printf "%s:%s" $repo (.Values.image.tag | default $mj.imageTagDefault | default .Chart.AppVersion) }}
 {{- if .Values.image.digest }}{{ $image = printf "%s@%s" $repo .Values.image.digest }}{{ end }}
 # Owner-role migration Job (ADR-0012 rule 3, D28). Argo CD runs it as a PreSync hook, before any other resource of the
 # release is synced, and keeps the last run (and its pod's log) until the next sync replaces it; a failed run fails the sync,
@@ -24,7 +25,7 @@ kind: Job
 metadata:
   name: {{ .Release.Name }}-migrate
   labels:
-    app.kubernetes.io/name: {{ .Chart.Name }}-migrate
+    app.kubernetes.io/name: {{ $mj.podName }}-migrate
     app.kubernetes.io/component: migrate
     app.kubernetes.io/part-of: {{ .Chart.Name }}
   annotations:
@@ -38,7 +39,7 @@ spec:
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: {{ .Chart.Name }}-migrate
+        app.kubernetes.io/name: {{ $mj.podName }}-migrate
         app.kubernetes.io/component: migrate
         app.kubernetes.io/part-of: {{ .Chart.Name }}
     spec:
@@ -77,6 +78,10 @@ spec:
                 secretKeyRef:
                   name: {{ $mj.ownerSecret | quote }}
                   key: {{ $mj.ownerSecretKey | default "DATABASE_URL" | quote }}
+            {{- if $mj.allowAppRole }}
+            - name: MIGRATE_ALLOW_APP_ROLE
+              value: "true"
+            {{- end }}
           resources:
             {{- toYaml $mj.resources | nindent 12 }}
 {{- end }}

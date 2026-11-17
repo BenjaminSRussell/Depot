@@ -9,6 +9,9 @@
 #   make -C deploy test-migrate-k3d                      # the default services
 #   make -C deploy test-migrate-k3d SERVICES="ledger fx"  # services/<dir> with a Dockerfile and migrations
 #   KEEP=1 make -C deploy test-migrate-k3d               # leave the cluster up afterwards
+#   MIGRATE_DEADLINE=1800 make -C deploy test-migrate-k3d # the Jobs' activeDeadlineSeconds (default 600)
+#
+# A failing service is reported (FAIL <service>) and the others still run; the script exits 1 if any failed.
 #
 # Needs docker, k3d, kubectl and helm. Services without a Dockerfile (billing, pricing and others) cannot be built here yet.
 set -euo pipefail
@@ -75,17 +78,19 @@ k rollout status deploy/postgres --timeout=180s
 app_pw=$(openssl rand -hex 16)
 psql_super "CREATE ROLE depot_app LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD '$app_pw'"
 
-fail=0
-for svc in $SERVICES; do
-  dir="$REPO/services/$svc"
+# One service's proof. It runs in a subshell with `set -e` of its own, so a failing step (a psql query on a missing
+# schema_migrations, say) records FAIL for that service and the loop goes on with the next one.
+test_one() {
+  local svc=$1 dir="$REPO/services/$1" chart name release pod db owner owner_pw image want got owners migrate_env routed bad=0
   chart=$(ls -d "$dir"/charts/*/ | head -1)
   chart=${chart%/}
   name=$(sed -n 's/^name: *//p' "$chart/Chart.yaml")
+  pod=$(python3 -c 'import sys, yaml; print(yaml.safe_load(open(sys.argv[1]))["migrateJob"]["podName"])' "$chart/values.yaml")
   release=$name
   db="depot_$(echo "$name" | tr - _)"
   owner="${db}_owner"
   owner_pw=$(openssl rand -hex 16)
-  echo "== $svc: chart $name, database $db, owner $owner"
+  echo "== $svc: chart $name, Job pod $pod-migrate, database $db, owner $owner"
   psql_super "CREATE ROLE $owner LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD '$owner_pw'"
   psql_super "CREATE DATABASE $db OWNER $owner"
   psql_super "REVOKE CONNECT ON DATABASE $db FROM PUBLIC; GRANT CONNECT ON DATABASE $db TO depot_app"
@@ -97,21 +102,34 @@ for svc in $SERVICES; do
   docker build -q -f "$dir/Dockerfile" -t "$image" "$REPO" >/dev/null
   k3d image import "$image" -c "$CLUSTER" >/dev/null
   # The pre-install hook (the chart's migrate Job) must complete before helm returns; pods are not awaited (their other
-  # dependencies are not in this cluster).
+  # dependencies are not in this cluster). MIGRATE_DEADLINE overrides the Job's activeDeadlineSeconds, as an environment's
+  # values may (migrateJob.activeDeadlineSeconds).
   if ! helm --kube-context "$CTX" install "$release" "$chart" -n "$NS" --timeout 10m \
       --set image.repository="depot-local/$svc" --set image.tag=migrate-test --set image.digest= \
-      --set image.pullPolicy=Never --set-string databaseSecret="$name-db-app" --set replicaCount=1; then
-    echo "FAIL $svc: helm install (the migration Job) failed"; k logs "job/$release-migrate" --tail=50 || true; fail=1; continue
+      --set image.pullPolicy=Never --set-string databaseSecret="$name-db-app" --set replicaCount=1 \
+      --set migrateJob.activeDeadlineSeconds="${MIGRATE_DEADLINE:-600}"; then
+    echo "FAIL $svc: helm install (the migration Job) failed"; k logs "job/$release-migrate" --tail=50 || true; return 1
   fi
   want=$(ls "$dir"/migrations/*.sql | wc -l)
   got=$(psql_db "$db" "SELECT count(*) FROM schema_migrations")
   owners=$(psql_db "$db" "SELECT string_agg(DISTINCT tableowner, ',') FROM pg_tables WHERE schemaname = 'public'")
-  migrate_env=$(k get deploy -l "app.kubernetes.io/name=$name" -o jsonpath='{range .items[*]}{.spec.template.spec.containers[*].env[?(@.name=="MIGRATE_ON_START")].value}{" "}{end}')
+  migrate_env=$(k get deploy -l "app.kubernetes.io/name=$pod" -o jsonpath='{range .items[*]}{.spec.template.spec.containers[*].env[?(@.name=="MIGRATE_ON_START")].value}{" "}{end}')
   routed=$(k get endpoints -o jsonpath='{range .items[*]}{.subsets[*].addresses[*].targetRef.name}{" "}{end}' | tr ' ' '\n' | grep -c -- "-migrate-" || true)
   echo "   applied $got of $want; table owners: $owners; serving MIGRATE_ON_START: [$migrate_env]; endpoints on the Job pod: $routed"
-  [ "$got" = "$want" ] || { echo "FAIL $svc: $got of $want migrations recorded"; fail=1; }
-  [ "$owners" = "$owner" ] || { echo "FAIL $svc: tables owned by $owners, want $owner"; fail=1; }
-  case " $migrate_env " in *" true "*) echo "FAIL $svc: a serving Deployment migrates on start"; fail=1 ;; esac
-  [ "$routed" = 0 ] || { echo "FAIL $svc: a Service routes to the migration Job's pod"; fail=1; }
+  [ "$got" = "$want" ] || { echo "FAIL $svc: $got of $want migrations recorded"; bad=1; }
+  [ "$owners" = "$owner" ] || { echo "FAIL $svc: tables owned by $owners, want $owner"; bad=1; }
+  case " $migrate_env " in *" true "*) echo "FAIL $svc: a serving Deployment migrates on start"; bad=1 ;; esac
+  [ "$routed" = 0 ] || { echo "FAIL $svc: a Service routes to the migration Job's pod"; bad=1; }
+  return "$bad"
+}
+
+failed=()
+for svc in $SERVICES; do
+  set +e
+  (set -e; test_one "$svc")
+  rc=$?
+  set -e
+  [ "$rc" = 0 ] || { echo "FAIL $svc (exit $rc)"; failed+=("$svc"); }
 done
-[ "$fail" = 0 ] && echo "k3d_migrate_test: every schema applied by its owner-role Job" || exit 1
+[ "${#failed[@]}" = 0 ] || { echo "k3d_migrate_test: failed: ${failed[*]}"; exit 1; }
+echo "k3d_migrate_test: every schema applied by its owner-role Job"

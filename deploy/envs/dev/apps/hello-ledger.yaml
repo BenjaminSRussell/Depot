@@ -20,6 +20,8 @@ spec:
         # prod use the chart default, the owner role's <chart>-db-owner Secret.
         migrateJob:
           ownerSecret: hello-ledger-db
+          # dev's depot_app owns this schema: the command refuses depot_app without it.
+          allowAppRole: true
   destination:
     server: https://kubernetes.default.svc
     namespace: hello-ledger
@@ -27,3 +29,6 @@ spec:
     automated:
       prune: true
       selfHeal: true
+    retry:
+      limit: 5
+      backoff: { duration: 30s, factor: 2, maxDuration: 5m }
