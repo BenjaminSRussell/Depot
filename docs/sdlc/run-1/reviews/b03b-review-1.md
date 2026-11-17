@@ -248,3 +248,206 @@ Postgres 16 runs locally (cluster `main`). Each run used a fresh database, `rev_
 | Probe: `opa eval` edge cases, including scoped SCIM | See finding 1 and the table above. |
 | Probe: SQL as `depot_app` on a database with shop floor migrations 0001-0039 applied as owner | See above, and findings 4, 9 and 12. |
 | Probe: Go test `TestProbeAssignUnknownLegalEntity` in a scratch copy of the module | Confirms findings 2 and 3, and that a tenant admin without a selection gets AUTH-0003 from `ExportPay`. |
+
+---
+
+# Re-review: fix commit 358c3682 (on top of c0611102)
+
+## Verdict: CHANGES REQUIRED
+
+- **The Blocker is fixed.** I re-ran every SCIM and identity exploit from finding 1 against the head policy, and all of them are now denied (see below).
+- **Finding 2 is only partly fixed**, and the new bulk route makes the remaining gap larger:
+  - The correction rule protects only workers that have no time rows yet.
+  - The workers the backfill exists for are legacy workers, and those almost always have history.
+  - So for them, a mistyped or wrong legal entity UUID is still permanent.
+  - One `allUnassigned` call can freeze every such worker of the tenant in one go (new finding R1, Major).
+- **The other findings are resolved**, apart from two Minor gaps:
+  - a defence-in-depth regression in the new `pay_export_line` WITH CHECK (R2);
+  - an effective-permissions report that disagrees with OPA (R3).
+
+## Outcome per original finding
+
+| # | Original | Outcome | Evidence |
+|---|---|---|---|
+| 1 | Blocker: scoped assignments grant tenant-level duties (SCIM) | **Resolved** | See "Blocker exploits after the fix" below. |
+| 2 | Major: assign accepts any UUID, and the freeze makes it permanent | **Partly resolved, still Major** | See R1. |
+| 3 | Major: no audit or event | **Resolved** | See below. |
+| 4 | Minor: deploy hides every legacy worker; one call per worker | **Resolved** | See below. Two sub-points: (a) the runbook has no step to verify the legal entity UUID before the call (R1); (b) `allUnassigned` has no upper bound (R4). |
+| 5 | Minor: widening keyed on a forgeable user id | **Resolved** | See "Is the `WithSystemScope` path reachable by a person?" below. |
+| 6 | Minor: array `le` accepted | **Resolved** | `legalEntityClaim` accepts a JSON string only. `TestRequireOPASendsTheVerifiedLegalEntityClaim` now expects `""` for an array. |
+| 7 | Minor: vacuous child policy passes rlscheck | **Resolved** (Nit left) | See below. |
+| 8 | Minor: interim exemptions untracked | **Resolved** (one point unverified) | The reasons and the D17 row cite #725 and now say "partial". I could not confirm that #725 exists: this session has no GitHub access to the repository (unverified). |
+| 9 | Minor: policy performance | **Resolved enough** | See below. |
+| 10 | Minor: inactive legal entity still compiles | **Resolved** | See below. |
+| 11 | Nit: `RequireOPA` preferred the principal's legal entity | **Resolved** | `opa.go:147` always uses the verified claim. New test `TestRequireOPAIgnoresALegalEntityPutOnThePrincipal`. |
+| 12 | Nits | **Resolved** | See below. |
+
+### Blocker exploits after the fix (finding 1)
+
+- **Where the flag is enforced:**
+  - `authz.rego:35` adds `not data.duties[duty].tenant_level`.
+  - Identity refuses to create such an assignment: `role_assignments_api.go:130`, returning 422 `IDN-ROLE-TENANT-LEVEL`.
+  - The compiler drops stored ones: `policy_bundle.go:189`.
+- **Probe:** `opa eval` against the head `authz.rego` and `data.json`. User X holds, scoped to A:
+  - `identity.user.provision`, `identity.user.maintain`, `identity.security-role.maintain`
+  - `org.legal-entity.write`
+  - `party.vendor.maintain`, `shopfloor.setup.maintain`
+
+  With `le` = A, every request on a tenant-level duty is **denied**:
+  - `DELETE /scim/v2/Users/u1`, `POST /scim/v2/Users`, `PATCH /scim/v2/Groups/g1`
+  - `GET /v1/identity/users`
+  - `POST /v1/authz/assignments`
+  - `POST /v1/org/legal-entities`
+
+  Requests on the per-legal-entity duties are still allowed: `PUT /v1/vendors/v1`, `PUT /v1/shopfloor/pay-agreements/p1` and `POST /v1/shopfloor/workers:assign-legal-entity`. The last one is then refused by the shop floor's `dbx.TenantWide` check.
+- **Tests:** `test_scoped_tenant_level_duties_grant_nothing` and `TestCompiledBundleDropsScopedTenantLevelAndInactiveEntityAssignments` pin the fix. `TestRoleAssignmentGuards` also covers the creation refusal.
+
+### Audit and events (finding 3)
+
+- The single and bulk routes take the actor from `authenticatedUser` and publish `worker.assigned` with `legalEntityId` and `assignedBy`. The other two `worker.assigned` emitters now carry `legalEntityId` too, and the AsyncAPI is updated.
+- Probe: 3 outbox rows carried both the legal entity and the actor after two bulk assignments plus one correction.
+
+### Deploy backfill (finding 4)
+
+- The bulk route `POST /v1/shopfloor/workers:assign-legal-entity` takes either `workerIds` (up to 1,000, deduplicated and validated) or `allUnassigned`.
+- It runs one transaction under `WithTenantWideAdminTx`, so only a tenant administrator can use it. A scoped caller with `A,B` got `ErrNotTenantWide` (403) in the probe.
+- It never moves a worker that already has a legal entity (reported as `conflicts`) and publishes one event per worker. It also backfills export batches whose lines all belong to the target legal entity.
+- In OPA the route sits under `shopfloor.setup.maintain` with POST only (rego test).
+- The runbook is `docs/runbooks/delivery/shopfloor-legal-entity-backfill.md`.
+
+### Is the `WithSystemScope` path reachable by a person? (finding 5)
+
+No.
+- `WithSystemScope` is an unexported context key, set only by:
+  - the sweeper (`sweeper.go:213`);
+  - the production consumer (`production_consumer.go:83`);
+  - the auto clock-out route, when `p.Service != ""` and there is no legal entity (`autoclock.go:60`).
+- `Service` is set only by `claims.Principal()` from a verified service token. The header path in `tenant.Middleware` never sets it, and it rejects `service:` user ids.
+- The sweeper's user id no longer grants anything.
+
+### rlscheck child-table check (finding 7)
+
+- The check now requires `legal_entity_id ... = ANY(string_to_array(current_setting('depot.legal_entity_scopes'` in `qual`, and in `with_check` when present, and rejects `or true`.
+- The `entityscope` fixture pins three negatives: the vacuous policy, the join without the legal entity, and the tenant-wide table.
+- **Nit left:** it is still a text heuristic. A policy with `OR 1 = 1` or `OR current_setting(...) IS NOT NULL` would pass. Acceptable for a lint.
+
+### Policy performance (finding 9)
+
+- 0040 adds the expression index `worker (tenant_id, (legal_entity_id::text), id)` concurrently. The builder notes, and I agree, that the planner still prefers a hashed sequential scan at test sizes. That is harmless.
+- 0041 removes the expensive `pay_line ⋈ worker` join for batches that carry a legal entity.
+
+### Inactive legal entities in the bundle (finding 10)
+
+- The query now joins `identity_legal_entities` and requires `status = 'active'` for scoped rows.
+- **Is the 0019 compile-read policy too broad? No.** It has the same gate as the 0008 policies on `identity_users` and `identity_role_assignments`: SELECT only, `depot.policy_compile = 'on'`, and `exists (select 1 from identity_operator)`. `identity_operator` is visible only when the session's `depot.tenant_id`, or `depot.operator_context`, is the operator tenant (0004, 0009).
+- The restrictive legal-entity policy still applies (the compiler sets `'*'`), and the table holds only codes, names and status. The rlsexempt entry records the reason.
+
+### Nits (finding 12)
+
+- The batch freeze trigger has been added.
+- The `ExportPay` message now says "select one of your legal entities".
+- `data.json` has one permission per line.
+- The delete-and-reinsert bypass is documented in 0041. No app path deletes workers, and once any child row exists its foreign key blocks the delete.
+
+## Classification of the 64 tenant-level duties
+
+**The security-critical part is complete and correct.** The only route family where OPA is the *sole* authorization is identity's `RequireOPAForRequest` (SCIM; `scim_api.go:55`):
+- Every other service enforces the token's `duties` claim with `authz.RequireDuty`.
+- devgateway and depot-server use OPA as an additional gate in front of those services.
+
+Every `identity.*` duty is marked, and `test_tenant_level_duties_cover_identity_audit_and_operator_duties` pins the `identity.*`, `audit.*` and `operator_only` families. I checked the paths that run in scope `'*'`, in Go (`dbx.TenantWide`, `WithTenantWideAdminTx`, direct `set_config(... '*')`) and in the TS services, which set no all-entity scope. All of them either:
+- belong to a marked duty: identity, `org.legal-entity.write`, `org.reference.write`, `party.merge`, `migration.opening-target.release`, ops;
+- require a request with **no** legal entity, which a scoped assignment can never satisfy, since the scoped rule needs a non-empty `le`. This covers consolidation runs, print rules, migration outbound and the shop floor assign routes; or
+- are narrow in-transaction existence checks inside a scoped operation, or service-only paths. This covers hr `withAllEntities`, the ledger trading partner check, purchasing PO-number uniqueness, the production job card lookup, the print schedule claim and `party.merge.execute`.
+
+**The four deliberately unmarked duties:**
+- **`print.admin`, `migration.run`, `migration.project.write`:** sound. Their `'*'` branch requires `dbx.TenantWide`, which means no claim, so a scoped grant cannot reach it.
+- **`shopfloor.setup.maintain`:** the conclusion is acceptable, but the README's reasoning is wrong for it (Nit R5).
+  - Its routes other than assign are not "a legal-entity-scoped branch". They write the tenant-wide shared setup tables (time profiles, pay agreements, absence codes), which rlsexempt records as permanent tenant-wide.
+  - So an A-scoped holder can, through OPA, edit pay agreements that company B's workers use.
+  - That is acceptable only under the README's *second* rule: the service checks the token's duties itself, so OPA's rule adds nothing there.
+  - The README should list it under that rule.
+
+**Coordinator's question: the B-07a audit duties.** Marking `audit.verify`, `audit.cdc.apply` and `audit.chain.anchor` as `tenant_level: true` is **right, and also required**:
+- The pin test fails on any unmarked `audit.*` duty.
+- For the two service flag duties the flag has no effect but does no harm: a `service_only` duty is never person-assignable, identity already refuses to assign it, and the compiler drops it (`PersonAssignable`). It can never appear in `scoped_assignments`.
+- For `audit.verify`, tenant level is correct on the merits: the audit chain spans every legal entity.
+
+## New findings
+
+### R1. Major: a typo in the legal entity UUID is still permanent for legacy workers with history, and the bulk route can make it tenant-wide
+
+- **Where:**
+  - `services/shopfloor/internal/api/setup.go` (`assignLegalEntities`, `assignLegalEntity`: no existence check)
+  - `store/worker_maintain.go` (`AssignWorkersLegalEntity`)
+  - `migrations/0041_legal_entity_batch_scope_and_guards.sql` (worker and batch guards)
+  - `docs/runbooks/delivery/shopfloor-legal-entity-backfill.md`
+- **What:** The fix allows a correction only while a worker has no time, day, correction or cost-rate row. The workers this route exists to assign are legacy workers, and those normally already have registrations. So for them, the first assignment freezes the legal entity at once.
+- **Failure scenario (verified, scratch probe `TestProbe2BulkTypoFreezesLegacyWorkersWithHistory`):**
+  1. A tenant admin calls the bulk route with `{"legalEntityId": "...dead", "allUnassigned": true}`. It assigns both legacy workers, with no error.
+  2. Correcting the worker that has a clock-in returns `SF-0200 (409)`. Only the worker with no time could be corrected.
+  3. `backfillExportBatches` then gives the old export batches whose workers are all now in `...dead` that legal entity. The new batch guard trigger freezes them too.
+
+  One mistyped UUID in the runbook's single-legal-entity step thus makes every legacy worker of the tenant, with all their time and pay, and the tenant's old payroll exports, permanently visible only to all-entity reads. Before this, the same mistake affected one worker per call.
+- **Suggested fix (any one):**
+  - Validate the legal entity: a service-token read of identity's `/v1/legal-entities/{id}` with a grant for shopfloor, or a read-only copy of the tenant's legal entities.
+  - Or require a dry run, or a confirmation that echoes the legal entity's code from a source the admin cannot mistype.
+  - Or allow a tenant-admin correction that moves a worker together with all its rows as an explicit, audited act.
+
+  At minimum, add a runbook step that checks the UUID against `GET /v1/legal-entities` before the call, and state that legacy workers with history freeze on first assignment.
+
+### R2. Minor: the 0041 `pay_export_line` WITH CHECK no longer ties the line's pay line to the caller's scope
+
+- **Where:** `migrations/0041_legal_entity_batch_scope_and_guards.sql:22-29`
+- **What:** WITH CHECK now checks only that the *batch's* legal entity is in scope. 0039 also required the pay line's worker to be in scope. Foreign key checks ignore RLS.
+- **Failure scenario (verified with SQL as `depot_app`):**
+  1. Scope A inserts `pay_export_line(pay_line_id = <company B's pay line>, batch_id = <A's batch>)`. It succeeds.
+  2. Scope B cannot see that line, because it follows A's batch. B's next export selects the pay line again, and the insert fails on `pay_export_line_pkey`, so B's whole payroll export breaks.
+
+  This needs direct SQL: `ExportPay` only inserts lines it selected in its own scope. No data leaks, since B's pay line stays hidden from A. It is a defence-in-depth regression.
+- **The fallback in USING does not leak:**
+  - A NULL batch's line is visible only when that line's own worker is in scope.
+  - New lines cannot target NULL batches, because WITH CHECK has no fallback.
+  - The backfill sets a batch's legal entity only when every line's worker is already in it.
+- **Suggested fix:** Add to WITH CHECK the 0039 condition that the line's pay line belongs to a worker in scope, alongside the batch check.
+
+### R3. Minor: the effective-permissions report disagrees with OPA for stored scoped tenant-level assignments and inactive legal entities
+
+- **Where:** `services/identity/effective_api.go:82-86` and `:140-147`
+- **What:** `GET /v1/identity/users/{id}/effective-permissions?legalEntityId=A` collects every active role scoped to A. It does not apply `TenantLevel`, and it does not filter on the legal entity's status.
+- **Failure scenario:** An `identity.user.provision` assignment scoped to A that was stored before this fix (they are dropped from the bundle, not ended) is still reported as granting SCIM. So is an assignment in a deactivated legal entity. OPA denies both. A reviewer reading the report draws the wrong conclusion.
+
+  I reasoned this from code; the existing `TestEffectiveReportEqualsOPAForEveryRoute` covers only tenant-wide assignments.
+- **Suggested fix:**
+  - Apply the same filters as the compiler: skip `TenantLevel` duties for scoped rows, and join the legal entity's status.
+  - List the skipped roles in `ignoredRoles`.
+  - Consider a one-off migration that ends (sets `valid_to`) existing scoped tenant-level assignments, with an audit record, so the assignment lists stop showing them as active.
+
+### R4. Minor: `allUnassigned` has no upper bound
+
+- **Where:** `store/worker_maintain.go` (`AssignWorkersLegalEntity`)
+- **What:** With `allUnassigned`, the call locks every unassigned worker `FOR UPDATE` in one transaction. It writes one outbox row per worker, returns every id, and stores that whole response in `idempotency_keys`.
+- **Failure scenario:** On a tenant with tens of thousands of legacy workers, this becomes a long transaction during the deploy window, blocking clock-ins on those workers, with a very large response and idempotency row.
+- **Suggested fix:** Apply `MaxBulkLegalEntityWorkers` per call to `allUnassigned` too, returning a `remaining` count so the runbook loops. Alternatively, return counts only.
+
+### R5. Nit: the README's reasoning for `shopfloor.setup.maintain`
+
+- **Where:** `policies/authz/README.md`
+- **What:** See the classification section above.
+- **Suggested fix:** List it under "duties on a service's own tenant-wide reference tables".
+
+## Tests run (re-review)
+
+All runs used a fresh database `rev_b03b_<n>`, prepared like CI (`pg_trgm` and `btree_gist` installed; `depot_app` NOSUPERUSER and NOBYPASSRLS, password `depot_app`, which worked).
+
+| Command | Result |
+|---|---|
+| `go vet ./...` and `go test -count=1 -p 1 ./...` in `services/shopfloor` | All ok: api 15 s, store 42 s, migrations ok. |
+| `go test ./...` in `tools/rlscheck`, including `TestEntityScopeFixtureViolationsArePinned` | ok |
+| `go test ./tenant/... ./rlsexempt/... ./dbx/...` in `platform/go` | ok |
+| `opa test --timeout 600s policies/authz` (load average about 7) | **300/300 pass**, 525 s wall |
+| `go vet` and `go test -run 'Bundle\|OPA\|JWT\|Verifier\|Revision\|Policy\|LegalEntit\|RoleAssignment\|Effective\|DutyContract\|Catalogue\|DataJSON' .` in `services/identity` | ok (907 s). 45 pass, including `TestRoleAssignmentGuards`, `TestCompiledBundleDropsScopedTenantLevelAndInactiveEntityAssignments`, `TestRequireOPAIgnoresALegalEntityPutOnThePrincipal`, `TestDutyContractAgainstRealPolicy` and `TestEffectiveReportEqualsOPAForEveryRoute`. The live Keycloak test is skipped. |
+| `go test ./cmd/...` in `services/identity` (devgateway, identity) | ok |
+| Probe: `opa eval` with the head policy (Blocker exploits) | All tenant-level requests denied; per-legal-entity duties still granted. |
+| Probe: Go test `TestProbe2BulkTypoFreezesLegacyWorkersWithHistory` in a scratch copy of the module | Confirms R1: a bulk typo assigns everything, and the worker with time cannot be corrected (SF-0200). Confirms the actor appears in the events, and that a scoped `A,B` caller is refused. |
+| Probe: SQL as `depot_app` on a database with shop floor migrations 0001-0041 applied | Confirms R2: a cross-company `pay_export_line` insert under scope A is accepted, and B's later insert fails on the primary key. The 0040 index is present. |

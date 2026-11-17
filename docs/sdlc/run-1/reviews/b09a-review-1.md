@@ -341,3 +341,182 @@ admission) were read and are direct equality checks.
 **Not run:** the k3d script (no Docker daemon); no live Argo CD.
 
 Scratch databases `rev_b09a_*` and role `rev_b09a_owner` were dropped afterwards.
+
+---
+
+# Re-review: fix commit 694f0a44 (on top of a3d87d69)
+
+## Verdict: APPROVE
+
+Every finding from the first review is fixed, and both earlier mutations are now caught. I found two new Minor issues and
+four Nits. None of them blocks the merge; they can be follow-ups:
+
+- The app-role refusal can be bypassed when `depot_app` is a member of the owner role (new finding A, verified).
+- TLS certificate verification failures are retried for the whole retry budget (new finding B, verified).
+
+## Outcome of each original finding
+
+**1 (Major, dev owner Secrets): fixed.**
+- `deploy/envs/dev/migrate-jobs.yaml` (`migrateJob.enabled: false`) is the first value file of the dev `services`
+  ApplicationSet, before `values/<name>.yaml`. Helm and Argo apply value files in order with later files winning, so the eam
+  and transport dev values (`enabled: true`) turn their Jobs back on.
+- I rendered with the same file order: ledger and sales get no Job; eam and transport get one each. fx, receiving and
+  hello-ledger turn their Jobs on in their own Applications.
+- identity and org migrate on start again in dev, with the Job off. The render guard does not fire because the Job is off.
+- `ignoreMissingValueFiles: true` would silently drop `migrate-jobs.yaml` if it were renamed. The `DEV_JOBS` render
+  assertion (only the five charts render a Job in dev) catches that.
+- New check: an enabled Job's Secret must be declared in its environment or matched in `EXTERNALLY_PROVISIONED`
+  (`*-db-owner` for stage and prod).
+- The D4 row now carries the rule that the owner Secret must exist before PreSync and the list of Secret names. D28 and the
+  runbook now say exactly which dev charts migrate.
+
+**2 (Major, retry): fixed. No unbounded retry.**
+- `RunMigrateCommand` checks `now + wait > deadline` before every sleep and honours `ctx`. Each attempt's ping is capped at
+  10 s, so the worst case is roughly the budget plus one attempt. `Migrate`'s lock wait is unbounded, as before, but the Job's
+  `activeDeadlineSeconds` bounds it.
+- Exercised with `MIGRATE_RETRY_TIMEOUT=4s` against real failures:
+
+  | Failure | Behaviour |
+  |---|---|
+  | Wrong password | fails in 25 ms, no retry |
+  | Unknown role | no retry |
+  | Missing database | no retry |
+  | Connection refused | 2 retries, gives up at 3.0 s |
+  | DNS failure | 2 retries, gives up at 3.0 s |
+
+- 57014 (statement timeout), 55P03 (lock timeout) and 42xxx/23xxx SQL errors are not retried. Hook errors are not retried.
+  A COMMIT lost in flight is safe: the retry finds the `schema_migrations` row. 57P01 is retried even when an operator
+  deliberately ran `pg_terminate_backend`, which is acceptable.
+- One misclassification: see new finding B.
+- `syncPolicy.retry` is on every hand-written Application that renders a Job, and the test now requires it.
+
+**3 (Minor, image parity): fixed.**
+- `imageTagDefault` gives finreport `:latest`.
+- `test_the_job_runs_the_serving_image_for_every_image_setting` compares the Job image with a serving image across default,
+  tag, digest and mirror settings for all 60 charts.
+- Mutation 1 re-applied (the Job image always `:latest`, digest ignored): now fails in 10+ environment renders and the
+  parity test.
+
+**4 (Minor, app role): fixed, but not complete.**
+- Refusal works: as `depot_app` it fails; as a role that is a member of `depot_app` it fails.
+- `MIGRATE_ALLOW_APP_ROLE` comes only from `migrateJob.allowAppRole`, set only for dev fx, receiving and hello-ledger and
+  for local. The render test fails if it appears outside dev or local. `stage_apps.py` drops the whole `migrateJob` block.
+- See new finding A for the gap.
+
+**5 (Minor, expand/contract and rollback): fixed.** The runbook and §7.18 now cover expand/contract under PreSync, the fact
+that an image rollback does not undo the schema, rolling back past B-09a (Job off), and the deadline for large index builds.
+
+**6 (Minor, pod naming): fixed.**
+- The Job pod is `<podName>-migrate`. I verified for all 60 charts that `podName` equals a Deployment's pod-template
+  `app.kubernetes.io/name` (0 mismatches); sales is now `sales-migrate`.
+- `deploy/postgres` `<entry>-migrate` now matches.
+
+**7 (Minor, dev Postgres label): fixed as far as labels allow.**
+- The bare `component: migrate` selector is gone. The policy now lists the exact generated `<pod>-migrate` names plus the
+  component label, with a #723 comment.
+- The test forbids a bare selector and requires the generated list.
+- Residual (Nit): it lists the migrate pods of every chart in `hello-ledger` (about 55), though only five run a Job in dev.
+  That pre-admits names no pod has yet; harmless.
+
+**8 (Minor, call ordering): fixed.**
+- The test now requires `dbx.HandleMigrateCommand` to be the first statement of `main` after an explicit allowed prelude.
+  It also checks that the TS commands dispatch before any pool, server or consumer starts, and that prediction's migrate does
+  not import the API.
+- Mutation 2 re-applied (the call moved after `run()`): now fails.
+- Variant (`go func(){ run() }()` before the call): also fails.
+
+**9 (Nit, TS and Python lock): fixed.**
+- agents-ts, integration-hub-ts and prediction take `pg_try_advisory_lock(hashtextextended('depot.dbx.migrate:' ||
+  current_schema(), 0))`. That is the dbx key (same text, same seed, bigint), polled on the connection that runs the
+  migration and unlocked in `finally`.
+- Verified across languages: while a psql session held the dbx-keyed lock, `node src/main.ts migrate` and
+  `python -m prediction.migrate` both waited about 3.7 s, then applied.
+- vitest coverage: 5 tests in each package, including the Postgres-backed one. pytest: 6 passed.
+
+**10 (Nit, guard): fixed.** `serving_value()` exits when a template mentions `MIGRATE_ON_START` in a form it cannot read, or
+when an `env`/`config` map key is not passed through by a `range` loop. There is a test for it.
+
+**11 (Nit, k3d script): fixed.** Failures are collected per service and `MIGRATE_DEADLINE` is supported. Still not run (no
+Docker).
+
+## New findings
+
+### A. Minor: the app-role check misses a serving role that is a member of the owner role
+
+**Where:** `platform/go/dbx/migratecmd.go` (`appRoleQuery`), and the same query in `services/agents-ts/src/store/pg.ts`,
+`services/integration-hub-ts/src/pgStore.ts` and `services/prediction-py/src/prediction/migrate.py`.
+
+The query only refuses when `current_user` is `depot_app` or a member of it.
+
+**Verified:**
+1. I ran `GRANT rr_owner TO depot_app`, then `ledger migrate` as `rr_owner`. It succeeded and all 41 tables are owned by
+   `rr_owner`.
+2. `psql` as `depot_app` then ran `ALTER TABLE journal_entry ADD COLUMN pwned int`, and it succeeded: `depot_app` inherits
+   the owner's rights.
+3. The same applies to a URL that logs in as `depot_app` with `options=-c role=rr_owner`. It passed the check and migrated.
+
+**Failure scenario:** parts b and c grant the owner role to `depot_app` "so the app can read the tables". The guard stays
+silent, and the serving role can ALTER or DROP every table.
+
+The check is also tied to the name `depot_app`. Per-service app roles such as dev's `depot_eam_app` and
+`depot_transport_app` are not covered.
+
+**Fix:** also refuse when `pg_has_role('depot_app', current_user, 'MEMBER')`, or when `session_user` is, or is a member of,
+`depot_app`. Consider making the app role configurable, for example `MIGRATE_APP_ROLE`.
+
+### B. Minor: deterministic TLS failures are retried for the whole budget
+
+**Where:** `IsConnectionError` treats every `*pgconn.ConnectError` that has no 28xxx or 3D000 SQLSTATE as retryable.
+
+**Verified:** `sslmode=verify-full` with the wrong root CA gives `x509: cannot validate certificate`, which was retried until
+the 4 s budget ran out (2 retries). With the default 5 minutes, a CA misconfiguration under a cloud profile would burn half the
+600 s Job deadline before reporting.
+
+**Fix:** do not retry errors that wrap `x509.*Error` or a `tls` handshake verification failure.
+
+### Nits
+
+- `migratecmd.go`'s doc comment says a file interrupted by a lost connection "was rolled back with its schema_migrations
+  row". That is not true for `-- dbx:no-transaction` files. The three that exist today (ledger 0032 and 0035, inventory 0037)
+  are idempotent, since they drop an INVALID leftover first and use `IF NOT EXISTS`, so only the comment is wrong.
+- Retry scope differs between languages. Go retries the whole ping, role check and migrate attempt. The TS and Python
+  commands retry only the initial connect, so a connection lost mid-migration fails at once and relies on the Job's
+  `backoffLimit`.
+- Duration parsing differs too: `MIGRATE_RETRY_TIMEOUT` accepts `1h` in Go but not in TS or Python.
+- Python's `is_connection_error` decides by matching English text when psycopg gives no SQLSTATE. Under a non-English
+  server `lc_messages`, a rejected login would be retried for the full budget.
+
+## Tests run (re-review)
+
+All runs on the worktree at 694f0a44, which stayed clean; I made no edits.
+
+| Command | Result |
+|---|---|
+| `gen_migrate_jobs.py --check` | rc 0 |
+| `gen_networkpolicies.py --check` | rc 0 |
+| `stage_apps.py --check` | rc 0 |
+| `test_migrate_jobs.py` | 12 OK |
+| `test_argocd_apps.py` | 48 OK |
+| `go test ./platform/go/dbx/...` (owner and app URLs) | ok, including the new IsConnectionError, retry and refuse-app-role tests |
+| `go vet` on the 57 changed mains | all clean |
+| `tsc --noEmit` for agents-ts and integration-hub-ts | ok |
+| vitest migrate-command tests with Postgres | 5 + 5 passed |
+| prediction `pytest tests/test_migrate.py` with Postgres | 6 passed |
+
+Further checks:
+- Dev ApplicationSet value-file order rendered by hand: ledger and sales get no Job; eam and transport get a Job.
+- `podName` against the Deployment label for all 60 charts: 0 mismatches.
+- Retry classification against real failures: see finding 2 and new finding B.
+- App-role refusal and bypass probes: see finding 4 and new finding A.
+- Cross-language lock wait: see finding 9.
+
+Mutations, re-applied in a scratch copy from `git archive 694f0a44`:
+
+| Mutation | Result |
+|---|---|
+| 1: the Job image always `:latest` | now caught |
+| 2: `HandleMigrateCommand` after `run()` | now caught |
+| Variant: a goroutine started before the call | now caught |
+
+The scratch databases `rr_b09a_*` and roles `rr_owner` and `rr_member` were dropped. I reset the `depot_app` password to
+`depot_app`.

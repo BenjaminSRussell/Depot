@@ -341,3 +341,90 @@ All runs used fresh databases `rev_b07a_1`, `rev_b07a_2` and `rev_b07a_3` (recre
 | `opa test policies/authz` | Not rerun: the fix commit does not touch `policies/` (289/289 earlier) |
 
 I dropped the demo schemas and the temporary role afterwards.
+
+---
+
+# Re-review 2 of cbd21b13 (N1–N5 only)
+
+## Verdict: APPROVE, with one Minor follow-up (R2-1)
+
+The N1 Blocker is closed. I re-ran my exploit and five variants, and all of them now fail. N2 and N3 are correct. N5 is accepted.
+
+The N4 change works, but it promises more than it delivers. Under a non-superuser owner, depot_app can still anchor a stale (real, older) head by narrowing its legal-entity scope (R2-1). The anchor stays true data and verification stays sound, so this weakens a defence-in-depth claim rather than integrity. It is a one-line fix and is not blocking.
+
+## N1, `audit_anchor_record` hijack: fixed
+
+Migration 0013 recreates the function in four ways:
+- `SET search_path = pg_catalog, <schema>, pg_temp`, computed with `format('%I', current_schema())`;
+- every relation in the body schema-qualified;
+- every function call written `pg_catalog.`;
+- EXECUTE revoked from PUBLIC and granted to depot_app only.
+
+The function's settings and grants (`proconfig` and `proacl`) confirm this.
+
+Method: audit migrations 0001–0013 applied into a fresh schema (by superuser, and separately by a non-superuser owner role), then each variant run as `depot_app`.
+- **Temp table `audit_entry`** with a fabricated seq 424242 and hash `ffff…`: refused with "seq 424242 is not the chain head 0". No row was written.
+- **Temp view `audit_entry` calling `pg_temp.evil()`, plus a temp `audit_anchor` view**: refused. `evil()` never ran (no NOTICE).
+- **Type shadowing** with `pg_temp.uuid`, `pg_temp.date` and `pg_temp.text` domains: ignored, because pg_catalog comes first for types and pg_temp last.
+- **Function shadowing** with `pg_temp.current_setting(text,bool)` and `pg_temp.hashtextextended`: ignored. Functions are never looked up in pg_temp, and every call is qualified anyway. The anchor went into the real table for the tenant the real `current_setting` returned (3333…), not the shadow's 4444….
+- **Shadow `pg_temp.audit_anchor` table**: ignored, because the INSERT is schema-qualified.
+- **Date window**: tomorrow and today−2 are both refused with 22023.
+- **Direct INSERT into `audit_anchor`**: permission denied.
+
+Other paths I checked:
+- **Shadowing pg_catalog:** impossible, because pg_catalog is listed first. depot_app has no CREATE on the service schema, on `public`, or on anything else in the path. No migration grants CREATE, and PG15+ removes CREATE on `public` from PUBLIC.
+- **Operators** (`=`, `>`, `<`, `-`, `||`, `AT TIME ZONE`, `IS DISTINCT FROM`): resolved in pg_catalog with exact matches. pg_temp is never searched for operators.
+- **NULLIF:** it resolves through text `=` text, which is in pg_catalog.
+- **Implicit casts:** these come from `pg_cast` by OID, not from the search_path, and only a type's owner can create one.
+- **Triggers fired from the definer:** `audit_anchor` has only BEFORE UPDATE/DELETE and BEFORE TRUNCATE triggers. INSERT … ON CONFLICT DO NOTHING fires neither. SELECT on `audit_entry` fires none.
+- **RLS policies and column defaults** (`now()`): stored as parse trees with OIDs, so the search_path does not affect them.
+- **Remaining caller control:** the caller chooses the tenant through `depot.tenant_id`. That is inherent, since depot_app is trusted per tenant everywhere.
+
+## rlscheck definer check: sound for its criterion, covers every service
+
+- `definerPathSafe` requires a non-empty `search_path` whose last element is `pg_temp`. An unset path, `FROM CURRENT` without pg_temp, an empty path (pg_temp then comes first implicitly) and pg_temp-first are all flagged. The fixture pins three violations plus one safe function.
+- It scans the service schema, plus any schema the service's migrations create, for every service in `TestEveryTableEnforcesRLS`. That includes the Go-embedded `dbx.ServiceTokenReplayDDL`, which runs through migrations.
+- No migration creates functions in a pre-existing schema such as `public.`.
+- The suite passes with no new allowlist entries, so every SECURITY DEFINER function in the repository now ends its path in pg_temp, including agents-ts, edi, billing, close and the service_token_replay functions.
+- Nit: the check does not confirm that the schemas listed before `pg_temp` are not writable by depot_app or PUBLIC. That holds today, but a future `GRANT CREATE` would silently reopen shadowing. Consider adding `has_schema_privilege('depot_app', s, 'CREATE')` for each schema in the path.
+
+## N2, page-boundary link: fixed
+
+- When a page stops, `Boundary(next)` fails `link-mismatch` if the fetched next row does not link to the last row walked.
+- `DropAnchorsAfter(next-1)` keeps any anchor whose head lies between the two rows, so a removed anchored row is reported as missing.
+- `TestVerifyPagesCheckTheirBoundary` removes the row at the boundary and passes.
+
+## N3, prefix-related domains: fixed
+
+Both prefix directions are refused, and so are `depot.` and the empty suffix. Tested.
+
+## N4, head under the append lock: partly fixed, new Minor R2-1
+
+- The retry loop is correct. A 40001 aborts the chainTx and `AnchorDay` walks again, up to 5 times.
+- The head is read under the same advisory key that `AppendTx` uses. A volatile plpgsql function takes a new snapshot for each statement under READ COMMITTED, so the head read after the lock sees every append committed before it.
+
+**R2-1, Minor:** `services/audit/migrations/0013_anchor_record_search_path.sql:38`. The head read inside the definer function is subject to the caller's `depot.legal_entity_scopes`.
+- In production the function owner is a non-superuser migration role, and FORCE RLS binds it.
+- So depot_app can run `set_config('depot.legal_entity_scopes', '', true)`, which leaves only NULL-entity rows visible, and anchor an older head.
+- Reproduced with a non-superuser owner role. The chain had seq 2 (NULL entity) and seq 3 (entity 6666…). With scope `''`, the function called seq 2 "the chain head" and returned `t`, and the anchor stored head_seq 2 while the real head was 3.
+- The stored hash is the real hash of seq 2, so `:verify` stays sound. The real head is not anchored that day, though, which contradicts the 0013 comment ("an anchor names the newest row at the moment it is written").
+- The CI suite cannot catch this, because it runs migrations as a superuser, who bypasses FORCE RLS. The same scan as a superuser owner returned the true head.
+- **Fix:** add `PERFORM pg_catalog.set_config('depot.legal_entity_scopes', '*', true);` before the head read. It is transaction-local, and the nightly job's `chainTx` already sets `*`. Then add a store test that runs the migrations as a non-superuser owner, or document the residual next to the existing "claim today's anchor early" note.
+
+## N5, heartbeat slot advance: accepted
+
+The runbook now has a staging check that `confirmed_flush_lsn` advances. That the heartbeat prefix is filtered out is stated as deliberate.
+
+## Tests run (re-review 2)
+
+| Command | Result |
+|---|---|
+| `services/audit`: `go vet ./... && go test -count=1 ./...` (`rev_b07a_2`) | PASS (all 6 packages), including the new N1 temp-view test and `TestVerifyPagesCheckTheirBoundary` |
+| `platform/go`: `go test -count=1 ./tenant/... ./auditctx/...` | PASS |
+| `tools/rlscheck`: `go test -count=1 -v ./...` (`rev_b07a_3`) | PASS, including `TestEveryTableEnforcesRLS` (all services) and `TestFixtureViolationsArePinned` (3 definer violations pinned) |
+| Manual SQL as depot_app against 0013 (superuser-owned schema) | All 5 exploit variants refused, as listed above |
+| Manual SQL as depot_app against 0013 (non-superuser owner) | R2-1 reproduced: stale head anchored under scope `''` |
+
+I dropped the demo schemas and the temporary owner role afterwards.
+
+Unrelated observation: applying audit 0007 as a non-superuser owner in a shared database fails with "must be owner of publication depot_outbox_audit", because another session's superuser created the publication first. This is the shared-database publication caveat; it predates B-07a and is not a finding.
