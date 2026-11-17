@@ -108,7 +108,7 @@ an in-memory double (contract tests, no live server).
 
 | Item | Owner | Note |
 |---|---|---|
-| Kafka publication of events (Debezium relay) | eventing backbone | The outbox row is written in the same transaction; relay and provisioning of the topics `depot.treasury.statement` and `depot.treasury.check` are not here. |
+| Consumers of the treasury topics | eventing backbone | The outbox row is written in the same transaction and `outbox-treasury` (`deploy/kafka/connect.yaml`, B-05a) relays it by event type to the four channels of `events/asyncapi.yaml` (cash desk days and entries stay on `depot.treasury.cashdesk`); no consumer reads them yet. |
 | Container registry push, cosign signing, SBOM | CI and deployment (`deploy/`, `.github/`) | |
 | Helm umbrella and Argo CD application entry | `deploy/` | |
 | OPA policy bundle for treasury duties | `policies/` | The service enforces duties through `platform/authz`. |

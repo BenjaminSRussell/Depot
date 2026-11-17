@@ -1,0 +1,65 @@
+asyncapi: 3.0.0
+info:
+  title: Depot platform-health events
+  version: 0.1.0
+  description: |
+    CloudEvents 1.0 envelope; the schema below is the data member. `RecordRelease` (internal/store/release.go) writes
+    release.promoted, or release.rolledback for a rollback, to the outbox in the transaction that records the release
+    (aggregate release, tenant ids.Nil: a release is platform-wide). The `outbox-platform-health` connector
+    (deploy/kafka/connect.yaml) routes dev.depot.platform.<entity>.<verb>.v<n> to depot.platform.<entity>. No consumer
+    reads the topic yet.
+defaultContentType: application/cloudevents+json
+channels:
+  release:
+    address: depot.platform.release
+    description: Outbox relay topic for recorded releases, keyed by release id.
+    messages:
+      releasePromoted:
+        $ref: "#/components/messages/ReleasePromoted"
+      releaseRolledBack:
+        $ref: "#/components/messages/ReleaseRolledBack"
+operations:
+  publishReleasePromoted:
+    action: send
+    channel:
+      $ref: "#/channels/release"
+    summary: Published when a promotion is recorded (not on Argo CD sync Healthy).
+    messages:
+      - $ref: "#/channels/release/messages/releasePromoted"
+  publishReleaseRolledBack:
+    action: send
+    channel:
+      $ref: "#/channels/release"
+    summary: Published when a rollback is recorded.
+    messages:
+      - $ref: "#/channels/release/messages/releaseRolledBack"
+components:
+  messages:
+    ReleasePromoted:
+      name: dev.depot.platform.release.promoted.v1
+      summary: A promotion was recorded
+      contentType: application/cloudevents+json
+      payload:
+        $ref: "#/components/schemas/ReleaseData"
+    ReleaseRolledBack:
+      name: dev.depot.platform.release.rolledback.v1
+      summary: A rollback was recorded
+      contentType: application/cloudevents+json
+      payload:
+        $ref: "#/components/schemas/ReleaseData"
+  schemas:
+    ReleaseData:
+      type: object
+      required: [release_id, service, environment, image_digest, previous_digest, git_sha, actor, chain_break]
+      additionalProperties: false
+      properties:
+        release_id: { type: string, format: uuid }
+        service: { type: string }
+        environment: { type: string }
+        image_digest: { type: string }
+        previous_digest: { type: string }
+        git_sha: { type: string }
+        actor: { type: string, description: "The recording user's id, or anonymous." }
+        reason: { type: string }
+        chain_break: { type: boolean, description: "previous_digest is not the digest of the environment's latest release." }
+        expected_previous_digest: { type: string, description: "Present when chain_break is true: the latest release's digest." }

@@ -2,7 +2,7 @@
   "version": 3,
   "compiler": "scripts/compile_architecture.py",
   "note": "Generated from the OpenAPI and AsyncAPI specs and scripts/architecture_patterns.json. Do not edit; run python3 scripts/compile_architecture.py --write.",
-  "summary": {"openapiDocuments": 65, "paths": 2619, "operations": 3242, "asyncapiDocuments": 57, "topics": 366, "topicsPublished": 365, "topicsSubscribed": 16, "patterns": 59},
+  "summary": {"openapiDocuments": 65, "paths": 2619, "operations": 3242, "asyncapiDocuments": 60, "topics": 384, "topicsPublished": 383, "topicsSubscribed": 16, "patterns": 59},
   "patterns": [
     {
       "id": "event-envelope",
@@ -4483,7 +4483,12 @@
       "spec": "services/agents-ts/events/asyncapi.yaml",
       "asyncapi": "3.0.0",
       "title": "Depot agent runtime events",
-      "publishes": [],
+      "publishes": [
+        {"topic": "depot.agent.approval", "types": ["dev.depot.agent.approval.requested.v1"]},
+        {"topic": "depot.agent.budget", "types": ["dev.depot.agent.budget.threshold.v1"]},
+        {"topic": "depot.agent.killswitch", "types": ["dev.depot.agent.killswitch.changed.v1"]},
+        {"topic": "depot.agent.run", "types": ["dev.depot.agent.run.completed.v1"]}
+      ],
       "subscribes": []
     },
     {
@@ -4786,6 +4791,18 @@
       ]
     },
     {
+      "service": "services/fx",
+      "component": "ledger",
+      "spec": "services/fx/events/asyncapi.yaml",
+      "asyncapi": "3.0.0",
+      "title": "Depot FX events",
+      "publishes": [
+        {"topic": "depot.fx.provider", "types": ["dev.depot.fx.provider.degraded.v1"]},
+        {"topic": "depot.fx.rate", "types": ["dev.depot.fx.rate.published.v1"]}
+      ],
+      "subscribes": []
+    },
+    {
       "service": "services/hr",
       "component": "workforce",
       "spec": "services/hr/events/asyncapi.yaml",
@@ -4807,6 +4824,32 @@
         {"topic": "depot.hr.review", "types": ["dev.depot.hr.review.changed.v1"]},
         {"topic": "depot.hr.worker", "types": ["dev.depot.hr.worker.created.v1"]},
         {"topic": "depot.hr.workerskill", "types": ["dev.depot.hr.workerskill.changed.v1"]}
+      ],
+      "subscribes": []
+    },
+    {
+      "service": "services/identity",
+      "component": "platform",
+      "spec": "services/identity/events/asyncapi.yaml",
+      "asyncapi": "3.0.0",
+      "title": "Depot identity events",
+      "publishes": [
+        {
+          "topic": "depot.identity.customercontact",
+          "types": ["dev.depot.identity.customercontact.disabled.v1", "dev.depot.identity.customercontact.invited.v1", "dev.depot.identity.customercontact.remapped.v1"]
+        },
+        {"topic": "depot.identity.keycloakdeprovision", "types": ["dev.depot.identity.keycloakdeprovision.retried.v1"]},
+        {"topic": "depot.identity.legalentity", "types": ["dev.depot.identity.legalentity.created.v1"]},
+        {"topic": "depot.identity.roleassignment", "types": ["dev.depot.identity.roleassignment.assigned.v1", "dev.depot.identity.roleassignment.ended.v1"]},
+        {"topic": "depot.identity.scimgroup", "types": ["dev.depot.identity.scimgroup.created.v1", "dev.depot.identity.scimgroup.deleted.v1", "dev.depot.identity.scimgroup.updated.v1"]},
+        {"topic": "depot.identity.tenant", "types": ["dev.depot.identity.tenant.created.v1"]},
+        {"topic": "depot.identity.tenantfeatures", "types": ["dev.depot.identity.tenantfeatures.updated.v1"]},
+        {"topic": "depot.identity.tenantsetup", "types": ["dev.depot.identity.tenantsetup.updated.v1"]},
+        {"topic": "depot.identity.tenantworkspaces", "types": ["dev.depot.identity.tenantworkspaces.updated.v1"]},
+        {
+          "topic": "depot.identity.user",
+          "types": ["dev.depot.identity.user.deprovisioned.v1", "dev.depot.identity.user.provisioned.v1", "dev.depot.identity.user.reactivated.v1", "dev.depot.identity.user.updated.v1"]
+        }
       ],
       "subscribes": []
     },
@@ -5041,12 +5084,25 @@
       "subscribes": []
     },
     {
+      "service": "services/platform-health",
+      "component": "platform",
+      "spec": "services/platform-health/events/asyncapi.yaml",
+      "asyncapi": "3.0.0",
+      "title": "Depot platform-health events",
+      "publishes": [
+        {"topic": "depot.platform.release", "types": ["dev.depot.platform.release.promoted.v1", "dev.depot.platform.release.rolledback.v1"]}
+      ],
+      "subscribes": []
+    },
+    {
       "service": "services/prediction-py",
       "component": "sales",
       "spec": "services/prediction-py/events/asyncapi.yaml",
       "asyncapi": "3.0.0",
       "title": "Depot payment prediction events",
-      "publishes": [],
+      "publishes": [
+        {"topic": "depot.prediction.payment", "types": ["dev.depot.prediction.payment.scored.v1"]}
+      ],
       "subscribes": []
     },
     {
@@ -5503,6 +5559,10 @@
     }
   ],
   "topics": [
+    {"topic": "depot.agent.approval", "publishers": ["services/agents-ts"], "subscribers": []},
+    {"topic": "depot.agent.budget", "publishers": ["services/agents-ts"], "subscribers": []},
+    {"topic": "depot.agent.killswitch", "publishers": ["services/agents-ts"], "subscribers": []},
+    {"topic": "depot.agent.run", "publishers": ["services/agents-ts"], "subscribers": []},
     {"topic": "depot.analytics.metric", "publishers": ["services/analytics"], "subscribers": []},
     {"topic": "depot.analytics.report", "publishers": ["services/analytics"], "subscribers": []},
     {"topic": "depot.archive.partition", "publishers": ["services/analytics"], "subscribers": []},
@@ -5587,6 +5647,8 @@
     {"topic": "depot.fulfillment.warehousereleaserule", "publishers": ["services/fulfillment"], "subscribers": []},
     {"topic": "depot.fulfillment.warehousesetting", "publishers": ["services/fulfillment"], "subscribers": []},
     {"topic": "depot.fulfillment.wave", "publishers": ["services/fulfillment"], "subscribers": []},
+    {"topic": "depot.fx.provider", "publishers": ["services/fx"], "subscribers": []},
+    {"topic": "depot.fx.rate", "publishers": ["services/fx"], "subscribers": []},
     {"topic": "depot.hr.absence", "publishers": ["services/hr"], "subscribers": []},
     {"topic": "depot.hr.benefitenrollment", "publishers": ["services/hr"], "subscribers": []},
     {"topic": "depot.hr.certification", "publishers": ["services/hr"], "subscribers": []},
@@ -5606,6 +5668,16 @@
     {"topic": "depot.hub.catalogentry", "publishers": ["services/integration-hub-ts"], "subscribers": []},
     {"topic": "depot.hub.subscription", "publishers": ["services/integration-hub-ts"], "subscribers": []},
     {"topic": "depot.hub.webhook", "publishers": ["services/integration-hub-ts"], "subscribers": []},
+    {"topic": "depot.identity.customercontact", "publishers": ["services/identity"], "subscribers": []},
+    {"topic": "depot.identity.keycloakdeprovision", "publishers": ["services/identity"], "subscribers": []},
+    {"topic": "depot.identity.legalentity", "publishers": ["services/identity"], "subscribers": []},
+    {"topic": "depot.identity.roleassignment", "publishers": ["services/identity"], "subscribers": []},
+    {"topic": "depot.identity.scimgroup", "publishers": ["services/identity"], "subscribers": []},
+    {"topic": "depot.identity.tenant", "publishers": ["services/identity"], "subscribers": []},
+    {"topic": "depot.identity.tenantfeatures", "publishers": ["services/identity"], "subscribers": []},
+    {"topic": "depot.identity.tenantsetup", "publishers": ["services/identity"], "subscribers": []},
+    {"topic": "depot.identity.tenantworkspaces", "publishers": ["services/identity"], "subscribers": []},
+    {"topic": "depot.identity.user", "publishers": ["services/identity"], "subscribers": []},
     {"topic": "depot.interco.charge", "publishers": ["services/intercompany"], "subscribers": []},
     {"topic": "depot.interco.chargeinvoice", "publishers": ["services/intercompany"], "subscribers": []},
     {"topic": "depot.interco.journal", "publishers": ["services/intercompany"], "subscribers": []},
@@ -5680,6 +5752,8 @@
     {"topic": "depot.planning.plannedorder", "publishers": ["services/planning"], "subscribers": ["services/production"]},
     {"topic": "depot.planning.scenario", "publishers": ["services/planning"], "subscribers": []},
     {"topic": "depot.platform.entitydefinition", "publishers": [], "subscribers": ["services/workflow-ts"]},
+    {"topic": "depot.platform.release", "publishers": ["services/platform-health"], "subscribers": []},
+    {"topic": "depot.prediction.payment", "publishers": ["services/prediction-py"], "subscribers": []},
     {"topic": "depot.pricing.brokercontract", "publishers": ["services/pricing"], "subscribers": []},
     {"topic": "depot.pricing.campaign", "publishers": ["services/pricing"], "subscribers": []},
     {"topic": "depot.pricing.commission", "publishers": ["services/pricing"], "subscribers": []},

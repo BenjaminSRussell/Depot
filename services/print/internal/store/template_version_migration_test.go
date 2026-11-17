@@ -85,7 +85,17 @@ func TestTemplateVersionBackfillRunsAsANonSuperuserOwner(t *testing.T) {
 	if err := tx.Commit(ctx); err != nil {
 		t.Fatal(err)
 	}
-	if err := dbx.Migrate(ctx, owner, migrations.FS); err != nil {
+	// The owner runs every migration except the CDC ones: a publication is database-wide, so in the shared test database
+	// another test's superuser already created depot_outbox_print and only its owner may alter it. In a deployment the
+	// migrating role creates the publication on first run and owns it, so this test still covers the backfill it is for.
+	afterOwner := fstest.MapFS{}
+	for _, n := range names {
+		if !strings.Contains(n, "_cdc_") {
+			b, _ := fs.ReadFile(migrations.FS, n)
+			afterOwner[n] = &fstest.MapFile{Data: b}
+		}
+	}
+	if err := dbx.Migrate(ctx, owner, afterOwner); err != nil {
 		t.Fatalf("migration 0008 as the owner: %v", err)
 	}
 	var n, version int
