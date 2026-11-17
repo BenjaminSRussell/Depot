@@ -102,7 +102,8 @@ organizations with $10k or more in annual revenue). Either budget the fee and se
 - Not proven here: running the MSI on a Windows VM, the live-stack suite of `tools/e2e` against `depot-server.exe`
   on `windows-latest`, the upgrade downtime figure. Those need a Windows runner with external Postgres, Keycloak, Kafka
   and Temporal endpoints and are tracked on #213.
-- Backlog: run the MSI install, upgrade and rollback on a Windows VM, and the `tools/e2e` live-stack suite against `depot-server.exe` on `windows-latest` (#213).
+- Backlog: run the MSI install, upgrade and rollback on a Windows VM, and the `tools/e2e` live-stack suite against `depot-server.exe` on `windows-latest` (#213; D42).
 - Backlog: make the built-in gateway enforce the same checks as the Kubernetes gateway, per ADR-0006 rule 7 (D23).
-- Backlog: read TLS certificates from the Windows certificate store (crypto.Signer over CNG/NCrypt).
-- Backlog: decide on a Postgres-backed outbox relay for single-host installs without Kafka Connect.
+- Backlog: read TLS certificates from the Windows certificate store (crypto.Signer over CNG/NCrypt) (D42).
+- Backlog: decide on a Postgres-backed outbox relay for single-host installs without Kafka Connect (D42).
+- Backlog: when ADR-0006 rule 4's proposed legal-entity model is confirmed, make `depot-server`'s gateway check the selection for membership in the token's list instead of equality (D33).

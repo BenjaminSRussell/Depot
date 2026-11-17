@@ -15,8 +15,9 @@ What is built:
 - `services/numbering` (`services/numbering/README.md`) issues per-legal-entity numbers in `gap_free`, `continuous` and
   `non_continuous` modes through `POST /v1/numbering/sequences/{code}/next`, under a row lock, with an optional
   `Idempotency-Key`; a 10k-concurrent test shows no duplicates or gaps inside the service.
-- hr and party call it over HTTP (party through `services/party/internal/numbering`, with the forwarded user headers;
-  hr with the service grant `numbering.sequence.allocate`).
+- hr and party call it over HTTP. Party (`services/party/internal/numbering`) signs a service token with the grant
+  `numbering.sequence.allocate` when a signing key is configured (`cmd/party/main.go`), and forwards the user's
+  `X-Depot-*` headers only as a fallback when no key is set; hr uses the service grant `numbering.sequence.allocate`.
 - There is no `platform/go/sequence` package. Other services number documents themselves (for example inventory's
   journal numbers in `services/inventory/migrations/0042_journal_number.sql`).
 - The service has no reserve, confirm or void step, and no database or Secret is provisioned for it in any
@@ -48,4 +49,4 @@ designed.
 - Backlog: add reserve / confirm / void (with a voided-number log) to `numbering`, or forbid `gap_free` sequences for callers outside the numbering database (D21).
 - Backlog: list every fiscal document number in the code and confirm it is allocated inside its posting transaction (D21).
 - Backlog: provision `depot_numbering` and its Secret in every environment, and give hr and party a timeout and a clear error when numbering is unavailable (D4, D21).
-- Backlog: move party's call from forwarded user headers to a service token (D1).
+- Backlog: remove party's header-forwarding fallback, so the call always uses a service token (D1).

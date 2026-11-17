@@ -1,7 +1,7 @@
 # ADR-0008: About sixty Go services per capability, TypeScript only at the edges
 
 **Status:** Accepted — 2026-11-17 (records a decision already made in code; SDLC run 1, stage 2, deviation D5)
-**Evidence:** `docs/sdlc/run-1/architecture-delta.md` fact 2, §1, §2.1, §4 D5, §5 C1
+**Evidence:** `docs/sdlc/run-1/architecture-delta.md` fact 2, §1, §2.1, §4 D5, §5 C1; `docs/sdlc/run-1/architecture-review-response.md` R-01, R-10
 
 ## Context
 
@@ -37,9 +37,13 @@ own OpenAPI under its own prefix (`/v1/receiving`, `/v1/consol`, `/v1/controllin
    TypeScript kernel; each TS service keeps its own small helpers, and the cross-language contract (service tokens,
    log pseudonyms) is pinned by shared test vectors.
 4. **Python is used for numerical and ML work only**, as stateless HTTP solvers called by their owning Go service.
-5. **API prefix per service.** Each service owns `/v1/<service-prefix>/...`; Envoy rewrites `/api/v1/<svc>` to
-   `/v1/<svc>` per HTTPRoute (`deploy/gateway/README.md`). The per-service OpenAPI and AsyncAPI files, not the
-   architecture's catalogue, are the source of truth for endpoints and topics.
+5. **API prefix per service.** Each service owns `/v1/<service-prefix>/...`. Every service with an API needs an Envoy
+   HTTPRoute that rewrites `/api/v1/<prefix>` to `/v1/<prefix>` and passes `/v1/<prefix>` through. As built,
+   `deploy/gateway/httproutes.yaml` has 17 routes for 15 services (org, fx, receiving, search, workflow-ts, batch as
+   `inbox`, ledger, pricing, sales, party, analytics, planning, metadata as `data`, costacct as `controlling`, ops,
+   prediction-py as `predictions` and `ar`); the others, including most modules the shell calls, have none (D31). The
+   single-host gateways route every service. The per-service OpenAPI and AsyncAPI files, not the architecture's
+   catalogue, are the source of truth for endpoints and topics.
 
 ## Alternatives rejected
 
@@ -52,7 +56,8 @@ own OpenAPI under its own prefix (`/v1/receiving`, `/v1/consol`, `/v1/controllin
 
 - Smaller blast radius per change and per database, and parallel delivery per capability.
 - More moving parts: about 60 databases, 69 charts and Argo applications, and many synchronous peer calls (for
-  example 19 services call `ledger.Post`, hr and party call `numbering`). Each peer call is a latency and
+  example 21 services call `ledger.Post`, 19 through `ledgerclient` and receiving and payables with their own clients;
+  hr and party call `numbering`). Each peer call is a latency and
   availability dependency.
 - Cross-cutting behaviour that a TypeScript kernel would have provided (idempotency, problem details, service tokens)
   is copied per TS service.
@@ -61,4 +66,6 @@ own OpenAPI under its own prefix (`/v1/receiving`, `/v1/consol`, `/v1/controllin
 - Backlog: generate the as-built service inventory (service, context, language, database, API prefix, published and consumed topics) from `services/*` into `docs/` in CI, so it cannot drift again (D5, D6).
 - Backlog: recompile `docs/architecture.compiled` so its components reflect the capability services (D27; stage 3).
 - Backlog: give `dispatch-py` and `routing-py` charts and Argo applications, or mark them as not deployable (D5).
+- Backlog: give every service with an API an HTTPRoute and a BackendTrafficPolicy target ref, generated or checked in CI against the OpenAPI prefixes and the shell's `/api/v1` calls (D31).
+- Backlog: move receiving's and payables' ledger calls onto `ledgerclient` (D9).
 - Backlog: extract a small shared TypeScript package for service tokens, problem details and idempotency, or add conformance tests that every TS service must pass (D11, D12).

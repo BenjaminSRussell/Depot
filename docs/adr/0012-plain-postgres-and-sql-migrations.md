@@ -24,9 +24,10 @@ What is built:
   (`CREATE INDEX CONCURRENTLY`) is not deadlocked. Row-level security policies are written in the SQL files
   (with `FORCE ROW LEVEL SECURITY`; all 59 services with migrations use it) and checked by `tools/rlscheck`. An expand/contract lint
   exists (`deploy/multi-region/tools/expand_contract_lint.py`) but no CI workflow runs it.
-- **Running migrations.** `MIGRATE_ON_START=true` is set only for a few services in dev (for example transport,
-  receiving, fx). Chart values say "stage and prod run them as an Argo PreSync Job", but no chart or Argo application
-  defines such a Job.
+- **Running migrations.** `MIGRATE_ON_START=true` is set only for fx, identity, org, receiving and transport (dev and
+  stage values), pricing (chart default) and `hello-ledger` (dev, stage and prod). The other services with migrations
+  (ledger, inventory, sales and about 50 more) have no migration path in any environment, dev included. Chart values
+  say "stage and prod run them as an Argo PreSync Job", but no chart or Argo application defines such a Job.
 - No Atlas and no migration generation from metadata.
 
 ## Decision
