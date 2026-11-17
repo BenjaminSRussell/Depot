@@ -229,26 +229,56 @@ func isRead(method string) bool {
 	return method == http.MethodGet || method == http.MethodHead || method == http.MethodOptions
 }
 
-func requestLegalEntity(r *http.Request) (string, bool) {
-	primary, ok := canonicalLegalEntities(r.Header.Get(HeaderLegalEntity))
+var (
+	errLegalEntityMalformed  = errors.New("invalid legal entity")
+	errSelectionWithoutClaim = errors.New("legal entity selection without a legal-entity claim")
+	errSelectionOutsideClaim = errors.New("legal entity selection is outside the token's scope")
+)
+
+// requestLegalEntity is the legal-entity scope of a header request (ADR-0006 rule 4, D33). The gateway-asserted claim
+// (HeaderLegalEntity, the token's `le`: one entity or a comma list of up to maxLegalEntities) is the scope. The shell's
+// selection (HeaderWebLegalEntity) can only narrow it: every selected entity must be in the claim, and the scope becomes
+// the selection; a selection outside the claim is errSelectionOutsideClaim. A selection with no claim is
+// errSelectionWithoutClaim, except for a tenant administrator (tenant.administer, which never carries a claim), who is
+// entitled to every entity of the tenant and may still pick one. A malformed header is errLegalEntityMalformed.
+// Without a selection the claim is the scope, as before.
+func requestLegalEntity(r *http.Request, duties map[string]struct{}) (string, error) {
+	claim, ok := canonicalLegalEntities(r.Header.Get(HeaderLegalEntity))
 	if !ok {
-		return "", false
+		return "", errLegalEntityMalformed
 	}
-	web, ok := canonicalLegalEntities(r.Header.Get(HeaderWebLegalEntity))
-	if !ok || (primary != "" && web != "" && primary != web) {
-		return "", false
+	selection, ok := canonicalLegalEntities(r.Header.Get(HeaderWebLegalEntity))
+	if !ok {
+		return "", errLegalEntityMalformed
 	}
-	if primary == "" {
-		return web, true
+	if selection == "" {
+		return claim, nil
 	}
-	return primary, true
+	if claim == "" {
+		if _, admin := duties[DutyTenantAdmin]; admin {
+			return selection, nil
+		}
+		return "", errSelectionWithoutClaim
+	}
+	entitled := make(map[string]struct{}, strings.Count(claim, ",")+1)
+	for _, id := range strings.Split(claim, ",") {
+		entitled[id] = struct{}{}
+	}
+	for _, id := range strings.Split(selection, ",") {
+		if _, in := entitled[id]; !in {
+			return "", errSelectionOutsideClaim
+		}
+	}
+	return selection, nil
 }
 
 // Middleware extracts the principal from headers, or from a verified service
 // token in X-Depot-Service-Token (which then replaces every user header; an
 // invalid token is a 401, never a fallback to the user headers). Requests without a tenant,
 // with a malformed tenant, or with the nil system tenant are rejected with 401;
-// a malformed or conflicting legal entity scope is rejected with 400. Health
+// a malformed legal entity scope is rejected with 400 COM-0001, and a legal-entity
+// selection outside the claim, or a selection without a claim from anyone but a
+// tenant administrator, with 403 AUTH-0003 (requestLegalEntity). Health
 // endpoints pass through. The nil tenant is server-side only and is never
 // accepted from headers. The all-entity duty survives only on a read that
 // explicitly asks for the ALL scope, or on a POST route wrapped in
@@ -304,8 +334,14 @@ func middlewareWith(verifier func() *ServiceVerifier, next http.Handler) http.Ha
 			reject(w, r, http.StatusUnauthorized, "AUTH-0001", "Unauthorized", "invalid tenant")
 			return
 		}
-		le, ok := requestLegalEntity(r)
-		if !ok {
+		duties := map[string]struct{}{}
+		for _, d := range strings.Split(r.Header.Get(HeaderDuties), ",") {
+			if d = strings.TrimSpace(d); d != "" {
+				duties[d] = struct{}{}
+			}
+		}
+		le, err := requestLegalEntity(r, duties)
+		if errors.Is(err, errLegalEntityMalformed) {
 			reject(w, r, http.StatusBadRequest, "COM-0001", "Bad Request", "invalid legal entity")
 			return
 		}
@@ -315,12 +351,14 @@ func middlewareWith(verifier func() *ServiceVerifier, next http.Handler) http.Ha
 			reject(w, r, http.StatusUnauthorized, "AUTH-0001", "Unauthorized", "invalid user")
 			return
 		}
-		p := Principal{TenantID: t, LegalEntityID: le, UserID: user, Duties: map[string]struct{}{}}
-		for _, d := range strings.Split(r.Header.Get(HeaderDuties), ",") {
-			if d = strings.TrimSpace(d); d != "" {
-				p.Duties[d] = struct{}{}
-			}
+		if err != nil {
+			// tenantId and user identify the caller (logpseudo pseudonymizes user under the tenant's key); the entity
+			// values are not logged.
+			slog.WarnContext(r.Context(), "legal entity selection refused", "reason", err.Error(), "tenantId", t, "user", user, "path", r.URL.Path, "correlationId", middleware.GetReqID(r.Context()))
+			reject(w, r, http.StatusForbidden, "AUTH-0003", "Forbidden", err.Error())
+			return
 		}
+		p := Principal{TenantID: t, LegalEntityID: le, UserID: user, Duties: duties}
 		ctx := r.Context()
 		if r.Header.Get(HeaderLegalEntityScopeAll) != LegalEntityScopeAll {
 			delete(p.Duties, DutyAllScope)

@@ -10,6 +10,7 @@ import { createMessageHandler } from "../src/consumer.ts";
 import type { MigrationClient, RenderInput, RenderOutcome, XrefInput, XrefOutcome } from "../src/migrationClient.ts";
 import { httpExchange, RestPusher } from "../src/restPush.ts";
 import { Poller } from "../src/poller.ts";
+import { SELECTION_OUTSIDE_CLAIM, SELECTION_WITHOUT_CLAIM } from "../src/server.ts";
 import { EgressPolicy, validateWebhookUrl } from "../src/ssrf.ts";
 import { api, fixture, ownerUrl, type Api, type Fixture } from "./pgHelper.ts";
 
@@ -617,6 +618,14 @@ describe.skipIf(ownerUrl === undefined)("rest-push on Postgres", () => {
     expect((await hub.call("POST", `/v1/hub/subscriptions/${sub.id}:test`, { tenant }, { event: unscoped }, le)).body).toMatchObject({ stage: "built" });
     expect((await hub.call("POST", `/v1/hub/subscriptions/${sub.id}:test`, { tenant, duties: ["hub.delivery.read"] }, { event: sample }, le)).status).toBe(403);
     expect((await hub.call("POST", `/v1/hub/subscriptions/${sub.id}:test`, { tenant: randomUUID() }, { event: sample }, le)).status).toBe(404);
+    // The shell's selection only narrows the claim (B-03a): without a claim it is refused, inside a claim list it scopes the render.
+    const selected = { "x-depot-legalentity": "22222222-3333-4444-8555-666666666666" };
+    expect((await hub.call("POST", `/v1/hub/subscriptions/${sub.id}:test`, { tenant }, { event: sample }, selected)).body).toMatchObject({ code: "HUB-0403", detail: SELECTION_WITHOUT_CLAIM });
+    const outside = await hub.call("POST", `/v1/hub/subscriptions/${sub.id}:test`, { tenant }, { event: sample }, { ...selected, "x-depot-legal-entity": randomUUID() });
+    expect(outside.status).toBe(403);
+    expect(outside.body).toMatchObject({ code: "HUB-0403", detail: SELECTION_OUTSIDE_CLAIM });
+    const listed = await hub.call("POST", `/v1/hub/subscriptions/${sub.id}:test`, { tenant }, { event: sample }, { ...selected, "x-depot-legal-entity": `${randomUUID()},22222222-3333-4444-8555-666666666666` });
+    expect(listed.status, JSON.stringify(listed.body)).toBe(200);
   });
 
   test("tenant isolation: another tenant cannot replay this tenant's dead letter", async () => {

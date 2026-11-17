@@ -123,10 +123,59 @@ export function principalFromHeaders(h: IncomingHttpHeaders): Principal {
   return { userId, tenantId, duties };
 }
 
-/** The one legal entity the edge scoped the caller to (X-Depot-Legal-Entity), or undefined. */
-export function legalEntityFromHeaders(h: IncomingHttpHeaders): string | undefined {
-  const raw = (header(h, "x-depot-legal-entity") ?? header(h, "x-depot-legalentity"))?.trim().toLowerCase();
-  return raw !== undefined && UUID.test(raw) && raw !== NIL_UUID ? raw : undefined;
+const MAX_LEGAL_ENTITIES = 100;
+const TENANT_ADMIN_DUTY = "tenant.administer";
+/** The detail of the two legal-entity selection refusals, as the kernel words them. */
+export const SELECTION_WITHOUT_CLAIM = "legal entity selection without a legal-entity claim";
+export const SELECTION_OUTSIDE_CLAIM = "legal entity selection is outside the token's scope";
+
+/** Headers as Node gives them: IncomingHttpHeaders, or IncomingMessage.headersDistinct (one array entry per header line). */
+export type HeaderValues = Readonly<Record<string, string | readonly string[] | undefined>>;
+
+/**
+ * A comma list of non-nil UUIDs, canonical and deduplicated; an absent or empty header is []. Malformed is 400: a part
+ * that is not a non-nil UUID, more than MAX_LEGAL_ENTITIES parts, a value of only whitespace, or the header sent more
+ * than once. Node joins repeated header lines with ", ", which cannot be told apart from a real list in the joined
+ * value, so repeats are detected on headersDistinct (an array with more than one entry), which the API passes.
+ */
+function legalEntityList(h: HeaderValues, name: string): string[] {
+  const v = h[name];
+  if (Array.isArray(v) && v.length > 1) {
+    throw new ApiError(400, "HUB-0400", `invalid legal entity: ${name} sent more than once`);
+  }
+  const raw: string | undefined = Array.isArray(v) ? v[0] : (v as string | undefined);
+  if (raw === undefined || raw === "") {
+    return [];
+  }
+  const parts = raw.split(",").map((p) => p.trim().toLowerCase());
+  if (parts.length > MAX_LEGAL_ENTITIES || parts.some((p) => !UUID.test(p) || p === NIL_UUID)) {
+    throw new ApiError(400, "HUB-0400", "invalid legal entity");
+  }
+  return [...new Set(parts)];
+}
+
+/**
+ * The one legal entity the caller works in, or undefined when there is none (or more than one). The kernel tenant
+ * middleware's rule (platform/go/tenant requestLegalEntity; ADR-0006 rule 4, D33, B-03a): the gateway-asserted claim
+ * X-Depot-Legal-Entity (the token's `le`, one entity or a comma list) is the scope, and the shell's selection
+ * X-Depot-LegalEntity can only narrow it. A selection outside the claim is 403. A selection without a claim is 403
+ * unless the caller holds tenant.administer (which never carries a claim and is entitled to every entity of the tenant).
+ * Pass req.headersDistinct so a repeated header is refused instead of read as a list.
+ */
+export function legalEntityFromHeaders(h: HeaderValues, duties: ReadonlySet<string>): string | undefined {
+  const claim = legalEntityList(h, "x-depot-legal-entity");
+  const selection = legalEntityList(h, "x-depot-legalentity");
+  let scope = claim;
+  if (selection.length > 0) {
+    if (claim.length === 0 && !duties.has(TENANT_ADMIN_DUTY)) {
+      throw new ApiError(403, "HUB-0403", SELECTION_WITHOUT_CLAIM);
+    }
+    if (claim.length > 0 && selection.some((s) => !claim.includes(s))) {
+      throw new ApiError(403, "HUB-0403", SELECTION_OUTSIDE_CLAIM);
+    }
+    scope = selection;
+  }
+  return scope.length === 1 ? scope[0] : undefined;
 }
 
 export function requireDuty(principal: Principal, duty: string): void {
@@ -859,7 +908,7 @@ export function createHubHandler(deps: HubApiDeps): (req: IncomingMessage, res: 
         // The render runs for the caller: their tenant, the legal entity the edge scoped them to, and their user id
         // as the token's actor. A sample naming another legal entity is refused rather than rendered under the hub's grant.
         const sample = body["event"] as Record<string, unknown>;
-        const scoped = legalEntityFromHeaders(req.headers);
+        const scoped = legalEntityFromHeaders(req.headersDistinct, p.duties);
         if (sample["legalentityid"] !== undefined && (typeof sample["legalentityid"] !== "string" || sample["legalentityid"].toLowerCase() !== scoped)) {
           throw new ApiError(403, "HUB-0403", "the sample event's legalentityid must be the legal entity you are working in");
         }
