@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/BenjaminSRussell/depot/platform/ids"
+	"github.com/BenjaminSRussell/depot/platform/tracectx"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -599,6 +600,7 @@ func (s *ServiceSigner) ApplyDuties(req *http.Request, p Principal, aud, legalEn
 	if id := middleware.GetReqID(req.Context()); id != "" {
 		req.Header.Set(middleware.RequestIDHeader, id)
 	}
+	tracectx.Inject(req)
 	return true, nil
 }
 
