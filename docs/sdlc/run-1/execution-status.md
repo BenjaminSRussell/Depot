@@ -40,7 +40,7 @@ The B-03b follow-up is issue #725, covering the 9 tables whose D17 reason is int
 
 ## Not started
 
-- B-04, B-05b and B-05c, B-07b and B-07c, B-09b and B-09c, B-10, B-01b, B-02b and B-02c, and the P1 waves in [execution-plan.md](execution-plan.md).
+- B-05c, B-07b and B-07c, B-09b and B-09c, B-10, B-01b, B-02b and B-02c, and the P1 waves in [execution-plan.md](execution-plan.md).
 
 ## After #726
 
@@ -48,4 +48,16 @@ The B-03b follow-up is issue #725, covering the 9 tables whose D17 reason is int
   redirects; a 404 from a wrong URL reads as unknown) and R8 (signing key mount needs `fsGroup`). Fixing as a follow-up.
 - Deploy dependency: the shop floor assign routes answer 503 SF-0202 until an environment sets `identityUrl` and
   `serviceIdentity` and identity trusts the shop floor key; the backfill runbook waits on that.
-- Next: B-05b (Kafka users, in progress), B-04 (gateway enforcement and decision logs, now unblocked).
+- R6–R8 fixed on the wave 3a branch (#727).
+
+## Wave 3a (#727)
+
+| Item | Commits | Review | Next step |
+|---|---|---|---|
+| B-05b: a Kafka user for every consumer (D34) | on the branch | approved on re-review, minors fixed | Merge with #727 |
+| B-04: one authorization model, decision records (ADR-0017) | cecd9416, c62753bb, e6e4bbd6, R1/R2/R4 fix | [b04-review-1.md](reviews/b04-review-1.md) (3 Major), [b04-review-2.md](reviews/b04-review-2.md) (1 Major: alerts in a ConfigMap no Prometheus loads), [b04-review-3.md](reviews/b04-review-3.md): approved; R1 (docs advised copying fieldcrypt's master key into the OPA Secret), R2 (pin promtool checksum) and R4 (gate the Envoy check-error alert in dev) fixed before merge | Merge with #727 |
+
+B-04 follow-ups: wire Secret `depot-log-pseudonym` into the service charts (fresh key, never fieldcrypt's master key);
+a per-installation pseudonym key for depot-server; R3 (OPA's loopback query API can read the key; a supervisor
+`FIELDCRYPT_KEYS_FILE` overrides a child's own `FIELDCRYPT_KEYS`); a live Envoy and Prometheus check (#213, including
+early `X-Request-Id` removal); owner decision on machine callers at Envoy (#512).

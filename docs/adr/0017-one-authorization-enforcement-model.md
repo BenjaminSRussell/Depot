@@ -104,11 +104,13 @@ OPA everywhere, on one policy bundle.
      derivation, so one key yields one pseudonym per user and tenant at Envoy, in the services and on the single-host
      gateways. Services without field-encryption keys (most charts) then pseudonymize instead of redacting. Wiring the
      Secret into every service chart is a follow-up.
-   - **Until it is wired, the Secret must equal fieldcrypt's current key.** No chart mounts `depot-log-pseudonym` yet.
-     The fieldcrypt-keyed services (compliance, hr, migration, party, payables, receiving, sales) fall back to fieldcrypt's
-     current master key, and every other service writes `[redacted]`. So Secret `depot-log-pseudonym` must hold the bytes
-     of fieldcrypt's current key (base64), or the Envoy record and those services name the same user with different
-     pseudonyms.
+   - **Never copy fieldcrypt's master key into this Secret.** Field-encryption keys derive from that master key, and
+     `depot-log-pseudonym` is mounted in the ext_authz OPA pods, so a copy there would let anyone who reads the Secret or
+     compromises an OPA pod decrypt PII fields. Generate a fresh 32-byte key instead. No chart mounts
+     `depot-log-pseudonym` in the services yet: until it is wired (mounted optionally in the seven fieldcrypt-keyed
+     services, compliance, hr, migration, party, payables, receiving and sales, whose `KeyFromEnv` already prefers it),
+     those services pseudonymize under fieldcrypt's key and the Envoy record names the same user with a different
+     pseudonym, and every other service writes `[redacted]`. That mismatch is accepted until the wiring lands.
    - The policy reads the key inside `log_subject` only; no rule of `data.authz` evaluates to it, so the OPA's data API
      cannot return it. `authztest` checks `data.authz` with the key set.
    - `depot-server` reads only the dedicated key for its own records. It passes `FIELDCRYPT_*` only to the seven services

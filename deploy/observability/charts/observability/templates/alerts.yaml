@@ -64,6 +64,7 @@ spec:
               summary: Requests refused by the Envoy ext_authz OPA spiked above {{ .Values.authz.denySpikeFactor }}x the previous hour
           # Envoy could not get an answer from OPA (unreachable, timed out, not ready): it fails closed and answers a bare 403
           # with no body and no record, which a client reads as "not authorized".
+          {{- if .Values.authz.opaUnavailableAlert }}
           - alert: DepotAuthzEnvoyCheckErrors
             expr: sum(rate(envoy_cluster_ext_authz_error[5m])) > 0
             for: 5m
@@ -72,6 +73,7 @@ spec:
               source: envoy
             annotations:
               summary: Envoy's ext_authz checks are failing, so every depot-api request is refused with 403
+          {{- end }}
           # No ext_authz OPA replica is ready (no bundle from identity, Secret depot-authz-opa-bundle missing, a bundle that
           # cannot answer data.authz.envoy): every request through Envoy is refused. Off where identity serves no bundle
           # (authz.opaUnavailableAlert false in dev, where bundle.enabled is off), so it does not fire for good there.

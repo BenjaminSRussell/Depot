@@ -1503,8 +1503,8 @@ class ArgoApplicationsTest(unittest.TestCase):
             return found
 
         self.assertEqual(rendered_alerts({}), alerts, "chart defaults (stage, prod)")
-        self.assertEqual(rendered_alerts(obs_src["helm"].get("valuesObject", {})), alerts - {"DepotAuthzOPAUnavailable"},
-                         "dev: identity serves no bundle, so the OPA unavailability alert is off")
+        self.assertEqual(rendered_alerts(obs_src["helm"].get("valuesObject", {})), alerts - {"DepotAuthzOPAUnavailable", "DepotAuthzEnvoyCheckErrors"},
+                         "dev: identity serves no bundle, so the OPA unavailability and Envoy check-error alerts are off")
 
     def test_the_monitoring_stack_cannot_block_the_dev_bootstrap(self):
         # root-dev waits for each wave to be Healthy (deploy/tofu/cluster/main.tf). The CRDs come early from their own chart;
