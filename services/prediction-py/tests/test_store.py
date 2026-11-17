@@ -154,9 +154,14 @@ def test_scoring_writes_one_scored_event_per_invoice_in_the_same_transaction(pg_
     s.retrain(t, synth.paid_invoices(300))
     preds = s.score(t, synth.open_invoices(3))
     with psycopg.connect(owner_url) as c:
-        rows = c.execute("select type, aggregate_id, payload from outbox where tenant_id = %s order by aggregate_id", (t,)).fetchall()
+        rows = c.execute("select type, aggregate_id, payload, id from outbox where tenant_id = %s order by aggregate_id", (t,)).fetchall()
     assert [r[0] for r in rows] == [SCORED_EVENT] * 3
-    by_invoice = {r[1]: r[2] for r in rows}
+    # The payload is the whole CloudEvents envelope the relay's CloudEventsEnricher needs, keyed by the row id.
+    for _type, invoice_id, env, row_id in rows:
+        assert {k: env[k] for k in ("specversion", "id", "type", "source", "subject", "tenantid")} == {
+            "specversion": "1.0", "id": row_id, "type": SCORED_EVENT, "source": "depot/prediction", "subject": invoice_id, "tenantid": t}
+        assert datetime.fromisoformat(env["time"])
+    by_invoice = {r[1]: r[2]["data"] for r in rows}
     p = preds[0]
     assert by_invoice[p.invoice_id] == {
         "invoice_id": p.invoice_id,
@@ -183,6 +188,25 @@ def test_the_application_role_is_bound_by_row_level_security(pg_schema):
     with psycopg.connect(app_url) as c:
         with pytest.raises(psycopg.errors.InsufficientPrivilege):
             c.execute("delete from payment_prediction")
+
+
+def test_the_outbox_payload_is_the_cloudevents_envelope_the_relay_accepts():
+    # deploy/kafka-connect/enricher CloudEventsEnricher rejects a payload without a conforming type, an id, a time or
+    # specversion 1.0; outbox-prediction-py relays the payload as is.
+    from prediction.domain import Prediction
+    from prediction.service import scored_envelope, scored_event
+
+    p = Prediction("INV-1", "m1", date(2026, 12, 1), "0.1200", "h", datetime(2026, 11, 17, 8, tzinfo=timezone.utc), date(2026, 11, 30))
+    now = datetime(2026, 11, 17, 8, 0, 1, tzinfo=timezone.utc)
+    le = str(uuid.uuid4())
+    env = scored_envelope(T1, p, le, event_id="evt-1", now=now)
+    assert env == {
+        "specversion": "1.0", "id": "evt-1", "source": "depot/prediction", "type": SCORED_EVENT, "subject": "INV-1",
+        "time": now.isoformat(), "datacontenttype": "application/json", "data": scored_event(p), "tenantid": T1,
+        "legalentityid": le,
+    }
+    assert "legalentityid" not in scored_envelope(T1, p)
+    assert scored_envelope(T1, p)["id"] != scored_envelope(T1, p)["id"]
 
 
 def test_events_in_memory_mirror_the_outbox():

@@ -6,16 +6,35 @@ info:
     PRD 9.47 FR-47.15 events, CloudEvents 1.0 envelope; the schema below is the data member, snake_case as in the
     other services' events. `POST /api/v1/predictions/payment/score` writes one
     dev.depot.prediction.payment.scored.v1 row per invoice to this service's outbox in the scoring transaction
-    (src/prediction/store.py). The relay connector for this outbox is not deployed yet (NOT-IMPLEMENTED.md), so
-    `channels` and `operations` stay empty until it is.
+    (src/prediction/store.py). The `outbox-prediction-py` connector (deploy/kafka/connect.yaml) relays it to
+    depot.prediction.payment (routed by event type: dev.depot.prediction.<entity>.<verb>.v<n> goes to depot.prediction.<entity>).
     The service also consumes receivables events (payment, credit settlement, dispute, dunning letter, deduction, down payment and
     opening-item events, see the receivables asyncapi) to rescore the invoices they touch, with consumer_inbox dedupe
     (src/prediction/consumer.py).
 defaultContentType: application/cloudevents+json
-channels: {}
-operations: {}
+channels:
+  paymentScored:
+    address: depot.prediction.payment
+    description: Outbox relay topic for payment predictions, one event per scored invoice.
+    messages:
+      paymentScored:
+        $ref: "#/components/messages/PaymentScored"
+operations:
+  publishPaymentScored:
+    action: send
+    channel:
+      $ref: "#/channels/paymentScored"
+    summary: Written per invoice in the scoring transaction (src/prediction/store.py).
+    messages:
+      - $ref: "#/channels/paymentScored/messages/paymentScored"
 components:
-  messages: {}
+  messages:
+    PaymentScored:
+      name: dev.depot.prediction.payment.scored.v1
+      summary: An invoice's payment date was predicted
+      contentType: application/cloudevents+json
+      payload:
+        $ref: "#/components/schemas/PaymentScoredData"
   schemas:
     EventTypes:
       type: string
