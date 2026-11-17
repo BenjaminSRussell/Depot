@@ -23,6 +23,12 @@ alertWebhook:
   url: http://alert-bridge.observability.svc:8080/alerts
   tokenSecret: alert-webhook
   tokenKey: token
+# DepotAuthzDenySpike (B-04): fires when a source's denials for one reason exceed denyRatePerSecond and denySpikeFactor
+# times their rate in the hour before, for 10 minutes. The absolute floor keeps a quiet service's first few denials quiet.
+authz:
+  denyRatePerSecond: 0.5
+  denySpikeFactor: 5
+  severity: warning
 slo:
   availability: "99.9"
   latencyP95Ms: 50

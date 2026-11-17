@@ -2,7 +2,7 @@
 
 **Status:** Accepted — 2026-11-17 (records a decision already made in code; SDLC run 1, stage 2, deviations D1 and D23)
 **Evidence:** `docs/sdlc/run-1/architecture-delta.md` §3 rows 3–4, §4 D1, D23; `docs/sdlc/run-1/architecture-review-response.md` R-02, R-03, R-06
-**Amended:** 2026-11-17 after the independent stage-2 review: as-built issuer and key (Context), agents-ts exception (rule 1), legal-entity model (rule 4, Proposed — pending owner confirmation), decision logging (Consequences)
+**Amended:** 2026-11-17 after the independent stage-2 review: as-built issuer and key (Context), agents-ts exception (rule 1), legal-entity model (rule 4, Proposed — pending owner confirmation), decision logging (Consequences). 2026-11-17 by ADR-0017 (B-04): rules 3 and 7 and the decision-logging consequence — every gateway, Envoy included, asks OPA, and every decision is logged
 
 ## Context
 
@@ -19,7 +19,7 @@ The code does something else, consistently, across every service:
   client-supplied `X-Depot-*` header in `earlyRequestHeaders`; `SecurityPolicy/depot-api-jwt` validates issuer,
   audience `depot-api` and signature, and maps `tid`, `le`, `sub`, `duties`, `tier` and `auth_time` to `X-Depot-Tenant`,
   `X-Depot-Legal-Entity`, `X-Depot-User`, `X-Depot-Duties`, `X-Depot-Tier` and `X-Depot-Auth-Time`
-  (`deploy/gateway/README.md`, "Request path"). There is no ext_authz filter in `deploy/gateway/`.
+  (`deploy/gateway/README.md`, "Request path"). There is no ext_authz filter in `deploy/gateway/` (added by ADR-0017).
 - **The issuer is not wired.** The SecurityPolicy's provider names issuer `https://idp.dev.depot.dev/realms/dev` and
   validates against `localJWKS` from ConfigMap `depot-dev-jwks`, a static placeholder public key with no private key
   ("nothing can mint accepted tokens until #80", `deploy/gateway/README.md`). The realm is `depot`
@@ -65,6 +65,9 @@ Keep the built model and record it as the v1.0 authorization architecture.
 3. **OPA is the policy engine where a full decision is needed**: identity's administrative and SCIM routes, and the
    built-in gateway of single-host installs (devgateway, `depot-server`). No ext_authz and no per-service OPA
    sidecar in Kubernetes for v1.0.
+   - *Amended by ADR-0017 (B-04):* Envoy asks OPA too, through ext_authz to one OPA Deployment beside the Gateway
+     (`deploy/gateway/authz-opa.yaml`, `data.authz.envoy`) on identity's bundle; still no per-service sidecar. The services'
+     `authz.RequireDuty` stays, as defence in depth.
 4. **Legal-entity scope** comes from the `le` claim (`X-Depot-Legal-Entity`), and is widened to all entities only on
    reads that send `X-Depot-LegalEntity-Scope: ALL` by a caller holding `org.switcher.all-scope` (`tenant.go`;
    architecture §7.3 rule 3a).
@@ -110,8 +113,9 @@ Keep the built model and record it as the v1.0 authorization architecture.
      entity is no longer active. Without it a role scoped to one company could open SCIM, which acts on every user of
      the tenant (B-03b review, blocker). On the single-host gateways the selection must equal the claim, so the
      claim is the request's legal entity; under the Proposed list model (B-03c) the gateways must pass the selected
-     entity instead. Envoy does not call OPA (rule 3), so in Kubernetes a scoped assignment still reaches services
-     only through the token's `duties` and `le` claims.
+     entity instead. Envoy did not call OPA (rule 3), so in Kubernetes a scoped assignment reached services only
+     through the token's `duties` and `le` claims; since B-04 (ADR-0017) Envoy's ext_authz OPA applies this rule too,
+     from the `X-Depot-Legal-Entity` header the JWT filter sets from `le`.
 5. **Revocation latency is the access-token life (300 s).** The designed ≤ 10 s is withdrawn for v1.0. Step-up uses
    the auth-age check on `X-Depot-Auth-Time`, not an OPA `requires_acr` obligation.
    - *Decision (B-03b): no `pv` claim for v1.0.* The PRD (FR-2.1, FR-2.6, message IAM-0405) puts the policy bundle
@@ -173,6 +177,10 @@ Keep the built model and record it as the v1.0 authorization architecture.
 7. **One enforcement model everywhere.** Envoy (Kubernetes), devgateway and `depot-server` must enforce the same
    checks for the same route. Today the two single-host gateways also call OPA and Envoy does not; that difference
    is a known gap, not a feature.
+   - *As built (B-04, ADR-0017):* all three ask `policies/authz` with the verified subject, the method and the path the
+     service receives, and pass the shared route table (`policies/authz/testdata/route_table.json`): devgateway and
+     `depot-server` end to end against a real OPA, Envoy through `data.authz.envoy` plus static checks of its
+     configuration (no live Envoy, #213).
 
 ## Alternatives rejected
 
@@ -189,7 +197,9 @@ Keep the built model and record it as the v1.0 authorization architecture.
 - Role changes take up to five minutes to apply; users can see stale navigation and actions in that window.
 - No authorization decision is logged: OPA decision logs are off, services and gateways write no allow/deny record
   with actor, duty and route, and the access log has only method, path and status (D36). Until D36 is closed, the
-  system cannot answer an auditor's "who was allowed or refused what".
+  system cannot answer an auditor's "who was allowed or refused what". *Amended by ADR-0017 (B-04):* every decision of
+  the services and the three gateways writes one `authz.decision` record with a pseudonymized subject, and the Envoy OPA's
+  decision log is on and masked; shipping the records to the log store is #213.
 - Backlog: add a default-deny NetworkPolicy and gateway-only (plus generated peer allow-list) ingress to every service chart and namespace, and a CI check that fails when a chart lacks it (D1).
 - Backlog: decide per environment whether `DEPOT_GATEWAY_SECRET` is also required in Kubernetes, and if so add it to the Envoy SecurityPolicy and every chart (D1).
 - Backlog: move peer calls that forward user headers (receiving, payables, party, product) to signed service tokens, so peer ingress can be narrowed to the gateway only (D1).

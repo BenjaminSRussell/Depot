@@ -98,6 +98,9 @@ MANIFEST_SUFFIXES = (".yaml", ".yml", ".json")
 UNMANAGED_SECRETS = {
     ("hello-ledger", "keycloak-db"): "deploy/keycloak/README.md (created by hand, #80)",
     ("hello-ledger", "keycloak-admin"): "deploy/keycloak/README.md (created by hand, #80)",
+    # The ext_authz OPA's copy of identity's bundle token, CA and public key (B-04); identity's bundle secrets are not
+    # managed either (bundle.enabled is off in dev).
+    ("hello-ledger", "depot-authz-opa-bundle"): "deploy/gateway/README.md, Authorization (created by hand with identity's bundle key)",
 }
 # Service databases in the shared dev Postgres (deploy/envs/dev/apps/postgres.yaml) whose DATABASE_URL Secret an
 # ExternalSecret in that file writes: dev Application -> (database, login role, Secret, key the chart reads).

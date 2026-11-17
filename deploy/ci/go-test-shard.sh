@@ -2,7 +2,8 @@
 # Run one Go CI shard. Slow packages get dedicated shards; everything else is
 # hashed into rest-0..rest-2 so `go list` stays the source of package membership.
 # Packages get 20 minutes, not go test's 10-minute default: the identity package checks every duty
-# against the real policy and outgrew the default on a slow runner.
+# against the real policy and outgrew the default on a slow runner. depot-server runs in the identity shard because its
+# gateway runs the B-04 route table against a real OPA, which only that shard installs.
 set -euo pipefail
 
 shard=${1:?usage: go-test-shard.sh SHARD}
@@ -14,7 +15,7 @@ shard_for() {
   local pkg=$1
   case $pkg in
     github.com/BenjaminSRussell/depot/services/pricing/internal/store) echo pricing-store ;;
-    github.com/BenjaminSRussell/depot/services/identity|github.com/BenjaminSRussell/depot/services/identity/*|github.com/BenjaminSRussell/depot/tools/e2e|github.com/BenjaminSRussell/depot/tools/e2e/*) echo identity ;;
+    github.com/BenjaminSRussell/depot/services/identity|github.com/BenjaminSRussell/depot/services/identity/*|github.com/BenjaminSRussell/depot/tools/e2e|github.com/BenjaminSRussell/depot/tools/e2e/*|github.com/BenjaminSRussell/depot/tools/depot-server) echo identity ;;
     github.com/BenjaminSRussell/depot/services/inventory/internal/store) echo inventory-store ;;
     github.com/BenjaminSRussell/depot/services/ledger/internal/store) echo ledger-store ;;
     github.com/BenjaminSRussell/depot/services/org/internal/store) echo org-store ;;

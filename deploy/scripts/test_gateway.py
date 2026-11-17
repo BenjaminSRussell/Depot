@@ -1,4 +1,5 @@
 import copy
+import json
 import ipaddress
 import re
 import subprocess
@@ -786,6 +787,161 @@ class PlantEdge(unittest.TestCase):
         for call in calls:
             shape = re.sub(r"/v1/shopfloor/edge-nodes/\"\+[^+]+\+\"", "/v1/shopfloor/edge-nodes/N", call)
             self.assertRegex(shape, r"^/v1/shopfloor/(machine-events|edge-nodes/.*)$", call)
+
+
+POLICY_DIR = DEPLOY.parent / "policies" / "authz"
+AUTHZ_REGO = POLICY_DIR / "authz.rego"
+ROUTE_TABLE = POLICY_DIR / "testdata" / "route_table.json"
+EXT_AUTHZ_SERVICE, EXT_AUTHZ_PORT = "depot-authz-opa", 9191
+
+
+def rego_gateway_bases():
+    """gateway_service_bases from authz.rego (a rego object of strings, which is JSON)."""
+    m = re.search(r"^gateway_service_bases := (\{.*?^\})", AUTHZ_REGO.read_text(), re.M | re.S)
+    assert m, "authz.rego has no gateway_service_bases"
+    return json.loads(re.sub(r",(\s*\})", r"\1", m.group(1)))
+
+
+def rego_resource(path, bases):
+    """authz.rego's gateway_resource: the path the service receives for a public path, or None."""
+    m = re.fullmatch(r"(?:/api)?/v1/([a-z0-9][a-z0-9-]*)(/.*)?", path)
+    if not m:
+        return None
+    return bases.get(m.group(1), f"/v1/{m.group(1)}") + (m.group(2) or "")
+
+
+class AuthzEnforcement(unittest.TestCase):
+    """B-04, ADR-0017: one enforcement model. Envoy asks the OPA that answers data.authz.envoy, the policy devgateway and
+    depot-server ask, after the JWT filter, for every route of depot-api. These are static checks of the configuration (no
+    Envoy runs here); gateway_test.rego evaluates the shared route table against data.authz.envoy itself."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.docs = render()
+
+    def test_every_api_route_is_behind_the_one_ext_authz_policy(self):
+        sp = named(self.docs, "SecurityPolicy", API_JWT_POLICY)
+        self.assertEqual(target_names(sp), {("Gateway", API_GATEWAY)})
+        self.assertFalse([t for t in sp["spec"]["targetRefs"] if "sectionName" in t])
+        ext = sp["spec"]["extAuth"]
+        self.assertIs(ext.get("failOpen"), False, "ext_authz must fail closed")
+        self.assertEqual(ext["grpc"]["backendRefs"], [{"name": EXT_AUTHZ_SERVICE, "port": EXT_AUTHZ_PORT}])
+        self.assertNotIn("http", ext)
+        routes = api_routes(self.docs)
+        self.assertEqual({r["metadata"]["name"] for r in routes}, {r.name for r in MODEL.routes})
+        route_names = {r["metadata"]["name"] for r in routes}
+        gw = named(self.docs, "Gateway", API_GATEWAY)
+        for listener in gw["spec"]["listeners"]:
+            # A route from another namespace could not attach, so every attached route is one checked here.
+            self.assertEqual(listener["allowedRoutes"]["namespaces"]["from"], "Same", listener["name"])
+        for r in routes:
+            self.assertEqual(r["metadata"]["namespace"], sp["metadata"]["namespace"], r["metadata"]["name"])
+        # Envoy Gateway applies the most specific SecurityPolicy only: one on a route or a listener of depot-api would
+        # replace this one, ext_authz included, for the routes it covers.
+        for other in of_kind(self.docs, "SecurityPolicy"):
+            if other["metadata"]["name"] == API_JWT_POLICY:
+                continue
+            for t in other["spec"]["targetRefs"]:
+                with self.subTest(policy=other["metadata"]["name"], target=t["name"]):
+                    self.assertFalse(t["kind"] == "Gateway" and t["name"] == API_GATEWAY)
+                    self.assertFalse(t["kind"] == "HTTPRoute" and t["name"] in route_names)
+
+    def test_ext_authz_runs_after_the_jwt_filter(self):
+        gw = named(self.docs, "Gateway", API_GATEWAY)
+        ref = gw["spec"]["infrastructure"]["parametersRef"]
+        self.assertEqual((ref["group"], ref["kind"]), ("gateway.envoyproxy.io", "EnvoyProxy"))
+        proxy = named(self.docs, "EnvoyProxy", ref["name"])
+        self.assertEqual(proxy["metadata"]["namespace"], gw["metadata"]["namespace"])
+        self.assertIn({"name": "envoy.filters.http.ext_authz", "after": "envoy.filters.http.jwt_authn"},
+                      proxy["spec"]["filterOrder"])
+
+    def test_opa_gets_only_the_verified_identity_headers_and_the_request_id(self):
+        sp = named(self.docs, "SecurityPolicy", API_JWT_POLICY)
+        sent = set(sp["spec"]["extAuth"]["headersToExtAuth"])
+        self.assertEqual(sent, {"x-depot-tenant", "x-depot-user", "x-depot-legal-entity", "x-request-id"})
+        # Each identity header is set by the JWT filter from the token and removed from the client's request first.
+        mapped = {m["header"].lower() for p in sp["spec"]["jwt"]["providers"] for m in p["claimToHeaders"]}
+        ctp = named(self.docs, "ClientTrafficPolicy", "depot-api-strip-identity-headers")
+        removed = {h.lower() for h in ctp["spec"]["headers"]["earlyRequestHeaders"]["remove"]}
+        identity = sent - {"x-request-id"}
+        self.assertLessEqual(identity, mapped)
+        self.assertLessEqual(identity, removed)
+        # The rule reads exactly these headers.
+        rego = AUTHZ_REGO.read_text()
+        for h in sent:
+            self.assertIn(f'"{h}"', rego)
+
+    def test_the_ext_authz_opa_answers_the_envoy_rule_from_identitys_signed_bundle(self):
+        dep = named(self.docs, "Deployment", EXT_AUTHZ_SERVICE)
+        (container,) = dep["spec"]["template"]["spec"]["containers"]
+        self.assertRegex(container["image"], r"^docker\.io/openpolicyagent/opa:[0-9.]+-envoy[-0-9]*@sha256:[0-9a-f]{64}$")
+        self.assertIn("--addr=127.0.0.1:8181", container["args"], "the REST API stays on loopback")
+        ports = {p["name"]: p["containerPort"] for p in container["ports"]}
+        self.assertEqual(ports["ext-authz"], EXT_AUTHZ_PORT)
+        svc = named(self.docs, "Service", EXT_AUTHZ_SERVICE)
+        self.assertEqual([(p["port"], p["targetPort"]) for p in svc["spec"]["ports"]], [(EXT_AUTHZ_PORT, "ext-authz")])
+        self.assertEqual(svc["spec"]["selector"], dep["spec"]["selector"]["matchLabels"])
+        cm = named(self.docs, "ConfigMap", "depot-authz-opa-config")
+        cfg = yaml.safe_load(cm["data"]["config.yaml"])
+        plugin = cfg["plugins"]["envoy_ext_authz_grpc"]
+        self.assertEqual(plugin["path"], "authz/envoy")
+        self.assertEqual(plugin["addr"], f":{EXT_AUTHZ_PORT}")
+        self.assertNotIn("dry-run", plugin)
+        self.assertRegex(AUTHZ_REGO.read_text(), r"(?m)^envoy := ")
+        bundle = cfg["bundles"]["authz"]
+        self.assertEqual(bundle["resource"], "/v1/identity/policy/bundle")
+        self.assertEqual(bundle["signing"]["keyid"], "identity-policy")
+        self.assertTrue(cfg["services"][bundle["service"]]["url"].startswith("https://identity-bundle:"))
+        # identity's NetworkPolicy admits this pod to the bundle port.
+        identity_values = yaml.safe_load((DEPLOY.parent / "services/identity/charts/identity/values.yaml").read_text())
+        labels = dep["spec"]["template"]["metadata"]["labels"]
+        for k, v in identity_values["networkPolicy"]["opaPodLabels"].items():
+            self.assertEqual(labels.get(k), v)
+
+    def test_decision_logs_are_on_and_masked(self):
+        cfg = yaml.safe_load(named(self.docs, "ConfigMap", "depot-authz-opa-config")["data"]["config.yaml"])
+        self.assertIs(cfg["decision_logs"]["console"], True)
+        mask = cfg["decision_logs"]["mask_decision"]
+        self.assertEqual(mask, "/authz/decision_log_mask")
+        self.assertIn('decision_log_mask contains "/input"', AUTHZ_REGO.read_text())
+        self.assertEqual(cfg["labels"]["log_class"], "audit.other")
+
+    def test_only_the_api_gateways_envoy_pods_reach_the_ext_authz_port(self):
+        np = named(self.docs, "NetworkPolicy", EXT_AUTHZ_SERVICE)
+        self.assertEqual(np["spec"]["podSelector"]["matchLabels"], {"app.kubernetes.io/name": EXT_AUTHZ_SERVICE})
+        (rule,) = np["spec"]["ingress"]
+        (peer,) = rule["from"]
+        self.assertEqual(peer["namespaceSelector"]["matchLabels"], {"kubernetes.io/metadata.name": "envoy-gateway-system"})
+        self.assertEqual(peer["podSelector"]["matchLabels"], {
+            "gateway.envoyproxy.io/owning-gateway-name": API_GATEWAY,
+            "gateway.envoyproxy.io/owning-gateway-namespace": "hello-ledger",
+        })
+        self.assertEqual(rule["ports"], [{"protocol": "TCP", "port": EXT_AUTHZ_PORT}])
+
+    def test_the_policy_decides_on_the_path_each_generated_route_sends_to_its_service(self):
+        bases = rego_gateway_bases()
+        exceptions = set()
+        for r in MODEL.routes:
+            for public, upstream in r.matches():
+                with self.subTest(route=r.name, public=public):
+                    self.assertEqual(rego_resource(public, bases), upstream)
+            if r.upstream != f"/v1/{r.prefix}":
+                exceptions.add(r.prefix)
+        # The rego table names exactly the routed prefixes whose service base is not /v1/<prefix> (the D22 exceptions).
+        self.assertEqual(set(bases), exceptions)
+
+    def test_the_shared_route_table_calls_routes_envoy_serves(self):
+        table = json.loads(ROUTE_TABLE.read_text())
+        bases = rego_gateway_bases()
+        prefixes = [p for r in api_routes(self.docs) for rule in r["spec"]["rules"] for m in rule["matches"]
+                    for p in [m["path"]["value"]]]
+        self.assertGreaterEqual(len(table["cases"]), 10)
+        self.assertEqual({c["allow"] for c in table["cases"]}, {True, False})
+        for c in table["cases"]:
+            with self.subTest(case=c["name"]):
+                self.assertTrue(c["path"].startswith("/api/v1/"))
+                self.assertTrue(any(c["path"] == p or c["path"].startswith(p + "/") for p in prefixes), c["path"])
+                self.assertNotIn(c["path"].split("/")[3], bases, "a D22 prefix is decided on another path per gateway")
 
 
 if __name__ == "__main__":

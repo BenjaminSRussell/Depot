@@ -68,6 +68,10 @@
       "unsignedUpstream": "The kube-state-metrics project's cosign identity has not been confirmed (this repository's build environment cannot reach the registry to check); the image is pinned by digest, its SBOM generated here, and signed with the offline key. Confirm the publisher's signature identity on the connected build machine and replace this with certificateIdentityRegexp and certificateOidcIssuer"
     },
     {
+      "match": "docker.io/openpolicyagent/*",
+      "unsignedUpstream": "The Open Policy Agent project's cosign identity for its images has not been confirmed (this repository's build environment cannot reach the registry to check); the image is pinned by digest, its SBOM generated here, and signed with the offline key. Confirm the publisher's signature identity on the connected build machine and replace this with certificateIdentityRegexp and certificateOidcIssuer"
+    },
+    {
       "match": "docker.io/valkey/*",
       "unsignedUpstream": "The Valkey Docker official image's cosign identity has not been confirmed (this repository's build environment cannot reach the registry to check); the image is pinned by digest, its SBOM generated here, and signed with the offline key. Confirm the publisher's signature identity on the connected build machine and replace this with certificateIdentityRegexp and certificateOidcIssuer"
     }
