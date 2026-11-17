@@ -158,7 +158,7 @@ def services():
 
 def templates(chart):
     """The chart's templates, without this script's own and without the migration Job (gen_migrate_jobs.py): the Job's pod
-    (app.kubernetes.io/name <chart>-migrate) opens no port and calls no peer, so it is neither selected here, which leaves
+    (app.kubernetes.io/name <pod>-migrate) opens no port and calls no peer, so it is neither selected here, which leaves
     it to the namespace default-deny, nor admitted as a peer by any other chart."""
     skip = {TEMPLATE_NAME, MIGRATE_JOB_TEMPLATE}
     return sorted(p for p in (REPO / chart / "templates").iterdir() if p.is_file() and p.name not in skip)

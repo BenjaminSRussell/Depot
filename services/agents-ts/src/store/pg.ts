@@ -19,43 +19,123 @@ import type {
 
 export const MIGRATIONS_DIR = new URL("../../migrations/", import.meta.url);
 
-/** Same contract as integration-hub-ts pgStore.migrate (dbx.Migrate); the two are separate npm packages with no shared TS library to import it from. */
+/** Same contract as integration-hub-ts pgStore.migrate (dbx.Migrate: one transaction per file with its schema_migrations row,
+ * under the advisory lock); the two are separate npm packages with no shared TS library to import it from. */
 export async function migrate(pool: pg.Pool, dir: URL = MIGRATIONS_DIR): Promise<void> {
-  await pool.query(
-    "create table if not exists schema_migrations (name text primary key, applied_at timestamptz not null default now())",
-  );
-  const names = (await readdir(dir)).filter((n) => n.endsWith(".sql")).sort();
-  for (const name of names) {
-    const done = await pool.query("select 1 from schema_migrations where name = $1", [name]);
-    if (done.rowCount) continue;
-    const body = await readFile(new URL(name, dir), "utf8");
-    const client = await pool.connect();
-    try {
-      await client.query("begin");
-      await client.query(body);
-      await client.query("insert into schema_migrations(name) values ($1)", [name]);
-      await client.query("commit");
-    } catch (err) {
-      await client.query("rollback").catch(() => undefined);
-      throw new Error(`migration ${name}: ${(err as Error).message}`);
-    } finally {
-      client.release();
+  const client = await pool.connect();
+  let healthy = true;
+  try {
+    // The dbx.Migrate lock (platform/go/dbx): a session advisory lock keyed on the schema, taken by polling, so a Job retry and
+    // a dev pod migrating on start take turns and every statement runs on the connection that holds it.
+    const key = (await client.query<{ key: string }>("select hashtextextended('depot.dbx.migrate:' || current_schema(), 0)::text as key")).rows[0]!.key;
+    while (!(await client.query<{ got: boolean }>("select pg_try_advisory_lock($1::bigint) as got", [key])).rows[0]!.got) {
+      await new Promise((resolve) => setTimeout(resolve, 100 + Math.random() * 150));
     }
+    try {
+      await client.query("create table if not exists schema_migrations (name text primary key, applied_at timestamptz not null default now())");
+      const names = (await readdir(dir)).filter((n) => n.endsWith(".sql")).sort();
+      for (const name of names) {
+        const done = await client.query("select 1 from schema_migrations where name = $1", [name]);
+        if (done.rowCount) continue;
+        const body = await readFile(new URL(name, dir), "utf8");
+        try {
+          await client.query("begin");
+          await client.query(body);
+          await client.query("insert into schema_migrations(name) values ($1)", [name]);
+          await client.query("commit");
+        } catch (err) {
+          await client.query("rollback").catch(() => undefined);
+          throw new Error(`migration ${name}: ${(err as Error).message}`, { cause: err });
+        }
+      }
+    } finally {
+      // Never return a connection that may still hold the lock to the pool.
+      await client.query("select pg_advisory_unlock($1::bigint)", [key]).catch(() => {
+        healthy = false;
+      });
+    }
+  } catch (err) {
+    healthy = false;
+    throw err;
+  } finally {
+    client.release(!healthy);
   }
 }
 
-/** The first argument that runs the image as its schema migration step (`node dist/main.js migrate`): the chart's owner-role migration Job (D28). */
-export const MIGRATE_COMMAND = "migrate";
-
 /**
- * Applies the migrations with the owner role's URL (MIGRATE_DATABASE_URL, else DATABASE_URL) and closes the pool; the same
- * contract as dbx.RunMigrateCommand in the Go services.
+ * The first argument that runs the image as its schema migration step (`node dist/main.js migrate`): the chart's owner-role
+ * migration Job (D28).
  */
-export async function migrateFromEnv(env: Record<string, string | undefined>, dir: URL = MIGRATIONS_DIR): Promise<void> {
+export const MIGRATE_COMMAND = "migrate";
+/** The serving role: refused by migrateFromEnv unless MIGRATE_ALLOW_APP_ROLE=true (dev, where it owns the schema). */
+export const APP_ROLE = "depot_app";
+
+/** The owner role's URL: MIGRATE_DATABASE_URL, else DATABASE_URL. */
+export function migrateUrl(env: Record<string, string | undefined>): string {
   const url = env["MIGRATE_DATABASE_URL"] || env["DATABASE_URL"];
   if (url === undefined || url === "") throw new Error("MIGRATE_DATABASE_URL or DATABASE_URL is required to migrate");
-  const pool = new pg.Pool({ connectionString: url, max: 1 });
+  return url;
+}
+
+/** How long to retry an unreachable database, in ms: MIGRATE_RETRY_TIMEOUT (`90s`, `5m`, `0`), else 5 minutes. */
+export function migrateRetryMs(env: Record<string, string | undefined>): number {
+  const raw = env["MIGRATE_RETRY_TIMEOUT"];
+  if (raw === undefined || raw === "") return 5 * 60_000;
+  const m = /^(\d+)(ms|s|m)?$/.exec(raw);
+  if (m === null || (m[2] === undefined && m[1] !== "0")) throw new Error(`MIGRATE_RETRY_TIMEOUT must be a duration such as 90s or 5m, got ${JSON.stringify(raw)}`);
+  return Number(m[1]) * ({ ms: 1, s: 1000, m: 60_000 } as Record<string, number>)[m[2] ?? "ms"]!;
+}
+
+const CONNECTION_CODES = new Set(["ECONNREFUSED", "ECONNRESET", "ENOTFOUND", "EAI_AGAIN", "ETIMEDOUT", "EHOSTUNREACH", "ENETUNREACH", "EPIPE", "57P01", "57P02", "57P03", "53300"]);
+
+/** Whether err means the database could not be reached (retried), not a statement's own error, a bad login or a missing database. */
+export function isConnectionError(err: unknown): boolean {
+  const e = err as { code?: unknown; message?: unknown } | null;
+  const code = typeof e?.code === "string" ? e.code : "";
+  if (CONNECTION_CODES.has(code) || code.startsWith("08")) return true;
+  const message = typeof e?.message === "string" ? e.message : "";
+  return code === "" && /Connection terminated|timeout exceeded when trying to connect|connect ECONNREFUSED/.test(message);
+}
+
+const APP_ROLE_QUERY = `select r.rolname = 'depot_app' or (not r.rolsuper
+  and exists (select 1 from pg_roles where rolname = 'depot_app')
+  and pg_has_role(r.oid, 'depot_app', 'MEMBER')) as app, current_user as name
+from pg_roles r where r.rolname = current_user`;
+
+/**
+ * Applies the migrations as the owner role (MIGRATE_DATABASE_URL, else DATABASE_URL) and closes the pool, as
+ * dbx.RunMigrateCommand does in the Go services: an unreachable database is retried with back-off for
+ * MIGRATE_RETRY_TIMEOUT, depot_app (or a member of it) is refused unless MIGRATE_ALLOW_APP_ROLE=true, and migrate() holds
+ * the dbx advisory lock. A migration's SQL error fails at once.
+ */
+export async function migrateFromEnv(
+  env: Record<string, string | undefined>,
+  dir: URL = MIGRATIONS_DIR,
+  log: (message: string, fields: Record<string, unknown>) => void = (message, fields) =>
+    void process.stderr.write(`${JSON.stringify({ level: "warn", message, ...fields })}\n`),
+): Promise<void> {
+  const url = migrateUrl(env);
+  const deadline = Date.now() + migrateRetryMs(env);
+  const pool = new pg.Pool({ connectionString: url, max: 1, connectionTimeoutMillis: 10_000 });
   try {
+    let wait = 1000;
+    for (let attempt = 1; ; attempt++) {
+      try {
+        await pool.query("select 1");
+        break;
+      } catch (err) {
+        if (!isConnectionError(err) || Date.now() + wait > deadline) throw err;
+        log("migration database not reachable; retrying", { attempt, retryInMs: wait, error: String(err) });
+        await new Promise((resolve) => setTimeout(resolve, wait));
+        wait = Math.min(2 * wait, 30_000);
+      }
+    }
+    if (env["MIGRATE_ALLOW_APP_ROLE"] !== "true") {
+      const who = (await pool.query<{ app: boolean; name: string }>(APP_ROLE_QUERY)).rows[0];
+      if (who?.app) {
+        throw new Error(`refusing to migrate as ${JSON.stringify(who.name)}, the serving role ${APP_ROLE} or a member of it: use the owner role's URL (MIGRATE_DATABASE_URL), or set MIGRATE_ALLOW_APP_ROLE=true where it owns the schema (dev only)`);
+      }
+    }
     await migrate(pool, dir);
   } finally {
     await pool.end();

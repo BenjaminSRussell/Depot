@@ -100,15 +100,21 @@ consumer:
 # (provisioned with the database). Override per environment in deploy/envs/<env>/values or the Application's values.
 migrateJob:
   enabled: true
+  # The Job pod is <podName>-migrate: the API Deployment's name label, as Postgres clientApps lists it.
+  podName: billing
   command: []
   args: [migrate]
   ownerSecret: billing-db-owner
   ownerSecretKey: DATABASE_URL
+  # MIGRATE_ALLOW_APP_ROLE: true only where depot_app really owns the schema (dev); otherwise the command refuses it.
+  allowAppRole: false
   backoffLimit: 2
   activeDeadlineSeconds: 600
   resources:
     requests: {cpu: 50m, memory: 64Mi}
     limits: {cpu: 500m, memory: 256Mi}
+  # The serving pods' tag without image.tag and image.digest when it is not the chart's appVersion.
+  imageTagDefault: ""
   # Values path of the serving pods' MIGRATE_ON_START: the Job refuses to render while it is "true".
   servingMigrateOnStart: migrateOnStart
 # <<< migrateJob
