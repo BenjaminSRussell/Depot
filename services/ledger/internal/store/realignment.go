@@ -495,7 +495,7 @@ func (s *Postgres) PostRealignment(ctx context.Context, in RealignmentAction) (R
 				return err
 			}
 			dates[period] = date
-			v, err := periodViolations(ctx, tx, p.TenantID, ledger, date, "ledger")
+			v, err := periodViolations(ctx, tx, p.TenantID, ledger, date, "ledger", true)
 			if err != nil {
 				return err
 			}

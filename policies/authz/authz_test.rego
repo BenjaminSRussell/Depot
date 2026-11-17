@@ -3755,4 +3755,8 @@ test_ledger_period_lock_is_service_only_and_opens_only_its_route if {
 	not allowed("ledger.period.lock", "POST", "/v1/ledger/journal-entries")
 	not allowed("ledger.journal.post", "PUT", "/v1/ledger/ledgers/l1/period-locks/p1")
 	not allowed("ledger.ledger.write", "PUT", "/v1/ledger/ledgers/l1/period-locks/p1")
+	data.service_principals["close-reopen-expiry"] == ["ledger.period.lock"]
+	allowed("period.maintain", "POST", "/v1/close/periods/p1:resync-ledger-lock")
+	not allowed("period.check", "POST", "/v1/close/periods/p1:resync-ledger-lock")
+	not allowed("period.reopen", "POST", "/v1/close/periods/p1:resync-ledger-lock")
 }

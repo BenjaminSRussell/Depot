@@ -436,26 +436,40 @@ from that source, plus the row `*` for every source close maps to no module, the
 a temporary reopen (`open_until`).
 
 - Close writes it with `PUT /ledgers/{ledger}/period-locks/{fiscalPeriodId}` (duty `ledger.period.lock`, a close
-  service token on behalf of the controller) from inside every period transition and reopen approval, before it
-  commits, and reports the transition only after the ledger's 200. The update takes the ledger row `FOR UPDATE`
-  (the row every posting already holds `FOR UPDATE` for its posting sequence) and then upserts the lock rows, so it
-  waits for the postings in flight on that ledger (at most 2 s, then 503 `LEDGER_PERIOD_LOCK_BUSY` and close rolls
-  back). Each update carries close's database clock as `version`; an older one is refused (409
-  `LEDGER_PERIOD_LOCK_STALE`), so a late retry never overwrites a newer status.
-- Every posting path reads the row of its source (else `*`) for the posting date inside its own transaction,
-  `FOR SHARE`. When the ledger holds no row for the date yet it takes the ledger row `FOR SHARE` and reads again,
-  so the first lock of a period cannot slip past it either. A status other than `open`, or an `open`/`on_hold`
-  row whose `open_until` has passed, refuses with 422 `LEDGER_PERIOD_CLOSED` (overridable by
+  service token on behalf of the controller, or of the service principal `close-reopen-expiry` for its sweeper)
+  from inside every period transition, reopen approval and reopen expiry, before it commits, and reports the change
+  only after the ledger's 200. The update takes the ledger row `FOR UPDATE` and then upserts the lock rows, so it
+  waits for the postings in flight on that ledger. Each update carries a `version` (close keeps
+  greatest(previous + 1, its clock in microseconds) per period); an older one is refused with 409
+  `LEDGER_PERIOD_LOCK_STALE`, whose `errors.version` names the stored one, so a late retry never overwrites a newer
+  status and close can resend above it.
+- Every path that writes an entry (post, ledger set, reversal, batch post, clearing difference, realignment) holds
+  the ledger row `FOR UPDATE` for its gap-free sequence before it reads the row of its source (else `*`) for the
+  posting date. The read is a plain read: under that row lock it sees either the committed old lock (the update then
+  waits for this commit) or the committed new one, including a period's first lock, so locking the lock rows would
+  add nothing (`lockedPeriodStatus` re-takes the ledger row `FOR UPDATE` on these paths, a no-op that keeps the
+  guarantee for any later writer). Validate and batch submit write nothing: they read the lock with no row lock, so
+  a dry run waiting on the close service never blocks a posting or a close. A status other than `open`, or an
+  `open`/`on_hold` row whose `open_until` has passed, refuses with 422 `LEDGER_PERIOD_CLOSED` (overridable by
   `ledger.period.postclosed` as above). Only then is the close service asked.
 
 So a posting either commits before close reports the period closed or is refused; it never commits after, and
 there is no time window (cached or otherwise). The close service's answer is still required as well: a lock that
 says open never overrides a close that says otherwise, which covers the one case the two commits are not atomic
-in (the ledger committed the lock, close's own commit then failed) by refusing until the transition is repeated.
-Periods close has not changed since this rollout have no lock rows and are checked against the close service alone,
-as before. Tests: `internal/closeperiods/harness_test.go` (close, then post at once, with a fake clock),
+in (the ledger committed the lock, close's own commit then failed) by refusing until the transition is repeated or
+close resends the lock (`POST /v1/close/periods/{fiscalPeriodId}:resync-ledger-lock`, runbook
+`docs/ops/runbooks/ledger-period-lock-mismatch.md`). Periods close has not changed since this rollout have no lock
+rows and are checked against the close service alone, as before.
+
+Timing: the lock update waits at most 2 s for the ledger row (then 503 `LEDGER_PERIOD_LOCK_BUSY`; close asks once
+more, then rolls back with 503 `CLOSE-0012`). A ledger transaction that holds a ledger row longer than that (a very
+large posting, a balance rebuild, an open-item activation) therefore makes a period transition of that ledger fail
+while it runs; retry it afterwards.
+
+Tests: `internal/closeperiods/harness_test.go` (close, then post at once, with a fake clock),
 `internal/store/period_lock_test.go` (a posting in flight commits before the lock update returns; concurrent
-postings never commit after it; every posting path; source rows, reopen expiry, duty, versions, legal entity).
+postings never commit after it; every posting path; source rows, reopen expiry, duty, versions, legal entity),
+`internal/store/period_lock_dryrun_test.go` (a validation in flight blocks neither a posting nor the lock update).
 
 Rollout: deploy the ledger (migration 0036 and the route) before close; a close without the ledger route fails
 every period transition with 503 `CLOSE-0012` and changes nothing.

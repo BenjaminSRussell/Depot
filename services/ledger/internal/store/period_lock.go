@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -17,9 +18,10 @@ import (
 // The period lock (FR-14.1, B-08c) is the ledger's own copy of close's period status, one row per fiscal
 // period and source system, in the ledger database. Close writes it with PutPeriodLock and reports a period
 // transition only after the ledger has acknowledged it; every posting path reads it inside its own
-// transaction with FOR SHARE. The lock update takes the ledger row FOR UPDATE (the row every posting
-// already locks) and then the lock rows, so a posting either commits before the lock changes or reads the
-// new status: no posting commits into a period after close has reported it closed.
+// transaction. The lock update takes the ledger row FOR UPDATE and then the lock rows; every path that writes
+// an entry holds that same ledger row FOR UPDATE (for its gap-free sequence) before it reads the lock, so a
+// posting either commits before the lock changes or reads the new status: no posting commits into a period
+// after close has reported it closed.
 const (
 	// LockSourceOther is the source system of the row that governs every source close maps to no module.
 	LockSourceOther       = "*"
@@ -88,8 +90,11 @@ func (s *Postgres) PutPeriodLock(ctx context.Context, in PeriodLockInput) (Perio
 			return err
 		}
 		if stored > in.Version {
-			return httpx.NewProblem(http.StatusConflict, CodePeriodLockStale, fmt.Sprintf(
+			stale := httpx.NewProblem(http.StatusConflict, CodePeriodLockStale, fmt.Sprintf(
 				"the period lock holds version %d, newer than %d; close has already sent a later status", stored, in.Version))
+			// The stored version, so close can resend above it (a clock step back on close's side).
+			stale.Errors = map[string]string{"version": strconv.FormatInt(stored, 10)}
+			return stale
 		}
 		sources := make([]string, 0, len(in.Sources))
 		for _, src := range in.Sources {
@@ -140,18 +145,22 @@ func readPeriodLockRows(ctx context.Context, tx pgx.Tx, tenantID, ledgerID, peri
 	return out, rows.Err()
 }
 
-// lockedPeriodStatus reads the period lock for a posting inside the posting transaction, with FOR SHARE, and
-// reports whether the ledger holds a lock for the posting date at all. A period close never locked is
-// decided by the close service's answer alone; before saying so it takes the ledger row FOR SHARE (a
-// no-op for the posting paths that already hold it FOR UPDATE) and reads again, so the first lock update
-// of a period, which takes that row FOR UPDATE, cannot slip past a posting that found no row.
-func lockedPeriodStatus(ctx context.Context, tx pgx.Tx, tenantID, ledgerID string, postingDate time.Time, sourceSystem string) (lockDecision, error) {
-	d, err := readLockDecision(ctx, tx, tenantID, ledgerID, postingDate, sourceSystem)
-	if err != nil || d.found {
-		return d, err
-	}
-	if _, err := tx.Exec(ctx, `select 1 from ledger where tenant_id = $1 and id = $2 for share`, tenantID, ledgerID); err != nil {
-		return d, err
+// lockedPeriodStatus reads the period lock for a posting date and source inside the caller's transaction
+// and reports whether the ledger holds a lock for that date at all (a period close has never locked is
+// decided by the close service's answer alone).
+//
+// forWrite is true on the paths that write an entry. They take the ledger row FOR UPDATE here, which is a
+// no-op because every one of them already holds it (postEntryTx, the ledger-set, reversal, clearing and
+// realignment paths lock it first for the posting sequence) and keeps the guarantee for any later writer.
+// The lock update takes that row FOR UPDATE before it changes a lock row, so under that lock a plain read
+// sees either the committed old lock (the update then waits for this commit) or the committed new one;
+// row locks on period_lock would add nothing. forWrite is false on validate and batch submit, which write
+// nothing: a plain read with no lock, so a dry run in flight never blocks a posting or a close.
+func lockedPeriodStatus(ctx context.Context, tx pgx.Tx, tenantID, ledgerID string, postingDate time.Time, sourceSystem string, forWrite bool) (lockDecision, error) {
+	if forWrite {
+		if _, err := tx.Exec(ctx, `select 1 from ledger where tenant_id = $1 and id = $2 for update`, tenantID, ledgerID); err != nil {
+			return lockDecision{}, err
+		}
 	}
 	return readLockDecision(ctx, tx, tenantID, ledgerID, postingDate, sourceSystem)
 }
@@ -174,7 +183,7 @@ func lockRank(status string) int {
 func readLockDecision(ctx context.Context, tx pgx.Tx, tenantID, ledgerID string, postingDate time.Time, sourceSystem string) (lockDecision, error) {
 	rows, err := tx.Query(ctx, `select fiscal_period_id::text, source_system, status, (open_until is not null and open_until <= clock_timestamp())
 		from period_lock where tenant_id = $1 and ledger_id = $2 and start_date <= $3 and end_date >= $3 and source_system in ($4, $5)
-		order by fiscal_period_id, source_system for share`, tenantID, ledgerID, postingDate, sourceSystem, LockSourceOther)
+		order by fiscal_period_id, source_system`, tenantID, ledgerID, postingDate, sourceSystem, LockSourceOther)
 	if err != nil {
 		return lockDecision{}, err
 	}

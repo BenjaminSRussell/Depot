@@ -116,7 +116,10 @@ func (s *Postgres) TransitionPeriod(ctx context.Context, in domain.PeriodTransit
 		if err := writePeriodChange(ctx, tx, p.TenantID, in.LegalEntityID, in.LedgerID, in.FiscalPeriodID, in.Module, from, in.To, in.Actor, in.Reason, nil); err != nil {
 			return err
 		}
-		return s.lockLedgerPeriod(ctx, tx, in.LegalEntityID, in.LedgerID, in.FiscalPeriodID)
+		if _, err := s.lockLedgerPeriod(ctx, tx, in.LegalEntityID, in.LedgerID, in.FiscalPeriodID); err != nil {
+			return err
+		}
+		return nil
 	})
 	if err != nil {
 		return out, err
@@ -287,7 +290,10 @@ func (s *Postgres) ApproveReopen(ctx context.Context, id, actor string) (domain.
 		if err := writePeriodChange(ctx, tx, p.TenantID, req.LegalEntityID, req.LedgerID, req.FiscalPeriodID, req.Module, domain.StatusClosed, domain.StatusOpen, actor, req.Reason, req.Approvals); err != nil {
 			return err
 		}
-		return s.lockLedgerPeriod(ctx, tx, req.LegalEntityID, req.LedgerID, req.FiscalPeriodID)
+		if _, err := s.lockLedgerPeriod(ctx, tx, req.LegalEntityID, req.LedgerID, req.FiscalPeriodID); err != nil {
+			return err
+		}
+		return nil
 	})
 	return out, err
 }
@@ -301,51 +307,112 @@ func (s *Postgres) ApproveReopen(ctx context.Context, id, actor string) (domain.
 //
 // The two commits are not atomic. If close's commit fails after the ledger's, the ledger holds the new status
 // and close the old one; the posting check refuses when either says so, so this errs towards refusing until
-// the transition is repeated. The version is the database clock under the row locks, so a late or repeated
-// lock update never overwrites a newer one.
-func (s *Postgres) lockLedgerPeriod(ctx context.Context, tx pgx.Tx, entity, ledger, period string) error {
-	if s.locks == nil {
-		return nil
-	}
+// the transition is repeated (or the lock is resent with ResyncLedgerLock).
+//
+// The version is greatest(previous + 1, database clock in microseconds), kept on the period's rows
+// (ledger_lock_version) under the row locks, so a clock step back never makes it older. A ledger that answers
+// LEDGER_PERIOD_LOCK_BUSY (postings held it past its 2 s wait) is asked once more; one that answers
+// LEDGER_PERIOD_LOCK_STALE (it holds a newer version, after a commit failure here) is sent once more above
+// that version. The rows stay locked meanwhile: up to the client's 3 s timeout per attempt.
+func (s *Postgres) lockLedgerPeriod(ctx context.Context, tx pgx.Tx, entity, ledger, period string) (domain.PeriodLock, error) {
 	lock := domain.PeriodLock{LegalEntityID: entity, LedgerID: ledger, FiscalPeriodID: period}
-	rows, err := tx.Query(ctx, `select module, status, coalesce(allowed_group_id, ''), reopen_expires_at, start_date, end_date
+	if s.locks == nil {
+		return lock, nil
+	}
+	rows, err := tx.Query(ctx, `select module, status, coalesce(allowed_group_id, ''), reopen_expires_at, start_date, end_date, ledger_lock_version
 		from period_status where legal_entity_id = $1 and ledger_id = $2 and fiscal_period_id = $3 for update`, entity, ledger, period)
 	if err != nil {
-		return lockErr(err)
+		return lock, lockErr(err)
 	}
 	var found []domain.LockRow
 	var dated bool
+	var prev int64
 	for rows.Next() {
 		var r domain.LockRow
 		var start, end *time.Time
-		if err := rows.Scan(&r.Module, &r.Status, &r.AllowedGroupID, &r.ReopenExpiresAt, &start, &end); err != nil {
+		var version int64
+		if err := rows.Scan(&r.Module, &r.Status, &r.AllowedGroupID, &r.ReopenExpiresAt, &start, &end, &version); err != nil {
 			rows.Close()
-			return err
+			return lock, err
 		}
 		if start != nil && end != nil {
 			lock.Start, lock.End, dated = *start, *end, true
 		}
+		prev = max(prev, version)
 		found = append(found, r)
 	}
 	rows.Close()
 	if err := rows.Err(); err != nil {
-		return lockErr(err)
+		return lock, lockErr(err)
 	}
 	if !dated {
 		// A period registered before its dates were stored (migration 0003) has no dates: the ledger cannot
 		// place a posting in it, and the close service's resolve finds no period for it either.
-		return nil
-	}
-	if err := tx.QueryRow(ctx, `select (extract(epoch from clock_timestamp()) * 1000000)::bigint`).Scan(&lock.Version); err != nil {
-		return err
+		return lock, nil
 	}
 	lock.Sources = domain.LockSources(found)
-	if err := s.locks.LockPeriod(ctx, lock); err != nil {
-		slog.ErrorContext(ctx, "ledger period lock failed; period transition rolled back", "err", err, "ledgerId", ledger, "fiscalPeriodId", period)
-		return httpx.NewProblem(http.StatusServiceUnavailable, CodeLedgerLockUnavailable,
+	nextVersion := func(floor int64) error {
+		return tx.QueryRow(ctx, `select greatest($1::bigint + 1, (extract(epoch from clock_timestamp()) * 1000000)::bigint)`, floor).Scan(&lock.Version)
+	}
+	if err := nextVersion(prev); err != nil {
+		return lock, err
+	}
+	for attempt := 1; ; attempt++ {
+		err = s.locks.LockPeriod(ctx, lock)
+		if err == nil {
+			_, err = tx.Exec(ctx, `update period_status set ledger_lock_version = $4 where legal_entity_id = $1 and ledger_id = $2 and fiscal_period_id = $3`,
+				entity, ledger, period, lock.Version)
+			return lock, err
+		}
+		var stale *domain.StaleLockError
+		retry := attempt < 2
+		switch {
+		case retry && errors.Is(err, domain.ErrLedgerLockBusy):
+			continue
+		case retry && errors.As(err, &stale):
+			if verr := nextVersion(max(stale.Stored, lock.Version)); verr != nil {
+				return lock, verr
+			}
+			continue
+		}
+		slog.ErrorContext(ctx, "ledger period lock failed; period change rolled back", "err", err, "ledgerId", ledger, "fiscalPeriodId", period, "attempts", attempt)
+		return lock, httpx.NewProblem(http.StatusServiceUnavailable, CodeLedgerLockUnavailable,
 			"the ledger could not confirm the period lock, so the period was not changed; retry when the ledger is available")
 	}
-	return nil
+}
+
+// ResyncLedgerLock resends the period's current matrix to the ledger's period lock with a new version, for
+// the case the two commits disagree (the ledger committed a lock, close's own commit then failed) or a lock
+// the ledger lost. It changes no status in close.
+func (s *Postgres) ResyncLedgerLock(ctx context.Context, entity, ledger, period string, wait time.Duration) (domain.PeriodLock, error) {
+	if s.locks == nil {
+		return domain.PeriodLock{}, httpx.NewProblem(http.StatusServiceUnavailable, "COM-0503", "the ledger period lock is not configured (LEDGER_URL)")
+	}
+	var out domain.PeriodLock
+	err := dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
+		if wait <= 0 {
+			wait = 5 * time.Second
+		}
+		if _, err := tx.Exec(ctx, `select set_config('lock_timeout', $1, true)`, fmt.Sprintf("%dms", wait.Milliseconds())); err != nil {
+			return err
+		}
+		var rows int
+		var dated bool
+		if err := tx.QueryRow(ctx, `select count(*), coalesce(bool_or(start_date is not null), false) from period_status
+			where legal_entity_id = $1 and ledger_id = $2 and fiscal_period_id = $3`, entity, ledger, period).Scan(&rows, &dated); err != nil {
+			return err
+		}
+		switch {
+		case rows == 0:
+			return &domain.Error{Code: domain.CodeNoPeriod, Detail: "period is not registered"}
+		case !dated:
+			return &domain.Error{Code: domain.CodeUnprocessable, Detail: "the period has no dates, so the ledger cannot place a posting in it; register its dates first"}
+		}
+		var err error
+		out, err = s.lockLedgerPeriod(ctx, tx, entity, ledger, period)
+		return err
+	})
+	return out, err
 }
 
 func (s *Postgres) RejectReopen(ctx context.Context, id, actor string) (domain.StoredReopen, error) {
@@ -423,36 +490,100 @@ func (s *Postgres) ExpireReopened(ctx context.Context) (int, error) {
 	return closed, errors.Join(failed...)
 }
 
+// reopenExpiryPrincipal is the service principal the sweeper signs the ledger's period lock as.
+const reopenExpiryPrincipal = "close-reopen-expiry"
+
+// expireTenant closes the tenant's expired temporary reopens, one period per transaction, and sets the
+// ledger's period lock with each (B-08c), signed as the service principal close-reopen-expiry in the
+// period's legal entity. The ledger already refuses from the expiry (open_until); this keeps its lock equal to
+// close's matrix. A period the ledger does not confirm stays as it is and is retried by the next sweep.
 func (s *Postgres) expireTenant(ctx context.Context, tenantID string) (int, error) {
-	ctx = tenant.With(ctx, tenant.Principal{TenantID: tenantID, Duties: map[string]struct{}{tenant.DutyAllScope: {}}})
-	n := 0
-	err := dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
-		rows, err := tx.Query(ctx, `select legal_entity_id::text, ledger_id::text, fiscal_period_id::text, module from period_status where reopen_expires_at is not null and reopen_expires_at <= now() and status in ('open', 'on_hold') for update`)
+	scan := tenant.With(ctx, tenant.Principal{TenantID: tenantID, Duties: map[string]struct{}{tenant.DutyAllScope: {}}})
+	type key struct{ entity, ledger, period string }
+	var due []key
+	err := dbx.WithTenantTx(scan, s.pool, func(tx pgx.Tx) error {
+		rows, err := tx.Query(scan, `select distinct legal_entity_id::text, ledger_id::text, fiscal_period_id::text from period_status
+			where reopen_expires_at is not null and reopen_expires_at <= now() and status in ('open', 'on_hold')`)
 		if err != nil {
 			return err
 		}
-		type key struct{ entity, ledger, period, module string }
-		var due []key
+		defer rows.Close()
 		for rows.Next() {
 			var k key
-			if err := rows.Scan(&k.entity, &k.ledger, &k.period, &k.module); err != nil {
-				rows.Close()
+			if err := rows.Scan(&k.entity, &k.ledger, &k.period); err != nil {
 				return err
 			}
 			due = append(due, k)
 		}
-		rows.Close()
-		for _, k := range due {
-			if _, err := tx.Exec(ctx, `update period_status set status = 'closed', reopen_expires_at = null, changed_by = 'reopen-expiry', changed_at = now()
-				where legal_entity_id = $1 and ledger_id = $2 and fiscal_period_id = $3 and module = $4`, k.entity, k.ledger, k.period, k.module); err != nil {
-				return err
-			}
-			if err := writePeriodChange(ctx, tx, tenantID, k.entity, k.ledger, k.period, domain.Module(k.module), domain.StatusOpen, domain.StatusClosed, "reopen-expiry", "reopen expired", nil); err != nil {
-				return err
-			}
-			n++
-		}
-		return nil
+		return rows.Err()
 	})
-	return n, err
+	if err != nil {
+		return 0, err
+	}
+	n := 0
+	var failed []error
+	for _, k := range due {
+		closed, err := s.expirePeriod(ctx, tenantID, k.entity, k.ledger, k.period)
+		if err != nil {
+			failed = append(failed, fmt.Errorf("period %s: %w", k.period, err))
+			continue
+		}
+		n += closed
+	}
+	return n, errors.Join(failed...)
+}
+
+func (s *Postgres) expirePeriod(ctx context.Context, tenantID, entity, ledger, period string) (int, error) {
+	p, err := tenant.ServicePrincipal(reopenExpiryPrincipal, tenantID, entity)
+	if err != nil {
+		return 0, err
+	}
+	ctx = tenant.With(ctx, p)
+	n := 0
+	err = dbx.WithTenantTx(ctx, s.pool, func(tx pgx.Tx) error {
+		rows, err := tx.Query(ctx, `select module, status, reopen_expires_at is not null and reopen_expires_at <= now() and status in ('open', 'on_hold')
+			from period_status where legal_entity_id = $1 and ledger_id = $2 and fiscal_period_id = $3 for update`, entity, ledger, period)
+		if err != nil {
+			return lockErr(err)
+		}
+		type row struct {
+			module domain.Module
+			from   domain.Status
+		}
+		var expired []row
+		for rows.Next() {
+			var r row
+			var isDue bool
+			if err := rows.Scan(&r.module, &r.from, &isDue); err != nil {
+				rows.Close()
+				return err
+			}
+			if isDue {
+				expired = append(expired, r)
+			}
+		}
+		rows.Close()
+		if err := rows.Err(); err != nil {
+			return err
+		}
+		if len(expired) == 0 {
+			return nil
+		}
+		for _, r := range expired {
+			if _, err := tx.Exec(ctx, `update period_status set status = 'closed', reopen_expires_at = null, changed_by = 'reopen-expiry', changed_at = now()
+				where legal_entity_id = $1 and ledger_id = $2 and fiscal_period_id = $3 and module = $4`, entity, ledger, period, r.module); err != nil {
+				return err
+			}
+			if err := writePeriodChange(ctx, tx, tenantID, entity, ledger, period, r.module, r.from, domain.StatusClosed, "reopen-expiry", "reopen expired", nil); err != nil {
+				return err
+			}
+		}
+		n = len(expired)
+		_, err = s.lockLedgerPeriod(ctx, tx, entity, ledger, period)
+		return err
+	})
+	if err != nil {
+		return 0, err
+	}
+	return n, nil
 }

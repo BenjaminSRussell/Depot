@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/BenjaminSRussell/depot/platform/httpx"
+	"github.com/BenjaminSRussell/depot/platform/tenant"
 	"github.com/BenjaminSRussell/depot/services/close/internal/domain"
 	"github.com/BenjaminSRussell/depot/services/close/internal/store"
 )
@@ -16,18 +17,31 @@ import (
 // recordingLocker stands for the ledger's period-lock endpoint (B-08c).
 type recordingLocker struct {
 	locks  []domain.PeriodLock
+	actors []string
 	err    error
+	// errs, when set, answer the next calls one by one before err applies.
+	errs   []error
 	during func(domain.PeriodLock)
+	calls  []domain.PeriodLock
 }
 
-func (l *recordingLocker) LockPeriod(_ context.Context, lock domain.PeriodLock) error {
+func (l *recordingLocker) LockPeriod(ctx context.Context, lock domain.PeriodLock) error {
+	l.calls = append(l.calls, lock)
 	if l.during != nil {
 		l.during(lock)
 	}
-	if l.err != nil {
+	if len(l.errs) > 0 {
+		err := l.errs[0]
+		l.errs = l.errs[1:]
+		if err != nil {
+			return err
+		}
+	} else if l.err != nil {
 		return l.err
 	}
 	l.locks = append(l.locks, lock)
+	p, _ := tenant.FromContext(ctx)
+	l.actors = append(l.actors, p.UserID)
 	return nil
 }
 
@@ -85,8 +99,8 @@ func TestPeriodLock_TransitionLocksTheLedgerBeforeItCommits(t *testing.T) {
 	if got := sourceStatus(t, lock, "manual"); got.Status != domain.StatusOpen || got.Module != domain.ModuleGL {
 		t.Fatalf("manual source %+v", got)
 	}
-	if got := sourceStatus(t, lock, domain.LockSourceOther); got.Status != domain.StatusClosed {
-		t.Fatalf("an unknown source meets the most restrictive row: %+v", got)
+	if got := sourceStatus(t, lock, domain.LockSourceOther); got.Status != domain.StatusOpen {
+		t.Fatalf("an unmapped source follows the open ALL row, as resolve does: %+v", got)
 	}
 	again, err := s.TransitionPeriod(ctx, domain.PeriodTransition{
 		LegalEntityID: entityID, LedgerID: ledgerID, FiscalPeriodID: periodID, Module: domain.ModuleAR, To: domain.StatusClosed, Actor: "alice",
@@ -156,8 +170,14 @@ func TestPeriodLock_ReopenApprovalSendsTheExpiry(t *testing.T) {
 	if _, err := admin.Exec(context.Background(), `update period_status set reopen_expires_at = now() - interval '1 hour' where fiscal_period_id = $1`, periodID); err != nil {
 		t.Fatal(err)
 	}
-	if n, err := s.ExpireReopened(context.Background()); err != nil || n != 1 || len(locker.locks) != 2 {
-		t.Fatalf("sweep closed %d (%v) and sent %d locks; the ledger already refuses from the expiry", n, err, len(locker.locks))
+	if n, err := s.ExpireReopened(context.Background()); err != nil || n != 1 || len(locker.locks) != 3 {
+		t.Fatalf("sweep closed %d (%v) and sent %d locks, want the expiry's lock too", n, err, len(locker.locks))
+	}
+	if got := sourceStatus(t, locker.locks[2], domain.LockSourceOther); got.Status != domain.StatusClosed || got.OpenUntil != nil {
+		t.Fatalf("the sweeper's lock: %+v", got)
+	}
+	if locker.actors[2] != "service:close-reopen-expiry" || locker.locks[2].Version <= locker.locks[1].Version {
+		t.Fatalf("the sweeper signs as %q with version %d after %d", locker.actors[2], locker.locks[2].Version, locker.locks[1].Version)
 	}
 }
 
@@ -191,5 +211,115 @@ func TestPeriodLock_UnconfirmedReopenStaysPending(t *testing.T) {
 	locker.err = nil
 	if done, err := s.ApproveReopen(ctx, req.ID, "cara"); err != nil || done.Status != "approved" {
 		t.Fatalf("the approval can be repeated once the ledger answers: %+v %v", done, err)
+	}
+}
+
+func closeAll(t *testing.T, s *store.Postgres, ctx context.Context) error {
+	t.Helper()
+	_, err := s.TransitionPeriod(ctx, domain.PeriodTransition{
+		LegalEntityID: entityID, LedgerID: ledgerID, FiscalPeriodID: periodID, Module: domain.ModuleAll, To: domain.StatusClosed, Actor: "alice",
+	})
+	return err
+}
+
+// Review of B-08c (minor 3): the version is greatest(previous + 1, clock), kept on the period's rows, so a
+// database clock behind the last version sent does not make the next lock older.
+func TestPeriodLock_VersionNeverGoesBackWhenTheClockDoes(t *testing.T) {
+	admin, app := migrated(t)
+	locker := &recordingLocker{}
+	s := store.New(app).WithPeriodLocks(locker)
+	ctx := principal(1)
+	registerJan(t, s, ctx)
+	ahead := int64(1) << 60 // far beyond the clock in microseconds
+	if _, err := admin.Exec(context.Background(), `update period_status set ledger_lock_version = $1 where fiscal_period_id = $2`, ahead, periodID); err != nil {
+		t.Fatal(err)
+	}
+	if err := closeAll(t, s, ctx); err != nil {
+		t.Fatal(err)
+	}
+	if got := locker.locks[0].Version; got != ahead+1 {
+		t.Fatalf("version %d, want previous + 1 = %d", got, ahead+1)
+	}
+	var stored int64
+	if err := admin.QueryRow(context.Background(), `select min(ledger_lock_version) from period_status where fiscal_period_id = $1`, periodID).Scan(&stored); err != nil || stored != ahead+1 {
+		t.Fatalf("stored version %d (%v)", stored, err)
+	}
+}
+
+// Review of B-08c (minor 3, 6): a busy ledger is asked once more; a ledger holding a newer version is sent
+// once more above it; a second failure rolls the transition back.
+func TestPeriodLock_RetriesOnceWhenTheLedgerIsBusyOrHoldsANewerVersion(t *testing.T) {
+	t.Run("busy then ok", func(t *testing.T) {
+		admin, app := migrated(t)
+		locker := &recordingLocker{errs: []error{domain.ErrLedgerLockBusy}}
+		s := store.New(app).WithPeriodLocks(locker)
+		ctx := principal(1)
+		registerJan(t, s, ctx)
+		if err := closeAll(t, s, ctx); err != nil || len(locker.calls) != 2 || locker.calls[0].Version != locker.calls[1].Version {
+			t.Fatalf("close after one busy answer: %v, calls %+v", err, locker.calls)
+		}
+		if got := committedStatus(t, admin, domain.ModuleAll); got != string(domain.StatusClosed) {
+			t.Fatalf("all is %q", got)
+		}
+	})
+	t.Run("stale then ok", func(t *testing.T) {
+		_, app := migrated(t)
+		stored := int64(1) << 61
+		locker := &recordingLocker{errs: []error{&domain.StaleLockError{Stored: stored}}}
+		s := store.New(app).WithPeriodLocks(locker)
+		ctx := principal(1)
+		registerJan(t, s, ctx)
+		if err := closeAll(t, s, ctx); err != nil || len(locker.locks) != 1 || locker.locks[0].Version != stored+1 {
+			t.Fatalf("close after a stale answer: %v, locks %+v", err, locker.locks)
+		}
+	})
+	t.Run("busy twice", func(t *testing.T) {
+		admin, app := migrated(t)
+		locker := &recordingLocker{err: domain.ErrLedgerLockBusy}
+		s := store.New(app).WithPeriodLocks(locker)
+		ctx := principal(1)
+		registerJan(t, s, ctx)
+		var p *httpx.Problem
+		if err := closeAll(t, s, ctx); !errors.As(err, &p) || p.Code != store.CodeLedgerLockUnavailable || len(locker.calls) != 2 {
+			t.Fatalf("want 503 after two busy answers, got %v after %d calls", err, len(locker.calls))
+		}
+		if got := committedStatus(t, admin, domain.ModuleAll); got != string(domain.StatusOpen) {
+			t.Fatalf("all is %q, want open", got)
+		}
+	})
+}
+
+// Review of B-08c (minor 4): the resync resends the current matrix with a newer version and changes nothing
+// in close.
+func TestPeriodLock_ResyncResendsTheCurrentMatrix(t *testing.T) {
+	admin, app := migrated(t)
+	locker := &recordingLocker{}
+	s := store.New(app).WithPeriodLocks(locker)
+	ctx := principal(1)
+	registerJan(t, s, ctx)
+	if err := closeAll(t, s, ctx); err != nil {
+		t.Fatal(err)
+	}
+	var changes int
+	_ = admin.QueryRow(context.Background(), `select count(*) from period_status_change`).Scan(&changes)
+	lock, err := s.ResyncLedgerLock(ctx, entityID, ledgerID, periodID, 0)
+	if err != nil || len(locker.locks) != 2 || lock.Version <= locker.locks[0].Version {
+		t.Fatalf("resync: %+v %v, locks %d", lock, err, len(locker.locks))
+	}
+	if got := sourceStatus(t, lock, domain.LockSourceOther); got.Status != domain.StatusClosed {
+		t.Fatalf("resent %+v", got)
+	}
+	var after int
+	_ = admin.QueryRow(context.Background(), `select count(*) from period_status_change`).Scan(&after)
+	if after != changes || committedStatus(t, admin, domain.ModuleAll) != string(domain.StatusClosed) {
+		t.Fatalf("a resync changed close: %d changes before, %d after", changes, after)
+	}
+	var de *domain.Error
+	if _, err := s.ResyncLedgerLock(ctx, entityID, ledgerID, entityID, 0); !errors.As(err, &de) || de.Code != domain.CodeNoPeriod {
+		t.Fatalf("unknown period: %v", err)
+	}
+	var p *httpx.Problem
+	if _, err := store.New(app).ResyncLedgerLock(ctx, entityID, ledgerID, periodID, 0); !errors.As(err, &p) || p.Status != http.StatusServiceUnavailable {
+		t.Fatalf("a store without the ledger lock must refuse a resync: %v", err)
 	}
 }

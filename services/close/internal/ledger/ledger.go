@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -25,6 +26,8 @@ const (
 	audience        = "ledger"
 	dutyLookup      = "ledger.ledger.lookup"
 	dutyPeriodLock  = "ledger.period.lock"
+	codeLockBusy    = "LEDGER_PERIOD_LOCK_BUSY"
+	codeLockStale   = "LEDGER_PERIOD_LOCK_STALE"
 	maxResponseSize = 1 << 20
 )
 
@@ -123,9 +126,22 @@ func (c *Client) LockPeriod(ctx context.Context, lock domain.PeriodLock) error {
 		return fmt.Errorf("ledger: %w", err)
 	}
 	defer func() { _ = resp.Body.Close() }()
-	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, maxResponseSize))
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("ledger: period lock answered %d", resp.StatusCode)
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, maxResponseSize))
+	if resp.StatusCode == http.StatusOK {
+		return nil
 	}
-	return nil
+	var problem struct {
+		Code   string            `json:"code"`
+		Errors map[string]string `json:"errors"`
+	}
+	_ = json.Unmarshal(body, &problem)
+	switch {
+	case resp.StatusCode == http.StatusServiceUnavailable && problem.Code == codeLockBusy:
+		return domain.ErrLedgerLockBusy
+	case resp.StatusCode == http.StatusConflict && problem.Code == codeLockStale:
+		if stored, err := strconv.ParseInt(problem.Errors["version"], 10, 64); err == nil && stored > 0 {
+			return &domain.StaleLockError{Stored: stored}
+		}
+	}
+	return fmt.Errorf("ledger: period lock answered %d %s", resp.StatusCode, problem.Code)
 }

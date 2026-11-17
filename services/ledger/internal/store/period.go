@@ -76,13 +76,14 @@ func gateFrom(ctx context.Context) PeriodGate {
 func overridable(status string) bool { return status == statusClosed || status == statusOnHold }
 
 // periodViolations decides whether a posting dated postingDate from sourceSystem may land in its fiscal
-// period (FR-14.1, BR-14.1). It runs inside the posting transaction. The ledger's own period lock, read with
-// FOR SHARE, is checked first: close writes it before it reports a transition, so a period close has
-// reported closed refuses the posting even while the close service still answers open (B-08c). The close
-// service's answer is then asked as well; it is the only check for a period close has not locked yet, and
-// a lock that says open does not override a close that says otherwise.
-func periodViolations(ctx context.Context, tx pgx.Tx, tenantID string, ledger Ledger, postingDate time.Time, sourceSystem string) ([]domain.Violation, error) {
-	locked, err := lockedPeriodStatus(ctx, tx, tenantID, ledger.ID, postingDate, sourceSystem)
+// period (FR-14.1, BR-14.1). It runs inside the posting transaction. The ledger's own period lock is checked
+// first (see lockedPeriodStatus; forWrite on the paths that write an entry): close writes it before it
+// reports a transition, so a period close has reported closed refuses the posting even while the close
+// service still answers open (B-08c). The close service's answer is then asked as well; it is the only check
+// for a period close has not locked yet, and a lock that says open does not override a close that says
+// otherwise.
+func periodViolations(ctx context.Context, tx pgx.Tx, tenantID string, ledger Ledger, postingDate time.Time, sourceSystem string, forWrite bool) ([]domain.Violation, error) {
+	locked, err := lockedPeriodStatus(ctx, tx, tenantID, ledger.ID, postingDate, sourceSystem, forWrite)
 	if err != nil {
 		return nil, err
 	}
@@ -124,11 +125,11 @@ func holderHint(status string) string {
 	return ""
 }
 
-func rejectWithPeriod(ctx context.Context, tx pgx.Tx, tenantID string, ledger Ledger, postingDate time.Time, sourceSystem string, found []domain.Violation) error {
+func rejectWithPeriod(ctx context.Context, tx pgx.Tx, tenantID string, ledger Ledger, postingDate time.Time, sourceSystem string, forWrite bool, found []domain.Violation) error {
 	if len(found) > 0 {
 		return &domain.RejectedError{Violations: found}
 	}
-	closed, err := periodViolations(ctx, tx, tenantID, ledger, postingDate, sourceSystem)
+	closed, err := periodViolations(ctx, tx, tenantID, ledger, postingDate, sourceSystem, forWrite)
 	if err != nil {
 		return err
 	}

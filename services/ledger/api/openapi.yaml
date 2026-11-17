@@ -2391,7 +2391,7 @@ paths:
 
         Period control: every posting path (this one, validate, reversal, batch submit and post, ledger-set
         post) first reads the ledger's own period lock for the posting date and source system inside its
-        transaction (FOR SHARE; written by the close service through PUT
+        transaction (under the ledger row lock it holds for the posting sequence; written by the close service through PUT
         /v1/ledger/ledgers/{ledger}/period-locks/{fiscalPeriodId} before close reports a transition), then,
         with CLOSE_URL configured, asks the close service for the period status. It answers 422
         LEDGER_PERIOD_CLOSED unless both say open, so a posting never lands in a period close has reported
@@ -4727,17 +4727,18 @@ paths:
       description: |
         Replaces the ledger's own copy of a fiscal period's status (FR-14.1, B-08c). The close service calls
         it with a service token carrying ledger.period.lock (no role grants it) inside every period
-        transition and reopen approval, and reports the transition only after this returns 200; on any
+        transition, reopen approval and reopen expiry, and reports the change only after this returns 200; on any
         other answer close rolls the transition back. The update takes the ledger row FOR UPDATE, so it
         waits for the postings in flight on the ledger and commits before any later posting reads the lock
-        (FOR SHARE, inside the posting transaction): a posting either commits before the lock changes or
+        (inside the posting transaction, under that same ledger row lock): a posting either commits before the lock changes or
         meets the new status. It waits at most 2 s for those postings (503 LEDGER_PERIOD_LOCK_BUSY).
 
         `sources` holds one row per source system with the status close resolved for postings from it, and
         the row `*` for every other source; a posting meets its own source's row, else `*`. A posting into an
         `open` or `on_hold` source whose `openUntil` (a temporary reopen's expiry) has passed is refused as
         closed. Sources missing from a later update are removed. An update with a `version` lower than the
-        stored one is 409 LEDGER_PERIOD_LOCK_STALE; the same version is accepted again.
+        stored one is 409 LEDGER_PERIOD_LOCK_STALE with the stored version in `errors.version`; the same version is
+        accepted again. A ledger transaction holding the ledger row longer than 2 s makes the update fail.
       parameters:
         - { name: ledger, in: path, required: true, schema: { type: string, format: uuid } }
         - { name: fiscalPeriodId, in: path, required: true, schema: { type: string, format: uuid } }

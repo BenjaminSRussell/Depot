@@ -193,6 +193,47 @@ paths:
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/Problem' }
+  /v1/close/periods/{fiscalPeriodId}:resync-ledger-lock:
+    post:
+      operationId: resyncLedgerLock
+      summary: Resend a period's status to the ledger's period lock
+      x-depot-duty: period.maintain
+      description: >
+        Resends the period's current matrix to the ledger's period lock (FR-14.1, B-08c) with a newer version and changes
+        nothing in close. The repair for a ledger lock that disagrees with close, for example when close's own commit failed
+        after the ledger had committed a transition's lock, so the ledger refuses postings close reports open. Same ledger
+        ownership check and ledger call as a PATCH; 503 CLOSE-0012 when the ledger does not confirm.
+      parameters:
+        - { name: fiscalPeriodId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [ledgerId]
+              properties:
+                ledgerId: { type: string, format: uuid }
+      responses:
+        '200':
+          description: The ledger confirmed the resent lock.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ledgerId: { type: string, format: uuid }
+                  fiscalPeriodId: { type: string, format: uuid }
+                  version: { type: integer, format: int64 }
+                  sources: { type: array, items: { type: object } }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
   /v1/close/periods/{fiscalPeriodId}/modules/{module}:request-reopen:
     post:
       operationId: requestReopen

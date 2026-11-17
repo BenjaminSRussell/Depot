@@ -1,13 +1,27 @@
 package domain
 
 import (
+	"errors"
 	"sort"
+	"strconv"
 	"time"
 )
 
 // LockSourceOther is the period-lock source system that stands for every source system ModuleForSource maps
 // to no module of its own.
 const LockSourceOther = "*"
+
+// ErrLedgerLockBusy is the ledger's 503 LEDGER_PERIOD_LOCK_BUSY: postings in flight held the ledger past its
+// 2 s wait. Close retries the lock once.
+var ErrLedgerLockBusy = errors.New("ledger: period lock busy")
+
+// StaleLockError is the ledger's 409 LEDGER_PERIOD_LOCK_STALE: it already holds version Stored, newer than the
+// one sent. Close resends once above it.
+type StaleLockError struct{ Stored int64 }
+
+func (e *StaleLockError) Error() string {
+	return "ledger: period lock holds newer version " + strconv.FormatInt(e.Stored, 10)
+}
 
 // LockRow is a period_status row with the expiry of a temporary reopen.
 type LockRow struct {
@@ -37,9 +51,11 @@ type LockSource struct {
 }
 
 // LockSources resolves the period's rows into one lock source per source system close maps to a module,
-// plus LockSourceOther for every other source, with the same decision the posting check makes (Decide,
-// BR-14.1) for a caller in no on-hold group: a source's own module row, else the ALL row; an unknown source
-// meets the most restrictive row of the period.
+// plus LockSourceOther for every other source, with the same Resolve the ledger's close check uses
+// (GET /v1/close/periods:resolve, BR-14.1): a source's own module row, else the ALL row, else never opened.
+// An unmapped source resolves to module all, which is the ALL row alone, so closing AP while ALL is open
+// does not stop billing or inventory postings mid-close (the FR-14.2 order). Each source carries the reopen
+// expiry of the row that governs it.
 func LockSources(rows []LockRow) []LockSource {
 	plain := make([]Row, len(rows))
 	for i, r := range rows {
@@ -51,13 +67,14 @@ func LockSources(rows []LockRow) []LockSource {
 	}
 	sort.Strings(systems)
 	out := make([]LockSource, 0, len(systems)+1)
-	for _, s := range systems {
-		m := sourceModules[s]
-		status, _ := Decide(plain, m, "")
-		out = append(out, LockSource{SourceSystem: s, Module: m, Status: status, OpenUntil: governingExpiry(rows, Resolve(plain, m).Module)})
+	add := func(system string, m Module) {
+		row := Resolve(plain, m)
+		out = append(out, LockSource{SourceSystem: system, Module: m, Status: row.Status, OpenUntil: governingExpiry(rows, row.Module)})
 	}
-	status, _ := Decide(plain, ModuleAll, "")
-	out = append(out, LockSource{SourceSystem: LockSourceOther, Module: ModuleAll, Status: status, OpenUntil: earliestExpiry(rows)})
+	for _, s := range systems {
+		add(s, sourceModules[s])
+	}
+	add(LockSourceOther, ModuleAll)
 	return out
 }
 
@@ -68,14 +85,4 @@ func governingExpiry(rows []LockRow, module Module) *time.Time {
 		}
 	}
 	return nil
-}
-
-func earliestExpiry(rows []LockRow) *time.Time {
-	var out *time.Time
-	for _, r := range rows {
-		if r.ReopenExpiresAt != nil && postable(r.Status) && (out == nil || r.ReopenExpiresAt.Before(*out)) {
-			out = r.ReopenExpiresAt
-		}
-	}
-	return out
 }

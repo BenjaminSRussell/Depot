@@ -1,8 +1,9 @@
 -- Period lock (FR-14.1, B-08c): the ledger's own copy of whether a fiscal period accepts postings, written by the
 -- close service through PUT /v1/ledger/ledgers/{ledger}/period-locks/{fiscalPeriodId} before close reports a period
 -- transition. Close and the ledger have separate databases (ADR-0008, ADR-0012), so close's period_status row cannot be
--- read inside the posting transaction; this table can. A posting reads its row with FOR SHARE and the lock update takes
--- the ledger row and these rows FOR UPDATE, so a posting either commits before the lock changes or sees the new status.
+-- read inside the posting transaction; this table can. The lock update takes the ledger row FOR UPDATE before it changes
+-- these rows, and every posting reads them while it holds that same ledger row FOR UPDATE, so a posting either commits
+-- before the lock changes or sees the new status.
 --
 -- One row per (ledger, fiscal period, source system) with the status close resolved for postings from that source;
 -- source_system '*' is every source close does not map to a module. open_until carries a temporary reopen's expiry:
@@ -45,7 +46,7 @@ BEGIN
 END
 $$;
 
--- Rows are upserted by the lock update; a source close stops sending is deleted. FOR SHARE needs UPDATE.
+-- Rows are upserted by the lock update; a source close stops sending is deleted.
 DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'depot_app') THEN
